@@ -13,49 +13,23 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
-import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutorFactory;
+import com.google.devtools.build.lib.util.AbruptExitException;
 
 /** Factory for {@link RemoteRepositoryRemoteExecutor}. */
 class RemoteRepositoryRemoteExecutorFactory implements RepositoryRemoteExecutorFactory {
+  private final RemoteModule remoteModule;
+  private final CommandEnvironment env;
 
-  private final RemoteExecutionCache remoteExecutionCache;
-  private final RemoteExecutionClient remoteExecutor;
-  private final DigestUtil digestUtil;
-  private final String buildRequestId;
-  private final String commandId;
-
-  private final String remoteInstanceName;
-  private final boolean acceptCached;
-
-  RemoteRepositoryRemoteExecutorFactory(
-      RemoteExecutionCache remoteExecutionCache,
-      RemoteExecutionClient remoteExecutor,
-      DigestUtil digestUtil,
-      String buildRequestId,
-      String commandId,
-      String remoteInstanceName,
-      boolean acceptCached) {
-    this.remoteExecutionCache = remoteExecutionCache;
-    this.remoteExecutor = remoteExecutor;
-    this.digestUtil = digestUtil;
-    this.buildRequestId = buildRequestId;
-    this.commandId = commandId;
-    this.remoteInstanceName = remoteInstanceName;
-    this.acceptCached = acceptCached;
+  RemoteRepositoryRemoteExecutorFactory(RemoteModule remoteModule, CommandEnvironment env) {
+    this.remoteModule = remoteModule;
+    this.env = env;
   }
 
   @Override
-  public RepositoryRemoteExecutor create() {
-    return new RemoteRepositoryRemoteExecutor(
-        remoteExecutionCache,
-        remoteExecutor,
-        digestUtil,
-        buildRequestId,
-        commandId,
-        remoteInstanceName,
-        acceptCached);
+  public RepositoryRemoteExecutor create() throws AbruptExitException {
+    return remoteModule.getRemoteRepositoryRemoteExecutor(env);
   }
 }

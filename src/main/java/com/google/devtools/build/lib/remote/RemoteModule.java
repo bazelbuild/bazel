@@ -144,6 +144,8 @@ public final class RemoteModule extends BlazeModule {
   @Nullable private TempPathGenerator tempPathGenerator;
   @Nullable private BlockWaitingModule blockWaitingModule;
   @Nullable private RemoteOutputChecker remoteOutputChecker;
+  @Nullable private Boolean canInit;
+  private boolean initDone = false;
 
   private ChannelFactory channelFactory =
       new ChannelFactory() {
@@ -168,6 +170,8 @@ public final class RemoteModule extends BlazeModule {
 
   private final RepositoryRemoteExecutorFactoryDelegate repositoryRemoteExecutorFactoryDelegate =
       new RepositoryRemoteExecutorFactoryDelegate();
+
+  private RemoteRepositoryRemoteExecutor remoteRepositoryRemoteExecutor = null;
 
   private final MutableSupplier<Downloader> remoteDownloaderSupplier = new MutableSupplier<>();
 
@@ -297,6 +301,9 @@ public final class RemoteModule extends BlazeModule {
     Preconditions.checkState(remoteOptions == null, "remoteOptions must be null");
     Preconditions.checkState(tempPathGenerator == null, "tempPathGenerator must be null");
     Preconditions.checkState(remoteOutputChecker == null, "remoteOutputChecker must be null");
+    Preconditions.checkState(canInit == null, "canInit must be null");
+
+    canInit = false;
 
     RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
     if (remoteOptions == null) {
@@ -305,16 +312,6 @@ public final class RemoteModule extends BlazeModule {
     }
 
     this.remoteOptions = remoteOptions;
-
-    AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
-    DigestHashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
-    DigestUtil digestUtil = new DigestUtil(env.getXattrProvider(), hashFn);
-
-    boolean verboseFailures = false;
-    ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
-    if (executionOptions != null) {
-      verboseFailures = executionOptions.verboseFailures;
-    }
 
     boolean enableDiskCache = RemoteCacheClientFactory.isDiskCache(remoteOptions);
     boolean enableHttpCache = RemoteCacheClientFactory.isHttpCache(remoteOptions);
@@ -335,6 +332,8 @@ public final class RemoteModule extends BlazeModule {
 
     if (!enableDiskCache && !enableHttpCache && !enableGrpcCache && !enableRemoteExecution) {
       // Quit if no remote caching or execution was enabled.
+      DigestHashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
+      DigestUtil digestUtil = new DigestUtil(env.getXattrProvider(), hashFn);
       actionContextProvider =
           RemoteActionContextProvider.createForPlaceholder(env, retryScheduler, digestUtil);
       return;
@@ -364,11 +363,33 @@ public final class RemoteModule extends BlazeModule {
 
     env.getEventBus().register(this);
     String invocationId = env.getCommandId().toString();
-    String buildRequestId = env.getBuildRequestId();
     env.getReporter().handle(Event.info(String.format("Invocation ID: %s", invocationId)));
 
     RxJavaPlugins.setErrorHandler(
         error -> env.getReporter().handle(Event.error(Throwables.getStackTraceAsString(error))));
+
+    remoteOutputService = new RemoteOutputService();
+
+    repositoryRemoteExecutorFactoryDelegate.init(
+        new RemoteRepositoryRemoteExecutorFactory(this, env));
+
+    canInit = true;
+  }
+
+  /**
+   * Common code to initialize the remote executor.
+   *
+   * <p>This can be called multiple times.  The {@link #canInit} guard is used to avoid duplicating
+   * initialization steps.  The reason this exists is because the remote executor can be needed from
+   * the remote repository context and/or from the build executor.  We don't know which will be
+   * requested upfront, so we have to support multiple calls to this method.</p>
+   */
+  @VisibleForTesting
+  void initializeRemoteExecution(CommandEnvironment env) throws AbruptExitException {
+    Preconditions.checkNotNull(canInit, "canInit must not be null");
+    if (!canInit || initDone) {
+      return;
+    }
 
     Path logDir =
         env.getOutputBase().getRelative(env.getRuntime().getProductName() + "-remote-logs");
@@ -394,6 +415,10 @@ public final class RemoteModule extends BlazeModule {
       executorService = Executors.newCachedThreadPool(threadFactory);
     }
 
+    AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
+    DigestHashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
+    DigestUtil digestUtil = new DigestUtil(env.getXattrProvider(), hashFn);
+
     Credentials credentials;
     try {
       credentials =
@@ -414,8 +439,15 @@ public final class RemoteModule extends BlazeModule {
       return;
     }
 
+    boolean enableDiskCache = RemoteCacheClientFactory.isDiskCache(remoteOptions);
+    boolean enableHttpCache = RemoteCacheClientFactory.isHttpCache(remoteOptions);
+    boolean enableRemoteExecution = shouldEnableRemoteExecution(remoteOptions);
+    boolean enableGrpcCache = GrpcCacheClient.isRemoteCacheOptions(remoteOptions);
+    boolean enableRemoteDownloader = shouldEnableRemoteDownloader(remoteOptions);
+
     if ((enableHttpCache || enableDiskCache) && !enableGrpcCache) {
       initHttpAndDiskCache(env, credentials, authAndTlsOptions, remoteOptions, digestUtil);
+      initDone = true;
       return;
     }
 
@@ -526,6 +558,12 @@ public final class RemoteModule extends BlazeModule {
         new RemoteRetrier(
             remoteOptions, RemoteRetrier.RETRIABLE_GRPC_ERRORS, retryScheduler, circuitBreaker);
 
+    boolean verboseFailures = false;
+    ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
+    if (executionOptions != null) {
+      verboseFailures = executionOptions.verboseFailures;
+    }
+
     // We only check required capabilities for a given endpoint.
     //
     // If --remote_executor and --remote_cache point to the same endpoint, we require that
@@ -592,6 +630,7 @@ public final class RemoteModule extends BlazeModule {
         env.getReporter().handle(Event.warn(errorMessage));
         actionContextProvider =
             RemoteActionContextProvider.createForPlaceholder(env, retryScheduler, digestUtil);
+        initDone = true;
         return;
       } else {
         if (verboseFailures) {
@@ -622,6 +661,9 @@ public final class RemoteModule extends BlazeModule {
         new GrpcCacheClient(
             cacheChannel.retain(), callCredentialsProvider, remoteOptions, retrier, digestUtil);
     cacheChannel.release();
+
+    String invocationId = env.getCommandId().toString();
+    String buildRequestId = env.getBuildRequestId();
 
     if (enableRemoteExecution) {
       if (enableDiskCache) {
@@ -679,15 +721,15 @@ public final class RemoteModule extends BlazeModule {
               digestUtil,
               logDir,
               remoteOutputChecker);
-      repositoryRemoteExecutorFactoryDelegate.init(
-          new RemoteRepositoryRemoteExecutorFactory(
-              remoteCache,
-              remoteExecutor,
-              digestUtil,
-              buildRequestId,
-              invocationId,
-              remoteOptions.remoteInstanceName,
-              remoteOptions.remoteAcceptCached));
+
+      remoteRepositoryRemoteExecutor = new RemoteRepositoryRemoteExecutor(
+          remoteCache,
+          remoteExecutor,
+          digestUtil,
+          buildRequestId,
+          invocationId,
+          remoteOptions.remoteInstanceName,
+          remoteOptions.remoteAcceptCached);
     } else {
       if (enableDiskCache) {
         try {
@@ -741,6 +783,14 @@ public final class RemoteModule extends BlazeModule {
               fallbackDownloader));
       downloaderChannel.release();
     }
+
+    initDone = true;
+  }
+
+  RepositoryRemoteExecutor getRemoteRepositoryRemoteExecutor(CommandEnvironment env)
+      throws AbruptExitException {
+    initializeRemoteExecution(env);
+    return remoteRepositoryRemoteExecutor;
   }
 
   private static void handleInitFailure(
@@ -910,6 +960,9 @@ public final class RemoteModule extends BlazeModule {
     tempPathGenerator = null;
     rpcLogFile = null;
     remoteOutputChecker = null;
+    canInit = null;
+    initDone = false;
+    remoteRepositoryRemoteExecutor = null;
   }
 
   private static void afterCommandTask(
@@ -999,6 +1052,8 @@ public final class RemoteModule extends BlazeModule {
     Preconditions.checkState(tempPathGenerator == null, "tempPathGenerator must be null");
     Preconditions.checkNotNull(remoteOptions, "remoteOptions must not be null");
 
+    initializeRemoteExecution(env);
+
     if (actionContextProvider == null) {
       return;
     }
@@ -1057,10 +1112,6 @@ public final class RemoteModule extends BlazeModule {
 
   @Override
   public OutputService getOutputService() {
-    Preconditions.checkState(remoteOutputService == null, "remoteOutputService must be null");
-    if (actionContextProvider.getRemoteCache() != null) {
-      remoteOutputService = new RemoteOutputService();
-    }
     return remoteOutputService;
   }
 
@@ -1140,7 +1191,7 @@ public final class RemoteModule extends BlazeModule {
 
     @Nullable
     @Override
-    public RepositoryRemoteExecutor create() {
+    public RepositoryRemoteExecutor create() throws AbruptExitException {
       RepositoryRemoteExecutorFactory delegate = this.delegate;
       if (delegate == null) {
         return null;

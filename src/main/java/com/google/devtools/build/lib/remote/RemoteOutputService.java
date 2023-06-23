@@ -169,7 +169,7 @@ public class RemoteOutputService implements OutputService {
 
   @Override
   public RemoteArtifactChecker getRemoteArtifactChecker() {
-    return checkNotNull(remoteOutputChecker, "remoteOutputChecker must not be null");
+    return remoteOutputChecker != null ? remoteOutputChecker : RemoteArtifactChecker.IGNORE_ALL;
   }
 
   @Nullable

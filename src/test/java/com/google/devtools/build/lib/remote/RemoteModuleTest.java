@@ -242,6 +242,7 @@ public final class RemoteModuleTest {
       CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
 
       remoteModule.beforeCommand(env);
+      remoteModule.initializeRemoteExecution(env);
 
       assertThat(Thread.interrupted()).isFalse();
       assertThat(executionServerCapabilitiesImpl.getRequestCount()).isEqualTo(1);
@@ -264,6 +265,7 @@ public final class RemoteModuleTest {
       CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
 
       remoteModule.beforeCommand(env);
+      remoteModule.initializeRemoteExecution(env);
 
       assertThat(Thread.interrupted()).isFalse();
       assertThat(cacheServerCapabilitiesImpl.getRequestCount()).isEqualTo(1);
@@ -292,6 +294,7 @@ public final class RemoteModuleTest {
       CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
 
       remoteModule.beforeCommand(env);
+      remoteModule.initializeRemoteExecution(env);
 
       assertThat(Thread.interrupted()).isFalse();
       assertThat(executionServerCapabilitiesImpl.getRequestCount()).isEqualTo(1);
@@ -324,6 +327,7 @@ public final class RemoteModuleTest {
       CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
 
       remoteModule.beforeCommand(env);
+      remoteModule.initializeRemoteExecution(env);
 
       assertThat(Thread.interrupted()).isFalse();
       assertThat(executionServerCapabilitiesImpl.getRequestCount()).isEqualTo(1);
@@ -351,7 +355,8 @@ public final class RemoteModuleTest {
 
       CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
 
-      assertThrows(AbruptExitException.class, () -> remoteModule.beforeCommand(env));
+      remoteModule.beforeCommand(env);
+      assertThrows(AbruptExitException.class, () -> remoteModule.initializeRemoteExecution(env));
     } finally {
       cacheServer.shutdownNow();
       cacheServer.awaitTermination();
@@ -370,7 +375,8 @@ public final class RemoteModuleTest {
 
       CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
 
-      assertThrows(AbruptExitException.class, () -> remoteModule.beforeCommand(env));
+      remoteModule.beforeCommand(env);
+      assertThrows(AbruptExitException.class, () -> remoteModule.initializeRemoteExecution(env));
     } finally {
       cacheServer.shutdownNow();
       cacheServer.awaitTermination();
@@ -389,6 +395,7 @@ public final class RemoteModuleTest {
       CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
 
       remoteModule.beforeCommand(env);
+      remoteModule.initializeRemoteExecution(env);
 
       assertThat(Thread.interrupted()).isFalse();
       RemoteActionContextProvider actionContextProvider = remoteModule.getActionContextProvider();
@@ -414,6 +421,7 @@ public final class RemoteModuleTest {
       CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
 
       remoteModule.beforeCommand(env);
+      remoteModule.initializeRemoteExecution(env);
 
       assertThat(Thread.interrupted()).isFalse();
       RemoteActionContextProvider actionContextProvider = remoteModule.getActionContextProvider();
@@ -468,6 +476,7 @@ public final class RemoteModuleTest {
       CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
 
       remoteModule.beforeCommand(env);
+      remoteModule.initializeRemoteExecution(env);
 
       assertThat(Thread.interrupted()).isFalse();
       RemoteActionContextProvider actionContextProvider = remoteModule.getActionContextProvider();
@@ -494,6 +503,7 @@ public final class RemoteModuleTest {
       CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
 
       remoteModule.beforeCommand(env);
+      remoteModule.initializeRemoteExecution(env);
 
       assertThat(Thread.interrupted()).isFalse();
       RemoteActionContextProvider actionContextProvider = remoteModule.getActionContextProvider();
@@ -522,6 +532,7 @@ public final class RemoteModuleTest {
       CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
 
       remoteModule.beforeCommand(env);
+      remoteModule.initializeRemoteExecution(env);
 
       assertThat(Thread.interrupted()).isFalse();
       assertThat(executionServerCapabilitiesImpl.getRequestCount()).isEqualTo(1);
@@ -545,6 +556,7 @@ public final class RemoteModuleTest {
       CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
 
       remoteModule.beforeCommand(env);
+      remoteModule.initializeRemoteExecution(env);
 
       assertThat(Thread.interrupted()).isFalse();
       assertThat(cacheServerCapabilitiesImpl.getRequestCount()).isEqualTo(1);

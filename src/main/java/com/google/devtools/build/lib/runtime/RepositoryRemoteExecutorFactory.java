@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.devtools.build.lib.util.AbruptExitException;
 import javax.annotation.Nullable;
 
 /** Factory for {@link RepositoryRemoteExecutor}. */
@@ -20,5 +21,5 @@ public interface RepositoryRemoteExecutorFactory {
 
   /** Returns a new {@link RepositoryRemoteExecutor} or {@code null}. */
   @Nullable
-  RepositoryRemoteExecutor create();
+  RepositoryRemoteExecutor create() throws AbruptExitException;
 }
