@@ -66,4 +66,19 @@ def collect_native_deps_dirs(deps):
     """
     return _java_common_internal.collect_native_deps_dirs(deps)
 
+def get_runtime_classpath_for_archive(jars, excluded_jars):
+    """ Filters a classpath to remove certain entries
+
+    Args
+        jars: (depset[File]) The classpath to filter
+        excluded_jars: (depset[File]) The files to remove
+
+    Returns:
+        (depset[File]) The filtered classpath
+    """
+    return _java_common_internal.get_runtime_classpath_for_archive(
+        jars,
+        excluded_jars,
+    )
+
 java_common = _java_common_internal

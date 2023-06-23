@@ -27,6 +27,7 @@ load(":common/java/java_plugin_info.bzl", "JavaPluginInfo")
 load(
     ":common/java/java_common.bzl",
     "collect_native_deps_dirs",
+    "get_runtime_classpath_for_archive",
     "java_common",
     "to_java_binary_info",
 )
@@ -301,7 +302,7 @@ def _collect_attrs(ctx, runtime_classpath, classpath_resources):
         for dep in ctx.attr.deploy_env
     ]) if hasattr(ctx.attr, "deploy_env") else depset()
 
-    runtime_classpath_for_archive = java_common.get_runtime_classpath_for_archive(runtime_classpath, deploy_env_jars)
+    runtime_classpath_for_archive = get_runtime_classpath_for_archive(runtime_classpath, deploy_env_jars)
     runtime_jars = [ctx.outputs.classjar]
 
     resources = [p for p in ctx.files.srcs if p.extension == "properties"]
