@@ -15,6 +15,3 @@
 """ Utilities for Java compilation support in Starlark. """
 
 java_common = _builtins.internal.java_common_internal_do_not_use
-
-def google_legacy_api_enabled():
-    return java_common._google_legacy_api_enabled()
