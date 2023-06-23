@@ -26,6 +26,7 @@ load(":common/java/java_info.bzl", "JavaInfo")
 load(":common/java/java_plugin_info.bzl", "JavaPluginInfo")
 load(
     ":common/java/java_common.bzl",
+    "collect_native_deps_dirs",
     "java_common",
     "to_java_binary_info",
 )
@@ -162,7 +163,7 @@ def basic_java_binary(
 
     jvm_flags.extend(launcher_info.jvm_flags)
 
-    native_libs_dirs = java_common.collect_native_deps_dirs(runtime_deps)
+    native_libs_dirs = collect_native_deps_dirs(runtime_deps)
     if native_libs_dirs:
         prefix = "${JAVA_RUNFILES}/" + ctx.workspace_name + "/"
         jvm_flags.append("-Djava.library.path=%s" % (

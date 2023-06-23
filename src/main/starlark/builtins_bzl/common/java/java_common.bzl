@@ -55,4 +55,15 @@ def get_build_info(ctx, is_stamping_enabled):
     """
     return _java_common_internal.get_build_info(ctx, is_stamping_enabled)
 
+def collect_native_deps_dirs(deps):
+    """ Collect the set of root-relative paths containing native libraries
+
+    Args:
+        deps: [Target] list of targets
+
+    Returns:
+        ([String]) A set of root-relative paths as a list
+    """
+    return _java_common_internal.collect_native_deps_dirs(deps)
+
 java_common = _java_common_internal
