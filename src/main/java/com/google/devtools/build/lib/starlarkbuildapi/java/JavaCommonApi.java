@@ -760,4 +760,7 @@ public interface JavaCommonApi<
   void checkProviderInstances(
       Sequence<?> providers, String what, ProviderApi providerType, StarlarkThread thread)
       throws EvalException;
+
+  @StarlarkMethod(name = "_google_legacy_api_enabled", documented = false, useStarlarkThread = true)
+  boolean isLegacyGoogleApiEnabled(StarlarkThread thread) throws EvalException;
 }
