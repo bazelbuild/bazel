@@ -87,7 +87,7 @@ genrule(
     name = "hello",
     outs = ["hello.txt"],
     cmd = "echo 'Hello' > $@",
-    exec_tools = ["tool"],
+    tools = ["tool"],
 )
 
 genrule(
