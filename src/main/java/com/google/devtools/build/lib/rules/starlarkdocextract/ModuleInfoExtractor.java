@@ -56,7 +56,7 @@ import net.starlark.java.eval.Structure;
 
 /** API documentation extractor for a compiled, loaded Starlark module. */
 final class ModuleInfoExtractor {
-  private final Predicate<String> isWantedGlobal;
+  private final Predicate<String> isWantedQualifiedName;
   private final RepositoryMapping repositoryMapping;
 
   @VisibleForTesting
@@ -74,15 +74,17 @@ final class ModuleInfoExtractor {
   /**
    * Constructs an instance of {@code ModuleInfoExtractor}.
    *
-   * @param isWantedGlobal a filter applied to the module's globals; only those symbols which both
-   *     are loadable (meaning the first character is alphabetic) and for which the filter returns
-   *     true will be documented
+   * @param isWantedQualifiedName a predicate to filter the module's qualified names. A qualified
+   *     name is documented if and only if (1) each component of the qualified name is public (in
+   *     other words, the first character of each component of the qualified name is alphabetic) and
+   *     (2) the qualified name, or one of its ancestor qualified names, satisfies the wanted
+   *     predicate.
    * @param repositoryMapping the repository mapping for the repo in which we want to render labels
    *     as strings
    */
   public ModuleInfoExtractor(
-      Predicate<String> isWantedGlobal, RepositoryMapping repositoryMapping) {
-    this.isWantedGlobal = isWantedGlobal;
+      Predicate<String> isWantedQualifiedName, RepositoryMapping repositoryMapping) {
+    this.isWantedQualifiedName = isWantedQualifiedName;
     this.repositoryMapping = repositoryMapping;
   }
 
@@ -104,7 +106,7 @@ final class ModuleInfoExtractor {
     DocumentationExtractor documentationExtractor =
         new DocumentationExtractor(
             builder,
-            isWantedGlobal,
+            isWantedQualifiedName,
             repositoryMapping,
             providerQualifiedNameCollector.buildQualifiedNames());
     documentationExtractor.traverse(module);
@@ -138,34 +140,49 @@ final class ModuleInfoExtractor {
     public void traverse(Module module) throws ExtractionException {
       for (var entry : module.getGlobals().entrySet()) {
         String globalSymbol = entry.getKey();
-        if (shouldVisitGlobal(globalSymbol)) {
-          visit(globalSymbol, entry.getValue());
+        if (isPublicName(globalSymbol)) {
+          maybeVisit(globalSymbol, entry.getValue(), /* shouldVisitVerifiedForAncestor= */ false);
         }
       }
     }
 
-    /** Returns whether the visitor should visit (and possibly recurse into) the given global. */
-    protected abstract boolean shouldVisitGlobal(String globalSymbol);
+    /**
+     * Returns whether the visitor should visit (and possibly recurse into) the value with the given
+     * qualified name. Note that the visitor will not visit global names and struct fields for which
+     * {@link #isPublicName} is false, regardless of {@code shouldVisit}.
+     */
+    protected abstract boolean shouldVisit(String qualifiedName);
 
     /**
      * @param qualifiedName the name under which the value may be accessed by a user of the module;
      *     for example, "foo.bar" for field bar of global struct foo
      * @param value the Starlark value
+     * @param shouldVisitVerifiedForAncestor whether {@link #shouldVisit} was verified true for an
+     *     ancestor struct's qualified name; e.g. {@code qualifiedName} is "a.b.c.d" and {@code
+     *     shouldVisit("a.b") == true}
      */
-    private void visit(String qualifiedName, Object value) throws ExtractionException {
-      if (value instanceof StarlarkRuleFunction) {
-        visitRule(qualifiedName, (StarlarkRuleFunction) value);
-      } else if (value instanceof StarlarkProvider) {
-        visitProvider(qualifiedName, (StarlarkProvider) value);
-      } else if (value instanceof StarlarkFunction) {
-        visitFunction(qualifiedName, (StarlarkFunction) value);
-      } else if (value instanceof StarlarkDefinedAspect) {
-        visitAspect(qualifiedName, (StarlarkDefinedAspect) value);
+    private void maybeVisit(
+        String qualifiedName, Object value, boolean shouldVisitVerifiedForAncestor)
+        throws ExtractionException {
+      if (shouldVisitVerifiedForAncestor || shouldVisit(qualifiedName)) {
+        if (value instanceof StarlarkRuleFunction) {
+          visitRule(qualifiedName, (StarlarkRuleFunction) value);
+        } else if (value instanceof StarlarkProvider) {
+          visitProvider(qualifiedName, (StarlarkProvider) value);
+        } else if (value instanceof StarlarkFunction) {
+          visitFunction(qualifiedName, (StarlarkFunction) value);
+        } else if (value instanceof StarlarkDefinedAspect) {
+          visitAspect(qualifiedName, (StarlarkDefinedAspect) value);
+        } else if (value instanceof Structure) {
+          recurseIntoStructure(
+              qualifiedName, (Structure) value, /* shouldVisitVerifiedForAncestor= */ true);
+        }
       } else if (value instanceof Structure) {
-        visitStructure(qualifiedName, (Structure) value);
+        recurseIntoStructure(
+            qualifiedName, (Structure) value, /* shouldVisitVerifiedForAncestor= */ false);
       }
-      // else the value is a constant (string, list etc.), and we currently don't have a convention
-      // for associating a doc string with one - so we don't emit documentation for it.
+      // If the value is a constant (string, list etc.), we currently don't have a convention for
+      // associating a doc string with one - so we don't emit documentation for it.
       // TODO(b/276733504): should we recurse into dicts to search for documentable values? Note
       // that dicts (unlike structs!) can have reference cycles, so we would need to track the set
       // of traversed entities.
@@ -182,14 +199,18 @@ final class ModuleInfoExtractor {
     protected void visitAspect(String qualifiedName, StarlarkDefinedAspect aspect)
         throws ExtractionException {}
 
-    private void visitStructure(String qualifiedName, Structure structure)
+    private void recurseIntoStructure(
+        String qualifiedName, Structure structure, boolean shouldVisitVerifiedForAncestor)
         throws ExtractionException {
       for (String fieldName : structure.getFieldNames()) {
         if (isPublicName(fieldName)) {
           try {
             Object fieldValue = structure.getValue(fieldName);
             if (fieldValue != null) {
-              visit(String.format("%s.%s", qualifiedName, fieldName), fieldValue);
+              maybeVisit(
+                  String.format("%s.%s", qualifiedName, fieldName),
+                  fieldValue,
+                  shouldVisitVerifiedForAncestor);
             }
           } catch (EvalException e) {
             throw new ExtractionException(
@@ -222,16 +243,16 @@ final class ModuleInfoExtractor {
     }
 
     /**
-     * Returns true if the symbol is a loadable name (starts with an alphabetic character, not '_').
+     * Returns true always.
      *
      * <p>{@link ProviderQualifiedNameCollector} traverses all loadable providers, not filtering by
-     * ModuleInfoExtractor#isWantedName, because a non-wanted provider symbol may still be referred
-     * to by a wanted rule; we do not want the provider names emitted in rule documentation to vary
-     * when we change the isWantedName filter.
+     * ModuleInfoExtractor#isWantedQualifiedName, because a non-wanted provider symbol may still be
+     * referred to by a wanted rule; we do not want the provider names emitted in rule documentation
+     * to vary when we change the isWantedQualifiedName filter.
      */
     @Override
-    protected boolean shouldVisitGlobal(String globalSymbol) {
-      return isPublicName(globalSymbol);
+    protected boolean shouldVisit(String qualifiedName) {
+      return true;
     }
 
     @Override
@@ -243,15 +264,17 @@ final class ModuleInfoExtractor {
   /** A {@link GlobalsVisitor} which extracts documentation for symbols in this module. */
   private static final class DocumentationExtractor extends GlobalsVisitor {
     private final ModuleInfo.Builder moduleInfoBuilder;
-    private final Predicate<String> isWantedGlobal;
+    private final Predicate<String> isWantedQualifiedName;
     private final RepositoryMapping repositoryMapping;
     private final ImmutableMap<StarlarkProvider.Key, String> providerQualifiedNames;
 
     /**
      * @param moduleInfoBuilder builder to which {@link #traverse} adds extracted documentation
-     * @param isWantedGlobal a filter applied to global symbols; only those symbols which both are
-     *     loadable (meaning the first character is alphabetic) and for which the filter returns
-     *     true will be documented
+     * @param isWantedQualifiedName a predicate to filter the module's qualified names. A qualified
+     *     name is documented if and only if (1) each component of the qualified name is public (in
+     *     other words, the first character of each component of the qualified name is alphabetic)
+     *     and (2) the qualified name, or one of its ancestor qualified names, satisfies the wanted
+     *     predicate.
      * @param repositoryMapping repo mapping to use for stringifying labels
      * @param providerQualifiedNames a map from the keys of documentable Starlark providers loadable
      *     from this module to the qualified names (including structure namespaces) under which
@@ -259,18 +282,18 @@ final class ModuleInfoExtractor {
      */
     DocumentationExtractor(
         ModuleInfo.Builder moduleInfoBuilder,
-        Predicate<String> isWantedGlobal,
+        Predicate<String> isWantedQualifiedName,
         RepositoryMapping repositoryMapping,
         ImmutableMap<StarlarkProvider.Key, String> providerQualifiedNames) {
       this.moduleInfoBuilder = moduleInfoBuilder;
-      this.isWantedGlobal = isWantedGlobal;
+      this.isWantedQualifiedName = isWantedQualifiedName;
       this.repositoryMapping = repositoryMapping;
       this.providerQualifiedNames = providerQualifiedNames;
     }
 
     @Override
-    protected boolean shouldVisitGlobal(String globalSymbol) {
-      return isPublicName(globalSymbol) && isWantedGlobal.test(globalSymbol);
+    protected boolean shouldVisit(String qualifiedName) {
+      return isWantedQualifiedName.test(qualifiedName);
     }
 
     @Override

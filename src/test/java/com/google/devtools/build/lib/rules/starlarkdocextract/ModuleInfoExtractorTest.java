@@ -70,8 +70,8 @@ public final class ModuleInfoExtractorTest {
     return new ModuleInfoExtractor(name -> true, RepositoryMapping.ALWAYS_FALLBACK);
   }
 
-  private static ModuleInfoExtractor getExtractor(Predicate<String> isWantedGlobal) {
-    return new ModuleInfoExtractor(isWantedGlobal, RepositoryMapping.ALWAYS_FALLBACK);
+  private static ModuleInfoExtractor getExtractor(Predicate<String> isWantedQualifiedName) {
+    return new ModuleInfoExtractor(isWantedQualifiedName, RepositoryMapping.ALWAYS_FALLBACK);
   }
 
   private static ModuleInfoExtractor getExtractor(RepositoryMapping repositoryMapping) {
@@ -89,7 +89,7 @@ public final class ModuleInfoExtractorTest {
   }
 
   @Test
-  public void extractOnlyWantedLoadableNames() throws Exception {
+  public void extractOnlyWantedLoadablePublicNames() throws Exception {
     Module module =
         exec(
             "def loadable_unwanted():",
@@ -99,15 +99,26 @@ public final class ModuleInfoExtractorTest {
             "def _nonloadable():",
             "    pass",
             "def _nonloadable_matches_wanted_predicate():",
-            "    pass");
+            "    pass",
+            "def _f():",
+            "    pass",
+            "def _g():",
+            "    pass",
+            "def _h():",
+            "    pass",
+            "namespace = struct(",
+            "    public_field_wanted = _f,",
+            "    public_field_unwanted = _g,",
+            "    _hidden_field_matches_wanted_predicate = _h,",
+            ")");
 
     ModuleInfo moduleInfo = getExtractor(name -> name.contains("_wanted")).extractFrom(module);
     assertThat(moduleInfo.getFuncInfoList().stream().map(StarlarkFunctionInfo::getFunctionName))
-        .containsExactly("loadable_wanted");
+        .containsExactly("loadable_wanted", "namespace.public_field_wanted");
   }
 
   @Test
-  public void namespaces() throws Exception {
+  public void namespacedEntities() throws Exception {
     Module module =
         exec(
             "def _my_func(**kwargs):",
@@ -155,6 +166,37 @@ public final class ModuleInfoExtractorTest {
                 .map(ProviderInfo::getOriginKey)
                 .map(OriginKey::getName))
         .containsExactly("_MyInfo");
+  }
+
+  @Test
+  public void isWantedQualifiedName_appliesToQualifiedNamePrefixes() throws Exception {
+    Module module =
+        exec(
+            "def _f(): pass", //
+            "def _g(): pass",
+            "def _h(): pass",
+            "def _i(): pass",
+            "def _j(): pass",
+            "foo = struct(",
+            "   bar = struct(",
+            "       f = _f,",
+            "   ),",
+            "   baz = struct(",
+            "       g = _g,",
+            "   ),",
+            "   h = _h,",
+            ")",
+            "baz = struct(",
+            "   qux = struct(",
+            "       i = _i,",
+            "   ),",
+            "   j = _j,",
+            ")");
+
+    ModuleInfo moduleInfo =
+        getExtractor(name -> name.equals("foo.bar") || name.equals("baz")).extractFrom(module);
+    assertThat(moduleInfo.getFuncInfoList().stream().map(StarlarkFunctionInfo::getFunctionName))
+        .containsExactly("foo.bar.f", "baz.qux.i", "baz.j");
   }
 
   @Test
