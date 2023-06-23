@@ -19,7 +19,7 @@ Definition of JavaInfo provider.
 load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/java/java_plugin_info.bzl", "merge_without_outputs")
 load(":common/cc/cc_info.bzl", "CcInfo")
-load(":common/java/java_common.bzl", "java_common")
+load(":common/java/java_common.bzl", "google_legacy_api_enabled", "java_common")
 
 _JavaOutputInfo = provider(
     doc = "The outputs of Java compilation.",
@@ -152,11 +152,8 @@ def _javainfo_init(
         source_jars = source_jars,
         source_jar = source_jar,  # deprecated
     )]
-    cc_info = cc_common.merge_cc_infos(
-        cc_infos = [dep.cc_link_params_info for dep in runtime_deps + exports + deps] +
-                   [cc_common.merge_cc_infos(cc_infos = native_libraries)],
-    )
-    return {
+
+    result = {
         "transitive_runtime_jars": transitive_runtime_jars,
         "transitive_runtime_deps": transitive_runtime_jars,  # deprecated
         "transitive_compile_time_jars": transitive_compile_time_jars,
@@ -184,8 +181,6 @@ def _javainfo_init(
                 for dep in deps + runtime_deps + exports
             ],
         ),
-        "cc_link_params_info": cc_info,
-        "transitive_native_libraries": cc_info.transitive_native_libraries(),
         "module_flags_info": _ModuleFlagsInfo(
             add_exports = depset(transitive = [
                 dep.module_flags_info.add_exports
@@ -242,6 +237,23 @@ def _javainfo_init(
                          ([depset([compile_jdeps])] if compile_jdeps else []),
         ),
     }
+    if google_legacy_api_enabled():
+        cc_info = cc_common.merge_cc_infos(
+            cc_infos = [dep.cc_link_params_info for dep in runtime_deps + exports + deps] +
+                       [cc_common.merge_cc_infos(cc_infos = native_libraries)],
+        )
+        result.update(
+            cc_link_params_info = cc_info,
+            transitive_native_libraries = cc_info.transitive_native_libraries(),
+        )
+    else:
+        result.update(
+            transitive_native_libraries = depset(
+                transitive = [dep.transitive_native_libraries for dep in runtime_deps + exports + deps] +
+                             [cc_common.merge_cc_infos(cc_infos = native_libraries).transitive_native_libraries()],
+            ),
+        )
+    return result
 
 JavaInfo, _new_javainfo = provider(
     doc = "Info object encapsulating all information by java rules.",

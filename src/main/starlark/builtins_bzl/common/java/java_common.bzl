@@ -15,3 +15,6 @@
 """ Utilities for Java compilation support in Starlark. """
 
 java_common = _builtins.toplevel.java_common
+
+def google_legacy_api_enabled():
+    return java_common._google_legacy_api_enabled()

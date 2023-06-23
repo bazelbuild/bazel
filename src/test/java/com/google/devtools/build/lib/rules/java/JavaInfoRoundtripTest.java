@@ -60,6 +60,9 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
   /** A simple rule that calls JavaInfo constructor using identical attribute as java_library. */
   @Before
   public void constructJavaInfo() throws Exception {
+    if (!getAnalysisMock().isThisBazel()) {
+      setBuildLanguageOptions("--experimental_google_legacy_api");
+    }
     scratch.file(
         "foo/construct_javainfo.bzl",
         "def _impl(ctx):",

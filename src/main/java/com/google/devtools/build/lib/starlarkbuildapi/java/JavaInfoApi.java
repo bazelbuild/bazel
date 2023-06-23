@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.java;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
@@ -158,6 +159,7 @@ public interface JavaInfoApi<
   @StarlarkMethod(
       name = "cc_link_params_info",
       structField = true,
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API,
       doc = "Deprecated, do not use. C++ libraries to be linked into Java targets.")
   CcInfoApi<FileT> getCcLinkParamInfo();
 
