@@ -14,4 +14,22 @@
 
 """ Utilities for Java compilation support in Starlark. """
 
-java_common = _builtins.internal.java_common_internal_do_not_use
+_java_common_internal = _builtins.internal.java_common_internal_do_not_use
+
+def target_kind(target, dereference_aliases = False):
+    """ Get the rule class string for a target
+
+    Args:
+        target: (Target)
+        dereference_aliases: (bool) resolve the actual target rule class if an
+            alias
+
+    Returns:
+        (str) The rule class string of the target
+    """
+    return _java_common_internal.target_kind(
+        target,
+        dereference_aliases = dereference_aliases,
+    )
+
+java_common = _java_common_internal
