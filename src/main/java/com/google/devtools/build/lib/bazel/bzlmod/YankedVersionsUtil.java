@@ -25,7 +25,7 @@ public final class YankedVersionsUtil {
    * environment variable (ALLOWED_YANKED_VERSIONS). If `all` is specified, return Optional.empty();
    * otherwise returns the set of parsed modulel key.
    */
-  static Optional<ImmutableSet<ModuleKey>> parseYankedVersions(
+  static Optional<ImmutableSet<ModuleKey>> parseAllowedYankedVersions(
       String allowedYankedVersionsFromEnv, List<String> allowedYankedVersionsFromFlag)
       throws ExternalDepsException {
     ImmutableSet.Builder<ModuleKey> allowedYankedVersionBuilder = new ImmutableSet.Builder<>();

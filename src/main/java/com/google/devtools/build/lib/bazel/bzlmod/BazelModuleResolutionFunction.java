@@ -30,8 +30,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
-import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
-import com.google.devtools.build.lib.skyframe.ClientEnvironmentValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -58,15 +56,6 @@ public class BazelModuleResolutionFunction implements SkyFunction {
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws BazelModuleResolutionFunctionException, InterruptedException {
-
-    ClientEnvironmentValue allowedYankedVersionsFromEnv =
-        (ClientEnvironmentValue)
-            env.getValue(
-                ClientEnvironmentFunction.key(
-                    YankedVersionsUtil.BZLMOD_ALLOWED_YANKED_VERSIONS_ENV));
-    if (allowedYankedVersionsFromEnv == null) {
-      return null;
-    }
     RootModuleFileValue root =
         (RootModuleFileValue) env.getValue(ModuleFileValue.KEY_FOR_ROOT_MODULE);
     if (root == null) {
@@ -96,7 +85,7 @@ public class BazelModuleResolutionFunction implements SkyFunction {
         Objects.requireNonNull(BAZEL_COMPATIBILITY_MODE.get(env)),
         env.getListener());
 
-    verifyYankedVersions(resolvedDepGraph);
+    checkNoYankedVersions(resolvedDepGraph);
 
     ImmutableMap<ModuleKey, Module> finalDepGraph =
         computeFinalDepGraph(resolvedDepGraph, root.getOverrides(), env.getListener());
@@ -181,14 +170,9 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     }
   }
 
-  private static void verifyYankedVersions(ImmutableMap<ModuleKey, InterimModule> depGraph)
+  private static void checkNoYankedVersions(ImmutableMap<ModuleKey, InterimModule> depGraph)
       throws BazelModuleResolutionFunctionException {
-    // Check whether all resolved modules are either not yanked or allowed. Modules with a
-    // NonRegistryOverride are ignored as their metadata is not available whatsoever.
     for (InterimModule m : depGraph.values()) {
-      if (m.getKey().equals(ModuleKey.ROOT) || m.getRegistry() == null) {
-        continue;
-      }
       if (m.getYankedInfo().isPresent()) {
         throw new BazelModuleResolutionFunctionException(
             ExternalDepsException.withMessage(

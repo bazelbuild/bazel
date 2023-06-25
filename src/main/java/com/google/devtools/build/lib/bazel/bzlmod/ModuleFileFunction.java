@@ -117,7 +117,7 @@ public class ModuleFileFunction implements SkyFunction {
     Optional<ImmutableSet<ModuleKey>> allowedYankedVersions;
     try {
       allowedYankedVersions =
-          YankedVersionsUtil.parseYankedVersions(
+          YankedVersionsUtil.parseAllowedYankedVersions(
               allowedYankedVersionsFromEnv.getValue(),
               Objects.requireNonNull(YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.get(env)));
     } catch (ExternalDepsException e) {
@@ -344,8 +344,10 @@ public class ModuleFileFunction implements SkyFunction {
         }
         result.moduleFile = moduleFile.get();
         result.registry = registry;
-        YankedVersionsUtil.getYankedInfo(registry, key, allowedYankedVersions, env.getListener())
-            .ifPresent(yankedInfo -> result.yankedInfo = yankedInfo);
+        result.yankedInfo =
+            YankedVersionsUtil.getYankedInfo(
+                    registry, key, allowedYankedVersions, env.getListener())
+                .orElse(null);
         return result;
       } catch (IOException e) {
         throw errorf(
