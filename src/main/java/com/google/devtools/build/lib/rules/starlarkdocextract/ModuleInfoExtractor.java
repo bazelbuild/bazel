@@ -383,7 +383,11 @@ final class ModuleInfoExtractor {
               .setFile(
                   aspect.getAspectClass().getExtensionLabel().getDisplayForm(repositoryMapping)));
       aspect.getDocumentation().ifPresent(aspectInfoBuilder::setDocString);
-      aspectInfoBuilder.addAllAspectAttribute(aspect.getAttributeAspects());
+      for (String aspectAttribute : aspect.getAttributeAspects()) {
+        if (isPublicName(aspectAttribute)) {
+          aspectInfoBuilder.addAspectAttribute(aspectAttribute);
+        }
+      }
       aspectInfoBuilder.addAttribute(IMPLICIT_NAME_ATTRIBUTE_INFO); // name comes first
       for (Attribute attribute : aspect.getAttributes()) {
         if (isPublicName(attribute.getPublicName())) {
@@ -472,6 +476,12 @@ final class ModuleInfoExtractor {
         return AttributeType.OUTPUT;
       } else if (type.equals(BuildType.OUTPUT_LIST)) {
         return AttributeType.OUTPUT_LIST;
+      } else if (type.equals(BuildType.LICENSE)) {
+        // TODO(https://github.com/bazelbuild/bazel/issues/6420): deprecated, disabled in Bazel by
+        // default, broken and with almost no remaining users, so we don't have an AttributeType for
+        // it. Until this type is removed, following the example of legacy Stardoc, pretend it's a
+        // list of strings.
+        return AttributeType.STRING_LIST;
       }
 
       throw new ExtractionException(

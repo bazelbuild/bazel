@@ -3112,7 +3112,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
     getConfiguredTarget("//test:test");
 
-    assertContainsEvent("[none]");
+    assertContainsEvent("[\"none\"]");
   }
 
   @Test

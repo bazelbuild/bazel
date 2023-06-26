@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -54,7 +55,12 @@ public final class ModuleInfoExtractorTest {
   private String fakeLabelString = null; // set by exec()
 
   private Module exec(String... lines) throws Exception {
+    return execWithOptions(ImmutableList.of(), lines);
+  }
+
+  private Module execWithOptions(ImmutableList<String> options, String... lines) throws Exception {
     BazelEvaluationTestCase ev = new BazelEvaluationTestCase();
+    ev.setSemantics(options.toArray(new String[0]));
     Module module = ev.getModule();
     Label fakeLabel = BazelModuleContext.of(module).label();
     fakeLabelString = fakeLabel.getCanonicalForm();
@@ -434,7 +440,10 @@ public final class ModuleInfoExtractorTest {
   @Test
   public void ruleAttributes() throws Exception {
     Module module =
-        exec(
+        execWithOptions(
+            // TODO(https://github.com/bazelbuild/bazel/issues/6420): attr.license() is deprecated,
+            // and will eventually be removed from Bazel.
+            ImmutableList.of("--noincompatible_no_attr_license"),
             "MyInfo1 = provider()",
             "MyInfo2 = provider()",
             "MyInfo3 = provider()",
@@ -448,6 +457,7 @@ public final class ModuleInfoExtractorTest {
             "        'c': attr.label(providers = [MyInfo1, MyInfo2]),",
             "        'd': attr.label(providers = [[MyInfo1, MyInfo2], [MyInfo3]]),",
             "        '_e': attr.string(doc = 'Hidden attribute'),",
+            "        'deprecated_license': attr.license(),",
             "    }",
             ")");
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
@@ -495,6 +505,11 @@ public final class ModuleInfoExtractorTest {
                         .addProviderName("MyInfo3")
                         .addOriginKey(
                             OriginKey.newBuilder().setName("MyInfo3").setFile(fakeLabelString)))
+                .build(),
+            AttributeInfo.newBuilder()
+                .setName("deprecated_license")
+                .setType(AttributeType.STRING_LIST)
+                .setDefaultValue("[\"none\"]")
                 .build());
   }
 
@@ -710,7 +725,7 @@ public final class ModuleInfoExtractorTest {
             "    pass",
             "my_aspect = aspect(",
             "    implementation = _my_impl,",
-            "    attr_aspects = ['deps', 'srcs'],",
+            "    attr_aspects = ['deps', 'srcs', '_private'],",
             "    attrs = {",
             "        'a': attr.string(doc = 'My doc', default = 'foo'),",
             "        'b': attr.string(mandatory = True),",
