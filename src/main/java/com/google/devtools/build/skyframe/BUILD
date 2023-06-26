@@ -17,7 +17,6 @@ SKYFRAME_OBJECT_SRCS = [
     "SkyFunctionName.java",
     "SkyKey.java",
     "SkyValue.java",
-    "UsePooledLabelInterningFlag.java",
     "Version.java",
 ]
 

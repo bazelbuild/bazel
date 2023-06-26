@@ -19,7 +19,6 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Interner;
 import com.google.common.util.concurrent.Striped;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.CommandLineItem;
@@ -34,7 +33,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.UsePooledLabelInterningFlag;
 import java.util.Arrays;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -86,16 +84,10 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   public static final SkyFunctionName TRANSITIVE_TRAVERSAL =
       SkyFunctionName.createHermetic("TRANSITIVE_TRAVERSAL");
 
-  @Nullable
-  private static final LabelInterner pooledInterner =
-      UsePooledLabelInterningFlag.usePooledLabelInterningFlag() ? new LabelInterner() : null;
+  private static final LabelInterner interner = new LabelInterner();
 
-  private static final Interner<Label> interner =
-      pooledInterner != null ? pooledInterner : BlazeInterners.newWeakInterner();
-
-  @Nullable
   public static LabelInterner getLabelInterner() {
-    return pooledInterner;
+    return interner;
   }
 
   /** The context of a current repo, necessary to parse a repo-relative label ("//foo:bar"). */
