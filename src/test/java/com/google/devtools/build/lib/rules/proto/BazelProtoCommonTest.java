@@ -235,7 +235,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         .containsExactly(
             "--java_out=param1,param2:bl?azel?-out/k8-fastbuild/bin/bar/out",
             "--plugin=bl?azel?-out/[^/]*-exec-[^/]*/bin/third_party/x/plugin",
-            "-I.",
+            "-Ibar/A.proto=bar/A.proto",
             "bar/A.proto")
         .inOrder();
   }
