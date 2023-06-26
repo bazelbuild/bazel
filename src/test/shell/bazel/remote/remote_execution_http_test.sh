@@ -181,7 +181,7 @@ genrule(
     name = "test",
     srcs = [":output_dir"],
     outs = ["qux"],
-    cmd = "mkdir $@ && paste -d\"\n\" $(location :output_dir)/foo.txt $(location :output_dir)/sub1/bar.txt > $@/out.txt",
+    cmd = "paste -d\"\n\" $(location :output_dir)/foo.txt $(location :output_dir)/sub1/bar.txt > $@",
 )
 
 sh_binary(
@@ -215,7 +215,7 @@ function test_directory_artifact_starlark_local() {
 
   bazel build //a:test >& $TEST_log \
     || fail "Failed to build //a:test without remote execution"
-  diff bazel-genfiles/a/qux/out.txt a/test_expected \
+  diff bazel-genfiles/a/qux a/test_expected \
       || fail "Local execution generated different result"
 }
 
@@ -227,7 +227,7 @@ function test_directory_artifact_starlark() {
       --remote_executor=grpc://localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote execution"
-  diff bazel-genfiles/a/qux/out.txt a/test_expected \
+  diff bazel-genfiles/a/qux a/test_expected \
       || fail "Remote execution generated different result"
   bazel clean
   bazel build \
@@ -236,7 +236,7 @@ function test_directory_artifact_starlark() {
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote execution"
   expect_log "remote cache hit"
-  diff bazel-genfiles/a/qux/out.txt a/test_expected \
+  diff bazel-genfiles/a/qux a/test_expected \
       || fail "Remote cache hit generated different result"
 }
 
@@ -247,7 +247,7 @@ function test_directory_artifact_starlark_grpc_cache() {
       --remote_cache=grpc://localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote gRPC cache"
-  diff bazel-genfiles/a/qux/out.txt a/test_expected \
+  diff bazel-genfiles/a/qux a/test_expected \
       || fail "Remote cache miss generated different result"
   bazel clean
   bazel build \
@@ -255,7 +255,7 @@ function test_directory_artifact_starlark_grpc_cache() {
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote gRPC cache"
   expect_log "remote cache hit"
-  diff bazel-genfiles/a/qux/out.txt a/test_expected \
+  diff bazel-genfiles/a/qux a/test_expected \
       || fail "Remote cache hit generated different result"
 }
 
@@ -266,7 +266,7 @@ function test_directory_artifact_starlark_http_cache() {
       --remote_cache=http://localhost:${http_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote HTTP cache"
-  diff bazel-genfiles/a/qux/out.txt a/test_expected \
+  diff bazel-genfiles/a/qux a/test_expected \
       || fail "Remote cache miss generated different result"
   bazel clean
   bazel build \
@@ -274,7 +274,7 @@ function test_directory_artifact_starlark_http_cache() {
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote HTTP cache"
   expect_log "remote cache hit"
-  diff bazel-genfiles/a/qux/out.txt a/test_expected \
+  diff bazel-genfiles/a/qux a/test_expected \
       || fail "Remote cache hit generated different result"
 }
 
