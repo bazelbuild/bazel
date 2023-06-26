@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import static com.google.devtools.build.lib.bazel.bzlmod.GsonTypeAdapterUtil.LOCKFILE_GSON;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
@@ -24,11 +25,16 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.Lockfile
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.gson.JsonSyntaxException;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -38,8 +44,8 @@ import javax.annotation.Nullable;
 public class BazelLockFileModule extends BlazeModule {
 
   private Path workspaceRoot;
-
-  @Nullable private BazelLockFileValue lockfileValue;
+  @Nullable private BazelModuleResolutionEvent moduleResolutionEvent;
+  private final List<ModuleExtensionResolutionEvent> extensionResolutionEvents = new ArrayList<>();
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -53,23 +59,74 @@ public class BazelLockFileModule extends BlazeModule {
   }
 
   @Override
-  public void afterCommand() {
-    if (lockfileValue == null) { // module didn't change --> no event was posted
-      return;
+  public void afterCommand() throws AbruptExitException {
+    if (moduleResolutionEvent == null && extensionResolutionEvents.isEmpty()) {
+      return; // nothing changed, do nothing!
     }
-    updateLockfile(workspaceRoot, lockfileValue);
-    this.lockfileValue = null;
+
+    RootedPath lockfilePath =
+        RootedPath.toRootedPath(Root.fromPath(workspaceRoot), LabelConstants.MODULE_LOCKFILE_NAME);
+
+    // Create an updated version of the lockfile with the events updates
+    BazelLockFileValue lockfile;
+    if (moduleResolutionEvent != null) {
+      lockfile = moduleResolutionEvent.getLockfileValue();
+    } else {
+      // Read the existing lockfile (if none exists, will get an empty lockfile value)
+      try {
+        lockfile = BazelLockFileFunction.getLockfileValue(lockfilePath);
+      } catch (IOException | JsonSyntaxException | NullPointerException e) {
+        logger.atSevere().withCause(e).log(
+            "Failed to read and parse the MODULE.bazel.lock file with error: %s."
+                + " Try deleting it and rerun the build.",
+            e.getMessage());
+        return;
+      }
+    }
+    lockfile =
+        lockfile.toBuilder()
+            .setModuleExtensions(combineModuleExtensions(lockfile.getModuleExtensions()))
+            .build();
+
+    // Write the new value to the file
+    updateLockfile(lockfilePath, lockfile);
+    this.moduleResolutionEvent = null;
+    this.extensionResolutionEvents.clear();
+  }
+
+  /**
+   * Combines the old extensions stored in the lockfile -that are still used- with the new
+   * extensions from the events (if any)
+   *
+   * @param oldModuleExtensions Module extensions stored in the current lockfile
+   */
+  private ImmutableMap<ModuleExtensionId, LockFileModuleExtension> combineModuleExtensions(
+      ImmutableMap<ModuleExtensionId, LockFileModuleExtension> oldModuleExtensions) {
+    ImmutableMap.Builder<ModuleExtensionId, LockFileModuleExtension> updatedExtensionMap =
+        ImmutableMap.builder();
+
+    // Add the old extensions (stored in the lockfile) only if it still has a usage somewhere
+    for (Map.Entry<ModuleExtensionId, LockFileModuleExtension> extensionEntry :
+        oldModuleExtensions.entrySet()) {
+      if (moduleResolutionEvent.getExtensionUsagesById().containsRow(extensionEntry.getKey())) {
+        updatedExtensionMap.put(extensionEntry);
+      }
+    }
+
+    // Add the new resolved extensions
+    for (ModuleExtensionResolutionEvent extensionEvent : extensionResolutionEvents) {
+      updatedExtensionMap.put(extensionEvent.getExtensionId(), extensionEvent.getModuleExtension());
+    }
+    return updatedExtensionMap.buildKeepingLast();
   }
 
   /**
    * Updates the data stored in the lockfile (MODULE.bazel.lock)
    *
-   * @param workspaceRoot Where to update the lockfile
+   * @param lockfilePath Rooted path to lockfile
    * @param updatedLockfile The updated lockfile data to save
    */
-  public static void updateLockfile(Path workspaceRoot, BazelLockFileValue updatedLockfile) {
-    RootedPath lockfilePath =
-        RootedPath.toRootedPath(Root.fromPath(workspaceRoot), LabelConstants.MODULE_LOCKFILE_NAME);
+  public static void updateLockfile(RootedPath lockfilePath, BazelLockFileValue updatedLockfile) {
     try {
       FileSystemUtils.writeContent(
           lockfilePath.asPath(), UTF_8, LOCKFILE_GSON.toJson(updatedLockfile));
@@ -80,7 +137,12 @@ public class BazelLockFileModule extends BlazeModule {
   }
 
   @Subscribe
-  public void bazelModuleResolved(BazelLockFileValue lockfileValue) {
-    this.lockfileValue = lockfileValue;
+  public void bazelModuleResolved(BazelModuleResolutionEvent moduleResolutionEvent) {
+    this.moduleResolutionEvent = moduleResolutionEvent;
+  }
+
+  @Subscribe
+  public void moduleExtensionResolved(ModuleExtensionResolutionEvent extensionResolutionEvent) {
+    this.extensionResolutionEvents.add(extensionResolutionEvent);
   }
 }
