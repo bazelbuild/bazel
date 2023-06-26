@@ -439,7 +439,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
   @Option(
       name = "remote_download_outputs",
       oldName = "experimental_remote_download_outputs",
-      defaultValue = "all",
+      defaultValue = "toplevel",
       category = "remote",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},

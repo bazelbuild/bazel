@@ -928,10 +928,13 @@ EOF
 
 function test_symlinks_in_directory() {
     set_symlinks_in_directory_testfixtures
+    # Need --remote_download_all because the genrule generates directory output
+    # for one of the declared outputs which is not supported when BwoB.
     bazel build \
           --incompatible_remote_symlinks \
           --noincompatible_remote_disallow_symlink_in_tree_artifact \
           --remote_executor=grpc://localhost:${worker_port} \
+          --remote_download_all \
           --spawn_strategy=remote \
           //:make-links &> $TEST_log \
           || fail "Failed to build //:make-links with remote execution"
@@ -948,11 +951,15 @@ function test_symlinks_in_directory() {
 function test_symlinks_in_directory_cache_only() {
     # This test is the same as test_symlinks_in_directory, except it works
     # locally and uses the remote cache to query results.
+    #
+    # Need --remote_download_all because the genrule generates directory output
+    # for one of the declared outputs which is not supported when BwoB.
     set_symlinks_in_directory_testfixtures
     bazel build \
           --incompatible_remote_symlinks \
           --noincompatible_remote_disallow_symlink_in_tree_artifact \
           --remote_cache=grpc://localhost:${worker_port} \
+          --remote_download_all \
           --spawn_strategy=local \
           //:make-links &> $TEST_log \
           || fail "Failed to build //:make-links with remote cache service"
@@ -962,6 +969,7 @@ function test_symlinks_in_directory_cache_only() {
           --incompatible_remote_symlinks \
           --noincompatible_remote_disallow_symlink_in_tree_artifact \
           --remote_cache=grpc://localhost:${worker_port} \
+          --remote_download_all \
           --spawn_strategy=local \
           //:make-links &> $TEST_log \
           || fail "Failed to build //:make-links with remote cache service"
