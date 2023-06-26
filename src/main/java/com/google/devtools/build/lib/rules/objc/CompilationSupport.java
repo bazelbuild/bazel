@@ -715,9 +715,10 @@ public class CompilationSupport implements StarlarkValue {
 
     executableLinkingHelper.addLinkerOutputs(linkerOutputs.build());
 
-    CcLinkingContext.Builder linkstampsBuilder = CcLinkingContext.builder();
-    linkstampsBuilder.addLinkstamps(secondaryCcLinkingContext.getLinkstamps().toList());
-    CcLinkingContext linkstamps = linkstampsBuilder.build();
+    CcLinkingContext linkstamps =
+        CcLinkingContext.builder()
+            .addLinkstamps(secondaryCcLinkingContext.getLinkstamps().toList())
+            .build();
     executableLinkingHelper.addCcLinkingContexts(ImmutableList.of(linkstamps));
 
     executableLinkingHelper.link(CcCompilationOutputs.EMPTY);
