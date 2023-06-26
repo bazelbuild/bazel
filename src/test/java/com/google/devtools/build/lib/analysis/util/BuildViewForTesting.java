@@ -359,7 +359,8 @@ public class BuildViewForTesting {
         dependencyLabels.attributeMap(),
         toolchainContexts,
         /* aspects= */ ImmutableList.of(),
-        NULL_TRANSITION_COLLECTOR);
+        NULL_TRANSITION_COLLECTOR,
+        /* starlarkExecTransitionFactory= */ null);
   }
 
   /**
