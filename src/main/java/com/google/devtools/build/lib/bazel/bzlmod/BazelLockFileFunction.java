@@ -57,6 +57,7 @@ public class BazelLockFileFunction implements SkyFunction {
           .setFlags(EMPTY_FLAGS)
           .setLocalOverrideHashes(ImmutableMap.of())
           .setModuleDepGraph(ImmutableMap.of())
+          .setModuleExtensions(ImmutableMap.of())
           .build();
 
   public BazelLockFileFunction(Path rootDirectory) {
@@ -75,12 +76,8 @@ public class BazelLockFileFunction implements SkyFunction {
       return null;
     }
 
-    BazelLockFileValue bazelLockFileValue;
     try {
-      String json = FileSystemUtils.readContent(lockfilePath.asPath(), UTF_8);
-      bazelLockFileValue = LOCKFILE_GSON.fromJson(json, BazelLockFileValue.class);
-    } catch (FileNotFoundException e) {
-      bazelLockFileValue = EMPTY_LOCKFILE;
+      return getLockfileValue(lockfilePath);
     } catch (IOException | JsonSyntaxException | NullPointerException e) {
       throw new BazelLockfileFunctionException(
           ExternalDepsException.withMessage(
@@ -90,8 +87,19 @@ public class BazelLockFileFunction implements SkyFunction {
               e.getMessage()),
           Transience.PERSISTENT);
     }
+  }
+
+  public static BazelLockFileValue getLockfileValue(RootedPath lockfilePath) throws IOException {
+    BazelLockFileValue bazelLockFileValue;
+    try {
+      String json = FileSystemUtils.readContent(lockfilePath.asPath(), UTF_8);
+      bazelLockFileValue = LOCKFILE_GSON.fromJson(json, BazelLockFileValue.class);
+    } catch (FileNotFoundException e) {
+      bazelLockFileValue = EMPTY_LOCKFILE;
+    }
     return bazelLockFileValue;
   }
+
 
   static final class BazelLockfileFunctionException extends SkyFunctionException {
 

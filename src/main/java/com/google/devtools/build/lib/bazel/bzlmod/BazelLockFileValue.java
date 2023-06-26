@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -24,7 +25,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Map;
 
 /**
@@ -41,7 +42,9 @@ public abstract class BazelLockFileValue implements SkyValue, Postable {
   @SerializationConstant public static final SkyKey KEY = () -> SkyFunctions.BAZEL_LOCK_FILE;
 
   static Builder builder() {
-    return new AutoValue_BazelLockFileValue.Builder().setLockFileVersion(LOCK_FILE_VERSION);
+    return new AutoValue_BazelLockFileValue.Builder()
+        .setLockFileVersion(LOCK_FILE_VERSION)
+        .setModuleExtensions(ImmutableMap.of());
   }
 
   /** Current version of the lock file */
@@ -59,6 +62,9 @@ public abstract class BazelLockFileValue implements SkyValue, Postable {
   /** The post-selection dep graph retrieved from the lock file. */
   public abstract ImmutableMap<ModuleKey, Module> getModuleDepGraph();
 
+  /** Mapping the extension id to the module extension data */
+  public abstract ImmutableMap<ModuleExtensionId, LockFileModuleExtension> getModuleExtensions();
+
   public abstract Builder toBuilder();
 
   /** Builder type for {@link BazelLockFileValue}. */
@@ -74,30 +80,55 @@ public abstract class BazelLockFileValue implements SkyValue, Postable {
 
     public abstract Builder setModuleDepGraph(ImmutableMap<ModuleKey, Module> value);
 
+    public abstract Builder setModuleExtensions(
+        ImmutableMap<ModuleExtensionId, LockFileModuleExtension> value);
+
     public abstract BazelLockFileValue build();
   }
 
   /** Returns the difference between the lockfile and the current module & flags */
-  public ArrayList<String> getDiffLockfile(
+  public ImmutableList<String> getModuleAndFlagsDiff(
       String moduleFileHash,
       ImmutableMap<String, String> localOverrideHashes,
       BzlmodFlagsAndEnvVars flags) {
-    ArrayList<String> diffLockfile = new ArrayList<>();
+    ImmutableList.Builder<String> moduleDiff = new ImmutableList.Builder<>();
     if (!moduleFileHash.equals(getModuleFileHash())) {
-      diffLockfile.add("the root MODULE.bazel has been modified");
+      moduleDiff.add("the root MODULE.bazel has been modified");
     }
-    diffLockfile.addAll(getFlags().getDiffFlags(flags));
+    moduleDiff.addAll(getFlags().getDiffFlags(flags));
 
     for (Map.Entry<String, String> entry : localOverrideHashes.entrySet()) {
       String currentValue = entry.getValue();
       String lockfileValue = getLocalOverrideHashes().get(entry.getKey());
       // If the lockfile value is null, the module hash would be different anyway
       if (lockfileValue != null && !currentValue.equals(lockfileValue)) {
-        diffLockfile.add(
+        moduleDiff.add(
             "The MODULE.bazel file has changed for the overriden module: " + entry.getKey());
       }
     }
+    return moduleDiff.build();
+  }
 
-    return diffLockfile;
+  public ImmutableList<String> getModuleExtensionDiff(
+      LockFileModuleExtension lockedExtension,
+      ImmutableMap<ModuleKey, ModuleExtensionUsage> lockedExtensionUsages,
+      ModuleExtensionId extensionId,
+      byte[] transitiveDigest,
+      ImmutableMap<ModuleKey, ModuleExtensionUsage> extensionUsages) {
+    ImmutableList.Builder<String> extDiff = new ImmutableList.Builder<>();
+    if (lockedExtension == null) {
+      extDiff.add("The module extension '" + extensionId + "' does not exist in the lockfile");
+    } else {
+      if (!Arrays.equals(transitiveDigest, lockedExtension.getBzlTransitiveDigest())) {
+        extDiff.add(
+            "The implementation of the extension '"
+                + extensionId
+                + "' or one of its transitive .bzl files has changed");
+      }
+      if (!extensionUsages.equals(lockedExtensionUsages)) {
+        extDiff.add("The usages of the extension named '" + extensionId + "' has changed");
+      }
+    }
+    return extDiff.build();
   }
 }
