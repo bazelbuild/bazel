@@ -37,10 +37,6 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.BinaryFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.Fragment;
-import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -56,10 +52,6 @@ import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleInfo;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.TextFormat;
 import java.io.IOException;
@@ -78,47 +70,10 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
   static final SafeImplicitOutputsFunction BINARYPROTO_OUT = fromTemplates("%{name}.binaryproto");
   static final SafeImplicitOutputsFunction TEXTPROTO_OUT = fromTemplates("%{name}.textproto");
 
-  /** Configuration fragment for the {@code starlark_doc_extract} rule. */
-  // TODO(b/276733504): remove once non-experimental.
-  @RequiresOptions(options = {Configuration.Options.class})
-  public static final class Configuration extends Fragment {
-
-    /** Options for the {@code starlark_doc_extract} rule. */
-    public static final class Options extends FragmentOptions {
-      @Option(
-          name = "experimental_enable_starlark_doc_extract",
-          defaultValue = "false",
-          documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-          effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-          metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-          help = "If set to true, enables the experimental starlark_doc_extract rule.")
-      public boolean experimentalEnableBzlDocDump;
-    }
-
-    private final boolean enabled;
-
-    public Configuration(BuildOptions buildOptions) {
-      enabled = buildOptions.get(Options.class).experimentalEnableBzlDocDump;
-    }
-
-    public boolean enabled() {
-      return enabled;
-    }
-  }
-
   @Override
   @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws ActionConflictException, InterruptedException, RuleErrorException {
-    if (!ruleContext.getFragment(Configuration.class).enabled()) {
-      RuleErrorException exception =
-          new RuleErrorException(
-              "The experimental starlark_doc_extract rule is disabled; use"
-                  + " --experimental_enable_starlark_doc_extract flag to enable.");
-      ruleContext.ruleError(exception.getMessage());
-      throw exception;
-    }
-
     RepositoryMapping repositoryMapping = getTargetRepositoryMapping(ruleContext);
     Module module = loadModule(ruleContext, repositoryMapping);
     if (module == null) {
@@ -227,15 +182,21 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
    *
    * @throws RuleErrorException if that is not the case.
    */
+  // TODO(https://github.com/bazelbuild/bazel/issues/18599): to avoid flattening deps, we could use
+  // either (a) a new, native bzl_library-like rule that verifies strict deps, or (b) a new native
+  // aspect that verifies strict deps for the existing bzl_library rule. Ideally, however, we ought
+  // to get rid of the deps attribute (and the need to verify it) altogether; that requires new
+  // dependency machinery for `bazel query` to use the Starlark load graph for collecting the
+  // dependencies of starlark_doc_extract's src.
   private static void verifyModuleDeps(
       RuleContext ruleContext, Module module, RepositoryMapping repositoryMapping)
       throws RuleErrorException {
     // Note attr schema validates that deps are .bzl or .scl files.
     Map<Boolean, ImmutableSet<Artifact>> flattenedDepsPartitionedByIsSource =
         ruleContext.getPrerequisites(DEPS_ATTR).stream()
-            // TODO(https://github.com/bazelbuild/bazel/issues/18599): ideally we should use
-            // StarlarkLibraryInfo here instead of FileProvider#getFilesToBuild; that requires a
-            // native StarlarkLibraryInfo in Bazel.
+            // TODO(https://github.com/bazelbuild/bazel/issues/18599): we are using FileProvider
+            // instead of StarlarkLibraryInfo only because StarlarkLibraryInfo is defined in
+            // bazel_skylib, not natively in Bazel.
             .flatMap(dep -> dep.getProvider(FileProvider.class).getFilesToBuild().toList().stream())
             .collect(partitioningBy(Artifact::isSourceArtifact, toImmutableSet()));
     // bzl_library targets may contain both source artifacts and derived artifacts (e.g. generated

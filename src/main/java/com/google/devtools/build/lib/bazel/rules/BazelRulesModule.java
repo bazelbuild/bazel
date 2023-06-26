@@ -377,6 +377,15 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.EXECUTION},
         help = "Deprecated no-op.")
     public boolean collectLocalSandboxExecutionStatistics;
+
+    @Option(
+        name = "experimental_enable_starlark_doc_extract",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+        help = "Deprecated no-op.")
+    public boolean enableBzlDocDump;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */

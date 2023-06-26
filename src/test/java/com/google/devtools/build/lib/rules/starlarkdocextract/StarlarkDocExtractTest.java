@@ -132,7 +132,6 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
 
   @Test
   public void basicFunctionality() throws Exception {
-    useConfiguration("--experimental_enable_starlark_doc_extract");
     scratch.file(
         "foo.bzl", //
         "'''Module doc string'''",
@@ -152,7 +151,6 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
 
   @Test
   public void textprotoOut() throws Exception {
-    useConfiguration("--experimental_enable_starlark_doc_extract");
     scratch.file(
         "foo.bzl", //
         "'''Module doc string'''",
@@ -177,7 +175,6 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
 
   @Test
   public void sclDialect() throws Exception {
-    useConfiguration("--experimental_enable_starlark_doc_extract");
     setBuildLanguageOptions("--experimental_enable_scl_dialect");
     scratch.file(
         "foo.scl", //
@@ -209,7 +206,6 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
 
   @Test
   public void sourceWithSyntaxError_fails() throws Exception {
-    useConfiguration("--experimental_enable_starlark_doc_extract");
     scratch.file(
         "error.bzl", //
         "!!!");
@@ -245,7 +241,6 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
 
   @Test
   public void symbolNames() throws Exception {
-    useConfiguration("--experimental_enable_starlark_doc_extract");
     scratch.file(
         "foo.bzl", //
         "def func1():",
@@ -277,7 +272,6 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
 
   @Test
   public void originKey() throws Exception {
-    useConfiguration("--experimental_enable_starlark_doc_extract");
     scratch.file(
         "origin.bzl", //
         "def my_macro():",
@@ -372,7 +366,6 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
   public void originKeyFileAndModuleInfoFileLabels_forBzlFileInBzlmodModule_areDisplayForm()
       throws Exception {
     setBuildLanguageOptions("--enable_bzlmod");
-    useConfiguration("--experimental_enable_starlark_doc_extract");
     scratch.overwriteFile("MODULE.bazel", "bazel_dep(name='origin_repo', version='0.1')");
     registry.addModule(
         BzlmodTestUtil.createModuleKey("origin_repo", "0.1"),
@@ -450,7 +443,6 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
 
   @Test
   public void exportNestedFunctionsAndLambdas() throws Exception {
-    useConfiguration("--experimental_enable_starlark_doc_extract");
     scratch.file(
         "origin.bzl", //
         "def return_nested():",
@@ -502,7 +494,6 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
 
   @Test
   public void missingBzlLibraryDeps_fails() throws Exception {
-    useConfiguration("--experimental_enable_starlark_doc_extract");
     scratch.file(
         "dep.bzl", //
         "load('//:forgotten_dep_of_dep.bzl', 'g')",
@@ -552,7 +543,6 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
 
   @Test
   public void depsWithDerivedFiles_onUnknownLoads_failsAndPrintsDerivedFiles() throws Exception {
-    useConfiguration("--experimental_enable_starlark_doc_extract");
     scratch.file("BUILD");
     scratch.file(
         "pkg/source_file_masked_by_rule_name.bzl", //
@@ -614,7 +604,6 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
 
   @Test
   public void depsWithDerivedFiles_onNoUnknownLoads_succeeds() throws Exception {
-    useConfiguration("--experimental_enable_starlark_doc_extract");
     scratch.file("BUILD");
     scratch.file(
         "util.bzl",
@@ -667,7 +656,6 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
 
   @Test
   public void srcDerivedFile_fails() throws Exception {
-    useConfiguration("--experimental_enable_starlark_doc_extract");
     scratch.file("BUILD");
     scratch.file("pkg/source_file_masked_by_rule_name.bzl");
     scratch.file("pkg/source_file_masked_by_rule_output_name.bzl");
@@ -734,7 +722,6 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
 
   @Test
   public void srcAlias_resolvesToActual() throws Exception {
-    useConfiguration("--experimental_enable_starlark_doc_extract");
     scratch.file("alias_name.bzl");
     scratch.file("alias_actual.bzl");
     scratch.file(
@@ -754,7 +741,6 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
 
   @Test
   public void srcFilegroup_resolvesToFilegroupSrc() throws Exception {
-    useConfiguration("--experimental_enable_starlark_doc_extract");
     scratch.file("masked_by_filegroup_name.bzl");
     scratch.file("filegroup_src_actual.bzl");
     scratch.file(
@@ -774,7 +760,6 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
 
   @Test
   public void srcFilegroup_mustHaveSingleSrc() throws Exception {
-    useConfiguration("--experimental_enable_starlark_doc_extract");
     scratch.file("foo.bzl");
     scratch.file("bar.bzl");
     scratch.file(
