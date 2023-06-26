@@ -39,25 +39,22 @@ def _bazel_package(label):
     clean_label = _strip_null_repo(label)
     return clean_label[0:-(len(label.name) + 1)]
 
-_license_template = """
-      {{
-        "label": "{label}",
-        "bazel_package": "{bazel_package}",
-        "license_kinds": [{kinds}
-        ],
-        "copyright_notice": "{copyright_notice}",
-        "package_name": "{package_name}",
-        "package_url": "{package_url}",
-        "package_version": "{package_version}",
-        "license_text": "{license_text}"
-      }}"""
+_license_template = """{{
+  "label": "{label}",
+  "bazel_package": "{bazel_package}",
+  "license_kinds": [{kinds}],
+  "copyright_notice": "{copyright_notice}",
+  "package_name": "{package_name}",
+  "package_url": "{package_url}",
+  "package_version": "{package_version}",
+  "license_text": "{license_text}"
+}}"""
 
-_kind_template = """
-          {{
-            "target": "{kind_path}",
-            "name": "{kind_name}",
-            "conditions": {kind_conditions}
-          }}"""
+_kind_template = """{{
+  "target": "{kind_path}",
+  "name": "{kind_name}",
+  "conditions": {kind_conditions}
+}}"""
 
 def license_info_to_json(license):
     """Converts a LicenseInfo to JSON.
@@ -102,14 +99,13 @@ def licenses_to_json(licenses):
     return "[" + ",".join(all_licenses) + "]"
 
 
-_package_info_template = """
-          {{
-            "target": "{label}",
-            "bazel_package": "{bazel_package}",
-            "package_name": "{package_name}",
-            "package_url": "{package_url}",
-            "package_version": "{package_version}"
-          }}"""
+_package_info_template = """{{
+  "target": "{label}",
+  "bazel_package": "{bazel_package}",
+  "package_name": "{package_name}",
+  "package_url": "{package_url}",
+  "package_version": "{package_version}"
+}}"""
 
 def package_info_to_json(package_info):
     """Converts a PackageInfo to json.
