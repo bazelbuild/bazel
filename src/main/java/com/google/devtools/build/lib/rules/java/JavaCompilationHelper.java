@@ -625,7 +625,7 @@ public final class JavaCompilationHelper {
                         .addExecPath("--class_jar", classJar)
                         .addExecPath("--output_jar", genClassJar)
                         .build())
-                .setProgressMessage("Building genclass jar %s", genClassJar.prettyPrint())
+                .setProgressMessage("Building genclass jar %{output}")
                 .setMnemonic("JavaSourceJar")
                 .setExecGroup(execGroup)
                 .build(getRuleContext()));
