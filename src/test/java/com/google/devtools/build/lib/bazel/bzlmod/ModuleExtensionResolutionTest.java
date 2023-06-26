@@ -290,7 +290,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         differencer, CheckDirectDepsMode.WARNING);
     BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE.set(
         differencer, BazelCompatibilityMode.ERROR);
-    BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.OFF);
+    BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.UPDATE);
 
     // Set up a simple repo rule.
     registry.addModule(
