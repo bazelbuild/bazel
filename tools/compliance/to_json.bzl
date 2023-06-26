@@ -49,7 +49,7 @@ _license_template = """
         "package_name": "{package_name}",
         "package_url": "{package_url}",
         "package_version": "{package_version}",
-        "license_text": "{license_text}",
+        "license_text": "{license_text}"
       }}"""
 
 _kind_template = """

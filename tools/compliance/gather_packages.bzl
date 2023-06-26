@@ -222,11 +222,12 @@ def _packages_used_impl(ctx):
     package_info_json = package_infos_to_json(tpi.package_info)
     packages = labels_to_json(tpi.packages.to_list())
 
+    # Create a single dict of all the info.
     main_template = """{{
     "top_level_target": "{top_level_target}",
     "licenses": {licenses},
     "package_info": {package_info},
-    "packages": {packages},
+    "packages": {packages}
     \n}}"""
 
     content = main_template.format(
@@ -235,7 +236,6 @@ def _packages_used_impl(ctx):
         package_info = package_info_json,
         packages = packages,
     )
-    print(content)
     ctx.actions.write(
         output = ctx.outputs.out,
         content = content,

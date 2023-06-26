@@ -18,3 +18,15 @@ packages_used(
     target = "//src:bazel_nojdk",
     out = "bazel_packages.json",
 )
+
+py_test(
+    name = "packages_used_test",
+    size = "medium",
+    srcs = ["packages_used_test.py"],
+    python_version = "PY3",
+    data = [
+        ":bazel_packages.json",
+    ],
+    deps = [
+    ],
+)
