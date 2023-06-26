@@ -56,10 +56,11 @@ cc_library(
             "-DBLAKE3_USE_NEON=1",
         ],
         "//conditions:default": [
-            "-DBLAKE3_NO_SSE2",
-            "-DBLAKE3_NO_SSE41",
             "-DBLAKE3_NO_AVX2",
             "-DBLAKE3_NO_AVX512",
+            "-DBLAKE3_NO_NEON",
+            "-DBLAKE3_NO_SSE2",
+            "-DBLAKE3_NO_SSE41",
         ],
     }),
     includes = ["."],
