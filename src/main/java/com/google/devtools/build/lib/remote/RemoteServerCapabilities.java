@@ -73,21 +73,15 @@ class RemoteServerCapabilities {
     RequestMetadata metadata =
         TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "capabilities", null);
     RemoteActionExecutionContext context = RemoteActionExecutionContext.create(metadata);
-    try {
-      GetCapabilitiesRequest request =
-          instanceName == null
-              ? GetCapabilitiesRequest.getDefaultInstance()
-              : GetCapabilitiesRequest.newBuilder().setInstanceName(instanceName).build();
-      return retrier.execute(
-          () ->
-              channel.withChannelBlocking(
-                  channel -> capabilitiesBlockingStub(context, channel).getCapabilities(request)));
-    } catch (StatusRuntimeException e) {
-      if (e.getCause() instanceof IOException) {
-        throw (IOException) e.getCause();
-      }
-      throw new IOException(e);
-    }
+    GetCapabilitiesRequest request =
+        instanceName == null
+            ? GetCapabilitiesRequest.getDefaultInstance()
+            : GetCapabilitiesRequest.newBuilder().setInstanceName(instanceName).build();
+    ServerCapabilities caps = retrier.execute(
+        () ->
+            channel.withChannelBlocking(
+                channel -> capabilitiesBlockingStub(context, channel).getCapabilities(request)));
+    return caps;
   }
 
   static class ClientServerCompatibilityStatus {
