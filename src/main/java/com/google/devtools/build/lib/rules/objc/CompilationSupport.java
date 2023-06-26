@@ -619,7 +619,6 @@ public class CompilationSupport implements StarlarkValue {
     ObjcVariablesExtension.Builder extensionBuilder =
         new ObjcVariablesExtension.Builder()
             .setRuleContext(ruleContext)
-            .setConfiguration(buildConfiguration)
             .setIntermediateArtifacts(intermediateArtifacts)
             .setForceLoadArtifacts(alwaysLinkLibrarySet)
             .setAttributeLinkopts(attributes.linkopts())
