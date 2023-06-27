@@ -37,3 +37,9 @@ sbom(
     target = "//src:bazel_nojdk",
     out = "bazel_sbom.json",
 )
+
+py_binary(
+    name = "write_sbom_private",
+    srcs = ["write_sbom.py"],
+    main = "write_sbom.py",
+)

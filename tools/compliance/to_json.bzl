@@ -150,4 +150,4 @@ def labels_to_json(labels):
     Returns:
         JSON representation of the labels.
     """
-    return "[%s]" % ",".join(['"%s"' % _strip_null_repo(l) for l in sorted(labels)])
+    return "[%s]" % ",".join(['"%s"' % _strip_null_repo(label) for label in sorted(labels)])
