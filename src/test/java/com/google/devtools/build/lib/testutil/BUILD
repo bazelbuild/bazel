@@ -318,6 +318,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:middleman_type",
+        "//src/main/java/com/google/devtools/build/lib/actions:runfiles_supplier",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/net/starlark/java/syntax",

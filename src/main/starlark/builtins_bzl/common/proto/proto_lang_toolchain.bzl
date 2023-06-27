@@ -49,6 +49,7 @@ def _rule_impl(ctx):
             protoc_opts = ctx.fragments.proto.experimental_protoc_opts,
             progress_message = ctx.attr.progress_message,
             mnemonic = ctx.attr.mnemonic,
+            allowlist_different_package = ctx.attr.allowlist_different_package,
         ),
     ]
 
@@ -70,6 +71,11 @@ def make_proto_lang_toolchain(custom_proto_compiler):
                 "blacklisted_protos": attr.label_list(
                     providers = [ProtoInfo],
                 ),
+                "allowlist_different_package": attr.label(
+                    default = semantics.allowlist_different_package,
+                    cfg = "exec",
+                    providers = ["PackageSpecificationProvider"],
+                ),
             },
             **({
                 "proto_compiler": attr.label(
@@ -86,5 +92,5 @@ def make_proto_lang_toolchain(custom_proto_compiler):
             })
         ),
         provides = [ProtoLangToolchainInfo],
-        fragments = ["proto"] + semantics.EXTRA_FRAGMENTS,
+        fragments = ["proto"],
     )

@@ -660,7 +660,7 @@ public final class SkyframeBuildView {
           // Required for incremental correctness.
           // We unconditionally reset the states here instead of in #analysisFinishedCallback since
           // in case of --nokeep_going & analysis error, the analysis phase is never finished.
-          skyframeExecutor.resetIncrementalArtifactConflictFindingStates();
+          skyframeExecutor.clearIncrementalArtifactConflictFindingStates();
           skyframeExecutor.resetBuildDriverFunction();
           skyframeExecutor.setTestTypeResolver(null);
 
@@ -825,14 +825,18 @@ public final class SkyframeBuildView {
       throws InterruptedException {
     if (shouldPublishBuildGraphMetrics.get()) {
       // Now that we have the full picture, it's time to collect the metrics of the whole graph.
-      BuildGraphMetrics buildGraphMetrics =
+      BuildGraphMetrics.Builder buildGraphMetricsBuilder =
           skyframeExecutor
               .collectActionLookupValuesInBuild(
                   configuredTargetKeys, buildResultListener.getAnalyzedAspects().keySet())
-              .getMetrics()
-              .setOutputArtifactCount(skyframeExecutor.getOutputArtifactCount())
-              .build();
-      eventBus.post(new AnalysisGraphStatsEvent(buildGraphMetrics));
+              .getMetrics();
+      IncrementalArtifactConflictFinder incrementalArtifactConflictFinder =
+          skyframeExecutor.getIncrementalArtifactConflictFinder();
+      if (incrementalArtifactConflictFinder != null) {
+        buildGraphMetricsBuilder.setOutputArtifactCount(
+            incrementalArtifactConflictFinder.getOutputArtifactCount());
+      }
+      eventBus.post(new AnalysisGraphStatsEvent(buildGraphMetricsBuilder.build()));
     }
 
     if (shouldDiscardAnalysisCache) {
@@ -844,7 +848,7 @@ public final class SkyframeBuildView {
     // At this point, it's safe to clear objects related to action conflict checking.
     // Clearing the states here is a performance optimization (reduce peak heap size) and isn't
     // required for correctness.
-    skyframeExecutor.resetIncrementalArtifactConflictFindingStates();
+    skyframeExecutor.clearIncrementalArtifactConflictFindingStates();
 
     // Clearing the syscall cache here to free up some heap space.
     // TODO(b/273225564) Would this incur more CPU cost for the execution phase cache misses?

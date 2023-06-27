@@ -62,7 +62,7 @@ cc_library(
         ":jni_md.h",
     ],
     deps = [
-        "@blake3//:blake3",
+        "@blake3",
     ],
     includes = ["."],  # For jni headers.
 )

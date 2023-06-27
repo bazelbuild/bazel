@@ -32,6 +32,7 @@ def _jre_deps_aspect_impl(_, ctx):
     if "j2objc_jre_lib" not in ctx.rule.attr.tags:
         fail("in jre_deps attribute of j2objc_library rule: objc_library rule '%s' is misplaced here (Only J2ObjC JRE libraries are allowed)" %
              str(ctx.label).removeprefix("@"))
+    return []
 
 jre_deps_aspect = aspect(
     implementation = _jre_deps_aspect_impl,

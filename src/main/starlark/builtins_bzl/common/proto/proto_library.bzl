@@ -68,6 +68,10 @@ def _proto_library_impl(ctx):
     exports = [dep[ProtoInfo] for dep in ctx.attr.exports]
     import_prefix = _get_import_prefix(ctx)
     strip_import_prefix = _get_strip_import_prefix(ctx)
+    check_for_reexport = deps + exports if not srcs else exports
+    for proto in check_for_reexport:
+        if hasattr(proto, "allow_exports") and not proto.allow_exports.isAvailableFor(ctx.label):
+            fail("proto_library '%s' can't be reexported in package '//%s'" % (proto.direct_descriptor_set.owner, ctx.label.package))
 
     proto_path, virtual_srcs = _process_srcs(ctx, srcs, import_prefix, strip_import_prefix)
     descriptor_set = ctx.actions.declare_file(ctx.label.name + "-descriptor-set.proto.bin")
@@ -78,6 +82,7 @@ def _proto_library_impl(ctx):
         proto_path = proto_path,
         workspace_root = ctx.label.workspace_root,
         bin_dir = ctx.bin_dir.path,
+        allow_exports = ctx.attr.allow_exports,
     )
 
     _write_descriptor_set(ctx, proto_info, deps, exports, descriptor_set)
@@ -223,6 +228,10 @@ proto_library = rule(
             providers = [ProtoInfo],
         ),
         "strip_import_prefix": attr.string(default = "/"),
+        "allow_exports": attr.label(
+            cfg = "exec",
+            providers = ["PackageSpecificationProvider"],
+        ),
         "data": attr.label_list(
             allow_files = True,
             flags = ["SKIP_CONSTRAINTS_OVERRIDE"],

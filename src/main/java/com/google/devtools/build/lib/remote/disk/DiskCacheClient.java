@@ -63,6 +63,11 @@ public class DiskCacheClient implements RemoteCacheClient {
     return toPath(digest.getHash(), /* actionResult= */ false).exists();
   }
 
+  /** Returns {@link Path} into the CAS for the given {@link Digest}. */
+  public Path getPath(Digest digest) {
+    return toPath(digest.getHash(), /* actionResult= */ false);
+  }
+
   public void captureFile(Path src, Digest digest, boolean isActionCache) throws IOException {
     Path target = toPath(digest.getHash(), isActionCache);
     target.getParentDirectory().createDirectoryAndParents();

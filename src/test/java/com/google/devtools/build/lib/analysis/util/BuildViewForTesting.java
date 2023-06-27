@@ -359,7 +359,8 @@ public class BuildViewForTesting {
         dependencyLabels.attributeMap(),
         toolchainContexts,
         /* aspects= */ ImmutableList.of(),
-        NULL_TRANSITION_COLLECTOR);
+        NULL_TRANSITION_COLLECTOR,
+        /* starlarkExecTransitionFactory= */ null);
   }
 
   /**
@@ -424,7 +425,7 @@ public class BuildViewForTesting {
             eventHandler,
             new PrerequisiteParameters(
                 ConfiguredTargetKey.fromConfiguredTarget(target),
-                state.targetAndConfiguration.getTarget().getAssociatedRule(),
+                state.targetAndConfiguration.getTarget(),
                 /* aspects= */ ImmutableList.of(),
                 skyframeBuildView.getStarlarkTransitionCache(),
                 toolchainContexts,

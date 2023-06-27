@@ -399,8 +399,11 @@ EOF
     cat <<EOF > BUILD
 sh_test(name = "test$i", srcs = [ "test$i.sh" ])
 EOF
-    bazel test --spawn_strategy=standalone --jobs=1 \
-        --runs_per_test=5 --runs_per_test_detects_flakes \
+    bazel test --spawn_strategy=standalone \
+        --jobs=1 \
+        --experimental_use_semaphore_for_jobs \
+        --runs_per_test=5 \
+        --runs_per_test_detects_flakes \
         //:test$i &> $TEST_log || fail "should have succeeded"
     expect_log "FLAKY"
   done

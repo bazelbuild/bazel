@@ -18,9 +18,12 @@ Definition of JavaInfo provider.
 
 load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/java/java_plugin_info.bzl", "merge_without_outputs")
-load(":common/java/java_semantics.bzl", "semantics")
 load(":common/cc/cc_info.bzl", "CcInfo")
-load(":common/java/java_common.bzl", "java_common")
+
+# TODO(hvd): remove this when:
+# - we have a general provider-type checking API
+# - no longer need to check for --experimental_google_legacy_api
+_java_common_internal = _builtins.internal.java_common_internal_do_not_use
 
 _JavaOutputInfo = provider(
     doc = "The outputs of Java compilation.",
@@ -69,7 +72,7 @@ _JavaGenJarsInfo = provider(
 )
 
 def _validate_provider_list(provider_list, what, expected_provider_type):
-    java_common.check_provider_instances(provider_list, what, expected_provider_type)
+    _java_common_internal.check_provider_instances(provider_list, what, expected_provider_type)
 
 def _javainfo_init(
         output_jar,
@@ -182,10 +185,6 @@ def _javainfo_init(
                 for dep in deps + runtime_deps + exports
             ],
         ),
-        "transitive_native_libraries": depset(
-            transitive = [dep.transitive_native_libraries for dep in runtime_deps + exports + deps] +
-                         [cc_common.merge_cc_infos(cc_infos = native_libraries).transitive_native_libraries()],
-        ),
         "module_flags_info": _ModuleFlagsInfo(
             add_exports = depset(transitive = [
                 dep.module_flags_info.add_exports
@@ -242,7 +241,22 @@ def _javainfo_init(
                          ([depset([compile_jdeps])] if compile_jdeps else []),
         ),
     }
-    result.update(**semantics.extra_java_info(cc_common, deps, runtime_deps, exports, native_libraries))
+    if _java_common_internal._google_legacy_api_enabled():
+        cc_info = cc_common.merge_cc_infos(
+            cc_infos = [dep.cc_link_params_info for dep in runtime_deps + exports + deps] +
+                       [cc_common.merge_cc_infos(cc_infos = native_libraries)],
+        )
+        result.update(
+            cc_link_params_info = cc_info,
+            transitive_native_libraries = cc_info.transitive_native_libraries(),
+        )
+    else:
+        result.update(
+            transitive_native_libraries = depset(
+                transitive = [dep.transitive_native_libraries for dep in runtime_deps + exports + deps] +
+                             [cc_common.merge_cc_infos(cc_infos = native_libraries).transitive_native_libraries()],
+            ),
+        )
     return result
 
 JavaInfo, _new_javainfo = provider(
@@ -274,7 +288,7 @@ JavaInfo, _new_javainfo = provider(
         "transitive_source_jars": "(depset[File]) The Jars of all source files in the transitive closure.",
         "transitive_native_libraries": """(depset[LibraryToLink]) The transitive set of CC native
                 libraries required by the target.""",
-        "cc_link_params_info": "Deprecated. C++ libraries to be linked into Java targets.",
+        "cc_link_params_info": "Deprecated. Do not use. C++ libraries to be linked into Java targets.",
         "module_flags_info": "(_ModuleFlagsInfo) The Java module flag configuration.",
         "plugins": """(_JavaPluginDataInfo) Data about all plugins that a consuming target should
                apply.

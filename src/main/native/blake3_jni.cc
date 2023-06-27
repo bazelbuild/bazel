@@ -38,6 +38,14 @@ Java_com_google_devtools_build_lib_vfs_Blake3JNI_allocate_1and_1initialize_1hash
   return (jlong)hasher;
 }
 
+extern "C" JNIEXPORT jlong JNICALL
+Java_com_google_devtools_build_lib_hash_Blake3JNI_blake3_1hasher_1reset(
+    JNIEnv *env, jobject obj, jlong self) {
+  blake3_hasher *hasher = hasher_ptr(self);
+  blake3_hasher_reset(hasher);
+  return (jlong)hasher;
+}
+
 extern "C" JNIEXPORT void JNICALL
 Java_com_google_devtools_build_lib_vfs_Blake3JNI_blake3_1hasher_1update(
     JNIEnv *env, jobject obj, jlong self, jbyteArray input, jint input_len) {

@@ -100,6 +100,7 @@ pkg_tar(
         "@com_google_protobuf//:protobuf_java_util",
         "@com_google_protobuf//:protobuf_javalite",
         "@zstd-jni//:zstd-jni",
+        "@blake3//:blake3",
     ],
     package_dir = "derived/jars",
     strip_prefix = "external",

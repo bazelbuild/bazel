@@ -30,6 +30,8 @@ ProtoLangToolchainInfo = provider(
         protoc_opts = "(list[str]) Options to pass to proto compiler.",
         progress_message = "(str) Progress message to set on the proto compiler action.",
         mnemonic = "(str) Mnemonic to set on the proto compiler action.",
+        allowlist_different_package = """(Target) Allowlist to create lang_proto_library in a
+          different package than proto_library""",
     ),
 )
 
@@ -150,6 +152,17 @@ def _compile(
         return  # nothing to do
     if experimental_output_files not in ["single", "multiple", "legacy"]:
         fail('experimental_output_files expected to be one of ["single", "multiple", "legacy"]')
+
+    if (proto_info.direct_descriptor_set.owner.package != generated_files[0].owner.package and
+        proto_lang_toolchain_info.allowlist_different_package):
+        if not proto_lang_toolchain_info.allowlist_different_package.isAvailableFor(generated_files[0].owner):
+            fail(("lang_proto_library '%s' may only be created in the same package" +
+                  "as proto_library '%s'") % (generated_files[0].owner, proto_info.direct_descriptor_set.owner))
+    if (proto_info.direct_descriptor_set.owner.package != generated_files[0].owner.package and
+        hasattr(proto_info, "allow_exports")):
+        if not proto_info.allow_exports.isAvailableFor(generated_files[0].owner):
+            fail("proto_library '%s' can't be reexported in lang_proto_library '%s'" %
+                 (proto_info.direct_descriptor_set.owner, generated_files[0].owner))
 
     args = actions.args()
     args.use_param_file(param_file_arg = "@%s")

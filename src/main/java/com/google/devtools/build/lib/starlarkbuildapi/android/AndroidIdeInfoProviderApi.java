@@ -266,6 +266,7 @@ public interface AndroidIdeInfoProviderApi<
               named = false,
               allowedTypes = {
                 @ParamType(type = JavaOutputApi.class),
+                @ParamType(type = StructApi.class),
                 @ParamType(type = NoneType.class),
               }),
           @Param(

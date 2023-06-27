@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfigured
 import com.google.devtools.build.lib.analysis.producers.DependencyContext;
 import com.google.devtools.build.lib.analysis.producers.DependencyContextProducer;
 import com.google.devtools.build.lib.analysis.producers.UnloadedToolchainContextsInputs;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.causes.Cause;
@@ -79,6 +80,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.UnreportedException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
@@ -94,6 +96,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -284,6 +287,11 @@ final class AspectFunction implements SkyFunction {
 
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap;
       try {
+        Optional<StarlarkAttributeTransitionProvider> starlarkExecTransition =
+            PrerequisiteProducer.loadStarlarkExecTransition(targetAndConfiguration, env);
+        if (starlarkExecTransition == null) {
+          return null; // Need Skyframe deps.
+        }
         depValueMap =
             PrerequisiteProducer.computeDependencies(
                 computeDependenciesState,
@@ -291,11 +299,14 @@ final class AspectFunction implements SkyFunction {
                 ruleClassProvider,
                 buildViewProvider.getSkyframeBuildView().getStarlarkTransitionCache(),
                 NULL_TRANSITION_COLLECTOR,
+                starlarkExecTransition.orElse(null),
                 env,
                 env.getListener());
       } catch (ConfiguredValueCreationException e) {
         throw new AspectCreationException(
             e.getMessage(), key.getLabel(), configuration, e.getDetailedExitCode());
+      } catch (UnreportedException e) {
+        throw new AspectCreationException(e.getMessage(), key.getLabel(), configuration);
       }
       if (depValueMap == null) {
         return null;

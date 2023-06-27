@@ -14,6 +14,7 @@
 # limitations under the License.
 # pylint: disable=g-long-ternary
 
+import json
 import os
 import tempfile
 import unittest
@@ -236,12 +237,7 @@ class BazelLockfileTest(test_base.TestBase):
         ],
     )
     exit_code, _, stderr = self.RunBazel(
-        [
-            'build',
-            '--nobuild',
-            '--lockfile_mode=error',
-            '//:all',
-        ],
+        ['build', '--nobuild', '--lockfile_mode=error', '//:all'],
         allow_failure=True,
     )
     self.AssertExitCode(exit_code, 48, stderr)
@@ -253,6 +249,241 @@ class BazelLockfileTest(test_base.TestBase):
         ),
         stderr,
     )
+
+  def testModuleExtension(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'lockfile_ext = use_extension("extension.bzl", "lockfile_ext")',
+            'lockfile_ext.dep(name = "bmbm", versions = ["v1", "v2"])',
+            'use_repo(lockfile_ext, "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("WORKSPACE")',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            '',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            '',
+            'def _module_ext_impl(ctx):',
+            '    print("Hello from the other side!")',
+            '    repo_rule(name="hello")',
+            '    for mod in ctx.modules:',
+            '        for dep in mod.tags.dep:',
+            '            print("Name:", dep.name, ", Versions:", dep.versions)',
+            '',
+            (
+                '_dep = tag_class(attrs={"name": attr.string(), "versions":'
+                ' attr.string_list()})'
+            ),
+            'lockfile_ext = module_extension(',
+            '    implementation=_module_ext_impl,',
+            '    tag_classes={"dep": _dep},',
+            ')',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    self.assertIn('Hello from the other side!', ''.join(stderr))
+    self.assertIn('Name: bmbm , Versions: ["v1", "v2"]', ''.join(stderr))
+
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    self.assertNotIn('Hello from the other side!', ''.join(stderr))
+
+  def testModuleExtensionsInDifferentBuilds(self):
+    # Test that the module extension stays in the lockfile (as long as it's
+    # used in the module) even if it is not in the current build
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'extA = use_extension("extension.bzl", "extA")',
+            'extB = use_extension("extension.bzl", "extB")',
+            'use_repo(extA, "hello_ext_A")',
+            'use_repo(extB, "hello_ext_B")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("WORKSPACE")',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'def _ext_a_impl(ctx):',
+            '    repo_rule(name="hello_ext_A")',
+            'def _ext_b_impl(ctx):',
+            '    repo_rule(name="hello_ext_B")',
+            'extA = module_extension(implementation=_ext_a_impl)',
+            'extB = module_extension(implementation=_ext_b_impl)',
+        ],
+    )
+
+    self.RunBazel(['build', '@hello_ext_A//:all'])
+    self.RunBazel(['build', '@hello_ext_B//:all'])
+
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read().strip())
+      self.assertGreater(len(lockfile['moduleDepGraph']), 0)
+      self.assertEqual(
+          list(lockfile['moduleExtensions'].keys()),
+          ['//:extension.bzl%extA', '//:extension.bzl%extB'],
+      )
+
+  def testUpdateModuleExtension(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'lockfile_ext = use_extension("extension.bzl", "lockfile_ext")',
+            'use_repo(lockfile_ext, "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("WORKSPACE")',
+            '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
+            'repo_rule = repository_rule(implementation = _repo_rule_impl)',
+            'def _module_ext_impl(ctx):',
+            '    print("Hello from the other side!")',
+            '    repo_rule(name= "hello")',
+            (
+                'lockfile_ext = module_extension(implementation ='
+                ' _module_ext_impl)'
+            ),
+        ],
+    )
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    self.assertIn('Hello from the other side!', ''.join(stderr))
+    self.RunBazel(['shutdown'])
+
+    # Update extension. Make sure that it is executed and updated in the
+    # lockfile without errors (since it's already in the lockfile)
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("WORKSPACE")',
+            '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
+            'repo_rule = repository_rule(implementation = _repo_rule_impl)',
+            'def _module_ext_impl(ctx):',
+            '    print("Hello from the other town!")',
+            '    repo_rule(name= "hello")',
+            (
+                'lockfile_ext = module_extension(implementation ='
+                ' _module_ext_impl)'
+            ),
+        ],
+    )
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    self.assertIn('Hello from the other town!', ''.join(stderr))
+
+  def testUpdateModuleExtensionErrorMode(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'lockfile_ext = use_extension("extension.bzl", "lockfile_ext")',
+            'use_repo(lockfile_ext, "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("WORKSPACE")',
+            '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
+            'repo_rule = repository_rule(implementation = _repo_rule_impl)',
+            'def _module_ext_impl(ctx):',
+            '    print("Hello from the other side!")',
+            '    repo_rule(name= "hello")',
+            (
+                'lockfile_ext = module_extension(implementation ='
+                ' _module_ext_impl)'
+            ),
+        ],
+    )
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    self.assertIn('Hello from the other side!', ''.join(stderr))
+    self.RunBazel(['shutdown'])
+
+    # Update extension.
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("WORKSPACE")',
+            '    ctx.file("BUILD", "filegroup(name=\\"lalo\\")")',
+            'repo_rule = repository_rule(implementation = _repo_rule_impl)',
+            'def _module_ext_impl(ctx):',
+            '    print("Hello from the other town!")',
+            '    repo_rule(name= "hello")',
+            (
+                'lockfile_ext = module_extension(implementation ='
+                ' _module_ext_impl)'
+            ),
+        ],
+    )
+
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--nobuild', '--lockfile_mode=error', '@hello//:all'],
+        allow_failure=True,
+    )
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertIn(
+        (
+            'ERROR: Lock file is no longer up-to-date because: The '
+            'implementation of the extension '
+            "'ModuleExtensionId{bzlFileLabel=//:extension.bzl, "
+            "extensionName=lockfile_ext, isolationKey=Optional.empty}' or one "
+            'of its transitive .bzl files has changed'
+        ),
+        stderr,
+    )
+
+  def testRemoveModuleExtensionsNotUsed(self):
+    # Test that the module extension is removed from the lockfile if it is not
+    # used anymore
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("extension.bzl", "ext")',
+            'use_repo(ext, "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("WORKSPACE")',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'def _ext_impl(ctx):',
+            '    repo_rule(name="hello")',
+            'ext = module_extension(implementation=_ext_impl)',
+        ],
+    )
+
+    self.RunBazel(['build', '@hello//:all'])
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read().strip())
+      self.assertEqual(
+          list(lockfile['moduleExtensions'].keys()), ['//:extension.bzl%ext']
+      )
+
+    self.ScratchFile('MODULE.bazel', [])
+    self.RunBazel(['build', '//:all'])
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read().strip())
+      self.assertEqual(len(lockfile['moduleExtensions']), 0)
 
 
 if __name__ == '__main__':

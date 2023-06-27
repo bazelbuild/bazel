@@ -532,6 +532,12 @@ public class JavaStarlarkCommon
     }
   }
 
+  @Override
+  public boolean isLegacyGoogleApiEnabled(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API);
+  }
+
   static boolean isInstanceOfProvider(Object obj, Provider provider) {
     if (obj instanceof NativeInfo) {
       return ((NativeInfo) obj).getProvider().getKey().equals(provider.getKey());

@@ -19,6 +19,8 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
 import com.google.devtools.build.lib.exec.Protos.File;
 import com.google.devtools.build.lib.exec.Protos.SpawnExec;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.util.io.MessageOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -54,7 +56,13 @@ public final class StableSort {
    * output. We assume that there are no cyclic dependencies.
    */
   public static void stableSort(InputStream in, MessageOutputStream out) throws IOException {
-    stableSort(read(in), out);
+    try (SilentCloseable c = Profiler.instance().profile("stableSort")) {
+      ImmutableList<SpawnExec> inputs;
+      try (SilentCloseable c2 = Profiler.instance().profile("stableSort/read")) {
+        inputs = read(in);
+      }
+      stableSort(inputs, out);
+    }
   }
 
   private static void stableSort(List<SpawnExec> inputs, MessageOutputStream out)

@@ -63,7 +63,6 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
     if (!getAnalysisMock().isThisBazel()) {
       setBuildLanguageOptions("--experimental_google_legacy_api");
     }
-
     scratch.file(
         "foo/construct_javainfo.bzl",
         "def _impl(ctx):",

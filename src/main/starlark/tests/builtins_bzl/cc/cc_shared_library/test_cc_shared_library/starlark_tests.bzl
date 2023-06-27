@@ -62,6 +62,22 @@ def _linking_order_test_impl(env, target):
             detail = "liba_suffix.pic.o should be the last user library linked",
         ).that_str(user_libs[-1]).equals("a_suffix.pic.o")
 
+        # qux2 is a LINKABLE_MORE_THAN_ONCE library which is enabled by semantics.
+        # It might not be present but if it is we want to test it's in the right
+        # place in the linking command line before libbar
+        if "qux2.pic.o" in user_libs:
+            found_bar = False
+            for arg in args:
+                if "libbar" in arg:
+                    found_bar = True
+                elif "qux2.pic.o" in arg:
+                    env.expect.where(
+                        detail = "qux2 should come before bar in command line",
+                    ).that_bool(found_bar).equals(False)
+            env.expect.where(
+                detail = "should have seen bar in command line",
+            ).that_bool(found_bar).equals(True)
+
 def _linking_order_test_macro(name, target):
     analysis_test(
         name = name,

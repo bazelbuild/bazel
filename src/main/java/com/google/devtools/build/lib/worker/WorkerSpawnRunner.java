@@ -62,7 +62,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.protobuf.ByteString;
@@ -93,13 +92,11 @@ final class WorkerSpawnRunner implements SpawnRunner {
   private final Path execRoot;
   private final ImmutableList<Root> packageRoots;
   private final ExtendedEventHandler reporter;
-  private final BinTools binTools;
   private final ResourceManager resourceManager;
   private final RunfilesTreeUpdater runfilesTreeUpdater;
   private final WorkerOptions workerOptions;
   private final WorkerParser workerParser;
   private final AtomicInteger requestIdCounter = new AtomicInteger(1);
-  private final XattrProvider xattrProvider;
   private final WorkerMetricsCollector metricsCollector;
 
   public WorkerSpawnRunner(
@@ -114,16 +111,13 @@ final class WorkerSpawnRunner implements SpawnRunner {
       RunfilesTreeUpdater runfilesTreeUpdater,
       WorkerOptions workerOptions,
       WorkerMetricsCollector workerMetricsCollector,
-      XattrProvider xattrProvider,
       Clock clock) {
     this.helpers = helpers;
     this.execRoot = execRoot;
     this.packageRoots = packageRoots;
     this.reporter = reporter;
-    this.binTools = binTools;
     this.resourceManager = resourceManager;
     this.runfilesTreeUpdater = runfilesTreeUpdater;
-    this.xattrProvider = xattrProvider;
     this.workerParser = new WorkerParser(execRoot, workerOptions, localEnvProvider, binTools);
     this.workerOptions = workerOptions;
     this.resourceManager.setWorkerPool(workers);
@@ -182,13 +176,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
                 String.format(
                     "%s worker %s", spawn.getMnemonic(), spawn.getResourceOwner().describe()))) {
 
-      runfilesTreeUpdater.updateRunfilesDirectory(
-          execRoot,
-          spawn.getRunfilesSupplier(),
-          binTools,
-          spawn.getEnvironment(),
-          context.getFileOutErr(),
-          xattrProvider);
+      runfilesTreeUpdater.updateRunfiles(
+          spawn.getRunfilesSupplier(), spawn.getEnvironment(), context.getFileOutErr());
 
       InputMetadataProvider inputFileCache = context.getInputMetadataProvider();
 

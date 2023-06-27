@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
 import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
@@ -98,5 +100,6 @@ public interface AndroidStarlarkCommonApi<
             positional = true,
             defaultValue = "False")
       })
-  JavaInfoT enableImplicitSourcelessDepsExportsCompatibility(JavaInfoT javaInfo, boolean neverlink);
+  JavaInfoT enableImplicitSourcelessDepsExportsCompatibility(Info javaInfo, boolean neverlink)
+      throws RuleErrorException;
 }

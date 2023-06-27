@@ -8,8 +8,10 @@ import com.google.common.hash.Hasher;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
+import java.security.DigestException;
+import java.security.MessageDigest;
 
-final class Blake3Hasher implements Hasher {
+public final class Blake3MessageDigest extends MessageDigest implements Hasher {
   // These constants match the native definitions in:
   // https://github.com/BLAKE3-team/BLAKE3/blob/master/c/blake3.h
   public static final int KEY_LEN = 32;
@@ -26,9 +28,10 @@ final class Blake3Hasher implements Hasher {
   private long hasher = -1;
   private boolean isDone;
 
-  public Blake3Hasher() {
-    isDone = false;
+  public Blake3MessageDigest() {
+    super("BLAKE3");
 
+    isDone = false;
     buffer = threadLocalBuffer.get();
     if (buffer == null) {
       buffer = ByteBuffer.allocate(ONESHOT_THRESHOLD);
@@ -47,7 +50,7 @@ final class Blake3Hasher implements Hasher {
     }
   }
 
-  private void update(byte[] data, int offset, int length) {
+  public void engineUpdate(byte[] data, int offset, int length) {
     while (length > 0) {
       int numToCopy = Math.min(length, buffer.remaining());
       buffer.put(data, offset, numToCopy);
@@ -60,8 +63,12 @@ final class Blake3Hasher implements Hasher {
     }
   }
 
-  private void update(byte[] data) {
-    update(data, 0, data.length);
+  public void engineUpdate(byte[] data) {
+    engineUpdate(data, 0, data.length);
+  }
+
+  public void engineUpdate(byte b) {
+    engineUpdate(new byte[] {b});
   }
 
   private byte[] getOutput(int outputLength) throws IllegalArgumentException {
@@ -80,6 +87,49 @@ final class Blake3Hasher implements Hasher {
       hasher = -1;
     }
     return retByteArray;
+  }
+
+  public Object clone() throws CloneNotSupportedException {
+    throw new CloneNotSupportedException();
+  }
+
+  public void engineReset() {
+      if (hasher != -1) {
+	  Blake3JNI.blake3_hasher_reset(hasher);
+      }
+      buffer.clear();
+  }
+
+  public void engineUpdate(ByteBuffer input) {
+    if (input.hasArray()) {
+      engineUpdate(input.array());
+    } else {
+      byte[] bufCopy = new byte[input.position()];
+      input.get(bufCopy);
+      engineUpdate(bufCopy);
+    }
+  }
+
+  public int engineGetDigestLength() {
+    return OUT_LEN;
+  }
+
+  public byte[] engineDigest() {
+    byte[] digestBytes = getOutput(OUT_LEN);
+    return digestBytes;
+  }
+
+  public int engineDigest(byte[] buf, int off, int len) throws DigestException {
+    if (len < OUT_LEN) {
+      throw new DigestException("partial digests not returned");
+    }
+    if (buf.length - off < OUT_LEN) {
+      throw new DigestException("insufficient space in the output buffer to store the digest");
+    }
+
+    byte[] digestBytes = getOutput(OUT_LEN);
+    System.arraycopy(digestBytes, 0, buf, off, digestBytes.length);
+    return digestBytes.length;
   }
 
   /* The following methods implement the {Hasher} interface. */

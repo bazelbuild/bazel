@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.bazel.commands;
+package com.google.devtools.build.lib.bazel.bzlmod.modquery;
 
 import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.joining;
@@ -115,7 +115,11 @@ public class ModqueryOptions extends OptionsBase {
               + "text, json, graph")
   public OutputFormat outputFormat;
 
-  enum QueryType {
+  /**
+   * Possible subcommands that can be specified for {@link
+   * com.google.devtools.build.lib.bazel.commands.ModqueryCommand}
+   */
+  public enum QueryType {
     DEPS(1),
     TREE(0),
     ALL_PATHS(1),
@@ -151,7 +155,11 @@ public class ModqueryOptions extends OptionsBase {
     }
   }
 
-  enum Charset {
+  /**
+   * Charset to be used in outputting the {@link
+   * com.google.devtools.build.lib.bazel.commands.ModqueryCommand} result.
+   */
+  public enum Charset {
     UTF8,
     ASCII
   }
@@ -163,7 +171,11 @@ public class ModqueryOptions extends OptionsBase {
     }
   }
 
-  enum OutputFormat {
+  /**
+   * Possible formats of the {@link com.google.devtools.build.lib.bazel.commands.ModqueryCommand}
+   * result.
+   */
+  public enum OutputFormat {
     TEXT,
     JSON,
     GRAPH
@@ -178,19 +190,19 @@ public class ModqueryOptions extends OptionsBase {
 
   /** Argument of a modquery converted from the form name@version or name. */
   @AutoValue
-  abstract static class TargetModule {
+  public abstract static class TargetModule {
     static TargetModule create(String name, Version version) {
       return new AutoValue_ModqueryOptions_TargetModule(name, version);
     }
 
-    abstract String getName();
+    public abstract String getName();
 
     /**
      * If it is null, it represents any (one or multiple) present versions of the module in the dep
      * graph, which is different from the empty version
      */
     @Nullable
-    abstract Version getVersion();
+    public abstract Version getVersion();
   }
 
   /** Converts a module target argument string to a properly typed {@link TargetModule} */

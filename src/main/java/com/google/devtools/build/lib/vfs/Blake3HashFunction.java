@@ -18,10 +18,10 @@ public final class Blake3HashFunction implements HashFunction {
   }
 
   public Hasher newHasher() {
-    return new Blake3Hasher();
+    return new Blake3MessageDigest();
   }
 
-  /* The following methods implement the {Hasher} interface. */
+  /* The following methods implement the {HashFunction} interface. */
 
   public <T extends Object> HashCode hashObject(T instance, Funnel<? super T> funnel) {
     return newHasher().putObject(instance, funnel).hash();

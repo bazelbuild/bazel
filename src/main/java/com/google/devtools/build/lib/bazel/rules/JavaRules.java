@@ -85,10 +85,12 @@ public class JavaRules implements RuleSet {
 
     builder.addStarlarkBootstrap(
         new JavaBootstrap(
-            new JavaStarlarkCommon(BazelJavaSemantics.INSTANCE),
             JavaInfo.PROVIDER,
             JavaPluginInfo.PROVIDER,
             ProguardSpecProvider.PROVIDER));
+
+    builder.addStarlarkBuiltinsInternal(
+        "java_common_internal_do_not_use", new JavaStarlarkCommon(BazelJavaSemantics.INSTANCE));
 
     builder.addBzlToplevel(
         "experimental_java_library_export_do_not_use",

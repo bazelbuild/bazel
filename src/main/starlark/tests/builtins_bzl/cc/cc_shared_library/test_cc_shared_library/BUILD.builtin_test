@@ -25,6 +25,7 @@ licenses(["notice"])
 
 package(
     default_visibility = ["//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:__subpackages__"],
+    features = ["exclude_bazel_rpaths_in_transitive_libs"],
 )
 
 py_test(
@@ -45,6 +46,7 @@ cc_binary(
     name = "binary",
     srcs = ["main.cc"],
     dynamic_deps = ["foo_so"],
+    features = ["use_rpath_instead_of_runpath"],
     deps = [
         ":foo",
     ],
@@ -61,7 +63,7 @@ cc_binary(
         "foo_so",
         "bar_so",
     ],
-    deps = ["foo"],
+    deps = ["foo", "bar"],
 )
 
 cc_shared_library(
@@ -77,18 +79,32 @@ cc_shared_library(
     deps = [":a_suffix"],
 )
 
+cc_library(
+    name = "diamond_lib1",
+    deps = [
+        ":a_suffix",
+    ],
+)
+
+cc_library(
+    name = "diamond_lib2",
+    deps = [
+         ":a_suffix",
+    ],
+)
+
 cc_shared_library(
     name = "diamond_so",
     dynamic_deps = [":a_so"],
     features = ["windows_export_all_symbols"],
-    deps = [":qux"],
+    deps = [":qux", "diamond_lib1"],
 )
 
 cc_shared_library(
     name = "diamond2_so",
     dynamic_deps = [":a_so"],
     features = ["windows_export_all_symbols"],
-    deps = [":bar"],
+    deps = [":bar",  "diamond_lib2"],
 )
 
 cc_binary(
@@ -117,7 +133,7 @@ cc_shared_library(
         "bar_so",
         "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:diff_pkg_so"
     ],
-    features = ["windows_export_all_symbols"],
+    features = ["windows_export_all_symbols", "use_rpath_instead_of_runpath"],
     exports_filter = [
         ":indirect_dep2",
     ],
@@ -153,17 +169,17 @@ cc_library(
         "//src/conditions:linux": ["IS_LINUX"],
         "//conditions:default": [],
     }),
-    deps = [
+    deps = select({
+        ":is_bazel": ["qux2"],
+        "//conditions:default": [],
+    }) + [
         "bar",
         "baz",
         # Not exported.
         "qux",
         "prebuilt",
         "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:diff_pkg"
-    ] + select({
-        ":is_bazel": ["qux2"],
-        "//conditions:default": [],
-    }),
+    ],
 )
 
 wrapped_cc_lib(

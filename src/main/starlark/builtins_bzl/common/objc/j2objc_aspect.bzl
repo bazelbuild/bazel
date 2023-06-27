@@ -36,6 +36,13 @@ load(":common/java/java_info.bzl", "JavaInfo")
 apple_common = _builtins.toplevel.apple_common
 objc_internal = _builtins.internal.objc_internal
 
+def _j2objc_source_header_search_paths(genfiles_dir_path, objc_file_path, proto_sources):
+    for source_to_translate in proto_sources:
+        if not source_to_translate.is_source:
+            gen_root_header_search_path = paths.get_relative(objc_file_path, genfiles_dir_path)
+            return [objc_file_path, gen_root_header_search_path]
+    return [objc_file_path]
+
 def _proto_j2objc_source(ctx, proto_info, proto_sources, objc_file_path):
     return struct(
         target = ctx.label,
@@ -43,7 +50,7 @@ def _proto_j2objc_source(ctx, proto_info, proto_sources, objc_file_path):
         objc_hdrs = [] if not proto_sources else proto_common.declare_generated_files(ctx.actions, proto_info, ".j2objc.pb.h"),
         objc_file_path = objc_file_path,
         source_type = "PROTO",
-        header_search_paths = [objc_file_path],
+        header_search_paths = _j2objc_source_header_search_paths(ctx.genfiles_dir.path, objc_file_path, proto_sources),
         compile_with_arc = False,
     )
 
@@ -82,7 +89,7 @@ def _java_j2objc_source(ctx, java_source_files, java_source_jars):
         objc_file_root_relative_path,
         ".h",
     )
-    header_search_paths = [objc_file_root_exec_path]
+    header_search_paths = _j2objc_source_header_search_paths(ctx.genfiles_dir.path, objc_file_root_exec_path, java_source_files)
 
     if java_source_jars:
         source_tree_artifact_rel_path = _get_source_tree_artifact_rel_path(ctx.label.name)
@@ -424,12 +431,10 @@ def _common(
 
     deps = []
     for dep_attr in dependent_attributes:
-        if hasattr(ctx.rule.attr, dep_attr):
-            attr = getattr(ctx.rule.attr, dep_attr)
-            if type(attr) == type([]):
-                deps.extend(attr)
-            else:
-                deps.append(attr)
+        if dep_attr == "_jre_lib":
+            deps.append(ctx.attr._jre_lib)
+        elif hasattr(ctx.rule.attr, dep_attr):
+            deps.extend(getattr(ctx.rule.attr, dep_attr))
 
     (
         objc_provider,
@@ -447,6 +452,7 @@ def _common(
         implementation_deps = [],
         attr_linkopts = [],
         alwayslink = False,
+        is_aspect = True,
     )
 
     return struct(

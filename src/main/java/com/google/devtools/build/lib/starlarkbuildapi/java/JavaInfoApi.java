@@ -159,8 +159,8 @@ public interface JavaInfoApi<
   @StarlarkMethod(
       name = "cc_link_params_info",
       structField = true,
-      doc = "C++ libraries to be linked into Java targets.",
-      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API,
+      doc = "Deprecated, do not use. C++ libraries to be linked into Java targets.")
   CcInfoApi<FileT> getCcLinkParamInfo();
 
   @StarlarkMethod(

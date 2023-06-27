@@ -41,7 +41,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import javax.annotation.Nullable;
@@ -69,13 +68,13 @@ public class BazelDepGraphFunction implements SkyFunction {
     ImmutableMap<String, String> localOverrideHashes = null;
     ImmutableMap<ModuleKey, Module> depGraph = null;
     BzlmodFlagsAndEnvVars flags = null;
-    BazelLockFileValue lockFile = null;
+    BazelLockFileValue lockfile = null;
 
     // If the module has not changed (has the same contents and flags as the lockfile),
     // read the dependency graph from the lock file, else run resolution and update lockfile
     if (!lockfileMode.equals(LockfileMode.OFF)) {
-      lockFile = (BazelLockFileValue) env.getValue(BazelLockFileValue.KEY);
-      if (lockFile == null) {
+      lockfile = (BazelLockFileValue) env.getValue(BazelLockFileValue.KEY);
+      if (lockfile == null) {
         return null;
       }
       flags = getFlagsAndEnvVars(env);
@@ -83,17 +82,17 @@ public class BazelDepGraphFunction implements SkyFunction {
         return null;
       }
       localOverrideHashes = getLocalOverridesHashes(root.getOverrides(), env);
-      if (localOverrideHashes == null) { // trying to read override module
+      if (localOverrideHashes == null) { // still reading an override "module"
         return null;
       }
 
-      if (root.getModuleFileHash().equals(lockFile.getModuleFileHash())
-          && flags.equals(lockFile.getFlags())
-          && localOverrideHashes.equals(lockFile.getLocalOverrideHashes())) {
-        depGraph = lockFile.getModuleDepGraph();
+      if (root.getModuleFileHash().equals(lockfile.getModuleFileHash())
+          && flags.equals(lockfile.getFlags())
+          && localOverrideHashes.equals(lockfile.getLocalOverrideHashes())) {
+        depGraph = lockfile.getModuleDepGraph();
       } else if (lockfileMode.equals(LockfileMode.ERROR)) {
-        List<String> diffLockfile =
-            lockFile.getDiffLockfile(root.getModuleFileHash(), localOverrideHashes, flags);
+        ImmutableList<String> diffLockfile =
+            lockfile.getModuleAndFlagsDiff(root.getModuleFileHash(), localOverrideHashes, flags);
         throw new BazelDepGraphFunctionException(
             ExternalDepsException.withMessage(
                 Code.BAD_MODULE,
@@ -110,27 +109,33 @@ public class BazelDepGraphFunction implements SkyFunction {
         return null;
       }
       depGraph = selectionResult.getResolvedDepGraph();
-      if (lockfileMode.equals(LockfileMode.UPDATE)) {
-        BazelLockFileValue updatedLockFile =
-            lockFile.toBuilder()
-                .setModuleFileHash(root.getModuleFileHash())
-                .setFlags(flags)
-                .setLocalOverrideHashes(localOverrideHashes)
-                .setModuleDepGraph(depGraph)
-                .build();
-        env.getListener().post(updatedLockFile);
-      }
     }
 
     ImmutableMap<RepositoryName, ModuleKey> canonicalRepoNameLookup =
         depGraph.keySet().stream()
             .collect(toImmutableMap(ModuleKey::getCanonicalRepoName, key -> key));
 
-    ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesById =
-        getExtensionUsagesById(depGraph);
+    ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesById;
+    try {
+      extensionUsagesById = getExtensionUsagesById(depGraph);
+    } catch (ExternalDepsException e) {
+      throw new BazelDepGraphFunctionException(e, Transience.PERSISTENT);
+    }
 
     ImmutableBiMap<String, ModuleExtensionId> extensionUniqueNames =
         calculateUniqueNameForUsedExtensionId(extensionUsagesById);
+
+    if (!lockfileMode.equals(LockfileMode.OFF)) {
+      BazelLockFileValue updateLockfile =
+          lockfile.toBuilder()
+              .setModuleFileHash(root.getModuleFileHash())
+              .setFlags(flags)
+              .setLocalOverrideHashes(localOverrideHashes)
+              .setModuleDepGraph(depGraph)
+              .build();
+      env.getListener()
+          .post(BazelModuleResolutionEvent.create(updateLockfile, extensionUsagesById));
+    }
 
     return BazelDepGraphValue.create(
         depGraph,
@@ -202,8 +207,9 @@ public class BazelDepGraphFunction implements SkyFunction {
    * For each extension usage, we resolve (i.e. canonicalize) its bzl file label. Then we can group
    * all usages by the label + name (the ModuleExtensionId).
    */
-  private ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> getExtensionUsagesById(
-      ImmutableMap<ModuleKey, Module> depGraph) throws BazelDepGraphFunctionException {
+  public static ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage>
+      getExtensionUsagesById(ImmutableMap<ModuleKey, Module> depGraph)
+          throws ExternalDepsException {
     ImmutableTable.Builder<ModuleExtensionId, ModuleKey, ModuleExtensionUsage>
         extensionUsagesTableBuilder = ImmutableTable.builder();
     for (Module module : depGraph.values()) {
@@ -220,22 +226,18 @@ public class BazelDepGraphFunction implements SkyFunction {
                   usage.getExtensionName(),
                   usage.getIsolationKey());
         } catch (LabelSyntaxException e) {
-          throw new BazelDepGraphFunctionException(
-              ExternalDepsException.withCauseAndMessage(
-                  Code.BAD_MODULE,
-                  e,
-                  "invalid label for module extension found at %s",
-                  usage.getLocation()),
-              Transience.PERSISTENT);
+          throw ExternalDepsException.withCauseAndMessage(
+              Code.BAD_MODULE,
+              e,
+              "invalid label for module extension found at %s",
+              usage.getLocation());
         }
         if (!moduleExtensionId.getBzlFileLabel().getRepository().isVisible()) {
-          throw new BazelDepGraphFunctionException(
-              ExternalDepsException.withMessage(
-                  Code.BAD_MODULE,
-                  "invalid label for module extension found at %s: no repo visible as '@%s' here",
-                  usage.getLocation(),
-                  moduleExtensionId.getBzlFileLabel().getRepository().getName()),
-              Transience.PERSISTENT);
+          throw ExternalDepsException.withMessage(
+              Code.BAD_MODULE,
+              "invalid label for module extension found at %s: no repo visible as '@%s' here",
+              usage.getLocation(),
+              moduleExtensionId.getBzlFileLabel().getRepository().getName());
         }
         extensionUsagesTableBuilder.put(moduleExtensionId, module.getKey(), usage);
       }

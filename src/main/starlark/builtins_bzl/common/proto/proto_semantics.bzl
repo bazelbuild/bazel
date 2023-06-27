@@ -37,4 +37,5 @@ semantics = struct(
         "%%s is imported, but %s doesn't directly depend on a proto_library that 'srcs' it."
     ),
     EXEC_GROUPS = {},
+    allowlist_different_package = None,
 )

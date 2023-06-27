@@ -12,6 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# WARNING:
+# https://github.com/bazelbuild/bazel/issues/17713
+# .bzl files in this package (tools/build_defs/repo) are evaluated
+# in a Starlark environment without "@_builtins" injection, and must not refer
+# to symbols associated with build/workspace .bzl files
+
 """
 'jvm_import_external' offers additional functionality above what maven_jar has to offer.
 In addition to downloading the jars, it allows to define this jar's dependencies.

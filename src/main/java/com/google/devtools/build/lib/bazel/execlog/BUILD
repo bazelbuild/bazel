@@ -15,6 +15,7 @@ java_library(
     name = "stable_sort",
     srcs = glob(["*.java"]),
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/protobuf:spawn_java_proto",
         "//third_party:guava",

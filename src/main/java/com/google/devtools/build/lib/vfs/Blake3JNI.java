@@ -25,6 +25,8 @@ final class Blake3JNI {
 
   public static final native long allocate_and_initialize_hasher();
 
+  public static final native void blake3_hasher_reset(long self);
+
   public static final native void blake3_hasher_update(long self, byte[] input, int input_len);
 
   public static final native void blake3_hasher_finalize_and_close(

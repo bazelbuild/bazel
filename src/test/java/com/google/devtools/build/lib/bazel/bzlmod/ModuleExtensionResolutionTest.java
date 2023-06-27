@@ -290,7 +290,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         differencer, CheckDirectDepsMode.WARNING);
     BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE.set(
         differencer, BazelCompatibilityMode.ERROR);
-    BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.OFF);
+    BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.UPDATE);
 
     // Set up a simple repo rule.
     registry.addModule(
@@ -2226,7 +2226,10 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),
         String.format(
             "ext = use_extension('//:defs.bzl', 'ext', dev_dependency = %s, isolate = %s)",
-            devDependencyStr, isolateStr));
+            devDependencyStr, isolateStr),
+        // Isolated module extensions without repo imports result in an error in
+        // ModuleFileFunction.
+        "use_repo(ext, 'some_repo')");
     scratch.file(
         workspaceRoot.getRelative("defs.bzl").getPathString(),
         "def _ext_impl(ctx):",

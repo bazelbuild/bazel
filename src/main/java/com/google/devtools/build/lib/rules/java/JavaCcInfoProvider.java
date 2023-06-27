@@ -58,22 +58,20 @@ public final class JavaCcInfoProvider implements JavaInfoInternalProvider {
   @Nullable
   static JavaCcInfoProvider fromStarlarkJavaInfo(StructImpl javaInfo) throws EvalException {
     CcInfo ccInfo = javaInfo.getValue("cc_link_params_info", CcInfo.class);
-    if (ccInfo != null) {
-      return new JavaCcInfoProvider(ccInfo);
-    } else {
-      NestedSet<LibraryToLink> transitiveNativeLibraries =
+    if (ccInfo == null) {
+      NestedSet<LibraryToLink> transitiveCcNativeLibraries =
           Depset.cast(
               javaInfo.getValue("transitive_native_libraries"),
               LibraryToLink.class,
               "transitive_native_libraries");
-      if (transitiveNativeLibraries.isEmpty()) {
+      if (transitiveCcNativeLibraries.isEmpty()) {
         return null;
-      } else {
-        return new JavaCcInfoProvider(
-            CcInfo.builder()
-                .setCcNativeLibraryInfo(new CcNativeLibraryInfo(transitiveNativeLibraries))
-                .build());
       }
+      ccInfo =
+          CcInfo.builder()
+              .setCcNativeLibraryInfo(new CcNativeLibraryInfo(transitiveCcNativeLibraries))
+              .build();
     }
+    return new JavaCcInfoProvider(ccInfo);
   }
 }

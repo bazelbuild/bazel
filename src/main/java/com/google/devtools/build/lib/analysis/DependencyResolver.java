@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionCollector;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -101,6 +102,9 @@ public abstract class DependencyResolver {
    * @param toolchainContexts the toolchain contexts for this target
    * @param trimmingTransitionFactory the transition factory used to trim rules (note: this is a
    *     temporary feature; see the corresponding methods in ConfiguredRuleClassProvider)
+   * @param transitionCollector a callback that observes attribute transitions for Cquery
+   * @param starlarkExecTransitionFactory if not null, the Starlark transition that implements
+   *     {@code cfg = "exec"}. Otherwise Bazel uses native exec transition logic.
    * @return a mapping of each attribute in this rule or aspects to its dependent nodes
    */
   public final OrderedSetMultimap<DependencyKind, DependencyKey> dependentNodeMap(
@@ -109,7 +113,8 @@ public abstract class DependencyResolver {
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
       @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory,
-      TransitionCollector transitionCollector)
+      TransitionCollector transitionCollector,
+      @Nullable StarlarkAttributeTransitionProvider starlarkExecTransitionFactory)
       throws Failure, InterruptedException, InconsistentAspectOrderException {
     NestedSetBuilder<Cause> rootCauses = NestedSetBuilder.stableOrder();
     OrderedSetMultimap<DependencyKind, DependencyKey> outgoingEdges =
@@ -120,7 +125,8 @@ public abstract class DependencyResolver {
             toolchainContexts,
             rootCauses,
             trimmingTransitionFactory,
-            transitionCollector);
+            transitionCollector,
+            starlarkExecTransitionFactory);
     if (!rootCauses.isEmpty()) {
       throw new IllegalStateException(rootCauses.build().toList().iterator().next().toString());
     }
@@ -155,6 +161,8 @@ public abstract class DependencyResolver {
    *     temporary feature; see the corresponding methods in ConfiguredRuleClassProvider)
    * @param rootCauses collector for dep labels that can't be (loading phase) loaded
    * @param transitionCollector a callback that observes attribute transitions for Cquery
+   * @param starlarkExecTransitionFactory if not null, the Starlark transition that implements
+   *     {@code cfg = "exec"}. Else Bazel uses native exec transition logic.
    * @return a mapping of each attribute in this rule or aspects to its dependent nodes
    */
   public final OrderedSetMultimap<DependencyKind, DependencyKey> dependentNodeMap(
@@ -164,7 +172,8 @@ public abstract class DependencyResolver {
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
       NestedSetBuilder<Cause> rootCauses,
       @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory,
-      TransitionCollector transitionCollector)
+      TransitionCollector transitionCollector,
+      StarlarkAttributeTransitionProvider starlarkExecTransitionFactory)
       throws Failure, InterruptedException, InconsistentAspectOrderException {
     var dependencyLabels =
         computeDependencyLabels(node, aspects, configConditions, toolchainContexts);
@@ -191,7 +200,8 @@ public abstract class DependencyResolver {
             dependencyLabels.attributeMap(),
             toolchainContexts,
             aspects,
-            transitionCollector);
+            transitionCollector,
+            starlarkExecTransitionFactory);
 
     return fullyResolveDependencies(
         partiallyResolvedDeps, targetMap, node.getConfiguration(), trimmingTransitionFactory);
@@ -273,7 +283,8 @@ public abstract class DependencyResolver {
           @Nullable ConfiguredAttributeMapper attributeMap,
           @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
           Iterable<Aspect> aspects,
-          TransitionCollector transitionCollector)
+          TransitionCollector transitionCollector,
+          StarlarkAttributeTransitionProvider starlarkExecTransitionFactory)
           throws Failure {
     OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
         OrderedSetMultimap.create();
@@ -348,6 +359,7 @@ public abstract class DependencyResolver {
           AttributeTransitionData.builder()
               .attributes(attributeMap)
               .executionPlatform(executionPlatformLabel)
+              .analysisData(starlarkExecTransitionFactory)
               .build();
       ConfigurationTransition attributeTransition =
           kind.getAttribute().getTransitionFactory().create(attributeTransitionData);

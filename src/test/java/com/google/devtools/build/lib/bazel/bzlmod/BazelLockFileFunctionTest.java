@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDir
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
@@ -56,6 +57,7 @@ import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -177,14 +179,18 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
                         if (localOverrideHashes == null) {
                           return null;
                         }
+                        RootedPath lockfilePath =
+                            RootedPath.toRootedPath(
+                                Root.fromPath(rootDirectory), LabelConstants.MODULE_LOCKFILE_NAME);
                         BazelLockFileModule.updateLockfile(
-                            rootDirectory,
+                            lockfilePath,
                             BazelLockFileValue.builder()
                                 .setModuleFileHash(key.moduleHash())
                                 .setFlags(flags)
                                 .setLocalOverrideHashes(localOverrideHashes)
                                 .setModuleDepGraph(key.depGraph())
                                 .build());
+
                         return new SkyValue() {};
                       }
                     })

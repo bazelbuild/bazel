@@ -596,7 +596,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         "    srcs = [],",
         "    outs = ['gen.out'],",
         "    cmd = '',",
-        "    exec_tools = [':main'])",
+        "    tools = [':main'])",
         getDependencyRule(),
         getDependingRule(compatibleWith("//buildenv/foo:a")));
     assertThat(getConfiguredTarget("//hello:gen")).isNotNull();
@@ -740,15 +740,15 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults("a").make();
     scratch.file(
         "hello/BUILD",
-        "sh_binary(name = 'host_tool',",
-        "    srcs = ['host_tool.sh'],",
+        "sh_binary(name = 'tool',",
+        "    srcs = ['tool.sh'],",
         "    restricted_to = ['//buildenv/foo:b'])",
         "genrule(",
         "    name = 'hello',",
         "    srcs = [],",
         "    outs = ['hello.out'],",
         "    cmd = '',",
-        "    exec_tools = [':host_tool'],",
+        "    tools = [':tool'],",
         "    compatible_with = ['//buildenv/foo:a'])");
     assertThat(getConfiguredTarget("//hello:hello")).isNotNull();
     assertNoEvents();

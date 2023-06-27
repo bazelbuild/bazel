@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.cmdline;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import net.starlark.java.eval.Module;
 
 /**
@@ -45,9 +46,41 @@ public abstract class BazelModuleContext {
    * Returns a list of modules loaded by this .bzl file, in source order.
    *
    * <p>By traversing these modules' loads, it is possible to reconstruct the complete load DAG (not
-   * including {@code @_builtins} .bzl files).
+   * including {@code @_builtins} .bzl files). See {@link #visitLoadGraphRecursively}.
    */
   public abstract ImmutableList<Module> loads();
+
+  /**
+   * Consumes labels of loaded Starlark files during a call to {@link #visitLoadGraphRecursively}.
+   *
+   * <p>The value returned by {@link #visit} determines whether the traversal should continue (true)
+   * or backtrack (false). Using a method reference to {@link Set#add} is a convenient way to
+   * aggregate Starlark files while pruning branches when a file was already seen. The same set may
+   * be reused across multiple calls to {@link #visitLoadGraphRecursively} in order to prune the
+   * graph at files already seen during a previous traversal.
+   */
+  @FunctionalInterface
+  public interface LoadGraphVisitor<E1 extends Exception, E2 extends Exception> {
+    /**
+     * Processes a single loaded Starlark file and determines whether to recurse into that file's
+     * loads.
+     *
+     * @return true if the visitation should recurse into the loads of the given file
+     */
+    @CanIgnoreReturnValue
+    boolean visit(Label load) throws E1, E2;
+  }
+
+  /** Performs an online visitation of the load graph rooted at a given list of loads. */
+  public static <E1 extends Exception, E2 extends Exception> void visitLoadGraphRecursively(
+      Iterable<Module> loads, LoadGraphVisitor<E1, E2> visitor) throws E1, E2 {
+    for (Module module : loads) {
+      BazelModuleContext ctx = BazelModuleContext.of(module);
+      if (visitor.visit(ctx.label())) {
+        visitLoadGraphRecursively(ctx.loads(), visitor);
+      }
+    }
+  }
 
   /**
    * Transitive digest of the .bzl file of the {@link net.starlark.java.eval.Module} itself and all

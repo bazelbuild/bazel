@@ -193,11 +193,9 @@ public class WorkerModule extends BlazeModule {
             localEnvProvider,
             env.getBlazeWorkspace().getBinTools(),
             env.getLocalResourceManager(),
-            // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
-            RunfilesTreeUpdater.INSTANCE,
+            RunfilesTreeUpdater.forCommandEnvironment(env),
             env.getOptions().getOptions(WorkerOptions.class),
             WorkerMetricsCollector.instance(),
-            env.getXattrProvider(),
             env.getClock());
     ExecutionOptions executionOptions =
         checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));

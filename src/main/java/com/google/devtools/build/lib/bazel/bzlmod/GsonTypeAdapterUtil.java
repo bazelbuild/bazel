@@ -23,6 +23,8 @@ import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFact
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParseException;
@@ -36,6 +38,7 @@ import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 import java.io.IOException;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -96,6 +99,45 @@ public final class GsonTypeAdapterUtil {
         }
       };
 
+  // TODO(salmasamy) need to handle "isolated" in module extensions when it is stable
+  public static final TypeAdapter<ModuleExtensionId> MODULE_EXTENSION_ID_TYPE_ADAPTER =
+      new TypeAdapter<>() {
+        @Override
+        public void write(JsonWriter jsonWriter, ModuleExtensionId moduleExtId) throws IOException {
+          jsonWriter.value(moduleExtId.getBzlFileLabel() + "%" + moduleExtId.getExtensionName());
+        }
+
+        @Override
+        public ModuleExtensionId read(JsonReader jsonReader) throws IOException {
+          String jsonString = jsonReader.nextString();
+          // [0] is labelString, [1] is extensionName
+          List<String> extIdParts = Splitter.on("%").splitToList(jsonString);
+          try {
+            return ModuleExtensionId.create(
+                Label.parseCanonical(extIdParts.get(0)), extIdParts.get(1), Optional.empty());
+          } catch (LabelSyntaxException e) {
+            throw new JsonParseException(
+                String.format(
+                    "Unable to parse ModuleExtensionID bzl file label:  '%s' from the lockfile",
+                    extIdParts.get(0)),
+                e);
+          }
+        }
+      };
+
+  public static final TypeAdapter<byte[]> BYTE_ARRAY_TYPE_ADAPTER =
+      new TypeAdapter<>() {
+        @Override
+        public void write(JsonWriter jsonWriter, byte[] value) throws IOException {
+          jsonWriter.value(Base64.getEncoder().encodeToString(value));
+        }
+
+        @Override
+        public byte[] read(JsonReader jsonReader) throws IOException {
+          return Base64.getDecoder().decode(jsonReader.nextString());
+        }
+      };
+
   public static final TypeAdapterFactory OPTIONAL =
       new TypeAdapterFactory() {
         @Nullable
@@ -150,6 +192,7 @@ public final class GsonTypeAdapterUtil {
       new GsonBuilder()
           .setPrettyPrinting()
           .disableHtmlEscaping()
+          .enableComplexMapKeySerialization()
           .registerTypeAdapterFactory(GenerateTypeAdapter.FACTORY)
           .registerTypeAdapterFactory(DICT)
           .registerTypeAdapterFactory(IMMUTABLE_MAP)
@@ -159,7 +202,9 @@ public final class GsonTypeAdapterUtil {
           .registerTypeAdapterFactory(OPTIONAL)
           .registerTypeAdapter(Version.class, VERSION_TYPE_ADAPTER)
           .registerTypeAdapter(ModuleKey.class, MODULE_KEY_TYPE_ADAPTER)
+          .registerTypeAdapter(ModuleExtensionId.class, MODULE_EXTENSION_ID_TYPE_ADAPTER)
           .registerTypeAdapter(AttributeValues.class, new AttributeValuesAdapter())
+          .registerTypeAdapter(byte[].class, BYTE_ARRAY_TYPE_ADAPTER)
           .create();
 
   private GsonTypeAdapterUtil() {}

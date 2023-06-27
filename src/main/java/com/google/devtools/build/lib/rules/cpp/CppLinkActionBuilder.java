@@ -831,6 +831,13 @@ public class CppLinkActionBuilder {
         userLinkFlags.addAll(cppConfiguration.getLtoIndexOptions());
       }
 
+      NestedSet<String> runtimeLibrarySearchDirectories =
+          collectedLibrariesToLink.getRuntimeLibrarySearchDirectories();
+      if (linkType.getActionName().equals(CppActionNames.CPP_LINK_DYNAMIC_LIBRARY)
+          && featureConfiguration.isEnabled(
+              CppRuleClasses.EXCLUDE_BAZEL_RPATHS_IN_TRANSITIVE_LIBS_FEATURE_NAME)) {
+        runtimeLibrarySearchDirectories = null;
+      }
       variables =
           LinkBuildVariables.setupVariables(
               ((RuleContext) actionConstructionContext).getStarlarkThread(),
@@ -858,7 +865,7 @@ public class CppLinkActionBuilder {
               ltoOutputRootPrefix,
               defFile != null ? defFile.getExecPathString() : null,
               fdoContext,
-              collectedLibrariesToLink.getRuntimeLibrarySearchDirectories(),
+              runtimeLibrarySearchDirectories,
               collectedLibrariesToLink.getLibrariesToLink(),
               collectedLibrariesToLink.getLibrarySearchDirectories(),
               /* addIfsoRelatedVariables= */ true);
