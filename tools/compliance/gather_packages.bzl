@@ -21,6 +21,7 @@ load(
 )
 load("@rules_license//rules_gathering:trace.bzl", "TraceInfo")
 load(":user_filtered_rule_kinds.bzl", "user_aspect_filters")
+load(":to_json.bzl", "labels_to_json", "licenses_to_json", "package_infos_to_json")
 
 TransitivePackageInfo = provider(
     """Transitive list of all SBOM relevant dependencies.""",
@@ -98,9 +99,10 @@ def _get_transitive_metadata(ctx, trans_license_info, trans_package_info, trans_
                 if info.packages:
                     trans_packages.append(info.packages)
 
-                if info.traces:
-                    for trace in info.traces:
-                        traces.append("(" + ", ".join([str(ctx.label), ctx.rule.kind, name]) + ") -> " + trace)
+                if hasattr(info, "traces"):
+                    if info.traces:
+                        for trace in info.traces:
+                            traces.append("(" + ", ".join([str(ctx.label), ctx.rule.kind, name]) + ") -> " + trace)
 
 def gather_package_common(target, ctx, provider_factory, metadata_providers, filter_func):
     """Collect license and other metadata info from myself and my deps.
@@ -211,4 +213,42 @@ gather_package_info = aspect(
     },
     provides = [TransitivePackageInfo],
     apply_to_generating_rules = True,
+)
+
+def _packages_used_impl(ctx):
+    """Write the TransitivePackageInfo as JSON."""
+    tpi = ctx.attr.target[TransitivePackageInfo]
+    licenses_json = licenses_to_json(tpi.license_info)
+    package_info_json = package_infos_to_json(tpi.package_info)
+    packages = labels_to_json(tpi.packages.to_list())
+
+    # Create a single dict of all the info.
+    main_template = """{{
+    "top_level_target": "{top_level_target}",
+    "licenses": {licenses},
+    "package_info": {package_info},
+    "packages": {packages}
+    \n}}"""
+
+    content = main_template.format(
+        top_level_target = ctx.attr.target.label,
+        licenses = licenses_json,
+        package_info = package_info_json,
+        packages = packages,
+    )
+    ctx.actions.write(
+        output = ctx.outputs.out,
+        content = content,
+    )
+
+packages_used = rule(
+    doc = """Gather transitive package information for a target and write as JSON.""",
+    implementation = _packages_used_impl,
+    attrs = {
+        "target": attr.label(
+            aspects = [gather_package_info],
+            allow_files = True,
+        ),
+        "out": attr.output(mandatory = True),
+    },
 )
