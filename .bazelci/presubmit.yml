@@ -323,8 +323,6 @@ tasks:
       - "-//src/test/java/com/google/devtools/build/lib/skyframe/rewinding:RewindingTest"
       - "-//src/test/java/com/google/devtools/build/lib/buildtool:MiscAnalysisTest"
       - "-//src/test/java/com/google/devtools/build/lib/rules/objc:ObjcRulesTests"
-      # https://github.com/bazelbuild/bazel/issues/16975
-      - "-//scripts/docs:rewriter_test"
       # https://github.com/bazelbuild/bazel/issues/17007
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
       # Disable the most time-consuming tests on macOS arm64 platform in presubmit.
@@ -503,6 +501,13 @@ tasks:
       # Flaky on rbe_ubuntu1804
       # https://github.com/bazelbuild/continuous-integration/issues/1631
       - "-//src/test/shell/bazel:bazel_sandboxing_networking_test"
+      # https://github.com/bazelbuild/bazel/issues/18776
+      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test"
+      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
+      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_platforms"
+      - "-//src/test/shell/bazel/android:aapt_integration_test"
+      - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
+      - "-//src/test/shell/bazel/android:aapt_integration_test_with_platforms"
     include_json_profile:
       - build
       - test

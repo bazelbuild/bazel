@@ -20,9 +20,8 @@ import unittest
 
 def read_data_file(basename):
   path = os.path.join(
-      os.getenv("TEST_SRCDIR"),
-      "io_bazel/tools/compliance",
-      basename)
+      os.getenv("TEST_SRCDIR"), "io_bazel/tools/compliance", basename
+  )
   with open(path, "rt", encoding="utf-8") as f:
     return f.read()
 
@@ -52,6 +51,7 @@ class PackagesUsedTest(unittest.TestCase):
   def test_package_info(self):
     # Placeholder: There are no package_info declarations yet.
     pass
+
 
 if __name__ == "__main__":
   unittest.main()

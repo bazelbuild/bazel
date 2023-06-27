@@ -21,7 +21,7 @@ load(
 )
 load("@rules_license//rules_gathering:trace.bzl", "TraceInfo")
 load(":user_filtered_rule_kinds.bzl", "user_aspect_filters")
-load(":to_json.bzl", "licenses_to_json", "package_infos_to_json", "labels_to_json")
+load(":to_json.bzl", "labels_to_json", "licenses_to_json", "package_infos_to_json")
 
 TransitivePackageInfo = provider(
     """Transitive list of all SBOM relevant dependencies.""",

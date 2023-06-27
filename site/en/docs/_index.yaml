@@ -49,7 +49,7 @@ landing_page:
       Learn about Bazel's release model, latest releases, and compatibility policies.
     items_across: 4
     items:
-    - heading: Release policy
+    - heading: Release model
       path: /release/
     - heading: Backward compatibility
       path: /release/backward-compatibility

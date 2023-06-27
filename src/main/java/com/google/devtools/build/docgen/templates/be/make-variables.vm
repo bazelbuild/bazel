@@ -412,7 +412,7 @@
 <p>
   These variables are a fallback mechanism to be used by language experts in
   rare cases. If you are tempted to use them, please <a
-  href="https://bazel.build/contribute/support">contact the Bazel devs</a> first.
+  href="https://bazel.build/help">contact the Bazel devs</a> first.
 </p>
 
 <ul><!--  keep alphabetically sorted  -->
@@ -463,7 +463,7 @@
 <p>
   These variables are a fallback mechanism to be used by language experts in
   rare cases. If you are tempted to use them, please <a
-  href="https://bazel.build/contribute/support">contact the Bazel devs</a> first.
+  href="https://bazel.build/help">contact the Bazel devs</a> first.
 </p>
 
 <ul><!--  keep alphabetically sorted  -->

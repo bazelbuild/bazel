@@ -72,6 +72,31 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean mergeGenfilesDirectory;
 
   @Option(
+      name = "experimental_exec_config",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If set to '//some:label:my.bzl%my_transition', uses my_transition for 'cfg = \"exec\"' "
+              + "semantics instead of Bazel's internal exec transition logic.  Else uses Bazel's "
+              + "internal logic.")
+  public String starlarkExecConfig;
+
+  @Option(
+      name = "experimental_exec_config_diff",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "For debugging --experimental_exec_config only: if set and  --experimental_exec_config is"
+              + " set, Bazel also runs internal logic on `cfg =  \"exec\"` transitions and prints "
+              + "the diff between that and the Starlark transition to the screen.  "
+              + "`cfg =  \"exec\"` semantics still use the Starlark transition.")
+  public boolean execConfigDiff;
+
+  @Option(
       name = "experimental_platform_in_output_dir",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -1064,6 +1089,9 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     exec.archivedArtifactsMnemonicsFilter = archivedArtifactsMnemonicsFilter;
 
     exec.allowUnresolvedSymlinks = allowUnresolvedSymlinks;
+
+    exec.starlarkExecConfig = starlarkExecConfig;
+    exec.execConfigDiff = execConfigDiff;
     return exec;
   }
 

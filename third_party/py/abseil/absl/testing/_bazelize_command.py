@@ -14,36 +14,55 @@
 
 """Internal helper for running tests on Windows Bazel."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import os
 
+from absl import flags
 
-def get_executable_path(py_binary_path):
+FLAGS = flags.FLAGS
+
+
+def get_executable_path(py_binary_name):
   """Returns the executable path of a py_binary.
 
   This returns the executable path of a py_binary that is in another Bazel
   target's data dependencies.
 
-  On Linux/macOS, it's the same as the py_binary_path.
-  On Windows, the py_binary_path points to a zip file, and Bazel 0.5.3+
-  generates a .cmd file that can be used to execute the py_binary.
+  On Linux/macOS, the path and __file__ has the same root directory.
+  On Windows, bazel builds an .exe file and we need to use the MANIFEST file
+  the location the actual binary.
 
   Args:
-    py_binary_path: string, the path of a py_binary that is in another Bazel
+    py_binary_name: string, the name of a py_binary that is in another Bazel
         target's data dependencies.
+
+  Raises:
+    RuntimeError: Raised when it cannot locate the executable path.
   """
+
   if os.name == 'nt':
-    executable_path = py_binary_path + '.cmd'
-    if executable_path.startswith('\\\\?\\'):
-      # In Bazel 0.5.3 and Python 3, the paths starts with "\\?\".
-      # However, Python subprocess doesn't support those paths well.
-      # Strip them as we don't need the prefix.
-      # See this page for more informaton about "\\?\":
-      # https://msdn.microsoft.com/en-us/library/windows/desktop/aa365247.
-      executable_path = executable_path[4:]
-    return executable_path
+    py_binary_name += '.exe'
+    manifest_file = os.path.join(FLAGS.test_srcdir, 'MANIFEST')
+    workspace_name = os.environ['TEST_WORKSPACE']
+    manifest_entry = '{}/{}'.format(workspace_name, py_binary_name)
+    with open(manifest_file, 'r') as manifest_fd:
+      for line in manifest_fd:
+        tokens = line.strip().split(' ')
+        if len(tokens) != 2:
+          continue
+        if manifest_entry == tokens[0]:
+          return tokens[1]
+    raise RuntimeError(
+        'Cannot locate executable path for {}, MANIFEST file: {}.'.format(
+            py_binary_name, manifest_file))
   else:
-    return py_binary_path
+    # NOTE: __file__ may be .py or .pyc, depending on how the module was
+    # loaded and executed.
+    path = __file__
+
+    # Use the package name to find the root directory: every dot is
+    # a directory, plus one for ourselves.
+    for _ in range(__name__.count('.') + 1):
+      path = os.path.dirname(path)
+
+    root_directory = path
+    return os.path.join(root_directory, py_binary_name)

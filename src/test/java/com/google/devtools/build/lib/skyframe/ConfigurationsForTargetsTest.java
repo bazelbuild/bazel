@@ -159,6 +159,7 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
                 stateProvider.lateBoundRuleClassProvider(),
                 stateProvider.lateBoundSkyframeBuildView().getStarlarkTransitionCache(),
                 NULL_TRANSITION_COLLECTOR,
+                /* starlarkTransitionProvider= */ null,
                 env,
                 env.getListener());
         return env.valuesMissing() ? null : new Value(depMap);

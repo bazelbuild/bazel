@@ -568,17 +568,16 @@ public class CompilationSupport implements StarlarkValue {
     ImmutableSet<Artifact> asNeededLibrarySet = inputLibrarySet.first;
     ImmutableSet<Artifact> alwaysLinkLibrarySet = inputLibrarySet.second;
 
-    Iterable<Artifact> prunedJ2ObjcArchives =
-        computeAndStripPrunedJ2ObjcArchives(
-            j2ObjcEntryClassProvider, j2ObjcMappingFileProvider, secondaryObjcProvider);
-    asNeededLibrarySet =
-        Iterables.isEmpty(prunedJ2ObjcArchives)
-            ? asNeededLibrarySet
-            : substituteJ2ObjcPrunedLibraries(asNeededLibrarySet, secondaryObjcProvider);
-    alwaysLinkLibrarySet =
-        Iterables.isEmpty(prunedJ2ObjcArchives)
-            ? alwaysLinkLibrarySet
-            : substituteJ2ObjcPrunedLibraries(alwaysLinkLibrarySet, secondaryObjcProvider);
+    if (stripJ2ObjcDeadCode(j2ObjcEntryClassProvider)
+        && !secondaryObjcProvider.get(ObjcProvider.J2OBJC_LIBRARY).toList().isEmpty()) {
+      registerJ2ObjcDeadCodeRemovalActions(
+          secondaryObjcProvider, j2ObjcMappingFileProvider, j2ObjcEntryClassProvider);
+
+      asNeededLibrarySet =
+          substituteJ2ObjcPrunedLibraries(asNeededLibrarySet, secondaryObjcProvider);
+      alwaysLinkLibrarySet =
+          substituteJ2ObjcPrunedLibraries(alwaysLinkLibrarySet, secondaryObjcProvider);
+    }
 
     ImmutableList<Artifact> asNeededLibraryList = asNeededLibrarySet.asList();
     ImmutableList<Artifact> alwaysLinkLibraryList = alwaysLinkLibrarySet.asList();
@@ -620,7 +619,6 @@ public class CompilationSupport implements StarlarkValue {
     ObjcVariablesExtension.Builder extensionBuilder =
         new ObjcVariablesExtension.Builder()
             .setRuleContext(ruleContext)
-            .setConfiguration(buildConfiguration)
             .setIntermediateArtifacts(intermediateArtifacts)
             .setForceLoadArtifacts(alwaysLinkLibrarySet)
             .setAttributeLinkopts(attributes.linkopts())
@@ -715,9 +713,10 @@ public class CompilationSupport implements StarlarkValue {
 
     executableLinkingHelper.addLinkerOutputs(linkerOutputs.build());
 
-    CcLinkingContext.Builder linkstampsBuilder = CcLinkingContext.builder();
-    linkstampsBuilder.addLinkstamps(secondaryCcLinkingContext.getLinkstamps().toList());
-    CcLinkingContext linkstamps = linkstampsBuilder.build();
+    CcLinkingContext linkstamps =
+        CcLinkingContext.builder()
+            .addLinkstamps(secondaryCcLinkingContext.getLinkstamps().toList())
+            .build();
     executableLinkingHelper.addCcLinkingContexts(ImmutableList.of(linkstamps));
 
     executableLinkingHelper.link(CcCompilationOutputs.EMPTY);
@@ -825,15 +824,6 @@ public class CompilationSupport implements StarlarkValue {
         .build();
   }
 
-  /** Returns pruned J2Objc archives for this target. */
-  private ImmutableList<Artifact> j2objcPrunedLibraries(ObjcProvider objcProvider) {
-    ImmutableList.Builder<Artifact> j2objcPrunedLibraryBuilder = ImmutableList.builder();
-    for (Artifact j2objcLibrary : objcProvider.get(ObjcProvider.J2OBJC_LIBRARY).toList()) {
-      j2objcPrunedLibraryBuilder.add(intermediateArtifacts.j2objcPrunedArchive(j2objcLibrary));
-    }
-    return j2objcPrunedLibraryBuilder.build();
-  }
-
   /** Returns true if this build should strip J2Objc dead code. */
   private boolean stripJ2ObjcDeadCode(J2ObjcEntryClassProvider j2ObjcEntryClassProvider) {
     J2ObjcConfiguration j2objcConfiguration =
@@ -917,20 +907,6 @@ public class CompilationSupport implements StarlarkValue {
               .addOutput(prunedJ2ObjcArchive)
               .build(ruleContext));
     }
-  }
-
-  /** Returns archives arising from j2objc transpilation after dead code removal. */
-  private Iterable<Artifact> computeAndStripPrunedJ2ObjcArchives(
-      J2ObjcEntryClassProvider j2ObjcEntryClassProvider,
-      J2ObjcMappingFileProvider j2ObjcMappingFileProvider,
-      ObjcProvider objcProvider) {
-    Iterable<Artifact> prunedJ2ObjcArchives = ImmutableList.<Artifact>of();
-    if (stripJ2ObjcDeadCode(j2ObjcEntryClassProvider)) {
-      registerJ2ObjcDeadCodeRemovalActions(
-          objcProvider, j2ObjcMappingFileProvider, j2ObjcEntryClassProvider);
-      prunedJ2ObjcArchives = j2objcPrunedLibraries(objcProvider);
-    }
-    return prunedJ2ObjcArchives;
   }
 
   /** Returns a set of libraries with all unpruned J2ObjC libraries substituted with pruned ones. */
