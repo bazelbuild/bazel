@@ -311,8 +311,6 @@ tasks:
       - "-//src/test/java/com/google/devtools/build/lib/skyframe/rewinding:RewindingTest"
       - "-//src/test/java/com/google/devtools/build/lib/buildtool:MiscAnalysisTest"
       - "-//src/test/java/com/google/devtools/build/lib/rules/objc:ObjcRulesTests"
-      # https://github.com/bazelbuild/bazel/issues/16975
-      - "-//scripts/docs:rewriter_test"
       # https://github.com/bazelbuild/bazel/issues/17007
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
     include_json_profile:
