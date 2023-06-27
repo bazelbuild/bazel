@@ -52,7 +52,8 @@ function test_shared_library_symbols() {
 
 function test_shared_library_user_link_flags() {
   foo_so=$(find . -name libfoo_so.so)
-  objdump -x $foo_so | grep RPATH | grep "kittens" > /dev/null \
+  # $RPATH defined in testenv.sh
+  objdump -x $foo_so | grep $RPATH | grep "kittens" > /dev/null \
       || (echo "Expected to have RUNPATH contain 'kittens' (set by user_link_flags)" \
           && exit 1)
 }

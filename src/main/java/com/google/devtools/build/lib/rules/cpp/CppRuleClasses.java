@@ -517,37 +517,6 @@ public class CppRuleClasses {
    */
   public static final String LEGACY_IS_CC_TEST_FEATURE_NAME = "legacy_is_cc_test";
 
-  /**
-   * By default Bazel will be embed runtime search directories (RPATHS) in transitive shared
-   * libraries, however, for Linux they are wrong in most cases since the runfiles directory where
-   * the transitive shared library will live will not be known at the time of linking. The runfiles
-   * directory is decided by dependent rules, we don't know where those dependents will live. For
-   * Mac (where it works differently by searching from the library's path instead of the main
-   * binary's) the loader paths (not rpaths) are correct so the paths will work.
-   *
-   * <p>This feature controls whether Bazel will embed those rpaths into the transitive shared
-   * library.
-   */
-  public static final String EXCLUDE_BAZEL_RPATHS_IN_TRANSITIVE_LIBS_FEATURE_NAME =
-      "exclude_bazel_rpaths_in_transitive_libs";
-
-  /**
-   * With this feature enabled cc_binary will link all its dynamic_deps, even the ones it depends on
-   * transitively, linking indirect deps might be necessary because if the RPATHs haven't been set
-   * up properly in those dynamic_deps then the loader won't be able to find those libraries unless
-   * they are also linked. For a production binary this is probably not the desired behavior and you
-   * can switch it off by disabling this feature, for the binary to work you have to make sure that
-   * the RPATHs in all shared libraries are set up properly though. The default toolchains have this
-   * behavior switched off for cc_binaries by default. The behavior for cc_tests with dynamic_deps
-   * on all platforms and Windows cc_binaries is hardcoded to always link every transitive library.
-   *
-   * <p>This feature controls the behavior for shared libraries depended on via dynamic_deps and
-   * doesn't control the behavior of the dynamic dependencies created by cc_libraries and used for
-   * cc_tests or cc_binaries(linkstatic=0).
-   */
-  public static final String LINK_INDIRECT_DYNAMIC_DEPS_IN_BINARY_FEATURE_NAME =
-      "link_indirect_dynamic_deps_in_binary";
-
   /** Ancestor for all rules that do include scanning. */
   public static final class CcIncludeScanningRule implements RuleDefinition {
     private final boolean addGrepIncludes;

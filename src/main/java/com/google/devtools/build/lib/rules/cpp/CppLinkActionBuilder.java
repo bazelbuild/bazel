@@ -147,6 +147,10 @@ public class CppLinkActionBuilder {
   private boolean isStampingEnabled;
   private final Map<String, String> executionInfo = new LinkedHashMap<>();
 
+  // We have to add the dynamicLibrarySolibOutput to the CppLinkActionBuilder so that it knows how
+  // to set up the RPATH properly with respect to the symlink itself and not the original library.
+  private Artifact dynamicLibrarySolibSymlinkOutput;
+
   /**
    * Creates a builder that builds {@link CppLinkAction}s.
    *
@@ -814,7 +818,8 @@ public class CppLinkActionBuilder {
             nonExpandedLinkerInputs,
             needWholeArchive,
             ruleErrorConsumer,
-            ((RuleContext) actionConstructionContext).getWorkspaceName());
+            ((RuleContext) actionConstructionContext).getWorkspaceName(),
+            dynamicLibrarySolibSymlinkOutput);
     CollectedLibrariesToLink collectedLibrariesToLink =
         librariesToLinkCollector.collectLibrariesToLink();
 
@@ -831,13 +836,6 @@ public class CppLinkActionBuilder {
         userLinkFlags.addAll(cppConfiguration.getLtoIndexOptions());
       }
 
-      NestedSet<String> runtimeLibrarySearchDirectories =
-          collectedLibrariesToLink.getRuntimeLibrarySearchDirectories();
-      if (linkType.getActionName().equals(CppActionNames.CPP_LINK_DYNAMIC_LIBRARY)
-          && featureConfiguration.isEnabled(
-              CppRuleClasses.EXCLUDE_BAZEL_RPATHS_IN_TRANSITIVE_LIBS_FEATURE_NAME)) {
-        runtimeLibrarySearchDirectories = null;
-      }
       variables =
           LinkBuildVariables.setupVariables(
               ((RuleContext) actionConstructionContext).getStarlarkThread(),
@@ -865,7 +863,7 @@ public class CppLinkActionBuilder {
               ltoOutputRootPrefix,
               defFile != null ? defFile.getExecPathString() : null,
               fdoContext,
-              runtimeLibrarySearchDirectories,
+              collectedLibrariesToLink.getRuntimeLibrarySearchDirectories(),
               collectedLibrariesToLink.getLibrariesToLink(),
               collectedLibrariesToLink.getLibrarySearchDirectories(),
               /* addIfsoRelatedVariables= */ true);
@@ -1561,6 +1559,13 @@ public class CppLinkActionBuilder {
   @CanIgnoreReturnValue
   public CppLinkActionBuilder addExecutionInfo(Map<String, String> executionInfo) {
     this.executionInfo.putAll(executionInfo);
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public CppLinkActionBuilder setDynamicLibrarySolibSymlinkOutput(
+      Artifact dynamicLibrarySolibSymlinkOutput) {
+    this.dynamicLibrarySolibSymlinkOutput = dynamicLibrarySolibSymlinkOutput;
     return this;
   }
 }

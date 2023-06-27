@@ -409,22 +409,8 @@ def _filter_libraries_that_are_linked_dynamically(ctx, feature_configuration, cc
 
     # Unlike Unix on Windows every dynamic dependency must be linked to the
     # main binary, even indirect ones that are dependencies of direct
-    # dynamic dependencies of this binary. So even though linking indirect
-    # dynamic dependencies is not needed for Unix, we link them here for tests too
-    # because we cannot know whether the shared libraries were linked with
-    # RUNPATH or RPATH. If they were linked with the former, then the loader
-    # won't search in the runfiles directory of this binary for the library, it
-    # will only search in the RUNPATH set at the time of linking the shared
-    # library and we cannot possibly know at that point the runfiles directory
-    # of all of its dependents.
-    link_indirect_deps = (
-        ctx.attr._is_test or
-        cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "targets_windows") or
-        cc_common.is_enabled(
-            feature_configuration = feature_configuration,
-            feature_name = "link_indirect_dynamic_deps_in_binary",
-        )
-    )
+    # dynamic dependencies of this binary.
+    link_indirect_deps = cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "targets_windows")
     direct_dynamic_dep_labels = {dep[CcSharedLibraryInfo].linker_input.owner: True for dep in ctx.attr.dynamic_deps}
     topologically_sorted_labels_set = {label: True for label in topologically_sorted_labels}
     for dynamic_linker_input_owner, unused_linker_input in unused_dynamic_linker_inputs.items():

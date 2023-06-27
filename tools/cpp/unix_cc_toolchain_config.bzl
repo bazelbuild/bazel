@@ -609,10 +609,6 @@ def _impl(ctx):
         ],
     )
 
-    link_indirect_dynamic_deps_in_binary_feature = feature(
-        name = "link_indirect_dynamic_deps_in_binary",
-    )
-
     fission_support_feature = feature(
         name = "fission_support",
         flag_sets = [
@@ -1363,23 +1359,6 @@ def _impl(ctx):
 
     # TODO(#8303): Mac crosstool should also declare every feature.
     if is_linux:
-        use_rpath_instead_of_runpath_feature = feature(
-            name = "use_rpath_instead_of_runpath",
-            flag_sets = [
-                flag_set(
-                    actions = all_link_actions + lto_index_actions,
-                    flag_groups = [
-                        flag_group(
-                            flags = ["-Wl,--disable-new-dtags"],
-                        ),
-                    ],
-                ),
-            ],
-        )
-        exclude_bazel_rpaths_in_transitive_libs_feature = feature(
-            name = "exclude_bazel_rpaths_in_transitive_libs",
-        )
-
         # Linux artifact name patterns are the default.
         artifact_name_patterns = []
         features = [
@@ -1404,9 +1383,6 @@ def _impl(ctx):
             linkstamps_feature,
             output_execpath_flags_feature,
             runtime_library_search_directories_feature,
-            exclude_bazel_rpaths_in_transitive_libs_feature,
-            use_rpath_instead_of_runpath_feature,
-            link_indirect_dynamic_deps_in_binary_feature,
             library_search_directories_feature,
             libtool_feature,
             archiver_flags_feature,
@@ -1469,7 +1445,6 @@ def _impl(ctx):
             default_link_flags_feature,
             user_link_flags_feature,
             default_link_libs_feature,
-            link_indirect_dynamic_deps_in_binary_feature,
             fdo_optimize_feature,
             dbg_feature,
             opt_feature,

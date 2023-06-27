@@ -16,7 +16,7 @@ cc_library(
 
 cc_shared_library(
     name = "diff_pkg_so",
-    features = ["windows_export_all_symbols", "exclude_bazel_rpaths_in_transitive_libs"],
+    features = ["windows_export_all_symbols"],
     deps = [
         ":diff_pkg",
     ],
