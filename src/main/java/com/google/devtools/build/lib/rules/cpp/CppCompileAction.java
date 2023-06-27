@@ -30,7 +30,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
@@ -123,8 +122,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   private static final UUID GUID = UUID.fromString("97493805-894f-493a-be66-9a698f45c31d");
 
   private static final PathFragment BUILD_PATH_FRAGMENT = PathFragment.create("BUILD");
-
-  private static final boolean VALIDATION_DEBUG_WARN = false;
 
   @VisibleForTesting static final String CPP_COMPILE_MNEMONIC = "CppCompile";
   @VisibleForTesting static final String OBJC_COMPILE_MNEMONIC = "ObjcCompile";
@@ -1056,29 +1053,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       if (!validateInclude(
           actionExecutionContext, allowedIncludes, looseHdrsDirs, ignoreDirs, input)) {
         errors.add(input.getExecPath().toString());
-      }
-    }
-    if (VALIDATION_DEBUG_WARN) {
-      synchronized (System.err) {
-        if (errors.hasProblems()) {
-          if (errors.hasProblems()) {
-            System.err.println("ERROR: Include(s) were not in declared srcs:");
-          } else {
-            System.err.println(
-                "INFO: Include(s) were OK for '" + getSourceFile() + "', declared srcs:");
-          }
-          for (Artifact a : ccCompilationContext.getDeclaredIncludeSrcs().toList()) {
-            System.err.println("  '" + a.toDetailString() + "'");
-          }
-          System.err.println(" or under loose headers dirs:");
-          for (PathFragment f : Sets.newTreeSet(ccCompilationContext.getLooseHdrsDirs().toList())) {
-            System.err.println("  '" + f + "'");
-          }
-          System.err.println(" with prefixes:");
-          for (PathFragment dirpath : ccCompilationContext.getQuoteIncludeDirs()) {
-            System.err.println("  '" + dirpath + "'");
-          }
-        }
       }
     }
     errors.assertProblemFree(this, getSourceFile());
