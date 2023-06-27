@@ -45,7 +45,7 @@ import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.ThreadSafeMutableKeyExtractorBackedSetImpl;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.actiongraph.v2.StreamedOutputHandler;
+import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.OutputStream;
@@ -145,28 +145,28 @@ public class ActionGraphQueryEnvironment
             aqueryOptions,
             out,
             accessor,
-            StreamedOutputHandler.OutputType.BINARY,
+            AqueryOutputHandler.OutputType.BINARY,
             actionFilters),
         new ActionGraphProtoOutputFormatterCallback(
             eventHandler,
             aqueryOptions,
             out,
             accessor,
-            StreamedOutputHandler.OutputType.DELIMITED_BINARY,
+            AqueryOutputHandler.OutputType.DELIMITED_BINARY,
             actionFilters),
         new ActionGraphProtoOutputFormatterCallback(
             eventHandler,
             aqueryOptions,
             out,
             accessor,
-            StreamedOutputHandler.OutputType.TEXT,
+            AqueryOutputHandler.OutputType.TEXT,
             actionFilters),
         new ActionGraphProtoOutputFormatterCallback(
             eventHandler,
             aqueryOptions,
             out,
             accessor,
-            StreamedOutputHandler.OutputType.JSON,
+            AqueryOutputHandler.OutputType.JSON,
             actionFilters),
         new ActionGraphTextOutputFormatterCallback(
             eventHandler, aqueryOptions, out, accessor, actionFilters, getMainRepoMapping()),

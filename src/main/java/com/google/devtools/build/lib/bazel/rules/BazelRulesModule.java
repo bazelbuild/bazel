@@ -386,6 +386,15 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help = "Deprecated no-op.")
     public boolean enableBzlDocDump;
+
+    // TODO(b/274595070): Remove this option.
+    @Option(
+        name = "experimental_parallel_aquery_output",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.QUERY,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "No-op.")
+    public boolean parallelAqueryOutput;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */
