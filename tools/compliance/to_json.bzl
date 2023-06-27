@@ -16,12 +16,6 @@
 These should eventually be part of rules_license.
 """
 
-load(
-    "@rules_license//rules:providers.bzl",
-    "LicenseInfo",
-    "PackageInfo",
-)
-
 def _strip_null_repo(label):
     """Removes the null repo name (e.g. @//) from a string.
 

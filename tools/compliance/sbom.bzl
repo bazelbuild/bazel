@@ -59,7 +59,7 @@ def sbom(name, target, out = None):
     packages_used(
         name = packages,
         target = target,
-        out = packages + ".json"
+        out = packages + ".json",
     )
     if not out:
         out = name + "_sbom.json"

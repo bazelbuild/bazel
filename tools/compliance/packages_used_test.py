@@ -46,11 +46,8 @@ class PackagesUsedTest(unittest.TestCase):
     content = json.loads(raw_json)
     self.assertIn(
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_proto",
-        content["packages"])
-
-  def test_package_info(self):
-    # Placeholder: There are no package_info declarations yet.
-    pass
+        content["packages"],
+    )
 
 
 if __name__ == "__main__":
