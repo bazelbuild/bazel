@@ -1370,12 +1370,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
               return FileStateValue.key(RootedPath.toRootedPath(pathEntry, pathFragment));
             });
 
-    Map<SkyKey, SkyValue> valuesMap = memoizingEvaluator.getValues();
-
     return FileSystemValueCheckerInferringAncestors.getDiffWithInferredAncestors(
         tsgm,
-        valuesMap,
-        memoizingEvaluator.getDoneValues(),
+        memoizingEvaluator.getInMemoryGraph(),
         dirtyFileStateSkyKeys,
         fsvcThreads,
         syscallCache);
