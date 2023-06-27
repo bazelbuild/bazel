@@ -1,6 +1,7 @@
 # Tools for gathering OSS licenses
 
 load(":gather_packages.bzl", "packages_used")
+load(":sbom.bzl", "sbom")
 
 licenses(["notice"])  # Apache 2.0
 
@@ -29,4 +30,10 @@ py_test(
     ],
     deps = [
     ],
+)
+
+sbom(
+    name = "bazel_sbom",
+    target = "//src:bazel_nojdk",
+    out = "bazel_sbom.json",
 )
