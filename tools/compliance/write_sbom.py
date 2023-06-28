@@ -96,6 +96,7 @@ def create_sbom(package_info: dict, maven_packages: dict) -> dict:
     if have_maven:
         pi["downloadLocation"] = have_maven['url']
     else:
+        # TODO(aiuto): Do something better for this case.
         print("MISSING ", pkg)
 
     packages.append(pi)
@@ -171,7 +172,6 @@ def maven_install_to_packages(maven_install: dict) -> dict:
           artifact = artifact,
           version = version,
       )
-      # print(name, url)
       tmp = info.copy()
       tmp["maven_name"] = name
       tmp["url"] = url
@@ -210,8 +210,8 @@ def main() -> None:
     with open(opts.maven_install, "rt", encoding="utf-8") as inp:
       maven_install = json.loads(inp.read())
       maven_packages = maven_install_to_packages(maven_install)
-
-      print(json.dumps(maven_packages, indent=2))
+      # Useful for debugging
+      # print(json.dumps(maven_packages, indent=2))
 
   sbom = create_sbom(package_info, maven_packages)
   with open(opts.out, "w", encoding="utf-8") as out:
