@@ -2574,6 +2574,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     syncPackageLoading(pathPackageLocator, commandId, clientEnv, tsgm, executors, options);
 
     if (lastAnalysisDiscarded) {
+      logger.atInfo().log("Discarding analysis cache because the previous invocation told us to");
       dropConfiguredTargetsNow(eventHandler);
       lastAnalysisDiscarded = false;
     }

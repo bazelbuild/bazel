@@ -29,6 +29,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.google.common.eventbus.EventBus;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
@@ -127,6 +128,8 @@ import javax.annotation.Nullable;
  * <p>Covers enough functionality to work as a substitute for {@code BuildView#configureTargets}.
  */
 public final class SkyframeBuildView {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   private final ConfiguredTargetFactory factory;
   private final ArtifactFactory artifactFactory;
   private final SkyframeExecutor skyframeExecutor;
@@ -282,6 +285,7 @@ public final class SkyframeBuildView {
           Event.warn(
               "--discard_analysis_cache was used in the previous build, "
                   + "discarding analysis cache."));
+      logger.atInfo().log("Discarding analysis cache because the previous invocation told us to");
       skyframeExecutor.handleAnalysisInvalidatingChange();
     } else {
       String diff = describeConfigurationDifference(configuration, maxDifferencesToShow);
@@ -291,6 +295,8 @@ public final class SkyframeBuildView {
                 diff
                     + ", discarding analysis cache (this can be expensive, see"
                     + " https://bazel.build/advanced/performance/iteration-speed)."));
+        logger.atInfo().log(
+            "Discarding analysis cache because the build configuration changed: %s", diff);
         // Note that clearing the analysis cache is currently required for correctness. It is also
         // helpful to save memory.
         //
