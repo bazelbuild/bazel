@@ -57,7 +57,7 @@ def _proto_j2objc_source(ctx, proto_info, proto_sources, objc_file_path):
 def _get_output_objc_files(actions, srcs, objc_file_root_relative_path, suffix):
     objc_sources = []
     for src in srcs:
-        src_path = src.short_path.removesuffix("." + src.extension)
+        src_path = src.path.removesuffix("." + src.extension)
         objc_source_path = paths.get_relative(objc_file_root_relative_path, src_path) + suffix
         objc_sources.append(actions.declare_file(objc_source_path))
     return objc_sources
@@ -97,7 +97,7 @@ def _java_j2objc_source(ctx, java_source_files, java_source_jars):
         header_tree_artifact_rel_path = _get_header_tree_artifact_rel_path(ctx)
         translated_header = ctx.actions.declare_directory(header_tree_artifact_rel_path)
         objc_hdrs.append(translated_header)
-        header_search_paths.append(translated_header.short_path)
+        header_search_paths.append(translated_header.path)
 
     return struct(
         target = ctx.label,
@@ -239,7 +239,7 @@ def _create_j2objc_transpilation_action(
         dep_j2objc_mapping_file_provider,
         transitive_compile_time_jars,
         j2objc_source):
-    java_runtime = java_semantics.find_java_runtime_toolchain(ctx)
+    java_runtime = ctx.toolchains[java_semantics.JAVA_TOOLCHAIN_TYPE].java.java_runtime
 
     args = ctx.actions.args()
     args.use_param_file(param_file_arg = "@%s", use_always = True)
@@ -285,7 +285,7 @@ def _create_j2objc_transpilation_action(
     args.add("--compiled_archive_file_path", compiled_library)
 
     boothclasspath_jar = ctx.file._jre_emul_jar
-    args.add("-Xbootclasspath:" + boothclasspath_jar.short_path)
+    args.add("-Xbootclasspath:" + boothclasspath_jar.path)
 
     module_files = ctx.attr._jre_emul_module.files.to_list()
     for file in module_files:
@@ -304,17 +304,18 @@ def _create_j2objc_transpilation_action(
 
     args.add_all(java_source_files)
 
+    direct_files = [j2objc_deploy_jar, boothclasspath_jar]
+    if dead_code_report != None:
+        direct_files.append(dead_code_report)
+    if not experimental_j2objc_header_map:
+        direct_files.append(output_header_mapping_file)
+
     ctx.actions.run(
         mnemonic = "TranspilingJ2objc",
         executable = ctx.executable._j2objc_wrapper,
         arguments = [args],
         inputs = depset(
-            [
-                j2objc_deploy_jar,
-                boothclasspath_jar,
-                dead_code_report,
-            ] + module_files + java_source_files + java_source_jars +
-            [output_header_mapping_file] if not experimental_j2objc_header_map else [],
+            direct_files + module_files + java_source_files + java_source_jars,
             transitive = [
                 transitive_compile_time_jars,
                 java_runtime.files,
@@ -322,9 +323,8 @@ def _create_j2objc_transpilation_action(
                 deps_class_mapping_files,
             ],
         ),
-        outputs = [output_dep_mapping_file, archive_source_mapping_file] +
-                  j2objc_source.objc_srcs +
-                  j2objc_source.objc_hdrs,
+        outputs = j2objc_source.objc_srcs + j2objc_source.objc_hdrs +
+                  [output_dep_mapping_file, archive_source_mapping_file],
         toolchain = None,
     )
 
@@ -551,12 +551,14 @@ j2objc_aspect = aspect(
             default = "@" + cc_semantics.get_repo() + "//tools/j2objc:j2objc_header_map_binary",
         ),
         "_jre_emul_jar": attr.label(
+            cfg = "exec",
             allow_single_file = True,
-            default = Label("@//third_party/java/j2objc:jre_emul.jar"),
+            default = Label("@" + cc_semantics.get_repo() + "//third_party/java/j2objc:jre_emul.jar"),
         ),
         "_jre_emul_module": attr.label(
+            cfg = "exec",
             allow_files = True,
-            default = Label("@//third_party/java/j2objc:jre_emul_module"),
+            default = Label("@" + cc_semantics.get_repo() + "//third_party/java/j2objc:jre_emul_module"),
         ),
         "_dead_code_report": attr.label(
             allow_single_file = True,
@@ -568,7 +570,7 @@ j2objc_aspect = aspect(
         ),
         "_jre_lib": attr.label(
             allow_files = True,
-            default = Label("@//third_party/java/j2objc:jre_core_lib"),
+            default = Label("@" + cc_semantics.get_repo() + "//third_party/java/j2objc:jre_core_lib"),
         ),
         "_xcrunwrapper": attr.label(
             allow_files = True,
@@ -591,13 +593,12 @@ j2objc_aspect = aspect(
         "_j2objc_proto_toolchain": attr.label(
             default = configuration_field(fragment = "proto", name = "proto_toolchain_for_j2objc"),
         ),
-        "_java_toolchain_type": attr.label(default = java_semantics.JAVA_TOOLCHAIN_TYPE),
         "_cc_toolchain": attr.label(
             default = "@" + cc_semantics.get_repo() + "//tools/cpp:current_cc_toolchain",
         ),
     },
     required_providers = [[JavaInfo], [ProtoInfo]],
     provides = [apple_common.Objc],
-    toolchains = [java_semantics.JAVA_TOOLCHAIN_TYPE, java_semantics.JAVA_RUNTIME_TOOLCHAIN_TYPE] + cc_helper.use_cpp_toolchain(),
+    toolchains = [java_semantics.JAVA_TOOLCHAIN_TYPE] + cc_helper.use_cpp_toolchain(),
     fragments = ["apple", "cpp", "j2objc", "objc", "proto"],
 )

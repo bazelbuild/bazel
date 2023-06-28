@@ -88,7 +88,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyKind;
-import com.google.devtools.build.lib.analysis.InconsistentNullConfigException;
+import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyException;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.TargetConfiguredEvent;
@@ -1370,12 +1370,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
               return FileStateValue.key(RootedPath.toRootedPath(pathEntry, pathFragment));
             });
 
-    Map<SkyKey, SkyValue> valuesMap = memoizingEvaluator.getValues();
-
     return FileSystemValueCheckerInferringAncestors.getDiffWithInferredAncestors(
         tsgm,
-        valuesMap,
-        memoizingEvaluator.getDoneValues(),
+        memoizingEvaluator.getInMemoryGraph(),
         dirtyFileStateSkyKeys,
         fsvcThreads,
         syscallCache);
@@ -3889,7 +3886,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
           public void acceptConfiguredTargetAndDataError(ConfiguredValueCreationException error) {}
 
           @Override
-          public void acceptConfiguredTargetAndDataError(InconsistentNullConfigException error) {}
+          public void acceptConfiguredTargetAndDataError(
+              InvalidVisibilityDependencyException error) {}
         };
 
     EvaluationResult<SkyValue> result;

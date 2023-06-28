@@ -492,8 +492,7 @@ public final class OptionProcessor extends AbstractProcessor {
           // Production multiple options that still have default value.
           // Mostly due to backward compatibility reasons.
           "runs_per_test",
-          "flaky_test_attempts",
-          "worker_max_instances");
+          "flaky_test_attempts");
 
   private static boolean isMultipleOptionDefaultValueException(Option annotation) {
     return MULTIPLE_OPTIONS_DEFAULT_VALUE_EXCEPTIONS.contains(annotation.name());

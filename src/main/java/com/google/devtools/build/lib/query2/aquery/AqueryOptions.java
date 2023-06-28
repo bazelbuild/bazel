@@ -64,8 +64,8 @@ public class AqueryOptions extends CommonQueryOptions {
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
-          "Include the file contents for the FileWrite and SourceSymlinkManifest actions"
-              + " (potentially large). ")
+          "Include the file contents for the FileWrite, SourceSymlinkManifest, and "
+              + "RepoMappingManifest actions (potentially large). ")
   public boolean includeFileWriteContents;
 
   @Option(

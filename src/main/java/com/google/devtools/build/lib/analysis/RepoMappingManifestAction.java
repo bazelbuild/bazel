@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Comparator.comparing;
 
 import com.google.common.collect.ImmutableSet;
@@ -26,7 +27,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem.MapFn;
-import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -35,8 +35,11 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.util.Fingerprint;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Map.Entry;
 import java.util.UUID;
@@ -44,7 +47,8 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 
 /** Creates a manifest file describing the repos and mappings relevant for a runfile tree. */
-public final class RepoMappingManifestAction extends AbstractFileWriteAction {
+public final class RepoMappingManifestAction extends AbstractFileWriteAction
+    implements AbstractFileWriteAction.FileContentsProvider {
 
   private static final UUID MY_UUID = UUID.fromString("458e351c-4d30-433d-b927-da6cddd4737f");
 
@@ -119,9 +123,24 @@ public final class RepoMappingManifestAction extends AbstractFileWriteAction {
     fp.addString(workspaceName);
   }
 
+  /**
+   * Get the contents of a file internally using an in memory output stream.
+   *
+   * @return returns the file contents as a string.
+   */
   @Override
-  public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx)
-      throws InterruptedException, ExecException {
+  public String getFileContents(@Nullable EventHandler eventHandler) throws IOException {
+    ByteArrayOutputStream stream = new ByteArrayOutputStream();
+    newDeterministicWriter().writeOutputFile(stream);
+    return stream.toString(UTF_8);
+  }
+
+  @Override
+  public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
+    return newDeterministicWriter();
+  }
+
+  public DeterministicWriter newDeterministicWriter() {
     return out -> {
       PrintWriter writer = new PrintWriter(out, /* autoFlush= */ false, ISO_8859_1);
 

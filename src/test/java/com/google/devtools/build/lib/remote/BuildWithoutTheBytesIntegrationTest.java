@@ -22,10 +22,12 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeFalse;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.dynamic.DynamicExecutionModule;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.IntegrationTestUtils.WorkerInstance;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -795,5 +797,62 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     assertValidOutputFile("foo-link/file-1", "1");
     assertValidOutputFile("foo-link/file-2", "2");
     assertValidOutputFile("foo-link/file-3", "3");
+  }
+
+  @Test
+  public void leaseExtension() throws Exception {
+    // Test that Bazel will extend the leases for remote output by sending FindMissingBlobs calls
+    // periodically to remote server. The test assumes remote server will set mtime of referenced
+    // blobs to `now`.
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = [],",
+        "  outs = ['out/foo.txt'],",
+        "  cmd = 'echo -n foo > $@',",
+        ")",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo'],",
+        "  outs = ['out/foobar.txt'],",
+        // We need the action lasts more than --experimental_remote_cache_ttl so Bazel has the
+        // chance to extend the lease
+        "  cmd = 'sleep 2 && cat $(location :foo) > $@ && echo bar >> $@',",
+        ")");
+    addOptions("--experimental_remote_cache_ttl=1s", "--experimental_remote_cache_lease_extension");
+    var content = "foo".getBytes(UTF_8);
+    var hashCode = getFileSystem().getDigestFunction().getHashFunction().hashBytes(content);
+    var digest = DigestUtil.buildDigest(hashCode.asBytes(), content.length).getHash();
+    // Calculate the blob path in CAS. This is specific to the remote worker. See
+    // {@link DiskCacheClient#getPath()}.
+    var blobPath =
+        getFileSystem()
+            .getPath(worker.getCasPath())
+            .getChild("cas")
+            .getChild(digest.substring(0, 2))
+            .getChild(digest);
+    var mtimes = Sets.newConcurrentHashSet();
+    // Observe the mtime of the blob in background.
+    var thread =
+        new Thread(
+            () -> {
+              while (!Thread.currentThread().isInterrupted()) {
+                try {
+                  mtimes.add(blobPath.getLastModifiedTime());
+                } catch (IOException ignored) {
+                  // Intentionally ignored
+                }
+              }
+            });
+    thread.start();
+
+    buildTarget("//:foobar");
+    waitDownloads();
+
+    thread.interrupt();
+    thread.join();
+    // We should be able to observe more than 1 mtime if the server extends the lease.
+    assertThat(mtimes.size()).isGreaterThan(1);
   }
 }

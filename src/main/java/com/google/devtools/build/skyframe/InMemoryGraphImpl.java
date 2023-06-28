@@ -267,6 +267,12 @@ public class InMemoryGraphImpl implements InMemoryGraph {
     LabelInterner.setGlobalPool(null);
   }
 
+  @Override
+  @Nullable
+  public InMemoryNodeEntry getIfPresent(SkyKey key) {
+    return nodeMap.get(key);
+  }
+
   static final class EdgelessInMemoryGraphImpl extends InMemoryGraphImpl {
 
     public EdgelessInMemoryGraphImpl(boolean usePooledInterning) {

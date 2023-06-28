@@ -204,18 +204,6 @@ public class BuildRequestOptions extends OptionsBase {
   public int maxResultTargets;
 
   @Option(
-      name = "experimental_show_artifacts",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "Output a list of all top level artifacts produced by this build."
-              + "Use output format suitable for tool consumption. "
-              + "This flag is temporary and intended to facilitate Android Studio integration. "
-              + "This output format will likely change in the future or disappear completely.")
-  public boolean showArtifacts;
-
-  @Option(
       name = "announce",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,

@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
-import com.google.protobuf.CodedOutputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -79,12 +78,6 @@ public class ConfiguredTargetQueryEnvironment
   public static final ImmutableList<QueryFunction> FUNCTIONS = populateFunctions();
   /** Cquery specific functions. */
   public static final ImmutableList<QueryFunction> CQUERY_FUNCTIONS = getCqueryFunctions();
-
-  /**
-   * Pseudo-arbitrarily chosen buffer size for output. Chosen to be large enough to fit a handful of
-   * messages without needing to flush to the underlying output, which may not be buffered.
-   */
-  private static final int OUTPUT_BUFFER_SIZE = 16384;
 
   private CqueryOptions cqueryOptions;
 
@@ -233,7 +226,6 @@ public class ConfiguredTargetQueryEnvironment
             eventHandler,
             cqueryOptions,
             out,
-            CodedOutputStream.newInstance(out, OUTPUT_BUFFER_SIZE),
             skyframeExecutor,
             accessor,
             aspectResolver,
@@ -243,17 +235,6 @@ public class ConfiguredTargetQueryEnvironment
             eventHandler,
             cqueryOptions,
             out,
-            CodedOutputStream.newInstance(out, OUTPUT_BUFFER_SIZE),
-            skyframeExecutor,
-            accessor,
-            aspectResolver,
-            OutputType.DELIMITED_BINARY,
-            ruleClassProvider),
-        new ProtoOutputFormatterCallback(
-            eventHandler,
-            cqueryOptions,
-            out,
-            CodedOutputStream.newInstance(out, OUTPUT_BUFFER_SIZE),
             skyframeExecutor,
             accessor,
             aspectResolver,
@@ -263,7 +244,6 @@ public class ConfiguredTargetQueryEnvironment
             eventHandler,
             cqueryOptions,
             out,
-            CodedOutputStream.newInstance(out, OUTPUT_BUFFER_SIZE),
             skyframeExecutor,
             accessor,
             aspectResolver,

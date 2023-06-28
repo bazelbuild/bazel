@@ -169,6 +169,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:credential_module",
         "//src/main/java/com/google/devtools/build/lib/dynamic",
         "//src/main/java/com/google/devtools/build/lib/remote",
+        "//src/main/java/com/google/devtools/build/lib/remote/util",
         "//src/main/java/com/google/devtools/build/lib/standalone",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",

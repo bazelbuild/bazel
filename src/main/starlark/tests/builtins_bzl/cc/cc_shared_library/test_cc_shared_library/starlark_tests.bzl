@@ -68,7 +68,7 @@ def _linking_order_test_impl(env, target):
         if "qux2.pic.o" in user_libs:
             found_bar = False
             for arg in args:
-                if "libbar" in arg:
+                if "-lbar_so" in arg:
                     found_bar = True
                 elif "qux2.pic.o" in arg:
                     env.expect.where(

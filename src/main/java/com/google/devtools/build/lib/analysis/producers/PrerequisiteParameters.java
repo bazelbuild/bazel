@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import javax.annotation.Nullable;
@@ -34,7 +33,7 @@ import net.starlark.java.syntax.Location;
 /** Common parameters for computing prerequisites. */
 public final class PrerequisiteParameters {
   private final ConfiguredTargetKey configuredTargetKey;
-  private final Target target;
+  @Nullable private final Rule associatedRule;
 
   private final ImmutableList<Aspect> aspects;
   private final StarlarkTransitionCache transitionCache;
@@ -45,14 +44,14 @@ public final class PrerequisiteParameters {
 
   public PrerequisiteParameters(
       ConfiguredTargetKey configuredTargetKey,
-      Target target,
+      @Nullable Rule associatedRule,
       Iterable<Aspect> aspects,
       StarlarkTransitionCache transitionCache,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
       @Nullable ConfiguredAttributeMapper attributeMap,
       TransitiveDependencyState transitiveState) {
     this.configuredTargetKey = configuredTargetKey;
-    this.target = target;
+    this.associatedRule = associatedRule;
     this.aspects = ImmutableList.copyOf(aspects);
     this.transitionCache = transitionCache;
     this.toolchainContexts = toolchainContexts;
@@ -64,13 +63,9 @@ public final class PrerequisiteParameters {
     return configuredTargetKey.getLabel();
   }
 
-  public Target target() {
-    return target;
-  }
-
   @Nullable
   public Rule associatedRule() {
-    return target.getAssociatedRule();
+    return associatedRule;
   }
 
   @Nullable
@@ -96,8 +91,12 @@ public final class PrerequisiteParameters {
     return attributeMap;
   }
 
+  @Nullable
   public Location location() {
-    return target.getLocation();
+    if (associatedRule == null) {
+      return null;
+    }
+    return associatedRule.getLocation();
   }
 
   public BuildEventId eventId() {
