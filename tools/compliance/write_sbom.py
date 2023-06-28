@@ -49,6 +49,14 @@ def create_sbom(package_info: dict) -> dict:
   }
 
   packages = []
+  relationships = []
+
+  relationships.append({
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relatedSpdxElement": "SPDXRef-Package-main",
+      "relationshipType": "DESCRIBES"
+  })
+
   for pkg in package_info["packages"]:
     packages.append({
         "name": pkg,
@@ -59,8 +67,14 @@ def create_sbom(package_info: dict) -> dict:
         # "licenseConcluded": "License-da09db95a268defe",
         # "copyrightText": ""
     })
+    relationships.append({
+      "spdxElementId": "SPDXRef-Package-main",
+      # "relatedSpdxElement": "SPDXRef-GooglePackage-4c7dc29872b9c418",
+      "relationshipType": "CONTAINS"
+    })
 
   ret["packages"] = packages
+  ret["relationships"] = relationships
   return ret
 
 
