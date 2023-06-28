@@ -57,7 +57,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CcIncludeScanningRule;
-import com.google.devtools.build.lib.rules.cpp.GraphNodeAspect;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import javax.annotation.Nullable;
 
@@ -485,12 +484,6 @@ public class BazelCppRuleClasses {
 
   /** Helper rule class. */
   public static final class CcBinaryBaseRule implements RuleDefinition {
-    private final GraphNodeAspect graphNodeAspect;
-
-    public CcBinaryBaseRule(GraphNodeAspect graphNodeAspect) {
-      this.graphNodeAspect = graphNodeAspect;
-    }
-
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
@@ -511,8 +504,7 @@ public class BazelCppRuleClasses {
                   .allowedRuleClasses(DEPS_ALLOWED_RULES)
                   .allowedFileTypes(CppFileTypes.LINKER_SCRIPT)
                   .skipAnalysisTimeFileTypeCheck()
-                  .mandatoryProviders(StarlarkProviderIdentifier.forKey(CcInfo.PROVIDER.getKey()))
-                  .aspect(graphNodeAspect, GraphNodeAspect.ASPECT_PARAMETERS))
+                  .mandatoryProviders(StarlarkProviderIdentifier.forKey(CcInfo.PROVIDER.getKey())))
           .add(
               attr("dynamic_deps", LABEL_LIST)
                   .allowedFileTypes(FileTypeSet.NO_FILE)
@@ -541,8 +533,7 @@ public class BazelCppRuleClasses {
               attr("malloc", LABEL)
                   .value(env.getToolsLabel("//tools/cpp:malloc"))
                   .allowedFileTypes()
-                  .allowedRuleClasses("cc_library")
-                  .aspect(graphNodeAspect, GraphNodeAspect.ASPECT_PARAMETERS))
+                  .allowedRuleClasses("cc_library"))
           .add(attr(":default_malloc", LABEL).value(CppRuleClasses.DEFAULT_MALLOC))
           /*<!-- #BLAZE_RULE($cc_binary_base).ATTRIBUTE(stamp) -->
           Whether to encode build information into the binary. Possible values:
