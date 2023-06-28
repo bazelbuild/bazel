@@ -1,6 +1,13 @@
 # Tools for gathering OSS licenses
 
 load(":gather_packages.bzl", "packages_used")
+load(":sbom.bzl", "sbom")
+
+# TODO(aiuto): fix copybara transforms.
+#package(
+#    default_package_metadata = ["//:license"],
+#    default_visibility = ["//visibility:private"],
+#)
 
 licenses(["notice"])  # Apache 2.0
 
@@ -29,4 +36,16 @@ py_test(
     python_version = "PY3",
     deps = [
     ],
+)
+
+sbom(
+    name = "bazel_sbom",
+    out = "bazel_sbom.json",
+    target = "//src:bazel_nojdk",
+)
+
+py_binary(
+    name = "write_sbom_private",
+    srcs = ["write_sbom.py"],
+    main = "write_sbom.py",
 )
