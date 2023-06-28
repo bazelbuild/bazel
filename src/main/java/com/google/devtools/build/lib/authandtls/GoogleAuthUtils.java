@@ -330,7 +330,7 @@ public final class GoogleAuthUtils {
         creds = creds.createScoped(authScopes);
       }
       return creds;
-    } catch (IOException e) {
+    } catch (Exception e) {
       String message = "Failed to init auth credentials: " + e.getMessage();
       throw new IOException(message, e);
     }
