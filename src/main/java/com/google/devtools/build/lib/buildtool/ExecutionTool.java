@@ -576,16 +576,6 @@ public class ExecutionTool {
           buildResultListener.getAnalyzedAspects());
     }
 
-    try (SilentCloseable c = Profiler.instance().profile("Show artifacts")) {
-      if (request.getBuildOptions().showArtifacts) {
-        BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
-        buildResultPrinter.showArtifacts(
-            request,
-            buildResultListener.getAnalyzedTargets(),
-            buildResultListener.getAnalyzedAspects().values());
-      }
-    }
-
     if (explanationHandler != null) {
       uninstallExplanationHandler(explanationHandler);
       try {

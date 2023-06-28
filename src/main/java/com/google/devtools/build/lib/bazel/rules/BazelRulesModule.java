@@ -395,6 +395,14 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "No-op.")
     public boolean parallelAqueryOutput;
+
+    @Option(
+        name = "experimental_show_artifacts",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help = "Deprecated no-op.")
+    public boolean showArtifacts;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */
