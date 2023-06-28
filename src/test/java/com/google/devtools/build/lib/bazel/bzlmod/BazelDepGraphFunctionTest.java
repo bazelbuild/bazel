@@ -64,6 +64,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -214,6 +215,7 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
     return ModuleExtensionUsage.builder()
         .setExtensionBzlFile(bzlFile)
         .setExtensionName(name)
+        .setIsolationKey(Optional.empty())
         .setImports(importsBuilder.buildOrThrow())
         .setDevImports(ImmutableSet.of())
         .setUsingModule(ModuleKey.ROOT)
@@ -253,14 +255,16 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
 
     ModuleExtensionId maven =
         ModuleExtensionId.create(
-            Label.parseCanonical("@@rules_jvm_external~1.0//:defs.bzl"), "maven");
+            Label.parseCanonical("@@rules_jvm_external~1.0//:defs.bzl"), "maven", Optional.empty());
     ModuleExtensionId pip =
-        ModuleExtensionId.create(Label.parseCanonical("@@rules_python~2.0//:defs.bzl"), "pip");
+        ModuleExtensionId.create(
+            Label.parseCanonical("@@rules_python~2.0//:defs.bzl"), "pip", Optional.empty());
     ModuleExtensionId myext =
-        ModuleExtensionId.create(Label.parseCanonical("@@dep~2.0//:defs.bzl"), "myext");
+        ModuleExtensionId.create(
+            Label.parseCanonical("@@dep~2.0//:defs.bzl"), "myext", Optional.empty());
     ModuleExtensionId myext2 =
         ModuleExtensionId.create(
-            Label.parseCanonical("@@dep~2.0//incredible:conflict.bzl"), "myext");
+            Label.parseCanonical("@@dep~2.0//incredible:conflict.bzl"), "myext", Optional.empty());
 
     resolutionFunctionMock.setDepGraph(depGraph);
     EvaluationResult<BazelDepGraphValue> result =
@@ -287,7 +291,7 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
             maven, "rules_jvm_external~1.0~maven",
             pip, "rules_python~2.0~pip",
             myext, "dep~2.0~myext",
-            myext2, "dep~2.0~myext2");
+            myext2, "dep~2.0~myext~2");
 
     assertThat(value.getFullRepoMapping(ModuleKey.ROOT))
         .isEqualTo(
@@ -318,7 +322,7 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
                 "oneext",
                 "dep~2.0~myext~myext",
                 "twoext",
-                "dep~2.0~myext2~myext"));
+                "dep~2.0~myext~2~myext"));
   }
 
   @Test

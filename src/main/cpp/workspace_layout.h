@@ -29,7 +29,8 @@ class WorkspaceLayout {
   virtual std::string GetOutputRoot() const;
 
   // Given the working directory, returns the nearest enclosing directory with a
-  // WORKSPACE file in it.  If there is no such enclosing directory, returns "".
+  // workspace boundary file in it.  If there is no such enclosing directory,
+  // returns "".
   //
   // E.g., if there was a WORKSPACE file in foo/bar/build_root:
   // GetWorkspace('foo/bar') --> ''
@@ -41,7 +42,7 @@ class WorkspaceLayout {
   virtual std::string GetWorkspace(const std::string& cwd) const;
 
   // Given a result returned from GetWorkspace, returns a pretty workspace name
-  // than can e.g. be used in the process title of the Bazel server.
+  // that can e.g. be used in the process title of the Bazel server.
   virtual std::string GetPrettyWorkspaceName(
       const std::string& workspace) const;
 
