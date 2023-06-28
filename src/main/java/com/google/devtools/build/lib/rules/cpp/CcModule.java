@@ -429,6 +429,7 @@ public abstract class CcModule
         /* interfaceLibraryBuilder= */ null,
         /* interfaceLibraryOutput= */ null,
         /* ltoOutputRootPrefix= */ null,
+        /* ltoObjRootPrefix= */ null,
         convertFromNoneable(defFile, /* defaultValue= */ null),
         /* fdoContext= */ null,
         Depset.noneableCast(
@@ -941,10 +942,17 @@ public abstract class CcModule
     }
   }
 
+  /**
+   * Create an LTO backend that does not perform any cross-module optimization because Starlark does
+   * not hava support for LTO indexing actions yet.
+   *
+   * <p>TODO(b/128341904): Do cross module optimization once there is Starlark support.
+   */
   @Override
   public LtoBackendArtifacts createLtoBackendArtifacts(
       StarlarkRuleContext starlarkRuleContext,
       String ltoOutputRootPrefixString,
+      String ltoObjRootPrefixString,
       Artifact bitcodeFile,
       FeatureConfigurationForStarlark featureConfigurationForStarlark,
       CcToolchainProvider ccToolchain,
@@ -957,6 +965,7 @@ public abstract class CcModule
     isCalledFromStarlarkCcCommon(thread);
     RuleContext ruleContext = starlarkRuleContext.getRuleContext();
     PathFragment ltoOutputRootPrefix = PathFragment.create(ltoOutputRootPrefixString);
+    PathFragment ltoObjRootPrefix = PathFragment.create(ltoObjRootPrefixString);
     LtoBackendArtifacts ltoBackendArtifacts;
     try {
       ltoBackendArtifacts =
@@ -966,7 +975,9 @@ public abstract class CcModule
               ruleContext.getConfiguration().getOptions(),
               ruleContext.getConfiguration().getFragment(CppConfiguration.class),
               ltoOutputRootPrefix,
+              ltoObjRootPrefix,
               bitcodeFile,
+              /* allBitcodeFiles= */ null,
               starlarkRuleContext.actions().getActionConstructionContext(),
               ruleContext.getRepository(),
               ruleContext.getConfiguration(),
@@ -2802,7 +2813,7 @@ public abstract class CcModule
       helper.addVariableExtension(new UserVariablesExtension(asDict(variablesExtension)));
     }
     if (convertFromNoneable(useShareableArtifactFactory, false)) {
-      helper.setLinkArtifactFactory(CppLinkActionBuilder.SHAREABLE_LINK_ARTIFACT_FACTORY);
+      helper.setLinkArtifactFactory(CppLinkAction.SHAREABLE_LINK_ARTIFACT_FACTORY);
     }
     CcCompilationOutputs compilationOutputs =
         convertFromNoneable(compilationOutputsObject, /* defaultValue= */ null);

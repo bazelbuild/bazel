@@ -14,14 +14,12 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -44,11 +42,13 @@ import com.google.devtools.build.lib.server.FailureDetails.LtoAction.Code;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -122,12 +122,59 @@ public final class LtoBackendAction extends SpawnAction {
     this.inputsDiscovered = inputsDiscovered;
   }
 
-  private NestedSet<Artifact> computeBitcodeInputs(HashSet<PathFragment> inputPaths) {
-    NestedSetBuilder<Artifact> bitcodeInputs = NestedSetBuilder.stableOrder();
-    for (Artifact inputArtifact : bitcodeFiles.getFiles().toList()) {
-      if (inputPaths.contains(inputArtifact.getExecPath())) {
-        bitcodeInputs.add(inputArtifact);
+  /**
+   * Given a map of path to artifact, and a path, returns the artifact whose key is in the map, or
+   * if none, an artifact whose key matches a prefix of the path. Assumes that artifacts whose paths
+   * are directories are tree artifacts. Assumes that no artifact key is a sub directory of another
+   * artifact key. For example, "path/file1" may return the artifact whose path is "path/file1" or
+   * whose path is "path/". Returns empty if there are no matches.
+   */
+  private Optional<Artifact> getArtifactOrTreeArtifact(
+      PathFragment path, Map<PathFragment, Artifact> pathToArtifact) {
+    PathFragment currentPath = path;
+    while (!currentPath.isEmpty()) {
+      if (pathToArtifact.containsKey(currentPath)) {
+        return Optional.of(pathToArtifact.get(currentPath));
+      } else {
+        currentPath = currentPath.getParentDirectory();
       }
+    }
+    return Optional.empty();
+  }
+
+  /**
+   * Throws an error if any of the input paths is not in the bitcodeFiles or in a subdirecorty of a
+   * file in bitcodeFiles
+   */
+  private NestedSet<Artifact> computeBitcodeInputs(
+      HashSet<PathFragment> inputPaths, ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException {
+    NestedSetBuilder<Artifact> bitcodeInputs = NestedSetBuilder.stableOrder();
+    ImmutableMap<PathFragment, Artifact> execPathToArtifact =
+        bitcodeFiles.getFilesArtifactPathMap();
+    Set<PathFragment> missingInputs = new HashSet<>();
+    for (PathFragment inputPath : inputPaths) {
+      Optional<Artifact> maybeArtifact = getArtifactOrTreeArtifact(inputPath, execPathToArtifact);
+      if (maybeArtifact.isPresent()) {
+        bitcodeInputs.add(maybeArtifact.get());
+      } else {
+        // One of the inputs is not present. We add it to missingInputs and will fail.
+        missingInputs.add(inputPath);
+      }
+    }
+    if (!missingInputs.isEmpty()) {
+      String message =
+          String.format(
+              "error computing inputs from imports file: %s, missing bitcode files (first 10): %s",
+              actionExecutionContext.getInputPath(imports),
+              // Limit the reported count to protect against a large error message.
+              missingInputs.stream()
+                  .map(Object::toString)
+                  .sorted()
+                  .limit(10)
+                  .collect(joining(", ")));
+      DetailedExitCode code = createDetailedExitCode(message, Code.MISSING_BITCODE_FILES);
+      throw new ActionExecutionException(message, this, false, code);
     }
     return bitcodeInputs.build();
   }
@@ -136,9 +183,10 @@ public final class LtoBackendAction extends SpawnAction {
   @Override
   public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException {
+    Path importsFilePath = actionExecutionContext.getInputPath(imports);
     ImmutableList<String> lines;
     try {
-      lines = FileSystemUtils.readLinesAsLatin1(actionExecutionContext.getInputPath(imports));
+      lines = FileSystemUtils.readLinesAsLatin1(importsFilePath);
     } catch (IOException e) {
       String message =
           String.format(
@@ -168,27 +216,8 @@ public final class LtoBackendAction extends SpawnAction {
     }
 
     // Convert the import set of paths to the set of bitcode file artifacts.
-    NestedSet<Artifact> bitcodeInputSet = computeBitcodeInputs(importSet);
-    if (bitcodeInputSet.memoizedFlattenAndGetSize() != importSet.size()) {
-      Set<PathFragment> missingInputs =
-          Sets.difference(
-              importSet,
-              bitcodeInputSet.toList().stream()
-                  .map(Artifact::getExecPath)
-                  .collect(toImmutableSet()));
-      String message =
-          String.format(
-              "error computing inputs from imports file: %s, missing bitcode files (first 10): %s",
-              actionExecutionContext.getInputPath(imports),
-              // Limit the reported count to protect against a large error message.
-              missingInputs.stream()
-                  .map(Object::toString)
-                  .sorted()
-                  .limit(10)
-                  .collect(joining(", ")));
-      DetailedExitCode code = createDetailedExitCode(message, Code.MISSING_BITCODE_FILES);
-      throw new ActionExecutionException(message, this, false, code);
-    }
+    // Throws an error if there is any path in the importset that is not pat of any artifact
+    NestedSet<Artifact> bitcodeInputSet = computeBitcodeInputs(importSet, actionExecutionContext);
     updateInputs(
         NestedSetBuilder.fromNestedSet(bitcodeInputSet).addTransitive(mandatoryInputs).build());
     return bitcodeInputSet;
@@ -250,6 +279,16 @@ public final class LtoBackendAction extends SpawnAction {
   public static class Builder extends SpawnAction.Builder {
     private BitcodeFiles bitcodeFiles;
     private Artifact imports;
+
+    public Builder() {
+      super();
+    }
+
+    public Builder(Builder other) {
+      super(other);
+      bitcodeFiles = other.bitcodeFiles;
+      imports = other.imports;
+    }
 
     @CanIgnoreReturnValue
     public Builder addImportsInfo(BitcodeFiles allBitcodeFiles, Artifact importsFile) {

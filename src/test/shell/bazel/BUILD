@@ -605,6 +605,16 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_thinlto_obj_dir_test",
+    srcs = ["bazel_thinlto_obj_dir_test.sh"],
+    data = [":test-deps"],
+    tags = [
+        "no_1804",
+        "no_windows",
+    ],
+)
+
+sh_test(
     name = "bazel_layering_check_test",
     srcs = ["bazel_layering_check_test.sh"],
     data = [":test-deps"],
