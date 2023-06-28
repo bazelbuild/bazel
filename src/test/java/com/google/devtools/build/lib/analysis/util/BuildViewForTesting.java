@@ -425,7 +425,7 @@ public class BuildViewForTesting {
             eventHandler,
             new PrerequisiteParameters(
                 ConfiguredTargetKey.fromConfiguredTarget(target),
-                state.targetAndConfiguration.getTarget(),
+                state.targetAndConfiguration.getTarget().getAssociatedRule(),
                 /* aspects= */ ImmutableList.of(),
                 skyframeBuildView.getStarlarkTransitionCache(),
                 toolchainContexts,
