@@ -15,7 +15,7 @@
 """cc_binary Starlark implementation replacing native"""
 
 load(":common/cc/semantics.bzl", "semantics")
-load(":common/cc/experimental_cc_shared_library.bzl", "GraphNodeInfo", "build_exports_map_from_only_dynamic_deps", "build_link_once_static_libs_map", "merge_cc_shared_library_infos", "separate_static_and_dynamic_link_libraries", "throw_linked_but_not_exported_errors")
+load(":common/cc/experimental_cc_shared_library.bzl", "GraphNodeInfo", "add_unused_dynamic_deps", "build_exports_map_from_only_dynamic_deps", "build_link_once_static_libs_map", "merge_cc_shared_library_infos", "separate_static_and_dynamic_link_libraries", "throw_linked_but_not_exported_errors", "sort_linker_inputs")
 load(":common/cc/cc_helper.bzl", "cc_helper")
 
 CcInfo = _builtins.toplevel.CcInfo
@@ -333,10 +333,10 @@ def _collect_transitive_dwo_artifacts(cc_compilation_outputs, cc_debug_context, 
             transitive_dwo_files = cc_debug_context.files
     return depset(dwo_files, transitive = [transitive_dwo_files])
 
-def _filter_libraries_that_are_linked_dynamically(ctx, cc_linking_context, cpp_config):
+def _filter_libraries_that_are_linked_dynamically(ctx, feature_configuration, cc_linking_context):
     merged_cc_shared_library_infos = merge_cc_shared_library_infos(ctx)
     link_once_static_libs_map = build_link_once_static_libs_map(merged_cc_shared_library_infos)
-    exports_map = build_exports_map_from_only_dynamic_deps(merged_cc_shared_library_infos)
+    transitive_exports = build_exports_map_from_only_dynamic_deps(merged_cc_shared_library_infos)
     static_linker_inputs = []
     linker_inputs = cc_linking_context.linker_inputs.to_list()
 
@@ -346,28 +346,64 @@ def _filter_libraries_that_are_linked_dynamically(ctx, cc_linking_context, cpp_c
     can_be_linked_dynamically = {}
     for linker_input in linker_inputs:
         owner = str(linker_input.owner)
-        if owner in exports_map:
+        if owner in transitive_exports:
             can_be_linked_dynamically[owner] = True
 
-    (link_statically_labels, link_dynamically_labels) = separate_static_and_dynamic_link_libraries(graph_structure_aspect_nodes, can_be_linked_dynamically)
+    # Entries in unused_dynamic_linker_inputs will be marked None if they are
+    # used
+    (
+        targets_to_be_linked_statically_map,
+        targets_to_be_linked_dynamically_set,
+        topologically_sorted_labels,
+        unused_dynamic_linker_inputs,
+    ) = separate_static_and_dynamic_link_libraries(
+        ctx,
+        graph_structure_aspect_nodes,
+        can_be_linked_dynamically,
+    )
+
+    topologically_sorted_labels = [ctx.label] + topologically_sorted_labels
 
     linker_inputs_seen = {}
     linked_statically_but_not_exported = {}
+    label_to_linker_inputs = {}
+
+    def _add_linker_input_to_dict(owner, linker_input):
+        label_to_linker_inputs.setdefault(owner, []).append(linker_input)
+
+    linker_inputs_count = 0
     for linker_input in linker_inputs:
         stringified_linker_input = cc_helper.stringify_linker_input(linker_input)
         if stringified_linker_input in linker_inputs_seen:
             continue
         linker_inputs_seen[stringified_linker_input] = True
         owner = str(linker_input.owner)
-        if owner not in link_dynamically_labels and (owner in link_statically_labels or str(ctx.label) == owner):
+        if owner in targets_to_be_linked_dynamically_set:
+            unused_dynamic_linker_inputs[transitive_exports[owner].owner] = None
+            _add_linker_input_to_dict(linker_input.owner, transitive_exports[owner])
+            linker_inputs_count += 1
+        elif owner in targets_to_be_linked_statically_map or str(ctx.label) == owner:
             if owner in link_once_static_libs_map:
-                linked_statically_but_not_exported.setdefault(link_once_static_libs_map[owner], []).append(owner)
+                linked_statically_but_not_exported.setdefault(targets_to_be_linked_statically_map[owner], []).append(owner)
             else:
-                static_linker_inputs.append(linker_input)
+                _add_linker_input_to_dict(linker_input.owner, linker_input)
+                linker_inputs_count += 1
+
+    # Unlike Unix on Windows every dynamic dependency must be linked to the
+    # main binary, even indirect ones that are dependencies of direct
+    # dynamic dependencies of this binary.
+    link_indirect_deps = cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "targets_windows")
+    linker_inputs_count += add_unused_dynamic_deps(ctx, unused_dynamic_linker_inputs, _add_linker_input_to_dict, topologically_sorted_labels, link_indirect_deps)
 
     throw_linked_but_not_exported_errors(linked_statically_but_not_exported)
 
-    return cc_common.create_linking_context(linker_inputs = depset(exports_map.values() + static_linker_inputs, order = "topological"))
+    sorted_linker_inputs = sort_linker_inputs(
+        topologically_sorted_labels,
+        label_to_linker_inputs,
+        linker_inputs_count,
+    )
+
+    return cc_common.create_linking_context(linker_inputs = depset(sorted_linker_inputs, order = "topological"))
 
 def _create_transitive_linking_actions(
         ctx,
@@ -448,7 +484,7 @@ def _create_transitive_linking_actions(
     cc_linking_context = cc_info.linking_context
 
     if len(ctx.attr.dynamic_deps) > 0:
-        cc_linking_context = _filter_libraries_that_are_linked_dynamically(ctx, cc_linking_context, cpp_config)
+        cc_linking_context = _filter_libraries_that_are_linked_dynamically(ctx, feature_configuration, cc_linking_context)
     link_deps_statically = True
     if linking_mode == _LINKING_DYNAMIC:
         link_deps_statically = False

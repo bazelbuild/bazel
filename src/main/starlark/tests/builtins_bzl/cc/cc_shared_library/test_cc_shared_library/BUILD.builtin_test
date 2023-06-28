@@ -59,7 +59,7 @@ cc_binary(
         "foo_so",
         "bar_so",
     ],
-    deps = ["foo"],
+    deps = ["foo", "bar"],
 )
 
 cc_shared_library(
@@ -113,9 +113,13 @@ cc_shared_library(
     }),
     dynamic_deps = [
         "bar_so",
-        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:diff_pkg_so"
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:diff_pkg_so",
+        "private_lib_so",
     ],
     features = ["windows_export_all_symbols"],
+    exports_filter = [
+        ":indirect_dep2",
+    ],
     deps = [
         "baz",
         "foo",
@@ -148,17 +152,17 @@ cc_library(
         "//src/conditions:linux": ["IS_LINUX"],
         "//conditions:default": [],
     }),
-    deps = [
+    deps = select({
+        ":is_bazel": ["qux2"],
+        "//conditions:default": [],
+    }) + [
         "bar",
         "baz",
         # Not exported.
         "qux",
         "prebuilt",
         "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:diff_pkg"
-    ] + select({
-        ":is_bazel": ["qux2"],
-        "//conditions:default": [],
-    }),
+    ],
 )
 
 wrapped_cc_lib(
@@ -361,6 +365,24 @@ additional_inputs_test(
         "//conditions:default": False,
     }),
     target_under_test = ":foo_so",
+)
+
+cc_shared_library(
+    name = "private_lib_so",
+    deps = [
+        ":private_lib",
+    ],
+)
+
+genrule(
+    name = "private_cc_lib_source",
+    outs = ["private_cc_library.cc"],
+    cmd = "touch $@",
+)
+
+cc_library(
+    name = "private_lib",
+    srcs = [":private_cc_library.cc"]
 )
 
 build_failure_test(
