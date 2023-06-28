@@ -43,7 +43,10 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.packages.NativeAspectClass;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
@@ -74,8 +77,21 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
-  protected NativeAspectClass getJ2ObjcAspect() {
-    return ruleClassProvider.getNativeAspectClass(J2ObjcAspect.NAME);
+
+  private static final Provider.Key starlarkJ2objcMappingFileProviderKey =
+      new StarlarkProvider.Key(
+          Label.parseCanonicalUnchecked("@_builtins//:common/objc/providers.bzl"),
+          "J2ObjcMappingFileInfo");
+
+  private StructImpl getJ2ObjcMappingFileInfoFromTarget(ConfiguredTarget configuredTarget)
+      throws Exception {
+    return (StructImpl) configuredTarget.get(starlarkJ2objcMappingFileProviderKey);
+  }
+
+  private ImmutableList<Artifact> getArtifacts(StructImpl j2ObjcMappingFileInfo, String attribute)
+      throws Exception {
+    Depset filesDepset = (Depset) j2ObjcMappingFileInfo.getValue(attribute);
+    return filesDepset.toList(Artifact.class);
   }
 
   /**
@@ -244,9 +260,11 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         ")");
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//java/com/google/transpile:dummy");
-    J2ObjcMappingFileProvider provider = target.get(J2ObjcMappingFileProvider.PROVIDER);
+    StructImpl j2ObjcMappingFileInfo = getJ2ObjcMappingFileInfoFromTarget(target);
+    ImmutableList<Artifact> headerMappingFilesList =
+        getArtifacts(j2ObjcMappingFileInfo, "header_mapping_files");
 
-    assertThat(provider.getHeaderMappingFiles().getSingleton().getRootRelativePath().toString())
+    assertThat(headerMappingFilesList.get(0).getRootRelativePath().toString())
         .isEqualTo("java/com/google/transpile/dummy.mapping.j2objc");
   }
 
@@ -266,9 +284,11 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         ")");
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//java/com/google/transpile:dummy");
-    J2ObjcMappingFileProvider provider = target.get(J2ObjcMappingFileProvider.PROVIDER);
+    StructImpl j2ObjcMappingFileInfo = getJ2ObjcMappingFileInfoFromTarget(target);
+    ImmutableList<Artifact> headerMappingFilesList =
+        getArtifacts(j2ObjcMappingFileInfo, "header_mapping_files");
 
-    assertThat(provider.getHeaderMappingFiles().getSingleton().getRootRelativePath().toString())
+    assertThat(headerMappingFilesList.get(0).getRootRelativePath().toString())
         .isEqualTo("java/com/google/dep/dep.mapping.j2objc");
   }
 
@@ -296,15 +316,13 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget(
         "//java/com/google/dummy/test/proto:test");
-    J2ObjcMappingFileProvider provider = target.get(J2ObjcMappingFileProvider.PROVIDER);
-    Artifact classMappingFile =
-        getGenfilesArtifact(
-            "test.clsmap.properties",
-            getConfiguredTarget(
-                "//java/com/google/dummy/test/proto:test_proto", getAppleCrosstoolConfiguration()),
-            getJ2ObjcAspect());
+    StructImpl j2ObjcMappingFileInfo = getJ2ObjcMappingFileInfoFromTarget(target);
+    ImmutableList<Artifact> classMappingFilesList =
+        getArtifacts(j2ObjcMappingFileInfo, "class_mapping_files");
 
-    assertThat(provider.getClassMappingFiles().toList()).containsExactly(classMappingFile);
+    assertThat(classMappingFilesList.get(0).getExecPathString())
+        .containsMatch(
+            "/applebin_macos-darwin_x86_64-fastbuild-ST-[^/]*/bin/java/com/google/dummy/test/proto/test.clsmap.properties");
   }
 
   @Test
@@ -327,19 +345,20 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         ")");
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//x:test");
-    ConfiguredTarget test = getConfiguredTarget("//x:test_proto", getAppleCrosstoolConfiguration());
-    J2ObjcMappingFileProvider provider = target.get(J2ObjcMappingFileProvider.PROVIDER);
-    Artifact classMappingFile =
-        getGenfilesArtifact("test.clsmap.properties", test, getJ2ObjcAspect());
-    assertThat(provider.getClassMappingFiles().toList()).containsExactly(classMappingFile);
+    StructImpl j2ObjcMappingFileInfo = getJ2ObjcMappingFileInfoFromTarget(target);
+    ImmutableList<Artifact> classMappingFilesList =
+        getArtifacts(j2ObjcMappingFileInfo, "class_mapping_files");
+    assertThat(classMappingFilesList.get(0).getExecPathString())
+        .containsMatch(
+            "/applebin_macos-darwin_x86_64-fastbuild-ST-[^/]*/bin/x/test.clsmap.properties");
 
     ObjcProvider objcProvider = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     CcCompilationContext ccCompilationContext =
         target.get(CcInfo.PROVIDER).getCcCompilationContext();
-    Artifact headerFile = getGenfilesArtifact("test.j2objc.pb.h", test, getJ2ObjcAspect());
-    Artifact sourceFile = getGenfilesArtifact("test.j2objc.pb.m", test, getJ2ObjcAspect());
-    assertThat(ccCompilationContext.getDeclaredIncludeSrcs().toList()).contains(headerFile);
-    assertThat(objcProvider.get(ObjcProvider.SOURCE).toList()).contains(sourceFile);
+    assertThat(ccCompilationContext.getDeclaredIncludeSrcs().toList().toString())
+        .containsMatch("/applebin_macos-darwin_x86_64-fastbuild-ST-[^/]*/bin]x/test.j2objc.pb.h");
+    assertThat(objcProvider.get(ObjcProvider.SOURCE).toList().toString())
+        .containsMatch("/applebin_macos-darwin_x86_64-fastbuild-ST-[^/]*/bin]x/test.j2objc.pb.m,");
   }
 
   @Test
@@ -374,25 +393,25 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "    deps = ['@bla//foo:test_java_proto'])");
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//x:test");
-    ConfiguredTarget test =
-        getConfiguredTarget("@bla//foo:test_proto", getAppleCrosstoolConfiguration());
 
-    J2ObjcMappingFileProvider provider = target.get(J2ObjcMappingFileProvider.PROVIDER);
+    StructImpl j2ObjcMappingFileInfo = getJ2ObjcMappingFileInfoFromTarget(target);
+    ImmutableList<Artifact> classMappingFilesList =
+        getArtifacts(j2ObjcMappingFileInfo, "class_mapping_files");
 
-    Artifact classMappingFile =
-        getGenfilesArtifact("../external/bla/foo/test.clsmap.properties", test, getJ2ObjcAspect());
-    assertThat(provider.getClassMappingFiles().toList()).containsExactly(classMappingFile);
+    assertThat(classMappingFilesList.get(0).getExecPathString())
+        .containsMatch(
+            "/applebin_macos-darwin_x86_64-fastbuild-ST-[^/]*/bin/external/bla/foo/test.clsmap.properties");
 
     ObjcProvider objcProvider = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     CcCompilationContext ccCompilationContext =
         target.get(CcInfo.PROVIDER).getCcCompilationContext();
 
-    Artifact headerFile =
-        getGenfilesArtifact("../external/bla/foo/test.j2objc.pb.h", test, getJ2ObjcAspect());
-    Artifact sourceFile =
-        getGenfilesArtifact("../external/bla/foo/test.j2objc.pb.m", test, getJ2ObjcAspect());
-    assertThat(ccCompilationContext.getDeclaredIncludeSrcs().toList()).contains(headerFile);
-    assertThat(objcProvider.get(ObjcProvider.SOURCE).toList()).contains(sourceFile);
+    assertThat(ccCompilationContext.getDeclaredIncludeSrcs().toList().toString())
+        .containsMatch(
+            "/applebin_macos-darwin_x86_64-fastbuild-ST-[^/]*/bin]external/bla/foo/test.j2objc.pb.h");
+    assertThat(objcProvider.get(ObjcProvider.SOURCE).toList().toString())
+        .containsMatch(
+            "/applebin_macos-darwin_x86_64-fastbuild-ST-[^/]*/bin]external/bla/foo/test.j2objc.pb.m");
     assertThat(ccCompilationContext.getIncludeDirs())
         .contains(
             getConfiguration(target)
@@ -411,11 +430,15 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         ")");
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//java/com/google/transpile:dummy");
-    J2ObjcMappingFileProvider provider = target.get(J2ObjcMappingFileProvider.PROVIDER);
+    StructImpl j2ObjcMappingFileInfo = getJ2ObjcMappingFileInfoFromTarget(target);
+    ImmutableList<Artifact> headerMappingFilesList =
+        getArtifacts(j2ObjcMappingFileInfo, "header_mapping_files");
+    ImmutableList<Artifact> classMappingFilesList =
+        getArtifacts(j2ObjcMappingFileInfo, "class_mapping_files");
 
-    assertThat(provider.getHeaderMappingFiles().getSingleton().getRootRelativePath().toString())
+    assertThat(headerMappingFilesList.get(0).getRootRelativePath().toString())
         .isEqualTo("java/com/google/transpile/dummy.mapping.j2objc");
-    assertThat(provider.getClassMappingFiles().toList()).isEmpty();
+    assertThat(classMappingFilesList).isEmpty();
   }
 
   protected void checkObjcArchiveAndLinkActions(
@@ -581,12 +604,14 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget(
         "//java/com/google/transpile:lib1");
-    J2ObjcMappingFileProvider mappingFileProvider = target.get(J2ObjcMappingFileProvider.PROVIDER);
-    assertThat(baseArtifactNames(mappingFileProvider.getHeaderMappingFiles()))
+    StructImpl j2ObjcMappingFileInfo = getJ2ObjcMappingFileInfoFromTarget(target);
+    ImmutableList<Artifact> headerMappingFilesList =
+        getArtifacts(j2ObjcMappingFileInfo, "header_mapping_files");
+    assertThat(baseArtifactNames(headerMappingFilesList))
         .containsExactly("lib1.mapping.j2objc", "lib2.mapping.j2objc");
 
-    Artifact mappingFile = getFirstArtifactEndingWith(
-        mappingFileProvider.getHeaderMappingFiles(), "lib1.mapping.j2objc");
+    Artifact mappingFile =
+        getFirstArtifactEndingWith(headerMappingFilesList, "lib1.mapping.j2objc");
     SpawnAction headerMappingAction = (SpawnAction) getGeneratingAction(mappingFile);
     String execPath = getRuleContext(target).getBinFragment() + "/";
     assertThat(baseArtifactNames(headerMappingAction.getInputs()))

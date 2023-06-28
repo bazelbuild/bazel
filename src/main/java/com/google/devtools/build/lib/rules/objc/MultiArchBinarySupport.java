@@ -38,6 +38,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -55,11 +58,14 @@ import com.google.devtools.build.lib.rules.objc.AppleLinkingOutputs.TargetTriple
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkList;
 
 /** Support utility for creating multi-arch Apple binaries. */
 public class MultiArchBinarySupport {
@@ -114,6 +120,28 @@ public class MultiArchBinarySupport {
     this.cppSemantics = cppSemantics;
   }
 
+  private StarlarkInfo getStarlarkUnionedJ2objcProvider(
+      String providerName,
+      String unionFunctionName,
+      Iterable<? extends TransitiveInfoCollection> infoCollections)
+      throws RuleErrorException, InterruptedException {
+    ImmutableList<StarlarkInfo> providers =
+        getTypedProviders(
+            infoCollections,
+            StarlarkProviderIdentifier.forKey(
+                new StarlarkProvider.Key(
+                    Label.parseCanonicalUnchecked("@_builtins//:common/objc/providers.bzl"),
+                    providerName)));
+
+    Object starlarkFunc = ruleContext.getStarlarkDefinedBuiltin(unionFunctionName);
+    ruleContext.initStarlarkRuleContext();
+    return (StarlarkInfo)
+        ruleContext.callStarlarkOrThrowRuleError(
+            starlarkFunc,
+            ImmutableList.of(StarlarkList.immutableCopyOf(providers)),
+            new HashMap<>());
+  }
+
   /**
    * Registers actions to link a single-platform/architecture Apple binary in a specific
    * configuration.
@@ -141,16 +169,17 @@ public class MultiArchBinarySupport {
       boolean isStampingEnabled,
       Iterable<? extends TransitiveInfoCollection> infoCollections,
       Map<String, NestedSet<Artifact>> outputMapCollector)
-      throws RuleErrorException, InterruptedException {
+      throws RuleErrorException, InterruptedException, EvalException {
     IntermediateArtifacts intermediateArtifacts =
         new IntermediateArtifacts(ruleContext, dependencySpecificConfiguration.config());
-    J2ObjcMappingFileProvider j2ObjcMappingFileProvider =
-        J2ObjcMappingFileProvider.union(
-            getTypedProviders(infoCollections, J2ObjcMappingFileProvider.PROVIDER));
-    J2ObjcEntryClassProvider j2ObjcEntryClassProvider =
-        new J2ObjcEntryClassProvider.Builder()
-            .addTransitive(getTypedProviders(infoCollections, J2ObjcEntryClassProvider.PROVIDER))
-            .build();
+
+    StarlarkInfo j2ObjcEntryClassProvider =
+        getStarlarkUnionedJ2objcProvider(
+            "J2ObjcEntryClassInfo", "j2objc_entry_class_info_union", infoCollections);
+
+    StarlarkInfo j2ObjcMappingFileProvider =
+        getStarlarkUnionedJ2objcProvider(
+            "J2ObjcMappingFileInfo", "j2objc_mapping_file_info_union", infoCollections);
 
     CompilationSupport compilationSupport =
         new CompilationSupport.Builder(ruleContext, cppSemantics)
@@ -655,6 +684,15 @@ public class MultiArchBinarySupport {
     return stream(infoCollections)
         .filter(infoCollection -> infoCollection.get(providerClass) != null)
         .map(infoCollection -> infoCollection.get(providerClass))
+        .collect(toImmutableList());
+  }
+
+  private static ImmutableList<StarlarkInfo> getTypedProviders(
+      Iterable<? extends TransitiveInfoCollection> infoCollections,
+      StarlarkProviderIdentifier identifier) {
+    return stream(infoCollections)
+        .filter(infoCollection -> infoCollection.get(identifier) != null)
+        .map(infoCollection -> (StarlarkInfo) infoCollection.get(identifier))
         .collect(toImmutableList());
   }
 
