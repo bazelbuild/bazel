@@ -59,7 +59,7 @@ cc_binary(
         "foo_so",
         "bar_so",
     ],
-    deps = ["foo", "bar"],
+    deps = ["foo"],
 )
 
 cc_shared_library(
