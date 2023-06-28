@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.remote.LeaseService.LeaseExtension;
 import com.google.devtools.build.lib.remote.RemoteServerCapabilities.ServerCapabilitiesRequirement;
 import com.google.devtools.build.lib.remote.circuitbreaker.CircuitBreakerFactory;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
@@ -1026,10 +1027,22 @@ public final class RemoteModule extends BlazeModule {
       builder.setActionInputPrefetcher(actionInputFetcher);
       actionContextProvider.setActionInputFetcher(actionInputFetcher);
 
+      LeaseExtension leaseExtension = null;
+      if (remoteOptions.remoteCacheLeaseExtension) {
+        leaseExtension =
+            new RemoteLeaseExtension(
+                env.getSkyframeExecutor().getEvaluator(),
+                env.getBlazeWorkspace().getPersistentActionCache(),
+                env.getBuildRequestId(),
+                env.getCommandId().toString(),
+                actionContextProvider.getRemoteCache(),
+                remoteOptions.remoteCacheTtl);
+      }
       var leaseService =
           new LeaseService(
               env.getSkyframeExecutor().getEvaluator(),
-              env.getBlazeWorkspace().getPersistentActionCache());
+              env.getBlazeWorkspace().getPersistentActionCache(),
+              leaseExtension);
 
       remoteOutputService.setRemoteOutputChecker(remoteOutputChecker);
       remoteOutputService.setActionInputFetcher(actionInputFetcher);
