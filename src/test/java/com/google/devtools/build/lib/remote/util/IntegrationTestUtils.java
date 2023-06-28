@@ -257,5 +257,9 @@ public final class IntegrationTestUtils {
     public int getPort() {
       return port;
     }
+
+    public PathFragment getCasPath() {
+      return casPath;
+    }
   }
 }

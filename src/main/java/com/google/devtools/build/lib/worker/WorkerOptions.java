@@ -50,7 +50,7 @@ public class WorkerOptions extends OptionsBase {
     @Override
     public Map.Entry<String, Integer> convert(String input) throws OptionsParsingException {
       // TODO(steinman): Make auto value return a reasonable multiplier of host capacity.
-      if (input == null || "null".equals(input) || "auto".equals(input)) {
+      if (input == null || input.equals("null") || input.equals("auto")) {
         return Maps.immutableEntry(null, null);
       }
       int pos = input.indexOf('=');
@@ -59,7 +59,7 @@ public class WorkerOptions extends OptionsBase {
       }
       String name = input.substring(0, pos);
       String value = input.substring(pos + 1);
-      if ("auto".equals(value)) {
+      if (value.equals("auto")) {
         return Maps.immutableEntry(name, null);
       }
 
@@ -75,7 +75,7 @@ public class WorkerOptions extends OptionsBase {
   @Option(
       name = "worker_max_instances",
       converter = MultiResourceConverter.class,
-      defaultValue = "auto",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =

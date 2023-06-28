@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.analysis.producers;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.analysis.AspectResolutionHelpers.computeAspectCollection;
-import static com.google.devtools.build.lib.analysis.producers.AttributeConfiguration.Kind.VISIBILITY;
 import static com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData.SPLIT_DEP_ORDERING;
 import static java.util.Arrays.sort;
 
@@ -23,11 +22,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
-import com.google.devtools.build.lib.analysis.InconsistentNullConfigException;
 import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
-import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
@@ -104,7 +101,6 @@ final class PrerequisitesProducer
   public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
     switch (configuration.kind()) {
       case VISIBILITY:
-      case NULL_CONFIGURATION:
         tasks.enqueue(
             new ConfiguredTargetAndDataProducer(
                 getPrerequisiteKey(/* configurationKey= */ null),
@@ -145,18 +141,9 @@ final class PrerequisitesProducer
   }
 
   @Override
-  public void acceptConfiguredTargetAndDataError(InconsistentNullConfigException error) {
+  public void acceptConfiguredTargetAndDataError(InvalidVisibilityDependencyException error) {
     hasError = true;
-    if (configuration.kind() == VISIBILITY) {
-      // The target was configurable, but used as a visibility dependency. This is invalid because
-      // only `PackageGroup`s are accepted as visibility dependencies and those are not
-      // configurable. Propagates the exception with more precise information.
-      sink.acceptPrerequisitesError(new InvalidVisibilityDependencyException(label));
-      return;
-    }
-    // `configuration.kind()` was `NULL_CONFIGURATION`. This is only used when the target is in the
-    // same package as the parent and not configurable so this should never happen.
-    throw new IllegalStateException(error);
+    sink.acceptPrerequisitesError(error);
   }
 
   @Override
@@ -168,15 +155,6 @@ final class PrerequisitesProducer
   private StateMachine computeConfiguredAspects(Tasks tasks, ExtendedEventHandler listener) {
     if (hasError) {
       return DONE;
-    }
-
-    if (configuration.kind() == VISIBILITY) {
-      // Verifies that the dependency is a `package_group`. The value is always at index 0 because
-      // the `VISIBILITY` configuration is always unary.
-      if (!(configuredTargets[0].getConfiguredTarget() instanceof PackageGroupConfiguredTarget)) {
-        sink.acceptPrerequisitesError(new InvalidVisibilityDependencyException(label));
-        return DONE;
-      }
     }
 
     cleanupValues();

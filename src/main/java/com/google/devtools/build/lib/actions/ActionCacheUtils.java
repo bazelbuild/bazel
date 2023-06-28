@@ -14,11 +14,25 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.devtools.build.lib.actions.cache.ActionCache;
+import java.util.AbstractMap.SimpleEntry;
+import java.util.Map.Entry;
 import javax.annotation.Nullable;
 
 /** Utility functions for {@link ActionCache}. */
 public class ActionCacheUtils {
   private ActionCacheUtils() {}
+
+  @Nullable
+  public static Entry<String, ActionCache.Entry> getCacheEntryWithKey(
+      ActionCache actionCache, Action action) {
+    for (Artifact output : action.getOutputs()) {
+      ActionCache.Entry entry = actionCache.get(output.getExecPathString());
+      if (entry != null) {
+        return new SimpleEntry<>(output.getExecPathString(), entry);
+      }
+    }
+    return null;
+  }
 
   /** Checks whether one of existing output paths is already used as a key. */
   @Nullable
