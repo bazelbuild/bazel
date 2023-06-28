@@ -247,8 +247,13 @@ public class WindowsSubprocess implements Subprocess {
   @Override
   public synchronized void close() {
     if (nativeProcess != WindowsProcesses.INVALID) {
-      stdoutStream.close();
-      stderrStream.close();
+      // stdoutStream and stderrStream are null if they are redirected to files.
+      if (stdoutStream != null) {
+        stdoutStream.close();
+      }
+      if (stderrStream != null) {
+        stderrStream.close();
+      }
       long process = nativeProcess;
       nativeProcess = WindowsProcesses.INVALID;
       WindowsProcesses.deleteProcess(process);
