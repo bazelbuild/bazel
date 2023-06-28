@@ -588,7 +588,7 @@ public interface JavaCommonApi<
             doc = "Constraints to add")
       },
       enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
-  JavaInfoT addConstraints(Info javaInfo, Sequence<?> constraints /* <String> expected. */)
+  Info addConstraints(Info javaInfo, Sequence<?> constraints /* <String> expected. */)
       throws EvalException, RuleErrorException;
 
   @StarlarkMethod(
@@ -747,4 +747,20 @@ public interface JavaCommonApi<
   Depset getRuntimeClasspathForArchive(
       Depset runtimeClasspath, Depset excludedArtifacts, StarlarkThread thread)
       throws EvalException, TypeException;
+
+  @StarlarkMethod(
+      name = "check_provider_instances",
+      documented = false,
+      parameters = {
+        @Param(name = "providers"),
+        @Param(name = "what"),
+        @Param(name = "provider_type")
+      },
+      useStarlarkThread = true)
+  void checkProviderInstances(
+      Sequence<?> providers, String what, ProviderApi providerType, StarlarkThread thread)
+      throws EvalException;
+
+  @StarlarkMethod(name = "_google_legacy_api_enabled", documented = false, useStarlarkThread = true)
+  boolean isLegacyGoogleApiEnabled(StarlarkThread thread) throws EvalException;
 }

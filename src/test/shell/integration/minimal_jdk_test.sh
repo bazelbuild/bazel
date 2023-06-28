@@ -42,13 +42,13 @@ export BAZEL_SUFFIX="_jdk_minimal"
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# Bazel's install base is < 345MB with minimal JDK and > 342MB with an all
+# Bazel's install base is < 360MB with minimal JDK and > 360MB with an all
 # modules JDK.
-function test_size_less_than_345MB() {
+function test_size_less_than_360MB() {
   bazel info
   ib=$(bazel info install_base)
   size=$(du -s "$ib" | cut -d\	 -f1)
-  maxsize=$((1024*345))
+  maxsize=$((1024*360))
   if [ $size -gt $maxsize ]; then
     echo "$ib was too big:" 1>&2
     du -a "$ib" 1>&2

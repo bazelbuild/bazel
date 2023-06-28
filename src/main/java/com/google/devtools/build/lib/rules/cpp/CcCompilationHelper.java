@@ -1873,7 +1873,7 @@ public final class CcCompilationHelper {
               picBuilder,
               sourceLabel,
               /* usePic= */ true,
-              /* needsFdoBuildVariables= */ ccRelativeName != null,
+              /* needsFdoBuildVariables= */ ccRelativeName != null && addObject,
               cppModuleMap,
               gcnoFile,
               generateDwo,

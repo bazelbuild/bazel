@@ -29,6 +29,13 @@ abstract class AttributeConfiguration {
      */
     VISIBILITY,
     /**
+     * The configuration is null.
+     *
+     * <p>This is only applied when the dependency is in the same package as the parent and it is
+     * not configurable.
+     */
+    NULL_CONFIGURATION,
+    /**
      * There is a single configuration.
      *
      * <p>This can be the result of a patch transition or no transition at all.
@@ -46,6 +53,8 @@ abstract class AttributeConfiguration {
 
   abstract void visibility();
 
+  abstract void nullConfiguration();
+
   abstract BuildConfigurationKey unary();
 
   abstract ImmutableMap<String, BuildConfigurationKey> split();
@@ -53,6 +62,7 @@ abstract class AttributeConfiguration {
   public int count() {
     switch (kind()) {
       case VISIBILITY:
+      case NULL_CONFIGURATION:
       case UNARY:
         return 1;
       case SPLIT:
@@ -63,6 +73,10 @@ abstract class AttributeConfiguration {
 
   static AttributeConfiguration ofVisibility() {
     return AutoOneOf_AttributeConfiguration.visibility();
+  }
+
+  static AttributeConfiguration ofNullConfiguration() {
+    return AutoOneOf_AttributeConfiguration.nullConfiguration();
   }
 
   static AttributeConfiguration ofUnary(BuildConfigurationKey key) {

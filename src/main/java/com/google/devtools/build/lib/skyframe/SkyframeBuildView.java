@@ -69,6 +69,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailurePropagationException;
 import com.google.devtools.build.lib.analysis.test.CoverageActionFinishedEvent;
+import com.google.devtools.build.lib.analysis.test.CoverageArtifactsKnownEvent;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics;
@@ -659,19 +660,18 @@ public final class SkyframeBuildView {
           // Required for incremental correctness.
           // We unconditionally reset the states here instead of in #analysisFinishedCallback since
           // in case of --nokeep_going & analysis error, the analysis phase is never finished.
-          skyframeExecutor.resetIncrementalArtifactConflictFindingStates();
+          skyframeExecutor.clearIncrementalArtifactConflictFindingStates();
           skyframeExecutor.resetBuildDriverFunction();
           skyframeExecutor.setTestTypeResolver(null);
 
           // Coverage needs to be done after the list of analyzed targets/tests is known.
+          ImmutableSet<Artifact> coverageArtifacts =
+              coverageReportActionsWrapperSupplier.getCoverageArtifacts(
+                  buildResultListener.getAnalyzedTargets(), buildResultListener.getAnalyzedTests());
+          eventBus.post(CoverageArtifactsKnownEvent.create(coverageArtifacts));
           additionalArtifactsResult =
               skyframeExecutor.evaluateSkyKeys(
-                  eventHandler,
-                  Artifact.keys(
-                      coverageReportActionsWrapperSupplier.getCoverageArtifacts(
-                          buildResultListener.getAnalyzedTargets(),
-                          buildResultListener.getAnalyzedTests())),
-                  keepGoing);
+                  eventHandler, Artifact.keys(coverageArtifacts), keepGoing);
           eventBus.post(new CoverageActionFinishedEvent());
           if (additionalArtifactsResult.hasError()) {
             detailedExitCodes.add(
@@ -825,14 +825,18 @@ public final class SkyframeBuildView {
       throws InterruptedException {
     if (shouldPublishBuildGraphMetrics.get()) {
       // Now that we have the full picture, it's time to collect the metrics of the whole graph.
-      BuildGraphMetrics buildGraphMetrics =
+      BuildGraphMetrics.Builder buildGraphMetricsBuilder =
           skyframeExecutor
               .collectActionLookupValuesInBuild(
                   configuredTargetKeys, buildResultListener.getAnalyzedAspects().keySet())
-              .getMetrics()
-              .setOutputArtifactCount(skyframeExecutor.getOutputArtifactCount())
-              .build();
-      eventBus.post(new AnalysisGraphStatsEvent(buildGraphMetrics));
+              .getMetrics();
+      IncrementalArtifactConflictFinder incrementalArtifactConflictFinder =
+          skyframeExecutor.getIncrementalArtifactConflictFinder();
+      if (incrementalArtifactConflictFinder != null) {
+        buildGraphMetricsBuilder.setOutputArtifactCount(
+            incrementalArtifactConflictFinder.getOutputArtifactCount());
+      }
+      eventBus.post(new AnalysisGraphStatsEvent(buildGraphMetricsBuilder.build()));
     }
 
     if (shouldDiscardAnalysisCache) {
@@ -844,7 +848,7 @@ public final class SkyframeBuildView {
     // At this point, it's safe to clear objects related to action conflict checking.
     // Clearing the states here is a performance optimization (reduce peak heap size) and isn't
     // required for correctness.
-    skyframeExecutor.resetIncrementalArtifactConflictFindingStates();
+    skyframeExecutor.clearIncrementalArtifactConflictFindingStates();
 
     // Clearing the syscall cache here to free up some heap space.
     // TODO(b/273225564) Would this incur more CPU cost for the execution phase cache misses?

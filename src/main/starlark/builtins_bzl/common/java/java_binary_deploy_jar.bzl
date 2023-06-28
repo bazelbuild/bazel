@@ -21,10 +21,10 @@ the generating actions, so that the runfiles symlink tree is staged for the depl
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/cc/semantics.bzl", cc_semantics = "semantics")
-load(":common/java/java_helper.bzl", "util")
+load(":common/java/java_helper.bzl", "helper")
+load(":common/java/java_common.bzl", "java_common")
 
 InstrumentedFilesInfo = _builtins.toplevel.InstrumentedFilesInfo
-java_common = _builtins.toplevel.java_common
 
 def create_deploy_archives(
         ctx,
@@ -34,7 +34,7 @@ def create_deploy_archives(
         main_class,
         coverage_main_class,
         strip_as_default,
-        stamp,
+        build_info_files,
         build_target,
         hermetic = False,
         add_exports = depset(),
@@ -55,7 +55,7 @@ def create_deploy_archives(
         coverage_main_class: (String) FQN of the entry point for coverage collection
         build_target: (String) Name of the build target for stamping
         strip_as_default: (bool) Whether to create unstripped deploy jar
-        stamp: (bool) Value of stamping attribute on the rule
+        build_info_files: ([File]) the artifacts containing workspace status for the current build
         hermetic: (bool)
         add_exports: (depset)
         add_opens: (depset)
@@ -76,8 +76,6 @@ def create_deploy_archives(
         order = "preorder",
     )
     multi_release = ctx.fragments.java.multi_release_deploy_jars
-
-    build_info_files = semantics.get_build_info(ctx, stamp)
 
     create_deploy_archive(
         ctx,
@@ -198,7 +196,7 @@ def create_deploy_archive(
     args.add_all(
         "--sources",
         runtime_classpath,
-        map_each = util.jar_and_target_arg_mapper,
+        map_each = helper.jar_and_target_arg_mapper,
     )
 
     if one_version_level != "OFF" and one_version_allowlist:

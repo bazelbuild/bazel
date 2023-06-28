@@ -205,7 +205,8 @@ public class DiskCacheIntegrationTest extends BuildIntegrationTestCase {
 
   @Test
   public void remoteExecWithDiskCache_hitDiskCache() throws Exception {
-    doRemoteExecWithDiskCache();
+    // Download all outputs to populate the disk cache.
+    doRemoteExecWithDiskCache("--remote_download_all");
 
     // Assert: Should hit the disk cache
     events.assertContainsInfo("2 disk cache hit");

@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.analysis.config.BuildConfigurationVa
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -38,12 +39,15 @@ import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
+import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
+import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
@@ -55,12 +59,13 @@ import com.google.devtools.build.lib.analysis.producers.DependencyContextError;
 import com.google.devtools.build.lib.analysis.producers.DependencyContextProducer;
 import com.google.devtools.build.lib.analysis.producers.DependencyContextProducerWithCompatibilityCheck;
 import com.google.devtools.build.lib.analysis.producers.TargetAndConfigurationProducer;
-import com.google.devtools.build.lib.analysis.producers.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.producers.UnloadedToolchainContextsInputs;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
@@ -95,6 +100,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -174,6 +180,8 @@ public final class PrerequisiteProducer {
     @Nullable
     private OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> computeDependenciesResult;
 
+    final TransitiveDependencyState transitiveState;
+
     /**
      * Stores events emitted by memoized computations.
      *
@@ -184,6 +192,19 @@ public final class PrerequisiteProducer {
      * events are stored and replayed when subsequent Skyframe restarts occur.
      */
     final StoredEventHandler storedEvents = new StoredEventHandler();
+
+    public State(boolean storeTransitivePackages) {
+      this.transitiveState =
+          new TransitiveDependencyState(storeTransitivePackages, /* prerequisitePackages= */ null);
+    }
+
+    public NestedSetBuilder<Cause> transitiveRootCauses() {
+      return transitiveState.transitiveRootCauses();
+    }
+
+    public NestedSet<Package> transitivePackages() {
+      return transitiveState.transitivePackages();
+    }
 
     @Override
     public void acceptDependencyContext(DependencyContext value) {
@@ -278,7 +299,6 @@ public final class PrerequisiteProducer {
       RuleClassProvider ruleClassProvider,
       StarlarkTransitionCache transitionCache,
       SemaphoreAcquirer semaphoreLocker,
-      TransitiveDependencyState transitiveState,
       TransitionCollector transitionCollector,
       LookupEnvironment env,
       ExtendedEventHandler listener)
@@ -293,8 +313,7 @@ public final class PrerequisiteProducer {
     semaphoreLocker.acquireSemaphore();
     try {
       var dependencyContext =
-          getDependencyContext(
-              state, configuredTargetKey, ruleClassProvider, transitiveState, env, listener);
+          getDependencyContext(state, configuredTargetKey, ruleClassProvider, env, listener);
       if (dependencyContext == null) {
         return false;
       }
@@ -310,7 +329,7 @@ public final class PrerequisiteProducer {
       // more root causes during computeDependencies.
       // Note that this doesn't apply to AspectFunction, because aspects can't have configurable
       // attributes.
-      NestedSetBuilder<Cause> transitiveRootCauses = transitiveState.transitiveRootCauses();
+      NestedSetBuilder<Cause> transitiveRootCauses = state.transitiveRootCauses();
       if (!transitiveRootCauses.isEmpty()
           && !Objects.equals(configConditions, ConfigConditions.EMPTY)) {
         NestedSet<Cause> causes = transitiveRootCauses.build();
@@ -326,6 +345,12 @@ public final class PrerequisiteProducer {
                 getPrioritizedDetailedExitCode(causes)));
       }
 
+      Optional<StarlarkAttributeTransitionProvider> starlarkExecTransition =
+          loadStarlarkExecTransition(targetAndConfiguration, env);
+      if (starlarkExecTransition == null) {
+        return false;
+      }
+
       // Calculate the dependencies of this target.
       depValueMap =
           computeDependencies(
@@ -333,8 +358,8 @@ public final class PrerequisiteProducer {
               /* aspects= */ ImmutableList.of(),
               ruleClassProvider,
               transitionCache,
-              transitiveState,
               transitionCollector,
+              starlarkExecTransition.orElse(null),
               env,
               listener);
       if (!transitiveRootCauses.isEmpty()) {
@@ -361,13 +386,65 @@ public final class PrerequisiteProducer {
     return true;
   }
 
+  /**
+   * Loads the Starlark transition that implements execution transition logic according to {@link
+   * CoreOptions#starlarkExecConfig}.
+   *
+   * @return null if Skyframe deps need loading. A filled {@link Optional} if this build implements
+   *     the exec transition with a Starlark transition. An empty {@link Optional} if this build
+   *     implements the exec transition with native logic.
+   */
+  @Nullable
+  static Optional<StarlarkAttributeTransitionProvider> loadStarlarkExecTransition(
+      TargetAndConfiguration targetAndConfiguration, LookupEnvironment env)
+      throws UnreportedException, InterruptedException {
+    if (targetAndConfiguration.getConfiguration() == null) {
+      return Optional.empty();
+    }
+    String bzlReference =
+        targetAndConfiguration
+            .getConfiguration()
+            .getOptions()
+            .get(CoreOptions.class)
+            .starlarkExecConfig;
+    if (bzlReference == null) {
+      return Optional.empty(); // Use the native exec transition.
+    }
+    List<String> splitval =
+        Splitter.on('%').splitToList(bzlReference); // Expected: //pkg:defs.bzl%my_transition.
+    if (splitval.size() < 2) {
+      throw new UnreportedException(
+          new ConfiguredValueCreationException(
+              targetAndConfiguration, "bad Starlark exec transition reference: " + bzlReference));
+    }
+    Label bzlFile;
+    try {
+      bzlFile = Label.parseCanonical(splitval.get(0));
+    } catch (LabelSyntaxException e) {
+      throw new UnreportedException(
+          new ConfiguredValueCreationException(targetAndConfiguration, e.getMessage()));
+    }
+    BzlLoadValue bzlValue = (BzlLoadValue) env.getValue(BzlLoadValue.keyForBuild(bzlFile));
+    if (bzlValue == null) {
+      return null;
+    }
+    Object transition = bzlValue.getModule().getGlobal(splitval.get(1));
+    if (!(transition instanceof StarlarkDefinedConfigTransition)) {
+      throw new UnreportedException(
+          new ConfiguredValueCreationException(
+              targetAndConfiguration,
+              String.valueOf(transition) + " is not a Starlark transition"));
+    }
+    return Optional.of(
+        new StarlarkAttributeTransitionProvider((StarlarkDefinedConfigTransition) transition));
+  }
+
   @VisibleForTesting
   @Nullable // Null when a Skyframe restart is needed.
   public static DependencyContext getDependencyContext(
       State state,
       ConfiguredTargetKey configuredTargetKey,
       RuleClassProvider ruleClassProvider,
-      TransitiveDependencyState transitiveState,
       LookupEnvironment env,
       ExtendedEventHandler listener)
       throws InterruptedException,
@@ -393,7 +470,7 @@ public final class PrerequisiteProducer {
                   targetAndConfiguration,
                   configuredTargetKey,
                   unloadedToolchainContextsInputs,
-                  transitiveState,
+                  state.transitiveState,
                   (DependencyContextProducer.ResultSink) state));
     }
     if (state.dependencyContextProducer.drive(env, listener)) {
@@ -544,6 +621,8 @@ public final class PrerequisiteProducer {
    * @param state the compute state
    * @param ruleClassProvider rule class provider to supply a trimming transition factory
    * @param transitionCollector a callback that observes attribute transitions for Cquery
+   * @param starlarkTransitionProvider the Starlark transition that implements exec transition
+   *     logic, if specified. Null if Bazel uses native logic.
    * @param env the Skyframe environment
    */
   // TODO(b/213351014): Make the control flow of this helper function more readable. This will
@@ -554,8 +633,8 @@ public final class PrerequisiteProducer {
       Iterable<Aspect> aspects,
       RuleClassProvider ruleClassProvider,
       StarlarkTransitionCache transitionCache,
-      TransitiveDependencyState transitiveState,
       TransitionCollector transitionCollector,
+      @Nullable StarlarkAttributeTransitionProvider starlarkTransitionProvider,
       LookupEnvironment env,
       ExtendedEventHandler listener)
       throws DependencyEvaluationException,
@@ -565,6 +644,7 @@ public final class PrerequisiteProducer {
     // Replays stored events unless a Skyframe restart is immediately needed and the events would
     // be unused anyway.
     boolean shouldReplayStoredEvents = true;
+    var transitiveRootCauses = state.transitiveRootCauses();
     try {
       if (state.computeDependenciesResult != null) {
         return state.computeDependenciesResult;
@@ -591,21 +671,27 @@ public final class PrerequisiteProducer {
                         aspects,
                         dependencyContext.configConditions().asProviders(),
                         dependencyContext.toolchainContexts(),
-                        transitiveState.transitiveRootCauses(),
+                        transitiveRootCauses,
                         ((ConfiguredRuleClassProvider) ruleClassProvider)
                             .getTrimmingTransitionFactory(),
-                        transitionCollector);
+                        transitionCollector,
+                        starlarkTransitionProvider);
           } catch (DependencyResolver.Failure e) {
             listener.post(
                 AnalysisRootCauseEvent.withConfigurationValue(
                     configuration, label, e.getMessage()));
             throw new DependencyEvaluationException(
                 new ConfiguredValueCreationException(
-                    e.getLocation(), e.getMessage(), label, configuration.getEventId(), null, null),
+                    e.getLocation(),
+                    e.getMessage(),
+                    label,
+                    configurationId(configuration),
+                    null,
+                    null),
                 // These errors occur within DependencyResolver, which is attached to the current
                 // target. i.e. no dependent ConfiguredTargetFunction call happens to report its own
                 // error.
-                /*depReportedOwnError=*/ false);
+                /* depReportedOwnError= */ false);
           } catch (InconsistentAspectOrderException e) {
             throw new DependencyEvaluationException(e);
           }
@@ -644,6 +730,10 @@ public final class PrerequisiteProducer {
         return null;
       }
 
+      var transitivePackages =
+          state.transitiveState.storeTransitivePackages()
+              ? NestedSetBuilder.<Package>stableOrder()
+              : null;
       // Resolve configured target dependencies and handle errors.
       Map<ConfiguredTargetKey, ConfiguredTargetAndData> depValues;
       if (state.resolveConfiguredTargetDependenciesResult != null) {
@@ -651,11 +741,7 @@ public final class PrerequisiteProducer {
       } else {
         depValues =
             resolveConfiguredTargetDependencies(
-                env,
-                ctgValue,
-                depValueNames.values(),
-                transitiveState.transitivePackages(),
-                transitiveState.transitiveRootCauses());
+                env, ctgValue, depValueNames.values(), transitivePackages, transitiveRootCauses);
         if (env.valuesMissing()) {
           shouldReplayStoredEvents = false;
           return null;
@@ -666,7 +752,7 @@ public final class PrerequisiteProducer {
       // Resolve required aspects.
       OrderedSetMultimap<Dependency, ConfiguredAspect> depAspects =
           AspectResolver.resolveAspectDependencies(
-              env, depValues, depValueNames.values(), transitiveState.transitivePackages());
+              env, depValues, depValueNames.values(), transitivePackages);
       if (env.valuesMissing()) {
         shouldReplayStoredEvents = false;
         return null;
@@ -683,6 +769,10 @@ public final class PrerequisiteProducer {
       }
       state.computeDependenciesResult = mergeAspectsResult;
 
+      if (transitivePackages != null) {
+        state.transitiveState.setTransitivePackagesBatch(transitivePackages.build());
+      }
+
       // We won't need these anymore.
       state.resolveConfigurationsResult = null;
       state.resolveConfiguredTargetDependenciesResult = null;
@@ -691,7 +781,7 @@ public final class PrerequisiteProducer {
     } catch (InterruptedException e) {
       // In practice, this comes from resolveConfigurations: other InterruptedExceptions are
       // declared for Skyframe value retrievals, which don't throw in reality.
-      if (!transitiveState.transitiveRootCauses().isEmpty()) {
+      if (!transitiveRootCauses.isEmpty()) {
         // Allow caller to throw, don't prioritize interrupt: we may be error bubbling.
         Thread.currentThread().interrupt();
         return null;

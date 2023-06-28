@@ -1,7 +1,7 @@
 workspace(name = "io_bazel")
 
 load("//tools/build_defs/repo:http.bzl", "http_archive")
-load("//:distdir.bzl", "dist_http_archive", "distdir_tar", "dist_http_jar")
+load("//:distdir.bzl", "dist_http_archive", "dist_http_jar", "distdir_tar")
 load("//:distdir_deps.bzl", "DIST_DEPS")
 load("//:repositories.bzl", "embedded_jdk_repositories")
 
@@ -194,6 +194,14 @@ dist_http_archive(
     strip_prefix = "zstd-jni-1.5.2-3",
 )
 
+dist_http_archive(
+    name = "blake3",
+    build_file = "//third_party:blake3/blake3.BUILD",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
+    strip_prefix = "BLAKE3-1.3.3",
+)
+
 http_archive(
     name = "org_snakeyaml",
     build_file_content = """
@@ -244,8 +252,6 @@ dist_http_archive(
 
 dist_http_archive(
     name = "rules_java",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
 )
 
 dist_http_archive(
@@ -294,7 +300,9 @@ dist_http_archive(
 )
 
 load("@rules_java//java:repositories.bzl", "rules_java_dependencies", "rules_java_toolchains")
+
 rules_java_dependencies()
+
 rules_java_toolchains()
 
 load("@io_bazel_skydoc//:setup.bzl", "stardoc_repositories")
@@ -537,7 +545,7 @@ maven_install(
         maven.artifact(
             "org.mockito",
             "mockito-core",
-            "3.12.4",
+            "5.4.0",
             testonly = True,
         ),
     ],

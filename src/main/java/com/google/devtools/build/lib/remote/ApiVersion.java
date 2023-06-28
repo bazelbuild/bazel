@@ -14,21 +14,21 @@
 
 package com.google.devtools.build.lib.remote;
 
-import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.semver.SemVer;
 
-/**
- * Represents a version of the Remote Execution API.
- */
+/** Represents a version of the Remote Execution API. */
 public class ApiVersion implements Comparable<ApiVersion> {
   public final int major;
   public final int minor;
   public final int patch;
   public final String prerelease;
 
-  // The current version of the Remote Execution API. This field will need to be updated
-  // together with all version changes.
-  public static final ApiVersion current = new ApiVersion(SemVer.newBuilder().setMajor(2).build());
+  // The current lowest/highest versions (inclusive) of the Remote Execution API that Bazel
+  // supports. These fields will need to be updated together with all version changes.
+  public static final ApiVersion low =
+      new ApiVersion(SemVer.newBuilder().setMajor(2).setMinor(0).build());
+  public static final ApiVersion high =
+      new ApiVersion(SemVer.newBuilder().setMajor(2).setMinor(0).build());
 
   public ApiVersion(int major, int minor, int patch, String prerelease) {
     this.major = major;
@@ -92,74 +92,5 @@ public class ApiVersion implements Comparable<ApiVersion> {
       return Integer.compare(minor, other.minor);
     }
     return Integer.compare(patch, other.patch);
-  }
-
-  static class ServerSupportedStatus {
-    private enum State {
-      SUPPORTED,
-      UNSUPPORTED,
-      DEPRECATED,
-    }
-    private final String message;
-    private final State state;
-
-    private ServerSupportedStatus(State state, String message) {
-      this.state = state;
-      this.message = message;
-    }
-
-    public static ServerSupportedStatus supported() {
-      return new ServerSupportedStatus(State.SUPPORTED, "");
-    }
-
-    public static ServerSupportedStatus unsupported(
-        ApiVersion curr, ApiVersion lowApiVersion, ApiVersion highApiVersion) {
-      return new ServerSupportedStatus(
-          State.UNSUPPORTED,
-          String.format(
-              "The API version %s is not supported by the server. "
-                  + "Please switch to a supported version: %s to %s.",
-              curr, lowApiVersion, highApiVersion));
-    }
-
-    public static ServerSupportedStatus deprecated(
-        ApiVersion curr, ApiVersion lowApiVersion, ApiVersion highApiVersion) {
-      return new ServerSupportedStatus(
-          State.DEPRECATED,
-          String.format(
-              "The API version %s is deprecated by the server. "
-                  + "Please upgrade to a recommended version: %s to %s.",
-              curr, lowApiVersion, highApiVersion));
-    }
-
-    public String getMessage() {
-      return message;
-    }
-
-    public boolean isSupported() {
-      return state == State.SUPPORTED;
-    }
-
-    public boolean isDeprecated() {
-      return state == State.DEPRECATED;
-    }
-
-    public boolean isUnsupported() {
-      return state == State.UNSUPPORTED;
-    }
-  }
-
-  public ServerSupportedStatus checkServerSupportedVersions(ServerCapabilities cap) {
-    ApiVersion deprecated =
-        cap.hasDeprecatedApiVersion() ? new ApiVersion(cap.getDeprecatedApiVersion()) : null;
-    ApiVersion low = new ApiVersion(cap.getLowApiVersion());
-    ApiVersion high = new ApiVersion(cap.getHighApiVersion());
-    if (deprecated != null && compareTo(deprecated) >= 0 && compareTo(low) < 0) {
-      return ServerSupportedStatus.deprecated(this, low, high);
-    }
-    if (compareTo(low) < 0 || compareTo(high) > 0) {
-      return ServerSupportedStatus.unsupported(this, low, high);
-    }
-    return ServerSupportedStatus.supported();
   }
 }

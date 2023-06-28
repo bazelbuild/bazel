@@ -611,12 +611,16 @@ public class BuildDriverFunction implements SkyFunction {
   ImmutableMap<ActionAnalysisMetadata, ConflictException> checkActionConflicts(
       ActionLookupKeyOrProxy actionLookupKey, boolean strictConflictCheck)
       throws InterruptedException {
+    IncrementalArtifactConflictFinder localRef = incrementalArtifactConflictFinder.get();
+    // a null value means that the conflict checker is shut down.
+    if (localRef == null) {
+      return ImmutableMap.of();
+    }
     ActionLookupValuesCollectionResult transitiveValueCollectionResult =
         transitiveActionLookupValuesHelper.collect(actionLookupKey);
 
     ImmutableMap<ActionAnalysisMetadata, ConflictException> conflicts =
-        incrementalArtifactConflictFinder
-            .get()
+        localRef
             .findArtifactConflicts(
                 transitiveValueCollectionResult.collectedValues(), strictConflictCheck)
             .getConflicts();
@@ -694,6 +698,11 @@ public class BuildDriverFunction implements SkyFunction {
         ImmutableCollection<SkyValue> collectedValues, ImmutableSet<ActionLookupKey> visitedKeys) {
       return new AutoValue_BuildDriverFunction_ActionLookupValuesCollectionResult(
           collectedValues, visitedKeys);
+    }
+
+    static ActionLookupValuesCollectionResult empty() {
+      return new AutoValue_BuildDriverFunction_ActionLookupValuesCollectionResult(
+          ImmutableSet.of(), ImmutableSet.of());
     }
   }
 }

@@ -17,7 +17,6 @@ import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
 import com.google.devtools.build.lib.util.CanonicalStringIndexer;
 import com.google.devtools.build.lib.util.PersistentMap;
-import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.DataInputStream;
@@ -91,7 +90,7 @@ final class PersistentStringIndexer extends CanonicalStringIndexer {
       }
       byte[] content = new byte[length];
       in.readFully(content);
-      return StringCanonicalizer.intern(bytes2string(content));
+      return bytes2string(content);
     }
 
     @Override

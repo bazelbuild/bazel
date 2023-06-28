@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.remote.disk.DiskAndRemoteCacheClient;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.http.HttpCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
-import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -45,13 +44,11 @@ public final class RemoteCacheClientFactory {
       Path workingDirectory,
       PathFragment diskCachePath,
       boolean remoteVerifyDownloads,
-      boolean checkActionResult,
       DigestUtil digestUtil,
       RemoteCacheClient remoteCacheClient)
       throws IOException {
     DiskCacheClient diskCacheClient =
-        createDiskCache(
-            workingDirectory, diskCachePath, remoteVerifyDownloads, checkActionResult, digestUtil);
+        createDiskCache(workingDirectory, diskCachePath, remoteVerifyDownloads, digestUtil);
     return new DiskAndRemoteCacheClient(diskCacheClient, remoteCacheClient);
   }
 
@@ -79,11 +76,7 @@ public final class RemoteCacheClientFactory {
     }
     if (isDiskCache(options)) {
       return createDiskCache(
-          workingDirectory,
-          options.diskCache,
-          options.remoteVerifyDownloads,
-          options.remoteOutputsMode != RemoteOutputsMode.ALL,
-          digestUtil);
+          workingDirectory, options.diskCache, options.remoteVerifyDownloads, digestUtil);
     }
     throw new IllegalArgumentException(
         "Unrecognized RemoteOptions configuration: remote Http cache URL and/or local disk cache"
@@ -145,7 +138,6 @@ public final class RemoteCacheClientFactory {
       Path workingDirectory,
       PathFragment diskCachePath,
       boolean verifyDownloads,
-      boolean checkActionResult,
       DigestUtil digestUtil)
       throws IOException {
     Path cacheDir =
@@ -153,7 +145,7 @@ public final class RemoteCacheClientFactory {
     if (!cacheDir.exists()) {
       cacheDir.createDirectoryAndParents();
     }
-    return new DiskCacheClient(cacheDir, verifyDownloads, checkActionResult, digestUtil);
+    return new DiskCacheClient(cacheDir, verifyDownloads, digestUtil);
   }
 
   private static RemoteCacheClient createDiskAndHttpCache(
@@ -173,12 +165,7 @@ public final class RemoteCacheClientFactory {
 
     RemoteCacheClient httpCache = createHttp(options, cred, authAndTlsOptions, digestUtil, retrier);
     return createDiskAndRemoteClient(
-        workingDirectory,
-        diskCachePath,
-        options.remoteVerifyDownloads,
-        options.remoteOutputsMode != RemoteOutputsMode.ALL,
-        digestUtil,
-        httpCache);
+        workingDirectory, diskCachePath, options.remoteVerifyDownloads, digestUtil, httpCache);
   }
 
   public static boolean isDiskCache(RemoteOptions options) {

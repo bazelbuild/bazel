@@ -25,6 +25,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.events.EventHandler;
+import java.io.IOException;
+import javax.annotation.Nullable;
 
 /**
  * Abstract Action to write to a file.
@@ -104,4 +107,11 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
     return true;
   }
 
+  /**
+   * This interface is used to get the contents of the file to output to aquery when using
+   * --include_file_write_contents.
+   */
+  public interface FileContentsProvider {
+    String getFileContents(@Nullable EventHandler eventHandler) throws IOException;
+  }
 }

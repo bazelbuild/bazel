@@ -65,6 +65,8 @@ if "$is_windows"; then
   export MSYS2_ARG_CONV_EXCL="*"
 fi
 
+# override rules_java in bazel otherwise no build succeeds without injection
+[[ $(type -t mock_rules_java_to_avoid_downloading) == function ]] && mock_rules_java_to_avoid_downloading
 
 function test_injection() {
   # //pkg prints _builtins_dummy when loaded.

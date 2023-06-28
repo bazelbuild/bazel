@@ -1704,18 +1704,14 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "bad_exports(name='bad_exports')",
         "bad_libs(name='bad_libs')");
 
-    checkError(
-        "//foo:bad_deps",
-        "Error in JavaInfo: at index 0 of deps, got element of type File, want JavaInfo");
+    checkError("//foo:bad_deps", "at index 0 of deps, got element of type File, want JavaInfo");
     checkError(
         "//foo:bad_runtime_deps",
-        "Error in JavaInfo: at index 0 of runtime_deps, got element of type File, want JavaInfo");
+        "at index 0 of runtime_deps, got element of type File, want JavaInfo");
     checkError(
-        "//foo:bad_exports",
-        "Error in JavaInfo: at index 0 of exports, got element of type File, want JavaInfo");
+        "//foo:bad_exports", "at index 0 of exports, got element of type File, want JavaInfo");
     checkError(
-        "//foo:bad_libs",
-        "Error in JavaInfo: at index 0 of native_libraries, got element of type File, want CcInfo");
+        "//foo:bad_libs", "at index 0 of native_libraries, got element of type File, want CcInfo");
   }
 
   @Test
@@ -1753,8 +1749,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "load(':javainfo_rules.bzl', 'only_outputjar')",
         "only_outputjar(name='only_outputjar')");
 
-    checkError(
-        "//foo:only_outputjar", "JavaInfo() missing 1 required positional argument: compile_jar");
+    checkError("//foo:only_outputjar", "missing 1 required positional argument: compile_jar");
   }
 
   @Test
@@ -3241,6 +3236,46 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "def _impl(ctx):",
         "  artifacts = java_common.get_build_info(ctx, True)",
         "  return [DefaultInfo(files = depset(artifacts))]",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {},",
+        ")");
+    scratch.file(
+        "foo/BUILD", "load(':custom_rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//foo:custom");
+
+    assertContainsEvent("Rule in 'foo' cannot use private API");
+  }
+
+  @Test
+  public void testIsGoogleLegacyApiEnabledIsPrivateAPI() throws Exception {
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  java_common._google_legacy_api_enabled()",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {},",
+        ")");
+    scratch.file(
+        "foo/BUILD", "load(':custom_rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//foo:custom");
+
+    assertContainsEvent("Rule in 'foo' cannot use private API");
+  }
+
+  @Test
+  public void testInstanceOfProviderIsPrivateApi() throws Exception {
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  java_common.check_provider_instances([], 'what', DefaultInfo)",
+        "  return []",
         "custom_rule = rule(",
         "  implementation = _impl,",
         "  attrs = {},",

@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDir
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
@@ -56,6 +57,7 @@ import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -64,7 +66,6 @@ import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -178,16 +179,18 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
                         if (localOverrideHashes == null) {
                           return null;
                         }
-                        try {
-                          BazelLockFileFunction.updateLockedModule(
-                              rootDirectory,
-                              key.moduleHash(),
-                              flags,
-                              localOverrideHashes,
-                              key.depGraph());
-                        } catch (ExternalDepsException e) {
-                          throw new BazelLockfileFunctionException(e, Transience.PERSISTENT);
-                        }
+                        RootedPath lockfilePath =
+                            RootedPath.toRootedPath(
+                                Root.fromPath(rootDirectory), LabelConstants.MODULE_LOCKFILE_NAME);
+                        BazelLockFileModule.updateLockfile(
+                            lockfilePath,
+                            BazelLockFileValue.builder()
+                                .setModuleFileHash(key.moduleHash())
+                                .setFlags(flags)
+                                .setLocalOverrideHashes(localOverrideHashes)
+                                .setModuleDepGraph(key.depGraph())
+                                .build());
+
                         return new SkyValue() {};
                       }
                     })
@@ -435,8 +438,9 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     }
     assertThat(result.getError().toString())
         .contains(
-            "Failed to read and parse the MODULE.bazel.lock file with error: Null moduleFileHash."
-                + " Try deleting it and rerun the build.");
+            "Failed to read and parse the MODULE.bazel.lock file with error: "
+                + "java.lang.IllegalStateException: Missing required properties: moduleFileHash "
+                + "flags localOverrideHashes moduleDepGraph. Try deleting it and rerun the build.");
   }
 
   @Test

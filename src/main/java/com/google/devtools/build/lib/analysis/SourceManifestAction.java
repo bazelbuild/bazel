@@ -55,7 +55,8 @@ import javax.annotation.Nullable;
  * <p>This action carefully avoids building the manifest content in memory because it can be large.
  */
 @Immutable // if all ManifestWriter implementations are immutable
-public final class SourceManifestAction extends AbstractFileWriteAction {
+public final class SourceManifestAction extends AbstractFileWriteAction
+    implements AbstractFileWriteAction.FileContentsProvider {
 
   private static final String GUID = "07459553-a3d0-4d37-9d78-18ed942470f4";
 
@@ -193,7 +194,8 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
    *
    * @return returns the file contents as a string.
    */
-  public String getFileContentsAsString(@Nullable EventHandler eventHandler) throws IOException {
+  @Override
+  public String getFileContents(@Nullable EventHandler eventHandler) throws IOException {
     ByteArrayOutputStream stream = new ByteArrayOutputStream();
     writeOutputFile(stream, eventHandler);
     return stream.toString(UTF_8);
@@ -201,7 +203,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
 
   @Override
   public String getStarlarkContent() throws IOException {
-    return getFileContentsAsString(null);
+    return getFileContents(null);
   }
 
   @Override

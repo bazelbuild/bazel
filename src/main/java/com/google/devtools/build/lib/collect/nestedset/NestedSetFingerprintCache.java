@@ -79,7 +79,11 @@ public class NestedSetFingerprintCache {
       return "<empty>";
     }
     StringBuilder sb = new StringBuilder();
-    sb.append("order: ").append(nestedSet.getOrder()).append('\n');
+    sb.append("order: ")
+        .append(nestedSet.getOrder())
+        .append(
+            " (fingerprinting considers internal"
+                + " nested set structure, which is not reflected in values reported below)\n");
     ImmutableList<T> list = nestedSet.toList();
     sb.append("size: ").append(list.size()).append('\n');
     for (T item : list) {

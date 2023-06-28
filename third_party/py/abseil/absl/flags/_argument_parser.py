@@ -18,21 +18,17 @@ Do NOT import this module directly. Import the flags package and use the
 aliases defined at the package level instead.
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
+import collections
 import csv
 import io
 import string
 
 from absl.flags import _helpers
-import six
 
 
 def _is_integer_type(instance):
   """Returns True if instance is an integer, and not a bool."""
-  return (isinstance(instance, six.integer_types) and
+  return (isinstance(instance, int) and
           not isinstance(instance, bool))
 
 
@@ -76,12 +72,30 @@ class _ArgumentParserCache(type):
         return type.__call__(cls, *args)
 
 
-class ArgumentParser(six.with_metaclass(_ArgumentParserCache, object)):
+# NOTE about Genericity and Metaclass of ArgumentParser.
+# (1) In the .py source (this file)
+#     - is not declared as Generic
+#     - has _ArgumentParserCache as a metaclass
+# (2) In the .pyi source (type stub)
+#     - is declared as Generic
+#     - doesn't have a metaclass
+# The reason we need this is due to Generic having a different metaclass
+# (for python versions <= 3.7) and a class can have only one metaclass.
+#
+# * Lack of metaclass in .pyi is not a deal breaker, since the metaclass
+#   doesn't affect any type information. Also type checkers can check the type
+#   parameters.
+# * However, not declaring ArgumentParser as Generic in the source affects
+#   runtime annotation processing. In particular this means, subclasses should
+#   inherit from `ArgumentParser` and not `ArgumentParser[SomeType]`.
+#   The corresponding DEFINE_someType method (the public API) can be annotated
+#   to return FlagHolder[SomeType].
+class ArgumentParser(metaclass=_ArgumentParserCache):
   """Base class used to parse and convert arguments.
 
-  The parse() method checks to make sure that the string argument is a
+  The :meth:`parse` method checks to make sure that the string argument is a
   legal value and convert it to a native type.  If the value cannot be
-  converted, it should throw a 'ValueError' exception with a human
+  converted, it should throw a ``ValueError`` exception with a human
   readable explanation of why the value is illegal.
 
   Subclasses should also define a syntactic_help string which may be
@@ -109,7 +123,7 @@ class ArgumentParser(six.with_metaclass(_ArgumentParserCache, object)):
     Returns:
       The parsed value in native type.
     """
-    if not isinstance(argument, six.string_types):
+    if not isinstance(argument, str):
       raise TypeError('flag value must be a string, found "{}"'.format(
           type(argument)))
     return argument
@@ -133,7 +147,7 @@ class ArgumentSerializer(object):
 
   def serialize(self, value):
     """Returns a serialized string of the value."""
-    return _helpers.str_or_unicode(value)
+    return str(value)
 
 
 class NumericParser(ArgumentParser):
@@ -209,7 +223,7 @@ class FloatParser(NumericParser):
   def convert(self, argument):
     """Returns the float value of argument."""
     if (_is_integer_type(argument) or isinstance(argument, float) or
-        isinstance(argument, six.string_types)):
+        isinstance(argument, str)):
       return float(argument)
     else:
       raise TypeError(
@@ -255,7 +269,7 @@ class IntegerParser(NumericParser):
     """Returns the int value of argument."""
     if _is_integer_type(argument):
       return argument
-    elif isinstance(argument, six.string_types):
+    elif isinstance(argument, str):
       base = 10
       if len(argument) > 2 and argument[0] == '0':
         if argument[1] == 'o':
@@ -282,14 +296,18 @@ class BooleanParser(ArgumentParser):
         return True
       elif argument.lower() in ('false', 'f', '0'):
         return False
-    elif isinstance(argument, six.integer_types):
+      else:
+        raise ValueError('Non-boolean argument to boolean flag', argument)
+    elif isinstance(argument, int):
       # Only allow bool or integer 0, 1.
       # Note that float 1.0 == True, 0.0 == False.
       bool_value = bool(argument)
       if argument == bool_value:
         return bool_value
+      else:
+        raise ValueError('Non-boolean argument to boolean flag', argument)
 
-    raise ValueError('Non-boolean argument to boolean flag', argument)
+    raise TypeError('Non-boolean argument to boolean flag', argument)
 
   def flag_type(self):
     """See base class."""
@@ -347,6 +365,88 @@ class EnumParser(ArgumentParser):
     return 'string enum'
 
 
+class EnumClassParser(ArgumentParser):
+  """Parser of an Enum class member."""
+
+  def __init__(self, enum_class, case_sensitive=True):
+    """Initializes EnumParser.
+
+    Args:
+      enum_class: class, the Enum class with all possible flag values.
+      case_sensitive: bool, whether or not the enum is to be case-sensitive. If
+        False, all member names must be unique when case is ignored.
+
+    Raises:
+      TypeError: When enum_class is not a subclass of Enum.
+      ValueError: When enum_class is empty.
+    """
+    # Users must have an Enum class defined before using EnumClass flag.
+    # Therefore this dependency is guaranteed.
+    import enum
+
+    if not issubclass(enum_class, enum.Enum):
+      raise TypeError('{} is not a subclass of Enum.'.format(enum_class))
+    if not enum_class.__members__:
+      raise ValueError('enum_class cannot be empty, but "{}" is empty.'
+                       .format(enum_class))
+    if not case_sensitive:
+      members = collections.Counter(
+          name.lower() for name in enum_class.__members__)
+      duplicate_keys = {
+          member for member, count in members.items() if count > 1
+      }
+      if duplicate_keys:
+        raise ValueError(
+            'Duplicate enum values for {} using case_sensitive=False'.format(
+                duplicate_keys))
+
+    super(EnumClassParser, self).__init__()
+    self.enum_class = enum_class
+    self._case_sensitive = case_sensitive
+    if case_sensitive:
+      self._member_names = tuple(enum_class.__members__)
+    else:
+      self._member_names = tuple(
+          name.lower() for name in enum_class.__members__)
+
+  @property
+  def member_names(self):
+    """The accepted enum names, in lowercase if not case sensitive."""
+    return self._member_names
+
+  def parse(self, argument):
+    """Determines validity of argument and returns the correct element of enum.
+
+    Args:
+      argument: str or Enum class member, the supplied flag value.
+
+    Returns:
+      The first matching Enum class member in Enum class.
+
+    Raises:
+      ValueError: Raised when argument didn't match anything in enum.
+    """
+    if isinstance(argument, self.enum_class):
+      return argument
+    elif not isinstance(argument, str):
+      raise ValueError(
+          '{} is not an enum member or a name of a member in {}'.format(
+              argument, self.enum_class))
+    key = EnumParser(
+        self._member_names, case_sensitive=self._case_sensitive).parse(argument)
+    if self._case_sensitive:
+      return self.enum_class[key]
+    else:
+      # If EnumParser.parse() return a value, we're guaranteed to find it
+      # as a member of the class
+      return next(value for name, value in self.enum_class.__members__.items()
+                  if name.lower() == key.lower())
+
+  def flag_type(self):
+    """See base class."""
+    return 'enum class'
+
+
 class ListSerializer(ArgumentSerializer):
 
   def __init__(self, list_sep):
@@ -354,7 +454,34 @@ class ListSerializer(ArgumentSerializer):
 
   def serialize(self, value):
     """See base class."""
-    return self.list_sep.join([_helpers.str_or_unicode(x) for x in value])
+    return self.list_sep.join([str(x) for x in value])
+
+
+class EnumClassListSerializer(ListSerializer):
+  """A serializer for :class:`MultiEnumClass` flags.
+
+  This serializer simply joins the output of `EnumClassSerializer` using a
+  provided separator.
+  """
+
+  def __init__(self, list_sep, **kwargs):
+    """Initializes EnumClassListSerializer.
+
+    Args:
+      list_sep: String to be used as a separator when serializing
+      **kwargs: Keyword arguments to the `EnumClassSerializer` used to serialize
+        individual values.
+    """
+    super(EnumClassListSerializer, self).__init__(list_sep)
+    self._element_serializer = EnumClassSerializer(**kwargs)
+
+  def serialize(self, value):
+    """See base class."""
+    if isinstance(value, list):
+      return self.list_sep.join(
+          self._element_serializer.serialize(x) for x in value)
+    else:
+      return self._element_serializer.serialize(value)
 
 
 class CsvListSerializer(ArgumentSerializer):
@@ -364,28 +491,39 @@ class CsvListSerializer(ArgumentSerializer):
 
   def serialize(self, value):
     """Serializes a list as a CSV string or unicode."""
-    if six.PY2:
-      # In Python2 csv.writer doesn't accept unicode, so we convert to UTF-8.
-      output = io.BytesIO()
-      csv.writer(output).writerow([unicode(x).encode('utf-8') for x in value])
-      serialized_value = output.getvalue().decode('utf-8').strip()
-    else:
-      # In Python3 csv.writer expects a text stream.
-      output = io.StringIO()
-      csv.writer(output).writerow([str(x) for x in value])
-      serialized_value = output.getvalue().strip()
+    output = io.StringIO()
+    writer = csv.writer(output, delimiter=self.list_sep)
+    writer.writerow([str(x) for x in value])
+    serialized_value = output.getvalue().strip()
 
     # We need the returned value to be pure ascii or Unicodes so that
     # when the xml help is generated they are usefully encodable.
-    return _helpers.str_or_unicode(serialized_value)
+    return str(serialized_value)
+
+
+class EnumClassSerializer(ArgumentSerializer):
+  """Class for generating string representations of an enum class flag value."""
+
+  def __init__(self, lowercase):
+    """Initializes EnumClassSerializer.
+
+    Args:
+      lowercase: If True, enum member names are lowercased during serialization.
+    """
+    self._lowercase = lowercase
+
+  def serialize(self, value):
+    """Returns a serialized string of the Enum class value."""
+    as_string = str(value.name)
+    return as_string.lower() if self._lowercase else as_string
 
 
 class BaseListParser(ArgumentParser):
   """Base class for a parser of lists of strings.
 
-  To extend, inherit from this class; from the subclass __init__, call
+  To extend, inherit from this class; from the subclass ``__init__``, call::
 
-      BaseListParser.__init__(self, token, name)
+      super().__init__(token, name)
 
   where token is a character used to tokenize, and name is a description
   of the separator.

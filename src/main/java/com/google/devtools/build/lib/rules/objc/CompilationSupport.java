@@ -380,11 +380,14 @@ public class CompilationSupport implements StarlarkValue {
     return this;
   }
 
-  private StrippingType getStrippingType(ExtraLinkArgs extraLinkArgs) {
-    if (Iterables.contains(extraLinkArgs, "-dynamiclib")) {
+  private StrippingType getStrippingType(
+      ExtraLinkArgs extraLinkArgs, FeatureConfiguration featureConfiguration) {
+    if (Iterables.contains(extraLinkArgs, "-dynamiclib")
+        || featureConfiguration.isEnabled(ObjcRuleClasses.LINK_DYLIB_FEATURE)) {
       return StrippingType.DYNAMIC_LIB;
     }
-    if (Iterables.contains(extraLinkArgs, "-bundle")) {
+    if (Iterables.contains(extraLinkArgs, "-bundle")
+        || featureConfiguration.isEnabled(ObjcRuleClasses.LINK_BUNDLE_FEATURE)) {
       return StrippingType.LOADABLE_BUNDLE;
     }
     if (Iterables.contains(extraLinkArgs, "-kext")) {
@@ -537,6 +540,8 @@ public class CompilationSupport implements StarlarkValue {
       J2ObjcEntryClassProvider j2ObjcEntryClassProvider,
       ExtraLinkArgs extraLinkArgs,
       Iterable<Artifact> extraLinkInputs,
+      Iterable<String> extraRequestedFeatures,
+      Iterable<String> extraDisabledFeatures,
       boolean isStampingEnabled)
       throws InterruptedException, RuleErrorException {
     ObjcProvider objcProviderWithLinkingInfo = null;
@@ -563,17 +568,16 @@ public class CompilationSupport implements StarlarkValue {
     ImmutableSet<Artifact> asNeededLibrarySet = inputLibrarySet.first;
     ImmutableSet<Artifact> alwaysLinkLibrarySet = inputLibrarySet.second;
 
-    Iterable<Artifact> prunedJ2ObjcArchives =
-        computeAndStripPrunedJ2ObjcArchives(
-            j2ObjcEntryClassProvider, j2ObjcMappingFileProvider, secondaryObjcProvider);
-    asNeededLibrarySet =
-        Iterables.isEmpty(prunedJ2ObjcArchives)
-            ? asNeededLibrarySet
-            : substituteJ2ObjcPrunedLibraries(asNeededLibrarySet, secondaryObjcProvider);
-    alwaysLinkLibrarySet =
-        Iterables.isEmpty(prunedJ2ObjcArchives)
-            ? alwaysLinkLibrarySet
-            : substituteJ2ObjcPrunedLibraries(alwaysLinkLibrarySet, secondaryObjcProvider);
+    if (stripJ2ObjcDeadCode(j2ObjcEntryClassProvider)
+        && !secondaryObjcProvider.get(ObjcProvider.J2OBJC_LIBRARY).toList().isEmpty()) {
+      registerJ2ObjcDeadCodeRemovalActions(
+          secondaryObjcProvider, j2ObjcMappingFileProvider, j2ObjcEntryClassProvider);
+
+      asNeededLibrarySet =
+          substituteJ2ObjcPrunedLibraries(asNeededLibrarySet, secondaryObjcProvider);
+      alwaysLinkLibrarySet =
+          substituteJ2ObjcPrunedLibraries(alwaysLinkLibrarySet, secondaryObjcProvider);
+    }
 
     ImmutableList<Artifact> asNeededLibraryList = asNeededLibrarySet.asList();
     ImmutableList<Artifact> alwaysLinkLibraryList = alwaysLinkLibrarySet.asList();
@@ -585,12 +589,22 @@ public class CompilationSupport implements StarlarkValue {
     // CppLinkAction too, so create it now.
     Artifact inputFileList = intermediateArtifacts.linkerObjList();
 
+    ImmutableSet<String> allRequestedFeatures =
+        new ImmutableSet.Builder<String>()
+            .addAll(ruleContext.getFeatures())
+            .addAll(extraRequestedFeatures)
+            .build();
+    ImmutableSet<String> allDisabledFeatures =
+        new ImmutableSet.Builder<String>()
+            .addAll(ruleContext.getDisabledFeatures())
+            .addAll(extraDisabledFeatures)
+            .build();
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrReportRuleError(
             ruleContext,
             buildConfiguration,
-            ruleContext.getFeatures(),
-            ruleContext.getDisabledFeatures(),
+            allRequestedFeatures,
+            allDisabledFeatures,
             Language.OBJC,
             toolchain,
             cppSemantics);
@@ -605,7 +619,6 @@ public class CompilationSupport implements StarlarkValue {
     ObjcVariablesExtension.Builder extensionBuilder =
         new ObjcVariablesExtension.Builder()
             .setRuleContext(ruleContext)
-            .setConfiguration(buildConfiguration)
             .setIntermediateArtifacts(intermediateArtifacts)
             .setForceLoadArtifacts(alwaysLinkLibrarySet)
             .setAttributeLinkopts(attributes.linkopts())
@@ -700,9 +713,10 @@ public class CompilationSupport implements StarlarkValue {
 
     executableLinkingHelper.addLinkerOutputs(linkerOutputs.build());
 
-    CcLinkingContext.Builder linkstampsBuilder = CcLinkingContext.builder();
-    linkstampsBuilder.addLinkstamps(secondaryCcLinkingContext.getLinkstamps().toList());
-    CcLinkingContext linkstamps = linkstampsBuilder.build();
+    CcLinkingContext linkstamps =
+        CcLinkingContext.builder()
+            .addLinkstamps(secondaryCcLinkingContext.getLinkstamps().toList())
+            .build();
     executableLinkingHelper.addCcLinkingContexts(ImmutableList.of(linkstamps));
 
     executableLinkingHelper.link(CcCompilationOutputs.EMPTY);
@@ -728,7 +742,8 @@ public class CompilationSupport implements StarlarkValue {
         inputFileList);
 
     if (cppConfiguration.objcShouldStripBinary()) {
-      registerBinaryStripAction(binaryToLink, getStrippingType(extraLinkArgs));
+      registerBinaryStripAction(
+          binaryToLink, getStrippingType(extraLinkArgs, featureConfiguration));
     }
 
     return this;
@@ -807,15 +822,6 @@ public class CompilationSupport implements StarlarkValue {
         .addAll(objcProvider.get(FORCE_LOAD_LIBRARY).toList())
         .addAll(ccLibrariesToForceLoad)
         .build();
-  }
-
-  /** Returns pruned J2Objc archives for this target. */
-  private ImmutableList<Artifact> j2objcPrunedLibraries(ObjcProvider objcProvider) {
-    ImmutableList.Builder<Artifact> j2objcPrunedLibraryBuilder = ImmutableList.builder();
-    for (Artifact j2objcLibrary : objcProvider.get(ObjcProvider.J2OBJC_LIBRARY).toList()) {
-      j2objcPrunedLibraryBuilder.add(intermediateArtifacts.j2objcPrunedArchive(j2objcLibrary));
-    }
-    return j2objcPrunedLibraryBuilder.build();
   }
 
   /** Returns true if this build should strip J2Objc dead code. */
@@ -901,20 +907,6 @@ public class CompilationSupport implements StarlarkValue {
               .addOutput(prunedJ2ObjcArchive)
               .build(ruleContext));
     }
-  }
-
-  /** Returns archives arising from j2objc transpilation after dead code removal. */
-  private Iterable<Artifact> computeAndStripPrunedJ2ObjcArchives(
-      J2ObjcEntryClassProvider j2ObjcEntryClassProvider,
-      J2ObjcMappingFileProvider j2ObjcMappingFileProvider,
-      ObjcProvider objcProvider) {
-    Iterable<Artifact> prunedJ2ObjcArchives = ImmutableList.<Artifact>of();
-    if (stripJ2ObjcDeadCode(j2ObjcEntryClassProvider)) {
-      registerJ2ObjcDeadCodeRemovalActions(
-          objcProvider, j2ObjcMappingFileProvider, j2ObjcEntryClassProvider);
-      prunedJ2ObjcArchives = j2objcPrunedLibraries(objcProvider);
-    }
-    return prunedJ2ObjcArchives;
   }
 
   /** Returns a set of libraries with all unpruned J2ObjC libraries substituted with pruned ones. */

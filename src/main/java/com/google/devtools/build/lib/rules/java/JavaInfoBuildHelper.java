@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Streams.stream;
@@ -39,6 +38,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
@@ -88,7 +88,8 @@ final class JavaInfoBuildHelper {
       Sequence<JavaInfo> exports,
       Iterable<JavaPluginInfo> exportedPlugins,
       Sequence<CcInfo> nativeLibraries,
-      Location location) {
+      Location location)
+      throws RuleErrorException, EvalException {
     JavaInfo.Builder javaInfoBuilder = JavaInfo.Builder.create();
     javaInfoBuilder.setLocation(location);
     javaInfoBuilder.setNeverlink(neverlink);
@@ -137,9 +138,7 @@ final class JavaInfoBuildHelper {
             javaOutput.getGeneratedClassJar(),
             javaOutput.getGeneratedSourceJar(),
             JavaPluginInfo.empty(),
-            JavaInfo.streamProviders(concat(compileTimeDeps, exports), JavaGenJarsProvider.class)
-                .filter(not(JavaGenJarsProvider::isEmpty))
-                .collect(toImmutableList())));
+            collectJavaGenJarsProviders(concat(compileTimeDeps, exports))));
 
     javaInfoBuilder.setRuntimeJars(ImmutableList.of(javaOutput.getClassJar()));
 
@@ -159,6 +158,18 @@ final class JavaInfoBuildHelper {
                 .collect(toImmutableList())));
 
     return javaInfoBuilder.build();
+  }
+
+  private static ImmutableList<JavaGenJarsProvider> collectJavaGenJarsProviders(
+      Iterable<JavaInfo> javaInfos) throws RuleErrorException, EvalException {
+    ImmutableList.Builder<JavaGenJarsProvider> builder = ImmutableList.builder();
+    for (JavaInfo javaInfo : javaInfos) {
+      JavaGenJarsProvider provider = javaInfo.getGenJarsProvider();
+      if (provider != null && !provider.isEmpty()) {
+        builder.add(provider);
+      }
+    }
+    return builder.build();
   }
 
   /**
@@ -279,7 +290,7 @@ final class JavaInfoBuildHelper {
       List<String> addExports,
       List<String> addOpens,
       StarlarkThread thread)
-      throws EvalException, InterruptedException {
+      throws EvalException, InterruptedException, RuleErrorException {
 
     JavaToolchainProvider toolchainProvider = javaToolchain;
 
@@ -360,9 +371,7 @@ final class JavaInfoBuildHelper {
             javaInfoBuilder,
             // Include JavaGenJarsProviders from both deps and exports in the JavaGenJarsProvider
             // added to javaInfoBuilder for this target.
-            JavaInfo.streamProviders(concat(deps, exports), JavaGenJarsProvider.class)
-                .filter(not(JavaGenJarsProvider::isEmpty))
-                .collect(toImmutableList()),
+            collectJavaGenJarsProviders(concat(deps, exports)),
             ImmutableList.copyOf(annotationProcessorAdditionalInputs));
 
     JavaCompilationArgsProvider javaCompilationArgsProvider =

@@ -98,6 +98,11 @@ public interface OutputService {
    */
   String getFilesSystemName();
 
+  /** Returns true if remote output metadata should be stored in action cache. */
+  default boolean shouldStoreRemoteOutputMetadataInActionCache() {
+    return false;
+  }
+
   default RemoteArtifactChecker getRemoteArtifactChecker() {
     return RemoteArtifactChecker.TRUST_ALL;
   }

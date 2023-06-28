@@ -136,6 +136,8 @@ public class MultiArchBinarySupport {
       DependencySpecificConfiguration dependencySpecificConfiguration,
       ExtraLinkArgs extraLinkArgs,
       Iterable<Artifact> extraLinkInputs,
+      Iterable<String> extraRequestedFeatures,
+      Iterable<String> extraDisabledFeatures,
       boolean isStampingEnabled,
       Iterable<? extends TransitiveInfoCollection> infoCollections,
       Map<String, NestedSet<Artifact>> outputMapCollector)
@@ -165,6 +167,8 @@ public class MultiArchBinarySupport {
             j2ObjcEntryClassProvider,
             extraLinkArgs,
             extraLinkInputs,
+            extraRequestedFeatures,
+            extraDisabledFeatures,
             isStampingEnabled)
         .validateAttributes();
     ruleContext.assertNoErrors();

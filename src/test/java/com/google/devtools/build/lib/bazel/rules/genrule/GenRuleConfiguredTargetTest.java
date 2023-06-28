@@ -617,22 +617,22 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testExecToolsAreExecConfiguration() throws Exception {
+  public void testToolsHaveExecOutputDir() throws Exception {
     scratch.file(
         "config/BUILD",
         "genrule(name='src', outs=['src.out'], cmd=':')",
-        "genrule(name='exec_tool', outs=['exec_tool.out'], cmd=':')",
+        "genrule(name='tool', outs=['tool.out'], cmd=':')",
         "genrule(name='config', ",
-        "        srcs=[':src'], exec_tools=[':exec_tool'], outs=['out'],",
-        "        cmd='$(location :exec_tool)')");
+        "        srcs=[':src'], tools=[':tool'], outs=['out'],",
+        "        cmd='$(location :tool)')");
 
     ConfiguredTarget parentTarget = getConfiguredTarget("//config");
 
     // Cannot use getDirectPrerequisites, as this re-configures that target incorrectly.
     Artifact out = getFilesToBuild(parentTarget).toList().get(0);
     assertThat(getGeneratingAction(out).getTools().toList()).hasSize(1);
-    Artifact execTool = getGeneratingAction(out).getTools().getSingleton();
+    Artifact tool = getGeneratingAction(out).getTools().getSingleton();
     // This is the output dir fragment for the execution transition.
-    assertThat(execTool.getExecPathString()).contains("-exec-");
+    assertThat(tool.getExecPathString()).contains("-exec-");
   }
 }

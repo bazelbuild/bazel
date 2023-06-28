@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.configurationIdMessage;
 import static com.google.devtools.build.lib.analysis.config.transitions.TransitionCollector.NULL_TRANSITION_COLLECTOR;
 import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.configurationIdMessage;
 
@@ -47,7 +48,6 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker;
 import com.google.devtools.build.lib.analysis.producers.TargetAndConfigurationProducer;
 import com.google.devtools.build.lib.analysis.producers.TargetAndConfigurationProducer.TargetAndConfigurationError;
-import com.google.devtools.build.lib.analysis.producers.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailurePropagationException;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
@@ -198,15 +198,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
      */
     private Object targetAndConfigurationResult;
 
-    /** Null if ConfiguredTargetFuncton is not storing this information. */
-    @Nullable NestedSetBuilder<Package> transitivePackages;
+    final PrerequisiteProducer.State computeDependenciesState;
 
-    NestedSetBuilder<Cause> transitiveRootCauses = NestedSetBuilder.stableOrder();
-
-    PrerequisiteProducer.State computeDependenciesState = new PrerequisiteProducer.State();
-
-    State(boolean storeTransitivePackages) {
-      this.transitivePackages = storeTransitivePackages ? NestedSetBuilder.stableOrder() : null;
+    public State(boolean storeTransitivePackages) {
+      this.computeDependenciesState = new PrerequisiteProducer.State(storeTransitivePackages);
     }
 
     @Override
@@ -233,7 +228,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       throws ReportedException, UnreportedException, DependencyException, InterruptedException {
     State state = env.getState(() -> new State(storeTransitivePackages));
     ConfiguredTargetKey configuredTargetKey = (ConfiguredTargetKey) key.argument();
-    Preconditions.checkArgument(!configuredTargetKey.isProxy(), configuredTargetKey);
     SkyframeBuildView view = buildViewProvider.getSkyframeBuildView();
 
     if (shouldUnblockCpuWorkWhenFetchingDeps) {
@@ -254,9 +248,12 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       } catch (InconsistentNullConfigException e) {
         // TODO(b/267529852): see if we can remove this. It's not clear the conditions that trigger
         // InconsistentNullConfigException are even possible.
+        //
+        // TODO(b/261521010): propagate this exception once the parent side rule transition is
+        // deleted. The caller should handle it correctly.
         return new NonRuleConfiguredTargetValue(
             new EmptyConfiguredTarget(configuredTargetKey),
-            state.transitivePackages == null ? null : state.transitivePackages.build());
+            computeDependenciesState.transitivePackages());
       }
       // Any `TargetAndConfigurationError` has already been handled, so `result` can only
       // be null, a `ConfiguredTargetKey` or a `ConfiguredTargetValue`.
@@ -278,10 +275,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           ruleClassProvider,
           view.getStarlarkTransitionCache(),
           () -> maybeAcquireSemaphoreWithLogging(key),
-          new TransitiveDependencyState(
-              state.transitiveRootCauses,
-              state.transitivePackages,
-              /* prerequisitePackages= */ null),
           NULL_TRANSITION_COLLECTOR,
           env,
           env.getListener())) {
@@ -306,7 +299,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               prereqs.getDepValueMap(),
               prereqs.getConfigConditions(),
               prereqs.getPlatformInfo(),
-              state.transitivePackages);
+              computeDependenciesState.transitiveState);
       if (incompatibleTarget.isPresent()) {
         return incompatibleTarget.get();
       }
@@ -342,8 +335,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               prereqs.getDepValueMap(),
               prereqs.getConfigConditions(),
               toolchainContexts,
-              state.computeDependenciesState.execGroupCollectionBuilder,
-              state.transitivePackages);
+              computeDependenciesState.execGroupCollectionBuilder,
+              state.computeDependenciesState.transitivePackages());
       if (ans != null && configuredTargetProgress != null) {
         configuredTargetProgress.doneConfigureTarget();
       }
@@ -386,7 +379,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       ExecGroupCollection.Builder execGroupCollectionBuilder,
-      @Nullable NestedSetBuilder<Package> transitivePackagesBuilder)
+      @Nullable NestedSet<Package> transitivePackages)
       throws ConfiguredValueCreationException, InterruptedException {
     Target target = ctgValue.getTarget();
     BuildConfigurationValue configuration = ctgValue.getConfiguration();
@@ -398,8 +391,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       return null;
     }
 
-    NestedSet<Package> transitivePackages =
-        transitivePackagesBuilder == null ? null : transitivePackagesBuilder.build();
     StoredEventHandler events = new StoredEventHandler();
     CachingAnalysisEnvironment analysisEnvironment =
         view.createAnalysisEnvironment(
@@ -444,9 +435,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                       (event) ->
                           new AnalysisFailedCause(
                               target.getLabel(),
-                              configuration == null
-                                  ? null
-                                  : configuration.getEventId().getConfiguration(),
+                              configurationIdMessage(configuration),
                               createDetailedExitCode(event.getMessage())))
                   .collect(Collectors.toList()));
       throw new ConfiguredValueCreationException(
@@ -494,10 +483,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                     ((ConfiguredRuleClassProvider) ruleClassProvider)
                         .getTrimmingTransitionFactory(),
                     buildViewProvider.getSkyframeBuildView().getStarlarkTransitionCache(),
-                    new TransitiveDependencyState(
-                        state.transitiveRootCauses,
-                        state.transitivePackages,
-                        /* prerequisitePackages= */ null),
+                    state.computeDependenciesState.transitiveState,
                     (TargetAndConfigurationProducer.ResultSink) state));
       }
       if (state.targetAndConfigurationProducer.drive(env, storedEvents)) {
@@ -523,10 +509,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               storedEvents.handle(Event.error(e.getLocation(), e.getMessage()));
             }
             throw new ReportedException(e);
-          case INVALID_VISIBILITY_DEPENDENCY:
-            // Bubbles the error up to the parent ConfiguredTargetFunction where it will be reported
-            // with additional context.
-            throw new DependencyException(error.invalidVisibilityDependency());
           case INCONSISTENT_NULL_CONFIG:
             throw error.inconsistentNullConfig();
         }

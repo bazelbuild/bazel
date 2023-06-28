@@ -121,7 +121,7 @@ genrule(
     name = "genrule1",
     outs = ["genrule1.out"],
     cmd = "echo hello > \$@",
-    exec_tools = [
+    tools = [
       ":genrule2",
     ],
 )
@@ -129,7 +129,7 @@ genrule(
     name = "genrule2",
     outs = ["genrule2.out"],
     cmd = "echo hello > \$@",
-    exec_tools = [
+    tools = [
       ":report",
     ],
 )

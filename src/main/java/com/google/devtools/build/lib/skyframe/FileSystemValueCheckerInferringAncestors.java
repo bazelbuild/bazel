@@ -34,8 +34,9 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.ImmutableDiff;
+import com.google.devtools.build.skyframe.InMemoryGraph;
+import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -64,8 +65,8 @@ import javax.annotation.Nullable;
  */
 final class FileSystemValueCheckerInferringAncestors {
   @Nullable private final TimestampGranularityMonitor tsgm;
-  private final Map<SkyKey, SkyValue> graphValues;
-  private final Map<SkyKey, SkyValue> graphDoneValues;
+
+  private final InMemoryGraph inMemoryGraph;
   private final Map<RootedPath, NodeVisitState> nodeStates;
   private final SyscallCache syscallCache;
   private final Set<SkyKey> valuesToInvalidate = Sets.newConcurrentHashSet();
@@ -115,22 +116,19 @@ final class FileSystemValueCheckerInferringAncestors {
 
   private FileSystemValueCheckerInferringAncestors(
       @Nullable TimestampGranularityMonitor tsgm,
-      Map<SkyKey, SkyValue> graphValues,
-      Map<SkyKey, SkyValue> graphDoneValues,
+      InMemoryGraph inMemoryGraph,
       Map<RootedPath, NodeVisitState> nodeStates,
       SyscallCache syscallCache) {
     this.tsgm = tsgm;
-    this.graphValues = graphValues;
-    this.graphDoneValues = graphDoneValues;
     this.nodeStates = nodeStates;
     this.syscallCache = syscallCache;
+    this.inMemoryGraph = inMemoryGraph;
   }
 
   @SuppressWarnings("ReferenceEquality")
   static ImmutableDiff getDiffWithInferredAncestors(
       @Nullable TimestampGranularityMonitor tsgm,
-      Map<SkyKey, SkyValue> graphValues,
-      Map<SkyKey, SkyValue> graphDoneValues,
+      InMemoryGraph inMemoryGraph,
       Iterable<FileStateKey> modifiedKeys,
       int nThreads,
       SyscallCache syscallCache)
@@ -163,11 +161,7 @@ final class FileSystemValueCheckerInferringAncestors {
     }
 
     return new FileSystemValueCheckerInferringAncestors(
-            tsgm,
-            graphValues,
-            graphDoneValues,
-            Collections.unmodifiableMap(nodeStates),
-            syscallCache)
+            tsgm, inMemoryGraph, Collections.unmodifiableMap(nodeStates), syscallCache)
         .processEntries(nThreads);
   }
 
@@ -253,7 +247,8 @@ final class FileSystemValueCheckerInferringAncestors {
       NodeVisitState parentState)
       throws StatFailedException {
     FileStateKey key = FileStateValue.key(path);
-    @Nullable FileStateValue fsv = (FileStateValue) graphValues.get(key);
+    @Nullable InMemoryNodeEntry fsvNode = inMemoryGraph.getIfPresent(key);
+    @Nullable FileStateValue fsv = fsvNode != null ? (FileStateValue) fsvNode.toValue() : null;
     if (fsv == null) {
       visitUnknownEntry(key, isInferredDirectory, parentState);
       parentState.addMaybeDeletedChild(path.getRootRelativePath().getBaseName());
@@ -298,13 +293,12 @@ final class FileSystemValueCheckerInferringAncestors {
     // Run stats on unknown files in order to preserve the parent listing if present unless we
     // already know it has changed.
     Optional<DirectoryListingStateValue.Key> parentListingKey = parentListingKey(path);
-    @Nullable
-    DirectoryListingStateValue parentListing =
-        parentListingKey
-            // Only look for done listings since already invalidated ones will be reevaluated
-            // anyway.
-            .map(k -> (DirectoryListingStateValue) graphDoneValues.get(k))
-            .orElse(null);
+    @Nullable DirectoryListingStateValue parentListing = null;
+    if (parentListingKey.isPresent()) {
+      @Nullable InMemoryNodeEntry entry = inMemoryGraph.getIfPresent(parentListingKey.get());
+      parentListing =
+          entry != null && entry.isDone() ? (DirectoryListingStateValue) entry.getValue() : null;
+    }
 
     // No listing/we already know it has changed -- nothing to gain from stats anymore.
     if (parentListing == null || valuesToInvalidate.contains(parentListingKey.get())) {
@@ -347,8 +341,12 @@ final class FileSystemValueCheckerInferringAncestors {
     // TODO(192010830): Try looking up BUILD files if there is no listing -- this is a lookup we
     //  can speculatively try since those files are often checked against.
     @Nullable
+    InMemoryNodeEntry nodeEntry = inMemoryGraph.getIfPresent(DirectoryListingStateValue.key(path));
+    @Nullable
     DirectoryListingStateValue listing =
-        (DirectoryListingStateValue) graphDoneValues.get(DirectoryListingStateValue.key(path));
+        nodeEntry != null && nodeEntry.isDone()
+            ? (DirectoryListingStateValue) nodeEntry.getValue()
+            : null;
     if (listing == null) {
       return false;
     }

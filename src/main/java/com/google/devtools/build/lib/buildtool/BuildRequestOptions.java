@@ -82,7 +82,7 @@ public class BuildRequestOptions extends OptionsBase {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       converter = ProgressReportIntervalConverter.class,
       help =
-          "The number of seconds to between reports on still running jobs. The "
+          "The number of seconds to wait between reports on still running jobs. The "
               + "default value 0 means the first report will be printed after 10 "
               + "seconds, then 30 seconds and after that progress is reported once every minute. "
               + "When --curses is enabled, progress is reported every second.")
@@ -202,18 +202,6 @@ public class BuildRequestOptions extends OptionsBase {
               + "If nothing was built for a target its results may be omitted to keep the output"
               + " under the threshold.")
   public int maxResultTargets;
-
-  @Option(
-      name = "experimental_show_artifacts",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "Output a list of all top level artifacts produced by this build."
-              + "Use output format suitable for tool consumption. "
-              + "This flag is temporary and intended to facilitate Android Studio integration. "
-              + "This output format will likely change in the future or disappear completely.")
-  public boolean showArtifacts;
 
   @Option(
       name = "announce",
@@ -428,7 +416,7 @@ public class BuildRequestOptions extends OptionsBase {
         OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
         OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
       },
-      help = "Whether to store output metadata in the action cache")
+      help = "no-op")
   public boolean actionCacheStoreOutputMetadata;
 
   @Option(

@@ -431,9 +431,10 @@ public final class RuleConfiguredTargetBuilder {
       Map<Label, RemovedEnvironmentCulprit> removedEnvironmentCulprits = new LinkedHashMap<>();
       constraintSemantics.checkConstraints(ruleContext, supportedEnvironments, refinedEnvironments,
           removedEnvironmentCulprits);
-      add(SupportedEnvironmentsProvider.class,
-          new SupportedEnvironments(supportedEnvironments, refinedEnvironments.build(),
-              removedEnvironmentCulprits));
+      add(
+          SupportedEnvironmentsProvider.class,
+          SupportedEnvironments.create(
+              supportedEnvironments, refinedEnvironments.build(), removedEnvironmentCulprits));
     }
   }
 

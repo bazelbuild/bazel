@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.windows.util;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -26,7 +25,6 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -107,11 +105,6 @@ public final class WindowsTestUtil {
       }
     }
     return fd.toPath();
-  }
-
-  /** Run a Command Prompt command. */
-  public static void runCommand(List<String> args) throws IOException {
-    runCommand(Joiner.on(' ').join(args));
   }
 
   /** Run a Command Prompt command. */

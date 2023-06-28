@@ -64,7 +64,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.worker.WorkerPoolImpl.WorkerPoolConfig;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
@@ -181,7 +180,6 @@ public class WorkerSpawnRunnerTest {
             /* runfilesTreeUpdater= */ null,
             new WorkerOptions(),
             metricsCollector,
-            SyscallCache.NO_CACHE,
             new JavaClock());
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
@@ -582,7 +580,6 @@ public class WorkerSpawnRunnerTest {
         /* runfilesTreeUpdater= */ null,
         workerOptions,
         metricsCollector,
-        SyscallCache.NO_CACHE,
         new JavaClock());
   }
 

@@ -136,7 +136,6 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/bazel/rules:rules_license.WORKSPACE",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp:cc_configure.WORKSPACE",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:jdk.WORKSPACE",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:rules_java_builtin.WORKSPACE",
     ],
 )
 
@@ -165,6 +164,13 @@ pkg_tar(
     visibility = ["//:__subpackages__"],
 )
 
+pkg_tar(
+    name = "rules_java-srcs",
+    srcs = ["@rules_java//:distribution"],
+    strip_prefix = "external",
+    visibility = ["//:__subpackages__"],
+)
+
 # The @maven repository is created by maven_install from rules_jvm_external.
 # `@maven//:srcs` contains all jar files downloaded and BUILD files created by maven_install.
 pkg_tar(
@@ -187,6 +193,7 @@ genrule(
         ":bazel-srcs",
         ":bootstrap-jars",
         ":platforms-srcs",
+        ":rules_java-srcs",
         ":maven-srcs",
         "//src:derived_java_srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:bootstrap_autocodec.tar",
@@ -205,6 +212,7 @@ genrule(
         ":bazel-srcs",
         ":bootstrap-jars",
         ":platforms-srcs",
+        ":rules_java-srcs",
         ":maven-srcs",
         "//src:derived_java_srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:bootstrap_autocodec.tar",

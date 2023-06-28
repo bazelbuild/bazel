@@ -30,11 +30,16 @@ import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyExcepti
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
+import com.google.devtools.build.lib.causes.LoadingFailedCause;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
+import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
@@ -110,6 +115,25 @@ final class DependencyProducer
       // This is always a null transition because visibility targets are not configurable.
       return computePrerequisites(
           AttributeConfiguration.ofVisibility(), /* executionPlatformLabel= */ null);
+    }
+
+    Target parentTarget = parameters.target();
+    if (parentTarget.getLabel().getPackageIdentifier().equals(toLabel.getPackageIdentifier())) {
+      try {
+        Target toTarget = parentTarget.getPackage().getTarget(toLabel.getName());
+        if (!toTarget.isConfigurable()) {
+          return computePrerequisites(
+              AttributeConfiguration.ofNullConfiguration(), /* executionPlatformLabel= */ null);
+        }
+      } catch (NoSuchTargetException e) {
+        parameters
+            .transitiveState()
+            .addTransitiveCause(new LoadingFailedCause(toLabel, e.getDetailedExitCode()));
+        listener.handle(
+            Event.error(
+                TargetUtils.getLocationMaybe(parentTarget),
+                TargetUtils.formatMissingEdge(parentTarget, toLabel, e, kind.getAttribute())));
+      }
     }
 
     // The logic of `DependencyResolver.computeDependencyLabels` implies that

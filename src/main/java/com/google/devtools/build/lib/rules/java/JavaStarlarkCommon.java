@@ -36,8 +36,11 @@ import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkInfoNoSchema;
+import com.google.devtools.build.lib.packages.StarlarkInfoWithSchema;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
@@ -47,11 +50,9 @@ import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollect
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaToolchainStarlarkApiProviderApi;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Sequence;
@@ -140,10 +141,10 @@ public class JavaStarlarkCommon
     final ImmutableList<JavaPluginInfo> exportedPluginsParam;
     if (acceptJavaInfo
         && !exportedPlugins.isEmpty()
-        && exportedPlugins.get(0) instanceof JavaInfo) {
+        && JavaInfo.isJavaInfo(exportedPlugins.get(0))) {
       // Handle deprecated case where exported_plugins is given a list of JavaInfos
       exportedPluginsParam =
-          Sequence.cast(exportedPlugins, JavaInfo.class, "exported_plugins").stream()
+          JavaInfo.wrapSequence(exportedPlugins, "exported_plugins").stream()
               .map(JavaInfo::getJavaPluginInfo)
               .filter(Objects::nonNull)
               .collect(toImmutableList());
@@ -333,15 +334,11 @@ public class JavaStarlarkCommon
   }
 
   @Override
-  public JavaInfo addConstraints(Info info, Sequence<?> constraints)
+  public Info addConstraints(Info info, Sequence<?> constraints)
       throws EvalException, RuleErrorException {
-    JavaInfo javaInfo = JavaInfo.PROVIDER.wrap(info);
-    List<String> constraintStrings = Sequence.cast(constraints, String.class, "constraints");
-    ImmutableList<String> mergedConstraints =
-        Stream.concat(javaInfo.getJavaConstraints().stream(), constraintStrings.stream())
-            .distinct()
-            .collect(toImmutableList());
-    return JavaInfo.Builder.copyOf(javaInfo).setJavaConstraints(mergedConstraints).build();
+    // No implementation in Bazel. This method is not callable in Starlark except through
+    // (discouraged) use of --experimental_google_legacy_api.
+    return info;
   }
 
   @Override
@@ -514,5 +511,41 @@ public class JavaStarlarkCommon
                   runtimeClasspath.toList(Artifact.class),
                   Predicates.not(Predicates.in(excludedArtifacts.getSet().toSet())))));
     }
+  }
+
+  @Override
+  public void checkProviderInstances(
+      Sequence<?> providers, String what, ProviderApi providerType, StarlarkThread thread)
+      throws EvalException {
+    checkPrivateAccess(thread);
+    if (providerType instanceof Provider) {
+      for (int i = 0; i < providers.size(); i++) {
+        Object elem = providers.get(i);
+        if (!isInstanceOfProvider(elem, (Provider) providerType)) {
+          throw Starlark.errorf(
+              "at index %d of %s, got element of type %s, want %s",
+              i, what, Starlark.type(elem), ((Provider) providerType).getPrintableName());
+        }
+      }
+    } else {
+      throw Starlark.errorf("wanted Provider, got %s", Starlark.type(providerType));
+    }
+  }
+
+  @Override
+  public boolean isLegacyGoogleApiEnabled(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API);
+  }
+
+  static boolean isInstanceOfProvider(Object obj, Provider provider) {
+    if (obj instanceof NativeInfo) {
+      return ((NativeInfo) obj).getProvider().getKey().equals(provider.getKey());
+    } else if (obj instanceof StarlarkInfoWithSchema) {
+      return ((StarlarkInfoWithSchema) obj).getProvider().getKey().equals(provider.getKey());
+    } else if (obj instanceof StarlarkInfoNoSchema) {
+      return ((StarlarkInfoNoSchema) obj).getProvider().getKey().equals(provider.getKey());
+    }
+    return false;
   }
 }

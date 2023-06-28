@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.PathStripper;
+import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -241,6 +242,13 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
       RepositoryName toolsRepository)
       throws InterruptedException, ActionConflictException {
     ConfiguredAspect.Builder result = new ConfiguredAspect.Builder(ruleContext);
+
+    // No-op out of the aspect if the Starlark dex/desugar will execute to avoid registering
+    // duplicate actions and bloating memory
+    if (Allowlist.hasAllowlist(ruleContext, "enable_starlark_dex_desugar_proguard")
+        && Allowlist.isAvailable(ruleContext, "enable_starlark_dex_desugar_proguard")) {
+      return result.build();
+    }
 
     int minSdkVersion = 0;
     if (!params.getAttribute("min_sdk_version").isEmpty()) {

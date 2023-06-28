@@ -38,10 +38,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
-import com.google.devtools.build.lib.analysis.producers.TransitiveDependencyState;
-import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -139,13 +136,8 @@ public class CqueryTransitionResolver {
     BuildConfigurationValue configuration =
         cqueryThreadsafeCallback.getConfiguration(configuredTarget.getConfigurationKey());
 
-    var state = new PrerequisiteProducer.State();
+    var state = new PrerequisiteProducer.State(/* storeTransitivePackages= */ false);
     state.targetAndConfiguration = new TargetAndConfiguration(target, configuration);
-    var transitiveCauses = NestedSetBuilder.<Cause>stableOrder();
-    var transitiveState =
-        new TransitiveDependencyState(
-            transitiveCauses, /* transitivePackages= */ null, /* prerequisitePackages= */ null);
-
     var attributeTransitionCollector =
         HashBasedTable.<DependencyKind, Label, ConfigurationTransition>create();
 
@@ -157,7 +149,6 @@ public class CqueryTransitionResolver {
           ruleClassProvider,
           transitionCache,
           /* semaphoreLocker= */ () -> {},
-          transitiveState,
           attributeTransitionCollector::put,
           accessor.getLookupEnvironment(),
           eventHandler)) {
@@ -167,8 +158,9 @@ public class CqueryTransitionResolver {
       throw new EvaluateException(e.getMessage());
     }
 
-    if (!transitiveCauses.isEmpty()) {
-      throw new EvaluateException("expected empty: " + transitiveCauses.build().toList());
+    if (!state.transitiveRootCauses().isEmpty()) {
+      throw new EvaluateException(
+          "expected empty: " + state.transitiveRootCauses().build().toList());
     }
 
     OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> deps = producer.getDepValueMap();

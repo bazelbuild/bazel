@@ -52,6 +52,7 @@ function test_shared_library_symbols() {
 
 function test_shared_library_user_link_flags() {
   foo_so=$(find . -name libfoo_so.so)
+  # $RPATH defined in testenv.sh
   objdump -x $foo_so | grep $RPATH | grep "kittens" > /dev/null \
       || (echo "Expected to have RUNPATH contain 'kittens' (set by user_link_flags)" \
           && exit 1)
@@ -73,7 +74,16 @@ function test_cc_test() {
   do_test_binary $cc_test
 }
 
+function test_number_of_linked_libs() {
+  binary=$(find . -name binary)
+  expected_num_libs="6"
+  num_libs=$(readelf -d  $binary | grep NEEDED | wc -l)
+  echo "$num_libs" | (grep -q  "$expected_num_libs" \
+    || (echo "Expected no more than "$expected_num_libs" linked libraries but was $num_libs" && exit 1))
+}
+
 test_shared_library_user_link_flags
 test_shared_library_symbols
 test_binary
 test_cc_test
+test_number_of_linked_libs

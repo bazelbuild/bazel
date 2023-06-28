@@ -54,6 +54,12 @@ public class ObjcRuleClasses {
     throw new UnsupportedOperationException("static-only");
   }
 
+  /** A string constant for feature to link a bundle. */
+  static final String LINK_BUNDLE_FEATURE = "link_bundle";
+
+  /** A string constant for feature to link a dylib. */
+  static final String LINK_DYLIB_FEATURE = "link_dylib";
+
   /** Attribute name for a dummy target in a child configuration. */
   static final String CHILD_CONFIG_ATTR = "$child_configuration_dummy";
 

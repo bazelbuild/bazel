@@ -556,11 +556,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return parser.getOptions(PackageOptions.class);
   }
 
-  private static BuildLanguageOptions parseBuildLanguageOptions(String... options)
-      throws Exception {
+  private BuildLanguageOptions parseBuildLanguageOptions(String... options) throws Exception {
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
-    parser.parse("--experimental_google_legacy_api"); // For starlark java_binary;
+    if (!analysisMock.isThisBazel()) {
+      parser.parse("--experimental_google_legacy_api"); // For starlark java_binary;
+    }
     parser.parse(options);
     return parser.getOptions(BuildLanguageOptions.class);
   }

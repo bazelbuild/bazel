@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.producers;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
+import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetProducer;
@@ -149,7 +150,7 @@ public final class DependencyContextProducerWithCompatibilityCheck
         configuredTargetKey,
         configConditions,
         targetPlatformInfo,
-        transitiveState.transitivePackages(),
+        transitiveState,
         (IncompatibleTargetProducer.ResultSink) this,
         /* runAfter= */ this::computeUnloadedToolchainContexts);
   }

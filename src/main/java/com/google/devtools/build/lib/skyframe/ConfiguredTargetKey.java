@@ -14,13 +14,11 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.util.HashCodes.hashObjects;
 
 import com.google.common.base.MoreObjects;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -43,17 +41,9 @@ import javax.annotation.Nullable;
  * dependency resolution and the rule analysis.
  *
  * <p>In practice, a ({@link Label} and post-transition {@link BuildConfigurationKey}) pair plus a
- * possible execution platform override {@link Label} with special constraints. To elaborate, in
- * order of highest to lowest potential for concern:
+ * possible execution platform override {@link Label} with special constraints described as follows.
  *
- * <p>1. The {@link BuildConfigurationKey} must be post-transition and thus ready for immediate use
- * in dependency resolution and analysis. In practice, this means that if the rule has an
- * incoming-edge transition (cfg in {@link RuleClass}) or there are global trimming transitions,
- * THOSE TRANSITIONS MUST ALREADY BE DONE before creating the key. Failure to do so will lead to
- * build graphs with ConfiguredTarget that have seemingly impossible {@link BuildConfigurationValue}
- * (due to the skipped transitions).
- *
- * <p>2. A build should not request keys with equal ({@link Label}, {@link BuildConfigurationValue})
+ * <p>A build should not request keys with equal ({@link Label}, {@link BuildConfigurationValue})
  * pairs but different execution platform override {@link Label} if the invoked rule will register
  * actions. (This is potentially OK if all outputs of all registered actions incorporate the
  * execution platform in their name unless the build also requests keys without an override that
@@ -63,32 +53,40 @@ import javax.annotation.Nullable;
  *
  * <p>Note that this key may be used to look up the generating action of an artifact.
  *
- * <p>The {@link ConfiguredTargetKey} is not a {@link SkyKey} and must be cast to one using {@link
- * ActionLookupKeyOrProxy#toKey}.
- *
  * <p>TODO(blaze-configurability-team): Consider just using BuildOptions over a
  * BuildConfigurationKey.
  */
-public abstract class ConfiguredTargetKey implements ActionLookupKeyOrProxy {
+public class ConfiguredTargetKey implements ActionLookupKey {
   /**
    * Cache so that the number of ConfiguredTargetKey instances is {@code O(configured targets)} and
    * not {@code O(edges between configured targets)}.
    */
-  private static final SkyKey.SkyKeyInterner<SkyKey> interner = SkyKey.newInterner();
+  private static final SkyKey.SkyKeyInterner<ConfiguredTargetKey> interner = SkyKey.newInterner();
 
+  private final Label label;
   @Nullable private final BuildConfigurationKey configurationKey;
   private final transient int hashCode;
 
-  private ConfiguredTargetKey(@Nullable BuildConfigurationKey configurationKey, int hashCode) {
+  private ConfiguredTargetKey(
+      Label label, @Nullable BuildConfigurationKey configurationKey, int hashCode) {
+    this.label = label;
     this.configurationKey = configurationKey;
     this.hashCode = hashCode;
   }
 
-  public Builder toBuilder() {
-    return builder()
-        .setConfigurationKey(configurationKey)
-        .setLabel(getLabel())
-        .setExecutionPlatformLabel(getExecutionPlatformLabel());
+  @Override
+  public final SkyFunctionName functionName() {
+    return SkyFunctions.CONFIGURED_TARGET;
+  }
+
+  @Override
+  public SkyKeyInterner<?> getSkyKeyInterner() {
+    return interner;
+  }
+
+  @Override
+  public Label getLabel() {
+    return label;
   }
 
   @Nullable
@@ -97,22 +95,26 @@ public abstract class ConfiguredTargetKey implements ActionLookupKeyOrProxy {
     return configurationKey;
   }
 
-  public abstract Label getExecutionPlatformLabel();
+  @Override
+  public final ConfiguredTargetKey toKey() {
+    return this;
+  }
+
+  @Nullable
+  public Label getExecutionPlatformLabel() {
+    return null;
+  }
+
+  public final String prettyPrint() {
+    if (getLabel() == null) {
+      return "null";
+    }
+    return String.format("%s (%s)", getLabel(), formatConfigurationKey(configurationKey));
+  }
 
   @Override
   public final int hashCode() {
     return hashCode;
-  }
-
-  public boolean isProxy() {
-    return false;
-  }
-
-  private static int computeHashCode(
-      Label label,
-      @Nullable BuildConfigurationKey configurationKey,
-      @Nullable Label executionPlatformLabel) {
-    return hashObjects(label, configurationKey, executionPlatformLabel);
   }
 
   @Override
@@ -130,19 +132,8 @@ public abstract class ConfiguredTargetKey implements ActionLookupKeyOrProxy {
         && Objects.equals(getExecutionPlatformLabel(), other.getExecutionPlatformLabel());
   }
 
-  public String prettyPrint() {
-    if (getLabel() == null) {
-      return "null";
-    }
-    return String.format("%s (%s)", getLabel(), formatConfigurationKey(configurationKey));
-  }
-
-  private static ConfiguredTargetKey intern(ConfiguredTargetKey key) {
-    return (ConfiguredTargetKey) interner.intern((SkyKey) key);
-  }
-
   @Override
-  public String toString() {
+  public final String toString() {
     // TODO(b/162809183): consider reverting to less verbose toString when bug is resolved.
     MoreObjects.ToStringHelper helper =
         MoreObjects.toStringHelper(this).add("label", getLabel()).add("config", configurationKey);
@@ -152,47 +143,7 @@ public abstract class ConfiguredTargetKey implements ActionLookupKeyOrProxy {
     return helper.toString();
   }
 
-  private static final class RealConfiguredTargetKey extends ConfiguredTargetKey
-      implements ActionLookupKey {
-    private final Label label;
-
-    private RealConfiguredTargetKey(
-        Label label, @Nullable BuildConfigurationKey configurationKey, int hashCode) {
-      super(configurationKey, hashCode);
-      this.label = label;
-    }
-
-    static ConfiguredTargetKey create(
-        Label label, @Nullable BuildConfigurationKey configurationKey) {
-      int hashCode = computeHashCode(label, configurationKey, /* executionPlatformLabel= */ null);
-      return intern(new RealConfiguredTargetKey(label, configurationKey, hashCode));
-    }
-
-    @Override
-    public final SkyFunctionName functionName() {
-      return SkyFunctions.CONFIGURED_TARGET;
-    }
-
-    @Override
-    public SkyKeyInterner<?> getSkyKeyInterner() {
-      return interner;
-    }
-
-    @Override
-    public Label getLabel() {
-      return label;
-    }
-
-    @Nullable
-    @Override
-    public Label getExecutionPlatformLabel() {
-      return null;
-    }
-  }
-
-  private static final class ToolchainDependencyConfiguredTargetKey extends ConfiguredTargetKey
-      implements ActionLookupKey {
-    private final Label label;
+  private static final class ToolchainDependencyConfiguredTargetKey extends ConfiguredTargetKey {
     private final Label executionPlatformLabel;
 
     private ToolchainDependencyConfiguredTargetKey(
@@ -200,119 +151,21 @@ public abstract class ConfiguredTargetKey implements ActionLookupKeyOrProxy {
         @Nullable BuildConfigurationKey configurationKey,
         int hashCode,
         Label executionPlatformLabel) {
-      super(configurationKey, hashCode);
-      this.label = label;
+      super(label, configurationKey, hashCode);
       this.executionPlatformLabel = checkNotNull(executionPlatformLabel);
-    }
-
-    private static ConfiguredTargetKey create(
-        Label label,
-        @Nullable BuildConfigurationKey configurationKey,
-        Label executionPlatformLabel) {
-      int hashCode = computeHashCode(label, configurationKey, executionPlatformLabel);
-      return intern(
-          new ToolchainDependencyConfiguredTargetKey(
-              label, configurationKey, hashCode, executionPlatformLabel));
-    }
-
-    @Override
-    public SkyFunctionName functionName() {
-      return SkyFunctions.CONFIGURED_TARGET;
-    }
-
-    @Override
-    public Label getLabel() {
-      return label;
     }
 
     @Override
     public Label getExecutionPlatformLabel() {
       return executionPlatformLabel;
     }
-
-    @Override
-    public SkyKeyInterner<?> getSkyKeyInterner() {
-      return interner;
-    }
   }
 
-  // This class implements SkyKey only so that it can share the interner. It should never be used as
-  // a SkyKey.
-  private static final class ProxyConfiguredTargetKey extends ConfiguredTargetKey
-      implements SkyKey {
-    private final ConfiguredTargetKey delegate;
-
-    private static ConfiguredTargetKey create(
-        ConfiguredTargetKey delegate, @Nullable BuildConfigurationKey configurationKey) {
-      int hashCode =
-          computeHashCode(
-              delegate.getLabel(), configurationKey, delegate.getExecutionPlatformLabel());
-      return intern(new ProxyConfiguredTargetKey(delegate, configurationKey, hashCode));
-    }
-
-    private ProxyConfiguredTargetKey(
-        ConfiguredTargetKey delegate,
-        @Nullable BuildConfigurationKey configurationKey,
-        int hashCode) {
-      super(configurationKey, hashCode);
-      checkArgument(
-          !delegate.isProxy(), "Proxy keys must not be nested: %s %s", delegate, configurationKey);
-      this.delegate = delegate;
-    }
-
-    @Override
-    public SkyFunctionName functionName() {
-      // ProxyConfiguredTargetKey is never used directly by Skyframe. It must always be cast using
-      // toKey.
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Label getLabel() {
-      return delegate.getLabel();
-    }
-
-    @Override
-    @Nullable
-    public Label getExecutionPlatformLabel() {
-      return delegate.getExecutionPlatformLabel();
-    }
-
-    @Override
-    public ActionLookupKey toKey() {
-      return (ActionLookupKey) delegate;
-    }
-
-    @Override
-    public boolean isProxy() {
-      return true;
-    }
-
-    @Override
-    public Builder toBuilder() {
-      return new Builder().setDelegate(delegate).setConfigurationKey(getConfigurationKey());
-    }
-
-    @Override
-    public String toString() {
-      return MoreObjects.toStringHelper(this)
-          .add("delegate", delegate)
-          .add("config", getConfigurationKey())
-          .toString();
-    }
-
-    @Override
-    public String prettyPrint() {
-      return super.prettyPrint()
-          + " virtual("
-          + formatConfigurationKey(getConfigurationKey())
-          + ")";
-    }
-
-    @Override
-    public SkyKeyInterner<?> getSkyKeyInterner() {
-      return interner;
-    }
+  public Builder toBuilder() {
+    return builder()
+        .setConfigurationKey(configurationKey)
+        .setLabel(getLabel())
+        .setExecutionPlatformLabel(getExecutionPlatformLabel());
   }
 
   /** Returns a new {@link Builder} to create instances of {@link ConfiguredTargetKey}. */
@@ -335,7 +188,6 @@ public abstract class ConfiguredTargetKey implements ActionLookupKeyOrProxy {
     private Label label = null;
     private BuildConfigurationKey configurationKey = null;
     private Label executionPlatformLabel = null;
-    private ConfiguredTargetKey delegate;
 
     private Builder() {}
 
@@ -369,31 +221,22 @@ public abstract class ConfiguredTargetKey implements ActionLookupKeyOrProxy {
       return this;
     }
 
-    /**
-     * If set, creates a {@link ProxyConfiguredTargetKey}.
-     *
-     * <p>It's invalid to set a label or execution platform label if this is set. Those will be
-     * defined by the corresponding values of {@code delegate}.
-     */
-    @CanIgnoreReturnValue
-    public Builder setDelegate(ConfiguredTargetKey delegate) {
-      this.delegate = delegate;
-      return this;
-    }
-
     /** Builds a new {@link ConfiguredTargetKey} based on the supplied data. */
     public ConfiguredTargetKey build() {
-      if (this.delegate != null) {
-        checkArgument(label == null);
-        checkArgument(executionPlatformLabel == null);
-        return ProxyConfiguredTargetKey.create(delegate, configurationKey);
-      }
-      if (this.executionPlatformLabel != null) {
-        return ToolchainDependencyConfiguredTargetKey.create(
-            label, configurationKey, executionPlatformLabel);
-      }
-      return RealConfiguredTargetKey.create(label, configurationKey);
+      int hashCode = computeHashCode(label, configurationKey, executionPlatformLabel);
+      return interner.intern(
+          executionPlatformLabel == null
+              ? new ConfiguredTargetKey(label, configurationKey, hashCode)
+              : new ToolchainDependencyConfiguredTargetKey(
+                  label, configurationKey, hashCode, executionPlatformLabel));
     }
+  }
+
+  private static int computeHashCode(
+      Label label,
+      @Nullable BuildConfigurationKey configurationKey,
+      @Nullable Label executionPlatformLabel) {
+    return hashObjects(label, configurationKey, executionPlatformLabel);
   }
 
   private static String formatConfigurationKey(@Nullable BuildConfigurationKey key) {

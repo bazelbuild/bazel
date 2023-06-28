@@ -16,8 +16,6 @@
 
 load(":common/java/java_semantics.bzl", "semantics")
 
-java_common = _builtins.toplevel.java_common
-
 def import_deps_check(
         ctx,
         jars_to_check,

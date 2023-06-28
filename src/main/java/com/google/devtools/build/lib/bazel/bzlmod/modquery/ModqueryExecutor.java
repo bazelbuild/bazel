@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.commands;
+package com.google.devtools.build.lib.bazel.bzlmod.modquery;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
+import static java.util.Comparator.reverseOrder;
 import static java.util.stream.Collectors.toCollection;
 
 import com.google.auto.value.AutoValue;
@@ -22,12 +23,21 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
-import com.google.devtools.build.lib.bazel.commands.ModqueryExecutor.ResultNode.IsExpanded;
+import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryExecutor.ResultNode.IsExpanded;
+import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryExecutor.ResultNode.IsIndirect;
+import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryExecutor.ResultNode.NodeMetadata;
+import com.google.devtools.build.lib.packages.RawAttributeMapper;
+import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.query2.query.output.BuildOutputFormatter.AttributeReader;
+import com.google.devtools.build.lib.query2.query.output.BuildOutputFormatter.TargetOutputter;
+import com.google.devtools.build.lib.query2.query.output.PossibleAttributeValues;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
 import java.util.ArrayDeque;
@@ -37,12 +47,14 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
  * Executes inspection queries for {@link
- * com.google.devtools.build.lib.bazel.commands.ModqueryCommand}.
+ * com.google.devtools.build.lib.bazel.commands.ModqueryCommand} and prints the resulted output to
+ * the reporter's output stream using the different defined {@link OutputFormatters}.
  */
 public class ModqueryExecutor {
 
@@ -59,24 +71,26 @@ public class ModqueryExecutor {
 
   public void tree(ImmutableSet<ModuleKey> targets) {
     ImmutableMap<ModuleKey, ResultNode> result = expandAndPrune(targets, ImmutableSet.of(), false);
-    printer.println(result);
-    printer.println("OUTPUT NOT IMPLEMENTED YET");
+    OutputFormatters.getFormatter(options.outputFormat).output(result, depGraph, printer, options);
   }
 
   public void path(ImmutableSet<ModuleKey> from, ImmutableSet<ModuleKey> to) {
     ImmutableMap<ModuleKey, ResultNode> result = expandAndPrune(from, to, true);
-    printer.println(result);
-    printer.println("OUTPUT NOT IMPLEMENTED YET");
+    OutputFormatters.getFormatter(options.outputFormat).output(result, depGraph, printer, options);
   }
 
   public void allPaths(ImmutableSet<ModuleKey> from, ImmutableSet<ModuleKey> to) {
     ImmutableMap<ModuleKey, ResultNode> result = expandAndPrune(from, to, false);
-    printer.println(result);
-    printer.println("OUTPUT NOT IMPLEMENTED YET");
+    OutputFormatters.getFormatter(options.outputFormat).output(result, depGraph, printer, options);
   }
 
   public void show(ImmutableMap<ModuleKey, BzlmodRepoRuleValue> repoRuleValues) {
-    printer.println("OUTPUT NOT IMPLEMENTED YET");
+    RuleDisplayOutputter outputter = new RuleDisplayOutputter(printer);
+    for (Entry<ModuleKey, BzlmodRepoRuleValue> e : repoRuleValues.entrySet()) {
+      printer.printf("## %s:", e.getKey());
+      outputter.outputRule(e.getValue().getRule());
+    }
+    printer.flush();
   }
 
   /**
@@ -104,13 +118,11 @@ public class ModqueryExecutor {
     rootPinnedChildren.stream()
         .filter(coloredPaths::contains)
         .forEach(
-            moduleKey -> {
-              if (rootDirectChildren.contains(moduleKey)) {
-                rootBuilder.addChild(moduleKey, IsExpanded.TRUE);
-              } else {
-                rootBuilder.addIndirectChild(moduleKey, IsExpanded.TRUE);
-              }
-            });
+            moduleKey ->
+                rootBuilder.addChild(
+                    moduleKey,
+                    IsExpanded.TRUE,
+                    rootDirectChildren.contains(moduleKey) ? IsIndirect.FALSE : IsIndirect.TRUE));
     resultBuilder.put(ModuleKey.ROOT, rootBuilder.build());
 
     Set<ModuleKey> seen = new HashSet<>(rootPinnedChildren);
@@ -137,11 +149,11 @@ public class ModqueryExecutor {
           //  wrong answer in cycle edge-case A -> B -> C -> B with target D will not find ABD
           //                                        \__ D
           if (!singlePath) {
-            nodeBuilder.addChild(childKey, IsExpanded.FALSE);
+            nodeBuilder.addChild(childKey, IsExpanded.FALSE, IsIndirect.FALSE);
           }
           continue;
         }
-        nodeBuilder.addChild(childKey, IsExpanded.TRUE);
+        nodeBuilder.addChild(childKey, IsExpanded.TRUE, IsIndirect.FALSE);
         seen.add(childKey);
         toVisit.add(childKey);
         if (singlePath) {
@@ -184,19 +196,18 @@ public class ModqueryExecutor {
 
       parentStack.add(ModuleKey.ROOT);
 
-      for (ModuleKey childKey : oldResult.get(ModuleKey.ROOT).getChildren().keySet()) {
-        rootBuilder.addChild(childKey, IsExpanded.TRUE);
-        visitVisible(childKey, 1, ModuleKey.ROOT, IsExpanded.TRUE);
-      }
-      for (ModuleKey childKey : oldResult.get(ModuleKey.ROOT).getIndirectChildren().keySet()) {
-        rootBuilder.addIndirectChild(childKey, IsExpanded.TRUE);
-        visitVisible(childKey, 1, ModuleKey.ROOT, IsExpanded.TRUE);
+      for (Entry<ModuleKey, NodeMetadata> e :
+          oldResult.get(ModuleKey.ROOT).getChildrenSortedByKey()) {
+        rootBuilder.addChild(e.getKey(), IsExpanded.TRUE, e.getValue().isIndirect());
+        visitVisible(e.getKey(), 1, ModuleKey.ROOT, IsExpanded.TRUE);
       }
 
       // Build everything at the end to allow children to add themselves to their parent's
       // adjacency list.
       return resultBuilder.entrySet().stream()
-          .collect(toImmutableMap(Entry::getKey, e -> e.getValue().build()));
+          .collect(
+              toImmutableSortedMap(
+                  ModuleKey.LEXICOGRAPHIC_COMPARATOR, Entry::getKey, e -> e.getValue().build()));
     }
 
     // Handles graph traversal within the specified depth.
@@ -209,16 +220,16 @@ public class ModqueryExecutor {
       resultBuilder.put(moduleKey, nodeBuilder);
       nodeBuilder.setTarget(oldNode.isTarget());
       if (depth > 1) {
-        resultBuilder.get(parentKey).addChild(moduleKey, expanded);
+        resultBuilder.get(parentKey).addChild(moduleKey, expanded, IsIndirect.FALSE);
       }
 
       if (expanded == IsExpanded.FALSE) {
         parentStack.remove(moduleKey);
         return;
       }
-      for (Entry<ModuleKey, IsExpanded> e : oldNode.getChildren().entrySet()) {
+      for (Entry<ModuleKey, NodeMetadata> e : oldNode.getChildrenSortedByKey()) {
         ModuleKey childKey = e.getKey();
-        IsExpanded childExpanded = e.getValue();
+        IsExpanded childExpanded = e.getValue().isExpanded();
         if (notCycle(childKey)) {
           if (depth < options.depth) {
             visitVisible(childKey, depth + 1, moduleKey, childExpanded);
@@ -226,7 +237,7 @@ public class ModqueryExecutor {
             visitDetached(childKey, moduleKey, moduleKey, childExpanded);
           }
         } else if (options.cycles) {
-          nodeBuilder.addChild(childKey, IsExpanded.FALSE);
+          nodeBuilder.addCycle(childKey);
         }
       }
       parentStack.remove(moduleKey);
@@ -246,11 +257,9 @@ public class ModqueryExecutor {
 
       if (oldNode.isTarget() || oldNode.isTargetParent()) {
         ResultNode.Builder parentBuilder = resultBuilder.get(lastVisibleParentKey);
-        if (lastVisibleParentKey.equals(parentKey)) {
-          parentBuilder.addChild(moduleKey, expanded);
-        } else {
-          parentBuilder.addIndirectChild(moduleKey, expanded);
-        }
+        IsIndirect childIndirect =
+            lastVisibleParentKey.equals(parentKey) ? IsIndirect.FALSE : IsIndirect.TRUE;
+        parentBuilder.addChild(moduleKey, expanded, childIndirect);
         resultBuilder.put(moduleKey, nodeBuilder);
         lastVisibleParentKey = moduleKey;
       }
@@ -259,13 +268,13 @@ public class ModqueryExecutor {
         parentStack.remove(moduleKey);
         return;
       }
-      for (Entry<ModuleKey, IsExpanded> e : oldNode.getChildren().entrySet()) {
+      for (Entry<ModuleKey, NodeMetadata> e : oldNode.getChildrenSortedByKey()) {
         ModuleKey childKey = e.getKey();
-        IsExpanded childExpanded = e.getValue();
+        IsExpanded childExpanded = e.getValue().isExpanded();
         if (notCycle(childKey)) {
           visitDetached(childKey, moduleKey, lastVisibleParentKey, childExpanded);
         } else if (options.cycles) {
-          nodeBuilder.addChild(childKey, IsExpanded.FALSE);
+          nodeBuilder.addCycle(childKey);
         }
       }
       parentStack.remove(moduleKey);
@@ -323,14 +332,16 @@ public class ModqueryExecutor {
     return MaybeCompleteSet.copyOf(seen);
   }
 
-  // Helper to filter unused (and unloaded) specified target that cannot be explained and print a
-  // warning of that.
-  static boolean filterUnused(
+  /**
+   * Helper to filter unused (and unloaded) specified target that cannot be explained and print a
+   * warning of that.
+   */
+  public static boolean filterUnused(
       ModuleKey key,
       boolean includeUnused,
       boolean allowNotLoaded,
       ImmutableMap<ModuleKey, AugmentedModule> dependenciesGraph) {
-    AugmentedModule module = dependenciesGraph.get(key);
+    AugmentedModule module = Objects.requireNonNull(dependenciesGraph.get(key));
     if (key.equals(ModuleKey.ROOT)) {
       return false;
     }
@@ -343,8 +354,9 @@ public class ModqueryExecutor {
     return true;
   }
 
+  /** A node representing a module that forms the result graph. */
   @AutoValue
-  abstract static class ResultNode {
+  public abstract static class ResultNode {
 
     /** Whether the module is one of the targets in a paths query. */
     abstract boolean isTarget();
@@ -355,15 +367,59 @@ public class ModqueryExecutor {
     abstract boolean isTargetParent();
 
     enum IsExpanded {
-      TRUE,
-      FALSE
+      FALSE,
+      TRUE
     }
 
-    /** List of direct children. True if the children will be expanded in this branch. */
-    abstract ImmutableSortedMap<ModuleKey, IsExpanded> getChildren();
+    enum IsIndirect {
+      FALSE,
+      TRUE
+    }
 
-    /** List of indirect children. True if the children will be expanded in this branch. */
-    abstract ImmutableSortedMap<ModuleKey, IsExpanded> getIndirectChildren();
+    enum IsCycle {
+      FALSE,
+      TRUE
+    }
+
+    /** Detailed edge type for the {@link ResultNode} graph. */
+    @AutoValue
+    public abstract static class NodeMetadata {
+      /**
+       * Whether the node should be expanded from this edge (the same node can appear in multiple
+       * places in a flattened graph).
+       */
+      public abstract IsExpanded isExpanded();
+
+      /** Whether the edge is a direct edge or an indirect (transitive) one. */
+      public abstract IsIndirect isIndirect();
+
+      /** Whether the edge is cycling back inside the flattened graph. */
+      public abstract IsCycle isCycle();
+
+      private static NodeMetadata create(
+          IsExpanded isExpanded, IsIndirect isIndirect, IsCycle isCycle) {
+        return new AutoValue_ModqueryExecutor_ResultNode_NodeMetadata(
+            isExpanded, isIndirect, isCycle);
+      }
+    }
+
+    /** List of children mapped to detailed edge types. */
+    protected abstract ImmutableSetMultimap<ModuleKey, NodeMetadata> getChildren();
+
+    public ImmutableSortedSet<Entry<ModuleKey, NodeMetadata>> getChildrenSortedByKey() {
+      return ImmutableSortedSet.copyOf(
+          Entry.comparingByKey(ModuleKey.LEXICOGRAPHIC_COMPARATOR), getChildren().entries());
+    }
+
+    public ImmutableSortedSet<Entry<ModuleKey, NodeMetadata>> getChildrenSortedByEdgeType() {
+      return ImmutableSortedSet.copyOf(
+          Comparator.<Entry<ModuleKey, NodeMetadata>, IsCycle>comparing(
+                  e -> e.getValue().isCycle(), reverseOrder())
+              .thenComparing(e -> e.getValue().isExpanded())
+              .thenComparing(e -> e.getValue().isIndirect())
+              .thenComparing(Entry::getKey, ModuleKey.LEXICOGRAPHIC_COMPARATOR),
+          getChildren().entries());
+    }
 
     static ResultNode.Builder builder() {
       return new AutoValue_ModqueryExecutor_ResultNode.Builder()
@@ -376,28 +432,20 @@ public class ModqueryExecutor {
 
       abstract ResultNode.Builder setTargetParent(boolean value);
 
-      private final ImmutableSortedMap.Builder<ModuleKey, IsExpanded> childrenBuilder =
-          childrenBuilder(ModuleKey.LEXICOGRAPHIC_COMPARATOR);
-      private final ImmutableSortedMap.Builder<ModuleKey, IsExpanded> indirectChildrenBuilder =
-          indirectChildrenBuilder(ModuleKey.LEXICOGRAPHIC_COMPARATOR);
-
       abstract ResultNode.Builder setTarget(boolean value);
 
-      abstract ImmutableSortedMap.Builder<ModuleKey, IsExpanded> childrenBuilder(
-          Comparator<ModuleKey> comparator);
-
-      abstract ImmutableSortedMap.Builder<ModuleKey, IsExpanded> indirectChildrenBuilder(
-          Comparator<ModuleKey> comparator);
+      abstract ImmutableSetMultimap.Builder<ModuleKey, NodeMetadata> childrenBuilder();
 
       @CanIgnoreReturnValue
-      final Builder addChild(ModuleKey value, IsExpanded expanded) {
-        childrenBuilder.put(value, expanded);
+      final Builder addChild(ModuleKey value, IsExpanded expanded, IsIndirect indirect) {
+        childrenBuilder().put(value, NodeMetadata.create(expanded, indirect, IsCycle.FALSE));
         return this;
       }
 
       @CanIgnoreReturnValue
-      final Builder addIndirectChild(ModuleKey value, IsExpanded expanded) {
-        indirectChildrenBuilder.put(value, expanded);
+      final Builder addCycle(ModuleKey value) {
+        childrenBuilder()
+            .put(value, NodeMetadata.create(IsExpanded.FALSE, IsIndirect.FALSE, IsCycle.TRUE));
         return this;
       }
 
@@ -430,6 +478,36 @@ public class ModqueryExecutor {
 
     static <T> MaybeCompleteSet<T> completeSet() {
       return new AutoValue_ModqueryExecutor_MaybeCompleteSet<>(null);
+    }
+  }
+
+  /**
+   * Uses Query's {@link TargetOutputter} to display the generating repo rule and other information.
+   */
+  static class RuleDisplayOutputter {
+    private static final AttributeReader attrReader =
+        (rule, attr) ->
+            // Query's implementation copied
+            PossibleAttributeValues.forRuleAndAttribute(
+                rule, attr, /* mayTreatMultipleAsNone= */ true);
+    private final TargetOutputter targetOutputter;
+    private final PrintWriter printer;
+
+    RuleDisplayOutputter(PrintWriter printer) {
+      this.printer = printer;
+      this.targetOutputter =
+          new TargetOutputter(
+              this.printer,
+              (rule, attr) -> RawAttributeMapper.of(rule).isConfigurable(attr.getName()),
+              "\n");
+    }
+
+    private void outputRule(Rule rule) {
+      try {
+        targetOutputter.outputRule(rule, attrReader, this.printer);
+      } catch (IOException e) {
+        throw new IllegalStateException(e);
+      }
     }
   }
 }

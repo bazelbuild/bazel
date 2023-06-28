@@ -119,7 +119,7 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
           @Param(name = "target"),
         })
     public Object providers(ConfiguredTarget target) {
-      Dict<String, Object> ret = target.getProvidersDict();
+      Dict<String, Object> ret = target.getProvidersDictForQuery();
       if (ret == null) {
         return Starlark.NONE;
       }

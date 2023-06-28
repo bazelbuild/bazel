@@ -51,12 +51,14 @@ public class BazelLockFileFunction implements SkyFunction {
           ImmutableList.of(), ImmutableMap.of(), ImmutableList.of(), "", false, "", "");
 
   private static final BazelLockFileValue EMPTY_LOCKFILE =
-      BazelLockFileValue.create(
-          BazelLockFileValue.LOCK_FILE_VERSION,
-          "",
-          EMPTY_FLAGS,
-          ImmutableMap.of(),
-          ImmutableMap.of());
+      BazelLockFileValue.builder()
+          .setLockFileVersion(BazelLockFileValue.LOCK_FILE_VERSION)
+          .setModuleFileHash("")
+          .setFlags(EMPTY_FLAGS)
+          .setLocalOverrideHashes(ImmutableMap.of())
+          .setModuleDepGraph(ImmutableMap.of())
+          .setModuleExtensions(ImmutableMap.of())
+          .build();
 
   public BazelLockFileFunction(Path rootDirectory) {
     this.rootDirectory = rootDirectory;
@@ -74,12 +76,8 @@ public class BazelLockFileFunction implements SkyFunction {
       return null;
     }
 
-    BazelLockFileValue bazelLockFileValue;
     try {
-      String json = FileSystemUtils.readContent(lockfilePath.asPath(), UTF_8);
-      bazelLockFileValue = LOCKFILE_GSON.fromJson(json, BazelLockFileValue.class);
-    } catch (FileNotFoundException e) {
-      bazelLockFileValue = EMPTY_LOCKFILE;
+      return getLockfileValue(lockfilePath);
     } catch (IOException | JsonSyntaxException | NullPointerException e) {
       throw new BazelLockfileFunctionException(
           ExternalDepsException.withMessage(
@@ -89,39 +87,19 @@ public class BazelLockFileFunction implements SkyFunction {
               e.getMessage()),
           Transience.PERSISTENT);
     }
+  }
+
+  public static BazelLockFileValue getLockfileValue(RootedPath lockfilePath) throws IOException {
+    BazelLockFileValue bazelLockFileValue;
+    try {
+      String json = FileSystemUtils.readContent(lockfilePath.asPath(), UTF_8);
+      bazelLockFileValue = LOCKFILE_GSON.fromJson(json, BazelLockFileValue.class);
+    } catch (FileNotFoundException e) {
+      bazelLockFileValue = EMPTY_LOCKFILE;
+    }
     return bazelLockFileValue;
   }
 
-  /**
-   * Updates the stored module in the lock file (ModuleHash, Flags & Dependency graph)
-   *
-   * @param moduleFileHash The hash of the current module file
-   * @param resolvedDepGraph The resolved dependency graph from the module file
-   */
-  public static void updateLockedModule(
-      Path rootDirectory,
-      String moduleFileHash,
-      BzlmodFlagsAndEnvVars flags,
-      ImmutableMap<String, String> localOverrideHashes,
-      ImmutableMap<ModuleKey, Module> resolvedDepGraph)
-      throws ExternalDepsException {
-    RootedPath lockfilePath =
-        RootedPath.toRootedPath(Root.fromPath(rootDirectory), LabelConstants.MODULE_LOCKFILE_NAME);
-
-    BazelLockFileValue value =
-        BazelLockFileValue.create(
-            BazelLockFileValue.LOCK_FILE_VERSION,
-            moduleFileHash,
-            flags,
-            localOverrideHashes,
-            resolvedDepGraph);
-    try {
-      FileSystemUtils.writeContent(lockfilePath.asPath(), UTF_8, LOCKFILE_GSON.toJson(value));
-    } catch (IOException e) {
-      throw ExternalDepsException.withCauseAndMessage(
-          Code.BAD_MODULE, e, "Unable to update the MODULE.bazel.lock file");
-    }
-  }
 
   static final class BazelLockfileFunctionException extends SkyFunctionException {
 

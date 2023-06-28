@@ -29,8 +29,6 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -358,41 +356,6 @@ class BuildResultPrinter {
   private static String formatArtifactForShowResults(
       PathPrettyPrinter prettyPrinter, Artifact artifact) {
     return "  " + prettyPrinter.getPrettyPath(artifact.getPath().asFragment());
-  }
-
-  /**
-   * Prints a flat list of all artifacts built by the passed top-level targets.
-   *
-   * <p>This corresponds to the --experimental_show_artifacts flag.
-   */
-  void showArtifacts(
-      BuildRequest request,
-      Collection<ConfiguredTarget> configuredTargets,
-      Collection<ConfiguredAspect> aspects) {
-
-    TopLevelArtifactContext context = request.getTopLevelArtifactContext();
-    Collection<ConfiguredTarget> targetsToPrint = filterTargetsToPrint(configuredTargets);
-
-    NestedSetBuilder<Artifact> artifactsBuilder = NestedSetBuilder.stableOrder();
-    targetsToPrint.forEach(
-        t ->
-            artifactsBuilder.addTransitive(
-                TopLevelArtifactHelper.getAllArtifactsToBuild(t, context).getImportantArtifacts()));
-
-    aspects.forEach(
-        a ->
-            artifactsBuilder.addTransitive(
-                TopLevelArtifactHelper.getAllArtifactsToBuild(a, context).getImportantArtifacts()));
-
-    OutErr outErr = request.getOutErr();
-    outErr.printErrLn("Build artifacts:");
-
-    NestedSet<Artifact> artifacts = artifactsBuilder.build();
-    for (Artifact artifact : artifacts.toList()) {
-      if (!artifact.isSourceArtifact()) {
-        outErr.printErrLn(">>>" + artifact.getPath());
-      }
-    }
   }
 
   /**

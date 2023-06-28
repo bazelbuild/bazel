@@ -196,8 +196,8 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
   }
 
   @Override
-  public Dict<String, Object> getProvidersDict() {
-    return actual.getProvidersDict();
+  public Dict<String, Object> getProvidersDictForQuery() {
+    return actual.getProvidersDictForQuery();
   }
 
   @Override

@@ -74,14 +74,6 @@ public class NoConfigTransition implements PatchTransition {
     return new AutoValue_NoConfigTransition_Factory<>();
   }
 
-  /**
-   * Returns {@code true} if the given {@link TransitionFactory} is an instance of this transition.
-   */
-  public static <T extends TransitionFactory.Data> boolean isInstance(
-      TransitionFactory<T> instance) {
-    return instance instanceof NoConfigTransition.Factory;
-  }
-
   /** A {@link TransitionFactory} implementation that generates the transition. */
   @AutoValue
   abstract static class Factory<T extends TransitionFactory.Data> implements TransitionFactory<T> {

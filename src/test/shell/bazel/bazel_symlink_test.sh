@@ -719,7 +719,7 @@ genrule(
     srcs = [],
     outs = ["out"],
     cmd = "touch $@",
-    exec_tools = [":a"],
+    tools = [":a"],
 )
 EOF
 

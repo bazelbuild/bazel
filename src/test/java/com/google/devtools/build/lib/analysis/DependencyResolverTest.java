@@ -95,7 +95,8 @@ public class DependencyResolverTest extends AnalysisTestCase {
         ImmutableMap.of(),
         /* toolchainContexts= */ null,
         /* trimmingTransitionFactory= */ null,
-        NULL_TRANSITION_COLLECTOR);
+        NULL_TRANSITION_COLLECTOR,
+        /* starlarkExecTransitionFactory= */ null);
   }
 
   private static void assertDep(

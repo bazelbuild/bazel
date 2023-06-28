@@ -60,8 +60,6 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         "--remote_download_minimal",
         "--dynamic_local_strategy=standalone",
         "--dynamic_remote_strategy=remote");
-    // (b/281655526) Skymeld is incompatible.
-    addOptions("--noexperimental_merged_skyframe_analysis_execution");
   }
 
   @Override

@@ -16,7 +16,8 @@ package com.google.devtools.build.lib.analysis.producers;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
-import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyException;
+import com.google.devtools.build.lib.analysis.InconsistentNullConfigException;
+import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -41,14 +42,14 @@ public final class ConfiguredTargetAndDataProducer
     implements StateMachine,
         Consumer<SkyValue>,
         StateMachine.ValueOrException2Sink<
-            ConfiguredValueCreationException, InvalidVisibilityDependencyException> {
+            ConfiguredValueCreationException, InconsistentNullConfigException> {
   /** Interface for accepting values produced by this class. */
   public interface ResultSink {
     void acceptConfiguredTargetAndData(ConfiguredTargetAndData value, int index);
 
     void acceptConfiguredTargetAndDataError(ConfiguredValueCreationException error);
 
-    void acceptConfiguredTargetAndDataError(InvalidVisibilityDependencyException error);
+    void acceptConfiguredTargetAndDataError(InconsistentNullConfigException error);
   }
 
   // -------------------- Input --------------------
@@ -85,9 +86,8 @@ public final class ConfiguredTargetAndDataProducer
     tasks.lookUp(
         key.toKey(),
         ConfiguredValueCreationException.class,
-        InvalidVisibilityDependencyException.class,
-        (ValueOrException2Sink<
-                ConfiguredValueCreationException, InvalidVisibilityDependencyException>)
+        InconsistentNullConfigException.class,
+        (ValueOrException2Sink<ConfiguredValueCreationException, InconsistentNullConfigException>)
             this);
     return this::fetchConfigurationAndPackage;
   }
@@ -96,11 +96,15 @@ public final class ConfiguredTargetAndDataProducer
   public void acceptValueOrException2(
       @Nullable SkyValue value,
       @Nullable ConfiguredValueCreationException error,
-      @Nullable InvalidVisibilityDependencyException visibilityError) {
+      @Nullable InconsistentNullConfigException visibilityError) {
     if (value != null) {
       var configuredTargetValue = (ConfiguredTargetValue) value;
       this.configuredTarget = configuredTargetValue.getConfiguredTarget();
-      transitiveState.updateTransitivePackages(configuredTargetValue);
+      if (transitiveState.storeTransitivePackages()) {
+        transitiveState.updateTransitivePackages(
+            ConfiguredTargetKey.fromConfiguredTarget(configuredTarget),
+            configuredTargetValue.getTransitivePackages());
+      }
       return;
     }
     if (error != null) {

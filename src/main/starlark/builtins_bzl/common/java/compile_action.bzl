@@ -17,8 +17,7 @@ Java compile action
 """
 
 load(":common/java/java_semantics.bzl", "semantics")
-
-java_common = _builtins.toplevel.java_common
+load(":common/java/java_common.bzl", "java_common")
 
 def _filter_strict_deps(mode):
     return "error" if mode in ["strict", "default"] else mode

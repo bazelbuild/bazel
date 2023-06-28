@@ -126,6 +126,8 @@ import javax.annotation.Nullable;
  * <p>This class contains an ActionCache, and refers to the Blaze Runtime's BuildView and
  * PackageCache.
  *
+ * <p>Lifetime of an instance: 1 invocation.
+ *
  * @see BuildTool
  * @see com.google.devtools.build.lib.analysis.BuildView
  */
@@ -140,6 +142,8 @@ public class ExecutionTool {
   private final ImmutableSet<ExecutorLifecycleListener> executorLifecycleListeners;
   private final SpawnStrategyRegistry spawnStrategyRegistry;
   private final ModuleActionContextRegistry actionContextRegistry;
+
+  private boolean informedOutputServiceToStartTheBuild = false;
 
   ExecutionTool(CommandEnvironment env, BuildRequest request)
       throws AbruptExitException, InterruptedException {
@@ -301,20 +305,28 @@ public class ExecutionTool {
     }
     SkyframeBuilder skyframeBuilder;
     try (SilentCloseable c = Profiler.instance().profile("createBuilder")) {
+      var shouldStoreRemoteMetadataInActionCache =
+          outputService != null && outputService.shouldStoreRemoteOutputMetadataInActionCache();
       skyframeBuilder =
           (SkyframeBuilder)
-              createBuilder(request, actionCache, skyframeExecutor, modifiedOutputFiles);
+              createBuilder(
+                  request,
+                  actionCache,
+                  skyframeExecutor,
+                  modifiedOutputFiles,
+                  shouldStoreRemoteMetadataInActionCache);
     }
 
     skyframeExecutor.drainChangedFiles();
-    var remoteArtifactChecker =
-        env.getOutputService() != null
-            ? env.getOutputService().getRemoteArtifactChecker()
-            : RemoteArtifactChecker.IGNORE_ALL;
+    // With Skymeld, we don't have enough information at this stage to consider remote files.
+    // This allows BwoB to function (in the sense that it's now compatible with Skymeld), but
+    // there's a performance penalty for incremental build: all action nodes will be dirtied.
+    // We'll be relying on the other forms of caching (local action cache or remote cache).
+    // TODO(b/281655526): Improve this.
     skyframeExecutor.detectModifiedOutputFiles(
         modifiedOutputFiles,
         env.getBlazeWorkspace().getLastExecutionTimeRange(),
-        remoteArtifactChecker,
+        RemoteArtifactChecker.IGNORE_ALL,
         buildRequestOptions.fsvcThreads);
     try (SilentCloseable c = Profiler.instance().profile("configureActionExecutor")) {
       skyframeExecutor.configureActionExecutor(
@@ -390,7 +402,15 @@ public class ExecutionTool {
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
     Builder builder;
     try (SilentCloseable c = Profiler.instance().profile("createBuilder")) {
-      builder = createBuilder(request, actionCache, skyframeExecutor, modifiedOutputFiles);
+      var shouldStoreRemoteMetadataInActionCache =
+          outputService != null && outputService.shouldStoreRemoteOutputMetadataInActionCache();
+      builder =
+          createBuilder(
+              request,
+              actionCache,
+              skyframeExecutor,
+              modifiedOutputFiles,
+              shouldStoreRemoteMetadataInActionCache);
     }
 
     //
@@ -485,6 +505,7 @@ public class ExecutionTool {
         modifiedOutputFiles =
             outputService.startBuild(
                 env.getReporter(), buildId, request.getBuildOptions().finalizeActions);
+        informedOutputServiceToStartTheBuild = true;
       }
     } else {
       // TODO(bazel-team): this could be just another OutputService
@@ -555,16 +576,6 @@ public class ExecutionTool {
           buildResultListener.getAnalyzedAspects());
     }
 
-    try (SilentCloseable c = Profiler.instance().profile("Show artifacts")) {
-      if (request.getBuildOptions().showArtifacts) {
-        BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
-        buildResultPrinter.showArtifacts(
-            request,
-            buildResultListener.getAnalyzedTargets(),
-            buildResultListener.getAnalyzedAspects().values());
-      }
-    }
-
     if (explanationHandler != null) {
       uninstallExplanationHandler(explanationHandler);
       try {
@@ -573,9 +584,9 @@ public class ExecutionTool {
         // Ignored
       }
     }
-    // Finalize output service last, so that if we do throw an exception, we know all the other
-    // code has already run.
-    if (env.getOutputService() != null) {
+    // Finalize the output service last if required, so that if we do throw an exception, we know
+    // that all the other code has already run.
+    if (env.getOutputService() != null && informedOutputServiceToStartTheBuild) {
       boolean isBuildSuccessful =
           buildResult.getSuccessfulTargets().size()
               == buildResultListener.getAnalyzedTargets().size();
@@ -919,7 +930,8 @@ public class ExecutionTool {
       BuildRequest request,
       @Nullable ActionCache actionCache,
       SkyframeExecutor skyframeExecutor,
-      ModifiedFileSet modifiedOutputFiles) {
+      ModifiedFileSet modifiedOutputFiles,
+      boolean shouldStoreRemoteOutputMetadataInActionCache) {
     BuildRequestOptions options = request.getBuildOptions();
 
     skyframeExecutor.setActionOutputRoot(env.getActionTempsDirectory());
@@ -938,7 +950,7 @@ public class ExecutionTool {
             ActionCacheChecker.CacheConfig.builder()
                 .setEnabled(options.useActionCache)
                 .setVerboseExplanations(options.verboseExplanations)
-                .setStoreOutputMetadata(options.actionCacheStoreOutputMetadata)
+                .setStoreOutputMetadata(shouldStoreRemoteOutputMetadataInActionCache)
                 .build()),
         modifiedOutputFiles,
         env.getFileCache(),

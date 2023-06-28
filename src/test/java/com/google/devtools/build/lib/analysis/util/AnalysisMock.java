@@ -141,7 +141,7 @@ public abstract class AnalysisMock extends LoadingMock {
             directories.getWorkspace(),
             getBuiltinModules(directories)),
         SkyFunctions.BAZEL_DEP_GRAPH,
-        new BazelDepGraphFunction(directories.getWorkspace()),
+        new BazelDepGraphFunction(),
         SkyFunctions.BAZEL_LOCK_FILE,
         new BazelLockFileFunction(directories.getWorkspace()),
         SkyFunctions.BAZEL_MODULE_RESOLUTION,

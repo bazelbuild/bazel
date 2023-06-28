@@ -431,7 +431,7 @@ public class Dict<K, V>
     if (mu == Mutability.IMMUTABLE) {
       return empty();
     } else {
-      return new Dict<>(mu, new LinkedHashMap<>());
+      return new Dict<>(mu, Maps.newLinkedHashMapWithExpectedSize(1));
     }
   }
 
@@ -460,7 +460,7 @@ public class Dict<K, V>
       }
       return new Dict<>(immutableMapBuilder.buildOrThrow());
     } else {
-      LinkedHashMap<K, V> linkedHashMap = new LinkedHashMap<>();
+      LinkedHashMap<K, V> linkedHashMap = Maps.newLinkedHashMapWithExpectedSize(m.size());
       for (Map.Entry<? extends K, ? extends V> e : m.entrySet()) {
         linkedHashMap.put(
             Starlark.checkValid(e.getKey()), //

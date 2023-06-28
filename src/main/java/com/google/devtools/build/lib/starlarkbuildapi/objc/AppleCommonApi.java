@@ -391,6 +391,20 @@ public interface AppleCommonApi<
             defaultValue = "[]",
             doc = "Extra files to pass to the linker action."),
         @Param(
+            name = "extra_requested_features",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            named = true,
+            positional = false,
+            defaultValue = "[]",
+            doc = "Extra requested features to be passed to the linker action."),
+        @Param(
+            name = "extra_disabled_features",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            named = true,
+            positional = false,
+            defaultValue = "[]",
+            doc = "Extra disabled features to be passed to the linker action."),
+        @Param(
             name = "stamp",
             named = true,
             positional = false,
@@ -409,6 +423,8 @@ public interface AppleCommonApi<
       Object avoidDeps, // Sequence<TransitiveInfoCollection> expected.
       Sequence<?> extraLinkopts, // <String> expected.
       Sequence<?> extraLinkInputs, // <? extends FileApi> expected.
+      Sequence<?> extraRequestedFeatures, // <String> expected.
+      Sequence<?> extraDisabledFeatures, // <String> expected.
       StarlarkInt stamp,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
