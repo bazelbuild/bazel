@@ -83,9 +83,14 @@ def _sort_linker_inputs(topologically_sorted_labels, label_to_linker_inputs, lin
 # dynamically. The transitive_dynamic_dep_labels parameter is only needed for
 # binaries because they link all dynamic_deps (cc_binary|cc_test).
 def _separate_static_and_dynamic_link_libraries(
+        ctx,
         direct_children,
-        can_be_linked_dynamically,
-        transitive_dynamic_dep_labels = {}):
+        can_be_linked_dynamically):
+    (
+        transitive_dynamic_dep_labels,
+        all_dynamic_dep_linker_inputs,
+    ) = _build_map_direct_dynamic_dep_to_transitive_dynamic_deps(ctx)
+
     node = None
     all_children = reversed(direct_children)
     targets_to_be_linked_statically_map = {}
@@ -209,7 +214,7 @@ def _separate_static_and_dynamic_link_libraries(
             transitive.append(first_owner_to_depset[child.owners[0]])
         topologically_sorted_labels = depset(transitive = transitive, order = "topological").to_list()
 
-    return (targets_to_be_linked_statically_map, targets_to_be_linked_dynamically_set, topologically_sorted_labels)
+    return (targets_to_be_linked_statically_map, targets_to_be_linked_dynamically_set, topologically_sorted_labels, all_dynamic_dep_linker_inputs)
 
 def _create_linker_context(ctx, linker_inputs):
     return cc_common.create_linking_context(
@@ -389,11 +394,15 @@ def _filter_inputs(
 
     # The targets_to_be_linked_statically_map points to whether the target to
     # be linked statically can be linked more than once.
+    # Entries in unused_dynamic_linker_inputs will be marked None if they are
+    # used
     (
         targets_to_be_linked_statically_map,
         targets_to_be_linked_dynamically_set,
         topologically_sorted_labels,
+        unused_dynamic_linker_inputs,
     ) = _separate_static_and_dynamic_link_libraries(
+        ctx,
         graph_structure_aspect_nodes,
         can_be_linked_dynamically,
     )
@@ -437,6 +446,8 @@ def _filter_inputs(
         linker_inputs_seen[stringified_linker_input] = True
         owner = str(linker_input.owner)
         if owner in targets_to_be_linked_dynamically_set:
+            unused_dynamic_linker_inputs[transitive_exports[owner].owner] = None
+
             # Link the library in this iteration dynamically,
             # transitive_exports contains the artifacts produced by a
             # cc_shared_library
@@ -502,6 +513,8 @@ def _filter_inputs(
             message += dynamic_only_root + "\n"
         fail(message)
 
+    linker_inputs_count += _add_unused_dynamic_deps(ctx, unused_dynamic_linker_inputs, _add_linker_input_to_dict, topologically_sorted_labels, link_indirect_deps = False)
+
     if ctx.attr.experimental_disable_topo_sort_do_not_use_remove_before_7_0:
         linker_inputs = experimental_remove_before_7_0_linker_inputs
     else:
@@ -566,6 +579,39 @@ def _get_deps(ctx):
         )
 
     return deps
+
+def _build_map_direct_dynamic_dep_to_transitive_dynamic_deps(ctx):
+    all_dynamic_dep_linker_inputs = {}
+    direct_dynamic_dep_to_transitive_dynamic_deps = {}
+    for dep in ctx.attr.dynamic_deps:
+        owner = dep[CcSharedLibraryInfo].linker_input.owner
+        all_dynamic_dep_linker_inputs[owner] = dep[CcSharedLibraryInfo].linker_input
+        transitive_dynamic_dep_labels = []
+        for dynamic_dep in dep[CcSharedLibraryInfo].dynamic_deps.to_list():
+            all_dynamic_dep_linker_inputs[dynamic_dep[1].owner] = dynamic_dep[1]
+            transitive_dynamic_dep_labels.append(dynamic_dep[1].owner)
+        transitive_dynamic_dep_labels_set = depset(transitive_dynamic_dep_labels, order = "topological")
+        for export in dep[CcSharedLibraryInfo].exports:
+            direct_dynamic_dep_to_transitive_dynamic_deps[export] = transitive_dynamic_dep_labels_set
+
+    return direct_dynamic_dep_to_transitive_dynamic_deps, all_dynamic_dep_linker_inputs
+
+def _add_unused_dynamic_deps(ctx, unused_dynamic_linker_inputs, add_linker_inputs_lambda, topologically_sorted_labels, link_indirect_deps):
+    linker_inputs_count = 0
+    direct_dynamic_dep_labels = {dep[CcSharedLibraryInfo].linker_input.owner: True for dep in ctx.attr.dynamic_deps}
+    topologically_sorted_labels_set = {label: True for label in topologically_sorted_labels}
+    for dynamic_linker_input_owner, unused_linker_input in unused_dynamic_linker_inputs.items():
+        should_link_input = (unused_linker_input and
+                             (link_indirect_deps or dynamic_linker_input_owner in direct_dynamic_dep_labels))
+        if should_link_input:
+            add_linker_inputs_lambda(
+                dynamic_linker_input_owner,
+                unused_dynamic_linker_inputs[dynamic_linker_input_owner],
+            )
+            linker_inputs_count += 1
+            if dynamic_linker_input_owner not in topologically_sorted_labels_set:
+                topologically_sorted_labels.append(dynamic_linker_input_owner)
+    return linker_inputs_count
 
 def _cc_shared_library_impl(ctx):
     if not cc_common.check_experimental_cc_shared_library():
@@ -806,3 +852,4 @@ build_exports_map_from_only_dynamic_deps = _build_exports_map_from_only_dynamic_
 throw_linked_but_not_exported_errors = _throw_linked_but_not_exported_errors
 separate_static_and_dynamic_link_libraries = _separate_static_and_dynamic_link_libraries
 sort_linker_inputs = _sort_linker_inputs
+add_unused_dynamic_deps = _add_unused_dynamic_deps

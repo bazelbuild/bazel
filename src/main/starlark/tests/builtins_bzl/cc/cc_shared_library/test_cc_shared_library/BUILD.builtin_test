@@ -61,7 +61,7 @@ cc_binary(
         "foo_so",
         "bar_so",
     ],
-    deps = ["foo", "bar"],
+    deps = ["foo"],
 )
 
 cc_shared_library(
@@ -77,32 +77,18 @@ cc_shared_library(
     deps = [":a_suffix"],
 )
 
-cc_library(
-    name = "diamond_lib1",
-    deps = [
-        ":a_suffix",
-    ],
-)
-
-cc_library(
-    name = "diamond_lib2",
-    deps = [
-         ":a_suffix",
-    ],
-)
-
 cc_shared_library(
     name = "diamond_so",
     dynamic_deps = [":a_so"],
     features = ["windows_export_all_symbols"],
-    deps = [":qux", "diamond_lib1"],
+    deps = [":qux"],
 )
 
 cc_shared_library(
     name = "diamond2_so",
     dynamic_deps = [":a_so"],
     features = ["windows_export_all_symbols"],
-    deps = [":bar",  "diamond_lib2"],
+    deps = [":bar"],
 )
 
 cc_binary(
@@ -129,7 +115,8 @@ cc_shared_library(
     }),
     dynamic_deps = [
         "bar_so",
-        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:diff_pkg_so"
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:diff_pkg_so",
+        "private_lib_so",
     ],
     features = ["windows_export_all_symbols"],
     exports_filter = [
@@ -443,6 +430,24 @@ cc_library(
         "direct_so_file_cc_lib2.cc",
         "direct_so_file_cc_lib2.h",
     ],
+)
+
+cc_shared_library(
+    name = "private_lib_so",
+    deps = [
+        ":private_lib",
+    ],
+)
+
+genrule(
+    name = "private_cc_lib_source",
+    outs = ["private_cc_library.cc"],
+    cmd = "touch $@",
+)
+
+cc_library(
+    name = "private_lib",
+    srcs = [":private_cc_library.cc"]
 )
 
 build_failure_test(
