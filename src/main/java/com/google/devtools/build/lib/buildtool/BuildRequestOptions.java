@@ -464,15 +464,6 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean incompatibleSkipGenfilesSymlink;
 
   @Option(
-      name = "experimental_use_fork_join_pool",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = OptionMetadataTag.EXPERIMENTAL,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help = "If this flag is set, use a fork join pool in the abstract queue visitor.")
-  public boolean useForkJoinPool;
-
-  @Option(
       name = "experimental_replay_action_out_err",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

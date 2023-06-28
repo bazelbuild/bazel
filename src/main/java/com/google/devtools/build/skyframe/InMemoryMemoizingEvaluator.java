@@ -221,9 +221,7 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
             .setExecutorServiceSupplier(
                 () ->
                     AbstractQueueVisitor.createExecutorService(
-                        evaluationContext.getParallelism(),
-                        "skyframe-evaluator",
-                        evaluationContext.getUseForkJoinPool()))
+                        evaluationContext.getParallelism(), "skyframe-evaluator"))
             .build();
   }
 
