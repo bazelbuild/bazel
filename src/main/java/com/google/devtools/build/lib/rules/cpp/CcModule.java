@@ -93,6 +93,18 @@ import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Structure;
 import net.starlark.java.eval.Tuple;
+import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
+import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import net.starlark.java.eval.Starlark;
 
 /**
  * A module that contains Starlark utilities for C++ support.
@@ -139,10 +151,119 @@ public abstract class CcModule
 
   public abstract CppSemantics getSemantics(Language language);
 
+  /**
+   * This class exists only for a 6.3 cherrypick. For 7.0 this will be in Starlark.
+   */
+  @StarlarkBuiltin(
+    name = "CcSharedLibraryHintInfo",
+    category = DocCategory.PROVIDER,
+    documented = false
+  )
+  @Immutable
+  private static final class CcSharedLibraryHintInfo extends NativeInfo implements StructApi {
+    private static final Provider PROVIDER = new Provider();
+
+    private final List<String> attributes;
+    private final List<Label> owners;
+
+    public CcSharedLibraryHintInfo(
+        List<String> attributes,
+        List<Label> owners) {
+      this.attributes = attributes;
+      this.owners = owners;
+    }
+
+    @StarlarkMethod(
+      name = "attributes",
+      structField = true,
+      allowReturnNones = true,
+      documented = false)
+    @Nullable
+    public Sequence<String> getAttributes() {
+      return attributes == null ? null : StarlarkList.immutableCopyOf(attributes);
+    }
+
+    @StarlarkMethod(
+      name = "owners",
+      structField = true,
+      allowReturnNones = true,
+      documented = false)
+    @Nullable
+    public Sequence<Label> getOwners() {
+      return owners == null ? null : StarlarkList.immutableCopyOf(owners);
+    }
+
+    @Override
+    public Provider getProvider() {
+      return PROVIDER;
+    }
+
+    public static class Provider extends BuiltinProvider<CcSharedLibraryHintInfo>
+          implements ProviderApi {
+        private Provider() {
+          super("CcSharedLibraryHintInfo", CcSharedLibraryHintInfo.class);
+        }
+    }
+  }
+
+  @StarlarkMethod(
+    name = "CcSharedLibraryHintInfo_6_X_constructor_do_not_use",
+    documented = false,
+    parameters = {
+      @Param(
+          name = "attributes",
+          documented = false,
+          positional = false,
+          named = true,
+          defaultValue = "None",
+          allowedTypes = {
+            @ParamType(type = Sequence.class),
+            @ParamType(type = NoneType.class)
+          }),
+      @Param(
+          name = "owners",
+          documented = false,
+          positional = false,
+          named = true,
+          defaultValue = "None",
+          allowedTypes = {
+            @ParamType(type = Sequence.class),
+            @ParamType(type = NoneType.class)
+          }),
+    }
+  )
+  public CcSharedLibraryHintInfo ccSharedLibraryHintInfoConstructor(
+        Object starlarkAttributesObject,
+        Object starlarkOwnersObject) throws EvalException {
+      List<String> attributes = null;
+      if (starlarkAttributesObject != Starlark.NONE) {
+        attributes = convertFromNoneable(
+            starlarkAttributesObject, /* defaultValue= */ (Sequence<String>) null).getImmutableList();
+      }
+      List<Label> owners = null;
+      if (starlarkOwnersObject != Starlark.NONE) {
+        owners = convertFromNoneable(
+            starlarkOwnersObject, /* defaultValue= */ (Sequence<Label>) null).getImmutableList();
+      }
+      return new CcSharedLibraryHintInfo(
+          attributes,
+          owners
+      );
+  }
+
+  @StarlarkMethod(
+    name = "CcSharedLibraryHintInfo_6_X_getter_do_not_use",
+    documented = false,
+    structField = true)
+  public Provider getCcSharedLibraryHintInfo() {
+    return CcSharedLibraryHintInfo.PROVIDER;
+  }
+
   @Override
   public Provider getCcToolchainProvider() {
     return CcToolchainProvider.PROVIDER;
   }
+
 
   @Override
   public FeatureConfigurationForStarlark configureFeatures(
