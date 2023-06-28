@@ -16,13 +16,10 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.devtools.build.lib.analysis.AspectCollection.buildAspectKey;
 import static com.google.devtools.build.lib.analysis.AspectResolutionHelpers.aspectMatchesConfiguredTarget;
 
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.causes.LabelCause;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
@@ -53,7 +50,7 @@ public final class AspectResolver {
       SkyFunction.LookupEnvironment env,
       Map<ConfiguredTargetKey, ConfiguredTargetAndData> configuredTargetMap,
       Iterable<Dependency> deps,
-      @Nullable NestedSetBuilder<Package> transitivePackages)
+      TransitiveDependencyState transitiveState)
       throws AspectCreationException, InterruptedException {
     OrderedSetMultimap<Dependency, ConfiguredAspect> result = OrderedSetMultimap.create();
     Set<SkyKey> allAspectKeys = new HashSet<>();
@@ -98,10 +95,7 @@ public final class AspectResolver {
         }
 
         result.put(dep, aspectValue.getConfiguredAspect());
-        if (transitivePackages != null) {
-          transitivePackages.addTransitive(
-              Preconditions.checkNotNull(aspectValue.getTransitivePackages()));
-        }
+        transitiveState.updateTransitivePackages(aspectKey, aspectValue.getTransitivePackages());
       }
     }
     return result;

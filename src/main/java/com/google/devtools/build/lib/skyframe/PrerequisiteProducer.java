@@ -730,10 +730,6 @@ public final class PrerequisiteProducer {
         return null;
       }
 
-      var transitivePackages =
-          state.transitiveState.storeTransitivePackages()
-              ? NestedSetBuilder.<Package>stableOrder()
-              : null;
       // Resolve configured target dependencies and handle errors.
       Map<ConfiguredTargetKey, ConfiguredTargetAndData> depValues;
       if (state.resolveConfiguredTargetDependenciesResult != null) {
@@ -741,7 +737,7 @@ public final class PrerequisiteProducer {
       } else {
         depValues =
             resolveConfiguredTargetDependencies(
-                env, ctgValue, depValueNames.values(), transitivePackages, transitiveRootCauses);
+                env, ctgValue, depValueNames.values(), state.transitiveState, transitiveRootCauses);
         if (env.valuesMissing()) {
           shouldReplayStoredEvents = false;
           return null;
@@ -752,7 +748,7 @@ public final class PrerequisiteProducer {
       // Resolve required aspects.
       OrderedSetMultimap<Dependency, ConfiguredAspect> depAspects =
           AspectResolver.resolveAspectDependencies(
-              env, depValues, depValueNames.values(), transitivePackages);
+              env, depValues, depValueNames.values(), state.transitiveState);
       if (env.valuesMissing()) {
         shouldReplayStoredEvents = false;
         return null;
@@ -768,10 +764,6 @@ public final class PrerequisiteProducer {
             /*depReportedOwnError=*/ false);
       }
       state.computeDependenciesResult = mergeAspectsResult;
-
-      if (transitivePackages != null) {
-        state.transitiveState.setTransitivePackagesBatch(transitivePackages.build());
-      }
 
       // We won't need these anymore.
       state.resolveConfigurationsResult = null;
@@ -915,7 +907,7 @@ public final class PrerequisiteProducer {
           LookupEnvironment env,
           TargetAndConfiguration ctgValue,
           Collection<Dependency> deps,
-          @Nullable NestedSetBuilder<Package> transitivePackages,
+          TransitiveDependencyState transitiveState,
           NestedSetBuilder<Cause> transitiveRootCauses)
           throws DependencyEvaluationException, InterruptedException {
     boolean missedValues = env.valuesMissing();
@@ -1020,10 +1012,7 @@ public final class PrerequisiteProducer {
         } catch (NoSuchTargetException e) {
           throw new IllegalStateException("Target already verified for " + dep, e);
         }
-        if (transitivePackages != null) {
-          transitivePackages.addTransitive(
-              Preconditions.checkNotNull(depValue.getTransitivePackages()));
-        }
+        transitiveState.updateTransitivePackages(key, depValue.getTransitivePackages());
       }
 
       if (aliasDepsToRedo.isEmpty()) {

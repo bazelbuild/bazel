@@ -91,9 +91,10 @@ class BazelRepoMappingTest(test_base.TestBase):
                 '  return DefaultInfo(files=depset(direct=[exe]),'
                 ' executable=exe, runfiles=runfiles)'
             ),
+            'noop_aspect=aspect(lambda target, ctx: [])',
             'bare_test=rule(',
             '  implementation=_bare_test_impl,',
-            '  attrs={"data":attr.label_list(allow_files=True)},',
+            '  attrs={"data":attr.label_list(allow_files=True, aspects = [noop_aspect])},',
             '  test=True,',
             ')',
         ],

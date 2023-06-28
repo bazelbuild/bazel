@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Comparators.lexicographical;
 import static java.util.Comparator.comparing;
 import static java.util.Comparator.naturalOrder;
@@ -128,7 +129,7 @@ public final class TransitiveDependencyState {
     if (packageCollector == null) {
       return;
     }
-    packageCollector.configuredTargetPackages.put(key, packages);
+    packageCollector.configuredTargetPackages.put(key, checkNotNull(packages));
   }
 
   /** Adds to the set of transitive packages if {@link #storeTransitivePackages} is true. */
@@ -136,15 +137,7 @@ public final class TransitiveDependencyState {
     if (packageCollector == null) {
       return;
     }
-    packageCollector.aspectPackages.put(key, packages);
-  }
-
-  /** Sets a batch of transitive packages to be added. */
-  public void setTransitivePackagesBatch(NestedSet<Package> packages) {
-    if (packageCollector == null) {
-      return;
-    }
-    packageCollector.transitivePackagesBatch = packages;
+    packageCollector.aspectPackages.put(key, checkNotNull(packages));
   }
 
   @Nullable
@@ -192,13 +185,6 @@ public final class TransitiveDependencyState {
         new TreeMap<>(ASPECT_KEY_ORDERING);
 
     /**
-     * Stores a single batch of packages computed by {@link
-     * PrerequisiteProducer#resolveConfiguredTargetDependencies}.
-     */
-    // TODO(b/261521010): delete this when the corresponding method is deleted.
-    private NestedSet<Package> transitivePackagesBatch;
-
-    /**
      * Constructs the deterministically ordered result.
      *
      * <p>It's safe to call this multiple times.
@@ -214,10 +200,6 @@ public final class TransitiveDependencyState {
       }
       for (NestedSet<Package> packageSet : aspectPackages.values()) {
         result.addTransitive(packageSet);
-      }
-
-      if (transitivePackagesBatch != null) {
-        result.addTransitive(transitivePackagesBatch);
       }
 
       return result.build();
