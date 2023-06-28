@@ -216,6 +216,9 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
             "Scheduler exception only thrown for catastrophe in keep_going evaluation: %s",
             e);
         catastrophe = true;
+        // For b/287183296
+        logger.atInfo().withCause(e).log(
+            "Catastrophic exception in --keep_going mode while evaluating SkyKey: %s", errorKey);
       }
     }
     Preconditions.checkState(
@@ -549,6 +552,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       }
     }
     if (!cycleRoots.isEmpty()) {
+      logger.atInfo().log("Detecting cycles with roots: %s", cycleRoots);
       cycleDetector.checkForCycles(cycleRoots, result, evaluatorContext);
     }
     Preconditions.checkState(
