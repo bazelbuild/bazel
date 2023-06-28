@@ -19,6 +19,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.NonRootModuleFileValue;
@@ -28,6 +29,8 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
+import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
+import com.google.devtools.build.lib.skyframe.ClientEnvironmentValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -102,10 +105,29 @@ public class ModuleFileFunction implements SkyFunction {
       return computeForRootModule(starlarkSemantics, env);
     }
 
+    ClientEnvironmentValue allowedYankedVersionsFromEnv =
+        (ClientEnvironmentValue)
+            env.getValue(
+                ClientEnvironmentFunction.key(
+                    YankedVersionsUtil.BZLMOD_ALLOWED_YANKED_VERSIONS_ENV));
+    if (allowedYankedVersionsFromEnv == null) {
+      return null;
+    }
+
+    Optional<ImmutableSet<ModuleKey>> allowedYankedVersions;
+    try {
+      allowedYankedVersions =
+          YankedVersionsUtil.parseAllowedYankedVersions(
+              allowedYankedVersionsFromEnv.getValue(),
+              Objects.requireNonNull(YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.get(env)));
+    } catch (ExternalDepsException e) {
+      throw new ModuleFileFunctionException(e, SkyFunctionException.Transience.PERSISTENT);
+    }
+
     ModuleFileValue.Key moduleFileKey = (ModuleFileValue.Key) skyKey;
     ModuleKey moduleKey = moduleFileKey.getModuleKey();
     GetModuleFileResult getModuleFileResult =
-        getModuleFile(moduleKey, moduleFileKey.getOverride(), env);
+        getModuleFile(moduleKey, moduleFileKey.getOverride(), allowedYankedVersions, env);
     if (getModuleFileResult == null) {
       return null;
     }
@@ -119,6 +141,8 @@ public class ModuleFileFunction implements SkyFunction {
             moduleKey,
             // Dev dependencies should always be ignored if the current module isn't the root module
             /* ignoreDevDeps= */ true,
+            // We try to prevent most side effects of yanked modules, in particular print().
+            /* printIsNoop= */ getModuleFileResult.yankedInfo != null,
             starlarkSemantics,
             env);
 
@@ -137,6 +161,23 @@ public class ModuleFileFunction implements SkyFunction {
           "the MODULE.bazel file of %s declares a different version (%s)",
           moduleKey,
           module.getVersion());
+    }
+
+    if (getModuleFileResult.yankedInfo != null) {
+      // Yanked modules should not have observable side effects such as adding dependency
+      // requirements, so we drop those from the constructed module. We do have to preserve the
+      // compatibility level as it influences the set of versions the yanked version can be updated
+      // to during selection.
+      return NonRootModuleFileValue.create(
+          InterimModule.builder()
+              .setKey(module.getKey())
+              .setName(module.getName())
+              .setVersion(module.getVersion())
+              .setCompatibilityLevel(module.getCompatibilityLevel())
+              .setRegistry(module.getRegistry())
+              .setYankedInfo(Optional.of(getModuleFileResult.yankedInfo))
+              .build(),
+          moduleFileHash);
     }
 
     return NonRootModuleFileValue.create(module, moduleFileHash);
@@ -159,6 +200,7 @@ public class ModuleFileFunction implements SkyFunction {
             /* registry= */ null,
             ModuleKey.ROOT,
             /* ignoreDevDeps= */ Objects.requireNonNull(IGNORE_DEV_DEPS.get(env)),
+            /* printIsNoop= */ false,
             starlarkSemantics,
             env);
     InterimModule module = moduleFileGlobals.buildModule();
@@ -205,6 +247,7 @@ public class ModuleFileFunction implements SkyFunction {
       @Nullable Registry registry,
       ModuleKey moduleKey,
       boolean ignoreDevDeps,
+      boolean printIsNoop,
       StarlarkSemantics starlarkSemantics,
       Environment env)
       throws ModuleFileFunctionException, InterruptedException {
@@ -223,7 +266,11 @@ public class ModuleFileFunction implements SkyFunction {
       Program program = Program.compileFile(starlarkFile, predeclaredEnv);
       // TODO(wyv): check that `program` has no `def`, `if`, etc
       StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
-      thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
+      if (printIsNoop) {
+        thread.setPrintHandler((t, msg) -> {});
+      } else {
+        thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
+      }
       Starlark.execFileProgram(program, predeclaredEnv, thread);
     } catch (SyntaxError.Exception e) {
       Event.replayEventsOn(env.getListener(), e.errors());
@@ -237,13 +284,19 @@ public class ModuleFileFunction implements SkyFunction {
 
   private static class GetModuleFileResult {
     ModuleFile moduleFile;
+    // `yankedInfo` is non-null if and only if the module has been yanked and hasn't been
+    // allowlisted.
+    @Nullable String yankedInfo;
     // `registry` can be null if this module has a non-registry override.
     @Nullable Registry registry;
   }
 
   @Nullable
   private GetModuleFileResult getModuleFile(
-      ModuleKey key, @Nullable ModuleOverride override, Environment env)
+      ModuleKey key,
+      @Nullable ModuleOverride override,
+      Optional<ImmutableSet<ModuleKey>> allowedYankedVersions,
+      Environment env)
       throws ModuleFileFunctionException, InterruptedException {
     // If there is a non-registry override for this module, we need to fetch the corresponding repo
     // first and read the module file from there.
@@ -303,6 +356,10 @@ public class ModuleFileFunction implements SkyFunction {
         }
         result.moduleFile = moduleFile.get();
         result.registry = registry;
+        result.yankedInfo =
+            YankedVersionsUtil.getYankedInfo(
+                    registry, key, allowedYankedVersions, env.getListener())
+                .orElse(null);
         return result;
       } catch (IOException e) {
         throw errorf(
@@ -345,6 +402,10 @@ public class ModuleFileFunction implements SkyFunction {
 
     ModuleFileFunctionException(ExternalDepsException cause) {
       super(cause, Transience.TRANSIENT);
+    }
+
+    ModuleFileFunctionException(ExternalDepsException cause, Transience transience) {
+      super(cause, transience);
     }
   }
 }
