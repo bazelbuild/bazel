@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -39,6 +38,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import net.starlark.java.eval.EvalException;
 
 /** Native support for Apple binary rules. */
 public class AppleBinary {
@@ -70,7 +70,7 @@ public class AppleBinary {
       Iterable<String> extraRequestedFeatures,
       Iterable<String> extraDisabledFeatures,
       boolean isStampingEnabled)
-      throws InterruptedException, RuleErrorException, ActionConflictException {
+      throws InterruptedException, RuleErrorException, EvalException {
     Map<Optional<String>, List<ConfiguredTargetAndData>> splitDeps =
         ruleContext.getSplitPrerequisiteConfiguredTargetAndTargets("deps");
     Map<Optional<String>, List<ConfiguredTargetAndData>> splitToolchains =

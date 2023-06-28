@@ -58,6 +58,11 @@ def _linking_order_test_impl(env, target):
             matching.contains("foo.pic.o"),
             matching.contains("baz.pic.o"),
         ]).in_order()
+
+        env.expect.that_collection(args).contains_at_least([
+            "-lprivate_lib_so",
+        ])
+
         env.expect.where(
             detail = "liba_suffix.pic.o should be the last user library linked",
         ).that_str(user_libs[-1]).equals("a_suffix.pic.o")
@@ -181,6 +186,7 @@ def _runfiles_test_impl(env, target):
         "libfoo_so.so",
         "libbar_so.so",
         "libdiff_pkg_so.so",
+        "libprivate_lib_so.so",
         "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary_Slibfoo_Uso.so",
         "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary_Slibbar_Uso.so",
         "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary3_Slibdiff_Upkg_Uso.so",

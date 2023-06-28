@@ -15,6 +15,7 @@
 """Common functionality for Objc rules."""
 
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/objc/providers.bzl", "J2ObjcEntryClassInfo", "J2ObjcMappingFileInfo")
 
 objc_internal = _builtins.internal.objc_internal
 apple_common = _builtins.toplevel.apple_common
@@ -460,6 +461,37 @@ def _apple_cc_toolchain_build_variables(xcode_config):
 
     return apple_cc_toolchain_build_variables
 
+# TODO(bazel-team): Delete this function when MultiArchBinarySupport is starlarkified.
+def _j2objc_mapping_file_info_union(providers):
+    transitive_header_mapping_files = []
+    transitive_class_mapping_files = []
+    transitive_dependency_mapping_files = []
+    transitive_archive_source_mapping_files = []
+
+    for provider in providers:
+        transitive_header_mapping_files.append(provider.header_mapping_files)
+        transitive_class_mapping_files.append(provider.class_mapping_files)
+        transitive_dependency_mapping_files.append(provider.dependency_mapping_files)
+        transitive_archive_source_mapping_files.append(provider.archive_source_mapping_files)
+
+    return J2ObjcMappingFileInfo(
+        header_mapping_files = depset([], transitive = transitive_header_mapping_files),
+        class_mapping_files = depset([], transitive = transitive_class_mapping_files),
+        dependency_mapping_files = depset([], transitive = transitive_dependency_mapping_files),
+        archive_source_mapping_files = depset([], transitive = transitive_archive_source_mapping_files),
+    )
+
+# TODO(bazel-team): Delete this function when MultiArchBinarySupport is starlarkified.
+def _j2objc_entry_class_info_union(providers):
+    transitive_entry_classes = []
+
+    for provider in providers:
+        transitive_entry_classes.append(provider.entry_classes)
+
+    return J2ObjcEntryClassInfo(
+        entry_classes = depset([], transitive = transitive_entry_classes),
+    )
+
 objc_common = struct(
     create_context_and_provider = _create_context_and_provider,
     to_string_with_minimum_components = _to_string_with_minimum_components,
@@ -468,4 +500,6 @@ objc_common = struct(
     apple_cc_toolchain_build_variables = _apple_cc_toolchain_build_variables,
     is_apple_platform = _is_apple_platform,
     get_common_vars = _get_common_vars,
+    j2objc_mapping_file_info_union = _j2objc_mapping_file_info_union,
+    j2objc_entry_class_info_union = _j2objc_entry_class_info_union,
 )

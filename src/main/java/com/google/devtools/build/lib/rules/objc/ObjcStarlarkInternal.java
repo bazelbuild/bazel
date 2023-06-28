@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -25,7 +24,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LocationExpander;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
-import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
@@ -236,31 +234,6 @@ public class ObjcStarlarkInternal implements StarlarkValue {
         Sequence.cast(nonArcSrcs, Artifact.class, "non_arc_srcs"),
         Sequence.cast(hdrs, Artifact.class, "hdrs"),
         intermediateArtifacts);
-  }
-
-  @StarlarkMethod(
-      name = "j2objc_providers_from_deps",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-      })
-  public Sequence<NativeInfo> createj2objcProvidersFromDeps(StarlarkRuleContext starlarkRuleContext)
-      throws EvalException {
-    J2ObjcMappingFileProvider j2ObjcMappingFileProvider =
-        J2ObjcMappingFileProvider.union(
-            starlarkRuleContext
-                .getRuleContext()
-                .getPrerequisites("deps", J2ObjcMappingFileProvider.PROVIDER));
-    J2ObjcEntryClassProvider j2ObjcEntryClassProvider =
-        new J2ObjcEntryClassProvider.Builder()
-            .addTransitive(
-                starlarkRuleContext
-                    .getRuleContext()
-                    .getPrerequisites("deps", J2ObjcEntryClassProvider.PROVIDER))
-            .build();
-
-    return StarlarkList.immutableCopyOf(
-        ImmutableList.of(j2ObjcEntryClassProvider, j2ObjcMappingFileProvider));
   }
 
   @StarlarkMethod(
