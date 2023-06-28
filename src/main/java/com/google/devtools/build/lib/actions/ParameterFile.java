@@ -103,12 +103,10 @@ public class ParameterFile {
     OutputStream bufferedOut = new BufferedOutputStream(out);
     switch (type) {
       case SHELL_QUOTED:
-        writeContent(bufferedOut, arguments, charset);
-        // writeContent(bufferedOut, ShellEscaper.escapeAll(arguments), charset);
+        writeContent(bufferedOut, ShellEscaper.escapeAll(arguments), charset);
         break;
       case GCC_QUOTED:
-        writeContent(bufferedOut, arguments, charset);
-        // writeContent(bufferedOut, GccParamFileEscaper.escapeAll(arguments), charset);
+        writeContent(bufferedOut, GccParamFileEscaper.escapeAll(arguments), charset);
         break;
       case UNQUOTED:
         writeContent(bufferedOut, arguments, charset);
@@ -119,21 +117,19 @@ public class ParameterFile {
   private static void writeContent(
       OutputStream outputStream, Iterable<String> arguments, Charset charset) throws IOException {
     writeContentLatin1(outputStream, arguments);
-    /*
-    if (charset.equals(ISO_8859_1)) {
-      writeContentLatin1(outputStream, arguments);
-    } else if (charset.equals(UTF_8)) {
-      writeContentLatin1(outputStream, arguments);
-    } else {
-      // Generic charset support
-      OutputStreamWriter out = new OutputStreamWriter(outputStream, charset);
-      for (String line : arguments) {
-        out.write(line);
-        out.write('\n');
-      }
-      out.flush();
-    }
-    */
+    //if (charset.equals(ISO_8859_1)) {
+    //  writeContentLatin1(outputStream, arguments);
+    //} else if (charset.equals(UTF_8)) {
+    //  writeContentUtf8(outputStream, arguments);
+    //} else {
+    //  // Generic charset support
+    //  OutputStreamWriter out = new OutputStreamWriter(outputStream, charset);
+    //  for (String line : arguments) {
+    //    out.write(line);
+    //    out.write('\n');
+    //  }
+    //  out.flush();
+    //}
   }
 
   /**
