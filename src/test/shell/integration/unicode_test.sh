@@ -30,15 +30,19 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-touch WORKSPACE
-cp "$(rlocation "io_bazel/src/test/shell/integration/unicode_test_BUILD")" BUILD
-cp "$(rlocation "io_bazel/src/test/shell/integration/unicode_test.bzl")" .
-cp "$(rlocation "io_bazel/src/test/shell/integration/unicode_test_expected.txt")" .
+export LC_ALL="C.UTF-8"
+
+function set_up {
+  touch WORKSPACE
+  cp -f "$(rlocation "io_bazel/src/test/shell/integration/unicode_test_BUILD")" BUILD
+  cp -f "$(rlocation "io_bazel/src/test/shell/integration/unicode_test.bzl")" .
+  cp -f "$(rlocation "io_bazel/src/test/shell/integration/unicode_test_expected.txt")" .
+}
 
 function test_unicode_genrule_cmd {
   local test_name="genrule_cmd"
   bazel build --genrule_strategy=local --spawn_strategy=local \
-    --verbose_failures "${test_name}" >& "$TEST_log" \
+    --verbose_failures "//:${test_name}" >& "$TEST_log" \
     || fail "expected build to succeed"
 
   diff -u "${PRODUCT_NAME}-genfiles/${test_name}.out" \
@@ -49,7 +53,7 @@ function test_unicode_genrule_cmd {
 function test_unicode_action_run_argument {
   local test_name="action_run_argument"
   bazel build --genrule_strategy=local --spawn_strategy=local \
-    --verbose_failures "${test_name}" >& "$TEST_log" \
+    --verbose_failures "//:${test_name}" >& "$TEST_log" \
     || fail "expected build to succeed"
 
   diff -u "${PRODUCT_NAME}-bin/${test_name}.out" \
@@ -60,7 +64,7 @@ function test_unicode_action_run_argument {
 function test_unicode_action_write_content {
   local test_name="action_write_content"
   bazel build --genrule_strategy=local --spawn_strategy=local \
-    --verbose_failures "${test_name}" >& "$TEST_log" \
+    --verbose_failures "//:${test_name}" >& "$TEST_log" \
     || fail "expected build to succeed"
 
   diff -u "${PRODUCT_NAME}-bin/${test_name}.out" \

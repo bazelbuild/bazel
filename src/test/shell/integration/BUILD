@@ -862,6 +862,20 @@ sh_test(
     tags = ["no_windows"],
 )
 
+sh_test(
+    name = "unicode_test",
+    srcs = ["unicode_test.sh"],
+    data = [
+        "unicode_test.bzl",
+        "unicode_test_BUILD",
+        "unicode_test_expected.txt",
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    # TODO(arostovtsev): figure out how to make this test Windows-compatible.
+    tags = ["no_windows"],
+)
+
 ########################################################################
 # Test suites.
 
