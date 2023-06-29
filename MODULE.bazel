@@ -28,6 +28,13 @@ single_version_override(
     patches = ["//third_party:rules_jvm_external_5.2.patch"],
 )
 
+archive_override(
+    module_name = "rules_java",
+    urls = ["https://github.com/bazelbuild/rules_java/archive/feb186fe9cc7f6cc2eedeb84691ee66749a4906b.tar.gz"],
+    integrity = "sha256-NyPWmAJL4uQm/l9U5AyL4EB1xDP6FcHMOw+uNJ9qk0c=",
+    strip_prefix = "rules_java-feb186fe9cc7f6cc2eedeb84691ee66749a4906b",
+)
+
 maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
 maven.install(
     # We don't yet specify the maven coordinates in the MODULE.bazel to avoid duplicating information.
