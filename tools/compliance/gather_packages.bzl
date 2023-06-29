@@ -160,7 +160,6 @@ def gather_package_common(target, ctx, provider_factory, metadata_providers, fil
     elif hasattr(ctx.rule.attr, "tags"):
         for tag in ctx.rule.attr.tags:
             if tag.startswith("maven_coordinates="):
-                print(tag)
                 packages.append(target.label)
 
     # Now gather transitive collection of providers from the targets

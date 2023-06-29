@@ -47,7 +47,6 @@ _sbom = rule(
     implementation = _sbom_impl,
     attrs = {
         "packages_used": attr.label(
-            #allow_files = True,
             allow_single_file = True,
             mandatory = True,
         ),

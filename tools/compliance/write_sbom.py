@@ -69,6 +69,9 @@ def create_sbom(package_info: dict, maven_packages: dict) -> dict:
       "relationshipType": "DESCRIBES"
   })
 
+  # This is bazel private shenanigans.
+  magic_file_suffix = '//file:file'
+
   for pkg in package_info["packages"]:
     id = hashlib.md5()
     id.update(pkg.encode('utf-8'))
@@ -79,19 +82,19 @@ def create_sbom(package_info: dict, maven_packages: dict) -> dict:
         "SPDXID": spdxid,
         # TODO(aiuto): Fill in the rest
         # "supplier": "Organization: Google LLC",
-        # "licenseConcluded": "License-da09db95a268defe",
+        # "licenseConcluded": "License-XXXXXX",
         # "copyrightText": ""
     }
 
     have_maven = None
     if pkg.startswith('@maven//:'):
       have_maven = maven_packages.get(pkg[9:])
-    elif pkg.endswith("//file:file"):
+    elif pkg.endswith(magic_file_suffix):
       # Bazel hacks jvm_external to add //file:file as a target, then we depend
       # on that rather than the correct thing.
       # Example: @org_apache_tomcat_tomcat_annotations_api_8_0_5//file:file
       # Check for just the versioned root
-      have_maven = maven_packages.get(pkg[1:-11])
+      have_maven = maven_packages.get(pkg[1:-len(magic_file_suffix)])
 
     if have_maven:
         pi["downloadLocation"] = have_maven['url']
