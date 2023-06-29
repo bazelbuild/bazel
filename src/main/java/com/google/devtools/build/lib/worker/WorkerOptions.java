@@ -101,7 +101,7 @@ public class WorkerOptions extends OptionsBase {
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
           "How many WorkRequests a multiplex worker process may receive in parallel if you use the"
-              + " 'worker' strategy with --experimental_worker_multiplex. May be specified as "
+              + " 'worker' strategy with --worker_multiplex. May be specified as "
               + "[name=value] to give a different value per mnemonic. The limit is based on worker "
               + "keys, which are differentiated based on mnemonic, but also on startup flags and "
               + "environment, so there can in some cases be more workers per mnemonic than this "
