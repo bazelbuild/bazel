@@ -479,8 +479,8 @@ maven_install(
         "javax.activation:javax.activation-api:1.2.0",
         "javax.annotation:javax.annotation-api:1.3.2",
         "javax.inject:javax.inject:1",
-        "net.bytebuddy:byte-buddy-agent:1.11.13",
-        "net.bytebuddy:byte-buddy:1.11.13",
+        "net.bytebuddy:byte-buddy-agent:1.14.5",
+        "net.bytebuddy:byte-buddy:1.14.5",
         "org.apache.commons:commons-compress:1.19",
         "org.apache.commons:commons-pool2:2.8.0",
         "org.apache.tomcat:tomcat-annotations-api:8.0.5",
@@ -559,7 +559,8 @@ maven_install(
         "com.google.protobuf:protobuf-java",
         "com.google.protobuf:protobuf-javalite",
     ],
-    fail_if_repin_required = False,
+    # Don't forget to change this to back to True before submitting your change.
+    fail_if_repin_required = True,
     maven_install_json = "//:maven_install.json",
     repositories = [
         "https://repo1.maven.org/maven2",
@@ -583,6 +584,7 @@ maven_install(
         "com.android.tools:common:30.1.3",
         "com.android.tools:repository:30.1.3",
     ],
+    # Don't forget to change this to back to True before submitting your change.
     fail_if_repin_required = True,
     maven_install_json = "//src/tools/android:maven_android_install.json",
     repositories = [

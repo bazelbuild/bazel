@@ -1395,6 +1395,36 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     assertValidOutputFile("a/bar.out", "file-inside\nupdated bar" + lineSeparator());
   }
 
+  @Test
+  public void nonDeclaredSymlinksFromLocalActions() throws Exception {
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = [],",
+        "  outs = ['foo.txt'],",
+        "  cmd = 'echo foo > $@',",
+        ")",
+        "genrule(",
+        "  name = 'foo-link',",
+        "  srcs = [':foo'],",
+        "  outs = ['foo.link'],",
+        "  cmd = 'ln -s foo.txt $@',",
+        "  local = True,",
+        ")",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo-link'],",
+        "  outs = ['foobar.txt'],",
+        "  cmd = 'cat $(location :foo-link) > $@ && echo bar >> $@',",
+        "  local = True,",
+        ")");
+
+    buildTarget("//:foobar");
+
+    assertValidOutputFile("foobar.txt", "foo\nbar\n");
+  }
+
   protected void assertOutputsDoNotExist(String target) throws Exception {
     for (Artifact output : getArtifacts(target)) {
       assertWithMessage(

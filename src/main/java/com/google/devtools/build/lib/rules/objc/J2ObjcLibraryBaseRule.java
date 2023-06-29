@@ -33,14 +33,10 @@ import javax.annotation.Nullable;
 
 /**
  * Abstract rule definition for j2objc_library.
+ *
+ * <p>This rule is implemented in Starlark. This class remains only for doc-gen purposes.
  */
 public class J2ObjcLibraryBaseRule implements RuleDefinition {
-  private final J2ObjcAspect j2ObjcAspect;
-
-  public J2ObjcLibraryBaseRule(J2ObjcAspect j2ObjcAspect) {
-    this.j2ObjcAspect = j2ObjcAspect;
-  }
-
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     // TODO(rduan): Add support for package prefixes.
@@ -81,7 +77,6 @@ public class J2ObjcLibraryBaseRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(
             attr("deps", LABEL_LIST)
-                .aspect(j2ObjcAspect)
                 .allowedRuleClasses(
                     "j2objc_library", "java_library", "java_import", "java_proto_library")
                 .allowedFileTypes())
