@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -157,7 +158,9 @@ public class BazelRepositoryModule extends BlazeModule {
   private LockfileMode bazelLockfileMode = LockfileMode.OFF;
   private List<String> allowedYankedVersions = ImmutableList.of();
   private SingleExtensionEvalFunction singleExtensionEvalFunction;
-  private final ExecutorService repoFetchingWorkerThreadPool = Executors.newFixedThreadPool(100);
+  private final ExecutorService repoFetchingWorkerThreadPool =
+      Executors.newFixedThreadPool(
+          100, new ThreadFactoryBuilder().setNameFormat("repo-fetching-worker-%d").build());
 
   @Nullable private CredentialModule credentialModule;
 
