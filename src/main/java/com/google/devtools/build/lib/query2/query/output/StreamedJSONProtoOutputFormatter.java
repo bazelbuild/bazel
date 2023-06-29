@@ -27,10 +27,10 @@ import java.util.List;
  * An output formatter that outputs a protocol buffer json representation of a query result and
  * outputs the json to the output print stream.
  */
-public class JSONProtoOutputFormatter extends ProtoOutputFormatter {
+public class StreamedJSONProtoOutputFormatter extends ProtoOutputFormatter {
   @Override
   public String getName() {
-    return "jsonproto";
+    return "streamed_jsonproto";
   }
 
   private final JsonFormat.Printer jsonPrinter = JsonFormat.printer();
@@ -42,13 +42,11 @@ public class JSONProtoOutputFormatter extends ProtoOutputFormatter {
       @Override
       public void processOutput(Iterable<Target> partialResult)
           throws IOException, InterruptedException {
-        List<String> jsonProtoBuffers = new ArrayList<>();
         for (Target target : partialResult) {
-          jsonProtoBuffers.add(jsonPrinter.print(toTargetProtoBuffer(target)));
+          out.write(
+              jsonPrinter.omittingInsignificantWhitespace().print(toTargetProtoBuffer(target)).getBytes(StandardCharsets.UTF_8));
+          out.write(System.lineSeparator().getBytes(StandardCharsets.UTF_8));
         }
-        out.write("[".getBytes(StandardCharsets.UTF_8));
-        out.write(String.join(",", jsonProtoBuffers).getBytes(StandardCharsets.UTF_8));
-        out.write("]".getBytes(StandardCharsets.UTF_8));
       }
     };
   }
