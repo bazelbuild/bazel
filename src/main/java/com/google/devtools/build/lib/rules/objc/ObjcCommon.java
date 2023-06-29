@@ -118,6 +118,9 @@ public final class ObjcCommon implements StarlarkValue {
     // TODO(b/171413861): remove after objc link info migration.
     private final List<CcLinkingContext> ccLinkingContextsForMerging = new ArrayList<>();
 
+    private static final ImmutableSet<String> J2OBJC_SUPPORTED_RULES =
+        ImmutableSet.of("java_import", "java_library", "java_proto_library", "proto_library");
+
     /**
      * Builder for {@link ObjcCommon} obtaining both attribute data and configuration data from the
      * given rule context.
@@ -373,7 +376,7 @@ public final class ObjcCommon implements StarlarkValue {
             FileType.filter(artifacts.getSrcs(), HEADERS));
 
         if (artifacts.getArchive().isPresent()
-            && J2ObjcLibrary.J2OBJC_SUPPORTED_RULES.contains(context.getRule().getRuleClass())) {
+            && J2OBJC_SUPPORTED_RULES.contains(context.getRule().getRuleClass())) {
           objcProvider.addAll(J2OBJC_LIBRARY, artifacts.getArchive().asSet());
         }
       }
