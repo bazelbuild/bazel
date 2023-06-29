@@ -186,6 +186,7 @@ import com.google.devtools.build.lib.skyframe.BuildDriverFunction.TestTypeResolv
 import com.google.devtools.build.lib.skyframe.BuildDriverFunction.TransitiveActionLookupValuesHelper;
 import com.google.devtools.build.lib.skyframe.DiffAwarenessManager.ProcessableModifiedFileSet;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.ExternalDirtinessChecker;
+import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.FileDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.MissingDiffDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.UnionDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
@@ -1375,7 +1376,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         memoizingEvaluator.getInMemoryGraph(),
         dirtyFileStateSkyKeys,
         fsvcThreads,
-        syscallCache);
+        syscallCache,
+        getSkyValueDirtinessCheckerForFiles());
+  }
+
+  /** Returns the {@link SkyValueDirtinessChecker} relevant for files. */
+  @ForOverride
+  protected SkyValueDirtinessChecker getSkyValueDirtinessCheckerForFiles() {
+    return new FileDirtinessChecker();
   }
 
   /**

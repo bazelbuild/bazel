@@ -132,7 +132,7 @@ public class LocalDiffAwarenessIntegrationTest extends SkyframeIntegrationTestBa
             AbruptExitException.class,
             () -> buildTargetWithRetryUntilSeesChange("//foo", "foo/BUILD"));
 
-    assertThat(e).hasCauseThat().hasCauseThat().hasCauseThat().isSameInstanceAs(injectedException);
+    assertThat(e).hasCauseThat().hasCauseThat().hasCauseThat().isInstanceOf(IOException.class);
   }
 
   /**
