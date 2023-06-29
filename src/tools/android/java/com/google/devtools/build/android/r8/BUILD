@@ -47,7 +47,6 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/worker:work_request_handlers",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//third_party:asm",
         "//third_party:auto_value",
         "//third_party:guava",
@@ -88,5 +87,27 @@ java_library(
     runtime_deps = [
         # CompatDexBuilder depends on some worker utilities.
         "//src/main/java/com/google/devtools/build/lib/worker:work_request_handlers",
+    ],
+)
+
+java_binary(
+    name = "desugar",
+    jvm_flags = [
+        # b/71513487
+        "-XX:+TieredCompilation",
+        "-XX:TieredStopAtLevel=1",
+        "-Xms8g",
+        "-Xmx8g",
+        # b/172508621
+        "-Dcom.android.tools.r8.sortMethodsOnCfWriting",
+        "-Dcom.android.tools.r8.allowAllDesugaredInput",
+        "-Dcom.android.tools.r8.noCfMarkerForDesugaredCode",
+        "-Dcom.android.tools.r8.lambdaClassFieldsNotFinal",
+        "-Dcom.android.tools.r8.createSingletonsForStatelessLambdas",
+    ],
+    main_class = "com.google.devtools.build.android.r8.Desugar",
+    visibility = ["//src/test/java/com/google/devtools/build/android/r8:__pkg__"],
+    runtime_deps = [
+        ":r8",
     ],
 )

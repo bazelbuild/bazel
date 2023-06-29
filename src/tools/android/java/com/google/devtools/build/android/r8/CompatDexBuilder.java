@@ -24,8 +24,11 @@ import com.android.tools.r8.D8;
 import com.android.tools.r8.D8Command;
 import com.android.tools.r8.DexIndexedConsumer;
 import com.android.tools.r8.DiagnosticsHandler;
+import com.android.tools.r8.SyntheticInfoConsumer;
+import com.android.tools.r8.SyntheticInfoConsumerData;
 import com.android.tools.r8.origin.ArchiveEntryOrigin;
 import com.android.tools.r8.origin.PathOrigin;
+import com.android.tools.r8.references.ClassReference;
 import com.google.auto.value.AutoValue;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -67,8 +70,47 @@ import javax.annotation.Nullable;
 public class CompatDexBuilder {
   private static final long ONE_MEG = 1024 * 1024;
 
+  private static class ContextConsumer implements SyntheticInfoConsumer {
+
+    // After compilation this will be non-null iff the compiled class is a D8 synthesized class.
+    ClassReference sythesizedPrimaryClass = null;
+
+    // If the above is non-null then this will be the non-synthesized context class that caused
+    // D8 to synthesize the above class.
+    ClassReference contextOfSynthesizedClass = null;
+
+    @Nullable
+    String getContextMapping() {
+      if (sythesizedPrimaryClass != null) {
+        return sythesizedPrimaryClass.getBinaryName()
+            + ";"
+            + contextOfSynthesizedClass.getBinaryName();
+      }
+      return null;
+    }
+
+    @Override
+    public synchronized void acceptSyntheticInfo(SyntheticInfoConsumerData data) {
+      verify(
+          sythesizedPrimaryClass == null || sythesizedPrimaryClass.equals(data.getSyntheticClass()),
+          "The single input classfile should ensure this has one value.");
+      verify(
+          contextOfSynthesizedClass == null
+              || contextOfSynthesizedClass.equals(data.getSynthesizingContextClass()),
+          "The single input classfile should ensure this has one value.");
+      sythesizedPrimaryClass = data.getSyntheticClass();
+      contextOfSynthesizedClass = data.getSynthesizingContextClass();
+    }
+
+    @Override
+    public void finished() {
+      // Do nothing.
+    }
+  }
+
   private static class DexConsumer implements DexIndexedConsumer {
 
+    final ContextConsumer contextConsumer = new ContextConsumer();
     byte[] bytes;
 
     @Override
@@ -84,6 +126,10 @@ public class CompatDexBuilder {
 
     void setBytes(byte[] byteCode) {
       this.bytes = byteCode;
+    }
+
+    ContextConsumer getContextConsumer() {
+      return contextConsumer;
     }
 
     @Override
@@ -269,10 +315,23 @@ public class CompatDexBuilder {
                           minSdkVersion,
                           executor)));
         }
+        StringBuilder contextMappingBuilder = new StringBuilder();
         for (int i = 0; i < futures.size(); i++) {
           ZipEntry entry = toDex.get(i);
           DexConsumer consumer = futures.get(i).get();
           ZipUtils.addEntry(entry.getName() + ".dex", consumer.getBytes(), ZipEntry.STORED, out);
+          String mapping = consumer.getContextConsumer().getContextMapping();
+          if (mapping != null) {
+            contextMappingBuilder.append(mapping).append('\n');
+          }
+        }
+        String contextMapping = contextMappingBuilder.toString();
+        if (!contextMapping.isEmpty()) {
+          ZipUtils.addEntry(
+              "META-INF/synthetic-contexts.map",
+              contextMapping.getBytes(UTF_8),
+              ZipEntry.STORED,
+              out);
         }
       }
     } finally {
@@ -292,6 +351,7 @@ public class CompatDexBuilder {
     D8Command.Builder builder = D8Command.builder();
     builder
         .setProgramConsumer(consumer)
+        .setSyntheticInfoConsumer(consumer.getContextConsumer())
         .setMode(mode)
         .setMinApiLevel(minSdkVersion)
         .setDisableDesugaring(true)
