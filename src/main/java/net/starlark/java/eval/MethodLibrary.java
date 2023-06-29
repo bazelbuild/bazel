@@ -714,10 +714,10 @@ class MethodLibrary {
     List<String> elems = new ArrayList<>();
     // msg acts like a leading element of args.
     if (msg != Starlark.NONE) {
-      elems.add(Starlark.str(msg, thread.getSemantics()));
+      elems.add(new Printer().debugPrint(msg, thread.getSemantics()).toString());
     }
     for (Object arg : args) {
-      elems.add(Starlark.str(arg, thread.getSemantics()));
+      elems.add(new Printer().debugPrint(arg, thread.getSemantics()).toString());
     }
     String str = Joiner.on(" ").join(elems);
     if (attr != Starlark.NONE) {
