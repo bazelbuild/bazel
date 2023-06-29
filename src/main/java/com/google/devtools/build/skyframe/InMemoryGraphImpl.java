@@ -80,7 +80,9 @@ public class InMemoryGraphImpl implements InMemoryGraph {
     this.usePooledInterning = usePooledInterning;
     if (usePooledInterning) {
       SkyKeyInterner.setGlobalPool(new SkyKeyPool());
-      LabelInterner.setGlobalPool(new LabelPool());
+      if (UsePooledLabelInterningFlag.usePooledLabelInterningFlag()) {
+        LabelInterner.setGlobalPool(new LabelPool());
+      }
     }
   }
 
@@ -255,7 +257,9 @@ public class InMemoryGraphImpl implements InMemoryGraph {
           e -> {
             weakInternSkyKey(e.getKey());
 
-            if (!e.isDone() || !e.getKey().functionName().equals(SkyFunctions.PACKAGE)) {
+            if (!UsePooledLabelInterningFlag.usePooledLabelInterningFlag()
+                || !e.isDone()
+                || !e.getKey().functionName().equals(SkyFunctions.PACKAGE)) {
               return;
             }
 
