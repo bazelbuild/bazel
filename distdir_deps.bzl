@@ -71,8 +71,6 @@ DIST_DEPS = {
         "sha256": "ebaed88ab697bceb369fc487e5f6a6a259497510b4a6ba4f109d0a2921f4239d",
         "strip_prefix": "rules_java-a0ce6ce70c53832422550f1b12fbfd7fdc415ef6",
         "urls": ["https://github.com/bazelbuild/rules_java/archive/a0ce6ce70c53832422550f1b12fbfd7fdc415ef6.tar.gz"],
-        "patches": ["//third_party:rules_java_6.1.0.patch"],
-        "patch_args": ["-p1"],
         "workspace_file_content": "",
         "used_in": [
             "additional_distfiles",
