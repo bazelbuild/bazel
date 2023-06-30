@@ -884,7 +884,6 @@ public class CompilationSupport implements StarlarkValue {
               .addExecPath("--input_archive", j2objcArchive)
               .addExecPath("--output_archive", prunedJ2ObjcArchive)
               .addExecPath("--dummy_archive", dummyArchive)
-              .addExecPath("--xcrunwrapper", xcrunwrapper(ruleContext).getExecutable())
               .addExecPaths(
                   "--dependency_mapping_files",
                   VectorArg.join(",").each(j2ObjcDependencyMappingFiles))
@@ -905,7 +904,6 @@ public class CompilationSupport implements StarlarkValue {
               .setExecutable(ruleContext.getExecutablePrerequisite("$j2objc_dead_code_pruner"))
               .addInput(dummyArchive)
               .addInput(j2objcArchive)
-              .addInput(xcrunwrapper(ruleContext).getExecutable())
               .addTransitiveInputs(j2ObjcDependencyMappingFiles)
               .addTransitiveInputs(j2ObjcHeaderMappingFiles)
               .addTransitiveInputs(j2ObjcArchiveSourceMappingFiles)
