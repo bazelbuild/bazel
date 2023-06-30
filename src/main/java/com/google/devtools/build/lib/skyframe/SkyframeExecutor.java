@@ -1497,6 +1497,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     this.mergedSkyframeAnalysisExecutionSupplier = mergedSkyframeAnalysisExecutionSupplier;
   }
 
+  boolean isMergedSkyframeAnalysisExecution() {
+    return mergedSkyframeAnalysisExecutionSupplier != null
+        && mergedSkyframeAnalysisExecutionSupplier.get();
+  }
+
   /** Sets the eventBus to use for posting events. */
   public void setEventBus(@Nullable EventBus eventBus) {
     this.eventBus.set(eventBus);
