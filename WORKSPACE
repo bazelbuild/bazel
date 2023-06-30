@@ -473,7 +473,6 @@ maven_install(
         "io.netty:netty-transport-native-unix-common:jar:linux-x86_64:4.1.93.Final",
         "io.netty:netty-transport-native-unix-common:jar:osx-aarch_64:4.1.93.Final",
         "io.netty:netty-transport-native-unix-common:jar:osx-x86_64:4.1.93.Final",
-        "io.netty:netty-transport-sctp:4.1.93.Final",
         "io.netty:netty-transport:4.1.93.Final",
         "io.reactivex.rxjava3:rxjava:3.1.2",
         "javax.activation:javax.activation-api:1.2.0",
