@@ -36,7 +36,7 @@ add_to_bazelrc "build -s"
 add_to_bazelrc "build --spawn_strategy=worker,standalone"
 add_to_bazelrc "build --worker_verbose --worker_max_instances=3"
 add_to_bazelrc "build --debug_print_action_contexts"
-add_to_bazelrc "build --experimental_worker_multiplex"
+add_to_bazelrc "build --worker_multiplex"
 add_to_bazelrc "build ${ADDITIONAL_BUILD_FLAGS}"
 
 function set_up() {
