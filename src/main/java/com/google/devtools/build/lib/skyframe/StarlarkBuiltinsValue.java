@@ -65,6 +65,12 @@ public final class StarlarkBuiltinsValue implements SkyValue {
   public final ImmutableMap<String, Object> predeclaredForBuildBzl;
 
   /**
+   * Top-level predeclared symbols for a .bzl file loaded on behalf of a WORKSPACE file after
+   * builtins injection has been applied.
+   */
+  public final ImmutableMap<String, Object> predeclaredForWorkspaceBzl;
+
+  /**
    * Top-level predeclared symbols for a BUILD file, after builtins injection but before any prelude
    * file has been applied.
    */
@@ -81,11 +87,13 @@ public final class StarlarkBuiltinsValue implements SkyValue {
 
   private StarlarkBuiltinsValue(
       ImmutableMap<String, Object> predeclaredForBuildBzl,
+      ImmutableMap<String, Object> predeclaredForWorkspaceBzl,
       ImmutableMap<String, Object> predeclaredForBuild,
       ImmutableMap<String, Object> exportedToJava,
       byte[] transitiveDigest,
       StarlarkSemantics starlarkSemantics) {
     this.predeclaredForBuildBzl = predeclaredForBuildBzl;
+    this.predeclaredForWorkspaceBzl = predeclaredForWorkspaceBzl;
     this.predeclaredForBuild = predeclaredForBuild;
     this.exportedToJava = exportedToJava;
     this.transitiveDigest = transitiveDigest;
@@ -94,12 +102,14 @@ public final class StarlarkBuiltinsValue implements SkyValue {
 
   public static StarlarkBuiltinsValue create(
       ImmutableMap<String, Object> predeclaredForBuildBzl,
+      ImmutableMap<String, Object> predeclaredForWorkspaceBzl,
       ImmutableMap<String, Object> predeclaredForBuild,
       ImmutableMap<String, Object> exportedToJava,
       byte[] transitiveDigest,
       StarlarkSemantics starlarkSemantics) {
     return new StarlarkBuiltinsValue(
         predeclaredForBuildBzl,
+        predeclaredForWorkspaceBzl,
         predeclaredForBuild,
         exportedToJava,
         transitiveDigest,
@@ -116,10 +126,11 @@ public final class StarlarkBuiltinsValue implements SkyValue {
    */
   public static StarlarkBuiltinsValue createEmpty(StarlarkSemantics starlarkSemantics) {
     return new StarlarkBuiltinsValue(
-        /*predeclaredForBuildBzl=*/ ImmutableMap.of(),
-        /*predeclaredForBuild=*/ ImmutableMap.of(),
-        /*exportedToJava=*/ ImmutableMap.of(),
-        /*transitiveDigest=*/ new byte[] {},
+        /* predeclaredForBuildBzl= */ ImmutableMap.of(),
+        /* predeclaredForWorkspaceBzl= */ ImmutableMap.of(),
+        /* predeclaredForBuild= */ ImmutableMap.of(),
+        /* exportedToJava= */ ImmutableMap.of(),
+        /* transitiveDigest= */ new byte[] {},
         starlarkSemantics);
   }
 
