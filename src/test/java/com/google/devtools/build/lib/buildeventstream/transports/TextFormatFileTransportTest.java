@@ -22,6 +22,7 @@ import com.google.common.io.Files;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
+import com.google.devtools.build.lib.buildeventstream.BuildEventLocalFileSynchronizer;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildStarted;
@@ -88,7 +89,8 @@ public class TextFormatFileTransportTest {
             outputStream,
             defaultOpts,
             new LocalFilesArtifactUploader(),
-            artifactGroupNamer);
+            artifactGroupNamer,
+            BuildEventLocalFileSynchronizer.NO_OP);
     transport.sendBuildEvent(buildEvent);
 
     BuildEventStreamProtos.BuildEvent progress =

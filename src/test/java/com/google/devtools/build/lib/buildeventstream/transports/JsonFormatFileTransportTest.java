@@ -20,6 +20,7 @@ import static org.mockito.Mockito.when;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
+import com.google.devtools.build.lib.buildeventstream.BuildEventLocalFileSynchronizer;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildStarted;
@@ -87,7 +88,8 @@ public class JsonFormatFileTransportTest {
             outputStream,
             defaultOpts,
             new LocalFilesArtifactUploader(),
-            artifactGroupNamer);
+            artifactGroupNamer,
+            BuildEventLocalFileSynchronizer.NO_OP);
     transport.sendBuildEvent(buildEvent);
 
     transport.close().get();
@@ -155,7 +157,11 @@ public class JsonFormatFileTransportTest {
 
     JsonFormatFileTransport transport =
         new JsonFormatFileTransport(
-            wrappedOutputStream, defaultOpts, new LocalFilesArtifactUploader(), artifactGroupNamer);
+            wrappedOutputStream,
+            defaultOpts,
+            new LocalFilesArtifactUploader(),
+            artifactGroupNamer,
+            BuildEventLocalFileSynchronizer.NO_OP);
 
     transport.sendBuildEvent(buildEvent);
     Thread.sleep(transport.getFlushInterval().toMillis() * 3);
