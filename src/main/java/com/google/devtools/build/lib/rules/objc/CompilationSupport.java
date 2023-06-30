@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
-import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
@@ -140,11 +139,6 @@ public class CompilationSupport implements StarlarkValue {
   /** Selects cc libraries that have alwayslink=1. */
   private static final Predicate<Artifact> ALWAYS_LINKED_CC_LIBRARY =
       input -> LINK_LIBRARY_FILETYPES.matches(input.getFilename());
-
-  /** Returns the location of the xcrunwrapper tool. */
-  public static final FilesToRunProvider xcrunwrapper(RuleContext ruleContext) {
-    return ruleContext.getExecutablePrerequisite("$xcrunwrapper");
-  }
 
   /** Iterable wrapper providing strong type safety for arguments to binary linking. */
   static final class ExtraLinkArgs extends IterableWrapper<String> {
@@ -884,7 +878,6 @@ public class CompilationSupport implements StarlarkValue {
               .addExecPath("--input_archive", j2objcArchive)
               .addExecPath("--output_archive", prunedJ2ObjcArchive)
               .addExecPath("--dummy_archive", dummyArchive)
-              .addExecPath("--xcrunwrapper", xcrunwrapper(ruleContext).getExecutable())
               .addExecPaths(
                   "--dependency_mapping_files",
                   VectorArg.join(",").each(j2ObjcDependencyMappingFiles))
@@ -905,7 +898,6 @@ public class CompilationSupport implements StarlarkValue {
               .setExecutable(ruleContext.getExecutablePrerequisite("$j2objc_dead_code_pruner"))
               .addInput(dummyArchive)
               .addInput(j2objcArchive)
-              .addInput(xcrunwrapper(ruleContext).getExecutable())
               .addTransitiveInputs(j2ObjcDependencyMappingFiles)
               .addTransitiveInputs(j2ObjcHeaderMappingFiles)
               .addTransitiveInputs(j2ObjcArchiveSourceMappingFiles)
@@ -955,6 +947,7 @@ public class CompilationSupport implements StarlarkValue {
   private static CommandLine symbolStripCommandLine(
       ImmutableList<String> extraFlags, Artifact unstrippedArtifact, Artifact strippedArtifact) {
     return CustomCommandLine.builder()
+        .add("/usr/bin/xcrun")
         .add(STRIP)
         .addAll(extraFlags)
         .addExecPath("-o", strippedArtifact)
@@ -997,7 +990,6 @@ public class CompilationSupport implements StarlarkValue {
                 XcodeConfigInfo.fromRuleContext(ruleContext),
                 appleConfiguration.getSingleArchPlatform())
             .setMnemonic("ObjcBinarySymbolStrip")
-            .setExecutable(xcrunwrapper(ruleContext))
             .addCommandLine(symbolStripCommandLine(stripArgs, binaryToLink, strippedBinary))
             .addOutput(strippedBinary)
             .addInput(binaryToLink)

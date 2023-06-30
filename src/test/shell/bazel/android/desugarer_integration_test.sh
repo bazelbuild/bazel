@@ -137,7 +137,7 @@ function test_java_8_android_binary_multiplex_worker_strategy() {
   create_java_8_android_binary
 
   assert_build //java/bazel:bin \
-    --experimental_worker_multiplex \
+    --worker_multiplex \
     --persistent_multiplex_android_dex_desugar \
     --worker_verbose &> $TEST_log
   expect_log "Created new non-sandboxed Desugar multiplex-worker (id [0-9]\+, key hash -\?[0-9]\+)"

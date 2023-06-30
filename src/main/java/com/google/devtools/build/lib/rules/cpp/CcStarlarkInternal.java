@@ -343,7 +343,12 @@ public class CcStarlarkInternal implements StarlarkValue {
       parameters = {@Param(name = "ctx", positional = false, named = true)})
   public boolean isPackageHeadersCheckingModeSetForStarlark(
       StarlarkRuleContext starlarkRuleContext) {
-    return starlarkRuleContext.getRuleContext().getRule().getPackage().isDefaultHdrsCheckSet();
+    return starlarkRuleContext
+        .getRuleContext()
+        .getRule()
+        .getPackage()
+        .getPackageArgs()
+        .isDefaultHdrsCheckSet();
   }
 
   @StarlarkMethod(
@@ -351,7 +356,12 @@ public class CcStarlarkInternal implements StarlarkValue {
       documented = false,
       parameters = {@Param(name = "ctx", positional = false, named = true)})
   public String getPackageHeadersCheckingModeForStarlark(StarlarkRuleContext starlarkRuleContext) {
-    return starlarkRuleContext.getRuleContext().getRule().getPackage().getDefaultHdrsCheck();
+    return starlarkRuleContext
+        .getRuleContext()
+        .getRule()
+        .getPackage()
+        .getPackageArgs()
+        .getDefaultHdrsCheck();
   }
 
   @StarlarkMethod(
@@ -360,7 +370,12 @@ public class CcStarlarkInternal implements StarlarkValue {
       parameters = {@Param(name = "ctx", positional = false, named = true)})
   public boolean isPackageHeadersCheckingModeSetForStarlarkAspect(
       StarlarkRuleContext starlarkRuleContext) {
-    return starlarkRuleContext.getRuleContext().getTarget().getPackage().isDefaultHdrsCheckSet();
+    return starlarkRuleContext
+        .getRuleContext()
+        .getTarget()
+        .getPackage()
+        .getPackageArgs()
+        .isDefaultHdrsCheckSet();
   }
 
   @StarlarkMethod(
@@ -369,7 +384,12 @@ public class CcStarlarkInternal implements StarlarkValue {
       parameters = {@Param(name = "ctx", positional = false, named = true)})
   public String getPackageHeadersCheckingModeForStarlarkAspect(
       StarlarkRuleContext starlarkRuleContext) {
-    return starlarkRuleContext.getRuleContext().getTarget().getPackage().getDefaultHdrsCheck();
+    return starlarkRuleContext
+        .getRuleContext()
+        .getTarget()
+        .getPackage()
+        .getPackageArgs()
+        .getDefaultHdrsCheck();
   }
 
   @StarlarkMethod(
@@ -418,7 +438,9 @@ public class CcStarlarkInternal implements StarlarkValue {
       implements NativeComputedDefaultApi {
     @Override
     public Object getDefault(AttributeMap rule) {
-      return rule.isPackageDefaultHdrsCheckSet() ? rule.getPackageDefaultHdrsCheck() : "";
+      return rule.getPackageArgs().isDefaultHdrsCheckSet()
+          ? rule.getPackageArgs().getDefaultHdrsCheck()
+          : "";
     }
 
     @Override

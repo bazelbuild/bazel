@@ -31,6 +31,9 @@ import net.starlark.java.eval.Starlark;
 
 /**
  * A group of {@link Package} argument values that may be provided by `package()` or `repo()` calls.
+ *
+ * <p>Unless otherwise specified, these are only used when the rule does not provide an explicit
+ * override value in the associated attribute.
  */
 @AutoValue
 public abstract class PackageArgs {
@@ -46,40 +49,61 @@ public abstract class PackageArgs {
           .setDefaultPackageMetadata(ImmutableList.of())
           .build();
 
-  /** See {@link Package#getDefaultVisibility()}. */
+  /** The default visibility value for the package. */
   @Nullable
-  abstract RuleVisibility defaultVisibility();
+  public abstract RuleVisibility defaultVisibility();
 
-  /** See {@link Package#getDefaultTestOnly()}. */
+  /** The default testonly value for the package. */
   @Nullable
-  abstract Boolean defaultTestOnly();
+  public abstract Boolean defaultTestOnly();
 
-  /** See {@link Package#getDefaultDeprecation()}. */
+  /** The default deprecation value for the package. */
   @Nullable
-  abstract String defaultDeprecation();
+  public abstract String defaultDeprecation();
 
-  /** See {@link Package#getFeatures()}. */
-  abstract FeatureSet features();
+  /**
+   * The default (generally C/C++) features value for the package.
+   *
+   * <p>Note that this is actually additive with features set by a rule where the rule has priority
+   * for turning specific features on or off.
+   */
+  public abstract FeatureSet features();
 
-  /** See {@link Package#getDefaultLicense()}. */
+  /** The default license value for the package. */
   @Nullable
-  abstract License license();
+  public abstract License license();
 
-  /** See {@link Package#getDefaultDistribs()}. */
+  /** The default distributions value for the package. */
   @Nullable
-  abstract ImmutableSet<DistributionType> distribs();
+  public abstract ImmutableSet<DistributionType> distribs();
 
-  /** See {@link Package#getDefaultCompatibleWith()}. */
+  /** The default {@link RuleClass#COMPATIBLE_ENVIRONMENT_ATTR} value for the package. */
   @Nullable
-  abstract ImmutableSet<Label> defaultCompatibleWith();
+  public abstract ImmutableSet<Label> defaultCompatibleWith();
 
-  /** See {@link Package#getDefaultRestrictedTo()}. */
+  /** The default {@link RuleClass#RESTRICTED_ENVIRONMENT_ATTR} value for the package. */
   @Nullable
-  abstract ImmutableSet<Label> defaultRestrictedTo();
+  public abstract ImmutableSet<Label> defaultRestrictedTo();
 
-  /** See {@link Package#getDefaultPackageMetadata()}. */
+  /** The default package metadata list value for the package. */
   @Nullable
-  abstract ImmutableList<Label> defaultPackageMetadata();
+  public abstract ImmutableList<Label> defaultPackageMetadata();
+
+  // TODO(blaze-team): this should just act like other attributes in that
+  //   it is public and does not have getters defined
+  /** The default (C/C++) header strictness checking mode for the package. */
+  @Nullable
+  abstract String defaultHdrsCheck();
+
+  /** Gets the default header checking mode. */
+  public String getDefaultHdrsCheck() {
+    return defaultHdrsCheck() != null ? defaultHdrsCheck() : "strict";
+  }
+
+  /** Returns whether the default header checking mode has been set or it is the default value. */
+  public boolean isDefaultHdrsCheckSet() {
+    return defaultHdrsCheck() != null;
+  }
 
   public static Builder builder() {
     return new AutoValue_PackageArgs.Builder().setFeatures(FeatureSet.EMPTY);
@@ -121,14 +145,17 @@ public abstract class PackageArgs {
     /** Note that we don't check dupes in this method. Check beforehand! */
     public abstract Builder setDefaultPackageMetadata(List<Label> x);
 
+    public abstract Builder setDefaultHdrsCheck(String x);
+
     public abstract PackageArgs build();
   }
 
-  private static void throwIfHasDupes(List<Label> labels, String what) throws EvalException {
+  private static List<Label> throwIfHasDupes(List<Label> labels, String what) throws EvalException {
     var dupes = ImmutableSortedSet.copyOf(CollectionUtils.duplicatedElementsOf(labels));
     if (!dupes.isEmpty()) {
       throw Starlark.errorf("duplicate label(s) in %s: %s", what, Joiner.on(", ").join(dupes));
     }
+    return labels;
   }
 
   /**
@@ -138,53 +165,50 @@ public abstract class PackageArgs {
   public static void processParam(
       String name, Object rawValue, String what, LabelConverter labelConverter, Builder builder)
       throws EvalException {
-    if (name.equals("default_visibility")) {
-      List<Label> value = BuildType.LABEL_LIST.convert(rawValue, what, labelConverter);
-      builder.setDefaultVisibility(RuleVisibility.parse(value));
-
-    } else if (name.equals("default_testonly")) {
-      Boolean value = Type.BOOLEAN.convert(rawValue, what, labelConverter);
-      builder.setDefaultTestOnly(value);
-
-    } else if (name.equals("default_deprecation")) {
-      String value = Type.STRING.convert(rawValue, what, labelConverter);
-      builder.setDefaultDeprecation(value);
-
-    } else if (name.equals("features")) {
-      List<String> value = Type.STRING_LIST.convert(rawValue, what, labelConverter);
-      builder.mergeFeatures(FeatureSet.parse(value));
-
-    } else if (name.equals("licenses")) {
-      License value = BuildType.LICENSE.convert(rawValue, what, labelConverter);
-      builder.setLicense(value);
-
-    } else if (name.equals("distribs")) {
-      Set<DistributionType> value = BuildType.DISTRIBUTIONS.convert(rawValue, what, labelConverter);
-      builder.setDistribs(value);
-
-    } else if (name.equals("default_compatible_with")) {
-      List<Label> value = BuildType.LABEL_LIST.convert(rawValue, what, labelConverter);
-      throwIfHasDupes(value, name);
-      builder.setDefaultCompatibleWith(value);
-
-    } else if (name.equals("default_restricted_to")) {
-      List<Label> value = BuildType.LABEL_LIST.convert(rawValue, what, labelConverter);
-      throwIfHasDupes(value, name);
-      builder.setDefaultRestrictedTo(value);
-
-    } else if (name.equals("default_applicable_licenses")
-        || name.equals("default_package_metadata")) {
-      List<Label> value = BuildType.LABEL_LIST.convert(rawValue, what, labelConverter);
-      if (builder.defaultPackageMetadata() != null) {
-        throw Starlark.errorf(
-            "Can not set both default_package_metadata and default_applicable_licenses."
-                + " Move all declarations to default_package_metadata.");
-      }
-      throwIfHasDupes(value, name);
-      builder.setDefaultPackageMetadata(value);
-
-    } else {
-      throw Starlark.errorf("unexpected keyword argument: %s", name);
+    switch (name) {
+      case "default_visibility":
+        builder.setDefaultVisibility(
+            RuleVisibility.parse(BuildType.LABEL_LIST.convert(rawValue, what, labelConverter)));
+        break;
+      case "default_testonly":
+        builder.setDefaultTestOnly(Type.BOOLEAN.convert(rawValue, what, labelConverter));
+        break;
+      case "default_deprecation":
+        builder.setDefaultDeprecation(Type.STRING.convert(rawValue, what, labelConverter));
+        break;
+      case "features":
+        builder.mergeFeatures(
+            FeatureSet.parse(Type.STRING_LIST.convert(rawValue, what, labelConverter)));
+        break;
+      case "licenses":
+        builder.setLicense(BuildType.LICENSE.convert(rawValue, what, labelConverter));
+        break;
+      case "distribs":
+        builder.setDistribs(BuildType.DISTRIBUTIONS.convert(rawValue, what, labelConverter));
+        break;
+      case "default_compatible_with":
+        builder.setDefaultCompatibleWith(
+            throwIfHasDupes(BuildType.LABEL_LIST.convert(rawValue, what, labelConverter), name));
+        break;
+      case "default_restricted_to":
+        builder.setDefaultRestrictedTo(
+            throwIfHasDupes(BuildType.LABEL_LIST.convert(rawValue, what, labelConverter), name));
+        break;
+      case "default_applicable_licenses":
+      case "default_package_metadata":
+        if (builder.defaultPackageMetadata() != null) {
+          throw Starlark.errorf(
+              "Can not set both default_package_metadata and default_applicable_licenses."
+                  + " Move all declarations to default_package_metadata.");
+        }
+        builder.setDefaultPackageMetadata(
+            throwIfHasDupes(BuildType.LABEL_LIST.convert(rawValue, what, labelConverter), name));
+        break;
+      case "default_hdrs_check":
+        builder.setDefaultHdrsCheck(Type.STRING.convert(rawValue, what, labelConverter));
+        break;
+      default:
+        throw Starlark.errorf("unexpected keyword argument: %s", name);
     }
   }
 
@@ -220,6 +244,9 @@ public abstract class PackageArgs {
     }
     if (other.defaultPackageMetadata() != null) {
       builder.setDefaultPackageMetadata(other.defaultPackageMetadata());
+    }
+    if (other.defaultHdrsCheck() != null) {
+      builder.setDefaultHdrsCheck(other.defaultHdrsCheck());
     }
     return builder.build();
   }

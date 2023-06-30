@@ -65,7 +65,7 @@ final class PersistentStringIndexer extends CanonicalStringIndexer {
     @Override
     protected boolean updateJournal() {
       long time = clock.nanoTime();
-      if (SAVE_INTERVAL_NS == 0 || time > nextUpdate) {
+      if (SAVE_INTERVAL_NS == 0L || time > nextUpdate) {
         nextUpdate = time + SAVE_INTERVAL_NS;
         return true;
       }

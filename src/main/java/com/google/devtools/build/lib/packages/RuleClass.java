@@ -2189,17 +2189,20 @@ public class RuleClass {
           // Do nothing
         } else {
           rule.setAttributeValue(
-              attr, pkgBuilder.getPackageArgs().defaultPackageMetadata(), /* explicit= */ false);
+              attr,
+              pkgBuilder.getPartialPackageArgs().defaultPackageMetadata(),
+              /* explicit= */ false);
         }
 
       } else if (attr.getName().equals("licenses") && attr.getType() == BuildType.LICENSE) {
         rule.setAttributeValue(
             attr,
-            ignoreLicenses ? License.NO_LICENSE : pkgBuilder.getPackageArgs().license(),
+            ignoreLicenses ? License.NO_LICENSE : pkgBuilder.getPartialPackageArgs().license(),
             /* explicit= */ false);
 
       } else if (attr.getName().equals("distribs") && attr.getType() == BuildType.DISTRIBUTIONS) {
-        rule.setAttributeValue(attr, pkgBuilder.getPackageArgs().distribs(), /* explicit= */ false);
+        rule.setAttributeValue(
+            attr, pkgBuilder.getPartialPackageArgs().distribs(), /* explicit= */ false);
       }
       // Don't store default values, querying materializes them at read time.
     }

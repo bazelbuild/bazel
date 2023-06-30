@@ -825,7 +825,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   @Test
   public void testPackageSpecMinimal() throws Exception {
     Package pkg = expectEvalSuccess("package(default_visibility=[])");
-    assertThat(pkg.getDefaultVisibility()).isNotNull();
+    assertThat(pkg.getPackageArgs().defaultVisibility()).isNotNull();
   }
 
   @Test
@@ -854,14 +854,14 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   @Test
   public void testDefaultTestonly() throws Exception {
     Package pkg = expectEvalSuccess("package(default_testonly = 1)");
-    assertThat(pkg.getDefaultTestOnly()).isTrue();
+    assertThat(pkg.getPackageArgs().defaultTestOnly()).isTrue();
   }
 
   @Test
   public void testDefaultDeprecation() throws Exception {
     String testMessage = "OMG PONIES!";
     Package pkg = expectEvalSuccess("package(default_deprecation = \"" + testMessage + "\")");
-    assertThat(pkg.getDefaultDeprecation()).isEqualTo(testMessage);
+    assertThat(pkg.getPackageArgs().defaultDeprecation()).isEqualTo(testMessage);
   }
 
   @Test
@@ -930,7 +930,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         "package(features=['b', 'c'])",
         "sh_library(name='after')");
     Package pkg = loadPackage("a");
-    assertThat(pkg.getFeatures()).isEqualTo(FeatureSet.parse(ImmutableList.of("b", "c")));
+    assertThat(pkg.getPackageArgs().features())
+        .isEqualTo(FeatureSet.parse(ImmutableList.of("b", "c")));
   }
 
   @Test
@@ -1129,8 +1130,10 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
             "    default_compatible_with=['//foo'],",
             "    default_restricted_to=['//bar'],",
             ")");
-    assertThat(pkg.getDefaultCompatibleWith()).containsExactly(Label.parseCanonical("//foo"));
-    assertThat(pkg.getDefaultRestrictedTo()).containsExactly(Label.parseCanonical("//bar"));
+    assertThat(pkg.getPackageArgs().defaultCompatibleWith())
+        .containsExactly(Label.parseCanonical("//foo"));
+    assertThat(pkg.getPackageArgs().defaultRestrictedTo())
+        .containsExactly(Label.parseCanonical("//bar"));
   }
 
   @Test

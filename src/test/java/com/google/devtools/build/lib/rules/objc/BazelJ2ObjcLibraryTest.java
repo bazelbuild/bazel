@@ -466,7 +466,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     checkError(
         "java/com/google/dummy",
         "transpile",
-        J2ObjcLibrary.NO_ENTRY_CLASS_ERROR_MSG,
+        "Entry classes must be specified when flag --compilation_mode=opt is on in order to perform"
+            + " J2ObjC dead code stripping.",
         "j2objc_library(",
         "    name = 'transpile',",
         "    deps = ['//java/com/google/dummy/test:test'],",
@@ -1286,8 +1287,6 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             execPath
                 + TestConstants.TOOLS_REPOSITORY_PATH_PREFIX
                 + "tools/objc/dummy/libdummy_lib.a",
-            "--xcrunwrapper",
-            removeConfigFragment(MOCK_XCRUNWRAPPER_EXECUTABLE_PATH),
             "--dependency_mapping_files",
             removeConfigFragment(dependencyMappingFile.getExecPathString()),
             "--header_mapping_files",

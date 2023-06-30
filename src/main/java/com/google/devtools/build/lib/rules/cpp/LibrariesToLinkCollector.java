@@ -778,9 +778,7 @@ public class LibrariesToLinkCollector {
     // Otherwise, this may be from a linkstatic library that we decided not to include in
     // LTO indexing because we are linking a test, to improve scalability when linking many tests.
     return allowLtoIndexing
-        && !a.getRootRelativePath()
-            .startsWith(
-                PathFragment.create(CppLinkActionBuilder.SHARED_NONLTO_BACKEND_ROOT_PREFIX));
+        && !a.getRootRelativePath().startsWith(CppHelper.SHARED_NONLTO_BACKEND_ROOT_PREFIX);
   }
 
   @Nullable
