@@ -139,7 +139,6 @@ def gather_package_common(target, ctx, provider_factory, metadata_providers, fil
     # First we gather my direct license attachments
     licenses = []
     package_info = []
-    packages = None
     if ctx.rule.kind == "_license":
         # Don't try to gather licenses from the license rule itself. We'll just
         # blunder into the text file of the license and pick up the default
@@ -154,9 +153,15 @@ def gather_package_common(target, ctx, provider_factory, metadata_providers, fil
 
     # Record all the external repos anyway.
     target_name = str(target.label)
+    packages = None
     if target_name.startswith("@") and target_name[1] != "/":
         packages = [target.label]
         # DBG print(str(target.label))
+
+    elif hasattr(ctx.rule.attr, "tags"):
+        for tag in ctx.rule.attr.tags:
+            if tag.startswith("maven_coordinates="):
+                packages.append(target.label)
 
     # Now gather transitive collection of providers from the targets
     # this target depends upon.
@@ -168,6 +173,7 @@ def gather_package_common(target, ctx, provider_factory, metadata_providers, fil
 
     if (not licenses and
         not package_info and
+        not packages and
         not trans_license_info and
         not trans_package_info and
         not trans_packages):

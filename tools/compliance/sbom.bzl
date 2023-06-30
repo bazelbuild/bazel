@@ -27,6 +27,9 @@ def _sbom_impl(ctx):
     inputs = [inps[0]]
     args.add("--packages_used", inps[0].path)
     args.add("--out", ctx.outputs.out.path)
+    if ctx.attr._maven_install:
+        args.add("--maven_install", ctx.file.maven_install.path)
+        inputs.append(ctx.file.maven_install)
     ctx.actions.run(
         mnemonic = "CreateSBOM",
         progress_message = "Creating SBOM for %s" % ctx.label,
@@ -41,7 +44,7 @@ _sbom = rule(
     implementation = _sbom_impl,
     attrs = {
         "packages_used": attr.label(
-            allow_files = True,
+            allow_single_file = True,
             mandatory = True,
         ),
         "out": attr.output(mandatory = True),
@@ -50,6 +53,10 @@ _sbom = rule(
             executable = True,
             allow_files = True,
             cfg = "exec",
+        ),
+        "_maven_install": attr.label(
+            default = Label("//:maven_install.json"),
+            allow_single_file = True,
         ),
     },
 )
