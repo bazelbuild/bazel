@@ -19,6 +19,8 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.Subscribe;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInputMap;
@@ -34,10 +36,12 @@ import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
 import javax.annotation.Nullable;
@@ -109,6 +113,13 @@ public class RemoteOutputService implements OutputService {
     if (actionInputFetcher != null) {
       actionInputFetcher.flushOutputTree();
     }
+  }
+
+  public ListenableFuture<Void> waitOutputDownloads(Collection<PathFragment> files) {
+    if (actionInputFetcher != null) {
+      return actionInputFetcher.waitDownloads(files);
+    }
+    return Futures.immediateVoidFuture();
   }
 
   @Override
