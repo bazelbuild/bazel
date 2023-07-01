@@ -21,6 +21,7 @@ bazel_dep(name = "rules_proto", version = "5.3.0-21.7")
 bazel_dep(name = "rules_jvm_external", version = "5.2")
 bazel_dep(name = "rules_python", version = "0.19.0")
 bazel_dep(name = "rules_testing", version = "0.0.4")
+bazel_dep(name = "rules_go", version = "0.40.1")
 
 single_version_override(
     module_name = "rules_jvm_external",
