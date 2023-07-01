@@ -224,7 +224,7 @@ public final class RuleContext extends TargetContext
   }
 
   private FeatureSet computeFeatures() {
-    FeatureSet pkg = rule.getPackage().getFeatures();
+    FeatureSet pkg = rule.getPackage().getPackageArgs().features();
     FeatureSet rule =
         attributes().has("features", Type.STRING_LIST)
             ? FeatureSet.parse(attributes().get("features", Type.STRING_LIST))

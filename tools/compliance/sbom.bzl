@@ -21,12 +21,12 @@ def _sbom_impl(ctx):
     # Now turn the big blob of data into something consumable.
     outputs = [ctx.outputs.out]
     args = ctx.actions.args()
-    inps = ctx.files.packages_used
-    if len(inps) != 1:
-        fail("Got too many inputs for packages_used")
-    inputs = [inps[0]]
-    args.add("--packages_used", inps[0].path)
+    inputs = [ctx.file.packages_used]
+    args.add("--packages_used", ctx.file.packages_used.path)
     args.add("--out", ctx.outputs.out.path)
+    if ctx.attr._maven_install:
+        args.add("--maven_install", ctx.file._maven_install.path)
+        inputs.append(ctx.file._maven_install)
     ctx.actions.run(
         mnemonic = "CreateSBOM",
         progress_message = "Creating SBOM for %s" % ctx.label,
@@ -41,7 +41,7 @@ _sbom = rule(
     implementation = _sbom_impl,
     attrs = {
         "packages_used": attr.label(
-            allow_files = True,
+            allow_single_file = True,
             mandatory = True,
         ),
         "out": attr.output(mandatory = True),
@@ -50,6 +50,10 @@ _sbom = rule(
             executable = True,
             allow_files = True,
             cfg = "exec",
+        ),
+        "_maven_install": attr.label(
+            default = Label("//:maven_install.json"),
+            allow_single_file = True,
         ),
     },
 )

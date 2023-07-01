@@ -42,7 +42,6 @@ java_import(
         "java/netty-transport-native-epoll.jar",
         "java/netty-transport-native-kqueue.jar",
         "java/netty-transport-native-unix-common.jar",
-        "java/netty-transport-sctp.jar",
     ],
 )
 

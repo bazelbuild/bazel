@@ -187,7 +187,7 @@ android_sh_test(
 
 android_sh_test(
     name = "DexFileSplitter_synthetic_classes_test",
-    size = "medium",
+    size = "large",
     srcs = ["DexFileSplitter_synthetic_classes_test.sh"],
     data = [
         ":android_helper",

@@ -68,7 +68,7 @@ public class BaseRuleClasses {
       new Attribute.ComputedDefault() {
         @Override
         public Object getDefault(AttributeMap rule) {
-          return rule.getPackageDefaultTestOnly();
+          return rule.getPackageArgs().defaultTestOnly();
         }
 
         @Override
@@ -82,7 +82,7 @@ public class BaseRuleClasses {
       new Attribute.ComputedDefault() {
         @Override
         public Object getDefault(AttributeMap rule) {
-          return rule.getPackageDefaultDeprecation();
+          return rule.getPackageArgs().defaultDeprecation();
         }
 
         @Override
