@@ -487,6 +487,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                 "fake:0/modules/mymod/1.0/MODULE.bazel", 2, 23))
                         .setImports(ImmutableBiMap.of("repo1", "repo1"))
                         .setDevImports(ImmutableSet.of())
+                        .setHasDevUseExtension(false)
+                        .setHasNonDevUseExtension(true)
                         .addTag(
                             Tag.builder()
                                 .setTagName("tag")
@@ -512,6 +514,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                 "fake:0/modules/mymod/1.0/MODULE.bazel", 5, 23))
                         .setImports(ImmutableBiMap.of("other_repo1", "repo1", "repo2", "repo2"))
                         .setDevImports(ImmutableSet.of())
+                        .setHasDevUseExtension(false)
+                        .setHasNonDevUseExtension(true)
                         .addTag(
                             Tag.builder()
                                 .setTagName("tag1")
@@ -551,6 +555,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setImports(
                             ImmutableBiMap.of("mvn", "maven", "junit", "junit", "guava", "guava"))
                         .setDevImports(ImmutableSet.of())
+                        .setHasDevUseExtension(false)
+                        .setHasNonDevUseExtension(true)
                         .addTag(
                             Tag.builder()
                                 .setTagName("dep")
@@ -622,6 +628,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                 "alpha", "alpha", "beta", "beta", "gamma", "gamma", "delta",
                                 "delta"))
                         .setDevImports(ImmutableSet.of("alpha", "gamma"))
+                        .setHasDevUseExtension(true)
+                        .setHasNonDevUseExtension(true)
                         .addTag(
                             Tag.builder()
                                 .setTagName("tag")
@@ -719,6 +727,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                 "fake:0/modules/mymod/1.0/MODULE.bazel", 5, 23))
                         .setImports(ImmutableBiMap.of("beta", "beta", "delta", "delta"))
                         .setDevImports(ImmutableSet.of())
+                        .setHasDevUseExtension(false)
+                        .setHasNonDevUseExtension(true)
                         .addTag(
                             Tag.builder()
                                 .setTagName("tag")
