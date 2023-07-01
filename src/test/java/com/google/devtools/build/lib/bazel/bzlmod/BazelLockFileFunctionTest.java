@@ -203,7 +203,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, true);
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
-    BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
+    YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
     BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE.set(
         differencer, BazelCompatibilityMode.ERROR);
     BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
@@ -283,7 +283,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, true);
     ModuleFileFunction.REGISTRIES.set(differencer, registries);
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of("my_dep_1", override));
-    BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.set(differencer, yankedVersions);
+    YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, yankedVersions);
     BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
         differencer, CheckDirectDepsMode.ERROR);
     BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE.set(

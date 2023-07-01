@@ -144,6 +144,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import org.junit.After;
@@ -369,9 +370,28 @@ public abstract class BuildIntegrationTestCase {
     LoggingUtil.installRemoteLoggerForTesting(null);
 
     if (OS.getCurrent() == OS.WINDOWS) {
-      // Bazel runtime still holds the file handle of windows_jni.dll making it impossible to delete
-      // on Windows. Try to delete all other files (and directories).
-      bestEffortDeleteTreesBelow(testRoot, "windows_jni.dll");
+      bestEffortDeleteTreesBelow(
+          testRoot,
+          filename -> {
+            // Bazel runtime still holds the file handle of windows_jni.dll making it impossible to
+            // delete on Windows.
+            if (filename.equals("windows_jni.dll")) {
+              return true;
+            }
+
+            // mockito's inline mock maker manipulates byte code of mocked methods and output new
+            // byte code in a temporary jarfile with pattern mockitobootXXXXXXX.jar. It then loads
+            // these jar files into JVM to make mock effective which means Bazel runtime still holds
+            // handles of these files making it impossible to delete on Windows.
+            //
+            // See https://github.com/mockito/mockito/issues/1379#issuecomment-466372914 and
+            // https://github.com/mockito/mockito/blob/91f18ea1648e389bea06289d818def7978e82288/src/main/java/org/mockito/internal/creation/bytebuddy/InlineDelegateByteBuddyMockMaker.java#L123C10-L123C10.
+            if (filename.startsWith("mockitoboot") && filename.endsWith(".jar")) {
+              return true;
+            }
+
+            return false;
+          });
     } else {
       testRoot.deleteTreesBelow(); // (comment out during debugging)
     }
@@ -382,7 +402,8 @@ public abstract class BuildIntegrationTestCase {
     Thread.interrupted(); // If there was a crash in test case, main thread was interrupted.
   }
 
-  private static void bestEffortDeleteTreesBelow(Path path, String canSkip) throws IOException {
+  private static void bestEffortDeleteTreesBelow(Path path, Predicate<String> canSkip)
+      throws IOException {
     for (Dirent dirent : path.readdir(Symlinks.NOFOLLOW)) {
       Path child = path.getRelative(dirent.getName());
       if (dirent.getType() == Dirent.Type.DIRECTORY) {
@@ -396,7 +417,7 @@ public abstract class BuildIntegrationTestCase {
       try {
         child.delete();
       } catch (IOException e) {
-        if (!child.getBaseName().equals(canSkip)) {
+        if (!canSkip.test(child.getBaseName())) {
           throw e;
         }
       }

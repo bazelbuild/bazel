@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.rules.objc;
 
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -34,7 +35,7 @@ public class BazelJ2ObjcLibraryRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("j2objc_library")
-        .factoryClass(BazelJ2ObjcLibrary.class)
+        .factoryClass(BaseRuleClasses.EmptyRuleConfiguredTargetFactory.class)
         .ancestors(J2ObjcLibraryBaseRule.class, ObjcRuleClasses.CrosstoolRule.class)
         .build();
   }

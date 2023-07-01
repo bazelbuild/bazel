@@ -527,7 +527,8 @@ class UiStateTracker {
 
     getActionState(action, actionId, event.getNanoTimeStart());
 
-    if (action.getOwner() != null && action.getOwner().getMnemonic().equals("TestRunner")) {
+    if (action.getOwner() != null
+        && action.getOwner().getBuildConfigurationMnemonic().equals("TestRunner")) {
       Label owner = action.getOwner().getLabel();
       if (owner != null) {
         Set<Artifact> testActionsForOwner = testActions.get(owner);
@@ -601,7 +602,8 @@ class UiStateTracker {
 
     checkNotNull(activeActions.remove(actionId), "%s not active after %s", actionId, event);
 
-    if (action.getOwner() != null && action.getOwner().getMnemonic().equals("TestRunner")) {
+    if (action.getOwner() != null
+        && action.getOwner().getBuildConfigurationMnemonic().equals("TestRunner")) {
       Label owner = action.getOwner().getLabel();
       if (owner != null) {
         Set<Artifact> testActionsForOwner = testActions.get(owner);
@@ -748,7 +750,8 @@ class UiStateTracker {
   protected String describeAction(
       ActionState actionState, long nanoTime, int desiredWidth, Set<Artifact> toSkip) {
     ActionExecutionMetadata action = actionState.action;
-    if (action.getOwner() != null && action.getOwner().getMnemonic().equals("TestRunner")) {
+    if (action.getOwner() != null
+        && action.getOwner().getBuildConfigurationMnemonic().equals("TestRunner")) {
       Label owner = action.getOwner().getLabel();
       if (owner != null) {
         Set<Artifact> allRelatedActions = testActions.get(owner);

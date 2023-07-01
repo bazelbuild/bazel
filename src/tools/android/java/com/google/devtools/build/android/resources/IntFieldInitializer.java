@@ -44,7 +44,11 @@ public final class IntFieldInitializer implements FieldInitializer {
 
   public static FieldInitializer of(
       DependencyInfo dependencyInfo, Visibility visibility, String fieldName, String value) {
-    return of(dependencyInfo, visibility, fieldName, Integer.decode(value));
+    // aapt2 --package-id 0x80 (or higher) will produce R.txt values that are outside the range of
+    // Integer.decode, e.g. 0x80001000.  javac interprets them as negative integers, do the same
+    // here by decoding as a Long and then performing a narrowing primitive conversion to int.
+    int intValue = Long.decode(value).intValue();
+    return of(dependencyInfo, visibility, fieldName, intValue);
   }
 
   public static IntFieldInitializer of(

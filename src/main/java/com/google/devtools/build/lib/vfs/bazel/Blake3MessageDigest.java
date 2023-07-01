@@ -1,4 +1,4 @@
-package com.google.devtools.build.lib.vfs;
+package com.google.devtools.build.lib.vfs.bazel;
 
 import static com.google.common.base.Preconditions.checkState;
 
@@ -22,21 +22,14 @@ public final class Blake3MessageDigest extends MessageDigest implements Hasher {
   // written, a single JNI call will be made that initializes, hashes, and
   // cleans up the hasher, rather than making separate calls for each operation.
   public static final int ONESHOT_THRESHOLD = 8 * 1024;
-  private static ThreadLocal<ByteBuffer> threadLocalBuffer = new ThreadLocal<ByteBuffer>();
-  private ByteBuffer buffer = null;
+  private ByteBuffer buffer = ByteBuffer.allocate(ONESHOT_THRESHOLD);
 
   private long hasher = -1;
   private boolean isDone;
 
   public Blake3MessageDigest() {
     super("BLAKE3");
-
     isDone = false;
-    buffer = threadLocalBuffer.get();
-    if (buffer == null) {
-      buffer = ByteBuffer.allocate(ONESHOT_THRESHOLD);
-      threadLocalBuffer.set(buffer);
-    }
   }
 
   private void flush() {
@@ -94,10 +87,12 @@ public final class Blake3MessageDigest extends MessageDigest implements Hasher {
   }
 
   public void engineReset() {
-      if (hasher != -1) {
-	  Blake3JNI.blake3_hasher_reset(hasher);
-      }
-      buffer.clear();
+    if (hasher != -1) {
+      Blake3JNI.blake3_hasher_close(hasher);
+      hasher = -1;
+    }
+    buffer.clear();
+    isDone = false;
   }
 
   public void engineUpdate(ByteBuffer input) {
@@ -130,6 +125,11 @@ public final class Blake3MessageDigest extends MessageDigest implements Hasher {
     byte[] digestBytes = getOutput(OUT_LEN);
     System.arraycopy(digestBytes, 0, buf, off, digestBytes.length);
     return digestBytes.length;
+  }
+
+  @Override
+  protected void finalize() throws Throwable {
+    engineReset();
   }
 
   /* The following methods implement the {Hasher} interface. */

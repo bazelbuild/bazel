@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OnDemandString;
 import java.io.ByteArrayInputStream;
@@ -49,7 +50,8 @@ import javax.annotation.Nullable;
  * BinaryFileWriteAction}.
  */
 @Immutable // if fileContents is immutable
-public final class FileWriteAction extends AbstractFileWriteAction {
+public final class FileWriteAction extends AbstractFileWriteAction
+    implements AbstractFileWriteAction.FileContentsProvider {
 
   private static final String GUID = "332877c7-ca9f-4731-b387-54f620408522";
 
@@ -204,6 +206,14 @@ public final class FileWriteAction extends AbstractFileWriteAction {
       }
       return new String(uncompressedBytes, ISO_8859_1);
     }
+  }
+
+  /**
+   * @see #getFilecontents()
+   */
+  @Override
+  public String getFileContents(@Nullable EventHandler eventHandler) {
+    return getFileContents();
   }
 
   /**

@@ -96,6 +96,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/util:srcs",
         "//src/main/java/com/google/devtools/build/lib/versioning:srcs",
         "//src/main/java/com/google/devtools/build/lib/vfs:srcs",
+        "//src/main/java/com/google/devtools/build/lib/vfs/bazel:srcs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs:srcs",
         "//src/main/java/com/google/devtools/build/lib/windows:srcs",
         "//src/main/java/com/google/devtools/build/lib/worker:srcs",

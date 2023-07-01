@@ -31,23 +31,29 @@ void release_byte_array(JNIEnv *env, jbyteArray array, jbyte *addr) {
 }
 
 extern "C" JNIEXPORT jlong JNICALL
-Java_com_google_devtools_build_lib_vfs_Blake3JNI_allocate_1and_1initialize_1hasher(
+Java_com_google_devtools_build_lib_vfs_bazel_Blake3JNI_allocate_1and_1initialize_1hasher(
     JNIEnv *env, jobject obj) {
   blake3_hasher *hasher = new blake3_hasher;
   blake3_hasher_init(hasher);
   return (jlong)hasher;
 }
 
-extern "C" JNIEXPORT jlong JNICALL
+extern "C" JNIEXPORT void JNICALL
 Java_com_google_devtools_build_lib_hash_Blake3JNI_blake3_1hasher_1reset(
     JNIEnv *env, jobject obj, jlong self) {
   blake3_hasher *hasher = hasher_ptr(self);
   blake3_hasher_reset(hasher);
-  return (jlong)hasher;
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_vfs_Blake3JNI_blake3_1hasher_1update(
+Java_com_google_devtools_build_lib_hash_Blake3JNI_blake3_1hasher_1close(
+    JNIEnv *env, jobject obj, jlong self) {
+  blake3_hasher *hasher = hasher_ptr(self);
+  delete hasher;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_vfs_bazel_Blake3JNI_blake3_1hasher_1update(
     JNIEnv *env, jobject obj, jlong self, jbyteArray input, jint input_len) {
 
   jbyte *input_addr = get_byte_array(env, input);
@@ -56,7 +62,7 @@ Java_com_google_devtools_build_lib_vfs_Blake3JNI_blake3_1hasher_1update(
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_vfs_Blake3JNI_oneshot(
+Java_com_google_devtools_build_lib_vfs_bazel_Blake3JNI_oneshot(
     JNIEnv *env, jobject obj, jbyteArray input, jint input_len, jbyteArray out,
     jint out_len) {
   blake3_hasher *hasher = new blake3_hasher;
@@ -74,7 +80,7 @@ Java_com_google_devtools_build_lib_vfs_Blake3JNI_oneshot(
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_vfs_Blake3JNI_blake3_1hasher_1finalize_1and_1close(
+Java_com_google_devtools_build_lib_vfs_bazel_Blake3JNI_blake3_1hasher_1finalize_1and_1close(
     JNIEnv *env, jobject obj, jlong self, jbyteArray out, jint out_len) {
   blake3_hasher *hasher = hasher_ptr(self);
 

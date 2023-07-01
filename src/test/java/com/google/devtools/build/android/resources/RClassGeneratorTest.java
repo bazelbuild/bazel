@@ -165,12 +165,18 @@ public class RClassGeneratorTest {
             "int id someTextView 0x7f080000",
             "int integer maxNotifications 0x7f090000",
             "int string alphabet 0x7f100000",
-            "int string ok 0x7f100001");
+            "int string ok 0x7f100001",
+            // aapt2 link --package-id 0x80 produces IDs that are out of range of a java integer.
+            "int string largePackageId 0x80001000");
     // R.txt for the library, where the values are not the final ones (so ignore them). We only use
     // this to keep the # of inner classes small (exactly the set needed by the library).
     ResourceSymbols symbolsInLibrary =
         createSymbolFile(
-            "lib.R.txt", "int attr agility 0x1", "int id someTextView 0x1", "int string ok 0x1");
+            "lib.R.txt",
+            "int attr agility 0x1",
+            "int id someTextView 0x1",
+            "int string ok 0x1",
+            "int string largePackageId 0x1");
     Path out = temp.resolve("classes");
     Files.createDirectories(out);
     RClassGenerator writer = RClassGenerator.with(out, symbolValues.asInitializers(), finalFields);
@@ -198,7 +204,7 @@ public class RClassGeneratorTest {
         out,
         "com.bar.R$string",
         outerClass,
-        ImmutableMap.of("ok", 0x7f100001),
+        ImmutableMap.of("ok", 0x7f100001, "largePackageId", 0x80001000),
         ImmutableMap.<String, List<Integer>>of(),
         finalFields);
   }

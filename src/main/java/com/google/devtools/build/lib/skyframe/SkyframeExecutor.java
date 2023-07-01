@@ -88,7 +88,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyKind;
-import com.google.devtools.build.lib.analysis.InconsistentNullConfigException;
+import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyException;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.TargetConfiguredEvent;
@@ -186,6 +186,7 @@ import com.google.devtools.build.lib.skyframe.BuildDriverFunction.TestTypeResolv
 import com.google.devtools.build.lib.skyframe.BuildDriverFunction.TransitiveActionLookupValuesHelper;
 import com.google.devtools.build.lib.skyframe.DiffAwarenessManager.ProcessableModifiedFileSet;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.ExternalDirtinessChecker;
+import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.FileDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.MissingDiffDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.UnionDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
@@ -1370,15 +1371,19 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
               return FileStateValue.key(RootedPath.toRootedPath(pathEntry, pathFragment));
             });
 
-    Map<SkyKey, SkyValue> valuesMap = memoizingEvaluator.getValues();
-
     return FileSystemValueCheckerInferringAncestors.getDiffWithInferredAncestors(
         tsgm,
-        valuesMap,
-        memoizingEvaluator.getDoneValues(),
+        memoizingEvaluator.getInMemoryGraph(),
         dirtyFileStateSkyKeys,
         fsvcThreads,
-        syscallCache);
+        syscallCache,
+        getSkyValueDirtinessCheckerForFiles());
+  }
+
+  /** Returns the {@link SkyValueDirtinessChecker} relevant for files. */
+  @ForOverride
+  protected SkyValueDirtinessChecker getSkyValueDirtinessCheckerForFiles() {
+    return new FileDirtinessChecker();
   }
 
   /**
@@ -1490,6 +1495,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   public void setMergedSkyframeAnalysisExecutionSupplier(
       Supplier<Boolean> mergedSkyframeAnalysisExecutionSupplier) {
     this.mergedSkyframeAnalysisExecutionSupplier = mergedSkyframeAnalysisExecutionSupplier;
+  }
+
+  boolean isMergedSkyframeAnalysisExecution() {
+    return mergedSkyframeAnalysisExecutionSupplier != null
+        && mergedSkyframeAnalysisExecutionSupplier.get();
   }
 
   /** Sets the eventBus to use for posting events. */
@@ -2577,6 +2587,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     syncPackageLoading(pathPackageLocator, commandId, clientEnv, tsgm, executors, options);
 
     if (lastAnalysisDiscarded) {
+      logger.atInfo().log("Discarding analysis cache because the previous invocation told us to");
       dropConfiguredTargetsNow(eventHandler);
       lastAnalysisDiscarded = false;
     }
@@ -3889,7 +3900,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
           public void acceptConfiguredTargetAndDataError(ConfiguredValueCreationException error) {}
 
           @Override
-          public void acceptConfiguredTargetAndDataError(InconsistentNullConfigException error) {}
+          public void acceptConfiguredTargetAndDataError(
+              InvalidVisibilityDependencyException error) {}
         };
 
     EvaluationResult<SkyValue> result;

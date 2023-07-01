@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.BazelCompileContext;
@@ -29,7 +30,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
-import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -143,7 +143,7 @@ public class BzlCompileFunction implements SkyFunction {
       return null;
     }
 
-    Map<String, Object> predeclared;
+    ImmutableMap<String, Object> predeclared;
     if (key.isSclDialect()) {
       predeclared = bazelStarlarkEnvironment.getStarlarkGlobals().getSclToplevels();
     } else if (key.kind == BzlCompileValue.Kind.BUILTINS) {

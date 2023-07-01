@@ -554,7 +554,7 @@ public class PackageLoadingTest extends FoundationTestCase {
         "peach/BUILD",
         "package(features = ['crosstool_default_false'])",
         "cc_library(name = 'cc', srcs = ['cc.cc'])");
-    assertThat(getPackage("peach").getFeatures())
+    assertThat(getPackage("peach").getPackageArgs().features())
         .isEqualTo(FeatureSet.parse(ImmutableList.of("crosstool_default_false")));
   }
 

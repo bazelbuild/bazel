@@ -44,6 +44,11 @@ If there are no existing answers, you can ask the community by:
 * Chatting with other Bazel contributors on [Slack](https://slack.bazel.build/)
 * Consulting a [Bazel community expert](/community/experts)
 
+## Understand Bazel's support level {:#support-level}
+
+Please read the [release page](/release) to understand Bazel's release model and
+what level of support Bazel provides.
+
 ## File a bug {:#file-bug}
 
 If you encounter a bug or want to request a feature, file a [GitHub

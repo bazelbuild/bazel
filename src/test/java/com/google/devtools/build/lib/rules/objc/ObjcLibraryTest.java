@@ -49,10 +49,14 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
@@ -1586,11 +1590,21 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertAppleSdkVersionEnv(action.getIncompleteEnvironmentForTesting());
   }
 
+  private StructImpl getJ2ObjcInfoFromTarget(ConfiguredTarget configuredTarget, String providerName)
+      throws Exception {
+    Provider.Key key =
+        new StarlarkProvider.Key(
+            Label.parseCanonical("@_builtins//:common/objc/providers.bzl"), providerName);
+    return (StructImpl) configuredTarget.get(key);
+  }
+
   @Test
   public void testExportsJ2ObjcProviders() throws Exception {
     ConfiguredTarget lib = createLibraryTargetWriter("//a:lib").write();
-    assertThat(lib.get(J2ObjcEntryClassProvider.PROVIDER)).isNotNull();
-    assertThat(lib.get(J2ObjcMappingFileProvider.PROVIDER)).isNotNull();
+    StructImpl j2ObjcEntryClassInfo = getJ2ObjcInfoFromTarget(lib, "J2ObjcEntryClassInfo");
+    StructImpl j2ObjcMappingFileInfo = getJ2ObjcInfoFromTarget(lib, "J2ObjcMappingFileInfo");
+    assertThat(j2ObjcEntryClassInfo).isNotNull();
+    assertThat(j2ObjcMappingFileInfo).isNotNull();
   }
 
   @Test

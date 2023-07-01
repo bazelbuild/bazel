@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.vfs;
+package com.google.devtools.build.lib.vfs.bazel;
 
 import com.google.devtools.build.lib.jni.JniLoader;
 
@@ -26,6 +26,8 @@ final class Blake3JNI {
   public static final native long allocate_and_initialize_hasher();
 
   public static final native void blake3_hasher_reset(long self);
+
+  public static final native void blake3_hasher_close(long self);
 
   public static final native void blake3_hasher_update(long self, byte[] input, int input_len);
 

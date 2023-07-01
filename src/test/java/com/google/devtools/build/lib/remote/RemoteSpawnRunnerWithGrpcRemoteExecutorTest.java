@@ -22,6 +22,7 @@ import static org.junit.Assert.fail;
 import static org.mockito.AdditionalAnswers.answerVoid;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -31,6 +32,7 @@ import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.ExecuteRequest;
 import build.bazel.remote.execution.v2.ExecuteResponse;
@@ -729,9 +731,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
         };
     serviceRegistry.addService(ServerInterceptors.intercept(cas, new RequestHeadersValidator()));
 
-    ByteStreamImplBase mockByteStreamImpl = Mockito.mock(ByteStreamImplBase.class);
-    when(mockByteStreamImpl.write(ArgumentMatchers.<StreamObserver<WriteResponse>>any()))
-        .thenAnswer(blobWriteAnswer("xyz".getBytes(UTF_8)));
+    ByteStreamImplBase mockByteStreamImpl = spy(ByteStreamImplBase.class);
+    doAnswer(blobWriteAnswer("xyz".getBytes(UTF_8))).when(mockByteStreamImpl).write(any());
     serviceRegistry.addService(
         ServerInterceptors.intercept(mockByteStreamImpl, new RequestHeadersValidator()));
 
@@ -807,7 +808,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             .setResponse(Any.pack(ExecuteResponse.newBuilder().setResult(actionResult).build()))
             .build();
 
-    ExecutionImplBase mockExecutionImpl = Mockito.mock(ExecutionImplBase.class);
+    ExecutionImplBase mockExecutionImpl = spy(ExecutionImplBase.class);
     // Flow of this test:
     // - call execute, get retriable gRPC error
     // - retry: call execute, get retriable Operation error
@@ -815,7 +816,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
     // - retry: call waitExecute, get a retriable gRPC error
     // - retry: call waitExecute, get retriable Operation error
     // - retry: call execute, get successful operation, ignore further errors.
-    Mockito.doAnswer(answerWith(null, Status.UNAVAILABLE))
+    doAnswer(answerWith(null, Status.UNAVAILABLE))
         .doAnswer(answerWith(operationWithExecuteError, Status.OK))
         .doAnswer(answerWith(unfinishedOperation, Status.UNAVAILABLE))
         .doAnswer(answerWith(opSuccess, Status.UNAVAILABLE)) // last status should be ignored.
@@ -823,7 +824,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
         .execute(
             ArgumentMatchers.<ExecuteRequest>any(),
             ArgumentMatchers.<StreamObserver<Operation>>any());
-    Mockito.doAnswer(answerWith(null, Status.UNAVAILABLE))
+    doAnswer(answerWith(null, Status.UNAVAILABLE))
         .doAnswer(answerWith(operationWithExecuteError, Status.OK))
         .when(mockExecutionImpl)
         .waitExecution(
@@ -853,11 +854,12 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
           }
         });
 
-    ByteStreamImplBase mockByteStreamImpl = Mockito.mock(ByteStreamImplBase.class);
-    when(mockByteStreamImpl.write(ArgumentMatchers.<StreamObserver<WriteResponse>>any()))
-        .thenAnswer(blobWriteAnswerError()) // Error on the input file.
-        .thenAnswer(blobWriteAnswerError()) // Error on the input file again.
-        .thenAnswer(blobWriteAnswer("xyz".getBytes(UTF_8))); // Upload input file successfully.
+    ByteStreamImplBase mockByteStreamImpl = spy(ByteStreamImplBase.class);
+    doAnswer(blobWriteAnswerError()) // Error on the input file.
+        .doAnswer(blobWriteAnswerError()) // Error on the input file again.
+        .doAnswer(blobWriteAnswer("xyz".getBytes(UTF_8))) // Upload input file successfully.
+        .when(mockByteStreamImpl)
+        .write(any());
     doAnswer(
             answerVoid(
                 (QueryWriteStatusRequest request,
@@ -871,7 +873,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
                 }))
         .when(mockByteStreamImpl)
         .queryWriteStatus(any(), any());
-    Mockito.doAnswer(
+    doAnswer(
             invocationOnMock -> {
               @SuppressWarnings("unchecked")
               StreamObserver<ReadResponse> responseObserver =
@@ -951,26 +953,22 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             .setResponse(Any.pack(ExecuteResponse.newBuilder().setResult(actionResult).build()))
             .build();
 
-    ExecutionImplBase mockExecutionImpl = Mockito.mock(ExecutionImplBase.class);
+    ExecutionImplBase mockExecutionImpl = spy(ExecutionImplBase.class);
     // Flow of this test:
     // - call execute, get an Operation, then a retriable gRPC error
     // - retry: call waitExecute, get NOT_FOUND (operation lost)
     // - retry: call execute, get NOT_FOUND (operation lost)
     // - retry: call execute, get an Operation, then a retriable gRPC error
     // - retry: call waitExecute, get successful operation, ignore further errors.
-    Mockito.doAnswer(answerWith(unfinishedOperation, Status.UNAVAILABLE))
+    doAnswer(answerWith(unfinishedOperation, Status.UNAVAILABLE))
         .doAnswer(answerWith(unfinishedOperation, Status.NOT_FOUND))
         .doAnswer(answerWith(unfinishedOperation, Status.UNAVAILABLE))
         .when(mockExecutionImpl)
-        .execute(
-            ArgumentMatchers.<ExecuteRequest>any(),
-            ArgumentMatchers.<StreamObserver<Operation>>any());
-    Mockito.doAnswer(answerWith(unfinishedOperation, Status.NOT_FOUND))
+        .execute(any(), any());
+    doAnswer(answerWith(unfinishedOperation, Status.NOT_FOUND))
         .doAnswer(answerWith(opSuccess, Status.UNAVAILABLE)) // This error is ignored.
         .when(mockExecutionImpl)
-        .waitExecution(
-            ArgumentMatchers.<WaitExecutionRequest>any(),
-            ArgumentMatchers.<StreamObserver<Operation>>any());
+        .waitExecution(any(), any());
     serviceRegistry.addService(mockExecutionImpl);
 
     serviceRegistry.addService(
@@ -989,10 +987,9 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
           }
         });
 
-    ByteStreamImplBase mockByteStreamImpl = Mockito.mock(ByteStreamImplBase.class);
-    when(mockByteStreamImpl.write(ArgumentMatchers.<StreamObserver<WriteResponse>>any()))
-        .thenAnswer(blobWriteAnswer("xyz".getBytes(UTF_8))); // Upload input file successfully.
-    Mockito.doAnswer(
+    ByteStreamImplBase mockByteStreamImpl = spy(ByteStreamImplBase.class);
+    doAnswer(blobWriteAnswer("xyz".getBytes(UTF_8))).when(mockByteStreamImpl).write(any());
+    doAnswer(
             invocationOnMock -> {
               @SuppressWarnings("unchecked")
               StreamObserver<ReadResponse> responseObserver =
@@ -1110,7 +1107,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
           }
         });
     String stdOutResourceName =
-        getResourceName(remoteOptions.remoteInstanceName, stdOutDigest, false);
+        getResourceName(
+            remoteOptions.remoteInstanceName, stdOutDigest, false, DigestFunction.Value.SHA256);
     serviceRegistry.addService(
         new ByteStreamImplBase() {
           @Override
@@ -1171,7 +1169,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
           }
         });
     String stdOutResourceName =
-        getResourceName(remoteOptions.remoteInstanceName, stdOutDigest, false);
+        getResourceName(
+            remoteOptions.remoteInstanceName, stdOutDigest, false, DigestFunction.Value.SHA256);
     serviceRegistry.addService(
         new ByteStreamImplBase() {
           @Override
@@ -1297,7 +1296,10 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
         });
     String dummyTreeResourceName =
         getResourceName(
-            remoteOptions.remoteInstanceName, DUMMY_OUTPUT_DIRECTORY.getTreeDigest(), false);
+            remoteOptions.remoteInstanceName,
+            DUMMY_OUTPUT_DIRECTORY.getTreeDigest(),
+            false,
+            DigestFunction.Value.SHA256);
     serviceRegistry.addService(
         new ByteStreamImplBase() {
           private boolean first = true;
@@ -1508,17 +1510,17 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             .build();
     final WaitExecutionRequest waitExecutionRequest =
         WaitExecutionRequest.newBuilder().setName(opName).build();
-    ExecutionImplBase mockExecutionImpl = Mockito.mock(ExecutionImplBase.class);
+    ExecutionImplBase mockExecutionImpl = spy(ExecutionImplBase.class);
     // Flow of this test:
     // - call execute, get an unfinished Operation, then the stream completes
     // - call waitExecute, get an unfinished Operation, then the stream completes
     // - call waitExecute, get a finished Operation
-    Mockito.doAnswer(answerWith(unfinishedOperation, Status.OK))
+    doAnswer(answerWith(unfinishedOperation, Status.OK))
         .when(mockExecutionImpl)
         .execute(
             ArgumentMatchers.<ExecuteRequest>any(),
             ArgumentMatchers.<StreamObserver<Operation>>any());
-    Mockito.doAnswer(answerWith(unfinishedOperation, Status.OK))
+    doAnswer(answerWith(unfinishedOperation, Status.OK))
         .doAnswer(answerWith(completeOperation, Status.OK))
         .when(mockExecutionImpl)
         .waitExecution(

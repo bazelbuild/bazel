@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.DependencyFilter;
+import com.google.devtools.build.lib.packages.PackageArgs;
 import com.google.devtools.build.lib.packages.Type;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -137,23 +138,8 @@ class AspectAwareAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public String getPackageDefaultHdrsCheck() {
-    return ruleAttributes.getPackageDefaultHdrsCheck();
-  }
-
-  @Override
-  public boolean isPackageDefaultHdrsCheckSet() {
-    return ruleAttributes.isPackageDefaultHdrsCheckSet();
-  }
-
-  @Override
-  public Boolean getPackageDefaultTestOnly() {
-    return ruleAttributes.getPackageDefaultTestOnly();
-  }
-
-  @Override
-  public String getPackageDefaultDeprecation() {
-    return ruleAttributes.getPackageDefaultDeprecation();
+  public PackageArgs getPackageArgs() {
+    return ruleAttributes.getPackageArgs();
   }
 
   @Override

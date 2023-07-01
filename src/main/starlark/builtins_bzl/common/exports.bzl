@@ -72,7 +72,7 @@ exported_rules = {
     "java_lite_proto_library": java_lite_proto_library,
     "objc_import": objc_import,
     "objc_library": objc_library,
-    "-j2objc_library": j2objc_library,
+    "+j2objc_library": j2objc_library,
     "proto_library": proto_library,
     "cc_shared_library": cc_shared_library,
     "cc_binary": cc_binary,
@@ -94,4 +94,6 @@ exported_to_java = {
     "get_cc_toolchain_provider": get_cc_toolchain_provider,
     "cc_toolchain_build_variables": cc_helper.cc_toolchain_build_variables,
     "apple_cc_toolchain_build_variables": objc_common.apple_cc_toolchain_build_variables,
+    "j2objc_mapping_file_info_union": objc_common.j2objc_mapping_file_info_union,
+    "j2objc_entry_class_info_union": objc_common.j2objc_entry_class_info_union,
 }

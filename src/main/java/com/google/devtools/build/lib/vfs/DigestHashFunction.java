@@ -25,7 +25,6 @@ import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.security.Security;
 import java.util.HashMap;
 import java.util.Map.Entry;
 
@@ -68,7 +67,6 @@ public class DigestHashFunction {
 
   public static final DigestHashFunction SHA1 = register(Hashing.sha1(), "SHA-1", "SHA1");
   public static final DigestHashFunction SHA256 = register(Hashing.sha256(), "SHA-256", "SHA256");
-  public static final DigestHashFunction BLAKE3 = register(new Blake3HashFunction(), "BLAKE3");
 
   private final HashFunction hashFunction;
   private final DigestLength digestLength;
@@ -106,9 +104,6 @@ public class DigestHashFunction {
    */
   public static DigestHashFunction register(
       HashFunction hash, DigestLength digestLength, String hashName, String... altNames) {
-    if (hashName == "BLAKE3") {
-      Security.addProvider(new Blake3Provider());
-    }
     try {
       MessageDigest.getInstance(hashName);
     } catch (NoSuchAlgorithmException e) {

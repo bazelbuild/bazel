@@ -590,14 +590,14 @@ public abstract class DependencyResolver {
           outgoingLabels,
           rule,
           RuleClass.COMPATIBLE_ENVIRONMENT_ATTR,
-          rule.getPackage().getDefaultCompatibleWith());
+          rule.getPackage().getPackageArgs().defaultCompatibleWith());
     }
     if (!rule.isAttributeValueExplicitlySpecified(RuleClass.RESTRICTED_ENVIRONMENT_ATTR)) {
       addExplicitDeps(
           outgoingLabels,
           rule,
           RuleClass.RESTRICTED_ENVIRONMENT_ATTR,
-          rule.getPackage().getDefaultRestrictedTo());
+          rule.getPackage().getPackageArgs().defaultRestrictedTo());
     }
 
     addToolchainDeps(toolchainContexts, outgoingLabels);

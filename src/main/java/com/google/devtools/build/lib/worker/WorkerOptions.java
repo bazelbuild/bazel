@@ -50,7 +50,7 @@ public class WorkerOptions extends OptionsBase {
     @Override
     public Map.Entry<String, Integer> convert(String input) throws OptionsParsingException {
       // TODO(steinman): Make auto value return a reasonable multiplier of host capacity.
-      if (input == null || "null".equals(input) || "auto".equals(input)) {
+      if (input == null || input.equals("null") || input.equals("auto")) {
         return Maps.immutableEntry(null, null);
       }
       int pos = input.indexOf('=');
@@ -59,7 +59,7 @@ public class WorkerOptions extends OptionsBase {
       }
       String name = input.substring(0, pos);
       String value = input.substring(pos + 1);
-      if ("auto".equals(value)) {
+      if (value.equals("auto")) {
         return Maps.immutableEntry(name, null);
       }
 
@@ -75,7 +75,7 @@ public class WorkerOptions extends OptionsBase {
   @Option(
       name = "worker_max_instances",
       converter = MultiResourceConverter.class,
-      defaultValue = "auto",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
@@ -101,7 +101,7 @@ public class WorkerOptions extends OptionsBase {
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
           "How many WorkRequests a multiplex worker process may receive in parallel if you use the"
-              + " 'worker' strategy with --experimental_worker_multiplex. May be specified as "
+              + " 'worker' strategy with --worker_multiplex. May be specified as "
               + "[name=value] to give a different value per mnemonic. The limit is based on worker "
               + "keys, which are differentiated based on mnemonic, but also on startup flags and "
               + "environment, so there can in some cases be more workers per mnemonic than this "

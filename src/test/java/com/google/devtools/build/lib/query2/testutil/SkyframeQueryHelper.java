@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
+import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
@@ -374,7 +375,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
                         BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
                         CheckDirectDepsMode.WARNING),
                     PrecomputedValue.injected(
-                        BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
+                        YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
                     PrecomputedValue.injected(
                         BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
                         BazelCompatibilityMode.ERROR),
@@ -416,7 +417,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
                     CheckDirectDepsMode.WARNING))
             .add(
                 PrecomputedValue.injected(
-                    BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS, ImmutableList.of()))
+                    YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, ImmutableList.of()))
             .add(
                 PrecomputedValue.injected(
                     BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,

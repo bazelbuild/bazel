@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.query2.cquery;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
-import com.google.common.base.Preconditions;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -23,7 +23,6 @@ import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Configuration;
-import com.google.devtools.build.lib.analysis.AnalysisProtosV2.CqueryResult;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
@@ -40,13 +39,11 @@ import com.google.devtools.build.lib.query2.cquery.CqueryOptions.Transitions;
 import com.google.devtools.build.lib.query2.cquery.CqueryTransitionResolver.EvaluateException;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
-import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import com.google.devtools.build.lib.query2.query.output.ProtoOutputFormatter;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.protobuf.CodedOutputStream;
 import com.google.protobuf.Message;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.util.JsonFormat;
@@ -63,7 +60,6 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
   /** Defines the types of proto output this class can handle. */
   public enum OutputType {
     BINARY("proto"),
-    DELIMITED_BINARY("streamed_proto"),
     TEXT("textproto"),
     JSON("jsonproto");
 
@@ -106,13 +102,14 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
     }
   }
 
-  private final CodedOutputStream codedOut;
   private final OutputType outputType;
   private final AspectResolver resolver;
   private final SkyframeExecutor skyframeExecutor;
   private final ConfigurationCache configurationCache = new ConfigurationCache();
   private final JsonFormat.Printer jsonPrinter = JsonFormat.printer();
   private final RuleClassProvider ruleClassProvider;
+
+  private AnalysisProtosV2.CqueryResult.Builder protoResult;
 
   private final Map<Label, Target> partialResultMap;
   private ConfiguredTarget currentTarget;
@@ -121,14 +118,12 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       ExtendedEventHandler eventHandler,
       CqueryOptions options,
       OutputStream out,
-      CodedOutputStream codedOut,
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<ConfiguredTarget> accessor,
       AspectResolver resolver,
       OutputType outputType,
       RuleClassProvider ruleClassProvider) {
     super(eventHandler, options, out, skyframeExecutor, accessor, /*uniquifyResults=*/ false);
-    this.codedOut = codedOut;
     this.outputType = outputType;
     this.skyframeExecutor = skyframeExecutor;
     this.resolver = resolver;
@@ -137,40 +132,31 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
   }
 
   @Override
+  public void start() {
+    protoResult = AnalysisProtosV2.CqueryResult.newBuilder();
+  }
+
+  @Override
   public void close(boolean failFast) throws IOException {
-    if (failFast || printStream == null) {
-      return;
-    }
-    if (options.protoIncludeConfigurations) {
-      for (Configuration configuration : configurationCache.getConfigurations()) {
-        if (outputType == OutputType.DELIMITED_BINARY) {
-          // For streamed protos, we wrap each Configuration in its own CqueryResult that will be
-          // written length delimited to the stream.
-          writeData(
-              AnalysisProtosV2.CqueryResult.newBuilder().addConfigurations(configuration).build());
-        } else {
-          writeData(configuration, CqueryResult.CONFIGURATIONS_FIELD_NUMBER);
-        }
+    if (!failFast && printStream != null) {
+      if (options.protoIncludeConfigurations) {
+        writeData(getProtoResult());
+      } else {
+        // Documentation promises that setting this flag to false means we convert directly
+        // to the build.proto format. This is hard to test in integration testing due to the way
+        // proto output is turned readable (codex). So change the following code with caution.
+        Build.QueryResult.Builder queryResult = Build.QueryResult.newBuilder();
+        protoResult.getResultsList().forEach(ct -> queryResult.addTarget(ct.getTarget()));
+        writeData(queryResult.build());
       }
+      printStream.flush();
     }
-    codedOut.flush();
-    outputStream.flush();
-    printStream.flush();
   }
 
   private void writeData(Message message) throws IOException {
-    writeData(message, 0);
-  }
-
-  private void writeData(Message message, int fieldNumber) throws IOException {
     switch (outputType) {
       case BINARY:
-        Preconditions.checkState(
-            fieldNumber != 0, "Cannot have fieldNumber of 0 when outputType is BINARY");
-        codedOut.writeMessage(fieldNumber, message);
-        break;
-      case DELIMITED_BINARY:
-        message.writeDelimitedTo(outputStream);
+        message.writeTo(outputStream);
         break;
       case TEXT:
         TextFormat.printer().print(message, printStream);
@@ -189,9 +175,14 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
     return outputType.formatName();
   }
 
+  @VisibleForTesting
+  public AnalysisProtosV2.CqueryResult getProtoResult() {
+    protoResult.addAllConfigurations(configurationCache.getConfigurations());
+    return protoResult.build();
+  }
+
   @Override
-  public void processOutput(Iterable<ConfiguredTarget> partialResult)
-      throws InterruptedException, IOException {
+  public void processOutput(Iterable<ConfiguredTarget> partialResult) throws InterruptedException {
     partialResult.forEach(
         kct -> partialResultMap.put(kct.getOriginalLabel(), accessor.getTarget(kct)));
 
@@ -248,7 +239,6 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
           throw new InterruptedException(e.getMessage());
         }
       }
-
       builder.setTarget(targetBuilder);
 
       if (options.protoIncludeConfigurations) {
@@ -269,33 +259,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
         }
       }
 
-      // There are a few cases that affect the shape of the output:
-      //   1. --output=proto|textproto|jsonproto --proto:include_configurations =>
-      //        Writes a single CqueryResult containing all the ConfiguredTarget(s) and
-      //        Configuration(s) in the specified output format.
-      //   2. --output=streamed_proto --proto:include_configurations =>
-      //        Writes multiple length delimited CqueryResult protos, each containing a single
-      //        ConfiguredTarget or Configuration.
-      //   3. --output=proto|textproto|jsonproto --noproto:include_configurations =>
-      //        Writes a single QueryResult containing all the corresponding Target(s) in the
-      //        specified output format.
-      //   4.--output=streamed_proto --noproto:include_configurations =>
-      //        Writes multiple length delimited Target protos.
-      if (options.protoIncludeConfigurations) {
-        if (outputType == OutputType.DELIMITED_BINARY) {
-          // Case 2.
-          writeData(AnalysisProtosV2.CqueryResult.newBuilder().addResults(builder).build());
-        } else {
-          // Case 1.
-          writeData(builder.build(), CqueryResult.RESULTS_FIELD_NUMBER);
-        }
-      } else {
-        // Case 3 & 4.
-        // Documentation promises that setting this flag to false means we convert directly
-        // to the build.proto format. This is hard to test in integration testing due to the way
-        // proto output is turned readable (codex). So change the following code with caution.
-        writeData(builder.build().getTarget(), QueryResult.TARGET_FIELD_NUMBER);
-      }
+      protoResult.addResults(builder.build());
     }
   }
 

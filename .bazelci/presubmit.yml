@@ -50,6 +50,7 @@ tasks:
       - "//third_party/ijar/..."
       - "//tools/android/..."
       - "//tools/aquery_differ/..."
+      - "//tools/compliance/..."
       - "//tools/python/..."
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
       - "-//src/java_tools/buildjar/..."
@@ -91,6 +92,7 @@ tasks:
       - "--sandbox_writable_path=$HOME/bazeltest"
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
       - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
+      - "--test_tag_filters=-no_1804"
       # Configure and enable tests that require access to the network.
       - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
     test_targets:
@@ -142,6 +144,7 @@ tasks:
       - "--sandbox_writable_path=$HOME/bazeltest"
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
       - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
+      - "--test_tag_filters=-no_1804"
     test_targets:
       - "//src/test/shell/bazel:cc_integration_test"
     include_json_profile:
@@ -322,8 +325,6 @@ tasks:
       - "-//src/test/java/com/google/devtools/build/lib/skyframe/rewinding:RewindingTest"
       - "-//src/test/java/com/google/devtools/build/lib/buildtool:MiscAnalysisTest"
       - "-//src/test/java/com/google/devtools/build/lib/rules/objc:ObjcRulesTests"
-      # https://github.com/bazelbuild/bazel/issues/16975
-      - "-//scripts/docs:rewriter_test"
       # https://github.com/bazelbuild/bazel/issues/17007
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
       # Disable the most time-consuming tests on macOS arm64 platform in presubmit.
@@ -406,6 +407,7 @@ tasks:
       - "--host_copt=-w"
       - "--test_tag_filters=-no_windows,-slow"
       - "--test_env=JAVA_HOME"
+      - "--test_env=BAZEL_VC"
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest_install_base"
       - "--test_env=TEST_REPOSITORY_HOME=C:/b/bazeltest_external"
     test_targets:
@@ -471,6 +473,7 @@ tasks:
       - "--experimental_remote_cache_async"
       - "--experimental_remote_merkle_tree_cache"
       - "--remote_download_minimal"
+      - "--test_tag_filters=-no_1804"
     test_targets:
       - "//scripts/..."
       - "//src/java_tools/..."

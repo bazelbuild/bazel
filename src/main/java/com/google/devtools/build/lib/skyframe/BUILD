@@ -178,6 +178,7 @@ java_library(
         ":skyframe_error_processor",
         ":skyframe_executor_repository_helpers_holder",
         ":skyframe_incremental_build_monitor",
+        ":skymeld_inconsistency_receiver",
         ":starlark_builtins_value",
         ":state_informing_sky_function_environment",
         ":target_completion_value",
@@ -2966,6 +2967,20 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/rules/genquery:genquery_package_providers",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:graph_inconsistency_java_proto",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "skymeld_inconsistency_receiver",
+    srcs = ["SkymeldInconsistencyReceiver.java"],
+    deps = [
+        ":node_dropping_inconsistency_receiver",
+        ":sky_functions",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:graph_inconsistency_java_proto",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",

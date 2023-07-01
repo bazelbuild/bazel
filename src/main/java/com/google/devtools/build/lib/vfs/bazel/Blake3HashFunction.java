@@ -1,4 +1,4 @@
-package com.google.devtools.build.lib.vfs;
+package com.google.devtools.build.lib.vfs.bazel;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndexes;

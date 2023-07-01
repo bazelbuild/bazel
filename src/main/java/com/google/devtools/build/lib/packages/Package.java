@@ -28,7 +28,6 @@ import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.analysis.config.FeatureSet;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext.LoadGraphVisitor;
@@ -172,6 +171,10 @@ public class Package {
 
   private PackageArgs packageArgs = PackageArgs.DEFAULT;
 
+  public PackageArgs getPackageArgs() {
+    return packageArgs;
+  }
+
   /**
    * How to enforce config_setting visibility settings.
    *
@@ -189,11 +192,6 @@ public class Package {
   }
 
   private ConfigSettingVisibilityPolicy configSettingVisibilityPolicy;
-
-  /**
-   * Default header strictness checking for rules that do not specify it.
-   */
-  private String defaultHdrsCheck;
 
   /**
    * The InputFile target corresponding to this package's BUILD file.
@@ -323,18 +321,6 @@ public class Package {
               + "mappings from the //external package");
     }
     return this.externalPackageRepositoryMappings;
-  }
-
-  /**
-   * Package initialization: part 2 of 3: sets this package's default header
-   * strictness checking.
-   *
-   * <p>This is needed to support C++-related rule classes
-   * which accesses {@link #getDefaultHdrsCheck} from the still-under-construction
-   * package.
-   */
-  private void setDefaultHdrsCheck(String defaultHdrsCheck) {
-    this.defaultHdrsCheck = defaultHdrsCheck;
   }
 
   /**
@@ -643,11 +629,6 @@ public class Package {
     return workspaceName;
   }
 
-  /** Returns the features specified in the <code>package()</code> declaration. */
-  public FeatureSet getFeatures() {
-    return packageArgs.features();
-  }
-
   /**
    * Returns the target (a member of this package) whose name is "targetName".
    * First rules are searched, then output files, then input files.  The target
@@ -724,13 +705,6 @@ public class Package {
   }
 
   /**
-   * Returns the default visibility for this package.
-   */
-  public RuleVisibility getDefaultVisibility() {
-    return packageArgs.defaultVisibility();
-  }
-
-  /**
    * How to enforce visibility on <code>config_setting</code> See
    * {@link ConfigSettingVisibilityPolicy} for details.
    */
@@ -738,63 +712,6 @@ public class Package {
     return configSettingVisibilityPolicy;
   }
 
-  /**
-   * Returns the default testonly value.
-   */
-  public Boolean getDefaultTestOnly() {
-    return packageArgs.defaultTestOnly();
-  }
-
-  /**
-   * Returns the default deprecation value.
-   */
-  public String getDefaultDeprecation() {
-    return packageArgs.defaultDeprecation();
-  }
-
-  /** Gets the default header checking mode. */
-  public String getDefaultHdrsCheck() {
-    return defaultHdrsCheck != null ? defaultHdrsCheck : "strict";
-  }
-
-  /**
-   * Returns whether the default header checking mode has been set or it is the
-   * default value.
-   */
-  public boolean isDefaultHdrsCheckSet() {
-    return defaultHdrsCheck != null;
-  }
-
-  /** Gets the package metadata list for the default metadata declared by this package. */
-  ImmutableList<Label> getDefaultPackageMetadata() {
-    return packageArgs.defaultPackageMetadata();
-  }
-
-  /** Gets the parsed license object for the default license declared by this package. */
-  License getDefaultLicense() {
-    return packageArgs.license();
-  }
-
-  /** Returns the parsed set of distributions declared as the default for this package. */
-  Set<License.DistributionType> getDefaultDistribs() {
-    return packageArgs.distribs();
-  }
-
-  /**
-   * Returns the default value to use for a rule's {@link RuleClass#COMPATIBLE_ENVIRONMENT_ATTR}
-   * attribute when not explicitly specified by the rule.
-   */
-  public Set<Label> getDefaultCompatibleWith() {
-    return packageArgs.defaultCompatibleWith();
-  }
-
-  /**
-   * Returns the default value to use for a rule's {@link RuleClass#RESTRICTED_ENVIRONMENT_ATTR}
-   * attribute when not explicitly specified by the rule.
-   */
-  public Set<Label> getDefaultRestrictedTo() {
-    return packageArgs.defaultRestrictedTo();
-  }
 
   public ImmutableList<TargetPattern> getRegisteredExecutionPlatforms() {
     return registeredExecutionPlatforms;
@@ -1249,7 +1166,8 @@ public class Package {
       return mergePackageArgsFrom(builder.build());
     }
 
-    public PackageArgs getPackageArgs() {
+    /** Called partial b/c in builder and thus subject to mutation and updates */
+    public PackageArgs getPartialPackageArgs() {
       return packageArgs;
     }
 
@@ -1282,16 +1200,6 @@ public class Package {
     /** Sets the number of Starlark computation steps executed by this BUILD file. */
     void setComputationSteps(long n) {
       pkg.computationSteps = n;
-    }
-
-    /** Sets the default header checking mode. */
-    @CanIgnoreReturnValue
-    public Builder setDefaultHdrsCheck(String hdrsCheck) {
-      // Note that this setting is propagated directly to the package because
-      // other code needs the ability to read this info directly from the
-      // under-construction package. See {@link Package#setDefaultHdrsCheck}.
-      pkg.setDefaultHdrsCheck(hdrsCheck);
-      return this;
     }
 
     Builder setIOException(IOException e, String message, DetailedExitCode detailedExitCode) {

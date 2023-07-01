@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -283,7 +282,7 @@ public class AppleStarlarkCommon
               Sequence.cast(extraDisabledFeatures, String.class, "extra_disabled_features"),
               isStampingEnabled);
       return createStarlarkLinkingOutputs(linkingOutputs, thread);
-    } catch (RuleErrorException | ActionConflictException exception) {
+    } catch (RuleErrorException exception) {
       throw new EvalException(exception);
     }
   }

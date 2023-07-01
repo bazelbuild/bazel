@@ -80,7 +80,9 @@ public class InMemoryGraphImpl implements InMemoryGraph {
     this.usePooledInterning = usePooledInterning;
     if (usePooledInterning) {
       SkyKeyInterner.setGlobalPool(new SkyKeyPool());
-      LabelInterner.setGlobalPool(new LabelPool());
+      if (UsePooledLabelInterningFlag.usePooledLabelInterningFlag()) {
+        LabelInterner.setGlobalPool(new LabelPool());
+      }
     }
   }
 
@@ -255,7 +257,9 @@ public class InMemoryGraphImpl implements InMemoryGraph {
           e -> {
             weakInternSkyKey(e.getKey());
 
-            if (!e.isDone() || !e.getKey().functionName().equals(SkyFunctions.PACKAGE)) {
+            if (!UsePooledLabelInterningFlag.usePooledLabelInterningFlag()
+                || !e.isDone()
+                || !e.getKey().functionName().equals(SkyFunctions.PACKAGE)) {
               return;
             }
 
@@ -265,6 +269,12 @@ public class InMemoryGraphImpl implements InMemoryGraph {
 
     SkyKeyInterner.setGlobalPool(null);
     LabelInterner.setGlobalPool(null);
+  }
+
+  @Override
+  @Nullable
+  public InMemoryNodeEntry getIfPresent(SkyKey key) {
+    return nodeMap.get(key);
   }
 
   static final class EdgelessInMemoryGraphImpl extends InMemoryGraphImpl {

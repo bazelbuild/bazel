@@ -30,8 +30,7 @@ import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
-import com.google.devtools.build.lib.analysis.SourceManifestAction;
-import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
@@ -198,14 +197,11 @@ public class ActionGraphDump {
       actionBuilder.addAllArguments(commandAction.getArguments());
     }
 
-    if (includeFileWriteContents && action instanceof FileWriteAction) {
-      FileWriteAction fileWriteAction = (FileWriteAction) action;
-      actionBuilder.setFileContents(fileWriteAction.getFileContents());
-    }
-
-    if (includeFileWriteContents && action instanceof SourceManifestAction) {
-      SourceManifestAction sourceManifestAction = (SourceManifestAction) action;
-      actionBuilder.setFileContents(sourceManifestAction.getFileContentsAsString(eventHandler));
+    if (includeFileWriteContents
+        && action instanceof AbstractFileWriteAction.FileContentsProvider) {
+      String contents =
+          ((AbstractFileWriteAction.FileContentsProvider) action).getFileContents(eventHandler);
+      actionBuilder.setFileContents(contents);
     }
 
     // Include the content of param files in output.

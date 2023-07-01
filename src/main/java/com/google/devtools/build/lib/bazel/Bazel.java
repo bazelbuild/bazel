@@ -28,7 +28,6 @@ import java.util.Properties;
  */
 public final class Bazel {
   private static final String BUILD_DATA_PROPERTIES = "/build-data.properties";
-
   /**
    * The list of modules to load. Note that the order is important: In case multiple modules provide
    * strategies for the same things, the last module wins and its strategy becomes the default.
@@ -70,6 +69,7 @@ public final class Bazel {
           com.google.devtools.build.lib.standalone.StandaloneModule.class,
           com.google.devtools.build.lib.sandbox.SandboxModule.class,
           com.google.devtools.build.lib.runtime.BuildSummaryStatsModule.class,
+          com.google.devtools.build.lib.vfs.bazel.BazelHashFunctions.class,
           com.google.devtools.build.lib.dynamic.DynamicExecutionModule.class,
           com.google.devtools.build.lib.bazel.rules.BazelRulesModule.class,
           com.google.devtools.build.lib.bazel.rules.BazelStrategyModule.class,

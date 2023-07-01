@@ -12,7 +12,6 @@ cc_binary(
     dynamic_deps = ["//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:bar_so"],
     tags = TAGS,
     deps = [
-        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:bar",
         "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:barX",
     ],
 )
@@ -29,7 +28,6 @@ cc_shared_library(
 cc_library(
     name = "intermediate",
     deps = [
-        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:bar",
         "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:barX",
     ],
 )

@@ -17,8 +17,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.spy;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
@@ -734,9 +734,9 @@ public final class TreeArtifactValueTest {
   }
 
   private static FileArtifactValue metadataWithIdNoDigest(int id) {
-    FileArtifactValue value = mock(FileArtifactValue.class);
-    when(value.getDigest()).thenReturn(null);
-    when(value.getModifiedTime()).thenReturn((long) id);
+    FileArtifactValue value = spy(FileArtifactValue.class);
+    doReturn(null).when(value).getDigest();
+    doReturn((long) id).when(value).getModifiedTime();
     return value;
   }
 }

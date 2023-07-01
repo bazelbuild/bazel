@@ -148,7 +148,7 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
     BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE.set(
         differencer, BazelCompatibilityMode.ERROR);
     BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.OFF);
-    BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
+    YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
   }
 
   @Test

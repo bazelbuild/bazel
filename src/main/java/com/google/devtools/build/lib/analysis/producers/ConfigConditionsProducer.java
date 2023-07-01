@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.analysis.producers;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.InconsistentNullConfigException;
+import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyException;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
@@ -130,12 +130,17 @@ final class ConfigConditionsProducer
   }
 
   @Override
-  public void acceptConfiguredTargetAndDataError(InconsistentNullConfigException error) {
-    // A config label was evaluated with a null configuration. This should never happen as
-    // ConfigConditions are only present if the parent is a Rule, then always evaluated with the
-    // parent configuration.
+  public void acceptConfiguredTargetAndDataError(InvalidVisibilityDependencyException error) {
+    // After removing the rule transition from dependency resolution, a ConfiguredTargetKey in
+    // Skyframe with a null BuildConfigurationKey will only be used to request visibility
+    // dependencies. This will never be the case for ConfigConditions, which are always requested
+    // with the parent configuration. At the moment, nothing throws
+    // InvalidVisibilityDependencyException.
+    //
+    // TODO(b/261521010): update this comment once rule transitions are removed from dependency
+    // resolution.
     throw new IllegalArgumentException(
-        "ConfigCondition dependency should never be evaluated with a null configuration.", error);
+        "ConfigCondition dependency should never be marked visibility.", error);
   }
 
   private StateMachine constructConfigConditions(Tasks tasks, ExtendedEventHandler listener) {

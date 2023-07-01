@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
@@ -273,7 +274,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     RepositoryDelegatorFunction.RESOLVED_FILE_FOR_VERIFICATION.set(differencer, Optional.empty());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
-    BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
+    YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
     BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
         differencer, CheckDirectDepsMode.WARNING);
     BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE.set(

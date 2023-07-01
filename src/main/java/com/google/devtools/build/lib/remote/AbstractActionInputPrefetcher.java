@@ -436,7 +436,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       Priority priority) {
     if (path.isSymbolicLink()) {
       try {
-        path = path.getRelative(path.readSymbolicLink());
+        path = path.resolveSymbolicLinks();
       } catch (IOException e) {
         return Completable.error(e);
       }
