@@ -30,9 +30,9 @@ single_version_override(
 
 archive_override(
     module_name = "rules_java",
-    urls = ["https://github.com/bazelbuild/rules_java/archive/feb186fe9cc7f6cc2eedeb84691ee66749a4906b.tar.gz"],
-    integrity = "sha256-NyPWmAJL4uQm/l9U5AyL4EB1xDP6FcHMOw+uNJ9qk0c=",
-    strip_prefix = "rules_java-feb186fe9cc7f6cc2eedeb84691ee66749a4906b",
+    urls = ["https://github.com/bazelbuild/rules_java/archive/59a72be69e73f3501a6b56108ab728553cb567b0.tar.gz"],
+    integrity = "sha256-eUoFZ/5NY+DI+jih+vMoWFegrXX79yWKRKaalmNwkvE=",
+    strip_prefix = "rules_java-59a72be69e73f3501a6b56108ab728553cb567b0",
 )
 
 maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
