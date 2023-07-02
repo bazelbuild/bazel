@@ -1765,6 +1765,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "  ext,",
         "  'indirect_dep',",
         "  'invalid_dep',",
+        "  'dev_as_non_dev_dep',",
         "  my_direct_dep = 'direct_dep',",
         ")",
         "ext_dev = use_extension('@ext//:defs.bzl', 'ext', dev_dependency = True)",
@@ -1772,6 +1773,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "  ext_dev,",
         "  'indirect_dev_dep',",
         "  'invalid_dev_dep',",
+        "  'non_dev_as_dev_dep',",
         "  my_direct_dev_dep = 'direct_dev_dep',",
         ")");
     scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
@@ -1800,9 +1802,11 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "  data_repo(name='missing_direct_dev_dep')",
         "  data_repo(name='indirect_dep')",
         "  data_repo(name='indirect_dev_dep')",
+        "  data_repo(name='dev_as_non_dev_dep')",
+        "  data_repo(name='non_dev_as_dev_dep')",
         "  return ctx.extension_metadata(",
-        "    root_module_direct_deps=['direct_dep', 'missing_direct_dep'],",
-        "    root_module_direct_dev_deps=['direct_dev_dep', 'missing_direct_dev_dep'],",
+        "    root_module_direct_deps=['direct_dep', 'missing_direct_dep', 'non_dev_as_dev_dep'],",
+        "    root_module_direct_dev_deps=['direct_dev_dep', 'missing_direct_dev_dep', 'dev_as_non_dev_dep'],",
         "  )",
         "ext=module_extension(implementation=_ext_impl)");
 
@@ -1826,19 +1830,28 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + " build to fail):\n"
             + "    missing_direct_dep, missing_direct_dev_dep\n"
             + "\n"
+            + "Imported as a regular dependency, but reported as a dev dependency by the"
+            + " extension (may cause the build to fail when used by other modules):\n"
+            + "    dev_as_non_dev_dep\n"
+            + "\n"
+            + "Imported as a dev dependency, but reported as a regular dependency by the"
+            + " extension (may cause the build to fail when used by other modules):\n"
+            + "    non_dev_as_dev_dep\n"
+            + "\n"
             + "Imported, but reported as indirect dependencies by the extension:\n"
             + "    indirect_dep, indirect_dev_dep\n"
             + "\n"
             + "\033[35m\033[1m ** You can use the following buildozer command(s) to fix these"
             + " issues:\033[0m\n"
             + "\n"
-            + "buildozer 'use_repo_add @ext//:defs.bzl ext missing_direct_dep' //MODULE.bazel:all\n"
-            + "buildozer 'use_repo_remove @ext//:defs.bzl ext indirect_dep invalid_dep'"
+            + "buildozer 'use_repo_add @ext//:defs.bzl ext missing_direct_dep non_dev_as_dev_dep'"
             + " //MODULE.bazel:all\n"
-            + "buildozer 'use_repo_add dev @ext//:defs.bzl ext missing_direct_dev_dep'"
-            + " //MODULE.bazel:all\n"
-            + "buildozer 'use_repo_remove dev @ext//:defs.bzl ext indirect_dev_dep invalid_dev_dep'"
-            + " //MODULE.bazel:all",
+            + "buildozer 'use_repo_remove @ext//:defs.bzl ext dev_as_non_dev_dep"
+            + " indirect_dep invalid_dep' //MODULE.bazel:all\n"
+            + "buildozer 'use_repo_add dev @ext//:defs.bzl ext dev_as_non_dev_dep"
+            + " missing_direct_dev_dep' //MODULE.bazel:all\n"
+            + "buildozer 'use_repo_remove dev @ext//:defs.bzl ext indirect_dev_dep invalid_dev_dep"
+            + " non_dev_as_dev_dep' //MODULE.bazel:all",
         ImmutableSet.of(EventKind.WARNING));
   }
 
@@ -1907,6 +1920,10 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + "Not imported, but reported as direct dependencies by the extension (may cause the"
             + " build to fail):\n"
             + "    missing_direct_dep, missing_direct_dev_dep\n"
+            + "\n"
+            + "Imported as a dev dependency, but reported as a regular dependency by the"
+            + " extension (may cause the build to fail when used by other modules):\n"
+            + "    direct_dev_dep, indirect_dev_dep\n"
             + "\n"
             + "\033[35m\033[1m ** You can use the following buildozer command(s) to fix these"
             + " issues:\033[0m\n"
@@ -1986,6 +2003,10 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + "Not imported, but reported as direct dependencies by the extension (may cause the"
             + " build to fail):\n"
             + "    missing_direct_dep, missing_direct_dev_dep\n"
+            + "\n"
+            + "Imported as a regular dependency, but reported as a dev dependency by the"
+            + " extension (may cause the build to fail when used by other modules):\n"
+            + "    direct_dep, indirect_dep\n"
             + "\n"
             + "\033[35m\033[1m ** You can use the following buildozer command(s) to fix these"
             + " issues:\033[0m\n"
