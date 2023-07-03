@@ -16,7 +16,7 @@
 Definition of JavaPluginInfo provider.
 """
 
-load(":common/java/java_common.bzl", "java_common")
+load(":common/java/java_common_internal_for_builtins.bzl", _merge_private_for_builtins = "merge")
 
 _JavaPluginDataInfo = provider(
     doc = "Provider encapsulating information about a Java compatible plugin.",
@@ -58,7 +58,9 @@ def _javaplugininfo_init(
     Returns:
         (JavaPluginInfo)
     """
-    java_infos = java_common.merge(runtime_deps)
+
+    # we don't need the private API but java_common needs JavaPluginInfo which would be a cycle
+    java_infos = _merge_private_for_builtins(runtime_deps)
     processor_data = data if type(data) == "depset" else depset(data)
     plugins = _JavaPluginDataInfo(
         processor_classes = depset([processor_class]) if processor_class else depset(),

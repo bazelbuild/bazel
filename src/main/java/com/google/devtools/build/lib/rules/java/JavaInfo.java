@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
-import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaModuleFlagsProviderApi;
@@ -52,7 +51,6 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
-import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
 
@@ -645,56 +643,6 @@ public final class JavaInfo extends NativeInfo
       implements JavaInfoProviderApi, com.google.devtools.build.lib.packages.Provider {
     private JavaInfoProvider() {
       super(Label.parseCanonicalUnchecked("@_builtins//:common/java/java_info.bzl"), STARLARK_NAME);
-    }
-
-    @Override
-    public JavaInfo javaInfo(
-        FileApi outputJarApi,
-        Object compileJarApi,
-        Object sourceJarApi,
-        Object compileJdepsApi,
-        Object generatedClassJarApi,
-        Object generatedSourceJarApi,
-        Object nativeHeadersJarApi,
-        Object manifestProtoApi,
-        Boolean neverlink,
-        Sequence<?> deps,
-        Sequence<?> runtimeDeps,
-        Sequence<?> exports,
-        Sequence<?> exportedPlugins,
-        Object jdepsApi,
-        Sequence<?> nativeLibraries,
-        StarlarkThread thread)
-        throws EvalException, RuleErrorException {
-      Artifact outputJar = (Artifact) outputJarApi;
-      @Nullable Artifact compileJar = nullIfNone(compileJarApi, Artifact.class);
-      @Nullable Artifact sourceJar = nullIfNone(sourceJarApi, Artifact.class);
-      @Nullable Artifact compileJdeps = nullIfNone(compileJdepsApi, Artifact.class);
-      @Nullable Artifact generatedClassJar = nullIfNone(generatedClassJarApi, Artifact.class);
-      @Nullable Artifact generatedSourceJar = nullIfNone(generatedSourceJarApi, Artifact.class);
-      @Nullable Artifact nativeHeadersJar = nullIfNone(nativeHeadersJarApi, Artifact.class);
-      @Nullable Artifact manifestProto = nullIfNone(manifestProtoApi, Artifact.class);
-      @Nullable Artifact jdeps = nullIfNone(jdepsApi, Artifact.class);
-      return JavaInfoBuildHelper.getInstance()
-          .createJavaInfo(
-              JavaOutput.builder()
-                  .setClassJar(outputJar)
-                  .setCompileJar(compileJar)
-                  .setCompileJdeps(compileJdeps)
-                  .setGeneratedClassJar(generatedClassJar)
-                  .setGeneratedSourceJar(generatedSourceJar)
-                  .setNativeHeadersJar(nativeHeadersJar)
-                  .setManifestProto(manifestProto)
-                  .setJdeps(jdeps)
-                  .addSourceJar(sourceJar)
-                  .build(),
-              neverlink,
-              Sequence.cast(deps, JavaInfo.class, "deps"),
-              Sequence.cast(runtimeDeps, JavaInfo.class, "runtime_deps"),
-              Sequence.cast(exports, JavaInfo.class, "exports"),
-              JavaPluginInfo.wrapSequence(exportedPlugins, "exported_plugins"),
-              Sequence.cast(nativeLibraries, CcInfo.class, "native_libraries"),
-              thread.getCallerLocation());
     }
 
     @Override

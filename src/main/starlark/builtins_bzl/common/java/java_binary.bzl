@@ -24,11 +24,11 @@ load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/paths.bzl", "paths")
 load(":common/java/java_info.bzl", "JavaInfo")
 load(":common/java/java_plugin_info.bzl", "JavaPluginInfo")
+load(":common/java/java_common.bzl", "java_common")
 load(
-    ":common/java/java_common.bzl",
+    ":common/java/java_common_internal_for_builtins.bzl",
     "collect_native_deps_dirs",
     "get_runtime_classpath_for_archive",
-    "java_common",
     "to_java_binary_info",
 )
 

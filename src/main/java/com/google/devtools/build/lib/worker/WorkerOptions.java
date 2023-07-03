@@ -94,7 +94,6 @@ public class WorkerOptions extends OptionsBase {
   @Option(
       name = "worker_max_multiplex_instances",
       oldName = "experimental_worker_max_multiplex_instances",
-      oldNameWarning = false,
       converter = MultiResourceConverter.class,
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
@@ -151,7 +150,6 @@ public class WorkerOptions extends OptionsBase {
   @Option(
       name = "worker_multiplex",
       oldName = "experimental_worker_multiplex",
-      oldNameWarning = false,
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},

@@ -18,7 +18,11 @@ load(":common/java/java_semantics.bzl", "semantics")
 load(":common/proto/proto_common.bzl", "ProtoLangToolchainInfo", proto_common = "proto_common_do_not_use")
 load(":common/proto/proto_info.bzl", "ProtoInfo")
 load(":common/java/java_info.bzl", "JavaInfo")
-load(":common/java/java_common.bzl", "java_common")
+load(
+    ":common/java/java_common_internal_for_builtins.bzl",
+    _compile_private_for_builtins = "compile",
+    _merge_private_for_builtins = "merge",
+)
 
 # The provider is used to collect source and runtime jars in the `proto_library` dependency graph.
 JavaProtoAspectInfo = provider("JavaProtoAspectInfo", fields = ["jars"])
@@ -106,23 +110,23 @@ def java_compile_for_protos(ctx, output_jar_suffix, source_jar = None, deps = []
         path, sep, filename = ctx.label.name.rpartition("/")
         output_jar = ctx.actions.declare_file(path + sep + "lib" + filename + output_jar_suffix)
         java_toolchain = semantics.find_java_toolchain(ctx)
-        java_info = java_common.compile(
+        java_info = _compile_private_for_builtins(
             ctx,
+            output = output_jar,
+            java_toolchain = java_toolchain,
             source_jars = [source_jar],
             deps = deps,
             exports = exports,
-            output = output_jar,
             output_source_jar = source_jar,
             injecting_rule_kind = injecting_rule_kind,
             javac_opts = java_toolchain.compatible_javacopts("proto"),
             enable_jspecify = False,
-            java_toolchain = java_toolchain,
             include_compilation_info = False,
         )
         jars = [source_jar, output_jar]
     else:
         # If there are no proto sources just pass along the compilation dependencies.
-        java_info = java_common.merge(deps + exports, merge_java_outputs = False, merge_source_jars = False)
+        java_info = _merge_private_for_builtins(deps + exports, merge_java_outputs = False, merge_source_jars = False)
         jars = []
     return java_info, jars
 
@@ -149,7 +153,7 @@ def bazel_java_proto_library_rule(ctx):
       ([JavaInfo, DefaultInfo, OutputGroupInfo])
     """
 
-    java_info = java_common.merge([dep[JavaInfo] for dep in ctx.attr.deps], merge_java_outputs = False)
+    java_info = _merge_private_for_builtins([dep[JavaInfo] for dep in ctx.attr.deps], merge_java_outputs = False)
 
     transitive_src_and_runtime_jars = depset(transitive = [dep[JavaProtoAspectInfo].jars for dep in ctx.attr.deps])
     transitive_runtime_jars = depset(transitive = [java_info.transitive_runtime_jars])
