@@ -57,4 +57,5 @@ semantics = struct(
     JAVA_STUB_TEMPLATE_LABEL = "@bazel_tools//tools/jdk:java_stub_template.txt",
     BUILD_INFO_TRANSLATOR_LABEL = None,
     JAVA_TEST_RUNNER_LABEL = "@bazel_tools//tools/jdk:TestRunner",
+    IS_BAZEL = True,
 )
