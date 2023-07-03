@@ -16,9 +16,6 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Streams.stream;
-import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.BOTH;
-import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.COMPILE_ONLY;
-import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.RUNTIME_ONLY;
 import static com.google.devtools.build.lib.rules.java.JavaInfo.streamProviders;
 import static java.util.stream.Stream.concat;
 
@@ -40,8 +37,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.util.ArrayList;
@@ -50,10 +45,8 @@ import java.util.Objects;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.syntax.Location;
 
 /** Implements logic for creating JavaInfo from different set of input parameters. */
 final class JavaInfoBuildHelper {
@@ -63,101 +56,6 @@ final class JavaInfoBuildHelper {
 
   public static JavaInfoBuildHelper getInstance() {
     return INSTANCE;
-  }
-
-  /**
-   * Creates JavaInfo instance from outputJar.
-   *
-   * @param javaOutput the artifacts that were created as a result of a compilation (e.g. javac,
-   *     scalac, etc)
-   * @param neverlink if true only use this library for compilation and not at runtime
-   * @param compileTimeDeps compile time dependencies that were used to create the output jar
-   * @param runtimeDeps runtime dependencies that are needed for this library
-   * @param exports libraries to make available for users of this library. <a
-   *     href="https://bazel.build/reference/be/java#java_library"
-   *     target="_top">java_library.exports</a>
-   * @param exportedPlugins A list of exported plugins.
-   * @param nativeLibraries CC library dependencies that are needed for this library
-   * @return new created JavaInfo instance
-   */
-  JavaInfo createJavaInfo(
-      JavaOutput javaOutput,
-      Boolean neverlink,
-      Sequence<JavaInfo> compileTimeDeps,
-      Sequence<JavaInfo> runtimeDeps,
-      Sequence<JavaInfo> exports,
-      Iterable<JavaPluginInfo> exportedPlugins,
-      Sequence<CcInfo> nativeLibraries,
-      Location location)
-      throws RuleErrorException, EvalException {
-    JavaInfo.Builder javaInfoBuilder = JavaInfo.Builder.create();
-    javaInfoBuilder.setLocation(location);
-    javaInfoBuilder.setNeverlink(neverlink);
-
-    JavaCompilationArgsProvider.Builder javaCompilationArgsBuilder =
-        JavaCompilationArgsProvider.builder();
-
-    if (!neverlink) {
-      javaCompilationArgsBuilder.addRuntimeJar(javaOutput.getClassJar());
-    }
-    if (javaOutput.getCompileJar() != null) {
-      javaCompilationArgsBuilder.addDirectCompileTimeJar(
-          /* interfaceJar= */ javaOutput.getCompileJar(), /* fullJar= */ javaOutput.getClassJar());
-    }
-
-    JavaRuleOutputJarsProvider javaRuleOutputJarsProvider =
-        JavaRuleOutputJarsProvider.builder().addJavaOutput(javaOutput).build();
-    javaInfoBuilder.javaRuleOutputs(javaRuleOutputJarsProvider);
-
-    ClasspathType type = neverlink ? COMPILE_ONLY : BOTH;
-
-    streamProviders(exports, JavaCompilationArgsProvider.class)
-        .forEach(args -> javaCompilationArgsBuilder.addExports(args, type));
-    streamProviders(compileTimeDeps, JavaCompilationArgsProvider.class)
-        .forEach(args -> javaCompilationArgsBuilder.addDeps(args, type));
-
-    streamProviders(runtimeDeps, JavaCompilationArgsProvider.class)
-        .forEach(args -> javaCompilationArgsBuilder.addDeps(args, RUNTIME_ONLY));
-
-    if (javaOutput.getCompileJdeps() != null) {
-      javaCompilationArgsBuilder.addCompileTimeJavaDependencyArtifacts(
-          NestedSetBuilder.create(Order.STABLE_ORDER, javaOutput.getCompileJdeps()));
-    }
-
-    javaInfoBuilder.javaCompilationArgs(javaCompilationArgsBuilder.build());
-
-    javaInfoBuilder.javaPluginInfo(mergeExportedJavaPluginInfo(exportedPlugins, exports));
-
-    javaInfoBuilder.javaSourceJars(
-        createJavaSourceJarsProvider(
-            javaOutput.getSourceJars(), concat(compileTimeDeps, runtimeDeps, exports)));
-
-    javaInfoBuilder.javaGenJars(
-        JavaGenJarsProvider.create(
-            false,
-            javaOutput.getGeneratedClassJar(),
-            javaOutput.getGeneratedSourceJar(),
-            JavaPluginInfo.empty(),
-            collectJavaGenJarsProviders(concat(compileTimeDeps, exports))));
-
-    javaInfoBuilder.setRuntimeJars(ImmutableList.of(javaOutput.getClassJar()));
-
-    ImmutableList<JavaCcInfoProvider> transitiveNativeLibraries =
-        Streams.concat(
-                streamProviders(runtimeDeps, JavaCcInfoProvider.class),
-                streamProviders(exports, JavaCcInfoProvider.class),
-                streamProviders(compileTimeDeps, JavaCcInfoProvider.class),
-                Stream.of(new JavaCcInfoProvider(CcInfo.merge(nativeLibraries))))
-            .collect(toImmutableList());
-    javaInfoBuilder.javaCcInfo(JavaCcInfoProvider.merge(transitiveNativeLibraries));
-
-    javaInfoBuilder.javaModuleFlags(
-        JavaModuleFlagsProvider.merge(
-            JavaInfo.streamProviders(
-                    concat(compileTimeDeps, exports), JavaModuleFlagsProvider.class)
-                .collect(toImmutableList())));
-
-    return javaInfoBuilder.build();
   }
 
   private static ImmutableList<JavaGenJarsProvider> collectJavaGenJarsProviders(
