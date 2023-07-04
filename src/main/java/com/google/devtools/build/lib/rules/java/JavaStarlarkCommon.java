@@ -307,11 +307,6 @@ public class JavaStarlarkCommon
   }
 
   @Override
-  public ProviderApi getJavaPluginProvider() {
-    return JavaPluginInfo.PROVIDER;
-  }
-
-  @Override
   public Provider getJavaToolchainProvider() {
     return JavaToolchainProvider.PROVIDER;
   }
