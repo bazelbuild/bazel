@@ -81,11 +81,6 @@ public class JavaStarlarkCommon
   }
 
   @Override
-  public Provider getJavaProvider() {
-    return JavaInfo.PROVIDER;
-  }
-
-  @Override
   public JavaInfo createJavaCompileAction(
       StarlarkRuleContext starlarkRuleContext,
       Sequence<?> sourceJars, // <Artifact> expected

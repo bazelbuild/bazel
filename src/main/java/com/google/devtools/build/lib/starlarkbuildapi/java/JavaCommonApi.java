@@ -57,15 +57,6 @@ public interface JavaCommonApi<
     extends StarlarkValue {
 
   @StarlarkMethod(
-      name = "provider",
-      structField = true,
-      doc =
-          "Returns the Java declared provider. <br>"
-              + "The same value is accessible as <code>JavaInfo</code>. <br>"
-              + "Prefer using <code>JavaInfo</code> in new code.")
-  ProviderApi getJavaProvider();
-
-  @StarlarkMethod(
       name = "compile",
       doc =
           "Compiles Java source files/jars from the implementation of a Starlark rule and returns "
