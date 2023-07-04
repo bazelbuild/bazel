@@ -204,15 +204,6 @@ public class BuildRequestOptions extends OptionsBase {
   public int maxResultTargets;
 
   @Option(
-      name = "announce",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Deprecated. No-op.",
-      deprecationWarning = "This option is now deprecated and is a no-op")
-  public boolean announce;
-
-  @Option(
       name = "symlink_prefix",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,

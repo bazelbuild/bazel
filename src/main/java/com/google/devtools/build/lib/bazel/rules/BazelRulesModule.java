@@ -403,6 +403,15 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
         help = "Deprecated no-op.")
     public boolean showArtifacts;
+
+    @Option(
+        name = "announce",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help = "Deprecated. No-op.",
+        deprecationWarning = "This option is now deprecated and is a no-op")
+    public boolean announce;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */
