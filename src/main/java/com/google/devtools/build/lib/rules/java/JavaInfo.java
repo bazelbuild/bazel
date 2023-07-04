@@ -239,7 +239,7 @@ public final class JavaInfo extends NativeInfo
   /** Java constraints (e.g. "android") that are present on the target. */
   private final ImmutableList<String> javaConstraints;
 
-  // Whether or not this library should be used only for compilation and not at runtime.
+  // Whether this library should be used only for compilation and not at runtime.
   private final boolean neverlink;
 
   @Nullable
@@ -404,7 +404,7 @@ public final class JavaInfo extends NativeInfo
         JavaSourceJarsProvider.fromStarlarkJavaInfo(javaInfo),
         extractDirectRuntimeJars(javaInfo),
         extractNeverLink(javaInfo),
-        ImmutableList.of(),
+        extractConstraints(javaInfo),
         javaInfo.getCreationLocation());
   }
 
@@ -420,12 +420,22 @@ public final class JavaInfo extends NativeInfo
     return neverlink != null && neverlink;
   }
 
+  private static ImmutableList<String> extractConstraints(StructImpl javaInfo)
+      throws EvalException {
+    Object constraints = javaInfo.getValue("_constraints");
+    if (constraints == null || constraints == Starlark.NONE) {
+      return ImmutableList.of();
+    }
+    return Sequence.cast(constraints, String.class, "_constraints").getImmutableList();
+  }
+
   @Override
   public JavaInfoProvider getProvider() {
     return PROVIDER;
   }
 
-  public Boolean isNeverlink() {
+  @Override
+  public boolean isNeverlink() {
     return neverlink;
   }
 
@@ -579,6 +589,11 @@ public final class JavaInfo extends NativeInfo
   /** Returns all constraints set on the associated target. */
   public ImmutableList<String> getJavaConstraints() {
     return javaConstraints;
+  }
+
+  @Override
+  public Sequence<String> getJavaConstraintsStarlark() {
+    return StarlarkList.immutableCopyOf(javaConstraints);
   }
 
   /**

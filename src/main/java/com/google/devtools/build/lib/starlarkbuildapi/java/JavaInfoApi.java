@@ -33,6 +33,12 @@ public interface JavaInfoApi<
     extends StructApi, JavaPluginInfoApi<FileT, JavaPluginDataT, JavaOutputT> {
 
   @StarlarkMethod(
+      name = "_neverlink",
+      doc = "Whether this library should be used only for compilation and not at runtime.",
+      structField = true)
+  boolean isNeverlink();
+
+  @StarlarkMethod(
       name = "transitive_runtime_jars",
       doc = "Returns a transitive set of Jars required on the target's runtime classpath.",
       structField = true)
@@ -170,6 +176,9 @@ public interface JavaInfoApi<
 
   @StarlarkMethod(name = "_compile_time_java_dependencies", documented = false, structField = true)
   Depset getCompileTimeJavaDependencies();
+
+  @StarlarkMethod(name = "_constraints", documented = false, structField = true)
+  Sequence<String> getJavaConstraintsStarlark();
 
   /** Provider class for {@link JavaInfoApi} objects. */
   interface JavaInfoProviderApi extends ProviderApi {

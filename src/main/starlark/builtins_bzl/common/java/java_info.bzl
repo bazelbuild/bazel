@@ -240,6 +240,7 @@ def _javainfo_init(
             transitive = [dep._compile_time_java_dependencies for dep in exports] +
                          ([depset([compile_jdeps])] if compile_jdeps else []),
         ),
+        "_constraints": [],
     }
     if _java_common_internal._google_legacy_api_enabled():
         cc_info = cc_common.merge_cc_infos(
@@ -310,6 +311,7 @@ JavaInfo, _new_javainfo = provider(
         "_compile_time_java_dependencies": "internal API, do not use",
         "_neverlink": "internal API, do not use",
         "_plugin_info": "internal API, do not use",
+        "_constraints": "internal API, do not use",
     },
     init = _javainfo_init,
 )
