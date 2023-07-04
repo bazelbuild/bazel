@@ -444,6 +444,15 @@ public final class BazelRulesModule extends BlazeModule {
         },
         help = "no-op")
     public boolean actionCacheStoreOutputMetadata;
+
+    @Option(
+        name = "discard_actions_after_execution",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
+        help = "This option is deprecated and has no effect.")
+    public boolean discardActionsAfterExecution;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */

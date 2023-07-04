@@ -384,15 +384,6 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean rewindLostInputs;
 
   @Option(
-      name = "discard_actions_after_execution",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
-      help = "This option is deprecated and has no effect.")
-  public boolean discardActionsAfterExecution;
-
-  @Option(
       name = "incompatible_skip_genfiles_symlink",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
