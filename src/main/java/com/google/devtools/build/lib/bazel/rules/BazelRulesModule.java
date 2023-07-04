@@ -412,6 +412,14 @@ public final class BazelRulesModule extends BlazeModule {
         help = "Deprecated. No-op.",
         deprecationWarning = "This option is now deprecated and is a no-op")
     public boolean announce;
+
+    @Option(
+        name = "print_workspace_in_output_paths_if_needed",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+        help = "Deprecated no-op.")
+    public boolean printWorkspaceInOutputPathsIfNeeded;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */

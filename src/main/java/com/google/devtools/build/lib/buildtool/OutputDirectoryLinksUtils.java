@@ -179,14 +179,9 @@ public final class OutputDirectoryLinksUtils {
       Iterable<SymlinkDefinition> symlinkDefinitions,
       String symlinkPrefix,
       String productName,
-      Path workspaceDirectory,
-      Path workingDirectory) {
+      Path workspaceDirectory) {
     return new PathPrettyPrinter(
-        getAllLinkDefinitions(symlinkDefinitions),
-        symlinkPrefix,
-        productName,
-        workspaceDirectory,
-        workingDirectory);
+        getAllLinkDefinitions(symlinkDefinitions), symlinkPrefix, productName, workspaceDirectory);
   }
 
   private static void removeAllSymlinks(
