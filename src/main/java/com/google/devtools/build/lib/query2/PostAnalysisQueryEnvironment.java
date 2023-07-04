@@ -13,8 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
@@ -286,7 +289,9 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       targetsByKey.put(getConfiguredTargetKey(target).toKey(), target);
     }
     Map<SkyKey, ImmutableList<ClassifiedDependency<T>>> reverseDepsByKey =
-        targetifyValues(targetsByKey, graph.getReverseDeps(targetsByKey.keySet()));
+        targetifyValues(
+            targetsByKey,
+            skipDelegatingAncestors(graph.getReverseDeps(targetsByKey.keySet())).asMap());
     if (targetsByKey.size() != reverseDepsByKey.size()) {
       Iterable<ConfiguredTargetKey> missingTargets =
           Sets.difference(targetsByKey.keySet(), reverseDepsByKey.keySet()).stream()
@@ -320,6 +325,74 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       result.addAll(getAllowedDeps(targetAndRdeps.getKey(), ruleDeps.build()));
     }
     return result;
+  }
+
+  /**
+   * Expands any delegating ancestors when computing reverse dependencies.
+   *
+   * <p>The {@link ConfiguredTargetKey} graph contains <i>delegation</i> entries where instead of
+   * computing its own value, it delegates to a child with the same labels but a different
+   * configuration. This causes problems in reverse dependency traversal because traversal stops at
+   * duplicate values. The delegating parent has the same value as the delegate child.
+   *
+   * <p>This method replaces any delegating ancestor in the set of reverse dependencies with the
+   * reverse dependencies of the ancestor.
+   */
+  private ImmutableListMultimap<SkyKey, SkyKey> skipDelegatingAncestors(
+      Map<SkyKey, Iterable<SkyKey>> reverseDeps) throws InterruptedException {
+    var result = ImmutableListMultimap.<SkyKey, SkyKey>builder();
+    for (Map.Entry<SkyKey, Iterable<SkyKey>> entry : reverseDeps.entrySet()) {
+      SkyKey child = entry.getKey();
+      Iterable<SkyKey> rdeps = entry.getValue();
+      Set<SkyKey> unwoundRdeps = unwindReverseDependencyDelegationLayersIfFound(child, rdeps);
+      result.putAll(child, unwoundRdeps == null ? rdeps : unwoundRdeps);
+    }
+    return result.build();
+  }
+
+  @Nullable
+  private Set<SkyKey> unwindReverseDependencyDelegationLayersIfFound(
+      SkyKey child, Iterable<SkyKey> rdeps) throws InterruptedException {
+    // Most rdeps will not be delegating. Performs an optimistic pass that avoids copying.
+    boolean foundDelegatingRdep = false;
+    for (SkyKey rdep : rdeps) {
+      if (!rdep.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
+        continue;
+      }
+      ConfiguredTargetKey actualParentKey = getConfiguredTargetKey(getValueFromKey(rdep));
+      if (actualParentKey.equals(child)) {
+        // The parent has the same value as the child because it is delegating.
+        foundDelegatingRdep = true;
+        break;
+      }
+    }
+    if (!foundDelegatingRdep) {
+      return null;
+    }
+    var logicalParents = new HashSet<SkyKey>();
+    unwindReverseDependencyDelegationLayers(child, rdeps, logicalParents);
+    return logicalParents;
+  }
+
+  private void unwindReverseDependencyDelegationLayers(
+      SkyKey child, Iterable<SkyKey> rdeps, Set<SkyKey> output) throws InterruptedException {
+    // Checks the value of each rdep to see if it is delegating to `child`. If so, fetches its rdeps
+    // and processes those, applying the same expansion as needed.
+    for (SkyKey rdep : rdeps) {
+      if (!rdep.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
+        output.add(rdep);
+        continue;
+      }
+      ConfiguredTargetKey actualParentKey = getConfiguredTargetKey(getValueFromKey(rdep));
+      if (!actualParentKey.equals(child)) {
+        output.add(rdep);
+        continue;
+      }
+      // Otherwise `rdep` is delegating to child and needs to be unwound.
+      Iterable<SkyKey> rdepParents = graph.getReverseDeps(ImmutableList.of(rdep)).get(rdep);
+      // Applies this recursively in case there are multiple layers of delegation.
+      unwindReverseDependencyDelegationLayers(child, rdepParents, output);
+    }
   }
 
   /**
@@ -416,7 +489,6 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
         continue;
       }
       if (key.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
-        ConfiguredTargetKey ctkey = (ConfiguredTargetKey) key.argument();
         T dependency = getValueFromKey(key);
         Preconditions.checkState(
             dependency != null,
@@ -426,7 +498,8 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
                 + " configurability team.",
             key);
 
-        boolean implicit = implicitDeps == null || implicitDeps.contains(ctkey);
+        boolean implicit =
+            implicitDeps == null || implicitDeps.contains(getConfiguredTargetKey(dependency));
         values.add(new ClassifiedDependency<>(dependency, implicit));
         knownCtDeps.add(key);
       } else if (settings.contains(Setting.INCLUDE_ASPECTS)
@@ -485,6 +558,14 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
     private ClassifiedDependency(T dependency, boolean implicit) {
       this.implicit = implicit;
       this.dependency = dependency;
+    }
+
+    @Override
+    public String toString() {
+      return toStringHelper(this)
+          .add("implicit", implicit)
+          .add("dependency", dependency)
+          .toString();
     }
   }
 
