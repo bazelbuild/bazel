@@ -252,18 +252,6 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean experimentalConvenienceSymlinksBepEvent;
 
   @Option(
-      name = "experimental_multi_cpu",
-      deprecationWarning = "This flag is a no-op and will be deleted in a future release.",
-      converter = Converters.CommaSeparatedOptionListConverter.class,
-      allowMultiple = true,
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "Deprecated. No-op.")
-  public List<String> multiCpus;
-
-  @Option(
       name = "output_tree_tracking",
       oldName = "experimental_output_tree_tracking",
       defaultValue = "true",

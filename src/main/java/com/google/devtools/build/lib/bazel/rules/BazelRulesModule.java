@@ -420,6 +420,18 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
         help = "Deprecated no-op.")
     public boolean printWorkspaceInOutputPathsIfNeeded;
+
+    @Option(
+        name = "experimental_multi_cpu",
+        deprecationWarning = "This flag is a no-op and will be deleted in a future release.",
+        converter = Converters.CommaSeparatedOptionListConverter.class,
+        allowMultiple = true,
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+        help = "Deprecated. No-op.")
+    public List<String> multiCpus;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */
