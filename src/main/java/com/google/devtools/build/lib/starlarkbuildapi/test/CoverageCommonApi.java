@@ -99,9 +99,11 @@ public interface CoverageCommonApi<
             defaultValue = "None"),
         @Param(
             name = "metadata_files",
+            doc =
+                "Additional files required to generate coverage LCOV files after code execution."
+                    + " e.g. .gcno files for C++.",
             named = true,
             positional = false,
-            documented = false,
             defaultValue = "[]",
             allowedTypes = {
               @ParamType(type = Sequence.class, generic1 = FileApi.class),
