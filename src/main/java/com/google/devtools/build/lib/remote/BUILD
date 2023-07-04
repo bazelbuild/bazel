@@ -9,8 +9,8 @@ filegroup(
     srcs = glob(["*"]) + [
         "//src/main/java/com/google/devtools/build/lib/remote/circuitbreaker:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/common:srcs",
-        "//src/main/java/com/google/devtools/build/lib/remote/downloader:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/disk:srcs",
+        "//src/main/java/com/google/devtools/build/lib/remote/downloader:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/grpc:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/http:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/logging:srcs",
@@ -206,6 +206,7 @@ java_library(
     srcs = ["ToplevelArtifactsDownloader.java"],
     deps = [
         ":abstract_action_input_prefetcher",
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",

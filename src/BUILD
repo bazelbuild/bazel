@@ -645,7 +645,7 @@ release_archive(
 filegroup(
     name = "test_repos",
     srcs = [
-        "@android_gmaven_r8_for_testing//jar:file",
+        "@android_gmaven_r8//jar:file",
         "@android_tools_for_testing//:WORKSPACE",
         "@bazel_skylib//:WORKSPACE",
         "@com_google_protobuf//:WORKSPACE",

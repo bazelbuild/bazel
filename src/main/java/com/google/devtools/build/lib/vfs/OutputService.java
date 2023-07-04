@@ -17,7 +17,10 @@ package com.google.devtools.build.lib.vfs;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
@@ -32,6 +35,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
 import javax.annotation.Nullable;
@@ -120,6 +124,10 @@ public interface OutputService {
   /** Flush and wait for in-progress downloads. */
   default void flushOutputTree() throws InterruptedException {}
 
+  default ListenableFuture<Void> waitOutputDownloads(Collection<PathFragment> files) {
+    return Futures.immediateVoidFuture();
+  }
+
   /**
    * Finish the build.
    *
@@ -199,6 +207,7 @@ public interface OutputService {
    * @param filesets The Fileset symlinks known for this action.
    */
   default void updateActionFileSystemContext(
+      ActionExecutionMetadata action,
       FileSystem actionFileSystem,
       Environment env,
       MetadataInjector injector,

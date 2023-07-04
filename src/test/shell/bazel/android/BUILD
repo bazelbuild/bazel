@@ -233,3 +233,17 @@ android_sh_test(
     # See https://github.com/bazelbuild/bazel/issues/8235
     tags = ["no-remote"],
 )
+
+android_sh_test(
+    name = "DexFileSplitter_synthetic_classes_test",
+    size = "medium",
+    srcs = ["DexFileSplitter_synthetic_classes_test.sh"],
+    data = [
+        ":android_helper",
+        "//external:android_sdk_for_testing",
+        "//src/test/shell/bazel:test-deps",
+    ],
+    tags = [
+        "no_windows",
+    ],
+)

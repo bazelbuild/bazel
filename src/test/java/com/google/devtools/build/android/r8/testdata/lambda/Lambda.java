@@ -1,4 +1,4 @@
-// Copyright 2016 The Bazel Authors. All rights reserved.
+// Copyright 2023 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,20 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/preloaded_dep.h"
+package com.google.devtools.build.android.r8.testdata.lambda;
 
-int preloaded_dep() { return 42; }
+import java.util.function.Supplier;
+
+/** Test class */
+public final class Lambda {
+
+  private Lambda() {}
+
+  private static <T> T foo(Supplier<T> fn) {
+    return fn.get();
+  }
+
+  public static void main(String[] args) {
+    String unused = foo(() -> "Hello, world!");
+  }
+}

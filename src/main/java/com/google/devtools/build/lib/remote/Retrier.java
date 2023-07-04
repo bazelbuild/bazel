@@ -23,6 +23,7 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.Retrier.CircuitBreaker.State;
 import java.io.IOException;
+import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -100,7 +101,7 @@ public class Retrier {
     State state();
 
     /** Called after an execution failed. */
-    void recordFailure(Exception e);
+    void recordFailure();
 
     /** Called after an execution succeeded. */
     void recordSuccess();
@@ -130,7 +131,7 @@ public class Retrier {
         }
 
         @Override
-        public void recordFailure(Exception e) {}
+        public void recordFailure() {}
 
         @Override
         public void recordSuccess() {}
@@ -245,12 +246,14 @@ public class Retrier {
         circuitBreaker.recordSuccess();
         return r;
       } catch (Exception e) {
-        circuitBreaker.recordFailure(e);
         Throwables.throwIfInstanceOf(e, InterruptedException.class);
-        if (State.TRIAL_CALL.equals(circuitState)) {
+        if (!shouldRetry.test(e)) {
+          // A non-retriable error doesn't represent server failure.
+          circuitBreaker.recordSuccess();
           throw e;
         }
-        if (!shouldRetry.test(e)) {
+        circuitBreaker.recordFailure();
+        if (Objects.equals(circuitState, State.TRIAL_CALL)) {
           throw e;
         }
         final long delayMillis = backoff.nextDelayMillis(e);
@@ -297,11 +300,11 @@ public class Retrier {
 
   private <T> ListenableFuture<T> onExecuteAsyncFailure(
       Exception t, AsyncCallable<T> call, Backoff backoff, State circuitState) {
-    circuitBreaker.recordFailure(t);
-    if (circuitState.equals(State.TRIAL_CALL)) {
-      return Futures.immediateFailedFuture(t);
-    }
     if (isRetriable(t)) {
+      circuitBreaker.recordFailure();
+      if (circuitState.equals(State.TRIAL_CALL)) {
+        return Futures.immediateFailedFuture(t);
+      }
       long waitMillis = backoff.nextDelayMillis(t);
       if (waitMillis >= 0) {
         try {
@@ -315,6 +318,10 @@ public class Retrier {
         return Futures.immediateFailedFuture(t);
       }
     } else {
+      // gRPC Errors NOT_FOUND, OUT_OF_RANGE, ALREADY_EXISTS etc. are non-retriable error, and they
+      // don't represent an
+      // issue in Server. So treating these errors as successful api call.
+      circuitBreaker.recordSuccess();
       return Futures.immediateFailedFuture(t);
     }
   }

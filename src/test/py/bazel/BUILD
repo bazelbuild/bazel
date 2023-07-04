@@ -335,8 +335,8 @@ py_test(
 )
 
 py_test(
-    name = "starlark_options_test",
-    srcs = ["starlark_options_test.py"],
+    name = "options_test",
+    srcs = ["options_test.py"],
     deps = [":test_base"],
 )
 
@@ -345,6 +345,20 @@ py_test(
     size = "large",
     srcs = ["bzlmod/bzlmod_query_test.py"],
     tags = [
+        "requires-network",
+    ],
+    deps = [
+        ":bzlmod_test_utils",
+        ":test_base",
+    ],
+)
+
+py_test(
+    name = "bzlmod_credentials_test",
+    size = "large",
+    srcs = ["bzlmod/bzlmod_credentials_test.py"],
+    tags = [
+        "no_windows",  # test uses a Python script as a credential helper
         "requires-network",
     ],
     deps = [

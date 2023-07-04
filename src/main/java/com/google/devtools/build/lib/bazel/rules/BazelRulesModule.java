@@ -483,6 +483,15 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op")
     public boolean incompatibleDisableThirdPartyLicenseChecking;
+
+    @Option(
+        name = "experimental_use_fork_join_pool",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        metadataTags = OptionMetadataTag.DEPRECATED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean useForkJoinPool;
   }
 
   @Override
