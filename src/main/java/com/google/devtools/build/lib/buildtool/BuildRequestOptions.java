@@ -374,18 +374,6 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean useActionCache;
 
   @Option(
-      name = "action_cache_store_output_metadata",
-      oldName = "experimental_action_cache_store_output_metadata",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
-        OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
-      },
-      help = "no-op")
-  public boolean actionCacheStoreOutputMetadata;
-
-  @Option(
       name = "rewind_lost_inputs",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

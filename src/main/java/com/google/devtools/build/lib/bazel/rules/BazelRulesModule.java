@@ -432,6 +432,18 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help = "Deprecated. No-op.")
     public List<String> multiCpus;
+
+    @Option(
+        name = "action_cache_store_output_metadata",
+        oldName = "experimental_action_cache_store_output_metadata",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+          OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
+        },
+        help = "no-op")
+    public boolean actionCacheStoreOutputMetadata;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */
