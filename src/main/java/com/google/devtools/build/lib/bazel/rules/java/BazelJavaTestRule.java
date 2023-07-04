@@ -21,6 +21,8 @@ import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses.EmptyRuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses.TestBaseRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
@@ -34,6 +36,8 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 
 /**
  * Rule definition for the java_test rule.
+ *
+ * <p>This rule is implemented in Starlark. This class remains only for doc-gen purposes.
  */
 public final class BazelJavaTestRule implements RuleDefinition {
 
@@ -106,11 +110,11 @@ public final class BazelJavaTestRule implements RuleDefinition {
 
   @Override
   public Metadata getMetadata() {
-    return RuleDefinition.Metadata.builder()
+    return Metadata.builder()
         .name("java_test")
         .type(RuleClassType.TEST)
-        .ancestors(BaseJavaBinaryRule.class, BaseRuleClasses.TestBaseRule.class)
-        .factoryClass(BazelJavaTest.class)
+        .ancestors(BaseJavaBinaryRule.class, TestBaseRule.class)
+        .factoryClass(EmptyRuleConfiguredTargetFactory.class)
         .build();
   }
 }
