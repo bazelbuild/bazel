@@ -76,9 +76,6 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
     if (!supportFilesBuilder.isEmpty() || !environmentPairs.isEmpty()) {
       BuiltinRestriction.throwIfNotBuiltinUsage(thread);
     }
-    if (!metadataFiles.isEmpty()) {
-      BuiltinRestriction.throwIfNotBuiltinUsage(thread);
-    }
     return createInstrumentedFilesInfo(
         starlarkRuleContext.getRuleContext(),
         Sequence.cast(sourceAttributes, String.class, "source_attributes"),
