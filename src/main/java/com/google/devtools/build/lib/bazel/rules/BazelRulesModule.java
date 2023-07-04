@@ -453,6 +453,18 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
         help = "This option is deprecated and has no effect.")
     public boolean discardActionsAfterExecution;
+
+    @Option(
+        name = "defer_param_files",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+          OptionEffectTag.EXECUTION,
+          OptionEffectTag.ACTION_COMMAND_LINES
+        },
+        help = "This option is deprecated and has no effect and will be removed in the future.")
+    public boolean deferParamFiles;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */

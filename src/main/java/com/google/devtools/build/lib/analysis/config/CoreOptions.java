@@ -156,18 +156,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public int minParamFileSize;
 
   @Option(
-      name = "defer_param_files",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.EXECUTION,
-        OptionEffectTag.ACTION_COMMAND_LINES
-      },
-      help = "This option is deprecated and has no effect and will be removed in the future.")
-  public boolean deferParamFiles;
-
-  @Option(
       name = "experimental_extended_sanity_checks",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
