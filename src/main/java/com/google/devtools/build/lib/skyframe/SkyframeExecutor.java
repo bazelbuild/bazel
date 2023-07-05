@@ -1722,11 +1722,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
           lastRemoteCacheEnabled != null && lastRemoteCacheEnabled && !remoteCacheEnabled;
     }
     lastRemoteCacheEnabled = remoteCacheEnabled;
-
-    RemoteOutputsMode remoteOutputsMode =
+    lastRemoteOutputsMode =
         remoteOptions != null ? remoteOptions.remoteOutputsMode : RemoteOutputsMode.ALL;
-    needsDeletion |= lastRemoteOutputsMode != null && lastRemoteOutputsMode != remoteOutputsMode;
-    this.lastRemoteOutputsMode = remoteOutputsMode;
 
     if (needsDeletion) {
       memoizingEvaluator.delete(k -> SkyFunctions.ACTION_EXECUTION.equals(k.functionName()));
