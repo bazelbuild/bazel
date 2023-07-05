@@ -465,13 +465,6 @@ public interface JavaCommonApi<
   ProviderApi getJavaRuntimeProvider();
 
   @StarlarkMethod(
-      name = "MessageBundleInfo",
-      doc = "The provider used to supply message bundles for translation",
-      structField = true,
-      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
-  ProviderApi getMessageBundleInfo();
-
-  @StarlarkMethod(
       name = "set_annotation_processing",
       doc = "Returns a copy of the given JavaInfo with the given annotation_processing info.",
       parameters = {

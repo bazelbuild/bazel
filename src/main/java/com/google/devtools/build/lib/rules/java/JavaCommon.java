@@ -674,7 +674,7 @@ public class JavaCommon {
   }
 
   /** Processes the sources of this target, adding them as messages or proper sources. */
-  private void processSrcs(JavaTargetAttributes.Builder attributes) {
+  private void processSrcs(JavaTargetAttributes.Builder attributes) throws RuleErrorException {
     List<? extends TransitiveInfoCollection> srcs = ruleContext.getPrerequisites("srcs");
     for (TransitiveInfoCollection src : srcs) {
       ImmutableList<Artifact> messages = MessageBundleInfo.getMessages(src);

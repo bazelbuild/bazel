@@ -19,6 +19,7 @@ load(
     "JavaInfo",
     _java_info_add_constraints = "add_constraints",
 )
+load(":common/java/message_bundle_info.bzl", "MessageBundleInfo")
 load(":common/java/java_common_internal_for_builtins.bzl", "compile", "merge", "run_ijar")
 load(":common/java/java_plugin_info.bzl", "JavaPluginInfo")
 load(":common/java/java_semantics.bzl", "semantics")
@@ -174,7 +175,7 @@ def _make_non_strict(java_info):
     return _java_common_internal.make_non_strict(java_info)
 
 def _get_message_bundle_info():
-    return None if semantics.IS_BAZEL else _java_common_internal.MessageBundleInfo
+    return None if semantics.IS_BAZEL else MessageBundleInfo
 
 def _add_constraints(java_info, constraints = []):
     """Returns a copy of the given JavaInfo with the given constraints added.
