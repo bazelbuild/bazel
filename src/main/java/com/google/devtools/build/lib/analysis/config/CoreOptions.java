@@ -173,8 +173,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
       help =
           "If this option is enabled, filesets crossing package boundaries are reported "
-              + "as errors. It does not work when check_fileset_dependencies_recursively is "
-              + "disabled.")
+              + "as errors.")
   public boolean strictFilesets;
 
   @Option(
@@ -498,14 +497,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "their runfiles, which matches the recommended behavior for Starlark rules ("
               + "https://bazel.build/extending/rules#runfiles_features_to_avoid).")
   public boolean alwaysIncludeFilesToBuildInData;
-
-  @Option(
-      name = "experimental_skyframe_native_filesets",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      deprecationWarning = "This flag is a no-op and skyframe-native-filesets is always true.")
-  public boolean skyframeNativeFileset;
 
   @Option(
       name = "run_under",

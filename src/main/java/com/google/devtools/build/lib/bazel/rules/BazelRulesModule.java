@@ -468,6 +468,16 @@ public final class BazelRulesModule extends BlazeModule {
     public boolean deferParamFiles;
 
     @Option(
+        name = "experimental_throttle_action_cache_check",
+        defaultValue = "true",
+        converter = BooleanConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        metadataTags = OptionMetadataTag.EXPERIMENTAL,
+        effectTags = {OptionEffectTag.EXECUTION},
+        help = "no-op")
+    public boolean throttleActionCacheCheck;
+
+    @Option(
         name = "check_fileset_dependencies_recursively",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -478,14 +488,12 @@ public final class BazelRulesModule extends BlazeModule {
     public boolean checkFilesetDependenciesRecursively;
 
     @Option(
-        name = "experimental_throttle_action_cache_check",
+        name = "experimental_skyframe_native_filesets",
         defaultValue = "true",
-        converter = BooleanConverter.class,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        metadataTags = OptionMetadataTag.EXPERIMENTAL,
-        effectTags = {OptionEffectTag.EXECUTION},
-        help = "no-op")
-    public boolean throttleActionCacheCheck;
+        effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+        deprecationWarning = "This flag is a no-op and skyframe-native-filesets is always true.")
+    public boolean skyframeNativeFileset;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */
