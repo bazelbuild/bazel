@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -69,8 +70,9 @@ public final class SpawnMetrics {
   private final int executionWallTimeInMs;
   private final int processOutputsTimeInMs;
   private final int networkTimeInMs;
+
   // error code to duration in ms
-  private final Map<Integer, Integer> retryTimeInMs;
+  private final ImmutableMap<Integer, Integer> retryTimeInMs;
   private final long inputBytes;
   private final long inputFiles;
   private final long memoryEstimateBytes;
@@ -91,7 +93,7 @@ public final class SpawnMetrics {
     this.setupTimeInMs = builder.setupTimeInMs;
     this.uploadTimeInMs = builder.uploadTimeInMs;
     this.executionWallTimeInMs = builder.executionWallTimeInMs;
-    this.retryTimeInMs = builder.retryTimeInMs;
+    this.retryTimeInMs = ImmutableMap.copyOf(builder.retryTimeInMs);
     this.processOutputsTimeInMs = builder.processOutputsTimeInMs;
     this.inputBytes = builder.inputBytes;
     this.inputFiles = builder.inputFiles;
@@ -436,8 +438,8 @@ public final class SpawnMetrics {
     }
 
     @CanIgnoreReturnValue
-    public Builder setRetryTimeInMs(Map<Integer, Integer> retryTimeInMs) {
-      this.retryTimeInMs = new HashMap<>(retryTimeInMs);
+    public Builder setRetryTimeInMs(ImmutableMap<Integer, Integer> retryTimeInMs) {
+      this.retryTimeInMs = retryTimeInMs;
       return this;
     }
 
