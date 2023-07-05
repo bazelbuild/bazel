@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.Converters.BooleanConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -475,6 +476,16 @@ public final class BazelRulesModule extends BlazeModule {
                 + "to ensure correctness of builds.",
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS})
     public boolean checkFilesetDependenciesRecursively;
+
+    @Option(
+        name = "experimental_throttle_action_cache_check",
+        defaultValue = "true",
+        converter = BooleanConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        metadataTags = OptionMetadataTag.EXPERIMENTAL,
+        effectTags = {OptionEffectTag.EXECUTION},
+        help = "no-op")
+    public boolean throttleActionCacheCheck;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */

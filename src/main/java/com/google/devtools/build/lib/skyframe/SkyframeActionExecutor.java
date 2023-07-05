@@ -308,10 +308,7 @@ public final class SkyframeActionExecutor {
     freeDiscoveredInputsAfterExecution =
         !trackIncrementalState && options.getOptions(CoreOptions.class).actionListeners.isEmpty();
 
-    this.cacheHitSemaphore =
-        options.getOptions(CoreOptions.class).throttleActionCacheCheck
-            ? new Semaphore(ResourceUsage.getAvailableProcessors())
-            : null;
+    this.cacheHitSemaphore = new Semaphore(ResourceUsage.getAvailableProcessors());
 
     this.actionExecutionSemaphore =
         buildRequestOptions.useSemaphoreForJobs ? new Semaphore(buildRequestOptions.jobs) : null;
