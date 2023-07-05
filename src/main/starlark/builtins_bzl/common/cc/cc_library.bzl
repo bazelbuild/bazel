@@ -73,6 +73,7 @@ def _cc_library_impl(ctx):
         textual_hdrs = ctx.files.textual_hdrs,
         include_prefix = ctx.attr.include_prefix,
         strip_include_prefix = ctx.attr.strip_include_prefix,
+        additional_inputs = ctx.files.additional_compiler_inputs,
     )
 
     precompiled_objects = cc_common.create_compilation_outputs(
@@ -592,6 +593,10 @@ attrs = {
     "win_def_file": attr.label(allow_single_file = [".def"]),
     # buildifier: disable=attr-license
     "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
+    "additional_compiler_inputs": attr.label_list(
+        allow_files = True,
+        flags = ["ORDER_INDEPENDENT", "DIRECT_COMPILE_TIME_INPUT"],
+    ),
     "_stl": semantics.get_stl(),
     "_grep_includes": attr.label(
         allow_files = True,
