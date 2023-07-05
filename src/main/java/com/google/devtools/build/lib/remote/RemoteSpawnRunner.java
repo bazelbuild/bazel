@@ -521,13 +521,15 @@ public class RemoteSpawnRunner implements SpawnRunner {
     boolean remoteCacheFailed = BulkTransferException.allCausedByCacheNotFoundException(exception);
     if (exception.getCause() instanceof ExecutionStatusException) {
       ExecutionStatusException e = (ExecutionStatusException) exception.getCause();
+      RemoteActionResult result = null;
       if (e.getResponse() != null) {
         ExecuteResponse resp = e.getResponse();
         maybeDownloadServerLogs(action, resp);
         if (resp.hasResult()) {
+          result = RemoteActionResult.createFromResponse(resp);
           try {
             remoteExecutionService.downloadOutputs(
-                action, RemoteActionResult.createFromResponse(resp));
+                action, result);
           } catch (BulkTransferException bulkTransferEx) {
             exception.addSuppressed(bulkTransferEx);
           }
@@ -536,7 +538,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       if (e.isExecutionTimeout()) {
         maybePrintExecutionMessages(
             action.getSpawn(), e.getResponse().getMessage(), /* success= */ false);
-        return new SpawnResult.Builder()
+        SpawnResult.Builder resultBuilder = new SpawnResult.Builder()
             .setRunnerName(getName())
             .setStatus(Status.TIMEOUT)
             .setExitCode(SpawnResult.POSIX_TIMEOUT_EXIT_CODE)
@@ -546,8 +548,16 @@ public class RemoteSpawnRunner implements SpawnRunner {
                     .setSpawn(
                         FailureDetails.Spawn.newBuilder()
                             .setCode(FailureDetails.Spawn.Code.TIMEOUT))
-                    .build())
-            .build();
+                    .build());
+        if (result != null) {
+          resultBuilder
+            .setWallTimeInMs((int)java.time.Duration.between(
+                Utils.timestampToInstant(result.getExecutionMetadata().getExecutionStartTimestamp()),
+                Utils.timestampToInstant(result.getExecutionMetadata().getExecutionCompletedTimestamp())).
+                    toMillis())
+            .setStartTime(Utils.timestampToInstant(result.getExecutionMetadata().getExecutionStartTimestamp()));
+        }
+        return resultBuilder.build();
       }
     }
     final Status status;
