@@ -18,6 +18,7 @@ load(":common/java/java_info.bzl", "JavaInfo")
 load(":common/java/java_common_internal_for_builtins.bzl", "compile", "merge", "run_ijar")
 load(":common/java/java_plugin_info.bzl", "JavaPluginInfo")
 load(":common/java/java_semantics.bzl", "semantics")
+load(":common/java/java_helper.bzl", "helper")
 
 _java_common_internal = _builtins.internal.java_common_internal_do_not_use
 
@@ -96,12 +97,23 @@ def _stamp_jar(actions, jar, java_toolchain, target_label):
         (File) The output artifact
 
     """
-    return _java_common_internal.stamp_jar(
-        actions = actions,
-        jar = jar,
-        java_toolchain = java_toolchain,
-        target_label = target_label,
+    output = actions.declare_file(helper.basename_without_extension(jar) + "-stamped.jar", sibling = jar)
+    args = actions.args()
+    args.add(jar)
+    args.add(output)
+    args.add("--nostrip_jar")
+    args.add("--target_label", target_label)
+    actions.run(
+        mnemonic = "JavaIjar",
+        inputs = [jar],
+        outputs = [output],
+        executable = java_toolchain.ijar,  # ijar doubles as a stamping tool
+        arguments = [args],
+        progress_message = "Stamping target label into jar %{input}",
+        toolchain = semantics.JAVA_TOOLCHAIN_TYPE,
+        use_default_shell_env = True,
     )
+    return output
 
 def _pack_sources(
         actions,

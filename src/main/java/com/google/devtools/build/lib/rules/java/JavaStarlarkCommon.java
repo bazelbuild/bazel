@@ -214,22 +214,6 @@ public class JavaStarlarkCommon
   }
 
   @Override
-  public Artifact stampJar(
-      StarlarkActionFactory actions,
-      Artifact jar,
-      Label targetLabel,
-      JavaToolchainProvider javaToolchain)
-      throws EvalException {
-    return JavaInfoBuildHelper.getInstance()
-        .stampJar(
-            actions,
-            jar,
-            targetLabel,
-            javaToolchain,
-            getExecGroup(actions.getRuleContext().useAutoExecGroups()));
-  }
-
-  @Override
   public Artifact packSources(
       StarlarkActionFactory actions,
       Object outputJar,

@@ -24,21 +24,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.shell.ShellUtils;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -313,37 +308,6 @@ final class JavaInfoBuildHelper {
       }
     }
     return output;
-  }
-
-  public Artifact stampJar(
-      StarlarkActionFactory actions,
-      Artifact inputJar,
-      Label targetLabel,
-      JavaToolchainProvider javaToolchain,
-      String execGroup)
-      throws EvalException {
-    String basename = FileSystemUtils.removeExtension(inputJar.getFilename()) + "-stamped.jar";
-    Artifact outputJar = actions.declareFile(basename, inputJar);
-    // ijar doubles as a stamping tool
-    FilesToRunProvider ijarTarget = javaToolchain.getIjar();
-    CustomCommandLine.Builder commandLine =
-        CustomCommandLine.builder()
-            .addExecPath(inputJar)
-            .addExecPath(outputJar)
-            .add("--nostrip_jar")
-            .addLabel("--target_label", targetLabel);
-    SpawnAction.Builder actionBuilder =
-        new SpawnAction.Builder()
-            .addInput(inputJar)
-            .addOutput(outputJar)
-            .setExecutable(ijarTarget)
-            .setProgressMessage("Stamping target label into jar %s", inputJar.getFilename())
-            .addCommandLine(commandLine.build())
-            .useDefaultShellEnvironment()
-            .setMnemonic("JavaIjar")
-            .setExecGroup(execGroup);
-    actions.registerAction(actionBuilder.build(actions.getActionConstructionContext()));
-    return outputJar;
   }
 
   private static StrictDepsMode getStrictDepsMode(String strictDepsMode) {

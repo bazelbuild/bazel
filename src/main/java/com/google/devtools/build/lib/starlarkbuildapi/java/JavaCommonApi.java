@@ -319,41 +319,6 @@ public interface JavaCommonApi<
       throws EvalException, InterruptedException, RuleErrorException;
 
   @StarlarkMethod(
-      name = "stamp_jar",
-      doc =
-          "Stamps a jar with a target label for <code>add_dep</code> support. "
-              + "The return value is typically passed to "
-              + "<code><a class=\"anchor\" href=\"../providers/JavaInfo.html\">"
-              + "JavaInfo</a>#compile_jar</code>. "
-              + "Prefer to use "
-              + "<code><a class=\"anchor\" href=\"#run_ijar\">run_ijar</a></code> "
-              + "when possible.",
-      parameters = {
-        @Param(name = "actions", named = true, doc = "ctx.actions"),
-        @Param(
-            name = "jar",
-            positional = false,
-            named = true,
-            doc = "The jar to run stamp_jar on."),
-        @Param(
-            name = "target_label",
-            positional = false,
-            named = true,
-            doc =
-                "A target label to stamp the jar with. Used for <code>add_dep</code> support. "
-                    + "Typically, you would pass <code>ctx.label</code> to stamp the jar "
-                    + "with the current rule's label."),
-        @Param(
-            name = "java_toolchain",
-            positional = false,
-            named = true,
-            doc = "A JavaToolchainInfo to used to find the stamp_jar tool."),
-      })
-  FileApi stampJar(
-      StarlarkActionFactoryT actions, FileT jar, Label targetLabel, JavaToolchainT javaToolchain)
-      throws EvalException;
-
-  @StarlarkMethod(
       name = "pack_sources",
       doc =
           "Packs sources and source jars into a single source jar file. "
