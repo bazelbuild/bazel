@@ -45,6 +45,15 @@ public final class BazelRulesModule extends BlazeModule {
   @SuppressWarnings("deprecation") // These fields have no JavaDoc by design
   public static class BuildGraveyardOptions extends OptionsBase {
     @Option(
+        name = "experimental_skyframe_prepare_analysis",
+        deprecationWarning = "This flag is a no-op and will be deleted in a future release.",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+        help = "Deprecated. No-op.")
+    public boolean skyframePrepareAnalysis;
+
+    @Option(
         name = "incompatible_use_platforms_repo_for_constraints",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
