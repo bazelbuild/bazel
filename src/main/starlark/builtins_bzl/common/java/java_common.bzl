@@ -200,7 +200,7 @@ def _get_constraints(java_info):
     Returns:
         ([str]) The constraints set on the supplied JavaInfo
     """
-    return _java_common_internal.get_constraints(java_info)
+    return [] if semantics.IS_BAZEL else java_info._constraints
 
 def _set_annotation_processing(
         java_info,

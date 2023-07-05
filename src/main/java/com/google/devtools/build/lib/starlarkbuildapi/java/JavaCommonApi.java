@@ -472,19 +472,6 @@ public interface JavaCommonApi<
   ProviderApi getMessageBundleInfo();
 
   @StarlarkMethod(
-      name = "get_constraints",
-      doc = "Returns a set of constraints added.",
-      parameters = {
-        @Param(
-            name = "java_info",
-            positional = true,
-            named = false,
-            doc = "The JavaInfo to get constraints from."),
-      },
-      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
-  Sequence<String> getConstraints(Info javaInfo) throws RuleErrorException;
-
-  @StarlarkMethod(
       name = "set_annotation_processing",
       doc = "Returns a copy of the given JavaInfo with the given annotation_processing info.",
       parameters = {
