@@ -27,7 +27,7 @@ _JavaPluginDataInfo = provider(
     },
 )
 
-_EMPTY_PLUGIN_DATA = _JavaPluginDataInfo(
+EMPTY_PLUGIN_DATA = _JavaPluginDataInfo(
     processor_classes = depset(),
     processor_jars = depset(),
     processor_data = depset(),
@@ -69,7 +69,7 @@ def _javaplugininfo_init(
     )
     return {
         "plugins": plugins,
-        "api_generating_plugins": plugins if generates_api else _EMPTY_PLUGIN_DATA,
+        "api_generating_plugins": plugins if generates_api else EMPTY_PLUGIN_DATA,
         "java_outputs": java_infos.java_outputs,
     }
 

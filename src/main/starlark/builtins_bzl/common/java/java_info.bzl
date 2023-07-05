@@ -17,7 +17,7 @@ Definition of JavaInfo provider.
 """
 
 load(":common/cc/cc_common.bzl", "cc_common")
-load(":common/java/java_plugin_info.bzl", "merge_without_outputs")
+load(":common/java/java_plugin_info.bzl", "EMPTY_PLUGIN_DATA", "merge_without_outputs")
 load(":common/cc/cc_info.bzl", "CcInfo")
 
 # TODO(hvd): remove this when:
@@ -70,6 +70,81 @@ _JavaGenJarsInfo = provider(
         "processor_classnames": "Deprecated: Please use JavaInfo.plugins instead.",
     },
 )
+
+_JavaCompilationInfo = provider(
+    doc = "Compilation information in Java rules, for perusal of aspects and tools.",
+    fields = {
+        "boot_classpath": "Boot classpath for this Java target.",
+        "javac_options": "Options to the java compiler.",
+        "compilation_classpath": "Compilation classpath for this Java target.",
+        "runtime_classpath": "Run-time classpath for this Java target.",
+    },
+)
+
+def to_java_binary_info(java_info):
+    """Get a copy of the given JavaInfo with minimal info returned by a java_binary
+
+    Args:
+        java_info: (JavaInfo) A JavaInfo provider instance
+
+    Returns:
+        (JavaInfo) A JavaInfo instance representing a java_binary target
+    """
+    result = {
+        "transitive_runtime_jars": depset(),
+        "transitive_runtime_deps": depset(),  # deprecated
+        "transitive_compile_time_jars": depset(),
+        "transitive_deps": depset(),  # deprecated
+        "compile_jars": depset(),
+        "full_compile_jars": depset(),
+        "_transitive_full_compile_time_jars": depset(),
+        "_compile_time_java_dependencies": depset(),
+        "runtime_output_jars": [],
+        "plugins": EMPTY_PLUGIN_DATA,
+        "api_generating_plugins": EMPTY_PLUGIN_DATA,
+        "module_flags_info": _ModuleFlagsInfo(add_exports = depset(), add_opens = depset()),
+        "_neverlink": False,
+        "_constraints": [],
+        "annotation_processing": java_info.annotation_processing,
+        "cc_link_params_info": getattr(java_info, "cc_link_params_info", None),
+        "transitive_native_libraries": java_info.transitive_native_libraries,
+        "source_jars": java_info.source_jars,
+        "transitive_source_jars": java_info.transitive_source_jars,
+    }
+
+    compilation_info = None
+    if hasattr(java_info, "compilation_info"):
+        compilation_info = java_info.compilation_info
+    elif java_info.transitive_compile_time_jars or java_info.transitive_runtime_jars:
+        compilation_info = _JavaCompilationInfo(
+            boot_classpath = None,
+            javac_options = [],
+            compilation_classpath = java_info.transitive_compile_time_jars,
+            runtime_classpath = java_info.transitive_runtime_jars,
+        )
+    result["compilation_info"] = compilation_info
+
+    java_outputs = [
+        _JavaOutputInfo(
+            compile_jar = None,
+            compile_jdeps = None,
+            class_jar = output.class_jar,
+            ijar = output.compile_jar,  # deprecated
+            generated_class_jar = output.generated_class_jar,
+            generated_source_jar = output.generated_source_jar,
+            native_headers_jar = output.native_headers_jar,
+            manifest_proto = output.manifest_proto,
+            jdeps = output.jdeps,
+            source_jars = output.source_jars,
+            source_jar = output.source_jar,  # deprecated
+        )
+        for output in java_info.java_outputs
+    ]
+    result.update(
+        java_outputs = java_outputs,
+        outputs = _JavaRuleOutputJarsInfo(jars = java_outputs, jdeps = None, native_headers = None),
+    )
+    return _new_javainfo(**result)
 
 def _validate_provider_list(provider_list, what, expected_provider_type):
     _java_common_internal.check_provider_instances(provider_list, what, expected_provider_type)
