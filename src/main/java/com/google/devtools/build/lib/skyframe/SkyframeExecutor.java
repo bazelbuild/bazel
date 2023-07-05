@@ -78,10 +78,7 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.AspectConfiguredEvent;
 import com.google.devtools.build.lib.analysis.AspectValue;
-import com.google.devtools.build.lib.analysis.BaseDependencySpecification;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.ConfigurationsCollector;
-import com.google.devtools.build.lib.analysis.ConfigurationsResult;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -99,20 +96,14 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
 import com.google.devtools.build.lib.analysis.producers.ConfiguredTargetAndDataProducer;
 import com.google.devtools.build.lib.analysis.producers.DependencyError;
 import com.google.devtools.build.lib.analysis.producers.DependencyMapProducer;
 import com.google.devtools.build.lib.analysis.producers.PrerequisiteParameters;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -132,7 +123,6 @@ import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.ErrorSensingEventHandler;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
@@ -293,7 +283,7 @@ import net.starlark.java.eval.StarlarkSemantics;
  * additional artifacts (workspace status and build info artifacts) into SkyFunctions for use during
  * the build.
  */
-public abstract class SkyframeExecutor implements WalkableGraphFactory, ConfigurationsCollector {
+public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   protected MemoizingEvaluator memoizingEvaluator;
@@ -1804,126 +1794,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         .collect(
             toImmutableMap(
                 Functions.identity(), key -> (BuildConfigurationValue) evaluationResult.get(key)));
-  }
-
-  /**
-   * Retrieves the configurations needed for the given deps. Unconditionally includes all fragments.
-   *
-   * <p>Skips targets with loading phase errors.
-   */
-  // TODO(ulfjack): Remove this legacy method after switching to the Skyframe-based implementation.
-  @Override
-  public ConfigurationsResult getConfigurations(
-      ExtendedEventHandler eventHandler,
-      BuildOptions fromOptions,
-      Iterable<? extends BaseDependencySpecification> keys)
-      throws InvalidConfigurationException, InterruptedException {
-    ConfigurationsResult.Builder builder = ConfigurationsResult.newBuilder();
-
-    PlatformMappingValue platformMappingValue = getPlatformMappingValue(eventHandler, fromOptions);
-
-    // Now get the configurations.
-    List<SkyKey> configSkyKeys = new ArrayList<>();
-    for (BaseDependencySpecification key : keys) {
-      ConfigurationTransition transition = key.getTransition();
-      if (transition == NullTransition.INSTANCE) {
-        continue;
-      }
-      Collection<BuildOptions> toOptions;
-      try {
-        StarlarkBuildSettingsDetailsValue details =
-            getStarlarkBuildSettingsDetailsValue(eventHandler, transition);
-        toOptions =
-            ConfigurationResolver.applyTransitionWithoutSkyframe(
-                    fromOptions,
-                    transition,
-                    details,
-                    eventHandler,
-                    skyframeBuildView.getStarlarkTransitionCache())
-                .values();
-      } catch (TransitionException e) {
-        eventHandler.handle(Event.error(e.getMessage()));
-        builder.setHasError();
-        continue;
-      }
-      for (BuildOptions toOption : toOptions) {
-        configSkyKeys.add(toConfigurationKey(platformMappingValue, toOption));
-      }
-    }
-
-    EvaluationResult<SkyValue> configsResult =
-        evaluateSkyKeys(eventHandler, configSkyKeys, /*keepGoing=*/ true);
-
-    for (BaseDependencySpecification key : keys) {
-      if (key.getTransition() == NullTransition.INSTANCE) {
-        builder.put(key, null);
-        continue;
-      }
-      Collection<BuildOptions> toOptions;
-      try {
-        StarlarkBuildSettingsDetailsValue details =
-            getStarlarkBuildSettingsDetailsValue(eventHandler, key.getTransition());
-        toOptions =
-            ConfigurationResolver.applyTransitionWithoutSkyframe(
-                    fromOptions,
-                    key.getTransition(),
-                    details,
-                    eventHandler,
-                    skyframeBuildView.getStarlarkTransitionCache())
-                .values();
-      } catch (TransitionException e) {
-        eventHandler.handle(Event.error(e.getMessage()));
-        builder.setHasError();
-        continue;
-      }
-
-      for (BuildOptions toOption : toOptions) {
-        BuildConfigurationKey configKey = toConfigurationKey(platformMappingValue, toOption);
-        BuildConfigurationValue configValue =
-            (BuildConfigurationValue) configsResult.get(configKey);
-        if (configValue != null) {
-          builder.put(key, configValue);
-        } else if (configsResult.errorMap().containsKey(configKey)) {
-          ErrorInfo configError = configsResult.getError(configKey);
-          if (configError.getException() instanceof InvalidConfigurationException) {
-            // Wrap underlying exception to make it clearer to developers which line of code
-            // actually threw exception.
-            InvalidConfigurationException underlying =
-                (InvalidConfigurationException) configError.getException();
-            throw new InvalidConfigurationException(underlying.getDetailedExitCode(), underlying);
-          }
-        }
-      }
-    }
-    return builder.build();
-  }
-
-  /** Must be in sync with {@link ConfigurationResolver#getStarlarkBuildSettingsDetailsValue}. */
-  private StarlarkBuildSettingsDetailsValue getStarlarkBuildSettingsDetailsValue(
-      ExtendedEventHandler eventHandler, ConfigurationTransition transition)
-      throws TransitionException {
-    ImmutableSet<Label> starlarkBuildSettings =
-        StarlarkTransition.getAllStarlarkBuildSettings(transition);
-    // Quick escape if transition doesn't use any Starlark build settings
-    if (starlarkBuildSettings.isEmpty()) {
-      return StarlarkBuildSettingsDetailsValue.EMPTY;
-    }
-
-    // Evaluate the key into StarlarkBuildSettingsDetailsValue
-    StarlarkBuildSettingsDetailsValue.Key skyKey =
-        StarlarkBuildSettingsDetailsValue.key(starlarkBuildSettings);
-    EvaluationResult<SkyValue> newlyLoaded =
-        evaluateSkyKeys(eventHandler, ImmutableList.of(skyKey), true);
-    if (newlyLoaded.hasError()) {
-      Map.Entry<SkyKey, ErrorInfo> errorEntry =
-          checkNotNull(Iterables.getFirst(newlyLoaded.errorMap().entrySet(), null), newlyLoaded);
-      throw new TransitionException(
-          "Error when resolving transition build settings, "
-              + starlarkBuildSettings
-              + ": "
-              + errorEntry.getValue().getException());
-    }
-    return (StarlarkBuildSettingsDetailsValue) newlyLoaded.get(skyKey);
   }
 
   /** Returns every {@link BuildConfigurationKey} in the graph. */

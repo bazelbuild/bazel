@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -194,13 +193,13 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     }
     useConfiguration("--cpu=k8");
     scratch.file(
-        "conflict/BUILD",
+        "conflict_non_top_level/BUILD",
         "cc_library(name='x', srcs=['foo.cc'])",
         "cc_binary(name='_objs/x/foo.o', srcs=['bar.cc'])",
         "cc_binary(name='foo', deps=['x'], data=['_objs/x/foo.o'])");
     reporter.removeHandler(failFastHandler); // expect errors
-    update(defaultFlags().with(Flag.KEEP_GOING), "//conflict:foo");
-    assertContainsEvent("file 'conflict/_objs/x/foo.o' " + CONFLICT_MSG);
+    update(defaultFlags().with(Flag.KEEP_GOING), "//conflict_non_top_level:foo");
+    assertContainsEvent("file 'conflict_non_top_level/_objs/x/foo.o' " + CONFLICT_MSG);
     assertThat(getAnalysisResult().getTargetsToBuild()).isEmpty();
   }
 
@@ -489,10 +488,14 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     update("//java/a:x");
     Set<?> oldAnalyzedTargets = getSkyframeEvaluatedTargetKeys();
     assertThat(oldAnalyzedTargets.size()).isAtLeast(2); // could be greater due to implicit deps
-    assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:x")).isEqualTo(1);
+    // x is evaluated once with the top level configuration and once with its rule transitioned
+    // configuration.
+    assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:x")).isEqualTo(2);
     assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:y")).isEqualTo(1);
+
     update("//java/a:y");
-    assertNoTargetsVisited();
+    // y is evaluated with the top-level configuration instead of with its rule transition applied.
+    assertThat(getSkyframeEvaluatedTargetKeys()).hasSize(1);
   }
 
   @Test
@@ -508,12 +511,14 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     Set<?> oldAnalyzedTargets = getSkyframeEvaluatedTargetKeys();
     assertThat(oldAnalyzedTargets.size()).isAtLeast(3); // could be greater due to implicit deps
     assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:x")).isEqualTo(0);
-    assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:y")).isEqualTo(1);
+    // y is evaluated once with the top level configuration and once with its rule transitioned
+    // configuration.
+    assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:y")).isEqualTo(2);
     update("//java/a:x");
     Set<?> newAnalyzedTargets = getSkyframeEvaluatedTargetKeys();
-    // Source target and rule target.
-    assertThat(newAnalyzedTargets).hasSize(2);
-    assertThat(countObjectsPartiallyMatchingRegex(newAnalyzedTargets, "//java/a:x")).isEqualTo(1);
+    // Source target and x twice.
+    assertThat(newAnalyzedTargets).hasSize(3);
+    assertThat(countObjectsPartiallyMatchingRegex(newAnalyzedTargets, "//java/a:x")).isEqualTo(2);
     assertThat(countObjectsPartiallyMatchingRegex(newAnalyzedTargets, "//java/a:y")).isEqualTo(0);
   }
 
@@ -642,7 +647,9 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     update("//java/a:x");
     Set<?> oldAnalyzedTargets = getSkyframeEvaluatedTargetKeys();
     assertThat(oldAnalyzedTargets.size()).isAtLeast(2); // could be greater due to implicit deps
-    assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:x")).isEqualTo(1);
+    // x is analyzed once with the top-level configuration and once with its rule-transitioned
+    // configuration.
+    assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:x")).isEqualTo(2);
     assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:y")).isEqualTo(0);
     assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:z")).isEqualTo(1);
     assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:w")).isEqualTo(1);
@@ -651,11 +658,12 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     // as cached top-level targets. For the two tests above to work correctly, we need to ensure
     // that getSkyframeEvaluatedTargetKeys() doesn't return these.
     update("//java/a:x", "//java/a:y", "//java/a:z");
-    Set<?> newAnalyzedTargets = getSkyframeEvaluatedTargetKeys();
-    assertThat(newAnalyzedTargets).hasSize(2);
-    assertThat(countObjectsPartiallyMatchingRegex(newAnalyzedTargets, "//java/a:B.java"))
-        .isEqualTo(1);
-    assertThat(countObjectsPartiallyMatchingRegex(newAnalyzedTargets, "//java/a:y")).isEqualTo(1);
+    assertNumberOfAnalyzedConfigurationsOfTargets(
+        ImmutableMap.<String, Integer>builder()
+            .put("//java/a:y", 2) // With the top-level and rule transitioned configurations.
+            .put("//java/a:B.java", 1)
+            .put("//java/a:z", 1) // With the top-level configuration.
+            .buildOrThrow());
   }
 
   /** Test options class for testing diff-based analysis cache resetting. */
@@ -876,9 +884,10 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
     useConfiguration("--nocollapse_duplicate_defines", "--define=a=1", "--define=a=2");
     update("//test:top");
+    assertNumberOfAnalyzedConfigurationsOfTargets(ImmutableMap.of("//test:top", 2));
     useConfiguration("--nocollapse_duplicate_defines", "--define=a=2");
     update("//test:top");
-    assertNumberOfAnalyzedConfigurationsOfTargets(ImmutableMap.of("//test:top", 1));
+    assertNumberOfAnalyzedConfigurationsOfTargets(ImmutableMap.of("//test:top", 2));
   }
 
   @Test

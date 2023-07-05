@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.InconsistentNullConfigException;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.ConfigurationTransitionEvent;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition;
@@ -282,11 +283,16 @@ public final class TargetAndConfigurationProducer
         return DONE; // There was an error.
       }
 
-      if (configurationKey.equals(preRuleTransitionKey.getConfigurationKey())) {
+      BuildConfigurationKey parentConfiguration = preRuleTransitionKey.getConfigurationKey();
+      if (configurationKey.equals(parentConfiguration)) {
         // This key owns the configuration and the computation completes normally.
         lookUpConfigurationValue(tasks);
         return DONE;
       }
+
+      listener.post(
+          ConfigurationTransitionEvent.create(
+              parentConfiguration.getOptionsChecksum(), configurationKey.getOptionsChecksum()));
 
       return new IdempotencyChecker();
     }

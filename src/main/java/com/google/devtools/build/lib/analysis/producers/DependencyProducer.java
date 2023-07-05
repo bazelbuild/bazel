@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.DependencyResolver.ExecutionPlatformResult;
 import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.ConfigurationTransitionEvent;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.causes.LoadingFailedCause;
@@ -206,6 +207,14 @@ final class DependencyProducer
           /* executionPlatformLabel= */ null);
     }
 
+    String parentChecksum = parameters.configurationKey().getOptionsChecksum();
+    for (BuildConfigurationKey configuration : transitionedConfigurations.values()) {
+      String childChecksum = configuration.getOptionsChecksum();
+      if (!parentChecksum.equals(childChecksum)) {
+        listener.post(ConfigurationTransitionEvent.create(parentChecksum, childChecksum));
+      }
+    }
+
     if (transitionedConfigurations.size() == 1) {
       BuildConfigurationKey patchedConfiguration =
           transitionedConfigurations.get(PATCH_TRANSITION_KEY);
@@ -216,6 +225,7 @@ final class DependencyProducer
             /* executionPlatformLabel= */ null);
       }
     }
+
     return computePrerequisites(
         AttributeConfiguration.ofSplit(transitionedConfigurations),
         /* executionPlatformLabel= */ null);

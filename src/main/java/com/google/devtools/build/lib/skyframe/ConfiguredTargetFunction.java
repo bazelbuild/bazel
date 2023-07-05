@@ -284,11 +284,14 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
       // If this CT applied an incoming rule transition, log it.
       BuildConfigurationValue config = prereqs.getTargetAndConfiguration().getConfiguration();
-      if (config != null && !config.getKey().equals(configuredTargetKey.getConfigurationKey())) {
+      // `toKey` here retrieves the original key if there's a proxy key due to a transition.
+      if (config != null
+          && !config.getKey().equals(configuredTargetKey.toKey().getConfigurationKey())) {
         env.getListener()
             .post(
                 new ConfigRequestedEvent(
-                    config, configuredTargetKey.getConfigurationKey().getOptionsChecksum()));
+                    config,
+                    configuredTargetKey.toKey().getConfigurationKey().getOptionsChecksum()));
       }
 
       // If one of our dependencies is platform-incompatible with this build, so are we.
