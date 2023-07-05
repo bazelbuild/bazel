@@ -234,7 +234,6 @@ def _javainfo_init(
             direct = [output_jar],
             transitive = [dep._transitive_full_compile_time_jars for dep in exports + deps],
         ),
-        "_plugin_info": plugin_info,
         "_compile_time_java_dependencies": depset(
             order = "preorder",
             transitive = [dep._compile_time_java_dependencies for dep in exports] +
@@ -310,7 +309,6 @@ JavaInfo, _new_javainfo = provider(
         "_transitive_full_compile_time_jars": "internal API, do not use",
         "_compile_time_java_dependencies": "internal API, do not use",
         "_neverlink": "internal API, do not use",
-        "_plugin_info": "internal API, do not use",
         "_constraints": "internal API, do not use",
     },
     init = _javainfo_init,

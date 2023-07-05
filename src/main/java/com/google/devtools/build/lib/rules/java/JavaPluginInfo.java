@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaO
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaPluginInfoApi;
 import java.util.ArrayList;
 import java.util.List;
-import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -318,10 +317,23 @@ public abstract class JavaPluginInfo extends NativeInfo
         plugins().disableAnnotationProcessing(), /* generatesApi= */ false, getJavaOutputs());
   }
 
-  @Nullable
+  /**
+   * Translates the plugin information from a {@link JavaInfo} instance.
+   *
+   * @param javaInfo the {@link JavaInfo} instance
+   * @return a {@link JavaPluginInfo} instance
+   * @throws EvalException if there are any errors accessing Starlark values
+   * @throws RuleErrorException if the {@code plugins} or {@code api_generating_plugins} fields are
+   *     of an incompatible type
+   */
   static JavaPluginInfo fromStarlarkJavaInfo(StructImpl javaInfo)
       throws EvalException, RuleErrorException {
-    Info info = javaInfo.getValue("_plugin_info", Info.class);
-    return info == null ? null : JavaPluginInfo.PROVIDER.wrap(info);
+    JavaPluginData plugins = JavaPluginData.wrap(javaInfo.getValue("plugins"));
+    JavaPluginData apiGeneratingPlugins =
+        JavaPluginData.wrap(javaInfo.getValue("api_generating_plugins"));
+    if (plugins.isEmpty() && apiGeneratingPlugins.isEmpty()) {
+      return JavaPluginInfo.empty();
+    }
+    return new AutoValue_JavaPluginInfo(ImmutableList.of(), plugins, apiGeneratingPlugins);
   }
 }

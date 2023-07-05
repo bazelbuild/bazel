@@ -396,7 +396,7 @@ public final class JavaInfo extends NativeInfo
     this(
         JavaCcInfoProvider.fromStarlarkJavaInfo(javaInfo),
         JavaCompilationArgsProvider.fromStarlarkJavaInfo(javaInfo),
-        /* javaCompilationInfoProvider= */ null,
+        JavaCompilationInfoProvider.fromStarlarkJavaInfo(javaInfo),
         JavaGenJarsProvider.from(javaInfo.getValue("annotation_processing")),
         JavaModuleFlagsProvider.fromStarlarkJavaInfo(javaInfo),
         JavaPluginInfo.fromStarlarkJavaInfo(javaInfo),
