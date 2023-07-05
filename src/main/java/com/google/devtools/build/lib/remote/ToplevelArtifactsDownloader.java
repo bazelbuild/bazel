@@ -47,8 +47,10 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.io.IOException;
 import java.util.HashMap;
 import javax.annotation.Nullable;
 
@@ -117,6 +119,18 @@ public class ToplevelArtifactsDownloader {
   }
 
   private void downloadTestOutput(Path path) {
+    if (path.isDirectory()) {
+      try {
+        var entries = path.readdir(Symlinks.FOLLOW);
+        for (var entry : entries) {
+          downloadTestOutput(path.getRelative(entry.getName()));
+          return;
+        }
+      } catch (IOException e) {
+        logger.atWarning().withCause(e).log("Failed to read dir %s.", path);
+      }
+    }
+
     // Since the event is fired within action execution, the skyframe doesn't know the outputs of
     // test actions yet, so we can't get their metadata through skyframe. However, the fileSystem
     // of the path is an ActionFileSystem, we use it to get the metadata for this file.
