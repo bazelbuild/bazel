@@ -319,52 +319,6 @@ public interface JavaCommonApi<
       throws EvalException, InterruptedException, RuleErrorException;
 
   @StarlarkMethod(
-      name = "run_ijar",
-      doc =
-          "Runs ijar on a jar, stripping it of its method bodies. This helps reduce rebuilding "
-              + "of dependent jars during any recompiles consisting only of simple changes to "
-              + "method implementations. The return value is typically passed to "
-              + "<code><a class=\"anchor\" href=\"../providers/JavaInfo.html\">"
-              + "JavaInfo</a>#compile_jar</code>.",
-      parameters = {
-        @Param(name = "actions", named = true, doc = "ctx.actions"),
-        @Param(name = "jar", positional = false, named = true, doc = "The jar to run ijar on."),
-        @Param(
-            name = "output",
-            positional = false,
-            named = true,
-            documented = false,
-            defaultValue = "None"),
-        @Param(
-            name = "target_label",
-            positional = false,
-            named = true,
-            allowedTypes = {
-              @ParamType(type = Label.class),
-              @ParamType(type = NoneType.class),
-            },
-            defaultValue = "None",
-            doc =
-                "A target label to stamp the jar with. Used for <code>add_dep</code> support. "
-                    + "Typically, you would pass <code>ctx.label</code> to stamp the jar "
-                    + "with the current rule's label."),
-        @Param(
-            name = "java_toolchain",
-            positional = false,
-            named = true,
-            doc = "A JavaToolchainInfo to used to find the ijar tool."),
-      },
-      useStarlarkThread = true)
-  FileApi runIjar(
-      StarlarkActionFactoryT actions,
-      FileT jar,
-      Object output,
-      Object targetLabel,
-      JavaToolchainT javaToolchain,
-      StarlarkThread thread)
-      throws EvalException;
-
-  @StarlarkMethod(
       name = "stamp_jar",
       doc =
           "Stamps a jar with a target label for <code>add_dep</code> support. "

@@ -214,28 +214,6 @@ public class JavaStarlarkCommon
   }
 
   @Override
-  public Artifact runIjar(
-      StarlarkActionFactory actions,
-      Artifact jar,
-      Object output,
-      Object targetLabel,
-      JavaToolchainProvider javaToolchain,
-      StarlarkThread thread)
-      throws EvalException {
-    if (output != Starlark.NONE) {
-      checkPrivateAccess(thread);
-    }
-    return JavaInfoBuildHelper.getInstance()
-        .buildIjar(
-            actions,
-            jar,
-            output != Starlark.NONE ? (Artifact) output : null,
-            targetLabel != Starlark.NONE ? (Label) targetLabel : null,
-            javaToolchain,
-            getExecGroup(actions.getRuleContext().useAutoExecGroups()));
-  }
-
-  @Override
   public Artifact stampJar(
       StarlarkActionFactory actions,
       Artifact jar,

@@ -1498,10 +1498,12 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "custom_rule(name = 'custom_rule_name')");
     useConfiguration("--incompatible_auto_exec_groups");
 
-    ImmutableList<Action> actions = getActions("//test:custom_rule_name", SpawnAction.class);
+    ImmutableList<Action> actions =
+        getActions("//test:custom_rule_name").stream()
+            .filter(action -> action.getMnemonic().equals("JavaIjar"))
+            .collect(toImmutableList());
 
     assertThat(actions).hasSize(1);
-    assertThat(actions.get(0).getMnemonic()).isEqualTo("JavaIjar");
     assertThat(actions.get(0).getOwner().getExecutionPlatform().label())
         .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
   }

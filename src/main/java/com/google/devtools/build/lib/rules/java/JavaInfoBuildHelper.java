@@ -43,7 +43,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
-import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
@@ -314,41 +313,6 @@ final class JavaInfoBuildHelper {
       }
     }
     return output;
-  }
-
-  public Artifact buildIjar(
-      StarlarkActionFactory actions,
-      Artifact inputJar,
-      @Nullable Artifact outputJar,
-      @Nullable Label targetLabel,
-      JavaToolchainProvider javaToolchain,
-      String execGroup)
-      throws EvalException {
-    Artifact interfaceJar;
-    if (outputJar != null) {
-      interfaceJar = outputJar;
-    } else {
-      String ijarBasename = FileSystemUtils.removeExtension(inputJar.getFilename()) + "-ijar.jar";
-      interfaceJar = actions.declareFile(ijarBasename, inputJar);
-    }
-    FilesToRunProvider ijarTarget = javaToolchain.getIjar();
-    CustomCommandLine.Builder commandLine =
-        CustomCommandLine.builder().addExecPath(inputJar).addExecPath(interfaceJar);
-    if (targetLabel != null) {
-      commandLine.addLabel("--target_label", targetLabel);
-    }
-    SpawnAction.Builder actionBuilder =
-        new SpawnAction.Builder()
-            .addInput(inputJar)
-            .addOutput(interfaceJar)
-            .setExecutable(ijarTarget)
-            .setProgressMessage("Extracting interface for jar %s", inputJar.getFilename())
-            .addCommandLine(commandLine.build())
-            .useDefaultShellEnvironment()
-            .setMnemonic("JavaIjar")
-            .setExecGroup(execGroup);
-    actions.registerAction(actionBuilder.build(actions.getActionConstructionContext()));
-    return interfaceJar;
   }
 
   public Artifact stampJar(

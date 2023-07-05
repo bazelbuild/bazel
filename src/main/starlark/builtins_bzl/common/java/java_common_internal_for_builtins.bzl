@@ -14,6 +14,9 @@
 
 """ Private utilities for Java compilation support in Starlark. """
 
+load(":common/java/java_semantics.bzl", "semantics")
+load(":common/java/java_helper.bzl", "helper")
+
 _java_common_internal = _builtins.internal.java_common_internal_do_not_use
 
 def compile(
@@ -154,13 +157,24 @@ def run_ijar(
     Returns:
         (File) The output artifact
     """
-    return _java_common_internal.run_ijar(
-        actions = actions,
-        jar = jar,
-        java_toolchain = java_toolchain,
-        target_label = target_label,
-        output = output,
+    if not output:
+        output = actions.declare_file(helper.basename_without_extension(jar) + "-ijar.jar", sibling = jar)
+    args = actions.args()
+    args.add(jar)
+    args.add(output)
+    if target_label != None:
+        args.add("--target_label", target_label)
+    actions.run(
+        mnemonic = "JavaIjar",
+        inputs = [jar],
+        outputs = [output],
+        executable = java_toolchain.ijar,
+        arguments = [args],
+        progress_message = "Extracting interface for jar %{input}",
+        toolchain = semantics.JAVA_TOOLCHAIN_TYPE,
+        use_default_shell_env = True,
     )
+    return output
 
 def merge(
         providers,
