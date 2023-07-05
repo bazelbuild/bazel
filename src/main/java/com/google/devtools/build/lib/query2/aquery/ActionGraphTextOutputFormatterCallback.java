@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
+import com.google.devtools.build.lib.analysis.starlark.UnresolvedSymlinkAction;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -343,6 +344,13 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
           .append("  FileWriteContents: [")
           .append(Base64.getEncoder().encodeToString(contents.getBytes(UTF_8)))
           .append("]\n");
+    }
+
+    if (action instanceof UnresolvedSymlinkAction) {
+      stringBuilder
+          .append("  UnresolvedSymlinkTarget: ")
+          .append(((UnresolvedSymlinkAction) action).getTarget())
+          .append("\n");
     }
 
     stringBuilder.append('\n');
