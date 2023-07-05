@@ -93,6 +93,17 @@ public interface CoverageCommonApi<
             positional = false,
             named = true,
             defaultValue = "None"),
+        @Param(
+            name = "metadata_files",
+            doc =
+                "Additional files required to generate coverage LCOV files after code execution."
+                    + " e.g. .gcno files for C++.",
+            named = true,
+            positional = false,
+            defaultValue = "[]",
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = FileApi.class),
+            })
       },
       useStarlarkThread = true)
   InstrumentedFilesInfoApi instrumentedFilesInfo(
@@ -102,6 +113,7 @@ public interface CoverageCommonApi<
       Object supportFiles, // Sequence or Depset of <FileApi> expected
       Dict<?, ?> environment, // <String, String>
       Object extensions,
+      Sequence<?> metadataFiles,
       StarlarkThread thread)
       throws EvalException, TypeException;
 }
