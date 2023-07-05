@@ -23,6 +23,7 @@ import static com.google.devtools.build.lib.testing.common.DirectoryListingHelpe
 import static com.google.devtools.build.lib.testing.common.DirectoryListingHelper.symlink;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -36,11 +37,18 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.ImmutableDiff;
+import com.google.devtools.build.skyframe.InMemoryNodeEntry;
+import com.google.devtools.build.skyframe.NodeBatch;
+import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
+import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.Version;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
+import java.util.Map.Entry;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -720,7 +728,27 @@ public final class FileSystemValueCheckerInferringAncestorsTest
     return Delta.justNew(fileStateValue(relativePath));
   }
 
+  private void addDoneNodesAndThenMarkChanged(ImmutableMap<SkyKey, SkyValue> values)
+      throws InterruptedException {
+    for (Entry<SkyKey, SkyValue> entry : values.entrySet()) {
+      InMemoryNodeEntry node = addDoneNode(entry.getKey(), entry.getValue());
+      node.markDirty(DirtyType.CHANGE);
+    }
+  }
+
   private void addDoneNodes(ImmutableMap<SkyKey, SkyValue> values) throws InterruptedException {
-    addDoneNodes(values, /* mtsv= */ null);
+    for (Entry<SkyKey, SkyValue> entry : values.entrySet()) {
+      addDoneNode(entry.getKey(), entry.getValue());
+    }
+  }
+
+  @CanIgnoreReturnValue
+  private InMemoryNodeEntry addDoneNode(SkyKey key, SkyValue value) throws InterruptedException {
+    NodeBatch batch = inMemoryGraph.createIfAbsentBatch(null, Reason.OTHER, ImmutableList.of(key));
+    InMemoryNodeEntry entry = (InMemoryNodeEntry) batch.get(key);
+    entry.addReverseDepAndCheckIfDone(null);
+    entry.markRebuilding();
+    entry.setValue(value, Version.minimal(), /* maxTransitiveSourceVersion= */ null);
+    return entry;
   }
 }
