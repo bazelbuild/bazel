@@ -15,7 +15,7 @@
 """ Private utilities for Java compilation support in Starlark. """
 
 load(":common/java/java_semantics.bzl", "semantics")
-load(":common/java/java_helper.bzl", "helper")
+load(":common/paths.bzl", "paths")
 
 _java_common_internal = _builtins.internal.java_common_internal_do_not_use
 
@@ -158,7 +158,7 @@ def run_ijar(
         (File) The output artifact
     """
     if not output:
-        output = actions.declare_file(helper.basename_without_extension(jar) + "-ijar.jar", sibling = jar)
+        output = actions.declare_file(paths.replace_extension(jar.basename, "-ijar.jar"), sibling = jar)
     args = actions.args()
     args.add(jar)
     args.add(output)

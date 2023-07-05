@@ -18,7 +18,7 @@ load(":common/java/java_info.bzl", "JavaInfo")
 load(":common/java/java_common_internal_for_builtins.bzl", "compile", "merge", "run_ijar")
 load(":common/java/java_plugin_info.bzl", "JavaPluginInfo")
 load(":common/java/java_semantics.bzl", "semantics")
-load(":common/java/java_helper.bzl", "helper")
+load(":common/paths.bzl", "paths")
 
 _java_common_internal = _builtins.internal.java_common_internal_do_not_use
 
@@ -97,7 +97,7 @@ def _stamp_jar(actions, jar, java_toolchain, target_label):
         (File) The output artifact
 
     """
-    output = actions.declare_file(helper.basename_without_extension(jar) + "-stamped.jar", sibling = jar)
+    output = actions.declare_file(paths.replace_extension(jar.basename, "-stamped.jar"), sibling = jar)
     args = actions.args()
     args.add(jar)
     args.add(output)
