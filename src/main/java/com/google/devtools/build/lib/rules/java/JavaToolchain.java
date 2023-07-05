@@ -68,6 +68,10 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
         ruleContext.attributes().get("javac_supports_multiplex_workers", Type.BOOLEAN);
     boolean javacSupportsWorkerCancellation =
         ruleContext.attributes().get("javac_supports_worker_cancellation", Type.BOOLEAN);
+    boolean headerCompilerSupportsWorkers =
+        ruleContext.attributes().get("header_compiler_supports_workers", Type.BOOLEAN);
+    boolean headerCompilerSupportsMultiplexWorkers =
+        ruleContext.attributes().get("header_compiler_supports_multiplex_workers", Type.BOOLEAN);
     ImmutableSet<String> headerCompilerBuiltinProcessors =
         ImmutableSet.copyOf(
             ruleContext.attributes().get("header_compiler_builtin_processors", Type.STRING_LIST));
@@ -168,6 +172,8 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             javacSupportsWorkers,
             javacSupportsMultiplexWorkers,
             javacSupportsWorkerCancellation,
+            headerCompilerSupportsWorkers,
+            headerCompilerSupportsMultiplexWorkers,
             bootclasspath,
             tools,
             javabuilder,

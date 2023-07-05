@@ -5,6 +5,7 @@ import com.google.devtools.build.lib.worker.ProtoWorkerMessageProcessor;
 import com.google.devtools.build.lib.worker.WorkRequestHandler;
 
 import java.io.IOException;
+import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.time.Duration;
 import java.util.List;
@@ -16,10 +17,13 @@ public class TurbineWorkerWrapper {
 
   public static void main(String[] args) throws IOException {
     if (args.length == 1 && args[0].equals("--persistent_worker")) {
+      PrintStream realStdErr = System.err;
       WorkRequestHandler workerHandler =
           new WorkRequestHandler.WorkRequestHandlerBuilder(
-              TurbineWorkerWrapper::turbine,
-              System.err,
+              new WorkRequestHandler.WorkRequestCallback(
+                  (request, pw) ->
+                      turbine(request.getArgumentsList(), pw)),
+              realStdErr,
               new ProtoWorkerMessageProcessor(System.in, System.out))
               .setCpuUsageBeforeGc(Duration.ofSeconds(10))
               .build();
@@ -28,7 +32,7 @@ public class TurbineWorkerWrapper {
         workerHandler.processRequests();
         exitCode = 0;
       } catch (IOException e) {
-        System.err.println(e.getMessage());
+        realStdErr.println(e.getMessage());
       } finally {
         // Prevent hanging threads from keeping the worker alive.
         System.exit(exitCode);
@@ -42,7 +46,7 @@ public class TurbineWorkerWrapper {
       try {
           Main.compile(args.toArray(new String[0]));
       } catch (Throwable e) {
-          System.err.println(e.getMessage());
+          pw.println(e.getMessage());
           return 1;
       }
       return 0;

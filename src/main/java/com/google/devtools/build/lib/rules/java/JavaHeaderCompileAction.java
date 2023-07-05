@@ -449,19 +449,21 @@ public final class JavaHeaderCompileAction extends SpawnAction {
         }
       }
 
-      ImmutableMap<String, String> executionInfo =
-          TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation());
+      ImmutableMap.Builder<String, String> executionInfoBuilder = ImmutableMap.builder();
+      executionInfoBuilder.putAll(
+          TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
       if (javaConfiguration.inmemoryJdepsFiles()) {
-        executionInfo =
-            ImmutableMap.of(
-                ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
-                outputDepsProto.getExecPathString());
+        executionInfoBuilder.put(
+            ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
+            outputDepsProto.getExecPathString());
       }
-      executionInfo = ImmutableMap.<String, String>builder()
-          .putAll(executionInfo)
-          .putAll(ExecutionRequirements.WORKER_MODE_ENABLED)
-          .putAll(ExecutionRequirements.WORKER_MULTIPLEX_MODE_ENABLED)
-          .build();
+      if (javaToolchain.getHeaderCompilerSupportsWorkers()) {
+        executionInfoBuilder.putAll(ExecutionRequirements.WORKER_MODE_ENABLED);
+      }
+      if (javaToolchain.getHeaderCompilerSupportsMultiplexWorkers()) {
+        executionInfoBuilder.putAll(ExecutionRequirements.WORKER_MULTIPLEX_MODE_ENABLED);
+      }
+      ImmutableMap<String, String> executionInfo = executionInfoBuilder.build();
       if (useDirectClasspath) {
         NestedSet<Artifact> classpath;
         if (!directJars.isEmpty() || classpathEntries.isEmpty()) {
