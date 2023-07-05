@@ -247,13 +247,78 @@ public class ByteStreamBuildEventArtifactUploaderTest {
   }
 
   @Test
-  public void testUploadDirectoryDoesNotCrash() throws Exception {
+  public void testDirectoryNotUploaded() throws Exception {
+    Path dir = fs.getPath("/dir");
+    Map<Path, LocalFile> filesToUpload = new HashMap<>();
+    filesToUpload.put(
+        dir,
+        new LocalFile(
+            dir,
+            LocalFileType.OUTPUT_DIRECTORY,
+            /* artifact= */ null,
+            /* artifactMetadata= */ null));
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
+    RemoteCache remoteCache = newRemoteCache(refCntChannel, retrier);
+    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(remoteCache);
+
+    PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
+    assertThat(pathConverter.apply(dir)).isNull();
+    artifactUploader.release();
+  }
+
+  @Test
+  public void testSymlinkNotUploaded() throws Exception {
+    Path sym = fs.getPath("/sym");
+    Map<Path, LocalFile> filesToUpload = new HashMap<>();
+    filesToUpload.put(
+        sym,
+        new LocalFile(
+            sym, LocalFileType.OUTPUT_SYMLINK, /* artifact= */ null, /* artifactMetadata= */ null));
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
+    RemoteCache remoteCache = newRemoteCache(refCntChannel, retrier);
+    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(remoteCache);
+
+    PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
+    assertThat(pathConverter.apply(sym)).isNull();
+    artifactUploader.release();
+  }
+
+  @Test
+  public void testUnknown_uploadedIfFile() throws Exception {
+    Path file = fs.getPath("/file");
+    file.getOutputStream().close();
+    Map<Path, LocalFile> filesToUpload = new HashMap<>();
+    filesToUpload.put(
+        file,
+        new LocalFile(
+            file, LocalFileType.OUTPUT, /* artifact= */ null, /* artifactMetadata= */ null));
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
+    RemoteCache remoteCache = newRemoteCache(refCntChannel, retrier);
+    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(remoteCache);
+
+    PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
+    String hash = BaseEncoding.base16().lowerCase().encode(file.getDigest());
+    long size = file.getFileSize();
+    String conversion = pathConverter.apply(file);
+    assertThat(conversion).isEqualTo("bytestream://localhost/instance/blobs/" + hash + "/" + size);
+    artifactUploader.release();
+  }
+
+  @Test
+  public void testUnknown_notUploadedIfDirectory() throws Exception {
     Path dir = fs.getPath("/dir");
     dir.createDirectoryAndParents();
     Map<Path, LocalFile> filesToUpload = new HashMap<>();
     filesToUpload.put(
         dir,
-        new LocalFile(dir, LocalFileType.OUTPUT, /*artifact=*/ null, /*artifactMetadata=*/ null));
+        new LocalFile(
+            dir, LocalFileType.OUTPUT, /* artifact= */ null, /* artifactMetadata= */ null));
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
@@ -334,7 +399,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
     assertThat(eventHandler.getEvents()).isNotEmpty();
     assertThat(eventHandler.getEvents().get(0).getMessage())
-        .contains("Uploading BEP referenced local files: ");
+        .contains("Uploading BEP referenced local file /file");
 
     artifactUploader.release();
 

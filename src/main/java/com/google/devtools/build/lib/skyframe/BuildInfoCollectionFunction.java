@@ -14,10 +14,11 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Actions;
-import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoCollection;
@@ -96,17 +97,13 @@ public class BuildInfoCollectionFunction implements SkyFunction {
             config,
             infoArtifactValue.getStableArtifact(),
             infoArtifactValue.getVolatileArtifact());
-    GeneratingActions generatingActions;
+    ImmutableList<ActionAnalysisMetadata> actions = collection.getActions();
     try {
-      generatingActions =
-          Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-              actionKeyContext,
-              collection.getActions(),
-              keyAndConfig,
-              /*outputFiles=*/ null);
+      Actions.assignOwnersAndThrowIfConflictToleratingSharedActions(
+          actionKeyContext, actions, keyAndConfig);
     } catch (ActionConflictException | Actions.ArtifactGeneratedByOtherRuleException e) {
       throw new IllegalStateException("Errors not expected in build info: " + skyKey, e);
     }
-    return new BuildInfoCollectionValue(collection, generatingActions);
+    return new BuildInfoCollectionValue(actions, collection);
   }
 }

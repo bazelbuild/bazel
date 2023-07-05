@@ -370,6 +370,33 @@ EOF
     || fail "build failed with --features=compiler_param_file"
 }
 
+function test_stripped_cc_test() {
+  create_new_workspace
+  setup_android_sdk_support
+  setup_android_ndk_support
+  cat > BUILD <<EOF
+cc_test(
+    name = "foo",
+    srcs = ["foo.cc"],
+)
+EOF
+  cat > foo.cc <<EOF
+int main() { return 0; }
+EOF
+  bazel build //:foo.stripped \
+    --cpu=armeabi-v7a \
+    --crosstool_top=//external:android/crosstool \
+    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
+    || fail "build failed"
+
+  bazel build //:foo.stripped \
+    --features=compiler_param_file \
+    --cpu=armeabi-v7a \
+    --crosstool_top=//external:android/crosstool \
+    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
+    || fail "build failed with --features=compiler_param_file"
+}
+
 function test_crosstool_stlport() {
   create_new_workspace
   setup_android_sdk_support

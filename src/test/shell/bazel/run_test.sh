@@ -172,4 +172,43 @@ EOF
      ./script.bat || fail "Run should succeed"
 }
 
+function test_run_test_exit_code() {
+  # EXPERIMENTAL_SPLIT_XML_GENERATION is set by the outer bazel and influences
+  # the test setup of the inner bazel. To make sure we hit the codepath we want
+  # to test here, unset the variable.
+  unset EXPERIMENTAL_SPLIT_XML_GENERATION
+
+  mkdir -p foo
+  cat > foo/BUILD <<'EOF'
+sh_test(
+  name = "exit0",
+  srcs = ["exit0.sh"],
+)
+
+sh_test(
+  name = "exit1",
+  srcs = ["exit1.sh"],
+)
+EOF
+
+  cat > foo/exit0.sh <<'EOF'
+set -x
+exit 0
+EOF
+  chmod +x foo/exit0.sh
+  bazel run //foo:exit0 &>"$TEST_log" \
+    || fail "Expected exit code 0, received $?"
+
+  cat > foo/exit1.sh <<'EOF'
+set -x
+exit 1
+EOF
+  chmod +x foo/exit1.sh
+  bazel run --noexperimental_split_xml_generation //foo:exit1 &>"$TEST_log" \
+    && fail "Expected exit code 1, received $?"
+
+  # Avoid failing the test because of the last non-zero exit-code.
+  true
+}
+
 run_suite "run_under_tests"

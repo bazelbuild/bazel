@@ -217,7 +217,8 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
                     ConfiguredTargetKey.builder()
                         .setLabel(pkg.getLabel())
                         .setConfiguration(getConfiguration(pkg))
-                        .build())
+                        .build()
+                        .toKey())
                 .getValue();
     ImmutableList<ActionAnalysisMetadata> linkstampCompileActions =
         configuredTargetValue.getActions().stream()

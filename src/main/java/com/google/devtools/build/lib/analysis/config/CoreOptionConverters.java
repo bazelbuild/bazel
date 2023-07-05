@@ -157,26 +157,6 @@ public class CoreOptionConverters {
     }
   }
 
-  /** A label converter that returns a default value if the input string is empty. */
-  public static class DefaultLabelConverter implements Converter<Label> {
-    private final Label defaultValue;
-
-    protected DefaultLabelConverter(String defaultValue) {
-      this.defaultValue =
-          defaultValue.equals("null") ? null : Label.parseCanonicalUnchecked(defaultValue);
-    }
-
-    @Override
-    public Label convert(String input, Object conversionContext) throws OptionsParsingException {
-      return input.isEmpty() ? defaultValue : convertOptionsLabel(input, conversionContext);
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a build target label";
-    }
-  }
-
   /** Flag converter for a map of unique keys with optional labels as values. */
   public static class LabelMapConverter implements Converter<Map<String, Label>> {
     @Override

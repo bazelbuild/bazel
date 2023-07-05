@@ -49,6 +49,7 @@ java_library(
     deps = [
         ":error_message",
         ":worker",
+        ":worker_events",
         ":worker_files_hash",
         ":worker_key",
         ":worker_metric",
@@ -198,8 +199,12 @@ java_library(
     srcs = [
         "WorkerCreatedEvent.java",
         "WorkerDestroyedEvent.java",
+        "WorkerEvictedEvent.java",
     ],
-    deps = ["//src/main/java/com/google/devtools/build/lib/events"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//third_party:guava",
+    ],
 )
 
 java_library(
@@ -223,6 +228,7 @@ java_library(
     ],
     deps = [
         ":worker",
+        ":worker_events",
         ":worker_factory",
         ":worker_key",
         ":worker_pool",

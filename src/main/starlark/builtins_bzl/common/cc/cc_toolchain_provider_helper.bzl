@@ -154,12 +154,13 @@ def _resolve_include_dir(target_label, s, sysroot, crosstool_path):
 
     return paths.get_relative(path_prefix, path_string)
 
-def get_cc_toolchain_provider(ctx, attributes):
+def get_cc_toolchain_provider(ctx, attributes, has_apple_fragment):
     """Constructs a CcToolchainProvider instance.
 
     Args:
         ctx: rule context.
         attributes: an instance of CcToolchainAttributesProvider.
+        has_apple_fragment: whether an instance of ctx.fragments contains "apple".
     Returns:
         A constructed CcToolchainProvider instance.
     """
@@ -230,6 +231,11 @@ def get_cc_toolchain_provider(ctx, attributes):
     for s in toolchain_config_info.cxx_builtin_include_directories():
         builtin_include_directories.append(_resolve_include_dir(ctx.label, s, sysroot, tools_directory))
 
+    if has_apple_fragment:
+        build_vars = attributes.build_vars_func()(ctx.fragments.apple.single_arch_platform, ctx.fragments.apple.cpu(), ctx.fragments.cpp, sysroot)
+    else:
+        build_vars = attributes.build_vars_func()("", "", ctx.fragments.cpp, sysroot)
+
     return cc_internal.construct_toolchain_provider(
         ctx = ctx,
         cpp_config = ctx.fragments.cpp,
@@ -267,4 +273,5 @@ def get_cc_toolchain_provider(ctx, attributes):
         strip = tool_paths.get("strip", ""),
         ld = tool_paths.get("ld", ""),
         gcov = tool_paths.get("gcov", ""),
+        vars = build_vars,
     )

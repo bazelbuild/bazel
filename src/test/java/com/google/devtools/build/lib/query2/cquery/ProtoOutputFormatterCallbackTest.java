@@ -22,12 +22,14 @@ import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Configuration;
-import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.cquery.CqueryOptions.Transitions;
 import com.google.devtools.build.lib.query2.cquery.ProtoOutputFormatterCallback.OutputType;
@@ -81,7 +83,8 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
                 (builder, env) ->
                     builder
                         .add(attr("deps", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)));
-    helper.useRuleClassProvider(setRuleClassProviders(depsRule).build());
+    ConfiguredRuleClassProvider ruleClassProvider = setRuleClassProviders(depsRule).build();
+    helper.useRuleClassProvider(ruleClassProvider);
 
     writeFile(
         "test/BUILD",
@@ -97,7 +100,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         ")");
 
     AnalysisProtosV2.ConfiguredTarget myRuleProto =
-        Iterables.getOnlyElement(getOutput("//test:my_rule").getResultsList());
+        Iterables.getOnlyElement(getOutput("//test:my_rule", ruleClassProvider).getResultsList());
     List<Build.Attribute> attributes = myRuleProto.getTarget().getRule().getAttributeList();
     for (Build.Attribute attribute : attributes) {
       if (!attribute.getName().equals("deps")) {
@@ -109,7 +112,8 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     }
 
     getHelper().useConfiguration("--foo=cat");
-    myRuleProto = Iterables.getOnlyElement(getOutput("//test:my_rule").getResultsList());
+    myRuleProto =
+        Iterables.getOnlyElement(getOutput("//test:my_rule", ruleClassProvider).getResultsList());
     attributes = myRuleProto.getTarget().getRule().getAttributeList();
     for (Build.Attribute attribute : attributes) {
       if (!attribute.getName().equals("deps")) {
@@ -143,8 +147,9 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
                 (builder, env) ->
                     builder.add(attr("deps", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)));
 
-    helper.useRuleClassProvider(
-        setRuleClassProviders(ruleWithPatch, parentRuleClass, getSimpleRule()).build());
+    ConfiguredRuleClassProvider ruleClassProvider =
+        setRuleClassProviders(ruleWithPatch, parentRuleClass, getSimpleRule()).build();
+    helper.useRuleClassProvider(ruleClassProvider);
 
     writeFile(
         "test/BUILD",
@@ -156,16 +161,18 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         ")",
         "simple_rule(name = 'dep')");
 
-    AnalysisProtosV2.CqueryResult cqueryResult = getOutput("deps(//test:parent_rule)");
+    AnalysisProtosV2.CqueryResult cqueryResult =
+        getOutput("deps(//test:parent_rule)", ruleClassProvider);
     List<Configuration> configurations = cqueryResult.getConfigurationsList();
     assertThat(configurations).hasSize(2);
 
-    List<ConfiguredTarget> resultsList = cqueryResult.getResultsList();
+    List<AnalysisProtosV2.ConfiguredTarget> resultsList = cqueryResult.getResultsList();
 
-    ConfiguredTarget parentRuleProto = getRuleProtoByName(resultsList, "//test:parent_rule");
-    Set<KeyedConfiguredTarget> keyedTargets = eval("deps(//test:parent_rule)");
+    AnalysisProtosV2.ConfiguredTarget parentRuleProto =
+        getRuleProtoByName(resultsList, "//test:parent_rule");
+    Set<ConfiguredTarget> keyedTargets = eval("deps(//test:parent_rule)");
 
-    KeyedConfiguredTarget parentRule = getKeyedTargetByLabel(keyedTargets, "//test:parent_rule");
+    ConfiguredTarget parentRule = getKeyedTargetByLabel(keyedTargets, "//test:parent_rule");
     assertThat(parentRuleProto.getConfiguration().getChecksum())
         .isEqualTo(parentRule.getConfigurationChecksum());
 
@@ -183,10 +190,9 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
                 .setIsTool(false)
                 .build());
 
-    ConfiguredTarget transitionRuleProto =
+    AnalysisProtosV2.ConfiguredTarget transitionRuleProto =
         getRuleProtoByName(resultsList, "//test:transition_rule");
-    KeyedConfiguredTarget transitionRule =
-        getKeyedTargetByLabel(keyedTargets, "//test:transition_rule");
+    ConfiguredTarget transitionRule = getKeyedTargetByLabel(keyedTargets, "//test:transition_rule");
     assertThat(transitionRuleProto.getConfiguration().getChecksum())
         .isEqualTo(transitionRule.getConfigurationChecksum());
 
@@ -195,14 +201,14 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     assertThat(transitionConfiguration.getChecksum())
         .isEqualTo(transitionRule.getConfigurationChecksum());
 
-    ConfiguredTarget depRuleProto = getRuleProtoByName(resultsList, "//test:dep");
+    AnalysisProtosV2.ConfiguredTarget depRuleProto = getRuleProtoByName(resultsList, "//test:dep");
     Configuration depRuleConfiguration =
         getConfigurationForId(configurations, depRuleProto.getConfigurationId());
     assertThat(depRuleConfiguration.getPlatformName()).isEqualTo("k8");
     assertThat(depRuleConfiguration.getMnemonic()).matches("k8-opt-exec-.*");
     assertThat(depRuleConfiguration.getIsTool()).isTrue();
 
-    KeyedConfiguredTarget depRule = getKeyedTargetByLabel(keyedTargets, "//test:dep");
+    ConfiguredTarget depRule = getKeyedTargetByLabel(keyedTargets, "//test:dep");
 
     assertThat(depRuleProto.getConfiguration().getChecksum())
         .isEqualTo(depRule.getConfigurationChecksum());
@@ -211,7 +217,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     assertThat(depRuleConfiguration.getChecksum())
         .isNotEqualTo(transitionConfiguration.getChecksum());
     // Targets without a configuration have a configuration_id of 0.
-    ConfiguredTarget fileTargetProto =
+    AnalysisProtosV2.ConfiguredTarget fileTargetProto =
         resultsList.stream()
             .filter(result -> "//test:patched".equals(result.getTarget().getSourceFile().getName()))
             .findAny()
@@ -238,11 +244,10 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         .containsExactly(patchedConfiguredRuleInput, depConfiguredRuleInput);
   }
 
-  private KeyedConfiguredTarget getKeyedTargetByLabel(
-      Set<KeyedConfiguredTarget> keyedTargets, String label) {
+  private ConfiguredTarget getKeyedTargetByLabel(Set<ConfiguredTarget> keyedTargets, String label) {
     return Iterables.getOnlyElement(
         keyedTargets.stream()
-            .filter(t -> label.equals(t.getConfiguredTarget().getLabel().getCanonicalForm()))
+            .filter(t -> label.equals(t.getLabel().getCanonicalForm()))
             .collect(Collectors.toSet()));
   }
 
@@ -250,7 +255,8 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     return configurations.stream().filter(c -> c.getId() == id).findAny().orElseThrow();
   }
 
-  private ConfiguredTarget getRuleProtoByName(List<ConfiguredTarget> resultsList, String s) {
+  private AnalysisProtosV2.ConfiguredTarget getRuleProtoByName(
+      List<AnalysisProtosV2.ConfiguredTarget> resultsList, String s) {
     return resultsList.stream()
         .filter(result -> s.equals(result.getTarget().getRule().getName()))
         .findAny()
@@ -259,14 +265,16 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
 
   @Test
   public void testAlias() throws Exception {
-    helper.useRuleClassProvider(setRuleClassProviders(getSimpleRule()).build());
+    ConfiguredRuleClassProvider ruleClassProvider = setRuleClassProviders(getSimpleRule()).build();
+    helper.useRuleClassProvider(ruleClassProvider);
+
     writeFile(
         "test/BUILD",
         "simple_rule(name = 'my_rule')",
         "alias(name = 'my_alias', actual = ':my_rule')");
 
     AnalysisProtosV2.ConfiguredTarget alias =
-        Iterables.getOnlyElement(getOutput("//test:my_alias").getResultsList());
+        Iterables.getOnlyElement(getOutput("//test:my_alias", ruleClassProvider).getResultsList());
 
     assertThat(alias.getTarget().getRule().getName()).isEqualTo("//test:my_alias");
     assertThat(alias.getTarget().getRule().getRuleInputCount()).isEqualTo(1);
@@ -276,7 +284,9 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
   /* See b/209787345 for context. */
   @Test
   public void testAlias_withSelect() throws Exception {
-    helper.useRuleClassProvider(setRuleClassProviders(getSimpleRule()).build());
+    ConfiguredRuleClassProvider ruleClassProvider = setRuleClassProviders(getSimpleRule()).build();
+    helper.useRuleClassProvider(ruleClassProvider);
+
     writeFile(
         "test/BUILD",
         "alias(",
@@ -296,7 +306,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
 
     List<AnalysisProtosV2.ConfiguredTarget> myAliasRuleProto =
-        getOutput("deps(//test:my_alias_rule)").getResultsList();
+        getOutput("deps(//test:my_alias_rule)", ruleClassProvider).getResultsList();
 
     List<String> depNames = new ArrayList<>(myAliasRuleProto.size());
     myAliasRuleProto.forEach(
@@ -311,25 +321,26 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     return () -> MockRule.define("simple_rule");
   }
 
-  private AnalysisProtosV2.CqueryResult getOutput(String queryExpression) throws Exception {
+  private AnalysisProtosV2.CqueryResult getOutput(
+      String queryExpression, RuleClassProvider ruleClassProvider) throws Exception {
     QueryExpression expression = QueryParser.parse(queryExpression, getDefaultFunctions());
     Set<String> targetPatternSet = new LinkedHashSet<>();
     expression.collectTargetPatterns(targetPatternSet);
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
-    PostAnalysisQueryEnvironment<KeyedConfiguredTarget> env =
+    PostAnalysisQueryEnvironment<ConfiguredTarget> env =
         ((ConfiguredTargetQueryHelper) helper).getPostAnalysisQueryEnvironment(targetPatternSet);
 
     ProtoOutputFormatterCallback callback =
         new ProtoOutputFormatterCallback(
             reporter,
             options,
-            /*out=*/ null,
+            /* out= */ null,
             getHelper().getSkyframeExecutor(),
             env.getAccessor(),
             options.aspectDeps.createResolver(
                 getHelper().getPackageManager(), NullEventHandler.INSTANCE),
             OutputType.BINARY,
-            /*trimmingTransitionFactory=*/ null);
+            ruleClassProvider);
     env.evaluateQuery(expression, callback);
     return callback.getProtoResult();
   }

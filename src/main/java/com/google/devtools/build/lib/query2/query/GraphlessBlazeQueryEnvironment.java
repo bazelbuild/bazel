@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.TargetEdgeObserver;
 import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
@@ -46,7 +45,6 @@ import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionContext;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.MinDepthUniquifierImpl;
-import com.google.devtools.build.lib.query2.engine.QueryUtil.MutableKeyExtractorBackedMapImpl;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.ThreadSafeMutableKeyExtractorBackedSetImpl;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.UniquifierImpl;
 import com.google.devtools.build.lib.query2.engine.SamePkgDirectRdepsFunction;
@@ -54,12 +52,10 @@ import com.google.devtools.build.lib.query2.engine.SkyframeRestartQueryException
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -404,11 +400,6 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
   }
 
   @Override
-  public <V> MutableMap<Target, V> createMutableMap() {
-    return new MutableKeyExtractorBackedMapImpl<>(TargetKeyExtractor.INSTANCE);
-  }
-
-  @Override
   public Uniquifier<Target> createUniquifier() {
     return new UniquifierImpl<>(TargetKeyExtractor.INSTANCE);
   }
@@ -416,6 +407,29 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
   @Override
   public MinDepthUniquifier<Target> createMinDepthUniquifier() {
     return new MinDepthUniquifierImpl<>(TargetKeyExtractor.INSTANCE, /*concurrencyLevel=*/ 1);
+  }
+
+  @Override
+  public TransitiveLoadFilesHelper<Target> getTransitiveLoadFilesHelper() {
+    return new TransitiveLoadFilesHelperForTargets() {
+      @Override
+      public Target getLoadFileTarget(Target originalTarget, Label bzlLabel) {
+        return new FakeLoadTarget(bzlLabel, originalTarget.getPackage());
+      }
+
+      @Nullable
+      @Override
+      public Target maybeGetBuildFileTargetForLoadFileTarget(
+          Target originalTarget, Label bzlLabel) {
+        PackageIdentifier pkgIdOfBzlLabel = bzlLabel.getPackageIdentifier();
+        String baseName = cachingPackageLocator.getBaseNameForLoadedPackage(pkgIdOfBzlLabel);
+        if (baseName == null) {
+          return null;
+        }
+        return new FakeLoadTarget(
+            Label.createUnvalidated(pkgIdOfBzlLabel, baseName), originalTarget.getPackage());
+      }
+    };
   }
 
   private void preloadTransitiveClosure(
@@ -447,53 +461,6 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
       throw new SkyframeRestartQueryException();
     }
     return target;
-  }
-
-  @Override
-  public ThreadSafeMutableSet<Target> getBuildFiles(
-      final QueryExpression caller,
-      ThreadSafeMutableSet<Target> nodes,
-      boolean buildFiles,
-      boolean loads,
-      QueryExpressionContext<Target> context)
-      throws QueryException {
-    ThreadSafeMutableSet<Target> dependentFiles = createThreadSafeMutableSet();
-    Set<PackageIdentifier> seenPackages = new HashSet<>();
-
-    // Adds all the package definition files (BUILD files and build extensions) for package "pkg",
-    // to dependentFiles.
-    for (Target x : nodes) {
-      Package pkg = x.getPackage();
-      if (seenPackages.add(pkg.getPackageIdentifier())) {
-        if (buildFiles) {
-          dependentFiles.add(pkg.getBuildFile());
-        }
-
-        List<Label> extensions = new ArrayList<>();
-        if (loads) {
-          extensions.addAll(pkg.getStarlarkFileDependencies());
-        }
-
-        for (Label extension : extensions) {
-          Target loadTarget = new FakeLoadTarget(extension, pkg);
-          dependentFiles.add(loadTarget);
-
-          // Also add the BUILD file of the extension.
-          if (buildFiles) {
-            // Can be null in genquery: see http://b/123795023#comment6.
-            String baseName =
-                cachingPackageLocator.getBaseNameForLoadedPackage(
-                    loadTarget.getLabel().getPackageIdentifier());
-            if (baseName != null) {
-              Label buildFileLabel =
-                  Label.createUnvalidated(loadTarget.getLabel().getPackageIdentifier(), baseName);
-              dependentFiles.add(new FakeLoadTarget(buildFileLabel, pkg));
-            }
-          }
-        }
-      }
-    }
-    return dependentFiles;
   }
 
   @Override

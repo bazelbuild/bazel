@@ -27,7 +27,7 @@ public interface TemplateContext {
    * @throws ExpansionException if the given variable was not defined or there was any other error
    *     during expansion
    */
-  String lookupVariable(String name) throws ExpansionException;
+  String lookupVariable(String name) throws ExpansionException, InterruptedException;
 
   /**
    * Returns the expansion of the specified template function with the given parameter.

@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
+import com.google.devtools.build.lib.analysis.BaseDependencySpecification;
 import com.google.devtools.build.lib.analysis.ConfigurationsCollector;
 import com.google.devtools.build.lib.analysis.ConfigurationsResult;
 import com.google.devtools.build.lib.analysis.Dependency;
@@ -85,13 +86,13 @@ public final class ConfigurationResolver {
           .thenComparing(
               Functions.compose(BuildConfigurationValue::checksum, Dependency::getConfiguration));
 
-  private final SkyFunction.Environment env;
+  private final SkyFunction.LookupEnvironment env;
   private final TargetAndConfiguration ctgValue;
   private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
   private final StarlarkTransitionCache starlarkTransitionCache;
 
   public ConfigurationResolver(
-      SkyFunction.Environment env,
+      SkyFunction.LookupEnvironment env,
       TargetAndConfiguration ctgValue,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       StarlarkTransitionCache starlarkTransitionCache) {
@@ -184,7 +185,19 @@ public final class ConfigurationResolver {
       return ImmutableList.of(resolvedDep);
     }
 
-    return resolveGenericTransition(dependencyBuilder, dependencyKey, eventHandler);
+    var ans = resolveGenericTransition(dependencyBuilder, dependencyKey, eventHandler);
+    if (ans != null) {
+      ans.stream()
+          .filter(d -> d.getConfiguration() != null)
+          // No need to log no-op transitions.
+          .filter(d -> !d.getConfiguration().equals(ctgValue.getConfiguration()))
+          .forEach(
+              d ->
+                  eventHandler.post(
+                      new ConfigRequestedEvent(
+                          d.getConfiguration(), ctgValue.getConfiguration().checksum())));
+    }
+    return ans;
   }
 
   @Nullable
@@ -388,7 +401,7 @@ public final class ConfigurationResolver {
    */
   @Nullable
   private static StarlarkBuildSettingsDetailsValue getStarlarkBuildSettingsDetailsValue(
-      ConfigurationTransition transition, SkyFunction.Environment env)
+      ConfigurationTransition transition, SkyFunction.LookupEnvironment env)
       throws TransitionException, InterruptedException {
     ImmutableSet<Label> starlarkBuildSettings =
         StarlarkTransition.getAllStarlarkBuildSettings(transition);
@@ -437,7 +450,6 @@ public final class ConfigurationResolver {
   //   should never make it through analysis (and especially not seed ConfiguredTargetValues)
   // TODO(gregce): merge this more with resolveConfigurations? One crucial difference is
   //   resolveConfigurations can null-return on missing deps since it executes inside Skyfunctions.
-  // Keep this in sync with {@link PrepareAnalysisPhaseFunction#resolveConfigurations}.
   public static TopLevelTargetsAndConfigsResult getConfigurationsFromExecutor(
       Iterable<TargetAndConfiguration> defaultContext,
       Multimap<BuildConfigurationValue, DependencyKey> targetsToEvaluate,
@@ -461,7 +473,7 @@ public final class ConfigurationResolver {
             configurationsCollector.getConfigurations(
                 eventHandler, fromConfig.getOptions(), targetsToEvaluate.get(fromConfig));
         hasError |= configurationsResult.hasError();
-        for (Map.Entry<DependencyKey, BuildConfigurationValue> evaluatedTarget :
+        for (Map.Entry<BaseDependencySpecification, BuildConfigurationValue> evaluatedTarget :
             configurationsResult.getConfigurationMap().entries()) {
           Target target = labelsToTargets.get(evaluatedTarget.getKey().getLabel());
           successfullyEvaluatedTargets.put(

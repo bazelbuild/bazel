@@ -37,7 +37,7 @@ add_to_bazelrc "build -s"
 add_to_bazelrc "build --spawn_strategy=worker,standalone"
 add_to_bazelrc "build --worker_verbose --worker_max_instances=1"
 add_to_bazelrc "build --debug_print_action_contexts"
-add_to_bazelrc "build --noexperimental_worker_multiplex"
+add_to_bazelrc "build --noworker_multiplex"
 add_to_bazelrc "build ${ADDITIONAL_BUILD_FLAGS}"
 
 function set_up() {
@@ -95,7 +95,7 @@ function test_compiles_hello_library_using_persistent_javac() {
 
   bazel build java/main:main &> "$TEST_log" \
     || fail "build failed"
-  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Javac worker (id [0-9]\+)"
+  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Javac worker (id [0-9]\+, key hash -\?[0-9]\+)"
   $BINS/java/main/main | grep -q "Hello, Library!;Hello, World!" \
     || fail "comparison failed"
 }
@@ -107,7 +107,7 @@ function test_compiles_hello_library_using_persistent_javac_sibling_layout() {
     --experimental_sibling_repository_layout java/main:main \
     --worker_max_instances=Javac=1 \
     &> "$TEST_log" || fail "build failed"
-  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Javac worker (id [0-9]\+)"
+  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Javac worker (id [0-9]\+, key hash -\?[0-9]\+)"
   $BINS/java/main/main | grep -q "Hello, Library!;Hello, World!" \
     || fail "comparison failed"
 }
@@ -382,7 +382,7 @@ EOF
   bazel build --worker_verbose :hello_world_2 &> "$TEST_log" \
     || fail "build failed"
 
-  expect_log "Work worker (id [0-9]\+) has unexpectedly died with exit code 0."
+  expect_log "Work worker (id [0-9]\+, key hash -\?[0-9]\+) has unexpectedly died with exit code 0."
 }
 
 function test_build_fails_if_worker_dies_during_action() {
@@ -572,8 +572,8 @@ EOF
 
   bazel build --worker_quit_after_build :hello_world_1 &> "$TEST_log" \
     || fail "build failed"
-  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Work worker (id [0-9]\+)"
-  expect_log "Destroying Work worker (id [0-9]\+)"
+  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
+  expect_log "Destroying Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
   expect_log "Build completed, shutting down worker pool..."
 }
 
@@ -591,7 +591,7 @@ EOF
   bazel build --worker_quit_after_build :hello_world_1 &> "$TEST_log" \
     || fail "build failed"
 
-  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Work worker (id [0-9]\+)"
+  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
 
   worker_log=$(egrep -o -- 'logging to .*/b(azel|laze)-workers/worker-[0-9]-Work.log' "$TEST_log" | sed 's/^logging to //')
 
@@ -651,8 +651,8 @@ EOF
   bazel build --worker_quit_after_build :hello_world &> "$TEST_log" \
     || fail "build failed"
 
-  expect_not_log "Created new ${WORKER_TYPE_LOG_STRING} Work worker (id [0-9]\+)"
-  expect_not_log "Destroying Work worker (id [0-9]\+)"
+  expect_not_log "Created new ${WORKER_TYPE_LOG_STRING} Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
+  expect_not_log "Destroying Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
 
   # WorkerSpawnStrategy falls back to standalone strategy, so we still expect the output to be generated.
   [ -e "$BINS/hello_world.out" ] \
@@ -693,12 +693,12 @@ EOF
   bazel build :hello_clean &> "$TEST_log" \
     || fail "build failed"
   assert_equals "hello clean" "$(cat $BINS/hello_clean.out)"
-  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Work worker (id [0-9]\+)"
+  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
 
   bazel clean &> "$TEST_log" \
     || fail "clean failed"
   expect_log "Clean command is running, shutting down worker pool..."
-  expect_log "Destroying Work worker (id [0-9]\+)"
+  expect_log "Destroying Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
 }
 
 function test_crashed_worker_causes_log_dump() {
@@ -728,6 +728,61 @@ EOF
   expect_log "^---8<---8<--- End of log ---8<---8<---"
 }
 
+function test_worker_memory_limit() {
+  prepare_example_worker
+  cat >>BUILD <<EOF
+work(
+  name = "hello_world",
+  worker = ":worker",
+  worker_args = [
+    "--worker_protocol=${WORKER_PROTOCOL}",
+  ],
+  args = [
+    "--work_time=3s",
+  ]
+)
+EOF
+
+  bazel build --experimental_worker_memory_limit_mb=1000 \
+    --experimental_worker_metrics_poll_interval=1s :hello_world &> "$TEST_log" \
+    || fail "build failed"
+  bazel clean
+  bazel build --experimental_worker_memory_limit_mb=1 \
+    --experimental_worker_metrics_poll_interval=1s :hello_world &> "$TEST_log" \
+    && fail "expected build to fail" || true
+
+  expect_log "^---8<---8<--- Start of log, file at /"
+  expect_log "Worker process did not return a WorkResponse:"
+  expect_log "Killing [a-zA-Z]\+ worker [0-9]\+ (pid [0-9]\+) taking [0-9]\+MB"
+  expect_log "^---8<---8<--- End of log ---8<---8<---"
+}
+
+function test_total_worker_memory_limit_log_starting() {
+  prepare_example_worker
+  cat >>BUILD <<EOF
+[work(
+  name = "hello_world_%s" % idx,
+  worker = ":worker",
+  worker_args = ["--worker_protocol=${WORKER_PROTOCOL}"],
+  args = ["--write_uuid", "--write_counter", "--work_time=1s"],
+) for idx in range(10)]
+EOF
+
+  bazel build --experimental_total_worker_memory_limit_mb=10000 \
+  --experimental_worker_memory_limit_mb=5000 --noexperimental_shrink_worker_pool :hello_world_1 &> "$TEST_log" \
+  || fail "build failed"
+
+
+  expect_log "Worker Lifecycle Manager starts work with (total limit: 10000 MB, limit: 5000 MB, shrinking: disabled)"
+
+  bazel build --experimental_total_worker_memory_limit_mb=15000 \
+  --experimental_worker_memory_limit_mb=7000 --experimental_shrink_worker_pool :hello_world_2 &> "$TEST_log" \
+  || fail "build failed"
+
+  expect_not_log "Destroying Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
+  expect_log "Worker Lifecycle Manager starts work with (total limit: 15000 MB, limit: 7000 MB, shrinking: enabled)"
+}
+
 function test_worker_metrics_collection() {
   prepare_example_worker
   cat >>BUILD <<EOF
@@ -746,7 +801,7 @@ EOF
       --experimental_collect_worker_data_in_profiler \
       :hello_world_1 &> "$TEST_log" \
     || fail "build failed"
-  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Work worker (id [0-9]\+)"
+  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
   # Now see that we have metrics in the build event log.
   mv "${TEST_log}".build.json "${TEST_log}"
   expect_log "mnemonic: \"Work\""

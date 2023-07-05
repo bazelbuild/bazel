@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ServerLogs;
+import com.google.devtools.build.lib.remote.circuitbreaker.CircuitBreakerFactory;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -65,7 +66,6 @@ import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.ExitCode;
-import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.longrunning.Operation;
@@ -273,7 +273,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
             // It's already late at this stage, but we should at least report once.
             reporter.reportExecutingIfNot();
 
-            maybePrintExecutionMessages(context, result.getMessage(), result.success());
+            maybePrintExecutionMessages(spawn, result.getMessage(), result.success());
 
             profileAccounting(result.getExecutionMetadata());
             spawnMetricsAccounting(spawnMetrics, result.getExecutionMetadata());
@@ -444,14 +444,16 @@ public class RemoteSpawnRunner implements SpawnRunner {
     return true;
   }
 
-  private void maybePrintExecutionMessages(
-      SpawnExecutionContext context, String message, boolean success) {
-    FileOutErr outErr = context.getFileOutErr();
+  private void maybePrintExecutionMessages(Spawn spawn, String message, boolean success) {
     boolean printMessage =
         remoteOptions.remotePrintExecutionMessages.shouldPrintMessages(success)
             && !message.isEmpty();
     if (printMessage) {
-      outErr.printErr(message + "\n");
+      report(
+          Event.info(
+              String.format(
+                  "Remote execution message for %s %s: %s",
+                  spawn.getMnemonic(), spawn.getTargetLabel(), message)));
     }
   }
 
@@ -532,7 +534,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
         }
       }
       if (e.isExecutionTimeout()) {
-        maybePrintExecutionMessages(context, e.getResponse().getMessage(), /* success = */ false);
+        maybePrintExecutionMessages(
+            action.getSpawn(), e.getResponse().getMessage(), /* success= */ false);
         return new SpawnResult.Builder()
             .setRunnerName(getName())
             .setStatus(Status.TIMEOUT)
@@ -655,6 +658,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
   private static RemoteRetrier createExecuteRetrier(
       RemoteOptions options, ListeningScheduledExecutorService retryService) {
     return new ExecuteRetrier(
-        options.remoteMaxRetryAttempts, retryService, Retrier.ALLOW_ALL_CALLS);
+        options.remoteMaxRetryAttempts,
+        retryService,
+        CircuitBreakerFactory.createCircuitBreaker(options));
   }
 }

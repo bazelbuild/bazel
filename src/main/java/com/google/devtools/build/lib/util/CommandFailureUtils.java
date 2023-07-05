@@ -278,11 +278,12 @@ public class CommandFailureUtils {
 
   /**
    * Construct an error message that describes a failed command invocation. Currently this returns a
-   * message of the form "foo failed: error executing command /dir/foo bar baz".
+   * message of the form "foo failed: error executing FooCompile command /dir/foo bar baz".
    */
   @VisibleForTesting
   static String describeCommandFailure(
       boolean verbose,
+      String mnemonic,
       Collection<String> commandLineElements,
       Map<String, String> env,
       @Nullable String cwd,
@@ -299,7 +300,9 @@ public class CommandFailureUtils {
         : CommandDescriptionForm.ABBREVIATED;
 
     StringBuilder output = new StringBuilder();
-    output.append("error executing command ");
+    output.append("error executing ");
+    output.append(mnemonic);
+    output.append(" command ");
     if (targetLabel != null) {
       output.append("(from target ").append(targetLabel).append(") ");
     }
@@ -323,6 +326,7 @@ public class CommandFailureUtils {
       boolean verboseFailures, @Nullable String cwd, DescribableExecutionUnit command) {
     return describeCommandFailure(
         verboseFailures,
+        command.getMnemonic(),
         command.getArguments(),
         command.getEnvironment(),
         cwd,

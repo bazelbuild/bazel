@@ -19,6 +19,8 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
@@ -48,19 +50,11 @@ public interface JavaCommonApi<
         FileT extends FileApi,
         JavaInfoT extends JavaInfoApi<FileT, ?, ?>,
         JavaToolchainT extends JavaToolchainStarlarkApiProviderApi,
+        BootClassPathT extends ProviderApi,
         ConstraintValueT extends ConstraintValueInfoApi,
         StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
         StarlarkActionFactoryT extends StarlarkActionFactoryApi>
     extends StarlarkValue {
-
-  @StarlarkMethod(
-      name = "provider",
-      structField = true,
-      doc =
-          "Returns the Java declared provider. <br>"
-              + "The same value is accessible as <code>JavaInfo</code>. <br>"
-              + "Prefer using <code>JavaInfo</code> in new code.")
-  ProviderApi getJavaProvider();
 
   @StarlarkMethod(
       name = "compile",
@@ -189,6 +183,14 @@ public interface JavaCommonApi<
             named = true,
             doc = "A JavaToolchainInfo to be used for this compilation. Mandatory."),
         @Param(
+            name = "bootclasspath",
+            positional = false,
+            named = true,
+            defaultValue = "None",
+            doc =
+                "A BootClassPathInfo to be used for this compilation. If present, overrides the"
+                    + " bootclasspath associated with the provided java_toolchain. Optional."),
+        @Param(
             name = "host_javabase",
             positional = false,
             named = true,
@@ -299,6 +301,7 @@ public interface JavaCommonApi<
       Sequence<?> annotationProcessorAdditionalOutputs, // <FileT> expected.
       String strictDepsMode,
       JavaToolchainT javaToolchain,
+      Object bootClassPath,
       Object hostJavabase,
       Sequence<?> sourcepathEntries, // <FileT> expected.
       Sequence<?> resources, // <FileT> expected.
@@ -313,53 +316,7 @@ public interface JavaCommonApi<
       Sequence<?> addExports, // <String> expected.
       Sequence<?> addOpens, // <String> expected.
       StarlarkThread thread)
-      throws EvalException, InterruptedException;
-
-  @StarlarkMethod(
-      name = "run_ijar",
-      doc =
-          "Runs ijar on a jar, stripping it of its method bodies. This helps reduce rebuilding "
-              + "of dependent jars during any recompiles consisting only of simple changes to "
-              + "method implementations. The return value is typically passed to "
-              + "<code><a class=\"anchor\" href=\"../providers/JavaInfo.html\">"
-              + "JavaInfo</a>#compile_jar</code>.",
-      parameters = {
-        @Param(name = "actions", named = true, doc = "ctx.actions"),
-        @Param(name = "jar", positional = false, named = true, doc = "The jar to run ijar on."),
-        @Param(
-            name = "output",
-            positional = false,
-            named = true,
-            documented = false,
-            defaultValue = "None"),
-        @Param(
-            name = "target_label",
-            positional = false,
-            named = true,
-            allowedTypes = {
-              @ParamType(type = Label.class),
-              @ParamType(type = NoneType.class),
-            },
-            defaultValue = "None",
-            doc =
-                "A target label to stamp the jar with. Used for <code>add_dep</code> support. "
-                    + "Typically, you would pass <code>ctx.label</code> to stamp the jar "
-                    + "with the current rule's label."),
-        @Param(
-            name = "java_toolchain",
-            positional = false,
-            named = true,
-            doc = "A JavaToolchainInfo to used to find the ijar tool."),
-      },
-      useStarlarkThread = true)
-  FileApi runIjar(
-      StarlarkActionFactoryT actions,
-      FileT jar,
-      Object output,
-      Object targetLabel,
-      JavaToolchainT javaToolchain,
-      StarlarkThread thread)
-      throws EvalException;
+      throws EvalException, InterruptedException, RuleErrorException;
 
   @StarlarkMethod(
       name = "stamp_jar",
@@ -527,15 +484,6 @@ public interface JavaCommonApi<
   JavaInfoT makeNonStrict(JavaInfoT javaInfo);
 
   @StarlarkMethod(
-      name = "JavaPluginInfo",
-      doc =
-          "The key used to retrieve the provider that contains information about the Java "
-              + "plugins. The same value is accessible as <code>JavaPluginInfo</code>. <br>"
-              + "Prefer using <code>JavaPluginInfo</code> in new code.",
-      structField = true)
-  ProviderApi getJavaPluginProvider();
-
-  @StarlarkMethod(
       name = "JavaToolchainInfo",
       doc =
           "The key used to retrieve the provider that contains information about the Java "
@@ -576,8 +524,8 @@ public interface JavaCommonApi<
             doc = "Constraints to add")
       },
       enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
-  JavaInfoT addConstraints(JavaInfoT javaInfo, Sequence<?> constraints /* <String> expected. */)
-      throws EvalException;
+  Info addConstraints(Info javaInfo, Sequence<?> constraints /* <String> expected. */)
+      throws EvalException, RuleErrorException;
 
   @StarlarkMethod(
       name = "get_constraints",
@@ -590,7 +538,7 @@ public interface JavaCommonApi<
             doc = "The JavaInfo to get constraints from."),
       },
       enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
-  Sequence<String> getConstraints(JavaInfoT javaInfo);
+  Sequence<String> getConstraints(Info javaInfo) throws RuleErrorException;
 
   @StarlarkMethod(
       name = "set_annotation_processing",
@@ -647,13 +595,13 @@ public interface JavaCommonApi<
       },
       enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
   JavaInfoT setAnnotationProcessing(
-      JavaInfoT javaInfo,
+      Info javaInfo,
       boolean enabled,
       Sequence<?> processorClassnames /* <String> expected. */,
       Object processorClasspath,
       Object classJar,
       Object sourceJar)
-      throws EvalException;
+      throws EvalException, RuleErrorException;
 
   @StarlarkMethod(
       name = "java_toolchain_label",
@@ -725,7 +673,7 @@ public interface JavaCommonApi<
       documented = false)
   Sequence<String> collectNativeLibsDirs(
       Sequence<? extends TransitiveInfoCollectionApi> deps, StarlarkThread thread)
-      throws EvalException;
+      throws EvalException, RuleErrorException;
 
   @StarlarkMethod(
       name = "get_runtime_classpath_for_archive",
@@ -735,4 +683,20 @@ public interface JavaCommonApi<
   Depset getRuntimeClasspathForArchive(
       Depset runtimeClasspath, Depset excludedArtifacts, StarlarkThread thread)
       throws EvalException, TypeException;
+
+  @StarlarkMethod(
+      name = "check_provider_instances",
+      documented = false,
+      parameters = {
+        @Param(name = "providers"),
+        @Param(name = "what"),
+        @Param(name = "provider_type")
+      },
+      useStarlarkThread = true)
+  void checkProviderInstances(
+      Sequence<?> providers, String what, ProviderApi providerType, StarlarkThread thread)
+      throws EvalException;
+
+  @StarlarkMethod(name = "_google_legacy_api_enabled", documented = false, useStarlarkThread = true)
+  boolean isLegacyGoogleApiEnabled(StarlarkThread thread) throws EvalException;
 }

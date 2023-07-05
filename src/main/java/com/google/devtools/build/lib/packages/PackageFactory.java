@@ -19,10 +19,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
-import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -33,8 +31,6 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
-import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -50,25 +46,19 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
-import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
 import java.util.function.Consumer;
-import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
-import net.starlark.java.eval.NoneType;
-import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.eval.Tuple;
 import net.starlark.java.syntax.Argument;
 import net.starlark.java.syntax.CallExpression;
 import net.starlark.java.syntax.DefStatement;
@@ -96,24 +86,6 @@ import net.starlark.java.syntax.SyntaxError;
 public final class PackageFactory {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  /** An extension to the global namespace of the BUILD language. */
-  // TODO(bazel-team): this should probably be renamed PackageFactory.RuntimeExtension
-  //  since really we're extending the Runtime with more classes.
-  public interface EnvironmentExtension {
-    /** Update the predeclared environment with the identifiers this extension contributes. */
-    void update(ImmutableMap.Builder<String, Object> env);
-
-    /** Update the predeclared environment of WORKSPACE files. */
-    void updateWorkspace(ImmutableMap.Builder<String, Object> env);
-
-    /** Update the environment of the native module. */
-    void updateNative(ImmutableMap.Builder<String, Object> env);
-
-    /** Returns the extra arguments to the {@code package()} statement. */
-    Iterable<PackageArgument<?>> getPackageArguments();
-  }
-
-  private final RuleFactory ruleFactory;
   private final RuleClassProvider ruleClassProvider;
 
   private SyscallCache syscallCache;
@@ -122,31 +94,19 @@ public final class PackageFactory {
 
   private int maxDirectoriesToEagerlyVisitInGlobbing;
 
-  private final ImmutableList<EnvironmentExtension> environmentExtensions;
   private final PackageSettings packageSettings;
   private final PackageValidator packageValidator;
   private final PackageOverheadEstimator packageOverheadEstimator;
   private final PackageLoadingListener packageLoadingListener;
 
-  private final BazelStarlarkEnvironment bazelStarlarkEnvironment;
-
   /** Builder for {@link PackageFactory} instances. Intended to only be used by unit tests. */
   @VisibleForTesting
   public abstract static class BuilderForTesting {
-    protected static final String VERSION = "test";
-    protected Iterable<EnvironmentExtension> environmentExtensions = ImmutableList.of();
     protected PackageValidator packageValidator = PackageValidator.NOOP_VALIDATOR;
     protected PackageOverheadEstimator packageOverheadEstimator =
         PackageOverheadEstimator.NOOP_ESTIMATOR;
 
     protected boolean doChecksForTesting = true;
-
-    @CanIgnoreReturnValue
-    public BuilderForTesting setEnvironmentExtensions(
-        Iterable<EnvironmentExtension> environmentExtensions) {
-      this.environmentExtensions = environmentExtensions;
-      return this;
-    }
 
     @CanIgnoreReturnValue
     public BuilderForTesting disableChecks() {
@@ -190,27 +150,16 @@ public final class PackageFactory {
   public PackageFactory(
       RuleClassProvider ruleClassProvider,
       ForkJoinPool executorForGlobbing,
-      Iterable<EnvironmentExtension> environmentExtensions,
-      String version,
       PackageSettings packageSettings,
       PackageValidator packageValidator,
       PackageOverheadEstimator packageOverheadEstimator,
       PackageLoadingListener packageLoadingListener) {
-    this.ruleFactory = new RuleFactory(ruleClassProvider);
     this.ruleClassProvider = ruleClassProvider;
     this.executor = executorForGlobbing;
-    this.environmentExtensions = ImmutableList.copyOf(environmentExtensions);
     this.packageSettings = packageSettings;
     this.packageValidator = packageValidator;
     this.packageOverheadEstimator = packageOverheadEstimator;
     this.packageLoadingListener = packageLoadingListener;
-    this.bazelStarlarkEnvironment =
-        new BazelStarlarkEnvironment(
-            ruleClassProvider,
-            buildRuleFunctions(ruleFactory),
-            this.environmentExtensions,
-            newPackageFunction(createPackageArguments(this.environmentExtensions)),
-            version);
   }
 
   /** Sets the syscalls cache used in filesystem access. */
@@ -259,107 +208,9 @@ public final class PackageFactory {
     this.maxDirectoriesToEagerlyVisitInGlobbing = maxDirectoriesToEagerlyVisitInGlobbing;
   }
 
-  /** Returns the immutable, unordered set of names of all the known rule classes. */
-  public Set<String> getRuleClassNames() {
-    return ruleFactory.getRuleClassNames();
-  }
-
-  /**
-   * Returns the {@link com.google.devtools.build.lib.packages.RuleClass} for the specified rule
-   * class name.
-   */
-  public RuleClass getRuleClass(String ruleClassName) {
-    return ruleFactory.getRuleClass(ruleClassName);
-  }
-
   /** Returns the {@link RuleClassProvider} of this {@link PackageFactory}. */
   public RuleClassProvider getRuleClassProvider() {
     return ruleClassProvider;
-  }
-
-  public ImmutableList<EnvironmentExtension> getEnvironmentExtensions() {
-    return environmentExtensions;
-  }
-
-  public BazelStarlarkEnvironment getBazelStarlarkEnvironment() {
-    return bazelStarlarkEnvironment;
-  }
-
-  /** Creates the map of arguments for the 'package' function. */
-  private static ImmutableMap<String, PackageArgument<?>> createPackageArguments(
-      List<EnvironmentExtension> environmentExtensions) {
-    ImmutableList.Builder<PackageArgument<?>> arguments =
-        ImmutableList.<PackageArgument<?>>builder().addAll(DefaultPackageArguments.get());
-
-    for (EnvironmentExtension extension : environmentExtensions) {
-      arguments.addAll(extension.getPackageArguments());
-    }
-
-    ImmutableMap.Builder<String, PackageArgument<?>> packageArguments = ImmutableMap.builder();
-    for (PackageArgument<?> argument : arguments.build()) {
-      packageArguments.put(argument.getName(), argument);
-    }
-    return packageArguments.buildOrThrow();
-  }
-
-  /** Returns a function-value implementing "package" in the specified package context. */
-  // TODO(cparsons): Migrate this function to be defined with @StarlarkMethod.
-  // TODO(adonovan): don't call this function twice (once for BUILD files and
-  // once for the native module) as it results in distinct objects. (Using
-  // @StarlarkMethod may accomplish that.)
-  private static StarlarkCallable newPackageFunction(
-      final Map<String, PackageArgument<?>> packageArguments) {
-    return new StarlarkCallable() {
-      @Override
-      public String getName() {
-        return "package";
-      }
-
-      @Override
-      public String toString() {
-        return "package(...)";
-      }
-
-      @Override
-      public boolean isImmutable() {
-        return true;
-      }
-
-      @Override
-      public void repr(Printer printer) {
-        printer.append("<built-in function package>");
-      }
-
-      @Override
-      public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
-          throws EvalException {
-        if (!args.isEmpty()) {
-          throw new EvalException("unexpected positional arguments");
-        }
-        Package.Builder pkgBuilder = getContext(thread).pkgBuilder;
-
-        // Validate parameter list
-        if (pkgBuilder.isPackageFunctionUsed()) {
-          throw new EvalException("'package' can only be used once per BUILD file");
-        }
-        pkgBuilder.setPackageFunctionUsed();
-
-        // Each supplied argument must name a PackageArgument.
-        if (kwargs.isEmpty()) {
-          throw new EvalException("at least one argument must be given to the 'package' function");
-        }
-        Location loc = thread.getCallerLocation();
-        for (Map.Entry<String, Object> kwarg : kwargs.entrySet()) {
-          String name = kwarg.getKey();
-          PackageArgument<?> pkgarg = packageArguments.get(name);
-          if (pkgarg == null) {
-            throw Starlark.errorf("unexpected keyword argument: %s", name);
-          }
-          pkgarg.convertAndProcess(pkgBuilder, loc, kwarg.getValue());
-        }
-        return Starlark.NONE;
-      }
-    };
   }
 
   /** Get the PackageContext by looking up in the environment. */
@@ -373,76 +224,6 @@ public final class PackageFactory {
               + "Wrap the function in a macro and call it from a BUILD file");
     }
     return value;
-  }
-
-  private static ImmutableMap<String, BuiltinRuleFunction> buildRuleFunctions(
-      RuleFactory ruleFactory) {
-    ImmutableMap.Builder<String, BuiltinRuleFunction> result = ImmutableMap.builder();
-    for (String ruleClassName : ruleFactory.getRuleClassNames()) {
-      RuleClass cl = ruleFactory.getRuleClass(ruleClassName);
-      if (cl.getRuleClassType() == RuleClassType.NORMAL
-          || cl.getRuleClassType() == RuleClassType.TEST) {
-        result.put(ruleClassName, new BuiltinRuleFunction(cl));
-      }
-    }
-    return result.buildOrThrow();
-  }
-
-  /** A callable Starlark value that creates Rules for native RuleClasses. */
-  // TODO(adonovan): why is this distinct from RuleClass itself?
-  // Make RuleClass implement StarlarkCallable directly.
-  private static class BuiltinRuleFunction implements RuleFunction {
-    private final RuleClass ruleClass;
-
-    BuiltinRuleFunction(RuleClass ruleClass) {
-      this.ruleClass = Preconditions.checkNotNull(ruleClass);
-    }
-
-    @Override
-    public NoneType call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
-        throws EvalException, InterruptedException {
-      if (!args.isEmpty()) {
-        throw Starlark.errorf("unexpected positional arguments");
-      }
-      BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase(ruleClass.getName());
-      try {
-        PackageContext context = getContext(thread);
-        RuleFactory.createAndAddRule(
-            context.pkgBuilder,
-            ruleClass,
-            new BuildLangTypedAttributeValuesMap(kwargs),
-            context.eventHandler,
-            thread.getCallStack());
-      } catch (RuleFactory.InvalidRuleException | Package.NameConflictException e) {
-        throw new EvalException(e);
-      }
-      return Starlark.NONE;
-    }
-
-    @Override
-    public RuleClass getRuleClass() {
-      return ruleClass;
-    }
-
-    @Override
-    public String getName() {
-      return ruleClass.getName();
-    }
-
-    @Override
-    public void repr(Printer printer) {
-      printer.append("<built-in rule " + getName() + ">");
-    }
-
-    @Override
-    public String toString() {
-      return getName() + "(...)";
-    }
-
-    @Override
-    public boolean isImmutable() {
-      return true;
-    }
   }
 
   public Package.Builder newExternalPackageBuilder(
@@ -652,12 +433,7 @@ public final class PackageFactory {
       StarlarkSemantics semantics,
       Globber globber)
       throws InterruptedException {
-    // TODO(adonovan): opt: don't precompute this value, which is rarely needed
-    // and can be derived from Package.loads (if available) on demand.
-    pkgBuilder.setStarlarkFileDependencies(transitiveClosureOfLabels(loadedModules));
-    if (packageSettings.recordLoadedModules()) {
-      pkgBuilder.setLoads(loadedModules);
-    }
+    pkgBuilder.setLoads(loadedModules.values());
 
     StoredEventHandler eventHandler = new StoredEventHandler();
     PackageContext pkgContext = new PackageContext(pkgBuilder, globber, eventHandler);
@@ -703,23 +479,6 @@ public final class PackageFactory {
 
     pkgBuilder.addPosts(eventHandler.getPosts());
     pkgBuilder.addEvents(eventHandler.getEvents());
-  }
-
-  private static ImmutableList<Label> transitiveClosureOfLabels(
-      ImmutableMap<String, Module> loads) {
-    Set<Label> set = Sets.newLinkedHashSet();
-    transitiveClosureOfLabelsRec(set, loads);
-    return ImmutableList.copyOf(set);
-  }
-
-  public static void transitiveClosureOfLabelsRec(
-      Set<Label> set, ImmutableMap<String, Module> loads) {
-    for (Module m : loads.values()) {
-      BazelModuleContext ctx = BazelModuleContext.of(m);
-      if (set.add(ctx.label())) {
-        transitiveClosureOfLabelsRec(set, ctx.loads());
-      }
-    }
   }
 
   /**

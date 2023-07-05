@@ -17,6 +17,7 @@ import com.google.common.base.Throwables;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.eventbus.EventBus;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -107,7 +108,7 @@ public class WorkerPoolImpl implements WorkerPool {
   }
 
   public int getNumIdlePerKey(WorkerKey key) {
-    return getPool(key).getNumIdle();
+    return getPool(key).getNumIdle(key);
   }
 
   @Override
@@ -119,13 +120,21 @@ public class WorkerPoolImpl implements WorkerPool {
   @Override
   public void evictWithPolicy(EvictionPolicy<Worker> evictionPolicy) throws InterruptedException {
     for (SimpleWorkerPool pool : workerPools.values()) {
-      try {
+      evictWithPolicy(evictionPolicy, pool);
+    }
+    for (SimpleWorkerPool pool : multiplexPools.values()) {
+      evictWithPolicy(evictionPolicy, pool);
+    }
+  }
+
+  private void evictWithPolicy(EvictionPolicy<Worker> evictionPolicy, SimpleWorkerPool pool)
+      throws InterruptedException {
+    try {
         pool.setEvictionPolicy(evictionPolicy);
         pool.evict();
       } catch (Throwable t) {
         Throwables.propagateIfPossible(t, InterruptedException.class);
-        throw new VerifyException("unexpected", t);
-      }
+      throw new VerifyException("unexpected", t);
     }
   }
 
@@ -187,6 +196,16 @@ public class WorkerPoolImpl implements WorkerPool {
 
   ImmutableSet<Integer> getDoomedWorkers() {
     return doomedWorkers;
+  }
+
+  @Override
+  public void setEventBus(EventBus eventBus) {
+    for (SimpleWorkerPool pool : workerPools.values()) {
+      pool.setEventBus(eventBus);
+    }
+    for (SimpleWorkerPool pool : multiplexPools.values()) {
+      pool.setEventBus(eventBus);
+    }
   }
 
   /**

@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NonSkyframeGlobber;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
+import com.google.devtools.build.lib.packages.PackageArgs;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.RuleVisibility;
@@ -83,7 +84,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -463,7 +463,7 @@ public class PackageFunction implements SkyFunction {
             StarlarkBuiltinsFunction.computeInline(
                 StarlarkBuiltinsValue.key(),
                 BzlLoadFunction.InliningState.create(env),
-                packageFactory,
+                packageFactory.getRuleClassProvider().getBazelStarlarkEnvironment(),
                 bzlLoadFunctionForInlining);
       }
     } catch (BuiltinsFailedException e) {
@@ -635,6 +635,7 @@ public class PackageFunction implements SkyFunction {
    * construction to the caller, so that loadPrelude can become just a call to the factored-out
    * code.
    */
+  // TODO(18422): Cleanup/refactor this method's signature.
   @Nullable
   static ImmutableMap<String, Module> loadBzlModules(
       Environment env,
@@ -643,7 +644,8 @@ public class PackageFunction implements SkyFunction {
       List<Pair<String, Location>> programLoads,
       List<BzlLoadValue.Key> keys,
       StarlarkSemantics semantics,
-      @Nullable BzlLoadFunction bzlLoadFunctionForInlining)
+      @Nullable BzlLoadFunction bzlLoadFunctionForInlining,
+      boolean checkVisibility)
       throws NoSuchPackageException, InterruptedException {
     List<BzlLoadValue> bzlLoads;
     try {
@@ -656,14 +658,17 @@ public class PackageFunction implements SkyFunction {
       }
       // Validate that the current BUILD/WORKSPACE file satisfies each loaded dependency's
       // load visibility.
-      BzlLoadFunction.checkLoadVisibilities(
-          packageId,
-          requestingFileDescription,
-          bzlLoads,
-          keys,
-          programLoads,
-          /*demoteErrorsToWarnings=*/ !semantics.getBool(BuildLanguageOptions.CHECK_BZL_VISIBILITY),
-          env.getListener());
+      if (checkVisibility) {
+        BzlLoadFunction.checkLoadVisibilities(
+            packageId,
+            requestingFileDescription,
+            bzlLoads,
+            keys,
+            programLoads,
+            /* demoteErrorsToWarnings= */ !semantics.getBool(
+                BuildLanguageOptions.CHECK_BZL_VISIBILITY),
+            env.getListener());
+      }
     } catch (BzlLoadFailedException e) {
       Throwable rootCause = Throwables.getRootCause(e);
       throw PackageFunctionException.builder()
@@ -799,49 +804,70 @@ public class PackageFunction implements SkyFunction {
       Root pkgRoot, PackageIdentifier pkgId, Package.Builder pkgBuilder, Environment env)
       throws InternalInconsistentFilesystemException, InterruptedException {
     PathFragment pkgDir = pkgId.getPackageFragment();
-    Set<SkyKey> containingPkgLookupKeys = Sets.newHashSet();
-    Map<Target, SkyKey> targetToKey = new HashMap<>();
+    // Contains a key for each package whose label that might have a presence of a subpackage.
+    // Values are all potential subpackages of the label.
+    List<Pair<Target, List<PackageLookupValue.Key>>> targetsAndSubpackagePackageLookupKeys =
+        new ArrayList<>();
+    Set<PackageLookupValue.Key> allPackageLookupKeys = new HashSet<>();
     for (Target target : pkgBuilder.getTargets()) {
-      PathFragment dir = Label.getContainingDirectory(target.getLabel());
+      Label label = target.getLabel();
+      PathFragment dir = Label.getContainingDirectory(label);
       if (dir.equals(pkgDir)) {
         continue;
       }
-      PackageIdentifier dirId = PackageIdentifier.create(pkgId.getRepository(), dir);
-      SkyKey key = ContainingPackageLookupValue.key(dirId);
-      targetToKey.put(target, key);
-      containingPkgLookupKeys.add(key);
+      List<PackageLookupValue.Key> subpackagePackageLookupKeys = new ArrayList<>();
+      String labelName = label.getName();
+      PathFragment labelAsRelativePath = PathFragment.create(labelName).getParentDirectory();
+      PathFragment subpackagePath = pkgDir;
+      for (String segment : labelAsRelativePath.segments()) {
+        // Please note that the order from the shallowest path to the deepest is preserved.
+        subpackagePath = subpackagePath.getRelative(segment);
+        PackageLookupValue.Key currentPackageLookupKey =
+            PackageLookupValue.key(PackageIdentifier.create(pkgId.getRepository(), subpackagePath));
+        subpackagePackageLookupKeys.add(currentPackageLookupKey);
+        allPackageLookupKeys.add(currentPackageLookupKey);
+      }
+      targetsAndSubpackagePackageLookupKeys.add(Pair.of(target, subpackagePackageLookupKeys));
     }
-    SkyframeLookupResult containingPkgLookupValues =
-        env.getValuesAndExceptions(containingPkgLookupKeys);
-    if (env.valuesMissing() || containingPkgLookupKeys.isEmpty()) {
+
+    if (targetsAndSubpackagePackageLookupKeys.isEmpty()) {
       return;
     }
-    for (Iterator<Target> iterator = pkgBuilder.getTargets().iterator(); iterator.hasNext(); ) {
-      Target target = iterator.next();
-      SkyKey key = targetToKey.get(target);
-      if (!containingPkgLookupKeys.contains(key)) {
-        continue;
-      }
-      ContainingPackageLookupValue containingPackageLookupValue;
-      try {
-        containingPackageLookupValue =
-            (ContainingPackageLookupValue)
-                containingPkgLookupValues.getOrThrow(
-                    key, BuildFileNotFoundException.class, InconsistentFilesystemException.class);
-      } catch (BuildFileNotFoundException e) {
-        env.getListener().handle(Event.error(null, e.getMessage()));
-        containingPackageLookupValue = null;
-      } catch (InconsistentFilesystemException e) {
-        throw new InternalInconsistentFilesystemException(pkgId, e);
-      }
-      if (maybeAddEventAboutLabelCrossingSubpackage(
-          pkgBuilder,
-          pkgRoot,
-          target.getLabel(),
-          target.getLocation(),
-          containingPackageLookupValue)) {
-        iterator.remove();
-        pkgBuilder.setContainsErrors();
+
+    SkyframeLookupResult packageLookupResults = env.getValuesAndExceptions(allPackageLookupKeys);
+    if (env.valuesMissing()) {
+      return;
+    }
+
+    for (Pair<Target, List<PackageLookupValue.Key>> targetAndSubpackagePackageLookupKeys :
+        targetsAndSubpackagePackageLookupKeys) {
+      Target target = targetAndSubpackagePackageLookupKeys.getFirst();
+      List<PackageLookupValue.Key> targetPackageLookupKeys =
+          targetAndSubpackagePackageLookupKeys.getSecond();
+      // Iterate from the deepest potential subpackage to the shallowest in that we only want to
+      // display the deepest subpackage in the error message for each target.
+      for (PackageLookupValue.Key packageLookupKey : Lists.reverse(targetPackageLookupKeys)) {
+        PackageLookupValue packageLookupValue;
+        try {
+          packageLookupValue =
+              (PackageLookupValue)
+                  packageLookupResults.getOrThrow(
+                      packageLookupKey,
+                      BuildFileNotFoundException.class,
+                      InconsistentFilesystemException.class);
+        } catch (BuildFileNotFoundException e) {
+          env.getListener().handle(Event.error(null, e.getMessage()));
+          packageLookupValue = null;
+        } catch (InconsistentFilesystemException e) {
+          throw new InternalInconsistentFilesystemException(pkgId, e);
+        }
+
+        if (maybeAddEventAboutLabelCrossingSubpackage(
+            pkgBuilder, pkgRoot, target, packageLookupKey.argument(), packageLookupValue)) {
+          pkgBuilder.getTargets().remove(target);
+          pkgBuilder.setContainsErrors();
+          break;
+        }
       }
     }
   }
@@ -849,35 +875,23 @@ public class PackageFunction implements SkyFunction {
   private static boolean maybeAddEventAboutLabelCrossingSubpackage(
       Package.Builder pkgBuilder,
       Root pkgRoot,
-      Label label,
-      @Nullable Location location,
-      @Nullable ContainingPackageLookupValue containingPkgLookupValue) {
-    if (containingPkgLookupValue == null) {
+      Target target,
+      PackageIdentifier subpackageIdentifier,
+      @Nullable PackageLookupValue packageLookupValue) {
+    if (packageLookupValue == null) {
       return true;
     }
-    if (!containingPkgLookupValue.hasContainingPackage()) {
-      // The missing package here is a problem, but it's not an error from the perspective of
-      // PackageFunction.
+    String errMsg =
+        PackageLookupValue.getErrorMessageForLabelCrossingPackageBoundary(
+            pkgRoot, target.getLabel(), subpackageIdentifier, packageLookupValue);
+    if (errMsg != null) {
+      Event error =
+          Package.error(target.getLocation(), errMsg, Code.LABEL_CROSSES_PACKAGE_BOUNDARY);
+      pkgBuilder.addEvent(error);
+      return true;
+    } else {
       return false;
     }
-    PackageIdentifier containingPkg = containingPkgLookupValue.getContainingPackageName();
-    if (containingPkg.equals(label.getPackageIdentifier())) {
-      // The label does not cross a subpackage boundary.
-      return false;
-    }
-    if (!containingPkg.getSourceRoot().startsWith(label.getPackageIdentifier().getSourceRoot())) {
-      // This label is referencing an imaginary package, because the containing package should
-      // extend the label's package: if the label is //a/b:c/d, the containing package could be
-      // //a/b/c or //a/b, but should never be //a. Usually such errors will be caught earlier, but
-      // in some exceptional cases (such as a Python-aware BUILD file catching its own io
-      // exceptions), it reaches here, and we tolerate it.
-      return false;
-    }
-    String message =
-        ContainingPackageLookupValue.getErrorMessageForLabelCrossingPackageBoundary(
-            pkgRoot, label, containingPkgLookupValue);
-    pkgBuilder.addEvent(Package.error(location, message, Code.LABEL_CROSSES_PACKAGE_BOUNDARY));
-    return true;
   }
 
   private interface GlobberWithSkyframeGlobDeps extends Globber {
@@ -1329,7 +1343,8 @@ public class PackageFunction implements SkyFunction {
                   programLoads,
                   keys.build(),
                   starlarkBuiltinsValue.starlarkSemantics,
-                  bzlLoadFunctionForInlining);
+                  bzlLoadFunctionForInlining,
+                  /* checkVisibility= */ true);
         } catch (NoSuchPackageException e) {
           throw new PackageFunctionException(e, Transience.PERSISTENT);
         }
@@ -1358,12 +1373,10 @@ public class PackageFunction implements SkyFunction {
                   repositoryMapping,
                   mainRepositoryMappingValue.getRepositoryMapping())
               .setFilename(buildFileRootedPath)
-              .setDefaultVisibility(defaultVisibility)
-              // "defaultVisibility" comes from the command line.
-              // Let's give the BUILD file a chance to set default_visibility once,
-              // by resetting the PackageBuilder.defaultVisibilitySet flag.
-              .setDefaultVisibilitySet(false)
               .setConfigSettingVisibilityPolicy(configSettingVisibilityPolicy);
+
+      pkgBuilder.mergePackageArgsFrom(
+          PackageArgs.builder().setDefaultVisibility(defaultVisibility));
 
       Set<SkyKey> globDepKeys = ImmutableSet.of();
 
@@ -1466,7 +1479,7 @@ public class PackageFunction implements SkyFunction {
         FileOptions.builder()
             .requireLoadStatementsFirst(false)
             // For historical reasons, BUILD files are allowed to load a symbol
-            // and then reassign it later. (It is unclear why this is neccessary).
+            // and then reassign it later. (It is unclear why this is necessary).
             // TODO(adonovan): remove this flag and make loads bind file-locally,
             // as in .bzl files. One can always use a renaming load statement.
             .loadBindsGlobally(true)
@@ -1516,7 +1529,10 @@ public class PackageFunction implements SkyFunction {
     // TODO(#11437): Remove conditional once disabling injection is no longer allowed.
     Map<String, Object> predeclared =
         semantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_BZL_PATH).isEmpty()
-            ? packageFactory.getBazelStarlarkEnvironment().getUninjectedBuildEnv()
+            ? packageFactory
+                .getRuleClassProvider()
+                .getBazelStarlarkEnvironment()
+                .getUninjectedBuildEnv()
             : starlarkBuiltinsValue.predeclaredForBuild;
     if (preludeBindings != null) {
       predeclared = new HashMap<>(predeclared);

@@ -425,8 +425,9 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     assertThat(myInfo.getValue("single_arch_platform")).isEqualTo("IOS_SIMULATOR");
     assertThat(myInfo.getValue("single_arch_cpu")).isEqualTo("i386");
     assertThat(myInfo.getValue("platform_type")).isEqualTo("ios");
-    assertThat(myInfo.getValue("bitcode_mode")).isEqualTo("none");
     assertThat(myInfo.getValue("dead_code_report")).isEqualTo("None");
+    // bitcode_mode is deprecated, but ensure it still correctly returns none.
+    assertThat(myInfo.getValue("bitcode_mode")).isEqualTo("none");
   }
 
   @Test
@@ -1612,5 +1613,82 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
             "ERROR /workspace/examples/apple_starlark/BUILD:1:13: in weak_sdk_frameworks attribute"
                 + " of objc_library rule //examples/apple_starlark:lib: weak_sdk_frameworks"
                 + " attribute is disallowed.  Use explicit dependencies instead.");
+  }
+
+  @Test
+  public void testGetExperimentalShorterHeaderPathForStarlarkIsPrivateAPI() throws Exception {
+    scratch.file(
+        "foo/rule.bzl",
+        "def _impl(ctx):",
+        "  ctx.fragments.j2objc.experimental_shorter_header_path()",
+        "  return []",
+        "myrule = rule(",
+        "  implementation=_impl,",
+        "  fragments = ['j2objc']",
+        ")");
+    scratch.file("foo/BUILD", "load(':rule.bzl', 'myrule')", "myrule(name='myrule')");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//foo:myrule");
+
+    assertContainsEvent("Rule in 'foo' cannot use private API");
+  }
+
+  @Test
+  public void testGetExperimentalJ2ObjcHeaderMapForStarlarkIsPrivateAPI() throws Exception {
+    scratch.file(
+        "foo/rule.bzl",
+        "def _impl(ctx):",
+        "  ctx.fragments.j2objc.experimental_j2objc_header_map()",
+        "  return []",
+        "myrule = rule(",
+        "  implementation=_impl,",
+        "  fragments = ['j2objc']",
+        ")");
+    scratch.file("foo/BUILD", "load(':rule.bzl', 'myrule')", "myrule(name='myrule')");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//foo:myrule");
+
+    assertContainsEvent("Rule in 'foo' cannot use private API");
+  }
+
+  @Test
+  public void testGetRemoveDeadCodeFromJ2ObjcConfigurationForStarlarkIsPrivateAPI()
+      throws Exception {
+    scratch.file(
+        "foo/rule.bzl",
+        "def _impl(ctx):",
+        "  ctx.fragments.j2objc.remove_dead_code()",
+        "  return []",
+        "myrule = rule(",
+        "  implementation=_impl,",
+        "  fragments = ['j2objc']",
+        ")");
+    scratch.file("foo/BUILD", "load(':rule.bzl', 'myrule')", "myrule(name='myrule')");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//foo:myrule");
+
+    assertContainsEvent("Rule in 'foo' cannot use private API");
+  }
+
+  @Test
+  public void testJ2objcLibraryMigrationForStarlarkIsPrivateAPI() throws Exception {
+    scratch.file(
+        "foo/rule.bzl",
+        "def _impl(ctx):",
+        "  ctx.fragments.j2objc.j2objc_library_migration()",
+        "  return []",
+        "myrule = rule(",
+        "  implementation=_impl,",
+        "  fragments = ['j2objc']",
+        ")");
+    scratch.file("foo/BUILD", "load(':rule.bzl', 'myrule')", "myrule(name='myrule')");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//foo:myrule");
+
+    assertContainsEvent("Rule in '//foo:rule.bzl' cannot use private API");
   }
 }

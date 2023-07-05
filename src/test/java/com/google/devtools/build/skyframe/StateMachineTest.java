@@ -30,6 +30,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.state.Driver;
 import com.google.devtools.build.skyframe.state.StateMachine;
+import com.google.devtools.build.skyframe.state.StateMachineEvaluatorForTesting;
 import com.google.devtools.build.skyframe.state.ValueOrException2Producer;
 import com.google.devtools.build.skyframe.state.ValueOrException3Producer;
 import com.google.devtools.build.skyframe.state.ValueOrExceptionProducer;
@@ -47,6 +48,8 @@ import org.junit.runner.RunWith;
 
 @RunWith(TestParameterInjector.class)
 public final class StateMachineTest {
+  private static final int TEST_PARALLELISM = 5;
+
   private final ProcessableGraph graph = new InMemoryGraphImpl();
   private final GraphTester tester = new GraphTester();
 
@@ -72,7 +75,7 @@ public final class StateMachineTest {
             revalidationReceiver,
             GraphInconsistencyReceiver.THROWING,
             AbstractQueueVisitor.create(
-                "test-pool", 200, ParallelEvaluatorErrorClassifier.instance()),
+                "test-pool", TEST_PARALLELISM, ParallelEvaluatorErrorClassifier.instance()),
             new SimpleCycleDetector(),
             /* mergingSkyframeAnalysisExecutionPhases= */ false,
             UnnecessaryTemporaryStateDropperReceiver.NULL)
@@ -123,7 +126,7 @@ public final class StateMachineTest {
    * Defines a {@link SkyFunction} that executes the gives state machine.
    *
    * <p>The function always has key {@link ROOT_KEY} and value {@link DONE_VALUE}. State machine
-   * internal can be observed with consumers.
+   * internals can be observed with consumers.
    *
    * @return an counter that stores the restart count.
    */
@@ -147,6 +150,19 @@ public final class StateMachineTest {
     var restartCount = defineRootMachine(rootMachineSupplier);
     assertThat(eval(ROOT_KEY, /* keepGoing= */ false).get(ROOT_KEY)).isEqualTo(DONE_VALUE);
     return restartCount.get();
+  }
+
+  private boolean runMachine(StateMachine root) throws InterruptedException {
+    return !StateMachineEvaluatorForTesting.run(
+            root,
+            new InMemoryMemoizingEvaluator(
+                tester.getSkyFunctionMap(), new SequencedRecordingDifferencer()),
+            EvaluationContext.newBuilder()
+                .setKeepGoing(true)
+                .setParallelism(TEST_PARALLELISM)
+                .setEventHandler(reportedEvents)
+                .build())
+        .hasError();
   }
 
   /**
@@ -176,10 +192,15 @@ public final class StateMachineTest {
   }
 
   @Test
-  public void smoke() throws InterruptedException {
+  public void smoke(@TestParameter boolean useTestingEvaluator) throws InterruptedException {
     var v1Sink = new SkyValueSink();
     var v2Sink = new SkyValueSink();
-    assertThat(evalMachine(() -> new TwoStepMachine(v1Sink, v2Sink))).isEqualTo(2);
+    Supplier<StateMachine> factory = () -> new TwoStepMachine(v1Sink, v2Sink);
+    if (useTestingEvaluator) {
+      assertThat(runMachine(factory.get())).isTrue();
+    } else {
+      assertThat(evalMachine(factory)).isEqualTo(2);
+    }
     assertThat(v1Sink.get()).isEqualTo(VALUE_A1);
     assertThat(v2Sink.get()).isEqualTo(VALUE_A2);
   }
@@ -248,7 +269,8 @@ public final class StateMachineTest {
   }
 
   @Test
-  public void parallelSubmachines_runInParallel() throws InterruptedException {
+  public void parallelSubmachines_runInParallel(@TestParameter boolean useTestingEvaluator)
+      throws InterruptedException {
     var a1Sink = new SkyValueSink();
     var a2Sink = new SkyValueSink();
     var a3Sink = new SkyValueSink();
@@ -256,10 +278,13 @@ public final class StateMachineTest {
     var b2Sink = new SkyValueSink();
     var b3Sink = new SkyValueSink();
 
-    assertThat(
-            evalMachine(
-                () -> new ExampleWithSubmachines(a1Sink, a2Sink, a3Sink, b1Sink, b2Sink, b3Sink)))
-        .isEqualTo(3);
+    Supplier<StateMachine> factory =
+        () -> new ExampleWithSubmachines(a1Sink, a2Sink, a3Sink, b1Sink, b2Sink, b3Sink);
+    if (useTestingEvaluator) {
+      assertThat(runMachine(factory.get())).isTrue();
+    } else {
+      assertThat(evalMachine(factory)).isEqualTo(3);
+    }
 
     assertThat(a1Sink.get()).isEqualTo(VALUE_A1);
     assertThat(a2Sink.get()).isEqualTo(VALUE_A2);
@@ -757,22 +782,32 @@ public final class StateMachineTest {
   public void lookupValue_matrix(
       @TestParameter LookupType lookupType,
       @TestParameter boolean useBatch,
-      @TestParameter boolean keepGoing)
+      @TestParameter boolean useTestingEvaluator)
       throws InterruptedException {
     var sink = new OmniSink();
-    var unused =
-        defineRootMachine(
-            () -> {
-              var lookup = lookupType.newLookup(KEY_A1, sink);
-              if (!useBatch) {
-                return lookup;
-              }
-              return new BatchPair(lookup);
-            });
-
-    assertThat(eval(ROOT_KEY, keepGoing).get(ROOT_KEY)).isEqualTo(DONE_VALUE);
+    Supplier<StateMachine> rootSupplier =
+        () -> {
+          var lookup = lookupType.newLookup(KEY_A1, sink);
+          if (!useBatch) {
+            return lookup;
+          }
+          return new BatchPair(lookup);
+        };
+    if (useTestingEvaluator) {
+      assertThat(runMachine(rootSupplier.get())).isTrue();
+    } else {
+      var unused = defineRootMachine(rootSupplier);
+      // There are no errors in this test so the keepGoing value is arbitrary.
+      assertThat(eval(ROOT_KEY, /* keepGoing= */ true).get(ROOT_KEY)).isEqualTo(DONE_VALUE);
+    }
     assertThat(sink.value).isEqualTo(VALUE_A1);
     assertThat(sink.exception).isNull();
+  }
+
+  enum EvaluationMode {
+    NO_KEEP_GOING,
+    KEEP_GOING,
+    TEST_EVALUATOR,
   }
 
   @Test
@@ -780,7 +815,7 @@ public final class StateMachineTest {
       @TestParameter LookupType lookupType,
       @TestParameter ExceptionCase exceptionCase,
       @TestParameter boolean useBatch,
-      @TestParameter boolean keepGoing)
+      @TestParameter EvaluationMode evaluationMode)
       throws InterruptedException {
     var exception = exceptionCase.getException();
     tester
@@ -791,15 +826,35 @@ public final class StateMachineTest {
               throw new ExceptionWrapper(exception);
             });
     var sink = new OmniSink();
-    var unused =
-        defineRootMachine(
-            () -> {
-              var lookup = lookupType.newLookup(KEY_A1, sink);
-              if (!useBatch) {
-                return lookup;
-              }
-              return new BatchPair(lookup);
-            });
+    Supplier<StateMachine> rootSupplier =
+        () -> {
+          var lookup = lookupType.newLookup(KEY_A1, sink);
+          if (!useBatch) {
+            return lookup;
+          }
+          return new BatchPair(lookup);
+        };
+
+    boolean keepGoing = false;
+    switch (evaluationMode) {
+      case TEST_EVALUATOR:
+        assertThat(runMachine(rootSupplier.get())).isFalse();
+        if (exceptionCase.exceptionOrdinal() > lookupType.exceptionCount()) {
+          // Undeclared exception is not handled.
+          assertThat(sink.exception).isNull();
+        } else {
+          // Declared exception is captured.
+          assertThat(sink.exception).isEqualTo(exception);
+        }
+        return;
+      case KEEP_GOING:
+        keepGoing = true;
+        break;
+      case NO_KEEP_GOING:
+        break;
+    }
+
+    var unused = defineRootMachine(rootSupplier);
     var result = eval(ROOT_KEY, keepGoing);
     assertThat(sink.value).isNull();
     if (exceptionCase.exceptionOrdinal() > lookupType.exceptionCount()) {

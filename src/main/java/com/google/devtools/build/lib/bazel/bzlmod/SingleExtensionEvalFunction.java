@@ -18,10 +18,15 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import static com.google.common.collect.ImmutableBiMap.toImmutableBiMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -29,6 +34,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
+import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
@@ -42,6 +48,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.Function;
@@ -94,7 +101,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
-      throws SkyFunctionException, InterruptedException {
+      throws SingleExtensionEvalFunctionException, InterruptedException {
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (starlarkSemantics == null) {
       return null;
@@ -108,36 +115,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     }
     Location sampleUsageLocation =
         usagesValue.getExtensionUsages().values().iterator().next().getLocation();
-
-    // Check that the .bzl label isn't crazy.
-    try {
-      BzlLoadFunction.checkValidLoadLabel(extensionId.getBzlFileLabel(), starlarkSemantics);
-    } catch (LabelSyntaxException e) {
-      throw new SingleExtensionEvalFunctionException(
-          ExternalDepsException.withCauseAndMessage(
-              Code.BAD_MODULE, e, "invalid module extension label"),
-          Transience.PERSISTENT);
-    }
-
-    // Load the .bzl file pointed to by the label.
-    BzlLoadValue bzlLoadValue;
-    try {
-      bzlLoadValue =
-          (BzlLoadValue)
-              env.getValueOrThrow(
-                  BzlLoadValue.keyForBzlmod(extensionId.getBzlFileLabel()),
-                  BzlLoadFailedException.class);
-    } catch (BzlLoadFailedException e) {
-      throw new SingleExtensionEvalFunctionException(
-          ExternalDepsException.withCauseAndMessage(
-              Code.BAD_MODULE,
-              e,
-              "Error loading '%s' for module extensions, requested by %s: %s",
-              extensionId.getBzlFileLabel(),
-              sampleUsageLocation,
-              e.getMessage()),
-          Transience.PERSISTENT);
-    }
+    BzlLoadValue bzlLoadValue =
+        loadBzlFile(extensionId.getBzlFileLabel(), sampleUsageLocation, starlarkSemantics, env);
     if (bzlLoadValue == null) {
       return null;
     }
@@ -156,7 +135,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
               .collect(toImmutableSet());
       throw new SingleExtensionEvalFunctionException(
           ExternalDepsException.withMessage(
-              Code.BAD_MODULE,
+              ExternalDeps.Code.BAD_MODULE,
               "%s does not export a module extension called %s, yet its use is requested at %s%s",
               extensionId.getBzlFileLabel(),
               extensionId.getExtensionName(),
@@ -165,13 +144,176 @@ public class SingleExtensionEvalFunction implements SkyFunction {
           Transience.PERSISTENT);
     }
 
+    // Check the lockfile first for that module extension
+    byte[] bzlTransitiveDigest =
+        BazelModuleContext.of(bzlLoadValue.getModule()).bzlTransitiveDigest();
+    LockfileMode lockfileMode = BazelLockFileFunction.LOCKFILE_MODE.get(env);
+    if (!lockfileMode.equals(LockfileMode.OFF)) {
+      BazelLockFileValue lockfile = (BazelLockFileValue) env.getValue(BazelLockFileValue.KEY);
+      if (lockfile == null) {
+        return null;
+      }
+      SingleExtensionEvalValue singleExtensionEvalValue =
+          tryGettingValueFromLockFile(
+              extensionId, usagesValue, bzlTransitiveDigest, lockfileMode, lockfile);
+      if (singleExtensionEvalValue != null) {
+        return singleExtensionEvalValue;
+      }
+    }
+
     // Run that extension!
     ModuleExtension extension = (ModuleExtension) exported;
+    ImmutableMap<String, RepoSpec> generatedRepoSpecs =
+        runModuleExtension(
+            extensionId, extension, usagesValue, bzlLoadValue.getModule(), starlarkSemantics, env);
+    if (generatedRepoSpecs == null) {
+      return null;
+    }
+    // Check that all imported repos have been actually generated
+    validateAllImportsAreGenerated(generatedRepoSpecs, usagesValue, extensionId);
+
+    if (lockfileMode.equals(LockfileMode.UPDATE)) {
+      env.getListener()
+          .post(
+              ModuleExtensionResolutionEvent.create(
+                  extensionId,
+                  LockFileModuleExtension.create(bzlTransitiveDigest, generatedRepoSpecs)));
+    }
+    return createSingleExtentionValue(generatedRepoSpecs, usagesValue);
+  }
+
+  @Nullable
+  private SingleExtensionEvalValue tryGettingValueFromLockFile(
+      ModuleExtensionId extensionId,
+      SingleExtensionUsagesValue usagesValue,
+      byte[] bzlTransitiveDigest,
+      LockfileMode lockfileMode,
+      BazelLockFileValue lockfile)
+      throws SingleExtensionEvalFunctionException {
+    LockFileModuleExtension lockedExtension = lockfile.getModuleExtensions().get(extensionId);
+    ImmutableMap<ModuleKey, ModuleExtensionUsage> lockedExtensionUsages;
+    try {
+      // TODO(salmasamy) might be nicer to precompute this table when we construct
+      // BazelLockFileValue, without adding it to the json file
+      ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesById =
+          BazelDepGraphFunction.getExtensionUsagesById(lockfile.getModuleDepGraph());
+      lockedExtensionUsages = extensionUsagesById.row(extensionId);
+    } catch (ExternalDepsException e) {
+      throw new SingleExtensionEvalFunctionException(e, Transience.PERSISTENT);
+    }
+
+    // If we have the extension, check if the implementation and usage haven't changed
+    if (lockedExtension != null
+        && Arrays.equals(bzlTransitiveDigest, lockedExtension.getBzlTransitiveDigest())
+        && usagesValue.getExtensionUsages().equals(lockedExtensionUsages)) {
+      return createSingleExtentionValue(lockedExtension.getGeneratedRepoSpecs(), usagesValue);
+    } else if (lockfileMode.equals(LockfileMode.ERROR)) {
+      ImmutableList<String> extDiff =
+          lockfile.getModuleExtensionDiff(
+              lockedExtension,
+              lockedExtensionUsages,
+              extensionId,
+              bzlTransitiveDigest,
+              usagesValue.getExtensionUsages());
+      throw new SingleExtensionEvalFunctionException(
+          ExternalDepsException.withMessage(
+              Code.BAD_MODULE,
+              "Lock file is no longer up-to-date because: %s",
+              String.join(", ", extDiff)),
+          Transience.PERSISTENT);
+    }
+    return null;
+  }
+
+  private SingleExtensionEvalValue createSingleExtentionValue(
+      ImmutableMap<String, RepoSpec> generatedRepoSpecs, SingleExtensionUsagesValue usagesValue) {
+    return SingleExtensionEvalValue.create(
+        generatedRepoSpecs,
+        generatedRepoSpecs.keySet().stream()
+            .collect(
+                toImmutableBiMap(
+                    e ->
+                        RepositoryName.createUnvalidated(
+                            usagesValue.getExtensionUniqueName() + "~" + e),
+                    Function.identity())));
+  }
+
+  private void validateAllImportsAreGenerated(
+      ImmutableMap<String, RepoSpec> generatedRepoSpecs,
+      SingleExtensionUsagesValue usagesValue,
+      ModuleExtensionId extensionId)
+      throws SingleExtensionEvalFunctionException {
+    for (ModuleExtensionUsage usage : usagesValue.getExtensionUsages().values()) {
+      for (Entry<String, String> repoImport : usage.getImports().entrySet()) {
+        if (!generatedRepoSpecs.containsKey(repoImport.getValue())) {
+          throw new SingleExtensionEvalFunctionException(
+              ExternalDepsException.withMessage(
+                  Code.BAD_MODULE,
+                  "module extension \"%s\" from \"%s\" does not generate repository \"%s\", yet it"
+                      + " is imported as \"%s\" in the usage at %s%s",
+                  extensionId.getExtensionName(),
+                  extensionId.getBzlFileLabel(),
+                  repoImport.getValue(),
+                  repoImport.getKey(),
+                  usage.getLocation(),
+                  SpellChecker.didYouMean(repoImport.getValue(), generatedRepoSpecs.keySet())),
+              Transience.PERSISTENT);
+        }
+      }
+    }
+  }
+
+  private BzlLoadValue loadBzlFile(
+      Label bzlFileLabel,
+      Location sampleUsageLocation,
+      StarlarkSemantics starlarkSemantics,
+      Environment env)
+      throws SingleExtensionEvalFunctionException, InterruptedException {
+    // Check that the .bzl label isn't crazy.
+    try {
+      BzlLoadFunction.checkValidLoadLabel(bzlFileLabel, starlarkSemantics);
+    } catch (LabelSyntaxException e) {
+      throw new SingleExtensionEvalFunctionException(
+          ExternalDepsException.withCauseAndMessage(
+              Code.BAD_MODULE, e, "invalid module extension label"),
+          Transience.PERSISTENT);
+    }
+
+    // Load the .bzl file pointed to by the label.
+    BzlLoadValue bzlLoadValue;
+    try {
+      bzlLoadValue =
+          (BzlLoadValue)
+              env.getValueOrThrow(
+                  BzlLoadValue.keyForBzlmod(bzlFileLabel), BzlLoadFailedException.class);
+    } catch (BzlLoadFailedException e) {
+      throw new SingleExtensionEvalFunctionException(
+          ExternalDepsException.withCauseAndMessage(
+              Code.BAD_MODULE,
+              e,
+              "Error loading '%s' for module extensions, requested by %s: %s",
+              bzlFileLabel,
+              sampleUsageLocation,
+              e.getMessage()),
+          Transience.PERSISTENT);
+    }
+    return bzlLoadValue;
+  }
+
+  @Nullable
+  private ImmutableMap<String, RepoSpec> runModuleExtension(
+      ModuleExtensionId extensionId,
+      ModuleExtension extension,
+      SingleExtensionUsagesValue usagesValue,
+      net.starlark.java.eval.Module module,
+      StarlarkSemantics starlarkSemantics,
+      Environment env)
+      throws SingleExtensionEvalFunctionException, InterruptedException {
     ModuleExtensionEvalStarlarkThreadContext threadContext =
         new ModuleExtensionEvalStarlarkThreadContext(
             usagesValue.getExtensionUniqueName() + "~",
             extensionId.getBzlFileLabel().getPackageIdentifier(),
-            BazelModuleContext.of(bzlLoadValue.getModule()).repoMapping(),
+            BazelModuleContext.of(module).repoMapping(),
             directories,
             env.getListener());
     try (Mutability mu =
@@ -188,7 +330,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         if (returnValue != Starlark.NONE && !(returnValue instanceof ModuleExtensionMetadata)) {
           throw new SingleExtensionEvalFunctionException(
               ExternalDepsException.withMessage(
-                  Code.BAD_MODULE,
+                  ExternalDeps.Code.BAD_MODULE,
                   "expected module extension %s in %s to return None or extension_metadata, got %s",
                   extensionId.getExtensionName(),
                   extensionId.getBzlFileLabel(),
@@ -199,7 +341,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
           ModuleExtensionMetadata metadata = (ModuleExtensionMetadata) returnValue;
           metadata.evaluate(
               usagesValue.getExtensionUsages().values(),
-              threadContext.getGeneratedRepos().keySet(),
+              threadContext.getGeneratedRepoSpecs().keySet(),
               env.getListener());
         }
       } catch (NeedsSkyframeRestartException e) {
@@ -209,51 +351,27 @@ public class SingleExtensionEvalFunction implements SkyFunction {
             moduleContext.getWorkingDirectory().deleteTree();
           }
         } catch (IOException e1) {
-          throw new SingleExtensionEvalFunctionException(e1, Transience.TRANSIENT);
+          ExternalDepsException externalDepsException =
+              ExternalDepsException.withCauseAndMessage(
+                  ExternalDeps.Code.UNRECOGNIZED,
+                  e1,
+                  "Failed to clean up module context directory");
+          throw new SingleExtensionEvalFunctionException(
+              externalDepsException, Transience.TRANSIENT);
         }
         return null;
       } catch (EvalException e) {
         env.getListener().handle(Event.error(e.getMessageWithStack()));
         throw new SingleExtensionEvalFunctionException(
             ExternalDepsException.withMessage(
-                Code.BAD_MODULE,
+                ExternalDeps.Code.BAD_MODULE,
                 "error evaluating module extension %s in %s",
                 extensionId.getExtensionName(),
                 extensionId.getBzlFileLabel()),
             Transience.TRANSIENT);
       }
     }
-
-    // Check that all imported repos have been actually generated
-    for (ModuleExtensionUsage usage : usagesValue.getExtensionUsages().values()) {
-      for (Entry<String, String> repoImport : usage.getImports().entrySet()) {
-        if (!threadContext.getGeneratedRepos().containsKey(repoImport.getValue())) {
-          throw new SingleExtensionEvalFunctionException(
-              ExternalDepsException.withMessage(
-                  Code.BAD_MODULE,
-                  "module extension \"%s\" from \"%s\" does not generate repository \"%s\", yet it"
-                      + " is imported as \"%s\" in the usage at %s%s",
-                  extensionId.getExtensionName(),
-                  extensionId.getBzlFileLabel(),
-                  repoImport.getValue(),
-                  repoImport.getKey(),
-                  usage.getLocation(),
-                  SpellChecker.didYouMean(
-                      repoImport.getValue(), threadContext.getGeneratedRepos().keySet())),
-              Transience.PERSISTENT);
-        }
-      }
-    }
-
-    return SingleExtensionEvalValue.create(
-        threadContext.getGeneratedRepos(),
-        threadContext.getGeneratedRepos().keySet().stream()
-            .collect(
-                toImmutableBiMap(
-                    e ->
-                        RepositoryName.createUnvalidated(
-                            usagesValue.getExtensionUniqueName() + "~" + e),
-                    Function.identity())));
+    return threadContext.getGeneratedRepoSpecs();
   }
 
   private ModuleExtensionContext createContext(
@@ -297,7 +415,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
 
   static final class SingleExtensionEvalFunctionException extends SkyFunctionException {
 
-    SingleExtensionEvalFunctionException(Exception cause, Transience transience) {
+    SingleExtensionEvalFunctionException(ExternalDepsException cause, Transience transience) {
       super(cause, transience);
     }
   }

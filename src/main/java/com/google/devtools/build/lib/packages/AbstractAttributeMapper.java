@@ -51,11 +51,6 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
     return ruleLabel;
   }
 
-  @Override
-  public String getRuleClassName() {
-    return ruleClass.getName();
-  }
-
   @Nullable
   @Override
   public <T> T get(String attributeName, Type<T> type) {
@@ -140,23 +135,8 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public String getPackageDefaultHdrsCheck() {
-    return rule.getPackage().getDefaultHdrsCheck();
-  }
-
-  @Override
-  public boolean isPackageDefaultHdrsCheckSet() {
-    return rule.getPackage().isDefaultHdrsCheckSet();
-  }
-
-  @Override
-  public Boolean getPackageDefaultTestOnly() {
-    return rule.getPackage().getDefaultTestOnly();
-  }
-
-  @Override
-  public String getPackageDefaultDeprecation() {
-    return rule.getPackage().getDefaultDeprecation();
+  public PackageArgs getPackageArgs() {
+    return rule.getPackage().getPackageArgs();
   }
 
   @Override

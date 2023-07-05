@@ -15,13 +15,14 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.skyframe.BuildDriverFunction.ActionLookupValuesCollectionResult;
 import com.google.devtools.build.lib.skyframe.BuildDriverFunction.TransitiveActionLookupValuesHelper;
-import com.google.devtools.build.skyframe.SkyKey;
 import java.util.HashSet;
 import java.util.Set;
 import org.junit.Test;
@@ -34,31 +35,33 @@ public class BuildDriverFunctionTest {
 
   @Test
   public void checkActionConflicts_noConflict_conflictFreeKeysRegistered() throws Exception {
-    Set<SkyKey> globalSet = new HashSet<>();
+    Set<ActionLookupKeyOrProxy> globalSet = new HashSet<>();
     IncrementalArtifactConflictFinder dummyConflictFinder =
         IncrementalArtifactConflictFinder.createWithActionGraph(mock(MutableActionGraph.class));
     TransitiveActionLookupValuesHelper fakeHelper =
         new TransitiveActionLookupValuesHelper() {
           @Override
-          public ActionLookupValuesCollectionResult collect(ActionLookupKey key) {
+          public ActionLookupValuesCollectionResult collect(ActionLookupKeyOrProxy key) {
             return ActionLookupValuesCollectionResult.create(
-                ImmutableSet.of(), ImmutableSet.of(key));
+                ImmutableSet.of(), ImmutableSet.of(key.toKey()));
           }
 
           @Override
-          public void registerConflictFreeKeys(ImmutableSet<SkyKey> keys) {
+          public void registerConflictFreeKeys(ImmutableSet<ActionLookupKey> keys) {
             globalSet.addAll(keys);
           }
         };
     ActionLookupKey dummyKey = mock(ActionLookupKey.class);
+    when(dummyKey.toKey()).thenReturn(dummyKey);
     BuildDriverFunction function =
         new BuildDriverFunction(
             fakeHelper,
             () -> dummyConflictFinder,
-            /*ruleContextConstraintSemantics=*/ null,
-            /*extraActionFilterSupplier=*/ null);
+            /* ruleContextConstraintSemantics= */ null,
+            /* extraActionFilterSupplier= */ null,
+            /* testTypeResolver= */ null);
 
-    function.checkActionConflicts(dummyKey, /*strictConflictCheck=*/ true);
+    var unused = function.checkActionConflicts(dummyKey, /* strictConflictCheck= */ true);
 
     assertThat(globalSet).containsExactly(dummyKey);
   }

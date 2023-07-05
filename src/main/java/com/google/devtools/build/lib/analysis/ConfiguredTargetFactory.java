@@ -22,7 +22,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
@@ -239,8 +238,8 @@ public final class ConfiguredTargetFactory {
           && rule.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey()) != null) {
         return rule;
       }
-      Artifact artifact = rule.getArtifactByOutputLabel(outputFile.getLabel());
-      return new OutputFileConfiguredTarget(targetContext, outputFile, rule, artifact);
+      Artifact artifact = rule.findArtifactByOutputLabel(outputFile.getLabel());
+      return new OutputFileConfiguredTarget(targetContext, artifact, rule);
     } else if (target instanceof InputFile) {
       InputFile inputFile = (InputFile) target;
       TargetContext targetContext =
@@ -261,7 +260,7 @@ public final class ConfiguredTargetFactory {
                   .setLabel(target.getLabel())
                   .setConfiguration(config)
                   .build());
-      return new InputFileConfiguredTarget(targetContext, inputFile, artifact);
+      return new InputFileConfiguredTarget(targetContext, artifact);
     } else if (target instanceof PackageGroup) {
       PackageGroup packageGroup = (PackageGroup) target;
       TargetContext targetContext =
@@ -271,11 +270,9 @@ public final class ConfiguredTargetFactory {
               config,
               prerequisiteMap.get(DependencyKind.VISIBILITY_DEPENDENCY),
               visibility);
-      return new PackageGroupConfiguredTarget(targetContext, packageGroup);
+      return new PackageGroupConfiguredTarget(configuredTargetKey, targetContext, packageGroup);
     } else if (target instanceof EnvironmentGroup) {
-      TargetContext targetContext =
-          new TargetContext(analysisEnvironment, target, config, ImmutableSet.of(), visibility);
-      return new EnvironmentGroupConfiguredTarget(targetContext);
+      return new EnvironmentGroupConfiguredTarget(configuredTargetKey);
     } else {
       throw new AssertionError("Unexpected target class: " + target.getClass().getName());
     }

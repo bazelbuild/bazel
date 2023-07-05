@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionLookupData;
-import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -409,8 +409,9 @@ public final class ArtifactFunction implements SkyFunction {
 
   @Nullable
   static ActionLookupValue getActionLookupValue(
-      ActionLookupKey actionLookupKey, SkyFunction.Environment env) throws InterruptedException {
-    ActionLookupValue value = (ActionLookupValue) env.getValue(actionLookupKey);
+      ActionLookupKeyOrProxy actionLookupKey, SkyFunction.Environment env)
+      throws InterruptedException {
+    ActionLookupValue value = (ActionLookupValue) env.getValue(actionLookupKey.toKey());
     if (value == null) {
       Preconditions.checkState(
           actionLookupKey == CoverageReportValue.COVERAGE_REPORT_KEY,

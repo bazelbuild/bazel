@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -88,6 +89,13 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
         RepositoryName repositoryName,
         BuildConfigurationValue configuration,
         PathFragment rootRelativePath);
+
+    /** Create a tree artifact at the specified root-relative path in the bin directory. */
+    SpecialArtifact createTreeArtifact(
+        ActionConstructionContext actionConstructionContext,
+        RepositoryName repositoryName,
+        BuildConfigurationValue configuration,
+        PathFragment rootRelativePath);
   }
 
   /**
@@ -105,6 +113,49 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
           return actionConstructionContext.getDerivedArtifact(
               rootRelativePath, configuration.getBinDirectory(repositoryName));
         }
+
+        @Override
+        public SpecialArtifact createTreeArtifact(
+            ActionConstructionContext actionConstructionContext,
+            RepositoryName repositoryName,
+            BuildConfigurationValue configuration,
+            PathFragment rootRelativePath) {
+          return actionConstructionContext.getTreeArtifact(
+              rootRelativePath, configuration.getBinDirectory(repositoryName));
+        }
+      };
+
+  /**
+   * An implementation of {@link LinkArtifactFactory} that can create artifacts anywhere.
+   *
+   * <p>Necessary when the LTO backend actions of libraries should be shareable, and thus cannot be
+   * under the package directory.
+   *
+   * <p>Necessary because the actions of nativedeps libraries should be shareable, and thus cannot
+   * be under the package directory.
+   */
+  public static final LinkArtifactFactory SHAREABLE_LINK_ARTIFACT_FACTORY =
+      new LinkArtifactFactory() {
+        @Override
+        public Artifact create(
+            ActionConstructionContext actionConstructionContext,
+            RepositoryName repositoryName,
+            BuildConfigurationValue configuration,
+            PathFragment rootRelativePath) {
+          return actionConstructionContext.getShareableArtifact(
+              rootRelativePath, configuration.getBinDirectory(repositoryName));
+        }
+
+        @Override
+        public SpecialArtifact createTreeArtifact(
+            ActionConstructionContext actionConstructionContext,
+            RepositoryName repositoryName,
+            BuildConfigurationValue configuration,
+            PathFragment rootRelativePath) {
+          return actionConstructionContext
+              .getAnalysisEnvironment()
+              .getTreeArtifact(rootRelativePath, configuration.getBinDirectory(repositoryName));
+        }
       };
 
   private static final String LINK_GUID = "58ec78bd-1176-4e36-8143-439f656b181d";
@@ -118,6 +169,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
   private final ImmutableMap<Linkstamp, Artifact> linkstamps;
 
   private final LinkCommandLine linkCommandLine;
+  private final ActionEnvironment env;
 
   private final boolean isLtoIndexing;
 
@@ -148,7 +200,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
       ImmutableMap<String, String> executionRequirements,
       PathFragment ldExecutable,
       String targetCpu) {
-    super(owner, inputs, outputs, env);
+    super(owner, inputs, outputs);
     this.mnemonic = getMnemonic(mnemonic, isLtoIndexing);
     this.outputLibrary = outputLibrary;
     this.linkOutput = linkOutput;
@@ -156,6 +208,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
     this.isLtoIndexing = isLtoIndexing;
     this.linkstamps = linkstamps;
     this.linkCommandLine = linkCommandLine;
+    this.env = env;
     this.toolchainEnv = toolchainEnv;
     this.executionRequirements = executionRequirements;
     this.ldExecutable = ldExecutable;
@@ -174,6 +227,11 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
   }
 
   @Override
+  public ActionEnvironment getEnvironment() {
+    return env;
+  }
+
+  @Override
   @VisibleForTesting
   public ImmutableMap<String, String> getIncompleteEnvironmentForTesting() {
     return getEffectiveEnvironment(ImmutableMap.of());
@@ -181,8 +239,8 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
 
   @Override
   public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv) {
-    ActionEnvironment env = getEnvironment();
-    LinkedHashMap<String, String> result = Maps.newLinkedHashMapWithExpectedSize(env.size());
+    LinkedHashMap<String, String> result =
+        Maps.newLinkedHashMapWithExpectedSize(env.estimatedSize());
     env.resolve(result, clientEnv);
 
     result.putAll(toolchainEnv);
@@ -285,9 +343,11 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
   private Spawn createSpawn(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException {
     try {
+      ArtifactExpander actionContextExpander = actionExecutionContext.getArtifactExpander();
+      ArtifactExpander expander = actionContextExpander;
       return new SimpleSpawn(
           this,
-          ImmutableList.copyOf(getCommandLine(actionExecutionContext.getArtifactExpander())),
+          ImmutableList.copyOf(getCommandLine(expander)),
           getEffectiveEnvironment(actionExecutionContext.getClientEnv()),
           getExecutionInfo(),
           getInputs(),

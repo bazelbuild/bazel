@@ -252,13 +252,8 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             .addExecutionInfo(spawn.getExecutionInfo())
             .setTimeout(timeout);
 
-    final Path statisticsPath;
-    if (getSandboxOptions().collectLocalSandboxExecutionStatistics) {
-      statisticsPath = sandboxPath.getRelative("stats.out");
-      processWrapperCommandLineBuilder.setStatisticsPath(statisticsPath);
-    } else {
-      statisticsPath = null;
-    }
+    final Path statisticsPath = sandboxPath.getRelative("stats.out");
+    processWrapperCommandLineBuilder.setStatisticsPath(statisticsPath);
 
     ImmutableList<String> commandLine =
         ImmutableList.<String>builder()
@@ -284,6 +279,8 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           ImmutableSet.of(),
           sandboxfsMapSymlinkTargets,
           treeDeleter,
+          spawn.getMnemonic(),
+          /* sandboxDebugPath= */ null,
           statisticsPath) {
         @Override
         public void createFileSystem() throws IOException {
@@ -312,10 +309,11 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           outputs,
           writableDirs,
           treeDeleter,
+          /* sandboxDebugPath= */ null,
           statisticsPath,
           spawn.getMnemonic()) {
         @Override
-        public void createFileSystem() throws IOException {
+        public void createFileSystem() throws IOException, InterruptedException {
           super.createFileSystem();
           writeConfig(
               sandboxConfigPath,
@@ -333,7 +331,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       Set<Path> writableDirs,
       Set<Path> inaccessiblePaths,
       boolean allowNetwork,
-      Path statisticsPath)
+      @Nullable Path statisticsPath)
       throws IOException {
     try (PrintWriter out =
         new PrintWriter(

@@ -73,9 +73,6 @@ public class AppleLinkingOutputs {
     abstract Artifact getBinary();
 
     @Nullable
-    abstract Artifact getBitcodeSymbols();
-
-    @Nullable
     abstract Artifact getDsymBinary();
 
     @Nullable
@@ -91,8 +88,6 @@ public class AppleLinkingOutputs {
       abstract Builder setTargetTriplet(TargetTriplet targetTriplet);
 
       abstract Builder setBinary(Artifact binary);
-
-      abstract Builder setBitcodeSymbols(Artifact bitcodeSymbols);
 
       abstract Builder setDsymBinary(Artifact dsymBinary);
 

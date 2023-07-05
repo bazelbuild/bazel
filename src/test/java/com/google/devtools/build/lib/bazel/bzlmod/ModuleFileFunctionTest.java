@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunctio
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.BzlmodRepoRuleFunction;
+import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.FileFunction;
@@ -152,6 +153,9 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .put(
                     BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
                     new BzlmodRepoRuleFunction(ruleClassProvider, directories))
+                .put(
+                    SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE,
+                    new ClientEnvironmentFunction(new AtomicReference<>(ImmutableMap.of())))
                 .buildOrThrow(),
             differencer);
 
@@ -170,7 +174,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     RepositoryDelegatorFunction.RESOLVED_FILE_FOR_VERIFICATION.set(differencer, Optional.empty());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
-    BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
+    YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
   }
 
   @Test
@@ -476,8 +480,11 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                     ModuleExtensionUsage.builder()
                         .setExtensionBzlFile("@mymod//:defs.bzl")
                         .setExtensionName("myext1")
+                        .setIsolationKey(Optional.empty())
                         .setUsingModule(myMod)
-                        .setLocation(Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 2, 23))
+                        .setLocation(
+                            Location.fromFileLineColumn(
+                                "fake:0/modules/mymod/1.0/MODULE.bazel", 2, 23))
                         .setImports(ImmutableBiMap.of("repo1", "repo1"))
                         .setDevImports(ImmutableSet.of())
                         .addTag(
@@ -490,15 +497,19 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                             .buildImmutable()))
                                 .setDevDependency(false)
                                 .setLocation(
-                                    Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 4, 11))
+                                    Location.fromFileLineColumn(
+                                        "fake:0/modules/mymod/1.0/MODULE.bazel", 4, 11))
                                 .build())
                         .build())
                 .addExtensionUsage(
                     ModuleExtensionUsage.builder()
                         .setExtensionBzlFile("@mymod//:defs.bzl")
                         .setExtensionName("myext2")
+                        .setIsolationKey(Optional.empty())
                         .setUsingModule(myMod)
-                        .setLocation(Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 5, 23))
+                        .setLocation(
+                            Location.fromFileLineColumn(
+                                "fake:0/modules/mymod/1.0/MODULE.bazel", 5, 23))
                         .setImports(ImmutableBiMap.of("other_repo1", "repo1", "repo2", "repo2"))
                         .setDevImports(ImmutableSet.of())
                         .addTag(
@@ -511,7 +522,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                             .buildImmutable()))
                                 .setDevDependency(false)
                                 .setLocation(
-                                    Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 7, 12))
+                                    Location.fromFileLineColumn(
+                                        "fake:0/modules/mymod/1.0/MODULE.bazel", 7, 12))
                                 .build())
                         .addTag(
                             Tag.builder()
@@ -523,15 +535,19 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                             .buildImmutable()))
                                 .setDevDependency(false)
                                 .setLocation(
-                                    Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 8, 12))
+                                    Location.fromFileLineColumn(
+                                        "fake:0/modules/mymod/1.0/MODULE.bazel", 8, 12))
                                 .build())
                         .build())
                 .addExtensionUsage(
                     ModuleExtensionUsage.builder()
                         .setExtensionBzlFile("@rules_jvm_external//:defs.bzl")
                         .setExtensionName("maven")
+                        .setIsolationKey(Optional.empty())
                         .setUsingModule(myMod)
-                        .setLocation(Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 10, 22))
+                        .setLocation(
+                            Location.fromFileLineColumn(
+                                "fake:0/modules/mymod/1.0/MODULE.bazel", 10, 22))
                         .setImports(
                             ImmutableBiMap.of("mvn", "maven", "junit", "junit", "guava", "guava"))
                         .setDevImports(ImmutableSet.of())
@@ -545,7 +561,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                             .buildImmutable()))
                                 .setDevDependency(false)
                                 .setLocation(
-                                    Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 12, 10))
+                                    Location.fromFileLineColumn(
+                                        "fake:0/modules/mymod/1.0/MODULE.bazel", 12, 10))
                                 .build())
                         .addTag(
                             Tag.builder()
@@ -557,7 +574,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                             .buildImmutable()))
                                 .setDevDependency(false)
                                 .setLocation(
-                                    Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 14, 10))
+                                    Location.fromFileLineColumn(
+                                        "fake:0/modules/mymod/1.0/MODULE.bazel", 14, 10))
                                 .build())
                         .build())
                 .build());
@@ -596,8 +614,9 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                     ModuleExtensionUsage.builder()
                         .setExtensionBzlFile("@//:defs.bzl")
                         .setExtensionName("myext")
+                        .setIsolationKey(Optional.empty())
                         .setUsingModule(ModuleKey.ROOT)
-                        .setLocation(Location.fromFileLineColumn("<root>/MODULE.bazel", 1, 23))
+                        .setLocation(Location.fromFileLineColumn("/workspace/MODULE.bazel", 1, 23))
                         .setImports(
                             ImmutableBiMap.of(
                                 "alpha", "alpha", "beta", "beta", "gamma", "gamma", "delta",
@@ -613,7 +632,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                             .buildImmutable()))
                                 .setDevDependency(true)
                                 .setLocation(
-                                    Location.fromFileLineColumn("<root>/MODULE.bazel", 2, 11))
+                                    Location.fromFileLineColumn("/workspace/MODULE.bazel", 2, 11))
                                 .build())
                         .addTag(
                             Tag.builder()
@@ -625,7 +644,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                             .buildImmutable()))
                                 .setDevDependency(false)
                                 .setLocation(
-                                    Location.fromFileLineColumn("<root>/MODULE.bazel", 5, 11))
+                                    Location.fromFileLineColumn("/workspace/MODULE.bazel", 5, 11))
                                 .build())
                         .addTag(
                             Tag.builder()
@@ -637,7 +656,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                             .buildImmutable()))
                                 .setDevDependency(true)
                                 .setLocation(
-                                    Location.fromFileLineColumn("<root>/MODULE.bazel", 8, 11))
+                                    Location.fromFileLineColumn("/workspace/MODULE.bazel", 8, 11))
                                 .build())
                         .addTag(
                             Tag.builder()
@@ -649,7 +668,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                             .buildImmutable()))
                                 .setDevDependency(false)
                                 .setLocation(
-                                    Location.fromFileLineColumn("<root>/MODULE.bazel", 11, 11))
+                                    Location.fromFileLineColumn("/workspace/MODULE.bazel", 11, 11))
                                 .build())
                         .build())
                 .build());
@@ -693,8 +712,11 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                     ModuleExtensionUsage.builder()
                         .setExtensionBzlFile("@mymod//:defs.bzl")
                         .setExtensionName("myext")
+                        .setIsolationKey(Optional.empty())
                         .setUsingModule(myMod)
-                        .setLocation(Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 5, 23))
+                        .setLocation(
+                            Location.fromFileLineColumn(
+                                "fake:0/modules/mymod/1.0/MODULE.bazel", 5, 23))
                         .setImports(ImmutableBiMap.of("beta", "beta", "delta", "delta"))
                         .setDevImports(ImmutableSet.of())
                         .addTag(
@@ -707,7 +729,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                             .buildImmutable()))
                                 .setDevDependency(false)
                                 .setLocation(
-                                    Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 6, 11))
+                                    Location.fromFileLineColumn(
+                                        "fake:0/modules/mymod/1.0/MODULE.bazel", 6, 11))
                                 .build())
                         .addTag(
                             Tag.builder()
@@ -719,7 +742,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                             .buildImmutable()))
                                 .setDevDependency(false)
                                 .setLocation(
-                                    Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 12, 11))
+                                    Location.fromFileLineColumn(
+                                        "fake:0/modules/mymod/1.0/MODULE.bazel", 12, 11))
                                 .build())
                         .build())
                 .build());
@@ -1011,5 +1035,25 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
 
     assertContainsEvent("if module() is called, it must be called before any other functions");
+  }
+
+  @Test
+  public void isolatedExtensionWithoutImports() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "isolated_ext = use_extension('//:extensions.bzl', 'my_ext', isolate = True)");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().toString())
+        .contains(
+            "the isolated usage at /workspace/MODULE.bazel:1:29 of extension my_ext defined in "
+                + "@//:extensions.bzl has no effect as no repositories are imported from it. "
+                + "Either import one or more repositories generated by the extension with "
+                + "use_repo or remove the usage.");
   }
 }

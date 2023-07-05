@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Type;
@@ -28,6 +29,10 @@ import com.google.devtools.build.lib.rules.cpp.CppModuleMap.UmbrellaHeaderStrate
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Factory class for generating artifacts which are used as intermediate output. */
@@ -40,7 +45,14 @@ public final class IntermediateArtifacts implements StarlarkValue {
   private final BuildConfigurationValue buildConfiguration;
   private final String archiveFileNameSuffix;
   private final UmbrellaHeaderStrategy umbrellaHeaderStrategy;
-  private final boolean alwaysLinkLibraryExtension;
+  private final AlwaysLink alwaysLink;
+
+  /** How to determine whether the archive is alwaysLink. */
+  public enum AlwaysLink {
+    FROM_ATTRIBUTE,
+    TRUE,
+    FALSE
+  };
 
   IntermediateArtifacts(RuleContext ruleContext) {
     this(
@@ -48,7 +60,7 @@ public final class IntermediateArtifacts implements StarlarkValue {
         /* archiveFileNameSuffix= */ "",
         ruleContext.getConfiguration(),
         UmbrellaHeaderStrategy.DO_NOT_GENERATE,
-        /* alwaysLinkLibraryExtension= */ true);
+        AlwaysLink.FROM_ATTRIBUTE);
   }
 
   IntermediateArtifacts(RuleContext ruleContext, BuildConfigurationValue buildConfiguration) {
@@ -57,20 +69,20 @@ public final class IntermediateArtifacts implements StarlarkValue {
         /* archiveFileNameSuffix= */ "",
         buildConfiguration,
         UmbrellaHeaderStrategy.DO_NOT_GENERATE,
-        /* alwaysLinkLibraryExtension= */ true);
+        AlwaysLink.FROM_ATTRIBUTE);
   }
 
   IntermediateArtifacts(
       RuleContext ruleContext,
       String archiveFileNameSuffix,
       UmbrellaHeaderStrategy umbrellaHeaderStrategy,
-      boolean alwaysLinkLibraryExtension) {
+      AlwaysLink alwaysLink) {
     this(
         ruleContext,
         archiveFileNameSuffix,
         ruleContext.getConfiguration(),
         umbrellaHeaderStrategy,
-        alwaysLinkLibraryExtension);
+        alwaysLink);
   }
 
   IntermediateArtifacts(
@@ -78,12 +90,12 @@ public final class IntermediateArtifacts implements StarlarkValue {
       String archiveFileNameSuffix,
       BuildConfigurationValue buildConfiguration,
       UmbrellaHeaderStrategy umbrellaHeaderStrategy,
-      boolean alwaysLinkLibraryExtension) {
+      AlwaysLink alwaysLink) {
     this.ruleContext = ruleContext;
     this.buildConfiguration = buildConfiguration;
     this.archiveFileNameSuffix = Preconditions.checkNotNull(archiveFileNameSuffix);
     this.umbrellaHeaderStrategy = umbrellaHeaderStrategy;
-    this.alwaysLinkLibraryExtension = alwaysLinkLibraryExtension;
+    this.alwaysLink = alwaysLink;
   }
 
   /** Returns the archive file name suffix. */
@@ -183,18 +195,45 @@ public final class IntermediateArtifacts implements StarlarkValue {
     String extension;
     AttributeMap attributes = ruleContext.attributes();
     ObjcConfiguration objcConfiguration = buildConfiguration.getFragment(ObjcConfiguration.class);
-    if (alwaysLinkLibraryExtension
-        && attributes.has("alwayslink", Type.BOOLEAN)
-        && (attributes.isAttributeValueExplicitlySpecified("alwayslink")
+
+    switch (alwaysLink) {
+      case FROM_ATTRIBUTE:
+        Preconditions.checkState(attributes.has("alwayslink", Type.BOOLEAN));
+        if (attributes.isAttributeValueExplicitlySpecified("alwayslink")
             ? attributes.get("alwayslink", Type.BOOLEAN)
-            : objcConfiguration.alwayslinkByDefault())) {
-      extension = ".lo";
-    } else {
-      extension = ".a";
+            : objcConfiguration.alwayslinkByDefault()) {
+          extension = ".lo";
+        } else {
+          extension = ".a";
+        }
+        break;
+      case TRUE:
+        extension = ".lo";
+        break;
+      case FALSE:
+      default:
+        extension = ".a";
+        break;
     }
+
     return scopedArtifact(
         PathFragment.create(
             String.format("lib%s%s%s", basename, archiveFileNameSuffix, extension)));
+  }
+
+  static void checkPrivateAccess(StarlarkThread thread) throws EvalException {
+    Label label =
+        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
+            .label();
+    if (!label.getPackageIdentifier().getRepository().getName().equals("_builtins")) {
+      throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
+    }
+  }
+
+  @StarlarkMethod(name = "archive", documented = false, useStarlarkThread = true)
+  public Artifact archiveForStarlark(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return archive();
   }
 
   /**
@@ -221,11 +260,6 @@ public final class IntermediateArtifacts implements StarlarkValue {
   /** Debug symbol file generated for a linked binary, for a specific architecture. */
   private Artifact dsymSymbol(String suffix) {
     return appendExtension(String.format("_%s.dwarf", suffix));
-  }
-
-  /** Bitcode symbol map generated for a linked binary, for a specific architecture. */
-  public Artifact bitcodeSymbolMap() {
-    return appendExtension(".bcsymbolmap");
   }
 
   /** Representation for a specific architecture. */

@@ -353,9 +353,10 @@ public class ArtifactFactory implements ArtifactResolver {
     if (type == null) {
       return root.isSourceRoot()
           ? new Artifact.SourceArtifact(root, execPath, owner)
-          : DerivedArtifact.create(root, execPath, (ActionLookupKey) owner, contentBasedPath);
+          : DerivedArtifact.create(
+              root, execPath, (ActionLookupKeyOrProxy) owner, contentBasedPath);
     } else {
-      return SpecialArtifact.create(root, execPath, (ActionLookupKey) owner, type);
+      return SpecialArtifact.create(root, execPath, (ActionLookupKeyOrProxy) owner, type);
     }
   }
 

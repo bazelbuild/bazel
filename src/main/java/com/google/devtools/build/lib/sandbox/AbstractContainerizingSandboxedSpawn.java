@@ -46,7 +46,9 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
   final SandboxOutputs outputs;
   private final Set<Path> writableDirs;
   private final TreeDeleter treeDeleter;
-  private final Path statisticsPath;
+  @Nullable private final Path sandboxDebugPath;
+  @Nullable private final Path statisticsPath;
+  private final String mnemonic;
 
   public AbstractContainerizingSandboxedSpawn(
       Path sandboxPath,
@@ -57,7 +59,9 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
       SandboxOutputs outputs,
       Set<Path> writableDirs,
       TreeDeleter treeDeleter,
-      @Nullable Path statisticsPath) {
+      @Nullable Path sandboxDebugPath,
+      @Nullable Path statisticsPath,
+      String mnemonic) {
     this.sandboxPath = sandboxPath;
     this.sandboxExecRoot = sandboxExecRoot;
     this.arguments = arguments;
@@ -66,7 +70,9 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
     this.outputs = outputs;
     this.writableDirs = writableDirs;
     this.treeDeleter = treeDeleter;
+    this.sandboxDebugPath = sandboxDebugPath;
     this.statisticsPath = statisticsPath;
+    this.mnemonic = mnemonic;
   }
 
   @Override
@@ -86,12 +92,23 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
 
   @Override
   @Nullable
+  public Path getSandboxDebugPath() {
+    return sandboxDebugPath;
+  }
+
+  @Override
+  @Nullable
   public Path getStatisticsPath() {
     return statisticsPath;
   }
 
   @Override
-  public void createFileSystem() throws IOException {
+  public String getMnemonic() {
+    return mnemonic;
+  }
+
+  @Override
+  public void createFileSystem() throws IOException, InterruptedException {
     // First compute all the inputs and directories that we need. This is based only on
     // `workerFiles`, `inputs` and `outputs` and won't do any I/O.
     Set<PathFragment> inputsToCreate = new LinkedHashSet<>();
@@ -120,7 +137,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
 
   protected void filterInputsAndDirsToCreate(
       Set<PathFragment> inputsToCreate, LinkedHashSet<PathFragment> dirsToCreate)
-      throws IOException {}
+      throws IOException, InterruptedException {}
 
   /**
    * Creates all inputs needed for this spawn's sandbox.
@@ -130,8 +147,11 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
    * @param inputs All the inputs for this spawn.
    */
   void createInputs(Iterable<PathFragment> inputsToCreate, SandboxInputs inputs)
-      throws IOException {
+      throws IOException, InterruptedException {
     for (PathFragment fragment : inputsToCreate) {
+      if (Thread.interrupted()) {
+        throw new InterruptedException("Interrupted creating inputs");
+      }
       Path key = sandboxExecRoot.getRelative(fragment);
       if (inputs.getFiles().containsKey(fragment)) {
         RootedPath fileDest = inputs.getFiles().get(fragment);

@@ -15,18 +15,15 @@
 package com.google.devtools.build.lib.rules.apple;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleBitcodeModeApi;
 import com.google.devtools.build.lib.util.CPU;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.EnumConverter;
@@ -38,8 +35,6 @@ import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
-import net.starlark.java.eval.Printer;
 
 /** Command-line options for building for Apple platforms. */
 public class AppleCommandLineOptions extends FragmentOptions {
@@ -188,7 +183,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
 
   @VisibleForTesting public static final String DEFAULT_IOS_SDK_VERSION = "8.4";
   @VisibleForTesting public static final String DEFAULT_WATCHOS_SDK_VERSION = "2.0";
-  @VisibleForTesting public static final String DEFAULT_MACOS_SDK_VERSION = "10.10";
+  @VisibleForTesting public static final String DEFAULT_MACOS_SDK_VERSION = "10.11";
   @VisibleForTesting public static final String DEFAULT_TVOS_SDK_VERSION = "9.0";
   @VisibleForTesting static final String DEFAULT_IOS_CPU = "x86_64";
 
@@ -372,22 +367,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
   public static final String DEFAULT_XCODE_VERSION_CONFIG_LABEL = "//tools/objc:host_xcodes";
 
   @Option(
-      name = "apple_bitcode",
-      allowMultiple = true,
-      converter = AppleBitcodeConverter.class,
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
-      help =
-          "Specify the Apple bitcode mode for compile steps targeting device architectures. Values"
-              + " are of the form '[platform=]mode', where the platform (which must be 'ios',"
-              + " 'macos', 'tvos', or 'watchos') is optional. If provided, the bitcode mode is"
-              + " applied for that platform specifically; if omitted, it is applied for all"
-              + " platforms. The mode must be 'none', 'embedded_markers', or 'embedded'. This"
-              + " option may be provided multiple times.")
-  public List<Map.Entry<ApplePlatform.PlatformType, AppleBitcodeMode>> appleBitcodeMode;
-
-  @Option(
       name = "incompatible_enable_apple_toolchain_resolution",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
@@ -428,64 +407,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
     }
 
     return DottedVersion.maybeUnwrap(option);
-  }
-
-  /**
-   * Represents the Apple Bitcode mode for compilation steps.
-   *
-   * <p>Bitcode is an intermediate representation of a compiled program. For many platforms, Apple
-   * requires app submissions to contain bitcode in order to be uploaded to the app store.
-   *
-   * <p>This is a build-wide value, as bitcode mode needs to be consistent among a target and its
-   * compiled dependencies.
-   */
-  @Immutable
-  public enum AppleBitcodeMode implements AppleBitcodeModeApi {
-
-    /** Do not compile bitcode. */
-    NONE("none", ImmutableList.<String>of()),
-    /**
-     * Compile the minimal set of bitcode markers. This is often the best option for developer/debug
-     * builds.
-     */
-    EMBEDDED_MARKERS("embedded_markers", ImmutableList.of("bitcode_embedded_markers")),
-    /** Fully embed bitcode in compiled files. This is often the best option for release builds. */
-    EMBEDDED("embedded", ImmutableList.of("bitcode_embedded"));
-
-    private final String mode;
-    private final ImmutableList<String> featureNames;
-
-    private AppleBitcodeMode(String mode, ImmutableList<String> featureNames) {
-      this.mode = mode;
-      this.featureNames = featureNames;
-    }
-
-    @Override
-    public boolean isImmutable() {
-      return true; // immutable and Starlark-hashable
-    }
-
-    @Override
-    public String toString() {
-      return mode;
-    }
-
-    @Override
-    public void repr(Printer printer) {
-      printer.append(mode);
-    }
-
-    /** Returns the names of any crosstool features that correspond to this bitcode mode. */
-    public ImmutableList<String> getFeatureNames() {
-      return featureNames;
-    }
-
-    /** Converts to {@link AppleBitcodeMode}. */
-    public static class Converter extends EnumConverter<AppleBitcodeMode> {
-      public Converter() {
-        super(AppleBitcodeMode.class, "apple bitcode mode");
-      }
-    }
   }
 
   @Override

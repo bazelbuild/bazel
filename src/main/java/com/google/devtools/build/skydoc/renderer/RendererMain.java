@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.skydoc.renderer;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.devtools.build.skydoc.rendering.MarkdownRenderer;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleInfo;
@@ -72,7 +74,14 @@ public class RendererMain {
             providerTemplatePath,
             funcTemplatePath,
             aspectTemplatePath);
-    try (PrintWriter printWriter = new PrintWriter(outputPath, "UTF-8")) {
+    try (PrintWriter printWriter =
+        new PrintWriter(outputPath, UTF_8) {
+          // Use consistent line endings on all platforms.
+          @Override
+          public void println() {
+            write("\n");
+          }
+        }) {
       ModuleInfo moduleInfo = ModuleInfo.parseFrom(new FileInputStream(inputPath));
       printWriter.println(renderer.renderMarkdownHeader(moduleInfo));
       printRuleInfos(printWriter, renderer, moduleInfo.getRuleInfoList());

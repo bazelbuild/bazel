@@ -431,7 +431,7 @@ public class Dict<K, V>
     if (mu == Mutability.IMMUTABLE) {
       return empty();
     } else {
-      return new Dict<>(mu, new LinkedHashMap<>());
+      return new Dict<>(mu, Maps.newLinkedHashMapWithExpectedSize(1));
     }
   }
 
@@ -441,31 +441,35 @@ public class Dict<K, V>
       mu = Mutability.IMMUTABLE;
     }
 
-    if (mu == Mutability.IMMUTABLE && m instanceof Dict && ((Dict) m).isImmutable()) {
-      @SuppressWarnings("unchecked")
-      Dict<K, V> dict = (Dict<K, V>) m; // safe
-      return dict;
-    }
-
     if (mu == Mutability.IMMUTABLE) {
       if (m.isEmpty()) {
         return empty();
       }
+
+      if (m instanceof ImmutableMap) {
+        m.forEach(
+            (k, v) -> {
+              Starlark.checkValid(k);
+              Starlark.checkValid(v);
+            });
+        @SuppressWarnings("unchecked")
+        var immutableMap = (ImmutableMap<K, V>) m;
+        return new Dict<>(immutableMap);
+      }
+
+      if (m instanceof Dict && ((Dict<?, ?>) m).isImmutable()) {
+        @SuppressWarnings("unchecked")
+        var dict = (Dict<K, V>) m;
+        return dict;
+      }
+
       ImmutableMap.Builder<K, V> immutableMapBuilder =
           ImmutableMap.builderWithExpectedSize(m.size());
-      for (Map.Entry<? extends K, ? extends V> e : m.entrySet()) {
-        immutableMapBuilder.put(
-            Starlark.checkValid(e.getKey()), //
-            Starlark.checkValid(e.getValue()));
-      }
+      m.forEach((k, v) -> immutableMapBuilder.put(Starlark.checkValid(k), Starlark.checkValid(v)));
       return new Dict<>(immutableMapBuilder.buildOrThrow());
     } else {
-      LinkedHashMap<K, V> linkedHashMap = new LinkedHashMap<>();
-      for (Map.Entry<? extends K, ? extends V> e : m.entrySet()) {
-        linkedHashMap.put(
-            Starlark.checkValid(e.getKey()), //
-            Starlark.checkValid(e.getValue()));
-      }
+      LinkedHashMap<K, V> linkedHashMap = Maps.newLinkedHashMapWithExpectedSize(m.size());
+      m.forEach((k, v) -> linkedHashMap.put(Starlark.checkValid(k), Starlark.checkValid(v)));
       return new Dict<>(mu, linkedHashMap);
     }
   }

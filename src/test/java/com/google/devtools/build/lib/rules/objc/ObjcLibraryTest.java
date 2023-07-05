@@ -19,7 +19,6 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
-import static com.google.devtools.build.lib.rules.apple.AppleBitcodeConverter.INVALID_APPLE_BITCODE_OPTION_FORMAT;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.ABSOLUTE_INCLUDES_PATH_FORMAT;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.BOTH_MODULE_NAME_AND_MODULE_MAP_SPECIFIED;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.CC_LIBRARY;
@@ -50,10 +49,14 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
@@ -680,201 +683,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "x",
         BOTH_MODULE_NAME_AND_MODULE_MAP_SPECIFIED,
         "objc_library( name = 'x', module_name = 'x', module_map = 'x.modulemap' )");
-  }
-
-  @Test
-  public void testCompilationActionsWithEmbeddedBitcode() throws Exception {
-    useConfiguration(
-        "--apple_platform_type=ios", "--ios_multi_cpus=arm64", "--apple_bitcode=embedded");
-    createLibraryTargetWriter("//objc:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "c.h")
-        .write();
-
-    CommandAction compileActionA = compileAction("//objc:lib", "a.o");
-
-    assertThat(compileActionA.getArguments()).contains("-fembed-bitcode");
-  }
-
-  @Test
-  public void testCompilationActionsWithEmbeddedBitcodeMarkers() throws Exception {
-    useConfiguration(
-        "--apple_platform_type=ios", "--ios_multi_cpus=arm64", "--apple_bitcode=embedded_markers");
-
-    createLibraryTargetWriter("//objc:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "c.h")
-        .write();
-
-    CommandAction compileActionA = compileAction("//objc:lib", "a.o");
-
-    assertThat(compileActionA.getArguments()).contains("-fembed-bitcode-marker");
-  }
-
-  @Test
-  public void testCompilationActionsWithNoBitcode() throws Exception {
-    useConfiguration("--apple_platform_type=ios", "--ios_multi_cpus=arm64", "--apple_bitcode=none");
-
-    createLibraryTargetWriter("//objc:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "c.h")
-        .write();
-
-    CommandAction compileActionA = compileAction("//objc:lib", "a.o");
-
-    assertThat(compileActionA.getArguments()).doesNotContain("-fembed-bitcode");
-    assertThat(compileActionA.getArguments()).doesNotContain("-fembed-bitcode-marker");
-  }
-
-  /**
-   * Tests that bitcode is disabled for simulator builds even if enabled by flag.
-   */
-  @Test
-  public void testCompilationActionsWithBitcode_simulator() throws Exception {
-    useConfiguration(
-        "--apple_platform_type=ios", "--ios_multi_cpus=x86_64", "--apple_bitcode=embedded");
-
-    createLibraryTargetWriter("//objc:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "c.h")
-        .write();
-
-    CommandAction compileActionA = compileAction("//objc:lib", "a.o");
-
-    assertThat(compileActionA.getArguments()).doesNotContain("-fembed-bitcode");
-    assertThat(compileActionA.getArguments()).doesNotContain("-fembed-bitcode-marker");
-  }
-
-  @Test
-  public void testCompilationActionsWithEmbeddedBitcodeForMultiplePlatformsWithMatch()
-      throws Exception {
-    useConfiguration(
-        "--apple_platform_type=ios",
-        "--ios_multi_cpus=arm64",
-        "--apple_bitcode=ios=embedded",
-        "--apple_bitcode=watchos=embedded");
-    createLibraryTargetWriter("//objc:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "c.h")
-        .write();
-
-    CommandAction compileActionA = compileAction("//objc:lib", "a.o");
-
-    assertThat(compileActionA.getArguments()).contains("-fembed-bitcode");
-  }
-
-  @Test
-  public void testCompilationActionsWithEmbeddedBitcodeForMultiplePlatformsWithoutMatch()
-      throws Exception {
-    useConfiguration(
-        "--apple_platform_type=ios",
-        "--ios_multi_cpus=arm64",
-        "--apple_bitcode=tvos=embedded",
-        "--apple_bitcode=watchos=embedded");
-    createLibraryTargetWriter("//objc:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "c.h")
-        .write();
-
-    CommandAction compileActionA = compileAction("//objc:lib", "a.o");
-
-    assertThat(compileActionA.getArguments()).doesNotContain("-fembed-bitcode");
-    assertThat(compileActionA.getArguments()).doesNotContain("-fembed-bitcode-marker");
-  }
-
-  @Test
-  public void testLaterBitcodeOptionsOverrideEarlierOptionsForSamePlatform() throws Exception {
-    useConfiguration(
-        "--apple_platform_type=ios",
-        "--ios_multi_cpus=arm64",
-        "--apple_bitcode=ios=embedded",
-        "--apple_bitcode=ios=embedded_markers");
-    createLibraryTargetWriter("//objc:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "c.h")
-        .write();
-
-    CommandAction compileActionA = compileAction("//objc:lib", "a.o");
-
-    assertThat(compileActionA.getArguments()).doesNotContain("-fembed-bitcode");
-    assertThat(compileActionA.getArguments()).contains("-fembed-bitcode-marker");
-  }
-
-  @Test
-  public void testLaterBitcodeOptionWithoutPlatformOverridesEarlierOptionWithPlatform()
-      throws Exception {
-    useConfiguration(
-        "--apple_platform_type=ios",
-        "--ios_multi_cpus=arm64",
-        "--apple_bitcode=ios=embedded",
-        "--apple_bitcode=embedded_markers");
-    createLibraryTargetWriter("//objc:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "c.h")
-        .write();
-
-    CommandAction compileActionA = compileAction("//objc:lib", "a.o");
-
-    assertThat(compileActionA.getArguments()).doesNotContain("-fembed-bitcode");
-    assertThat(compileActionA.getArguments()).contains("-fembed-bitcode-marker");
-  }
-
-  @Test
-  public void testLaterPlatformBitcodeOptionWithPlatformOverridesEarlierOptionWithoutPlatform()
-      throws Exception {
-    useConfiguration(
-        "--apple_platform_type=ios",
-        "--ios_multi_cpus=arm64",
-        "--apple_bitcode=embedded",
-        "--apple_bitcode=ios=embedded_markers");
-    createLibraryTargetWriter("//objc:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "c.h")
-        .write();
-
-    CommandAction compileActionA = compileAction("//objc:lib", "a.o");
-
-    assertThat(compileActionA.getArguments()).doesNotContain("-fembed-bitcode");
-    assertThat(compileActionA.getArguments()).contains("-fembed-bitcode-marker");
-  }
-
-  @Test
-  public void testAppleBitcode_invalidPlatformNameGivesError() {
-    checkBitcodeModeError(
-        "--apple_platform_type=ios",
-        "--ios_multi_cpus=arm64",
-        "--apple_bitcode=ios=embedded",
-        "--apple_bitcode=nachos=embedded");
-  }
-
-  @Test
-  public void testAppleBitcode_invalidBitcodeModeGivesError() {
-    checkBitcodeModeError(
-        "--apple_platform_type=ios", "--ios_multi_cpus=arm64", "--apple_bitcode=indebted");
-  }
-
-  @Test
-  public void testAppleBitcode_invalidBitcodeModeWithPlatformGivesError() {
-    checkBitcodeModeError(
-        "--apple_platform_type=ios", "--ios_multi_cpus=arm64", "--apple_bitcode=ios=indebted");
-  }
-
-  @Test
-  public void testAppleBitcode_emptyBitcodeModeGivesError() {
-    checkBitcodeModeError(
-        "--apple_platform_type=ios", "--ios_multi_cpus=arm64", "--apple_bitcode=ios=");
-  }
-
-  @Test
-  public void testAppleBitcode_emptyValueGivesError() {
-    checkBitcodeModeError(
-        "--apple_platform_type=ios", "--ios_multi_cpus=arm64", "--apple_bitcode=");
-  }
-
-  private void checkBitcodeModeError(String... args) {
-    OptionsParsingException thrown =
-        assertThrows(OptionsParsingException.class, () -> useConfiguration(args));
-    assertThat(thrown).hasMessageThat().contains(INVALID_APPLE_BITCODE_OPTION_FORMAT);
   }
 
   @Test
@@ -1782,11 +1590,21 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertAppleSdkVersionEnv(action.getIncompleteEnvironmentForTesting());
   }
 
+  private StructImpl getJ2ObjcInfoFromTarget(ConfiguredTarget configuredTarget, String providerName)
+      throws Exception {
+    Provider.Key key =
+        new StarlarkProvider.Key(
+            Label.parseCanonical("@_builtins//:common/objc/providers.bzl"), providerName);
+    return (StructImpl) configuredTarget.get(key);
+  }
+
   @Test
   public void testExportsJ2ObjcProviders() throws Exception {
     ConfiguredTarget lib = createLibraryTargetWriter("//a:lib").write();
-    assertThat(lib.get(J2ObjcEntryClassProvider.PROVIDER)).isNotNull();
-    assertThat(lib.get(J2ObjcMappingFileProvider.PROVIDER)).isNotNull();
+    StructImpl j2ObjcEntryClassInfo = getJ2ObjcInfoFromTarget(lib, "J2ObjcEntryClassInfo");
+    StructImpl j2ObjcMappingFileInfo = getJ2ObjcInfoFromTarget(lib, "J2ObjcMappingFileInfo");
+    assertThat(j2ObjcEntryClassInfo).isNotNull();
+    assertThat(j2ObjcMappingFileInfo).isNotNull();
   }
 
   @Test

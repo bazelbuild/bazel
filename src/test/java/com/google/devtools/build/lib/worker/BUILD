@@ -108,6 +108,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/worker:multiplex_worker",
         "//src/main/java/com/google/devtools/build/lib/worker:recording_input_stream",
         "//src/main/java/com/google/devtools/build/lib/worker:singleplex_worker",
+        "//src/main/java/com/google/devtools/build/lib/worker:worker_events",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_exec_root",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_factory",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_files_hash",

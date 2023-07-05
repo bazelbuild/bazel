@@ -64,13 +64,13 @@ class TargetCycleReporter extends AbstractLabelCycleReporter {
   }
 
   @Override
-  public String prettyPrint(SkyKey key) {
+  public String prettyPrint(Object key) {
     if (key instanceof ConfiguredTargetKey) {
-      return ((ConfiguredTargetKey) key.argument()).prettyPrint();
+      return ((ConfiguredTargetKey) key).prettyPrint();
     } else if (key instanceof AspectKey) {
-      return ((AspectKey) key.argument()).prettyPrint();
+      return ((AspectKey) key).prettyPrint();
     } else {
-      return getLabel(key).toString();
+      return getLabel((SkyKey) key).toString();
     }
   }
 

@@ -33,8 +33,6 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -100,8 +98,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
 
   private static final class DummyFragment extends Fragment {}
 
-  private static final Predicate<String> PREFERRED_DEPENDENCY_PREDICATE = Predicates.alwaysFalse();
-
   private static RuleClass createRuleClassA() throws LabelSyntaxException {
     return newRuleClass(
         "ruleA",
@@ -115,7 +111,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
         null,
         DUMMY_CONFIGURED_TARGET_FACTORY,
         PredicatesWithMessage.alwaysTrue(),
-        PREFERRED_DEPENDENCY_PREDICATE,
         AdvertisedProviderSet.EMPTY,
         null,
         ImmutableSet.of(),
@@ -149,7 +144,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
         null,
         DUMMY_CONFIGURED_TARGET_FACTORY,
         PredicatesWithMessage.alwaysTrue(),
-        PREFERRED_DEPENDENCY_PREDICATE,
         AdvertisedProviderSet.EMPTY,
         null,
         ImmutableSet.of(),
@@ -285,7 +279,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
             null,
             DUMMY_CONFIGURED_TARGET_FACTORY,
             PredicatesWithMessage.alwaysTrue(),
-            PREFERRED_DEPENDENCY_PREDICATE,
             AdvertisedProviderSet.EMPTY,
             null,
             ImmutableSet.of(),
@@ -329,7 +322,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
             null,
             DUMMY_CONFIGURED_TARGET_FACTORY,
             PredicatesWithMessage.alwaysTrue(),
-            PREFERRED_DEPENDENCY_PREDICATE,
             AdvertisedProviderSet.EMPTY,
             null,
             ImmutableSet.of(),
@@ -367,7 +359,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
             null,
             DUMMY_CONFIGURED_TARGET_FACTORY,
             PredicatesWithMessage.alwaysTrue(),
-            PREFERRED_DEPENDENCY_PREDICATE,
             AdvertisedProviderSet.EMPTY,
             null,
             ImmutableSet.of(),
@@ -417,7 +408,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
             null,
             DUMMY_CONFIGURED_TARGET_FACTORY,
             PredicatesWithMessage.alwaysTrue(),
-            PREFERRED_DEPENDENCY_PREDICATE,
             AdvertisedProviderSet.EMPTY,
             null,
             ImmutableSet.of(),
@@ -461,7 +451,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
             null,
             DUMMY_CONFIGURED_TARGET_FACTORY,
             PredicatesWithMessage.alwaysTrue(),
-            PREFERRED_DEPENDENCY_PREDICATE,
             AdvertisedProviderSet.EMPTY,
             null,
             ImmutableSet.of(),
@@ -505,7 +494,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
             null,
             DUMMY_CONFIGURED_TARGET_FACTORY,
             PredicatesWithMessage.alwaysTrue(),
-            PREFERRED_DEPENDENCY_PREDICATE,
             AdvertisedProviderSet.EMPTY,
             null,
             ImmutableSet.of(),
@@ -604,7 +592,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
             null,
             DUMMY_CONFIGURED_TARGET_FACTORY,
             PredicatesWithMessage.alwaysTrue(),
-            PREFERRED_DEPENDENCY_PREDICATE,
             AdvertisedProviderSet.EMPTY,
             null,
             ImmutableSet.of(),
@@ -641,7 +628,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
             null,
             DUMMY_CONFIGURED_TARGET_FACTORY,
             PredicatesWithMessage.alwaysTrue(),
-            PREFERRED_DEPENDENCY_PREDICATE,
             AdvertisedProviderSet.EMPTY,
             null,
             ImmutableSet.of(),
@@ -673,7 +659,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
         null,
         DUMMY_CONFIGURED_TARGET_FACTORY,
         PredicatesWithMessage.alwaysTrue(),
-        PREFERRED_DEPENDENCY_PREDICATE,
         AdvertisedProviderSet.EMPTY,
         null,
         ImmutableSet.of(),
@@ -843,7 +828,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
             null,
             DUMMY_CONFIGURED_TARGET_FACTORY,
             PredicatesWithMessage.alwaysTrue(),
-            PREFERRED_DEPENDENCY_PREDICATE,
             AdvertisedProviderSet.EMPTY,
             null,
             ImmutableSet.of(),
@@ -882,7 +866,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
             null,
             DUMMY_CONFIGURED_TARGET_FACTORY,
             PredicatesWithMessage.alwaysTrue(),
-            PREFERRED_DEPENDENCY_PREDICATE,
             AdvertisedProviderSet.EMPTY,
             null,
             ImmutableSet.of(),
@@ -1029,7 +1012,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
       TransitionFactory<RuleTransitionData> transitionFactory,
       ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory,
       PredicateWithMessage<Rule> validityPredicate,
-      Predicate<String> preferredDependencyPredicate,
       AdvertisedProviderSet advertisedProviders,
       @Nullable StarlarkFunction configuredTargetFunction,
       Set<Class<? extends Fragment>> allowedConfigurationFragments,
@@ -1054,7 +1036,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
         transitionFactory,
         configuredTargetFactory,
         validityPredicate,
-        preferredDependencyPredicate,
         advertisedProviders,
         configuredTargetFunction,
         NO_EXTERNAL_BINDINGS,
@@ -1093,7 +1074,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
         null,
         DUMMY_CONFIGURED_TARGET_FACTORY,
         PredicatesWithMessage.alwaysTrue(),
-        PREFERRED_DEPENDENCY_PREDICATE,
         AdvertisedProviderSet.EMPTY,
         null,
         ImmutableSet.of(DummyFragment.class),
@@ -1169,37 +1149,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
                 .getValidityPredicate()
                 .checkValid(topRule, dep2.getRuleClass(), dep2.getRuleTags()))
         .isNull();
-  }
-
-  /**
-   * Tests structure for making certain rules "preferential choices" for certain files under
-   * --compile_one_dependency.
-   */
-  @Test
-  public void testPreferredDependencyChecker() throws Exception {
-    final String cppFile = "file.cc";
-    final String textFile = "file.txt";
-
-    // Default: not preferred for anything.
-    RuleClass defaultClass =
-        new RuleClass.Builder("defaultClass", RuleClassType.NORMAL, false)
-            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
-            .add(attr("tags", STRING_LIST))
-            .build();
-    Rule defaultRule = createRule(defaultClass, "defaultRule", ImmutableMap.of());
-    assertThat(defaultRule.getRuleClassObject().isPreferredDependency(cppFile)).isFalse();
-    assertThat(defaultRule.getRuleClassObject().isPreferredDependency(textFile)).isFalse();
-
-    // Make a rule that's preferred for C++ sources.
-    RuleClass cppClass =
-        new RuleClass.Builder("cppClass", RuleClassType.NORMAL, false)
-            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
-            .add(attr("tags", STRING_LIST))
-            .setPreferredDependencyPredicate(filename -> filename.endsWith(".cc"))
-            .build();
-    Rule cppRule = createRule(cppClass, "cppRule", ImmutableMap.of());
-    assertThat(cppRule.getRuleClassObject().isPreferredDependency(cppFile)).isTrue();
-    assertThat(cppRule.getRuleClassObject().isPreferredDependency(textFile)).isFalse();
   }
 
   @Test

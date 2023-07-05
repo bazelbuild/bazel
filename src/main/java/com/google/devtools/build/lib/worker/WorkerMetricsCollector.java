@@ -132,7 +132,12 @@ public class WorkerMetricsCollector {
    * worker, only updates workerLastCallTime.
    */
   public synchronized void registerWorker(
-      int workerId, long processId, String mnemonic, boolean isMultiplex, boolean isSandboxed) {
+      int workerId,
+      long processId,
+      String mnemonic,
+      boolean isMultiplex,
+      boolean isSandboxed,
+      int workerKeyHash) {
     WorkerMetric.WorkerProperties existingWorkerProperties =
         processIdToWorkerProperties.get(processId);
 
@@ -142,7 +147,12 @@ public class WorkerMetricsCollector {
       processIdToWorkerProperties.put(
           processId,
           WorkerMetric.WorkerProperties.create(
-              ImmutableList.of(workerId), processId, mnemonic, isMultiplex, isSandboxed));
+              ImmutableList.of(workerId),
+              processId,
+              mnemonic,
+              isMultiplex,
+              isSandboxed,
+              workerKeyHash));
       return;
     }
 
@@ -158,7 +168,7 @@ public class WorkerMetricsCollector {
 
     WorkerMetric.WorkerProperties updatedWorkerProperties =
         WorkerMetric.WorkerProperties.create(
-            updatedWorkerIds, processId, mnemonic, isMultiplex, isSandboxed);
+            updatedWorkerIds, processId, mnemonic, isMultiplex, isSandboxed, workerKeyHash);
     processIdToWorkerProperties.put(processId, updatedWorkerProperties);
   }
 

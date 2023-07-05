@@ -64,14 +64,18 @@ public interface AppleConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfo
       })
   ApplePlatformApi getMultiArchPlatform(ApplePlatformTypeApiT platformType);
 
+  @Deprecated
   @StarlarkMethod(
       name = "bitcode_mode",
       doc =
-          "Returns the Bitcode mode to use for compilation steps.<p>This field is only valid for"
-              + " device builds; for simulator builds, it always returns <code>'none'</code>.",
+          "Deprecated: Returns the Bitcode mode to use for compilation steps. "
+              + "Always returns <code>'none'</code>.",
       structField = true)
-  AppleBitcodeModeApi getBitcodeMode();
+  String getBitcodeMode();
 
   @StarlarkMethod(name = "mandatory_minimum_version", documented = false, useStarlarkThread = true)
   boolean isMandatoryMinimumVersionForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "cpu", documented = false, useStarlarkThread = true)
+  String getCpuForStarlark(StarlarkThread thread) throws EvalException;
 }

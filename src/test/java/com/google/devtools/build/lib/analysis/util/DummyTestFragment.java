@@ -63,6 +63,14 @@ public final class DummyTestFragment extends Fragment {
     public String foo;
 
     @Option(
+        name = "set_by_exec",
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "A regular string-typed option set to 'exec' by exec transition")
+    public String setByExec;
+
+    @Option(
         name = "internal foo",
         defaultValue = "",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -125,6 +133,13 @@ public final class DummyTestFragment extends Fragment {
       public String getTypeDescription() {
         return "a string that is not readable by Starlark";
       }
+    }
+
+    @Override
+    public FragmentOptions getExec() {
+      DummyTestOptions exec = (DummyTestOptions) getDefault();
+      exec.setByExec = "exec";
+      return exec;
     }
   }
 }

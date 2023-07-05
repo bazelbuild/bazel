@@ -89,8 +89,6 @@ public final class IncrementalArtifactConflictFinder {
     try (SilentCloseable c =
         Profiler.instance().profile("IncrementalArtifactConflictFinder.findArtifactConflicts")) {
       constructActionGraphAndArtifactList(
-          executorService,
-          threadSafeMutableActionGraph,
           pathFragmentTrieRoot,
           actionLookupValues,
           strictConflictChecks,
@@ -101,21 +99,29 @@ public final class IncrementalArtifactConflictFinder {
         ImmutableMap.copyOf(temporaryBadActionMap), threadSafeMutableActionGraph.getSize());
   }
 
-  private static void constructActionGraphAndArtifactList(
-      ListeningExecutorService executorService,
-      MutableActionGraph actionGraph,
+  private void constructActionGraphAndArtifactList(
       ConcurrentMap<String, Object> pathFragmentTrieRoot,
       ImmutableCollection<SkyValue> actionLookupValues,
       boolean strictConflictChecks,
       ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap)
       throws InterruptedException {
     List<ListenableFuture<Void>> futures = new ArrayList<>(actionLookupValues.size());
-    for (SkyValue alv : actionLookupValues) {
-      futures.add(
-          executorService.submit(
-              () ->
-                  actionRegistration(
-                      alv, actionGraph, pathFragmentTrieRoot, strictConflictChecks, badActionMap)));
+    synchronized (executorService) {
+      // Some other thread shut down the executor, exit now.
+      if (executorService.isShutdown()) {
+        return;
+      }
+      for (SkyValue alv : actionLookupValues) {
+        futures.add(
+            executorService.submit(
+                () ->
+                    actionRegistration(
+                        alv,
+                        threadSafeMutableActionGraph,
+                        pathFragmentTrieRoot,
+                        strictConflictChecks,
+                        badActionMap)));
+      }
     }
     // Now wait on the futures.
     try {
@@ -125,9 +131,12 @@ public final class IncrementalArtifactConflictFinder {
     }
   }
 
-  void shutdown() throws InterruptedException {
-    if (!executorService.isShutdown() && ExecutorUtil.uninterruptibleShutdown(executorService)) {
-      throw new InterruptedException();
+  void shutdown() {
+    synchronized (executorService) {
+      if (!executorService.isShutdown() && ExecutorUtil.interruptibleShutdown(executorService)) {
+        // Preserve the interrupt status.
+        Thread.currentThread().interrupt();
+      }
     }
   }
 

@@ -150,9 +150,8 @@ public interface Spawn extends DescribableExecutionUnit {
    */
   ResourceSet getLocalResources() throws ExecException;
 
-  /**
-   * Returns a mnemonic (string constant) for this kind of spawn.
-   */
+  /** Returns a mnemonic (string constant) for this kind of spawn. */
+  @Override
   String getMnemonic();
 
   /**

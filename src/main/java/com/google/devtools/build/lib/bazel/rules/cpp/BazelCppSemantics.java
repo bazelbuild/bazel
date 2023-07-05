@@ -18,14 +18,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
-import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.AspectLegalCppSemantics;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -36,7 +34,6 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
-import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -117,11 +114,6 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
   }
 
   @Override
-  public HeadersCheckingMode determineHeadersCheckingMode(RuleContext ruleContext) {
-    return HeadersCheckingMode.STRICT;
-  }
-
-  @Override
   public HeadersCheckingMode determineStarlarkHeadersCheckingMode(
       RuleContext ruleContext, CppConfiguration cppConfig, CcToolchainProvider toolchain) {
     if (cppConfig.strictHeaderCheckingFromStarlark()) {
@@ -145,30 +137,8 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
   }
 
   @Override
-  public void validateAttributes(RuleContext ruleContext) {
-  }
-
-  @Override
   public boolean needsIncludeValidation() {
     return language != Language.OBJC;
-  }
-
-  @Override
-  @Nullable
-  public StructImpl getCcSharedLibraryInfo(TransitiveInfoCollection dep) {
-    StructImpl ccSharedLibraryInfo = (StructImpl) dep.get(CC_SHARED_INFO_PROVIDER);
-    if (ccSharedLibraryInfo != null) {
-      return ccSharedLibraryInfo;
-    }
-    ccSharedLibraryInfo = (StructImpl) dep.get(CC_SHARED_INFO_PROVIDER_RULES_CC);
-    if (ccSharedLibraryInfo != null) {
-      return ccSharedLibraryInfo;
-    }
-    ccSharedLibraryInfo = (StructImpl) dep.get(CC_SHARED_INFO_PROVIDER_BUILT_INS);
-    if (ccSharedLibraryInfo != null) {
-      return ccSharedLibraryInfo;
-    }
-    return null;
   }
 
   @Override
@@ -177,22 +147,6 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
       AspectDescriptor aspectDescriptor,
       CcToolchainProvider ccToolchain,
       ImmutableSet<String> unsupportedFeatures) {}
-
-  @Override
-  public boolean createEmptyArchive() {
-    return false;
-  }
-
-  @Override
-  public void checkCanUseImplementationDeps(RuleContext ruleContext) {
-    boolean experimentalCcImplementationDeps =
-        ruleContext.getFragment(CppConfiguration.class).experimentalCcImplementationDeps();
-    if (!experimentalCcImplementationDeps
-        && ruleContext.attributes().isAttributeValueExplicitlySpecified("implementation_deps")) {
-      ruleContext.attributeError(
-          "implementation_deps", "requires --experimental_cc_implementation_deps");
-    }
-  }
 
   @Override
   public void validateStarlarkCompileApiCall(

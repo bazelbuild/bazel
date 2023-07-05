@@ -37,6 +37,7 @@ team-Rules-Java:
 team-Android:
 - src/tools/android/java/com/google/devtools/build/android/**/*
 - src/test/java/com/google/devtools/build/android/**/*
+- src/test/shell/bazel/android/**/*
 
 team-Configurability:
 - src/main/java/com/google/devtools/build/lib/analysis/**/*

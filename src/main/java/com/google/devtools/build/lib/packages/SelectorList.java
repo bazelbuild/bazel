@@ -16,13 +16,17 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.docgen.annot.GlobalMethods;
+import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.HasBinary;
@@ -79,8 +83,8 @@ public final class SelectorList implements StarlarkValue, HasBinary {
     return type;
   }
 
-  /** Implementation of the Starlark {@code select} function exposed to BUILD and .bzl files. */
-  public static Object select(Dict<?, ?> dict, String noMatchError) throws EvalException {
+  /** Implementation of the Starlark {@code select()} function exposed to BUILD and .bzl files. */
+  private static Object select(Dict<?, ?> dict, String noMatchError) throws EvalException {
     if (dict.isEmpty()) {
       throw Starlark.errorf(
           "select({}) with an empty dictionary can never resolve because it includes no conditions"
@@ -211,5 +215,41 @@ public final class SelectorList implements StarlarkValue, HasBinary {
     }
     SelectorList that = (SelectorList) other;
     return Objects.equals(this.type, that.type) && Objects.equals(this.elements, that.elements);
+  }
+
+  /** The user-facing API to the {@code select()} callable. */
+  @GlobalMethods(environment = {Environment.BUILD, Environment.BZL})
+  public static final class SelectLibrary {
+
+    private SelectLibrary() {}
+
+    public static final SelectLibrary INSTANCE = new SelectLibrary();
+
+    @StarlarkMethod(
+        name = "select",
+        doc =
+            "<code>select()</code> is the helper function that makes a rule attribute "
+                + "<a href=\"${link common-definitions#configurable-attributes}\">"
+                + "configurable</a>. See "
+                + "<a href=\"${link functions#select}\">build encyclopedia</a> for details.",
+        parameters = {
+          @Param(
+              name = "x",
+              positional = true,
+              doc =
+                  "A dict that maps configuration conditions to values. Each key is a "
+                      + "<a href=\"../builtins/Label.html\">Label</a> or a label string"
+                      + " that identifies a config_setting or constraint_value instance. See the"
+                      + " <a href=\"https://bazel.build/rules/macros#label-resolution\">"
+                      + "documentation on macros</a> for when to use a Label instead of a string."),
+          @Param(
+              name = "no_match_error",
+              defaultValue = "''",
+              doc = "Optional custom error to report if no condition matches.",
+              named = true),
+        })
+    public Object select(Dict<?, ?> dict, String noMatchError) throws EvalException {
+      return SelectorList.select(dict, noMatchError);
+    }
   }
 }

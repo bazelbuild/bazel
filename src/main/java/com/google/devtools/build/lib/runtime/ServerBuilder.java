@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
-import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
@@ -37,8 +36,6 @@ public final class ServerBuilder {
   private final ImmutableMap.Builder<String, InfoItem> infoItems = ImmutableMap.builder();
   private final ImmutableList.Builder<QueryFunction> queryFunctions = ImmutableList.builder();
   private final ImmutableList.Builder<OutputFormatter> queryOutputFormatters =
-      ImmutableList.builder();
-  private final ImmutableList.Builder<PackageFactory.EnvironmentExtension> environmentExtensions =
       ImmutableList.builder();
   private final BuildEventArtifactUploaderFactoryMap.Builder buildEventArtifactUploaderFactories =
       new BuildEventArtifactUploaderFactoryMap.Builder();
@@ -70,11 +67,6 @@ public final class ServerBuilder {
 
   ImmutableList<OutputFormatter> getQueryOutputFormatters() {
     return queryOutputFormatters.build();
-  }
-
-  // Visible for WorkspaceResolver.
-  public ImmutableList<PackageFactory.EnvironmentExtension> getEnvironmentExtensions() {
-    return environmentExtensions.build();
   }
 
   @VisibleForTesting
@@ -168,12 +160,6 @@ public final class ServerBuilder {
   @CanIgnoreReturnValue
   public ServerBuilder addQueryOutputFormatters(Iterable<OutputFormatter> formatters) {
     this.queryOutputFormatters.addAll(formatters);
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public ServerBuilder addEnvironmentExtension(PackageFactory.EnvironmentExtension extension) {
-    this.environmentExtensions.add(extension);
     return this;
   }
 

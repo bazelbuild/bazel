@@ -291,6 +291,19 @@ public class TestConfiguration extends Fragment {
                 + "the test exec group.")
     public boolean useTargetPlatformForTests;
 
+    @Option(
+        name = "incompatible_check_sharding_support",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "If true, Bazel will fail a sharded test if the test runner does not indicate that it "
+                + "supports sharding by touching the file at the path in TEST_SHARD_STATUS_FILE. "
+                + "If false, a test runner that does not support sharding will lead to all tests "
+                + "running in each shard.")
+    public boolean checkShardingSupport;
+
     @Override
     public FragmentOptions getExec() {
       // Options here are either:
@@ -393,6 +406,10 @@ public class TestConfiguration extends Fragment {
 
   public boolean useTargetPlatformForTests() {
     return options.useTargetPlatformForTests;
+  }
+
+  public boolean checkShardingSupport() {
+    return options.checkShardingSupport;
   }
 
   /**

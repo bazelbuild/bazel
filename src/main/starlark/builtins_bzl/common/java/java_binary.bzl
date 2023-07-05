@@ -14,21 +14,25 @@
 
 """ Implementation of java_binary for bazel """
 
-load(":common/java/java_common.bzl", "BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS", "basic_java_library", "collect_deps")
-load(":common/java/java_util.bzl", "create_single_jar")
-load(":common/java/java_helper.bzl", helper = "util")
+load(":common/java/basic_java_library.bzl", "BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS", "basic_java_library", "collect_deps")
+load(":common/java/java_helper.bzl", "helper")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/rule_util.bzl", "merge_attrs")
-load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 load(":common/proto/proto_info.bzl", "ProtoInfo")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/paths.bzl", "paths")
+load(":common/java/java_info.bzl", "JavaInfo")
+load(":common/java/java_plugin_info.bzl", "JavaPluginInfo")
+load(":common/java/java_common.bzl", "java_common")
+load(
+    ":common/java/java_common_internal_for_builtins.bzl",
+    "collect_native_deps_dirs",
+    "get_runtime_classpath_for_archive",
+    "to_java_binary_info",
+)
 
 CcLauncherInfo = _builtins.internal.cc_internal.launcher_provider
-JavaInfo = _builtins.toplevel.JavaInfo
-JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
-java_common = _builtins.toplevel.java_common
 
 InternalDeployJarInfo = provider(
     "Provider for passing info to deploy jar rule",
@@ -160,7 +164,7 @@ def basic_java_binary(
 
     jvm_flags.extend(launcher_info.jvm_flags)
 
-    native_libs_dirs = java_common.collect_native_deps_dirs(runtime_deps)
+    native_libs_dirs = collect_native_deps_dirs(runtime_deps)
     if native_libs_dirs:
         prefix = "${JAVA_RUNFILES}/" + ctx.workspace_name + "/"
         jvm_flags.append("-Djava.library.path=%s" % (
@@ -211,33 +215,15 @@ def basic_java_binary(
 
     files = depset(files_to_build + common_info.files_to_build)
 
-    java_runtime_toolchain = semantics.find_java_runtime_toolchain(ctx)
     transitive_runfiles_artifacts = depset(transitive = [
         files,
         java_attrs.runtime_classpath,
         depset(transitive = launcher_info.runfiles),
-        java_runtime_toolchain.files,
     ])
-
-    # Add symlinks to the C++ runtime libraries under a path that can be built
-    # into the Java binary without having to embed the crosstool, gcc, and grte
-    # version information contained within the libraries' package paths.
-    runfiles_symlinks = {}
-
-    # TODO(hvd): do we need this in bazel? if yes, fix abs path check on windows
-    if not helper.is_absolute_path(ctx, java_runtime_toolchain.java_home):
-        runfiles_symlinks = {
-            ("_cpp_runtimes/%s" % lib.basename): lib
-            for lib in cc_helper.find_cpp_toolchain(ctx).dynamic_runtime_lib(
-                feature_configuration = feature_config,
-            ).to_list()
-        }
 
     runfiles = ctx.runfiles(
         transitive_files = transitive_runfiles_artifacts,
         collect_default = True,
-        symlinks = runfiles_symlinks,
-        skip_conflict_checking = True,
     )
 
     if launcher_info.launcher:
@@ -278,7 +264,7 @@ def basic_java_binary(
 
     _filter_validation_output_group(ctx, output_groups)
 
-    java_binary_info = java_common.to_java_binary_info(java_info)
+    java_binary_info = to_java_binary_info(java_info)
 
     default_info = struct(
         files = files,
@@ -316,7 +302,7 @@ def _collect_attrs(ctx, runtime_classpath, classpath_resources):
         for dep in ctx.attr.deploy_env
     ]) if hasattr(ctx.attr, "deploy_env") else depset()
 
-    runtime_classpath_for_archive = java_common.get_runtime_classpath_for_archive(runtime_classpath, deploy_env_jars)
+    runtime_classpath_for_archive = get_runtime_classpath_for_archive(runtime_classpath, deploy_env_jars)
     runtime_jars = [ctx.outputs.classjar]
 
     resources = [p for p in ctx.files.srcs if p.extension == "properties"]
@@ -348,13 +334,13 @@ def _generate_coverage_manifest(ctx, output, runtime_classpath):
 
 #TODO(hvd): not needed in bazel
 def _create_shared_archive(ctx, java_attrs):
-    runtime = semantics.find_java_runtime_toolchain(ctx)
     classlist = ctx.file.classlist if hasattr(ctx.file, "classlist") else None
     if not classlist:
         return None
+    runtime = semantics.find_java_runtime_toolchain(ctx)
     jsa = ctx.actions.declare_file("%s.jsa" % ctx.label.name)
     merged = ctx.actions.declare_file(jsa.dirname + "/" + helper.strip_extension(jsa) + "-merged.jar")
-    create_single_jar(
+    helper.create_single_jar(
         ctx,
         merged,
         java_attrs.runtime_jars,
@@ -431,7 +417,7 @@ def _create_one_version_check(ctx, inputs):
     return output
 
 def _create_deploy_sources_jar(ctx, sources):
-    create_single_jar(
+    helper.create_single_jar(
         ctx,
         ctx.outputs.deploysrcjar,
         sources,

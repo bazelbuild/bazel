@@ -255,6 +255,23 @@ java_library(
 )
 
 java_library(
+    name = "starlark_options_parser",
+    srcs = ["runtime/StarlarkOptionsParser.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/core_option_converters",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/util:pair",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:error_prone_annotations",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "runtime",
     srcs = glob(
         [
@@ -274,6 +291,7 @@ java_library(
             "runtime/MemoryPressureEvent.java",
             "runtime/MemoryPressureOptions.java",
             "runtime/MemoryPressureStatCollector.java",
+            "runtime/StarlarkOptionsParser.java",
         ],
     ),
     deps = [
@@ -285,6 +303,7 @@ java_library(
         ":runtime/command_dispatcher",
         ":runtime/command_line_path_factory",
         ":runtime/memory_pressure",
+        ":starlark_options_parser",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -295,6 +314,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:middleman_type",
         "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
         "//src/main/java/com/google/devtools/build/lib/actions:resource_manager",
+        "//src/main/java/com/google/devtools/build/lib/actions:runfiles_supplier",
         "//src/main/java/com/google/devtools/build/lib/actions:shared_action_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/abstract_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -314,8 +334,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:no_build_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:no_build_request_finished_event",
+        "//src/main/java/com/google/devtools/build/lib/analysis:provider_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:template_expansion_exception",
+        "//src/main/java/com/google/devtools/build/lib/analysis:test/coverage_action_finished_event",
+        "//src/main/java/com/google/devtools/build/lib/analysis:test/coverage_artifacts_known_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/coverage_report_action_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_collection",

@@ -21,7 +21,7 @@ import static org.junit.Assert.fail;
 import static org.mockito.AdditionalAnswers.answerVoid;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.spy;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheImplBase;
@@ -811,10 +811,9 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
             }
           }
         });
-    ByteStreamImplBase mockByteStreamImpl = Mockito.mock(ByteStreamImplBase.class);
+    ByteStreamImplBase mockByteStreamImpl = spy(ByteStreamImplBase.class);
     serviceRegistry.addService(mockByteStreamImpl);
-    when(mockByteStreamImpl.write(ArgumentMatchers.<StreamObserver<WriteResponse>>any()))
-        .thenAnswer(
+    doAnswer(
             new Answer<StreamObserver<WriteRequest>>() {
               private int numErrors = 4;
 
@@ -865,7 +864,9 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
                   }
                 };
               }
-            });
+            })
+        .when(mockByteStreamImpl)
+        .write(any());
     doAnswer(
             answerVoid(
                 (QueryWriteStatusRequest request,

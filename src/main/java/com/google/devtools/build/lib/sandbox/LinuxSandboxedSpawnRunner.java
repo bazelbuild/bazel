@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
+import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -103,10 +104,11 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   private static boolean computeIsSupported(CommandEnvironment cmdEnv, Path linuxSandbox)
       throws InterruptedException {
+    LocalExecutionOptions options = cmdEnv.getOptions().getOptions(LocalExecutionOptions.class);
     ImmutableList<String> linuxSandboxArgv =
         LinuxSandboxCommandLineBuilder.commandLineBuilder(
                 linuxSandbox, ImmutableList.of("/bin/true"))
-            .setTimeout(Duration.ofSeconds(1))
+            .setTimeout(options.getLocalSigkillGraceSeconds())
             .build();
     ImmutableMap<String, String> env = ImmutableMap.of();
     Path execRoot = cmdEnv.getExecRoot();
@@ -330,8 +332,13 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             .setUseFakeHostname(getSandboxOptions().sandboxFakeHostname)
             .setEnablePseudoterminal(getSandboxOptions().sandboxExplicitPseudoterminal)
             .setCreateNetworkNamespace(createNetworkNamespace ? NETNS_WITH_LOOPBACK : NO_NETNS)
-            .setUseDebugMode(sandboxOptions.sandboxDebug)
             .setKillDelay(timeoutKillDelay);
+
+    Path sandboxDebugPath = null;
+    if (sandboxOptions.sandboxDebug) {
+      sandboxDebugPath = sandboxPath.getRelative("debug.out");
+      commandLineBuilder.setSandboxDebugPath(sandboxDebugPath.getPathString());
+    }
 
     if (sandboxOptions.memoryLimitMb > 0) {
       CgroupsInfo cgroupsInfo = CgroupsInfo.getInstance();
@@ -355,11 +362,8 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     } else if (sandboxOptions.sandboxFakeUsername) {
       commandLineBuilder.setUseFakeUsername(true);
     }
-    Path statisticsPath = null;
-    if (sandboxOptions.collectLocalSandboxExecutionStatistics) {
-      statisticsPath = sandboxPath.getRelative("stats.out");
-      commandLineBuilder.setStatisticsPath(statisticsPath);
-    }
+    Path statisticsPath = sandboxPath.getRelative("stats.out");
+    commandLineBuilder.setStatisticsPath(statisticsPath);
     if (sandboxfsProcess != null) {
       return new SandboxfsSandboxedSpawn(
           sandboxfsProcess,
@@ -372,6 +376,8 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           ImmutableSet.of(),
           sandboxfsMapSymlinkTargets,
           treeDeleter,
+          spawn.getMnemonic(),
+          sandboxDebugPath,
           statisticsPath);
     } else if (sandboxOptions.useHermetic) {
       commandLineBuilder.setHermeticSandboxPath(sandboxPath);
@@ -384,8 +390,10 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           outputs,
           writableDirs,
           treeDeleter,
+          sandboxDebugPath,
           statisticsPath,
-          sandboxOptions.sandboxDebug);
+          sandboxOptions.sandboxDebug,
+          spawn.getMnemonic());
     } else {
       return new SymlinkedSandboxedSpawn(
           sandboxPath,
@@ -396,6 +404,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           outputs,
           writableDirs,
           treeDeleter,
+          sandboxDebugPath,
           statisticsPath,
           spawn.getMnemonic());
     }

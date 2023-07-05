@@ -17,8 +17,8 @@ Definition of proto_library rule.
 """
 
 load(":common/proto/proto_semantics.bzl", "semantics")
-load(":common/proto/proto_common.bzl", proto_common = "proto_common_do_not_use")
-load(":common/proto/proto_info.bzl", "ProtoInfo", "ProtoSourceInfo")
+load(":common/proto/proto_common.bzl", "get_import_path", proto_common = "proto_common_do_not_use")
+load(":common/proto/proto_info.bzl", "ProtoInfo")
 load(":common/paths.bzl", "paths")
 
 def _check_srcs_package(target_package, srcs):
@@ -56,7 +56,7 @@ def _get_strip_import_prefix(ctx):
     else:  # Relative to current package
         strip_import_prefix = _join(ctx.label.package, strip_import_prefix)
 
-    return strip_import_prefix
+    return strip_import_prefix.removesuffix("/")
 
 def _proto_library_impl(ctx):
     semantics.preprocess(ctx)
@@ -68,11 +68,24 @@ def _proto_library_impl(ctx):
     exports = [dep[ProtoInfo] for dep in ctx.attr.exports]
     import_prefix = _get_import_prefix(ctx)
     strip_import_prefix = _get_strip_import_prefix(ctx)
+    check_for_reexport = deps + exports if not srcs else exports
+    for proto in check_for_reexport:
+        if hasattr(proto, "allow_exports") and not proto.allow_exports.isAvailableFor(ctx.label):
+            fail("proto_library '%s' can't be reexported in package '//%s'" % (proto.direct_descriptor_set.owner, ctx.label.package))
 
-    proto_path, direct_sources = _create_proto_sources(ctx, srcs, import_prefix, strip_import_prefix)
+    proto_path, virtual_srcs = _process_srcs(ctx, srcs, import_prefix, strip_import_prefix)
     descriptor_set = ctx.actions.declare_file(ctx.label.name + "-descriptor-set.proto.bin")
-    proto_info = _create_proto_info(ctx, direct_sources, deps, exports, proto_path, descriptor_set)
-    _write_descriptor_set(ctx, direct_sources, deps, exports, proto_info, descriptor_set)
+    proto_info = ProtoInfo(
+        srcs = virtual_srcs,
+        deps = deps,
+        descriptor_set = descriptor_set,
+        proto_path = proto_path,
+        workspace_root = ctx.label.workspace_root,
+        bin_dir = ctx.bin_dir.path,
+        allow_exports = ctx.attr.allow_exports,
+    )
+
+    _write_descriptor_set(ctx, proto_info, deps, exports, descriptor_set)
 
     # We assume that the proto sources will not have conflicting artifacts
     # with the same root relative path
@@ -89,32 +102,18 @@ def _proto_library_impl(ctx):
         ),
     ]
 
-def _create_proto_sources(ctx, srcs, import_prefix, strip_import_prefix):
-    """Transforms Files in srcs to ProtoSourceInfos, optionally symlinking them to _virtual_imports.
+def _process_srcs(ctx, srcs, import_prefix, strip_import_prefix):
+    """Returns proto_path and sources, optionally symlinking them to _virtual_imports.
 
     Returns:
-      A pair proto_path, directs_sources.
+      (str, [File]) A pair of proto_path and virtual_sources.
     """
-    generate_protos_in_virtual_imports = False
-    if ctx.fragments.proto.generated_protos_in_virtual_imports():
-        generate_protos_in_virtual_imports = any([not src.is_source for src in srcs])
-
-    if import_prefix != "" or strip_import_prefix != "" or generate_protos_in_virtual_imports:
+    if import_prefix != "" or strip_import_prefix != "":
         # Use virtual source roots
         return _symlink_to_virtual_imports(ctx, srcs, import_prefix, strip_import_prefix)
     else:
         # No virtual source roots
-        direct_sources = []
-        for src in srcs:
-            if ctx.label.workspace_name == "" or ctx.label.workspace_root.startswith(".."):
-                # source_root == ''|'bazel-out/foo/k8-fastbuild/bin'
-                source_root = src.root.path
-            else:
-                # source_root == ''|'bazel-out/foo/k8-fastbuild/bin' / 'external/repo'
-                source_root = _join(src.root.path, ctx.label.workspace_root)
-            direct_sources.append(ProtoSourceInfo(_source_file = src, _original_source_file = src, _proto_path = source_root))
-
-        return ctx.label.workspace_root if ctx.label.workspace_root else ".", direct_sources
+        return "", srcs
 
 def _join(*path):
     return "/".join([p for p in path if p != ""])
@@ -126,90 +125,34 @@ def _symlink_to_virtual_imports(ctx, srcs, import_prefix, strip_import_prefix):
           A pair proto_path, directs_sources.
     """
     virtual_imports = _join("_virtual_imports", ctx.label.name)
-    if ctx.label.workspace_name == "" or ctx.label.workspace_root.startswith(".."):  # siblingRepositoryLayout
-        # Example: `bazel-out/[repo/]target/bin / pkg / _virtual_imports/name`
-        proto_path = _join(ctx.genfiles_dir.path, ctx.label.package, virtual_imports)
+    proto_path = _join(ctx.label.package, virtual_imports)
+
+    if ctx.label.workspace_name == "":
+        full_strip_import_prefix = strip_import_prefix
     else:
-        # Example: `bazel-out/target/bin / repo / pkg / _virtual_imports/name`
-        proto_path = _join(ctx.genfiles_dir.path, ctx.label.workspace_root, ctx.label.package, virtual_imports)
+        full_strip_import_prefix = _join("..", ctx.label.workspace_name, strip_import_prefix)
+    if full_strip_import_prefix:
+        full_strip_import_prefix += "/"
 
-    direct_sources = []
+    virtual_srcs = []
     for src in srcs:
-        if ctx.label.workspace_name == "":
-            repository_relative_path = src.short_path
-        else:
-            # src.short_path = ../repo/pkg/a.proto
-            repository_relative_path = paths.relativize(src.short_path, "../" + ctx.label.workspace_name)
-
         # Remove strip_import_prefix
-        if not repository_relative_path.startswith(strip_import_prefix):
+        if not src.short_path.startswith(full_strip_import_prefix):
             fail(".proto file '%s' is not under the specified strip prefix '%s'" %
-                 (src.short_path, strip_import_prefix))
-        import_path = repository_relative_path[len(strip_import_prefix):]
+                 (src.short_path, full_strip_import_prefix))
+        import_path = src.short_path[len(full_strip_import_prefix):]
 
         # Add import_prefix
         virtual_src = ctx.actions.declare_file(_join(virtual_imports, import_prefix, import_path))
-
         ctx.actions.symlink(
             output = virtual_src,
             target_file = src,
             progress_message = "Symlinking virtual .proto sources for %{label}",
         )
-        direct_sources.append(ProtoSourceInfo(_source_file = virtual_src, _original_source_file = src, _proto_path = proto_path))
-    return proto_path, direct_sources
+        virtual_srcs.append(virtual_src)
+    return proto_path, virtual_srcs
 
-def _create_proto_info(ctx, direct_sources, deps, exports, proto_path, descriptor_set):
-    """Constructs ProtoInfo."""
-
-    # Construct ProtoInfo
-    transitive_proto_sources = depset(
-        direct = direct_sources,
-        transitive = [dep._transitive_proto_sources for dep in deps],
-        order = "preorder",
-    )
-    transitive_sources = depset(
-        direct = [src._source_file for src in direct_sources],
-        transitive = [dep.transitive_sources for dep in deps],
-        order = "preorder",
-    )
-    transitive_proto_path = depset(
-        direct = [proto_path],
-        transitive = [dep.transitive_proto_path for dep in deps],
-    )
-    if direct_sources:
-        check_deps_sources = depset(direct = [src._source_file for src in direct_sources])
-    else:
-        check_deps_sources = depset(transitive = [dep.check_deps_sources for dep in deps])
-
-    transitive_descriptor_sets = depset(
-        direct = [descriptor_set],
-        transitive = [dep.transitive_descriptor_sets for dep in deps],
-    )
-
-    # Layering checks.
-    if direct_sources:
-        exported_sources = depset(direct = direct_sources)
-    else:
-        exported_sources = depset(transitive = [dep._exported_sources for dep in deps])
-
-    return ProtoInfo(
-        direct_sources = [src._source_file for src in direct_sources],
-        transitive_sources = transitive_sources,
-        direct_descriptor_set = descriptor_set,
-        transitive_descriptor_sets = transitive_descriptor_sets,
-        proto_source_root = proto_path,
-        transitive_proto_path = transitive_proto_path,
-        check_deps_sources = check_deps_sources,
-        transitive_imports = transitive_sources,
-        _direct_proto_sources = direct_sources,
-        _transitive_proto_sources = transitive_proto_sources,
-        _exported_sources = exported_sources,
-    )
-
-def _get_import_path(proto_source):
-    return paths.relativize(proto_source._source_file.path, proto_source._proto_path)
-
-def _write_descriptor_set(ctx, direct_sources, deps, exports, proto_info, descriptor_set):
+def _write_descriptor_set(ctx, proto_info, deps, exports, descriptor_set):
     """Writes descriptor set."""
     if proto_info.direct_sources == []:
         ctx.actions.write(descriptor_set, "")
@@ -226,15 +169,15 @@ def _write_descriptor_set(ctx, direct_sources, deps, exports, proto_info, descri
     strict_deps_mode = ctx.fragments.proto.strict_proto_deps()
     strict_deps = strict_deps_mode != "OFF" and strict_deps_mode != "DEFAULT"
     if strict_deps:
-        if direct_sources:
+        if proto_info.direct_sources:
             strict_importable_sources = depset(
-                direct = direct_sources,
+                direct = proto_info._direct_proto_sources,
                 transitive = [dep._exported_sources for dep in deps],
             )
         else:
             strict_importable_sources = None
         if strict_importable_sources:
-            args.add_joined("--direct_dependencies", strict_importable_sources, map_each = _get_import_path, join_with = ":")
+            args.add_joined("--direct_dependencies", strict_importable_sources, map_each = get_import_path, join_with = ":")
             # Example: `--direct_dependencies a.proto:b.proto`
 
         else:
@@ -252,9 +195,10 @@ def _write_descriptor_set(ctx, direct_sources, deps, exports, proto_info, descri
             # This line is necessary to trigger the check.
             args.add("--allowed_public_imports=")
         else:
-            args.add_joined("--allowed_public_imports", public_import_protos, map_each = _get_import_path, join_with = ":")
+            args.add_joined("--allowed_public_imports", public_import_protos, map_each = get_import_path, join_with = ":")
     proto_lang_toolchain_info = proto_common.ProtoLangToolchainInfo(
         out_replacement_format_flag = "--descriptor_set_out=%s",
+        output_files = "single",
         mnemonic = "GenProtoDescriptorSet",
         progress_message = "Generating Descriptor Set proto_library %{label}",
         proto_compiler = ctx.executable._proto_compiler,
@@ -266,7 +210,6 @@ def _write_descriptor_set(ctx, direct_sources, deps, exports, proto_info, descri
         proto_info,
         proto_lang_toolchain_info,
         generated_files = [descriptor_set],
-        plugin_output = descriptor_set,
         additional_inputs = dependencies_descriptor_sets,
         additional_args = args,
     )
@@ -285,6 +228,10 @@ proto_library = rule(
             providers = [ProtoInfo],
         ),
         "strip_import_prefix": attr.string(default = "/"),
+        "allow_exports": attr.label(
+            cfg = "exec",
+            providers = ["PackageSpecificationProvider"],
+        ),
         "data": attr.label_list(
             allow_files = True,
             flags = ["SKIP_CONSTRAINTS_OVERRIDE"],
@@ -299,6 +246,5 @@ proto_library = rule(
     }, **semantics.EXTRA_ATTRIBUTES),
     fragments = ["proto"] + semantics.EXTRA_FRAGMENTS,
     provides = [ProtoInfo],
-    output_to_genfiles = True,  # TODO(b/204266604) move to bin dir
     exec_groups = semantics.EXEC_GROUPS,
 )

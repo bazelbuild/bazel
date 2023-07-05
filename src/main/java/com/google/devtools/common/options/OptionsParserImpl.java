@@ -39,7 +39,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -406,15 +408,16 @@ class OptionsParserImpl {
     Iterator<String> optionsIterator = options.iterator();
     while (optionsIterator.hasNext()) {
       String unparsedFlagExpression = optionsIterator.next();
-      ParsedOptionDescription parsedOption =
-          identifyOptionAndPossibleArgument(
+      identifyOptionAndPossibleArgument(
               unparsedFlagExpression,
               optionsIterator,
               nextOptionPriority,
               o -> source,
               implicitDependent,
-              expandedFrom);
-      builder.add(parsedOption);
+              expandedFrom,
+              /* fallbackData= */ null)
+          .parsedOptionDescription
+          .ifPresent(builder::add);
       nextOptionPriority = OptionPriority.nextOptionPriority(nextOptionPriority);
     }
     return builder.build();
@@ -447,10 +450,17 @@ class OptionsParserImpl {
   OptionsParserImplResult parse(
       PriorityCategory priorityCat,
       Function<OptionDefinition, String> sourceFunction,
-      List<String> args)
+      List<String> args,
+      OptionsData fallbackData)
       throws OptionsParsingException {
     OptionsParserImplResult optionsParserImplResult =
-        parse(nextPriorityPerPriorityCategory.get(priorityCat), sourceFunction, null, null, args);
+        parse(
+            nextPriorityPerPriorityCategory.get(priorityCat),
+            sourceFunction,
+            null,
+            null,
+            args,
+            fallbackData);
     nextPriorityPerPriorityCategory.put(priorityCat, optionsParserImplResult.nextPriority);
     return optionsParserImplResult;
   }
@@ -468,10 +478,12 @@ class OptionsParserImpl {
       Function<OptionDefinition, String> sourceFunction,
       ParsedOptionDescription implicitDependent,
       ParsedOptionDescription expandedFrom,
-      List<String> args)
+      List<String> args,
+      OptionsData fallbackData)
       throws OptionsParsingException {
     List<String> unparsedArgs = new ArrayList<>();
     List<String> unparsedPostDoubleDashArgs = new ArrayList<>();
+    List<String> ignoredArgs = new ArrayList<>();
 
     Iterator<String> argsIterator = argsPreProcessor.preProcess(args).iterator();
     while (argsIterator.hasNext()) {
@@ -501,29 +513,40 @@ class OptionsParserImpl {
         break;
       }
 
-      ParsedOptionDescription parsedOption;
+      Optional<ParsedOptionDescription> parsedOption;
       if (containsSkippedPrefix(arg)) {
         // Parse the skipped arg into a synthetic allowMultiple option to preserve its order
         // relative to skipped args coming from expansions. Simply adding it to the residue would
         // end up placing expanded skipped args after all explicitly given skipped args, which isn't
         // correct.
         parsedOption =
-            ParsedOptionDescription.newParsedOptionDescription(
-                skippedArgsDefinition,
-                arg,
-                arg,
-                new OptionInstanceOrigin(
-                    priority,
-                    sourceFunction.apply(skippedArgsDefinition),
-                    implicitDependent,
-                    expandedFrom),
-                conversionContext);
+            Optional.of(
+                ParsedOptionDescription.newParsedOptionDescription(
+                    skippedArgsDefinition,
+                    arg,
+                    arg,
+                    new OptionInstanceOrigin(
+                        priority,
+                        sourceFunction.apply(skippedArgsDefinition),
+                        implicitDependent,
+                        expandedFrom),
+                    conversionContext));
       } else {
-        parsedOption =
+        ParsedOptionDescriptionOrIgnoredArgs result =
             identifyOptionAndPossibleArgument(
-                arg, argsIterator, priority, sourceFunction, implicitDependent, expandedFrom);
+                arg,
+                argsIterator,
+                priority,
+                sourceFunction,
+                implicitDependent,
+                expandedFrom,
+                fallbackData);
+        result.ignoredArgs.ifPresent(ignoredArgs::add);
+        parsedOption = result.parsedOptionDescription;
       }
-      handleNewParsedOption(parsedOption);
+      if (parsedOption.isPresent()) {
+        handleNewParsedOption(parsedOption.get());
+      }
       priority = OptionPriority.nextOptionPriority(priority);
     }
 
@@ -535,23 +558,26 @@ class OptionsParserImpl {
     }
 
     return new OptionsParserImplResult(
-        unparsedArgs, unparsedPostDoubleDashArgs, priority, flagAliasMappings);
+        unparsedArgs, unparsedPostDoubleDashArgs, ignoredArgs, priority, flagAliasMappings);
   }
 
   /** A class that stores residue and priority information. */
   static final class OptionsParserImplResult {
     final List<String> postDoubleDashResidue;
     final List<String> preDoubleDashResidue;
+    final ImmutableList<String> ignoredArgs;
     final OptionPriority nextPriority;
     final ImmutableMap<String, String> aliases;
 
     OptionsParserImplResult(
         List<String> preDashResidue,
         List<String> postDashResidue,
+        List<String> ignoredArgs,
         OptionPriority nextPriority,
         Map<String, String> aliases) {
       this.preDoubleDashResidue = preDashResidue;
       this.postDoubleDashResidue = postDashResidue;
+      this.ignoredArgs = ImmutableList.copyOf(ignoredArgs);
       this.nextPriority = nextPriority;
       this.aliases = ImmutableMap.copyOf(aliases);
     }
@@ -569,14 +595,16 @@ class OptionsParserImpl {
   OptionsParserImplResult parseArgsAsExpansionOfOption(
       ParsedOptionDescription optionToExpand,
       Function<OptionDefinition, String> sourceFunction,
-      List<String> args)
+      List<String> args,
+      OptionsData fallbackData)
       throws OptionsParsingException {
     return parse(
         OptionPriority.getChildPriority(optionToExpand.getPriority()),
         sourceFunction,
         null,
         optionToExpand,
-        args);
+        args,
+        fallbackData);
   }
 
   /**
@@ -630,7 +658,8 @@ class OptionsParserImpl {
               o -> expansionBundle.sourceOfExpansionArgs,
               optionDefinition.hasImplicitRequirements() ? parsedOption : null,
               optionDefinition.isExpansionOption() ? parsedOption : null,
-              expansionBundle.expansionArgs);
+              expansionBundle.expansionArgs,
+              /* fallbackData= */ null);
       if (!optionsParserImplResult.getResidue().isEmpty()) {
 
         // Throw an assertion here, because this indicates an error in the definition of this
@@ -693,28 +722,37 @@ class OptionsParserImpl {
     return expansionBundle;
   }
 
-  private ParsedOptionDescription identifyOptionAndPossibleArgument(
+  /**
+   * Keep the properties of {@link OptionsData} used below in sync with {@link
+   * #equivalentForParsing}.
+   *
+   * <p>If an option is not found in the current {@link OptionsData}, but is found in the specified
+   * fallback data, a {@link ParsedOptionDescriptionOrIgnoredArgs} with no {@link
+   * ParsedOptionDescription}, but the ignored arguments is returned.
+   */
+  private ParsedOptionDescriptionOrIgnoredArgs identifyOptionAndPossibleArgument(
       String arg,
       Iterator<String> nextArgs,
       OptionPriority priority,
       Function<OptionDefinition, String> sourceFunction,
       ParsedOptionDescription implicitDependent,
-      ParsedOptionDescription expandedFrom)
+      ParsedOptionDescription expandedFrom,
+      @Nullable OptionsData fallbackData)
       throws OptionsParsingException {
 
     // Store the way this option was parsed on the command line.
     StringBuilder commandLineForm = new StringBuilder();
     commandLineForm.append(arg);
     String unconvertedValue = null;
-    OptionDefinition optionDefinition;
+    OptionLookupResult lookupResult;
     boolean booleanValue = true;
 
     if (arg.length() == 2) { // -l  (may be nullary or unary)
-      optionDefinition = optionsData.getFieldForAbbrev(arg.charAt(1));
+      lookupResult = getWithFallback(OptionsData::getFieldForAbbrev, arg.charAt(1), fallbackData);
       booleanValue = true;
 
     } else if (arg.length() == 3 && arg.charAt(2) == '-') { // -l-  (boolean)
-      optionDefinition = optionsData.getFieldForAbbrev(arg.charAt(1));
+      lookupResult = getWithFallback(OptionsData::getFieldForAbbrev, arg.charAt(1), fallbackData);
       booleanValue = false;
 
     } else if (arg.startsWith("--")) { // --long_option
@@ -727,16 +765,17 @@ class OptionsParserImpl {
         throw new OptionsParsingException("Invalid options syntax: " + arg, arg);
       }
       unconvertedValue = equalsAt == -1 ? null : arg.substring(equalsAt + 1);
-      optionDefinition = optionsData.getOptionDefinitionFromName(name);
+      lookupResult = getWithFallback(OptionsData::getOptionDefinitionFromName, name, fallbackData);
 
       // Look for a "no"-prefixed option name: "no<optionName>".
-      if (optionDefinition == null && name.startsWith("no")) {
+      if (lookupResult == null && name.startsWith("no")) {
         name = name.substring(2);
-        optionDefinition = optionsData.getOptionDefinitionFromName(name);
+        lookupResult =
+            getWithFallback(OptionsData::getOptionDefinitionFromName, name, fallbackData);
         booleanValue = false;
-        if (optionDefinition != null) {
+        if (lookupResult != null) {
           // TODO(bazel-team): Add tests for these cases.
-          if (!optionDefinition.usesBooleanValueSyntax()) {
+          if (!lookupResult.definition.usesBooleanValueSyntax()) {
             throw new OptionsParsingException(
                 "Illegal use of 'no' prefix on non-boolean option: " + arg, arg);
           }
@@ -751,16 +790,16 @@ class OptionsParserImpl {
       throw new OptionsParsingException("Invalid options syntax: " + arg, arg);
     }
 
-    if (optionDefinition == null || shouldIgnoreOption(optionDefinition)) {
+    if (lookupResult == null || shouldIgnoreOption(lookupResult.definition)) {
       // Do not recognize internal options, which are treated as if they did not exist.
       throw new OptionsParsingException("Unrecognized option: " + arg, arg);
     }
 
     if (unconvertedValue == null) {
       // Special-case boolean to supply value based on presence of "no" prefix.
-      if (optionDefinition.usesBooleanValueSyntax()) {
+      if (lookupResult.definition.usesBooleanValueSyntax()) {
         unconvertedValue = booleanValue ? "1" : "0";
-      } else if (optionDefinition.getType().equals(Void.class)) {
+      } else if (lookupResult.definition.getType().equals(Void.class)) {
         // This is expected, Void type options have no args.
       } else if (nextArgs.hasNext()) {
         // "--flag value" form
@@ -771,13 +810,100 @@ class OptionsParserImpl {
       }
     }
 
-    return ParsedOptionDescription.newParsedOptionDescription(
-        optionDefinition,
-        commandLineForm.toString(),
-        unconvertedValue,
-        new OptionInstanceOrigin(
-            priority, sourceFunction.apply(optionDefinition), implicitDependent, expandedFrom),
-        conversionContext);
+    if (lookupResult.fromFallback) {
+      // The option was not found on the current command, but is a valid option for some other
+      // command. Ignore it.
+      return new ParsedOptionDescriptionOrIgnoredArgs(
+          Optional.empty(), Optional.of(commandLineForm.toString()));
+    }
+
+    return new ParsedOptionDescriptionOrIgnoredArgs(
+        Optional.of(
+            ParsedOptionDescription.newParsedOptionDescription(
+                lookupResult.definition,
+                commandLineForm.toString(),
+                unconvertedValue,
+                new OptionInstanceOrigin(
+                    priority,
+                    sourceFunction.apply(lookupResult.definition),
+                    implicitDependent,
+                    expandedFrom),
+                conversionContext)),
+        Optional.empty());
+  }
+
+  /**
+   * Two option definitions are considered equivalent for parsing if they result in the same control
+   * flow through {@link #identifyOptionAndPossibleArgument}. This is crucial to ensure that the
+   * beginning of the next option can be determined unambiguously when parsing with fallback data.
+   *
+   * <p>Examples:
+   *
+   * <ul>
+   *   <li>Both {@code query} and {@code cquery} have a {@code --output} option, but the options
+   *       accept different sets of values (e.g. {@code cquery} has {@code --output=files}, but
+   *       {@code query} doesn't. However, since both options accept a string value, they parse
+   *       equivalently as far as {@link #identifyOptionAndPossibleArgument} is concerned -
+   *       potential failures due to unsupported values occur after parsing, during value
+   *       conversion. There is no ambiguity in how many command-line arguments are consumed
+   *       depending on which option definition is used.
+   *   <li>If the hypothetical {@code foo} command also had a {@code --output} option, but it were
+   *       boolean-valued, then the two option definitions would <b>not</b> be equivalent for
+   *       parsing: The command line {@code --output --copt=foo} would parse as {@code {"output":
+   *       "--copt=foo"}} for the {@code cquery} command, but as {@code {"output": true, "copt":
+   *       "foo"}} for the {@code foo} command, thus resulting in parsing ambiguities between the
+   *       two commands.
+   * </ul>
+   */
+  public static boolean equivalentForParsing(
+      OptionDefinition definition, OptionDefinition otherDefinition) {
+    if (definition.equals(otherDefinition)) {
+      return true;
+    }
+    return (definition.usesBooleanValueSyntax() == otherDefinition.usesBooleanValueSyntax())
+        && (definition.getType().equals(Void.class) == otherDefinition.getType().equals(Void.class))
+        && (ImmutableList.copyOf(definition.getOptionMetadataTags())
+                .contains(OptionMetadataTag.INTERNAL)
+            == ImmutableList.copyOf(otherDefinition.getOptionMetadataTags())
+                .contains(OptionMetadataTag.INTERNAL));
+  }
+
+  // TODO: Replace with a sealed interface unwrapped via pattern matching when available.
+  private static final class ParsedOptionDescriptionOrIgnoredArgs {
+
+    final Optional<ParsedOptionDescription> parsedOptionDescription;
+    final Optional<String> ignoredArgs;
+
+    private ParsedOptionDescriptionOrIgnoredArgs(
+        Optional<ParsedOptionDescription> parsedOptionDescription, Optional<String> ignoredArgs) {
+      Preconditions.checkArgument(parsedOptionDescription.isPresent() != ignoredArgs.isPresent());
+      this.parsedOptionDescription = parsedOptionDescription;
+      this.ignoredArgs = ignoredArgs;
+    }
+  }
+
+  private static final class OptionLookupResult {
+
+    final OptionDefinition definition;
+    final boolean fromFallback;
+
+    private OptionLookupResult(OptionDefinition definition, boolean fromFallback) {
+      this.definition = definition;
+      this.fromFallback = fromFallback;
+    }
+  }
+
+  @Nullable
+  private <T> OptionLookupResult getWithFallback(
+      BiFunction<OptionsData, T, OptionDefinition> getter, T param, OptionsData fallbackData) {
+    OptionDefinition optionDefinition;
+    if ((optionDefinition = getter.apply(optionsData, param)) != null) {
+      return new OptionLookupResult(optionDefinition, false);
+    }
+    if (fallbackData != null && (optionDefinition = getter.apply(fallbackData, param)) != null) {
+      return new OptionLookupResult(optionDefinition, true);
+    }
+    return null;
   }
 
   private boolean shouldIgnoreOption(OptionDefinition optionDefinition) {

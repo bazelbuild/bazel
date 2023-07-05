@@ -884,7 +884,8 @@ need to be different for some reason, you can specify the `root_symlinks` or
 `symlinks` arguments. The `root_symlinks` is a dictionary mapping paths to
 files, where the paths are relative to the root of the runfiles directory. The
 `symlinks` dictionary is the same, but paths are implicitly prefixed with the
-name of the workspace.
+name of the main workspace (*not* the name of the repository containing the
+current target).
 
 ```python
     ...
@@ -979,7 +980,7 @@ non-tool [dependency attribute](#dependency_attributes) that doesn't set
 [`cfg`](#configuration) to `"host"` or `"exec"` in the attribute schema) in
 `dependency_attributes`. (This isn't ideal behavior, since it puts attributes
 like `srcs` in `dependency_attributes` instead of `source_attributes`, but it
-avoids the need for explcit coverage configuration for all rules in the
+avoids the need for explicit coverage configuration for all rules in the
 dependency chain.)
 
 ### Validation Actions

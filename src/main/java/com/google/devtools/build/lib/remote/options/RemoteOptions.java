@@ -300,16 +300,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, --noremote_upload_local_results and --noremote_accept_cached will not"
-              + " apply to the disk cache. If both --disk_cache and --remote_cache are set"
-              + " (combined cache):\n"
-              + "\t--noremote_upload_local_results will cause results to be written to the disk"
-              + " cache, but not uploaded to the remote cache.\n"
-              + "\t--noremote_accept_cached will result in Bazel checking for results in the disk"
-              + " cache, but not in the remote cache.\n"
-              + "\tno-remote-exec actions can hit the disk cache.\n"
-              + "See #8216 for details.")
+      help = "No-op")
   public boolean incompatibleRemoteResultsIgnoreDisk;
 
   @Option(
@@ -418,15 +409,15 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public boolean incompatibleRemoteDanglingSymlinks;
 
   @Option(
-      name = "incompatible_disallow_symlink_in_tree_artifact",
-      defaultValue = "false",
+      name = "incompatible_remote_disallow_symlink_in_tree_artifact",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.EXECUTION},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If set to true, a remotely executed action cannot produce a tree artifact containing a"
               + " relative symlink. Absolute symlinks are never allowed irrespective of this flag.")
-  public boolean incompatibleDisallowSymlinkInTreeArtifact;
+  public boolean incompatibleRemoteDisallowSymlinkInTreeArtifact;
 
   @Option(
       name = "remote_cache_compression",
@@ -448,7 +439,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
   @Option(
       name = "remote_download_outputs",
       oldName = "experimental_remote_download_outputs",
-      defaultValue = "all",
+      defaultValue = "toplevel",
       category = "remote",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
@@ -472,42 +463,40 @@ public final class RemoteOptions extends CommonRemoteOptions {
       name = "remote_download_minimal",
       oldName = "experimental_remote_download_minimal",
       defaultValue = "null",
-      expansion = {
-        "--nobuild_runfile_links",
-        "--action_cache_store_output_metadata",
-        "--experimental_inmemory_jdeps_files",
-        "--experimental_inmemory_dotd_files",
-        "--remote_download_outputs=minimal"
-      },
+      expansion = {"--nobuild_runfile_links", "--remote_download_outputs=minimal"},
       category = "remote",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "Does not download any remote build outputs to the local machine. This flag is a shortcut"
-              + " for flags: --action_cache_store_output_metadata,"
-              + " --experimental_inmemory_jdeps_files, --experimental_inmemory_dotd_files, and "
-              + "--remote_download_outputs=minimal.")
+              + " for flags: --nobuild_runfile_links and"
+              + " --remote_download_outputs=minimal.")
   public Void remoteOutputsMinimal;
 
   @Option(
       name = "remote_download_toplevel",
       oldName = "experimental_remote_download_toplevel",
       defaultValue = "null",
-      expansion = {
-        "--action_cache_store_output_metadata",
-        "--experimental_inmemory_jdeps_files",
-        "--experimental_inmemory_dotd_files",
-        "--remote_download_outputs=toplevel"
-      },
+      expansion = {"--remote_download_outputs=toplevel"},
       category = "remote",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Only downloads remote outputs of top level targets to the local machine. This flag is a"
-              + " shortcut for flags: --action_cache_store_output_metadata,"
-              + " --experimental_inmemory_jdeps_files, --experimental_inmemory_dotd_files, and "
-              + "--remote_download_outputs=toplevel.")
+          "Only downloads remote outputs of top level targets to the local machine. This flag is an"
+              + " alias for flag --remote_download_outputs=toplevel.")
   public Void remoteOutputsToplevel;
+
+  @Option(
+      name = "remote_download_all",
+      defaultValue = "null",
+      expansion = {"--remote_download_outputs=all"},
+      category = "remote",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Downloads all remote outputs to the local machine. This flag is an alias for flag"
+              + " --remote_download_outputs=all.")
+  public Void remoteOutputsAll;
 
   @Option(
       name = "remote_result_cache_priority",
@@ -660,6 +649,55 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + "cache misses and retries.")
   public boolean remoteDiscardMerkleTrees;
 
+  @Option(
+      name = "experimental_circuit_breaker_strategy",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      defaultValue = "null",
+      effectTags = {OptionEffectTag.EXECUTION},
+      converter = CircuitBreakerStrategy.Converter.class,
+      help =
+          "Specifies the strategy for the circuit breaker to use. Available strategies are"
+              + " \"failure\". On invalid value for the option the behavior same as the option is"
+              + " not set.")
+  public CircuitBreakerStrategy circuitBreakerStrategy;
+
+  @Option(
+      name = "experimental_remote_failure_rate_threshold",
+      defaultValue = "10",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.EXECUTION},
+      converter = Converters.PercentageConverter.class,
+      help =
+          "Sets the allowed number of failure rate in percentage for a specific time window after"
+              + " which it stops calling to the remote cache/executor. By default the value is 10."
+              + " Setting this to 0 means no limitation.")
+  public int remoteFailureRateThreshold;
+
+  @Option(
+      name = "experimental_remote_failure_window_interval",
+      defaultValue = "60s",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.EXECUTION},
+      converter = RemoteDurationConverter.class,
+      help =
+          "The interval in which the failure rate of the remote requests are computed. On zero or"
+              + " negative value the failure duration is computed the whole duration of the"
+              + " execution.Following units can be used: Days (d), hours (h), minutes (m), seconds"
+              + " (s), and milliseconds (ms). If the unit is omitted, the value is interpreted as"
+              + " seconds.")
+  public Duration remoteFailureWindowInterval;
+
+  @Option(
+      name = "experimental_remote_cache_lease_extension",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If set to true, Bazel will extend the lease for outputs of remote actions during the"
+              + " build by sending `FindMissingBlobs` calls periodically to remote cache. The"
+              + " frequency is based on the value of `--experimental_remote_cache_ttl`.")
+  public boolean remoteCacheLeaseExtension;
+
   // The below options are not configurable by users, only tests.
   // This is part of the effort to reduce the overall number of flags.
 
@@ -747,6 +785,18 @@ public final class RemoteOptions extends CommonRemoteOptions {
       return ((!success && this == ExecutionMessagePrintMode.FAILURE)
           || (success && this == ExecutionMessagePrintMode.SUCCESS)
           || this == ExecutionMessagePrintMode.ALL);
+    }
+  }
+
+  /** An enum for specifying different strategy for circuit breaker. */
+  public enum CircuitBreakerStrategy {
+    FAILURE;
+
+    /** Converts to {@link CircuitBreakerStrategy}. */
+    public static class Converter extends EnumConverter<CircuitBreakerStrategy> {
+      public Converter() {
+        super(CircuitBreakerStrategy.class, "CircuitBreaker strategy");
+      }
     }
   }
 }

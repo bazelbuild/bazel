@@ -20,22 +20,26 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.rules.java.JavaInfo.JavaInfoInternalProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaModuleFlagsProviderApi;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Stream;
+import net.starlark.java.eval.EvalException;
 
 /**
  * Provides information about {@code --add-exports=} and {@code --add-opens=} flags for Java
  * targets.
  */
-final class JavaModuleFlagsProvider implements TransitiveInfoProvider, JavaModuleFlagsProviderApi {
+final class JavaModuleFlagsProvider
+    implements JavaInfoInternalProvider, JavaModuleFlagsProviderApi {
 
   private final NestedSet<String> addExports;
   private final NestedSet<String> addOpens;
@@ -107,5 +111,14 @@ final class JavaModuleFlagsProvider implements TransitiveInfoProvider, JavaModul
 
   public ImmutableList<String> toFlags() {
     return toFlags(addExports().toList(), addOpens().toList());
+  }
+
+  static JavaModuleFlagsProvider fromStarlarkJavaInfo(StructImpl javaInfo)
+      throws EvalException, TypeException {
+    StructImpl moduleFlagsInfo = javaInfo.getValue("module_flags_info", StructImpl.class);
+    return JavaModuleFlagsProvider.create(
+        moduleFlagsInfo.getValue("add_exports", Depset.class).toList(String.class),
+        moduleFlagsInfo.getValue("add_opens", Depset.class).toList(String.class),
+        Stream.empty());
   }
 }

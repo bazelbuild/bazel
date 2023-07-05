@@ -184,6 +184,9 @@ public interface CcModuleApi<
             name = "grep_includes",
             positional = false,
             named = true,
+            doc =
+                "DO NOT USE - DEPRECATED. grep_includes is now part of cc_toolchain and there is no"
+                    + " need to specify it from the rule itself.",
             defaultValue = "None",
             allowedTypes = {
               @ParamType(type = FileApi.class),
@@ -788,7 +791,7 @@ public interface CcModuleApi<
       Object stripOpts,
       Object inputFile,
       StarlarkThread thread)
-      throws EvalException;
+      throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "create_link_variables",
@@ -868,7 +871,7 @@ public interface CcModuleApi<
         @Param(
             name = "must_keep_debug",
             doc =
-                "When set to True, bazel will expose 'strip_debug_symbols' variable, which is "
+                "When set to False, bazel will expose 'strip_debug_symbols' variable, which is "
                     + "usually used to use the linker to strip debug symbols from the output file.",
             named = true,
             positional = false,
@@ -903,7 +906,7 @@ public interface CcModuleApi<
       boolean useTestOnlyFlags,
       boolean isStaticLinkingMode,
       StarlarkThread thread)
-      throws EvalException;
+      throws EvalException, InterruptedException;
 
   @StarlarkMethod(name = "empty_variables", documented = false, useStarlarkThread = true)
   CcToolchainVariablesT getVariables(StarlarkThread thread) throws EvalException;
@@ -1591,6 +1594,9 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "None",
+            doc =
+                "DO NOT USE - DEPRECATED. grep_includes is now part of cc_toolchain and there is no"
+                    + " need to specify it from the rule itself.",
             allowedTypes = {@ParamType(type = FileApi.class), @ParamType(type = NoneType.class)}),
         @Param(
             name = "variables_extension",
@@ -1682,6 +1688,7 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             documented = false),
+        @Param(name = "lto_obj_root_prefix", positional = false, named = true, documented = false),
         @Param(name = "bitcode_file", positional = false, named = true, documented = false),
         @Param(
             name = "feature_configuration",
@@ -1701,6 +1708,7 @@ public interface CcModuleApi<
   LtoBackendArtifactsT createLtoBackendArtifacts(
       StarlarkRuleContextT starlarkRuleContext,
       String ltoOutputRootPrefixString,
+      String ltoObjRootPrefixString,
       FileT bitcodeFile,
       FeatureConfigurationT featureConfigurationForStarlark,
       CcToolchainProviderT ccToolchain,
@@ -1709,7 +1717,7 @@ public interface CcModuleApi<
       boolean shouldCreatePerObjectDebugInfo,
       Sequence<?> argv,
       StarlarkThread thread)
-      throws EvalException;
+      throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "merge_compilation_contexts",

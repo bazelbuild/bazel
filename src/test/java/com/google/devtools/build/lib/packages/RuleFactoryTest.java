@@ -47,7 +47,6 @@ import org.junit.runner.RunWith;
 public final class RuleFactoryTest extends PackageLoadingTestCase {
 
   private final ConfiguredRuleClassProvider provider = TestRuleClassProvider.getRuleClassProvider();
-  private final RuleFactory ruleFactory = new RuleFactory(provider);
 
   private static final ImmutableList<StarlarkThread.CallStackEntry> DUMMY_STACK =
       ImmutableList.of(
@@ -66,7 +65,8 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
             StarlarkSemantics.DEFAULT,
             RepositoryMapping.ALWAYS_FALLBACK,
             RepositoryMapping.ALWAYS_FALLBACK)
-        .setFilename(RootedPath.toRootedPath(root, filename));
+        .setFilename(RootedPath.toRootedPath(root, filename))
+        .setLoads(ImmutableList.of());
   }
 
   @Test
@@ -245,10 +245,9 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
     Path myPkgPath = scratch.resolve("/workspace/mypkg/BUILD");
     Package pkg = newBuilder(PackageIdentifier.createInMainRepo("mypkg"), myPkgPath).build();
 
-    for (String name : ruleFactory.getRuleClassNames()) {
+    for (RuleClass ruleClass : provider.getRuleClassMap().values()) {
       // Create rule instance directly so we'll avoid mandatory attribute check yet will be able
       // to use TargetUtils.isTestRule() method to identify test rules.
-      RuleClass ruleClass = ruleFactory.getRuleClass(name);
       Rule rule =
           new Rule(
               pkg,

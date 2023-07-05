@@ -46,7 +46,7 @@ final class WorkerExecRoot {
 
   public void createFileSystem(
       Set<PathFragment> workerFiles, SandboxInputs inputs, SandboxOutputs outputs)
-      throws IOException {
+      throws IOException, InterruptedException {
     workDir.createDirectoryAndParents();
 
     // First compute all the inputs and directories that we need. This is based only on
@@ -77,8 +77,11 @@ final class WorkerExecRoot {
   }
 
   static void createInputs(Iterable<PathFragment> inputsToCreate, SandboxInputs inputs, Path dir)
-      throws IOException {
+      throws IOException, InterruptedException {
     for (PathFragment fragment : inputsToCreate) {
+      if (Thread.interrupted()) {
+        throw new InterruptedException();
+      }
       Path key = dir.getRelative(fragment);
       if (inputs.getFiles().containsKey(fragment)) {
         RootedPath fileDest = inputs.getFiles().get(fragment);

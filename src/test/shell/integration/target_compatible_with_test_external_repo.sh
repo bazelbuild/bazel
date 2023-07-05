@@ -215,7 +215,7 @@ EOF
     --platforms=@//:foo3_platform \
     --build_event_text_file="${TEST_log}".build.json \
     @test_repo//:bin &> "${TEST_log}" && fail "Bazel passed unexpectedly."
-  expect_log 'ERROR: Target @test_repo//:bin is incompatible and cannot be built'
+  expect_log 'ERROR:.*Target @test_repo//:bin is incompatible and cannot be built'
   expect_log '^ERROR: Build did NOT complete successfully'
   # Now look at the build event log.
   mv "${TEST_log}".build.json "${TEST_log}"

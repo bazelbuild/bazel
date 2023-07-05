@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Actions;
-import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -73,7 +72,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws ActionTemplateExpansionFunctionException, InterruptedException {
     ActionTemplateExpansionKey key = (ActionTemplateExpansionKey) skyKey.argument();
-    ActionLookupValue value = (ActionLookupValue) env.getValue(key.getActionLookupKey());
+    ActionLookupValue value = (ActionLookupValue) env.getValue(key.getActionLookupKey().toKey());
     if (value == null) {
       // Because of the phase boundary separating analysis and execution, all needed
       // ActionLookupValues must have already been evaluated, so a missing ActionLookupValue is
@@ -91,7 +90,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
       return null;
     }
     ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts = treeArtifactValue.getChildren();
-    ImmutableList<? extends Action> actions;
+    ImmutableList<ActionAnalysisMetadata> actions;
     try {
       // Expand the action template using the list of expanded input TreeFileArtifacts.
       // TODO(rduan): Add a check to verify the inputs of expanded actions are subsets of inputs
@@ -106,9 +105,8 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
       throw new ActionTemplateExpansionFunctionException(
           new AlreadyReportedActionExecutionException(e));
     }
-    GeneratingActions generatingActions;
     try {
-      generatingActions = checkActionAndArtifactConflicts(actions, key);
+      checkActionAndArtifactConflicts(actions, key);
       // It is currently not possible for Starlark actions to create action template actions, so
       // no exceptions here are expected. However, they may be possible in the future.
     } catch (ActionConflictException e) {
@@ -132,7 +130,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
           e);
     }
 
-    return new ActionTemplateExpansionValue(generatingActions);
+    return new ActionTemplateExpansionValue(actions);
   }
 
   /** Exception thrown by {@link ActionTemplateExpansionFunction}. */
@@ -150,7 +148,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
     }
   }
 
-  private static ImmutableList<? extends Action> generateAndValidateActionsFromTemplate(
+  private static ImmutableList<ActionAnalysisMetadata> generateAndValidateActionsFromTemplate(
       ActionTemplate<?> actionTemplate,
       ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts,
       ActionTemplateExpansionKey key)
@@ -189,23 +187,22 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
             action);
       }
     }
-    return actions;
+    return ImmutableList.copyOf(actions); // Just a cast, no copy performed.
   }
 
-  private GeneratingActions checkActionAndArtifactConflicts(
-      ImmutableList<? extends Action> actions, ActionTemplateExpansionKey key)
-      throws ActionConflictException, ArtifactPrefixConflictException, InterruptedException,
+  private void checkActionAndArtifactConflicts(
+      ImmutableList<ActionAnalysisMetadata> actions, ActionTemplateExpansionKey key)
+      throws ActionConflictException,
+          ArtifactPrefixConflictException,
+          InterruptedException,
           Actions.ArtifactGeneratedByOtherRuleException {
-    GeneratingActions generatingActions =
-        Actions.assignOwnersAndFindAndThrowActionConflict(
-            actionKeyContext, ImmutableList.copyOf(actions), key);
+    Actions.assignOwnersAndThrowIfConflict(actionKeyContext, actions, key);
     Map<ActionAnalysisMetadata, ArtifactPrefixConflictException> artifactPrefixConflictMap =
-        findArtifactPrefixConflicts(getMapForConsistencyCheck(generatingActions.getActions()));
+        findArtifactPrefixConflicts(getMapForConsistencyCheck(actions));
 
     if (!artifactPrefixConflictMap.isEmpty()) {
       throw artifactPrefixConflictMap.values().iterator().next();
     }
-    return generatingActions;
   }
 
   private static ImmutableMap<Artifact, ActionAnalysisMetadata> getMapForConsistencyCheck(

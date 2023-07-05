@@ -18,7 +18,9 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext.LoadGraphVisitor;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Target;
@@ -37,8 +39,8 @@ import javax.annotation.Nullable;
  * However, query assumes a certain graph model, and the {@link TargetAccessor} class is used to
  * access properties of these nodes. Also, the query engine doesn't assume T's {@link
  * Object#hashCode} and {@link Object#equals} are meaningful and instead uses {@link
- * QueryEnvironment#createUniquifier}, {@link QueryEnvironment#createThreadSafeMutableSet()}, and
- * {@link QueryEnvironment#createMutableMap()} when appropriate.
+ * QueryEnvironment#createUniquifier} and {@link QueryEnvironment#createThreadSafeMutableSet()} when
+ * appropriate.
  *
  * @param <T> the node type of the dependency graph
  */
@@ -538,29 +540,6 @@ public interface QueryEnvironment<T> {
   ThreadSafeMutableSet<T> createThreadSafeMutableSet();
 
   /**
-   * A simple map-like interface that uses proper equality semantics for the key type. {@link
-   * QueryExpression}/{@link QueryFunction} implementations should use {@code
-   * ThreadSafeMutableSet<T, V>} they need a map-like data structure for {@code T}.
-   */
-  interface MutableMap<K, V> {
-    /**
-     * Returns the value {@code value} associated with the given key by the most recent call to
-     * {@code put(key, value)}, or {@code null} if there was no such call.
-     */
-    @Nullable
-    V get(K key);
-
-    /**
-     * Associates the given key with the given value and returns the previous value associated with
-     * the key, or {@code null} if there wasn't one.
-     */
-    V put(K key, V value);
-  }
-
-  /** Returns a fresh {@link MutableMap} instance with key type {@code T}. */
-  <V> MutableMap<T, V> createMutableMap();
-
-  /**
    * Creates a Uniquifier for use in a {@code QueryExpression}. Note that the usage of this
    * uniquifier should not be used for returning unique results to the parent callback. It should
    * only be used to avoid processing the same elements multiple times within this QueryExpression.
@@ -585,15 +564,42 @@ public interface QueryEnvironment<T> {
       throws QueryException;
 
   /**
-   * Returns the set of BUILD, and optionally Starlark files that define the given set of targets.
-   * Each such file is itself represented as a target in the result.
+   * Helper for {@link #transitiveLoadFiles}. Encapsulates the differences between the different
+   * {@link QueryEnvironment} implementations.
    */
-  ThreadSafeMutableSet<T> getBuildFiles(
-      QueryExpression caller,
-      ThreadSafeMutableSet<T> nodes,
-      boolean buildFiles,
-      boolean loads,
-      QueryExpressionContext<T> context)
+  interface TransitiveLoadFilesHelper<T> {
+    PackageIdentifier getPkgId(T target);
+
+    void visitLoads(
+        T originalTarget, LoadGraphVisitor<QueryException, InterruptedException> visitor)
+        throws QueryException, InterruptedException;
+
+    T getBuildFileTarget(T originalTarget);
+
+    T getLoadFileTarget(T originalTarget, Label bzlLabel);
+
+    @Nullable
+    T maybeGetBuildFileTargetForLoadFileTarget(T originalTarget, Label bzlLabel)
+        throws QueryException, InterruptedException;
+  }
+
+  TransitiveLoadFilesHelper<T> getTransitiveLoadFilesHelper() throws QueryException;
+
+  /**
+   * Feeds to the given {@code callback} the transitive bzl files loaded (and BUILD files too, if
+   * {@code alsoAddBuildFiles} says to), represented as make-believe targets corresponding to their
+   * load labels, across all unique packages in {@code targets}, using {@code seenPackages} and
+   * {@code seenBzlLabels} to avoid duplicate work and using {@code uniquifier} to avoid feeding
+   * duplicate results.
+   */
+  void transitiveLoadFiles(
+      Iterable<T> targets,
+      boolean alsoAddBuildFiles,
+      Set<PackageIdentifier> seenPackages,
+      Set<Label> seenBzlLabels,
+      Uniquifier<T> uniquifier,
+      TransitiveLoadFilesHelper<T> helper,
+      Callback<T> callback)
       throws QueryException, InterruptedException;
 
   /**

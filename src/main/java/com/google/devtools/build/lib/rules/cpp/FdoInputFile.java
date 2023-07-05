@@ -77,7 +77,7 @@ public final class FdoInputFile implements HasFileType {
   }
 
   @Nullable
-  public static FdoInputFile fromProfileRule(RuleContext ruleContext) {
+  public static FdoInputFile fromProfileRule(RuleContext ruleContext) throws InterruptedException {
 
     boolean isLabel = ruleContext.attributes().isAttributeValueExplicitlySpecified("profile");
     boolean isAbsolutePath =

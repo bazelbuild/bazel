@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
@@ -32,11 +31,7 @@ class ObjcVariablesExtension implements VariablesExtension {
 
   static final String PCH_FILE_VARIABLE_NAME = "pch_file";
   static final String FRAMEWORKS_PATH_NAME = "framework_paths";
-  static final String OBJC_MODULE_CACHE_DIR_NAME = "_objc_module_cache";
-  static final String OBJC_MODULE_CACHE_KEY = "modules_cache_path";
-  static final String ARCHIVE_PATH_VARIABLE_NAME = "archive_path";
   static final String LINKMAP_EXEC_PATH = "linkmap_exec_path";
-  static final String BITCODE_SYMBOL_MAP_PATH_VARAIBLE_NAME = "bitcode_symbol_map_path";
 
   // executable linking variables
   static final String FRAMEWORK_NAMES_VARIABLE_NAME = "framework_names";
@@ -51,13 +46,8 @@ class ObjcVariablesExtension implements VariablesExtension {
   // dsym variables
   static final String DSYM_PATH_VARIABLE_NAME = "dsym_path";
 
-  // ARC variables. Mutually exclusive.
-  static final String OBJC_ARC_VARIABLE_NAME = "objc_arc";
-  static final String NO_OBJC_ARC_VARIABLE_NAME = "no_objc_arc";
-
   private final RuleContext ruleContext;
   private final IntermediateArtifacts intermediateArtifacts;
-  private final BuildConfigurationValue buildConfiguration;
   private final ImmutableList<String> frameworkSearchPaths;
   private final ImmutableList<String> frameworkNames;
   private final ImmutableList<String> weakFrameworkNames;
@@ -68,13 +58,10 @@ class ObjcVariablesExtension implements VariablesExtension {
   private final ImmutableSet<VariableCategory> activeVariableCategories;
   private final Artifact dsymSymbol;
   private final Artifact linkmap;
-  private final Artifact bitcodeSymbolMap;
-  private boolean arcEnabled = true;
 
   private ObjcVariablesExtension(
       RuleContext ruleContext,
       IntermediateArtifacts intermediateArtifacts,
-      BuildConfigurationValue buildConfiguration,
       ImmutableList<String> frameworkSearchPaths,
       ImmutableList<String> frameworkNames,
       ImmutableList<String> weakFrameworkNames,
@@ -84,12 +71,9 @@ class ObjcVariablesExtension implements VariablesExtension {
       ImmutableList<String> attributeLinkopts,
       ImmutableSet<VariableCategory> activeVariableCategories,
       Artifact dsymSymbol,
-      Artifact linkmap,
-      Artifact bitcodeSymbolMap,
-      boolean arcEnabled) {
+      Artifact linkmap) {
     this.ruleContext = ruleContext;
     this.intermediateArtifacts = intermediateArtifacts;
-    this.buildConfiguration = buildConfiguration;
     this.frameworkSearchPaths = frameworkSearchPaths;
     this.frameworkNames = frameworkNames;
     this.weakFrameworkNames = weakFrameworkNames;
@@ -100,25 +84,18 @@ class ObjcVariablesExtension implements VariablesExtension {
     this.activeVariableCategories = activeVariableCategories;
     this.dsymSymbol = dsymSymbol;
     this.linkmap = linkmap;
-    this.bitcodeSymbolMap = bitcodeSymbolMap;
-    this.arcEnabled = arcEnabled;
   }
 
   /** Type of build variable that can optionally exported by this extension. */
   public enum VariableCategory {
     EXECUTABLE_LINKING_VARIABLES,
     DSYM_VARIABLES,
-    LINKMAP_VARIABLES,
-    BITCODE_VARIABLES,
-    MODULE_MAP_VARIABLES
+    LINKMAP_VARIABLES
   }
 
   @Override
   public void addVariables(CcToolchainVariables.Builder builder) {
     addPchVariables(builder);
-    if (activeVariableCategories.contains(VariableCategory.MODULE_MAP_VARIABLES)) {
-      addModuleMapVariables(builder);
-    }
     if (activeVariableCategories.contains(VariableCategory.EXECUTABLE_LINKING_VARIABLES)) {
       addExecutableLinkVariables(builder);
     }
@@ -128,14 +105,6 @@ class ObjcVariablesExtension implements VariablesExtension {
     if (activeVariableCategories.contains(VariableCategory.LINKMAP_VARIABLES)) {
       addLinkmapVariables(builder);
     }
-    if (activeVariableCategories.contains(VariableCategory.BITCODE_VARIABLES)) {
-      addBitcodeVariables(builder);
-    }
-    if (arcEnabled) {
-      builder.addStringVariable(OBJC_ARC_VARIABLE_NAME, "");
-    } else {
-      builder.addStringVariable(NO_OBJC_ARC_VARIABLE_NAME, "");
-    }
   }
 
   private void addPchVariables(CcToolchainVariables.Builder builder) {
@@ -144,14 +113,6 @@ class ObjcVariablesExtension implements VariablesExtension {
       builder.addStringVariable(
           PCH_FILE_VARIABLE_NAME, ruleContext.getPrerequisiteArtifact("pch").getExecPathString());
     }
-  }
-
-  private void addModuleMapVariables(CcToolchainVariables.Builder builder) {
-    builder.addStringVariable(
-        OBJC_MODULE_CACHE_KEY,
-        buildConfiguration.getGenfilesFragment(ruleContext.getRepository())
-            + "/"
-            + OBJC_MODULE_CACHE_DIR_NAME);
   }
 
   private void addExecutableLinkVariables(CcToolchainVariables.Builder builder) {
@@ -187,16 +148,10 @@ class ObjcVariablesExtension implements VariablesExtension {
     builder.addStringVariable(LINKMAP_EXEC_PATH, linkmap.getExecPathString());
   }
 
-  private void addBitcodeVariables(CcToolchainVariables.Builder builder) {
-    builder.addStringVariable(
-        BITCODE_SYMBOL_MAP_PATH_VARAIBLE_NAME, bitcodeSymbolMap.getExecPathString());
-  }
-
   /** A Builder for {@link ObjcVariablesExtension}. */
   static class Builder {
     private RuleContext ruleContext;
     private IntermediateArtifacts intermediateArtifacts;
-    private BuildConfigurationValue buildConfiguration;
     private ImmutableList<String> frameworkSearchPaths;
     private ImmutableList<String> frameworkNames;
     private ImmutableList<String> weakFrameworkNames;
@@ -206,8 +161,6 @@ class ObjcVariablesExtension implements VariablesExtension {
     private ImmutableList<String> attributeLinkopts;
     private Artifact dsymSymbol;
     private Artifact linkmap;
-    private Artifact bitcodeSymbolMap;
-    private boolean arcEnabled = true;
 
     private final ImmutableSet.Builder<VariableCategory> activeVariableCategoriesBuilder =
         ImmutableSet.builder();
@@ -223,13 +176,6 @@ class ObjcVariablesExtension implements VariablesExtension {
     @CanIgnoreReturnValue
     public Builder setIntermediateArtifacts(IntermediateArtifacts intermediateArtifacts) {
       this.intermediateArtifacts = Preconditions.checkNotNull(intermediateArtifacts);
-      return this;
-    }
-
-    /** Sets the configuration for this extension. */
-    @CanIgnoreReturnValue
-    public Builder setConfiguration(BuildConfigurationValue buildConfiguration) {
-      this.buildConfiguration = Preconditions.checkNotNull(buildConfiguration);
       return this;
     }
 
@@ -303,27 +249,12 @@ class ObjcVariablesExtension implements VariablesExtension {
       return this;
     }
 
-    /** Sets the Artifact for the bitcode symbol map. */
-    @CanIgnoreReturnValue
-    public Builder setBitcodeSymbolMap(Artifact bitcodeSymbolMap) {
-      this.bitcodeSymbolMap = bitcodeSymbolMap;
-      return this;
-    }
-
-    /** Sets whether ARC is enabled. */
-    @CanIgnoreReturnValue
-    public Builder setArcEnabled(boolean enabled) {
-      this.arcEnabled = enabled;
-      return this;
-    }
-
     public ObjcVariablesExtension build() {
 
       ImmutableSet<VariableCategory> activeVariableCategories =
           activeVariableCategoriesBuilder.build();
 
       Preconditions.checkNotNull(ruleContext, "missing RuleContext");
-      Preconditions.checkNotNull(buildConfiguration, "missing BuildConfigurationValue");
       Preconditions.checkNotNull(intermediateArtifacts, "missing IntermediateArtifacts");
       if (activeVariableCategories.contains(VariableCategory.EXECUTABLE_LINKING_VARIABLES)) {
         Preconditions.checkNotNull(frameworkSearchPaths, "missing FrameworkSearchPaths");
@@ -340,14 +271,10 @@ class ObjcVariablesExtension implements VariablesExtension {
       if (activeVariableCategories.contains(VariableCategory.LINKMAP_VARIABLES)) {
         Preconditions.checkNotNull(linkmap, "missing linkmap artifact");
       }
-      if (activeVariableCategories.contains(VariableCategory.BITCODE_VARIABLES)) {
-        Preconditions.checkNotNull(bitcodeSymbolMap, "missing bitcode symbol map artifact");
-      }
 
       return new ObjcVariablesExtension(
           ruleContext,
           intermediateArtifacts,
-          buildConfiguration,
           frameworkSearchPaths,
           frameworkNames,
           weakFrameworkNames,
@@ -357,9 +284,7 @@ class ObjcVariablesExtension implements VariablesExtension {
           attributeLinkopts,
           activeVariableCategories,
           dsymSymbol,
-          linkmap,
-          bitcodeSymbolMap,
-          arcEnabled);
+          linkmap);
     }
   }
 }

@@ -23,10 +23,12 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -969,6 +971,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
       lines.add(
           "my_rule = rule(",
           "  implementation = _impl,",
+          "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
           "  attrs = {",
           "    'dep' : attr.label_list(),",
           "    'cc_dep' : attr.label_list(),",
@@ -1001,7 +1004,6 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
             myRuleTarget.get(
                 new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "result"));
 
-    JavaInfo javaInfo = (JavaInfo) info.getValue("property");
-    return javaInfo;
+    return JavaInfo.PROVIDER.wrap(info.getValue("property", Info.class));
   }
 }

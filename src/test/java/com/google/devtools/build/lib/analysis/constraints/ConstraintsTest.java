@@ -596,7 +596,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         "    srcs = [],",
         "    outs = ['gen.out'],",
         "    cmd = '',",
-        "    exec_tools = [':main'])",
+        "    tools = [':main'])",
         getDependencyRule(),
         getDependingRule(compatibleWith("//buildenv/foo:a")));
     assertThat(getConfiguredTarget("//hello:gen")).isNotNull();
@@ -740,15 +740,15 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults("a").make();
     scratch.file(
         "hello/BUILD",
-        "sh_binary(name = 'host_tool',",
-        "    srcs = ['host_tool.sh'],",
+        "sh_binary(name = 'tool',",
+        "    srcs = ['tool.sh'],",
         "    restricted_to = ['//buildenv/foo:b'])",
         "genrule(",
         "    name = 'hello',",
         "    srcs = [],",
         "    outs = ['hello.out'],",
         "    cmd = '',",
-        "    exec_tools = [':host_tool'],",
+        "    tools = [':tool'],",
         "    compatible_with = ['//buildenv/foo:a'])");
     assertThat(getConfiguredTarget("//hello:hello")).isNotNull();
     assertNoEvents();
@@ -1400,5 +1400,27 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     assertThat(getConfiguredTarget("//hello:lib")).isNull();
     assertContainsEvent("//hello:lib: the current command line flags disqualify all supported "
         + "environments because of incompatible select() paths");
+  }
+
+  @Test
+  public void invalidSelectKeyError() throws Exception {
+    scratch.file(
+        "hello/a/BUILD",
+        "java_library(",
+        "    name = 'a',",
+        "    runtime_deps = ['//hello/b'],",
+        ")");
+    scratch.file(
+        "hello/b/BUILD",
+        "java_library(",
+        "    name = 'b',",
+        "    runtime_deps = select({'//hello/c': []}),",
+        ")");
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//hello/a")).isNull();
+    assertContainsEvent(
+        "no such package 'hello/c': BUILD file not found in any of the following directories. Add"
+            + " a BUILD file to a directory to mark it as a package");
+    assertContainsEvent("errors encountered resolving select() keys for //hello/b:b");
   }
 }

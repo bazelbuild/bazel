@@ -47,9 +47,11 @@ public class J2ObjcLibraryTest extends ObjcRuleTestCase {
   protected ConfiguredTarget getJ2ObjCAspectConfiguredTarget(String label) throws Exception {
     // Blaze exposes no interface to summon aspects ex nihilo.
     // To get an aspect, you must create a dependent target that requires the aspect.
-    scratch.file("java/com/google/dummy/aspect/BUILD",
+    scratch.file(
+        "java/com/google/dummy/aspect/BUILD",
         "j2objc_library(",
         "    name = 'transpile',",
+        "    tags = ['__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__'],",
         "    deps = ['" + label + "'],",
         ")");
 
@@ -61,7 +63,8 @@ public class J2ObjcLibraryTest extends ObjcRuleTestCase {
   @Before
   public final void setup() throws Exception  {
     scratch.file("java/com/google/dummy/test/test.java");
-    scratch.file("java/com/google/dummy/test/BUILD",
+    scratch.file(
+        "java/com/google/dummy/test/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "java_library(",
         "    name = 'test',",
@@ -69,6 +72,7 @@ public class J2ObjcLibraryTest extends ObjcRuleTestCase {
         "",
         "j2objc_library(",
         "    name = 'transpile',",
+        "    tags = ['__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__'],",
         "    deps = ['test'])");
     MockObjcSupport.setup(mockToolsConfig);
     MockJ2ObjcSupport.setup(mockToolsConfig);

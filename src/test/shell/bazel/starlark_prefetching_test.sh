@@ -227,4 +227,48 @@ EOF
   bazel build @ext//:foo || fail "expected success"
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/issues/13441
+function test_files_tracked_with_non_existing_files() {
+  cat > rules.bzl <<'EOF'
+def _repo_impl(ctx):
+    ctx.symlink(ctx.path(Label("@//:WORKSPACE")).dirname, "link")
+    print("b.txt: " + ctx.read("link/b.txt"))
+    print("c.txt: " + ctx.read("link/c.txt"))
+
+    ctx.file("BUILD")
+    ctx.file("WORKSPACE")
+
+repo = repository_rule(
+    _repo_impl,
+    attrs = {"_files": attr.label_list(
+        default = [
+            Label("@//:a.txt"),
+            Label("@//:b.txt"),
+            Label("@//:c.txt"),
+        ],
+    )},
+)
+EOF
+
+  cat > WORKSPACE <<'EOF'
+load(":rules.bzl", "repo")
+repo(name = "ext")
+EOF
+  touch BUILD
+
+  # a.txt is intentionally not created
+  echo "bbbb" > b.txt
+  echo "cccc" > c.txt
+
+  # The missing file dependency is tolerated.
+  bazel build @ext//:all &> "$TEST_log" || fail "Expected repository rule to build"
+  expect_log "b.txt: bbbb"
+  expect_log "c.txt: cccc"
+
+  echo "not_cccc" > c.txt
+  bazel build @ext//:all &> "$TEST_log" || fail "Expected repository rule to build"
+  expect_log "b.txt: bbbb"
+  expect_log "c.txt: not_cccc"
+}
+
 run_suite "Starlark repo prefetching tests"

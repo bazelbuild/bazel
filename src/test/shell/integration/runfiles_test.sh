@@ -236,6 +236,7 @@ EOF
   assert_equals "$expected" "$actual"
 
   # The manifest only records files and symlinks, not real directories
+  expected="$expected$(get_repo_mapping_manifest_file)"
   expected_manifest_size=$(echo "$expected" | grep -v ' regular dir' | wc -l)
   actual_manifest_size=$(wc -l < ../MANIFEST)
   assert_equals $expected_manifest_size $actual_manifest_size
@@ -255,6 +256,17 @@ EOF
       fi
     fi
   done
+
+  # Add the repo mapping manifest entry for Bazel.
+  if [[ "$PRODUCT_NAME" == "bazel" ]]; then
+    repo_mapping="_repo_mapping"
+    repo_mapping_target="$(readlink "$repo_mapping")"
+    if "$is_windows"; then
+      repo_mapping_target="$(cygpath -m $repo_mapping_target)"
+    fi
+    echo "$repo_mapping $repo_mapping_target" >> ${TEST_TMPDIR}/MANIFEST2
+  fi
+
   sort MANIFEST > ${TEST_TMPDIR}/MANIFEST_sorted
   sort ${TEST_TMPDIR}/MANIFEST2 > ${TEST_TMPDIR}/MANIFEST2_sorted
   diff -u ${TEST_TMPDIR}/MANIFEST_sorted ${TEST_TMPDIR}/MANIFEST2_sorted
@@ -310,13 +322,21 @@ EOF
     assert_equals  0 $(find ${WORKSPACE_NAME} -type f | wc -l)
     assert_equals  5 $(find ${WORKSPACE_NAME} -type d | wc -l)
     assert_equals  9 $(find ${WORKSPACE_NAME} | wc -l)
-    assert_equals  4 $(wc -l < MANIFEST)
+    if [[ "$PRODUCT_NAME" == "bazel" ]]; then
+      assert_equals  5 $(wc -l < MANIFEST)
+    else
+      assert_equals  4 $(wc -l < MANIFEST)
+    fi
   else
     assert_equals  3 $(find ${WORKSPACE_NAME} -type l | wc -l)
     assert_equals  0 $(find ${WORKSPACE_NAME} -type f | wc -l)
     assert_equals  5 $(find ${WORKSPACE_NAME} -type d | wc -l)
     assert_equals  8 $(find ${WORKSPACE_NAME} | wc -l)
-    assert_equals  3 $(wc -l < MANIFEST)
+    if [[ "$PRODUCT_NAME" == "bazel" ]]; then
+      assert_equals  4 $(wc -l < MANIFEST)
+    else
+      assert_equals  3 $(wc -l < MANIFEST)
+    fi
   fi
 
   rm -f ${TEST_TMPDIR}/MANIFEST
@@ -333,6 +353,17 @@ EOF
       fi
     fi
   done
+
+  # Add the repo mapping manifest entry for Bazel.
+  if [[ "$PRODUCT_NAME" == "bazel" ]]; then
+    repo_mapping="_repo_mapping"
+    repo_mapping_target="$(readlink "$repo_mapping")"
+    if "$is_windows"; then
+      repo_mapping_target="$(cygpath -m $repo_mapping_target)"
+    fi
+    echo "$repo_mapping $repo_mapping_target" >> ${TEST_TMPDIR}/MANIFEST2
+  fi
+
   sort MANIFEST > ${TEST_TMPDIR}/MANIFEST_sorted
   sort ${TEST_TMPDIR}/MANIFEST2 > ${TEST_TMPDIR}/MANIFEST2_sorted
   diff -u ${TEST_TMPDIR}/MANIFEST_sorted ${TEST_TMPDIR}/MANIFEST2_sorted

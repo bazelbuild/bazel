@@ -1119,7 +1119,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "  fragments = ['cpp'],",
         ");");
 
-    /** Calling {@link #getTarget} to get loading errors */
+    /* Calling {@link #getTarget} to get loading errors */
     getTarget("//a" + pkgSuffix + ":r");
     ConfiguredTarget r = getConfiguredTarget("//a" + pkgSuffix + ":r");
     if (r == null) {
@@ -7251,7 +7251,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "  fdo_context = toolchain.fdo_context()",
         "  branch_fdo_profile = fdo_context.branch_fdo_profile()",
         "  lto_backend_artifacts = cc_common.create_lto_backend_artifacts(ctx=ctx,",
-        "        lto_output_root_prefix=ctx.label.package, bitcode_file=ctx.file.file,",
+        "        lto_output_root_prefix=ctx.label.package, lto_obj_root_prefix=ctx.label.package,",
+        "        bitcode_file=ctx.file.file,",
         "        feature_configuration=feature_configuration, cc_toolchain=toolchain,",
         "        fdo_context=fdo_context, use_pic=True,",
         "        should_create_per_object_debug_info=False, argv=[])",
@@ -8184,5 +8185,37 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         ")");
 
     getConfiguredTarget("//tools/build_defs/android:custom");
+  }
+
+  // grep_includes is not supported by Bazel.
+  @Test
+  public void testGrepIncludesIsSetToNullInsideCcToolchain() throws Exception {
+    if (!AnalysisMock.get().isThisBazel()) {
+      return;
+    }
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'cc_skylark_library')",
+        "cc_skylark_library(",
+        "    name = 'skylark_lib',",
+        ")");
+    scratch.file(
+        "foo/extension.bzl",
+        "def _cc_skylark_library_impl(ctx):",
+        "    return [ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]]",
+        "cc_skylark_library = rule(",
+        "    implementation = _cc_skylark_library_impl,",
+        "    attrs = {",
+        "      '_cc_toolchain': attr.label(default =",
+        "          configuration_field(fragment = 'cpp', name = 'cc_toolchain')),",
+        "    },",
+        "    fragments = ['cpp'],",
+        ")");
+
+    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
+    Artifact grepIncludes = toolchainProvider.getGrepIncludes();
+
+    assertThat(grepIncludes).isNull();
   }
 }

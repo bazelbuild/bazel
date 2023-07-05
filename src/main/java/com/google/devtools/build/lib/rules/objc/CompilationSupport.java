@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
-import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
@@ -50,13 +49,14 @@ import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
@@ -139,11 +139,6 @@ public class CompilationSupport implements StarlarkValue {
   /** Selects cc libraries that have alwayslink=1. */
   private static final Predicate<Artifact> ALWAYS_LINKED_CC_LIBRARY =
       input -> LINK_LIBRARY_FILETYPES.matches(input.getFilename());
-
-  /** Returns the location of the xcrunwrapper tool. */
-  public static final FilesToRunProvider xcrunwrapper(RuleContext ruleContext) {
-    return ruleContext.getExecutablePrerequisite("$xcrunwrapper");
-  }
 
   /** Iterable wrapper providing strong type safety for arguments to binary linking. */
   static final class ExtraLinkArgs extends IterableWrapper<String> {
@@ -381,11 +376,14 @@ public class CompilationSupport implements StarlarkValue {
     return this;
   }
 
-  private StrippingType getStrippingType(ExtraLinkArgs extraLinkArgs) {
-    if (Iterables.contains(extraLinkArgs, "-dynamiclib")) {
+  private StrippingType getStrippingType(
+      ExtraLinkArgs extraLinkArgs, FeatureConfiguration featureConfiguration) {
+    if (Iterables.contains(extraLinkArgs, "-dynamiclib")
+        || featureConfiguration.isEnabled(ObjcRuleClasses.LINK_DYLIB_FEATURE)) {
       return StrippingType.DYNAMIC_LIB;
     }
-    if (Iterables.contains(extraLinkArgs, "-bundle")) {
+    if (Iterables.contains(extraLinkArgs, "-bundle")
+        || featureConfiguration.isEnabled(ObjcRuleClasses.LINK_BUNDLE_FEATURE)) {
       return StrippingType.LOADABLE_BUNDLE;
     }
     if (Iterables.contains(extraLinkArgs, "-kext")) {
@@ -534,12 +532,14 @@ public class CompilationSupport implements StarlarkValue {
       Object linkingInfoProvider,
       ObjcProvider secondaryObjcProvider,
       CcLinkingContext secondaryCcLinkingContext,
-      J2ObjcMappingFileProvider j2ObjcMappingFileProvider,
-      J2ObjcEntryClassProvider j2ObjcEntryClassProvider,
+      StarlarkInfo j2ObjcMappingFileProvider,
+      StarlarkInfo j2ObjcEntryClassProvider,
       ExtraLinkArgs extraLinkArgs,
       Iterable<Artifact> extraLinkInputs,
+      Iterable<String> extraRequestedFeatures,
+      Iterable<String> extraDisabledFeatures,
       boolean isStampingEnabled)
-      throws InterruptedException, RuleErrorException {
+      throws InterruptedException, RuleErrorException, EvalException {
     ObjcProvider objcProviderWithLinkingInfo = null;
     CcLinkingContext ccLinkingContextWithLinkingInfo = null;
     checkState(
@@ -564,13 +564,16 @@ public class CompilationSupport implements StarlarkValue {
     ImmutableSet<Artifact> asNeededLibrarySet = inputLibrarySet.first;
     ImmutableSet<Artifact> alwaysLinkLibrarySet = inputLibrarySet.second;
 
-    Iterable<Artifact> prunedJ2ObjcArchives =
-        computeAndStripPrunedJ2ObjcArchives(
-            j2ObjcEntryClassProvider, j2ObjcMappingFileProvider, secondaryObjcProvider);
-    asNeededLibrarySet =
-        Iterables.isEmpty(prunedJ2ObjcArchives)
-            ? asNeededLibrarySet
-            : substituteJ2ObjcPrunedLibraries(asNeededLibrarySet, secondaryObjcProvider);
+    if (stripJ2ObjcDeadCode(j2ObjcEntryClassProvider)
+        && !secondaryObjcProvider.get(ObjcProvider.J2OBJC_LIBRARY).toList().isEmpty()) {
+      registerJ2ObjcDeadCodeRemovalActions(
+          secondaryObjcProvider, j2ObjcMappingFileProvider, j2ObjcEntryClassProvider);
+
+      asNeededLibrarySet =
+          substituteJ2ObjcPrunedLibraries(asNeededLibrarySet, secondaryObjcProvider);
+      alwaysLinkLibrarySet =
+          substituteJ2ObjcPrunedLibraries(alwaysLinkLibrarySet, secondaryObjcProvider);
+    }
 
     ImmutableList<Artifact> asNeededLibraryList = asNeededLibrarySet.asList();
     ImmutableList<Artifact> alwaysLinkLibraryList = alwaysLinkLibrarySet.asList();
@@ -582,12 +585,22 @@ public class CompilationSupport implements StarlarkValue {
     // CppLinkAction too, so create it now.
     Artifact inputFileList = intermediateArtifacts.linkerObjList();
 
+    ImmutableSet<String> allRequestedFeatures =
+        new ImmutableSet.Builder<String>()
+            .addAll(ruleContext.getFeatures())
+            .addAll(extraRequestedFeatures)
+            .build();
+    ImmutableSet<String> allDisabledFeatures =
+        new ImmutableSet.Builder<String>()
+            .addAll(ruleContext.getDisabledFeatures())
+            .addAll(extraDisabledFeatures)
+            .build();
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrReportRuleError(
             ruleContext,
             buildConfiguration,
-            ruleContext.getFeatures(),
-            ruleContext.getDisabledFeatures(),
+            allRequestedFeatures,
+            allDisabledFeatures,
             Language.OBJC,
             toolchain,
             cppSemantics);
@@ -602,7 +615,6 @@ public class CompilationSupport implements StarlarkValue {
     ObjcVariablesExtension.Builder extensionBuilder =
         new ObjcVariablesExtension.Builder()
             .setRuleContext(ruleContext)
-            .setConfiguration(buildConfiguration)
             .setIntermediateArtifacts(intermediateArtifacts)
             .setForceLoadArtifacts(alwaysLinkLibrarySet)
             .setAttributeLinkopts(attributes.linkopts())
@@ -650,7 +662,6 @@ public class CompilationSupport implements StarlarkValue {
                 ruleContext.getSymbolGenerator(),
                 TargetUtils.getExecutionInfo(
                     ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
-            .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
             .setIsStampingEnabled(isStampingEnabled)
             .setTestOrTestOnlyTarget(ruleContext.isTestOnlyTarget() || ruleContext.isTestTarget())
             .addNonCodeLinkerInputs(asNeededLibraryList)
@@ -694,21 +705,14 @@ public class CompilationSupport implements StarlarkValue {
       linkerOutputs.add(linkmap);
     }
 
-    if (cppConfiguration.getAppleBitcodeMode() == AppleBitcodeMode.EMBEDDED) {
-      Artifact bitcodeSymbolMap = intermediateArtifacts.bitcodeSymbolMap();
-      extensionBuilder
-          .setBitcodeSymbolMap(bitcodeSymbolMap)
-          .addVariableCategory(VariableCategory.BITCODE_VARIABLES);
-      linkerOutputs.add(bitcodeSymbolMap);
-    }
-
     executableLinkingHelper.addVariableExtension(extensionBuilder.build());
 
     executableLinkingHelper.addLinkerOutputs(linkerOutputs.build());
 
-    CcLinkingContext.Builder linkstampsBuilder = CcLinkingContext.builder();
-    linkstampsBuilder.addLinkstamps(secondaryCcLinkingContext.getLinkstamps().toList());
-    CcLinkingContext linkstamps = linkstampsBuilder.build();
+    CcLinkingContext linkstamps =
+        CcLinkingContext.builder()
+            .addLinkstamps(secondaryCcLinkingContext.getLinkstamps().toList())
+            .build();
     executableLinkingHelper.addCcLinkingContexts(ImmutableList.of(linkstamps));
 
     executableLinkingHelper.link(CcCompilationOutputs.EMPTY);
@@ -734,7 +738,8 @@ public class CompilationSupport implements StarlarkValue {
         inputFileList);
 
     if (cppConfiguration.objcShouldStripBinary()) {
-      registerBinaryStripAction(binaryToLink, getStrippingType(extraLinkArgs));
+      registerBinaryStripAction(
+          binaryToLink, getStrippingType(extraLinkArgs, featureConfiguration));
     }
 
     return this;
@@ -815,39 +820,39 @@ public class CompilationSupport implements StarlarkValue {
         .build();
   }
 
-  /** Returns pruned J2Objc archives for this target. */
-  private ImmutableList<Artifact> j2objcPrunedLibraries(ObjcProvider objcProvider) {
-    ImmutableList.Builder<Artifact> j2objcPrunedLibraryBuilder = ImmutableList.builder();
-    for (Artifact j2objcLibrary : objcProvider.get(ObjcProvider.J2OBJC_LIBRARY).toList()) {
-      j2objcPrunedLibraryBuilder.add(intermediateArtifacts.j2objcPrunedArchive(j2objcLibrary));
-    }
-    return j2objcPrunedLibraryBuilder.build();
+  private <T> NestedSet<T> getField(StarlarkInfo provider, String fieldName, Class<T> type)
+      throws EvalException {
+    return Depset.cast(provider.getValue(fieldName), type, fieldName);
   }
 
   /** Returns true if this build should strip J2Objc dead code. */
-  private boolean stripJ2ObjcDeadCode(J2ObjcEntryClassProvider j2ObjcEntryClassProvider) {
+  private boolean stripJ2ObjcDeadCode(StarlarkInfo j2ObjcEntryClassProvider) throws EvalException {
     J2ObjcConfiguration j2objcConfiguration =
         buildConfiguration.getFragment(J2ObjcConfiguration.class);
+    NestedSet<String> entryClasses =
+        getField(j2ObjcEntryClassProvider, "entry_classes", String.class);
+
     // Only perform J2ObjC dead code stripping if flag --j2objc_dead_code_removal is specified and
     // users have specified entry classes.
-    return j2objcConfiguration.removeDeadCode()
-        && !j2ObjcEntryClassProvider.getEntryClasses().isEmpty();
+    return j2objcConfiguration.removeDeadCode() && !entryClasses.isEmpty();
   }
 
   /** Registers actions to perform J2Objc dead code removal. */
   private void registerJ2ObjcDeadCodeRemovalActions(
       ObjcProvider objcProvider,
-      J2ObjcMappingFileProvider j2ObjcMappingFileProvider,
-      J2ObjcEntryClassProvider j2ObjcEntryClassProvider) {
+      StarlarkInfo j2ObjcMappingFileProvider,
+      StarlarkInfo j2ObjcEntryClassProvider)
+      throws EvalException {
     ObjcConfiguration objcConfiguration = buildConfiguration.getFragment(ObjcConfiguration.class);
 
-    NestedSet<String> entryClasses = j2ObjcEntryClassProvider.getEntryClasses();
+    NestedSet<String> entryClasses =
+        getField(j2ObjcEntryClassProvider, "entry_classes", String.class);
     NestedSet<Artifact> j2ObjcDependencyMappingFiles =
-        j2ObjcMappingFileProvider.getDependencyMappingFiles();
+        getField(j2ObjcMappingFileProvider, "dependency_mapping_files", Artifact.class);
     NestedSet<Artifact> j2ObjcHeaderMappingFiles =
-        j2ObjcMappingFileProvider.getHeaderMappingFiles();
+        getField(j2ObjcMappingFileProvider, "header_mapping_files", Artifact.class);
     NestedSet<Artifact> j2ObjcArchiveSourceMappingFiles =
-        j2ObjcMappingFileProvider.getArchiveSourceMappingFiles();
+        getField(j2ObjcMappingFileProvider, "archive_source_mapping_files", Artifact.class);
 
     for (Artifact j2objcArchive : objcProvider.get(ObjcProvider.J2OBJC_LIBRARY).toList()) {
       Artifact prunedJ2ObjcArchive = intermediateArtifacts.j2objcPrunedArchive(j2objcArchive);
@@ -873,7 +878,6 @@ public class CompilationSupport implements StarlarkValue {
               .addExecPath("--input_archive", j2objcArchive)
               .addExecPath("--output_archive", prunedJ2ObjcArchive)
               .addExecPath("--dummy_archive", dummyArchive)
-              .addExecPath("--xcrunwrapper", xcrunwrapper(ruleContext).getExecutable())
               .addExecPaths(
                   "--dependency_mapping_files",
                   VectorArg.join(",").each(j2ObjcDependencyMappingFiles))
@@ -894,7 +898,6 @@ public class CompilationSupport implements StarlarkValue {
               .setExecutable(ruleContext.getExecutablePrerequisite("$j2objc_dead_code_pruner"))
               .addInput(dummyArchive)
               .addInput(j2objcArchive)
-              .addInput(xcrunwrapper(ruleContext).getExecutable())
               .addTransitiveInputs(j2ObjcDependencyMappingFiles)
               .addTransitiveInputs(j2ObjcHeaderMappingFiles)
               .addTransitiveInputs(j2ObjcArchiveSourceMappingFiles)
@@ -907,20 +910,6 @@ public class CompilationSupport implements StarlarkValue {
               .addOutput(prunedJ2ObjcArchive)
               .build(ruleContext));
     }
-  }
-
-  /** Returns archives arising from j2objc transpilation after dead code removal. */
-  private Iterable<Artifact> computeAndStripPrunedJ2ObjcArchives(
-      J2ObjcEntryClassProvider j2ObjcEntryClassProvider,
-      J2ObjcMappingFileProvider j2ObjcMappingFileProvider,
-      ObjcProvider objcProvider) {
-    Iterable<Artifact> prunedJ2ObjcArchives = ImmutableList.<Artifact>of();
-    if (stripJ2ObjcDeadCode(j2ObjcEntryClassProvider)) {
-      registerJ2ObjcDeadCodeRemovalActions(
-          objcProvider, j2ObjcMappingFileProvider, j2ObjcEntryClassProvider);
-      prunedJ2ObjcArchives = j2objcPrunedLibraries(objcProvider);
-    }
-    return prunedJ2ObjcArchives;
   }
 
   /** Returns a set of libraries with all unpruned J2ObjC libraries substituted with pruned ones. */
@@ -958,6 +947,7 @@ public class CompilationSupport implements StarlarkValue {
   private static CommandLine symbolStripCommandLine(
       ImmutableList<String> extraFlags, Artifact unstrippedArtifact, Artifact strippedArtifact) {
     return CustomCommandLine.builder()
+        .add("/usr/bin/xcrun")
         .add(STRIP)
         .addAll(extraFlags)
         .addExecPath("-o", strippedArtifact)
@@ -1000,7 +990,6 @@ public class CompilationSupport implements StarlarkValue {
                 XcodeConfigInfo.fromRuleContext(ruleContext),
                 appleConfiguration.getSingleArchPlatform())
             .setMnemonic("ObjcBinarySymbolStrip")
-            .setExecutable(xcrunwrapper(ruleContext))
             .addCommandLine(symbolStripCommandLine(stripArgs, binaryToLink, strippedBinary))
             .addOutput(strippedBinary)
             .addInput(binaryToLink)

@@ -18,8 +18,10 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
@@ -31,6 +33,7 @@ import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Optional;
 import org.junit.Before;
 import org.junit.Test;
@@ -230,6 +233,136 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
     assertThat(mapped.getOptions().get(DummyTestFragment.DummyTestOptions.class).internalFoo)
         .isEqualTo("something_new");
+  }
+
+  @Test
+  public void starlarkFlagMapping() throws Exception {
+    scratch.file(
+        "test/build_setting.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "string_flag = rule(",
+        "  implementation = _impl,",
+        "  build_setting = config.string(flag=True)",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_setting.bzl', 'string_flag')",
+        "string_flag(name = 'my_string_flag', build_setting_default = 'default value')");
+    scratch.file(
+        "my_mapping_file",
+        "platforms:", // Force line break
+        "  //platforms:one", // Force line break
+        "    --//test:my_string_flag=mapped_value");
+
+    PlatformMappingValue platformMappingValue =
+        executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
+
+    BuildOptions modifiedOptions = defaultBuildOptions.clone();
+    modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
+    BuildConfigurationKey mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
+
+    assertThat(mapped.getOptions().getStarlarkOptions())
+        .containsExactly(Label.parseCanonical("//test:my_string_flag"), "mapped_value");
+  }
+
+  @Test
+  public void badStarlarkFlag() throws Exception {
+    scratch.file("test/BUILD"); // Set up a valid package but invalid flag.
+    scratch.file(
+        "my_mapping_file",
+        "platforms:", // Force line break
+        "  //platforms:one", // Force line break
+        "    --//test:this_flag_doesnt_exist=mapped_value");
+
+    assertThrows(
+        "Failed to load //test:this_flag_doesnt_exist",
+        OptionsParsingException.class,
+        () ->
+            executeFunction(
+                PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file"))));
+  }
+
+  @Test
+  public void platformTransitionWithStarlarkFlagMapping() throws Exception {
+    // Define a Starlark flag:
+    scratch.file(
+        "test/flags/build_setting.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "string_flag = rule(",
+        "  implementation = _impl,",
+        "  build_setting = config.string(flag=True)",
+        ")");
+    scratch.file(
+        "test/flags/BUILD",
+        "load('//test/flags:build_setting.bzl', 'string_flag')",
+        "string_flag(name = 'my_string_flag', build_setting_default = 'default value')");
+
+    // Define a custom platform and mapping from that platform to the flag:
+    scratch.file("test/platforms/BUILD", "platform(", "    name = 'my_platform',", ")");
+    scratch.file(
+        "my_mapping_file",
+        "platforms:", // Force line break
+        "  //test/platforms:my_platform", // Force line break
+        "    --//test/flags:my_string_flag=platform-mapped value");
+
+    // Define a rule that platform-transitions its deps:
+    scratch.overwriteFile(
+        "tools/allowlists/function_transition_allowlist/BUILD",
+        "package_group(",
+        "    name = 'function_transition_allowlist',",
+        "    packages = [",
+        "        '//test/...',",
+        "    ],",
+        ")");
+    scratch.file(
+        "test/starlark/rules.bzl",
+        "def transition_func(settings, attr):",
+        "  return {'//command_line_option:platforms': '//test/platforms:my_platform'}",
+        "my_transition = transition(",
+        "  implementation = transition_func,",
+        "  inputs = [],",
+        "  outputs = ['//command_line_option:platforms']",
+        ")",
+        "transition_rule = rule(",
+        "  implementation = lambda ctx: [],",
+        "  attrs = {",
+        "    'dep':  attr.label(cfg = my_transition),",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "  }",
+        ")");
+    scratch.file("test/starlark/BUILD");
+
+    // Define a target to build and its dep:
+    scratch.file(
+        "test/BUILD",
+        "load('//test/starlark:rules.bzl', 'transition_rule')",
+        "transition_rule(name = 'main', dep = ':dep')",
+        "transition_rule(name = 'dep')");
+
+    // Set the Starlark flag explicitly. Otherwise it won't show up at all in the top-level config's
+    // getOptions().getStarlarkOptions() map.
+    useConfiguration(
+        /* starlarkOptions= */ ImmutableMap.of("//test/flags:my_string_flag", "top-level value"),
+        /* args...= */ "--platform_mappings=my_mapping_file");
+    ConfiguredTarget main = getConfiguredTarget("//test:main");
+    ConfiguredTarget dep = getDirectPrerequisite(main, "//test:dep");
+
+    assertThat(
+            getConfiguration(main)
+                .getOptions()
+                .getStarlarkOptions()
+                .get(Label.parseCanonical("//test/flags:my_string_flag")))
+        .isEqualTo("top-level value");
+    assertThat(
+            getConfiguration(dep)
+                .getOptions()
+                .getStarlarkOptions()
+                .get(Label.parseCanonical("//test/flags:my_string_flag")))
+        .isEqualTo("platform-mapped value");
   }
 
   private PlatformMappingValue executeFunction(PlatformMappingValue.Key key) throws Exception {

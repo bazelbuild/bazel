@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
 import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFunction;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.BasicFilesystemDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.FilesystemValueChecker.ModifiedOutputsReceiver;
 import com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy;
@@ -1759,6 +1758,7 @@ public final class FilesystemValueCheckerTest {
 
   private static Diff getDirtyFilesystemKeys(
       MemoizingEvaluator evaluator, FilesystemValueChecker checker) throws InterruptedException {
-    return checker.getDirtyKeys(evaluator.getValues(), new BasicFilesystemDirtinessChecker());
+    return checker.getDirtyKeys(
+        evaluator.getValues(), DirtinessCheckerUtils.createBasicFilesystemDirtinessChecker());
   }
 }

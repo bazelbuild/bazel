@@ -130,6 +130,9 @@ message BuildEventId {
     // Identifier of the configuration; users of the protocol should not make
     // any assumptions about it having any structure, or equality of the
     // identifier between different streams.
+    //
+    // A value of "none" means the null configuration. It is used for targets
+    // that are not configurable, for example, source files.
     string id = 1;
   }
 
@@ -224,6 +227,9 @@ message BuildEventId {
   // Identifier of an event providing convenience symlinks information.
   message ConvenienceSymlinksIdentifiedId {}
 
+  // Identifier of an event signalling that the coverage actions are finished.
+  message CoverageActionsFinishedId {}
+
   oneof id {
     UnknownBuildEventId unknown = 1;
     ProgressId progress = 2;
@@ -251,6 +257,7 @@ message BuildEventId {
     WorkspaceConfigId workspace = 23;
     BuildMetadataId build_metadata = 24;
     ConvenienceSymlinksIdentifiedId convenience_symlinks_identified = 25;
+    CoverageActionsFinishedId coverage_actions_finished = 27;
   }
 }
 
@@ -484,6 +491,8 @@ message File {
     string uri = 2;
     // The contents of the file, if they are guaranteed to be short.
     bytes contents = 3;
+    // The symlink target path, if the file is an unresolved symlink.
+    string symlink_target_path = 7;
   }
 
   // Digest of the file, using the build tool's configured digest algorithm,
@@ -1068,6 +1077,9 @@ message BuildMetrics {
     bool is_sandbox = 5;
     // Shows is worker stats measured at the end of invocation.
     bool is_measurable = 6;
+    // Hash value of worker key. Needed to distinguish worker pools with same
+    // menmonic but with different worker keys.
+    int64 worker_key_hash = 9;
 
     // Information collected from worker at some point.
     message WorkerStats {
@@ -1129,6 +1141,8 @@ message BuildMetrics {
       int64 created_count = 3;
       // Number of workers destroyed during a build.
       int64 destroyed_count = 4;
+      // Number of workers evicted during a build.
+      int64 evicted_count = 5;
     }
   }
 

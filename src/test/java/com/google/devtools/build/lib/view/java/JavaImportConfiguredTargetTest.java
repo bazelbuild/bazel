@@ -422,7 +422,7 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
         "    jars = ['dummy.jar'],",
         "    exports = [':lib'])");
     ConfiguredTarget processorTarget = getConfiguredTarget("//java/com/google/test:jar");
-    JavaInfo javaInfo = (JavaInfo) processorTarget.get(JavaInfo.PROVIDER.getKey());
+    JavaInfo javaInfo = processorTarget.get(JavaInfo.PROVIDER);
     assertThat(javaInfo.isNeverlink()).isTrue();
   }
 

@@ -24,13 +24,10 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Maps;
-import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -38,11 +35,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.starlarkbuildapi.ActionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.vfs.BulkDeleter;
@@ -73,12 +67,6 @@ import net.starlark.java.eval.StarlarkSemantics;
 @Immutable
 @ThreadSafe
 public abstract class AbstractAction extends ActionKeyCacher implements Action, ActionApi {
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-
-  @Override
-  public boolean isImmutable() {
-    return true; // immutable and Starlark-hashable
-  }
 
   /**
    * An arbitrary default resource set. We assume that a typical subprocess is single-threaded
@@ -92,31 +80,10 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   private final ActionOwner owner;
 
-  /**
-   * Tools are a subset of inputs and used by the WorkerSpawnStrategy to determine whether a
-   * compiler has changed since the last time it was used. This should include all artifacts that
-   * the tool does not dynamically reload / check on each unit of work - e.g. its own binary, the
-   * JDK for Java binaries, shared libraries, ... but not a configuration file, if it reloads that
-   * when it has changed.
-   *
-   * <p>If the "tools" set does not contain exactly the right set of artifacts, the following can
-   * happen: If an artifact that should be included is missing, the tool might not be restarted when
-   * it should, and builds can become incorrect (example: The compiler binary is not part of this
-   * set, then the compiler gets upgraded, but the worker strategy still reuses the old version). If
-   * an artifact that should *not* be included is accidentally part of this set, the worker process
-   * will be restarted more often that is necessary - e.g. if a file that is unique to each unit of
-   * work, e.g. the source code that a compiler should compile for a compile action, is part of this
-   * set, then the worker will never be reused and will be restarted for each unit of work.
-   */
-  private final NestedSet<Artifact> tools;
-
   // The variable inputs is non-final only so that actions that discover their inputs can modify it.
   // Access through getInputs() in case it's overridden.
   @GuardedBy("this")
   private NestedSet<Artifact> inputs;
-
-  private final ActionEnvironment env;
-  private final RunfilesSupplier runfilesSupplier;
 
   /**
    * To save memory, this is either an {@link Artifact} for actions with a single output, or a
@@ -124,44 +91,10 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
    */
   private final Object outputs;
 
-  /** Construct an abstract action with the specified inputs and outputs; */
   protected AbstractAction(
-      ActionOwner owner, NestedSet<Artifact> inputs, Iterable<Artifact> outputs) {
-    this(
-        owner,
-        /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        inputs,
-        EmptyRunfilesSupplier.INSTANCE,
-        outputs,
-        ActionEnvironment.EMPTY);
-  }
-
-  protected AbstractAction(
-      ActionOwner owner,
-      NestedSet<Artifact> inputs,
-      Iterable<Artifact> outputs,
-      ActionEnvironment env) {
-    this(
-        owner,
-        /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        inputs,
-        EmptyRunfilesSupplier.INSTANCE,
-        outputs,
-        env);
-  }
-
-  protected AbstractAction(
-      ActionOwner owner,
-      NestedSet<Artifact> tools,
-      NestedSet<Artifact> inputs,
-      RunfilesSupplier runfilesSupplier,
-      Iterable<? extends Artifact> outputs,
-      ActionEnvironment env) {
+      ActionOwner owner, NestedSet<Artifact> inputs, Iterable<? extends Artifact> outputs) {
     this.owner = checkNotNull(owner);
-    this.tools = checkNotNull(tools);
     this.inputs = checkNotNull(inputs);
-    this.env = checkNotNull(env);
-    this.runfilesSupplier = checkNotNull(runfilesSupplier);
     this.outputs = singletonOrArray(outputs);
   }
 
@@ -169,6 +102,11 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
     ImmutableSet<Artifact> set = ImmutableSet.copyOf(outputs);
     checkArgument(!set.isEmpty(), "Action outputs may not be empty");
     return set.size() == 1 ? Iterables.getOnlyElement(set) : set.toArray(Artifact[]::new);
+  }
+
+  @Override
+  public final boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
   }
 
   @Override
@@ -288,7 +226,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   @Override
   public NestedSet<Artifact> getTools() {
-    return tools;
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
   @Override
@@ -296,26 +234,28 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
     return inputs;
   }
 
-  public final ActionEnvironment getEnvironment() {
-    return env;
+  public ActionEnvironment getEnvironment() {
+    return ActionEnvironment.EMPTY;
   }
 
   @Override
   public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
       throws CommandLineExpansionException {
-    Map<String, String> effectiveEnvironment = Maps.newLinkedHashMapWithExpectedSize(env.size());
+    ActionEnvironment env = getEnvironment();
+    Map<String, String> effectiveEnvironment =
+        Maps.newLinkedHashMapWithExpectedSize(env.estimatedSize());
     env.resolve(effectiveEnvironment, clientEnv);
     return ImmutableMap.copyOf(effectiveEnvironment);
   }
 
   @Override
   public Collection<String> getClientEnvironmentVariables() {
-    return env.getInheritedEnv();
+    return getEnvironment().getInheritedEnv();
   }
 
   @Override
-  public final RunfilesSupplier getRunfilesSupplier() {
-    return runfilesSupplier;
+  public RunfilesSupplier getRunfilesSupplier() {
+    return EmptyRunfilesSupplier.INSTANCE;
   }
 
   @Override
@@ -591,75 +531,10 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
       }
     }
   }
-
-  /**
-   * If the action might read directories as inputs in a way that is unsound wrt dependency
-   * checking, this method must be called.
-   */
-  protected void checkInputsForDirectories(
-      EventHandler eventHandler, InputMetadataProvider inputMetadataProvider) throws ExecException {
-    // Report "directory dependency checking" warning only for non-generated directories (generated
-    // ones will be reported earlier).
-    for (Artifact input : getMandatoryInputs().toList()) {
-      // Assume that if the file did not exist, we would not have gotten here.
-      try {
-        if (input.isSourceArtifact()
-            && inputMetadataProvider.getInputMetadata(input).getType().isDirectory()) {
-          // TODO(ulfjack): What about dependency checking of special files?
-          eventHandler.handle(
-              Event.warn(
-                  owner.getLocation(),
-                  String.format(
-                      "input '%s' to %s is a directory; "
-                          + "dependency checking of directories is unsound",
-                      input.prettyPrint(), owner.getLabel())));
-        }
-      } catch (IOException e) {
-        throw new EnvironmentalExecException(e, Code.INPUT_DIRECTORY_CHECK_IO_EXCEPTION);
-      }
-    }
-  }
-
+    
   @Override
   public MiddlemanType getActionType() {
     return MiddlemanType.NORMAL;
-  }
-
-  /** If the action might create directories as outputs this method must be called. */
-  protected void checkOutputsForDirectories(ActionExecutionContext actionExecutionContext)
-      throws InterruptedException {
-    FileArtifactValue metadata;
-    for (Artifact output : getOutputs()) {
-      OutputMetadataStore outputMetadataStore = actionExecutionContext.getOutputMetadataStore();
-      if (outputMetadataStore.artifactOmitted(output)) {
-        continue;
-      }
-      try {
-        metadata = outputMetadataStore.getOutputMetadata(output);
-      } catch (IOException e) {
-        logger.atWarning().withCause(e).log("Error getting metadata for %s", output);
-        metadata = null;
-      }
-      if (metadata != null) {
-        if (!metadata.getType().isDirectory()) {
-          continue;
-        }
-      } else if (!actionExecutionContext.getInputPath(output).isDirectory()) {
-        continue;
-      }
-      String ownerString = Label.print(owner.getLabel());
-      actionExecutionContext
-          .getEventHandler()
-          .handle(
-              Event.warn(
-                      owner.getLocation(),
-                      "output '"
-                          + output.prettyPrint()
-                          + "' of "
-                          + ownerString
-                          + " is a directory; dependency checking of directories is unsound")
-                  .withTag(ownerString));
-    }
   }
 
   @Override
@@ -783,7 +658,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
         throw new EvalException(ex);
       }
     } else {
-      return Dict.immutableCopyOf(env.getFixedEnv());
+      return Dict.immutableCopyOf(getEnvironment().getFixedEnv());
     }
   }
 

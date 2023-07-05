@@ -31,6 +31,8 @@ import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.nio.file.Path;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -127,17 +129,20 @@ class JUnit4RunnerModule {
       JUnit4Config config,
       Supplier<TestSuiteModel> testSuiteModelSupplier,
       CancellableRequestFactory cancellableRequestFactory) {
-    return Set.of(
+    Set<RunListener> listeners = new HashSet<>();
+    listeners.add(
         new JUnit4TestStackTraceListener(
-            new SignalHandlers(SignalHandlers.createRealHandlerInstaller()), System.err),
+            new SignalHandlers(SignalHandlers.createRealHandlerInstaller()), System.err));
+    listeners.add(
         new JUnit4TestXmlListener(
             testSuiteModelSupplier,
             cancellableRequestFactory,
             new SignalHandlers(SignalHandlers.createRealHandlerInstaller()),
             new ProvideXmlStreamFactory(() -> config).get(),
-            System.err),
-        new JUnit4TestNameListener(provideCurrentRunningTest()),
-        JUnit4RunnerBaseModule.provideTextListener(stdout()));
+            System.err));
+    listeners.add(new JUnit4TestNameListener(provideCurrentRunningTest()));
+    listeners.add(JUnit4RunnerBaseModule.provideTextListener(stdout()));
+    return Collections.unmodifiableSet(listeners);
   }
 
   CancellableRequestFactory cancellableRequestFactory() {

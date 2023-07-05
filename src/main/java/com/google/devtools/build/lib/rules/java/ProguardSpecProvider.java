@@ -51,14 +51,6 @@ public final class ProguardSpecProvider extends NativeInfo
     return transitiveProguardSpecs;
   }
 
-  public static ProguardSpecProvider merge(Iterable<ProguardSpecProvider> providers) {
-    NestedSetBuilder<Artifact> specs = NestedSetBuilder.stableOrder();
-    for (ProguardSpecProvider wrapper : providers) {
-      specs.addTransitive(wrapper.getTransitiveProguardSpecs());
-    }
-    return new ProguardSpecProvider(specs.build());
-  }
-
   /** Provider class for {@link ProguardSpecProvider} objects. */
   public static class Provider extends BuiltinProvider<ProguardSpecProvider>
       implements ProguardSpecProviderApi.Provider<Artifact> {

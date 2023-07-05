@@ -21,6 +21,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -30,6 +31,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputMap;
@@ -45,6 +47,8 @@ import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -68,6 +72,9 @@ import org.mockito.stubbing.Answer;
 /** Tests for {@link RemoteActionFileSystem} */
 @RunWith(JUnit4.class)
 public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTestBase {
+  private static final RemoteOutputChecker DUMMY_REMOTE_OUTPUT_CHECKER =
+      new RemoteOutputChecker(
+          new JavaClock(), "build", RemoteOutputsMode.MINIMAL, ImmutableList.of());
 
   private static final DigestHashFunction HASH_FUNCTION = DigestHashFunction.SHA256;
 
@@ -90,6 +97,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   protected RemoteActionFileSystem createActionFileSystem(
       ActionInputMap inputs, Iterable<Artifact> outputs, InputMetadataProvider fileCache)
       throws IOException {
+    doReturn(DUMMY_REMOTE_OUTPUT_CHECKER).when(inputFetcher).getRemoteOutputChecker();
     RemoteActionFileSystem remoteActionFileSystem =
         new RemoteActionFileSystem(
             fs,
@@ -99,7 +107,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
             outputs,
             fileCache,
             inputFetcher);
-    remoteActionFileSystem.updateContext(metadataInjector);
+    remoteActionFileSystem.updateContext(mock(ActionExecutionMetadata.class), metadataInjector);
     remoteActionFileSystem.createDirectoryAndParents(outputRoot.getRoot().asPath().asFragment());
     return remoteActionFileSystem;
   }
@@ -150,7 +158,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     FileSystem actionFs = createActionFileSystem(inputs);
     doAnswer(mockPrefetchFile(artifact.getPath(), "remote contents"))
         .when(inputFetcher)
-        .prefetchFiles(eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL));
+        .prefetchFiles(any(), eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL));
 
     // act
     Path actionFsPath = actionFs.getPath(artifact.getPath().asFragment());
@@ -160,7 +168,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     assertThat(actionFsPath.getFileSystem()).isSameInstanceAs(actionFs);
     assertThat(contents).isEqualTo("remote contents");
     verify(inputFetcher)
-        .prefetchFiles(eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL));
+        .prefetchFiles(any(), eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL));
     verifyNoMoreInteractions(inputFetcher);
   }
 
@@ -172,7 +180,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     injectRemoteFile(actionFs, artifact.getPath().asFragment(), "remote contents");
     doAnswer(mockPrefetchFile(artifact.getPath(), "remote contents"))
         .when(inputFetcher)
-        .prefetchFiles(eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL));
+        .prefetchFiles(any(), eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL));
 
     // act
     Path actionFsPath = actionFs.getPath(artifact.getPath().asFragment());
@@ -182,7 +190,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     assertThat(actionFsPath.getFileSystem()).isSameInstanceAs(actionFs);
     assertThat(contents).isEqualTo("remote contents");
     verify(inputFetcher)
-        .prefetchFiles(eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL));
+        .prefetchFiles(any(), eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL));
     verifyNoMoreInteractions(inputFetcher);
   }
 
@@ -195,7 +203,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     injectRemoteFile(actionFs, path.asFragment(), "remote contents");
     doAnswer(mockPrefetchFile(path, "remote contents"))
         .when(inputFetcher)
-        .prefetchFiles(eq(ImmutableList.of(input)), any(), eq(Priority.CRITICAL));
+        .prefetchFiles(any(), eq(ImmutableList.of(input)), any(), eq(Priority.CRITICAL));
 
     // act
     Path actionFsPath = actionFs.getPath(path.asFragment());
@@ -204,7 +212,8 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     // assert
     assertThat(actionFsPath.getFileSystem()).isSameInstanceAs(actionFs);
     assertThat(contents).isEqualTo("remote contents");
-    verify(inputFetcher).prefetchFiles(eq(ImmutableList.of(input)), any(), eq(Priority.CRITICAL));
+    verify(inputFetcher)
+        .prefetchFiles(any(), eq(ImmutableList.of(input)), any(), eq(Priority.CRITICAL));
     verifyNoMoreInteractions(inputFetcher);
   }
 
@@ -324,47 +333,6 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   }
 
   @Test
-  public void getMetadata_fromRemoteOutputTree_forDeclaredOutput() throws Exception {
-    Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "out");
-    RemoteActionFileSystem actionFs =
-        (RemoteActionFileSystem)
-            createActionFileSystem(new ActionInputMap(0), ImmutableList.of(artifact));
-
-    FileArtifactValue metadata =
-        injectRemoteFile(actionFs, artifact.getPath().asFragment(), "content");
-
-    assertThat(actionFs.getOutputMetadataForTopLevelArtifactDownloader(artifact))
-        .isEqualTo(metadata);
-  }
-
-  @Test
-  public void getMetadata_fromRemoteOutputTree_forUndeclaredOutput() throws Exception {
-    Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "out");
-    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
-
-    FileArtifactValue metadata =
-        injectRemoteFile(actionFs, artifact.getPath().asFragment(), "content");
-
-    assertThat(actionFs.getOutputMetadataForTopLevelArtifactDownloader(artifact))
-        .isEqualTo(metadata);
-  }
-
-  @Test
-  public void getMetadata_fromFileCache_forOutputFile() throws Exception {
-    Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "out");
-    FileArtifactValue metadata =
-        FileArtifactValue.createForNormalFile(new byte[] {1, 2, 3}, /* proxy= */ null, 42);
-    RemoteActionFileSystem actionFs =
-        createActionFileSystem(
-            new ActionInputMap(0),
-            ImmutableList.of(),
-            new StaticInputMetadataProvider(ImmutableMap.of(artifact, metadata)));
-
-    assertThat(actionFs.getOutputMetadataForTopLevelArtifactDownloader(artifact))
-        .isEqualTo(metadata);
-  }
-
-  @Test
   public void getMetadata_notFound() throws Exception {
     Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "out");
     RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
@@ -373,7 +341,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   }
 
   @Test
-  public void createSymbolicLink_localFileArtifact() throws IOException {
+  public void createSymbolicLink_localFileArtifact() throws Exception {
     // arrange
     ActionInputMap inputs = new ActionInputMap(1);
     Artifact localArtifact = createLocalArtifact("local-file", "local contents", inputs);
@@ -403,7 +371,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   }
 
   @Test
-  public void createSymbolicLink_remoteFileArtifact() throws IOException {
+  public void createSymbolicLink_remoteFileArtifact() throws Exception {
     // arrange
     ActionInputMap inputs = new ActionInputMap(1);
     Artifact remoteArtifact = createRemoteArtifact("remote-file", "remote contents", inputs);
@@ -440,7 +408,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   }
 
   @Test
-  public void createSymbolicLink_localTreeArtifact() throws IOException {
+  public void createSymbolicLink_localTreeArtifact() throws Exception {
     // arrange
     ActionInputMap inputs = new ActionInputMap(1);
     ImmutableMap<String, String> contentMap =
@@ -473,7 +441,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   }
 
   @Test
-  public void createSymbolicLink_remoteTreeArtifact() throws IOException {
+  public void createSymbolicLink_remoteTreeArtifact() throws Exception {
     // arrange
     ActionInputMap inputs = new ActionInputMap(1);
     ImmutableMap<String, String> contentMap =
@@ -511,7 +479,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   }
 
   @Test
-  public void createSymbolicLink_unresolvedSymlink() throws IOException {
+  public void createSymbolicLink_unresolvedSymlink() throws Exception {
     // arrange
     ActionInputMap inputs = new ActionInputMap(1);
     SpecialArtifact outputArtifact =

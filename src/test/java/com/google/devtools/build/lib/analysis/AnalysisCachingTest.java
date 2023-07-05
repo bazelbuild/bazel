@@ -55,6 +55,9 @@ import org.junit.runners.JUnit4;
 /** Analysis caching tests. */
 @RunWith(JUnit4.class)
 public class AnalysisCachingTest extends AnalysisCachingTestBase {
+  private static final String CACHE_DISCARD_WARNING =
+      "discarding analysis cache (this can be expensive, see"
+          + " https://bazel.build/advanced/performance/iteration-speed).";
 
   @Before
   public void setup() throws Exception {
@@ -132,7 +135,6 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
 
   @Test
   public void testAspectHintsChanged() throws Exception {
-    useConfiguration("--experimental_enable_aspect_hints");
     scratch.file(
         "foo/rule.bzl",
         "def _rule_impl(ctx):",
@@ -1005,7 +1007,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     eventCollector.clear();
     update("//test:top");
     assertDoesNotContainEvent("--discard_analysis_cache");
-    assertContainsEvent("Build option --cpu has changed, discarding analysis cache");
+    assertContainsEvent("Build option --cpu has changed, " + CACHE_DISCARD_WARNING);
   }
 
   @Test
@@ -1018,8 +1020,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     eventCollector.clear();
     update("//test:top");
     assertDoesNotContainEvent("--discard_analysis_cache");
-    assertContainsEvent(
-        "Build option --definitely_relevant has changed, discarding analysis cache");
+    assertContainsEvent("Build option --definitely_relevant has changed, " + CACHE_DISCARD_WARNING);
   }
 
   @Test
@@ -1040,8 +1041,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     eventCollector.clear();
     update("//test:top");
     assertDoesNotContainEvent("--discard_analysis_cache");
-    assertContainsEvent(
-        "Build option --definitely_relevant has changed, discarding analysis cache");
+    assertContainsEvent("Build option --definitely_relevant has changed, " + CACHE_DISCARD_WARNING);
   }
 
   @Test
@@ -1056,8 +1056,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     eventCollector.clear();
     update("//test:top");
     assertDoesNotContainEvent("--discard_analysis_cache");
-    assertContainsEvent(
-        "Build option --definitely_relevant has changed, discarding analysis cache");
+    assertContainsEvent("Build option --definitely_relevant has changed, " + CACHE_DISCARD_WARNING);
   }
 
   @Test
@@ -1070,7 +1069,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     eventCollector.clear();
     update("//test:top");
     assertDoesNotContainEvent("--discard_analysis_cache");
-    assertContainsEvent("Build options have changed, discarding analysis cache");
+    assertContainsEvent("Build options have changed, " + CACHE_DISCARD_WARNING);
   }
 
   @Test
@@ -1087,7 +1086,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     assertDoesNotContainEvent("--discard_analysis_cache");
     assertContainsEvent(
         "Build options --also_relevant and --definitely_relevant have changed, "
-            + "discarding analysis cache");
+            + CACHE_DISCARD_WARNING);
   }
 
   @Test
@@ -1110,7 +1109,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     assertDoesNotContainEvent("--discard_analysis_cache");
     assertContainsEvent(
         "Build options --also_relevant, --definitely_relevant, and --host_relevant have changed, "
-            + "discarding analysis cache");
+            + CACHE_DISCARD_WARNING);
   }
 
   @Test
@@ -1133,7 +1132,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     assertDoesNotContainEvent("--discard_analysis_cache");
     assertContainsEvent(
         "Build options --also_relevant, --definitely_relevant, and 1 more have changed, "
-            + "discarding analysis cache");
+            + CACHE_DISCARD_WARNING);
   }
 
   @Test
@@ -1156,7 +1155,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     update("//test:top");
     assertDoesNotContainEvent("--discard_analysis_cache");
     assertContainsEvent(
-        "Build options --also_relevant and 2 more have changed, discarding analysis cache");
+        "Build options --also_relevant and 2 more have changed, " + CACHE_DISCARD_WARNING);
   }
 
   @Test

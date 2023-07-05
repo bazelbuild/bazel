@@ -293,8 +293,10 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         outputs,
         ImmutableSet.of(),
         treeDeleter,
-        /*statisticsPath=*/ null,
-        () -> containersToCleanup.remove(uuid));
+        /* sandboxDebugPath= */ null,
+        /* statisticsPath= */ null,
+        () -> containersToCleanup.remove(uuid),
+        spawn.getMnemonic());
   }
 
   private String getOrCreateCustomizedImage(String baseImage)

@@ -19,7 +19,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.MutableMap;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskCallable;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
@@ -34,7 +33,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import javax.annotation.Nullable;
 
 /** Several query utilities to make easier to work with query callbacks and uniquifiers. */
 public final class QueryUtil {
@@ -227,31 +225,6 @@ public final class QueryUtil {
       }
       T element = elementClass.cast(obj);
       return map.remove(extractor.extractKey(element)) != null;
-    }
-  }
-
-  /**
-   * A {@link MutableMap} implementation that uses a {@link KeyExtractor} for determining equality
-   * of its keys.
-   */
-  public static class MutableKeyExtractorBackedMapImpl<T, K, V> implements MutableMap<T, V> {
-    private final KeyExtractor<T, K> extractor;
-    private final HashMap<K, V> map;
-
-    public MutableKeyExtractorBackedMapImpl(KeyExtractor<T, K> extractor) {
-      this.extractor = extractor;
-      this.map = new HashMap<>();
-    }
-
-    @Override
-    @Nullable
-    public V get(T key) {
-      return map.get(extractor.extractKey(key));
-    }
-
-    @Override
-    public V put(T key, V value) {
-      return map.put(extractor.extractKey(key), value);
     }
   }
 

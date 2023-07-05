@@ -199,6 +199,7 @@ java_test(
         "no_windows",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//third_party:junit4",
     ],
@@ -657,6 +658,25 @@ java_test(
         "//third_party:junit4",
         "//third_party:truth",
         "@com_google_testparameterinjector//:testparameterinjector",
+    ],
+)
+
+java_test(
+    name = "SkymeldOutputServiceBuildIntegrationTest",
+    srcs = ["SkymeldOutputServiceBuildIntegrationTest.java"],
+    tags = [
+        "no_windows",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:output_service",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//third_party:junit4",
+        "//third_party:truth",
     ],
 )
 

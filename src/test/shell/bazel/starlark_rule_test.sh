@@ -86,7 +86,7 @@ EOF
   ! bazel build //test:test &> $TEST_log \
       || fail "Should have resulted in an execution error"
 
-  expect_log "error executing command.*not_a_command"
+  expect_log "error executing Action command.*not_a_command"
 }
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/13189

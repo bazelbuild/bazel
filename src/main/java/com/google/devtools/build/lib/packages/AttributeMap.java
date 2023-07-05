@@ -39,11 +39,6 @@ public interface AttributeMap {
   Label getLabel();
 
   /**
-   * Returns the name of the rule class.
-   */
-  String getRuleClassName();
-
-  /**
    * Returns true if an attribute with the given name exists.
    */
   boolean has(String attrName);
@@ -135,16 +130,5 @@ public interface AttributeMap {
   /** Same as {@link #visitAllLabels} but for attributes matching a {@link DependencyFilter}. */
   void visitLabels(DependencyFilter filter, BiConsumer<Attribute, Label> consumer);
 
-  // TODO(bazel-team): These methods are here to support computed defaults that inherit
-  // package-level default values. Instead, we should auto-inherit and remove the computed
-  // defaults. If we really need to give access to package-level defaults, we should come up with
-  // a more generic interface.
-  String getPackageDefaultHdrsCheck();
-
-  boolean isPackageDefaultHdrsCheckSet();
-
-  Boolean getPackageDefaultTestOnly();
-
-  String getPackageDefaultDeprecation();
-
+  PackageArgs getPackageArgs();
 }

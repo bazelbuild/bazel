@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkModules;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkGlobalsImpl;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.StarlarkRuleFunction;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -118,7 +118,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
-    builder.addStarlarkAccessibleTopLevels(
+    builder.addBzlToplevel(
         "parametrized_native_aspect",
         TestAspects.PARAMETRIZED_STARLARK_NATIVE_ASPECT_WITH_PROVIDER);
     builder.addNativeAspectClass(TestAspects.PARAMETRIZED_STARLARK_NATIVE_ASPECT_WITH_PROVIDER);
@@ -990,73 +990,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     String fooName = ((StarlarkRuleFunction) ev.lookup("foo")).getRuleClass().getName();
     assertThat(dName).isEqualTo("d");
     assertThat(fooName).isEqualTo("d");
-  }
-
-  @Test
-  public void testExportWithSpecifiedName() throws Exception {
-    setBuildLanguageOptions("--noincompatible_remove_rule_name_parameter");
-    evalAndExport(
-        ev, //
-        "def _impl(ctx): pass",
-        "a = rule(implementation = _impl, name = 'r')",
-        "z = a");
-
-    String aName = ((StarlarkRuleFunction) ev.lookup("a")).getRuleClass().getName();
-    assertThat(aName).isEqualTo("r");
-    String zName = ((StarlarkRuleFunction) ev.lookup("z")).getRuleClass().getName();
-    assertThat(zName).isEqualTo("r");
-  }
-
-  @Test
-  public void testExportWithSpecifiedNameFailure() throws Exception {
-    setBuildLanguageOptions("--noincompatible_remove_rule_name_parameter");
-    ev.setFailFast(false);
-
-    evalAndExport(
-        ev, //
-        "def _impl(ctx): pass",
-        "rule(implementation = _impl, name = '1a')");
-
-    ev.assertContainsError("Invalid rule name: 1a");
-  }
-
-  @Test
-  public void testExportWithNonStringNameFailsCleanly() throws Exception {
-    setBuildLanguageOptions("--noincompatible_remove_rule_name_parameter");
-    ev.setFailFast(false);
-
-    evalAndExport(
-        ev, //
-        "def _impl(ctx): pass",
-        "rule(implementation = _impl, name = {'not_a_string': True})");
-
-    ev.assertContainsError("got value of type 'dict', want 'string or NoneType'");
-  }
-
-  @Test
-  public void testExportWithMultipleErrors() throws Exception {
-    setBuildLanguageOptions("--noincompatible_remove_rule_name_parameter");
-    ev.setFailFast(false);
-
-    evalAndExport(
-        ev,
-        "def _impl(ctx): pass",
-        "rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'name' : attr.string(),",
-        "    'tags' : attr.string_list(),",
-        "  },",
-        "  name = '1a',",
-        ")");
-
-    ev.assertContainsError(
-        "Error in rule: Errors in exporting 1a: \n"
-            + "cannot add attribute: There is already a built-in attribute 'name' which cannot be"
-            + " overridden.\n"
-            + "cannot add attribute: There is already a built-in attribute 'tags' which cannot be"
-            + " overridden.\n"
-            + "Invalid rule name: 1a");
   }
 
   @Test
@@ -2952,8 +2885,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testLabelWithStrictVisibility() throws Exception {
-    ImmutableMap.Builder<String, Object> predeclared = ImmutableMap.builder();
-    StarlarkModules.addPredeclared(predeclared);
     RepositoryName currentRepo = RepositoryName.createUnvalidated("module~1.2.3");
     RepositoryName otherRepo = RepositoryName.createUnvalidated("dep~4.5");
     Label bzlLabel =
@@ -2965,11 +2896,13 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
             RepositoryMapping.create(
                 ImmutableMap.of("my_module", currentRepo, "dep", otherRepo), currentRepo),
             "lib/label.bzl",
-            /*loads=*/ ImmutableMap.of(),
-            /*bzlTransitiveDigest=*/ new byte[0]);
+            /* loads= */ ImmutableList.of(),
+            /* bzlTransitiveDigest= */ new byte[0]);
     Module module =
         Module.withPredeclaredAndData(
-            StarlarkSemantics.DEFAULT, predeclared.buildOrThrow(), clientData);
+            StarlarkSemantics.DEFAULT,
+            StarlarkGlobalsImpl.INSTANCE.getFixedBzlToplevels(),
+            clientData);
 
     assertThat(eval(module, "Label('//foo:bar').workspace_root"))
         .isEqualTo("external/module~1.2.3");

@@ -64,14 +64,17 @@ public abstract class WorkerMetric {
 
     public abstract boolean isSandboxed();
 
+    public abstract int getWorkerKeyHash();
+
     public static WorkerProperties create(
         ImmutableList<Integer> workerIds,
         long processId,
         String mnemonic,
         boolean isMultiplex,
-        boolean isSandboxed) {
+        boolean isSandboxed,
+        int workerKeyHash) {
       return new AutoValue_WorkerMetric_WorkerProperties(
-          workerIds, processId, mnemonic, isMultiplex, isSandboxed);
+          workerIds, processId, mnemonic, isMultiplex, isSandboxed, workerKeyHash);
     }
   }
 
@@ -86,7 +89,8 @@ public abstract class WorkerMetric {
             .setMnemonic(workerProperties.getMnemonic())
             .setIsSandbox(workerProperties.isSandboxed())
             .setIsMultiplex(workerProperties.isMultiplex())
-            .setIsMeasurable(isMeasurable());
+            .setIsMeasurable(isMeasurable())
+            .setWorkerKeyHash(workerProperties.getWorkerKeyHash());
 
     if (workerStat != null) {
       WorkerStats stats =

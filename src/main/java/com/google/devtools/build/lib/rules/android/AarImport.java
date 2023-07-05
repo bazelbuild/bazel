@@ -206,10 +206,8 @@ public class AarImport implements RuleConfiguredTargetFactory {
       srcJars = ImmutableList.of(srcJar);
       transitiveJavaSourceJarBuilder.add(srcJar);
     }
-    for (JavaSourceJarsProvider other :
-        JavaInfo.getProvidersFromListOfTargets(
-            JavaSourceJarsProvider.class, ruleContext.getPrerequisites("exports"))) {
-      transitiveJavaSourceJarBuilder.addTransitive(other.getTransitiveSourceJars());
+    for (TransitiveInfoCollection target : ruleContext.getPrerequisites("exports")) {
+      transitiveJavaSourceJarBuilder.addTransitive(JavaInfo.transitiveSourceJars(target));
     }
     NestedSet<Artifact> transitiveJavaSourceJars = transitiveJavaSourceJarBuilder.build();
     JavaSourceJarsProvider javaSourceJarsProvider =
@@ -220,9 +218,9 @@ public class AarImport implements RuleConfiguredTargetFactory {
             .setRuntimeJars(ImmutableList.of(mergedJar))
             .setJavaConstraints(ImmutableList.of("android"))
             .setNeverlink(JavaCommon.isNeverLink(ruleContext))
-            .addProvider(JavaCompilationArgsProvider.class, javaCompilationArgsProvider)
-            .addProvider(JavaSourceJarsProvider.class, javaSourceJarsProvider)
-            .addProvider(JavaRuleOutputJarsProvider.class, jarProviderBuilder.build());
+            .javaCompilationArgs(javaCompilationArgsProvider)
+            .javaSourceJars(javaSourceJarsProvider)
+            .javaRuleOutputs(jarProviderBuilder.build());
 
     common.addTransitiveInfoProviders(
         ruleBuilder, javaInfoBuilder, filesToBuild, /*classJar=*/ null);
@@ -244,7 +242,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .addNativeDeclaredProvider(
             new AndroidNativeLibsInfo(
                 AndroidCommon.collectTransitiveNativeLibs(ruleContext).add(nativeLibs).build()))
-        .addNativeDeclaredProvider(javaInfoBuilder.build());
+        .addStarlarkDeclaredProvider(javaInfoBuilder.build());
     if (jdepsArtifact != null) {
       // Add the deps check result so that we can unit test it.
       ruleBuilder.addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, jdepsArtifact);
@@ -253,7 +251,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
   }
 
   private static NestedSet<Artifact> getCompileTimeJarsFromCollection(
-      ImmutableList<TransitiveInfoCollection> deps, boolean isDirect) {
+      ImmutableList<TransitiveInfoCollection> deps, boolean isDirect) throws RuleErrorException {
     JavaCompilationArgsProvider provider = JavaCompilationArgsProvider.legacyFromTargets(deps);
     return isDirect ? provider.getDirectCompileTimeJars() : provider.getTransitiveCompileTimeJars();
   }

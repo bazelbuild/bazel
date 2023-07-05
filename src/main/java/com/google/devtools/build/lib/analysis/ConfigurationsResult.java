@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.Multimap;
+import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -24,11 +24,12 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
  * registers if an error was recorded.
  */
 public class ConfigurationsResult {
-  private final Multimap<DependencyKey, BuildConfigurationValue> configurations;
+  private final ListMultimap<BaseDependencySpecification, BuildConfigurationValue> configurations;
   private final boolean hasError;
 
   private ConfigurationsResult(
-      Multimap<DependencyKey, BuildConfigurationValue> configurations, boolean hasError) {
+      ListMultimap<BaseDependencySpecification, BuildConfigurationValue> configurations,
+      boolean hasError) {
     this.configurations = configurations;
     this.hasError = hasError;
   }
@@ -37,7 +38,7 @@ public class ConfigurationsResult {
     return hasError;
   }
 
-  public Multimap<DependencyKey, BuildConfigurationValue> getConfigurationMap() {
+  public ListMultimap<BaseDependencySpecification, BuildConfigurationValue> getConfigurationMap() {
     return configurations;
   }
 
@@ -47,11 +48,11 @@ public class ConfigurationsResult {
 
   /** Builder for {@link ConfigurationsResult} */
   public static class Builder {
-    private final Multimap<DependencyKey, BuildConfigurationValue> configurations =
-        ArrayListMultimap.create();
+    private final ListMultimap<BaseDependencySpecification, BuildConfigurationValue>
+        configurations = ArrayListMultimap.create();
     private boolean hasError = false;
 
-    public void put(DependencyKey key, BuildConfigurationValue value) {
+    public void put(BaseDependencySpecification key, BuildConfigurationValue value) {
       configurations.put(key, value);
     }
 

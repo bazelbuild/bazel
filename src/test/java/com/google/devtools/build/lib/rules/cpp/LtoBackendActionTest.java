@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.Before;
@@ -175,8 +174,7 @@ public class LtoBackendActionTest extends BuildViewTestCase {
     MNEMONIC,
     RUNFILES_SUPPLIER,
     INPUT,
-    FIXED_ENVIRONMENT,
-    VARIABLE_ENVIRONMENT
+    FIXED_ENVIRONMENT
   }
 
   @Test
@@ -243,9 +241,6 @@ public class LtoBackendActionTest extends BuildViewTestCase {
               env.put("foo", "bar");
             }
             builder.setEnvironment(env);
-            if (attributesToFlip.contains(KeyAttributes.VARIABLE_ENVIRONMENT)) {
-              builder.setInheritedEnvironment(Arrays.asList("baz"));
-            }
 
             SpawnAction action = builder.build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
             collectingAnalysisEnvironment.registerAction(action);

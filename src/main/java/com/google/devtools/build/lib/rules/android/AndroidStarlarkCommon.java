@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidSplitTransitionApi;
@@ -52,19 +54,20 @@ public class AndroidStarlarkCommon implements AndroidStarlarkCommonApi<Artifact,
    * fixed.
    */
   @Override
-  public JavaInfo enableImplicitSourcelessDepsExportsCompatibility(
-      JavaInfo javaInfo, boolean neverlink) {
+  public JavaInfo enableImplicitSourcelessDepsExportsCompatibility(Info javaInfo, boolean neverlink)
+      throws RuleErrorException {
     JavaCompilationArgsProvider.ClasspathType type =
         neverlink
             ? JavaCompilationArgsProvider.ClasspathType.COMPILE_ONLY
             : JavaCompilationArgsProvider.ClasspathType.BOTH;
-    return JavaInfo.Builder.create()
-        .setNeverlink(neverlink)
-        .addProvider(
-            JavaCompilationArgsProvider.class,
-            JavaCompilationArgsProvider.builder()
-                .addExports(javaInfo.getProvider(JavaCompilationArgsProvider.class), type)
-                .build())
-        .build();
+    JavaInfo.Builder builder = JavaInfo.Builder.create();
+    JavaInfo.PROVIDER
+        .wrap(javaInfo)
+        .compilationArgsProvider()
+        .ifPresent(
+            args ->
+                builder.javaCompilationArgs(
+                    JavaCompilationArgsProvider.builder().addExports(args, type).build()));
+    return builder.setNeverlink(neverlink).build();
   }
 }

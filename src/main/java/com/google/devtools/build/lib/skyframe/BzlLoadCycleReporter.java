@@ -88,8 +88,9 @@ public class BzlLoadCycleReporter implements CyclesReporter.SingleCycleReporter 
             || IS_WORKSPACE_FILE.apply(lastPathElement)
             || IS_BZLMOD_EXTENSION.apply(lastPathElement))) {
 
-      Function<SkyKey, String> printer =
-          input -> {
+      Function<Object, String> printer =
+          rawInput -> {
+            SkyKey input = (SkyKey) rawInput;
             if (input.argument() instanceof BzlLoadValue.Key) {
               return ((BzlLoadValue.Key) input.argument()).getLabel().toString();
             }
@@ -135,7 +136,7 @@ public class BzlLoadCycleReporter implements CyclesReporter.SingleCycleReporter 
       StringBuilder cycleMessage =
           new StringBuilder().append("Circular definition of repositories:");
       Iterable<SkyKey> repos = Iterables.filter(cycle, IS_REPOSITORY_DIRECTORY);
-      Function<SkyKey, String> printer =
+      Function<Object, String> printer =
           input -> {
             if (input instanceof RepositoryDirectoryValue.Key) {
               return ((RepositoryDirectoryValue.Key) input).argument().getNameWithAt();

@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
@@ -49,7 +48,6 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
   static class BuildMetricsEventListener extends BlazeModule {
 
     private BuildMetricsEvent event;
-    private EventBus eventBus;
 
     @Override
     public void beforeCommand(CommandEnvironment env) {
@@ -159,6 +157,8 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
 
     // Do one build of a target in a standalone package. Gets us a baseline for analysis/execution.
     buildTarget("//e:facade");
+    boolean skymeldWasInvolved =
+        getCommandEnvironment().withMergedAnalysisAndExecutionSourceOfTruth();
     BuildGraphMetrics buildGraphMetrics =
         buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics();
     int actionLookupValueCount = buildGraphMetrics.getActionLookupValueCount();
@@ -227,6 +227,10 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
 
     // Do a null build. No useful analysis stats.
     buildTarget("//a");
+    if (skymeldWasInvolved) {
+      // The BuildDriverKey of //e:facade is gone.
+      newGraphSize -= 1;
+    }
 
     // For null build, we don't do any conflict checking. As the metrics are collected during the
     // traversal that's part of conflict checking, these analysis-related numbers are 0.
@@ -299,6 +303,11 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
 
     // Null --nobuild.
     buildTarget("//a");
+    if (skymeldWasInvolved) {
+      // When doing --nobuild, no new BuildDriverKey entry is put in the graph while the old one is
+      // deleted.
+      newGraphSize -= 1;
+    }
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics())
         .ignoringFieldAbsence()
         .isEqualTo(
@@ -310,6 +319,10 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     // Do a null full build. Back to baseline.
     addOptions("--build");
     buildTarget("//a");
+    if (skymeldWasInvolved) {
+      // Extra BuildDriverKey
+      newGraphSize += 1;
+    }
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics())
         .ignoringFieldAbsence()
         .isEqualTo(

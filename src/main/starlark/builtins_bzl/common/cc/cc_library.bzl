@@ -277,6 +277,9 @@ def _cc_library_impl(ctx):
     for dep in ctx.attr.deps:
         runfiles_list.append(dep[DefaultInfo].default_runfiles)
 
+    for dep in ctx.attr.implementation_deps:
+        runfiles_list.append(dep[DefaultInfo].default_runfiles)
+
     runfiles = ctx.runfiles().merge_all(runfiles_list)
 
     default_runfiles = ctx.runfiles(files = cc_helper.get_dynamic_libraries_for_runtime(linking_context_for_runfiles, True))
@@ -598,6 +601,7 @@ attrs = {
     ),
     "_def_parser": semantics.get_def_parser(),
     "_cc_toolchain": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
+    "_use_auto_exec_groups": attr.bool(default = True),
 }
 attrs.update(semantics.get_distribs_attr())
 attrs.update(semantics.get_loose_mode_in_hdrs_check_allowed_attr())

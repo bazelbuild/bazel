@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.NUM_JOBS;
 
-import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
@@ -43,7 +43,7 @@ public class ActionLookupValuesTraversal {
 
   public ActionLookupValuesTraversal() {}
 
-  void accumulate(ActionLookupKey keyForDebugging, SkyValue value) {
+  void accumulate(ActionLookupKeyOrProxy keyForDebugging, SkyValue value) {
     boolean isConfiguredTarget = value instanceof ConfiguredTargetValue;
     boolean isActionLookupValue = value instanceof ActionLookupValue;
     if (!isConfiguredTarget && !isActionLookupValue) {

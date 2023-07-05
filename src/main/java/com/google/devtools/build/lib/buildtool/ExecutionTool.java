@@ -88,6 +88,7 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.Builder;
@@ -125,6 +126,8 @@ import javax.annotation.Nullable;
  * <p>This class contains an ActionCache, and refers to the Blaze Runtime's BuildView and
  * PackageCache.
  *
+ * <p>Lifetime of an instance: 1 invocation.
+ *
  * @see BuildTool
  * @see com.google.devtools.build.lib.analysis.BuildView
  */
@@ -139,6 +142,8 @@ public class ExecutionTool {
   private final ImmutableSet<ExecutorLifecycleListener> executorLifecycleListeners;
   private final SpawnStrategyRegistry spawnStrategyRegistry;
   private final ModuleActionContextRegistry actionContextRegistry;
+
+  private boolean informedOutputServiceToStartTheBuild = false;
 
   ExecutionTool(CommandEnvironment env, BuildRequest request)
       throws AbruptExitException, InterruptedException {
@@ -248,7 +253,7 @@ public class ExecutionTool {
    *
    * <p>TODO(b/213040766): Write tests for these setup steps.
    */
-  public void prepareForExecution(UUID buildId, Stopwatch executionTimer)
+  public void prepareForExecution(Stopwatch executionTimer)
       throws AbruptExitException,
           BuildFailedException,
           InterruptedException,
@@ -286,19 +291,8 @@ public class ExecutionTool {
     }
 
     OutputService outputService = env.getOutputService();
-    ModifiedFileSet modifiedOutputFiles = ModifiedFileSet.EVERYTHING_MODIFIED;
-    if (outputService != null) {
-      try (SilentCloseable c = Profiler.instance().profile("outputService.startBuild")) {
-        modifiedOutputFiles =
-            outputService.startBuild(
-                env.getReporter(), buildId, request.getBuildOptions().finalizeActions);
-      }
-    } else {
-      // TODO(bazel-team): this could be just another OutputService
-      try (SilentCloseable c = Profiler.instance().profile("startLocalOutputBuild")) {
-        startLocalOutputBuild();
-      }
-    }
+    ModifiedFileSet modifiedOutputFiles =
+        startBuildAndDetermineModifiedOutputFiles(request.getId(), outputService);
     if (outputService == null || outputService.actionFileSystemType().supportsLocalActions()) {
       // Must be created after the output path is created above.
       createActionLogDirectory();
@@ -311,20 +305,28 @@ public class ExecutionTool {
     }
     SkyframeBuilder skyframeBuilder;
     try (SilentCloseable c = Profiler.instance().profile("createBuilder")) {
+      var shouldStoreRemoteMetadataInActionCache =
+          outputService != null && outputService.shouldStoreRemoteOutputMetadataInActionCache();
       skyframeBuilder =
           (SkyframeBuilder)
-              createBuilder(request, actionCache, skyframeExecutor, modifiedOutputFiles);
+              createBuilder(
+                  request,
+                  actionCache,
+                  skyframeExecutor,
+                  modifiedOutputFiles,
+                  shouldStoreRemoteMetadataInActionCache);
     }
 
     skyframeExecutor.drainChangedFiles();
-    var remoteArtifactChecker =
-        env.getOutputService() != null
-            ? env.getOutputService().getRemoteArtifactChecker()
-            : RemoteArtifactChecker.IGNORE_ALL;
+    // With Skymeld, we don't have enough information at this stage to consider remote files.
+    // This allows BwoB to function (in the sense that it's now compatible with Skymeld), but
+    // there's a performance penalty for incremental build: all action nodes will be dirtied.
+    // We'll be relying on the other forms of caching (local action cache or remote cache).
+    // TODO(b/281655526): Improve this.
     skyframeExecutor.detectModifiedOutputFiles(
         modifiedOutputFiles,
         env.getBlazeWorkspace().getLastExecutionTimeRange(),
-        remoteArtifactChecker,
+        RemoteArtifactChecker.IGNORE_ALL,
         buildRequestOptions.fsvcThreads);
     try (SilentCloseable c = Profiler.instance().profile("configureActionExecutor")) {
       skyframeExecutor.configureActionExecutor(
@@ -339,8 +341,9 @@ public class ExecutionTool {
     }
 
     env.getEventBus()
-        .register(new ExecutionProgressReceiverSetup(skyframeExecutor, env, executionTimer));
-    // TODO(leba): Add watchdog support.
+        .register(
+            new ExecutionProgressReceiverSetup(
+                skyframeExecutor, env, executionTimer, buildRequestOptions.progressReportInterval));
     for (ExecutorLifecycleListener executorLifecycleListener : executorLifecycleListeners) {
       try (SilentCloseable c =
           Profiler.instance().profile(executorLifecycleListener + ".executionPhaseStarting")) {
@@ -350,6 +353,8 @@ public class ExecutionTool {
     try (SilentCloseable c = Profiler.instance().profile("configureResourceManager")) {
       configureResourceManager(env.getLocalResourceManager(), request);
     }
+
+    announceEnteringDirIfEmacs();
   }
 
   /**
@@ -377,26 +382,16 @@ public class ExecutionTool {
     ActionGraph actionGraph = analysisResult.getActionGraph();
 
     OutputService outputService = env.getOutputService();
-    ModifiedFileSet modifiedOutputFiles = ModifiedFileSet.EVERYTHING_MODIFIED;
-    if (outputService != null) {
-      try (SilentCloseable c = Profiler.instance().profile("outputService.startBuild")) {
-        modifiedOutputFiles =
-            outputService.startBuild(
-                env.getReporter(), buildId, request.getBuildOptions().finalizeActions);
-      }
-    } else {
-      // TODO(bazel-team): this could be just another OutputService
-      try (SilentCloseable c = Profiler.instance().profile("startLocalOutputBuild")) {
-        startLocalOutputBuild();
-      }
-    }
+    ModifiedFileSet modifiedOutputFiles =
+        startBuildAndDetermineModifiedOutputFiles(buildId, outputService);
 
     if (outputService == null || outputService.actionFileSystemType().supportsLocalActions()) {
       // Must be created after the output path is created above.
       createActionLogDirectory();
     }
 
-    handleConvenienceSymlinks(analysisResult);
+    handleConvenienceSymlinks(
+        analysisResult.getTargetsToBuild(), analysisResult.getConfiguration());
 
     BuildRequestOptions options = request.getBuildOptions();
     ActionCache actionCache = null;
@@ -407,7 +402,15 @@ public class ExecutionTool {
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
     Builder builder;
     try (SilentCloseable c = Profiler.instance().profile("createBuilder")) {
-      builder = createBuilder(request, actionCache, skyframeExecutor, modifiedOutputFiles);
+      var shouldStoreRemoteMetadataInActionCache =
+          outputService != null && outputService.shouldStoreRemoteOutputMetadataInActionCache();
+      builder =
+          createBuilder(
+              request,
+              actionCache,
+              skyframeExecutor,
+              modifiedOutputFiles,
+              shouldStoreRemoteMetadataInActionCache);
     }
 
     //
@@ -427,12 +430,7 @@ public class ExecutionTool {
         installExplanationHandler(
             request.getBuildOptions().explanationPath, request.getOptionsDescription());
 
-    if (request.isRunningInEmacs()) {
-      // The syntax of this message is tightly constrained by lisp/progmodes/compile.el in emacs
-      request
-          .getOutErr()
-          .printErrLn(runtime.getProductName() + ": Entering directory `" + getExecRoot() + "/'");
-    }
+    announceEnteringDirIfEmacs();
 
     Throwable catastrophe = null;
     boolean buildCompleted = false;
@@ -498,6 +496,49 @@ public class ExecutionTool {
     }
   }
 
+  private ModifiedFileSet startBuildAndDetermineModifiedOutputFiles(
+      UUID buildId, OutputService outputService)
+      throws BuildFailedException, AbruptExitException, InterruptedException {
+    ModifiedFileSet modifiedOutputFiles = ModifiedFileSet.EVERYTHING_MODIFIED;
+    if (outputService != null) {
+      try (SilentCloseable c = Profiler.instance().profile("outputService.startBuild")) {
+        modifiedOutputFiles =
+            outputService.startBuild(
+                env.getReporter(), buildId, request.getBuildOptions().finalizeActions);
+        informedOutputServiceToStartTheBuild = true;
+      }
+    } else {
+      // TODO(bazel-team): this could be just another OutputService
+      try (SilentCloseable c = Profiler.instance().profile("startLocalOutputBuild")) {
+        startLocalOutputBuild();
+      }
+    }
+    if (!request.getPackageOptions().checkOutputFiles
+        // Do not skip invalidation in case the output tree is empty -- this can happen
+        // after it's cleaned or corrupted.
+        && !modifiedOutputFiles.treatEverythingAsDeleted()) {
+      modifiedOutputFiles = ModifiedFileSet.NOTHING_MODIFIED;
+    }
+    return modifiedOutputFiles;
+  }
+
+  private void announceEnteringDirIfEmacs() {
+    if (request.isRunningInEmacs()) {
+      // The syntax of this message is tightly constrained by lisp/progmodes/compile.el in emacs
+      request
+          .getOutErr()
+          .printErrLn(runtime.getProductName() + ": Entering directory `" + getExecRoot() + "/'");
+    }
+  }
+
+  private void announceLeavingDirIfEmacs() {
+    if (request.isRunningInEmacs()) {
+      request
+          .getOutErr()
+          .printErrLn(runtime.getProductName() + ": Leaving directory `" + getExecRoot() + "/'");
+    }
+  }
+
   /** These steps get performed after execution, if there's no catastrophic exception. */
   void nonCatastrophicFinalizations(
       BuildResult buildResult,
@@ -507,11 +548,7 @@ public class ExecutionTool {
       throws BuildFailedException, AbruptExitException, InterruptedException {
     env.recordLastExecutionTime();
 
-    if (request.isRunningInEmacs()) {
-      request
-          .getOutErr()
-          .printErrLn(runtime.getProductName() + ": Leaving directory `" + getExecRoot() + "/'");
-    }
+    announceLeavingDirIfEmacs();
     if (buildCompleted) {
       getReporter().handle(Event.progress("Building complete."));
     }
@@ -539,16 +576,6 @@ public class ExecutionTool {
           buildResultListener.getAnalyzedAspects());
     }
 
-    try (SilentCloseable c = Profiler.instance().profile("Show artifacts")) {
-      if (request.getBuildOptions().showArtifacts) {
-        BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
-        buildResultPrinter.showArtifacts(
-            request,
-            buildResultListener.getAnalyzedTargets(),
-            buildResultListener.getAnalyzedAspects().values());
-      }
-    }
-
     if (explanationHandler != null) {
       uninstallExplanationHandler(explanationHandler);
       try {
@@ -557,9 +584,9 @@ public class ExecutionTool {
         // Ignored
       }
     }
-    // Finalize output service last, so that if we do throw an exception, we know all the other
-    // code has already run.
-    if (env.getOutputService() != null) {
+    // Finalize the output service last if required, so that if we do throw an exception, we know
+    // that all the other code has already run.
+    if (env.getOutputService() != null && informedOutputServiceToStartTheBuild) {
       boolean isBuildSuccessful =
           buildResult.getSuccessfulTargets().size()
               == buildResultListener.getAnalyzedTargets().size();
@@ -702,13 +729,15 @@ public class ExecutionTool {
    * Otherwise, manage the convenience symlinks and then post a {@link
    * ConvenienceSymlinksIdentifiedEvent} build event.
    */
-  public void handleConvenienceSymlinks(AnalysisResult analysisResult) {
+  public void handleConvenienceSymlinks(
+      ImmutableSet<ConfiguredTarget> targetsToBuild, BuildConfigurationValue configuration) {
     try (SilentCloseable c =
         Profiler.instance().profile("ExecutionTool.handleConvenienceSymlinks")) {
       ImmutableList<ConvenienceSymlink> convenienceSymlinks = ImmutableList.of();
       if (request.getBuildOptions().experimentalConvenienceSymlinks
           != ConvenienceSymlinksMode.IGNORE) {
-        convenienceSymlinks = createConvenienceSymlinks(request.getBuildOptions(), analysisResult);
+        convenienceSymlinks =
+            createConvenienceSymlinks(request.getBuildOptions(), targetsToBuild, configuration);
       }
       if (request.getBuildOptions().experimentalConvenienceSymlinksBepEvent) {
         env.getEventBus().post(new ConvenienceSymlinksIdentifiedEvent(convenienceSymlinks));
@@ -730,22 +759,23 @@ public class ExecutionTool {
    * in fact gets removed if it was already present from a previous invocation.
    */
   private ImmutableList<ConvenienceSymlink> createConvenienceSymlinks(
-      BuildRequestOptions buildRequestOptions, AnalysisResult analysisResult) {
+      BuildRequestOptions buildRequestOptions,
+      ImmutableSet<ConfiguredTarget> targetsToBuild,
+      BuildConfigurationValue configuration) {
     SkyframeExecutor executor = env.getSkyframeExecutor();
     Reporter reporter = env.getReporter();
 
     // Gather configurations to consider.
     Set<BuildConfigurationValue> targetConfigurations =
-        buildRequestOptions.useTopLevelTargetsForSymlinks()
-                && !analysisResult.getTargetsToBuild().isEmpty()
-            ? analysisResult.getTargetsToBuild().stream()
+        buildRequestOptions.useTopLevelTargetsForSymlinks() && !targetsToBuild.isEmpty()
+            ? targetsToBuild.stream()
                 .map(ConfiguredTarget::getActual)
                 .map(ConfiguredTarget::getConfigurationKey)
                 .filter(Objects::nonNull)
                 .distinct()
                 .map((key) -> executor.getConfiguration(reporter, key))
                 .collect(toImmutableSet())
-            : ImmutableSet.of(analysisResult.getConfiguration());
+            : ImmutableSet.of(configuration);
 
     String productName = runtime.getProductName();
     try (SilentCloseable c =
@@ -900,7 +930,8 @@ public class ExecutionTool {
       BuildRequest request,
       @Nullable ActionCache actionCache,
       SkyframeExecutor skyframeExecutor,
-      ModifiedFileSet modifiedOutputFiles) {
+      ModifiedFileSet modifiedOutputFiles,
+      boolean shouldStoreRemoteOutputMetadataInActionCache) {
     BuildRequestOptions options = request.getBuildOptions();
 
     skyframeExecutor.setActionOutputRoot(env.getActionTempsDirectory());
@@ -919,14 +950,9 @@ public class ExecutionTool {
             ActionCacheChecker.CacheConfig.builder()
                 .setEnabled(options.useActionCache)
                 .setVerboseExplanations(options.verboseExplanations)
-                .setStoreOutputMetadata(options.actionCacheStoreOutputMetadata)
+                .setStoreOutputMetadata(shouldStoreRemoteOutputMetadataInActionCache)
                 .build()),
-        request.getPackageOptions().checkOutputFiles
-                // Do not skip invalidation in case the output tree is empty -- this can happen
-                // after it's cleaned or corrupted.
-                || modifiedOutputFiles.treatEverythingAsDeleted()
-            ? modifiedOutputFiles
-            : ModifiedFileSet.NOTHING_MODIFIED,
+        modifiedOutputFiles,
         env.getFileCache(),
         prefetcher,
         env.getRuntime().getBugReporter());
@@ -1009,13 +1035,17 @@ public class ExecutionTool {
     private final Stopwatch executionUnstartedTimer;
     private final AtomicBoolean activated = new AtomicBoolean(false);
 
+    private final int progressReportInterval;
+
     ExecutionProgressReceiverSetup(
         SkyframeExecutor skyframeExecutor,
         CommandEnvironment env,
-        Stopwatch executionUnstartedTimer) {
+        Stopwatch executionUnstartedTimer,
+        int progressReportInterval) {
       this.skyframeExecutor = skyframeExecutor;
       this.env = env;
       this.executionUnstartedTimer = executionUnstartedTimer;
+      this.progressReportInterval = progressReportInterval;
     }
 
     @Subscribe
@@ -1038,6 +1068,13 @@ public class ExecutionTool {
             executionProgressReceiver, executionProgressReceiver, statusReporter);
         skyframeExecutor.setExecutionProgressReceiver(executionProgressReceiver);
         executionUnstartedTimer.start();
+
+        skyframeExecutor.setAndStartWatchdog(
+            new ActionExecutionInactivityWatchdog(
+                executionProgressReceiver.createInactivityMonitor(statusReporter),
+                executionProgressReceiver.createInactivityReporter(
+                    statusReporter, skyframeExecutor.getIsBuildingExclusiveArtifacts()),
+                progressReportInterval));
 
         env.getEventBus().unregister(this);
       }

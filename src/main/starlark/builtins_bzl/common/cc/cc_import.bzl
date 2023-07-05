@@ -80,6 +80,7 @@ def _create_archive_action(
     # action is created by cc_library
     ctx.actions.run(
         executable = archiver_path,
+        toolchain = cc_helper.CPP_TOOLCHAIN_TYPE,
         arguments = [args],
         env = env,
         inputs = depset(
@@ -206,6 +207,7 @@ cc_import = rule(
             default = Label("@" + semantics.get_repo() + "//tools/cpp:grep-includes"),
         ),
         "_cc_toolchain": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
+        "_use_auto_exec_groups": attr.bool(default = True),
     },
     provides = [CcInfo],
     toolchains = cc_helper.use_cpp_toolchain(),

@@ -43,6 +43,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
+import javax.lang.model.SourceVersion;
 import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticCollector;
@@ -147,6 +148,12 @@ public class IjarTests {
     task.setProcessors(
         Arrays.asList(
             new AbstractProcessor() {
+
+              @Override
+              public SourceVersion getSupportedSourceVersion() {
+                return SourceVersion.latestSupported();
+              }
+
               @Override
               public Set<String> getSupportedAnnotationTypes() {
                 return Collections.singleton("*");

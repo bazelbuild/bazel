@@ -148,6 +148,7 @@ public abstract class CcModule
           PackageIdentifier.createInMainRepo("tools/build_defs/android"),
           PackageIdentifier.createInMainRepo("third_party/bazel_rules/rules_android"),
           PackageIdentifier.createUnchecked("build_bazel_rules_android", ""),
+          PackageIdentifier.createUnchecked("rules_android", ""),
           PackageIdentifier.createInMainRepo("rust/private"),
           PackageIdentifier.createUnchecked("rules_rust", "rust/private"));
 
@@ -331,15 +332,17 @@ public abstract class CcModule
       Object stripOpts,
       Object inputFile,
       StarlarkThread thread)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     isCalledFromStarlarkCcCommon(thread);
     ImmutableList<VariablesExtension> variablesExtensions =
         asDict(variablesExtension).isEmpty()
             ? ImmutableList.of()
             : ImmutableList.of(new UserVariablesExtension(asDict(variablesExtension)));
+
     CcToolchainVariables.Builder variables =
         CcToolchainVariables.builder(
                 CompileBuildVariables.setupVariablesOrThrowEvalException(
+                    thread,
                     featureConfiguration.getFeatureConfiguration(),
                     ccToolchainProvider,
                     featureConfiguration
@@ -353,8 +356,8 @@ public abstract class CcModule
                     /* dwoFile= */ null,
                     /* ltoIndexingFile= */ null,
                     convertFromNoneable(thinLtoIndex, /* defaultValue= */ null),
-                    convertFromNoneable(thinLtoInputBitcodeFile, /* defaultValue=*/ null),
-                    convertFromNoneable(thinLtoOutputObjectFile, /* defaultValue=*/ null),
+                    convertFromNoneable(thinLtoInputBitcodeFile, /* defaultValue= */ null),
+                    convertFromNoneable(thinLtoOutputObjectFile, /* defaultValue= */ null),
                     /* includes= */ ImmutableList.of(),
                     userFlagsToIterable(userCompileFlags),
                     /* cppModuleMap= */ null,
@@ -375,7 +378,6 @@ public abstract class CcModule
                     Depset.noneableCast(defines, String.class, "preprocessor_defines").toList(),
                     ImmutableList.of()))
             .addStringSequenceVariable("stripopts", asClassImmutableList(stripOpts));
-
     String inputFileString = convertFromNoneable(inputFile, null);
     if (inputFileString != null) {
       variables.addStringVariable("input_file", inputFileString);
@@ -399,12 +401,13 @@ public abstract class CcModule
       boolean useTestOnlyFlags,
       boolean isStaticLinkingMode,
       StarlarkThread thread)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     isCalledFromStarlarkCcCommon(thread);
     if (featureConfiguration.getFeatureConfiguration().isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
       throw Starlark.errorf("FDO instrumentation not supported");
     }
     return LinkBuildVariables.setupVariables(
+        thread,
         isUsingLinkerNotArchiver,
         /* binDirectoryPath= */ null,
         convertFromNoneable(outputFile, /* defaultValue= */ null),
@@ -426,6 +429,7 @@ public abstract class CcModule
         /* interfaceLibraryBuilder= */ null,
         /* interfaceLibraryOutput= */ null,
         /* ltoOutputRootPrefix= */ null,
+        /* ltoObjRootPrefix= */ null,
         convertFromNoneable(defFile, /* defaultValue= */ null),
         /* fdoContext= */ null,
         Depset.noneableCast(
@@ -938,10 +942,17 @@ public abstract class CcModule
     }
   }
 
+  /**
+   * Create an LTO backend that does not perform any cross-module optimization because Starlark does
+   * not hava support for LTO indexing actions yet.
+   *
+   * <p>TODO(b/128341904): Do cross module optimization once there is Starlark support.
+   */
   @Override
   public LtoBackendArtifacts createLtoBackendArtifacts(
       StarlarkRuleContext starlarkRuleContext,
       String ltoOutputRootPrefixString,
+      String ltoObjRootPrefixString,
       Artifact bitcodeFile,
       FeatureConfigurationForStarlark featureConfigurationForStarlark,
       CcToolchainProvider ccToolchain,
@@ -950,19 +961,23 @@ public abstract class CcModule
       boolean shouldCreatePerObjectDebugInfo,
       Sequence<?> argv,
       StarlarkThread thread)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     isCalledFromStarlarkCcCommon(thread);
     RuleContext ruleContext = starlarkRuleContext.getRuleContext();
     PathFragment ltoOutputRootPrefix = PathFragment.create(ltoOutputRootPrefixString);
+    PathFragment ltoObjRootPrefix = PathFragment.create(ltoObjRootPrefixString);
     LtoBackendArtifacts ltoBackendArtifacts;
     try {
       ltoBackendArtifacts =
           new LtoBackendArtifacts(
+              ruleContext.getStarlarkThread(),
               ruleContext,
               ruleContext.getConfiguration().getOptions(),
               ruleContext.getConfiguration().getFragment(CppConfiguration.class),
               ltoOutputRootPrefix,
+              ltoObjRootPrefix,
               bitcodeFile,
+              /* allBitcodeFiles= */ null,
               starlarkRuleContext.actions().getActionConstructionContext(),
               ruleContext.getRepository(),
               ruleContext.getConfiguration(),
@@ -1913,7 +1928,6 @@ public abstract class CcModule
                 TargetUtils.getExecutionInfo(
                     actions.getRuleContext().getRule(),
                     actions.getRuleContext().isAllowTagsPropagation()))
-            .setGrepIncludes(convertFromNoneable(grepIncludes, /* defaultValue= */ null))
             .addNonCodeLinkerInputs(
                 Sequence.cast(additionalInputs, Artifact.class, "additional_inputs"))
             .setShouldCreateStaticLibraries(!disallowStaticLibraries)
@@ -2361,7 +2375,9 @@ public abstract class CcModule
             name = "grep_includes",
             positional = false,
             named = true,
-            documented = false,
+            doc =
+                "DO NOT USE - DEPRECATED. grep_includes is now part of cc_toolchain and there is no"
+                    + " need to specify it from the rule itself.",
             defaultValue = "None",
             allowedTypes = {
               @ParamType(type = FileApi.class),
@@ -2432,7 +2448,6 @@ public abstract class CcModule
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     isCalledFromStarlarkCcCommon(thread);
-    Artifact grepIncludes = convertFromNoneable(grepIncludesObject, /* defaultValue= */ null);
     getSemantics()
         .validateStarlarkCompileApiCall(
             starlarkActionFactoryApi,
@@ -2518,7 +2533,6 @@ public abstract class CcModule
             actions.asActionRegistry(actions),
             actions.getActionConstructionContext(),
             label,
-            grepIncludes,
             getSemantics(language),
             featureConfiguration.getFeatureConfiguration(),
             sourceCategory,
@@ -2763,7 +2777,6 @@ public abstract class CcModule
                 TargetUtils.getExecutionInfo(
                     actions.getRuleContext().getRule(),
                     actions.getRuleContext().isAllowTagsPropagation()))
-            .setGrepIncludes(convertFromNoneable(grepIncludes, /* defaultValue= */ null))
             .setLinkingMode(linkDepsStatically ? LinkingMode.STATIC : LinkingMode.DYNAMIC)
             .setIsStampingEnabled(isStampingEnabled)
             .addTransitiveAdditionalLinkerInputs(additionalInputsSet)
@@ -2800,7 +2813,7 @@ public abstract class CcModule
       helper.addVariableExtension(new UserVariablesExtension(asDict(variablesExtension)));
     }
     if (convertFromNoneable(useShareableArtifactFactory, false)) {
-      helper.setLinkArtifactFactory(CppLinkActionBuilder.SHAREABLE_LINK_ARTIFACT_FACTORY);
+      helper.setLinkArtifactFactory(CppLinkAction.SHAREABLE_LINK_ARTIFACT_FACTORY);
     }
     CcCompilationOutputs compilationOutputs =
         convertFromNoneable(compilationOutputsObject, /* defaultValue= */ null);
@@ -2887,7 +2900,14 @@ public abstract class CcModule
             doc = "<code>feature_configuration</code> to be queried.",
             positional = false,
             named = true),
-        @Param(name = "grep_includes", documented = false, positional = false, named = true),
+        @Param(
+            name = "grep_includes",
+            doc =
+                "DO NOT USE - DEPRECATED. grep_includes is now part of cc_toolchain and there is no"
+                    + " need to specify it from the rule itself.",
+            positional = false,
+            named = true,
+            defaultValue = "None"),
         @Param(name = "source_file", documented = false, positional = false, named = true),
         @Param(name = "output_file", documented = false, positional = false, named = true),
         @Param(name = "compilation_inputs", documented = false, positional = false, named = true),
@@ -2903,7 +2923,7 @@ public abstract class CcModule
       StarlarkActionFactory starlarkActionFactoryApi,
       CcToolchainProvider ccToolchain,
       FeatureConfigurationForStarlark featureConfigurationForStarlark,
-      Artifact grepIncludes,
+      Object grepIncludes,
       Artifact sourceFile,
       Artifact outputFile,
       Depset compilationInputs,
@@ -2911,7 +2931,7 @@ public abstract class CcModule
       String labelReplacement,
       String outputReplacement,
       StarlarkThread thread)
-      throws EvalException, InterruptedException, TypeException {
+      throws EvalException, InterruptedException, TypeException, RuleErrorException {
     isCalledFromStarlarkCcCommon(thread);
     RuleContext ruleContext = starlarkActionFactoryApi.getRuleContext();
     CppConfiguration cppConfiguration =
@@ -2922,7 +2942,6 @@ public abstract class CcModule
             CppLinkstampCompileHelper.createLinkstampCompileAction(
                 ruleContext,
                 ruleContext,
-                grepIncludes,
                 ruleContext.getConfiguration(),
                 sourceFile,
                 outputFile,

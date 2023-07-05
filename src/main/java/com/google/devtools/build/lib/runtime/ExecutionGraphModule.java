@@ -320,8 +320,10 @@ public class ExecutionGraphModule extends BlazeModule {
   @Subscribe
   @AllowConcurrentEvents
   public void actionComplete(ActionCompletionEvent event) {
+    // TODO(vanja): handle finish time in ActionCompletionEvent
     if (options.logMissedActions) {
-      actionEvent(event.getAction(), event.getRelativeActionStartTime());
+      actionEvent(
+          event.getAction(), event.getRelativeActionStartTimeNanos(), event.getFinishTimeNanos());
     }
   }
 
@@ -334,7 +336,7 @@ public class ExecutionGraphModule extends BlazeModule {
   @AllowConcurrentEvents
   public void actionCached(CachedActionEvent event) {
     if (options.logCachedActions) {
-      actionEvent(event.getAction(), event.getNanoTimeStart());
+      actionEvent(event.getAction(), event.getNanoTimeStart(), event.getNanoTimeFinish());
     }
   }
 
@@ -348,14 +350,17 @@ public class ExecutionGraphModule extends BlazeModule {
   @AllowConcurrentEvents
   public void middlemanAction(ActionMiddlemanEvent event) {
     if (options.logMiddlemanActions) {
-      actionEvent(event.getAction(), event.getNanoTimeStart());
+      actionEvent(event.getAction(), event.getNanoTimeStart(), event.getNanoTimeFinish());
     }
   }
 
-  private void actionEvent(Action action, long nanoTimeStart) {
+  private void actionEvent(Action action, long nanoTimeStart, long nanoTimeFinish) {
     ActionDumpWriter localWriter = writer;
     if (localWriter != null) {
-      localWriter.enqueue(action, nanosToMillis.toEpochMillis(nanoTimeStart));
+      localWriter.enqueue(
+          action,
+          nanosToMillis.toEpochMillis(nanoTimeStart),
+          nanosToMillis.toEpochMillis(nanoTimeFinish));
     }
   }
 
@@ -411,11 +416,15 @@ public class ExecutionGraphModule extends BlazeModule {
   @VisibleForTesting
   protected abstract static class ActionDumpWriter implements Runnable {
 
-    private ExecutionGraph.Node actionToNode(Action action, long startMillis) {
+    private ExecutionGraph.Node actionToNode(Action action, long startMillis, long finishMillis) {
       int index = nextIndex.getAndIncrement();
       ExecutionGraph.Node.Builder node =
           ExecutionGraph.Node.newBuilder()
-              .setMetrics(ExecutionGraph.Metrics.newBuilder().setStartTimestampMillis(startMillis))
+              .setMetrics(
+                  ExecutionGraph.Metrics.newBuilder()
+                      .setStartTimestampMillis(startMillis)
+                      .setDurationMillis((int) (finishMillis - startMillis))
+                      .setProcessMillis((int) (finishMillis - startMillis)))
               .setDescription(action.prettyPrint())
               .setMnemonic(action.getMnemonic());
       if (depType != DependencyInfo.NONE) {
@@ -704,13 +713,13 @@ public class ExecutionGraphModule extends BlazeModule {
       outputToDiscoverInputsTimeMs.put(firstOutput, sum);
     }
 
-    void enqueue(Action action, long startMillis) {
+    void enqueue(Action action, long startMillis, long finishMillis) {
       // This is here just to capture actions which don't have spawns. If we already know about
       // an output, don't also include it again.
       if (outputToNode.containsKey(getFirstOutput(action, action.getOutputs()))) {
         return;
       }
-      enqueue(actionToNode(action, startMillis).toByteArray());
+      enqueue(actionToNode(action, startMillis, finishMillis).toByteArray());
     }
 
     void enqueue(SpawnExecutedEvent event) {

@@ -102,7 +102,8 @@ public abstract class SkyFunctionException extends Exception {
     }
   }
 
-  static <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
+  public static <
+          E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
       void throwIfInstanceOf(
           @Nullable Exception e,
           @Nullable Class<E1> exceptionClass1,

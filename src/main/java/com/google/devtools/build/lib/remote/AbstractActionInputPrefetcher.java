@@ -16,20 +16,20 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toListenableFuture;
 import static com.google.devtools.build.lib.remote.util.RxUtils.mergeBulkTransfer;
+import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
-import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -38,9 +38,9 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.RxUtils;
@@ -76,7 +76,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   private final AsyncTaskCache.NoResult<Path> downloadCache = AsyncTaskCache.NoResult.create();
   private final TempPathGenerator tempPathGenerator;
   private final OutputPermissions outputPermissions;
-  protected final Set<Artifact> outputsAreInputs = Sets.newConcurrentHashSet();
 
   protected final Path execRoot;
   protected final RemoteOutputChecker remoteOutputChecker;
@@ -265,6 +264,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    * @param tempPath the temporary path which the input should be written to.
    */
   protected abstract ListenableFuture<Void> doDownloadFile(
+      ActionExecutionMetadata action,
       Reporter reporter,
       Path tempPath,
       PathFragment execPath,
@@ -287,6 +287,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    */
   @Override
   public ListenableFuture<Void> prefetchFiles(
+      ActionExecutionMetadata action,
       Iterable<? extends ActionInput> inputs,
       MetadataSupplier metadataSupplier,
       Priority priority) {
@@ -310,7 +311,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
     Flowable<TransferResult> transfers =
         Flowable.fromIterable(files)
-            .flatMapSingle(input -> prefetchFile(dirCtx, metadataSupplier, input, priority));
+            .flatMapSingle(
+                input -> prefetchFile(action, dirCtx, metadataSupplier, input, priority));
 
     Completable prefetch =
         Completable.using(
@@ -320,6 +322,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   private Single<TransferResult> prefetchFile(
+      ActionExecutionMetadata action,
       DirectoryContext dirCtx,
       MetadataSupplier metadataSupplier,
       ActionInput input,
@@ -349,6 +352,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
       Completable result =
           downloadFileNoCheckRx(
+              action,
               dirCtx,
               execRoot.getRelative(execPath),
               treeRootExecPath != null ? execRoot.getRelative(treeRootExecPath) : null,
@@ -423,6 +427,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   private Completable downloadFileNoCheckRx(
+      ActionExecutionMetadata action,
       DirectoryContext dirCtx,
       Path path,
       @Nullable Path treeRoot,
@@ -431,7 +436,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       Priority priority) {
     if (path.isSymbolicLink()) {
       try {
-        path = path.getRelative(path.readSymbolicLink());
+        path = path.resolveSymbolicLinks();
       } catch (IOException e) {
         return Completable.error(e);
       }
@@ -447,6 +452,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                     toCompletable(
                             () ->
                                 doDownloadFile(
+                                    action,
                                     reporter,
                                     tempPath,
                                     finalPath.relativeTo(execRoot),
@@ -574,91 +580,39 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
   }
 
-  /** Event which is fired when inputs for local action are eagerly prefetched. */
-  public static class InputsEagerlyPrefetched implements Postable {
-    private final List<Artifact> artifacts;
-
-    public InputsEagerlyPrefetched(List<Artifact> artifacts) {
-      this.artifacts = artifacts;
-    }
-
-    public List<Artifact> getArtifacts() {
-      return artifacts;
-    }
-  }
-
-  @SuppressWarnings({"CheckReturnValue", "FutureReturnValueIgnored"})
   public void finalizeAction(Action action, OutputMetadataStore outputMetadataStore)
       throws IOException, InterruptedException {
-    List<Artifact> inputsToDownload = new ArrayList<>();
     List<Artifact> outputsToDownload = new ArrayList<>();
-
     for (Artifact output : action.getOutputs()) {
+      if (outputMetadataStore.artifactOmitted(output)) {
+        continue;
+      }
+
       var metadata = outputMetadataStore.getOutputMetadata(output);
       if (!metadata.isRemote()) {
         continue;
       }
 
-      if (outputsAreInputs.remove(output)) {
-        if (output.isTreeArtifact()) {
-          var children = outputMetadataStore.getTreeArtifactChildren((SpecialArtifact) output);
-          inputsToDownload.addAll(children);
-        } else {
-          inputsToDownload.add(output);
-        }
-      } else if (output.isTreeArtifact()) {
+      if (output.isTreeArtifact()) {
         var children = outputMetadataStore.getTreeArtifactChildren((SpecialArtifact) output);
         for (var file : children) {
-          if (remoteOutputChecker.shouldDownloadFile(file)) {
+          if (remoteOutputChecker.shouldDownloadOutput(file)) {
             outputsToDownload.add(file);
           }
         }
-      } else if (remoteOutputChecker.shouldDownloadFile(output)) {
-        outputsToDownload.add(output);
+      } else {
+        if (remoteOutputChecker.shouldDownloadOutput(output)) {
+          outputsToDownload.add(output);
+        }
       }
     }
 
-    if (!inputsToDownload.isEmpty()) {
-      // "input" here means "input to another action" (but an output of this one), so
-      // getOutputMetadata() is the right method to pass to prefetchFiles()
-      var future =
-          prefetchFiles(inputsToDownload, outputMetadataStore::getOutputMetadata, Priority.HIGH);
-      addCallback(
-          future,
-          new FutureCallback<Void>() {
-            @Override
-            public void onSuccess(Void unused) {
-              reporter.post(new InputsEagerlyPrefetched(inputsToDownload));
-            }
-
-            @Override
-            public void onFailure(Throwable throwable) {
-              reporter.handle(
-                  Event.warn(
-                      String.format(
-                          "Failed to eagerly prefetch inputs: %s", throwable.getMessage())));
-            }
-          },
-          directExecutor());
-    }
-
     if (!outputsToDownload.isEmpty()) {
-      var future =
-          prefetchFiles(outputsToDownload, outputMetadataStore::getOutputMetadata, Priority.LOW);
-      addCallback(
-          future,
-          new FutureCallback<Void>() {
-            @Override
-            public void onSuccess(Void unused) {}
-
-            @Override
-            public void onFailure(Throwable throwable) {
-              reporter.handle(
-                  Event.warn(
-                      String.format("Failed to download outputs: %s", throwable.getMessage())));
-            }
-          },
-          directExecutor());
+      try (var s = Profiler.instance().profile(ProfilerTask.REMOTE_DOWNLOAD, "Download outputs")) {
+        getFromFuture(
+            prefetchFiles(
+                action, outputsToDownload, outputMetadataStore::getOutputMetadata, Priority.HIGH));
+      }
     }
   }
 
@@ -668,5 +622,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
   public ImmutableSet<ActionInput> getMissingActionInputs() {
     return ImmutableSet.copyOf(missingActionInputs);
+  }
+
+  public RemoteOutputChecker getRemoteOutputChecker() {
+    return remoteOutputChecker;
   }
 }

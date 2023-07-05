@@ -293,7 +293,8 @@ public final class ProfilerTest {
                     /* processId= */ 1,
                     /* mnemonic= */ "dummy1",
                     /* isMultiplex= */ true,
-                    /* isSandboxed= */ true),
+                    /* isSandboxed= */ true,
+                    /* workerKeyHash= */ 0),
                 WorkerMetric.WorkerStat.create(1024, Instant.now(), Instant.now()),
                 /* isMeasurable= */ true),
             WorkerMetric.create(
@@ -302,7 +303,8 @@ public final class ProfilerTest {
                     /* processId= */ 1,
                     /* mnemonic= */ "dummy2",
                     /* isMultiplex= */ false,
-                    /* isSandboxed= */ false),
+                    /* isSandboxed= */ false,
+                    /* workerKeyHash= */ 0),
                 WorkerMetric.WorkerStat.create(2048, Instant.now(), Instant.now()),
                 /* isMeasurable= */ true));
 

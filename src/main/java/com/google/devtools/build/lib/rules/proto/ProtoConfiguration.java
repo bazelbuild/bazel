@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.starlarkbuildapi.ProtoConfigurationApi;
@@ -33,6 +34,8 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.List;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 
 /** Configuration for Protocol Buffer Libraries. */
@@ -44,16 +47,6 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
   /** Command line options. */
   public static class Options extends FragmentOptions {
-    @Option(
-        name = "incompatible_generated_protos_in_virtual_imports",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help =
-            "If set, generated .proto files are put into a virtual import directory. For more "
-                + "information, see https://github.com/bazelbuild/bazel/issues/9215")
-    public boolean generatedProtosInVirtualImports;
 
     @Option(
         name = "protocopt",
@@ -112,7 +105,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
     @Option(
         name = "proto_toolchain_for_j2objc",
-        defaultValue = "@bazel_tools//tools/j2objc:j2objc_proto_toolchain",
+        defaultValue = ProtoConstants.DEFAULT_J2OBJC_PROTO_LABEL,
         category = "flags",
         converter = CoreOptionConverters.EmptyToNullLabelConverter.class,
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -171,15 +164,6 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
         converter = Converters.CommaSeparatedOptionSetConverter.class)
     public List<String> ccProtoLibrarySourceSuffixes;
 
-    @Option(
-        name = "experimental_java_proto_add_allowed_public_imports",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help = "This flag is a noop and scheduled for removal.")
-    public boolean experimentalJavaProtoAddAllowedPublicImports;
-
     @Override
     public FragmentOptions getExec() {
       Options exec = (Options) super.getExec();
@@ -196,7 +180,6 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
       exec.strictPublicImports = strictPublicImports;
       exec.ccProtoLibraryHeaderSuffixes = ccProtoLibraryHeaderSuffixes;
       exec.ccProtoLibrarySourceSuffixes = ccProtoLibrarySourceSuffixes;
-      exec.generatedProtosInVirtualImports = generatedProtosInVirtualImports;
       return exec;
     }
   }
@@ -223,13 +206,23 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     return protocOpts;
   }
 
+  private static void checkPrivateStarlarkificationAllowlist(StarlarkThread thread)
+      throws EvalException {
+    Label label =
+        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
+            .label();
+    if (!label.getPackageIdentifier().getRepository().toString().equals("@_builtins")) {
+      throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
+    }
+  }
+
   @StarlarkMethod(
       name = "experimental_proto_descriptorsets_include_source_info",
       useStarlarkThread = true,
       documented = false)
   public boolean experimentalProtoDescriptorSetsIncludeSourceInfoForStarlark(StarlarkThread thread)
       throws EvalException {
-    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    checkPrivateStarlarkificationAllowlist(thread);
     return experimentalProtoDescriptorSetsIncludeSourceInfo();
   }
 
@@ -262,6 +255,10 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     return options.protoToolchainForJava;
   }
 
+  @StarlarkConfigurationField(
+      name = "proto_toolchain_for_j2objc",
+      doc = "Label for the j2objc toolchains.",
+      defaultLabel = ProtoConstants.DEFAULT_J2OBJC_PROTO_LABEL)
   public Label protoToolchainForJ2objc() {
     return options.protoToolchainForJ2objc;
   }
@@ -284,13 +281,13 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
   @StarlarkMethod(name = "strict_proto_deps", useStarlarkThread = true, documented = false)
   public String strictProtoDepsForStarlark(StarlarkThread thread) throws EvalException {
-    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    checkPrivateStarlarkificationAllowlist(thread);
     return strictProtoDeps().toString();
   }
 
   @StarlarkMethod(name = "strict_public_imports", useStarlarkThread = true, documented = false)
   public String strictPublicImportsForStarlark(StarlarkThread thread) throws EvalException {
-    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    checkPrivateStarlarkificationAllowlist(thread);
     return options.strictPublicImports.toString();
   }
 
@@ -304,7 +301,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
       documented = false)
   public List<String> ccProtoLibraryHeaderSuffixesForStarlark(StarlarkThread thread)
       throws EvalException {
-    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    checkPrivateStarlarkificationAllowlist(thread);
     return ccProtoLibraryHeaderSuffixes();
   }
 
@@ -318,26 +315,11 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
       documented = false)
   public List<String> ccProtoLibrarySourceSuffixesForStarlark(StarlarkThread thread)
       throws EvalException {
-    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    checkPrivateStarlarkificationAllowlist(thread);
     return ccProtoLibrarySourceSuffixes();
   }
 
   public List<String> ccProtoLibrarySourceSuffixes() {
     return ccProtoLibrarySourceSuffixes;
-  }
-
-
-  @StarlarkMethod(
-      name = "generated_protos_in_virtual_imports",
-      useStarlarkThread = true,
-      documented = false)
-  public boolean generatedProtosInVirtualImportsForStarlark(StarlarkThread thread)
-      throws EvalException {
-    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
-    return generatedProtosInVirtualImports();
-  }
-
-  public boolean generatedProtosInVirtualImports() {
-    return options.generatedProtosInVirtualImports;
   }
 }

@@ -36,6 +36,11 @@ import javax.annotation.Nullable;
  * {@link TransitionFactory} implementation which creates a {@link PatchTransition} which will
  * transition to a configuration suitable for building dependencies for the execution platform of
  * the depending target.
+ *
+ * <p>Note that execGroup is not directly consumed by the involved transition but instead stored
+ * here. Instead, the rule definition stores it in this factory. Then, toolchain resolution extracts
+ * and consumes it to store an execution platform in attrs. Finally, the execution platform is read
+ * by the factory to create the transition.
  */
 public class ExecutionTransitionFactory
     implements TransitionFactory<AttributeTransitionData>, ExecTransitionFactoryApi {
@@ -46,6 +51,11 @@ public class ExecutionTransitionFactory
    */
   public static ExecutionTransitionFactory createFactory() {
     return new ExecutionTransitionFactory(DEFAULT_EXEC_GROUP_NAME);
+  }
+
+  /** Returns a new {@link ExecutionTransition} immediately. */
+  public static PatchTransition createTransition(@Nullable Label executionPlatform) {
+    return new ExecutionTransition(executionPlatform);
   }
 
   /**
@@ -104,6 +114,10 @@ public class ExecutionTransitionFactory
 
     @Override
     public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+      // This is technically a lie since the call to underlying().createExecOptions is transitively
+      // reading and potentially modifying all fragments. There is currently no way for the
+      // transition to actually list all fragments like this and thus only lists the ones that are
+      // directly being read here. Note that this transition is exceptional in its implementation.
       return FRAGMENTS;
     }
 

@@ -1125,10 +1125,6 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     return rawLabels == null ? getDefaultVisibility().getDeclaredLabels() : rawLabels;
   }
 
-  public boolean isVisibilitySpecified() {
-    return ruleClass.getName().equals("bind") || isAttributeValueExplicitlySpecified("visibility");
-  }
-
   @Nullable
   @SuppressWarnings("unchecked")
   private List<Label> getRawVisibilityLabels() {
@@ -1151,7 +1147,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
         && pkg.getConfigSettingVisibilityPolicy() == ConfigSettingVisibilityPolicy.DEFAULT_PUBLIC) {
       return RuleVisibility.PUBLIC; // Default: //visibility:public.
     }
-    return pkg.getDefaultVisibility();
+    return pkg.getPackageArgs().defaultVisibility();
   }
 
   @Override
@@ -1165,7 +1161,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
         && isAttributeValueExplicitlySpecified("distribs")) {
       return NonconfigurableAttributeMapper.of(this).get("distribs", BuildType.DISTRIBUTIONS);
     } else {
-      return pkg.getDefaultDistribs();
+      return pkg.getPackageArgs().distribs();
     }
   }
 
@@ -1183,7 +1179,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     } else if (ruleClass.ignoreLicenses()) {
       return License.NO_LICENSE;
     } else {
-      return pkg.getDefaultLicense();
+      return pkg.getPackageArgs().license();
     }
   }
 

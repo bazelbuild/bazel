@@ -17,12 +17,10 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
-import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
@@ -65,11 +63,6 @@ public final class MockCppSemantics implements CppSemantics {
   }
 
   @Override
-  public HeadersCheckingMode determineHeadersCheckingMode(RuleContext ruleContext) {
-    return HeadersCheckingMode.LOOSE;
-  }
-
-  @Override
   public HeadersCheckingMode determineStarlarkHeadersCheckingMode(
       RuleContext context, CppConfiguration cppConfig, CcToolchainProvider toolchain) {
     return HeadersCheckingMode.LOOSE;
@@ -81,16 +74,8 @@ public final class MockCppSemantics implements CppSemantics {
   }
 
   @Override
-  public void validateAttributes(RuleContext ruleContext) {}
-
-  @Override
   public boolean needsIncludeValidation() {
     return true;
-  }
-
-  @Override
-  public StructImpl getCcSharedLibraryInfo(TransitiveInfoCollection dep) {
-    return null;
   }
 
   @Override
@@ -99,22 +84,6 @@ public final class MockCppSemantics implements CppSemantics {
       AspectDescriptor aspectDescriptor,
       CcToolchainProvider ccToolchain,
       ImmutableSet<String> unsupportedFeatures) {}
-
-  @Override
-  public boolean createEmptyArchive() {
-    return false;
-  }
-
-  @Override
-  public void checkCanUseImplementationDeps(RuleContext ruleContext) {
-    boolean experimentalCcImplementationDeps =
-        ruleContext.getFragment(CppConfiguration.class).experimentalCcImplementationDeps();
-    if (!experimentalCcImplementationDeps
-        && ruleContext.attributes().isAttributeValueExplicitlySpecified("implementation_deps")) {
-      ruleContext.attributeError(
-          "implementation_deps", "requires --experimental_cc_implementation_deps");
-    }
-  }
 
   @Override
   public void validateStarlarkCompileApiCall(

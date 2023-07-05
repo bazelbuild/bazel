@@ -72,6 +72,31 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean mergeGenfilesDirectory;
 
   @Option(
+      name = "experimental_exec_config",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If set to '//some:label:my.bzl%my_transition', uses my_transition for 'cfg = \"exec\"' "
+              + "semantics instead of Bazel's internal exec transition logic.  Else uses Bazel's "
+              + "internal logic.")
+  public String starlarkExecConfig;
+
+  @Option(
+      name = "experimental_exec_config_diff",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "For debugging --experimental_exec_config only: if set and  --experimental_exec_config is"
+              + " set, Bazel also runs internal logic on `cfg =  \"exec\"` transitions and prints "
+              + "the diff between that and the Starlark transition to the screen.  "
+              + "`cfg =  \"exec\"` semantics still use the Starlark transition.")
+  public boolean execConfigDiff;
+
+  @Option(
       name = "experimental_platform_in_output_dir",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -131,18 +156,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public int minParamFileSize;
 
   @Option(
-      name = "defer_param_files",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.EXECUTION,
-        OptionEffectTag.ACTION_COMMAND_LINES
-      },
-      help = "This option is deprecated and has no effect and will be removed in the future.")
-  public boolean deferParamFiles;
-
-  @Option(
       name = "experimental_extended_sanity_checks",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -174,6 +187,17 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help =
           "Check for action prefix file path conflicts, regardless of action-specific overrides.")
   public boolean strictConflictChecks;
+
+  @Option(
+      name = "incompatible_disallow_unsound_directory_outputs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "If set, it is an error for an action to materialize an output file as a directory. Does"
+              + " not affect source directories.")
+  public boolean disallowUnsoundDirectoryOutputs;
 
   // This option is only used during execution. However, it is a required input to the analysis
   // phase, as otherwise flipping this flag would not invalidate already-executed actions.
@@ -260,14 +284,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           "Specify the mode the tools used during the build will be built in. Values: "
               + "'fastbuild', 'dbg', 'opt'.")
   public CompilationMode hostCompilationMode;
-
-  @Option(
-      name = "experimental_enable_aspect_hints",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL})
-  public boolean enableAspectHints;
 
   @Option(
       name = "incompatible_auto_exec_groups",
@@ -432,6 +448,16 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean collectCodeCoverage;
 
   @Option(
+      name = "experimental_collect_code_coverage_for_generated_files",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "If specified, Bazel will also generate collect coverage information for generated"
+              + " files.")
+  public boolean collectCodeCoverageForGeneratedFiles;
+
+  @Option(
       name = "build_runfile_manifests",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
@@ -571,7 +597,9 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     /** Use `affected by starlark transition` to track configuration changes */
     LEGACY,
     /** Produce name based on diff from some baseline BuildOptions (usually top-level) */
-    DIFF_AGAINST_BASELINE
+    DIFF_AGAINST_BASELINE,
+    /** Like DIFF_AGAINST_BASELINE, but compare against post-exec baseline if isExec is set. */
+    DIFF_AGAINST_DYNAMIC_BASELINE
   }
 
   /** Converter for the {@code --experimental_output_directory_naming_scheme} options. */
@@ -596,6 +624,17 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " `affected by Starlark transition` is ignored and instead ST hash is determined,"
               + " for all configuration, by diffing against the top-level configuration.")
   public OutputDirectoryNamingScheme outputDirectoryNamingScheme;
+
+  public boolean useBaselineForOutputDirectoryNamingScheme() {
+    switch (outputDirectoryNamingScheme) {
+      case DIFF_AGAINST_BASELINE:
+      case DIFF_AGAINST_DYNAMIC_BASELINE:
+        return true;
+      case LEGACY:
+        return false;
+    }
+    throw new IllegalStateException("unreachable");
+  }
 
   @Option(
       name = "is exec configuration",
@@ -705,7 +744,8 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public Label autoCpuEnvironmentGroup;
 
   @Option(
-      name = "experimental_allow_unresolved_symlinks",
+      name = "allow_unresolved_symlinks",
+      oldName = "experimental_allow_unresolved_symlinks",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
@@ -991,6 +1031,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     exec.useAutoExecGroups = useAutoExecGroups;
     exec.experimentalWritableOutputs = experimentalWritableOutputs;
     exec.strictConflictChecks = strictConflictChecks;
+    exec.disallowUnsoundDirectoryOutputs = disallowUnsoundDirectoryOutputs;
 
     // === Runfiles ===
     exec.buildRunfilesManifests = buildRunfilesManifests;
@@ -1035,8 +1076,10 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     // Pass archived tree artifacts filter.
     exec.archivedArtifactsMnemonicsFilter = archivedArtifactsMnemonicsFilter;
 
-    exec.enableAspectHints = enableAspectHints;
     exec.allowUnresolvedSymlinks = allowUnresolvedSymlinks;
+
+    exec.starlarkExecConfig = starlarkExecConfig;
+    exec.execConfigDiff = execConfigDiff;
     return exec;
   }
 
@@ -1048,6 +1091,19 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       flagValueByName.put(entry.getKey(), entry.getValue());
     }
     return flagValueByName;
+  }
+
+  // Normalizes list of map entries by keeping only the last entry for each key.
+  private static List<Map.Entry<String, String>> normalizeEntries(
+      List<Map.Entry<String, String>> entries) {
+    LinkedHashMap<String, String> normalizedEntries = new LinkedHashMap<>();
+    for (Map.Entry<String, String> entry : entries) {
+      normalizedEntries.put(entry.getKey(), entry.getValue());
+    }
+    if (normalizedEntries.size() == entries.size()) {
+      return entries;
+    }
+    return normalizedEntries.entrySet().stream().map(SimpleEntry::new).collect(toImmutableList());
   }
 
   /// Normalizes --features flags by sorting the values and having disables win over enables.
@@ -1103,6 +1159,11 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     }
     // Normalize features.
     result.defaultFeatures = getNormalizedFeatures(defaultFeatures);
+
+    result.actionEnvironment = normalizeEntries(actionEnvironment);
+    result.hostActionEnvironment = normalizeEntries(hostActionEnvironment);
+    result.testEnvironment = normalizeEntries(testEnvironment);
+    result.commandLineFlagAliases = normalizeEntries(commandLineFlagAliases);
 
     return result;
   }

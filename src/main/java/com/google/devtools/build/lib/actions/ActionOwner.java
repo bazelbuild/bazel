@@ -42,7 +42,7 @@ public abstract class ActionOwner {
           /* label= */ null,
           Location.BUILTIN,
           /* targetKind= */ "empty target kind",
-          /* mnemonic= */ "system",
+          /* buildConfigurationMnemonic= */ "system",
           /* configurationChecksum= */ "system",
           /* buildConfigurationEvent= */ null,
           /* isToolConfiguration= */ false,
@@ -78,7 +78,7 @@ public abstract class ActionOwner {
       @Nullable Label label,
       Location location,
       String targetKind,
-      String mnemonic,
+      String buildConfigurationMnemonic,
       String configurationChecksum,
       @Nullable BuildConfigurationEvent buildConfigurationEvent,
       boolean isToolConfiguration,
@@ -90,7 +90,10 @@ public abstract class ActionOwner {
         location,
         targetKind,
         BuildConfigurationInfo.AutoBuildConfigurationInfo.create(
-            mnemonic, configurationChecksum, buildConfigurationEvent, isToolConfiguration),
+            buildConfigurationMnemonic,
+            configurationChecksum,
+            buildConfigurationEvent,
+            isToolConfiguration),
         executionPlatform,
         aspectDescriptors,
         execProperties);
@@ -112,7 +115,7 @@ public abstract class ActionOwner {
   public abstract BuildConfigurationInfo getBuildConfigurationInfo();
 
   /** Returns the mnemonic for the configuration for this {@link ActionOwner}. */
-  public final String getMnemonic() {
+  public final String getBuildConfigurationMnemonic() {
     return getBuildConfigurationInfo().getMnemonic();
   }
 

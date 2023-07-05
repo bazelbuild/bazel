@@ -187,8 +187,7 @@ final class SandboxedWorker extends SingleplexWorker {
               .setPersistentProcess(true)
               .setBindMounts(getBindMounts(workDir, sandboxTmp))
               .setUseFakeHostname(this.hardenedSandboxOptions.fakeHostname())
-              .setCreateNetworkNamespace(NETNS)
-              .setUseDebugMode(hardenedSandboxOptions.debugMode());
+              .setCreateNetworkNamespace(NETNS);
 
       if (hardenedSandboxOptions.memoryLimit() > 0) {
         CgroupsInfo cgroupsInfo = CgroupsInfo.getInstance();

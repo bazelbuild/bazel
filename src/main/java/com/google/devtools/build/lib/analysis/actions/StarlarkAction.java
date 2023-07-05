@@ -230,7 +230,8 @@ public class StarlarkAction extends SpawnAction {
               "Jetify",
               "DeJetify",
               "JetifySrcs",
-              "DejetifySrcs");
+              "DejetifySrcs",
+              "DexBuilder");
       CoreOptions coreOptions = configuration.getOptions().get(CoreOptions.class);
       return coreOptions.outputPathsMode == OutputPathsMode.STRIP
           && qualifyingMnemonics.contains(mnemonic)
@@ -283,6 +284,13 @@ public class StarlarkAction extends SpawnAction {
       this.allStarlarkActionInputs = inputs;
       this.unusedInputsList = unusedInputsList;
       this.shadowedAction = shadowedAction;
+    }
+
+    @Override
+    public NestedSet<Artifact> getSchedulingDependencies() {
+      return shadowedAction.isPresent()
+          ? shadowedAction.get().getSchedulingDependencies()
+          : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
 
     @Override
@@ -466,7 +474,7 @@ public class StarlarkAction extends SpawnAction {
     public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
         throws CommandLineExpansionException {
       ActionEnvironment env = getEnvironment();
-      Map<String, String> environment = Maps.newLinkedHashMapWithExpectedSize(env.size());
+      Map<String, String> environment = Maps.newLinkedHashMapWithExpectedSize(env.estimatedSize());
 
       if (shadowedAction.isPresent()) {
         // Put all the variables of the shadowed action's environment

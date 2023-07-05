@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -36,6 +35,7 @@ import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -119,13 +118,7 @@ public final class CoverageReportActionBuilder {
         String locationMessage,
         boolean remotable,
         RunfilesSupplier runfilesSupplier) {
-      super(
-          owner,
-          /*tools = */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          inputs,
-          runfilesSupplier,
-          outputs,
-          ActionEnvironment.EMPTY);
+      super(owner, inputs, outputs);
       this.command = command;
       this.remotable = remotable;
       this.locationMessage = locationMessage;
@@ -136,17 +129,12 @@ public final class CoverageReportActionBuilder {
     public ActionResult execute(ActionExecutionContext actionExecutionContext)
         throws ActionExecutionException, InterruptedException {
       try {
-        ImmutableMap<String, String> executionInfo = remotable
-            ? ImmutableMap.<String, String>of()
-            : ImmutableMap.<String, String>of("local", "");
-        Spawn spawn = new BaseSpawn(
-            command,
-            ImmutableMap.<String, String>of(),
-            executionInfo,
-            runfilesSupplier,
-            this,
-            LOCAL_RESOURCES);
-        List<SpawnResult> spawnResults =
+        ImmutableMap<String, String> executionInfo =
+            remotable ? ImmutableMap.of() : ImmutableMap.of(ExecutionRequirements.NO_REMOTE, "");
+        Spawn spawn =
+            new BaseSpawn(
+                command, ImmutableMap.of(), executionInfo, runfilesSupplier, this, LOCAL_RESOURCES);
+        ImmutableList<SpawnResult> spawnResults =
             actionExecutionContext
                 .getContext(SpawnStrategyResolver.class)
                 .exec(spawn, actionExecutionContext);
@@ -161,6 +149,11 @@ public final class CoverageReportActionBuilder {
       } catch (ExecException e) {
         throw ActionExecutionException.fromExecException(e, this);
       }
+    }
+
+    @Override
+    public RunfilesSupplier getRunfilesSupplier() {
+      return runfilesSupplier;
     }
 
     @Override
@@ -210,7 +203,7 @@ public final class CoverageReportActionBuilder {
     if (targetsToTest == null || targetsToTest.isEmpty()) {
       return null;
     }
-    ImmutableList.Builder<Artifact> builder = ImmutableList.<Artifact>builder();
+    ImmutableList.Builder<Artifact> builder = ImmutableList.builder();
     FilesToRunProvider reportGenerator = null;
     for (ConfiguredTarget target : targetsToTest) {
       // Skip incompatible tests.
@@ -250,7 +243,7 @@ public final class CoverageReportActionBuilder {
     }
   }
 
-  private FileWriteAction generateLcovFileWriteAction(
+  private static FileWriteAction generateLcovFileWriteAction(
       Artifact lcovArtifact, ImmutableList<Artifact> coverageArtifacts) {
     List<String> filepaths = new ArrayList<>(coverageArtifacts.size());
     for (Artifact artifact : coverageArtifacts) {
@@ -260,34 +253,30 @@ public final class CoverageReportActionBuilder {
         ACTION_OWNER,
         lcovArtifact,
         Joiner.on('\n').join(filepaths),
-        /*makeExecutable=*/ false,
+        /* makeExecutable= */ false,
         Compression.DISALLOW);
   }
 
-  /**
-   * Computes the arguments passed to the coverage report generator.
-   */
+  /** Computes the arguments passed to the coverage report generator. */
   @FunctionalInterface
   public interface ArgsFunc {
     ImmutableList<String> apply(CoverageArgs args);
   }
 
-  /**
-   * Computes the location message for the {@link CoverageReportAction}.
-   */
+  /** Computes the location message for the {@link CoverageReportAction}. */
   @FunctionalInterface
   public interface LocationFunc {
     String apply(CoverageArgs args);
   }
 
-  private CoverageReportAction generateCoverageReportAction(
-      CoverageArgs args,
-      ArgsFunc argsFunc,
-      LocationFunc locationFunc) {
+  private static CoverageReportAction generateCoverageReportAction(
+      CoverageArgs args, ArgsFunc argsFunc, LocationFunc locationFunc) {
     ArtifactRoot root = args.directories().getBuildDataDirectory(args.workspaceName());
     PathFragment coverageDir = TestRunnerAction.COVERAGE_TMP_ROOT;
-    Artifact lcovOutput = args.factory().getDerivedArtifact(
-        coverageDir.getRelative("_coverage_report.dat"), root, args.artifactOwner());
+    Artifact lcovOutput =
+        args.factory()
+            .getDerivedArtifact(
+                coverageDir.getRelative("_coverage_report.dat"), root, args.artifactOwner());
     Artifact reportGeneratorExec = args.reportGenerator().getExecutable();
     RunfilesSupport runfilesSupport = args.reportGenerator().getRunfilesSupport();
     args = CoverageArgs.createCopyWithCoverageDirAndLcovOutput(args, coverageDir, lcovOutput);

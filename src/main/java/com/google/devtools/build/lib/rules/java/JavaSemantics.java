@@ -25,11 +25,9 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.Runfiles.Builder;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.actions.Substitution.ComputedSubstitution;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -38,19 +36,14 @@ import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefaul
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.File;
 import java.util.List;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /** Pluggable Java compilation semantics. */
@@ -62,7 +55,6 @@ public interface JavaSemantics {
   SafeImplicitOutputsFunction JAVA_BINARY_SOURCE_JAR = fromTemplates("%{name}-src.jar");
 
   SafeImplicitOutputsFunction JAVA_BINARY_DEPLOY_JAR = fromTemplates("%{name}_deploy.jar");
-  SafeImplicitOutputsFunction JAVA_BINARY_MERGED_JAR = fromTemplates("%{name}_merged.jar");
   SafeImplicitOutputsFunction JAVA_UNSTRIPPED_BINARY_DEPLOY_JAR =
       fromTemplates("%{name}_deploy.jar.unstripped");
   SafeImplicitOutputsFunction JAVA_BINARY_PROGUARD_MAP = fromTemplates("%{name}_proguard.map");
@@ -73,15 +65,9 @@ public interface JavaSemantics {
   SafeImplicitOutputsFunction JAVA_BINARY_PROGUARD_CONFIG =
       fromTemplates("%{name}_proguard.config");
   SafeImplicitOutputsFunction JAVA_ONE_VERSION_ARTIFACT = fromTemplates("%{name}-one-version.txt");
-  SafeImplicitOutputsFunction SHARED_ARCHIVE_ARTIFACT = fromTemplates("%{name}.jsa");
-
-  SafeImplicitOutputsFunction JAVA_COVERAGE_RUNTIME_CLASS_PATH_TXT =
-      fromTemplates("%{name}-runtime-classpath.txt");
 
   SafeImplicitOutputsFunction JAVA_BINARY_DEPLOY_SOURCE_JAR =
       fromTemplates("%{name}_deploy-src.jar");
-
-  SafeImplicitOutputsFunction JAVA_TEST_CLASSPATHS_FILE = fromTemplates("%{name}_classpaths_file");
 
   FileType JAVA_SOURCE = FileType.of(".java");
   FileType JAR = FileType.of(".jar");
@@ -90,10 +76,11 @@ public interface JavaSemantics {
 
   /** The java_toolchain.compatible_javacopts key for Android javacopts */
   public static final String ANDROID_JAVACOPTS_KEY = "android";
-  /** The java_toolchain.compatible_javacopts key for proto compilations. */
-  public static final String PROTO_JAVACOPTS_KEY = "proto";
   /** The java_toolchain.compatible_javacopts key for testonly compilations. */
   public static final String TESTONLY_JAVACOPTS_KEY = "testonly";
+
+  /** The java_toolchain.compatible_javacopts key for public visibility. */
+  public static final String PUBLIC_VISIBILITY_JAVACOPTS_KEY = "public_visibility";
 
   static Label javaToolchainAttribute(RuleDefinitionEnvironment environment) {
     return environment.getToolsLabel("//tools/jdk:current_java_toolchain");
@@ -186,35 +173,12 @@ public interface JavaSemantics {
   String JACOCO_MAIN_CLASS_PLACEHOLDER = "%set_jacoco_main_class%";
   String JACOCO_JAVA_RUNFILES_ROOT_PLACEHOLDER = "%set_jacoco_java_runfiles_root%";
 
-  /** Substitution for exporting the jars needed for jacoco coverage. */
-  class ComputedJacocoSubstitution extends ComputedSubstitution {
-    private final NestedSet<Artifact> jars;
-    private final String pathPrefix;
-
-    public ComputedJacocoSubstitution(NestedSet<Artifact> jars, String workspacePrefix) {
-      super(JACOCO_METADATA_PLACEHOLDER);
-      this.jars = jars;
-      this.pathPrefix = "${JAVA_RUNFILES}/" + workspacePrefix;
-    }
-
-    /**
-     * Concatenating the root relative paths of the artifacts. Each relative path entry is prepended
-     * with "${JAVA_RUNFILES}" and the workspace prefix.
-     */
-    @Override
-    public String getValue() {
-      return jars.toList().stream()
-          .map(artifact -> pathPrefix + "/" + artifact.getRootRelativePathString())
-          .collect(Collectors.joining(File.pathSeparator, "export JACOCO_METADATA_JARS=", ""));
-    }
-  }
-
   /**
    * Verifies if the rule contains any errors.
    *
    * <p>Errors should be signaled through {@link RuleContext}.
    */
-  void checkRule(RuleContext ruleContext, JavaCommon javaCommon);
+  void checkRule(RuleContext ruleContext, JavaCommon javaCommon) throws RuleErrorException;
 
   /**
    * Verifies there are no conflicts in protos.
@@ -223,15 +187,6 @@ public interface JavaSemantics {
    */
   void checkForProtoLibraryAndJavaProtoLibraryOnSameProto(
       RuleContext ruleContext, JavaCommon javaCommon);
-
-  /** Returns the main class of a Java binary. */
-  String getMainClass(RuleContext ruleContext, ImmutableList<Artifact> srcsArtifacts);
-
-  /**
-   * Returns the primary class for a Java binary - either the main class, or, in case of a test, the
-   * test class (not the test runner main class).
-   */
-  String getPrimaryClass(RuleContext ruleContext, ImmutableList<Artifact> srcsArtifacts);
 
   /**
    * Returns the resources contributed by a Java rule (usually the contents of the {@code resources}
@@ -288,18 +243,6 @@ public interface JavaSemantics {
    * <p>In Blaze, this method considers {@code javaExecutable} as a substitution that can be
    * directly used to replace %javabin% in stub script, but in Bazel this method considers {@code
    * javaExecutable} as a file path for the JVM binary (java).
-   */
-  Artifact createStubAction(
-      RuleContext ruleContext,
-      JavaCommon javaCommon,
-      List<String> jvmFlags,
-      Artifact executable,
-      String javaStartClass,
-      String javaExecutable)
-      throws InterruptedException;
-
-  /**
-   * Same as {@link #createStubAction(RuleContext, JavaCommon, List, Artifact, String, String)}.
    *
    * <p>In *experimental* coverage mode creates a txt file containing the runtime jars names. {@code
    * JacocoCoverageRunner} will use it to retrieve the name of the jars considered for collecting
@@ -318,7 +261,7 @@ public interface JavaSemantics {
       NestedSetBuilder<Artifact> filesBuilder,
       String javaExecutable,
       boolean createCoverageMetadataJar)
-      throws InterruptedException;
+      throws InterruptedException, RuleErrorException;
 
   /**
    * Returns true if {@code createStubAction} considers {@code javaExecutable} as a substitution.
@@ -354,10 +297,6 @@ public interface JavaSemantics {
         || ruleContext.getRule().getRuleClass().equals("java_test");
   }
 
-  /** Adds extra runfiles for a {@code java_binary} rule. */
-  void addRunfilesForBinary(
-      RuleContext ruleContext, Artifact launcher, Runfiles.Builder runfilesBuilder);
-
   /** Adds extra runfiles for a {@code java_library} rule. */
   void addRunfilesForLibrary(RuleContext ruleContext, Runfiles.Builder runfilesBuilder);
 
@@ -383,44 +322,6 @@ public interface JavaSemantics {
    * @return new main class
    */
   String addCoverageSupport(JavaCompilationHelper helper, Artifact executable)
-      throws InterruptedException;
-
-  /** Return the JVM flags to be used in a Java binary. */
-  Iterable<String> getJvmFlags(
-      RuleContext ruleContext, ImmutableList<Artifact> srcsArtifacts, List<String> userJvmFlags);
-
-  /** Translates XMB messages to translations artifact suitable for Java targets. */
-  ImmutableList<Artifact> translate(RuleContext ruleContext, List<Artifact> messages);
-
-  /**
-   * Get the launcher artifact for a java binary, creating the necessary actions for it.
-   *
-   * @param ruleContext The rule context
-   * @param common The common helper class.
-   * @param deployArchiveBuilder the builder to construct the deploy archive action (mutable).
-   * @param unstrippedDeployArchiveBuilder the builder to construct the unstripped deploy archive
-   *     action (mutable).
-   * @param runfilesBuilder the builder to construct the list of runfiles (mutable).
-   * @param jvmFlags the list of flags to pass to the JVM when running the Java binary (mutable).
-   * @param attributesBuilder the builder to construct the list of attributes of this target
-   *     (mutable).
-   * @param ccToolchain to be used to build the launcher
-   * @param featureConfiguration to be used to configure the cc toolchain
-   * @return the launcher and unstripped launcher as an artifact pair. If shouldStrip is false, then
-   *     they will be the same.
-   * @throws InterruptedException
-   */
-  Pair<Artifact, Artifact> getLauncher(
-      final RuleContext ruleContext,
-      final JavaCommon common,
-      DeployArchiveBuilder deployArchiveBuilder,
-      DeployArchiveBuilder unstrippedDeployArchiveBuilder,
-      Builder runfilesBuilder,
-      List<String> jvmFlags,
-      JavaTargetAttributes.Builder attributesBuilder,
-      boolean shouldStrip,
-      CcToolchainProvider ccToolchain,
-      FeatureConfiguration featureConfiguration)
       throws InterruptedException, RuleErrorException;
 
   /**
@@ -443,12 +344,6 @@ public interface JavaSemantics {
    */
   PathFragment getDefaultJavaResourcePath(PathFragment path);
 
-  /** @return a list of extra arguments to appends to the runfiles support. */
-  List<String> getExtraArguments(RuleContext ruleContext, ImmutableList<Artifact> sources);
-
-  /** @return main class (entry point) for the Java compiler. */
-  String getJavaBuilderMainClass();
-
   /**
    * @return An artifact representing the protobuf-format version of the proguard mapping, or null
    *     if the proguard version doesn't support this.
@@ -467,7 +362,7 @@ public interface JavaSemantics {
       JavaCompilationArtifacts.Builder javaCompilationArtifactsBuilder,
       JavaRuleOutputJarsProvider.Builder javaRuleOutputJarsProviderBuilder,
       JavaSourceJarsProvider.Builder javaSourceJarsProviderBuilder)
-      throws InterruptedException;
+      throws InterruptedException, RuleErrorException;
 
   Artifact getObfuscatedConstantStringMap(RuleContext ruleContext) throws InterruptedException;
 

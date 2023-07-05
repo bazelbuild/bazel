@@ -2,7 +2,6 @@ load(
     ":starlark_tests.bzl",
     "additional_inputs_test",
     "build_failure_test",
-    "debug_files_test",
     "interface_library_output_group_test",
     "linking_order_test",
     "paths_test",
@@ -11,6 +10,7 @@ load(
     "forwarding_cc_lib",
     "nocode_cc_lib",
     "wrapped_cc_lib",
+    "exports_test",
 )
 load("@rules_testing//lib:analysis_test.bzl", "analysis_test")
 
@@ -115,9 +115,13 @@ cc_shared_library(
     }),
     dynamic_deps = [
         "bar_so",
-        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:diff_pkg_so"
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:diff_pkg_so",
+        "private_lib_so",
     ],
     features = ["windows_export_all_symbols"],
+    exports_filter = [
+        ":indirect_dep2",
+    ],
     deps = [
         "baz",
         "foo",
@@ -150,17 +154,17 @@ cc_library(
         "//src/conditions:linux": ["IS_LINUX"],
         "//conditions:default": [],
     }),
-    deps = [
+    deps = select({
+        ":is_bazel": ["qux2"],
+        "//conditions:default": [],
+    }) + [
         "bar",
         "baz",
         # Not exported.
         "qux",
         "prebuilt",
         "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:diff_pkg"
-    ] + select({
-        ":is_bazel": ["qux2"],
-        "//conditions:default": [],
-    }),
+    ],
 )
 
 wrapped_cc_lib(
@@ -328,7 +332,6 @@ sh_test(
         ":bar_so",
         ":binary",
         ":cc_test",
-        ":debug_files",
         ":foo_so",
     ] + select({
         ":is_bazel": [
@@ -339,12 +342,6 @@ sh_test(
     }),
 )
 
-filegroup(
-    name = "debug_files",
-    srcs = ["binary"],
-    output_group = "rule_impl_debug_files",
-)
-
 linking_order_test(
     name = "linking_action_test",
     target = ":foo_so",
@@ -352,12 +349,7 @@ linking_order_test(
 
 additional_inputs_test(
     name = "additional_inputs_test",
-    # TODO(bazel-team): Support this test on Windows and Mac.
-    is_linux = select({
-        "//src/conditions:linux": True,
-        "//conditions:default": False,
-    }),
-    target_under_test = ":foo_so",
+    target = ":foo_so",
 )
 
 build_failure_test(
@@ -365,7 +357,7 @@ build_failure_test(
     messages = [
         "cc_shared_library/test_cc_shared_library:barX\",",
     ],
-    target_under_test = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:should_fail_binary",
+    target = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:should_fail_binary",
 )
 
 build_failure_test(
@@ -373,7 +365,7 @@ build_failure_test(
     messages = [
         "cc_shared_library/test_cc_shared_library:barX\",",
     ],
-    target_under_test = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:should_fail_shared_lib",
+    target = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:should_fail_shared_lib",
 )
 
 paths_test(
@@ -440,62 +432,80 @@ cc_library(
     ],
 )
 
+cc_shared_library(
+    name = "private_lib_so",
+    deps = [
+        ":private_lib",
+    ],
+)
+
+genrule(
+    name = "private_cc_lib_source",
+    outs = ["private_cc_library.cc"],
+    cmd = "touch $@",
+)
+
+cc_library(
+    name = "private_lib",
+    srcs = [":private_cc_library.cc"]
+)
+
 build_failure_test(
     name = "two_dynamic_deps_same_export_in_so_test",
     message = "Two shared libraries in dependencies export the same symbols",
-    target_under_test = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:two_dynamic_deps_same_export_in_so",
+    target = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:two_dynamic_deps_same_export_in_so",
 )
 
 build_failure_test(
     name = "two_dynamic_deps_same_export_in_binary_test",
     message = "Two shared libraries in dependencies link the same  library statically",
-    target_under_test = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:two_dynamic_deps_same_export_in_binary",
-)
-
-analysis_test(
-    name = "debug_files_test",
-    impl = debug_files_test,
-    target = ":binary",
+    target = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:two_dynamic_deps_same_export_in_binary",
 )
 
 interface_library_output_group_test(
     name = "interface_library_output_group_test",
-    is_windows = select({
-        "//src/conditions:windows": True,
-        "//conditions:default": False,
-    }),
-    target_under_test = ":foo_so",
+    target = ":foo_so",
 )
 
 runfiles_test(
     name = "runfiles_test",
-    is_linux = select({
-        "//src/conditions:linux": True,
-        "//conditions:default": False,
-    }),
-    target_under_test = ":python_test",
+    target = ":python_test",
 )
 
 check_linking_action_lib_parameters_test(
     name = "check_binary_doesnt_take_already_linked_in_libs",
-    target_under_test = ":binary",
+    target = ":binary",
     libs_that_shouldnt_be_present = ["foo", "bar"],
 )
 
 check_linking_action_lib_parameters_test(
     name = "check_shared_lib_doesnt_take_already_linked_in_libs",
-    target_under_test = ":foo_so",
+    target = ":foo_so",
     libs_that_shouldnt_be_present = ["bar"],
 )
 
 build_failure_test(
     name = "shared_library_without_deps",
     message = "'cc_shared_library' must have at least one dependency in 'deps' (or 'roots')",
-    target_under_test = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:failing_with_no_deps_so",
+    target = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:failing_with_no_deps_so",
 )
 
 build_failure_test(
     name = "direct_dep_with_only_shared_lib_file",
     message = "Do not place libraries which only contain a precompiled dynamic library",
-    target_under_test = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:failing_only_dynamic_lib",
+    target = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:failing_only_dynamic_lib",
+)
+
+exports_test(
+    name = "exports_foo_test",
+    target = ":foo_so",
+    targets_that_should_be_claimed_to_be_exported = [
+       "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:indirect_dep2",
+       "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:baz",
+       "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:foo",
+       "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:cc_lib_with_no_srcs",
+       "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:nocode_cc_lib",
+       "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:should_not_be_linked_cc_lib",
+       "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:a_suffix",
+    ],
 )

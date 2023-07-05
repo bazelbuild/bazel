@@ -14,13 +14,13 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.BazelCompileContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
-import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -30,7 +30,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
-import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -51,11 +50,12 @@ import net.starlark.java.syntax.SyntaxError;
 // TODO(adonovan): actually compile. The name is a step ahead of the implementation.
 public class BzlCompileFunction implements SkyFunction {
 
-  private final PackageFactory packageFactory;
+  private final BazelStarlarkEnvironment bazelStarlarkEnvironment;
   private final HashFunction hashFunction;
 
-  public BzlCompileFunction(PackageFactory packageFactory, HashFunction hashFunction) {
-    this.packageFactory = packageFactory;
+  public BzlCompileFunction(
+      BazelStarlarkEnvironment bazelStarlarkEnvironment, HashFunction hashFunction) {
+    this.bazelStarlarkEnvironment = bazelStarlarkEnvironment;
     this.hashFunction = hashFunction;
   }
 
@@ -64,7 +64,7 @@ public class BzlCompileFunction implements SkyFunction {
       throws SkyFunctionException, InterruptedException {
     try {
       return computeInline(
-          (BzlCompileValue.Key) skyKey.argument(), env, packageFactory, hashFunction);
+          (BzlCompileValue.Key) skyKey.argument(), env, bazelStarlarkEnvironment, hashFunction);
     } catch (FailedIOException e) {
       throw new FunctionException(e);
     }
@@ -74,7 +74,7 @@ public class BzlCompileFunction implements SkyFunction {
   static BzlCompileValue computeInline(
       BzlCompileValue.Key key,
       Environment env,
-      PackageFactory packageFactory,
+      BazelStarlarkEnvironment bazelStarlarkEnvironment,
       HashFunction hashFunction)
       throws FailedIOException, InterruptedException {
     byte[] bytes;
@@ -143,21 +143,21 @@ public class BzlCompileFunction implements SkyFunction {
       return null;
     }
 
-    Map<String, Object> predeclared;
-    BazelStarlarkEnvironment starlarkEnv = packageFactory.getBazelStarlarkEnvironment();
-    if (key.kind == BzlCompileValue.Kind.BUILTINS) {
-      predeclared = starlarkEnv.getBuiltinsBzlEnv();
+    ImmutableMap<String, Object> predeclared;
+    if (key.isSclDialect()) {
+      predeclared = bazelStarlarkEnvironment.getStarlarkGlobals().getSclToplevels();
+    } else if (key.kind == BzlCompileValue.Kind.BUILTINS) {
+      predeclared = bazelStarlarkEnvironment.getBuiltinsBzlEnv();
     } else {
       // Use the predeclared environment for BUILD-loaded bzl files, ignoring injection. It is not
       // the right env for the actual evaluation of BUILD-loaded bzl files because it doesn't
       // map to the injected symbols. But the names of the symbols are the same, and the names are
-      // all we need to do symbol resolution (modulo FlagGuardedValues -- see TODO in
-      // PackageFactory.createBuildBzlEnvUsingInjection()).
+      // all we need to do symbol resolution.
+      //
       // For WORKSPACE-loaded bzl files, the env isn't quite right not because of injection but
       // because the "native" object is different. But A) that will be fixed with #11954, and B) we
       // don't care for the same reason as above.
-      predeclared = starlarkEnv.getUninjectedBuildBzlEnv();
-
+      predeclared = bazelStarlarkEnvironment.getUninjectedBuildBzlEnv();
     }
 
     // We have all deps. Parse, resolve, and return.
@@ -169,6 +169,13 @@ public class BzlCompileFunction implements SkyFunction {
             // statements whose bindings are intended to be visible in all BUILD
             // files. The loadBindsGlobally flag allows us to retrieve them.
             .loadBindsGlobally(key.isBuildPrelude())
+            // .scl files should be ASCII-only in string literals.
+            // TODO(bazel-team): It'd be nice if we could intercept non-ASCII errors from the lexer,
+            // and modify the displayed message to clarify to the user that the string would be
+            // permitted in a .bzl file. But there's no easy way to do that short of either string
+            // matching the error message or reworking the interpreter API to put more structured
+            // detail in errors (i.e. new fields or error subclasses).
+            .stringLiteralsAreAsciiOnly(key.isSclDialect())
             .build();
     StarlarkFile file = StarlarkFile.parse(input, options);
 

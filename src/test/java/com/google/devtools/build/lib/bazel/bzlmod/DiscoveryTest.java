@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunctio
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.BzlmodRepoRuleFunction;
+import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.FileFunction;
@@ -178,6 +179,9 @@ public class DiscoveryTest extends FoundationTestCase {
                 .put(
                     BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
                     new BzlmodRepoRuleFunction(ruleClassProvider, directories))
+                .put(
+                    SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE,
+                    new ClientEnvironmentFunction(new AtomicReference<>(ImmutableMap.of())))
                 .buildOrThrow(),
             differencer);
 
@@ -196,7 +200,7 @@ public class DiscoveryTest extends FoundationTestCase {
     RepositoryDelegatorFunction.RESOLVED_FILE_FOR_VERIFICATION.set(differencer, Optional.empty());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
-    BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
+    YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
   }
 
   @Test
@@ -215,7 +219,10 @@ public class DiscoveryTest extends FoundationTestCase {
             .addModule(
                 createModuleKey("ccc", "2.0"),
                 "module(name='ccc', version='2.0');bazel_dep(name='ddd',version='3.0')")
-            .addModule(createModuleKey("ddd", "3.0"), "module(name='ddd', version='3.0')");
+            .addModule(
+                createModuleKey("ddd", "3.0"),
+                // Add a random override here; it should be ignored
+                "module(name='ddd', version='3.0');local_path_override(module_name='ff',path='f')");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<DiscoveryValue> result =

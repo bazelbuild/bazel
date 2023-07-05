@@ -11,6 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+# WARNING:
+# https://github.com/bazelbuild/bazel/issues/17713
+# .bzl files in this package (tools/build_defs/repo) are evaluated
+# in a Starlark environment without "@_builtins" injection, and must not refer
+# to symbols associated with build/workspace .bzl files
+
 """Rules for downloading files and archives over HTTP.
 
 ### Setup
@@ -553,7 +560,7 @@ Examples:
   )
   ```
 
-  Targets would specify <code>@my_ssl//jar</code> as a dependency to depend on this jar.
+  Targets would specify `@my_ssl//jar` as a dependency to depend on this jar.
 
   You may also reference files on the current system (localhost) by using "file:///path/to/file"
   if you are on Unix-based systems. If you're on Windows, use "file:///c:/path/to/file". In both

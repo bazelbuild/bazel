@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkOptions;
 import com.google.devtools.build.lib.rules.java.BootClassPathInfo;
 import com.google.devtools.build.lib.rules.java.ClasspathConfiguredFragment;
-import com.google.devtools.build.lib.rules.java.JavaCcInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
@@ -71,6 +70,7 @@ import com.google.devtools.build.lib.rules.java.JavaUtil;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Collection;
 import java.util.List;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -161,7 +161,8 @@ public class AndroidCommon {
   public static NestedSet<Artifact> collectTransitiveNeverlinkLibraries(
       RuleContext ruleContext,
       Iterable<? extends TransitiveInfoCollection> deps,
-      NestedSet<Artifact> runtimeJars) {
+      NestedSet<Artifact> runtimeJars)
+      throws RuleErrorException {
     NestedSetBuilder<Artifact> neverlinkedRuntimeJars = NestedSetBuilder.naiveLinkOrder();
     for (AndroidNeverLinkLibrariesProvider provider :
         AnalysisUtils.getProviders(deps, AndroidNeverLinkLibrariesProvider.PROVIDER)) {
@@ -170,9 +171,8 @@ public class AndroidCommon {
 
     if (JavaCommon.isNeverLink(ruleContext)) {
       neverlinkedRuntimeJars.addTransitive(runtimeJars);
-      for (JavaCompilationArgsProvider provider :
-          JavaInfo.getProvidersFromListOfTargets(JavaCompilationArgsProvider.class, deps)) {
-        neverlinkedRuntimeJars.addTransitive(provider.getRuntimeJars());
+      for (TransitiveInfoCollection dep : deps) {
+        neverlinkedRuntimeJars.addTransitive(JavaInfo.transitiveRuntimeJars(dep));
       }
     }
     return neverlinkedRuntimeJars.build();
@@ -605,7 +605,8 @@ public class AndroidCommon {
   private JavaCompilationHelper initAttributes(
       JavaTargetAttributes.Builder attributes,
       JavaSemantics semantics,
-      ImmutableList<Artifact> additionalArtifacts) {
+      ImmutableList<Artifact> additionalArtifacts)
+      throws RuleErrorException {
     JavaCompilationHelper helper =
         new JavaCompilationHelper(
             ruleContext, semantics, javaCommon.getJavacOpts(), attributes, additionalArtifacts);
@@ -625,7 +626,7 @@ public class AndroidCommon {
       boolean collectJavaCompilationArgs,
       NestedSetBuilder<Artifact> filesBuilder,
       boolean generateExtensionRegistry)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
     if (ruleContext.hasErrors()) {
       // Avoid leaving filesToBuild set to null, otherwise we'll get a NullPointerException masking
       // the real error.
@@ -701,7 +702,8 @@ public class AndroidCommon {
       Iterable<Artifact> apksUnderTest,
       NativeLibs nativeLibs,
       boolean isNeverlink,
-      boolean isLibrary) {
+      boolean isLibrary)
+      throws RuleErrorException {
 
     idlHelper.addTransitiveInfoProviders(builder, classJar, outputs.manifestProto());
 
@@ -744,9 +746,9 @@ public class AndroidCommon {
 
     JavaInfo javaInfo =
         javaInfoBuilder
-            .addProvider(JavaCompilationArgsProvider.class, compilationArgsProvider)
-            .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
-            .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
+            .javaCompilationArgs(compilationArgsProvider)
+            .javaRuleOutputs(ruleOutputJarsProvider)
+            .javaSourceJars(sourceJarsProvider)
             .javaPluginInfo(JavaCommon.getTransitivePlugins(ruleContext))
             .setRuntimeJars(javaCommon.getJavaCompilationArtifacts().getRuntimeJars())
             .setJavaConstraints(ImmutableList.of("android"))
@@ -772,7 +774,7 @@ public class AndroidCommon {
 
     return builder
         .setFilesToBuild(filesToBuild)
-        .addNativeDeclaredProvider(javaInfo)
+        .addStarlarkDeclaredProvider(javaInfo)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(getRunfiles()))
         .addNativeDeclaredProvider(
             createAndroidIdeInfoProvider(
@@ -816,7 +818,7 @@ public class AndroidCommon {
    * @param hasSrcs If false, deps are exported (deprecated behaviour)
    */
   private JavaCompilationArgsProvider collectJavaCompilationArgs(
-      boolean isNeverLink, boolean hasSrcs) {
+      boolean isNeverLink, boolean hasSrcs) throws RuleErrorException {
     boolean exportDeps =
         !hasSrcs
             && ruleContext
@@ -854,7 +856,7 @@ public class AndroidCommon {
     return asNeverLink;
   }
 
-  CcInfo getCcInfo() {
+  CcInfo getCcInfo() throws RuleErrorException {
     return getCcInfo(
         javaCommon.targetsTreatedAsDeps(ClasspathType.BOTH),
         ImmutableList.of(),
@@ -863,10 +865,11 @@ public class AndroidCommon {
   }
 
   static CcInfo getCcInfo(
-      final Iterable<? extends TransitiveInfoCollection> deps,
+      final Collection<? extends TransitiveInfoCollection> deps,
       final ImmutableList<String> linkOpts,
       Label label,
-      SymbolGenerator<?> symbolGenerator) {
+      SymbolGenerator<?> symbolGenerator)
+      throws RuleErrorException {
 
     CcLinkingContext ccLinkingContext =
         CcLinkingContext.builder()
@@ -879,8 +882,7 @@ public class AndroidCommon {
     ImmutableList<CcInfo> ccInfos =
         Streams.concat(
                 Stream.of(linkoptsCcInfo),
-                JavaInfo.getProvidersFromListOfTargets(JavaCcInfoProvider.class, deps).stream()
-                    .map(JavaCcInfoProvider::getCcInfo),
+                JavaInfo.ccInfos(deps).stream(),
                 AnalysisUtils.getProviders(deps, AndroidCcLinkParamsProvider.PROVIDER).stream()
                     .map(AndroidCcLinkParamsProvider::getLinkParams),
                 AnalysisUtils.getProviders(deps, CcInfo.PROVIDER).stream())

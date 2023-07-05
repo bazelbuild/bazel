@@ -1,28 +1,28 @@
 Project: /_project.yaml
 Book: /_book.yaml
 
-# The Bazel Code Base
+# The Bazel codebase
 
 {% include "_buttons.html" %}
 
-This document is a description of the code base and how Bazel is structured. It
+This document is a description of the codebase and how Bazel is structured. It
 is intended for people willing to contribute to Bazel, not for end-users.
 
 ## Introduction {:#introduction}
 
-The code base of Bazel is large (~350KLOC production code and ~260 KLOC test
+The codebase of Bazel is large (~350KLOC production code and ~260 KLOC test
 code) and no one is familiar with the whole landscape: everyone knows their
 particular valley very well, but few know what lies over the hills in every
 direction.
 
 In order for people midway upon the journey not to find themselves within a
 forest dark with the straightforward pathway being lost, this document tries to
-give an overview of the code base so that it's easier to get started with
+give an overview of the codebase so that it's easier to get started with
 working on it.
 
 The public version of the source code of Bazel lives on GitHub at
 [github.com/bazelbuild/bazel](http://github.com/bazelbuild/bazel). This is not
-the “source of truth”; it’s derived from a Google-internal source tree that
+the "source of truth"; it's derived from a Google-internal source tree that
 contains additional functionality that is not useful outside Google. The
 long-term goal is to make GitHub the source of truth.
 
@@ -79,7 +79,7 @@ At the end of a command, the Bazel server transmits the exit code the client
 should return. An interesting wrinkle is the implementation of `bazel run`: the
 job of this command is to run something Bazel just built, but it can't do that
 from the server process because it doesn't have a terminal. So instead it tells
-the client what binary it should ujexec() and with what arguments.
+the client what binary it should `ujexec()` and with what arguments.
 
 When one presses Ctrl-C, the client translates it to a Cancel call on the gRPC
 connection, which tries to terminate the command as soon as possible. After the
@@ -181,10 +181,10 @@ through `RuleContext.getFragment()` in Java or `ctx.fragments` in Starlark).
 Some of them (for example, whether to do C++ include scanning or not) are read
 in the execution phase, but that always requires explicit plumbing since
 `BuildConfiguration` is not available then. For more information, see the
-section “Configurations”.
+section "Configurations".
 
 **WARNING:** We like to pretend that `OptionsBase` instances are immutable and
-use them that way (such as as part of `SkyKeys`). This is not the case and
+use them that way (such as a part of `SkyKeys`). This is not the case and
 modifying them is a really good way to break Bazel in subtle ways that are hard
 to debug. Unfortunately, making them actually immutable is a large endeavor.
 (Modifying a `FragmentOptions` immediately after construction before anyone else
@@ -194,7 +194,7 @@ called on it is okay.)
 Bazel learns about option classes in the following ways:
 
 1.  Some are hard-wired into Bazel (`CommonCommandOptions`)
-2.  From the @Command annotation on each Bazel command
+2.  From the `@Command` annotation on each Bazel command
 3.  From `ConfiguredRuleClassProvider` (these are command line options related
     to individual programming languages)
 4.  Starlark rules can also define their own options (see
@@ -223,8 +223,8 @@ A "repository" is a source tree on which a developer works; it usually
 represents a single project. Bazel's ancestor, Blaze, operated on a monorepo,
 that is, a single source tree that contains all source code used to run the build.
 Bazel, in contrast, supports projects whose source code spans multiple
-repositories. The repository from which Bazel is invoked is called the “main
-repository”, the others are called “external repositories”.
+repositories. The repository from which Bazel is invoked is called the "main
+repository", the others are called "external repositories".
 
 A repository is marked by a file called `WORKSPACE` (or `WORKSPACE.bazel`) in
 its root directory. This file contains information that is "global" to the whole
@@ -237,8 +237,8 @@ Code of external repositories is symlinked or downloaded under
 `$OUTPUT_BASE/external`.
 
 When running the build, the whole source tree needs to be pieced together; this
-is done by SymlinkForest, which symlinks every package in the main repository to
-`$EXECROOT` and every external repository to either `$EXECROOT/external` or
+is done by `SymlinkForest`, which symlinks every package in the main repository
+to `$EXECROOT` and every external repository to either `$EXECROOT/external` or
 `$EXECROOT/..` (the former of course makes it impossible to have a package
 called `external` in the main repository; that's why we are migrating away from
 it)
@@ -248,7 +248,7 @@ it)
 Every repository is composed of packages, a collection of related files and
 a specification of the dependencies. These are specified by a file called
 `BUILD` or `BUILD.bazel`. If both exist, Bazel prefers `BUILD.bazel`; the reason
-why `BUILD` files are still accepted is that Bazel’s ancestor, Blaze, used this
+why `BUILD` files are still accepted is that Bazel's ancestor, Blaze, used this
 file name. However, it turned out to be a commonly used path segment, especially
 on Windows, where file names are case-insensitive.
 
@@ -274,7 +274,7 @@ Globbing is implemented in the following classes:
 
 *   `LegacyGlobber`, a fast and blissfully Skyframe-unaware globber
 *   `SkyframeHybridGlobber`, a version that uses Skyframe and reverts back to
-    the legacy globber in order to avoid “Skyframe restarts” (described below)
+    the legacy globber in order to avoid "Skyframe restarts" (described below)
 
 The `Package` class itself contains some members that are exclusively used to
 parse the WORKSPACE file and which do not make sense for real packages. This is
@@ -296,7 +296,7 @@ Packages are composed of targets, which have the following types:
 
 1.  **Files:** things that are either the input or the output of the build. In
     Bazel parlance, we call them _artifacts_ (discussed elsewhere). Not all
-    files created during the build are targets; it’s common for an output of
+    files created during the build are targets; it's common for an output of
     Bazel not to have an associated label.
 2.  **Rules:** these describe steps to derive its outputs from its inputs. They
     are generally associated with a programming language (such as `cc_library`,
@@ -319,7 +319,7 @@ can be omitted:
 
 A kind of a rule (such as "C++ library") is called a "rule class". Rule classes may
 be implemented either in Starlark (the `rule()` function) or in Java (so called
-“native rules”, type `RuleClass`). In the long term, every language-specific
+"native rules", type `RuleClass`). In the long term, every language-specific
 rule will be implemented in Starlark, but some legacy rule families (such as Java
 or C++) are still in Java for the time being.
 
@@ -335,10 +335,10 @@ Rule classes contain information such as:
 3.  The implementation of the rule
 4.  The transitive info providers the rule "usually" creates
 
-**Terminology note:** In the code base, we often use “Rule” to mean the target
+**Terminology note:** In the codebase, we often use "Rule" to mean the target
 created by a rule class. But in Starlark and in user-facing documentation,
-“Rule” should be used exclusively to refer to the rule class itself; the target
-is just a “target”. Also note that despite `RuleClass` having “class” in its
+"Rule" should be used exclusively to refer to the rule class itself; the target
+is just a "target". Also note that despite `RuleClass` having "class" in its
 name, there is no Java inheritance relationship between a rule class and targets
 of that type.
 
@@ -359,7 +359,7 @@ From this it follows that everything that is computed within Skyframe (such as
 configured targets) must also be immutable.
 
 The most convenient way to observe the Skyframe graph is to run `bazel dump
---skyframe=detailed`, which dumps the graph, one `SkyValue` per line. It's best
+--skyframe=deps`, which dumps the graph, one `SkyValue` per line. It's best
 to do it for tiny builds, since it can get pretty large.
 
 Skyframe lives in the `com.google.devtools.build.skyframe` package. The
@@ -641,7 +641,7 @@ described for users of Bazel
 [here](/extending/aspects). A good
 motivating example is protocol buffers: a `proto_library` rule should not know
 about any particular language, but building the implementation of a protocol
-buffer message (the “basic unit” of protocol buffers) in any programming
+buffer message (the "basic unit" of protocol buffers) in any programming
 language should be coupled to the `proto_library` rule so that if two targets in
 the same language depend on the same protocol buffer, it gets built only once.
 
@@ -1055,7 +1055,7 @@ action that emitted it. The action is described as:
     input files (such as for `FileWriteAction`, it's the checksum of the data
     that's written)
 
-There is also a highly experimental “top-down action cache” that is still under
+There is also a highly experimental "top-down action cache" that is still under
 development, which uses transitive hashes to avoid going to the cache as many
 times.
 

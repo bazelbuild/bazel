@@ -104,7 +104,7 @@ public final class SingleJarActionBuilder {
             .addCommandLine(
                 sourceJarCommandLine(outputJar, semantics, resources, resourceJars),
                 ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).setUseAlways(true).build())
-            .setProgressMessage("Building source jar %s", outputJar.prettyPrint())
+            .setProgressMessage("Building source jar %{output}")
             .setMnemonic("JavaSourceJar")
             .setExecGroup(execGroup);
 
@@ -134,7 +134,7 @@ public final class SingleJarActionBuilder {
                     /* resources= */ NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
                     jars),
                 ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).setUseAlways(true).build())
-            .setProgressMessage("Building singlejar jar %s", output.prettyPrint())
+            .setProgressMessage("Building singlejar jar %{output}")
             .setMnemonic("JavaSingleJar");
     ruleContext.registerAction(builder.build(ruleContext));
   }
@@ -146,7 +146,7 @@ public final class SingleJarActionBuilder {
       NestedSet<Artifact> resourceJars) {
     CustomCommandLine.Builder args = CustomCommandLine.builder();
     args.addExecPath("--output", outputJar);
-    args.addAll(SOURCE_JAR_COMMAND_LINE_ARGS);
+    args.addObject(SOURCE_JAR_COMMAND_LINE_ARGS);
     args.addExecPaths("--sources", resourceJars);
     if (!resources.isEmpty()) {
       args.add("--resources");

@@ -36,7 +36,7 @@ public abstract class ActionLookupData implements ExecutionPhaseSkyKey {
    * Creates a key for the result of action execution. Does <i>not</i> intern its results, so should
    * only be called once per {@code (actionLookupKey, actionIndex)} pair.
    */
-  public static ActionLookupData create(ActionLookupKey actionLookupKey, int actionIndex) {
+  public static ActionLookupData create(ActionLookupKeyOrProxy actionLookupKey, int actionIndex) {
     if (!actionLookupKey.mayOwnShareableActions()) {
       return createUnshareable(actionLookupKey, actionIndex);
     }
@@ -71,17 +71,17 @@ public abstract class ActionLookupData implements ExecutionPhaseSkyKey {
    * #valueIsShareable}.
    */
   public static ActionLookupData createUnshareable(
-      ActionLookupKey actionLookupKey, int actionIndex) {
+      ActionLookupKeyOrProxy actionLookupKey, int actionIndex) {
     return new UnshareableActionLookupData(actionLookupKey, actionIndex);
   }
 
-  private final ActionLookupKey actionLookupKey;
+  private final ActionLookupKeyOrProxy actionLookupKey;
 
-  private ActionLookupData(ActionLookupKey actionLookupKey) {
+  private ActionLookupData(ActionLookupKeyOrProxy actionLookupKey) {
     this.actionLookupKey = Preconditions.checkNotNull(actionLookupKey);
   }
 
-  public final ActionLookupKey getActionLookupKey() {
+  public final ActionLookupKeyOrProxy getActionLookupKey() {
     return actionLookupKey;
   }
 
@@ -132,7 +132,7 @@ public abstract class ActionLookupData implements ExecutionPhaseSkyKey {
   }
 
   private static final class ActionLookupData0 extends ActionLookupData {
-    private ActionLookupData0(ActionLookupKey actionLookupKey) {
+    private ActionLookupData0(ActionLookupKeyOrProxy actionLookupKey) {
       super(actionLookupKey);
     }
 
@@ -143,7 +143,7 @@ public abstract class ActionLookupData implements ExecutionPhaseSkyKey {
   }
 
   private static final class ActionLookupData1 extends ActionLookupData {
-    private ActionLookupData1(ActionLookupKey actionLookupKey) {
+    private ActionLookupData1(ActionLookupKeyOrProxy actionLookupKey) {
       super(actionLookupKey);
     }
 
@@ -154,7 +154,7 @@ public abstract class ActionLookupData implements ExecutionPhaseSkyKey {
   }
 
   private static final class ActionLookupData2 extends ActionLookupData {
-    private ActionLookupData2(ActionLookupKey actionLookupKey) {
+    private ActionLookupData2(ActionLookupKeyOrProxy actionLookupKey) {
       super(actionLookupKey);
     }
 
@@ -165,7 +165,7 @@ public abstract class ActionLookupData implements ExecutionPhaseSkyKey {
   }
 
   private static final class ActionLookupData3 extends ActionLookupData {
-    private ActionLookupData3(ActionLookupKey actionLookupKey) {
+    private ActionLookupData3(ActionLookupKeyOrProxy actionLookupKey) {
       super(actionLookupKey);
     }
 
@@ -176,7 +176,7 @@ public abstract class ActionLookupData implements ExecutionPhaseSkyKey {
   }
 
   private static final class ActionLookupData4 extends ActionLookupData {
-    private ActionLookupData4(ActionLookupKey actionLookupKey) {
+    private ActionLookupData4(ActionLookupKeyOrProxy actionLookupKey) {
       super(actionLookupKey);
     }
 
@@ -187,7 +187,7 @@ public abstract class ActionLookupData implements ExecutionPhaseSkyKey {
   }
 
   private static final class ActionLookupData5 extends ActionLookupData {
-    private ActionLookupData5(ActionLookupKey actionLookupKey) {
+    private ActionLookupData5(ActionLookupKeyOrProxy actionLookupKey) {
       super(actionLookupKey);
     }
 
@@ -198,7 +198,7 @@ public abstract class ActionLookupData implements ExecutionPhaseSkyKey {
   }
 
   private static final class ActionLookupData6 extends ActionLookupData {
-    private ActionLookupData6(ActionLookupKey actionLookupKey) {
+    private ActionLookupData6(ActionLookupKeyOrProxy actionLookupKey) {
       super(actionLookupKey);
     }
 
@@ -209,7 +209,7 @@ public abstract class ActionLookupData implements ExecutionPhaseSkyKey {
   }
 
   private static final class ActionLookupData7 extends ActionLookupData {
-    private ActionLookupData7(ActionLookupKey actionLookupKey) {
+    private ActionLookupData7(ActionLookupKeyOrProxy actionLookupKey) {
       super(actionLookupKey);
     }
 
@@ -220,7 +220,7 @@ public abstract class ActionLookupData implements ExecutionPhaseSkyKey {
   }
 
   private static final class ActionLookupData8 extends ActionLookupData {
-    private ActionLookupData8(ActionLookupKey actionLookupKey) {
+    private ActionLookupData8(ActionLookupKeyOrProxy actionLookupKey) {
       super(actionLookupKey);
     }
 
@@ -231,7 +231,7 @@ public abstract class ActionLookupData implements ExecutionPhaseSkyKey {
   }
 
   private static final class ActionLookupData9 extends ActionLookupData {
-    private ActionLookupData9(ActionLookupKey actionLookupKey) {
+    private ActionLookupData9(ActionLookupKeyOrProxy actionLookupKey) {
       super(actionLookupKey);
     }
 
@@ -244,7 +244,7 @@ public abstract class ActionLookupData implements ExecutionPhaseSkyKey {
   private static class ActionLookupDataN extends ActionLookupData {
     private final int actionIndex;
 
-    private ActionLookupDataN(ActionLookupKey actionLookupKey, int actionIndex) {
+    private ActionLookupDataN(ActionLookupKeyOrProxy actionLookupKey, int actionIndex) {
       super(actionLookupKey);
       this.actionIndex = actionIndex;
     }
@@ -256,7 +256,7 @@ public abstract class ActionLookupData implements ExecutionPhaseSkyKey {
   }
 
   private static final class UnshareableActionLookupData extends ActionLookupDataN {
-    private UnshareableActionLookupData(ActionLookupKey actionLookupKey, int actionIndex) {
+    private UnshareableActionLookupData(ActionLookupKeyOrProxy actionLookupKey, int actionIndex) {
       super(actionLookupKey, actionIndex);
     }
 

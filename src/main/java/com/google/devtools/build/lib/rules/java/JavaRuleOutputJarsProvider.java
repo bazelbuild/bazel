@@ -15,14 +15,16 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.rules.java.JavaInfo.nullIfNone;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.rules.java.JavaInfo.JavaInfoInternalProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaOutputApi;
@@ -32,13 +34,14 @@ import java.util.Collection;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkList;
 
 /** Provides information about jar files produced by a Java rule. */
 @Immutable
 public final class JavaRuleOutputJarsProvider
-    implements TransitiveInfoProvider, JavaRuleOutputJarsProviderApi<JavaOutput> {
+    implements JavaInfoInternalProvider, JavaRuleOutputJarsProviderApi<JavaOutput> {
 
   @SerializationConstant
   public static final JavaRuleOutputJarsProvider EMPTY =
@@ -130,6 +133,25 @@ public final class JavaRuleOutputJarsProvider
           .build();
     }
 
+    public static JavaOutput fromStarlarkJavaOutput(StructImpl struct) throws EvalException {
+      return JavaOutput.builder()
+          .setClassJar(nullIfNone(struct.getValue("class_jar"), Artifact.class))
+          .setCompileJar(nullIfNone(struct.getValue("compile_jar"), Artifact.class))
+          .setCompileJdeps(nullIfNone(struct.getValue("compile_jdeps"), Artifact.class))
+          .setGeneratedClassJar(nullIfNone(struct.getValue("generated_class_jar"), Artifact.class))
+          .setGeneratedSourceJar(
+              nullIfNone(struct.getValue("generated_source_jar"), Artifact.class))
+          .setNativeHeadersJar(nullIfNone(struct.getValue("native_headers_jar"), Artifact.class))
+          .setManifestProto(nullIfNone(struct.getValue("manifest_proto"), Artifact.class))
+          .setJdeps(nullIfNone(struct.getValue("jdeps"), Artifact.class))
+          .addSourceJars(
+              Sequence.cast(
+                  struct.getValue("source_jars", StarlarkList.class),
+                  Artifact.class,
+                  "source_jars"))
+          .build();
+    }
+
     /** Builder for OutputJar. */
     @AutoValue.Builder
     public abstract static class Builder {
@@ -149,8 +171,6 @@ public final class JavaRuleOutputJarsProvider
       public abstract Builder setManifestProto(Artifact value);
 
       public abstract Builder setJdeps(Artifact value);
-
-      public abstract Builder setSourceJars(Iterable<Artifact> value);
 
       abstract ImmutableList.Builder<Artifact> sourceJarsBuilder();
 
@@ -283,5 +303,14 @@ public final class JavaRuleOutputJarsProvider
     public JavaRuleOutputJarsProvider build() {
       return new JavaRuleOutputJarsProvider(ImmutableList.copyOf(javaOutputs));
     }
+  }
+
+  static JavaRuleOutputJarsProvider fromStarlarkJavaInfo(StructImpl javaInfo) throws EvalException {
+    Sequence<?> outputs = javaInfo.getValue("java_outputs", StarlarkList.class);
+    JavaRuleOutputJarsProvider.Builder builder = JavaRuleOutputJarsProvider.builder();
+    for (StructImpl output : Sequence.cast(outputs, StructImpl.class, "outputs")) {
+      builder.addJavaOutput(JavaOutput.fromStarlarkJavaOutput(output));
+    }
+    return builder.build();
   }
 }

@@ -98,13 +98,6 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
   }
 
   /**
-   * Returns whether this set of outputs has any object or .pic object files.
-   */
-  public boolean isEmpty() {
-    return picObjectFiles.isEmpty() && objectFiles.isEmpty();
-  }
-
-  /**
    * Returns an unmodifiable view of the .o or .pic.o files set.
    *
    * @param usePic whether to return .pic.o files

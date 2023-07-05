@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.PathStripper;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
@@ -123,6 +122,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     }
   }
 
+  private final NestedSet<Artifact> tools;
   private final CompilationType compilationType;
   private final ImmutableMap<String, String> executionInfo;
   private final CommandLine executableLine;
@@ -142,9 +142,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   public JavaCompileAction(
       CompilationType compilationType,
       ActionOwner owner,
-      ActionEnvironment env,
       NestedSet<Artifact> tools,
-      RunfilesSupplier runfilesSupplier,
       OnDemandString progressMessage,
       NestedSet<Artifact> mandatoryInputs,
       NestedSet<Artifact> transitiveInputs,
@@ -158,13 +156,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       NestedSet<Artifact> dependencyArtifacts,
       Artifact outputDepsProto,
       JavaClasspathMode classpathMode) {
-    super(
-        owner,
-        tools,
-        allInputs(mandatoryInputs, transitiveInputs, dependencyArtifacts),
-        runfilesSupplier,
-        outputs,
-        env);
+    super(owner, allInputs(mandatoryInputs, transitiveInputs, dependencyArtifacts), outputs);
     if (outputs.stream().anyMatch(Artifact::isTreeArtifact)) {
       throw new IllegalArgumentException(
           String.format(
@@ -175,6 +167,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
                   .collect(joining(",")),
               owner.getLabel()));
     }
+    this.tools = tools;
     this.compilationType = compilationType;
     // TODO(djasper): The only thing that is conveyed through the executionInfo is whether worker
     // mode is enabled or not. Investigate whether we can store just that.
@@ -210,6 +203,18 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   }
 
   @Override
+  public NestedSet<Artifact> getTools() {
+    return tools;
+  }
+
+  @Override
+  public ActionEnvironment getEnvironment() {
+    return configuration
+        .getActionEnvironment()
+        .withAdditionalFixedVariables(JavaCompileActionBuilder.UTF8_ENVIRONMENT);
+  }
+
+  @Override
   public String getMnemonic() {
     return compilationType.mnemonic;
   }
@@ -222,8 +227,9 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       throws CommandLineExpansionException, InterruptedException {
     fp.addUUID(GUID);
     fp.addInt(classpathMode.ordinal());
-    executableLine.addToFingerprint(actionKeyContext, artifactExpander, fp);
-    flagLine.addToFingerprint(actionKeyContext, artifactExpander, fp);
+    executableLine.addToFingerprint(
+        actionKeyContext, artifactExpander, fp, PathStripper.PathMapper.NOOP);
+    flagLine.addToFingerprint(actionKeyContext, artifactExpander, fp, PathStripper.PathMapper.NOOP);
     // As the classpath is no longer part of commandLines implicitly, we need to explicitly add
     // the transitive inputs to the key here.
     actionKeyContext.addNestedSetToFingerprint(fp, transitiveInputs);
@@ -384,7 +390,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv) {
     ActionEnvironment env = getEnvironment();
     LinkedHashMap<String, String> effectiveEnvironment =
-        Maps.newLinkedHashMapWithExpectedSize(env.size());
+        Maps.newLinkedHashMapWithExpectedSize(env.estimatedSize());
     env.resolve(effectiveEnvironment, clientEnv);
     return ImmutableMap.copyOf(effectiveEnvironment);
   }
@@ -682,7 +688,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     ImmutableList.Builder<CommandLineArgsApi> result = ImmutableList.builder();
     ImmutableSet<Artifact> directoryInputs =
         getInputs().toList().stream().filter(Artifact::isDirectory).collect(toImmutableSet());
-    for (CommandLineAndParamFileInfo commandLine : getCommandLines().getCommandLines()) {
+    for (CommandLineAndParamFileInfo commandLine : getCommandLines().unpack()) {
       result.add(Args.forRegisteredAction(commandLine, directoryInputs));
     }
     return StarlarkList.immutableCopyOf(result.build());

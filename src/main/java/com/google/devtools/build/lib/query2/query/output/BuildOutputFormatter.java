@@ -92,8 +92,8 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
       printed.add(rule.getLabel());
     }
 
-    /** Outputs a given rule in BUILD-style syntax. */
-    private void outputRule(Rule rule, AttributeReader attrReader, Writer writer)
+    /** Outputs a given rule in BUILD-style syntax. Made visible for Modquery command. */
+    public void outputRule(Rule rule, AttributeReader attrReader, Writer writer)
         throws IOException {
       // TODO(b/151151653): display the filenames in root-relative form.
       // This is an incompatible change, but Blaze users (and their editors)
@@ -121,9 +121,7 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
               .append(lineTerm);
           continue;
         }
-        AttributeValueSource attributeValueSource =
-            AttributeValueSource.forRuleAndAttribute(rule, attr);
-        if (attributeValueSource != AttributeValueSource.RULE) {
+        if (!rule.isAttributeValueExplicitlySpecified(attr)) {
           continue; // Don't print default values.
         }
 
@@ -232,7 +230,8 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
         createPostFactoStreamCallback(out, options, env.getMainRepoMapping()));
   }
 
-  private static class BuildOutputFormatterCallback extends TextOutputFormatterCallback<Target> {
+  /** BuildOutputFormatter callback for Query. Made visible for ModQuery. */
+  public static class BuildOutputFormatterCallback extends TextOutputFormatterCallback<Target> {
     private final TargetOutputter targetOutputter;
 
     BuildOutputFormatterCallback(OutputStream out, String lineTerm) {

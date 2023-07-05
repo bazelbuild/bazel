@@ -21,8 +21,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -76,16 +74,12 @@ public final class ProtoInfo {
 
   /** The {@code .proto} source files in this {@code proto_library}'s {@code srcs}. */
   @VisibleForTesting
-  public ImmutableList<ProtoSource> getDirectSources() throws Exception {
-    ImmutableList.Builder<ProtoSource> directSources = new ImmutableList.Builder<>();
-    for (StarlarkInfo protoSource :
-        Sequence.cast(
+  public ImmutableList<Artifact> getDirectSources() throws Exception {
+    return Sequence.cast(
             value.getValue("_direct_proto_sources", Sequence.class),
-            StarlarkInfo.class,
-            "_direct_proto_sources")) {
-      directSources.add(ProtoSource.create(protoSource));
-    }
-    return directSources.build();
+            Artifact.class,
+            "_direct_proto_sources")
+        .getImmutableList();
   }
 
   /** The proto source files that are used in compiling this {@code proto_library}. */
@@ -127,12 +121,7 @@ public final class ProtoInfo {
    * directly depending on this {@code ProtoInfo}.
    */
   @VisibleForTesting
-  public NestedSet<ProtoSource> getExportedSources() throws Exception {
-    ImmutableList.Builder<ProtoSource> exportedSources = new ImmutableList.Builder<>();
-    for (StarlarkInfo protoSource :
-        value.getValue("_exported_sources", Depset.class).toList(StarlarkInfo.class)) {
-      exportedSources.add(ProtoSource.create(protoSource));
-    }
-    return NestedSetBuilder.wrap(Order.STABLE_ORDER, exportedSources.build());
+  public NestedSet<Artifact> getExportedSources() throws Exception {
+    return value.getValue("_exported_sources", Depset.class).getSet(Artifact.class);
   }
 }

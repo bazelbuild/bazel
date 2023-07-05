@@ -184,7 +184,6 @@ public class AppleToolchain implements AppleToolchainApi<AppleConfiguration> {
               attr(XcodeConfigRule.XCODE_CONFIG_ATTR_NAME, LABEL)
                   .allowedRuleClasses("xcode_config")
                   .checkConstraints()
-                  .direct_compile_time_input()
                   .value(getXcodeConfigLabel(toolsRepository)))
           .build();
     }

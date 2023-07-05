@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -42,6 +43,7 @@ import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -61,6 +63,12 @@ public final class ActionExecutionValueTransformSharedTreeArtifactsTest {
 
   private final Scratch scratch = new Scratch();
   private ArtifactRoot derivedRoot;
+
+  @BeforeClass
+  public static void initMocks() {
+    when(KEY_1.toKey()).thenReturn(KEY_1);
+    when(KEY_2.toKey()).thenReturn(KEY_2);
+  }
 
   @Before
   public void createDerivedRoot() throws IOException {

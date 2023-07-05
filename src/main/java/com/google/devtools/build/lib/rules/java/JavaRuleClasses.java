@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -31,7 +30,6 @@ import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 public class JavaRuleClasses {
 
   private static final String JAVA_TOOLCHAIN_ATTRIBUTE_NAME = "$java_toolchain";
-  @VisibleForTesting public static final String JAVA_RUNTIME_ATTRIBUTE_NAME = "$jvm";
 
   public static final String JAVA_TOOLCHAIN_TYPE_ATTRIBUTE_NAME = "$java_toolchain_type";
   public static final String JAVA_RUNTIME_TOOLCHAIN_TYPE_ATTRIBUTE_NAME =
@@ -51,23 +49,6 @@ public class JavaRuleClasses {
     return ToolchainTypeRequirement.builder(env.getToolsLabel(RUNTIME_TOOLCHAIN_TYPE_LABEL))
         .mandatory(true)
         .build();
-  }
-
-  /** Common attributes for rules that depend on ijar. */
-  public static final class IjarBaseRule implements RuleDefinition {
-    @Override
-    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder.setPreferredDependencyPredicate(JavaSemantics.JAVA_SOURCE).build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("$ijar_base_rule")
-          .type(RuleClassType.ABSTRACT)
-          .ancestors(JavaToolchainBaseRule.class)
-          .build();
-    }
   }
 
   /** Common attributes for rules that use the Java toolchain. */

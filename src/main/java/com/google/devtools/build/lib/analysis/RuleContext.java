@@ -36,7 +36,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -81,6 +81,7 @@ import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -170,7 +171,7 @@ public final class RuleContext extends TargetContext
   /** Map of exec group names to ActionOwners. */
   private final Map<String, ActionOwner> actionOwners = new HashMap<>();
 
-  private final SymbolGenerator<ActionLookupKey> actionOwnerSymbolGenerator;
+  private final SymbolGenerator<ActionLookupKeyOrProxy> actionOwnerSymbolGenerator;
 
   /* lazily computed cache for Make variables, computed from the above. See get... method */
   private transient ConfigurationMakeVariableContext configurationMakeVariableContext = null;
@@ -223,7 +224,7 @@ public final class RuleContext extends TargetContext
   }
 
   private FeatureSet computeFeatures() {
-    FeatureSet pkg = rule.getPackage().getFeatures();
+    FeatureSet pkg = rule.getPackage().getPackageArgs().features();
     FeatureSet rule =
         attributes().has("features", Type.STRING_LIST)
             ? FeatureSet.parse(attributes().get("features", Type.STRING_LIST))
@@ -235,7 +236,7 @@ public final class RuleContext extends TargetContext
   public boolean isAllowTagsPropagation() {
     return getAnalysisEnvironment()
         .getStarlarkSemantics()
-        .getBool(BuildLanguageOptions.EXPERIMENTAL_ALLOW_TAGS_PROPAGATION);
+        .getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION);
   }
 
   public RepositoryName getRepository() {
@@ -491,7 +492,7 @@ public final class RuleContext extends TargetContext
   }
 
   @Override
-  public ActionLookupKey getOwner() {
+  public ActionLookupKeyOrProxy getOwner() {
     return getAnalysisEnvironment().getOwner();
   }
 
@@ -765,6 +766,10 @@ public final class RuleContext extends TargetContext
     return getTreeArtifact(getPackageDirectory().getRelative(relative), root);
   }
 
+  public Artifact getPackageRelativeTreeArtifact(String relative, ArtifactRoot root) {
+    return getPackageRelativeTreeArtifact(PathFragment.create(relative), root);
+  }
+
   /**
    * Creates an artifact in a directory that is unique to the rule, thus guaranteeing that it never
    * clashes with artifacts created by other rules.
@@ -967,6 +972,15 @@ public final class RuleContext extends TargetContext
   }
 
   /**
+   * Returns all the declared Starlark wrapped providers for the specified constructor under the
+   * specified attribute of this target in the BUILD file.
+   */
+  public <T extends Info> ImmutableList<T> getPrerequisites(
+      String attributeName, StarlarkProviderWrapper<T> starlarkKey) throws RuleErrorException {
+    return AnalysisUtils.getProviders(getPrerequisites(attributeName), starlarkKey);
+  }
+
+  /**
    * Returns all the declared providers (native and Starlark) for the specified constructor under
    * the specified attribute of this target in the BUILD file.
    */
@@ -1035,10 +1049,6 @@ public final class RuleContext extends TargetContext
     configurationMakeVariableContext =
         new ConfigurationMakeVariableContext(
             this, rule.getPackage(), getConfiguration(), makeVariableSuppliers);
-  }
-
-  public void initConfigurationMakeVariableContext(MakeVariableSupplier... makeVariableSuppliers) {
-    initConfigurationMakeVariableContext(ImmutableList.copyOf(makeVariableSuppliers));
   }
 
   public Expander getExpander(TemplateContext templateContext) {
@@ -1656,7 +1666,7 @@ public final class RuleContext extends TargetContext
     private final RuleErrorConsumer reporter;
     private ConfiguredRuleClassProvider ruleClassProvider;
     private ConfigurationFragmentPolicy configurationFragmentPolicy;
-    private ActionLookupKey actionOwnerSymbol;
+    private ActionLookupKeyOrProxy actionOwnerSymbol;
     private OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap;
     private ConfigConditions configConditions;
     private Mutability mutability;
@@ -1788,7 +1798,7 @@ public final class RuleContext extends TargetContext
     }
 
     @CanIgnoreReturnValue
-    public Builder setActionOwnerSymbol(ActionLookupKey actionOwnerSymbol) {
+    public Builder setActionOwnerSymbol(ActionLookupKeyOrProxy actionOwnerSymbol) {
       this.actionOwnerSymbol = actionOwnerSymbol;
       return this;
     }

@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.configurationId;
+
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
@@ -34,18 +36,18 @@ import net.starlark.java.syntax.Location;
 public final class ConfiguredValueCreationException extends Exception
     implements SaneAnalysisException {
 
-  private final Location location;
-  @Nullable private final BuildEventId configuration;
+  @Nullable private final Location location;
+  private final BuildEventId configuration;
   private final NestedSet<Cause> rootCauses;
   // TODO(b/138456686): if warranted by a need for finer-grained details, replace the constructors
   //  that specify the general Code.CONFIGURED_VALUE_CREATION_FAILED
   private final DetailedExitCode detailedExitCode;
 
   public ConfiguredValueCreationException(
-      Location location,
+      @Nullable Location location,
       String message,
       Label label,
-      @Nullable BuildEventId configuration,
+      BuildEventId configuration,
       @Nullable NestedSet<Cause> rootCauses,
       @Nullable DetailedExitCode detailedExitCode) {
     super(message);
@@ -59,9 +61,7 @@ public final class ConfiguredValueCreationException extends Exception
             : NestedSetBuilder.<Cause>stableOrder()
                 .add(
                     new AnalysisFailedCause(
-                        label,
-                        configuration == null ? null : configuration.getConfiguration(),
-                        this.detailedExitCode))
+                        label, configuration.getConfiguration(), this.detailedExitCode))
                 .build();
   }
 
@@ -74,7 +74,7 @@ public final class ConfiguredValueCreationException extends Exception
         ctgValue.getTarget().getLocation(),
         message,
         ctgValue.getLabel(),
-        ctgValue.getConfiguration() == null ? null : ctgValue.getConfiguration().getEventId(),
+        configurationId(ctgValue.getConfiguration()),
         rootCauses,
         detailedExitCode);
   }
@@ -83,6 +83,7 @@ public final class ConfiguredValueCreationException extends Exception
     this(ctgValue, message, /*rootCauses=*/ null, /*detailedExitCode=*/ null);
   }
 
+  @Nullable
   public Location getLocation() {
     return location;
   }

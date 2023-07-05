@@ -20,6 +20,7 @@ import static java.util.stream.Collectors.joining;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -49,6 +50,7 @@ import com.google.devtools.build.lib.server.FailureDetails.WorkspaceStatus.Code;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.BadExitStatusException;
 import com.google.devtools.build.lib.shell.CommandException;
+import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -62,6 +64,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
@@ -79,6 +84,13 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
     private final Artifact volatileStatus;
     private final String username;
     private final String hostname;
+
+    private static final DateTimeFormatter TIME_FORMAT =
+        DateTimeFormatter.ofPattern("yyyy MMM d HH mm ss EEE");
+
+    private static String format(long timestamp) {
+      return Instant.ofEpochMilli(timestamp).atZone(ZoneOffset.UTC).format(TIME_FORMAT);
+    }
 
     BazelWorkspaceStatusAction(
         Artifact stableStatus, Artifact volatileStatus, String username, String hostname) {
@@ -182,6 +194,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
       stableMap.put(BuildInfo.BUILD_USER, username);
       volatileMap.put(
           BuildInfo.BUILD_TIMESTAMP, Long.toString(getCurrentTimeMillis(clientEnv) / 1000));
+      volatileMap.put("FORMATTED_DATE", format(getCurrentTimeMillis(clientEnv) / 1000 * 1000));
       try {
         Map<String, String> statusMap =
             parseWorkspaceStatus(getAdditionalWorkspaceStatus(options, actionExecutionContext));
@@ -278,11 +291,12 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
             .build());
   }
 
-  private static class BazelStatusActionFactory implements WorkspaceStatusAction.Factory {
+  private static final class BazelStatusActionFactory implements WorkspaceStatusAction.Factory {
+
     @Override
-    public Map<String, String> createDummyWorkspaceStatus(
-        WorkspaceStatusAction.DummyEnvironment env) {
-      return ImmutableMap.of();
+    public ImmutableSortedMap<String, String> createDummyWorkspaceStatus(
+        @Nullable WorkspaceInfoFromDiff workspaceInfoFromDiff) {
+      return ImmutableSortedMap.of();
     }
 
     @Override

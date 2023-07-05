@@ -22,13 +22,12 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.packages.RuleTransitionData;
+import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -46,12 +45,13 @@ import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.ThreadSafeMutableKeyExtractorBackedSetImpl;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.actiongraph.v2.StreamedOutputHandler;
+import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -61,14 +61,14 @@ import javax.annotation.Nullable;
  * target graph.
  */
 public class ActionGraphQueryEnvironment
-    extends PostAnalysisQueryEnvironment<KeyedConfiguredTargetValue> {
+    extends PostAnalysisQueryEnvironment<ConfiguredTargetValue> {
 
   public static final ImmutableList<QueryFunction> AQUERY_FUNCTIONS = populateAqueryFunctions();
   public static final ImmutableList<QueryFunction> FUNCTIONS = populateFunctions();
   private AqueryOptions aqueryOptions;
 
   private AqueryActionFilter actionFilters;
-  private final KeyExtractor<KeyedConfiguredTargetValue, ConfiguredTargetKey>
+  private final KeyExtractor<ConfiguredTargetValue, ConfiguredTargetKey>
       configuredTargetKeyExtractor;
   private final ConfiguredTargetValueAccessor accessor;
 
@@ -90,7 +90,7 @@ public class ActionGraphQueryEnvironment
         pkgPath,
         walkableGraphSupplier,
         settings);
-    this.configuredTargetKeyExtractor = KeyedConfiguredTargetValue::getConfiguredTargetKey;
+    this.configuredTargetKeyExtractor = ActionGraphQueryEnvironment::getConfiguredTargetKeyImpl;
     this.accessor =
         new ConfiguredTargetValueAccessor(
             walkableGraphSupplier.get(), this::getTarget, this.configuredTargetKeyExtractor);
@@ -131,49 +131,47 @@ public class ActionGraphQueryEnvironment
   }
 
   @Override
-  public ImmutableList<NamedThreadSafeOutputFormatterCallback<KeyedConfiguredTargetValue>>
+  public ImmutableList<NamedThreadSafeOutputFormatterCallback<ConfiguredTargetValue>>
       getDefaultOutputFormatters(
-          TargetAccessor<KeyedConfiguredTargetValue> accessor,
+          TargetAccessor<ConfiguredTargetValue> accessor,
           ExtendedEventHandler eventHandler,
           OutputStream out,
           SkyframeExecutor skyframeExecutor,
-          @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory,
+          RuleClassProvider ruleClassProvider,
           PackageManager packageManager) {
     return ImmutableList.of(
         new ActionGraphProtoOutputFormatterCallback(
             eventHandler,
             aqueryOptions,
             out,
-            skyframeExecutor,
             accessor,
-            StreamedOutputHandler.OutputType.BINARY,
+            AqueryOutputHandler.OutputType.BINARY,
             actionFilters),
         new ActionGraphProtoOutputFormatterCallback(
             eventHandler,
             aqueryOptions,
             out,
-            skyframeExecutor,
             accessor,
-            StreamedOutputHandler.OutputType.TEXT,
+            AqueryOutputHandler.OutputType.DELIMITED_BINARY,
             actionFilters),
         new ActionGraphProtoOutputFormatterCallback(
             eventHandler,
             aqueryOptions,
             out,
-            skyframeExecutor,
             accessor,
-            StreamedOutputHandler.OutputType.JSON,
+            AqueryOutputHandler.OutputType.TEXT,
+            actionFilters),
+        new ActionGraphProtoOutputFormatterCallback(
+            eventHandler,
+            aqueryOptions,
+            out,
+            accessor,
+            AqueryOutputHandler.OutputType.JSON,
             actionFilters),
         new ActionGraphTextOutputFormatterCallback(
-            eventHandler,
-            aqueryOptions,
-            out,
-            skyframeExecutor,
-            accessor,
-            actionFilters,
-            getMainRepoMapping()),
+            eventHandler, aqueryOptions, out, accessor, actionFilters, getMainRepoMapping()),
         new ActionGraphSummaryOutputFormatterCallback(
-            eventHandler, aqueryOptions, out, skyframeExecutor, accessor, actionFilters));
+            eventHandler, aqueryOptions, out, accessor, actionFilters));
   }
 
   @Override
@@ -182,42 +180,47 @@ public class ActionGraphQueryEnvironment
   }
 
   @Override
-  protected KeyExtractor<KeyedConfiguredTargetValue, ConfiguredTargetKey>
+  protected KeyExtractor<ConfiguredTargetValue, ConfiguredTargetKey>
       getConfiguredTargetKeyExtractor() {
     return configuredTargetKeyExtractor;
   }
 
   @Override
-  public Label getCorrectLabel(KeyedConfiguredTargetValue keyedConfiguredTargetValue) {
-    ConfiguredTarget target = keyedConfiguredTargetValue.getConfiguredTarget();
+  public Label getCorrectLabel(ConfiguredTargetValue configuredTargetValue) {
+    ConfiguredTarget target = configuredTargetValue.getConfiguredTarget();
     // Dereference any aliases that might be present.
     return target.getOriginalLabel();
   }
 
   @Nullable
-  private KeyedConfiguredTargetValue createKeyedConfiguredTargetValueFromKey(
-      ConfiguredTargetKey key) throws InterruptedException {
-    ConfiguredTargetValue configuredTargetValue = getConfiguredTargetValue(key);
-    return configuredTargetValue == null
-        ? null
-        : KeyedConfiguredTargetValue.create(configuredTargetValue, key);
+  private ConfiguredTargetValue createConfiguredTargetValueFromKey(ConfiguredTargetKey key)
+      throws InterruptedException {
+    ConfiguredTargetValue value = getConfiguredTargetValue(key.toKey());
+    if (value == null
+        || !Objects.equals(
+            value.getConfiguredTarget().getConfigurationKey(), key.getConfigurationKey())) {
+      // The configurations might not match if the target's configuration changed due to a
+      // transition or trimming. Filters such targets.
+      return null;
+    }
+    return value;
   }
 
   @Nullable
   @Override
-  protected KeyedConfiguredTargetValue getTargetConfiguredTarget(Label label)
+  protected ConfiguredTargetValue getTargetConfiguredTarget(Label label)
       throws InterruptedException {
     if (topLevelConfigurations.isTopLevelTarget(label)) {
-      return createKeyedConfiguredTargetValueFromKey(
+      return createConfiguredTargetValueFromKey(
           ConfiguredTargetKey.builder()
               .setLabel(label)
               .setConfiguration(topLevelConfigurations.getConfigurationForTopLevelTarget(label))
               .build());
     } else {
-      KeyedConfiguredTargetValue toReturn;
+      ConfiguredTargetValue toReturn;
       for (BuildConfigurationValue configuration : topLevelConfigurations.getConfigurations()) {
         toReturn =
-            createKeyedConfiguredTargetValueFromKey(
+            createConfiguredTargetValueFromKey(
                 ConfiguredTargetKey.builder()
                     .setLabel(label)
                     .setConfiguration(configuration)
@@ -232,24 +235,23 @@ public class ActionGraphQueryEnvironment
 
   @Nullable
   @Override
-  protected KeyedConfiguredTargetValue getNullConfiguredTarget(Label label)
-      throws InterruptedException {
-    return createKeyedConfiguredTargetValueFromKey(
+  protected ConfiguredTargetValue getNullConfiguredTarget(Label label) throws InterruptedException {
+    return createConfiguredTargetValueFromKey(
         ConfiguredTargetKey.builder().setLabel(label).build());
   }
 
   @Nullable
   @Override
-  protected KeyedConfiguredTargetValue getValueFromKey(SkyKey key) throws InterruptedException {
+  protected ConfiguredTargetValue getValueFromKey(SkyKey key) throws InterruptedException {
     Preconditions.checkState(key instanceof ConfiguredTargetKey);
-    return createKeyedConfiguredTargetValueFromKey((ConfiguredTargetKey) key);
+    return getConfiguredTargetValue(((ConfiguredTargetKey) key).toKey());
   }
 
   @Nullable
   @Override
   protected RuleConfiguredTarget getRuleConfiguredTarget(
-      KeyedConfiguredTargetValue keyedConfiguredTargetValue) {
-    ConfiguredTarget configuredTarget = keyedConfiguredTargetValue.getConfiguredTarget();
+      ConfiguredTargetValue configuredTargetValue) {
+    ConfiguredTarget configuredTarget = configuredTargetValue.getConfiguredTarget();
     if (configuredTarget instanceof RuleConfiguredTarget) {
       return (RuleConfiguredTarget) configuredTarget;
     }
@@ -258,9 +260,8 @@ public class ActionGraphQueryEnvironment
 
   @Nullable
   @Override
-  protected BuildConfigurationValue getConfiguration(
-      KeyedConfiguredTargetValue keyedConfiguredTargetValue) {
-    ConfiguredTarget target = keyedConfiguredTargetValue.getConfiguredTarget();
+  protected BuildConfigurationValue getConfiguration(ConfiguredTargetValue configuredTargetValue) {
+    ConfiguredTarget target = configuredTargetValue.getConfiguredTarget();
     try {
       return target.getConfigurationKey() == null
           ? null
@@ -271,13 +272,14 @@ public class ActionGraphQueryEnvironment
   }
 
   @Override
-  protected ConfiguredTargetKey getSkyKey(KeyedConfiguredTargetValue keyedConfiguredTargetValue) {
-    return keyedConfiguredTargetValue.getConfiguredTargetKey();
+  protected ConfiguredTargetKey getConfiguredTargetKey(
+      ConfiguredTargetValue configuredTargetValue) {
+    return getConfiguredTargetKeyImpl(configuredTargetValue);
   }
 
   @Override
   public QueryTaskFuture<Void> getTargetsMatchingPattern(
-      QueryExpression owner, String pattern, Callback<KeyedConfiguredTargetValue> callback) {
+      QueryExpression owner, String pattern, Callback<ConfiguredTargetValue> callback) {
     TargetPattern patternToEval;
     try {
       patternToEval = getPattern(pattern);
@@ -300,15 +302,15 @@ public class ActionGraphQueryEnvironment
             patternToEval.evalAdaptedForAsync(
                 resolver,
                 getIgnoredPackagePrefixesPathFragments(),
-                /*excludedSubdirectories=*/ ImmutableSet.of(),
+                /* excludedSubdirectories= */ ImmutableSet.of(),
                 (Callback<Target>)
                     partialResult -> {
-                      List<KeyedConfiguredTargetValue> transformedResult = new ArrayList<>();
+                      List<ConfiguredTargetValue> transformedResult = new ArrayList<>();
                       for (Target target : partialResult) {
-                        KeyedConfiguredTargetValue keyedConfiguredTargetValue =
-                            getKeyedConfiguredTargetValue(target.getLabel());
-                        if (keyedConfiguredTargetValue != null) {
-                          transformedResult.add(keyedConfiguredTargetValue);
+                        ConfiguredTargetValue configuredTargetValue =
+                            getConfiguredTargetValue(target.getLabel());
+                        if (configuredTargetValue != null) {
+                          transformedResult.add(configuredTargetValue);
                         }
                       }
                       callback.process(transformedResult);
@@ -319,26 +321,29 @@ public class ActionGraphQueryEnvironment
             MoreExecutors.directExecutor()));
   }
 
-  private KeyedConfiguredTargetValue getKeyedConfiguredTargetValue(Label label)
-      throws InterruptedException {
+  private ConfiguredTargetValue getConfiguredTargetValue(Label label) throws InterruptedException {
     // Try with target configuration.
-    KeyedConfiguredTargetValue keyedConfiguredTargetValue = getTargetConfiguredTarget(label);
-    if (keyedConfiguredTargetValue != null) {
-      return keyedConfiguredTargetValue;
+    ConfiguredTargetValue configuredTargetValue = getTargetConfiguredTarget(label);
+    if (configuredTargetValue != null) {
+      return configuredTargetValue;
     }
     // Last chance: source file.
     return getNullConfiguredTarget(label);
   }
 
   @Override
-  public ThreadSafeMutableSet<KeyedConfiguredTargetValue> createThreadSafeMutableSet() {
+  public ThreadSafeMutableSet<ConfiguredTargetValue> createThreadSafeMutableSet() {
     return new ThreadSafeMutableKeyExtractorBackedSetImpl<>(
         configuredTargetKeyExtractor,
-        KeyedConfiguredTargetValue.class,
+        ConfiguredTargetValue.class,
         SkyQueryEnvironment.DEFAULT_THREAD_COUNT);
   }
 
   public void setActionFilters(AqueryActionFilter actionFilters) {
     this.actionFilters = actionFilters;
+  }
+
+  private static ConfiguredTargetKey getConfiguredTargetKeyImpl(ConfiguredTargetValue targetValue) {
+    return ConfiguredTargetKey.fromConfiguredTarget(targetValue.getConfiguredTarget());
   }
 }

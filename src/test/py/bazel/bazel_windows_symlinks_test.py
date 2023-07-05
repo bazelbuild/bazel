@@ -20,21 +20,24 @@ class BazelWindowsSymlinksTest(test_base.TestBase):
 
   def createProjectFiles(self):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
-    self.ScratchFile('foo/BUILD', [
-        'genrule(',
-        '    name = "x",',
-        '    srcs = ["sample"],',
-        '    outs = ["link"],',
-        '    exec_tools = ["sym.bat"],',
-        '    cmd = "$(location sym.bat) $< $@",',
-        ')',
-        'genrule(',
-        '    name = "y",',
-        '    outs = ["dangling-link"],',
-        '    exec_tools = ["sym.bat"],',
-        '    cmd = "$(location sym.bat) does-not-exist $@",',
-        ')',
-    ])
+    self.ScratchFile(
+        'foo/BUILD',
+        [
+            'genrule(',
+            '    name = "x",',
+            '    srcs = ["sample"],',
+            '    outs = ["link"],',
+            '    tools = ["sym.bat"],',
+            '    cmd = "$(location sym.bat) $< $@",',
+            ')',
+            'genrule(',
+            '    name = "y",',
+            '    outs = ["dangling-link"],',
+            '    tools = ["sym.bat"],',
+            '    cmd = "$(location sym.bat) does-not-exist $@",',
+            ')',
+        ],
+    )
     self.ScratchFile(
         'foo/sym.bat', [
             '@set IN=%1',

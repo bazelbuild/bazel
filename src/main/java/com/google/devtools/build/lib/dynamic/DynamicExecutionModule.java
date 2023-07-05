@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.errorprone.annotations.ForOverride;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -120,8 +121,13 @@ public class DynamicExecutionModule extends BlazeModule {
       strategies.put(e.getKey(), e.getValue());
     }
     return options.dynamicRemoteStrategy.isEmpty()
-        ? ImmutableMap.of("", ImmutableList.of("remote"))
+        ? ImmutableMap.of("", ImmutableList.of(remoteStrategyName()))
         : ImmutableMap.copyOf(strategies);
+  }
+
+  @ForOverride
+  protected String remoteStrategyName() {
+    return "remote";
   }
 
   @Override

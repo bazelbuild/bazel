@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
-import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.SpawnCache.CacheHandle;
@@ -90,7 +89,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
   }
 
   /**
-   * Get's the {@link SpawnRunner} that this {@link AbstractSpawnStrategy} uses to actually run
+   * Gets the {@link SpawnRunner} that this {@link AbstractSpawnStrategy} uses to actually run
    * spawns.
    *
    * <p>This is considered a stop-gap until we refactor the entire SpawnStrategy / SpawnRunner
@@ -253,6 +252,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
             actionExecutionContext
                 .getActionInputPrefetcher()
                 .prefetchFiles(
+                    spawn.getResourceOwner(),
                     getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true)
                         .values(),
                     getInputMetadataProvider()::getInputMetadata,
@@ -285,12 +285,6 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     public InputMetadataProvider getInputMetadataProvider() {
       return actionExecutionContext.getInputMetadataProvider();
     }
-
-    @Override
-    public OutputMetadataStore getMetadataInjector() {
-      return actionExecutionContext.getOutputMetadataStore();
-    }
-
     @Override
     public <T extends ActionContext> T getContext(Class<T> identifyingType) {
       return actionExecutionContext.getContext(identifyingType);

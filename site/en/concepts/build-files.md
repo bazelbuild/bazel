@@ -10,7 +10,14 @@ build dependency graph abstractly. This section describes the concrete syntax
 used to define a package.
 
 By definition, every package contains a `BUILD` file, which is a short
-program. `BUILD` files are evaluated using an imperative language,
+program.
+
+Note: The `BUILD` file can be named either `BUILD` or `BUILD.bazel`. If both
+files exist, `BUILD.bazel` takes precedence over `BUILD`.
+For simplicity's sake, the documentation refers to these files simply as `BUILD`
+files.
+
+`BUILD` files are evaluated using an imperative language,
 [Starlark](https://github.com/bazelbuild/starlark/){: .external}.
 
 They are interpreted as a sequential list of statements.

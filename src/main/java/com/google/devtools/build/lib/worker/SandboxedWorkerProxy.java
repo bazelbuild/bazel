@@ -67,7 +67,7 @@ public class SandboxedWorkerProxy extends WorkerProxy {
   @Override
   public void prepareExecution(
       SandboxInputs inputFiles, SandboxOutputs outputs, Set<PathFragment> workerFiles)
-      throws IOException {
+      throws IOException, InterruptedException {
     workerMultiplexer.createSandboxedProcess(workDir, workerFiles, inputFiles);
 
     sandboxDir.createDirectoryAndParents();

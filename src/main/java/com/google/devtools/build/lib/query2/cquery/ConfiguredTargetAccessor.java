@@ -13,27 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
-import static com.google.devtools.build.lib.skyframe.PrerequisiteProducer.getExecutionPlatformConstraints;
-
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
-import com.google.devtools.build.lib.analysis.PlatformConfiguration;
-import com.google.devtools.build.lib.analysis.ToolchainCollection;
-import com.google.devtools.build.lib.analysis.ToolchainContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
-import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
-import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -43,81 +35,95 @@ import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryVisibility;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
-import com.google.devtools.build.lib.skyframe.ToolchainContextKey;
-import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
+import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
+import com.google.devtools.build.skyframe.state.EnvironmentForUtilities;
 import java.util.List;
-import java.util.Map;
-import javax.annotation.Nullable;
 
 /**
  * A {@link TargetAccessor} for {@link ConfiguredTarget} objects.
  *
  * <p>Incomplete; we'll implement getVisibility when needed.
  */
-public class ConfiguredTargetAccessor implements TargetAccessor<KeyedConfiguredTarget> {
+public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget> {
 
   private final WalkableGraph walkableGraph;
   private final ConfiguredTargetQueryEnvironment queryEnvironment;
+  private final SkyFunction.LookupEnvironment lookupEnvironment;
 
   public ConfiguredTargetAccessor(
       WalkableGraph walkableGraph, ConfiguredTargetQueryEnvironment queryEnvironment) {
     this.walkableGraph = walkableGraph;
     this.queryEnvironment = queryEnvironment;
+    this.lookupEnvironment =
+        new EnvironmentForUtilities(
+            key -> {
+              try {
+                SkyValue value = walkableGraph.getValue(key);
+                if (value != null) {
+                  return value;
+                }
+                return walkableGraph.getException(key);
+              } catch (InterruptedException e) {
+                throw new IllegalStateException(
+                    "Thread interrupted in the middle of looking up: " + key, e);
+              }
+            });
   }
 
   @Override
-  public String getTargetKind(KeyedConfiguredTarget target) {
+  public String getTargetKind(ConfiguredTarget target) {
     Target actualTarget = getTarget(target);
     return actualTarget.getTargetKind();
   }
 
   @Override
-  public String getLabel(KeyedConfiguredTarget target) {
-    return target.getLabel().toString();
+  public String getLabel(ConfiguredTarget target) {
+    return target.getOriginalLabel().toString();
   }
 
   @Override
-  public String getPackage(KeyedConfiguredTarget target) {
-    return target.getLabel().getPackageIdentifier().getPackageFragment().toString();
+  public String getPackage(ConfiguredTarget target) {
+    return target.getOriginalLabel().getPackageIdentifier().getPackageFragment().toString();
   }
 
   @Override
-  public boolean isRule(KeyedConfiguredTarget target) {
+  public boolean isRule(ConfiguredTarget target) {
     Target actualTarget = getTarget(target);
     return actualTarget instanceof Rule;
   }
 
   @Override
-  public boolean isTestRule(KeyedConfiguredTarget target) {
+  public boolean isTestRule(ConfiguredTarget target) {
     Target actualTarget = getTarget(target);
     return TargetUtils.isTestRule(actualTarget);
   }
 
   @Override
-  public boolean isTestSuite(KeyedConfiguredTarget target) {
+  public boolean isTestSuite(ConfiguredTarget target) {
     Target actualTarget = getTarget(target);
     return TargetUtils.isTestSuiteRule(actualTarget);
   }
 
   @Override
-  public List<KeyedConfiguredTarget> getPrerequisites(
+  public List<ConfiguredTarget> getPrerequisites(
       QueryExpression caller,
-      KeyedConfiguredTarget keyedConfiguredTarget,
+      ConfiguredTarget keyedConfiguredTarget,
       String attrName,
       String errorMsgPrefix)
       throws QueryException, InterruptedException {
     // Process aliases.
-    KeyedConfiguredTarget actual = keyedConfiguredTarget.getActual();
+    ConfiguredTarget actual = keyedConfiguredTarget.getActual();
 
     Preconditions.checkArgument(
         isRule(actual), "%s %s is not a rule configured target", errorMsgPrefix, getLabel(actual));
 
-    Multimap<Label, KeyedConfiguredTarget> depsByLabel =
+    ImmutableListMultimap<Label, ConfiguredTarget> depsByLabel =
         Multimaps.index(
-            queryEnvironment.getFwdDeps(ImmutableList.of(actual)), KeyedConfiguredTarget::getLabel);
+            queryEnvironment.getFwdDeps(ImmutableList.of(actual)),
+            ConfiguredTarget::getOriginalLabel);
 
     Rule rule = (Rule) getTarget(actual);
     ImmutableMap<Label, ConfigMatchingProvider> configConditions = actual.getConfigConditions();
@@ -135,41 +141,41 @@ public class ConfiguredTargetAccessor implements TargetAccessor<KeyedConfiguredT
               errorMsgPrefix, rule.getRuleClass(), attrName),
           ConfigurableQuery.Code.ATTRIBUTE_MISSING);
     }
-    ImmutableList.Builder<KeyedConfiguredTarget> toReturn = ImmutableList.builder();
+    ImmutableList.Builder<ConfiguredTarget> toReturn = ImmutableList.builder();
     attributeMapper.visitLabels(attrName, label -> toReturn.addAll(depsByLabel.get(label)));
     return toReturn.build();
   }
 
   @Override
-  public List<String> getStringListAttr(KeyedConfiguredTarget target, String attrName) {
+  public List<String> getStringListAttr(ConfiguredTarget target, String attrName) {
     Target actualTarget = getTarget(target);
     return TargetUtils.getStringListAttr(actualTarget, attrName);
   }
 
   @Override
-  public String getStringAttr(KeyedConfiguredTarget target, String attrName) {
+  public String getStringAttr(ConfiguredTarget target, String attrName) {
     Target actualTarget = getTarget(target);
     return TargetUtils.getStringAttr(actualTarget, attrName);
   }
 
   @Override
-  public Iterable<String> getAttrAsString(KeyedConfiguredTarget target, String attrName) {
+  public Iterable<String> getAttrAsString(ConfiguredTarget target, String attrName) {
     Target actualTarget = getTarget(target);
     return TargetUtils.getAttrAsString(actualTarget, attrName);
   }
 
   @Override
-  public ImmutableSet<QueryVisibility<KeyedConfiguredTarget>> getVisibility(
-      QueryExpression caller, KeyedConfiguredTarget from) throws QueryException {
+  public ImmutableSet<QueryVisibility<ConfiguredTarget>> getVisibility(
+      QueryExpression caller, ConfiguredTarget from) throws QueryException {
     // TODO(bazel-team): implement this if needed.
     throw new QueryException(
         "visible() is not supported on configured targets",
         ConfigurableQuery.Code.VISIBLE_FUNCTION_NOT_SUPPORTED);
   }
 
-  public Target getTarget(KeyedConfiguredTarget keyedConfiguredTarget) {
+  public Target getTarget(ConfiguredTarget configuredTarget) {
     // Dereference any aliases that might be present.
-    Label label = keyedConfiguredTarget.getConfiguredTarget().getOriginalLabel();
+    Label label = configuredTarget.getOriginalLabel();
     try {
       return queryEnvironment.getTarget(label);
     } catch (InterruptedException e) {
@@ -179,88 +185,22 @@ public class ConfiguredTargetAccessor implements TargetAccessor<KeyedConfiguredT
     }
   }
 
+  SkyFunction.LookupEnvironment getLookupEnvironment() {
+    return lookupEnvironment;
+  }
+
   /** Returns the rule that generates the given output file. */
-  RuleConfiguredTarget getGeneratingConfiguredTarget(KeyedConfiguredTarget kct)
+  RuleConfiguredTarget getGeneratingConfiguredTarget(ConfiguredTarget kct)
       throws InterruptedException {
-    Preconditions.checkArgument(kct.getConfiguredTarget() instanceof OutputFileConfiguredTarget);
+    Preconditions.checkArgument(kct instanceof OutputFileConfiguredTarget);
     return (RuleConfiguredTarget)
         ((ConfiguredTargetValue)
                 walkableGraph.getValue(
                     ConfiguredTargetKey.builder()
-                        .setLabel(
-                            ((OutputFileConfiguredTarget) kct.getConfiguredTarget())
-                                .getGeneratingRule()
-                                .getLabel())
-                        .setConfiguration(queryEnvironment.getConfiguration(kct))
-                        .build()))
+                        .setLabel(((OutputFileConfiguredTarget) kct).getGeneratingRule().getLabel())
+                        .setConfigurationKey(kct.getConfigurationKey())
+                        .build()
+                        .toKey()))
             .getConfiguredTarget();
-  }
-
-  @Nullable
-  ToolchainCollection<ToolchainContext> getToolchainContexts(
-      Target target, BuildConfigurationValue config) {
-    return getToolchainContexts(target, config, walkableGraph);
-  }
-
-  @Nullable
-  private static ToolchainCollection<ToolchainContext> getToolchainContexts(
-      Target target, BuildConfigurationValue config, WalkableGraph walkableGraph) {
-    if (!(target instanceof Rule)) {
-      return null;
-    }
-
-    Rule rule = ((Rule) target);
-    if (!rule.useToolchainResolution()) {
-      return null;
-    }
-
-    ImmutableSet<ToolchainTypeRequirement> toolchainTypes =
-        rule.getRuleClassObject().getToolchainTypes();
-    // Collect local (target, rule) constraints for filtering out execution platforms.
-    ImmutableSet<Label> execConstraintLabels =
-        getExecutionPlatformConstraints(rule, config.getFragment(PlatformConfiguration.class));
-    ImmutableMap<String, ExecGroup> execGroups = rule.getRuleClassObject().getExecGroups();
-    // Check if this specific target should be debugged for toolchain resolution.
-    boolean debugTarget =
-        config.getFragment(PlatformConfiguration.class).debugToolchainResolution(target.getLabel());
-
-    ToolchainCollection.Builder<UnloadedToolchainContext> toolchainContexts =
-        ToolchainCollection.builder();
-    BuildConfigurationKey configurationKey = config.getKey();
-    try {
-      for (Map.Entry<String, ExecGroup> group : execGroups.entrySet()) {
-        ExecGroup execGroup = group.getValue();
-        UnloadedToolchainContext context =
-            (UnloadedToolchainContext)
-                walkableGraph.getValue(
-                    ToolchainContextKey.key()
-                        .configurationKey(configurationKey)
-                        .toolchainTypes(execGroup.toolchainTypes())
-                        .execConstraintLabels(execGroup.execCompatibleWith())
-                        .debugTarget(debugTarget)
-                        .build());
-        if (context == null) {
-          return null;
-        }
-        toolchainContexts.addContext(group.getKey(), context);
-      }
-      UnloadedToolchainContext defaultContext =
-          (UnloadedToolchainContext)
-              walkableGraph.getValue(
-                  ToolchainContextKey.key()
-                      .configurationKey(configurationKey)
-                      .toolchainTypes(toolchainTypes)
-                      .execConstraintLabels(execConstraintLabels)
-                      .debugTarget(debugTarget)
-                      .build());
-      if (defaultContext == null) {
-        return null;
-      }
-      toolchainContexts.addDefaultContext(defaultContext);
-      return toolchainContexts.build().asToolchainContexts();
-    } catch (InterruptedException e) {
-      throw new IllegalStateException(
-          "Thread interrupted in the middle of getting a ToolchainContext.", e);
-    }
   }
 }

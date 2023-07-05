@@ -186,6 +186,13 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
       return kind == Kind.BUILTINS;
     }
 
+    /** Returns true if the requested file follows the .scl dialect. */
+    // See comment in BzlLoadValue#isSclDialect about distinguishing .scl keys by label as opposed
+    // to by Kind.
+    final boolean isSclDialect() {
+      return label != null && label.getName().endsWith(".scl");
+    }
+
     boolean isBuildPrelude() {
       return kind == Kind.PRELUDE || kind == Kind.EMPTY_PRELUDE;
     }

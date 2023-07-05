@@ -68,10 +68,6 @@ public final class MessageBundleInfo extends NativeInfo implements MessageBundle
 
   private final ImmutableList<Artifact> messages;
 
-  public static MessageBundleInfo create(ImmutableList<Artifact> messages) {
-    return new MessageBundleInfo(messages, null);
-  }
-
   private MessageBundleInfo(ImmutableList<Artifact> messages, Location creationLocation) {
     super(creationLocation);
     this.messages = Preconditions.checkNotNull(messages);

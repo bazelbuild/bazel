@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -78,7 +79,7 @@ public class BuildInfoFileWriteActionTest extends BuildViewTestCase {
                   Label.parseCanonicalUnchecked("//test:label"),
                   RepositoryMapping.ALWAYS_FALLBACK,
                   "test/label.bzl",
-                  /* loads= */ ImmutableMap.of(),
+                  /* loads= */ ImmutableList.of(),
                   /* bzlTransitiveDigest= */ new byte[0])),
           thread);
     }

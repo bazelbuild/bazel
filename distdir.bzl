@@ -14,7 +14,7 @@
 """Defines a repository rule that generates an archive consisting of the specified files to fetch"""
 
 load("//:distdir_deps.bzl", "DEPS_BY_NAME")
-load("//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
+load("//tools/build_defs/repo:http.bzl", "http_archive", "http_file", "http_jar")
 
 _BUILD = """
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
@@ -110,6 +110,24 @@ def dist_http_file(name, **kwargs):
     """
     info = DEPS_BY_NAME[name]
     http_file(
+        name = name,
+        sha256 = info["sha256"],
+        urls = info["urls"],
+        **kwargs
+    )
+
+def dist_http_jar(name, **kwargs):
+    """Wraps http_jar, providing attributes like sha and urls from the central list.
+
+    dist_http_jar wraps an http_jar invocation, but looks up relevant attributes
+    from distdir_deps.bzl so the user does not have to specify them.
+
+    Args:
+      name: repo name
+      **kwargs: see http_jar for allowed args.
+    """
+    info = DEPS_BY_NAME[name]
+    http_jar(
         name = name,
         sha256 = info["sha256"],
         urls = info["urls"],

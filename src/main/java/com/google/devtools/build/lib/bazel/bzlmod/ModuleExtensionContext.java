@@ -124,6 +124,16 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
   }
 
   @StarlarkMethod(
+      name = "is_isolated",
+      doc =
+          "Whether this particular usage of the extension had <code>isolate = True</code> "
+              + "specified and is thus isolated from all other usages.",
+      structField = true)
+  public boolean isIsolated() {
+    return extensionId.getIsolationKey().isPresent();
+  }
+
+  @StarlarkMethod(
       name = "extension_metadata",
       doc =
           "Constructs an opaque object that can be returned from the module extension's"
@@ -161,7 +171,7 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
                     + " repositories or does not import all of these repositories via <a"
                     + " href=\"../globals/module.html#use_repo\"><code>use_repo</code></a> on an"
                     + " extension proxy created with <code><a"
-                    + " href=\"../globals/module.html#use_extension>use_extension</a>(...,"
+                    + " href=\"../globals/module.html#use_extension\">use_extension</a>(...,"
                     + " dev_dependency = True)</code>, Bazel will print a warning and a fixup"
                     + " command when the extension is evaluated.<p>If one of"
                     + " <code>root_module_direct_deps</code> and"
@@ -184,6 +194,6 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
       Object rootModuleDirectDepsUnchecked, Object rootModuleDirectDevDepsUnchecked)
       throws EvalException {
     return ModuleExtensionMetadata.create(
-        rootModuleDirectDepsUnchecked, rootModuleDirectDevDepsUnchecked);
+        rootModuleDirectDepsUnchecked, rootModuleDirectDevDepsUnchecked, extensionId);
   }
 }

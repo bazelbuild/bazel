@@ -63,10 +63,6 @@ public enum ArtifactCategory {
     this.starlarkName = toString().toLowerCase();
   }
 
-  public String getStarlarkName() {
-    return starlarkName;
-  }
-
   /** Returns the name of the category. */
   public String getCategoryName() {
     return this.toString().toLowerCase();

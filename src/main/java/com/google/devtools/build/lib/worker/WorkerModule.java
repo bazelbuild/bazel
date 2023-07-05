@@ -162,16 +162,18 @@ public class WorkerModule extends BlazeModule {
       workerPool = new WorkerPoolImpl(newConfig);
       // If workerPool is restarted then we should recreate metrics.
       WorkerMetricsCollector.instance().clear();
-
-      // Start collecting after a pool is defined
-      workerLifecycleManager = new WorkerLifecycleManager(workerPool, options);
-      if (options.workerVerbose) {
-        workerLifecycleManager.setReporter(env.getReporter());
-      }
-      workerLifecycleManager.setDaemon(true);
-      workerLifecycleManager.start();
     }
 
+    // Start collecting after a pool is defined
+    workerLifecycleManager = new WorkerLifecycleManager(workerPool, options);
+    if (options.workerVerbose) {
+      workerLifecycleManager.setReporter(env.getReporter());
+    }
+    workerLifecycleManager.setEventBus(env.getEventBus());
+    workerLifecycleManager.setDaemon(true);
+    workerLifecycleManager.start();
+
+    workerPool.setEventBus(env.getEventBus());
     // Clean doomed workers on the beginning of a build.
     workerPool.clearDoomedWorkers();
   }
@@ -191,11 +193,9 @@ public class WorkerModule extends BlazeModule {
             localEnvProvider,
             env.getBlazeWorkspace().getBinTools(),
             env.getLocalResourceManager(),
-            // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
-            RunfilesTreeUpdater.INSTANCE,
+            RunfilesTreeUpdater.forCommandEnvironment(env),
             env.getOptions().getOptions(WorkerOptions.class),
             WorkerMetricsCollector.instance(),
-            env.getXattrProvider(),
             env.getClock());
     ExecutionOptions executionOptions =
         checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
@@ -239,6 +239,9 @@ public class WorkerModule extends BlazeModule {
     if (this.workerFactory != null) {
       this.workerFactory.setReporter(null);
       this.workerFactory.setEventBus(null);
+    }
+    if (this.workerPool != null) {
+      this.workerPool.setEventBus(null);
     }
     WorkerMultiplexerManager.afterCommand();
   }

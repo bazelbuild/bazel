@@ -501,7 +501,7 @@ Java and Android.
 DAML is a smart contract language for building future-proof distributed
 applications on a safe, privacy-aware runtime.
 
-### [Deepmind Lab](https://github.com/deepmind/lab){: .external}
+### [DeepMind Lab](https://github.com/deepmind/lab){: .external}
 
 A customisable 3D platform for agent-based AI research.
 

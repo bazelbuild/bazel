@@ -8649,9 +8649,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   private void exposeNativeAspectToStarlark() throws Exception {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
-    builder.addStarlarkAccessibleTopLevels(
+    builder.addBzlToplevel(
         "starlark_native_aspect", TestAspects.STARLARK_NATIVE_ASPECT_WITH_PROVIDER);
-    builder.addStarlarkAccessibleTopLevels(
+    builder.addBzlToplevel(
         "parametrized_native_aspect",
         TestAspects.PARAMETRIZED_STARLARK_NATIVE_ASPECT_WITH_PROVIDER);
     builder.addNativeAspectClass(TestAspects.STARLARK_NATIVE_ASPECT_WITH_PROVIDER);

@@ -49,11 +49,11 @@ The primary unit of code organization in a repository is the _package_. A
 package is a collection of related files and a specification of how they can be
 used to produce output artifacts.
 
-A package is defined as a directory containing a file named `BUILD` (or
-`BUILD.bazel`). A package includes all files in its directory, plus all
-subdirectories beneath it, except those which themselves contain a `BUILD` file.
-From this definition, no file or directory may be a part of two different
-packages.
+A package is defined as a directory containing a
+[`BUILD` file](/concepts/build-files) named either `BUILD` or `BUILD.bazel`. A
+package includes all files in its directory, plus all subdirectories beneath it,
+except those which themselves contain a `BUILD` file. From this definition, no
+file or directory may be a part of two different packages.
 
 For example, in the following directory tree there are two packages, `my/app`,
 and the subpackage `my/app/tests`. Note that `my/app/data` is not a package, but

@@ -108,7 +108,6 @@ import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
-import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.BasicFilesystemDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetBuiltEvent;
@@ -647,7 +646,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                 SyscallCache.NO_CACHE,
                 /* numThreads= */ 20)
             .getDirtyKeys(
-                skyframeExecutor.getEvaluator().getValues(), new BasicFilesystemDirtinessChecker());
+                skyframeExecutor.getEvaluator().getValues(),
+                DirtinessCheckerUtils.createBasicFilesystemDirtinessChecker());
     return ImmutableList.<SkyKey>builder()
         .addAll(diff.changedKeysWithoutNewValues())
         .addAll(diff.changedKeysWithNewValues().keySet())
@@ -1945,9 +1945,9 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
       throws ActionConflictException,
           InterruptedException,
           Actions.ArtifactGeneratedByOtherRuleException {
-    return new BasicActionLookupValue(
-        Actions.assignOwnersAndFindAndThrowActionConflict(
-            new ActionKeyContext(), ImmutableList.of(generatingAction), actionLookupKey));
+    ImmutableList<ActionAnalysisMetadata> actions = ImmutableList.of(generatingAction);
+    Actions.assignOwnersAndThrowIfConflict(new ActionKeyContext(), actions, actionLookupKey);
+    return new BasicActionLookupValue(actions);
   }
 
   @Test
@@ -2118,16 +2118,14 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
       failedArtifacts.add(failureArtifact);
       failedActions.add(new FailedExecAction(failureArtifact, USER_DETAILED_EXIT_CODE));
     }
-    ActionLookupValue nonRuleActionLookupValue =
-        new BasicActionLookupValue(
-            Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-                new ActionKeyContext(),
-                ImmutableList.<ActionAnalysisMetadata>builder()
-                    .add(catastrophicAction)
-                    .addAll(failedActions)
-                    .build(),
-                configuredTargetKey,
-                /* outputFiles= */ null));
+    var actions =
+        ImmutableList.<ActionAnalysisMetadata>builder()
+            .add(catastrophicAction)
+            .addAll(failedActions)
+            .build();
+    Actions.assignOwnersAndThrowIfConflictToleratingSharedActions(
+        new ActionKeyContext(), actions, configuredTargetKey);
+    ActionLookupValue nonRuleActionLookupValue = new BasicActionLookupValue(actions);
     HashSet<ActionLookupData> failedActionKeys = new HashSet<>();
     for (Action failedAction : failedActions) {
       failedActionKeys.add(

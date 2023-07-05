@@ -26,81 +26,108 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkMethod;
 
-/** Helper functions for StarlarkMethod-annotated fields and methods. */
+/** Helper functions for {@link StarlarkMethod}-annotated fields and methods. */
 final class CallUtils {
 
   private CallUtils() {} // uninstantiable
 
-  private static CacheValue getCacheValue(Class<?> cls, StarlarkSemantics semantics) {
-    if (cls == String.class) {
-      cls = StringModule.class;
+  /**
+   * Returns the {@link StarlarkClassDescriptor} for the given {@link StarlarkSemantics} and {@link
+   * Class}.
+   *
+   * <p>This method is a hotspot! It's called on every function call and field access. A single
+   * `bazel build` invocation can make tens or even hundreds of millions of calls to this method.
+   */
+  private static StarlarkClassDescriptor getStarlarkClassDescriptor(
+      StarlarkSemantics semantics, Class<?> clazz) {
+    if (clazz == String.class) {
+      clazz = StringModule.class;
     }
-    Key key = new Key(cls, semantics);
 
-    // Avoid computeIfAbsent! It is not reentrant,
-    // and if getCacheValue is called before Starlark.UNIVERSE
-    // is initialized then the computation will re-enter the cache.
-    // (This is less likely now that CallUtils is private.)
-    // See b/161479826 for history.
+    // We use two layers of caches, with the first layer being keyed by StarlarkSemantics and the
+    // second layer being keyed by Class. This optimizes for the common case of very few different
+    // StarlarkSemantics instances (typically, one) being in play. In contrast, if we used a single
+    // cache data structure then we'd need to use a dedicated tuple object for the keys of that data
+    // structure, and the GC churn and method call overhead become meaningful at scale.
     //
-    // Concurrent calls may result in duplicate computation.
-    // If this is a performance concern, then we should use a CHM
-    // of futures (see ch.9 of gopl.io) so that the computation
-    // is not done in the critical section of the map stripe.
-    CacheValue v = cache.get(key);
-    if (v == null) {
-      v = buildCacheValue(key);
-      CacheValue prev = cache.putIfAbsent(key, v);
+    // We implement each cache ourselves using CHM#get and CHM#putIfAbsent. We don't use
+    // CHM#computeIfAbsent since it is not reentrant: If #getStarlarkClassDescriptor is called
+    // before Starlark.UNIVERSE is initialized then the computation will re-enter the cache and have
+    // a cycle; see b/161479826 for history.
+    // TODO(bazel-team): Maybe the above cycle concern doesn't exist now that CallUtils is private.
+    ConcurrentHashMap<Class<?>, StarlarkClassDescriptor> starlarkClassDescriptorCache =
+        starlarkClassDescriptorCachesBySemantics.get(semantics);
+    if (starlarkClassDescriptorCache == null) {
+      starlarkClassDescriptorCache =
+          new ConcurrentHashMap<>(
+              // In May 2023, typical Bazel usage results in ~150 entries in this cache. Therefore
+              // we presize the CHM accordingly to reduce the chance two entries use the same hash
+              // bucket (in May 2023 this strategy was completely effective!). We used to use the
+              // default capacity, and then the CHM would get dynamically resized to have 256
+              // buckets, many of which had at least 2 entries which is suboptimal for such a hot
+              // data structure.
+              // TODO(bazel-team): Better would be to precompute the entire lookup table on server
+              //  startup (best would be to do this at compile time via an annotation processor),
+              //  rather than rely on it getting built-up dynamically as Starlark code gets
+              //  evaluated over the lifetime of the server. This way there are no concurrency
+              //  concerns, so we can use a more efficient data structure that doesn't need to
+              //  handle concurrent writes.
+              /* initialCapacity= */ 1000);
+      ConcurrentHashMap<Class<?>, StarlarkClassDescriptor> prev =
+          starlarkClassDescriptorCachesBySemantics.putIfAbsent(
+              semantics, starlarkClassDescriptorCache);
       if (prev != null) {
-        v = prev; // first thread wins
+        starlarkClassDescriptorCache = prev; // first thread wins
       }
     }
-    return v;
+
+    StarlarkClassDescriptor starlarkClassDescriptor = starlarkClassDescriptorCache.get(clazz);
+    if (starlarkClassDescriptor == null) {
+      starlarkClassDescriptor = buildStarlarkClassDescriptor(semantics, clazz);
+      StarlarkClassDescriptor prev =
+          starlarkClassDescriptorCache.putIfAbsent(clazz, starlarkClassDescriptor);
+      if (prev != null) {
+        starlarkClassDescriptor = prev; // first thread wins
+      }
+    }
+    return starlarkClassDescriptor;
   }
 
-  // Key is a simple Pair<Class, StarlarkSemantics>.
-  private static final class Key {
-    final Class<?> cls;
-    final StarlarkSemantics semantics;
-
-    Key(Class<?> cls, StarlarkSemantics semantics) {
-      this.cls = cls;
-      this.semantics = semantics;
-    }
-
-    @Override
-    public boolean equals(Object that) {
-      return this == that
-          || (that instanceof Key
-              && this.cls.equals(((Key) that).cls)
-              && this.semantics.equals(((Key) that).semantics));
-    }
-
-    @Override
-    public int hashCode() {
-      return 31 * cls.hashCode() + semantics.hashCode();
-    }
-  }
-
-  // Information derived from a StarlarkMethod-annotated class and a StarlarkSemantics.
-  private static class CacheValue {
+  /**
+   * Information derived from a {@link Class} (that has methods annotated with {@link
+   * StarlarkMethod}) based on a {@link StarlarkSemantics}.
+   */
+  private static class StarlarkClassDescriptor {
     @Nullable MethodDescriptor selfCall;
-    // All StarlarkMethod-annotated Java methods, sans selfCall, sorted by Java method name.
+
+    /**
+     * All {@link StarlarkMethod}-annotated Java methods, sans ones where {@code selfCall() ==
+     * true}, sorted by Java method name.
+     */
     ImmutableMap<String, MethodDescriptor> methods;
-    // Subset of CacheValue.methods for which structField=True, sorted by Java method name.
+    /**
+     * Submap of {@link #methods} for which {@code structField() == true}, sorted by Java method
+     * name.
+     */
     ImmutableMap<String, MethodDescriptor> fields;
   }
 
-  // A cache of information derived from a StarlarkMethod-annotated class and a StarlarkSemantics.
-  private static final ConcurrentHashMap<Key, CacheValue> cache = new ConcurrentHashMap<>();
+  /**
+   * Two-layer cache of {@link #buildStarlarkClassDescriptor}, managed by {@link
+   * #getStarlarkClassDescriptor}.
+   */
+  private static final ConcurrentHashMap<
+          StarlarkSemantics, ConcurrentHashMap<Class<?>, StarlarkClassDescriptor>>
+      starlarkClassDescriptorCachesBySemantics = new ConcurrentHashMap<>();
 
-  private static CacheValue buildCacheValue(Key key) {
+  private static StarlarkClassDescriptor buildStarlarkClassDescriptor(
+      StarlarkSemantics semantics, Class<?> clazz) {
     MethodDescriptor selfCall = null;
     ImmutableMap.Builder<String, MethodDescriptor> methods = ImmutableMap.builder();
     Map<String, MethodDescriptor> fields = new HashMap<>();
 
     // Sort methods by Java name, for determinism.
-    Method[] classMethods = key.cls.getMethods();
+    Method[] classMethods = clazz.getMethods();
     Arrays.sort(classMethods, Comparator.comparing(Method::getName));
     for (Method method : classMethods) {
       // Synthetic methods lead to false multiple matches
@@ -115,18 +142,18 @@ final class CallUtils {
       }
 
       // enabled by semantics?
-      if (!key.semantics.isFeatureEnabledBasedOnTogglingFlags(
+      if (!semantics.isFeatureEnabledBasedOnTogglingFlags(
           callable.enableOnlyWithFlag(), callable.disableWithFlag())) {
         continue;
       }
 
-      MethodDescriptor descriptor = MethodDescriptor.of(method, callable, key.semantics);
+      MethodDescriptor descriptor = MethodDescriptor.of(method, callable, semantics);
 
       // self-call method?
       if (callable.selfCall()) {
         if (selfCall != null) {
           throw new IllegalArgumentException(
-              String.format("Class %s has two selfCall methods defined", key.cls.getName()));
+              String.format("Class %s has two selfCall methods defined", clazz.getName()));
         }
         selfCall = descriptor;
         continue;
@@ -141,15 +168,15 @@ final class CallUtils {
         throw new IllegalArgumentException(
             String.format(
                 "Class %s declares two structField methods named %s",
-                key.cls.getName(), callable.name()));
+                clazz.getName(), callable.name()));
       }
     }
 
-    CacheValue value = new CacheValue();
-    value.selfCall = selfCall;
-    value.methods = methods.build();
-    value.fields = ImmutableMap.copyOf(fields);
-    return value;
+    StarlarkClassDescriptor starlarkClassDescriptor = new StarlarkClassDescriptor();
+    starlarkClassDescriptor.selfCall = selfCall;
+    starlarkClassDescriptor.methods = methods.buildOrThrow();
+    starlarkClassDescriptor.fields = ImmutableMap.copyOf(fields);
+    return starlarkClassDescriptor;
   }
 
   /**
@@ -158,7 +185,7 @@ final class CallUtils {
    */
   static ImmutableMap<String, MethodDescriptor> getAnnotatedMethods(
       StarlarkSemantics semantics, Class<?> objClass) {
-    return getCacheValue(objClass, semantics).methods;
+    return getStarlarkClassDescriptor(semantics, objClass).methods;
   }
 
   /**
@@ -167,7 +194,8 @@ final class CallUtils {
    */
   static Object getAnnotatedField(StarlarkSemantics semantics, Object x, String fieldName)
       throws EvalException, InterruptedException {
-    MethodDescriptor desc = getCacheValue(x.getClass(), semantics).fields.get(fieldName);
+    MethodDescriptor desc =
+        getStarlarkClassDescriptor(semantics, x.getClass()).fields.get(fieldName);
     if (desc == null) {
       throw Starlark.errorf("value of type %s has no .%s field", Starlark.type(x), fieldName);
     }
@@ -176,7 +204,7 @@ final class CallUtils {
 
   /** Returns the names of the Starlark fields of {@code x} under the specified semantics. */
   static ImmutableSet<String> getAnnotatedFieldNames(StarlarkSemantics semantics, Object x) {
-    return getCacheValue(x.getClass(), semantics).fields.keySet();
+    return getStarlarkClassDescriptor(semantics, x.getClass()).fields.keySet();
   }
 
   /**
@@ -187,7 +215,7 @@ final class CallUtils {
   @Nullable
   static MethodDescriptor getSelfCallMethodDescriptor(
       StarlarkSemantics semantics, Class<?> objClass) {
-    return getCacheValue(objClass, semantics).selfCall;
+    return getStarlarkClassDescriptor(semantics, objClass).selfCall;
   }
 
   /**
@@ -196,7 +224,7 @@ final class CallUtils {
    */
   @Nullable
   static Method getSelfCallMethod(StarlarkSemantics semantics, Class<?> objClass) {
-    MethodDescriptor descriptor = getCacheValue(objClass, semantics).selfCall;
+    MethodDescriptor descriptor = getStarlarkClassDescriptor(semantics, objClass).selfCall;
     if (descriptor == null) {
       return null;
     }

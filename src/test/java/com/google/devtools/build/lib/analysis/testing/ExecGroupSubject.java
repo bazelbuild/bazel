@@ -33,11 +33,6 @@ public class ExecGroupSubject extends Subject {
     return assertAbout(ExecGroupSubject::new).that(execGroup);
   }
 
-  /** Static method for getting the subject factory (for use with assertAbout()). */
-  public static Subject.Factory<ExecGroupSubject, ExecGroup> execGroups() {
-    return ExecGroupSubject::new;
-  }
-
   // Instance fields.
 
   private final ExecGroup actual;

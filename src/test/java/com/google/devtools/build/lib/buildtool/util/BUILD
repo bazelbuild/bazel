@@ -54,6 +54,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:workspace_status_action",
+        "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:credential_module",
         "//src/main/java/com/google/devtools/build/lib/bazel:main",
         "//src/main/java/com/google/devtools/build/lib/bazel:repository_module",
         "//src/main/java/com/google/devtools/build/lib/bugreport",

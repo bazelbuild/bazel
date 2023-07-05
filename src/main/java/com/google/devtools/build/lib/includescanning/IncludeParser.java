@@ -867,9 +867,6 @@ class IncludeParser {
       boolean isOutputFile)
       throws IOException, ExecException, InterruptedException {
     Collection<Inclusion> inclusions;
-
-    // TODO(ulfjack): grepIncludes may be null if the corresponding attribute on the rule is missing
-    //  (see CppHelper.getGrepIncludes) or misspelled. It would be better to disallow this case.
     if (remoteIncludeScanner != null
         && grepIncludes != null
         && remoteIncludeScanner.shouldParseRemotely(file)) {

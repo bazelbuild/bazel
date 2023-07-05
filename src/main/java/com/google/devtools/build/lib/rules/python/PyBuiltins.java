@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.RepoMappingManifestAction;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
@@ -40,6 +41,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -64,6 +66,20 @@ public abstract class PyBuiltins implements StarlarkValue {
 
   protected PyBuiltins(Runfiles.EmptyFilesSupplier emptyFilesSupplier) {
     this.emptyFilesSupplier = emptyFilesSupplier;
+  }
+
+  @StarlarkMethod(
+      name = "is_bzlmod_enabled",
+      doc = "Tells if bzlmod is enabled",
+      parameters = {
+        @Param(name = "ctx", positional = true, named = true, defaultValue = "unbound")
+      })
+  public boolean isBzlmodEnabled(StarlarkRuleContext starlarkCtx) {
+    return starlarkCtx
+        .getRuleContext()
+        .getAnalysisEnvironment()
+        .getStarlarkSemantics()
+        .getBool(BuildLanguageOptions.ENABLE_BZLMOD);
   }
 
   @StarlarkMethod(
@@ -221,7 +237,7 @@ public abstract class PyBuiltins implements StarlarkValue {
       })
   public Object expandLocationAndMakeVariables(
       StarlarkRuleContext ruleContext, String attributeName, String expression, Sequence<?> targets)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     ImmutableMap.Builder<Label, ImmutableCollection<Artifact>> builder = ImmutableMap.builder();
 
     for (TransitiveInfoCollection current :
@@ -276,7 +292,7 @@ public abstract class PyBuiltins implements StarlarkValue {
       })
   public Object newEmptyRunfilesWithMiddleman(
       StarlarkRuleContext starlarkCtx, Runfiles runfiles, Artifact executable)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     // NOTE: The RunfilesSupport created here must exactly match the one done as part of Starlark
     // rule processing, otherwise action output conflicts occur. See
     // https://github.com/bazelbuild/bazel/blob/1940c5d68136ce2079efa8ff74d4e5fdf63ee3e6/src/main/java/com/google/devtools/build/lib/analysis/starlark/StarlarkRuleConfiguredTargetUtil.java#L642-L651
@@ -286,6 +302,30 @@ public abstract class PyBuiltins implements StarlarkValue {
             starlarkCtx.getWorkspaceName(), starlarkCtx.getConfiguration().legacyExternalRunfiles())
         .addLegacyExtraMiddleman(runfilesSupport.getRunfilesMiddleman())
         .build();
+  }
+
+  @StarlarkMethod(
+      name = "create_repo_mapping_manifest",
+      doc = "Write a repo_mapping file for the given runfiles",
+      parameters = {
+        @Param(name = "ctx", positional = false, named = true, defaultValue = "unbound"),
+        @Param(name = "runfiles", positional = false, named = true, defaultValue = "unbound"),
+        @Param(name = "output", positional = false, named = true, defaultValue = "unbound")
+      })
+  public void repoMappingAction(
+      StarlarkRuleContext starlarkCtx, Runfiles runfiles, Artifact repoMappingManifest) {
+    var ruleContext = starlarkCtx.getRuleContext();
+    ruleContext
+        .getAnalysisEnvironment()
+        .registerAction(
+            new RepoMappingManifestAction(
+                ruleContext.getActionOwner(),
+                repoMappingManifest,
+                ruleContext.getTransitivePackagesForRunfileRepoMappingManifest(),
+                runfiles.getArtifacts(),
+                runfiles.getSymlinks(),
+                runfiles.getRootSymlinks(),
+                ruleContext.getWorkspaceName()));
   }
 
   @StarlarkMethod(

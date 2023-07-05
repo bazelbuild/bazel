@@ -441,27 +441,6 @@ public interface StarlarkRuleFunctionsApi {
                     + " allows rules to run actions on multiple execution platforms within a"
                     + " single target. See <a href='${link exec-groups}'>execution groups"
                     + " documentation</a> for more info."),
-        @Param(
-            name = "name",
-            named = true,
-            defaultValue = "None",
-            positional = false,
-            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
-            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_REMOVE_RULE_NAME_PARAMETER,
-            valueWhenDisabled = "None",
-            doc =
-                "Deprecated: do not use.<p>The name of this rule, as understood by Bazel and"
-                    + " reported in contexts such as logging,"
-                    + " <code>native.existing_rule(...)[kind]</code>, and <code>bazel query</code>."
-                    + " Usually this is the same as the Starlark identifier that gets bound to this"
-                    + " rule; for instance a rule called <code>foo_library</code> would typically"
-                    + " be declared as <code>foo_library = rule(...)</code> and instantiated in a"
-                    + " BUILD file as <code>foo_library(...)</code>.<p>If this parameter is"
-                    + " omitted, the rule's name is set to the name of the first Starlark global"
-                    + " variable to be bound to this rule within its declaring .bzl module. Thus,"
-                    + " <code>foo_library = rule(...)</code> need not specify this parameter if the"
-                    + " name is <code>foo_library</code>.<p>Specifying an explicit name for a rule"
-                    + " does not change where you are allowed to instantiate the rule."),
       },
       useStarlarkThread = true)
   StarlarkCallable rule(
@@ -483,7 +462,6 @@ public interface StarlarkRuleFunctionsApi {
       Object buildSetting,
       Object cfg,
       Object execGroups,
-      Object name,
       StarlarkThread thread)
       throws EvalException;
 

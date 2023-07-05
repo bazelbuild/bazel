@@ -20,6 +20,7 @@ import build.bazel.remote.execution.v2.ExecuteResponse;
 import build.bazel.remote.execution.v2.ExecutionGrpc;
 import build.bazel.remote.execution.v2.ExecutionGrpc.ExecutionBlockingStub;
 import build.bazel.remote.execution.v2.RequestMetadata;
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.WaitExecutionRequest;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
@@ -56,6 +57,7 @@ import javax.annotation.Nullable;
 @ThreadSafe
 public class ExperimentalGrpcRemoteExecutor implements RemoteExecutionClient {
 
+  private final ServerCapabilities serverCapabilities;
   private final RemoteOptions remoteOptions;
   private final ReferenceCountedChannel channel;
   private final CallCredentialsProvider callCredentialsProvider;
@@ -64,10 +66,12 @@ public class ExperimentalGrpcRemoteExecutor implements RemoteExecutionClient {
   private final AtomicBoolean closed = new AtomicBoolean();
 
   public ExperimentalGrpcRemoteExecutor(
+      ServerCapabilities serverCapabilities,
       RemoteOptions remoteOptions,
       ReferenceCountedChannel channel,
       CallCredentialsProvider callCredentialsProvider,
       RemoteRetrier retrier) {
+    this.serverCapabilities = serverCapabilities;
     this.remoteOptions = remoteOptions;
     this.channel = channel;
     this.callCredentialsProvider = callCredentialsProvider;
@@ -316,6 +320,11 @@ public class ExperimentalGrpcRemoteExecutor implements RemoteExecutionClient {
 
       return null;
     }
+  }
+
+  @Override
+  public ServerCapabilities getServerCapabilities() {
+    return this.serverCapabilities;
   }
 
   @Override

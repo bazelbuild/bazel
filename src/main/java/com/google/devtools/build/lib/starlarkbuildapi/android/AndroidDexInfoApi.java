@@ -17,11 +17,13 @@ import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 
 /** An Info that can provides dex artifacts. */
 @StarlarkBuiltin(
@@ -49,11 +51,13 @@ public interface AndroidDexInfoApi<FileT extends FileApi> extends StructApi {
       structField = true)
   FileT getFinalClassesDexZip();
 
+  @Nullable
   @StarlarkMethod(
       name = "java_resource_jar",
       doc = "The final Java resource jar.",
       documented = false,
-      structField = true)
+      structField = true,
+      allowReturnNones = true)
   FileT getJavaResourceJar();
 
   /** Provider for {@link AndroidDexInfoApi}. */
@@ -88,6 +92,7 @@ public interface AndroidDexInfoApi<FileT extends FileApi> extends StructApi {
               name = "java_resource_jar",
               allowedTypes = {
                 @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
               },
               named = true,
               doc = "The final Java resource jar."),
@@ -95,6 +100,6 @@ public interface AndroidDexInfoApi<FileT extends FileApi> extends StructApi {
         selfCall = true)
     @StarlarkConstructor
     AndroidDexInfoApi<FileT> createInfo(
-        FileT deployJar, FileT finalClassesDexZip, FileT javaResourceJar) throws EvalException;
+        FileT deployJar, FileT finalClassesDexZip, Object javaResourceJar) throws EvalException;
   }
 }

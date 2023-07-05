@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.devtools.build.lib.rules.cpp.CcModule.isBuiltIn;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -34,14 +33,9 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
-import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration.AppleCpus;
-import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CppConfigurationApi;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.EnumMap;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -186,7 +180,6 @@ public final class CppConfiguration extends Fragment
   private final boolean isToolConfigurationDoNotUseWillBeRemovedFor129045294;
 
   private final boolean appleGenerateDsym;
-  private final AppleBitcodeMode appleBitcodeMode;
 
   public CppConfiguration(BuildOptions options) throws InvalidConfigurationException {
     CppOptions cppOptions = options.get(CppOptions.class);
@@ -299,20 +292,6 @@ public final class CppConfiguration extends Fragment
     this.appleGenerateDsym =
         (cppOptions.appleGenerateDsym
             || (cppOptions.appleEnableAutoDsymDbg && compilationMode == CompilationMode.DBG));
-    this.appleBitcodeMode =
-        computeAppleBitcodeMode(options.get(AppleCommandLineOptions.class), commonOptions);
-  }
-
-  private static AppleBitcodeMode computeAppleBitcodeMode(
-      AppleCommandLineOptions options, CoreOptions commonOptions) {
-    ApplePlatform.PlatformType applePlatformType =
-        Preconditions.checkNotNull(options.applePlatformType, "applePlatformType");
-    AppleCpus appleCpus = AppleCpus.create(options, commonOptions);
-    EnumMap<ApplePlatform.PlatformType, AppleBitcodeMode> platformBitcodeModes =
-        AppleConfiguration.collectBitcodeModes(options.appleBitcodeMode);
-
-    return AppleConfiguration.getAppleBitcodeMode(
-        applePlatformType, appleCpus, platformBitcodeModes);
   }
 
   /** Returns the label of the <code>cc_compiler</code> rule for the C++ configuration. */
@@ -321,8 +300,16 @@ public final class CppConfiguration extends Fragment
       doc = "The label of the target describing the C++ toolchain",
       defaultLabel = "//tools/cpp:toolchain",
       defaultInToolRepository = true)
+  @Nullable
   public Label getRuleProvidingCcToolchainProvider() {
-    return cppOptions.crosstoolTop;
+    if (cppOptions.enableCcToolchainResolution) {
+      // In case C++ toolchain resolution is enabled, crosstool_top flags are not used.
+      // Returning null prevents additional work on the flags values and makes it possible to
+      // remove `--crosstool_top` flags.
+      return null;
+    } else {
+      return cppOptions.crosstoolTop;
+    }
   }
 
   /** Returns the configured current compilation mode. */
@@ -922,15 +909,9 @@ public final class CppConfiguration extends Fragment
     return experimentalPlatformCcTest();
   }
 
-  /**
-   * Returns the bitcode mode to use for compilation.
-   *
-   * <p>Users can control bitcode mode using the {@code apple_bitcode} build flag, but bitcode will
-   * be disabled for all simulator architectures regardless of this flag.
-   */
   @Override
-  public AppleBitcodeMode getAppleBitcodeMode() {
-    return appleBitcodeMode;
+  public String getAppleBitcodeMode() {
+    return "none";
   }
 
   @Override

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.common.base.Throwables;
+import com.google.common.eventbus.EventBus;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -39,6 +40,8 @@ final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
    */
   private Map<WorkerKey, Integer> shrunkBy = new HashMap<>();
 
+  private EventBus eventBus;
+
   public SimpleWorkerPool(WorkerFactory factory, int max) {
     super(factory, makeConfig(max));
   }
@@ -59,6 +62,9 @@ final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
     // workers for one WorkerKey and can't accommodate a worker for another WorkerKey.
     config.setMaxTotal(-1);
 
+    // Don't limit number of workers to check during eviction
+    config.setNumTestsPerEvictionRun(Integer.MAX_VALUE);
+
     // Wait for a worker to become ready when a thread needs one.
     config.setBlockWhenExhausted(true);
 
@@ -71,6 +77,10 @@ final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
     config.setTimeBetweenEvictionRunsMillis(-1);
 
     return config;
+  }
+
+  void setEventBus(EventBus eventBus) {
+    this.eventBus = eventBus;
   }
 
   @Override
@@ -88,6 +98,9 @@ final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
     try {
       super.invalidateObject(key, obj);
       if (obj.isDoomed()) {
+        if (eventBus != null) {
+          eventBus.post(new WorkerEvictedEvent(key.hashCode(), key.getMnemonic()));
+        }
         updateShrunkBy(key);
       }
     } catch (Throwable t) {
@@ -100,6 +113,9 @@ final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
   public void returnObject(WorkerKey key, Worker obj) {
     super.returnObject(key, obj);
     if (obj.isDoomed()) {
+      if (eventBus != null) {
+        eventBus.post(new WorkerEvictedEvent(key.hashCode(), key.getMnemonic()));
+      }
       updateShrunkBy(key);
     }
   }

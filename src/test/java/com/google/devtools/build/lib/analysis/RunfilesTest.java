@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -41,6 +42,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
@@ -155,7 +157,7 @@ public class RunfilesTest extends FoundationTestCase {
     assertThat(Iterables.getOnlyElement(eventCollector).getKind()).isEqualTo(EventKind.ERROR);
   }
 
-  private static final class SimpleActionLookupKey extends ActionLookupKey {
+  private static final class SimpleActionLookupKey implements ActionLookupKey {
     private final String name;
 
     SimpleActionLookupKey(String name) {
@@ -634,11 +636,18 @@ public class RunfilesTest extends FoundationTestCase {
             .addSymlink(PathFragment.create("my-symlink"), artifact)
             .addRootSymlink(PathFragment.create("my-root-symlink"), artifact)
             .setEmptyFilesSupplier(
-                (manifestPaths) ->
-                    manifestPaths
-                        .stream()
+                new Runfiles.EmptyFilesSupplier() {
+                  @Override
+                  public ImmutableList<PathFragment> getExtraPaths(
+                      Set<PathFragment> manifestPaths) {
+                    return manifestPaths.stream()
                         .map((f) -> f.replaceName(f.getBaseName() + "-empty"))
-                        .collect(ImmutableList.toImmutableList()))
+                        .collect(ImmutableList.toImmutableList());
+                  }
+
+                  @Override
+                  public void fingerprint(Fingerprint fingerprint) {}
+                })
             .build();
     assertThat(runfiles.getEmptyFilenames().toList())
         .containsExactly("my-artifact-empty", "my-symlink-empty");

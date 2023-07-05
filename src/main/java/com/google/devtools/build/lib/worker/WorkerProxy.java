@@ -59,7 +59,7 @@ class WorkerProxy extends Worker {
   @Override
   public void prepareExecution(
       SandboxInputs inputFiles, SandboxOutputs outputs, Set<PathFragment> workerFiles)
-      throws IOException {
+      throws IOException, InterruptedException {
     workerMultiplexer.createProcess(workDir);
   }
 

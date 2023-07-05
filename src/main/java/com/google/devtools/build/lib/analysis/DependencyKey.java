@@ -23,7 +23,7 @@ import javax.annotation.Nullable;
  * used to create the actual {@link Dependency}.
  */
 @AutoValue
-public abstract class DependencyKey {
+public abstract class DependencyKey implements BaseDependencySpecification {
 
   /** Builder to help construct instances of {@link DependencyKey}. */
   @AutoValue.Builder
@@ -53,21 +53,8 @@ public abstract class DependencyKey {
     return new AutoValue_DependencyKey.Builder().setAspects(AspectCollection.EMPTY);
   }
 
-  /** Returns the label of the target this dependency points to. */
-  public abstract Label getLabel();
-
-  /** Returns the transition to use when evaluating the target this dependency points to. */
-  public abstract ConfigurationTransition getTransition();
-
   /** Returns the aspects that are propagating to the target this dependency points to. */
   public abstract AspectCollection getAspects();
-
-  /**
-   * Returns the execution platform {@link Label} that this dependency should use as an override for
-   * toolchain resolution.
-   */
-  @Nullable
-  public abstract Label getExecutionPlatformLabel();
 
   public Dependency.Builder getDependencyBuilder() {
     return Dependency.builder()

@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext.checkPrivateAccess;
 import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT;
-import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.INCOMPATIBLE_DISALLOW_SYMLINK_FILE_TO_DIR;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -24,7 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -142,7 +141,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       }
 
       @Override
-      public ActionLookupKey getOwner() {
+      public ActionLookupKeyOrProxy getOwner() {
         return starlarkActionFactory
             .getActionConstructionContext()
             .getAnalysisEnvironment()
@@ -221,7 +220,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     if (!ruleContext.getConfiguration().allowUnresolvedSymlinks()) {
       throw Starlark.errorf(
           "actions.declare_symlink() is not allowed; "
-              + "use the --experimental_allow_unresolved_symlinks command line option");
+              + "use the --allow_unresolved_symlinks command line option");
     }
 
     Artifact result;
@@ -307,11 +306,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
                 + "declare_directory() instead of declare_symlink()?)");
       }
 
-      boolean inputOutputMismatch =
-          getSemantics().getBool(INCOMPATIBLE_DISALLOW_SYMLINK_FILE_TO_DIR)
-              ? inputArtifact.isDirectory() != outputArtifact.isDirectory()
-              : !inputArtifact.isDirectory() && outputArtifact.isDirectory();
-      if (inputOutputMismatch) {
+      if (inputArtifact.isDirectory() != outputArtifact.isDirectory()) {
         String inputType = inputArtifact.isDirectory() ? "directory" : "file";
         String outputType = outputArtifact.isDirectory() ? "directory" : "file";
         throw Starlark.errorf(
@@ -577,6 +572,12 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     StarlarkAction.Builder builder = new StarlarkAction.Builder();
     buildCommandLine(builder, arguments);
 
+    // When we use a shell command, add an empty argument before other arguments.
+    //   e.g.  bash -c "cmd" '' 'arg1' 'arg2'
+    // bash will use the empty argument as the value of $0 (which we don't care about).
+    // arg1 and arg2 will be $1 and $2, as a user expects.
+    boolean pad = !arguments.isEmpty();
+
     if (commandUnchecked instanceof String) {
       ImmutableMap<String, String> executionInfo =
           ImmutableMap.copyOf(TargetUtils.getExecutionInfo(ruleContext.getRule()));
@@ -592,9 +593,9 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Artifact helperScript =
           CommandHelper.commandHelperScriptMaybe(ruleContext, command, constructor);
       if (helperScript == null) {
-        builder.setShellCommand(shExecutable, command);
+        builder.setShellCommand(shExecutable, command, pad);
       } else {
-        builder.setShellCommand(shExecutable, helperScript.getExecPathString());
+        builder.setShellCommand(shExecutable, helperScript.getExecPathString(), pad);
         builder.addInput(helperScript);
       }
     } else if (commandUnchecked instanceof Sequence) {
@@ -609,18 +610,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         throw Starlark.errorf("'arguments' must be empty if 'command' is a sequence of strings");
       }
       List<String> command = Sequence.cast(commandList, String.class, "command");
-      builder.setShellCommand(command);
+      builder.setShellCommand(command, pad);
     } else {
       throw Starlark.errorf(
           "expected string or list of strings for command instead of %s",
           Starlark.type(commandUnchecked));
-    }
-    if (!arguments.isEmpty()) {
-      // When we use a shell command, add an empty argument before other arguments.
-      //   e.g.  bash -c "cmd" '' 'arg1' 'arg2'
-      // bash will use the empty argument as the value of $0 (which we don't care about).
-      // arg1 and arg2 will be $1 and $2, as a user expects.
-      builder.addExecutableArguments("");
     }
     registerStarlarkAction(
         outputs,
@@ -779,7 +773,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         TargetUtils.getFilteredExecutionInfo(
             executionRequirementsUnchecked,
             ruleContext.getRule(),
-            getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_ALLOW_TAGS_PROPAGATION));
+            getSemantics().getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION));
     builder.setExecutionInfo(executionInfo);
 
     if (inputManifestsUnchecked != Starlark.NONE) {

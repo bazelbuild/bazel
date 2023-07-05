@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaPackageConfigurationRule;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo;
 import com.google.devtools.build.lib.rules.java.JavaPluginsFlagAliasRule;
-import com.google.devtools.build.lib.rules.java.JavaRuleClasses.IjarBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaRuntimeBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaToolchainBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeRule;
@@ -65,7 +64,6 @@ public class JavaRules implements RuleSet {
     builder.addBuildInfoFactory(new BazelJavaBuildInfoFactory());
 
     builder.addRuleDefinition(new BazelJavaRuleClasses.BaseJavaBinaryRule());
-    builder.addRuleDefinition(new IjarBaseRule());
     builder.addRuleDefinition(new JavaToolchainBaseRule());
     builder.addRuleDefinition(new JavaRuntimeBaseRule());
     builder.addRuleDefinition(new BazelJavaRuleClasses.JavaBaseRule());
@@ -87,17 +85,22 @@ public class JavaRules implements RuleSet {
 
     builder.addStarlarkBootstrap(
         new JavaBootstrap(
-            new JavaStarlarkCommon(BazelJavaSemantics.INSTANCE),
             JavaInfo.PROVIDER,
             JavaPluginInfo.PROVIDER,
             ProguardSpecProvider.PROVIDER));
 
-    builder.addStarlarkAccessibleTopLevels(
+    builder.addStarlarkBuiltinsInternal(
+        "java_common_internal_do_not_use", new JavaStarlarkCommon(BazelJavaSemantics.INSTANCE));
+
+    builder.addBzlToplevel(
         "experimental_java_library_export_do_not_use",
         FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
             EXPERIMENTAL_JAVA_LIBRARY_EXPORT, Starlark.NONE));
 
     try {
+      builder.addWorkspaceFilePrefix(
+          ResourceFileLoader.loadResource(
+              BazelJavaRuleClasses.class, "rules_java_builtin.WORKSPACE"));
       builder.addWorkspaceFileSuffix(
           ResourceFileLoader.loadResource(BazelJavaRuleClasses.class, "jdk.WORKSPACE"));
       builder.addWorkspaceFileSuffix(

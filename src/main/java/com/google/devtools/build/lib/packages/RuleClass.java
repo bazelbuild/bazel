@@ -18,7 +18,7 @@ import static com.google.common.collect.Streams.stream;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
-import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING_NO_INTERN;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
@@ -124,7 +124,7 @@ public class RuleClass {
 
   /** The name attribute, present for all rules at index 0. */
   static final Attribute NAME_ATTRIBUTE =
-      attr("name", STRING)
+      attr("name", STRING_NO_INTERN)
           .nonconfigurable("All rules have a non-customizable \"name\" attribute")
           .build();
 
@@ -765,7 +765,6 @@ public class RuleClass {
     private TransitionFactory<RuleTransitionData> transitionFactory;
     private ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory = null;
     private PredicateWithMessage<Rule> validityPredicate = PredicatesWithMessage.alwaysTrue();
-    private Predicate<String> preferredDependencyPredicate = Predicates.alwaysFalse();
     private final AdvertisedProviderSet.Builder advertisedProviders =
         AdvertisedProviderSet.builder();
     private StarlarkCallable configuredTargetFunction = null;
@@ -812,9 +811,6 @@ public class RuleClass {
       for (RuleClass parent : parents) {
         if (parent.getValidityPredicate() != PredicatesWithMessage.<Rule>alwaysTrue()) {
           setValidityPredicate(parent.getValidityPredicate());
-        }
-        if (parent.preferredDependencyPredicate != Predicates.<String>alwaysFalse()) {
-          setPreferredDependencyPredicate(parent.preferredDependencyPredicate);
         }
         configurationFragmentPolicy
             .includeConfigurationFragmentsFrom(parent.getConfigurationFragmentPolicy());
@@ -935,7 +931,6 @@ public class RuleClass {
           transitionFactory,
           configuredTargetFactory,
           validityPredicate,
-          preferredDependencyPredicate,
           advertisedProviders.build(),
           configuredTargetFunction,
           externalBindingsFunction,
@@ -1108,7 +1103,11 @@ public class RuleClass {
      *
      * <p>If you need the transition to depend on the rule it's being applied to, use {@link
      * #cfg(TransitionFactory)}.
+     *
+     * <p>This transition may be applied twice.
      */
+    // TODO(b/261521010): make this apply only once by deleting the rule transition from the
+    // target requesting the dependency.
     public Builder cfg(PatchTransition transition) {
       // Make sure this is cast to Serializable to avoid autocodec serialization errors.
       return cfg((TransitionFactory<RuleTransitionData> & Serializable) unused -> transition);
@@ -1119,7 +1118,11 @@ public class RuleClass {
      *
      * <p>Unlike {@link #cfg(PatchTransition)}, the factory can examine the rule when deciding what
      * transition to use.
+     *
+     * <p>This transition may be applied twice.
      */
+    // TODO(b/261521010): make this apply only once by deleting the rule transition from the
+    // target requesting the dependency.
     @CanIgnoreReturnValue
     public Builder cfg(TransitionFactory<RuleTransitionData> transitionFactory) {
       Preconditions.checkState(type != RuleClassType.ABSTRACT,
@@ -1149,12 +1152,6 @@ public class RuleClass {
     @CanIgnoreReturnValue
     public Builder setValidityPredicate(PredicateWithMessage<Rule> predicate) {
       this.validityPredicate = predicate;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder setPreferredDependencyPredicate(Predicate<String> predicate) {
-      this.preferredDependencyPredicate = predicate;
       return this;
     }
 
@@ -1616,11 +1613,6 @@ public class RuleClass {
   private final PredicateWithMessage<Rule> validityPredicate;
 
   /**
-   * See {@link #isPreferredDependency}.
-   */
-  private final Predicate<String> preferredDependencyPredicate;
-
-  /**
    * The list of transitive info providers this class advertises to aspects.
    */
   private final AdvertisedProviderSet advertisedProviders;
@@ -1716,7 +1708,6 @@ public class RuleClass {
       TransitionFactory<RuleTransitionData> transitionFactory,
       ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory,
       PredicateWithMessage<Rule> validityPredicate,
-      Predicate<String> preferredDependencyPredicate,
       AdvertisedProviderSet advertisedProviders,
       @Nullable StarlarkCallable configuredTargetFunction,
       Function<? super Rule, Map<String, Label>> externalBindingsFunction,
@@ -1746,7 +1737,6 @@ public class RuleClass {
     this.transitionFactory = transitionFactory;
     this.configuredTargetFactory = configuredTargetFactory;
     this.validityPredicate = validityPredicate;
-    this.preferredDependencyPredicate = preferredDependencyPredicate;
     this.advertisedProviders = advertisedProviders;
     this.configuredTargetFunction = configuredTargetFunction;
     this.externalBindingsFunction = externalBindingsFunction;
@@ -1943,13 +1933,6 @@ public class RuleClass {
    **/
   public AdvertisedProviderSet getAdvertisedProviders() {
     return advertisedProviders;
-  }
-  /**
-   * For --compile_one_dependency: if multiple rules consume the specified target,
-   * should we choose this one over the "unpreferred" options?
-   */
-  public boolean isPreferredDependency(String filename) {
-    return preferredDependencyPredicate.apply(filename);
   }
 
   /**
@@ -2205,17 +2188,21 @@ public class RuleClass {
         if (rule.getRuleClassObject().isPackageMetadataRule()) {
           // Do nothing
         } else {
-          rule.setAttributeValue(attr, pkgBuilder.getDefaultPackageMetadata(), /*explicit=*/ false);
+          rule.setAttributeValue(
+              attr,
+              pkgBuilder.getPartialPackageArgs().defaultPackageMetadata(),
+              /* explicit= */ false);
         }
 
       } else if (attr.getName().equals("licenses") && attr.getType() == BuildType.LICENSE) {
         rule.setAttributeValue(
             attr,
-            ignoreLicenses ? License.NO_LICENSE : pkgBuilder.getDefaultLicense(),
-            /*explicit=*/ false);
+            ignoreLicenses ? License.NO_LICENSE : pkgBuilder.getPartialPackageArgs().license(),
+            /* explicit= */ false);
 
       } else if (attr.getName().equals("distribs") && attr.getType() == BuildType.DISTRIBUTIONS) {
-        rule.setAttributeValue(attr, pkgBuilder.getDefaultDistribs(), /*explicit=*/ false);
+        rule.setAttributeValue(
+            attr, pkgBuilder.getPartialPackageArgs().distribs(), /* explicit= */ false);
       }
       // Don't store default values, querying materializes them at read time.
     }

@@ -467,10 +467,8 @@ public class XcodeConfigTest extends BuildViewTestCase {
                 DottedVersion.fromStringUnchecked("1.8"),
                 DottedVersion.fromStringUnchecked("1.9"),
                 XcodeConfigInfo.Availability.UNKNOWN,
-                /** xcodeVersionFlagValue= */
-                "",
-                /** includeXcodeReqs= */
-                false));
+                /* xcodeVersionFlagValue= */ "",
+                /* includeXcodeReqs= */ false));
   }
 
   @Test
@@ -1216,20 +1214,6 @@ public class XcodeConfigTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//xcode:foo");
     assertContainsEvent("must be contained in versions attribute");
-  }
-
-  @Test
-  public void testInvalidBitcodeVersion() throws Exception {
-    new BuildFileBuilder()
-        .addExplicitVersion("version512", "5.1.2", true)
-        .write(scratch, "xcode/BUILD");
-
-    useConfiguration(
-        "--apple_platform_type=ios", "--apple_bitcode=embedded", "--apple_split_cpu=arm64");
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//xcode:foo");
-    assertContainsEvent("apple_bitcode mode 'embedded' is unsupported");
   }
 
   // Verifies that the --xcode_version_config configuration value can be accessed via the

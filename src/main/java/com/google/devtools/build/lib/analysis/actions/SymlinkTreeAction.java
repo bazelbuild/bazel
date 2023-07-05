@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.actions;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -46,6 +47,7 @@ public final class SymlinkTreeAction extends AbstractAction {
   private final Runfiles runfiles;
   private final Artifact outputManifest;
   @Nullable private final String filesetRoot;
+  private final ActionEnvironment env;
   private final boolean enableRunfiles;
   private final boolean inprocessSymlinkCreation;
   private final boolean skipRunfilesManifests;
@@ -97,6 +99,7 @@ public final class SymlinkTreeAction extends AbstractAction {
    * @param repoMappingManifest the repository mapping manifest
    * @param filesetRoot non-null if this is a fileset symlink tree,
    */
+  @VisibleForTesting
   public SymlinkTreeAction(
       ActionOwner owner,
       Artifact inputManifest,
@@ -112,8 +115,7 @@ public final class SymlinkTreeAction extends AbstractAction {
         owner,
         computeInputs(
             enableRunfiles, skipRunfilesManifests, runfiles, inputManifest, repoMappingManifest),
-        ImmutableSet.of(outputManifest),
-        env);
+        ImmutableSet.of(outputManifest));
     Preconditions.checkArgument(outputManifest.getPath().getBaseName().equals("MANIFEST"));
     Preconditions.checkArgument(
         (runfiles == null) == (filesetRoot != null),
@@ -121,6 +123,7 @@ public final class SymlinkTreeAction extends AbstractAction {
     this.runfiles = runfiles;
     this.outputManifest = outputManifest;
     this.filesetRoot = filesetRoot;
+    this.env = env;
     this.enableRunfiles = enableRunfiles;
     this.inprocessSymlinkCreation = inprocessSymlinkCreation;
     this.skipRunfilesManifests = skipRunfilesManifests && enableRunfiles && (filesetRoot == null);
@@ -148,6 +151,11 @@ public final class SymlinkTreeAction extends AbstractAction {
       }
     }
     return inputs.build();
+  }
+
+  @Override
+  public ActionEnvironment getEnvironment() {
+    return env;
   }
 
   public Artifact getInputManifest() {
@@ -205,7 +213,7 @@ public final class SymlinkTreeAction extends AbstractAction {
     fp.addBoolean(enableRunfiles);
     fp.addBoolean(inprocessSymlinkCreation);
     fp.addBoolean(skipRunfilesManifests);
-    getEnvironment().addTo(fp);
+    env.addTo(fp);
     // We need to ensure that the fingerprints for two different instances of this action are
     // different. Consider the hypothetical scenario where we add a second runfiles object to this
     // class, which could also be null: the sequence
@@ -216,7 +224,7 @@ public final class SymlinkTreeAction extends AbstractAction {
     // safe to add more fields in the future.
     fp.addBoolean(runfiles != null);
     if (runfiles != null) {
-      runfiles.fingerprint(fp);
+      runfiles.fingerprint(actionKeyContext, fp);
     }
     fp.addBoolean(repoMappingManifest != null);
     if (repoMappingManifest != null) {

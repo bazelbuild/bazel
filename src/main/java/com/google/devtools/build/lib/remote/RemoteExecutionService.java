@@ -107,7 +107,6 @@ import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.io.FileOutErr;
-import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -149,7 +148,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Predicate;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /**
@@ -178,6 +177,8 @@ public class RemoteExecutionService {
   private final AtomicBoolean shutdown = new AtomicBoolean(false);
   private final AtomicBoolean buildInterrupted = new AtomicBoolean(false);
 
+  @Nullable private final RemoteOutputChecker remoteOutputChecker;
+
   public RemoteExecutionService(
       Executor executor,
       Reporter reporter,
@@ -191,7 +192,8 @@ public class RemoteExecutionService {
       @Nullable RemoteCache remoteCache,
       @Nullable RemoteExecutionClient remoteExecutor,
       TempPathGenerator tempPathGenerator,
-      @Nullable Path captureCorruptedOutputsDir) {
+      @Nullable Path captureCorruptedOutputsDir,
+      @Nullable RemoteOutputChecker remoteOutputChecker) {
     this.reporter = reporter;
     this.verboseFailures = verboseFailures;
     this.execRoot = execRoot;
@@ -214,6 +216,7 @@ public class RemoteExecutionService {
     this.captureCorruptedOutputsDir = captureCorruptedOutputsDir;
 
     this.scheduler = Schedulers.from(executor, /* interruptibleWorker= */ true);
+    this.remoteOutputChecker = remoteOutputChecker;
   }
 
   static Command buildCommand(
@@ -283,23 +286,13 @@ public class RemoteExecutionService {
     if (useRemoteCache(remoteOptions)) {
       allowRemoteCache = remoteOptions.remoteAcceptCached && Spawns.mayBeCachedRemotely(spawn);
       if (useDiskCache(remoteOptions)) {
-        // Combined cache
-        if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
-          // --incompatible_remote_results_ignore_disk is set. Disk cache is treated as local cache.
-          // Actions which are tagged with `no-remote-cache` can still hit the disk cache.
-          allowDiskCache = Spawns.mayBeCached(spawn);
-        } else {
-          // Disk cache is treated as a remote cache and disabled for `no-remote-cache`.
-          allowDiskCache = allowRemoteCache;
-        }
+        // Combined cache. Disk cache is treated as local cache. Actions which are tagged with
+        // `no-remote-cache` can still hit the disk cache.
+        allowDiskCache = Spawns.mayBeCached(spawn);
       }
     } else {
       // Disk cache only
-      if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
-        allowDiskCache = Spawns.mayBeCached(spawn);
-      } else {
-        allowDiskCache = remoteOptions.remoteAcceptCached && Spawns.mayBeCached(spawn);
-      }
+      allowDiskCache = Spawns.mayBeCached(spawn);
     }
 
     return CachePolicy.create(allowRemoteCache, allowDiskCache);
@@ -318,24 +311,13 @@ public class RemoteExecutionService {
           shouldUploadLocalResultsToRemoteCache(remoteOptions, spawn.getExecutionInfo())
               && remoteCache.actionCacheSupportsUpdate();
       if (useDiskCache(remoteOptions)) {
-        // Combined cache
-        if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
-          // If --incompatible_remote_results_ignore_disk is set, we treat the disk cache part as
-          // local cache. Actions which are tagged with `no-remote-cache` can still hit the disk
-          // cache.
-          allowDiskCache = Spawns.mayBeCached(spawn);
-        } else {
-          // Otherwise, it's treated as a remote cache and disabled for `no-remote-cache`.
-          allowDiskCache = allowRemoteCache;
-        }
+        // Combined cache. Treat the disk cache part as local cache. Actions which are tagged with
+        // `no-remote-cache` can still hit the disk cache.
+        allowDiskCache = Spawns.mayBeCached(spawn);
       }
     } else {
       // Disk cache only
-      if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
-        allowDiskCache = Spawns.mayBeCached(spawn);
-      } else {
-        allowDiskCache = remoteOptions.remoteUploadLocalResults && Spawns.mayBeCached(spawn);
-      }
+      allowDiskCache = Spawns.mayBeCached(spawn);
     }
 
     return CachePolicy.create(allowRemoteCache, allowDiskCache);
@@ -844,86 +826,13 @@ public class RemoteExecutionService {
               "Failed creating directory and parents for %s",
               symlink.path())
           .createDirectoryAndParents();
+      // If a directory output is being materialized as a symlink, we must first delete the
+      // preexisting empty directory.
+      if (symlink.path().exists(Symlinks.NOFOLLOW)
+          && symlink.path().isDirectory(Symlinks.NOFOLLOW)) {
+        symlink.path().delete();
+      }
       symlink.path().createSymbolicLink(symlink.target());
-    }
-  }
-
-  private void injectRemoteArtifacts(
-      RemoteAction action,
-      ActionResult actionResult,
-      ActionResultMetadata metadata,
-      FileOutErr outErr,
-      long expireAtEpochMilli)
-      throws IOException {
-    FileSystem actionFileSystem = action.getSpawnExecutionContext().getActionFileSystem();
-    checkState(actionFileSystem instanceof RemoteActionFileSystem);
-
-    RemoteActionFileSystem remoteActionFileSystem = (RemoteActionFileSystem) actionFileSystem;
-
-    for (Map.Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
-      DirectoryMetadata directory = entry.getValue();
-      if (!directory.symlinks().isEmpty()) {
-        throw new IOException(
-            "Symlinks in action outputs are not yet supported by "
-                + "--experimental_remote_download_outputs=minimal");
-      }
-
-      for (FileMetadata file : directory.files()) {
-        remoteActionFileSystem.injectRemoteFile(
-            file.path().asFragment(),
-            DigestUtil.toBinaryDigest(file.digest()),
-            file.digest().getSizeBytes(),
-            expireAtEpochMilli);
-      }
-    }
-
-    for (FileMetadata file : metadata.files()) {
-      remoteActionFileSystem.injectRemoteFile(
-          file.path().asFragment(),
-          DigestUtil.toBinaryDigest(file.digest()),
-          file.digest().getSizeBytes(),
-          expireAtEpochMilli);
-    }
-
-    // Inject the metadata for the stdout/stderr, which could be inputs to a followup spawn in the
-    // same action (as is the case e.g. with test rules).
-
-    maybeInjectRemoteArtifactForStdoutOrStderr(
-        remoteActionFileSystem,
-        outErr.getOutputPath(),
-        actionResult.hasStdoutDigest() ? actionResult.getStdoutDigest() : null,
-        actionResult.getStdoutRaw().size(),
-        expireAtEpochMilli);
-
-    maybeInjectRemoteArtifactForStdoutOrStderr(
-        remoteActionFileSystem,
-        outErr.getErrorPath(),
-        actionResult.hasStderrDigest() ? actionResult.getStderrDigest() : null,
-        actionResult.getStderrRaw().size(),
-        expireAtEpochMilli);
-  }
-
-  private void maybeInjectRemoteArtifactForStdoutOrStderr(
-      RemoteActionFileSystem remoteActionFileSystem,
-      Path path,
-      @Nullable Digest digest,
-      long inlinedSize,
-      long expireAtEpochMilli)
-      throws IOException {
-    if (digest != null) {
-      remoteActionFileSystem.injectRemoteFile(
-          path.asFragment(),
-          DigestUtil.toBinaryDigest(digest),
-          digest.getSizeBytes(),
-          expireAtEpochMilli);
-    } else if (inlinedSize > 0) {
-      // If we didn't get a digest back from the service, but we did get the inlined contents,
-      // compute the digest from the output file previously written by downloadOutputs.
-      remoteActionFileSystem.injectRemoteFile(
-          path.asFragment(),
-          DigestUtils.manuallyComputeDigest(path, inlinedSize),
-          inlinedSize,
-          expireAtEpochMilli);
     }
   }
 
@@ -1126,21 +1035,30 @@ public class RemoteExecutionService {
   }
 
   /**
-   * Download the output files and directory trees of a remotely executed action, as well stdin /
-   * stdout to the local machine.
+   * Downloads the outputs of a remotely executed action and injects their metadata.
    *
-   * <p>If minimal download mode is determined, this method avoids downloading the majority of
-   * action outputs by inject their metadata. In this case, this method only downloads output
-   * directory metadata, stdout and stderr as well as the contents of {@code
-   * ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS} if specified.
+   * <p>For a successful action, the {@link RemoteOutputChecker} is consulted to determine which of
+   * the outputs should be downloaded. For a failed action, all outputs are downloaded. The action
+   * stdout and stderr, as well as the in-memory output when present, are always downloaded even in
+   * the success case. Any outputs that are not downloaded have their metadata injected into the
+   * {@link RemoteActionFileSystem}.
    *
-   * <p>In case of failure, this method deletes any output files it might have already created.
+   * <p>In case of download failure, all of the already downloaded outputs are deleted.
+   *
+   * @return The in-memory output if the spawn had one, otherwise null.
    */
   @Nullable
   public InMemoryOutput downloadOutputs(RemoteAction action, RemoteActionResult result)
       throws InterruptedException, IOException, ExecException {
     checkState(!shutdown.get(), "shutdown");
     checkNotNull(remoteCache, "remoteCache can't be null");
+
+    FileSystem actionFileSystem = action.getSpawnExecutionContext().getActionFileSystem();
+    checkState(
+        actionFileSystem instanceof RemoteActionFileSystem,
+        "expected the ActionFileSystem to be a RemoteActionFileSystem");
+
+    RemoteActionFileSystem remoteActionFileSystem = (RemoteActionFileSystem) actionFileSystem;
 
     ProgressStatusListener progressStatusListener = action.getSpawnExecutionContext()::report;
     RemoteActionExecutionContext context = action.getRemoteActionExecutionContext();
@@ -1154,36 +1072,83 @@ public class RemoteExecutionService {
       metadata = parseActionResultMetadata(context, result);
     }
 
-    FileOutErr outErr = action.getSpawnExecutionContext().getFileOutErr();
+    // The expiration time for remote cache entries.
+    var expireAtEpochMilli = Instant.now().plus(remoteOptions.remoteCacheTtl).toEpochMilli();
 
+    ActionInput inMemoryOutput = null;
+    AtomicReference<byte[]> inMemoryOutputData = new AtomicReference<>(null);
+    PathFragment inMemoryOutputPath = getInMemoryOutputPath(action.getSpawn());
+    if (inMemoryOutputPath != null) {
+      for (ActionInput output : action.getSpawn().getOutputFiles()) {
+        if (output.getExecPath().equals(inMemoryOutputPath)) {
+          inMemoryOutput = output;
+          break;
+        }
+      }
+    }
+
+    // Collect the set of files to download.
     ImmutableList.Builder<ListenableFuture<FileMetadata>> downloadsBuilder =
         ImmutableList.builder();
-    boolean downloadOutputs = shouldDownloadOutputsFor(result, metadata);
 
     // Download into temporary paths, then move everything at the end.
     // This avoids holding the output lock while downloading, which would prevent the local branch
     // from completing sooner under the dynamic execution strategy.
     Map<Path, Path> realToTmpPath = new HashMap<>();
 
-    if (downloadOutputs) {
-      // Create output directories first.
-      // This ensures that the directories are present even if downloading fails.
-      // See https://github.com/bazelbuild/bazel/issues/6260.
-      for (Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
-        entry.getKey().createDirectoryAndParents();
+    for (FileMetadata file : metadata.files()) {
+      if (realToTmpPath.containsKey(file.path)) {
+        continue;
       }
-      downloadsBuilder.addAll(
-          buildFilesToDownload(context, progressStatusListener, metadata, realToTmpPath));
-    } else {
-      checkState(
-          result.getExitCode() == 0,
-          "injecting remote metadata is only supported for successful actions (exit code 0).");
-      checkState(
-          metadata.symlinks.isEmpty(),
-          "Symlinks in action outputs are not yet supported by"
-              + " --remote_download_outputs=minimal");
+
+      var execPath = file.path.relativeTo(execRoot);
+      var isInMemoryOutputFile = inMemoryOutput != null && execPath.equals(inMemoryOutputPath);
+      if (!isInMemoryOutputFile && shouldDownload(result, execPath)) {
+        Path tmpPath = tempPathGenerator.generateTempPath();
+        realToTmpPath.put(file.path, tmpPath);
+        downloadsBuilder.add(downloadFile(context, progressStatusListener, file, tmpPath));
+      } else {
+        remoteActionFileSystem.injectRemoteFile(
+            file.path().asFragment(),
+            DigestUtil.toBinaryDigest(file.digest()),
+            file.digest().getSizeBytes(),
+            expireAtEpochMilli);
+
+        if (isInMemoryOutputFile) {
+          downloadsBuilder.add(
+              transform(
+                  remoteCache.downloadBlob(context, file.digest()),
+                  data -> {
+                    inMemoryOutputData.set(data);
+                    return null;
+                  },
+                  directExecutor()));
+        }
+      }
     }
 
+    for (Map.Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
+      for (FileMetadata file : entry.getValue().files()) {
+        if (realToTmpPath.containsKey(file.path)) {
+          continue;
+        }
+        if (shouldDownload(result, file.path.relativeTo(execRoot))) {
+          Path tmpPath = tempPathGenerator.generateTempPath();
+          realToTmpPath.put(file.path, tmpPath);
+          downloadsBuilder.add(downloadFile(context, progressStatusListener, file, tmpPath));
+        } else {
+          remoteActionFileSystem.injectRemoteFile(
+              file.path().asFragment(),
+              DigestUtil.toBinaryDigest(file.digest()),
+              file.digest().getSizeBytes(),
+              expireAtEpochMilli);
+        }
+      }
+    }
+
+    FileOutErr outErr = action.getSpawnExecutionContext().getFileOutErr();
+
+    // Always download the action stdout/stderr.
     FileOutErr tmpOutErr = outErr.childOutErr();
     List<ListenableFuture<Void>> outErrDownloads =
         remoteCache.downloadOutErr(context, result.actionResult, tmpOutErr);
@@ -1213,73 +1178,38 @@ public class RemoteExecutionService {
     tmpOutErr.clearOut();
     tmpOutErr.clearErr();
 
-    if (downloadOutputs) {
-      moveOutputsToFinalLocation(downloads, realToTmpPath);
+    moveOutputsToFinalLocation(downloads, realToTmpPath);
 
-      List<SymlinkMetadata> symlinksInDirectories = new ArrayList<>();
-      for (Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
-        for (SymlinkMetadata symlink : entry.getValue().symlinks()) {
-          // Symlinks should not be allowed inside directories because their semantics are unclear:
-          // tree artifacts are defined as a collection of regular files, and resolving a remotely
-          // produced symlink against the local filesystem is asking for trouble.
-          //
-          // Sadly, we started permitting relative symlinks at some point, so we have to allow them
-          // for backwards compatibility unless the --incompatible_disallow_symlink_in_tree_artifact
-          // flag is set. Absolute symlinks, on the other hand, have never been allowed.
-          //
-          // See also https://github.com/bazelbuild/bazel/issues/16361 for potential future work
-          // to allow *unresolved* symlinks in a tree artifact.
-          boolean isAbsolute = symlink.target().isAbsolute();
-          if (remoteOptions.incompatibleDisallowSymlinkInTreeArtifact || isAbsolute) {
-            throw new IOException(
-                String.format(
-                    "Unsupported symlink '%s' inside tree artifact '%s'",
-                    symlink.path().relativeTo(entry.getKey()),
-                    entry.getKey().relativeTo(execRoot)));
-          }
-          symlinksInDirectories.add(symlink);
+    List<SymlinkMetadata> symlinksInDirectories = new ArrayList<>();
+    for (Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
+      for (SymlinkMetadata symlink : entry.getValue().symlinks()) {
+        // Symlinks should not be allowed inside directories because their semantics are unclear:
+        // tree artifacts are defined as a collection of regular files, and resolving a remotely
+        // produced symlink against the local filesystem is asking for trouble.
+        //
+        // Sadly, we started permitting relative symlinks at some point, so we have to allow them
+        // until the --incompatible_remote_disallow_symlink_in_tree_artifact flag is flipped.
+        // Absolute symlinks, on the other hand, have never been allowed.
+        //
+        // See also https://github.com/bazelbuild/bazel/issues/16361 for potential future work
+        // to allow *unresolved* symlinks in a tree artifact.
+        boolean isAbsolute = symlink.target().isAbsolute();
+        if (remoteOptions.incompatibleRemoteDisallowSymlinkInTreeArtifact || isAbsolute) {
+          throw new IOException(
+              String.format(
+                  "Unsupported symlink '%s' inside tree artifact '%s'",
+                  symlink.path().relativeTo(entry.getKey()), entry.getKey().relativeTo(execRoot)));
         }
-      }
-
-      Iterable<SymlinkMetadata> symlinks =
-          Iterables.concat(metadata.symlinks(), symlinksInDirectories);
-
-      // Create the symbolic links after all downloads are finished, because dangling symlinks
-      // might not be supported on all platforms.
-      createSymlinks(symlinks);
-    } else {
-      ActionInput inMemoryOutput = null;
-      Digest inMemoryOutputDigest = null;
-      PathFragment inMemoryOutputPath = getInMemoryOutputPath(action.getSpawn());
-
-      for (ActionInput output : action.getSpawn().getOutputFiles()) {
-        if (inMemoryOutputPath != null && output.getExecPath().equals(inMemoryOutputPath)) {
-          Path localPath = remotePathResolver.outputPathToLocalPath(output);
-          FileMetadata m = metadata.file(localPath);
-          if (m == null) {
-            // A declared output wasn't created. Ignore it here. SkyFrame will fail if not all
-            // outputs were created.
-            continue;
-          }
-          inMemoryOutputDigest = m.digest();
-          inMemoryOutput = output;
-        }
-      }
-
-      var expireAtEpochMilli = Instant.now().plus(remoteOptions.remoteCacheTtl).toEpochMilli();
-      injectRemoteArtifacts(action, result.actionResult, metadata, outErr, expireAtEpochMilli);
-
-      try (SilentCloseable c = Profiler.instance().profile("Remote.downloadInMemoryOutput")) {
-        if (inMemoryOutput != null) {
-          ListenableFuture<byte[]> inMemoryOutputDownload =
-              remoteCache.downloadBlob(context, inMemoryOutputDigest);
-          waitForBulkTransfer(
-              ImmutableList.of(inMemoryOutputDownload), /* cancelRemainingOnInterrupt= */ true);
-          byte[] data = getFromFuture(inMemoryOutputDownload);
-          return new InMemoryOutput(inMemoryOutput, ByteString.copyFrom(data));
-        }
+        symlinksInDirectories.add(symlink);
       }
     }
+
+    Iterable<SymlinkMetadata> symlinks =
+        Iterables.concat(metadata.symlinks(), symlinksInDirectories);
+
+    // Create the symbolic links after all downloads are finished, because dangling symlinks
+    // might not be supported on all platforms.
+    createSymlinks(symlinks);
 
     if (result.success()) {
       // Check that all mandatory outputs are created.
@@ -1318,71 +1248,20 @@ public class RemoteExecutionService {
       }
     }
 
+    if (inMemoryOutput != null && inMemoryOutputData.get() != null) {
+      return new InMemoryOutput(inMemoryOutput, ByteString.copyFrom(inMemoryOutputData.get()));
+    }
+
     return null;
   }
 
-  private boolean shouldDownloadOutputsFor(
-      RemoteActionResult result, ActionResultMetadata metadata) {
-    if (remoteOptions.remoteOutputsMode.downloadAllOutputs()) {
-      return true;
-    }
+  private boolean shouldDownload(RemoteActionResult result, PathFragment execPath) {
     // In case the action failed, download all outputs. It might be helpful for debugging and there
     // is no point in injecting output metadata of a failed action.
     if (result.getExitCode() != 0) {
       return true;
     }
-    // Symlinks in actions output are not yet supported with BwoB.
-    if (!metadata.symlinks().isEmpty()) {
-      report(
-          Event.warn(
-              String.format(
-                  "Symlinks in action outputs are not yet supported by --remote_download_minimal,"
-                      + " falling back to downloading all action outputs due to output symlink %s",
-                  Iterables.get(metadata.symlinks(), 0).path())));
-      return true;
-    }
-    return false;
-  }
-
-  private ImmutableList<ListenableFuture<FileMetadata>> buildFilesToDownload(
-      RemoteActionExecutionContext context,
-      ProgressStatusListener progressStatusListener,
-      ActionResultMetadata metadata,
-      Map<Path, Path> realToTmpPath) {
-    Predicate<String> alwaysTrue = unused -> true;
-    return buildFilesToDownloadWithPredicate(
-        context, progressStatusListener, metadata, alwaysTrue, realToTmpPath);
-  }
-
-  private ImmutableList<ListenableFuture<FileMetadata>> buildFilesToDownloadWithPredicate(
-      RemoteActionExecutionContext context,
-      ProgressStatusListener progressStatusListener,
-      ActionResultMetadata metadata,
-      Predicate<String> predicate,
-      Map<Path, Path> realToTmpPath) {
-    ImmutableList.Builder<ListenableFuture<FileMetadata>> builder = new ImmutableList.Builder<>();
-
-    for (FileMetadata file : metadata.files()) {
-      if (!realToTmpPath.containsKey(file.path)
-          && predicate.test(file.path.relativeTo(execRoot).toString())) {
-        Path tmpPath = tempPathGenerator.generateTempPath();
-        realToTmpPath.put(file.path, tmpPath);
-        builder.add(downloadFile(context, progressStatusListener, file, tmpPath));
-      }
-    }
-
-    for (Map.Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
-      for (FileMetadata file : entry.getValue().files()) {
-        if (!realToTmpPath.containsKey(file.path)
-            && predicate.test(file.path.relativeTo(execRoot).toString())) {
-          Path tmpPath = tempPathGenerator.generateTempPath();
-          realToTmpPath.put(file.path, tmpPath);
-          builder.add(downloadFile(context, progressStatusListener, file, tmpPath));
-        }
-      }
-    }
-
-    return builder.build();
+    return remoteOutputChecker.shouldDownloadOutput(execPath);
   }
 
   private static String prettyPrint(ActionInput actionInput) {

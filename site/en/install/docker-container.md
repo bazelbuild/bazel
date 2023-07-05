@@ -64,7 +64,7 @@ docker run \
 
 The instructions in this section allow you to build using the Bazel container
 with the sources inside the container. By starting a container at the beginning
-of your developement workflow and doing changes in the worskpace within the
+of your development workflow and doing changes in the worskpace within the
 container, build results will be cached.
 
 Start a shell in the Bazel container:
@@ -73,7 +73,7 @@ Start a shell in the Bazel container:
 docker run --interactive --entrypoint=/bin/bash gcr.io/bazel-public/bazel:latest
 ```
 
-Each container id is unique. In the instructions bellow, the container was 5a99103747c6.
+Each container id is unique. In the instructions below, the container was 5a99103747c6.
 
 Clone the project.
 

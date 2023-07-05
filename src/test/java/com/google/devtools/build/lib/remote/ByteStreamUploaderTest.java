@@ -21,6 +21,7 @@ import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdInputStream;
@@ -165,7 +166,8 @@ public class ByteStreamUploaderTest {
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
             retrier,
-            /*maximumOpenFiles=*/ -1);
+            /* maximumOpenFiles= */ -1,
+            /* digestFunction= */ DigestFunction.Value.SHA256);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
     new Random().nextBytes(blob);
@@ -192,7 +194,8 @@ public class ByteStreamUploaderTest {
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
             retrier,
-            /* maximumOpenFiles= */ -1);
+            /* maximumOpenFiles= */ -1,
+            /* digestFunction= */ DigestFunction.Value.SHA256);
 
     byte[] blob = {'A'};
 
@@ -232,8 +235,7 @@ public class ByteStreamUploaderTest {
               }
 
               @Override
-              public void onCompleted() {
-              }
+              public void onCompleted() {}
             };
           }
         });
@@ -256,7 +258,8 @@ public class ByteStreamUploaderTest {
             CallCredentialsProvider.NO_CREDENTIALS,
             3,
             retrier,
-            /*maximumOpenFiles=*/ -1);
+            /* maximumOpenFiles= */ -1,
+            /* digestFunction= */ DigestFunction.Value.SHA256);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
     new Random().nextBytes(blob);
@@ -372,7 +375,8 @@ public class ByteStreamUploaderTest {
             CallCredentialsProvider.NO_CREDENTIALS,
             300,
             retrier,
-            /*maximumOpenFiles=*/ -1);
+            /* maximumOpenFiles= */ -1,
+            /* digestFunction= */ DigestFunction.Value.SHA256);
 
     int chunkSize = 1024;
     int skipSize = chunkSize + 1;
@@ -491,7 +495,8 @@ public class ByteStreamUploaderTest {
             CallCredentialsProvider.NO_CREDENTIALS,
             300,
             retrier,
-            /* maximumOpenFiles= */ -1);
+            /* maximumOpenFiles= */ -1,
+            /* digestFunction= */ DigestFunction.Value.SHA256);
 
     int chunkSize = 1024;
     byte[] blob = new byte[chunkSize * 2 + 1];
@@ -549,7 +554,8 @@ public class ByteStreamUploaderTest {
             CallCredentialsProvider.NO_CREDENTIALS,
             1,
             retrier,
-            /*maximumOpenFiles=*/ -1);
+            /* maximumOpenFiles= */ -1,
+            /* digestFunction= */ DigestFunction.Value.SHA256);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
     new Random().nextBytes(blob);
@@ -607,7 +613,8 @@ public class ByteStreamUploaderTest {
             CallCredentialsProvider.NO_CREDENTIALS,
             3,
             retrier,
-            /*maximumOpenFiles=*/ -1);
+            /* maximumOpenFiles= */ -1,
+            /* digestFunction= */ DigestFunction.Value.SHA256);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
     new Random().nextBytes(blob);
@@ -676,7 +683,8 @@ public class ByteStreamUploaderTest {
             CallCredentialsProvider.NO_CREDENTIALS,
             3,
             retrier,
-            /*maximumOpenFiles=*/ -1);
+            /* maximumOpenFiles= */ -1,
+            /* digestFunction= */ DigestFunction.Value.SHA256);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
     new Random().nextBytes(blob);
@@ -713,7 +721,8 @@ public class ByteStreamUploaderTest {
             CallCredentialsProvider.NO_CREDENTIALS,
             3,
             retrier,
-            /*maximumOpenFiles=*/ -1);
+            /* maximumOpenFiles= */ -1,
+            /* digestFunction= */ DigestFunction.Value.SHA256);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
     new Random().nextBytes(blob);
@@ -766,7 +775,8 @@ public class ByteStreamUploaderTest {
             CallCredentialsProvider.NO_CREDENTIALS,
             300,
             retrier,
-            /*maximumOpenFiles=*/ -1);
+            /* maximumOpenFiles= */ -1,
+            /* digestFunction= */ DigestFunction.Value.SHA256);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
     new Random().nextBytes(blob);
@@ -798,7 +808,8 @@ public class ByteStreamUploaderTest {
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
             retrier,
-            /*maximumOpenFiles=*/ -1);
+            /* maximumOpenFiles= */ -1,
+            /* digestFunction= */ DigestFunction.Value.SHA256);
 
     int numUploads = 10;
     Map<HashCode, byte[]> blobsByHash = Maps.newHashMap();
@@ -830,7 +841,8 @@ public class ByteStreamUploaderTest {
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
             retrier,
-            /*maximumOpenFiles=*/ -1);
+            /* maximumOpenFiles= */ -1,
+            /* digestFunction= */ DigestFunction.Value.SHA256);
     byte[] blob = new byte[CHUNK_SIZE];
     Chunker chunker = Mockito.mock(Chunker.class);
     Digest digest = DIGEST_UTIL.compute(blob);
@@ -862,7 +874,8 @@ public class ByteStreamUploaderTest {
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
             retrier,
-            maximumOpenFiles);
+            maximumOpenFiles,
+            /* digestFunction= */ DigestFunction.Value.SHA256);
 
     assertThat(uploader.getOpenedFilePermits().availablePermits()).isEqualTo(999);
 
@@ -900,7 +913,8 @@ public class ByteStreamUploaderTest {
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
             retrier,
-            /*maximumOpenFiles=*/ -1);
+            /* maximumOpenFiles= */ -1,
+            /* digestFunction= */ DigestFunction.Value.SHA256);
     assertThat(uploader.getOpenedFilePermits()).isNull();
 
     int numUploads = 10;
@@ -936,7 +950,8 @@ public class ByteStreamUploaderTest {
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
             retrier,
-            /*maximumOpenFiles=*/ -1);
+            /* maximumOpenFiles= */ -1,
+            /* digestFunction= */ DigestFunction.Value.SHA256);
 
     List<String> toUpload = ImmutableList.of("aaaaaaaaaa", "bbbbbbbbbb", "cccccccccc");
     Map<Digest, Chunker> chunkers = Maps.newHashMapWithExpectedSize(toUpload.size());
@@ -1066,7 +1081,8 @@ public class ByteStreamUploaderTest {
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
             retrier,
-            /*maximumOpenFiles=*/ -1);
+            /* maximumOpenFiles= */ -1,
+            /* digestFunction= */ DigestFunction.Value.SHA256);
 
     byte[] blob = new byte[CHUNK_SIZE];
     Chunker chunker = Chunker.builder().setInput(blob).setChunkSize(CHUNK_SIZE).build();
@@ -1127,7 +1143,8 @@ public class ByteStreamUploaderTest {
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
             retrier,
-            /*maximumOpenFiles=*/ -1);
+            /* maximumOpenFiles= */ -1,
+            /* digestFunction= */ DigestFunction.Value.SHA256);
 
     byte[] blob = new byte[CHUNK_SIZE];
     Chunker chunker = Chunker.builder().setInput(blob).setChunkSize(CHUNK_SIZE).build();
@@ -1163,7 +1180,8 @@ public class ByteStreamUploaderTest {
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
             retrier,
-            /*maximumOpenFiles=*/ -1);
+            /* maximumOpenFiles= */ -1,
+            /* digestFunction= */ DigestFunction.Value.SHA256);
 
     serviceRegistry.addService(
         new ByteStreamImplBase() {
@@ -1202,7 +1220,8 @@ public class ByteStreamUploaderTest {
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
             retrier,
-            /*maximumOpenFiles=*/ -1);
+            /* maximumOpenFiles= */ -1,
+            /* digestFunction= */ DigestFunction.Value.SHA256);
 
     serviceRegistry.addService(
         new ByteStreamImplBase() {
@@ -1213,6 +1232,50 @@ public class ByteStreamUploaderTest {
               public void onNext(WriteRequest writeRequest) {
                 // Test that the resource name doesn't start with an instance name.
                 assertThat(writeRequest.getResourceName()).startsWith("uploads/");
+              }
+
+              @Override
+              public void onError(Throwable throwable) {}
+
+              @Override
+              public void onCompleted() {
+                response.onNext(WriteResponse.newBuilder().setCommittedSize(1).build());
+                response.onCompleted();
+              }
+            };
+          }
+        });
+
+    byte[] blob = new byte[1];
+    Chunker chunker = Chunker.builder().setInput(blob).setChunkSize(CHUNK_SIZE).build();
+    Digest digest = DIGEST_UTIL.compute(blob);
+
+    uploader.uploadBlob(context, digest, chunker);
+  }
+
+  @Test
+  public void resourceWithNewStyleDigestFunction() throws Exception {
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(() -> mockBackoff, (e) -> true, retryService);
+    ByteStreamUploader uploader =
+        new ByteStreamUploader(
+            /* instanceName= */ null,
+            referenceCountedChannel,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            /* callTimeoutSecs= */ 60,
+            retrier,
+            /* maximumOpenFiles= */ -1,
+            /* digestFunction= */ DigestFunction.Value.BLAKE3);
+
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> response) {
+            return new StreamObserver<WriteRequest>() {
+              @Override
+              public void onNext(WriteRequest writeRequest) {
+                // Test that the resource name contains the digest function.
+                assertThat(writeRequest.getResourceName()).contains("blobs/blake3/");
               }
 
               @Override
@@ -1246,7 +1309,8 @@ public class ByteStreamUploaderTest {
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
             retrier,
-            /*maximumOpenFiles=*/ -1);
+            /* maximumOpenFiles= */ -1,
+            /* digestFunction= */ DigestFunction.Value.SHA256);
 
     AtomicInteger numCalls = new AtomicInteger();
 
@@ -1299,7 +1363,8 @@ public class ByteStreamUploaderTest {
             callCredentialsProvider,
             /* callTimeoutSecs= */ 60,
             retrier,
-            /*maximumOpenFiles=*/ -1);
+            /* maximumOpenFiles= */ -1,
+            /* digestFunction= */ DigestFunction.Value.SHA256);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
     new Random().nextBytes(blob);
@@ -1355,7 +1420,8 @@ public class ByteStreamUploaderTest {
             callCredentialsProvider,
             /* callTimeoutSecs= */ 60,
             retrier,
-            /*maximumOpenFiles=*/ -1);
+            /* maximumOpenFiles= */ -1,
+            /* digestFunction= */ DigestFunction.Value.SHA256);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
     new Random().nextBytes(blob);
@@ -1425,7 +1491,8 @@ public class ByteStreamUploaderTest {
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
             retrier,
-            -1);
+            -1,
+            /* digestFunction= */ DigestFunction.Value.SHA256);
 
     byte[] blob = new byte[CHUNK_SIZE - 1];
     new Random().nextBytes(blob);
@@ -1484,7 +1551,8 @@ public class ByteStreamUploaderTest {
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
             retrier,
-            /*maximumOpenFiles=*/ -1);
+            /* maximumOpenFiles= */ -1,
+            /* digestFunction= */ DigestFunction.Value.SHA256);
 
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
     new Random().nextBytes(blob);

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.query2.cquery;
 
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -36,7 +37,7 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<KeyedConfiguredTarget> accessor,
+      TargetAccessor<ConfiguredTarget> accessor,
       boolean showKind,
       RepositoryMapping mainRepoMapping) {
     super(eventHandler, options, out, skyframeExecutor, accessor, /*uniquifyResults=*/ false);
@@ -50,8 +51,8 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
   }
 
   @Override
-  public void processOutput(Iterable<KeyedConfiguredTarget> partialResult) {
-    for (KeyedConfiguredTarget keyedConfiguredTarget : partialResult) {
+  public void processOutput(Iterable<ConfiguredTarget> partialResult) {
+    for (ConfiguredTarget keyedConfiguredTarget : partialResult) {
       StringBuilder output = new StringBuilder();
       if (showKind) {
         Target actualTarget = accessor.getTarget(keyedConfiguredTarget);
@@ -59,7 +60,7 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
       }
       output =
           output
-              .append(keyedConfiguredTarget.getLabel().getDisplayForm(mainRepoMapping))
+              .append(keyedConfiguredTarget.getOriginalLabel().getDisplayForm(mainRepoMapping))
               .append(" (")
               .append(shortId(getConfiguration(keyedConfiguredTarget.getConfigurationKey())))
               .append(")");
@@ -73,10 +74,9 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
   }
 
   private static ImmutableSortedSet<String> requiredFragmentStrings(
-      KeyedConfiguredTarget keyedConfiguredTarget) {
+      ConfiguredTarget keyedConfiguredTarget) {
     RequiredConfigFragmentsProvider requiredFragments =
         keyedConfiguredTarget
-            .getConfiguredTarget()
             .getProvider(RequiredConfigFragmentsProvider.class);
     if (requiredFragments == null) {
       return ImmutableSortedSet.of();

@@ -101,7 +101,7 @@ public class ProcessedAndroidData {
       Artifact mergedResourcesOut,
       String proguardPrefix,
       Map<String, String> manifestValues)
-      throws RuleErrorException {
+      throws RuleErrorException, InterruptedException {
 
     AndroidResourcesProcessorBuilder builder =
         builderForTopLevelTarget(dataContext, manifest, proguardPrefix, manifestValues)

@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.util.OS;
 
 /**
@@ -41,7 +40,19 @@ public final class BazelCcTestRule implements RuleDefinition {
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
         .requiresConfigurationFragments(CppConfiguration.class)
-        .setImplicitOutputsFunction(CppRuleClasses.CC_BINARY_DEBUG_PACKAGE)
+        /*<!-- #BLAZE_RULE(cc_test).IMPLICIT_OUTPUTS -->
+        <ul>
+        <li><code><var>name</var>.stripped</code> (only built if explicitly requested): A stripped
+          version of the binary. <code>strip -g</code> is run on the binary to remove debug
+          symbols.  Additional strip options can be provided on the command line using
+          <code>--stripopt=-foo</code>. This output is only built if explicitly requested.</li>
+        <li><code><var>name</var>.dwp</code> (only built if explicitly requested): If
+          <a href="https://gcc.gnu.org/wiki/DebugFission">Fission</a> is enabled: a debug
+          information package file suitable for debugging remotely deployed binaries. Else: an
+          empty file.</li>
+        </ul>
+        <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
+        .setImplicitOutputsFunction(BazelCppRuleClasses.CC_BINARY_IMPLICIT_OUTPUTS)
         // We don't want C++ tests to be dynamically linked by default on Windows,
         // because windows_export_all_symbols is not enabled by default, and it cannot solve
         // all symbols visibility issues, for example, users still have to use __declspec(dllimport)

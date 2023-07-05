@@ -84,7 +84,6 @@ import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionContext;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionMapper;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.MinDepthUniquifierImpl;
-import com.google.devtools.build.lib.query2.engine.QueryUtil.MutableKeyExtractorBackedMapImpl;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.NonExceptionalUniquifier;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.ThreadSafeMutableKeyExtractorBackedSetImpl;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.UniquifierImpl;
@@ -815,11 +814,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         TargetKeyExtractor.INSTANCE, Target.class, queryEvaluationParallelismLevel);
   }
 
-  @Override
-  public <V> MutableMap<Target, V> createMutableMap() {
-    return new MutableKeyExtractorBackedMapImpl<>(TargetKeyExtractor.INSTANCE);
-  }
-
   @ThreadSafe
   protected NonExceptionalUniquifier<Target> createUniquifierForOuterBatchStreamedCallback(
       QueryExpression expr) {
@@ -914,81 +908,43 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
             directExecutor()));
   }
 
-  @ThreadSafe
   @Override
-  public ThreadSafeMutableSet<Target> getBuildFiles(
-      QueryExpression caller,
-      ThreadSafeMutableSet<Target> nodes,
-      boolean buildFiles,
-      boolean loads,
-      QueryExpressionContext<Target> context)
-      throws QueryException, InterruptedException {
-    ThreadSafeMutableSet<Target> dependentFiles = createThreadSafeMutableSet();
-    Set<PackageIdentifier> seenPackages = new HashSet<>();
-    // Keep track of seen labels, to avoid adding a fake subinclude label that also exists as a
-    // real target.
-    Set<Label> seenLabels = new HashSet<>();
-
-    // Adds all the package definition files (BUILD files and build
-    // extensions) for package "pkg", to "buildfiles".
-    for (Target x : nodes) {
-      Package pkg = x.getPackage();
-      if (seenPackages.add(pkg.getPackageIdentifier())) {
-        if (buildFiles) {
-          addIfUniqueLabel(pkg.getBuildFile(), seenLabels, dependentFiles);
-        }
-
-        List<Label> extensions = new ArrayList<>();
-        if (loads) {
-          extensions.addAll(pkg.getStarlarkFileDependencies());
-        }
-
-        for (Label extension : extensions) {
-
-          Target loadTarget = getLoadTarget(extension, pkg);
-          addIfUniqueLabel(loadTarget, seenLabels, dependentFiles);
-
-          // Also add the BUILD file of the extension.
-          if (buildFiles) {
-            Label buildFileLabel = getBuildFileLabelForPackageOfBzlFile(extension);
-            addIfUniqueLabel(new FakeLoadTarget(buildFileLabel, pkg), seenLabels, dependentFiles);
-          }
-        }
+  public TransitiveLoadFilesHelper<Target> getTransitiveLoadFilesHelper() {
+    return new TransitiveLoadFilesHelperForTargets() {
+      @Override
+      public Target getLoadFileTarget(Target originalTarget, Label bzlLabel) {
+        return new FakeLoadTarget(bzlLabel, originalTarget.getPackage());
       }
-    }
-    return dependentFiles;
-  }
 
-  protected Label getBuildFileLabelForPackageOfBzlFile(Label bzlFileLabel)
-      throws QueryException, InterruptedException {
-    PackageIdentifier packageIdentifier = bzlFileLabel.getPackageIdentifier();
-    PackageLookupValue packageLookupValue =
-        (PackageLookupValue) graph.getValue(PackageLookupValue.key(packageIdentifier));
-    if (packageLookupValue == null) {
-      BugReport.sendBugReport(
-          new IllegalStateException(
-              "PackageLookupValue for package of extension file "
-                  + bzlFileLabel
-                  + " not in graph"));
-      throw new QueryException(
-          bzlFileLabel + " does not exist in graph",
-          FailureDetail.newBuilder()
-              .setMessage("BUILD file not found on package path")
-              .setPackageLoading(
-                  FailureDetails.PackageLoading.newBuilder()
-                      .setCode(FailureDetails.PackageLoading.Code.BUILD_FILE_MISSING)
-                      .build())
-              .build());
-    }
-    return Label.createUnvalidated(
-        packageIdentifier,
-        packageLookupValue.getBuildFileName().getFilenameFragment().getBaseName());
-  }
-
-  private static void addIfUniqueLabel(Target node, Set<Label> labels, Set<Target> nodes) {
-    if (labels.add(node.getLabel())) {
-      nodes.add(node);
-    }
+      @Override
+      public Target maybeGetBuildFileTargetForLoadFileTarget(Target originalTarget, Label bzlLabel)
+          throws QueryException, InterruptedException {
+        PackageIdentifier packageIdentifier = bzlLabel.getPackageIdentifier();
+        PackageLookupValue packageLookupValue =
+            (PackageLookupValue) graph.getValue(PackageLookupValue.key(packageIdentifier));
+        if (packageLookupValue == null) {
+          BugReport.sendBugReport(
+              new IllegalStateException(
+                  "PackageLookupValue for package of extension file "
+                      + bzlLabel
+                      + " not in graph"));
+          throw new QueryException(
+              bzlLabel + " does not exist in graph",
+              FailureDetail.newBuilder()
+                  .setMessage("BUILD file not found on package path")
+                  .setPackageLoading(
+                      FailureDetails.PackageLoading.newBuilder()
+                          .setCode(FailureDetails.PackageLoading.Code.BUILD_FILE_MISSING)
+                          .build())
+                  .build());
+        }
+        return new FakeLoadTarget(
+            Label.createUnvalidated(
+                packageIdentifier,
+                packageLookupValue.getBuildFileName().getFilenameFragment().getBaseName()),
+            originalTarget.getPackage());
+      }
+    };
   }
 
   protected int getVisitBatchSizeForParallelVisitation() {
@@ -997,10 +953,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   public VisitTaskStatusCallback getVisitTaskStatusCallback() {
     return VisitTaskStatusCallback.NULL_INSTANCE;
-  }
-
-  private static Target getLoadTarget(Label label, Package pkg) {
-    return new FakeLoadTarget(label, pkg);
   }
 
   @ThreadSafe

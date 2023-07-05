@@ -428,4 +428,9 @@ public final class Command implements DescribableExecutionUnit {
   private void logCommand() {
     logger.atFine().log("%s", LazyArgs.lazy(this::toDebugString));
   }
+
+  @Override
+  public String getMnemonic() {
+    return "<shell command>";
+  }
 }

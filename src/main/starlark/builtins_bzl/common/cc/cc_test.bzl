@@ -130,7 +130,7 @@ def make_cc_test(with_linkstatic = False, with_aspects = False):
             "stripped_binary": "%{name}.stripped",
             "dwp_file": "%{name}.dwp",
         },
-        fragments = ["google_cpp", "cpp", "coverage"],
+        fragments = ["cpp", "coverage"] + semantics.additional_fragments(),
         exec_groups = {
             "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),
             # testing.ExecutionInfo defaults to an exec_group of "test".

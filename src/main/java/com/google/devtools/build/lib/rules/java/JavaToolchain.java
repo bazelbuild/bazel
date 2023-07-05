@@ -83,7 +83,6 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
     Artifact oneVersionAllowlist = ruleContext.getPrerequisiteArtifact("oneversion_whitelist");
     Artifact genClass = ruleContext.getPrerequisiteArtifact("genclass");
     Artifact depsChecker = ruleContext.getPrerequisiteArtifact("deps_checker");
-    Artifact resourceJarBuilder = ruleContext.getPrerequisiteArtifact("resourcejar");
     Artifact timezoneData = ruleContext.getPrerequisiteArtifact("timezone_data");
     FilesToRunProvider ijar = ruleContext.getExecutablePrerequisite("ijar");
     FilesToRunProvider proguardAllowlister =
@@ -186,7 +185,6 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             oneVersionAllowlist,
             genClass,
             depsChecker,
-            resourceJarBuilder,
             timezoneData,
             ijar,
             compatibleJavacOptions,
@@ -209,7 +207,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
     return builder.build();
   }
 
-  private ImmutableList<String> getJavacOpts(RuleContext ruleContext) {
+  private ImmutableList<String> getJavacOpts(RuleContext ruleContext) throws InterruptedException {
     ImmutableList.Builder<String> javacopts = ImmutableList.builder();
     String source = ruleContext.attributes().get("source_version", Type.STRING);
     if (!isNullOrEmpty(source)) {

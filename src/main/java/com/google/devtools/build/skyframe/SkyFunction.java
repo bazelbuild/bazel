@@ -139,10 +139,11 @@ public interface SkyFunction {
   }
 
   /**
-   * The services provided to the {@link SkyFunction#compute} implementation by the Skyframe
-   * evaluation framework.
+   * Value lookup subset of services provided to {@link SkyFunction} implementations.
+   *
+   * <p>See {@link Environment} for the full set of services.
    */
-  interface Environment {
+  interface LookupEnvironment {
     /**
      * Returns a direct dependency. If the specified value is not in the set of already evaluated
      * direct dependencies, returns {@code null}. Also returns {@code null} if the specified value
@@ -157,6 +158,7 @@ public interface SkyFunction {
      * must not be caught by the {@link SkyFunction#compute} implementation. Instead, they should be
      * propagated up to the caller of {@link SkyFunction#compute}.
      */
+    @CanIgnoreReturnValue
     @Nullable
     SkyValue getValue(SkyKey valueName) throws InterruptedException;
 
@@ -174,15 +176,18 @@ public interface SkyFunction {
      * or a subtype of {@link InterruptedException}. See {@link
      * SkyFunctionException#validateExceptionType} for details.
      */
+    @CanIgnoreReturnValue
     @Nullable
     <E extends Exception> SkyValue getValueOrThrow(SkyKey depKey, Class<E> exceptionClass)
         throws E, InterruptedException;
 
+    @CanIgnoreReturnValue
     @Nullable
     <E1 extends Exception, E2 extends Exception> SkyValue getValueOrThrow(
         SkyKey depKey, Class<E1> exceptionClass1, Class<E2> exceptionClass2)
         throws E1, E2, InterruptedException;
 
+    @CanIgnoreReturnValue
     @Nullable
     <E1 extends Exception, E2 extends Exception, E3 extends Exception> SkyValue getValueOrThrow(
         SkyKey depKey,
@@ -191,6 +196,7 @@ public interface SkyFunction {
         Class<E3> exceptionClass3)
         throws E1, E2, E3, InterruptedException;
 
+    @CanIgnoreReturnValue
     @Nullable
     <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
         SkyValue getValueOrThrow(
@@ -257,22 +263,39 @@ public interface SkyFunction {
         throws InterruptedException;
 
     /**
+     * Returns a lookup result containing previously requested dependencies.
+     *
+     * <p>NB: this may contain fewer dependencies than expected if the node is restarted before all
+     * its dependencies have signaled. The two known cases are error bubbling and partial
+     * re-evaluation. In error bubbling, an error should be present.
+     */
+    SkyframeLookupResult getLookupHandleForPreviouslyRequestedDeps();
+
+    /**
      * Returns whether there was a previous getValue[s][OrThrow] that indicated a missing
      * dependency. Formally, returns true iff at least one of the following occurred:
      *
      * <ul>
      *   <li>getValue[OrThrow](k[, c]) returned {@code null} for some k
-     *   <li>A call to result#next[OrThrow]([c]) returned {@code null} where result =
+     *   <li>A call to {@code result#get[OrThrow](k[, c])} returned {@code null} where result =
      *       getValuesAndExceptions(ks) for some ks
-     *   <li>A call to result#get[OrThrow](k[, c]) returned {@code null} where result =
+     *   <li>A call to {@code result#queryDep(k, cb)} returned {@code false} where result =
      *       getValuesAndExceptions(ks) for some ks
      * </ul>
      *
      * <p>If this returns true, the {@link SkyFunction} must return {@code null} or throw a {@link
      * SkyFunctionException} if it detected an error even with values missing.
      */
+    // TODO(b/261521010): this method is included here temporarily to facilitate migration. Move
+    // this down into `Environment` after the migration is complete.
     boolean valuesMissing();
+  }
 
+  /**
+   * The services provided to the {@link SkyFunction#compute} implementation by the Skyframe
+   * evaluation framework.
+   */
+  interface Environment extends LookupEnvironment {
     /**
      * Returns the {@link ExtendedEventHandler} that a {@link SkyFunction} should use to print any
      * errors, warnings, or progress messages during execution of {@link SkyFunction#compute}.
@@ -360,20 +383,29 @@ public interface SkyFunction {
     boolean restartPermitted();
 
     /**
-     * Returns a lookup result containing previously requested dependencies.
-     *
-     * <p>NB: this may contain fewer dependencies than expected if the node is restarted before all
-     * its dependencies have signaled. The two known cases are error bubbling and partial
-     * re-evaluation. In error bubbling, an error should be present.
-     */
-    SkyframeLookupResult getLookupHandleForPreviouslyRequestedDeps();
-
-    /**
      * Container for data stored in between calls to {@link #compute} for the same {@link SkyKey}.
      *
      * <p>See the javadoc of {@link #getState} for motivation and an example.
      */
-    interface SkyKeyComputeState {}
+    interface SkyKeyComputeState extends AutoCloseable {
+      /**
+       * {@inheritDoc}
+       *
+       * <p>Can be overridden to make sure {@link SkyKeyComputeState} objects are cleaned up. Note
+       * that, while this ostensibly opens up the possibility for {@link SkyKeyComputeState} to hold
+       * on to any kind of external resource, doing so might still be dangerous as we only actively
+       * drop {@link SkyKeyComputeState} objects on high memory pressure. If the external resource
+       * being held on to is approaching starvation, we currently don't do anything to alleviate
+       * that pressure. So think *hard* before you start doing that!
+       *
+       * <p>Implementations <strong>MUST</strong> be idempotent.
+       *
+       * <p>Note also that this method should not perform any heavy work (especially blocking
+       * operations).
+       */
+      @Override
+      default void close() {}
+    }
 
     /**
      * Canonical type-safe heterogeneous container for use with {@link #getState} in SkyFunction
@@ -452,6 +484,9 @@ public interface SkyFunction {
      * exact instance used on the previous call to this method for the same {@link SkyKey}. The
      * above example was just illustrating the best-case outcome. Therefore, {@link SkyFunction}
      * implementations should make use of this feature only as a performance optimization.
+     *
+     * <p>Note that {@link SkyKeyComputeState#close()} allows us to hold on to other kinds of
+     * external resources and clean them up when necessary, but see the Javadoc there for caveats.
      *
      * <p>A notable example of the above note is that if {@link #compute} returns a {@link Restart}
      * then a call to {@link #getState} on the subsequent call to {@link #compute} will definitely

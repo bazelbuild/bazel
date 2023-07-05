@@ -88,6 +88,12 @@ public final class StarlarkProviderIdentifier {
     }
   }
 
+  /**
+   * Returns the provider key name for a declared provider, or the legacy ID for a legacy provider.
+   *
+   * <p>Used for rendering human-readable descriptions, such as for a rule attribute's set of
+   * required providers.
+   */
   @Override
   public String toString() {
     if (isLegacy()) {

@@ -132,11 +132,14 @@ public final class SandboxHelpers {
       Set<PathFragment> inputsToCreate,
       Set<PathFragment> dirsToCreate,
       Path workDir)
-      throws IOException {
+      throws IOException, InterruptedException {
     // To avoid excessive scanning of dirsToCreate for prefix dirs, we prepopulate this set of
     // prefixes.
     Set<PathFragment> prefixDirs = new HashSet<>();
     for (PathFragment dir : dirsToCreate) {
+      if (Thread.interrupted()) {
+        throw new InterruptedException();
+      }
       PathFragment parent = dir.getParentDirectory();
       while (parent != null && !prefixDirs.contains(parent)) {
         prefixDirs.add(parent);
@@ -157,9 +160,12 @@ public final class SandboxHelpers {
       Set<PathFragment> dirsToCreate,
       Path workDir,
       Set<PathFragment> prefixDirs)
-      throws IOException {
+      throws IOException, InterruptedException {
     Path execroot = workDir.getParentDirectory();
     for (Dirent dirent : root.readdir(Symlinks.NOFOLLOW)) {
+      if (Thread.interrupted()) {
+        throw new InterruptedException();
+      }
       Path absPath = root.getChild(dirent.getName());
       PathFragment pathRelativeToWorkDir;
       if (absPath.startsWith(workDir)) {
@@ -280,7 +286,8 @@ public final class SandboxHelpers {
    *     are disallowed, for stricter sandboxing.
    */
   public static void createDirectories(
-      Iterable<PathFragment> dirsToCreate, Path dir, boolean strict) throws IOException {
+      Iterable<PathFragment> dirsToCreate, Path dir, boolean strict)
+      throws IOException, InterruptedException {
     Set<Path> knownDirectories = new HashSet<>();
     // Add sandboxExecRoot and it's parent -- all paths must fall under the parent of
     // sandboxExecRoot and we know that sandboxExecRoot exists. This stops the recursion in
@@ -289,6 +296,9 @@ public final class SandboxHelpers {
     knownDirectories.add(dir.getParentDirectory());
 
     for (PathFragment path : dirsToCreate) {
+      if (Thread.interrupted()) {
+        throw new InterruptedException();
+      }
       if (strict) {
         Preconditions.checkArgument(!path.isAbsolute(), path);
         if (path.containsUplevelReferences() && path.isMultiSegment()) {

@@ -31,8 +31,7 @@ import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
-import com.google.devtools.build.lib.analysis.SourceManifestAction;
-import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
@@ -43,7 +42,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.skyframe.RuleConfiguredTargetValue;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.CommandDescriptionForm;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.ShellEscaper;
@@ -70,11 +68,10 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       ExtendedEventHandler eventHandler,
       AqueryOptions options,
       OutputStream out,
-      SkyframeExecutor skyframeExecutor,
-      TargetAccessor<KeyedConfiguredTargetValue> accessor,
+      TargetAccessor<ConfiguredTargetValue> accessor,
       AqueryActionFilter actionFilters,
       RepositoryMapping mainRepoMapping) {
-    super(eventHandler, options, out, skyframeExecutor, accessor);
+    super(eventHandler, options, out, accessor);
     this.actionFilters = actionFilters;
     this.mainRepoMapping = mainRepoMapping;
   }
@@ -85,15 +82,13 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
   }
 
   @Override
-  public void processOutput(Iterable<KeyedConfiguredTargetValue> partialResult)
+  public void processOutput(Iterable<ConfiguredTargetValue> partialResult)
       throws IOException, InterruptedException {
     try {
       // Enabling includeParamFiles should enable includeCommandline by default.
       options.includeCommandline |= options.includeParamFiles;
 
-      for (KeyedConfiguredTargetValue keyedConfiguredTargetValue : partialResult) {
-        ConfiguredTargetValue configuredTargetValue =
-            keyedConfiguredTargetValue.getConfiguredTargetValue();
+      for (ConfiguredTargetValue configuredTargetValue : partialResult) {
         if (!(configuredTargetValue instanceof RuleConfiguredTargetValue)) {
           // We have to include non-rule values in the graph to visit their dependencies, but they
           // don't have any actions to print out.
@@ -104,7 +99,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
           writeAction(action, printStream);
         }
         if (options.useAspects) {
-          for (AspectValue aspectValue : accessor.getAspectValues(keyedConfiguredTargetValue)) {
+          for (AspectValue aspectValue : accessor.getAspectValues(configuredTargetValue)) {
             if (aspectValue != null) {
               for (ActionAnalysisMetadata action : aspectValue.getActions()) {
                 writeAction(action, printStream);
@@ -340,22 +335,13 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       stringBuilder.append("  ]\n");
     }
 
-    if (options.includeFileWriteContents && action instanceof FileWriteAction) {
-      FileWriteAction fileWriteAction = (FileWriteAction) action;
+    if (options.includeFileWriteContents
+        && action instanceof AbstractFileWriteAction.FileContentsProvider) {
+      String contents =
+          ((AbstractFileWriteAction.FileContentsProvider) action).getFileContents(eventHandler);
       stringBuilder
           .append("  FileWriteContents: [")
-          .append(
-              Base64.getEncoder().encodeToString(fileWriteAction.getFileContents().getBytes(UTF_8)))
-          .append("]\n");
-    }
-    if (options.includeFileWriteContents && action instanceof SourceManifestAction) {
-      SourceManifestAction sourceManifestAction = (SourceManifestAction) action;
-      stringBuilder
-          .append("  FileWriteContents: [")
-          .append(
-              Base64.getEncoder()
-                  .encodeToString(
-                      sourceManifestAction.getFileContentsAsString(eventHandler).getBytes(UTF_8)))
+          .append(Base64.getEncoder().encodeToString(contents.getBytes(UTF_8)))
           .append("]\n");
     }
 

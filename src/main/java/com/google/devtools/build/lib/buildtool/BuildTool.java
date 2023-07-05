@@ -24,10 +24,8 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisAndExecutionResult;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
-import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
-import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.DummyEnvironment;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -59,7 +57,6 @@ import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryM
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView.BuildDriverKeyTestContext;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
-import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler.OutputType;
@@ -71,7 +68,6 @@ import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.common.options.RegexPatternOption;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -247,7 +243,9 @@ public class BuildTool {
             throw new PostExecutionActionGraphDumpException(e);
           } catch (InvalidAqueryOutputFormatException e) {
             throw new PostExecutionActionGraphDumpException(
-                "--skyframe_state must be used with --output=proto|textproto|jsonproto.", e);
+                "--skyframe_state must be used with "
+                    + "--output=proto|streamed_proto|textproto|jsonproto.",
+                e);
           }
         }
       }
@@ -265,38 +263,9 @@ public class BuildTool {
         if (versionWindow != -1) {
           env.getSkyframeExecutor().deleteOldNodes(versionWindow);
         }
-        // The workspace status actions will not run with certain flags, or if an error
-        // occurs early in the build. Tell a lie so that the event is not missing.
-        // If multiple build_info events are sent, only the first is kept, so this does not harm
-        // successful runs (which use the workspace status action).
-        env.getEventBus()
-            .post(
-                new BuildInfoEvent(
-                    env.getBlazeWorkspace()
-                        .getWorkspaceStatusActionFactory()
-                        .createDummyWorkspaceStatus(
-                            new DummyEnvironment() {
-                              @Override
-                              public Path getWorkspace() {
-                                return env.getWorkspace();
-                              }
-
-                              @Override
-                              public String getBuildRequestId() {
-                                return env.getBuildRequestId();
-                              }
-
-                              @Override
-                              public OptionsProvider getOptions() {
-                                return env.getOptions();
-                              }
-
-                              @Nullable
-                              @Override
-                              public WorkspaceInfoFromDiff getWorkspaceInfoFromDiff() {
-                                return env.getWorkspaceInfoFromDiff();
-                              }
-                            })));
+        // The workspace status actions will not run with certain flags, or if an error occurs early
+        // in the build. Ensure that build info is posted on every build.
+        env.ensureBuildInfoPosted();
       }
     }
   }
@@ -320,86 +289,93 @@ public class BuildTool {
     env.setWorkspaceName(loadingResult.getWorkspaceName());
     boolean hasCatastrophe = false;
 
-    if (request.getBuildOptions().performAnalysisPhase) {
-      ExecutionTool executionTool = new ExecutionTool(env, request);
-      // This timer measures time from the first execution activity to the last.
-      Stopwatch executionTimer = Stopwatch.createUnstarted();
+    ExecutionTool executionTool = new ExecutionTool(env, request);
+    // This timer measures time from the first execution activity to the last.
+    Stopwatch executionTimer = Stopwatch.createUnstarted();
 
-      // TODO(b/199053098): implement support for --nobuild.
-      AnalysisAndExecutionResult analysisAndExecutionResult;
-      boolean buildCompleted = false;
-      try {
-        analysisAndExecutionResult =
-            AnalysisAndExecutionPhaseRunner.execute(
-                env,
-                request,
-                buildOptions,
-                loadingResult,
-                () -> executionTool.prepareForExecution(request.getId(), executionTimer),
-                result::setBuildConfiguration,
-                new BuildDriverKeyTestContext() {
-                  @Override
-                  public String getTestStrategy() {
-                    return request.getOptions(ExecutionOptions.class).testStrategy;
-                  }
+    // TODO(b/199053098): implement support for --nobuild.
+    AnalysisAndExecutionResult analysisAndExecutionResult = null;
+    boolean buildCompleted = false;
+    try {
+      analysisAndExecutionResult =
+          AnalysisAndExecutionPhaseRunner.execute(
+              env,
+              request,
+              buildOptions,
+              loadingResult,
+              () -> executionTool.prepareForExecution(executionTimer),
+              result::setBuildConfiguration,
+              new BuildDriverKeyTestContext() {
+                @Override
+                public String getTestStrategy() {
+                  return request.getOptions(ExecutionOptions.class).testStrategy;
+                }
 
-                  @Override
-                  public boolean forceExclusiveTestsInParallel() {
-                    return executionTool.getTestActionContext().forceExclusiveTestsInParallel();
-                  }
+                @Override
+                public boolean forceExclusiveTestsInParallel() {
+                  return executionTool.getTestActionContext().forceExclusiveTestsInParallel();
+                }
 
-                  @Override
-                  public boolean forceExclusiveIfLocalTestsInParallel() {
-                    return executionTool
-                        .getTestActionContext()
-                        .forceExclusiveIfLocalTestsInParallel();
-                  }
-                });
-        buildCompleted = true;
-        executionTool.handleConvenienceSymlinks(analysisAndExecutionResult);
-      } catch (InvalidConfigurationException
-          | RepositoryMappingResolutionException
-          | ViewCreationFailedException
-          | BuildFailedException
-          | TestExecException e) {
-        // These are non-catastrophic.
-        buildCompleted = true;
-        throw e;
-      } catch (Error | RuntimeException e) {
-        // These are catastrophic.
-        hasCatastrophe = true;
-        throw e;
-      } finally {
-        executionTool.unconditionalExecutionPhaseFinalizations(
-            executionTimer, env.getSkyframeExecutor());
+                @Override
+                public boolean forceExclusiveIfLocalTestsInParallel() {
+                  return executionTool
+                      .getTestActionContext()
+                      .forceExclusiveIfLocalTestsInParallel();
+                }
+              });
+      buildCompleted = true;
 
-        // For the --noskymeld code path, this is done after the analysis phase.
-        BuildResultListener buildResultListener = env.getBuildResultListener();
-        result.setActualTargets(buildResultListener.getAnalyzedTargets());
-        result.setTestTargets(buildResultListener.getAnalyzedTests());
-
-        if (!hasCatastrophe) {
-          executionTool.nonCatastrophicFinalizations(
-              result,
-              env.getBlazeWorkspace().getInUseActionCacheWithoutFurtherLoading(),
-              /*explanationHandler=*/ null,
-              buildCompleted);
-        }
+      // This value is null when there's no analysis.
+      if (analysisAndExecutionResult == null) {
+        return;
       }
-
-      // This is the --keep_going code path: Time to throw the delayed exceptions.
-      // Keeping legacy behavior: for execution errors, keep the message of the BuildFailedException
-      // empty.
-      if (analysisAndExecutionResult.getExecutionDetailedExitCode() != null) {
-        throw new BuildFailedException(
-            null, analysisAndExecutionResult.getExecutionDetailedExitCode());
+    } catch (InvalidConfigurationException
+        | RepositoryMappingResolutionException
+        | ViewCreationFailedException
+        | BuildFailedException
+        | TestExecException e) {
+      // These are non-catastrophic.
+      buildCompleted = true;
+      throw e;
+    } catch (Error | RuntimeException e) {
+      // These are catastrophic.
+      hasCatastrophe = true;
+      throw e;
+    } finally {
+      if (result.getBuildConfiguration() != null) {
+        // We still need to do this even in case of an exception.
+        executionTool.handleConvenienceSymlinks(
+            env.getBuildResultListener().getAnalyzedTargets(), result.getBuildConfiguration());
       }
+      executionTool.unconditionalExecutionPhaseFinalizations(
+          executionTimer, env.getSkyframeExecutor());
 
-      FailureDetail delayedFailureDetail = analysisAndExecutionResult.getFailureDetail();
-      if (delayedFailureDetail != null) {
-        throw new BuildFailedException(
-            delayedFailureDetail.getMessage(), DetailedExitCode.of(delayedFailureDetail));
+      // For the --noskymeld code path, this is done after the analysis phase.
+      BuildResultListener buildResultListener = env.getBuildResultListener();
+      result.setActualTargets(buildResultListener.getAnalyzedTargets());
+      result.setTestTargets(buildResultListener.getAnalyzedTests());
+
+      if (!hasCatastrophe) {
+        executionTool.nonCatastrophicFinalizations(
+            result,
+            env.getBlazeWorkspace().getInUseActionCacheWithoutFurtherLoading(),
+            /* explanationHandler= */ null,
+            buildCompleted);
       }
+    }
+
+    // This is the --keep_going code path: Time to throw the delayed exceptions.
+    // Keeping legacy behavior: for execution errors, keep the message of the BuildFailedException
+    // empty.
+    if (analysisAndExecutionResult.getExecutionDetailedExitCode() != null) {
+      throw new BuildFailedException(
+          null, analysisAndExecutionResult.getExecutionDetailedExitCode());
+    }
+
+    FailureDetail delayedFailureDetail = analysisAndExecutionResult.getFailureDetail();
+    if (delayedFailureDetail != null) {
+      throw new BuildFailedException(
+          delayedFailureDetail.getMessage(), DetailedExitCode.of(delayedFailureDetail));
     }
   }
 
@@ -470,6 +446,8 @@ public class BuildTool {
     switch (format) {
       case "proto":
         return "aquery_dump.proto";
+      case "streamed_proto":
+        return "aquery_dump.pb";
       case "textproto":
         return "aquery_dump.textproto";
       case "jsonproto":

@@ -83,7 +83,6 @@ public final class RepositoryResolvedModule extends BlazeModule {
       }
       try (Writer writer = Files.newWriter(new File(resolvedFile), StandardCharsets.UTF_8)) {
         writer.write(EXPORTED_NAME + " = " + new ValuePrinter().repr(resultBuilder.build()));
-        writer.close();
       } catch (IOException e) {
         logger.atWarning().withCause(e).log("IO Error writing to file %s", resolvedFile);
       }

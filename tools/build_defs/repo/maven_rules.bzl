@@ -12,6 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# WARNING:
+# https://github.com/bazelbuild/bazel/issues/17713
+# .bzl files in this package (tools/build_defs/repo) are evaluated
+# in a Starlark environment without "@_builtins" injection, and must not refer
+# to symbols associated with build/workspace .bzl files
+
 # Implementations of Maven rules in Starlark:
 # 1) maven_jar(name, artifact, repository, sha1, settings)
 #    The API of this is largely the same as the native maven_jar rule,

@@ -1247,7 +1247,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     useConfiguration("--incompatible_auto_exec_groups");
 
     ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
-    JavaInfo javaInfo = (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
+    JavaInfo javaInfo = target.get(JavaInfo.PROVIDER);
     Action genSrcOutputAction =
         getGeneratingAction(javaInfo.getOutputJars().getAllSrcOutputJars().get(0));
     JavaGenJarsProvider javaGenJarsProvider = javaInfo.getGenJarsProvider();
@@ -1297,7 +1297,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "custom_rule(name = 'custom_rule_name')");
 
     ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
-    JavaInfo javaInfo = (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
+    JavaInfo javaInfo = target.get(JavaInfo.PROVIDER);
     Action genSrcOutputAction =
         getGeneratingAction(javaInfo.getOutputJars().getAllSrcOutputJars().get(0));
     JavaGenJarsProvider javaGenJarsProvider = javaInfo.getGenJarsProvider();
@@ -1399,8 +1399,6 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "    output = output_jar,",
         "    java_toolchain = ctx.toolchains['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'].java,",
         "    resources = ctx.files.resources,",
-        "    resource_jars = ctx.files.resource_jars,",
-        "    classpath_resources = ctx.files.classpath_resources,",
         "  )",
         "  return [java_info, DefaultInfo(files = depset([output_jar]))]",
         "custom_rule = rule(",
@@ -1408,8 +1406,6 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "  toolchains = ['//rule:toolchain_type_2', '" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  attrs = {",
         "    'resources': attr.label_list(allow_files = True),",
-        "    'resource_jars': attr.label_list(allow_files = True),",
-        "    'classpath_resources': attr.label_list(allow_files = True),",
         "  },",
         "  provides = [JavaInfo],",
         "  fragments = ['java']",
@@ -1417,8 +1413,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     scratch.file(
         "bazel_internal/test/BUILD",
         "load('//bazel_internal/test:defs.bzl', 'custom_rule')",
-        "custom_rule(name = 'custom_rule_name', resources = ['Resources.java'], resource_jars ="
-            + " ['ResourceJars.java'], classpath_resources = ['ClasspathResources.java'])");
+        "custom_rule(name = 'custom_rule_name', resources = ['Resources.java'])");
     useConfiguration(
         "--incompatible_auto_exec_groups", "--experimental_turbine_annotation_processing");
 
@@ -1446,8 +1441,6 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "    output = output_jar,",
         "    java_toolchain = ctx.toolchains['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'].java,",
         "    resources = ctx.files.resources,",
-        "    resource_jars = ctx.files.resource_jars,",
-        "    classpath_resources = ctx.files.classpath_resources,",
         "  )",
         "  return [java_info, DefaultInfo(files = depset([output_jar]))]",
         "custom_rule = rule(",
@@ -1455,8 +1448,6 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "  toolchains = ['//rule:toolchain_type_2', '" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  attrs = {",
         "    'resources': attr.label_list(allow_files = True),",
-        "    'resource_jars': attr.label_list(allow_files = True),",
-        "    'classpath_resources': attr.label_list(allow_files = True),",
         "  },",
         "  provides = [JavaInfo],",
         "  fragments = ['java']",
@@ -1464,8 +1455,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     scratch.file(
         "bazel_internal/test/BUILD",
         "load('//bazel_internal/test:defs.bzl', 'custom_rule')",
-        "custom_rule(name = 'custom_rule_name', resources = ['Resources.java'], resource_jars ="
-            + " ['ResourceJars.java'], classpath_resources = ['ClasspathResources.java'])");
+        "custom_rule(name = 'custom_rule_name', resources = ['Resources.java'])");
     useConfiguration("--experimental_turbine_annotation_processing");
 
     ImmutableList<Action> actions = getActions("//bazel_internal/test:custom_rule_name");
@@ -1508,10 +1498,12 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "custom_rule(name = 'custom_rule_name')");
     useConfiguration("--incompatible_auto_exec_groups");
 
-    ImmutableList<Action> actions = getActions("//test:custom_rule_name", SpawnAction.class);
+    ImmutableList<Action> actions =
+        getActions("//test:custom_rule_name").stream()
+            .filter(action -> action.getMnemonic().equals("JavaIjar"))
+            .collect(toImmutableList());
 
     assertThat(actions).hasSize(1);
-    assertThat(actions.get(0).getMnemonic()).isEqualTo("JavaIjar");
     assertThat(actions.get(0).getOwner().getExecutionPlatform().label())
         .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
   }

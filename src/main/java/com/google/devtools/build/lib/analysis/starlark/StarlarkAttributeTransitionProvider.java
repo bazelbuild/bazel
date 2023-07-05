@@ -53,7 +53,7 @@ public class StarlarkAttributeTransitionProvider
     implements TransitionFactory<AttributeTransitionData>, SplitTransitionProviderApi {
   private final StarlarkDefinedConfigTransition starlarkDefinedConfigTransition;
 
-  StarlarkAttributeTransitionProvider(
+  public StarlarkAttributeTransitionProvider(
       StarlarkDefinedConfigTransition starlarkDefinedConfigTransition) {
     this.starlarkDefinedConfigTransition = starlarkDefinedConfigTransition;
   }

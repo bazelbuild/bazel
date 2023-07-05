@@ -137,9 +137,9 @@ load("//symlink:symlink.bzl", "dangling_symlink")
 dangling_symlink(name="a", link_target="non/existent")
 EOF
 
-  bazel build --noexperimental_allow_unresolved_symlinks //a:a >& $TEST_log \
+  bazel build --noallow_unresolved_symlinks //a:a >& $TEST_log \
     && fail "build succeeded, but should have failed"
-  expect_log 'declare_symlink() is not allowed; use the --experimental_allow_unresolved_symlinks'
+  expect_log 'declare_symlink() is not allowed; use the --allow_unresolved_symlinks'
 }
 
 function test_inmemory_cache_symlinks() {
@@ -507,13 +507,6 @@ EOF
 
   bazel build //a:a >& $TEST_log && fail "build succeeded"
   expect_log "symlink() with \"target_file\" directory param requires that \"output\" be declared as a directory"
-
-  bazel build --noincompatible_disallow_symlink_file_to_dir //a:a || fail "build failed"
-  assert_contains "Hello, World!" bazel-bin/a/a.link/inside.txt
-  expect_symlink bazel-bin/a/a.link
-
-  bazel build --incompatible_disallow_symlink_file_to_dir //a:a >& $TEST_log && fail "build succeeded"
-  expect_log "symlink() with \"target_file\" directory param requires that \"output\" be declared as a directory"
 }
 
 function test_symlink_directory_to_file_created_from_symlink_action() {
@@ -726,7 +719,7 @@ genrule(
     srcs = [],
     outs = ["out"],
     cmd = "touch $@",
-    exec_tools = [":a"],
+    tools = [":a"],
 )
 EOF
 
