@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -201,35 +200,6 @@ public class JavaStarlarkCommon
             Sequence.cast(addExports, String.class, "add_exports"),
             Sequence.cast(addOpens, String.class, "add_opens"),
             thread);
-  }
-
-  private String getExecGroup(boolean useAutoExecGroups) {
-    if (useAutoExecGroups) {
-      return javaSemantics.getJavaToolchainType();
-    } else {
-      return DEFAULT_EXEC_GROUP_NAME;
-    }
-  }
-
-  @Override
-  public Artifact packSources(
-      StarlarkActionFactory actions,
-      Object outputJar,
-      Object outputSourceJar,
-      Sequence<?> sourceFiles, // <Artifact> expected.
-      Sequence<?> sourceJars, // <Artifact> expected.
-      JavaToolchainProvider javaToolchain,
-      Object hostJavabase)
-      throws EvalException {
-    return JavaInfoBuildHelper.getInstance()
-        .packSourceFiles(
-            actions,
-            outputJar instanceof Artifact ? (Artifact) outputJar : null,
-            outputSourceJar instanceof Artifact ? (Artifact) outputSourceJar : null,
-            Sequence.cast(sourceFiles, Artifact.class, "sources"),
-            Sequence.cast(sourceJars, Artifact.class, "source_jars"),
-            javaToolchain,
-            getExecGroup(actions.getRuleContext().useAutoExecGroups()));
   }
 
   @Override

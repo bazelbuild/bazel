@@ -22,11 +22,9 @@ import static java.util.stream.Stream.concat;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
-import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -62,49 +60,6 @@ final class JavaInfoBuildHelper {
       }
     }
     return builder.build();
-  }
-
-  /**
-   * Creates action which creates archive with all source files inside. Takes all filer from
-   * sourceFiles collection and all files from every sourceJars. Name of Artifact generated based on
-   * outputJar.
-   *
-   * @param outputJar name of output Jar artifact.
-   * @param outputSourceJar name of output source Jar artifact, or {@code null}. If unset, defaults
-   *     to base name of the output jar with the suffix {@code -src.jar}.
-   * @return generated artifact (can also be empty)
-   */
-  Artifact packSourceFiles(
-      StarlarkActionFactory actions,
-      Artifact outputJar,
-      Artifact outputSourceJar,
-      List<Artifact> sourceFiles,
-      List<Artifact> sourceJars,
-      JavaToolchainProvider javaToolchain,
-      String execGroup)
-      throws EvalException {
-    if (outputJar == null && outputSourceJar == null) {
-      throw Starlark.errorf(
-          "pack_sources requires at least one of the parameters output_jar or output_source_jar");
-    }
-    // If we only have one source jar, return it directly to avoid action creation
-    if (sourceFiles.isEmpty() && sourceJars.size() == 1 && outputSourceJar == null) {
-      return sourceJars.get(0);
-    }
-    ActionRegistry actionRegistry = actions.asActionRegistry(actions);
-    if (outputSourceJar == null) {
-      outputSourceJar = getDerivedSourceJar(actions.getActionConstructionContext(), outputJar);
-    }
-    SingleJarActionBuilder.createSourceJarAction(
-        actionRegistry,
-        actions.getActionConstructionContext(),
-        javaToolchain.getJavaSemantics(),
-        NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, sourceFiles),
-        NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, sourceJars),
-        outputSourceJar,
-        javaToolchain,
-        execGroup);
-    return outputSourceJar;
   }
 
   private JavaSourceJarsProvider createJavaSourceJarsProvider(

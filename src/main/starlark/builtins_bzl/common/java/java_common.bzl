@@ -24,6 +24,7 @@ load(":common/java/java_common_internal_for_builtins.bzl", "compile", "merge", "
 load(":common/java/java_plugin_info.bzl", "JavaPluginInfo")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/paths.bzl", "paths")
+load(":common/java/java_helper.bzl", "helper")
 
 _java_common_internal = _builtins.internal.java_common_internal_do_not_use
 
@@ -123,13 +124,12 @@ def _stamp_jar(actions, jar, java_toolchain, target_label):
 def _pack_sources(
         actions,
         java_toolchain,
-        output_source_jar = None,
+        output_source_jar,
         sources = [],
         source_jars = []):
     """Packs sources and source jars into a single source jar file.
 
-    The return value is typically passed to `JavaInfo.source_jar`. At least one of parameters
-    output_jar or output_source_jar is required.
+    The return value is typically passed to `JavaInfo.source_jar`.
 
     Args:
         actions: (actions) ctx.actions
@@ -141,12 +141,14 @@ def _pack_sources(
     Returns:
         (File) The output artifact
     """
-    return _java_common_internal.pack_sources(
-        actions = actions,
-        java_toolchain = java_toolchain,
-        sources = sources,
-        source_jars = source_jars,
-        output_source_jar = output_source_jar,
+    return helper.create_single_jar(
+        actions,
+        toolchain = java_toolchain,
+        output = output_source_jar,
+        sources = depset(source_jars),
+        resources = depset(sources),
+        progress_message = "Building source jar %{output}",
+        mnemonic = "JavaSourceJar",
     )
 
 def _default_javac_opts(java_toolchain):
