@@ -87,7 +87,6 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<Configured
                 aqueryOptions.includeArtifacts,
                 actionFilters,
                 aqueryOptions.includeParamFiles,
-                aqueryOptions.deduplicateDepsets,
                 aqueryOptions.includeFileWriteContents,
                 aqueryOutputHandler,
                 env.getReporter());

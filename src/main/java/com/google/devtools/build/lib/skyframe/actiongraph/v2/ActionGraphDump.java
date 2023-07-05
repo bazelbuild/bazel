@@ -79,7 +79,6 @@ public class ActionGraphDump {
       boolean includeArtifacts,
       AqueryActionFilter actionFilters,
       boolean includeParamFiles,
-      boolean deduplicateDepsets,
       boolean includeFileWriteContents,
       AqueryOutputHandler aqueryOutputHandler,
       ExtendedEventHandler eventHandler) {
@@ -89,7 +88,6 @@ public class ActionGraphDump {
         includeArtifacts,
         actionFilters,
         includeParamFiles,
-        deduplicateDepsets,
         includeFileWriteContents,
         aqueryOutputHandler,
         eventHandler);
@@ -101,7 +99,6 @@ public class ActionGraphDump {
       boolean includeArtifacts,
       AqueryActionFilter actionFilters,
       boolean includeParamFiles,
-      boolean deduplicateDepsets,
       boolean includeFileWriteContents,
       AqueryOutputHandler aqueryOutputHandler,
       ExtendedEventHandler eventHandler) {
@@ -117,7 +114,7 @@ public class ActionGraphDump {
     KnownRuleClassStrings knownRuleClassStrings = new KnownRuleClassStrings(aqueryOutputHandler);
     knownArtifacts = new KnownArtifacts(aqueryOutputHandler);
     knownConfigurations = new KnownConfigurations(aqueryOutputHandler);
-    knownNestedSets = new KnownNestedSets(aqueryOutputHandler, knownArtifacts, deduplicateDepsets);
+    knownNestedSets = new KnownNestedSets(aqueryOutputHandler, knownArtifacts);
     knownAspectDescriptors = new KnownAspectDescriptors(aqueryOutputHandler);
     knownTargets = new KnownTargets(aqueryOutputHandler, knownRuleClassStrings);
   }

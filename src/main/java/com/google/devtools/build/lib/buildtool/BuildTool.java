@@ -434,7 +434,6 @@ public class BuildTool {
               /* includeArtifacts= */ true,
               /* actionFilters= */ null,
               /* includeParamFiles= */ false,
-              /* deduplicateDepsets= */ true,
               /* includeFileWriteContents */ false,
               aqueryOutputHandler,
               getReporter());
