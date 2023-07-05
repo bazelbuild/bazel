@@ -14,7 +14,11 @@
 
 """ Utilities for Java compilation support in Starlark. """
 
-load(":common/java/java_info.bzl", "JavaInfo")
+load(
+    ":common/java/java_info.bzl",
+    "JavaInfo",
+    _java_info_add_constraints = "add_constraints",
+)
 load(":common/java/java_common_internal_for_builtins.bzl", "compile", "merge", "run_ijar")
 load(":common/java/java_plugin_info.bzl", "JavaPluginInfo")
 load(":common/java/java_semantics.bzl", "semantics")
@@ -182,7 +186,10 @@ def _add_constraints(java_info, constraints = []):
     Returns:
         (JavaInfo)
     """
-    return _java_common_internal.add_constraints(java_info, constraints = constraints)
+    if semantics.IS_BAZEL:
+        return java_info
+
+    return _java_info_add_constraints(java_info, constraints = constraints)
 
 def _get_constraints(java_info):
     """Returns a set of constraints added.

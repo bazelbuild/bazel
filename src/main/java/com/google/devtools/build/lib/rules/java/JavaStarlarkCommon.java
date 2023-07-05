@@ -284,14 +284,6 @@ public class JavaStarlarkCommon
   }
 
   @Override
-  public Info addConstraints(Info info, Sequence<?> constraints)
-      throws EvalException, RuleErrorException {
-    // No implementation in Bazel. This method is not callable in Starlark except through
-    // (discouraged) use of --experimental_google_legacy_api.
-    return info;
-  }
-
-  @Override
   public Sequence<String> getConstraints(Info info) throws RuleErrorException {
     // No implementation in Bazel. This method not callable in Starlark except through
     // (discouraged) use of --experimental_google_legacy_api.

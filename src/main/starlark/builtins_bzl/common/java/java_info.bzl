@@ -146,6 +146,30 @@ def to_java_binary_info(java_info):
     )
     return _new_javainfo(**result)
 
+def _to_mutable_dict(java_info):
+    return {
+        key: getattr(java_info, key)
+        for key in dir(java_info)
+        if key not in ["to_json", "to_proto"]
+    }
+
+def add_constraints(java_info, constraints = []):
+    """Returns a copy of the given JavaInfo with the given constraints added.
+
+    Args:
+        java_info: (JavaInfo) The JavaInfo to enhance
+        constraints: ([str]) Constraints to add
+
+    Returns:
+        (JavaInfo)
+    """
+    result = _to_mutable_dict(java_info)
+    old_constraints = java_info._constraints if java_info._constraints else []
+    result.update(
+        _constraints = depset(constraints + old_constraints).to_list(),
+    )
+    return _new_javainfo(**result)
+
 def _validate_provider_list(provider_list, what, expected_provider_type):
     _java_common_internal.check_provider_instances(provider_list, what, expected_provider_type)
 
