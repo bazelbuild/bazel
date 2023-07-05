@@ -500,16 +500,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean alwaysIncludeFilesToBuildInData;
 
   @Option(
-      name = "check_fileset_dependencies_recursively",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      deprecationWarning =
-          "This flag is a no-op and fileset dependencies are always checked "
-              + "to ensure correctness of builds.",
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS})
-  public boolean checkFilesetDependenciesRecursively;
-
-  @Option(
       name = "experimental_skyframe_native_filesets",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

@@ -465,6 +465,16 @@ public final class BazelRulesModule extends BlazeModule {
         },
         help = "This option is deprecated and has no effect and will be removed in the future.")
     public boolean deferParamFiles;
+
+    @Option(
+        name = "check_fileset_dependencies_recursively",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        deprecationWarning =
+            "This flag is a no-op and fileset dependencies are always checked "
+                + "to ensure correctness of builds.",
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS})
+    public boolean checkFilesetDependenciesRecursively;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */
