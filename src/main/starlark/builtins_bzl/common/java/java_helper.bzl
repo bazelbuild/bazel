@@ -330,13 +330,6 @@ def _create_single_jar(ctx, output, *input_depsets):
 def _shell_quote(s):
     return "'" + s.replace("'", "'\\''") + "'"
 
-def _basename_without_extension(file):
-    before, sep, after = file.basename.rpartition(".")
-    if sep:
-        return before
-    else:
-        return after
-
 helper = struct(
     collect_all_targets_as_deps = _collect_all_targets_as_deps,
     filter_launcher_for_target = _filter_launcher_for_target,
@@ -359,5 +352,4 @@ helper = struct(
     test_providers = _test_providers,
     create_single_jar = _create_single_jar,
     shell_quote = _shell_quote,
-    basename_without_extension = _basename_without_extension,
 )
