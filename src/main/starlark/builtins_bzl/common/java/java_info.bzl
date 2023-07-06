@@ -17,7 +17,7 @@ Definition of JavaInfo provider.
 """
 
 load(":common/cc/cc_common.bzl", "cc_common")
-load(":common/java/java_plugin_info.bzl", "merge_without_outputs")
+load(":common/java/java_plugin_info.bzl", "EMPTY_PLUGIN_DATA", "merge_without_outputs")
 load(":common/cc/cc_info.bzl", "CcInfo")
 
 # TODO(hvd): remove this when:
@@ -70,6 +70,175 @@ _JavaGenJarsInfo = provider(
         "processor_classnames": "Deprecated: Please use JavaInfo.plugins instead.",
     },
 )
+
+_JavaCompilationInfo = provider(
+    doc = "Compilation information in Java rules, for perusal of aspects and tools.",
+    fields = {
+        "boot_classpath": "Boot classpath for this Java target.",
+        "javac_options": "Options to the java compiler.",
+        "compilation_classpath": "Compilation classpath for this Java target.",
+        "runtime_classpath": "Run-time classpath for this Java target.",
+    },
+)
+
+def to_java_binary_info(java_info):
+    """Get a copy of the given JavaInfo with minimal info returned by a java_binary
+
+    Args:
+        java_info: (JavaInfo) A JavaInfo provider instance
+
+    Returns:
+        (JavaInfo) A JavaInfo instance representing a java_binary target
+    """
+    result = {
+        "transitive_runtime_jars": depset(),
+        "transitive_runtime_deps": depset(),  # deprecated
+        "transitive_compile_time_jars": depset(),
+        "transitive_deps": depset(),  # deprecated
+        "compile_jars": depset(),
+        "full_compile_jars": depset(),
+        "_transitive_full_compile_time_jars": depset(),
+        "_compile_time_java_dependencies": depset(),
+        "runtime_output_jars": [],
+        "plugins": EMPTY_PLUGIN_DATA,
+        "api_generating_plugins": EMPTY_PLUGIN_DATA,
+        "module_flags_info": _ModuleFlagsInfo(add_exports = depset(), add_opens = depset()),
+        "_neverlink": False,
+        "_constraints": [],
+        "annotation_processing": java_info.annotation_processing,
+        "cc_link_params_info": getattr(java_info, "cc_link_params_info", None),
+        "transitive_native_libraries": java_info.transitive_native_libraries,
+        "source_jars": java_info.source_jars,
+        "transitive_source_jars": java_info.transitive_source_jars,
+    }
+
+    compilation_info = None
+    if hasattr(java_info, "compilation_info"):
+        compilation_info = java_info.compilation_info
+    elif java_info.transitive_compile_time_jars or java_info.transitive_runtime_jars:
+        compilation_info = _JavaCompilationInfo(
+            boot_classpath = None,
+            javac_options = [],
+            compilation_classpath = java_info.transitive_compile_time_jars,
+            runtime_classpath = java_info.transitive_runtime_jars,
+        )
+    result["compilation_info"] = compilation_info
+
+    java_outputs = [
+        _JavaOutputInfo(
+            compile_jar = None,
+            compile_jdeps = None,
+            class_jar = output.class_jar,
+            ijar = output.compile_jar,  # deprecated
+            generated_class_jar = output.generated_class_jar,
+            generated_source_jar = output.generated_source_jar,
+            native_headers_jar = output.native_headers_jar,
+            manifest_proto = output.manifest_proto,
+            jdeps = output.jdeps,
+            source_jars = output.source_jars,
+            source_jar = output.source_jar,  # deprecated
+        )
+        for output in java_info.java_outputs
+    ]
+    result.update(
+        java_outputs = java_outputs,
+        outputs = _JavaRuleOutputJarsInfo(jars = java_outputs, jdeps = None, native_headers = None),
+    )
+    return _new_javainfo(**result)
+
+def _to_mutable_dict(java_info):
+    return {
+        key: getattr(java_info, key)
+        for key in dir(java_info)
+        if key not in ["to_json", "to_proto"]
+    }
+
+def add_constraints(java_info, constraints = []):
+    """Returns a copy of the given JavaInfo with the given constraints added.
+
+    Args:
+        java_info: (JavaInfo) The JavaInfo to enhance
+        constraints: ([str]) Constraints to add
+
+    Returns:
+        (JavaInfo)
+    """
+    result = _to_mutable_dict(java_info)
+    old_constraints = java_info._constraints if java_info._constraints else []
+    result.update(
+        _constraints = depset(constraints + old_constraints).to_list(),
+    )
+    return _new_javainfo(**result)
+
+def make_non_strict(java_info):
+    """Returns a new JavaInfo instance whose direct-jars part is the union of both the direct and indirect jars of the given Java provider.
+
+    Args:
+        java_info: (JavaInfo) The java info to make non-strict.
+
+    Returns:
+        (JavaInfo)
+    """
+    result = _to_mutable_dict(java_info)
+    result.update(
+        compile_jars = java_info.transitive_compile_time_jars,
+        full_compile_jars = java_info._transitive_full_compile_time_jars,
+    )
+
+    # Omit jdeps, which aren't available transitively and aren't useful for reduced classpath
+    # pruning for non-strict targets: the direct classpath and transitive classpath are the same,
+    # so there's nothing to prune, and reading jdeps at compile-time isn't free.
+    result.update(
+        _compile_time_java_dependencies = depset(),
+    )
+    return _new_javainfo(**result)
+
+def set_annotation_processing(
+        java_info,
+        enabled = False,
+        processor_classnames = [],
+        processor_classpath = None,
+        class_jar = None,
+        source_jar = None):
+    """Returns a copy of the given JavaInfo with the given annotation_processing info.
+
+    Args:
+        java_info: (JavaInfo) The JavaInfo to enhance.
+        enabled: (bool) Whether the rule uses annotation processing.
+        processor_classnames: ([str]) Class names of annotation processors applied.
+        processor_classpath: (depset[File]) Class names of annotation processors applied.
+        class_jar: (File) Optional. Jar that is the result of annotation processing.
+        source_jar: (File) Optional. Source archive resulting from annotation processing.
+
+    Returns:
+        (JavaInfo)
+    """
+    gen_jars_info = java_info.annotation_processing
+    if gen_jars_info:
+        # Existing Jars would be a problem b/c we can't remove them from transitiveXxx sets
+        if gen_jars_info.class_jar and gen_jars_info.class_jar != class_jar:
+            fail("Existing gen_class_jar:", gen_jars_info.class_jar)
+        if gen_jars_info.source_jar and gen_jars_info.source_jar != source_jar:
+            fail("Existing gen_source_jar:", gen_jars_info.class_jar)
+        transitive_class_jars = depset([class_jar] if class_jar else [], transitive = [gen_jars_info.transitive_class_jars])
+        transitive_source_jars = depset([source_jar] if source_jar else [], transitive = [gen_jars_info.transitive_source_jars])
+    else:
+        transitive_class_jars = depset([class_jar] if class_jar else [])
+        transitive_source_jars = depset([source_jar] if source_jar else [])
+
+    result = _to_mutable_dict(java_info)
+    result.update(
+        annotation_processing = _JavaGenJarsInfo(
+            enabled = enabled,
+            class_jar = class_jar,
+            source_jar = source_jar,
+            processor_classnames = processor_classnames,
+            processor_classpath = processor_classpath if processor_classpath else depset(),
+            transitive_class_jars = transitive_class_jars,
+            transitive_source_jars = transitive_source_jars,
+        ),
+    )
+    return _new_javainfo(**result)
 
 def _validate_provider_list(provider_list, what, expected_provider_type):
     _java_common_internal.check_provider_instances(provider_list, what, expected_provider_type)
@@ -234,12 +403,12 @@ def _javainfo_init(
             direct = [output_jar],
             transitive = [dep._transitive_full_compile_time_jars for dep in exports + deps],
         ),
-        "_plugin_info": plugin_info,
         "_compile_time_java_dependencies": depset(
             order = "preorder",
             transitive = [dep._compile_time_java_dependencies for dep in exports] +
                          ([depset([compile_jdeps])] if compile_jdeps else []),
         ),
+        "_constraints": [],
     }
     if _java_common_internal._google_legacy_api_enabled():
         cc_info = cc_common.merge_cc_infos(
@@ -309,7 +478,7 @@ JavaInfo, _new_javainfo = provider(
         "_transitive_full_compile_time_jars": "internal API, do not use",
         "_compile_time_java_dependencies": "internal API, do not use",
         "_neverlink": "internal API, do not use",
-        "_plugin_info": "internal API, do not use",
+        "_constraints": "internal API, do not use",
     },
     init = _javainfo_init,
 )

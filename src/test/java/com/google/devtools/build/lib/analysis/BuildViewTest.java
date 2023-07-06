@@ -1406,13 +1406,4 @@ public class BuildViewTest extends BuildViewTestBase {
     update("//pkg:foo");
     assertContainsEvent("DEBUG /workspace/pkg/BUILD:5:6: [\"foo\"]");
   }
-
-  /** Runs the same test with the Skyframe-based analysis prep. */
-  @RunWith(JUnit4.class)
-  public static class WithSkyframePrepareAnalysis extends BuildViewTest {
-    @Override
-    protected FlagBuilder defaultFlags() {
-      return super.defaultFlags().with(Flag.SKYFRAME_PREPARE_ANALYSIS);
-    }
-  }
 }

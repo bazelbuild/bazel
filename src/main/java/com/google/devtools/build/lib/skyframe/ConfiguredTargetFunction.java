@@ -228,7 +228,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       throws ReportedException, UnreportedException, DependencyException, InterruptedException {
     State state = env.getState(() -> new State(storeTransitivePackages));
     ConfiguredTargetKey configuredTargetKey = (ConfiguredTargetKey) key.argument();
-    Preconditions.checkArgument(!configuredTargetKey.isProxy(), configuredTargetKey);
     SkyframeBuildView view = buildViewProvider.getSkyframeBuildView();
 
     if (shouldUnblockCpuWorkWhenFetchingDeps) {
@@ -249,6 +248,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       } catch (InconsistentNullConfigException e) {
         // TODO(b/267529852): see if we can remove this. It's not clear the conditions that trigger
         // InconsistentNullConfigException are even possible.
+        //
+        // TODO(b/261521010): propagate this exception once the parent side rule transition is
+        // deleted. The caller should handle it correctly.
         return new NonRuleConfiguredTargetValue(
             new EmptyConfiguredTarget(configuredTargetKey),
             computeDependenciesState.transitivePackages());
@@ -282,11 +284,14 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
       // If this CT applied an incoming rule transition, log it.
       BuildConfigurationValue config = prereqs.getTargetAndConfiguration().getConfiguration();
-      if (config != null && !config.getKey().equals(configuredTargetKey.getConfigurationKey())) {
+      // `toKey` here retrieves the original key if there's a proxy key due to a transition.
+      if (config != null
+          && !config.getKey().equals(configuredTargetKey.toKey().getConfigurationKey())) {
         env.getListener()
             .post(
                 new ConfigRequestedEvent(
-                    config, configuredTargetKey.getConfigurationKey().getOptionsChecksum()));
+                    config,
+                    configuredTargetKey.toKey().getConfigurationKey().getOptionsChecksum()));
       }
 
       // If one of our dependencies is platform-incompatible with this build, so are we.
@@ -507,10 +512,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               storedEvents.handle(Event.error(e.getLocation(), e.getMessage()));
             }
             throw new ReportedException(e);
-          case INVALID_VISIBILITY_DEPENDENCY:
-            // Bubbles the error up to the parent ConfiguredTargetFunction where it will be reported
-            // with additional context.
-            throw new DependencyException(error.invalidVisibilityDependency());
           case INCONSISTENT_NULL_CONFIG:
             throw error.inconsistentNullConfig();
         }

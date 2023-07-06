@@ -17,7 +17,7 @@ Java compile action
 """
 
 load(":common/java/java_semantics.bzl", "semantics")
-load(":common/java/java_common.bzl", "java_common")
+load(":common/java/java_common_internal_for_builtins.bzl", _compile_private_for_builtins = "compile")
 
 def _filter_strict_deps(mode):
     return "error" if mode in ["strict", "default"] else mode
@@ -130,8 +130,10 @@ def compile_action(
       or resources present, whereas runfiles in this case are empty.
     """
 
-    java_info = java_common.compile(
+    java_info = _compile_private_for_builtins(
         ctx,
+        output = output_class_jar,
+        java_toolchain = semantics.find_java_toolchain(ctx),
         source_files = source_files,
         source_jars = source_jars,
         resources = resources,
@@ -145,8 +147,6 @@ def compile_action(
         exported_plugins = exported_plugins,
         javac_opts = [ctx.expand_location(opt) for opt in javacopts],
         neverlink = neverlink,
-        java_toolchain = semantics.find_java_toolchain(ctx),
-        output = output_class_jar,
         output_source_jar = output_source_jar,
         strict_deps = _filter_strict_deps(strict_deps),
         enable_compile_jar_action = enable_compile_jar_action,

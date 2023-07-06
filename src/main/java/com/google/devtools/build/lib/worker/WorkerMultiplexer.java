@@ -456,10 +456,4 @@ public class WorkerMultiplexer {
     }
     return process.getProcessId();
   }
-
-  // TODO: Check if this can be removed
-  @VisibleForTesting
-  Subprocess getProcess() {
-    return process;
-  }
 }

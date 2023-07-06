@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
-import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
@@ -64,7 +63,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
-import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
@@ -117,7 +115,6 @@ import com.google.devtools.build.skyframe.Version;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.Collection;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -229,26 +226,6 @@ public class BuildViewForTesting {
 
   public ArtifactFactory getArtifactFactory() {
     return skyframeBuildView.getArtifactFactory();
-  }
-
-  /**
-   * Gets a configuration for the given target.
-   *
-   * <p>Unconditionally includes all fragments.
-   */
-  public BuildConfigurationValue getConfigurationForTesting(
-      Target target, BuildConfigurationValue config, ExtendedEventHandler eventHandler)
-      throws InvalidConfigurationException, InterruptedException {
-    List<TargetAndConfiguration> node =
-        ImmutableList.of(new TargetAndConfiguration(target, config));
-    Collection<TargetAndConfiguration> configs =
-        ConfigurationResolver.getConfigurationsFromExecutor(
-                node,
-                AnalysisUtils.targetsToDeps(new LinkedHashSet<>(node), ruleClassProvider),
-                eventHandler,
-                skyframeExecutor)
-            .getTargetsAndConfigs();
-    return configs.iterator().next().getConfiguration();
   }
 
   /**
@@ -425,7 +402,7 @@ public class BuildViewForTesting {
             eventHandler,
             new PrerequisiteParameters(
                 ConfiguredTargetKey.fromConfiguredTarget(target),
-                state.targetAndConfiguration.getTarget().getAssociatedRule(),
+                state.targetAndConfiguration.getTarget(),
                 /* aspects= */ ImmutableList.of(),
                 skyframeBuildView.getStarlarkTransitionCache(),
                 toolchainContexts,

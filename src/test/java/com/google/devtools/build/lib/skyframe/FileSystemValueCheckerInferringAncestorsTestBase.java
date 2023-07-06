@@ -18,7 +18,6 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.DelegateFileSystem;
@@ -32,18 +31,10 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.InMemoryGraph;
-import com.google.devtools.build.skyframe.InMemoryNodeEntry;
-import com.google.devtools.build.skyframe.NodeBatch;
-import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
-import com.google.devtools.build.skyframe.QueryableGraph.Reason;
-import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.Version;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map.Entry;
 import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
@@ -53,13 +44,14 @@ public class FileSystemValueCheckerInferringAncestorsTestBase {
   protected final List<String> statedPaths = new ArrayList<>();
   protected DefaultSyscallCache syscallCache = DefaultSyscallCache.newBuilder().build();
   protected Root root;
-  protected final InMemoryGraph inMemoryGraph = InMemoryGraph.create();
+  protected InMemoryGraph inMemoryGraph;
 
   private Root untrackedRoot;
   Exception throwOnStat;
 
   @Before
-  public void createRoot() throws IOException {
+  public void setUpGraphAndRoot() throws IOException {
+    createGraph();
     Path srcRootPath = scratch.dir("/src");
     PathFragment srcRoot = srcRootPath.asFragment();
     FileSystem trackingFileSystem =
@@ -81,6 +73,11 @@ public class FileSystemValueCheckerInferringAncestorsTestBase {
     root = Root.fromPath(trackingFileSystem.getPath(srcRoot));
     scratch.setWorkingDir("/src");
     untrackedRoot = Root.fromPath(srcRootPath);
+  }
+
+  @ForOverride
+  protected void createGraph() {
+    inMemoryGraph = InMemoryGraph.create();
   }
 
   @After
@@ -109,36 +106,5 @@ public class FileSystemValueCheckerInferringAncestorsTestBase {
 
   protected static DirectoryListingStateValue directoryListingStateValue(Dirent... dirents) {
     return DirectoryListingStateValue.create(ImmutableList.copyOf(dirents));
-  }
-
-  protected void addDoneNodesAndThenMarkChanged(ImmutableMap<SkyKey, SkyValue> values)
-      throws InterruptedException {
-    addDoneNodesAndThenMarkChanged(values, /* mtsv= */ null);
-  }
-
-  protected void addDoneNodesAndThenMarkChanged(
-      ImmutableMap<SkyKey, SkyValue> values, @Nullable Version mtsv) throws InterruptedException {
-    for (Entry<SkyKey, SkyValue> entry : values.entrySet()) {
-      InMemoryNodeEntry node = addDoneNode(entry.getKey(), entry.getValue(), mtsv);
-      node.markDirty(DirtyType.CHANGE);
-    }
-  }
-
-  protected void addDoneNodes(ImmutableMap<SkyKey, SkyValue> values, @Nullable Version mtsv)
-      throws InterruptedException {
-    for (Entry<SkyKey, SkyValue> entry : values.entrySet()) {
-      addDoneNode(entry.getKey(), entry.getValue(), mtsv);
-    }
-  }
-
-  @CanIgnoreReturnValue
-  private InMemoryNodeEntry addDoneNode(SkyKey key, SkyValue value, @Nullable Version mtsv)
-      throws InterruptedException {
-    NodeBatch batch = inMemoryGraph.createIfAbsentBatch(null, Reason.OTHER, ImmutableList.of(key));
-    InMemoryNodeEntry entry = (InMemoryNodeEntry) batch.get(key);
-    entry.addReverseDepAndCheckIfDone(null);
-    entry.markRebuilding();
-    entry.setValue(value, Version.minimal(), /* maxTransitiveSourceVersion= */ mtsv);
-    return entry;
   }
 }

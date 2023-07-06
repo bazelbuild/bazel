@@ -24,6 +24,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts.ReportedArtifacts;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.File;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -57,8 +58,11 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
     AnalysisResult result = update("//sh:globby");
     ConfiguredTarget ct = Iterables.getOnlyElement(result.getTargetsToBuild());
     TargetAndConfiguration tac = Iterables.getOnlyElement(result.getTopLevelTargetsWithConfigs());
+    var configuredTargetConfiguration =
+        (BuildConfigurationValue)
+            skyframeExecutor.getEvaluator().getExistingValue(ct.getConfigurationKey());
     ConfiguredTargetAndData ctAndData =
-        new ConfiguredTargetAndData(ct, tac.getTarget(), tac.getConfiguration(), null);
+        new ConfiguredTargetAndData(ct, tac.getTarget(), configuredTargetConfiguration, null);
     TopLevelArtifactContext context =
         new TopLevelArtifactContext(false, false, false, OutputGroupInfo.DEFAULT_GROUPS);
     ArtifactsToBuild artifactsToBuild = TopLevelArtifactHelper.getAllArtifactsToBuild(ct, context);

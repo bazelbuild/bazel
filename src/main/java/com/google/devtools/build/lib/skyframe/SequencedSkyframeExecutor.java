@@ -511,7 +511,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         if (skyValue instanceof RuleConfiguredTargetValue) {
           tasks.add(
               () -> {
-                actionGraphDump.dumpConfiguredTarget((RuleConfiguredTargetValue) skyValue);
+                var configuredTarget = (RuleConfiguredTargetValue) skyValue;
+                // Only dumps the value for non-delegating keys.
+                if (configuredTarget.getConfiguredTarget().getKeyOrProxy().equals(key)) {
+                  actionGraphDump.dumpConfiguredTarget(configuredTarget);
+                }
                 return null;
               });
         } else if (key.functionName().equals(SkyFunctions.ASPECT)) {
@@ -570,7 +574,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       }
       try {
         if (skyValue instanceof RuleConfiguredTargetValue) {
-          actionGraphDump.dumpConfiguredTarget((RuleConfiguredTargetValue) skyValue);
+          var configuredTarget = (RuleConfiguredTargetValue) skyValue;
+          // Only dumps the value for non-delegating keys.
+          if (configuredTarget.getConfiguredTarget().getKeyOrProxy().equals(key)) {
+            actionGraphDump.dumpConfiguredTarget(configuredTarget);
+          }
         } else if (key.functionName().equals(SkyFunctions.ASPECT)) {
           AspectValue aspectValue = (AspectValue) skyValue;
           AspectKey aspectKey = (AspectKey) key;

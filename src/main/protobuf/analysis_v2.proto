@@ -116,6 +116,10 @@ message Action {
   // The contents of the file for the actions.write() action
   // (guarded by the --include_file_write_contents flag).
   string file_contents = 17;
+
+  // The target of the symlink created by UnresolvedSymlink actions.
+  // For regular Symlink actions, the target is represented as an input.
+  string unresolved_symlink_target = 18;
 }
 
 // Represents a single target (without configuration information) that is

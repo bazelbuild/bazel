@@ -74,8 +74,6 @@ public final class JavaCompilationHelper {
   private final JavaTargetAttributes.Builder attributes;
   private JavaTargetAttributes builtAttributes;
   private final ImmutableList<String> customJavacOpts;
-  private final List<Artifact> translations = new ArrayList<>();
-  private boolean translationsFrozen;
   private final JavaSemantics semantics;
   private final ImmutableList<Artifact> additionalInputsForDatabinding;
   private final StrictDepsMode strictJavaDeps;
@@ -410,8 +408,7 @@ public final class JavaCompilationHelper {
     return !resourceJars.isEmpty()
         || !attributes.getResources().isEmpty()
         || !attributes.getResourceJars().isEmpty()
-        || !attributes.getClassPathResources().isEmpty()
-        || !getTranslations().isEmpty();
+        || !attributes.getClassPathResources().isEmpty();
   }
 
   private ImmutableMap<String, String> getExecutionInfo() {
@@ -658,7 +655,6 @@ public final class JavaCompilationHelper {
         .setOutputJar(resourceJar)
         .setResources(attributes.getResources())
         .setClasspathResources(attributes.getClassPathResources())
-        .setTranslations(getTranslations())
         .setResourceJars(
             NestedSetBuilder.fromNestedSet(attributes.getResourceJars()).addAll(extraJars).build())
         .build(semantics, ruleContext, execGroup);
@@ -855,16 +851,6 @@ public final class JavaCompilationHelper {
    */
   private ImmutableList<String> getJavacOpts() {
     return customJavacOpts;
-  }
-
-  public void setTranslations(Collection<Artifact> translations) {
-    Preconditions.checkArgument(!translationsFrozen);
-    this.translations.addAll(translations);
-  }
-
-  private ImmutableList<Artifact> getTranslations() {
-    translationsFrozen = true;
-    return ImmutableList.copyOf(translations);
   }
 
   /**

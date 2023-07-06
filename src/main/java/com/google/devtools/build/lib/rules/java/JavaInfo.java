@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
-import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaModuleFlagsProviderApi;
@@ -52,7 +51,6 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
-import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
 
@@ -241,7 +239,7 @@ public final class JavaInfo extends NativeInfo
   /** Java constraints (e.g. "android") that are present on the target. */
   private final ImmutableList<String> javaConstraints;
 
-  // Whether or not this library should be used only for compilation and not at runtime.
+  // Whether this library should be used only for compilation and not at runtime.
   private final boolean neverlink;
 
   @Nullable
@@ -398,7 +396,7 @@ public final class JavaInfo extends NativeInfo
     this(
         JavaCcInfoProvider.fromStarlarkJavaInfo(javaInfo),
         JavaCompilationArgsProvider.fromStarlarkJavaInfo(javaInfo),
-        /* javaCompilationInfoProvider= */ null,
+        JavaCompilationInfoProvider.fromStarlarkJavaInfo(javaInfo),
         JavaGenJarsProvider.from(javaInfo.getValue("annotation_processing")),
         JavaModuleFlagsProvider.fromStarlarkJavaInfo(javaInfo),
         JavaPluginInfo.fromStarlarkJavaInfo(javaInfo),
@@ -406,7 +404,7 @@ public final class JavaInfo extends NativeInfo
         JavaSourceJarsProvider.fromStarlarkJavaInfo(javaInfo),
         extractDirectRuntimeJars(javaInfo),
         extractNeverLink(javaInfo),
-        ImmutableList.of(),
+        extractConstraints(javaInfo),
         javaInfo.getCreationLocation());
   }
 
@@ -422,12 +420,22 @@ public final class JavaInfo extends NativeInfo
     return neverlink != null && neverlink;
   }
 
+  private static ImmutableList<String> extractConstraints(StructImpl javaInfo)
+      throws EvalException {
+    Object constraints = javaInfo.getValue("_constraints");
+    if (constraints == null || constraints == Starlark.NONE) {
+      return ImmutableList.of();
+    }
+    return Sequence.cast(constraints, String.class, "_constraints").getImmutableList();
+  }
+
   @Override
   public JavaInfoProvider getProvider() {
     return PROVIDER;
   }
 
-  public Boolean isNeverlink() {
+  @Override
+  public boolean isNeverlink() {
     return neverlink;
   }
 
@@ -583,6 +591,11 @@ public final class JavaInfo extends NativeInfo
     return javaConstraints;
   }
 
+  @Override
+  public Sequence<String> getJavaConstraintsStarlark() {
+    return StarlarkList.immutableCopyOf(javaConstraints);
+  }
+
   /**
    * Gets Provider, check it for not null and call function to get NestedSet&lt;S&gt; from it.
    *
@@ -642,59 +655,9 @@ public final class JavaInfo extends NativeInfo
 
   /** Provider class for {@link JavaInfo} objects. */
   public static class JavaInfoProvider extends StarlarkProviderWrapper<JavaInfo>
-      implements JavaInfoProviderApi, com.google.devtools.build.lib.packages.Provider {
+      implements com.google.devtools.build.lib.packages.Provider {
     private JavaInfoProvider() {
       super(Label.parseCanonicalUnchecked("@_builtins//:common/java/java_info.bzl"), STARLARK_NAME);
-    }
-
-    @Override
-    public JavaInfo javaInfo(
-        FileApi outputJarApi,
-        Object compileJarApi,
-        Object sourceJarApi,
-        Object compileJdepsApi,
-        Object generatedClassJarApi,
-        Object generatedSourceJarApi,
-        Object nativeHeadersJarApi,
-        Object manifestProtoApi,
-        Boolean neverlink,
-        Sequence<?> deps,
-        Sequence<?> runtimeDeps,
-        Sequence<?> exports,
-        Sequence<?> exportedPlugins,
-        Object jdepsApi,
-        Sequence<?> nativeLibraries,
-        StarlarkThread thread)
-        throws EvalException, RuleErrorException {
-      Artifact outputJar = (Artifact) outputJarApi;
-      @Nullable Artifact compileJar = nullIfNone(compileJarApi, Artifact.class);
-      @Nullable Artifact sourceJar = nullIfNone(sourceJarApi, Artifact.class);
-      @Nullable Artifact compileJdeps = nullIfNone(compileJdepsApi, Artifact.class);
-      @Nullable Artifact generatedClassJar = nullIfNone(generatedClassJarApi, Artifact.class);
-      @Nullable Artifact generatedSourceJar = nullIfNone(generatedSourceJarApi, Artifact.class);
-      @Nullable Artifact nativeHeadersJar = nullIfNone(nativeHeadersJarApi, Artifact.class);
-      @Nullable Artifact manifestProto = nullIfNone(manifestProtoApi, Artifact.class);
-      @Nullable Artifact jdeps = nullIfNone(jdepsApi, Artifact.class);
-      return JavaInfoBuildHelper.getInstance()
-          .createJavaInfo(
-              JavaOutput.builder()
-                  .setClassJar(outputJar)
-                  .setCompileJar(compileJar)
-                  .setCompileJdeps(compileJdeps)
-                  .setGeneratedClassJar(generatedClassJar)
-                  .setGeneratedSourceJar(generatedSourceJar)
-                  .setNativeHeadersJar(nativeHeadersJar)
-                  .setManifestProto(manifestProto)
-                  .setJdeps(jdeps)
-                  .addSourceJar(sourceJar)
-                  .build(),
-              neverlink,
-              Sequence.cast(deps, JavaInfo.class, "deps"),
-              Sequence.cast(runtimeDeps, JavaInfo.class, "runtime_deps"),
-              Sequence.cast(exports, JavaInfo.class, "exports"),
-              JavaPluginInfo.wrapSequence(exportedPlugins, "exported_plugins"),
-              Sequence.cast(nativeLibraries, CcInfo.class, "native_libraries"),
-              thread.getCallerLocation());
     }
 
     @Override

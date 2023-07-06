@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.common.testing.GcFinalization.awaitClear;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
@@ -33,12 +32,9 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.io.IOException;
-import java.lang.ref.WeakReference;
 import java.util.Collection;
 import java.util.Set;
 import org.junit.Before;
@@ -1930,72 +1926,5 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "--foo=b",
         /*expected:*/ ImmutableList.of("bin java/foo/libb.jar", "bin java/foo/libb2.jar"),
         /*not expected:*/ ImmutableList.of("bin java/foo/liba.jar", "bin java/foo/liba2.jar"));
-  }
-
-  @Test
-  public void proxyKeysAreRetained() throws Exception {
-    // This test case verifies that when a ProxyConfiguredTargetKey is created, it is retained.
-    scratch.file(
-        "conditions/BUILD",
-        "constraint_setting(name = 'animal')",
-        "constraint_value(name = 'manatee', constraint_setting = 'animal')",
-        "constraint_value(name = 'koala', constraint_setting = 'animal')",
-        "platform(",
-        "    name = 'manatee_platform',",
-        "    constraint_values = [':manatee'],",
-        ")",
-        "platform(",
-        "    name = 'koala_platform',",
-        "    constraint_values = [':koala'],",
-        ")");
-    scratch.file(
-        "check/BUILD",
-        "filegroup(name = 'adep', srcs = ['afile'])",
-        "filegroup(name = 'bdep', srcs = ['bfile'])",
-        "filegroup(name = 'hello',",
-        "    srcs = select({",
-        "        '//conditions:manatee': [':adep'],",
-        "        '//conditions:koala': [':bdep'],",
-        "    }))");
-
-    useConfiguration("--experimental_platforms=//conditions:manatee_platform");
-    ConfiguredTarget hello = getConfiguredTarget("//check:hello");
-
-    var koalaLabel = Label.parseCanonical("//conditions:koala");
-
-    // Shakes the interner to try to get any non-strongly reachable keys to fall out. This should
-    // cause the ProxyConfiguredTargetKey created for "//conditions:koala" to fall out if it's not
-    // otherwise retained.
-    //
-    // Creates and inserts a canary key into the interner that can be used to detect eviction of
-    // weak keys.
-    var canaryKey = new WeakReference<>(ConfiguredTargetKey.builder().setLabel(koalaLabel).build());
-    awaitClear(canaryKey);
-    // Once we get here we know that the canaryKey is no longer in the weak interner. Due to the
-    // collection properties of weak references, that implies the interner now has no weakly
-    // reachable keys at all.
-
-    // Since //conditions:koala is a ConfigCondition, so it would be requested by //check:hello
-    // using //check:hello's configuration.
-    var koalaOwner =
-        ConfiguredTargetKey.builder()
-            .setLabel(koalaLabel)
-            .setConfigurationKey(hello.getConfigurationKey())
-            .build();
-    // Uses a WalkableGraph lookup to ensure there is an existing //conditions:koala instance that
-    // was created using koalaOwner.
-    var walkableGraph = SkyframeExecutorWrappingWalkableGraph.of(skyframeExecutor);
-    var koala = (ConfiguredTargetValue) walkableGraph.getValue(koalaOwner.toKey());
-    assertThat(koala).isNotNull();
-
-    // constraint_value has a NoConfigTransition rule transition so a corresponding proxy key
-    // should exist.
-    ConfiguredTargetKey koalaKey =
-        ConfiguredTargetKey.builder()
-            .setLabel(koalaLabel)
-            .setConfigurationKey(koala.getConfiguredTarget().getConfigurationKey())
-            .build();
-    assertThat(koalaKey.isProxy()).isTrue();
-    assertThat(koalaKey.toKey()).isEqualTo(koalaOwner);
   }
 }

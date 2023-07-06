@@ -285,15 +285,6 @@ public class JavaTargetAttributes {
     }
 
     @CanIgnoreReturnValue
-    public Builder addNativeLibraries(Iterable<Artifact> nativeLibraries) {
-      Preconditions.checkArgument(!built);
-      for (Artifact nativeLibrary : nativeLibraries) {
-        addNativeLibrary(nativeLibrary);
-      }
-      return this;
-    }
-
-    @CanIgnoreReturnValue
     public Builder addMessages(Collection<Artifact> messages) {
       Preconditions.checkArgument(!built);
       this.messages.addAll(messages);

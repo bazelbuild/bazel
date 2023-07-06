@@ -572,24 +572,6 @@ j2objc_aspect = aspect(
             allow_files = True,
             default = Label("@" + cc_semantics.get_repo() + "//third_party/java/j2objc:jre_core_lib"),
         ),
-        "_xcrunwrapper": attr.label(
-            allow_files = True,
-            cfg = "exec",
-            default = "@" + cc_semantics.get_repo() + "//tools/objc:xcrunwrapper",
-        ),
-        "_xcode_config": attr.label(
-            allow_rules = ["xcode_config"],
-            default = configuration_field(
-                fragment = "apple",
-                name = "xcode_config_label",
-            ),
-            # TODO(kotlaja): Do we need "checkConstraints" here? Label doesn't have a flag attribute.
-        ),
-        "_zipper": attr.label(
-            allow_files = True,
-            cfg = "exec",
-            default = "@" + cc_semantics.get_repo() + "//tools/zip:zipper",
-        ),
         "_j2objc_proto_toolchain": attr.label(
             default = configuration_field(fragment = "proto", name = "proto_toolchain_for_j2objc"),
         ),

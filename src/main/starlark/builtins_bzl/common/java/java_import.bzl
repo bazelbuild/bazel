@@ -23,6 +23,7 @@ load(":common/java/import_deps_check.bzl", "import_deps_check")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/java/java_info.bzl", "JavaInfo")
 load(":common/java/java_common.bzl", "java_common")
+load(":common/java/java_common_internal_for_builtins.bzl", _run_ijar_private_for_builtins = "run_ijar")
 
 def _filter_provider(provider, *attrs):
     return [dep[provider] for attr in attrs for dep in attr if provider in dep]
@@ -49,7 +50,7 @@ def _process_with_ijars_if_needed(jars, ctx):
             interface_jar_directory = "_ijar/" + ctx.label.name + "/" + ijar_basename
 
             interface_jar = ctx.actions.declare_file(interface_jar_directory)
-            java_common.run_ijar(
+            _run_ijar_private_for_builtins(
                 ctx.actions,
                 target_label = ctx.label,
                 jar = jar,

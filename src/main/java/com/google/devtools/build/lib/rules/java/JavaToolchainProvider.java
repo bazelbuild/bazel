@@ -376,6 +376,7 @@ public final class JavaToolchainProvider extends NativeInfo
   }
 
   /** Returns the ijar executable */
+  @Override
   public FilesToRunProvider getIjar() {
     return ijar;
   }

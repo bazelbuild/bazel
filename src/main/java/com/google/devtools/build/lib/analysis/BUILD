@@ -82,7 +82,6 @@ java_library(
         ":config/transitions/patch_transition",
         ":config/transitions/split_transition",
         ":config/transitions/transition_factory",
-        ":configurations_collector",
         ":configured_object_value",
         ":configured_target",
         ":constraints/constraint_constants",
@@ -290,6 +289,7 @@ java_library(
         ":config/build_options",
         ":config/config_conditions",
         ":config/config_matching_provider",
+        ":config/configuration_transition_event",
         ":config/core_options",
         ":config/execution_transition_factory",
         ":config/feature_set",
@@ -314,7 +314,6 @@ java_library(
         ":config/transitions/starlark_exposed_rule_transition_factory",
         ":config/transitions/transition_collector",
         ":config/transitions/transition_factory",
-        ":configurations_collector",
         ":configured_target",
         ":constraints/constraint_constants",
         ":constraints/constraint_semantics",
@@ -625,7 +624,6 @@ java_library(
         ":constraints/top_level_constraint_semantics",
         ":extra_action_artifacts_provider",
         ":make_environment_event",
-        ":target_and_configuration",
         ":test/coverage_report_action_factory",
         ":test/instrumented_files_info",
         ":top_level_artifact_context",
@@ -670,22 +668,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
-    ],
-)
-
-java_library(
-    name = "configurations_collector",
-    srcs = [
-        "ConfigurationsCollector.java",
-        "ConfigurationsResult.java",
-    ],
-    deps = [
-        ":config/build_configuration",
-        ":config/build_options",
-        ":config/invalid_configuration_exception",
-        ":dependency_key",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//third_party:guava",
     ],
 )
 
@@ -1814,6 +1796,25 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
         "//third_party:auto_value",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "config/configuration_transition_event",
+    srcs = ["config/ConfigurationTransitionEvent.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//third_party:auto_value",
+    ],
+)
+
+java_library(
+    name = "config/configuration_value_event",
+    srcs = ["config/ConfigurationValueEvent.java"],
+    deps = [
+        ":config/build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//third_party:auto_value",
     ],
 )
 

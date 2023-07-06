@@ -325,8 +325,8 @@ public class RepositoryOptions extends OptionsBase {
 
   @Option(
       name = "lockfile_mode",
-      defaultValue = "off", // TODO(salmasamy) later will be changed to 'update'
       converter = LockfileMode.Converter.class,
+      defaultValue = "update",
       documentationCategory = OptionDocumentationCategory.BZLMOD,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =

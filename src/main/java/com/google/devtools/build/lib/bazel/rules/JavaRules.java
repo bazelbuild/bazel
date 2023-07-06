@@ -32,9 +32,7 @@ import com.google.devtools.build.lib.rules.extra.ActionListenerRule;
 import com.google.devtools.build.lib.rules.extra.ExtraActionRule;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaImportBaseRule;
-import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaPackageConfigurationRule;
-import com.google.devtools.build.lib.rules.java.JavaPluginInfo;
 import com.google.devtools.build.lib.rules.java.JavaPluginsFlagAliasRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaRuntimeBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaToolchainBaseRule;
@@ -83,11 +81,7 @@ public class JavaRules implements RuleSet {
     builder.addRuleDefinition(new ExtraActionRule());
     builder.addRuleDefinition(new ActionListenerRule());
 
-    builder.addStarlarkBootstrap(
-        new JavaBootstrap(
-            JavaInfo.PROVIDER,
-            JavaPluginInfo.PROVIDER,
-            ProguardSpecProvider.PROVIDER));
+    builder.addStarlarkBootstrap(new JavaBootstrap(ProguardSpecProvider.PROVIDER));
 
     builder.addStarlarkBuiltinsInternal(
         "java_common_internal_do_not_use", new JavaStarlarkCommon(BazelJavaSemantics.INSTANCE));

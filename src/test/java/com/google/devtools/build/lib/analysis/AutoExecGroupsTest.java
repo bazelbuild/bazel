@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.analysis.actions.LazyWritePathsFileAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
@@ -1498,10 +1497,12 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "custom_rule(name = 'custom_rule_name')");
     useConfiguration("--incompatible_auto_exec_groups");
 
-    ImmutableList<Action> actions = getActions("//test:custom_rule_name", SpawnAction.class);
+    ImmutableList<Action> actions =
+        getActions("//test:custom_rule_name").stream()
+            .filter(action -> action.getMnemonic().equals("JavaIjar"))
+            .collect(toImmutableList());
 
     assertThat(actions).hasSize(1);
-    assertThat(actions.get(0).getMnemonic()).isEqualTo("JavaIjar");
     assertThat(actions.get(0).getOwner().getExecutionPlatform().label())
         .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
   }
@@ -1530,10 +1531,12 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "custom_rule(name = 'custom_rule_name')");
     useConfiguration("--incompatible_auto_exec_groups");
 
-    ImmutableList<Action> actions = getActions("//test:custom_rule_name", SpawnAction.class);
+    ImmutableList<Action> actions =
+        getActions("//test:custom_rule_name").stream()
+            .filter(action -> action.getMnemonic().equals("JavaSourceJar"))
+            .collect(toImmutableList());
 
     assertThat(actions).hasSize(1);
-    assertThat(actions.get(0).getMnemonic()).isEqualTo("JavaSourceJar");
     assertThat(actions.get(0).getOwner().getExecutionPlatform().label())
         .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
   }
@@ -1568,11 +1571,15 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "custom_rule(name = 'custom_rule_name')");
     useConfiguration("--incompatible_auto_exec_groups");
 
-    ImmutableList<Action> actions = getActions("//test:custom_rule_name", SpawnAction.class);
+    ImmutableList<Action> actions =
+        getActions("//test:custom_rule_name").stream()
+            .filter(action -> action.getMnemonic().equals("JavaIjar"))
+            .collect(toImmutableList());
+    ;
 
     assertThat(actions).hasSize(1);
     assertThat(actions.get(0).getProgressMessage())
-        .isEqualTo("Stamping target label into jar lib_custom_rule_name.jar");
+        .matches("Stamping target label into jar .*/lib_custom_rule_name.jar");
     assertThat(actions.get(0).getOwner().getExecutionPlatform().label())
         .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
   }

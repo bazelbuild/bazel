@@ -247,7 +247,7 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
         PrecomputedValue.injected(YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE, BazelCompatibilityMode.ERROR),
-        PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.OFF));
+        PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.UPDATE));
   }
 
   // Helpers:

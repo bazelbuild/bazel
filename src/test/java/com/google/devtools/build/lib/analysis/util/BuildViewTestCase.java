@@ -2006,17 +2006,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   private BuildConfigurationValue getConfiguration(String label) {
-    BuildConfigurationValue config;
     try {
-      config = getConfiguration(getConfiguredTarget(label));
-      config = view.getConfigurationForTesting(getTarget(label), config, reporter);
+      return getConfiguration(getConfiguredTarget(label));
     } catch (LabelSyntaxException e) {
       throw new IllegalArgumentException(e);
-    } catch (Exception e) {
-      // TODO(b/36585204): Clean this up
-      throw new RuntimeException(e);
     }
-    return config;
   }
 
   protected final BuildConfigurationValue getConfiguration(BuildConfigurationKey configurationKey) {

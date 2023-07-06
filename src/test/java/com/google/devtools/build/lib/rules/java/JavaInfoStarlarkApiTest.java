@@ -19,17 +19,32 @@ import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
+import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.io.IOException;
+import java.util.Map;
+import net.starlark.java.eval.StarlarkList;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -855,6 +870,122 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
 
     assertThat(ruleOutputs.toFlags())
         .containsExactly("--add-opens=java.base/java.lang=ALL-UNNAMED");
+  }
+
+  @Test
+  public void translateStarlarkJavaInfo_minimal() throws Exception {
+    ImmutableMap<String, Object> fields = getBuilderWithMandataryFields().buildOrThrow();
+    StarlarkInfo starlarkInfo = makeStruct(fields);
+
+    JavaInfo javaInfo = JavaInfo.PROVIDER.wrap(starlarkInfo);
+
+    assertThat(javaInfo).isNotNull();
+    assertThat(javaInfo.getCompilationInfoProvider()).isNull();
+    assertThat(javaInfo.getJavaModuleFlagsInfo()).isEqualTo(JavaModuleFlagsProvider.EMPTY);
+    assertThat(javaInfo.getJavaPluginInfo()).isEqualTo(JavaPluginInfo.empty());
+  }
+
+  @Test
+  public void translateStarlarkJavaInfo_compilationInfo() throws Exception {
+    ImmutableMap<String, Object> fields =
+        getBuilderWithMandataryFields()
+            .put(
+                "compilation_info",
+                makeStruct(
+                    ImmutableMap.of(
+                        "javac_options", StarlarkList.immutableOf("opt1", "opt2"),
+                        "boot_classpath",
+                            BootClassPathInfo.create(
+                                NestedSetBuilder.create(
+                                    Order.STABLE_ORDER, createArtifact("cp.jar"))))))
+            .buildOrThrow();
+    StarlarkInfo starlarkInfo = makeStruct(fields);
+
+    JavaInfo javaInfo = JavaInfo.PROVIDER.wrap(starlarkInfo);
+
+    assertThat(javaInfo).isNotNull();
+    assertThat(javaInfo.getCompilationInfoProvider()).isNotNull();
+    assertThat(javaInfo.getCompilationInfoProvider().getJavacOpts())
+        .containsExactly("opt1", "opt2");
+    assertThat(javaInfo.getCompilationInfoProvider().getBootClasspath()).hasSize(1);
+    assertThat(prettyArtifactNames(javaInfo.getCompilationInfoProvider().getBootClasspath()))
+        .containsExactly("cp.jar");
+  }
+
+  @Test
+  public void translateStarlarkJavaInfo_moduleFlagsInfo() throws Exception {
+    ImmutableMap<String, Object> fields =
+        getBuilderWithMandataryFields()
+            .put(
+                "module_flags_info",
+                makeStruct(
+                    ImmutableMap.of(
+                        "add_exports", makeDepset(String.class, "export1", "export2"),
+                        "add_opens", makeDepset(String.class, "open1", "open2"))))
+            .buildOrThrow();
+    StarlarkInfo starlarkInfo = makeStruct(fields);
+
+    JavaInfo javaInfo = JavaInfo.PROVIDER.wrap(starlarkInfo);
+
+    assertThat(javaInfo).isNotNull();
+    assertThat(javaInfo.getJavaModuleFlagsInfo()).isNotNull();
+    assertThat(javaInfo.getJavaModuleFlagsInfo().getAddExports().toList())
+        .containsExactly("export1", "export2");
+    assertThat(javaInfo.getJavaModuleFlagsInfo().getAddOpens().toList())
+        .containsExactly("open1", "open2");
+  }
+
+  @Test
+  public void translateStarlarkJavaInfo_pluginInfo() throws Exception {
+    ImmutableMap<String, Object> fields =
+        getBuilderWithMandataryFields()
+            .put(
+                "plugins",
+                JavaPluginData.create(
+                    NestedSetBuilder.create(Order.STABLE_ORDER, "c1", "c2", "c3"),
+                    NestedSetBuilder.create(Order.STABLE_ORDER, createArtifact("f1")),
+                    NestedSetBuilder.emptySet(Order.STABLE_ORDER)))
+            .buildKeepingLast();
+    StarlarkInfo starlarkInfo = makeStruct(fields);
+
+    JavaInfo javaInfo = JavaInfo.PROVIDER.wrap(starlarkInfo);
+
+    assertThat(javaInfo).isNotNull();
+    assertThat(javaInfo.plugins()).isNotNull();
+    assertThat(javaInfo.plugins().processorClasses().toList()).containsExactly("c1", "c2", "c3");
+    assertThat(prettyArtifactNames(javaInfo.plugins().processorClasspath())).containsExactly("f1");
+  }
+
+  private static ImmutableMap.Builder<String, Object> getBuilderWithMandataryFields() {
+    Depset emptyDepset = Depset.of(Artifact.class, NestedSetBuilder.create(Order.STABLE_ORDER));
+    return ImmutableMap.<String, Object>builder()
+        .put("transitive_native_libraries", emptyDepset)
+        .put("compile_jars", emptyDepset)
+        .put("full_compile_jars", emptyDepset)
+        .put("transitive_compile_time_jars", emptyDepset)
+        .put("transitive_runtime_jars", emptyDepset)
+        .put("_transitive_full_compile_time_jars", emptyDepset)
+        .put("_compile_time_java_dependencies", emptyDepset)
+        .put("plugins", JavaPluginData.empty())
+        .put("api_generating_plugins", JavaPluginData.empty())
+        .put("java_outputs", StarlarkList.empty())
+        .put("transitive_source_jars", emptyDepset)
+        .put("source_jars", StarlarkList.empty())
+        .put("runtime_output_jars", StarlarkList.empty());
+  }
+
+  private Artifact createArtifact(String path) throws IOException {
+    Path execRoot = scratch.dir("/");
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "fake-root");
+    return ActionsTestUtil.createArtifact(root, path);
+  }
+
+  private static <T> Depset makeDepset(Class<T> clazz, T... elems) {
+    return Depset.of(clazz, NestedSetBuilder.create(Order.STABLE_ORDER, elems));
+  }
+
+  private static StarlarkInfo makeStruct(Map<String, Object> struct) {
+    return StructProvider.STRUCT.create(struct, "");
   }
 
   private RuleBuilder ruleBuilder() {

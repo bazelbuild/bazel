@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis.producers;
 
 import com.google.auto.value.AutoOneOf;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
@@ -28,6 +29,13 @@ abstract class AttributeConfiguration {
      * target is known, it should be verified to be a {@link PackageGroup}.
      */
     VISIBILITY,
+    /**
+     * The configuration is null.
+     *
+     * <p>This is only applied when the dependency is in the same package as the parent and it is
+     * not configurable. The value in this case stores any transition keys.
+     */
+    NULL_TRANSITION_KEYS,
     /**
      * There is a single configuration.
      *
@@ -46,6 +54,8 @@ abstract class AttributeConfiguration {
 
   abstract void visibility();
 
+  abstract ImmutableList<String> nullTransitionKeys();
+
   abstract BuildConfigurationKey unary();
 
   abstract ImmutableMap<String, BuildConfigurationKey> split();
@@ -53,6 +63,7 @@ abstract class AttributeConfiguration {
   public int count() {
     switch (kind()) {
       case VISIBILITY:
+      case NULL_TRANSITION_KEYS:
       case UNARY:
         return 1;
       case SPLIT:
@@ -63,6 +74,10 @@ abstract class AttributeConfiguration {
 
   static AttributeConfiguration ofVisibility() {
     return AutoOneOf_AttributeConfiguration.visibility();
+  }
+
+  static AttributeConfiguration ofNullTransitionKeys(ImmutableList<String> transitionKeys) {
+    return AutoOneOf_AttributeConfiguration.nullTransitionKeys(transitionKeys);
   }
 
   static AttributeConfiguration ofUnary(BuildConfigurationKey key) {

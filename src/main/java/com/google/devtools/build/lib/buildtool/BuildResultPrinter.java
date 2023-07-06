@@ -95,10 +95,7 @@ class BuildResultPrinter {
             runtime.getRuleClassProvider().getSymlinkDefinitions(),
             request.getBuildOptions().getSymlinkPrefix(productName),
             productName,
-            env.getWorkspace(),
-            request.getBuildOptions().printWorkspaceInOutputPathsIfNeeded
-                ? env.getWorkingDirectory()
-                : env.getWorkspace());
+            env.getWorkspace());
     OutErr outErr = request.getOutErr();
 
     // Splits aspects based on whether they are validation aspects.
