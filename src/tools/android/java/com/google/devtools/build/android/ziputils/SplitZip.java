@@ -27,9 +27,13 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -39,10 +43,12 @@ import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Scanner;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -416,12 +422,22 @@ public class SplitZip implements EntryHandler {
     filter = filterFile == null && filterInputStream == null ? null : readPaths(filterFile);
   }
 
-  /**
-   * Parses the entries and assign each entry to an output file.
-   */
-  private void split() {
+  /** Parses the entries and assign each entry to an output file. */
+  private void split() throws IOException {
+
+    // A map of class (a "context") to its inner synthetic classes from D8.
+    SetMultimap<String, String> syntheticClassContexts = HashMultimap.create();
+
     for (ZipIn in : inputs) {
       CentralDirectory cdir = centralDirectories.get(in.getFilename());
+
+      for (DirectoryEntry entry : cdir.list()) {
+        if (entry.getFilename().equals("META-INF/synthetic-contexts.map")) {
+          parseSyntheticContextsMap(in.entryFor(entry).getContent(), syntheticClassContexts);
+          break;
+        }
+      }
+
       for (DirectoryEntry entry : cdir.list()) {
         String filename = normalizedFilename(entry.getFilename());
         if (!inputFilter.apply(filename)) {
@@ -438,17 +454,31 @@ public class SplitZip implements EntryHandler {
         }
       }
     }
+
     Splitter splitter = new Splitter(outputs.size(), classes.size());
+
     if (filter != null) {
       // Assign files in the filter to the first output file.
-      splitter.assign(Sets.filter(filter, inputFilter));
+      splitter.assignAllToCurrentShard(Sets.filter(filter, inputFilter));
       splitter.nextShard(); // minimal initial shard
     }
+
+    Set<String> allSyntheticClasses = new HashSet<>(syntheticClassContexts.values());
+
     for (String path : classes) {
-      // Use normalized filename so the filter file doesn't have to change
-      int assignment = splitter.assign(path);
-      Preconditions.checkState(assignment >= 0 && assignment < zipOuts.length);
-      assignments.put(path, zipOuts[assignment]);
+      if (!allSyntheticClasses.contains(path)) {
+
+        // Use normalized filename so the filter file doesn't have to change
+        int assignment = splitter.assign(path);
+        Set<String> syntheticClasses = syntheticClassContexts.get(path);
+        splitter.assignAllToCurrentShard(syntheticClasses);
+        Preconditions.checkState(assignment >= 0 && assignment < zipOuts.length);
+
+        assignments.put(path, zipOuts[assignment]);
+        for (String syntheticClass : syntheticClasses) {
+          assignments.put(syntheticClass, zipOuts[assignment]);
+        }
+      }
     }
   }
 
@@ -492,6 +522,23 @@ public class SplitZip implements EntryHandler {
       return path.substring(2);
     }
     return path;
+  }
+
+  private static void parseSyntheticContextsMap(
+      ByteBuffer byteBuffer, Multimap<String, String> syntheticClassContexts) {
+    // The ByteBuffer returned from the Splitter's zip library is not backed by an accessible array,
+    // so ByteBuffer.array() is not supported, so we must go the long way.
+    byte[] bytes = new byte[byteBuffer.remaining()];
+    byteBuffer.get(bytes);
+    Scanner scanner = new Scanner(new ByteArrayInputStream(bytes), UTF_8);
+    scanner.useDelimiter("[;\n]");
+    while (scanner.hasNext()) {
+      String syntheticClass = scanner.next();
+      String context = scanner.next();
+      // The context map uses class names, whereas SplitZip uses class file names, so add ".class"
+      // here to make it easier to work with the map in the rest of the code.
+      syntheticClassContexts.put(context + ".class", syntheticClass + ".class");
+    }
   }
 
   private void verbose(String msg) {
