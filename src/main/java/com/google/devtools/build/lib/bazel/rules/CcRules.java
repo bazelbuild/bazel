@@ -99,7 +99,7 @@ public class CcRules implements RuleSet {
     builder.addStarlarkBuiltinsInternal(
         "StaticallyLinkedMarkerProvider", StaticallyLinkedMarkerProvider.PROVIDER);
     builder.addStarlarkBuiltinsInternal("CcNativeLibraryInfo", CcNativeLibraryInfo.PROVIDER);
-    builder.addStarlarkBuiltinsInternal("cc_common_internal_do_not_use", bazelCcModule);
+    builder.addStarlarkBuiltinsInternal("cc_common", bazelCcModule);
     builder.addStarlarkBootstrap(
         new CcBootstrap(
             bazelCcModule,
