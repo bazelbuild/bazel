@@ -56,7 +56,7 @@ public abstract class PackageErrorMessageValue implements SkyValue {
    * If {@code getResult().equals(NO_SUCH_PACKAGE_EXCEPTION)}, returns the error message from the
    * {@link com.google.devtools.build.lib.packages.NoSuchPackageException} encountered.
    */
-  abstract String getNoSuchPackageExceptionMessage();
+  public abstract String getNoSuchPackageExceptionMessage();
 
   static PackageErrorMessageValue ofPackageWithNoErrors() {
     return NO_ERROR_VALUE;
@@ -109,7 +109,7 @@ public abstract class PackageErrorMessageValue implements SkyValue {
         }
 
         @Override
-        String getNoSuchPackageExceptionMessage() {
+        public String getNoSuchPackageExceptionMessage() {
           throw new IllegalStateException();
         }
       };
@@ -123,7 +123,7 @@ public abstract class PackageErrorMessageValue implements SkyValue {
         }
 
         @Override
-        String getNoSuchPackageExceptionMessage() {
+        public String getNoSuchPackageExceptionMessage() {
           throw new IllegalStateException();
         }
       };
@@ -141,7 +141,7 @@ public abstract class PackageErrorMessageValue implements SkyValue {
     }
 
     @Override
-    String getNoSuchPackageExceptionMessage() {
+    public String getNoSuchPackageExceptionMessage() {
       return errorMessage;
     }
 

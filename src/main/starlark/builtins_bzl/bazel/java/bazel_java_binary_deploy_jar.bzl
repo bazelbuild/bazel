@@ -20,7 +20,7 @@ the generating actions, so that the runfiles symlink tree is staged for the depl
 
 load(":common/java/java_binary_deploy_jar.bzl", "create_deploy_archives", "make_deploy_jars_rule")
 load(":common/java/java_binary.bzl", "InternalDeployJarInfo")
-load(":common/java/java_common.bzl", "get_build_info")
+load(":common/java/java_common_internal_for_builtins.bzl", "get_build_info")
 
 def _stamping_enabled(ctx, stamp):
     if ctx.configuration.is_tool_configuration():

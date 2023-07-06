@@ -78,15 +78,4 @@ public class AqueryOptions extends CommonQueryOptions {
               + "Note: Specifying a target with --skyframe_state is currently not supported. "
               + "This flag is only available with --output=proto or --output=textproto.")
   public boolean queryCurrentSkyframeState;
-
-  @Option(
-      name = "deduplicate_depsets",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.QUERY,
-      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      help =
-          "De-duplicate non-leaf children of a dep_set_of_files in the final proto/textproto/json"
-              + " output. This does not deduplicate depsets that don't share an immediate parent."
-              + " This does not affect the final effective list of input artifacts of the actions.")
-  public boolean deduplicateDepsets;
 }

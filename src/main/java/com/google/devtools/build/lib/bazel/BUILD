@@ -181,7 +181,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:skymeld_module",
         "//src/main/java/com/google/devtools/build/lib/standalone",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/module",
-        "//src/main/java/com/google/devtools/build/lib/vfs/bazel",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_module",
         "//third_party:guava",
     ],

@@ -7,18 +7,16 @@ import com.google.common.hash.Funnel;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hasher;
-import com.google.errorprone.annotations.Immutable;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 
-@Immutable
 public final class Blake3HashFunction implements HashFunction {
   public int bits() {
     return 256;
   }
 
   public Hasher newHasher() {
-    return new Blake3MessageDigest();
+    return new Blake3Hasher(new Blake3MessageDigest());
   }
 
   /* The following methods implement the {HashFunction} interface. */

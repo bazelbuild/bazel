@@ -122,8 +122,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   public enum Flag {
     // The --keep_going flag.
     KEEP_GOING,
-    // The --skyframe_prepare_analysis flag.
-    SKYFRAME_PREPARE_ANALYSIS,
     // Flags for visibility to default to public.
     PUBLIC_VISIBILITY,
     // Flags for CPU to work (be set to k8) in test mode.
@@ -418,7 +416,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     // update --keep_going option if test requested it.
     boolean keepGoing = flags.contains(Flag.KEEP_GOING);
     boolean discardAnalysisCache = viewOptions.discardAnalysisCache;
-    viewOptions.skyframePrepareAnalysis = flags.contains(Flag.SKYFRAME_PREPARE_ANALYSIS);
 
     PackageOptions packageOptions = optionsParser.getOptions(PackageOptions.class);
     PathPackageLocator pathPackageLocator =

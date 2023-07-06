@@ -26,7 +26,7 @@ import org.junit.runners.JUnit4;
 public class Blake3HasherTest {
   @Test
   public void emptyHash() {
-    Blake3MessageDigest h = new Blake3MessageDigest();
+    Blake3Hasher h = new Blake3Hasher(new Blake3MessageDigest());
 
     byte[] data = new byte[0];
     h.putBytes(data);
@@ -37,7 +37,7 @@ public class Blake3HasherTest {
 
   @Test
   public void helloWorld() {
-    Blake3MessageDigest h = new Blake3MessageDigest();
+    Blake3Hasher h = new Blake3Hasher(new Blake3MessageDigest());
 
     byte[] data = "hello world".getBytes(StandardCharsets.US_ASCII);
     h.putBytes(data);

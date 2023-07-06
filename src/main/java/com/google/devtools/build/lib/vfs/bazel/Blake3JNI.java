@@ -31,7 +31,7 @@ final class Blake3JNI {
 
   public static final native void blake3_hasher_update(long self, byte[] input, int input_len);
 
-  public static final native void blake3_hasher_finalize_and_close(
+  public static final native void blake3_hasher_finalize_and_reset(
       long self, byte[] out, int out_len);
 
   public static final native void oneshot(byte[] input, int input_len, byte[] out, int out_len);

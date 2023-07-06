@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.Converters.BooleanConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -43,6 +44,15 @@ public final class BazelRulesModule extends BlazeModule {
    */
   @SuppressWarnings("deprecation") // These fields have no JavaDoc by design
   public static class BuildGraveyardOptions extends OptionsBase {
+    @Option(
+        name = "experimental_skyframe_prepare_analysis",
+        deprecationWarning = "This flag is a no-op and will be deleted in a future release.",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+        help = "Deprecated. No-op.")
+    public boolean skyframePrepareAnalysis;
+
     @Option(
         name = "incompatible_use_platforms_repo_for_constraints",
         defaultValue = "true",
@@ -403,6 +413,96 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
         help = "Deprecated no-op.")
     public boolean showArtifacts;
+
+    @Option(
+        name = "announce",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help = "Deprecated. No-op.",
+        deprecationWarning = "This option is now deprecated and is a no-op")
+    public boolean announce;
+
+    @Option(
+        name = "print_workspace_in_output_paths_if_needed",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+        help = "Deprecated no-op.")
+    public boolean printWorkspaceInOutputPathsIfNeeded;
+
+    @Option(
+        name = "experimental_multi_cpu",
+        deprecationWarning = "This flag is a no-op and will be deleted in a future release.",
+        converter = Converters.CommaSeparatedOptionListConverter.class,
+        allowMultiple = true,
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+        help = "Deprecated. No-op.")
+    public List<String> multiCpus;
+
+    @Option(
+        name = "action_cache_store_output_metadata",
+        oldName = "experimental_action_cache_store_output_metadata",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+          OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
+        },
+        help = "no-op")
+    public boolean actionCacheStoreOutputMetadata;
+
+    @Option(
+        name = "discard_actions_after_execution",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
+        help = "This option is deprecated and has no effect.")
+    public boolean discardActionsAfterExecution;
+
+    @Option(
+        name = "defer_param_files",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+          OptionEffectTag.EXECUTION,
+          OptionEffectTag.ACTION_COMMAND_LINES
+        },
+        help = "This option is deprecated and has no effect and will be removed in the future.")
+    public boolean deferParamFiles;
+
+    @Option(
+        name = "experimental_throttle_action_cache_check",
+        defaultValue = "true",
+        converter = BooleanConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        metadataTags = OptionMetadataTag.EXPERIMENTAL,
+        effectTags = {OptionEffectTag.EXECUTION},
+        help = "no-op")
+    public boolean throttleActionCacheCheck;
+
+    @Option(
+        name = "check_fileset_dependencies_recursively",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        deprecationWarning =
+            "This flag is a no-op and fileset dependencies are always checked "
+                + "to ensure correctness of builds.",
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS})
+    public boolean checkFilesetDependenciesRecursively;
+
+    @Option(
+        name = "experimental_skyframe_native_filesets",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+        deprecationWarning = "This flag is a no-op and skyframe-native-filesets is always true.")
+    public boolean skyframeNativeFileset;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */

@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.starlark.UnresolvedSymlinkAction;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -79,7 +80,6 @@ public class ActionGraphDump {
       boolean includeArtifacts,
       AqueryActionFilter actionFilters,
       boolean includeParamFiles,
-      boolean deduplicateDepsets,
       boolean includeFileWriteContents,
       AqueryOutputHandler aqueryOutputHandler,
       ExtendedEventHandler eventHandler) {
@@ -89,7 +89,6 @@ public class ActionGraphDump {
         includeArtifacts,
         actionFilters,
         includeParamFiles,
-        deduplicateDepsets,
         includeFileWriteContents,
         aqueryOutputHandler,
         eventHandler);
@@ -101,7 +100,6 @@ public class ActionGraphDump {
       boolean includeArtifacts,
       AqueryActionFilter actionFilters,
       boolean includeParamFiles,
-      boolean deduplicateDepsets,
       boolean includeFileWriteContents,
       AqueryOutputHandler aqueryOutputHandler,
       ExtendedEventHandler eventHandler) {
@@ -117,7 +115,7 @@ public class ActionGraphDump {
     KnownRuleClassStrings knownRuleClassStrings = new KnownRuleClassStrings(aqueryOutputHandler);
     knownArtifacts = new KnownArtifacts(aqueryOutputHandler);
     knownConfigurations = new KnownConfigurations(aqueryOutputHandler);
-    knownNestedSets = new KnownNestedSets(aqueryOutputHandler, knownArtifacts, deduplicateDepsets);
+    knownNestedSets = new KnownNestedSets(aqueryOutputHandler, knownArtifacts);
     knownAspectDescriptors = new KnownAspectDescriptors(aqueryOutputHandler);
     knownTargets = new KnownTargets(aqueryOutputHandler, knownRuleClassStrings);
   }
@@ -202,6 +200,11 @@ public class ActionGraphDump {
       String contents =
           ((AbstractFileWriteAction.FileContentsProvider) action).getFileContents(eventHandler);
       actionBuilder.setFileContents(contents);
+    }
+
+    if (action instanceof UnresolvedSymlinkAction) {
+      actionBuilder.setUnresolvedSymlinkTarget(
+          ((UnresolvedSymlinkAction) action).getTarget().toString());
     }
 
     // Include the content of param files in output.

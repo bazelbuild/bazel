@@ -16,7 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "external/blake3/c/blake3.h"
+#include "c/blake3.h"
 
 namespace blaze_jni {
 
@@ -80,15 +80,14 @@ Java_com_google_devtools_build_lib_vfs_bazel_Blake3JNI_oneshot(
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_vfs_bazel_Blake3JNI_blake3_1hasher_1finalize_1and_1close(
+Java_com_google_devtools_build_lib_vfs_bazel_Blake3JNI_blake3_1hasher_1finalize_1and_1reset(
     JNIEnv *env, jobject obj, jlong self, jbyteArray out, jint out_len) {
   blake3_hasher *hasher = hasher_ptr(self);
 
   jbyte *out_addr = get_byte_array(env, out);
   blake3_hasher_finalize(hasher, (uint8_t *)out_addr, out_len);
   release_byte_array(env, out, out_addr);
-
-  delete hasher;
+  blake3_hasher_reset(hasher);
 }
 
 } // namespace blaze_jni

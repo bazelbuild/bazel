@@ -460,11 +460,7 @@ public class BuildRequest implements OptionsProvider {
 
   private OutputGroupInfo.ValidationMode validationMode() {
     BuildRequestOptions buildOptions = getBuildOptions();
-    // "and" these together so that --noexperimental_run_validation and --norun_validations work
-    // as expected.
-    boolean runValidationActions =
-        buildOptions.runValidationActions && buildOptions.experimentalRunValidationActions;
-    if (!runValidationActions) {
+    if (!buildOptions.runValidationActions) {
       return OutputGroupInfo.ValidationMode.OFF;
     }
     return buildOptions.useValidationAspect

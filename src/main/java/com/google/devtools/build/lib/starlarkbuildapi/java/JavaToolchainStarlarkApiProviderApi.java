@@ -85,6 +85,12 @@ public interface JavaToolchainStarlarkApiProviderApi extends StructApi {
   Depset getStarlarkJvmOptions();
 
   @StarlarkMethod(
+      name = "ijar",
+      doc = "A FilesToRunProvider representing the ijar executable.",
+      structField = true)
+  FilesToRunProviderApi<?> getIjar();
+
+  @StarlarkMethod(
       name = "jacocorunner",
       doc = "The jacocorunner used by the toolchain.",
       structField = true,

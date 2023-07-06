@@ -288,19 +288,35 @@ def _test_providers(ctx):
 
     return test_providers
 
-def _create_single_jar(ctx, output, *input_depsets):
-    """Register action for the output jar.
+def _resource_mapper(file):
+    return "%s:%s" % (
+        file.path,
+        semantics.get_default_resource_path(file.short_path, segment_extractor = _java_segments),
+    )
+
+def _create_single_jar(
+        actions,
+        toolchain,
+        output,
+        sources = depset(),
+        resources = depset(),
+        mnemonic = "JavaSingleJar",
+        progress_message = "Building singlejar jar %{output}"):
+    """Register singlejar action for the output jar.
 
     Args:
-      ctx: (RuleContext) Used to register the action.
-      output: (Artifact) Output file of the action.
-      *input_depsets: (list[depset[Artifact]]) Input files of the action.
+      actions: (actions) ctx.actions
+      toolchain: (JavaToolchainInfo) The java toolchain
+      output: (File) Output file of the action.
+      sources: (depset[File]) The jar files to merge into the output jar.
+      resources: (depset[File]) The files to add to the output jar.
+      mnemonic: (str) The action identifier
+      progress_message: (str) The action progress message
 
     Returns:
       (File) Output file which was used for registering the action.
     """
-    toolchain = semantics.find_java_toolchain(ctx)
-    args = ctx.actions.args()
+    args = actions.args()
     args.set_param_file_format("shell").use_param_file("@%s", use_always = True)
     args.add("--output", output)
     args.add_all(
@@ -311,15 +327,15 @@ def _create_single_jar(ctx, output, *input_depsets):
             "--warn_duplicate_resources",
         ],
     )
-    all_inputs = depset(transitive = input_depsets)
-    args.add_all("--sources", all_inputs)
 
-    ctx.actions.run(
-        mnemonic = "JavaSingleJar",
-        progress_message = "Building singlejar jar %s" % output.short_path,
+    args.add_all("--sources", sources)
+    args.add_all("--resources", resources, map_each = _resource_mapper)
+    actions.run(
+        mnemonic = mnemonic,
+        progress_message = progress_message,
         executable = toolchain.single_jar,
         toolchain = semantics.JAVA_TOOLCHAIN_TYPE,
-        inputs = all_inputs,
+        inputs = depset(transitive = [resources, sources]),
         tools = [toolchain.single_jar],
         outputs = [output],
         arguments = [args],

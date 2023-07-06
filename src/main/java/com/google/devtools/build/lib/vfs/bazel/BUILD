@@ -19,7 +19,6 @@ java_library(
         ],
     ),
     deps = [
-	"//src/main/java/com/google/devtools/build/lib:runtime",
 	"//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/vfs",

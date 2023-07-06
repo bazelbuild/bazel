@@ -34,11 +34,9 @@ java_library(
 java_test(
     name = "BazelTests",
     size = "small",
-    tags = ["no_windows"],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":BazelTests_lib",
         "//src/test/java/com/google/devtools/build/lib:test_runner",
     ],
 )
-

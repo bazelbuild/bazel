@@ -135,7 +135,7 @@ public final class SpawnActionTest extends BuildViewTestCase {
             Label.parseCanonicalUnchecked("//target"),
             new Location("dummy-file", 0, 0),
             /* targetKind= */ "dummy-kind",
-            /* mnemonic= */ "dummy-configuration-mnemonic",
+            /* buildConfigurationMnemonic= */ "dummy-configuration-mnemonic",
             /* configurationChecksum= */ "dummy-configuration",
             new BuildConfigurationEvent(
                 BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
@@ -231,7 +231,7 @@ public final class SpawnActionTest extends BuildViewTestCase {
 
   @Test
   public void testBuilderWithJarExecutableAndParameterFile2() throws Exception {
-    useConfiguration("--min_param_file_size=0", "--defer_param_files");
+    useConfiguration("--min_param_file_size=0");
     collectingAnalysisEnvironment =
         new AnalysisTestUtil.CollectingAnalysisEnvironment(getTestAnalysisEnvironment());
     Artifact output = getBinArtifactWithNoOwner("output");
@@ -317,27 +317,6 @@ public final class SpawnActionTest extends BuildViewTestCase {
             .addCommandLine(CommandLine.of(ImmutableList.of("arg1")))
             .addCommandLine(CommandLine.of(ImmutableList.of("arg2")))
             .build(nullOwnerWithTargetConfig(), targetConfig);
-    assertThat(action.getArguments()).containsExactly("/bin/xxx", "arg1", "arg2").inOrder();
-  }
-
-  @Test
-  public void testGetArgumentsWithParameterFiles() throws Exception {
-    useConfiguration("--min_param_file_size=0", "--nodefer_param_files");
-    Artifact input = getSourceArtifact("input");
-    Artifact output = getBinArtifactWithNoOwner("output");
-    SpawnAction action =
-        builder()
-            .addInput(input)
-            .addOutput(output)
-            .setExecutable(scratch.file("/bin/xxx").asFragment())
-            .addCommandLine(
-                CommandLine.of(ImmutableList.of("arg1")),
-                ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
-            .addCommandLine(
-                CommandLine.of(ImmutableList.of("arg2")),
-                ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
-            .build(nullOwnerWithTargetConfig(), targetConfig);
-    // getArguments returns all arguments, regardless whether some go in parameter files or not
     assertThat(action.getArguments()).containsExactly("/bin/xxx", "arg1", "arg2").inOrder();
   }
 

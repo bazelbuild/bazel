@@ -23,6 +23,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaInfo.JavaInfoInternalProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
@@ -36,6 +37,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 
 /** Provides information about jar files produced by a Java rule. */
@@ -305,11 +307,27 @@ public final class JavaRuleOutputJarsProvider
     }
   }
 
-  static JavaRuleOutputJarsProvider fromStarlarkJavaInfo(StructImpl javaInfo) throws EvalException {
-    Sequence<?> outputs = javaInfo.getValue("java_outputs", StarlarkList.class);
+  /**
+   * Translates the {@code outputs} field of a {@link JavaInfo} instance into a native {@link
+   * JavaRuleOutputJarsProvider} instance.
+   *
+   * @param javaInfo the {@link JavaInfo} instance
+   * @return a {@link JavaRuleOutputJarsProvider} instance
+   * @throws EvalException if there are any errors accessing Starlark values
+   * @throws RuleErrorException if any of the {@code output} instances are of incompatible type
+   */
+  static JavaRuleOutputJarsProvider fromStarlarkJavaInfo(StructImpl javaInfo)
+      throws EvalException, RuleErrorException {
     JavaRuleOutputJarsProvider.Builder builder = JavaRuleOutputJarsProvider.builder();
-    for (StructImpl output : Sequence.cast(outputs, StructImpl.class, "outputs")) {
-      builder.addJavaOutput(JavaOutput.fromStarlarkJavaOutput(output));
+    for (Object output :
+        Sequence.cast(javaInfo.getValue("java_outputs"), Object.class, "outputs")) {
+      if (output instanceof JavaOutput) {
+        builder.addJavaOutput((JavaOutput) output);
+      } else if (output instanceof StructImpl) {
+        builder.addJavaOutput(JavaOutput.fromStarlarkJavaOutput((StructImpl) output));
+      } else {
+        throw new RuleErrorException("expected JavaOutput, got: " + Starlark.type(output));
+      }
     }
     return builder.build();
   }

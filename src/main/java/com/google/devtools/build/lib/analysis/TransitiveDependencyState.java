@@ -62,7 +62,7 @@ public final class TransitiveDependencyState {
    *
    * <p>More ideally, those properties would be conveyed via providers of those dependencies, but
    * doing so would adversely affect resting heap usage whereas {@link ConfiguredTargetAndData} is
-   * ephemeral. Distributed implementations will include these properties in an extra providers. It
+   * ephemeral. Distributed implementations will include these properties in an extra provider. It
    * won't affect memory because the underlying package won't exist on the node loading it remotely.
    *
    * <p>It's valid to obtain {@link Package}s of dependencies from this map instead of creating an

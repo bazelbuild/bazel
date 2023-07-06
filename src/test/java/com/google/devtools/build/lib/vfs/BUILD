@@ -11,6 +11,7 @@ filegroup(
     testonly = 0,
     srcs = glob(["**"]) + [
         "//src/test/java/com/google/devtools/build/lib/vfs/util:srcs",
+        "//src/test/java/com/google/devtools/build/lib/vfs/bazel:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )
