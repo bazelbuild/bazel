@@ -22,7 +22,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
@@ -42,13 +41,11 @@ import com.google.devtools.build.lib.packages.StarlarkInfoWithSchema;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
-import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaToolchainStarlarkApiProviderApi;
-import java.util.LinkedHashSet;
 import java.util.Objects;
-import java.util.Set;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Sequence;
@@ -294,14 +291,13 @@ public class JavaStarlarkCommon
   }
 
   @Override
-  public Sequence<String> collectNativeLibsDirs(
-      Sequence<? extends TransitiveInfoCollectionApi> deps, StarlarkThread thread)
-      throws EvalException, RuleErrorException {
+  public Sequence<String> collectNativeLibsDirs(Depset libraries, StarlarkThread thread)
+      throws EvalException, TypeException {
     checkPrivateAccess(thread);
-    ImmutableList<Artifact> nativeLibs =
-        JavaCommon.collectNativeLibraries(
-                Sequence.cast(deps, TransitiveInfoCollection.class, "deps"))
-            .stream()
+    ImmutableList<Artifact> nativeLibraries =
+        LibraryToLink.getDynamicLibrariesForLinking(libraries.getSet(LibraryToLink.class));
+    ImmutableList<String> uniqueDirs =
+        nativeLibraries.stream()
             .filter(
                 nativeLibrary -> {
                   String name = nativeLibrary.getFilename();
@@ -315,12 +311,9 @@ public class JavaStarlarkCommon
                   }
                   return true;
                 })
+            .map(artifact -> artifact.getRootRelativePath().getParentDirectory().getPathString())
+            .distinct()
             .collect(toImmutableList());
-
-    Set<String> uniqueDirs = new LinkedHashSet<>();
-    for (Artifact nativeLib : nativeLibs) {
-      uniqueDirs.add(nativeLib.getRootRelativePath().getParentDirectory().getPathString());
-    }
     return StarlarkList.immutableCopyOf(uniqueDirs);
   }
 

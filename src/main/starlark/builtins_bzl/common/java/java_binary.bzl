@@ -162,7 +162,13 @@ def basic_java_binary(
 
     jvm_flags.extend(launcher_info.jvm_flags)
 
-    native_libs_dirs = collect_native_deps_dirs(runtime_deps)
+    native_libs_depsets = []
+    for dep in runtime_deps:
+        if JavaInfo in dep:
+            native_libs_depsets.append(dep[JavaInfo].transitive_native_libraries)
+        if CcInfo in dep:
+            native_libs_depsets.append(dep[CcInfo].transitive_native_libraries())
+    native_libs_dirs = collect_native_deps_dirs(depset(transitive = native_libs_depsets))
     if native_libs_dirs:
         prefix = "${JAVA_RUNFILES}/" + ctx.workspace_name + "/"
         jvm_flags.append("-Djava.library.path=%s" % (

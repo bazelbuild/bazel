@@ -42,8 +42,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
-import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryInfo;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
@@ -110,27 +108,6 @@ public class JavaCommon {
             ClasspathType.COMPILE_ONLY, compileDeps,
             ClasspathType.RUNTIME_ONLY, runtimeDeps,
             ClasspathType.BOTH, bothDeps);
-  }
-
-  /**
-   * Collects the native libraries in the transitive closure of the deps.
-   *
-   * @param deps the dependencies to be included as roots of the transitive closure.
-   * @return the native libraries found in the transitive closure of the deps.
-   */
-  public static ImmutableList<Artifact> collectNativeLibraries(
-      Collection<? extends TransitiveInfoCollection> deps) throws RuleErrorException {
-    NestedSet<LibraryToLink> linkerInputs =
-        NestedSetBuilder.fromNestedSets(
-                Streams.concat(
-                        JavaInfo.transitiveCcNativeLibraries(deps).stream(),
-                        AnalysisUtils.getProviders(deps, CcInfo.PROVIDER).stream()
-                            .map(CcInfo::getCcNativeLibraryInfo)
-                            .map(CcNativeLibraryInfo::getTransitiveCcNativeLibraries))
-                    .collect(toImmutableList()))
-            .build();
-
-    return LibraryToLink.getDynamicLibrariesForLinking(linkerInputs);
   }
 
   public JavaSemantics getJavaSemantics() {

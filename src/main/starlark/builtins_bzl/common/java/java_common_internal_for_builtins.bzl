@@ -204,16 +204,16 @@ def get_build_info(ctx, is_stamping_enabled):
     """
     return _java_common_internal.get_build_info(ctx, is_stamping_enabled)
 
-def collect_native_deps_dirs(deps):
+def collect_native_deps_dirs(libraries):
     """Collect the set of root-relative paths containing native libraries
 
     Args:
-        deps: [Target] list of targets
+        libraries: (depset[LibraryToLink]) set of native libraries
 
     Returns:
         ([String]) A set of root-relative paths as a list
     """
-    return _java_common_internal.collect_native_deps_dirs(deps)
+    return _java_common_internal.collect_native_deps_dirs(libraries)
 
 def get_runtime_classpath_for_archive(jars, excluded_jars):
     """Filters a classpath to remove certain entries
