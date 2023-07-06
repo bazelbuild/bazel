@@ -28,7 +28,7 @@ import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 @GenerateTypeAdapter
 public abstract class LockFileModuleExtension implements Postable {
 
-  @SuppressWarnings("AutoValueImmutableFields")
+  @SuppressWarnings("mutable")
   public abstract byte[] getBzlTransitiveDigest();
 
   public abstract ImmutableMap<String, RepoSpec> getGeneratedRepoSpecs();
