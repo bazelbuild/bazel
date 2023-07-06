@@ -26,18 +26,20 @@
 # Load the test setup defined in the parent directory
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+source "${CURRENT_DIR}/../../integration_test_setup.sh" \
+  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
+
 source "${CURRENT_DIR}/android_helper.sh" \
   || { echo "android_helper.sh not found!" >&2; exit 1; }
 fail_if_no_android_sdk
 
-source "${CURRENT_DIR}/../../integration_test_setup.sh" \
-  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
-
 resolve_android_toolchains "$1"
 
-function test_DexFileSplitter_synthetic_classes_crossing_dexfiles() {
-  create_new_workspace
-  setup_android_sdk_support
+function create_test_app() {
+
+  inner_class_count="$1"
+  lambda_count="$2"
+  dex_shard_count="$3"
 
   mkdir -p java/com/testapp
 
@@ -81,7 +83,7 @@ public class MainActivity extends Activity {
 }
 EOF
 
-  generate_java_file_with_many_synthetic_classes > java/com/testapp/BigLib.java
+  generate_java_file_with_many_synthetic_classes "$1" "$2" > java/com/testapp/BigLib.java
 
   cat > java/com/testapp/BUILD <<EOF
 android_binary(
@@ -90,26 +92,22 @@ android_binary(
         "MainActivity.java",
         ":BigLib.java",
     ],
+    dex_shards = $dex_shard_count,
     manifest = "AndroidManifest.xml",
 )
 EOF
-
-  bazel build java/com/testapp || fail "Test app should have built succesfully"
-
-  dex_file_count=$(unzip -l bazel-bin/java/com/testapp/testapp.apk | grep "classes[0-9]*.dex" | wc -l)
-  if [[ ! "$dex_file_count" -ge "2" ]]; then
-    echo "Expected at least 2 dexes in app, found: $dex_file_count"
-    exit 1
-  fi
 }
 
-
 function generate_java_file_with_many_synthetic_classes() {
+
+  inner_class_count="$1"
+  lambda_count="$2"
+
   echo "package com.testapp;"
   echo "public class BigLib {"
 
   # First generate enough inner classes to fill up most of the dex
-  for (( i = 0; i < 21400; i++ )) do
+  for (( i = 0; i < $inner_class_count; i++ )) do
 
     echo "  public static class Bar$i {"
     echo "    public int bar() {"
@@ -129,7 +127,7 @@ function generate_java_file_with_many_synthetic_classes() {
   echo "    public IntSupplier[] foo() {"
   echo "      return new IntSupplier[] {"
 
-  for ((i = 0; i < 6000; i++ )) do
+  for ((i = 0; i < $lambda_count; i++ )) do
     echo "        () -> $i,"
   done
 
@@ -137,6 +135,44 @@ function generate_java_file_with_many_synthetic_classes() {
   echo "    }"
   echo "  }"
   echo "}"
+}
+
+function test_DexFileSplitter_synthetic_classes_crossing_dexfiles() {
+  create_new_workspace
+  setup_android_sdk_support
+
+  # dex_shards default is 1
+  create_test_app 21400 6000 1
+
+  bazel build java/com/testapp || fail "Test app should have built succesfully"
+
+  dex_file_count=$(unzip -l bazel-bin/java/com/testapp/testapp.apk | grep "classes[0-9]*.dex" | wc -l)
+  if [[ ! "$dex_file_count" -ge "2" ]]; then
+    echo "Expected at least 2 dexes in app, found: $dex_file_count"
+    exit 1
+  fi
+}
+
+function test_DexMapper_synthetic_classes_crossing_dexfiles() {
+  create_new_workspace
+  setup_android_sdk_support
+
+  # 3 inner classes, 6 lambdas (and thus 6 synthetics from D8) and 5 dex_shards
+  # is one magic combination to repro synthetics being separated from their
+  # context / enclosing classes.
+  create_test_app 3 6 5
+
+  echo here2
+  echo $TEST_TMPDIR/bazelrc
+  cat $TEST_TMPDIR/bazelrc
+
+  bazel build java/com/testapp || fail "Test app should have built succesfully"
+
+  dex_file_count=$(unzip -l bazel-bin/java/com/testapp/testapp.apk | grep "classes[0-9]*.dex" | wc -l)
+  if [[ ! "$dex_file_count" -eq "5" ]]; then
+    echo "Expected 5 dexes in app, found: $dex_file_count"
+    exit 1
+  fi
 }
 
 run_suite "Tests for DexFileSplitter with synthetic classes crossing dexfiles"
