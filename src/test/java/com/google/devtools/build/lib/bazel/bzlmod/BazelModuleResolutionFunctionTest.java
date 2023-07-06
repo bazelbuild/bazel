@@ -130,7 +130,7 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
         differencer, CheckDirectDepsMode.OFF);
     BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE.set(
         differencer, BazelCompatibilityMode.ERROR);
-    BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.OFF);
+    BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.UPDATE);
     BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
   }
 
@@ -291,8 +291,7 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
   @Test
   public void testYankedVersionCheckIgnoredBySpecific() throws Exception {
     setupModulesForYankedVersion();
-    BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.set(
-        differencer, ImmutableList.of("b@1.0"));
+    BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of("b@1.0"));
     EvaluationResult<BazelModuleResolutionValue> result =
         evaluator.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
     assertThat(result.hasError()).isFalse();
@@ -301,8 +300,7 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
   @Test
   public void testBadYankedVersionFormat() throws Exception {
     setupModulesForYankedVersion();
-    BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.set(
-        differencer, ImmutableList.of("b~1.0"));
+    BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of("b~1.0"));
     EvaluationResult<BazelModuleResolutionValue> result =
         evaluator.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
     assertThat(result.hasError()).isTrue();

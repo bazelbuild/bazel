@@ -56,9 +56,16 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
             BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING),
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE, BazelCompatibilityMode.ERROR),
-        PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.OFF),
-        PrecomputedValue.injected(
-            BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS, ImmutableList.of()));
+        PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.UPDATE),
+        PrecomputedValue.injected(BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS, ImmutableList.of()));
+  }
+
+  @Override
+  protected SkyframeExecutorRepositoryHelpersHolder getRepositoryHelpersHolder() {
+    // Transitive packages are needed for RepoMappingManifestAction and are only stored when
+    // external repositories are enabled.
+    return SkyframeExecutorRepositoryHelpersHolder.create(
+        new RepositoryDirectoryDirtinessChecker());
   }
 
   @Before
