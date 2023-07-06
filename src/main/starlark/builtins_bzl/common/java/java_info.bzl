@@ -18,7 +18,6 @@ Definition of JavaInfo and JavaPluginInfo provider.
 
 load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_info.bzl", "CcInfo")
-load(":common/java/java_common_internal_for_builtins.bzl", _merge_private_for_builtins = "merge")
 
 # TODO(hvd): remove this when:
 # - we have a general provider-type checking API
@@ -87,6 +86,27 @@ _EMPTY_COMPILATION_INFO = _JavaCompilationInfo(
     boot_classpath = None,
     javac_options = [],
 )
+
+def merge(
+        providers,
+        # private to @_builtins:
+        merge_java_outputs = True,
+        merge_source_jars = True):
+    """Merges the given providers into a single JavaInfo.
+
+    Args:
+        providers: ([JavaInfo]) The list of providers to merge.
+        merge_java_outputs: (bool)
+        merge_source_jars: (bool)
+
+    Returns:
+        (JavaInfo) The merged JavaInfo
+    """
+    return _java_common_internal.merge(
+        providers,
+        merge_java_outputs = merge_java_outputs,
+        merge_source_jars = merge_source_jars,
+    )
 
 def to_java_binary_info(java_info):
     """Get a copy of the given JavaInfo with minimal info returned by a java_binary
@@ -567,8 +587,7 @@ def _javaplugininfo_init(
         (JavaPluginInfo)
     """
 
-    # we don't need the private API but java_common needs JavaPluginInfo which would be a cycle
-    java_infos = _merge_private_for_builtins(runtime_deps)
+    java_infos = merge(runtime_deps)
     processor_data = data if type(data) == "depset" else depset(data)
     plugins = _JavaPluginDataInfo(
         processor_classes = depset([processor_class]) if processor_class else depset(),

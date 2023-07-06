@@ -176,27 +176,6 @@ def run_ijar(
     )
     return output
 
-def merge(
-        providers,
-        # private to @_builtins:
-        merge_java_outputs = True,
-        merge_source_jars = True):
-    """Merges the given providers into a single JavaInfo.
-
-    Args:
-        providers: ([JavaInfo]) The list of providers to merge.
-        merge_java_outputs: (bool)
-        merge_source_jars: (bool)
-
-    Returns:
-        (JavaInfo) The merged JavaInfo
-    """
-    return _java_common_internal.merge(
-        providers,
-        merge_java_outputs = merge_java_outputs,
-        merge_source_jars = merge_source_jars,
-    )
-
 def target_kind(target, dereference_aliases = False):
     """Get the rule class string for a target
 

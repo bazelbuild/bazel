@@ -20,10 +20,11 @@ load(
     "JavaPluginInfo",
     _java_info_add_constraints = "add_constraints",
     _java_info_make_non_strict = "make_non_strict",
+    _java_info_merge = "merge",
     _java_info_set_annotation_processing = "set_annotation_processing",
 )
 load(":common/java/message_bundle_info.bzl", "MessageBundleInfo")
-load(":common/java/java_common_internal_for_builtins.bzl", "compile", "merge", "run_ijar")
+load(":common/java/java_common_internal_for_builtins.bzl", "compile", "run_ijar")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/paths.bzl", "paths")
 load(":common/java/java_helper.bzl", "helper")
@@ -165,7 +166,15 @@ def _default_javac_opts(java_toolchain):
     return _java_common_internal.default_javac_opts(java_toolchain = java_toolchain)
 
 def _merge(providers):
-    return merge(providers)
+    """Merges the given providers into a single JavaInfo.
+
+    Args:
+        providers: ([JavaInfo]) The list of providers to merge.
+
+    Returns:
+        (JavaInfo) The merged JavaInfo
+    """
+    return _java_info_merge(providers)
 
 def _make_non_strict(java_info):
     """Returns a new JavaInfo instance whose direct-jars part is the union of both the direct and indirect jars of the given Java provider.

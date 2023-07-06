@@ -17,11 +17,10 @@
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/proto/proto_common.bzl", "ProtoLangToolchainInfo", proto_common = "proto_common_do_not_use")
 load(":common/proto/proto_info.bzl", "ProtoInfo")
-load(":common/java/java_info.bzl", "JavaInfo")
+load(":common/java/java_info.bzl", "JavaInfo", _merge_private_for_builtins = "merge")
 load(
     ":common/java/java_common_internal_for_builtins.bzl",
     _compile_private_for_builtins = "compile",
-    _merge_private_for_builtins = "merge",
 )
 
 # The provider is used to collect source and runtime jars in the `proto_library` dependency graph.
