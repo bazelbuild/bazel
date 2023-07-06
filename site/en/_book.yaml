@@ -125,6 +125,21 @@ upper_tabs:
         path: /run/scripts
       - title: Client/server implementation
         path: /run/client-server
+      - heading: External dependencies
+      - title: Overview
+        path: /external/overview
+      - title: Bazel modules
+        path: /external/module
+      - title: Bazel registries
+        path: /external/registry
+      - title: Module extensions
+        path: /external/extension
+      - title: Module lockfile
+        path: /external/lockfile
+      - title: Bzlmod migration guide
+        path: /external/migration
+      - title: Advanced topics
+        path: /external/advanced
       - heading: Querying your build
       - title: Query quickstart
         path: /query/quickstart
