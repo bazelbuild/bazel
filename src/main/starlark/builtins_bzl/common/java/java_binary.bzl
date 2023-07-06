@@ -22,8 +22,7 @@ load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 load(":common/proto/proto_info.bzl", "ProtoInfo")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/paths.bzl", "paths")
-load(":common/java/java_info.bzl", "JavaInfo", "to_java_binary_info")
-load(":common/java/java_plugin_info.bzl", "JavaPluginInfo")
+load(":common/java/java_info.bzl", "JavaInfo", "JavaPluginInfo", "to_java_binary_info")
 load(":common/java/java_common.bzl", "java_common")
 load(
     ":common/java/java_common_internal_for_builtins.bzl",

@@ -17,13 +17,13 @@
 load(
     ":common/java/java_info.bzl",
     "JavaInfo",
+    "JavaPluginInfo",
     _java_info_add_constraints = "add_constraints",
     _java_info_make_non_strict = "make_non_strict",
     _java_info_set_annotation_processing = "set_annotation_processing",
 )
 load(":common/java/message_bundle_info.bzl", "MessageBundleInfo")
 load(":common/java/java_common_internal_for_builtins.bzl", "compile", "merge", "run_ijar")
-load(":common/java/java_plugin_info.bzl", "JavaPluginInfo")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/paths.bzl", "paths")
 load(":common/java/java_helper.bzl", "helper")
