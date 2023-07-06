@@ -193,6 +193,53 @@ def make_non_strict(java_info):
     )
     return _new_javainfo(**result)
 
+def set_annotation_processing(
+        java_info,
+        enabled = False,
+        processor_classnames = [],
+        processor_classpath = None,
+        class_jar = None,
+        source_jar = None):
+    """Returns a copy of the given JavaInfo with the given annotation_processing info.
+
+    Args:
+        java_info: (JavaInfo) The JavaInfo to enhance.
+        enabled: (bool) Whether the rule uses annotation processing.
+        processor_classnames: ([str]) Class names of annotation processors applied.
+        processor_classpath: (depset[File]) Class names of annotation processors applied.
+        class_jar: (File) Optional. Jar that is the result of annotation processing.
+        source_jar: (File) Optional. Source archive resulting from annotation processing.
+
+    Returns:
+        (JavaInfo)
+    """
+    gen_jars_info = java_info.annotation_processing
+    if gen_jars_info:
+        # Existing Jars would be a problem b/c we can't remove them from transitiveXxx sets
+        if gen_jars_info.class_jar and gen_jars_info.class_jar != class_jar:
+            fail("Existing gen_class_jar:", gen_jars_info.class_jar)
+        if gen_jars_info.source_jar and gen_jars_info.source_jar != source_jar:
+            fail("Existing gen_source_jar:", gen_jars_info.class_jar)
+        transitive_class_jars = depset([class_jar] if class_jar else [], transitive = [gen_jars_info.transitive_class_jars])
+        transitive_source_jars = depset([source_jar] if source_jar else [], transitive = [gen_jars_info.transitive_source_jars])
+    else:
+        transitive_class_jars = depset([class_jar] if class_jar else [])
+        transitive_source_jars = depset([source_jar] if source_jar else [])
+
+    result = _to_mutable_dict(java_info)
+    result.update(
+        annotation_processing = _JavaGenJarsInfo(
+            enabled = enabled,
+            class_jar = class_jar,
+            source_jar = source_jar,
+            processor_classnames = processor_classnames,
+            processor_classpath = processor_classpath if processor_classpath else depset(),
+            transitive_class_jars = transitive_class_jars,
+            transitive_source_jars = transitive_source_jars,
+        ),
+    )
+    return _new_javainfo(**result)
+
 def _validate_provider_list(provider_list, what, expected_provider_type):
     _java_common_internal.check_provider_instances(provider_list, what, expected_provider_type)
 

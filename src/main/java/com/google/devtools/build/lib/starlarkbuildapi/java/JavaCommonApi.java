@@ -19,7 +19,6 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
-import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
@@ -375,69 +374,6 @@ public interface JavaCommonApi<
               + "runtime being used.",
       structField = true)
   ProviderApi getJavaRuntimeProvider();
-
-  @StarlarkMethod(
-      name = "set_annotation_processing",
-      doc = "Returns a copy of the given JavaInfo with the given annotation_processing info.",
-      parameters = {
-        @Param(
-            name = "java_info",
-            positional = true,
-            named = false,
-            doc = "The JavaInfo to enhance."),
-        @Param(
-            name = "enabled",
-            named = true,
-            positional = false,
-            defaultValue = "False",
-            doc = "Returns true if the rule uses annotation processing."),
-        @Param(
-            name = "processor_classnames",
-            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
-            named = true,
-            positional = false,
-            defaultValue = "[]",
-            doc = "Class names of annotation processors applied to this rule."),
-        @Param(
-            name = "processor_classpath",
-            allowedTypes = {
-              @ParamType(type = Depset.class),
-              @ParamType(type = NoneType.class),
-            },
-            named = true,
-            positional = false,
-            defaultValue = "None",
-            doc = "Class names of annotation processors applied to this rule."),
-        @Param(
-            name = "class_jar",
-            allowedTypes = {
-              @ParamType(type = FileApi.class),
-              @ParamType(type = NoneType.class),
-            },
-            named = true,
-            positional = false,
-            defaultValue = "None",
-            doc = "Jar file that is the result of annotation processing for this rule, or None."),
-        @Param(
-            name = "source_jar",
-            allowedTypes = {
-              @ParamType(type = FileApi.class),
-              @ParamType(type = NoneType.class),
-            },
-            named = true,
-            positional = false,
-            defaultValue = "None",
-            doc = "Source archive resulting from annotation processing of this rule, or None."),
-      },
-      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
-  JavaInfoT setAnnotationProcessing(
-      Info javaInfo,
-      boolean enabled,
-      Sequence<?> processorClassnames /* <String> expected. */,
-      Object processorClasspath,
-      Object classJar,
-      Object sourceJar)
-      throws EvalException, RuleErrorException;
 
   @StarlarkMethod(
       name = "java_toolchain_label",

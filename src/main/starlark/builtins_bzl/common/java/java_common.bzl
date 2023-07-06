@@ -19,6 +19,7 @@ load(
     "JavaInfo",
     _java_info_add_constraints = "add_constraints",
     _java_info_make_non_strict = "make_non_strict",
+    _java_info_set_annotation_processing = "set_annotation_processing",
 )
 load(":common/java/message_bundle_info.bzl", "MessageBundleInfo")
 load(":common/java/java_common_internal_for_builtins.bzl", "compile", "merge", "run_ijar")
@@ -226,7 +227,10 @@ def _set_annotation_processing(
     Returns:
         (JavaInfo)
     """
-    return _java_common_internal.set_annotation_processing(
+    if semantics.IS_BAZEL:
+        return None
+
+    return _java_info_set_annotation_processing(
         java_info,
         enabled = enabled,
         processor_classnames = processor_classnames,
