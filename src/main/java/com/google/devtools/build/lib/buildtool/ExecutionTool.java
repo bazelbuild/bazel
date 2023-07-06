@@ -781,9 +781,19 @@ public class ExecutionTool {
       if (requestedTargetConfigs.size() == 1) {
         // All top-level targets have the same configuration, so use that one.
         targetConfigs = requestedTargetConfigs;
+<<<<<<< HEAD
       } else if (requestedTargetConfigs.contains(configuration)) {
         // Mixed configs but at least one of them includes the top-level config. Set symlinks to the
         // top-level config so at least non-transitioned targets resolve. See
+=======
+      } else if (requestedTargetConfigs.stream()
+          .anyMatch(
+              c -> c.getOutputDirectoryName().equals(configuration.getOutputDirectoryName()))) {
+        // Mixed configs but at least one matches the top-level config's output path (this doesn't
+        // mean it's the same as the top-level config: --trim_test_configuration means non-test
+        // targets use the default output path but lack the top-level config's TestOptions). Set
+        // symlinks to the top-level config so at least non-transitioned targets resolve. See
+>>>>>>> ea02ba53fc (Adjust --top_level_targets_for_symlinks.)
         // https://github.com/bazelbuild/bazel/issues/17081.
         targetConfigs = ImmutableSet.of(configuration);
       } else {
