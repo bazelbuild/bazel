@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaImportBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaPackageConfigurationRule;
-import com.google.devtools.build.lib.rules.java.JavaPluginInfo;
 import com.google.devtools.build.lib.rules.java.JavaPluginsFlagAliasRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaRuntimeBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaToolchainBaseRule;
@@ -86,7 +85,6 @@ public class JavaRules implements RuleSet {
     builder.addStarlarkBootstrap(
         new JavaBootstrap(
             JavaInfo.PROVIDER,
-            JavaPluginInfo.PROVIDER,
             ProguardSpecProvider.PROVIDER));
 
     builder.addStarlarkBuiltinsInternal(

@@ -380,7 +380,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
                         BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
                         BazelCompatibilityMode.ERROR),
                     PrecomputedValue.injected(
-                        BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.OFF)))
+                        BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.UPDATE)))
             .build(ruleClassProvider, fileSystem);
     SkyframeExecutor skyframeExecutor =
         BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
@@ -422,7 +422,8 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
                 PrecomputedValue.injected(
                     BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
                     BazelCompatibilityMode.ERROR))
-            .add(PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.OFF))
+            .add(
+                PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.UPDATE))
             .build());
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     return skyframeExecutor;
