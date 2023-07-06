@@ -81,6 +81,13 @@ _JavaCompilationInfo = provider(
     },
 )
 
+_EMPTY_COMPILATION_INFO = _JavaCompilationInfo(
+    compilation_classpath = depset(),
+    runtime_classpath = depset(),
+    boot_classpath = None,
+    javac_options = [],
+)
+
 def to_java_binary_info(java_info):
     """Get a copy of the given JavaInfo with minimal info returned by a java_binary
 
@@ -112,7 +119,7 @@ def to_java_binary_info(java_info):
         "transitive_source_jars": java_info.transitive_source_jars,
     }
 
-    compilation_info = None
+    compilation_info = _EMPTY_COMPILATION_INFO
     if hasattr(java_info, "compilation_info"):
         compilation_info = java_info.compilation_info
     elif java_info.transitive_compile_time_jars or java_info.transitive_runtime_jars:
