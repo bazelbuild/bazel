@@ -655,7 +655,7 @@ public final class JavaInfo extends NativeInfo
 
   /** Provider class for {@link JavaInfo} objects. */
   public static class JavaInfoProvider extends StarlarkProviderWrapper<JavaInfo>
-      implements JavaInfoProviderApi, com.google.devtools.build.lib.packages.Provider {
+      implements com.google.devtools.build.lib.packages.Provider {
     private JavaInfoProvider() {
       super(Label.parseCanonicalUnchecked("@_builtins//:common/java/java_info.bzl"), STARLARK_NAME);
     }
