@@ -28,7 +28,6 @@ import net.starlark.java.eval.Starlark;
 public class JavaBootstrap implements Bootstrap {
 
   private final JavaInfoProviderApi javaInfoProviderApi;
-  private final JavaPluginInfoApi.Provider<?> javaPluginInfoProviderApi;
   private final ProguardSpecProviderApi.Provider<?> proguardSpecProvider;
   private static final ImmutableSet<PackageIdentifier> allowedRepositories =
       ImmutableSet.of(
@@ -39,10 +38,8 @@ public class JavaBootstrap implements Bootstrap {
 
   public JavaBootstrap(
       JavaInfoProviderApi javaInfoProviderApi,
-      JavaPluginInfoApi.Provider<?> javaPluginInfoProviderApi,
       ProguardSpecProviderApi.Provider<?> proguardSpecProvider) {
     this.javaInfoProviderApi = javaInfoProviderApi;
-    this.javaPluginInfoProviderApi = javaPluginInfoProviderApi;
     this.proguardSpecProvider = proguardSpecProvider;
   }
 
@@ -64,7 +61,7 @@ public class JavaBootstrap implements Bootstrap {
         "JavaPluginInfo",
         ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
             BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
-            javaPluginInfoProviderApi,
+            Starlark.NONE,
             allowedRepositories));
 
     builder.put(
