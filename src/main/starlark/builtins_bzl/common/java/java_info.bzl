@@ -170,6 +170,29 @@ def add_constraints(java_info, constraints = []):
     )
     return _new_javainfo(**result)
 
+def make_non_strict(java_info):
+    """Returns a new JavaInfo instance whose direct-jars part is the union of both the direct and indirect jars of the given Java provider.
+
+    Args:
+        java_info: (JavaInfo) The java info to make non-strict.
+
+    Returns:
+        (JavaInfo)
+    """
+    result = _to_mutable_dict(java_info)
+    result.update(
+        compile_jars = java_info.transitive_compile_time_jars,
+        full_compile_jars = java_info._transitive_full_compile_time_jars,
+    )
+
+    # Omit jdeps, which aren't available transitively and aren't useful for reduced classpath
+    # pruning for non-strict targets: the direct classpath and transitive classpath are the same,
+    # so there's nothing to prune, and reading jdeps at compile-time isn't free.
+    result.update(
+        _compile_time_java_dependencies = depset(),
+    )
+    return _new_javainfo(**result)
+
 def _validate_provider_list(provider_list, what, expected_provider_type):
     _java_common_internal.check_provider_instances(provider_list, what, expected_provider_type)
 

@@ -18,6 +18,7 @@ load(
     ":common/java/java_info.bzl",
     "JavaInfo",
     _java_info_add_constraints = "add_constraints",
+    _java_info_make_non_strict = "make_non_strict",
 )
 load(":common/java/message_bundle_info.bzl", "MessageBundleInfo")
 load(":common/java/java_common_internal_for_builtins.bzl", "compile", "merge", "run_ijar")
@@ -174,7 +175,7 @@ def _make_non_strict(java_info):
     Returns:
         (JavaInfo)
     """
-    return _java_common_internal.make_non_strict(java_info)
+    return _java_info_make_non_strict(java_info)
 
 def _get_message_bundle_info():
     return None if semantics.IS_BAZEL else MessageBundleInfo

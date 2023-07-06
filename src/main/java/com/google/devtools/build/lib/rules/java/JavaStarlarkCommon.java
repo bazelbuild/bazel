@@ -225,17 +225,6 @@ public class JavaStarlarkCommon
         JavaInfo.wrapSequence(providers, "providers"), mergeJavaOutputs, mergeSourceJars);
   }
 
-  // TODO(b/65113771): Remove this method because it's incorrect.
-  @Override
-  public JavaInfo makeNonStrict(JavaInfo javaInfo) {
-    return JavaInfo.Builder.copyOf(javaInfo)
-        // Overwrites the old provider.
-        .javaCompilationArgs(
-            JavaCompilationArgsProvider.makeNonStrict(
-                javaInfo.getProvider(JavaCompilationArgsProvider.class)))
-        .build();
-  }
-
   @Override
   public Provider getJavaToolchainProvider() {
     return JavaToolchainProvider.PROVIDER;

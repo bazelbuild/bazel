@@ -361,16 +361,6 @@ public interface JavaCommonApi<
       throws EvalException;
 
   @StarlarkMethod(
-      name = "make_non_strict",
-      doc =
-          "Returns a new Java provider whose direct-jars part is the union of both the direct and"
-              + " indirect jars of the given Java provider.",
-      parameters = {
-        @Param(name = "java_info", positional = true, named = false, doc = "The java info."),
-      })
-  JavaInfoT makeNonStrict(JavaInfoT javaInfo);
-
-  @StarlarkMethod(
       name = "JavaToolchainInfo",
       doc =
           "The key used to retrieve the provider that contains information about the Java "
