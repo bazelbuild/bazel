@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis.util;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Preconditions;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -90,6 +92,9 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.skyframe.InMemoryGraph;
+import com.google.devtools.build.skyframe.InMemoryNodeEntry;
+import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -97,6 +102,7 @@ import com.google.errorprone.annotations.ForOverride;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -649,8 +655,26 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             ConfiguredTargetKey.fromConfiguredTarget(owner));
   }
 
-  protected Set<ActionLookupKey> getSkyframeEvaluatedTargetKeys() {
-    return buildView.getSkyframeEvaluatedActionLookupKeyCountForTesting();
+  protected ImmutableSet<ActionLookupKey> getSkyframeEvaluatedTargetKeys() {
+    InMemoryGraph graph = skyframeExecutor.getEvaluator().getInMemoryGraph();
+    return buildView.getSkyframeEvaluatedActionLookupKeyCountForTesting().stream()
+        .filter(
+            key -> {
+              InMemoryNodeEntry entry = graph.getIfPresent(key);
+              if (!entry.isDone()) {
+                return false;
+              }
+              SkyValue value = entry.getValue();
+              if (!(value instanceof ConfiguredTargetValue)) {
+                return true;
+              }
+              // If the configurations are not equal, it means that the node is only performing
+              // delegation and doesn't create the configured target.
+              return Objects.equals(
+                  key.getConfigurationKey(),
+                  ((ConfiguredTargetValue) value).getConfiguredTarget().getConfigurationKey());
+            })
+        .collect(toImmutableSet());
   }
 
   protected void assertNumberOfAnalyzedConfigurationsOfTargets(
