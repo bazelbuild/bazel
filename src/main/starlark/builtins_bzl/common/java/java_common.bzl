@@ -30,6 +30,7 @@ load(":common/paths.bzl", "paths")
 load(":common/java/java_helper.bzl", "helper")
 
 _java_common_internal = _builtins.internal.java_common_internal_do_not_use
+JavaToolchainInfo = _java_common_internal.JavaToolchainInfo
 
 def _compile(
         ctx,
@@ -256,7 +257,13 @@ def _java_toolchain_label(java_toolchain):
     Returns:
         (Label)
     """
-    return _java_common_internal.java_toolchain_label(java_toolchain)
+    if semantics.IS_BAZEL:
+        # No implementation in Bazel. This method is not callable in Starlark except through
+        # (discouraged) use of --experimental_google_legacy_api.
+        return None
+
+    _java_common_internal.check_provider_instances([java_toolchain], "java_toolchain", JavaToolchainInfo)
+    return java_toolchain.label
 
 def _make_java_common():
     methods = {
@@ -269,7 +276,7 @@ def _make_java_common():
         "merge": _merge,
         "make_non_strict": _make_non_strict,
         "JavaPluginInfo": JavaPluginInfo,
-        "JavaToolchainInfo": _java_common_internal.JavaToolchainInfo,
+        "JavaToolchainInfo": JavaToolchainInfo,
         "JavaRuntimeInfo": _java_common_internal.JavaRuntimeInfo,
         "BootClassPathInfo": _java_common_internal.BootClassPathInfo,
         "experimental_java_proto_library_default_has_services": _java_common_internal.experimental_java_proto_library_default_has_services,
