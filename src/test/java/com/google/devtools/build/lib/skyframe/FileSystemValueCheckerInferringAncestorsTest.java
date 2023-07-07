@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.actions.FileStateValue.DIRECTORY_FILE_STATE_NODE;
 import static com.google.devtools.build.lib.actions.FileStateValue.NONEXISTENT_FILE_STATE_NODE;
@@ -715,13 +714,6 @@ public final class FileSystemValueCheckerInferringAncestorsTest
                 fsvcThreads,
                 syscallCache,
                 skyValueDirtinessChecker));
-  }
-
-  private static <T> void assertIsSubsetOf(Iterable<T> list, T... elements) {
-    ImmutableSet<T> set = ImmutableSet.copyOf(elements);
-    assertWithMessage("%s has elements from outside of %s", list, set)
-        .that(set)
-        .containsAtLeastElementsIn(list);
   }
 
   private Delta fileStateValueDelta(String relativePath) throws IOException {
