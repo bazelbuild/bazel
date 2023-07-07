@@ -41,6 +41,7 @@ source "${CURRENT_DIR}/../../integration_test_setup.sh" \
 resolve_android_toolchains $1
 
 function create_android_binary() {
+  touch a
   mkdir -p java/bazel
   cat > java/bazel/BUILD <<EOF
 android_library(
