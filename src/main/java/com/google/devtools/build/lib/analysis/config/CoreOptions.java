@@ -120,20 +120,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public List<Map.Entry<String, String>> commandLineBuildVariables;
 
   @Option(
-      name = "collapse_duplicate_defines",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.LOSES_INCREMENTAL_STATE,
-      },
-      help =
-          "When enabled, redundant --defines will be removed early in the build. This avoids"
-              + " unnecessary loss of the analysis cache for certain types of equivalent"
-              + " builds.")
-  public boolean collapseDuplicateDefines;
-
-  @Option(
       name = "cpu",
       defaultValue = "",
       converter = AutoCpuConverter.class,
@@ -1114,20 +1100,18 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   @Override
   public CoreOptions getNormalized() {
     CoreOptions result = (CoreOptions) clone();
+    LinkedHashMap<String, String> flagValueByName = getNormalizedCommandLineBuildVariables();
 
-    if (collapseDuplicateDefines) {
-      LinkedHashMap<String, String> flagValueByName = getNormalizedCommandLineBuildVariables();
-
-      // This check is an optimization to avoid creating a new list if the normalization was a
-      // no-op.
-      if (flagValueByName.size() != result.commandLineBuildVariables.size()) {
-        result.commandLineBuildVariables =
-            flagValueByName.entrySet().stream()
-                // The entries in the transformed list must be serializable.
-                .map(SimpleEntry::new)
-                .collect(toImmutableList());
-      }
+    // This check is an optimization to avoid creating a new list if the normalization was a
+    // no-op.
+    if (flagValueByName.size() != result.commandLineBuildVariables.size()) {
+      result.commandLineBuildVariables =
+          flagValueByName.entrySet().stream()
+              // The entries in the transformed list must be serializable.
+              .map(SimpleEntry::new)
+              .collect(toImmutableList());
     }
+
     // Normalize features.
     result.defaultFeatures = getNormalizedFeatures(defaultFeatures);
 

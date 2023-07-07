@@ -503,6 +503,17 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
         deprecationWarning = "This flag is a no-op and skyframe-native-filesets is always true.")
     public boolean skyframeNativeFileset;
+
+    @Option(
+        name = "collapse_duplicate_defines",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        },
+        help = "no-op")
+    public boolean collapseDuplicateDefines;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */

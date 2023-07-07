@@ -878,25 +878,12 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   }
 
   @Test
-  public void cacheClearedWhenRedundantDefinesChange_collapseDuplicateDefinesDisabled()
-      throws Exception {
-    setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
-    useConfiguration("--nocollapse_duplicate_defines", "--define=a=1", "--define=a=2");
-    update("//test:top");
-    assertNumberOfAnalyzedConfigurationsOfTargets(ImmutableMap.of("//test:top", 2));
-    useConfiguration("--nocollapse_duplicate_defines", "--define=a=2");
-    update("//test:top");
-    assertNumberOfAnalyzedConfigurationsOfTargets(ImmutableMap.of("//test:top", 2));
-  }
-
-  @Test
   public void cacheNotClearedWhenRedundantDefinesChange() throws Exception {
     setupDiffResetTesting();
     scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
-    useConfiguration("--collapse_duplicate_defines", "--define=a=1", "--define=a=2");
+    useConfiguration("--define=a=1", "--define=a=2");
     update("//test:top");
-    useConfiguration("--collapse_duplicate_defines", "--define=a=2");
+    useConfiguration("--define=a=2");
     update("//test:top");
     assertNumberOfAnalyzedConfigurationsOfTargets(ImmutableMap.of("//test:top", 0));
   }
