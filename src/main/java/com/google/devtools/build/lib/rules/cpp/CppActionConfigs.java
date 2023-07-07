@@ -411,6 +411,22 @@ public class CppActionConfigs {
                         "  }")));
       }
 
+      if (!existingFeatureNames.contains(CppRuleClasses.MEMPROF_OPTIMIZE)) {
+        featureBuilder.add(
+            getFeature(
+                Joiner.on("\n")
+                    .join(
+                        "  name: 'memprof_optimize'",
+                        "  flag_set {",
+                        "    action: 'c-compile'",
+                        "    action: 'c++-compile'",
+                        "    flag_group {",
+                        "      expand_if_all_available: 'memprof_profile_path'",
+                        "      flag: '-memprof-profile-file=" + "%{memprof_profile_path}'",
+                        "    }",
+                        "  }")));
+      }
+
       if (!existingFeatureNames.contains(CppRuleClasses.BUILD_INTERFACE_LIBRARIES)) {
         featureBuilder.add(
             getFeature(

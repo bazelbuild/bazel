@@ -120,6 +120,12 @@ public final class CcCompilationHelper {
       }
     }
 
+    if (fdoContext.getMemProfProfileArtifact() != null) {
+      variablesBuilder.put(
+          CompileBuildVariables.MEMPROF_PROFILE_PATH.getVariableName(),
+          fdoContext.getMemProfProfileArtifact().getExecPathString());
+    }
+
     FdoContext.BranchFdoProfile branchFdoProfile = fdoContext.getBranchFdoProfile();
     // Optimization phase
     if (branchFdoProfile != null) {
@@ -172,6 +178,9 @@ public final class CcCompilationHelper {
       if (fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
         auxiliaryInputs.add(fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
       }
+    }
+    if (fdoContext.getMemProfProfileArtifact() != null) {
+      auxiliaryInputs.add(fdoContext.getMemProfProfileArtifact());
     }
     FdoContext.BranchFdoProfile branchFdoProfile = fdoContext.getBranchFdoProfile();
     // If --fdo_optimize was not specified, we don't have any additional inputs.

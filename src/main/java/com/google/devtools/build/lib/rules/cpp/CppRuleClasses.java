@@ -424,6 +424,9 @@ public class CppRuleClasses {
   /** A string constant for the propeller optimize feature. */
   public static final String PROPELLER_OPTIMIZE = "propeller_optimize";
 
+  /** A string constant for the memprof profile optimization feature. */
+  public static final String MEMPROF_OPTIMIZE = "memprof_optimize";
+
   /**
    * A string constant for the propeller_optimize_thinlto_compile_actions feature.
    *
