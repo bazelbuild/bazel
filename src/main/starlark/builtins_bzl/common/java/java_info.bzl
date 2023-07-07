@@ -140,7 +140,7 @@ def to_java_binary_info(java_info):
     }
 
     compilation_info = _EMPTY_COMPILATION_INFO
-    if hasattr(java_info, "compilation_info"):
+    if java_info.compilation_info:
         compilation_info = java_info.compilation_info
     elif java_info.transitive_compile_time_jars or java_info.transitive_runtime_jars:
         compilation_info = _JavaCompilationInfo(
