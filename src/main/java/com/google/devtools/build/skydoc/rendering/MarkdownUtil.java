@@ -25,7 +25,9 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.Prov
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.StarlarkFunctionInfo;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -82,6 +84,34 @@ public final class MarkdownUtil {
    */
   public String htmlEscape(String docString) {
     return docString.replace("<", "&lt;").replace(">", "&gt;");
+  }
+
+  private static final Pattern CONSECUTIVE_BACKTICKS = Pattern.compile("`+");
+
+  /**
+   * Returns a string that escapes the given string so that it can be used in a markdown inline code segment, delimited
+   * by backticks (not included in the returned string).
+   *
+   * <p>For example:
+   * <ul>
+   *     <li><code>foo</code> becomes <code>foo</code>
+   *     <li><code>`foo`</code> becomes <code>` `foo` `</code>
+   *     <li><code>``foo``</code> becomes <code>`` `foo` ``</code>
+   * </ul>
+   */
+  public String markdownInlineCodeEscape(String code) {
+    int numConsecutiveBackticks =
+        CONSECUTIVE_BACKTICKS
+            .matcher(code)
+            .results()
+            .map(match -> match.end() - match.start())
+            .max(Comparator.naturalOrder())
+            .orElse(0);
+    if (numConsecutiveBackticks == 0) {
+      return code;
+    } else {
+      return String.format("%1$s %2$s %1$s", "`".repeat(numConsecutiveBackticks), code);
+    }
   }
 
   /**
