@@ -432,6 +432,7 @@ java_import(
         ":hungarian_algorithm",
         ":jcip_annotations",
         ":jsr305",
+        ":jsr330_inject",
         ":pcollections",
         ":threeten",
         "//third_party/checker_framework_dataflow",
