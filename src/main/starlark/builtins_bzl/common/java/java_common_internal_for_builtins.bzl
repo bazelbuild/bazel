@@ -192,17 +192,6 @@ def target_kind(target, dereference_aliases = False):
         dereference_aliases = dereference_aliases,
     )
 
-def to_java_binary_info(java_info):
-    """Get a copy of the given JavaInfo with minimal info returned by a java_binary
-
-    Args:
-        java_info: (JavaInfo) A JavaInfo provider instance
-
-    Returns:
-        (JavaInfo) A JavaInfo instance representing a java_binary target
-    """
-    return _java_common_internal.to_java_binary_info(java_info)
-
 def get_build_info(ctx, is_stamping_enabled):
     """Get the artifacts representing the workspace status for this build
 
