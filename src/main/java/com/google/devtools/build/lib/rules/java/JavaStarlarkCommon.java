@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCommonApi;
-import java.util.Objects;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Sequence;
@@ -107,37 +106,11 @@ public class JavaStarlarkCommon
       StarlarkThread thread)
       throws EvalException, InterruptedException, RuleErrorException {
 
-    boolean acceptJavaInfo =
-        !starlarkRuleContext
-            .getRuleContext()
-            .getFragment(JavaConfiguration.class)
-            .requireJavaPluginInfo();
+    final ImmutableList<JavaPluginInfo> pluginsParam =
+        JavaPluginInfo.wrapSequence(plugins, "plugins");
+    final ImmutableList<JavaPluginInfo> exportedPluginsParam =
+        JavaPluginInfo.wrapSequence(exportedPlugins, "exported_plugins");
 
-    final ImmutableList<JavaPluginInfo> pluginsParam;
-    if (acceptJavaInfo && !plugins.isEmpty() && JavaInfo.isJavaInfo(plugins.get(0))) {
-      // Handle deprecated case where plugins is given a list of JavaInfos
-      pluginsParam =
-          JavaInfo.wrapSequence(plugins, "plugins").stream()
-              .map(JavaInfo::getJavaPluginInfo)
-              .filter(Objects::nonNull)
-              .collect(toImmutableList());
-    } else {
-      pluginsParam = JavaPluginInfo.wrapSequence(plugins, "plugins");
-    }
-
-    final ImmutableList<JavaPluginInfo> exportedPluginsParam;
-    if (acceptJavaInfo
-        && !exportedPlugins.isEmpty()
-        && JavaInfo.isJavaInfo(exportedPlugins.get(0))) {
-      // Handle deprecated case where exported_plugins is given a list of JavaInfos
-      exportedPluginsParam =
-          JavaInfo.wrapSequence(exportedPlugins, "exported_plugins").stream()
-              .map(JavaInfo::getJavaPluginInfo)
-              .filter(Objects::nonNull)
-              .collect(toImmutableList());
-    } else {
-      exportedPluginsParam = JavaPluginInfo.wrapSequence(exportedPlugins, "exported_plugins");
-    }
     // checks for private API access
     if (!enableCompileJarAction
         || !enableJSpecify
