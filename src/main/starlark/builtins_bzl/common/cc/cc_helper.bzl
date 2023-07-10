@@ -706,16 +706,15 @@ def _get_cc_flags_make_variable(ctx, common, cc_toolchain):
     cc_flags.extend(feature_config_cc_flags)
     return {"CC_FLAGS": " ".join(cc_flags)}
 
-def _expand_nested_variable(ctx, additional_vars, exp, execpath = True):
+def _expand_nested_variable(ctx, additional_vars, exp, execpath = True, targets = []):
     # If make variable is predefined path variable(like $(location ...))
     # we will expand it first.
     if exp.find(" ") != -1:
         if not execpath:
             if exp.startswith("location"):
                 exp = exp.replace("location", "rootpath", 1)
-        targets = []
         if ctx.attr.data != None:
-            targets = ctx.attr.data
+            targets.extend(ctx.attr.data)
         return ctx.expand_location("$({})".format(exp), targets = targets)
 
     # Recursively expand nested make variables, but since there is no recursion
@@ -739,7 +738,7 @@ def _expand_nested_variable(ctx, additional_vars, exp, execpath = True):
         fail("potentially unbounded recursion during expansion of {}".format(exp))
     return exp
 
-def _expand(ctx, expression, additional_make_variable_substitutions, execpath = True):
+def _expand(ctx, expression, additional_make_variable_substitutions, execpath = True, targets = []):
     idx = 0
     last_make_var_end = 0
     result = []
@@ -781,7 +780,7 @@ def _expand(ctx, expression, additional_make_variable_substitutions, execpath = 
                 #   last_make_var_end  make_var_start make_var_end
                 result.append(expression[last_make_var_end:make_var_start - 1])
                 make_var = expression[make_var_start + 1:make_var_end]
-                exp = _expand_nested_variable(ctx, additional_make_variable_substitutions, make_var, execpath)
+                exp = _expand_nested_variable(ctx, additional_make_variable_substitutions, make_var, execpath, targets)
                 result.append(exp)
 
                 # Update indexes.
