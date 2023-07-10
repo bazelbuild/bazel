@@ -169,7 +169,9 @@ public final class OutputDirectoryLinksUtils {
       eventHandler.handle(
           Event.warn(
               String.format(
-                  "cleared convenience symlink(s) %s because their destinations would be ambiguous",
+                  "cleared convenience symlink(s) %s because they wouldn't contain "
+                      + "requested targets' outputs. Those targets self-transition to multiple "
+                      + "distinct configurations",
                   Joiner.on(", ").join(ambiguousLinks))));
     }
     return convenienceSymlinksBuilder.build();
