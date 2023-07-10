@@ -962,12 +962,23 @@ public class TestRunnerAction extends AbstractAction
                 : AttemptGroup.NOOP;
         try {
           attemptGroup.register();
-          return executeAllAttempts(
-              testRunnerSpawn,
-              testActionContext.isTestKeepGoing(),
-              attemptGroup,
-              spawnResults,
-              failedAttempts);
+          var result =
+              executeAllAttempts(
+                  testRunnerSpawn,
+                  testActionContext.isTestKeepGoing(),
+                  attemptGroup,
+                  spawnResults,
+                  failedAttempts);
+
+          // If the current test attempt is requested to be cancelled after it has finished, we need
+          // to handle the interruption here and clear the interrupted status. Otherwise, the
+          // interrupted status will be propagated to skyframe and the whole invocation will be
+          // cancelled.
+          if (Thread.interrupted()) {
+            throw new InterruptedException();
+          }
+
+          return result;
         } finally {
           attemptGroup.unregister();
         }

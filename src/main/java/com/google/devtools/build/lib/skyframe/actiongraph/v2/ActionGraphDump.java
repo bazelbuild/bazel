@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.starlark.UnresolvedSymlinkAction;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -199,6 +200,11 @@ public class ActionGraphDump {
       String contents =
           ((AbstractFileWriteAction.FileContentsProvider) action).getFileContents(eventHandler);
       actionBuilder.setFileContents(contents);
+    }
+
+    if (action instanceof UnresolvedSymlinkAction) {
+      actionBuilder.setUnresolvedSymlinkTarget(
+          ((UnresolvedSymlinkAction) action).getTarget().toString());
     }
 
     // Include the content of param files in output.

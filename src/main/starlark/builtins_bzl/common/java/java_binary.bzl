@@ -22,8 +22,7 @@ load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 load(":common/proto/proto_info.bzl", "ProtoInfo")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/paths.bzl", "paths")
-load(":common/java/java_info.bzl", "JavaInfo", "to_java_binary_info")
-load(":common/java/java_plugin_info.bzl", "JavaPluginInfo")
+load(":common/java/java_info.bzl", "JavaInfo", "JavaPluginInfo", "to_java_binary_info")
 load(":common/java/java_common.bzl", "java_common")
 load(
     ":common/java/java_common_internal_for_builtins.bzl",
@@ -163,7 +162,13 @@ def basic_java_binary(
 
     jvm_flags.extend(launcher_info.jvm_flags)
 
-    native_libs_dirs = collect_native_deps_dirs(runtime_deps)
+    native_libs_depsets = []
+    for dep in runtime_deps:
+        if JavaInfo in dep:
+            native_libs_depsets.append(dep[JavaInfo].transitive_native_libraries)
+        if CcInfo in dep:
+            native_libs_depsets.append(dep[CcInfo].transitive_native_libraries())
+    native_libs_dirs = collect_native_deps_dirs(depset(transitive = native_libs_depsets))
     if native_libs_dirs:
         prefix = "${JAVA_RUNFILES}/" + ctx.workspace_name + "/"
         jvm_flags.append("-Djava.library.path=%s" % (
@@ -340,10 +345,10 @@ def _create_shared_archive(ctx, java_attrs):
     jsa = ctx.actions.declare_file("%s.jsa" % ctx.label.name)
     merged = ctx.actions.declare_file(jsa.dirname + "/" + helper.strip_extension(jsa) + "-merged.jar")
     helper.create_single_jar(
-        ctx,
-        merged,
-        java_attrs.runtime_jars,
-        java_attrs.runtime_classpath_for_archive,
+        ctx.actions,
+        toolchain = semantics.find_java_toolchain(ctx),
+        output = merged,
+        sources = depset(transitive = [java_attrs.runtime_jars, java_attrs.runtime_classpath_for_archive]),
     )
 
     args = ctx.actions.args()
@@ -417,9 +422,10 @@ def _create_one_version_check(ctx, inputs):
 
 def _create_deploy_sources_jar(ctx, sources):
     helper.create_single_jar(
-        ctx,
-        ctx.outputs.deploysrcjar,
-        sources,
+        ctx.actions,
+        toolchain = semantics.find_java_toolchain(ctx),
+        output = ctx.outputs.deploysrcjar,
+        sources = sources,
     )
 
 def _filter_validation_output_group(ctx, output_group):

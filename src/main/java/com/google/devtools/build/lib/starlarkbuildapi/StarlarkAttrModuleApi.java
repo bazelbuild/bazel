@@ -134,8 +134,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
           + " the case of a legacy provider, its string name). The dependency must return ALL"
           + " providers mentioned in at least ONE of the inner lists. As a convenience, this"
           + " argument may also be a single-level list of providers, in which case it is wrapped in"
-          + " an outer list with one element.It is NOT required that the rule of the dependency"
-          + " advertises those providers in its <code>provides<code> parameter, however, it is"
+          + " an outer list with one element. It is NOT required that the rule of the dependency"
+          + " advertises those providers in its <code>provides</code> parameter, however, it is"
           + " considered best practice.";
 
   String ALLOW_SINGLE_FILE_ARG = "allow_single_file";

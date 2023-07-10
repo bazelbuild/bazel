@@ -14,13 +14,23 @@
 
 """ Utilities for Java compilation support in Starlark. """
 
-load(":common/java/java_info.bzl", "JavaInfo")
-load(":common/java/java_common_internal_for_builtins.bzl", "compile", "merge", "run_ijar")
-load(":common/java/java_plugin_info.bzl", "JavaPluginInfo")
+load(
+    ":common/java/java_info.bzl",
+    "JavaInfo",
+    "JavaPluginInfo",
+    _java_info_add_constraints = "add_constraints",
+    _java_info_make_non_strict = "make_non_strict",
+    _java_info_merge = "merge",
+    _java_info_set_annotation_processing = "set_annotation_processing",
+)
+load(":common/java/message_bundle_info.bzl", "MessageBundleInfo")
+load(":common/java/java_common_internal_for_builtins.bzl", "compile", "run_ijar")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/paths.bzl", "paths")
+load(":common/java/java_helper.bzl", "helper")
 
 _java_common_internal = _builtins.internal.java_common_internal_do_not_use
+JavaToolchainInfo = _java_common_internal.JavaToolchainInfo
 
 def _compile(
         ctx,
@@ -118,13 +128,12 @@ def _stamp_jar(actions, jar, java_toolchain, target_label):
 def _pack_sources(
         actions,
         java_toolchain,
-        output_source_jar = None,
+        output_source_jar,
         sources = [],
         source_jars = []):
     """Packs sources and source jars into a single source jar file.
 
-    The return value is typically passed to `JavaInfo.source_jar`. At least one of parameters
-    output_jar or output_source_jar is required.
+    The return value is typically passed to `JavaInfo.source_jar`.
 
     Args:
         actions: (actions) ctx.actions
@@ -136,12 +145,14 @@ def _pack_sources(
     Returns:
         (File) The output artifact
     """
-    return _java_common_internal.pack_sources(
-        actions = actions,
-        java_toolchain = java_toolchain,
-        sources = sources,
-        source_jars = source_jars,
-        output_source_jar = output_source_jar,
+    return helper.create_single_jar(
+        actions,
+        toolchain = java_toolchain,
+        output = output_source_jar,
+        sources = depset(source_jars),
+        resources = depset(sources),
+        progress_message = "Building source jar %{output}",
+        mnemonic = "JavaSourceJar",
     )
 
 def _default_javac_opts(java_toolchain):
@@ -156,7 +167,15 @@ def _default_javac_opts(java_toolchain):
     return _java_common_internal.default_javac_opts(java_toolchain = java_toolchain)
 
 def _merge(providers):
-    return merge(providers)
+    """Merges the given providers into a single JavaInfo.
+
+    Args:
+        providers: ([JavaInfo]) The list of providers to merge.
+
+    Returns:
+        (JavaInfo) The merged JavaInfo
+    """
+    return _java_info_merge(providers)
 
 def _make_non_strict(java_info):
     """Returns a new JavaInfo instance whose direct-jars part is the union of both the direct and indirect jars of the given Java provider.
@@ -167,10 +186,10 @@ def _make_non_strict(java_info):
     Returns:
         (JavaInfo)
     """
-    return _java_common_internal.make_non_strict(java_info)
+    return _java_info_make_non_strict(java_info)
 
 def _get_message_bundle_info():
-    return None if semantics.IS_BAZEL else _java_common_internal.MessageBundleInfo
+    return None if semantics.IS_BAZEL else MessageBundleInfo
 
 def _add_constraints(java_info, constraints = []):
     """Returns a copy of the given JavaInfo with the given constraints added.
@@ -182,7 +201,10 @@ def _add_constraints(java_info, constraints = []):
     Returns:
         (JavaInfo)
     """
-    return _java_common_internal.add_constraints(java_info, constraints = constraints)
+    if semantics.IS_BAZEL:
+        return java_info
+
+    return _java_info_add_constraints(java_info, constraints = constraints)
 
 def _get_constraints(java_info):
     """Returns a set of constraints added.
@@ -193,7 +215,7 @@ def _get_constraints(java_info):
     Returns:
         ([str]) The constraints set on the supplied JavaInfo
     """
-    return _java_common_internal.get_constraints(java_info)
+    return [] if semantics.IS_BAZEL else java_info._constraints
 
 def _set_annotation_processing(
         java_info,
@@ -215,7 +237,10 @@ def _set_annotation_processing(
     Returns:
         (JavaInfo)
     """
-    return _java_common_internal.set_annotation_processing(
+    if semantics.IS_BAZEL:
+        return None
+
+    return _java_info_set_annotation_processing(
         java_info,
         enabled = enabled,
         processor_classnames = processor_classnames,
@@ -232,7 +257,13 @@ def _java_toolchain_label(java_toolchain):
     Returns:
         (Label)
     """
-    return _java_common_internal.java_toolchain_label(java_toolchain)
+    if semantics.IS_BAZEL:
+        # No implementation in Bazel. This method is not callable in Starlark except through
+        # (discouraged) use of --experimental_google_legacy_api.
+        return None
+
+    _java_common_internal.check_provider_instances([java_toolchain], "java_toolchain", JavaToolchainInfo)
+    return java_toolchain.label
 
 def _make_java_common():
     methods = {
@@ -245,7 +276,7 @@ def _make_java_common():
         "merge": _merge,
         "make_non_strict": _make_non_strict,
         "JavaPluginInfo": JavaPluginInfo,
-        "JavaToolchainInfo": _java_common_internal.JavaToolchainInfo,
+        "JavaToolchainInfo": JavaToolchainInfo,
         "JavaRuntimeInfo": _java_common_internal.JavaRuntimeInfo,
         "BootClassPathInfo": _java_common_internal.BootClassPathInfo,
         "experimental_java_proto_library_default_has_services": _java_common_internal.experimental_java_proto_library_default_has_services,

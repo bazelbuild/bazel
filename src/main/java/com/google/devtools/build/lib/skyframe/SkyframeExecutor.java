@@ -2906,7 +2906,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       // should have been added to the InMemoryGraph. So it is safe to remove relevant labels from
       // weak interner.
       LabelInterner labelInterner = Label.getLabelInterner();
-      if (labelInterner != null
+      if (labelInterner.enabled()
           && skyKey.functionName().equals(SkyFunctions.PACKAGE)
           && newValue != null) {
         checkState(newValue instanceof PackageValue, newValue);

@@ -189,11 +189,14 @@ android_sh_test(
     name = "DexFileSplitter_synthetic_classes_test",
     size = "large",
     srcs = ["DexFileSplitter_synthetic_classes_test.sh"],
+    # Fixes to DexMapper are not released yet.
+    create_test_with_released_tools = False,
     data = [
         ":android_helper",
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],
+    shard_count = 2,
     tags = [
         "no_windows",
     ],

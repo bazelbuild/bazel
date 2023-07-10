@@ -14,10 +14,12 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.DelegateFileSystem;
@@ -106,5 +108,12 @@ public class FileSystemValueCheckerInferringAncestorsTestBase {
 
   protected static DirectoryListingStateValue directoryListingStateValue(Dirent... dirents) {
     return DirectoryListingStateValue.create(ImmutableList.copyOf(dirents));
+  }
+
+  protected static <T> void assertIsSubsetOf(Iterable<T> list, T... elements) {
+    ImmutableSet<T> set = ImmutableSet.copyOf(elements);
+    assertWithMessage("%s has elements from outside of %s", list, set)
+        .that(set)
+        .containsAtLeastElementsIn(list);
   }
 }

@@ -488,14 +488,11 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     update("//java/a:x");
     Set<?> oldAnalyzedTargets = getSkyframeEvaluatedTargetKeys();
     assertThat(oldAnalyzedTargets.size()).isAtLeast(2); // could be greater due to implicit deps
-    // x is evaluated once with the top level configuration and once with its rule transitioned
-    // configuration.
-    assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:x")).isEqualTo(2);
+    assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:x")).isEqualTo(1);
     assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:y")).isEqualTo(1);
 
     update("//java/a:y");
-    // y is evaluated with the top-level configuration instead of with its rule transition applied.
-    assertThat(getSkyframeEvaluatedTargetKeys()).hasSize(1);
+    assertThat(getSkyframeEvaluatedTargetKeys()).isEmpty();
   }
 
   @Test
@@ -511,14 +508,12 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     Set<?> oldAnalyzedTargets = getSkyframeEvaluatedTargetKeys();
     assertThat(oldAnalyzedTargets.size()).isAtLeast(3); // could be greater due to implicit deps
     assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:x")).isEqualTo(0);
-    // y is evaluated once with the top level configuration and once with its rule transitioned
-    // configuration.
-    assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:y")).isEqualTo(2);
+    assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:y")).isEqualTo(1);
     update("//java/a:x");
     Set<?> newAnalyzedTargets = getSkyframeEvaluatedTargetKeys();
-    // Source target and x twice.
-    assertThat(newAnalyzedTargets).hasSize(3);
-    assertThat(countObjectsPartiallyMatchingRegex(newAnalyzedTargets, "//java/a:x")).isEqualTo(2);
+    // Source target and x.
+    assertThat(newAnalyzedTargets).hasSize(2);
+    assertThat(countObjectsPartiallyMatchingRegex(newAnalyzedTargets, "//java/a:x")).isEqualTo(1);
     assertThat(countObjectsPartiallyMatchingRegex(newAnalyzedTargets, "//java/a:y")).isEqualTo(0);
   }
 
@@ -647,9 +642,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     update("//java/a:x");
     Set<?> oldAnalyzedTargets = getSkyframeEvaluatedTargetKeys();
     assertThat(oldAnalyzedTargets.size()).isAtLeast(2); // could be greater due to implicit deps
-    // x is analyzed once with the top-level configuration and once with its rule-transitioned
-    // configuration.
-    assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:x")).isEqualTo(2);
+    assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:x")).isEqualTo(1);
     assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:y")).isEqualTo(0);
     assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:z")).isEqualTo(1);
     assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:w")).isEqualTo(1);
@@ -660,9 +653,9 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     update("//java/a:x", "//java/a:y", "//java/a:z");
     assertNumberOfAnalyzedConfigurationsOfTargets(
         ImmutableMap.<String, Integer>builder()
-            .put("//java/a:y", 2) // With the top-level and rule transitioned configurations.
+            .put("//java/a:y", 1) // Newly requested.
             .put("//java/a:B.java", 1)
-            .put("//java/a:z", 1) // With the top-level configuration.
+            .put("//java/a:z", 0) // Fully cached.
             .buildOrThrow());
   }
 
@@ -878,25 +871,12 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   }
 
   @Test
-  public void cacheClearedWhenRedundantDefinesChange_collapseDuplicateDefinesDisabled()
-      throws Exception {
-    setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
-    useConfiguration("--nocollapse_duplicate_defines", "--define=a=1", "--define=a=2");
-    update("//test:top");
-    assertNumberOfAnalyzedConfigurationsOfTargets(ImmutableMap.of("//test:top", 2));
-    useConfiguration("--nocollapse_duplicate_defines", "--define=a=2");
-    update("//test:top");
-    assertNumberOfAnalyzedConfigurationsOfTargets(ImmutableMap.of("//test:top", 2));
-  }
-
-  @Test
   public void cacheNotClearedWhenRedundantDefinesChange() throws Exception {
     setupDiffResetTesting();
     scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
-    useConfiguration("--collapse_duplicate_defines", "--define=a=1", "--define=a=2");
+    useConfiguration("--define=a=1", "--define=a=2");
     update("//test:top");
-    useConfiguration("--collapse_duplicate_defines", "--define=a=2");
+    useConfiguration("--define=a=2");
     update("//test:top");
     assertNumberOfAnalyzedConfigurationsOfTargets(ImmutableMap.of("//test:top", 0));
   }

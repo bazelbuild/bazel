@@ -103,6 +103,10 @@ public final class UnresolvedSymlinkAction extends AbstractAction {
     return progressMessage;
   }
 
+  public PathFragment getTarget() {
+    return target;
+  }
+
   private static DetailedExitCode createDetailedExitCode(String message, Code detailedCode) {
     return DetailedExitCode.of(
         FailureDetail.newBuilder()
