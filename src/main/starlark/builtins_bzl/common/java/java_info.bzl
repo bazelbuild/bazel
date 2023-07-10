@@ -171,6 +171,9 @@ def to_java_binary_info(java_info):
         java_outputs = java_outputs,
         outputs = _JavaRuleOutputJarsInfo(jars = java_outputs, jdeps = None, native_headers = None),
     )
+
+    # so that translation into native JavaInfo does not add JavaCompilationArgsProvider
+    result.update(_is_binary = True)
     return _new_javainfo(**result)
 
 def _to_mutable_dict(java_info):
@@ -506,6 +509,7 @@ JavaInfo, _new_javainfo = provider(
         "_compile_time_java_dependencies": "internal API, do not use",
         "_neverlink": "internal API, do not use",
         "_constraints": "internal API, do not use",
+        "_is_binary": "internal API, do not use",
     },
     init = _javainfo_init,
 )
