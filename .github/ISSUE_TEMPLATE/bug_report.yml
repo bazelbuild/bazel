@@ -1,12 +1,18 @@
-name: Bug Report
+name: Bug report
 description: File a bug report
+labels: ["type: bug", "untriaged"]
+assignees:
+  - pavank1992
+  - sgowroji
 body:
   - type: markdown
     attributes:
       value: >
         **Attention:** if this is a _question_ about how to build / test / query / deploy using
-        Bazel, or a _discussion starter_, send it to bazel-discuss@googlegroups.com or discuss on
-        [Bazel Slack](https://slack.bazel.build/) instead!
+        Bazel, or a _discussion starter_, please start a new thread at Bazel's
+        [GitHub Discussions](https://github.com/bazelbuild/bazel/discussions), send it to
+        bazel-discuss@googlegroups.com, or discuss on [Bazel Slack](https://slack.bazel.build/)
+        instead!
   - type: textarea
     id: desc
     attributes:
@@ -40,6 +46,17 @@ body:
       label: >
         What's the output of `git remote get-url origin; git rev-parse master; git rev-parse HEAD` ?
       render: text
+  - type: textarea
+    id: bisect
+    attributes:
+      label: >
+        Is this a regression? If yes, please try to identify the Bazel commit where the bug was
+        introduced.
+      description: >
+        If the problem is specific to the most recent release or the Bazel@HEAD version and it
+        doesn't occur in earlier versions, you can use the `bazelisk --bisect=<GOOD>..<BAD>`
+        command to identify the specific version or commit where the issue was introduced. For more
+        information, visit https://github.com/bazelbuild/bazelisk#--bisect.
   - type: textarea
     id: relevant-info
     attributes:

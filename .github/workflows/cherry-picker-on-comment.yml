@@ -1,0 +1,23 @@
+name: cherry-picker-on-comment
+
+on:
+  issues:
+    types: [milestoned]
+
+jobs:
+  cherry-picker-on-comment:
+    if: startsWith(github.event.issue.body, 'Forked from') && (github.event.issue.user.login == 'iancha1992')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@6b3083af2869dc3314a0257a42f4af696cc79ba3 # v2.3.1
+        with:
+          egress-policy: audit
+      - name: Logging github event
+        run: echo '${{ toJSON(github.event) }}' | jq
+      - name: Run cherrypicker on comment
+        uses: iancha1992/continuous-integration/actions/cherry-picker@feature-cherrypick
+        with:
+          token: ${{ secrets.BAZEL_IO_TOKEN }}
+          triggered-on: commented
+          pr-number: ${{ github.event.issue.body }}
