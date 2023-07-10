@@ -105,11 +105,18 @@ public class BazelLockFileModule extends BlazeModule {
     ImmutableMap.Builder<ModuleExtensionId, LockFileModuleExtension> updatedExtensionMap =
         ImmutableMap.builder();
 
-    // Add the old extensions (stored in the lockfile) only if it still has a usage somewhere
-    for (Map.Entry<ModuleExtensionId, LockFileModuleExtension> extensionEntry :
-        oldModuleExtensions.entrySet()) {
-      if (moduleResolutionEvent.getExtensionUsagesById().containsRow(extensionEntry.getKey())) {
-        updatedExtensionMap.put(extensionEntry);
+    // This event being null means that no changes occurred to the usages of the stored extensions,
+    // hence no changes to any module resulted in re-running resolution. So we can just add all the
+    // old stored extensions. Otherwise, check the usage of each one.
+    if (moduleResolutionEvent == null) {
+      updatedExtensionMap.putAll(oldModuleExtensions);
+    } else {
+      // Add the old extensions (stored in the lockfile) only if it still has a usage somewhere
+      for (Map.Entry<ModuleExtensionId, LockFileModuleExtension> extensionEntry :
+          oldModuleExtensions.entrySet()) {
+        if (moduleResolutionEvent.getExtensionUsagesById().containsRow(extensionEntry.getKey())) {
+          updatedExtensionMap.put(extensionEntry);
+        }
       }
     }
 
