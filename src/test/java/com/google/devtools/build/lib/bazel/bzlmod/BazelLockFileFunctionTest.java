@@ -96,7 +96,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     differencer = new SequencedRecordingDifferencer();
     registryFactory = new FakeRegistry.Factory();
     evaluationContext =
-        EvaluationContext.newBuilder().setParallelism(8).setEventHandler(reporter).build();
+        EvaluationContext.newBuilder().setNumThreads(8).setEventHandler(reporter).build();
 
     AtomicReference<PathPackageLocator> packageLocator =
         new AtomicReference<>(

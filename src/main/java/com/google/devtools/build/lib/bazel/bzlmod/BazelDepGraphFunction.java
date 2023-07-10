@@ -222,7 +222,7 @@ public class BazelDepGraphFunction implements SkyFunction {
         try {
           moduleExtensionId =
               ModuleExtensionId.create(
-                  labelConverter.convert(usage.getExtensionBzlFile()), usage.getExtensionName());
+                  labelConverter.convert(usage.getExtensionBzlFile()), usage.getExtensionName(), usage.getIsolationKey());
         } catch (LabelSyntaxException e) {
           throw ExternalDepsException.withCauseAndMessage(
               Code.BAD_MODULE,

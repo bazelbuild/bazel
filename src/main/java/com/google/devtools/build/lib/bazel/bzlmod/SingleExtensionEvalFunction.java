@@ -271,7 +271,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       throws SingleExtensionEvalFunctionException, InterruptedException {
     // Check that the .bzl label isn't crazy.
     try {
-      BzlLoadFunction.checkValidLoadLabel(bzlFileLabel, starlarkSemantics);
+      BzlLoadFunction.checkValidLoadLabel(bzlFileLabel, /*fromBuiltinsRepo=*/ false);
     } catch (LabelSyntaxException e) {
       throw new SingleExtensionEvalFunctionException(
           ExternalDepsException.withCauseAndMessage(
