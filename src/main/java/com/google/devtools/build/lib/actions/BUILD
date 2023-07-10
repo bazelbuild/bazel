@@ -101,6 +101,7 @@ java_library(
         "FilesetTraversalParams.java",
         "FilesetTraversalParamsFactory.java",
         "ForbiddenActionInputException.java",
+        "FullSpawnMetrics.java",
         "HasDigest.java",
         "InputFileErrorException.java",
         "InputMetadataProvider.java",

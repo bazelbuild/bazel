@@ -531,6 +531,21 @@ public class CppOptions extends FragmentOptions {
   }
 
   @Option(
+      name = "memprof_profile",
+      defaultValue = "null",
+      converter = LabelConverter.class,
+      category = "flags",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Use memprof profile.")
+  public Label memprofProfileLabel;
+
+  /** Returns the --memprof_profile value. */
+  public Label getMemProfProfileLabel() {
+    return memprofProfileLabel;
+  }
+
+  @Option(
       name = "save_temps",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,

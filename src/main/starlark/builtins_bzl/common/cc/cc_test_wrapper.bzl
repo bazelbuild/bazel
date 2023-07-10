@@ -20,7 +20,7 @@ load(":common/cc/cc_test_with_linkstatic.bzl", _cc_test_with_linkstatic = "cc_te
 load(":common/cc/cc_test_no_linkstatic_aspects.bzl", _cc_test_no_linkstatic_aspects = "cc_test")
 load(":common/cc/cc_test_with_linkstatic_aspects.bzl", _cc_test_with_linkstatic_aspects = "cc_test")
 
-def cc_test_wrapper(**kwargs):
+def cc_test(**kwargs):
     """Entry point for cc_test rules.
 
     This avoids propagating aspects on certain attributes if dynamic_deps attribute is unset.

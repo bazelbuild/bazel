@@ -409,25 +409,6 @@ public abstract class AndroidLibraryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testDisallowDepsWithoutSrcsWarning() throws Exception {
-    useConfiguration("--experimental_allow_android_library_deps_without_srcs=true");
-    checkWarning(
-        "android/deps",
-        "b",
-        // message:
-        "android_library will be deprecating the use of deps to export targets implicitly",
-        // build file
-        "android_library(",
-        "    name = 'a',",
-        "    srcs = ['a.java'],",
-        ")",
-        "android_library(",
-        "    name = 'b',",
-        "    deps = [':a'],",
-        ")");
-  }
-
-  @Test
   public void testDisallowDepsWithoutSrcsError() throws Exception {
     checkError(
         "android/deps",

@@ -42,8 +42,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
-import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryInfo;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
@@ -112,27 +110,6 @@ public class JavaCommon {
             ClasspathType.BOTH, bothDeps);
   }
 
-  /**
-   * Collects the native libraries in the transitive closure of the deps.
-   *
-   * @param deps the dependencies to be included as roots of the transitive closure.
-   * @return the native libraries found in the transitive closure of the deps.
-   */
-  public static ImmutableList<Artifact> collectNativeLibraries(
-      Collection<? extends TransitiveInfoCollection> deps) throws RuleErrorException {
-    NestedSet<LibraryToLink> linkerInputs =
-        NestedSetBuilder.fromNestedSets(
-                Streams.concat(
-                        JavaInfo.transitiveCcNativeLibraries(deps).stream(),
-                        AnalysisUtils.getProviders(deps, CcInfo.PROVIDER).stream()
-                            .map(CcInfo::getCcNativeLibraryInfo)
-                            .map(CcNativeLibraryInfo::getTransitiveCcNativeLibraries))
-                    .collect(toImmutableList()))
-            .build();
-
-    return LibraryToLink.getDynamicLibrariesForLinking(linkerInputs);
-  }
-
   public JavaSemantics getJavaSemantics() {
     return semantics;
   }
@@ -162,11 +139,10 @@ public class JavaCommon {
    * @param srcLessDepsExport If srcs is omitted, deps are exported (deprecated behaviour for
    *     android_library only)
    */
-  public JavaCompilationArgsProvider collectJavaCompilationArgs(
-      boolean isNeverLink, boolean srcLessDepsExport) throws RuleErrorException {
+  public JavaCompilationArgsProvider collectJavaCompilationArgs(boolean isNeverLink)
+      throws RuleErrorException {
     return collectJavaCompilationArgs(
         /* isNeverLink= */ isNeverLink,
-        /* srcLessDepsExport= */ srcLessDepsExport,
         getJavaCompilationArtifacts(),
         /* deps= */ ImmutableList.of(
             JavaCompilationArgsProvider.legacyFromTargets(
@@ -179,7 +155,6 @@ public class JavaCommon {
 
   static JavaCompilationArgsProvider collectJavaCompilationArgs(
       boolean isNeverLink,
-      boolean srcLessDepsExport,
       JavaCompilationArtifacts compilationArtifacts,
       List<JavaCompilationArgsProvider> deps,
       List<JavaCompilationArgsProvider> runtimeDeps,
@@ -188,11 +163,7 @@ public class JavaCommon {
     JavaCompilationArgsProvider.Builder builder =
         JavaCompilationArgsProvider.builder().merge(compilationArtifacts, isNeverLink);
     exports.forEach(export -> builder.addExports(export, type));
-    if (srcLessDepsExport) {
-      deps.forEach(dep -> builder.addExports(dep, type));
-    } else {
-      deps.forEach(dep -> builder.addDeps(dep, type));
-    }
+    deps.forEach(dep -> builder.addDeps(dep, type));
     runtimeDeps.forEach(dep -> builder.addDeps(dep, ClasspathType.RUNTIME_ONLY));
     builder.addCompileTimeJavaDependencyArtifacts(
         collectCompileTimeDependencyArtifacts(

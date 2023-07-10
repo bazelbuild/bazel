@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Iterator;
 import java.util.Optional;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 
 /** A collection of recursively collected Java build information. */
@@ -361,8 +362,23 @@ public abstract class JavaCompilationArgsProvider implements JavaInfoInternalPro
     }
   }
 
+  /**
+   * Constructs a {@link JavaCompilationArgsProvider} instance for a Starlark-constructed {@link
+   * JavaInfo}.
+   *
+   * @param javaInfo the {@link JavaInfo} instance from which to extract the relevant fields
+   * @return a {@link JavaCompilationArgsProvider} instance, or {@code null} if this is a {@link
+   *     JavaInfo} for a {@code java_binary} or {@code java_test}
+   * @throws EvalException if there were errors reading any fields
+   * @throws TypeException if some field was not a {@link Depset} of {@link Artifact}s
+   */
+  @Nullable
   static JavaCompilationArgsProvider fromStarlarkJavaInfo(StructImpl javaInfo)
       throws EvalException, TypeException {
+    Boolean isBinary = javaInfo.getValue("_is_binary", Boolean.class);
+    if (isBinary != null && isBinary) {
+      return null;
+    }
     JavaCompilationArgsProvider.Builder builder =
         JavaCompilationArgsProvider.builder()
             .addStrictlyDirectCompileTimeJars(

@@ -666,6 +666,37 @@ class BazelModuleTest(test_base.TestBase):
     with open(self.Path('bazel-bin/my_consumer'), 'r') as f:
       self.assertEqual(f.read().strip(), 'my_value = Hello, Bzlmod!')
 
+  def testModuleExtensionWithRuleError(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("extensions.bzl", "ext")',
+            'use_repo(ext, "ext")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+    self.ScratchFile(
+        'extensions.bzl',
+        [
+            'def _rule_impl(ctx):',
+            '  print("RULE CALLED")',
+            'init_rule = rule(_rule_impl)',
+            'def ext_impl(module_ctx):',
+            '  init_rule()',
+            'ext = module_extension(implementation = ext_impl,)',
+        ],
+    )
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--nobuild', '@ext//:all'],
+        allow_failure=True,
+    )
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertIn(
+        'Error in init_rule: A rule can only be instantiated in a BUILD file, '
+        'or a macro invoked from a BUILD file',
+        stderr,
+    )
+
 
 if __name__ == '__main__':
   unittest.main()

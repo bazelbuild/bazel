@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaInfo.JavaInfoInternalProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaAnnotationProcessingApi;
 import java.util.List;
-import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -98,31 +97,6 @@ public interface JavaGenJarsProvider
     throw Starlark.errorf("wanted JavaGenJarsProvider, got %s", Starlark.type(obj));
   }
 
-  /** Returns a copy with the given details, preserving transitiveXxx sets. */
-  default JavaGenJarsProvider withDirectInfo(
-      boolean usesAnnotationProcessing,
-      @Nullable Artifact genClassJar,
-      @Nullable Artifact genSourceJar,
-      NestedSet<Artifact> processorClasspath,
-      NestedSet<String> processorClassNames)
-      throws EvalException, RuleErrorException {
-    // Existing Jars would be a problem b/c we can't remove them from transitiveXxx sets
-    if (this.getGenClassJar() != null && !Objects.equals(this.getGenClassJar(), genClassJar)) {
-      throw Starlark.errorf("Existing genClassJar: %s", this.getGenClassJar());
-    }
-    if (this.getGenSourceJar() != null && !Objects.equals(this.getGenSourceJar(), genSourceJar)) {
-      throw Starlark.errorf("Existing genSrcJar: %s", this.getGenSourceJar());
-    }
-    return new AutoValue_JavaGenJarsProvider_NativeJavaGenJarsProvider(
-        usesAnnotationProcessing,
-        genClassJar,
-        genSourceJar,
-        processorClasspath,
-        processorClassNames,
-        addIf(getTransitiveGenClassJars(), genClassJar),
-        addIf(getTransitiveGenSourceJars(), genSourceJar));
-  }
-
   default boolean isEmpty() throws EvalException, RuleErrorException {
     return !usesAnnotationProcessing()
         && getGenClassJar() == null
@@ -183,13 +157,6 @@ public interface JavaGenJarsProvider
     public ImmutableList<String> getProcessorClassNamesList() {
       return getProcessorClassnames().toList();
     }
-  }
-
-  private static <T> NestedSet<T> addIf(NestedSet<T> set, @Nullable T element) {
-    if (element == null) {
-      return set;
-    }
-    return NestedSetBuilder.<T>stableOrder().add(element).addTransitive(set).build();
   }
 
   /** Wrapper for Starlark constructed JavaGenJarsProvider */

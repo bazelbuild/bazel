@@ -155,7 +155,7 @@ public class BazelRepositoryModule extends BlazeModule {
   private final AtomicBoolean ignoreDevDeps = new AtomicBoolean(false);
   private CheckDirectDepsMode checkDirectDepsMode = CheckDirectDepsMode.WARNING;
   private BazelCompatibilityMode bazelCompatibilityMode = BazelCompatibilityMode.ERROR;
-  private LockfileMode bazelLockfileMode = LockfileMode.OFF;
+  private LockfileMode bazelLockfileMode = LockfileMode.UPDATE;
   private List<String> allowedYankedVersions = ImmutableList.of();
   private SingleExtensionEvalFunction singleExtensionEvalFunction;
   private final ExecutorService repoFetchingWorkerThreadPool =

@@ -176,27 +176,6 @@ def run_ijar(
     )
     return output
 
-def merge(
-        providers,
-        # private to @_builtins:
-        merge_java_outputs = True,
-        merge_source_jars = True):
-    """Merges the given providers into a single JavaInfo.
-
-    Args:
-        providers: ([JavaInfo]) The list of providers to merge.
-        merge_java_outputs: (bool)
-        merge_source_jars: (bool)
-
-    Returns:
-        (JavaInfo) The merged JavaInfo
-    """
-    return _java_common_internal.merge(
-        providers,
-        merge_java_outputs = merge_java_outputs,
-        merge_source_jars = merge_source_jars,
-    )
-
 def target_kind(target, dereference_aliases = False):
     """Get the rule class string for a target
 
@@ -225,16 +204,16 @@ def get_build_info(ctx, is_stamping_enabled):
     """
     return _java_common_internal.get_build_info(ctx, is_stamping_enabled)
 
-def collect_native_deps_dirs(deps):
+def collect_native_deps_dirs(libraries):
     """Collect the set of root-relative paths containing native libraries
 
     Args:
-        deps: [Target] list of targets
+        libraries: (depset[LibraryToLink]) set of native libraries
 
     Returns:
         ([String]) A set of root-relative paths as a list
     """
-    return _java_common_internal.collect_native_deps_dirs(deps)
+    return _java_common_internal.collect_native_deps_dirs(libraries)
 
 def get_runtime_classpath_for_archive(jars, excluded_jars):
     """Filters a classpath to remove certain entries

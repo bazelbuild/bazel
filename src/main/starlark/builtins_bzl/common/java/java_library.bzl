@@ -20,8 +20,7 @@ load(":common/java/basic_java_library.bzl", "BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS",
 load(":common/rule_util.bzl", "merge_attrs")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/cc/cc_info.bzl", "CcInfo")
-load(":common/java/java_info.bzl", "JavaInfo")
-load(":common/java/java_plugin_info.bzl", "JavaPluginInfo")
+load(":common/java/java_info.bzl", "JavaInfo", "JavaPluginInfo")
 
 def bazel_java_library_rule(
         ctx,

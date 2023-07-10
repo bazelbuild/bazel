@@ -14,9 +14,11 @@
 
 package net.starlark.java.eval;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.util.AbstractList;
 import java.util.Arrays;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -93,7 +95,7 @@ public abstract class StarlarkList<E> extends AbstractList<E>
         case 1:
           return new ImmutableSingletonStarlarkList<>(elems[0]);
         default:
-          return new ImmutableStarlarkList<>(elems);
+          return new RegularImmutableStarlarkList<>(elems);
       }
     }
     return new MutableStarlarkList<>(mutability, elems, elems.length);
@@ -112,7 +114,7 @@ public abstract class StarlarkList<E> extends AbstractList<E>
    * environments were then frozen. This instance is for empty lists that were always frozen from
    * the beginning.
    */
-  private static final StarlarkList<?> EMPTY = new ImmutableStarlarkList<>(EMPTY_ARRAY);
+  private static final StarlarkList<?> EMPTY = new RegularImmutableStarlarkList<>(EMPTY_ARRAY);
 
   /** Returns an empty frozen list of the desired type. */
   @SuppressWarnings("unchecked")
@@ -155,6 +157,17 @@ public abstract class StarlarkList<E> extends AbstractList<E>
    */
   public static <T> StarlarkList<T> immutableCopyOf(Iterable<? extends T> elems) {
     return copyOf(null, elems);
+  }
+
+  /**
+   * Creates an immutable {@link StarlarkList} with lazily supplied elements.
+   *
+   * <p>The given supplier is not invoked until the list is accessed and is invoked at most once.
+   * This can be used to create a {@link StarlarkList} while deferring an expensive computation
+   * until the list is actually accessed.
+   */
+  public static <T> StarlarkList<T> lazyImmutable(Supplier<ImmutableList<T>> supplier) {
+    return new LazyImmutableStarlarkList<>(supplier);
   }
 
   /**
