@@ -15,6 +15,8 @@
 
 package com.google.devtools.build.lib.analysis.test;
 
+import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.OS_TO_CONSTRAINTS;
+
 import com.google.common.base.Splitter;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
@@ -37,8 +39,11 @@ public class AnalysisTestActionBuilder {
    */
   public static void writeAnalysisTestAction(
       RuleContext ruleContext, AnalysisTestResultInfo testResultInfo) {
-    // TODO(laszlocsomor): Use the execution platform, not the host platform.
-    boolean isExecutedOnWindows = OS.getCurrent() == OS.WINDOWS;
+    boolean isExecutedOnWindows =
+        ruleContext
+            .getExecutionPlatform()
+            .constraints()
+            .hasConstraintValue(OS_TO_CONSTRAINTS.get(OS.WINDOWS));
     String escapedMessage =
         isExecutedOnWindows
             ? testResultInfo.getMessage().replace("%", "%%")
