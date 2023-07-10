@@ -29,20 +29,36 @@ CHECK_FOR_ANDROID_SDK = select(
     no_match_error = "This test requires an android SDK, and one isn't present. Make sure to uncomment the android rules in the WORKSPACE.",
 )
 
-def android_sh_test(**kwargs):
+def android_sh_test(create_test_with_released_tools = True, **kwargs):
+    """Creates versions of the test with and without platforms and head android tools.
+
+    Args:
+        create_test_with_released_tools: Whether to create a version of the test with the released
+        android tools, for when the code under test relies on not-yet-released code.
+        **kwargs: Args to sh_test
+    """
     name = kwargs.pop("name")
     data = kwargs.pop("data")
     if not data:
         data = []
     data = data + CHECK_FOR_ANDROID_SDK
 
-    # Test with released android_tools version.
-    native.sh_test(
-        name = name,
-        args = ["--without_platforms"],
-        data = data,
-        **kwargs
-    )
+    if create_test_with_released_tools:
+        # Test with released android_tools version.
+        native.sh_test(
+            name = name,
+            args = ["--without_platforms"],
+            data = data,
+            **kwargs
+        )
+
+        # Test with platform-based toolchain resolution.
+        native.sh_test(
+            name = name + "_with_platforms",
+            data = data,
+            args = ["--with_platforms"],
+            **kwargs
+        )
 
     # Test with android_tools version that's built at the same revision
     # as the test itself.
@@ -52,13 +68,5 @@ def android_sh_test(**kwargs):
         data = data + [
             "//tools/android/runtime_deps:android_tools.tar",
         ],
-        **kwargs
-    )
-
-    # Test with platform-based toolchain resolution.
-    native.sh_test(
-        name = name + "_with_platforms",
-        data = data,
-        args = ["--with_platforms"],
         **kwargs
     )

@@ -261,6 +261,17 @@ DIST_DEPS = {
     # Build time dependencies for testing and packaging
     #
     ###################################################
+    "android_gmaven_r8": {
+        "archive": "r8-8.0.40.jar",
+        "sha256": "ab1379835c7d3e5f21f80347c3c81e2f762e0b9b02748ae5232c3afa14adf702",
+        "urls": [
+            "https://maven.google.com/com/android/tools/r8/8.0.40/r8-8.0.40.jar",
+        ],
+        "used_in": [
+            "test_WORKSPACE_files",
+        ],
+        "package_version": "8.0.40",
+    },
     "bazel_skylib": {
         "archive": "bazel-skylib-1.0.3.tar.gz",
         "sha256": "1c531376ac7e5a180e0237938a2536de0c54d93f5c278634818e0efc952dd56c",

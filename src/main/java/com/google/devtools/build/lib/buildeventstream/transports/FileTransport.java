@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
+import com.google.devtools.build.lib.buildeventstream.BuildEventLocalFileSynchronizer;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
@@ -66,6 +67,7 @@ abstract class FileTransport implements BuildEventTransport {
   private final BuildEventArtifactUploader uploader;
   private final SequentialWriter writer;
   private final ArtifactGroupNamer namer;
+  private final BuildEventLocalFileSynchronizer synchronizer;
 
   private final ScheduledExecutorService timeoutExecutor =
       MoreExecutors.listeningDecorator(
@@ -76,12 +78,14 @@ abstract class FileTransport implements BuildEventTransport {
       BufferedOutputStream outputStream,
       BuildEventProtocolOptions options,
       BuildEventArtifactUploader uploader,
-      ArtifactGroupNamer namer) {
+      ArtifactGroupNamer namer,
+      BuildEventLocalFileSynchronizer synchronizer) {
     this.uploader = uploader;
     this.options = options;
     this.writer =
         new SequentialWriter(outputStream, this::serializeEvent, uploader, timeoutExecutor);
     this.namer = namer;
+    this.synchronizer = synchronizer;
   }
 
   @ThreadSafe
@@ -280,12 +284,14 @@ abstract class FileTransport implements BuildEventTransport {
       BuildEvent event, ArtifactGroupNamer namer) {
     checkNotNull(event);
 
+    var localFiles = event.referencedLocalFiles();
+    ListenableFuture<?> localFileDownloads = synchronizer.waitForLocalFileDownloads(localFiles);
     ListenableFuture<PathConverter> converterFuture =
-        uploader.uploadReferencedLocalFiles(event.referencedLocalFiles());
+        uploader.uploadReferencedLocalFiles(localFiles);
     ListenableFuture<?> remoteUploads =
         uploader.waitForRemoteUploads(event.remoteUploads(), timeoutExecutor);
     return Futures.transform(
-        Futures.allAsList(converterFuture, remoteUploads),
+        Futures.allAsList(localFileDownloads, converterFuture, remoteUploads),
         results -> {
           BuildEventContext context =
               new BuildEventContext() {

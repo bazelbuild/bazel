@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
+import com.google.devtools.build.lib.remote.util.RxFutures;
 import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
 import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -60,6 +61,7 @@ import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Deque;
 import java.util.List;
 import java.util.Set;
@@ -67,6 +69,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -490,7 +493,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       Priority priority) {
     if (path.isSymbolicLink()) {
       try {
-        path = path.getRelative(path.readSymbolicLink());
+        path = path.resolveSymbolicLinks();
       } catch (IOException e) {
         return Completable.error(e);
       }
@@ -758,6 +761,12 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
   public void flushOutputTree() throws InterruptedException {
     downloadCache.awaitInProgressTasks();
+  }
+
+  public ListenableFuture<Void> waitDownloads(Collection<PathFragment> files) {
+    var convertedFiles = files.stream().map(file -> execRoot.getFileSystem().getPath(file)).collect(
+        Collectors.toList());
+    return RxFutures.toListenableFuture(downloadCache.waitInProgressTasks(convertedFiles));
   }
 
   public ImmutableSet<ActionInput> getMissingActionInputs() {

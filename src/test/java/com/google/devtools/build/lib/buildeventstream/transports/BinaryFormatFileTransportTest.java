@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.Local
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
+import com.google.devtools.build.lib.buildeventstream.BuildEventLocalFileSynchronizer;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
@@ -107,7 +108,8 @@ public class BinaryFormatFileTransportTest {
             outputStream,
             defaultOpts,
             new LocalFilesArtifactUploader(),
-            artifactGroupNamer);
+            artifactGroupNamer,
+            BuildEventLocalFileSynchronizer.NO_OP);
     transport.sendBuildEvent(buildEvent);
 
     BuildEventStreamProtos.BuildEvent progress =
@@ -157,7 +159,12 @@ public class BinaryFormatFileTransportTest {
     BufferedOutputStream outputStream =
         new BufferedOutputStream(Files.newOutputStream(Paths.get(output.getAbsolutePath())));
     BinaryFormatFileTransport transport =
-        new BinaryFormatFileTransport(outputStream, defaultOpts, uploader, artifactGroupNamer);
+        new BinaryFormatFileTransport(
+            outputStream,
+            defaultOpts,
+            uploader,
+            artifactGroupNamer,
+            BuildEventLocalFileSynchronizer.NO_OP);
     transport.sendBuildEvent(event1);
 
     ExecutionException expected =
@@ -189,7 +196,8 @@ public class BinaryFormatFileTransportTest {
             outputStream,
             defaultOpts,
             new LocalFilesArtifactUploader(),
-            artifactGroupNamer);
+            artifactGroupNamer,
+            BuildEventLocalFileSynchronizer.NO_OP);
 
     transport.close().get();
 
@@ -220,7 +228,8 @@ public class BinaryFormatFileTransportTest {
             outputStream,
             defaultOpts,
             new LocalFilesArtifactUploader(),
-            artifactGroupNamer);
+            artifactGroupNamer,
+            BuildEventLocalFileSynchronizer.NO_OP);
 
     transport.sendBuildEvent(buildEvent);
     Future<Void> closeFuture = transport.close();
@@ -267,7 +276,12 @@ public class BinaryFormatFileTransportTest {
     BufferedOutputStream outputStream =
         new BufferedOutputStream(Files.newOutputStream(Paths.get(output.getAbsolutePath())));
     BinaryFormatFileTransport transport =
-        new BinaryFormatFileTransport(outputStream, defaultOpts, uploader, artifactGroupNamer);
+        new BinaryFormatFileTransport(
+            outputStream,
+            defaultOpts,
+            uploader,
+            artifactGroupNamer,
+            BuildEventLocalFileSynchronizer.NO_OP);
     transport.sendBuildEvent(event1);
     transport.sendBuildEvent(event2);
     transport.close().get();
@@ -307,7 +321,12 @@ public class BinaryFormatFileTransportTest {
     BufferedOutputStream outputStream =
         new BufferedOutputStream(Files.newOutputStream(Paths.get(output.getAbsolutePath())));
     BinaryFormatFileTransport transport =
-        new BinaryFormatFileTransport(outputStream, defaultOpts, uploader, artifactGroupNamer);
+        new BinaryFormatFileTransport(
+            outputStream,
+            defaultOpts,
+            uploader,
+            artifactGroupNamer,
+            BuildEventLocalFileSynchronizer.NO_OP);
     transport.sendBuildEvent(event1);
     transport.close().get();
 
@@ -345,7 +364,12 @@ public class BinaryFormatFileTransportTest {
     BufferedOutputStream outputStream =
         new BufferedOutputStream(Files.newOutputStream(Paths.get(output.getAbsolutePath())));
     BinaryFormatFileTransport transport =
-        new BinaryFormatFileTransport(outputStream, defaultOpts, uploader, artifactGroupNamer);
+        new BinaryFormatFileTransport(
+            outputStream,
+            defaultOpts,
+            uploader,
+            artifactGroupNamer,
+            BuildEventLocalFileSynchronizer.NO_OP);
     transport.sendBuildEvent(event);
     ListenableFuture<Void> closeFuture = transport.close();
 

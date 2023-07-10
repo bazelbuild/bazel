@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.buildeventservice.BuildEventServiceOptions.
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
+import com.google.devtools.build.lib.buildeventstream.BuildEventLocalFileSynchronizer;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
@@ -90,6 +91,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -753,6 +755,19 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
       CountingArtifactGroupNamer artifactGroupNamer)
       throws IOException {
     ImmutableSet.Builder<BuildEventTransport> bepTransportsBuilder = new ImmutableSet.Builder<>();
+    BuildEventLocalFileSynchronizer synchronizer =
+        localFiles -> {
+          var outputService = cmdEnv.getOutputService();
+          if (outputService == null || localFiles.isEmpty()) {
+            return Futures.immediateVoidFuture();
+          }
+
+          var files =
+              localFiles.stream()
+                  .map(localFile -> localFile.path.asFragment())
+                  .collect(Collectors.toList());
+          return outputService.waitOutputDownloads(files);
+        };
 
     if (!Strings.isNullOrEmpty(besStreamOptions.buildEventTextFile)) {
       try {
@@ -766,7 +781,11 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
                 : new LocalFilesArtifactUploader();
         bepTransportsBuilder.add(
             new TextFormatFileTransport(
-                bepTextOutputStream, bepOptions, localFileUploader, artifactGroupNamer));
+                bepTextOutputStream,
+                bepOptions,
+                localFileUploader,
+                artifactGroupNamer,
+                synchronizer));
       } catch (IOException exception) {
         // TODO(b/125216340): Consider making this a warning instead of an error once the
         //  associated bug has been resolved.
@@ -793,7 +812,11 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
                 : new LocalFilesArtifactUploader();
         bepTransportsBuilder.add(
             new BinaryFormatFileTransport(
-                bepBinaryOutputStream, bepOptions, localFileUploader, artifactGroupNamer));
+                bepBinaryOutputStream,
+                bepOptions,
+                localFileUploader,
+                artifactGroupNamer,
+                synchronizer));
       } catch (IOException exception) {
         // TODO(b/125216340): Consider making this a warning instead of an error once the
         //  associated bug has been resolved.
@@ -819,7 +842,11 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
                 : new LocalFilesArtifactUploader();
         bepTransportsBuilder.add(
             new JsonFormatFileTransport(
-                bepJsonOutputStream, bepOptions, localFileUploader, artifactGroupNamer));
+                bepJsonOutputStream,
+                bepOptions,
+                localFileUploader,
+                artifactGroupNamer,
+                synchronizer));
       } catch (IOException exception) {
         // TODO(b/125216340): Consider making this a warning instead of an error once the
         //  associated bug has been resolved.

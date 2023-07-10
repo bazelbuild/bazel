@@ -33,7 +33,6 @@ public class EvaluationContext {
   @Nullable private final Supplier<ExecutorService> executorServiceSupplier;
   private final boolean keepGoing;
   private final ExtendedEventHandler eventHandler;
-  private final boolean useForkJoinPool;
   private final boolean isExecutionPhase;
   private final int cpuHeavySkyKeysThreadPoolSize;
   private final int executionPhaseThreadPoolSize;
@@ -44,7 +43,6 @@ public class EvaluationContext {
       @Nullable Supplier<ExecutorService> executorServiceSupplier,
       boolean keepGoing,
       ExtendedEventHandler eventHandler,
-      boolean useForkJoinPool,
       boolean isExecutionPhase,
       int cpuHeavySkyKeysThreadPoolSize,
       int executionPhaseThreadPoolSize,
@@ -54,7 +52,6 @@ public class EvaluationContext {
     this.executorServiceSupplier = executorServiceSupplier;
     this.keepGoing = keepGoing;
     this.eventHandler = Preconditions.checkNotNull(eventHandler);
-    this.useForkJoinPool = useForkJoinPool;
     this.isExecutionPhase = isExecutionPhase;
     this.cpuHeavySkyKeysThreadPoolSize = cpuHeavySkyKeysThreadPoolSize;
     this.executionPhaseThreadPoolSize = executionPhaseThreadPoolSize;
@@ -75,10 +72,6 @@ public class EvaluationContext {
 
   public ExtendedEventHandler getEventHandler() {
     return eventHandler;
-  }
-
-  public boolean getUseForkJoinPool() {
-    return useForkJoinPool;
   }
 
   /**
@@ -157,7 +150,6 @@ public class EvaluationContext {
     protected Supplier<ExecutorService> executorServiceSupplier;
     protected boolean keepGoing;
     protected ExtendedEventHandler eventHandler;
-    protected boolean useForkJoinPool;
     protected int cpuHeavySkyKeysThreadPoolSize;
     protected int executionJobsThreadPoolSize = 0;
     protected boolean isExecutionPhase = false;
@@ -173,7 +165,6 @@ public class EvaluationContext {
       this.keepGoing = evaluationContext.keepGoing;
       this.eventHandler = evaluationContext.eventHandler;
       this.isExecutionPhase = evaluationContext.isExecutionPhase;
-      this.useForkJoinPool = evaluationContext.useForkJoinPool;
       this.executionJobsThreadPoolSize = evaluationContext.executionPhaseThreadPoolSize;
       this.cpuHeavySkyKeysThreadPoolSize = evaluationContext.cpuHeavySkyKeysThreadPoolSize;
       this.unnecessaryTemporaryStateDropperReceiver =
@@ -202,12 +193,6 @@ public class EvaluationContext {
     @CanIgnoreReturnValue
     public Builder setEventHandler(ExtendedEventHandler eventHandler) {
       this.eventHandler = eventHandler;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder setUseForkJoinPool(boolean useForkJoinPool) {
-      this.useForkJoinPool = useForkJoinPool;
       return this;
     }
 
@@ -242,7 +227,6 @@ public class EvaluationContext {
           executorServiceSupplier,
           keepGoing,
           eventHandler,
-          useForkJoinPool,
           isExecutionPhase,
           cpuHeavySkyKeysThreadPoolSize,
           executionJobsThreadPoolSize,
