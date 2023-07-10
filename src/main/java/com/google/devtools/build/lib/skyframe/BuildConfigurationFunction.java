@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.ConfigurationValueEvent;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentFactory;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -105,15 +106,19 @@ public final class BuildConfigurationFunction implements SkyFunction {
     }
 
     try {
-      return BuildConfigurationValue.create(
-          targetOptions,
-          RepositoryName.createUnvalidated(workspaceNameValue.getName()),
-          starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT),
-          transitionDirectoryNameFragment,
-          // Arguments below this are server-global.
-          directories,
-          ruleClassProvider,
-          fragmentFactory);
+      var configurationValue =
+          BuildConfigurationValue.create(
+              targetOptions,
+              RepositoryName.createUnvalidated(workspaceNameValue.getName()),
+              starlarkSemantics.getBool(
+                  BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT),
+              transitionDirectoryNameFragment,
+              // Arguments below this are server-global.
+              directories,
+              ruleClassProvider,
+              fragmentFactory);
+      env.getListener().post(ConfigurationValueEvent.create(configurationValue));
+      return configurationValue;
     } catch (InvalidConfigurationException e) {
       throw new BuildConfigurationFunctionException(e);
     }

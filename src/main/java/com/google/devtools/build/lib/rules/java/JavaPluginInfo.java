@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -34,7 +33,6 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaO
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaPluginInfoApi;
 import java.util.ArrayList;
 import java.util.List;
-import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -73,44 +71,9 @@ public abstract class JavaPluginInfo extends NativeInfo
 
   /** Provider class for {@link JavaPluginInfo} objects. */
   public static class Provider extends StarlarkProviderWrapper<JavaPluginInfo>
-      implements JavaPluginInfoApi.Provider<JavaInfo>,
-          com.google.devtools.build.lib.packages.Provider {
+      implements com.google.devtools.build.lib.packages.Provider {
     private Provider() {
-      super(
-          Label.parseCanonicalUnchecked("@_builtins//:common/java/java_plugin_info.bzl"),
-          PROVIDER_NAME);
-    }
-
-    @Override
-    public JavaPluginInfoApi<Artifact, JavaPluginData, JavaOutput> javaPluginInfo(
-        Sequence<?> runtimeDeps, Object processorClass, Object processorData, Boolean generatesApi)
-        throws EvalException, TypeException {
-      NestedSet<String> processorClasses =
-          processorClass == Starlark.NONE
-              ? NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER)
-              : NestedSetBuilder.create(Order.NAIVE_LINK_ORDER, (String) processorClass);
-      JavaInfo javaInfos =
-          JavaInfo.merge(
-              Sequence.cast(runtimeDeps, JavaInfo.class, "runtime_deps"),
-              /* mergeJavaOutputs= */ true,
-              /* mergeSourceJars= */ true);
-
-      NestedSet<Artifact> processorClasspath =
-          javaInfos.getTransitiveRuntimeJars().getSet(Artifact.class);
-
-      final NestedSet<Artifact> data;
-      if (processorData instanceof Depset) {
-        data = Depset.cast(processorData, Artifact.class, "data");
-      } else {
-        data =
-            NestedSetBuilder.wrap(
-                Order.NAIVE_LINK_ORDER, Sequence.cast(processorData, Artifact.class, "data"));
-      }
-
-      return JavaPluginInfo.create(
-          JavaPluginData.create(processorClasses, processorClasspath, data),
-          generatesApi,
-          javaInfos.getJavaOutputs());
+      super(Label.parseCanonicalUnchecked("@_builtins//:common/java/java_info.bzl"), PROVIDER_NAME);
     }
 
     @Override
@@ -318,10 +281,23 @@ public abstract class JavaPluginInfo extends NativeInfo
         plugins().disableAnnotationProcessing(), /* generatesApi= */ false, getJavaOutputs());
   }
 
-  @Nullable
+  /**
+   * Translates the plugin information from a {@link JavaInfo} instance.
+   *
+   * @param javaInfo the {@link JavaInfo} instance
+   * @return a {@link JavaPluginInfo} instance
+   * @throws EvalException if there are any errors accessing Starlark values
+   * @throws RuleErrorException if the {@code plugins} or {@code api_generating_plugins} fields are
+   *     of an incompatible type
+   */
   static JavaPluginInfo fromStarlarkJavaInfo(StructImpl javaInfo)
       throws EvalException, RuleErrorException {
-    Info info = javaInfo.getValue("_plugin_info", Info.class);
-    return info == null ? null : JavaPluginInfo.PROVIDER.wrap(info);
+    JavaPluginData plugins = JavaPluginData.wrap(javaInfo.getValue("plugins"));
+    JavaPluginData apiGeneratingPlugins =
+        JavaPluginData.wrap(javaInfo.getValue("api_generating_plugins"));
+    if (plugins.isEmpty() && apiGeneratingPlugins.isEmpty()) {
+      return JavaPluginInfo.empty();
+    }
+    return new AutoValue_JavaPluginInfo(ImmutableList.of(), plugins, apiGeneratingPlugins);
   }
 }

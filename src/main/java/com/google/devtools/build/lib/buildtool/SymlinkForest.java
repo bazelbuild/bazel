@@ -293,15 +293,7 @@ public class SymlinkForest {
    */
   public ImmutableList<Path> plantSymlinkForest() throws IOException, AbruptExitException {
     deleteTreesBelowNotPrefixed(execroot, prefix);
-
-    if (siblingRepositoryLayout) {
-      // Delete execroot/../<symlinks> to directories representing external repositories.
-      for (Path p : execroot.getParentDirectory().getDirectoryEntries()) {
-        if (p.isSymbolicLink()) {
-          p.deleteTree();
-        }
-      }
-    }
+    deleteSiblingRepositorySymlinks(siblingRepositoryLayout, execroot);
 
     boolean shouldLinkAllTopLevelItems = false;
     Map<Path, Path> mainRepoLinks = Maps.newLinkedHashMap();
@@ -367,6 +359,18 @@ public class SymlinkForest {
     return plantedSymlinks.build();
   }
 
+  private static void deleteSiblingRepositorySymlinks(
+      boolean siblingRepositoryLayout, Path execroot) throws IOException {
+    if (siblingRepositoryLayout) {
+      // Delete execroot/../<symlinks> to directories representing external repositories.
+      for (Path p : execroot.getParentDirectory().getDirectoryEntries()) {
+        if (p.isSymbolicLink()) {
+          p.deleteTree();
+        }
+      }
+    }
+  }
+
   /**
    * Eagerly plant the symlinks from execroot to the source root provided by the single package path
    * of the current build. Only works with a single package path. Before planting the new symlinks,
@@ -379,6 +383,7 @@ public class SymlinkForest {
       boolean siblingRepositoryLayout)
       throws IOException {
     deleteTreesBelowNotPrefixed(execroot, prefix);
+    deleteSiblingRepositorySymlinks(siblingRepositoryLayout, execroot);
 
     // Plant everything under the single source root.
     for (Path target : sourceRoot.getDirectoryEntries()) {

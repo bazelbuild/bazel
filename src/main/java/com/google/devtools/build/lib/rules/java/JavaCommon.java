@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -43,8 +42,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
-import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryInfo;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
@@ -52,9 +49,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
@@ -81,27 +76,6 @@ public class JavaCommon {
   private final JavaSemantics semantics;
   private final JavaToolchainProvider javaToolchain;
   private JavaCompilationHelper javaCompilationHelper;
-
-  public JavaCommon(RuleContext ruleContext, JavaSemantics semantics) {
-    this(
-        ruleContext,
-        semantics,
-        ruleContext.getPrerequisiteArtifacts("srcs").list(),
-        collectTargetsTreatedAsDeps(ruleContext, semantics, ClasspathType.COMPILE_ONLY),
-        collectTargetsTreatedAsDeps(ruleContext, semantics, ClasspathType.RUNTIME_ONLY),
-        collectTargetsTreatedAsDeps(ruleContext, semantics, ClasspathType.BOTH));
-  }
-
-  public JavaCommon(
-      RuleContext ruleContext, JavaSemantics semantics, ImmutableList<Artifact> sources) {
-    this(
-        ruleContext,
-        semantics,
-        sources,
-        collectTargetsTreatedAsDeps(ruleContext, semantics, ClasspathType.COMPILE_ONLY),
-        collectTargetsTreatedAsDeps(ruleContext, semantics, ClasspathType.RUNTIME_ONLY),
-        collectTargetsTreatedAsDeps(ruleContext, semantics, ClasspathType.BOTH));
-  }
 
   public JavaCommon(
       RuleContext ruleContext,
@@ -136,27 +110,6 @@ public class JavaCommon {
             ClasspathType.BOTH, bothDeps);
   }
 
-  /**
-   * Collects the native libraries in the transitive closure of the deps.
-   *
-   * @param deps the dependencies to be included as roots of the transitive closure.
-   * @return the native libraries found in the transitive closure of the deps.
-   */
-  public static ImmutableList<Artifact> collectNativeLibraries(
-      Collection<? extends TransitiveInfoCollection> deps) throws RuleErrorException {
-    NestedSet<LibraryToLink> linkerInputs =
-        NestedSetBuilder.fromNestedSets(
-                Streams.concat(
-                        JavaInfo.transitiveCcNativeLibraries(deps).stream(),
-                        AnalysisUtils.getProviders(deps, CcInfo.PROVIDER).stream()
-                            .map(CcInfo::getCcNativeLibraryInfo)
-                            .map(CcNativeLibraryInfo::getTransitiveCcNativeLibraries))
-                    .collect(toImmutableList()))
-            .build();
-
-    return LibraryToLink.getDynamicLibrariesForLinking(linkerInputs);
-  }
-
   public JavaSemantics getJavaSemantics() {
     return semantics;
   }
@@ -177,33 +130,6 @@ public class JavaCommon {
 
   public JavaCompilationArtifacts getJavaCompilationArtifacts() {
     return javaArtifacts;
-  }
-
-  /**
-   * Creates the java.library.path from a list of the native libraries. Concatenates the parent
-   * directories of the shared libraries into a Java search path. Each relative path entry is
-   * prepended with "${JAVA_RUNFILES}/" so it can be resolved at runtime.
-   *
-   * @param sharedLibraries a collection of native libraries to create the java library path from
-   * @return a String containing the ":" separated java library path
-   */
-  public static String javaLibraryPath(Collection<Artifact> sharedLibraries, String runfilePrefix) {
-    StringBuilder buffer = new StringBuilder();
-    Set<PathFragment> entries = new HashSet<>();
-    for (Artifact sharedLibrary : sharedLibraries) {
-      PathFragment entry = sharedLibrary.getRootRelativePath().getParentDirectory();
-      if (entries.add(entry)) {
-        if (buffer.length() > 0) {
-          buffer.append(':');
-        }
-        buffer
-            .append("${JAVA_RUNFILES}/")
-            .append(runfilePrefix)
-            .append("/")
-            .append(entry.getPathString());
-      }
-    }
-    return buffer.toString();
   }
 
   /**
@@ -499,10 +425,6 @@ public class JavaCommon {
     }
   }
 
-  public JavaTargetAttributes.Builder initCommon() throws RuleErrorException, InterruptedException {
-    return initCommon(ImmutableList.of(), getCompatibleJavacOptions());
-  }
-
   /**
    * Initialize the common actions and build various collections of artifacts for the
    * initializationHook() methods of the subclasses.
@@ -556,10 +478,6 @@ public class JavaCommon {
     return javaTargetAttributes;
   }
 
-  private ImmutableList<String> getCompatibleJavacOptions() {
-    return semantics.getCompatibleJavacOptions(ruleContext, javaToolchain);
-  }
-
   private boolean disallowDepsWithoutSrcs(String ruleClass) {
     return ruleClass.equals("java_library")
         || ruleClass.equals("java_binary")
@@ -569,14 +487,6 @@ public class JavaCommon {
   public ImmutableList<? extends TransitiveInfoCollection> targetsTreatedAsDeps(
       ClasspathType type) {
     return targetsTreatedAsDeps.get(type);
-  }
-
-  public ImmutableList<CcInfo> hermeticStaticLibs() {
-    if (ruleContext.isAttrDefined("hermetic", BOOLEAN)
-        && ruleContext.attributes().get("hermetic", BOOLEAN)) {
-      return JavaRuntimeInfo.from(ruleContext).hermeticStaticLibs();
-    }
-    return ImmutableList.of();
   }
 
   /** Returns the default dependencies for the given classpath context. */
@@ -741,7 +651,7 @@ public class JavaCommon {
   }
 
   /** Processes the sources of this target, adding them as messages or proper sources. */
-  private void processSrcs(JavaTargetAttributes.Builder attributes) {
+  private void processSrcs(JavaTargetAttributes.Builder attributes) throws RuleErrorException {
     List<? extends TransitiveInfoCollection> srcs = ruleContext.getPrerequisites("srcs");
     for (TransitiveInfoCollection src : srcs) {
       ImmutableList<Artifact> messages = MessageBundleInfo.getMessages(src);

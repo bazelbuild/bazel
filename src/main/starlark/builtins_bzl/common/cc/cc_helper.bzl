@@ -908,16 +908,19 @@ def _expand_single_make_variable(ctx, token, additional_make_variable_substituti
 
 def _expand_make_variables_for_copts(ctx, tokenization, unexpanded_tokens, additional_make_variable_substitutions):
     tokens = []
+    targets = []
+    for additional_compiler_input in getattr(ctx.attr, "additional_compiler_inputs", []):
+        targets.append(additional_compiler_input)
     for token in unexpanded_tokens:
         if tokenization:
-            expanded_token = _expand(ctx, token, additional_make_variable_substitutions)
+            expanded_token = _expand(ctx, token, additional_make_variable_substitutions, targets = targets)
             _tokenize(tokens, expanded_token)
         else:
             exp = _expand_single_make_variable(ctx, token, additional_make_variable_substitutions)
             if exp != None:
                 _tokenize(tokens, exp)
             else:
-                tokens.append(_expand(ctx, token, additional_make_variable_substitutions))
+                tokens.append(_expand(ctx, token, additional_make_variable_substitutions, targets = targets))
     return tokens
 
 def _get_copts(ctx, feature_configuration, additional_make_variable_substitutions):

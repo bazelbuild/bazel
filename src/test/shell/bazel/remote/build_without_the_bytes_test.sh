@@ -830,6 +830,31 @@ EOF
   expect_log "test.outputs_manifest__MANIFEST"
 }
 
+function test_nozip_undeclared_test_outputs() {
+  mkdir -p a
+  cat > a/test.sh << 'EOF'
+#!/bin/sh
+echo foo > "$TEST_UNDECLARED_OUTPUTS_DIR/text.txt"
+EOF
+  chmod +x a/test.sh
+
+  cat > a/BUILD <<'EOF'
+sh_test(
+  name = "foo",
+  srcs = ["test.sh"],
+)
+EOF
+
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    --nozip_undeclared_test_outputs \
+    //a:foo || fail "Failed to test //a:foo"
+
+  [[ -e "bazel-testlogs/a/foo/test.outputs/text.txt" ]] || fail "bazel-testlogs/a/foo/test.outputs/text.txt does not exist"
+  assert_contains "foo" "bazel-testlogs/a/foo/test.outputs/text.txt"
+}
+
 function test_multiple_test_attempts() {
   # Test that test logs of multiple test attempts can be renamed and reported by
   # BEP.

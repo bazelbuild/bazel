@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CcLinkingRule;
 import com.google.devtools.build.lib.rules.cpp.DebugPackageProvider;
 import com.google.devtools.build.lib.rules.cpp.FdoPrefetchHintsRule;
 import com.google.devtools.build.lib.rules.cpp.FdoProfileRule;
+import com.google.devtools.build.lib.rules.cpp.MemProfProfileRule;
 import com.google.devtools.build.lib.rules.cpp.PropellerOptimizeRule;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcBootstrap;
@@ -95,6 +96,7 @@ public class CcRules implements RuleSet {
     builder.addRuleDefinition(new FdoProfileRule());
     builder.addRuleDefinition(new FdoPrefetchHintsRule());
     builder.addRuleDefinition(new CcLinkingRule());
+    builder.addRuleDefinition(new MemProfProfileRule());
     builder.addRuleDefinition(new PropellerOptimizeRule());
     builder.addStarlarkBuiltinsInternal(
         "StaticallyLinkedMarkerProvider", StaticallyLinkedMarkerProvider.PROVIDER);

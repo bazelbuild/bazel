@@ -22,9 +22,9 @@ load(":common/java/compile_action.bzl", "compile_action")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/java/proguard_validation.bzl", "validate_proguard_specs")
 load(":common/cc/cc_info.bzl", "CcInfo")
-load(":common/java/java_info.bzl", "JavaInfo")
-load(":common/java/java_plugin_info.bzl", "JavaPluginInfo")
-load(":common/java/java_common.bzl", "java_common", "target_kind")
+load(":common/java/java_info.bzl", "JavaInfo", "JavaPluginInfo")
+load(":common/java/java_common.bzl", "java_common")
+load(":common/java/java_common_internal_for_builtins.bzl", "target_kind")
 
 coverage_common = _builtins.toplevel.coverage_common
 

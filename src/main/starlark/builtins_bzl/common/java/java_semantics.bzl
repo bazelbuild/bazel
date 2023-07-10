@@ -28,6 +28,15 @@ def _find_java_toolchain(ctx):
 def _find_java_runtime_toolchain(ctx):
     return ctx.toolchains["@bazel_tools//tools/jdk:runtime_toolchain_type"].java_runtime
 
+def _get_default_resource_path(path, segment_extractor):
+    # Look for src/.../resources to match Maven repository structure.
+    segments = path.split("/")
+    for idx in range(0, len(segments) - 2):
+        if segments[idx] == "src" and segments[idx + 2] == "resources":
+            return "/".join(segments[idx + 3:])
+    java_segments = segment_extractor(path)
+    return "/".join(java_segments) if java_segments != None else path
+
 semantics = struct(
     JAVA_TOOLCHAIN_LABEL = "@bazel_tools//tools/jdk:current_java_toolchain",
     JAVA_TOOLCHAIN_TYPE = "@bazel_tools//tools/jdk:toolchain_type",
@@ -57,4 +66,6 @@ semantics = struct(
     JAVA_STUB_TEMPLATE_LABEL = "@bazel_tools//tools/jdk:java_stub_template.txt",
     BUILD_INFO_TRANSLATOR_LABEL = None,
     JAVA_TEST_RUNNER_LABEL = "@bazel_tools//tools/jdk:TestRunner",
+    IS_BAZEL = True,
+    get_default_resource_path = _get_default_resource_path,
 )

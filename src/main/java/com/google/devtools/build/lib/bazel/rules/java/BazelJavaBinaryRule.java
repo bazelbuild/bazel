@@ -18,7 +18,8 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 
-import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses.BinaryBaseRule;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses.EmptyRuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses.BaseJavaBinaryRule;
@@ -32,6 +33,8 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
  * Rule definition for the java_binary rule.
+ *
+ * <p>This rule is implemented in Starlark. This class remains only for doc-gen purposes.
  */
 public final class BazelJavaBinaryRule implements RuleDefinition {
   @Override
@@ -107,10 +110,10 @@ public final class BazelJavaBinaryRule implements RuleDefinition {
 
   @Override
   public Metadata getMetadata() {
-    return RuleDefinition.Metadata.builder()
+    return Metadata.builder()
         .name("java_binary")
-        .ancestors(BaseJavaBinaryRule.class, BaseRuleClasses.BinaryBaseRule.class)
-        .factoryClass(BazelJavaBinary.class)
+        .ancestors(BaseJavaBinaryRule.class, BinaryBaseRule.class)
+        .factoryClass(EmptyRuleConfiguredTargetFactory.class)
         .build();
   }
 }

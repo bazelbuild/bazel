@@ -208,7 +208,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
         differencer, BazelCompatibilityMode.ERROR);
     BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
         differencer, CheckDirectDepsMode.ERROR);
-    BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.OFF);
+    BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.UPDATE);
     RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING.set(
         differencer, RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY);
@@ -285,10 +285,9 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of("my_dep_1", override));
     YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, yankedVersions);
     BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
-        differencer, CheckDirectDepsMode.ERROR);
+        differencer, CheckDirectDepsMode.WARNING);
     BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE.set(
-        differencer, BazelCompatibilityMode.ERROR);
-    BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.OFF);
+        differencer, BazelCompatibilityMode.WARNING);
 
     UpdateLockFileKey key =
         UpdateLockFileKey.create("moduleHash", depGraph, rootValue.getOverrides());
@@ -310,9 +309,9 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     assertThat(value.getFlags().cmdModuleOverrides()).isEqualTo(moduleOverride);
     assertThat(value.getFlags().allowedYankedVersions()).isEqualTo(yankedVersions);
     assertThat(value.getFlags().directDependenciesMode())
-        .isEqualTo(CheckDirectDepsMode.ERROR.toString());
+        .isEqualTo(CheckDirectDepsMode.WARNING.toString());
     assertThat(value.getFlags().compatibilityMode())
-        .isEqualTo(BazelCompatibilityMode.ERROR.toString());
+        .isEqualTo(BazelCompatibilityMode.WARNING.toString());
   }
 
   @Test

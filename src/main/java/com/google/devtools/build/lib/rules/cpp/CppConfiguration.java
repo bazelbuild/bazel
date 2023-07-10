@@ -666,6 +666,11 @@ public final class CppConfiguration extends Fragment
     return cppOptions.xfdoProfileLabel;
   }
 
+  @Nullable
+  Label getMemProfProfileLabel() {
+    return cppOptions.getMemProfProfileLabel();
+  }
+
   public boolean isFdoAbsolutePathEnabled() {
     return cppOptions.enableFdoProfileAbsolutePath;
   }

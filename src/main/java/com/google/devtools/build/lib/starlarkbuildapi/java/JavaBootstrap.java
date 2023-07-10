@@ -20,15 +20,12 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ContextAndFlagGuardedValue;
-import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi.JavaInfoProviderApi;
 import net.starlark.java.eval.FlagGuardedValue;
 import net.starlark.java.eval.Starlark;
 
 /** {@link Bootstrap} for Starlark objects related to the java language. */
 public class JavaBootstrap implements Bootstrap {
 
-  private final JavaInfoProviderApi javaInfoProviderApi;
-  private final JavaPluginInfoApi.Provider<?> javaPluginInfoProviderApi;
   private final ProguardSpecProviderApi.Provider<?> proguardSpecProvider;
   private static final ImmutableSet<PackageIdentifier> allowedRepositories =
       ImmutableSet.of(
@@ -38,11 +35,7 @@ public class JavaBootstrap implements Bootstrap {
           PackageIdentifier.createUnchecked("", "tools/build_defs/java"));
 
   public JavaBootstrap(
-      JavaInfoProviderApi javaInfoProviderApi,
-      JavaPluginInfoApi.Provider<?> javaPluginInfoProviderApi,
       ProguardSpecProviderApi.Provider<?> proguardSpecProvider) {
-    this.javaInfoProviderApi = javaInfoProviderApi;
-    this.javaPluginInfoProviderApi = javaPluginInfoProviderApi;
     this.proguardSpecProvider = proguardSpecProvider;
   }
 
@@ -58,13 +51,13 @@ public class JavaBootstrap implements Bootstrap {
         "JavaInfo",
         ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
             BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
-            javaInfoProviderApi,
+            Starlark.NONE,
             allowedRepositories));
     builder.put(
         "JavaPluginInfo",
         ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
             BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
-            javaPluginInfoProviderApi,
+            Starlark.NONE,
             allowedRepositories));
 
     builder.put(

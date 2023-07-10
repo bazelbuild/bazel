@@ -194,7 +194,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   }
 
   @Test
-  public void changeOutputMode_invalidateActions() throws Exception {
+  public void changeOutputMode_notInvalidateActions() throws Exception {
     write(
         "a/BUILD",
         "genrule(",
@@ -210,21 +210,26 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         "  outs = ['foobar.txt'],",
         "  cmd = 'cat $(location :foo) > $@ && echo bar > $@',",
         ")");
+    // Download all outputs with regex so in the next build with ALL mode, the actions are not
+    // invalidated because of missing outputs.
+    addOptions("--experimental_remote_download_regex=.*");
     ActionEventCollector actionEventCollector = new ActionEventCollector();
     runtimeWrapper.registerSubscriber(actionEventCollector);
     buildTarget("//a:foobar");
+    // Add the new option here because waitDownloads below will internally create a new command
+    // which will parse the new option.
+    setDownloadAll();
+    waitDownloads();
     // 3 = workspace status action + //:foo + //:foobar
     assertThat(actionEventCollector.getNumActionNodesEvaluated()).isEqualTo(3);
     actionEventCollector.clear();
     events.clear();
 
-    setDownloadAll();
     buildTarget("//a:foobar");
 
-    // Changing output mode should invalidate SkyFrame's in-memory caching and make it re-evaluate
-    // the action nodes.
-    assertThat(actionEventCollector.getNumActionNodesEvaluated()).isEqualTo(3);
-    events.assertContainsInfo("2 processes: 2 remote cache hit");
+    // Changing output mode should not invalidate SkyFrame's in-memory caching.
+    assertThat(actionEventCollector.getNumActionNodesEvaluated()).isEqualTo(0);
+    events.assertContainsInfo("0 processes");
   }
 
   @Test

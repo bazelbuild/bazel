@@ -120,20 +120,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public List<Map.Entry<String, String>> commandLineBuildVariables;
 
   @Option(
-      name = "collapse_duplicate_defines",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.LOSES_INCREMENTAL_STATE,
-      },
-      help =
-          "When enabled, redundant --defines will be removed early in the build. This avoids"
-              + " unnecessary loss of the analysis cache for certain types of equivalent"
-              + " builds.")
-  public boolean collapseDuplicateDefines;
-
-  @Option(
       name = "cpu",
       defaultValue = "",
       converter = AutoCpuConverter.class,
@@ -156,18 +142,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public int minParamFileSize;
 
   @Option(
-      name = "defer_param_files",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.EXECUTION,
-        OptionEffectTag.ACTION_COMMAND_LINES
-      },
-      help = "This option is deprecated and has no effect and will be removed in the future.")
-  public boolean deferParamFiles;
-
-  @Option(
       name = "experimental_extended_sanity_checks",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -185,8 +159,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
       help =
           "If this option is enabled, filesets crossing package boundaries are reported "
-              + "as errors. It does not work when check_fileset_dependencies_recursively is "
-              + "disabled.")
+              + "as errors.")
   public boolean strictFilesets;
 
   @Option(
@@ -510,24 +483,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "their runfiles, which matches the recommended behavior for Starlark rules ("
               + "https://bazel.build/extending/rules#runfiles_features_to_avoid).")
   public boolean alwaysIncludeFilesToBuildInData;
-
-  @Option(
-      name = "check_fileset_dependencies_recursively",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      deprecationWarning =
-          "This flag is a no-op and fileset dependencies are always checked "
-              + "to ensure correctness of builds.",
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS})
-  public boolean checkFilesetDependenciesRecursively;
-
-  @Option(
-      name = "experimental_skyframe_native_filesets",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      deprecationWarning = "This flag is a no-op and skyframe-native-filesets is always true.")
-  public boolean skyframeNativeFileset;
 
   @Option(
       name = "run_under",
@@ -989,16 +944,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " of failing. This is to help use cquery diagnose failures in select.")
   public boolean debugSelectsAlwaysSucceed;
 
-  @Option(
-      name = "experimental_throttle_action_cache_check",
-      defaultValue = "true",
-      converter = BooleanConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = OptionMetadataTag.EXPERIMENTAL,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help = "Whether to throttle the check whether an action is cached.")
-  public boolean throttleActionCacheCheck;
-
   /** Ways configured targets may provide the {@link Fragment}s they require. */
   public enum IncludeConfigFragmentsEnum {
     /**
@@ -1155,20 +1100,18 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   @Override
   public CoreOptions getNormalized() {
     CoreOptions result = (CoreOptions) clone();
+    LinkedHashMap<String, String> flagValueByName = getNormalizedCommandLineBuildVariables();
 
-    if (collapseDuplicateDefines) {
-      LinkedHashMap<String, String> flagValueByName = getNormalizedCommandLineBuildVariables();
-
-      // This check is an optimization to avoid creating a new list if the normalization was a
-      // no-op.
-      if (flagValueByName.size() != result.commandLineBuildVariables.size()) {
-        result.commandLineBuildVariables =
-            flagValueByName.entrySet().stream()
-                // The entries in the transformed list must be serializable.
-                .map(SimpleEntry::new)
-                .collect(toImmutableList());
-      }
+    // This check is an optimization to avoid creating a new list if the normalization was a
+    // no-op.
+    if (flagValueByName.size() != result.commandLineBuildVariables.size()) {
+      result.commandLineBuildVariables =
+          flagValueByName.entrySet().stream()
+              // The entries in the transformed list must be serializable.
+              .map(SimpleEntry::new)
+              .collect(toImmutableList());
     }
+
     // Normalize features.
     result.defaultFeatures = getNormalizedFeatures(defaultFeatures);
 

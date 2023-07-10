@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -45,6 +46,26 @@ public final class BootClassPathInfo extends NativeInfo implements StarlarkValue
 
   /** Provider singleton constant. */
   public static final Provider PROVIDER = new Provider();
+
+  /**
+   * Transforms a {@link BootClassPathInfo} instance received from Starlark to native.
+   *
+   * <p>For now, only native instances exist, so we handle the null/None case and cast otherwise.
+   *
+   * @param obj the instance to translate
+   * @return a {@link BootClassPathInfo} provider instance
+   * @throws RuleErrorException if the provided instance is of an incompatible type
+   */
+  // TODO(hvd): In the future, when this provider is moved to Starlark, this method must be
+  // updated to translate the StarlarkInfo.
+  static BootClassPathInfo fromStarlark(Object obj) throws RuleErrorException {
+    if (obj == null || obj == Starlark.NONE) {
+      return empty();
+    } else if (obj instanceof BootClassPathInfo) {
+      return (BootClassPathInfo) obj;
+    }
+    throw new RuleErrorException("expected BootClassPathInfo, got: " + Starlark.type(obj));
+  }
 
   /** Provider class for {@link BootClassPathInfo} objects. */
   @StarlarkBuiltin(name = "Provider", documented = false, doc = "")

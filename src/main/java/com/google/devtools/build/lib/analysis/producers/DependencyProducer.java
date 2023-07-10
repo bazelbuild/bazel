@@ -28,13 +28,19 @@ import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.DependencyResolver.ExecutionPlatformResult;
 import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.ConfigurationTransitionEvent;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
+import com.google.devtools.build.lib.causes.LoadingFailedCause;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
+import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
@@ -183,16 +189,46 @@ final class DependencyProducer
       return DONE; // There was a previously reported error.
     }
 
-    AttributeConfiguration configuration;
-    if (transitionedConfigurations.size() == 1
-        && transitionedConfigurations.keySet().iterator().next().equals(PATCH_TRANSITION_KEY)) {
-      // Drops the transition key if it was a patch transition.
-      configuration =
-          AttributeConfiguration.ofUnary(transitionedConfigurations.get(PATCH_TRANSITION_KEY));
-    } else {
-      configuration = AttributeConfiguration.ofSplit(transitionedConfigurations);
+    if (isNonconfigurableTargetInSamePackage(listener)) {
+      // The target is in the same package as the parent and non-configurable. In the general case
+      // loading a child target would defeat Package-based sharding. However, when the target is in
+      // the same Package, that concern no longer applies. This optimization means that delegation,
+      // and the corresponding creation of additional Skyframe nodes, can be avoided in the very
+      // common case of source file dependencies in the same Package.
+
+      // Discards transition keys for patch transitions but keeps them otherwise.
+      ImmutableList<String> transitionKeys =
+          transitionedConfigurations.size() == 1
+                  && transitionedConfigurations.containsKey(PATCH_TRANSITION_KEY)
+              ? ImmutableList.of()
+              : transitionedConfigurations.keySet().asList();
+      return computePrerequisites(
+          AttributeConfiguration.ofNullTransitionKeys(transitionKeys),
+          /* executionPlatformLabel= */ null);
     }
-    return computePrerequisites(configuration, /* executionPlatformLabel= */ null);
+
+    String parentChecksum = parameters.configurationKey().getOptionsChecksum();
+    for (BuildConfigurationKey configuration : transitionedConfigurations.values()) {
+      String childChecksum = configuration.getOptionsChecksum();
+      if (!parentChecksum.equals(childChecksum)) {
+        listener.post(ConfigurationTransitionEvent.create(parentChecksum, childChecksum));
+      }
+    }
+
+    if (transitionedConfigurations.size() == 1) {
+      BuildConfigurationKey patchedConfiguration =
+          transitionedConfigurations.get(PATCH_TRANSITION_KEY);
+      if (patchedConfiguration != null) {
+        // It was a patch transition. Drops the transition key.
+        return computePrerequisites(
+            AttributeConfiguration.ofUnary(patchedConfiguration),
+            /* executionPlatformLabel= */ null);
+      }
+    }
+
+    return computePrerequisites(
+        AttributeConfiguration.ofSplit(transitionedConfigurations),
+        /* executionPlatformLabel= */ null);
   }
 
   private StateMachine computePrerequisites(
@@ -224,6 +260,27 @@ final class DependencyProducer
   @Override
   public void acceptPrerequisitesAspectError(DependencyEvaluationException error) {
     sink.acceptDependencyError(DependencyError.of(error));
+  }
+
+  private boolean isNonconfigurableTargetInSamePackage(ExtendedEventHandler listener) {
+    Target parentTarget = parameters.target();
+    if (parentTarget.getLabel().getPackageIdentifier().equals(toLabel.getPackageIdentifier())) {
+      try {
+        Target toTarget = parentTarget.getPackage().getTarget(toLabel.getName());
+        if (!toTarget.isConfigurable()) {
+          return true;
+        }
+      } catch (NoSuchTargetException e) {
+        parameters
+            .transitiveState()
+            .addTransitiveCause(new LoadingFailedCause(toLabel, e.getDetailedExitCode()));
+        listener.handle(
+            Event.error(
+                TargetUtils.getLocationMaybe(parentTarget),
+                TargetUtils.formatMissingEdge(parentTarget, toLabel, e, kind.getAttribute())));
+      }
+    }
+    return false;
   }
 
   /**

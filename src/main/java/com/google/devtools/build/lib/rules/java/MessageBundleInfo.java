@@ -14,83 +14,61 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.BuiltinProvider;
-import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
-import com.google.devtools.build.lib.starlarkbuildapi.java.MessageBundleInfoApi;
-import java.util.List;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import javax.annotation.Nullable;
-import net.starlark.java.annot.Param;
-import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
-import net.starlark.java.eval.StarlarkList;
-import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.syntax.Location;
 
 /** Marks configured targets that are able to supply message bundles to their dependents. */
 @Immutable
-public final class MessageBundleInfo extends NativeInfo implements MessageBundleInfoApi<Artifact> {
+public final class MessageBundleInfo {
 
-  public static final String STARLARK_NAME = "MessageBundleInfo";
+  private static final String STARLARK_NAME = "MessageBundleInfo";
 
   /** Provider singleton constant. */
-  public static final BuiltinProvider<MessageBundleInfo> PROVIDER = new Provider();
+  private static final StarlarkProviderWrapper<MessageBundleInfo> PROVIDER = new Provider();
 
   /** Provider class for {@link MessageBundleInfo} objects. */
-  @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
-  public static class Provider extends BuiltinProvider<MessageBundleInfo> implements ProviderApi {
+  private static class Provider extends StarlarkProviderWrapper<MessageBundleInfo> {
     private Provider() {
-      super(STARLARK_NAME, MessageBundleInfo.class);
+      super(
+          Label.parseCanonicalUnchecked("@_builtins//:common/java/message_bundle_info.bzl"),
+          STARLARK_NAME);
     }
 
-    @StarlarkMethod(
-        name = "MessageBundleInfo",
-        doc = "The <code>MessageBundleInfo</code> constructor.",
-        documented = false,
-        parameters = {
-          @Param(name = "messages", positional = false, named = true),
-        },
-        selfCall = true,
-        useStarlarkThread = true)
-    public MessageBundleInfo messageBundleInfo(Sequence<?> messages, StarlarkThread thread)
-        throws EvalException {
-      List<Artifact> messagesList = Sequence.cast(messages, Artifact.class, "messages");
-      return new MessageBundleInfo(ImmutableList.copyOf(messagesList), thread.getCallerLocation());
+    @Override
+    public MessageBundleInfo wrap(Info value) throws RuleErrorException {
+      try {
+        return new MessageBundleInfo((StarlarkInfo) value);
+      } catch (EvalException e) {
+        throw new RuleErrorException(e);
+      }
     }
   }
 
   private final ImmutableList<Artifact> messages;
 
-  private MessageBundleInfo(ImmutableList<Artifact> messages, Location creationLocation) {
-    super(creationLocation);
-    this.messages = Preconditions.checkNotNull(messages);
+  private MessageBundleInfo(StarlarkInfo value) throws EvalException {
+    this.messages =
+        Sequence.cast(value.getValue("messages"), Artifact.class, "messages").getImmutableList();
   }
 
-  @Override
-  public BuiltinProvider<MessageBundleInfo> getProvider() {
-    return PROVIDER;
-  }
-
-  @Override
-  public Sequence<Artifact> getMessageBundles() {
-    return StarlarkList.immutableCopyOf(getMessages());
-  }
-
-  public ImmutableList<Artifact> getMessages() {
+  private ImmutableList<Artifact> getMessages() {
     return messages;
   }
 
   @Nullable
-  public static ImmutableList<Artifact> getMessages(TransitiveInfoCollection info) {
-    MessageBundleInfo messageBundleInfo =
-        (MessageBundleInfo) info.get(MessageBundleInfo.PROVIDER.getKey());
+  public static ImmutableList<Artifact> getMessages(TransitiveInfoCollection info)
+      throws RuleErrorException {
+    MessageBundleInfo messageBundleInfo = info.get(MessageBundleInfo.PROVIDER);
     if (messageBundleInfo != null) {
       return messageBundleInfo.getMessages();
     }

@@ -38,8 +38,7 @@ load("@_builtins//:common/cc/cc_toolchain_alias.bzl", "cc_toolchain_alias")
 load("@_builtins//:common/cc/cc_common.bzl", "cc_common")
 load("@_builtins//:common/cc/cc_helper.bzl", "cc_helper")
 load(":common/objc/objc_common.bzl", "objc_common")
-load(":common/java/java_plugin_info.bzl", "JavaPluginInfo")
-load(":common/java/java_info.bzl", "JavaInfo")
+load(":common/java/java_info.bzl", "JavaInfo", "JavaPluginInfo")
 load(":common/java/java_common.bzl", "java_common")
 
 exported_toplevels = {

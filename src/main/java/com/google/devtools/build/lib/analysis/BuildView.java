@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -39,7 +38,6 @@ import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigRequestedEvent;
-import com.google.devtools.build.lib.analysis.config.ConfigurationResolver.TopLevelTargetsAndConfigsResult;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.constraints.PlatformRestrictionsResult;
@@ -72,7 +70,6 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.pkgcache.PackageManager.PackageManagerStatistics;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
@@ -246,7 +243,6 @@ public class BuildView {
 
     // Prepare the analysis phase
     BuildConfigurationValue topLevelConfig;
-    TopLevelTargetsAndConfigsResult topLevelTargetsWithConfigsResult;
     // Configuration creation.
     // TODO(gregce): Consider dropping this phase and passing on-the-fly target / exec configs as
     // needed. This requires cleaning up the invalidation in SkyframeBuildView.setConfigurations.
@@ -257,15 +253,6 @@ public class BuildView {
     if (buildConfigurationsCreatedCallback != null) {
       buildConfigurationsCreatedCallback.run(topLevelConfig);
     }
-    try (SilentCloseable c = Profiler.instance().profile("AnalysisUtils.getTargetsWithConfigs")) {
-      topLevelTargetsWithConfigsResult =
-          AnalysisUtils.getTargetsWithConfigs(
-              topLevelConfig,
-              labelToTargetMap.values(),
-              eventHandler,
-              ruleClassProvider,
-              skyframeExecutor);
-    }
 
     skyframeBuildView.setConfiguration(
         eventHandler, topLevelConfig, viewOptions.maxConfigChangesToShow);
@@ -273,24 +260,20 @@ public class BuildView {
     eventBus.post(new MakeEnvironmentEvent(topLevelConfig.getMakeEnvironment()));
     eventBus.post(topLevelConfig.toBuildEvent());
 
-    Collection<TargetAndConfiguration> topLevelTargetsWithConfigs =
-        topLevelTargetsWithConfigsResult.getTargetsAndConfigs();
-
-    for (TargetAndConfiguration pair : topLevelTargetsWithConfigs) {
-      if (pair.getConfiguration() != null && !pair.getConfiguration().equals(topLevelConfig)) {
-        // Log top-level rule transitioned configurations.
-        eventBus.post(new ConfigRequestedEvent(pair.getConfiguration(), topLevelConfig.checksum()));
-      }
-    }
-
+    var configurationKey = topLevelConfig.getKey();
     ImmutableList<ConfiguredTargetKey> topLevelCtKeys =
-        topLevelTargetsWithConfigs.stream()
-            .map(BuildView::getConfiguredTargetKey)
+        labelToTargetMap.keySet().stream()
+            .map(
+                label ->
+                    ConfiguredTargetKey.builder()
+                        .setLabel(label)
+                        .setConfigurationKey(configurationKey)
+                        .build())
             .collect(toImmutableList());
 
-    ImmutableList<TopLevelAspectsKey> aspectsKeys =
+    ImmutableList<TopLevelAspectsKey> aspectKeys =
         createTopLevelAspectKeys(
-            aspects, aspectsParameters, topLevelTargetsWithConfigs, eventHandler);
+            aspects, aspectsParameters, labelToTargetMap.keySet(), topLevelConfig, eventHandler);
 
     getArtifactFactory().noteAnalysisStarting();
     SkyframeAnalysisResult skyframeAnalysisResult;
@@ -306,7 +289,7 @@ public class BuildView {
             skyframeBuildView.analyzeAndExecuteTargets(
                 eventHandler,
                 topLevelCtKeys,
-                aspectsKeys,
+                aspectKeys,
                 loadingResult.getTestsToRunLabels(),
                 labelToTargetMap,
                 topLevelOptions,
@@ -334,7 +317,7 @@ public class BuildView {
                 eventHandler,
                 labelToTargetMap,
                 topLevelCtKeys,
-                aspectsKeys,
+                aspectKeys,
                 topLevelOptions,
                 eventBus,
                 bugReporter,
@@ -372,8 +355,7 @@ public class BuildView {
               viewOptions,
               skyframeAnalysisResult,
               /* targetsToSkip= */ ImmutableSet.of(),
-              /* labelToTargetMap= */ labelToTargetMap,
-              topLevelTargetsWithConfigsResult.hasError(),
+              labelToTargetMap,
               /* includeExecutionPhase= */ true);
     } else {
       ImmutableSet<ConfiguredTarget> targetsToSkip = ImmutableSet.of();
@@ -419,25 +401,17 @@ public class BuildView {
               skyframeAnalysisResult,
               targetsToSkip,
               labelToTargetMap,
-              topLevelTargetsWithConfigsResult.hasError(),
               /* includeExecutionPhase= */ false);
     }
     logger.atInfo().log("Finished analysis");
     return result;
   }
 
-  private static ConfiguredTargetKey getConfiguredTargetKey(
-      TargetAndConfiguration targetAndConfiguration) {
-    return ConfiguredTargetKey.builder()
-        .setLabel(targetAndConfiguration.getLabel())
-        .setConfiguration(targetAndConfiguration.getConfiguration())
-        .build();
-  }
-
   private ImmutableList<TopLevelAspectsKey> createTopLevelAspectKeys(
       List<String> aspects,
       ImmutableMap<String, String> aspectsParameters,
-      Collection<TargetAndConfiguration> topLevelTargetsWithConfigs,
+      ImmutableSet<Label> topLevelTargets,
+      BuildConfigurationValue configuration,
       ExtendedEventHandler eventHandler)
       throws InterruptedException, ViewCreationFailedException {
     RepositoryMapping mainRepoMapping;
@@ -516,11 +490,11 @@ public class BuildView {
       return ImmutableList.of();
     }
 
-    return topLevelTargetsWithConfigs.stream()
+    return topLevelTargets.stream()
         .map(
             target ->
                 AspectKeyCreator.createTopLevelAspectsKey(
-                    aspectClasses, target.getLabel(), target.getConfiguration(), aspectsParameters))
+                    aspectClasses, target, configuration, aspectsParameters))
         .collect(toImmutableList());
   }
 
@@ -534,7 +508,6 @@ public class BuildView {
       SkyframeAnalysisResult skyframeAnalysisResult,
       Set<ConfiguredTarget> targetsToSkip,
       ImmutableMap<Label, Target> labelToTargetMap,
-      boolean hasTopLevelTargetsWithConfigurationError,
       boolean includeExecutionPhase)
       throws InterruptedException {
     Set<Label> testsToRun = loadingResult.getTestsToRunLabels();
@@ -596,8 +569,7 @@ public class BuildView {
     ImmutableSet<ConfiguredTarget> exclusiveIfLocalTests = exclusiveIfLocalTestsBuilder.build();
 
     FailureDetail failureDetail =
-        createAnalysisFailureDetail(
-            loadingResult, skyframeAnalysisResult, hasTopLevelTargetsWithConfigurationError);
+        createAnalysisFailureDetail(loadingResult, skyframeAnalysisResult);
     if (includeExecutionPhase) {
       SkyframeAnalysisAndExecutionResult skyframeAnalysisAndExecutionResult =
           (SkyframeAnalysisAndExecutionResult) skyframeAnalysisResult;
@@ -671,8 +643,7 @@ public class BuildView {
   @Nullable
   public static FailureDetail createAnalysisFailureDetail(
       TargetPatternPhaseValue loadingResult,
-      @Nullable SkyframeAnalysisResult skyframeAnalysisResult,
-      boolean hasTopLevelTargetsWithConfigurationError) {
+      @Nullable SkyframeAnalysisResult skyframeAnalysisResult) {
     if (loadingResult.hasError()) {
       return FailureDetail.newBuilder()
           .setMessage("command succeeded, but there were errors parsing the target pattern")
@@ -684,16 +655,6 @@ public class BuildView {
       return FailureDetail.newBuilder()
           .setMessage("command succeeded, but there were loading phase errors")
           .setAnalysis(Analysis.newBuilder().setCode(Analysis.Code.GENERIC_LOADING_PHASE_FAILURE))
-          .build();
-    }
-    if (hasTopLevelTargetsWithConfigurationError) {
-      return FailureDetail.newBuilder()
-          .setMessage("command succeeded, but top level configurations could not be created")
-          .setBuildConfiguration(
-              FailureDetails.BuildConfiguration.newBuilder()
-                  .setCode(
-                      FailureDetails.BuildConfiguration.Code
-                          .TOP_LEVEL_CONFIGURATION_CREATION_FAILURE))
           .build();
     }
     if (skyframeAnalysisResult != null && skyframeAnalysisResult.hasAnalysisError()) {

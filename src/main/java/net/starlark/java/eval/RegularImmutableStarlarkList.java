@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2023 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,15 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.rules.java;
+package net.starlark.java.eval;
 
-import com.google.devtools.build.lib.rules.java.JavaBinary;
+import com.google.common.base.Preconditions;
 
-/**
- * Implementation of {@code java_binary} with Bazel semantics.
- */
-public class BazelJavaBinary extends JavaBinary {
-  public BazelJavaBinary() {
-    super(BazelJavaSemantics.INSTANCE);
+/** An immutable implementation of a {@code StarlarkList}. */
+final class RegularImmutableStarlarkList<E> extends ImmutableStarlarkList<E> {
+  private final Object[] elems;
+
+  RegularImmutableStarlarkList(Object[] elems) {
+    Preconditions.checkArgument(elems.getClass() == Object[].class);
+    this.elems = elems;
+  }
+
+  @Override
+  Object[] elems() {
+    return elems;
   }
 }

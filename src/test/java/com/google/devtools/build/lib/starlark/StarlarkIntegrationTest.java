@@ -948,6 +948,8 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "",
         "def custom_rule_impl(ctx):",
+        "    metadata = ctx.actions.declare_file(ctx.label.name + '.metadata')",
+        "    ctx.actions.write(metadata, '')",
         "    return [",
         "        coverage_common.instrumented_files_info(",
         "            ctx,",
@@ -967,6 +969,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         // Missing attrs are ignored
         "                'missing_dep_attr',",
         "            ],",
+        "            metadata_files = [metadata],",
         "        ),",
         "    ]",
         "",
@@ -1033,7 +1036,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     assertThat(
             ActionsTestUtil.baseArtifactNames(
                 ((Depset) myInfo.getValue("metadata_files")).getSet(Artifact.class)))
-        .containsExactly("label_dep.gcno", "label_list_dep.gcno", "dict_dep.gcno");
+        .containsExactly("label_dep.gcno", "label_list_dep.gcno", "dict_dep.gcno", "cr.metadata");
     ConfiguredTarget customRule = getConfiguredTarget("//test/starlark:cr");
     assertThat(
             ActionsTestUtil.baseArtifactNames(

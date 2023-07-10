@@ -279,8 +279,11 @@ public final class FileSystemValueCheckerInferringAncestors {
       if (oldFsv.getType().isDirectory()) {
         return false;
       }
-      // TODO(b/287632270) - handle this scenario
-      valuesToInject.put(key, Delta.justNew(FileStateValue.DIRECTORY_FILE_STATE_NODE));
+      Version directoryFileStateNodeMtsv =
+          skyValueDirtinessChecker.getMaxTransitiveSourceVersionForNewValue(
+              key, FileStateValue.DIRECTORY_FILE_STATE_NODE);
+      valuesToInject.put(
+          key, Delta.justNew(FileStateValue.DIRECTORY_FILE_STATE_NODE, directoryFileStateNodeMtsv));
       parentListingKey(path).ifPresent(valuesToInvalidate::add);
       return true;
     }
