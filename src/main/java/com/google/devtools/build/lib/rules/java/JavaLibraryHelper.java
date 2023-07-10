@@ -354,7 +354,6 @@ public final class JavaLibraryHelper {
     JavaCompilationArgsProvider directArgs =
         collectJavaCompilationArgs(
             /* isNeverLink= */ isNeverlink,
-            /* srcLessDepsExport= */ false,
             artifacts,
             deps,
             runtimeDeps,

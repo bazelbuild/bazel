@@ -15,8 +15,6 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.Allowlist;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
@@ -547,17 +545,13 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         help = "use rex tool to rewrite dex files")
     public boolean useRexToCompressDexFiles;
 
+    @Deprecated
     @Option(
         name = "experimental_allow_android_library_deps_without_srcs",
         defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
-        effectTags = {
-          OptionEffectTag.EAGERNESS_TO_EXIT,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-        },
-        help =
-            "Flag to help transition from allowing to disallowing srcs-less android_library"
-                + " rules with deps. The depot needs to be cleaned up to roll this out by default.")
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "No-op. Kept here for backwards compatibility.")
     public boolean allowAndroidLibraryDepsWithoutSrcs;
 
     @Option(
@@ -1134,7 +1128,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
       exec.dexoptsSupportedInDexSharder = dexoptsSupportedInDexSharder;
       exec.manifestMerger = manifestMerger;
       exec.manifestMergerOrder = manifestMergerOrder;
-      exec.allowAndroidLibraryDepsWithoutSrcs = allowAndroidLibraryDepsWithoutSrcs;
       exec.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
           oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
       exec.persistentBusyboxTools = persistentBusyboxTools;
@@ -1163,7 +1156,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean desugarJava8Libs;
   private final boolean checkDesugarDeps;
   private final boolean useRexToCompressDexFiles;
-  private final boolean allowAndroidLibraryDepsWithoutSrcs;
   private final boolean useAndroidResourceShrinking;
   private final boolean useAndroidResourceCycleShrinking;
   private final boolean useAndroidResourcePathShortening;
@@ -1220,7 +1212,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.desugarJava8 = options.desugarJava8;
     this.desugarJava8Libs = options.desugarJava8Libs;
     this.checkDesugarDeps = options.checkDesugarDeps;
-    this.allowAndroidLibraryDepsWithoutSrcs = options.allowAndroidLibraryDepsWithoutSrcs;
     this.useAndroidResourceShrinking =
         options.useAndroidResourceShrinking || options.useExperimentalAndroidResourceShrinking;
     this.useAndroidResourceCycleShrinking = options.useAndroidResourceCycleShrinking;
@@ -1372,11 +1363,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public boolean useRexToCompressDexFiles() {
     return useRexToCompressDexFiles;
-  }
-
-  public boolean allowSrcsLessAndroidLibraryDeps(RuleContext ruleContext) {
-    return allowAndroidLibraryDepsWithoutSrcs
-        && Allowlist.isAvailable(ruleContext, "allow_deps_without_srcs");
   }
 
   @Override

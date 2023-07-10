@@ -150,15 +150,10 @@ function gcov_coverage() {
           # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=84879).
           "${GCOV}" -i $COVERAGE_GCOV_OPTIONS -o "$(dirname ${gcda})" "${gcda}"
 
-          # Extract gcov's version: the output of `gcov --version` contains the
-          # version as a set of major-minor-patch numbers, of which we extract
-          # the major version.
-          gcov_major_version=$("${GCOV}" --version | sed -n -E -e 's/^.*\s([0-9]+)\.[0-9]+\.[0-9]+\s?.*$/\1/p')
-
-          # Check the gcov version so we can process the data correctly
-          if [[ $gcov_major_version -ge 9 ]]; then
-              # gcov 9 or higher use a JSON based format for their coverage reports.
-              # The output is generated into multiple files: "$(basename ${gcda}).gcov.json.gz"
+          # Check the type of output: gcov 9 or later outputs compressed JSON
+          # files, but earlier versions of gcov, and all versions of llvm-cov,
+          # do not. These output textual information.
+          if stat --printf='' *.gcov.json.gz > /dev/null 2>&1; then
               # Concatenating JSON documents does not yield a valid document, so they are moved individually
               mv -- *.gcov.json.gz "$(dirname "$output_file")/$(dirname ${gcno_path})"
           else

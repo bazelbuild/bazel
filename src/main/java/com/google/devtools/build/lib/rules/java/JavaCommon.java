@@ -139,11 +139,10 @@ public class JavaCommon {
    * @param srcLessDepsExport If srcs is omitted, deps are exported (deprecated behaviour for
    *     android_library only)
    */
-  public JavaCompilationArgsProvider collectJavaCompilationArgs(
-      boolean isNeverLink, boolean srcLessDepsExport) throws RuleErrorException {
+  public JavaCompilationArgsProvider collectJavaCompilationArgs(boolean isNeverLink)
+      throws RuleErrorException {
     return collectJavaCompilationArgs(
         /* isNeverLink= */ isNeverLink,
-        /* srcLessDepsExport= */ srcLessDepsExport,
         getJavaCompilationArtifacts(),
         /* deps= */ ImmutableList.of(
             JavaCompilationArgsProvider.legacyFromTargets(
@@ -156,7 +155,6 @@ public class JavaCommon {
 
   static JavaCompilationArgsProvider collectJavaCompilationArgs(
       boolean isNeverLink,
-      boolean srcLessDepsExport,
       JavaCompilationArtifacts compilationArtifacts,
       List<JavaCompilationArgsProvider> deps,
       List<JavaCompilationArgsProvider> runtimeDeps,
@@ -165,11 +163,7 @@ public class JavaCommon {
     JavaCompilationArgsProvider.Builder builder =
         JavaCompilationArgsProvider.builder().merge(compilationArtifacts, isNeverLink);
     exports.forEach(export -> builder.addExports(export, type));
-    if (srcLessDepsExport) {
-      deps.forEach(dep -> builder.addExports(dep, type));
-    } else {
-      deps.forEach(dep -> builder.addDeps(dep, type));
-    }
+    deps.forEach(dep -> builder.addDeps(dep, type));
     runtimeDeps.forEach(dep -> builder.addDeps(dep, ClasspathType.RUNTIME_ONLY));
     builder.addCompileTimeJavaDependencyArtifacts(
         collectCompileTimeDependencyArtifacts(

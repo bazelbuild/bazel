@@ -417,7 +417,8 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void buildingTargetsWithDifferentOutputDirectories_unsetsSymlinks() throws Exception {
+  public void buildingTargetsWithDifferentOutputDirectories_unsetsSymlinksIfNoneAreTopLevel()
+      throws Exception {
     addOptions("--symlink_prefix=ambiguous-", "--incompatible_skip_genfiles_symlink=false");
 
     Path config = getOutputPath().getRelative("some-imaginary-config");
@@ -431,10 +432,9 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
 
     write(
         "targets/BUILD",
-        "basic_rule(name='default')",
         "incoming_transition_rule(name='config1', path='set_from_config1')",
         "incoming_transition_rule(name='config2', path='set_from_config2')");
-    buildTarget("//targets:default", "//targets:config1", "//targets:config2");
+    buildTarget("//targets:config1", "//targets:config2");
 
     // there should be nothing at any of the convenience symlinks which depend on configuration -
     // the symlinks put there during the simulated prior build should have been deleted
@@ -448,6 +448,49 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
         .containsExactly(
             // notably absent: ambiguous-bin, ambiguous-genfiles, ambiguous-testlogs
             // these were also not created under other names
+            "ambiguous-" + TestConstants.WORKSPACE_NAME,
+            getExecRoot(),
+            "ambiguous-out",
+            getOutputPath());
+  }
+
+  @Test
+  public void buildingTargetsWithDifferentOutputDirectories_setsSymlinksIfAnyAreTopLevel()
+      throws Exception {
+    addOptions(
+        "--symlink_prefix=ambiguous-",
+        "--incompatible_skip_genfiles_symlink=false",
+        "--incompatible_merge_genfiles_directory=false",
+        "--incompatible_skip_genfiles_symlink=false");
+
+    Path config = getOutputPath().getRelative("some-imaginary-config");
+    // put symlinks at the convenience symlinks spots to simulate a prior build
+    Path binLink = getWorkspace().getChild("ambiguous-bin");
+    binLink.createSymbolicLink(config.getChild("bin"));
+    Path genfilesLink = getWorkspace().getChild("ambiguous-genfiles");
+    genfilesLink.createSymbolicLink(config.getChild("genfiles"));
+    Path testlogsLink = getWorkspace().getChild("ambiguous-testlogs");
+    testlogsLink.createSymbolicLink(config.getChild("testlogs"));
+
+    write(
+        "targets/BUILD",
+        "basic_rule(name='default')",
+        "incoming_transition_rule(name='config1', path='set_from_config1')");
+    buildTarget("//targets:default", "//targets:config1");
+
+    assertThat(getConvenienceSymlinks())
+        .containsExactly(
+            "ambiguous-bin",
+            getOutputPath()
+                .getRelative("default-" + getTargetConfiguration().getCpu() + "-fastbuild/bin"),
+            "ambiguous-genfiles",
+            getOutputPath()
+                .getRelative(
+                    "default-" + getTargetConfiguration().getCpu() + "-fastbuild/genfiles"),
+            "ambiguous-testlogs",
+            getOutputPath()
+                .getRelative(
+                    "default-" + getTargetConfiguration().getCpu() + "-fastbuild/testlogs"),
             "ambiguous-" + TestConstants.WORKSPACE_NAME,
             getExecRoot(),
             "ambiguous-out",
