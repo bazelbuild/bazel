@@ -1,0 +1,90 @@
+# Based on paths provided in the CODEOWNERS file
+
+# Add 'awaiting-review' to any PR opened
+awaiting-review:
+- '**/*'
+
+team-ExternalDeps:
+- src/main/java/com/google/devtools/build/lib/bazel/bzlmod/**/*
+- src/test/java/com/google/devtools/build/lib/bazel/bzlmod/**/*
+- src/test/py/bazel/bzlmod/**/*
+- src/main/java/com/google/devtools/build/lib/bazel/repository/**/*
+- src/test/java/com/google/devtools/build/lib/bazel/repository/**/*
+
+team-Documentation:
+- site/**/*
+
+team-Remote-Exec:
+- src/main/java/com/google/devtools/build/lib/remote/**/*
+- src/test/java/com/google/devtools/build/lib/remote/**/*
+- src/test/py/bazel/remote/**/*
+- src/test/shell/bazel/remote/**/*
+- src/tools/remote/**/*
+- third_party/remoteapis/build/bazel/remote/**/*
+
+team-Rules-Python:
+- src/main/java/com/google/devtools/build/lib/bazel/rules/python/**/*
+- src/main/java/com/google/devtools/build/lib/rules/python/**/*
+
+team-Rules-Java:
+- src/java_tools/**/*
+- src/main/java/com/google/devtools/build/lib/rules/java/**/*
+- src/test/java/com/google/devtools/build/lib/rules/java/**/*
+- src/tools/singlejar/**/*
+- tools/java/**/*
+- tools/jdk/**/*
+
+team-Android:
+- src/tools/android/java/com/google/devtools/build/android/**/*
+- src/test/java/com/google/devtools/build/android/**/*
+- src/test/shell/bazel/android/**/*
+
+team-Configurability:
+- src/main/java/com/google/devtools/build/lib/analysis/**/*
+- src/test/java/com/google/devtools/build/lib/analysis/**/*
+- src/main/java/com/google/devtools/build/lib/query2/cquery/**/*
+- src/test/java/com/google/devtools/build/lib/query2/cquery/**/*
+- src/main/java/com/google/devtools/build/lib/rules/platform/**/*
+- src/test/java/com/google/devtools/build/lib/rules/platform/**/*
+- tools/platforms/**/*
+
+team-Performance:
+- src/main/java/com/google/devtools/build/lib/profiler/**/*
+- src/main/java/com/google/devtools/build/lib/query2/aquery/**/*
+- src/main/java/com/google/devtools/build/lib/query2/query/**/*
+- src/main/java/com/google/devtools/build/lib/metrics/**/*
+- src/main/java/com/google/devtools/build/lib/actions/**/*
+- src/main/protobuf/analysis_v2.proto
+
+team-CLI:
+- src/main/java/com/google/devtools/build/lib/runtime/UiStateTracker.java
+- src/main/java/com/google/devtools/build/lib/runtime/UiEventHandler.java
+- src/main/java/com/google/devtools/build/lib/runtime/SkymeldUiStateTracker.java
+
+team-Local-Exec:
+- src/main/java/com/google/devtools/build/lib/sandbox/**/*
+- src/main/java/com/google/devtools/build/lib/worker/**/*
+- src/main/java/com/google/devtools/build/lib/dynamic/**/*
+
+team-Rules-CPP:
+- tools/cpp/**/*
+- src/test/java/com/google/devtools/build/lib/rules/cpp/**/*
+- src/main/java/com/google/devtools/build/lib/rules/cpp/**/*
+
+# team-Bazel
+
+# team-OSS
+
+# team-Rules-Server
+
+# team-Starlark-Interpreter
+
+# team-Starlark-Integration
+
+# team-Rules-API
+
+# team-Loading-API
+
+# team-Rules-ObjC
+
+# team-Core

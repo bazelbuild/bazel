@@ -1,0 +1,63 @@
+# This workflow warns and then closes issues and PRs that have had no activity for a specified amount of time.
+#
+# You can adjust the behavior by modifying this file.
+# For more information, see:
+# https://github.com/actions/stale
+name: Mark stale issues and pull requests
+
+on:
+  workflow_dispatch:
+  schedule:
+  - cron: '0 1 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  stale:
+    permissions:
+      issues: write
+      pull-requests: write
+    name: Track and close stale issues/PRs
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Harden Runner
+      uses: step-security/harden-runner@6b3083af2869dc3314a0257a42f4af696cc79ba3 # v2.3.1
+      with:
+        egress-policy: audit
+
+    - name: Track and close stale issues/PRs
+      uses: actions/stale@f7176fd3007623b69d27091f9b9d4ab7995f0a06 # v5.2.1
+      with:
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+        days-before-issue-stale: 430
+        days-before-pr-stale: 430
+        days-before-issue-close: 90
+        days-before-pr-close: 90
+        stale-issue-message: >
+          Thank you for contributing to the Bazel repository!
+          This issue has been marked as stale since it has not had any activity in the last 1+ years. It will be closed in the next 90
+          days unless any other activity occurs or one of the following labels is added: "not stale", "awaiting-bazeler". Please reach out
+          to the triage team (`@bazelbuild/triage`) if you think this issue is still relevant or you are interested in getting the
+          issue resolved.
+        close-issue-message: >
+          This issue has been automatically closed due to inactivity. If you're still interested in pursuing this, please reach out
+          to the triage team (`@bazelbuild/triage`). Thanks!
+        stale-pr-message: >
+          Thank you for contributing to the Bazel repository!
+          This pull request has been marked as stale since it has not had any activity in the last 1+ years. It will be closed in the next
+          90 days unless any other activity occurs or one of the following labels is added: "not stale", "awaiting-review", "awaiting-PR-merge".
+          Please reach out to the triage team (`@bazelbuild/triage`) if you think this PR is still relevant or you are interested in getting the
+          PR merged.
+        close-pr-message: >
+          This pull request has been automatically closed due to inactivity. If you're still interested in pursuing this, please reach out
+          to the triage team (`@bazelbuild/triage`). Thanks!
+        stale-issue-label: 'stale'
+        exempt-issue-labels: 'not stale,awaiting-bazeler,untriaged,P0,P1,P2,good first issue,help wanted'
+        close-issue-reason: "not_planned"
+        stale-pr-label: 'stale'
+        exempt-pr-labels: 'not stale,awaiting-review,awaiting-PR-merge,P0,P1,P2'
+        exempt-draft-pr: true
+        operations-per-run: 500
+        ascending: true

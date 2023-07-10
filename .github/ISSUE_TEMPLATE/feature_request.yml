@@ -1,12 +1,18 @@
-name: Feature Request
+name: Feature request
 description: Suggest a new feature
+labels: ["type: feature request", "untriaged"]
+assignees:
+  - pavank1992
+  - sgowroji
 body:
   - type: markdown
     attributes:
       value: >
         **Attention:** if this is a _question_ about how to build / test / query / deploy using
-        Bazel, or a _discussion starter_, send it to bazel-discuss@googlegroups.com or discuss on
-        [Bazel Slack](https://slack.bazel.build/) instead!
+        Bazel, or a _discussion starter_, please start a new thread at Bazel's
+        [GitHub Discussions](https://github.com/bazelbuild/bazel/discussions), send it to
+        bazel-discuss@googlegroups.com, or discuss on [Bazel Slack](https://slack.bazel.build/)
+        instead!
   - type: textarea
     id: desc
     attributes:
