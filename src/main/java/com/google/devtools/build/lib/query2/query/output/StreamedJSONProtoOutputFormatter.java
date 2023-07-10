@@ -20,12 +20,9 @@ import com.google.protobuf.util.JsonFormat;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
- * An output formatter that outputs a protocol buffer json representation of a query result and
- * outputs the json to the output print stream.
+ * An output formatter that prints a list of targets according to ndjson spec to the output print stream.
  */
 public class StreamedJSONProtoOutputFormatter extends ProtoOutputFormatter {
   @Override

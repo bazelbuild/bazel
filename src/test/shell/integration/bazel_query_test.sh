@@ -1108,17 +1108,39 @@ genrule(
     outs = ["bar_out.txt"],
     cmd = "echo unused > $(OUTS)",
 )
+genrule(
+    name = "foo",
+    srcs = ["dummy.txt"],
+    outs = ["foo_out.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
 EOF
-  bazel query --output=streamed_jsonproto --noimplicit_deps "//$pkg:bar" > output 2> "$TEST_log" \
+  bazel query --output=streamed_jsonproto --noimplicit_deps "//$pkg/..." > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
 
   # Verify that the appropriate attributes were included.
-  assert_contains "\"ruleClass\":\"genrule\"" output
-  assert_contains "\"name\":\"//$pkg:bar\"" output
-  assert_contains "\"ruleInput\":\[\"//$pkg:dummy.txt\"\]" output
-  assert_contains "\"ruleOutput\":\[\"//$pkg:bar_out.txt\"\]" output
-  assert_contains "echo unused" output
+
+  foo_line_number=$(grep -n "foo" output | cut -d':' -f1)
+  bar_line_number=$(grep -n "bar" output | cut -d':' -f1)
+
+  foo_ndjson_line=$(sed -n "${foo_line_number}p" output) 
+  bar_ndjson_line=$(sed -n "${bar_line_number}p" output)
+ 
+  echo "$foo_ndjson_line" > foo_ndjson_file
+  echo "$bar_ndjson_line" > bar_ndjson_file
+
+  assert_contains "\"ruleClass\":\"genrule\"" foo_ndjson_file
+  assert_contains "\"name\":\"//$pkg:foo\"" foo_ndjson_file
+  assert_contains "\"ruleInput\":\[\"//$pkg:dummy.txt\"\]" foo_ndjson_file
+  assert_contains "\"ruleOutput\":\[\"//$pkg:foo_out.txt\"\]" foo_ndjson_file
+  assert_contains "echo unused" foo_ndjson_file
+
+  assert_contains "\"ruleClass\":\"genrule\"" bar_ndjson_file
+  assert_contains "\"name\":\"//$pkg:bar\"" bar_ndjson_file
+  assert_contains "\"ruleInput\":\[\"//$pkg:dummy.txt\"\]" bar_ndjson_file
+  assert_contains "\"ruleOutput\":\[\"//$pkg:bar_out.txt\"\]" bar_ndjson_file
+  assert_contains "echo unused" bar_ndjson_file
 }
 
 run_suite "${PRODUCT_NAME} query tests"
