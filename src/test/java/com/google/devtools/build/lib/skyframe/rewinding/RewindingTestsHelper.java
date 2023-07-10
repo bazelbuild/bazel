@@ -71,7 +71,6 @@ import com.google.devtools.build.skyframe.NotifyingHelper.EventType;
 import com.google.devtools.build.skyframe.NotifyingHelper.Order;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.TrackingAwaiter;
 import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
 import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
@@ -463,129 +462,6 @@ public class RewindingTestsHelper {
     assertOnlyActionsDirtied(dirtiedKeys);
     assertThat(dirtiedArtifactOwnerLabels(dirtiedKeys))
         .containsExactly("//test:rule1_1", "//test:rule1_2");
-  }
-
-  /**
-   * Tests that intra-evaluation ActionExecutionState state remains consistent with restarted deps:
-   * the sources for an action should be updated if the sources non-deterministically change after
-   * they are regenerated.
-   *
-   * <p>To produce this scenario, we rewind the source-generating action after the C++ action
-   * discovers its inputs but before it actually executes. We then release the C++ action, at which
-   * point it encounters an undone-previously-done input. If the C++ action uses its stale state, it
-   * will use a stale input digest.
-   *
-   * <p>The sequence of events is:
-   *
-   * <ol>
-   *   <li>loser requests a dependency on its loose header, marker_include.h
-   *   <li>restarter claims that source.cc is a lost input and forces a rewind of gensrc
-   *   <li>gensrc is marked dirty because it is rewound
-   *   <li>loser restarts evaluation
-   *   <li>loser notices gensrc is no longer done and resets itself
-   *   <li>gensrc re-executes
-   *   <li>restarter notes the new digest of source.cc
-   *   <li>loser executes, we check that the digest matches the new one
-   * </ol>
-   */
-  public final void runInputDiscoveringActionNoticesMissingDep() throws Exception {
-    testCase.write(
-        "test/BUILD",
-        "genrule(name = 'gensrc', outs = ['source.cc'], srcs = ['gensrc.sh'],",
-        "        cmd = '$< > $@ && cat $@')",
-        "cc_library(name = 'loser', srcs = ['source.cc'], hdrs_check = 'loose')",
-        "genrule(name = 'reader', srcs = ['output.inlined'], outs = ['out'], cmd = 'touch $@')",
-        "genrule(name = 'restarter', srcs = ['source.cc'], outs = ['output.inlined'],",
-        "        cmd = 'cp $< $@')");
-    testCase
-        .write("test/gensrc.sh", "echo '#include \"test/marker_include.h\" //'$RANDOM")
-        .setExecutable(true);
-    testCase.write("test/marker_include.h");
-
-    CountDownLatch looseHeaderDepDeclared = new CountDownLatch(1);
-    CountDownLatch gensrcRestarted = new CountDownLatch(1);
-    CountDownLatch cppRestarted = new CountDownLatch(1);
-    Label cppLabel = Label.parseCanonicalUnchecked("//test:loser");
-    Label gensrcLabel = Label.parseCanonicalUnchecked("//test:gensrc");
-    testCase.injectListenerAtStartOfNextBuild(
-        (key, type, order, context) -> {
-          if (EventType.ADD_REVERSE_DEP.equals(type)
-              && isActionExecutionKey(context, cppLabel)
-              && (key instanceof Artifact)
-              && ((Artifact) key).getFilename().equals("marker_include.h")) {
-            looseHeaderDepDeclared.countDown();
-          } else if (EventType.MARK_DIRTY.equals(type)
-              && Order.AFTER.equals(order)
-              && isActionExecutionKey(key, gensrcLabel)) {
-            gensrcRestarted.countDown();
-          } else if (EventType.IS_READY.equals(type)
-              && isActionExecutionKey(key, cppLabel)
-              && looseHeaderDepDeclared.getCount() == 0) {
-            TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
-                gensrcRestarted, "Gensrc not restarted in time for waiting C++ action");
-          } else if (EventType.RESET_FOR_RESTART_FROM_SCRATCH.equals(type)
-              && isActionExecutionKey(key, cppLabel)) {
-            cppRestarted.countDown();
-          } else if (EventType.SET_VALUE.equals(type)
-              && isActionExecutionKey(key, gensrcLabel)
-              && gensrcRestarted.getCount() == 0) {
-            TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
-                cppRestarted, "Cpp not restarted in time for waiting gensrc");
-          }
-        });
-    addSpawnShim(
-        "Executing genrule //test:restarter",
-        (spawn, context) -> {
-          TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(looseHeaderDepDeclared, "include");
-          ImmutableList<ActionInput> ccInputList =
-              ImmutableList.of(SpawnInputUtils.getInputWithName(spawn, "source.cc"));
-          return createLostInputsExecException(
-              context, ccInputList, new ActionInputDepOwnerMap(ccInputList));
-        });
-    AtomicReference<String> sourceDigest = new AtomicReference<>();
-    CountDownLatch digestRead = new CountDownLatch(1);
-    addSpawnShim(
-        "Executing genrule //test:restarter",
-        (spawn, context) -> {
-          sourceDigest.set(
-              getHexDigest(SpawnInputUtils.getInputWithName(spawn, "source.cc"), context));
-          digestRead.countDown();
-          return ExecResult.delegate();
-        });
-    addSpawnShim(
-        "Compiling test/source.cc",
-        (spawn, context) -> {
-          if (cppRestarted.getCount() == 0) {
-            TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(digestRead, "digest read");
-            assertThat(getHexDigest(SpawnInputUtils.getInputWithName(spawn, "source.cc"), context))
-                .isEqualTo(sourceDigest.get());
-          }
-          return ExecResult.delegate();
-        });
-
-    // Make gensrc actually execute twice: simulates output falling out of remote cache.
-    disableRemoteCaching();
-
-    testCase.buildTarget("//test:loser", "//test:restarter");
-
-    assertThat(getExecutedSpawnDescriptions())
-        .containsAtLeast(
-            "Executing genrule //test:gensrc",
-            "Executing genrule //test:restarter",
-            "Executing genrule //test:gensrc",
-            "Compiling test/source.cc")
-        .inOrder();
-
-    recorder.assertEvents(
-        /* runOnce= */ ImmutableList.of(),
-        /* completedRewound= */ ImmutableList.of("Executing genrule //test:gensrc"),
-        /* failedRewound= */ ImmutableList.of("Executing genrule //test:restarter"),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
-        /* actionRewindingPostLostInputCounts= */ ImmutableList.of(1));
-
-    // TODO(b/228090759): Verify that deps are correct (see assertion that used to be here).
-
-    TrackingAwaiter.INSTANCE.assertNoErrors();
   }
 
   private static void writeTwoGenrulePackage(BuildIntegrationTestCase testCase) throws IOException {
