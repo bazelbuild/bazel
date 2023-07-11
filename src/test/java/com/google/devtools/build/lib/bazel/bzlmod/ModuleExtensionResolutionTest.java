@@ -2273,7 +2273,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         workspaceRoot.getRelative("defs.bzl").getPathString(),
         "load('@data_repo//:defs.bzl','data_repo')",
         "def _ext_impl(id,ctx):",
-        "  data_str = id + ': ' + str(ctx.is_dev_dependency(ctx.modules[0]))",
+        "  data_str = id + ': ' + str(ctx.root_module_has_non_dev_dependency)",
         "  data_repo(name='ext_repo',data=data_str)",
         "ext1=module_extension(implementation=lambda ctx: _ext_impl('ext1', ctx))",
         "ext2=module_extension(implementation=lambda ctx: _ext_impl('ext2', ctx))",
@@ -2285,8 +2285,8 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     if (result.hasError()) {
       throw result.getError().getException();
     }
-    assertThat(result.get(skyKey).getModule().getGlobal("ext1_data")).isEqualTo("ext1: False");
-    assertThat(result.get(skyKey).getModule().getGlobal("ext2_data")).isEqualTo("ext2: True");
-    assertThat(result.get(skyKey).getModule().getGlobal("ext3_data")).isEqualTo("ext3: False");
+    assertThat(result.get(skyKey).getModule().getGlobal("ext1_data")).isEqualTo("ext1: True");
+    assertThat(result.get(skyKey).getModule().getGlobal("ext2_data")).isEqualTo("ext2: False");
+    assertThat(result.get(skyKey).getModule().getGlobal("ext3_data")).isEqualTo("ext3: True");
   }
 }

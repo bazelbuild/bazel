@@ -46,6 +46,7 @@ import net.starlark.java.eval.StarlarkSemantics;
 public class ModuleExtensionContext extends StarlarkBaseExternalContext {
   private final ModuleExtensionId extensionId;
   private final StarlarkList<StarlarkBazelModule> modules;
+  private final boolean rootModuleHasNonDevDependency;
 
   protected ModuleExtensionContext(
       Path workingDirectory,
@@ -57,7 +58,8 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
       StarlarkSemantics starlarkSemantics,
       @Nullable RepositoryRemoteExecutor remoteExecutor,
       ModuleExtensionId extensionId,
-      StarlarkList<StarlarkBazelModule> modules) {
+      StarlarkList<StarlarkBazelModule> modules,
+      boolean rootModuleHasNonDevDependency) {
     super(
         workingDirectory,
         env,
@@ -69,6 +71,7 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
         remoteExecutor);
     this.extensionId = extensionId;
     this.modules = modules;
+    this.rootModuleHasNonDevDependency = rootModuleHasNonDevDependency;
   }
 
   public Path getWorkingDirectory() {
@@ -108,32 +111,19 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
   @StarlarkMethod(
       name = "is_dev_dependency",
       doc =
-          "When given a tag, returns whether the given tag was specified on the result of a <a "
+          "Returns whether the given tag was specified on the result of a <a "
               + "href=\"../globals/module.html#use_extension\">use_extension</a> call with "
-              + "<code>devDependency = True</code>.<p>When given a module, returns "
-              + "<code>True</code> if and only if all <a "
-              + "href=\"../globals/module.html#use_extension\">use_extension</a> calls made by that "
-              + "module for the current extension specify <code>devDependency = True</code>. In "
-              + "particular, it returns <code>False</code> for modules other than the root module.",
+              + "<code>devDependency = True</code>.",
       parameters = {
         @Param(
-            name = "tag_or_module",
+            name = "tag",
             doc =
-                "A tag obtained from the <a"
-                    + " href=\"../builtins/bazel_module.html#tags\">tags</a> property of a "
-                    + "<a href=\"../builtins/bazel_module.html\">bazel_module</a> or a "
-                    + "<a href=\"../builtins/bazel_module.html\">bazel_module</a>.",
-            allowedTypes = {
-              @ParamType(type = TypeCheckedTag.class),
-              @ParamType(type = StarlarkBazelModule.class)
-            })
+                "A tag obtained from <a"
+                    + " href=\"../builtins/bazel_module.html#tags\">bazel_module.tags</a>.",
+            allowedTypes = {@ParamType(type = TypeCheckedTag.class)})
       })
-  public boolean isDevDependency(Object tagOrModule) {
-    if (tagOrModule instanceof TypeCheckedTag) {
-      return ((TypeCheckedTag) tagOrModule).isDevDependency();
-    } else {
-      return ((StarlarkBazelModule) tagOrModule).hasDevUseExtensionOnly();
-    }
+  public boolean isDevDependency(TypeCheckedTag tag) {
+    return tag.isDevDependency();
   }
 
   @StarlarkMethod(
@@ -144,6 +134,14 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
       structField = true)
   public boolean isIsolated() {
     return extensionId.getIsolationKey().isPresent();
+  }
+
+  @StarlarkMethod(
+      name = "root_module_has_non_dev_dependency",
+      doc = "Whether the root module uses this extension as a non-dev dependency.",
+      structField = true)
+  public boolean rootModuleHasNonDevDependency() {
+    return rootModuleHasNonDevDependency;
   }
 
   @StarlarkMethod(

@@ -46,7 +46,6 @@ public class StarlarkBazelModule implements StarlarkValue {
   private final String version;
   private final Tags tags;
   private final boolean isRootModule;
-  private final boolean hasDevUseExtensionOnly;
 
   @StarlarkBuiltin(
       name = "bazel_module_tags",
@@ -86,17 +85,11 @@ public class StarlarkBazelModule implements StarlarkValue {
     }
   }
 
-  private StarlarkBazelModule(
-      String name,
-      String version,
-      Tags tags,
-      boolean isRootModule,
-      boolean hasDevUseExtensionOnly) {
+  private StarlarkBazelModule(String name, String version, Tags tags, boolean isRootModule) {
     this.name = name;
     this.version = version;
     this.tags = tags;
     this.isRootModule = isRootModule;
-    this.hasDevUseExtensionOnly = hasDevUseExtensionOnly;
   }
 
   /**
@@ -139,14 +132,11 @@ public class StarlarkBazelModule implements StarlarkValue {
           .get(tag.getTagName())
           .add(TypeCheckedTag.create(tagClass, tag, labelConverter));
     }
-    boolean hasDevUseExtensionOnly =
-        usage != null && usage.getHasDevUseExtension() && !usage.getHasNonDevUseExtension();
     return new StarlarkBazelModule(
         module.getName(),
         module.getVersion().getOriginal(),
         new Tags(Maps.transformValues(typeCheckedTags, StarlarkList::immutableCopyOf)),
-        module.getKey().equals(ModuleKey.ROOT),
-        hasDevUseExtensionOnly);
+        module.getKey().equals(ModuleKey.ROOT));
   }
 
   @Override
@@ -178,9 +168,5 @@ public class StarlarkBazelModule implements StarlarkValue {
       doc = "Whether this module is the root module.")
   public boolean isRoot() {
     return isRootModule;
-  }
-
-  public boolean hasDevUseExtensionOnly() {
-    return hasDevUseExtensionOnly;
   }
 }
