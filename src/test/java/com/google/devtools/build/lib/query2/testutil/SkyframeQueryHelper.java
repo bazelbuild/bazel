@@ -354,7 +354,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
   protected SkyframeExecutor createSkyframeExecutor(ConfiguredRuleClassProvider ruleClassProvider) {
     PackageFactory pkgFactory =
         ((PackageFactoryBuilderWithSkyframeForTesting)
-                TestPackageFactoryBuilderFactory.getInstance().builder(directories))
+            TestPackageFactoryBuilderFactory.getInstance().builder(directories))
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .setExtraPrecomputeValues(
                 ImmutableList.of(
