@@ -336,6 +336,8 @@ public class MultiArchBinarySupport {
         return ConfigurationDistinguisher.APPLEBIN_IOS;
       case CATALYST:
         return ConfigurationDistinguisher.APPLEBIN_CATALYST;
+      case VISIONOS:
+        return ConfigurationDistinguisher.APPLEBIN_VISIONOS;
       case WATCHOS:
         return ConfigurationDistinguisher.APPLEBIN_WATCHOS;
       case TVOS:
@@ -370,6 +372,10 @@ public class MultiArchBinarySupport {
       case IOS:
       case CATALYST:
         option = buildOptions.get(AppleCommandLineOptions.class).iosMinimumOs;
+        break;
+      case VISIONOS:
+        // TODO: Replace with CppOptions.minimumOsVersion
+        option = DottedVersion.option(DottedVersion.fromStringUnchecked("1.0"));
         break;
       case WATCHOS:
         option = buildOptions.get(AppleCommandLineOptions.class).watchosMinimumOs;
@@ -417,6 +423,9 @@ public class MultiArchBinarySupport {
         break;
       case MACOS:
         appleCommandLineOptions.macosMinimumOs = minimumOsVersionOption;
+        break;
+      case VISIONOS:
+        // TODO: use CppOptions.minimumOsVersion
         break;
     }
     return splitOptions;
@@ -543,6 +552,13 @@ public class MultiArchBinarySupport {
           cpus =
               ImmutableList.of(
                   AppleConfiguration.iosCpuFromCpu(buildOptions.get(CoreOptions.class).cpu));
+        }
+        cpus = supportedAppleCpusFromMinimumOs(minimumOsVersionOption, cpus, platformType);
+        break;
+      case VISIONOS:
+        cpus = buildOptions.get(AppleCommandLineOptions.class).visionosCpus;
+        if (cpus.isEmpty()) {
+          cpus = ImmutableList.of(AppleCommandLineOptions.DEFAULT_VISIONOS_CPU);
         }
         cpus = supportedAppleCpusFromMinimumOs(minimumOsVersionOption, cpus, platformType);
         break;

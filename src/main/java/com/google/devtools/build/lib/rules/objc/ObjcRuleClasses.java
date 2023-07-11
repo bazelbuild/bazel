@@ -171,8 +171,8 @@ public class ObjcRuleClasses {
       return builder
           /* <!-- #BLAZE_RULE($objc_sdk_frameworks_depender_rule).ATTRIBUTE(sdk_frameworks) -->
           Names of SDK frameworks to link with (e.g. "AddressBook", "QuartzCore"). "UIKit" and
-          "Foundation" are always included when building for the iOS, tvOS and watchOS platforms.
-          For macOS, only "Foundation" is always included.
+          "Foundation" are always included when building for the iOS, tvOS, visionOS,
+          and watchOS platforms. For macOS, only "Foundation" is always included.
 
           <p> When linking a top level Apple binary, all SDK frameworks listed in that binary's
           transitive dependency graph are linked.

@@ -174,6 +174,7 @@ environment when the test is executed by bazel test.
                 PLATFORMS_LOCATION + "/os:ios",
                 PLATFORMS_LOCATION + "/os:macos",
                 PLATFORMS_LOCATION + "/os:tvos",
+                PLATFORMS_LOCATION + "/os:visionos",
                 PLATFORMS_LOCATION + "/os:watchos",
             ],
         ),

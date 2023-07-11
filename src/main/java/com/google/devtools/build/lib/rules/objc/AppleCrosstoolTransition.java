@@ -212,6 +212,11 @@ public final class AppleCrosstoolTransition implements PatchTransition {
         } else {
           return AppleConfiguration.iosCpuFromCpu(configOptions.cpu);
         }
+      case VISIONOS:
+        if (appleOptions.visionosCpus.isEmpty()) {
+          return AppleCommandLineOptions.DEFAULT_VISIONOS_CPU;
+        }
+        return appleOptions.visionosCpus.get(0);
       case WATCHOS:
         if (appleOptions.watchosCpus.isEmpty()) {
           return AppleCommandLineOptions.DEFAULT_WATCHOS_CPU;

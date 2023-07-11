@@ -34,6 +34,8 @@ NON_ARC_SRCS = [".m", ".mm"]
 ios_cpus = struct(
     IOS_SIMULATOR_TARGET_CPUS = ["ios_x86_64", "ios_i386", "ios_sim_arm64"],
     IOS_DEVICE_TARGET_CPUS = ["ios_armv6", "ios_arm64", "ios_armv7", "ios_armv7s", "ios_arm64e"],
+    VISIONOS_SIMULATOR_TARGET_CPUS = ["visionos_x86_64", "visionos_sim_arm64"],
+    VISIONOS_DEVICE_TARGET_CPUS = ["visionos_arm64"],
     WATCHOS_SIMULATOR_TARGET_CPUS = ["watchos_i386", "watchos_x86_64", "watchos_arm64"],
     WATCHOS_DEVICE_TARGET_CPUS = ["watchos_armv7k", "watchos_arm64_32", "watchos_device_arm64", "watchos_device_arm64e"],
     TVOS_SIMULATOR_TARGET_CPUS = ["tvos_x86_64", "tvos_sim_arm64"],
@@ -238,6 +240,8 @@ def _add_linkopts(sdk_linking_info, linkopts):
 def _is_apple_platform(cpu):
     return cpu in ios_cpus.IOS_SIMULATOR_TARGET_CPUS or \
            cpu in ios_cpus.IOS_DEVICE_TARGET_CPUS or \
+           cpu in ios_cpus.VISIONOS_SIMULATOR_TARGET_CPUS or \
+           cpu in ios_cpus.VISIONOS_DEVICE_TARGET_CPUS or \
            cpu in ios_cpus.WATCHOS_SIMULATOR_TARGET_CPUS or \
            cpu in ios_cpus.WATCHOS_DEVICE_TARGET_CPUS or \
            cpu in ios_cpus.TVOS_SIMULATOR_TARGET_CPUS or \
@@ -275,6 +279,8 @@ def _sdk_framework_dir(target_platform, xcode_config):
             relative_path = "/Developer/Library/Frameworks"
         return "__BAZEL_XCODE_SDKROOT__" + relative_path
     if target_platform == apple_common.platform.macos or \
+       target_platform == apple_common.platform.visionos_device or \
+       target_platform == apple_common.platform.visionos_simulator or \
        target_platform == apple_common.platform.watchos_device or \
        target_platform == apple_common.platform.watchos_simulator or \
        target_platform == apple_common.platform.tvos_device or \
@@ -293,6 +299,10 @@ def _platform_name_from_apple_target_cpu(cpu):
         return "iPhoneSimulator"
     elif cpu in ios_cpus.IOS_DEVICE_TARGET_CPUS:
         return "iPhoneOS"
+    elif cpu in ios_cpus.VISIONOS_SIMULATOR_TARGET_CPUS:
+        return "XRSimulator"
+    elif cpu in ios_cpus.VISIONOS_DEVICE_TARGET_CPUS:
+        return "XROS"
     elif cpu in ios_cpus.WATCHOS_SIMULATOR_TARGET_CPUS:
         return "WatchSimulator"
     elif cpu in ios_cpus.WATCHOS_DEVICE_TARGET_CPUS:
@@ -313,6 +323,8 @@ def _sdk_version_for_platform(xcode_config, platform_name):
         return xcode_config.ios_sdk_version()
     elif platform_name == "AppleTVOS" or platform_name == "AppleTVSimulator":
         return xcode_config.tvos_sdk_version()
+    elif platform_name == "XROS" or platform_name == "XRSimulator":
+        return xcode_config.visionos_sdk_version()
     elif platform_name == "WatchOS" or platform_name == "WatchSimulator":
         return xcode_config.watchos_sdk_version()
     elif platform_name == "MacOSX":
@@ -348,6 +360,7 @@ def _apple_cc_toolchain_build_variables(xcode_config):
         variables["ios_sdk_version"] = _to_string_with_minimum_components(str(xcode_config.sdk_version_for_platform(apple_common.platform.ios_simulator)), 2)
         variables["macos_sdk_version"] = _to_string_with_minimum_components(str(xcode_config.sdk_version_for_platform(apple_common.platform.macos)), 2)
         variables["tvos_sdk_version"] = _to_string_with_minimum_components(str(xcode_config.sdk_version_for_platform(apple_common.platform.tvos_simulator)), 2)
+        variables["visionos_sdk_version"] = _to_string_with_minimum_components(str(xcode_config.sdk_version_for_platform(apple_common.platform.visionos_simulator)), 2)
         variables["watchos_sdk_version"] = _to_string_with_minimum_components(str(xcode_config.sdk_version_for_platform(apple_common.platform.watchos_simulator)), 2)
         variables["sdk_dir"] = "__BAZEL_XCODE_SDKROOT__"
         variables["sdk_framework_dir"] = _sdk_framework_dir(platform, xcode_config)

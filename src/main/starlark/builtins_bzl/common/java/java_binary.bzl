@@ -554,6 +554,7 @@ BASE_TEST_ATTRIBUTES = {
             "@" + paths.join(cc_semantics.get_platforms_root(), "os:ios"),
             "@" + paths.join(cc_semantics.get_platforms_root(), "os:macos"),
             "@" + paths.join(cc_semantics.get_platforms_root(), "os:tvos"),
+            "@" + paths.join(cc_semantics.get_platforms_root(), "os:visionos"),
             "@" + paths.join(cc_semantics.get_platforms_root(), "os:watchos"),
         ],
     ),
