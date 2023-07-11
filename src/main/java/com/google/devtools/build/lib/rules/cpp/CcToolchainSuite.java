@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -115,7 +114,7 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
             .addProvider(RunfilesProvider.simple(Runfiles.EMPTY));
 
     if (ccToolchainProvider.getLicensesProvider() != null) {
-      builder.add(LicensesProvider.class, ccToolchainProvider.getLicensesProvider());
+      builder.addNativeDeclaredProvider(ccToolchainProvider.getLicensesProvider());
     }
 
     return builder.build();

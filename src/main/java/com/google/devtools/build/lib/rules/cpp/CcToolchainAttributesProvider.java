@@ -307,6 +307,18 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     return fdoOptimizeArtifacts;
   }
 
+  @StarlarkMethod(
+      name = "licenses_provider",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  public LicensesProvider getLicensesProviderForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getLicensesProvider();
+  }
+
   public LicensesProvider getLicensesProvider() {
     return licensesProvider;
   }
