@@ -124,19 +124,19 @@ distdir_tar(
     name = "additional_distfiles",
     # Keep in sync with the archives fetched as part of building bazel.
     archives = [
-        "android_tools_pkg-0.27.0.tar.gz",
+        "android_tools_pkg-0.27.1.tar",
         # for android_gmaven_r8
         "r8-8.0.40.jar",
     ],
     dirname = "derived/distdir",
     dist_deps = {dep: attrs for dep, attrs in DIST_DEPS.items() if "additional_distfiles" in attrs["used_in"]},
     sha256 = {
-        "android_tools_pkg-0.27.0.tar.gz": "1afa4b7e13c82523c8b69e87f8d598c891ec7e2baa41d9e24e08becd723edb4d",
+        "android_tools_pkg-0.27.1.tar": "606d7722b69924c45b4869eb7050a8a92c576c5474867d49de27f959b00c8b48",
         "r8-8.0.40.jar": "ab1379835c7d3e5f21f80347c3c81e2f762e0b9b02748ae5232c3afa14adf702",
     },
     urls = {
-        "android_tools_pkg-0.27.0.tar.gz": [
-            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.27.0.tar.gz",
+        "android_tools_pkg-0.27.1.tar": [
+            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.27.1.tar",
         ],
         "r8-8.0.40.jar": [
             "https://maven.google.com/com/android/tools/r8/8.0.40/r8-8.0.40.jar",
@@ -359,16 +359,16 @@ dist_http_archive(
 distdir_tar(
     name = "test_WORKSPACE_files",
     archives = [
-        "android_tools_pkg-0.27.0.tar.gz",
+        "android_tools_pkg-0.27.1.tar",
     ],
     dirname = "test_WORKSPACE/distdir",
     dist_deps = {dep: attrs for dep, attrs in DIST_DEPS.items() if "test_WORKSPACE_files" in attrs["used_in"]},
     sha256 = {
-        "android_tools_pkg-0.27.0.tar.gz": "1afa4b7e13c82523c8b69e87f8d598c891ec7e2baa41d9e24e08becd723edb4d",
+        "android_tools_pkg-0.27.1.tar": "606d7722b69924c45b4869eb7050a8a92c576c5474867d49de27f959b00c8b48",
     },
     urls = {
-        "android_tools_pkg-0.27.0.tar.gz": [
-            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.27.0.tar.gz",
+        "android_tools_pkg-0.27.1.tar": [
+            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.27.1.tar",
         ],
     },
 )
@@ -404,8 +404,8 @@ http_archive(
     name = "android_tools_for_testing",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "1afa4b7e13c82523c8b69e87f8d598c891ec7e2baa41d9e24e08becd723edb4d",  # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER
-    url = "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.27.0.tar.gz",
+    sha256 = "606d7722b69924c45b4869eb7050a8a92c576c5474867d49de27f959b00c8b48",  # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER
+    url = "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.27.1.tar",
 )
 
 # This is here to override the android_gmaven_r8 rule from

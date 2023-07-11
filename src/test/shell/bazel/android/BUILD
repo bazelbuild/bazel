@@ -238,8 +238,6 @@ android_sh_test(
     name = "DexFileSplitter_synthetic_classes_test",
     size = "medium",
     srcs = ["DexFileSplitter_synthetic_classes_test.sh"],
-    # Fixes to DexMapper are not released yet.
-    create_test_with_released_tools = False,
     data = [
         ":android_helper",
         "//external:android_sdk_for_testing",
