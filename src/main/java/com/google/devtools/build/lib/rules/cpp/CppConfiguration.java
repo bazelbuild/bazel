@@ -750,6 +750,9 @@ public final class CppConfiguration extends Fragment
    * Returns the value of the libc top-level directory (--grte_top) as specified on the command line
    */
   @Nullable
+  @StarlarkConfigurationField(
+      name = "target_libc_top_DO_NOT_USE_ONLY_FOR_CC_TOOLCHAIN",
+      doc = "DO NOT USE")
   public Label getTargetLibcTopLabel() {
     if (!isToolConfigurationDoNotUseWillBeRemovedFor129045294) {
       // This isn't for a platform-enabled C++ toolchain (legacy C++ toolchains evaluate in the
