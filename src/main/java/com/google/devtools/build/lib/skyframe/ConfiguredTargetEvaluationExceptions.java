@@ -13,7 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyException;
+import com.google.devtools.build.lib.analysis.InconsistentNullConfigException;
+import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 
 /** Exceptions thrown by {@link ConfiguredTargetFunction}. */
@@ -54,8 +55,33 @@ public final class ConfiguredTargetEvaluationExceptions {
 
   /** A dependency error that should be caught and rethrown by the parent with more context. */
   static class DependencyException extends SkyFunctionException {
-    DependencyException(InvalidVisibilityDependencyException e) {
+    enum Kind {
+      INCONSISTENT_NULL_CONFIG,
+      NO_SUCH_THING
+    }
+
+    private final Kind kind;
+
+    Kind kind() {
+      return kind;
+    }
+
+    InconsistentNullConfigException inconsistentNullConfig() {
+      return (InconsistentNullConfigException) getCause();
+    }
+
+    NoSuchThingException noSuchThing() {
+      return (NoSuchThingException) getCause();
+    }
+
+    DependencyException(InconsistentNullConfigException e) {
       super(e, Transience.PERSISTENT);
+      this.kind = Kind.INCONSISTENT_NULL_CONFIG;
+    }
+
+    DependencyException(NoSuchThingException e) {
+      super(e, Transience.PERSISTENT);
+      this.kind = Kind.NO_SUCH_THING;
     }
   }
 

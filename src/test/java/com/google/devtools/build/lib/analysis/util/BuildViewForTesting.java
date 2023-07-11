@@ -465,6 +465,7 @@ public class BuildViewForTesting {
                 ConfiguredTargetKey.fromConfiguredTarget(target),
                 state.targetAndConfiguration.getTarget(),
                 /* aspects= */ ImmutableList.of(),
+                /* starlarkTransitionProvider= */ null, // TODO(b/261521010): populate this.
                 skyframeBuildView.getStarlarkTransitionCache(),
                 toolchainContexts,
                 labels.attributeMap(),
@@ -610,9 +611,9 @@ public class BuildViewForTesting {
 
     SkyFunctionEnvironmentForTesting skyfunctionEnvironment =
         new SkyFunctionEnvironmentForTesting(eventHandler, skyframeExecutor);
-    var state = new PrerequisiteProducer.State(/* storeTransitivePackages= */ false);
-    state.targetAndConfiguration =
-        new TargetAndConfiguration(target.getAssociatedRule(), configuration);
+    var state =
+        PrerequisiteProducer.State.createForTesting(
+            new TargetAndConfiguration(target.getAssociatedRule(), configuration));
     NestedSetBuilder<Cause> transitiveRootCauses = NestedSetBuilder.stableOrder();
 
     try {

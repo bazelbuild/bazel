@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.analysis.config.transitions.TransitionCollector.NULL_TRANSITION_COLLECTOR;
 
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
@@ -41,7 +40,6 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextKey;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
@@ -131,10 +129,9 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws EvalException, InterruptedException {
       try {
-        TargetAndConfiguration targetAndConfiguration = (TargetAndConfiguration) skyKey.argument();
+        var targetAndConfiguration = (TargetAndConfiguration) skyKey.argument();
         // Set up the toolchain context so that exec transitions resolve properly.
-        var state = new PrerequisiteProducer.State(/* storeTransitivePackages= */ false);
-        state.targetAndConfiguration = targetAndConfiguration;
+        var state = PrerequisiteProducer.State.createForTesting(targetAndConfiguration);
         state.dependencyContext =
             DependencyContext.create(
                 ToolchainCollection.<UnloadedToolchainContext>builder()
@@ -155,10 +152,12 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
         OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depMap =
             PrerequisiteProducer.computeDependencies(
                 state,
+                ConfiguredTargetKey.builder()
+                    .setLabel(targetAndConfiguration.getLabel())
+                    .setConfiguration(targetAndConfiguration.getConfiguration())
+                    .build(),
                 /* aspects= */ ImmutableList.of(),
-                stateProvider.lateBoundRuleClassProvider(),
                 stateProvider.lateBoundSkyframeBuildView().getStarlarkTransitionCache(),
-                NULL_TRANSITION_COLLECTOR,
                 /* starlarkTransitionProvider= */ null,
                 env,
                 env.getListener());
@@ -189,10 +188,6 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
    * of the build state. See {@link AnalysisTestCase#createMocks} for details.
    */
   private final class LateBoundStateProvider {
-    RuleClassProvider lateBoundRuleClassProvider() {
-      return ruleClassProvider;
-    }
-
     SkyframeBuildView lateBoundSkyframeBuildView() {
       return skyframeExecutor.getSkyframeBuildView();
     }

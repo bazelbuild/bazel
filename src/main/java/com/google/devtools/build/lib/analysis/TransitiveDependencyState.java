@@ -71,12 +71,11 @@ public final class TransitiveDependencyState {
    * through the dependency. This is compatible with bottom-up change pruning because {@link
    * ConfiguredTargetValue} uses identity equals.
    */
-  @Nullable // TODO(b/261521010): make this non-null.
   private final ConcurrentHashMap<PackageIdentifier, Package> prerequisitePackages;
 
   public TransitiveDependencyState(
       boolean storeTransitivePackages,
-      @Nullable ConcurrentHashMap<PackageIdentifier, Package> prerequisitePackages) {
+      ConcurrentHashMap<PackageIdentifier, Package> prerequisitePackages) {
     this.transitiveRootCauses = NestedSetBuilder.stableOrder();
     this.packageCollector = storeTransitivePackages ? new PackageCollector() : null;
     this.prerequisitePackages = prerequisitePackages;
@@ -109,6 +108,10 @@ public final class TransitiveDependencyState {
 
   public void addTransitiveCause(Cause cause) {
     transitiveRootCauses.add(cause);
+  }
+
+  public boolean hasRootCause() {
+    return !transitiveRootCauses.isEmpty();
   }
 
   public boolean storeTransitivePackages() {
@@ -149,16 +152,10 @@ public final class TransitiveDependencyState {
 
   @Nullable
   public Package getDependencyPackage(PackageIdentifier packageId) {
-    if (prerequisitePackages == null) {
-      return null;
-    }
     return prerequisitePackages.get(packageId);
   }
 
   public void putDependencyPackageIfAbsent(PackageIdentifier packageId, Package pkg) {
-    if (prerequisitePackages == null) {
-      return;
-    }
     prerequisitePackages.putIfAbsent(packageId, pkg);
   }
 

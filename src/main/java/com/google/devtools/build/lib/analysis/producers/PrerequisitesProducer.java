@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.analysis.AspectResolutionHelpers.computeAspectCollection;
 import static com.google.devtools.build.lib.analysis.producers.AttributeConfiguration.Kind.VISIBILITY;
 import static com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData.SPLIT_DEP_ORDERING;
+import static java.util.Arrays.copyOfRange;
 import static java.util.Arrays.sort;
 
 import com.google.common.collect.ImmutableList;
@@ -31,12 +32,15 @@ import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConf
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
+import com.google.devtools.build.lib.packages.NoSuchThingException;
+import com.google.devtools.build.lib.skyframe.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import com.google.devtools.build.skyframe.state.StateMachine.Tasks;
+import java.util.HashSet;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -59,11 +63,15 @@ final class PrerequisitesProducer
   interface ResultSink {
     void acceptPrerequisitesValue(ConfiguredTargetAndData[] prerequisites);
 
+    void acceptPrerequisitesError(NoSuchThingException error);
+
     void acceptPrerequisitesError(InvalidVisibilityDependencyException error);
 
     void acceptPrerequisitesCreationError(ConfiguredValueCreationException error);
 
     void acceptPrerequisitesAspectError(DependencyEvaluationException error);
+
+    void acceptPrerequisitesAspectError(AspectCreationException error);
   }
 
   // -------------------- Input --------------------
@@ -153,6 +161,12 @@ final class PrerequisitesProducer
   }
 
   @Override
+  public void acceptConfiguredTargetAndDataError(NoSuchThingException error) {
+    hasError = true;
+    sink.acceptPrerequisitesError(error);
+  }
+
+  @Override
   public void acceptConfiguredTargetAndDataError(InconsistentNullConfigException error) {
     hasError = true;
     if (configuration.kind() == VISIBILITY) {
@@ -239,6 +253,12 @@ final class PrerequisitesProducer
             /* depReportedOwnError= */ false));
   }
 
+  @Override
+  public void acceptConfiguredAspectError(AspectCreationException error) {
+    hasError = true;
+    sink.acceptPrerequisitesAspectError(error);
+  }
+
   private StateMachine emitMergedTargets(Tasks tasks, ExtendedEventHandler listener) {
     if (!hasError) {
       sink.acceptPrerequisitesValue(configuredTargets);
@@ -285,6 +305,22 @@ final class PrerequisitesProducer
       configuredTargets =
           new ConfiguredTargetAndData[] {configuredTargets[0].copyWithTransitionKeys(keys.build())};
       return;
+    }
+
+    // Deduplicates entries that have identical configurations and thus identical values, keeping
+    // only the first entry with the configuration.
+    var seenConfigurations = new HashSet<BuildConfigurationKey>();
+    int firstIndex = 0;
+    for (int i = 0; i < configuredTargets.length; ++i) {
+      if (!seenConfigurations.add(configuredTargets[i].getConfigurationKey())) {
+        // The target at `i` was a duplicate of a previous target. Deletes it by:
+        // 1. overwriting it with the first target; and
+        // 2. removing the slot previously associated with the first target.
+        configuredTargets[i] = configuredTargets[firstIndex++];
+      }
+    }
+    if (firstIndex > 0) {
+      configuredTargets = copyOfRange(configuredTargets, firstIndex, configuredTargets.length);
     }
     sort(configuredTargets, SPLIT_DEP_ORDERING);
   }
