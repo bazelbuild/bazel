@@ -70,10 +70,8 @@ public abstract class JavaToolchainTool {
 
   @Nullable
   static JavaToolchainTool fromRuleContext(
-      RuleContext ruleContext,
-      String toolAttribute,
-      String dataAttribute,
-      String jvmOptsAttribute) {
+      RuleContext ruleContext, String toolAttribute, String dataAttribute, String jvmOptsAttribute)
+      throws InterruptedException {
     FilesToRunProvider tool = ruleContext.getExecutablePrerequisite(toolAttribute);
     if (tool == null) {
       return null;

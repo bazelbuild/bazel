@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -25,10 +24,11 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LocationExpander;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
-import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
+import com.google.devtools.build.lib.rules.cpp.CppModuleMap.UmbrellaHeaderStrategy;
+import com.google.devtools.build.lib.rules.objc.IntermediateArtifacts.AlwaysLink;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -71,7 +71,7 @@ public class ObjcStarlarkInternal implements StarlarkValue {
         @Param(name = "ctx", positional = false, named = true),
       })
   public CompilationAttributes createCompilationAttributes(StarlarkRuleContext starlarkRuleContext)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     CompilationAttributes.Builder builder = new CompilationAttributes.Builder();
 
     CompilationAttributes.Builder.addHeadersFromRuleContext(
@@ -106,7 +106,8 @@ public class ObjcStarlarkInternal implements StarlarkValue {
         @Param(name = "flags", positional = false, defaultValue = "[]", named = true),
       })
   public Sequence<String> expandToolchainAndRuleContextVariables(
-      StarlarkRuleContext starlarkRuleContext, Sequence<?> flags) throws EvalException {
+      StarlarkRuleContext starlarkRuleContext, Sequence<?> flags)
+      throws EvalException, InterruptedException {
     if (flags.isEmpty()) {
       return Sequence.cast(flags, String.class, "flags");
     }
@@ -173,6 +174,21 @@ public class ObjcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
+      name = "j2objc_create_intermediate_artifacts",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx", positional = false, named = true),
+      })
+  public IntermediateArtifacts j2objcCreateIntermediateArtifacts(
+      StarlarkRuleContext starlarkRuleContext) {
+    return new IntermediateArtifacts(
+        starlarkRuleContext.getRuleContext(),
+        /* archiveFileNameSuffix= */ "_j2objc",
+        UmbrellaHeaderStrategy.GENERATE,
+        AlwaysLink.TRUE);
+  }
+
+  @StarlarkMethod(
       name = "create_compilation_artifacts",
       documented = false,
       parameters = {
@@ -197,28 +213,27 @@ public class ObjcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
-      name = "j2objc_providers_from_deps",
+      name = "j2objc_create_compilation_artifacts",
       documented = false,
       parameters = {
-        @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "srcs", positional = false, named = true),
+        @Param(name = "non_arc_srcs", positional = false, named = true),
+        @Param(name = "hdrs", positional = false, named = true),
+        @Param(name = "intermediate_artifacts", positional = false, named = true),
       })
-  public Sequence<NativeInfo> createj2objcProvidersFromDeps(StarlarkRuleContext starlarkRuleContext)
+  public CompilationArtifacts j2objcCreateCompilationArtifacts(
+      Sequence<?> srcs,
+      Sequence<?> nonArcSrcs,
+      Sequence<?> hdrs,
+      Object intermediateArtifactsObject)
       throws EvalException {
-    J2ObjcMappingFileProvider j2ObjcMappingFileProvider =
-        J2ObjcMappingFileProvider.union(
-            starlarkRuleContext
-                .getRuleContext()
-                .getPrerequisites("deps", J2ObjcMappingFileProvider.PROVIDER));
-    J2ObjcEntryClassProvider j2ObjcEntryClassProvider =
-        new J2ObjcEntryClassProvider.Builder()
-            .addTransitive(
-                starlarkRuleContext
-                    .getRuleContext()
-                    .getPrerequisites("deps", J2ObjcEntryClassProvider.PROVIDER))
-            .build();
-
-    return StarlarkList.immutableCopyOf(
-        ImmutableList.of(j2ObjcEntryClassProvider, j2ObjcMappingFileProvider));
+    IntermediateArtifacts intermediateArtifacts =
+        convertFromNoneable(intermediateArtifactsObject, /* defaultValue= */ null);
+    return new CompilationArtifacts(
+        Sequence.cast(srcs, Artifact.class, "srcs"),
+        Sequence.cast(nonArcSrcs, Artifact.class, "non_arc_srcs"),
+        Sequence.cast(hdrs, Artifact.class, "hdrs"),
+        intermediateArtifacts);
   }
 
   @StarlarkMethod(

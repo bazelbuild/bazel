@@ -69,7 +69,9 @@ public class ModuleExtensionMetadata implements StarlarkValue {
   }
 
   static ModuleExtensionMetadata create(
-      Object rootModuleDirectDepsUnchecked, Object rootModuleDirectDevDepsUnchecked)
+      Object rootModuleDirectDepsUnchecked,
+      Object rootModuleDirectDevDepsUnchecked,
+      ModuleExtensionId extensionId)
       throws EvalException {
     if (rootModuleDirectDepsUnchecked == Starlark.NONE
         && rootModuleDirectDevDepsUnchecked == Starlark.NONE) {
@@ -80,11 +82,23 @@ public class ModuleExtensionMetadata implements StarlarkValue {
     // root_module_direct_dev_deps = [], but not root_module_direct_dev_deps = ["some_repo"].
     if (rootModuleDirectDepsUnchecked.equals("all")
         && rootModuleDirectDevDepsUnchecked.equals(StarlarkList.immutableOf())) {
+      if (extensionId.getIsolationKey().isPresent()
+          && extensionId.getIsolationKey().get().isDevUsage()) {
+        throw Starlark.errorf(
+            "root_module_direct_deps must be empty for an isolated extension usage with "
+                + "dev_dependency = True");
+      }
       return new ModuleExtensionMetadata(null, null, UseAllRepos.REGULAR);
     }
 
     if (rootModuleDirectDevDepsUnchecked.equals("all")
         && rootModuleDirectDepsUnchecked.equals(StarlarkList.immutableOf())) {
+      if (extensionId.getIsolationKey().isPresent()
+          && !extensionId.getIsolationKey().get().isDevUsage()) {
+        throw Starlark.errorf(
+            "root_module_direct_dev_deps must be empty for an isolated extension usage with "
+                + "dev_dependency = False");
+      }
       return new ModuleExtensionMetadata(null, null, UseAllRepos.DEV);
     }
 
@@ -113,6 +127,20 @@ public class ModuleExtensionMetadata implements StarlarkValue {
     Sequence<String> rootModuleDirectDevDeps =
         Sequence.cast(
             rootModuleDirectDevDepsUnchecked, String.class, "root_module_direct_dev_deps");
+
+    if (extensionId.getIsolationKey().isPresent()) {
+      ModuleExtensionId.IsolationKey isolationKey = extensionId.getIsolationKey().get();
+      if (isolationKey.isDevUsage() && !rootModuleDirectDeps.isEmpty()) {
+        throw Starlark.errorf(
+            "root_module_direct_deps must be empty for an isolated extension usage with "
+                + "dev_dependency = True");
+      }
+      if (!isolationKey.isDevUsage() && !rootModuleDirectDevDeps.isEmpty()) {
+        throw Starlark.errorf(
+            "root_module_direct_dev_deps must be empty for an isolated extension usage with "
+                + "dev_dependency = False");
+      }
+    }
 
     Set<String> explicitRootModuleDirectDeps = new LinkedHashSet<>();
     for (String dep : rootModuleDirectDeps) {
@@ -257,13 +285,33 @@ public class ModuleExtensionMetadata implements StarlarkValue {
     var fixupCommands =
         Stream.of(
                 makeUseRepoCommand(
-                    "use_repo_add", false, importsToAdd, extensionBzlFile, extensionName),
+                    "use_repo_add",
+                    false,
+                    importsToAdd,
+                    extensionBzlFile,
+                    extensionName,
+                    firstUsage.getIsolationKey()),
                 makeUseRepoCommand(
-                    "use_repo_remove", false, importsToRemove, extensionBzlFile, extensionName),
+                    "use_repo_remove",
+                    false,
+                    importsToRemove,
+                    extensionBzlFile,
+                    extensionName,
+                    firstUsage.getIsolationKey()),
                 makeUseRepoCommand(
-                    "use_repo_add", true, devImportsToAdd, extensionBzlFile, extensionName),
+                    "use_repo_add",
+                    true,
+                    devImportsToAdd,
+                    extensionBzlFile,
+                    extensionName,
+                    firstUsage.getIsolationKey()),
                 makeUseRepoCommand(
-                    "use_repo_remove", true, devImportsToRemove, extensionBzlFile, extensionName))
+                    "use_repo_remove",
+                    true,
+                    devImportsToRemove,
+                    extensionBzlFile,
+                    extensionName,
+                    firstUsage.getIsolationKey()))
             .flatMap(Optional::stream);
 
     return Optional.of(
@@ -284,9 +332,20 @@ public class ModuleExtensionMetadata implements StarlarkValue {
       boolean devDependency,
       Collection<String> repos,
       String extensionBzlFile,
-      String extensionName) {
+      String extensionName,
+      Optional<ModuleExtensionId.IsolationKey> isolationKey) {
+
     if (repos.isEmpty()) {
       return Optional.empty();
+    }
+
+    String extensionUsageIdentifier = extensionName;
+    if (isolationKey.isPresent()) {
+      // We verified in create() that the extension did not report root module deps of a kind that
+      // does not match the isolated (and hence only) usage. It also isn't possible for users to
+      // specify repo usages of the wrong kind, so we can't get here.
+      Preconditions.checkState(isolationKey.get().isDevUsage() == devDependency);
+      extensionUsageIdentifier += ":" + isolationKey.get().getIsolatedUsageIndex();
     }
     return Optional.of(
         String.format(
@@ -294,7 +353,7 @@ public class ModuleExtensionMetadata implements StarlarkValue {
             cmd,
             devDependency ? " dev" : "",
             extensionBzlFile,
-            extensionName,
+            extensionUsageIdentifier,
             String.join(" ", repos)));
   }
 

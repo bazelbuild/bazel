@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.common.base.Preconditions;
@@ -46,6 +45,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
@@ -74,8 +74,6 @@ public final class JavaCompilationHelper {
   private final JavaTargetAttributes.Builder attributes;
   private JavaTargetAttributes builtAttributes;
   private final ImmutableList<String> customJavacOpts;
-  private final List<Artifact> translations = new ArrayList<>();
-  private boolean translationsFrozen;
   private final JavaSemantics semantics;
   private final ImmutableList<Artifact> additionalInputsForDatabinding;
   private final StrictDepsMode strictJavaDeps;
@@ -410,8 +408,7 @@ public final class JavaCompilationHelper {
     return !resourceJars.isEmpty()
         || !attributes.getResources().isEmpty()
         || !attributes.getResourceJars().isEmpty()
-        || !attributes.getClassPathResources().isEmpty()
-        || !getTranslations().isEmpty();
+        || !attributes.getClassPathResources().isEmpty();
   }
 
   private ImmutableMap<String, String> getExecutionInfo() {
@@ -625,7 +622,7 @@ public final class JavaCompilationHelper {
                         .addExecPath("--class_jar", classJar)
                         .addExecPath("--output_jar", genClassJar)
                         .build())
-                .setProgressMessage("Building genclass jar %s", genClassJar.prettyPrint())
+                .setProgressMessage("Building genclass jar %{output}")
                 .setMnemonic("JavaSourceJar")
                 .setExecGroup(execGroup)
                 .build(getRuleContext()));
@@ -658,7 +655,6 @@ public final class JavaCompilationHelper {
         .setOutputJar(resourceJar)
         .setResources(attributes.getResources())
         .setClasspathResources(attributes.getClassPathResources())
-        .setTranslations(getTranslations())
         .setResourceJars(
             NestedSetBuilder.fromNestedSet(attributes.getResourceJars()).addAll(extraJars).build())
         .build(semantics, ruleContext, execGroup);
@@ -788,7 +784,8 @@ public final class JavaCompilationHelper {
     attributes.merge(args);
   }
 
-  private void addLibrariesToAttributesInternal(Iterable<? extends TransitiveInfoCollection> deps) {
+  private void addLibrariesToAttributesInternal(Iterable<? extends TransitiveInfoCollection> deps)
+      throws RuleErrorException {
     JavaCompilationArgsProvider args = JavaCompilationArgsProvider.legacyFromTargets(deps);
 
     NestedSet<Artifact> directJars =
@@ -801,7 +798,7 @@ public final class JavaCompilationHelper {
   }
 
   private NestedSet<Artifact> getNonRecursiveCompileTimeJarsFromCollection(
-      Iterable<? extends TransitiveInfoCollection> deps) {
+      Iterable<? extends TransitiveInfoCollection> deps) throws RuleErrorException {
     return JavaCompilationArgsProvider.legacyFromTargets(deps).getDirectCompileTimeJars();
   }
 
@@ -821,7 +818,8 @@ public final class JavaCompilationHelper {
    *
    * @param deps the dependencies to be included as roots of the transitive closure
    */
-  public void addLibrariesToAttributes(Collection<? extends TransitiveInfoCollection> deps) {
+  public void addLibrariesToAttributes(Collection<? extends TransitiveInfoCollection> deps)
+      throws RuleErrorException {
     // Enforcing strict Java dependencies: when the --strict_java_deps flag is
     // WARN or ERROR, or is DEFAULT and strict_java_deps attribute is unset,
     // we use a stricter javac compiler to perform direct deps checks.
@@ -830,14 +828,11 @@ public final class JavaCompilationHelper {
 
     JavaClasspathMode classpathMode = getJavaConfiguration().getReduceJavaClasspath();
     if (isStrict() && classpathMode != JavaClasspathMode.OFF) {
-      addDependencyArtifactsToAttributes(
-          attributes,
-          deps.stream()
-              .map(
-                  dep ->
-                      JavaInfo.getCompilationArgsProvider(dep)
-                          .orElse(JavaCompilationArgsProvider.EMPTY))
-              .collect(toImmutableList()));
+      ImmutableList.Builder<JavaCompilationArgsProvider> argsBuilder = ImmutableList.builder();
+      for (TransitiveInfoCollection dep : deps) {
+        JavaInfo.getCompilationArgsProvider(dep).ifPresent(argsBuilder::add);
+      }
+      addDependencyArtifactsToAttributes(attributes, argsBuilder.build());
     }
   }
 
@@ -856,16 +851,6 @@ public final class JavaCompilationHelper {
    */
   private ImmutableList<String> getJavacOpts() {
     return customJavacOpts;
-  }
-
-  public void setTranslations(Collection<Artifact> translations) {
-    Preconditions.checkArgument(!translationsFrozen);
-    this.translations.addAll(translations);
-  }
-
-  private ImmutableList<Artifact> getTranslations() {
-    translationsFrozen = true;
-    return ImmutableList.copyOf(translations);
   }
 
   /**

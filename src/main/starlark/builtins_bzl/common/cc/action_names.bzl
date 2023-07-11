@@ -86,9 +86,6 @@ OBJCPP_COMPILE_ACTION_NAME = "objc++-compile"
 # A string constant for the objc executable link action.
 OBJC_EXECUTABLE_ACTION_NAME = "objc-executable"
 
-# A string constant for the objc++ executable link action.
-OBJCPP_EXECUTABLE_ACTION_NAME = "objc++-executable"
-
 # A string constant for the objc fully-link link action.
 OBJC_FULLY_LINK_ACTION_NAME = "objc-fully-link"
 
@@ -123,7 +120,6 @@ ACTION_NAMES = struct(
     objc_executable = OBJC_EXECUTABLE_ACTION_NAME,
     objc_fully_link = OBJC_FULLY_LINK_ACTION_NAME,
     objcpp_compile = OBJCPP_COMPILE_ACTION_NAME,
-    objcpp_executable = OBJCPP_EXECUTABLE_ACTION_NAME,
     clif_match = CLIF_MATCH_ACTION_NAME,
     objcopy_embed_data = OBJ_COPY_ACTION_NAME,
 )

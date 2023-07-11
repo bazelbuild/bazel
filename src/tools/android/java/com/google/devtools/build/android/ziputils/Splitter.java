@@ -24,10 +24,10 @@ class Splitter {
 
   private final int numberOfShards;
   private final Map<String, Integer> assigned;
-  private int size = 0;
-  private int shard = 0;
+  private int size = 0; // Number of classes in the current shard
+  private int shard = 0; // Current shard number
   private String prevPath = null;
-  private int remaining;
+  private int remaining; // Number of classes remaining to be assigned shards
   private int idealSize;
   private int almostFull;
 
@@ -51,15 +51,15 @@ class Splitter {
    * remaining entries to process is adjusted, by subtracting the number of as-of-yet unassigned
    * entries from the filter.
    */
-  public void assign(Collection<String> filter) {
-    if (filter != null) {
-      for (String s : filter) {
-        if (!assigned.containsKey(s)) {
+  public void assignAllToCurrentShard(Collection<String> entries) {
+    if (entries != null) {
+      for (String e : entries) {
+        if (!assigned.containsKey(e)) {
           remaining--;
         }
-        assigned.put(s, shard);
+        assigned.put(e, shard);
       }
-      size = filter.size();
+      size += entries.size();
     }
   }
 

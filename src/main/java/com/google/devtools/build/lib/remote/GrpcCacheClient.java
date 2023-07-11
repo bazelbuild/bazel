@@ -22,6 +22,7 @@ import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageFutureStub;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.FindMissingBlobsRequest;
 import build.bazel.remote.execution.v2.FindMissingBlobsResponse;
 import build.bazel.remote.execution.v2.GetActionResultRequest;
@@ -107,7 +108,8 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
             callCredentialsProvider,
             options.remoteTimeout.getSeconds(),
             retrier,
-            options.maximumOpenFiles);
+            options.maximumOpenFiles,
+            digestUtil.getDigestFunction());
     maxMissingBlobsDigestsPerMessage = computeMaxMissingBlobsDigestsPerMessage();
     Preconditions.checkState(
         maxMissingBlobsDigestsPerMessage > 0, "Error: gRPC message size too small.");
@@ -352,12 +354,24 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
         MoreExecutors.directExecutor());
   }
 
-  public static String getResourceName(String instanceName, Digest digest, boolean compressed) {
+  private static boolean isOldStyleDigestFunction(DigestFunction.Value digestFunction) {
+    // Old-style digest functions (SHA256, etc) are distinguishable by the length
+    // of their hash alone and do not require extra specification, but newer
+    // digest functions (which may have the same length hashes as the older
+    // functions!) must be explicitly specified in the upload resource name.
+    return digestFunction.getNumber() <= 7;
+  }
+
+  public static String getResourceName(
+      String instanceName, Digest digest, boolean compressed, DigestFunction.Value digestFunction) {
     String resourceName = "";
     if (!instanceName.isEmpty()) {
       resourceName += instanceName + "/";
     }
     resourceName += compressed ? "compressed-blobs/zstd/" : "blobs/";
+    if (!isOldStyleDigestFunction(digestFunction)) {
+      resourceName += Ascii.toLowerCase(digestFunction.getValueDescriptor().getName()) + "/";
+    }
     return resourceName + DigestUtil.toString(digest);
   }
 
@@ -369,7 +383,11 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
       @Nullable Supplier<Digest> digestSupplier,
       Channel channel) {
     String resourceName =
-        getResourceName(options.remoteInstanceName, digest, options.cacheCompression);
+        getResourceName(
+            options.remoteInstanceName,
+            digest,
+            options.cacheCompression,
+            digestUtil.getDigestFunction());
     SettableFuture<Long> future = SettableFuture.create();
     OutputStream out;
     try {

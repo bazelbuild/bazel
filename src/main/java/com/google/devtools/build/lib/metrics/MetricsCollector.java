@@ -230,7 +230,7 @@ class MetricsCollector {
     ActionStats actionStats =
         actionStatsMap.computeIfAbsent(event.getAction().getMnemonic(), ActionStats::new);
     actionStats.numActions.incrementAndGet();
-    actionStats.firstStarted.accumulate(event.getRelativeActionStartTime());
+    actionStats.firstStarted.accumulate(event.getRelativeActionStartTimeNanos());
     actionStats.lastEnded.accumulate(BlazeClock.nanoTime());
     spawnStats.incrementActionCount();
   }

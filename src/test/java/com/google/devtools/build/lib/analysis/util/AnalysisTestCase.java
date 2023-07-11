@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis.util;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Preconditions;
@@ -38,16 +39,17 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
@@ -90,6 +92,9 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.skyframe.InMemoryGraph;
+import com.google.devtools.build.skyframe.InMemoryNodeEntry;
+import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -97,6 +102,7 @@ import com.google.errorprone.annotations.ForOverride;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -122,8 +128,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   public enum Flag {
     // The --keep_going flag.
     KEEP_GOING,
-    // The --skyframe_prepare_analysis flag.
-    SKYFRAME_PREPARE_ANALYSIS,
     // Flags for visibility to default to public.
     PUBLIC_VISIBILITY,
     // Flags for CPU to work (be set to k8) in test mode.
@@ -251,12 +255,12 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                         BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
                         CheckDirectDepsMode.WARNING),
                     PrecomputedValue.injected(
-                        BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
+                        YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
                     PrecomputedValue.injected(
                         BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
                         BazelCompatibilityMode.ERROR),
                     PrecomputedValue.injected(
-                        BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.OFF)))
+                        BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.UPDATE)))
             .build(ruleClassProvider, fileSystem);
     useConfiguration();
     skyframeExecutor = createSkyframeExecutor(pkgFactory);
@@ -302,11 +306,11 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                 BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
                 CheckDirectDepsMode.WARNING),
             PrecomputedValue.injected(
-                BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
+                YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
             PrecomputedValue.injected(
                 BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
                 BazelCompatibilityMode.WARNING),
-            PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.OFF)));
+            PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.UPDATE)));
   }
 
   /** Resets the SkyframeExecutor, as if a clean had been executed. */
@@ -418,7 +422,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     // update --keep_going option if test requested it.
     boolean keepGoing = flags.contains(Flag.KEEP_GOING);
     boolean discardAnalysisCache = viewOptions.discardAnalysisCache;
-    viewOptions.skyframePrepareAnalysis = flags.contains(Flag.SKYFRAME_PREPARE_ANALYSIS);
 
     PackageOptions packageOptions = optionsParser.getOptions(PackageOptions.class);
     PathPackageLocator pathPackageLocator =
@@ -547,7 +550,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     }
     try {
       return skyframeExecutor.getConfiguredTargetAndDataForTesting(reporter, parsedLabel, config);
-    } catch (InvalidConfigurationException | InterruptedException e) {
+    } catch (InterruptedException e) {
       throw new AssertionError(e);
     }
   }
@@ -597,7 +600,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     try {
       return skyframeExecutor.getConfiguredTargetAndDataForTesting(
           reporter, parsedLabel, configuration);
-    } catch (InvalidConfigurationException | InterruptedException e) {
+    } catch (InterruptedException e) {
       throw new AssertionError(e);
     }
   }
@@ -652,8 +655,26 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             ConfiguredTargetKey.fromConfiguredTarget(owner));
   }
 
-  protected Set<ActionLookupKey> getSkyframeEvaluatedTargetKeys() {
-    return buildView.getSkyframeEvaluatedActionLookupKeyCountForTesting();
+  protected ImmutableSet<ActionLookupKey> getSkyframeEvaluatedTargetKeys() {
+    InMemoryGraph graph = skyframeExecutor.getEvaluator().getInMemoryGraph();
+    return buildView.getSkyframeEvaluatedActionLookupKeyCountForTesting().stream()
+        .filter(
+            key -> {
+              InMemoryNodeEntry entry = graph.getIfPresent(key);
+              if (!entry.isDone()) {
+                return false;
+              }
+              SkyValue value = entry.getValue();
+              if (!(value instanceof ConfiguredTargetValue)) {
+                return true;
+              }
+              // If the configurations are not equal, it means that the node is only performing
+              // delegation and doesn't create the configured target.
+              return Objects.equals(
+                  key.getConfigurationKey(),
+                  ((ConfiguredTargetValue) value).getConfiguredTarget().getConfigurationKey());
+            })
+        .collect(toImmutableSet());
   }
 
   protected void assertNumberOfAnalyzedConfigurationsOfTargets(

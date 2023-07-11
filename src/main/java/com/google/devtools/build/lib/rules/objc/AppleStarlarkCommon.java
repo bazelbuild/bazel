@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -258,6 +257,8 @@ public class AppleStarlarkCommon
       Object avoidDeps,
       Sequence<?> extraLinkopts,
       Sequence<?> extraLinkInputs,
+      Sequence<?> extraRequestedFeatures,
+      Sequence<?> extraDisabledFeatures,
       StarlarkInt stamp,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
@@ -277,9 +278,11 @@ public class AppleStarlarkCommon
               avoidDepsList,
               ImmutableList.copyOf(Sequence.cast(extraLinkopts, String.class, "extra_linkopts")),
               Sequence.cast(extraLinkInputs, Artifact.class, "extra_link_inputs"),
+              Sequence.cast(extraRequestedFeatures, String.class, "extra_requested_features"),
+              Sequence.cast(extraDisabledFeatures, String.class, "extra_disabled_features"),
               isStampingEnabled);
       return createStarlarkLinkingOutputs(linkingOutputs, thread);
-    } catch (RuleErrorException | ActionConflictException exception) {
+    } catch (RuleErrorException exception) {
       throw new EvalException(exception);
     }
   }

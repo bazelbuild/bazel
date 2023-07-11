@@ -627,6 +627,12 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       return -1;
     }
 
+    /**
+     * Extends the expiration time for this metadata. If it was constructed without known expiration
+     * time (i.e. expireAtEpochMilli < 0), this extension does nothing.
+     */
+    public void extendExpireAtEpochMilli(long expireAtEpochMilli) {}
+
     public boolean isAlive(Instant now) {
       return true;
     }
@@ -655,7 +661,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
   /** A remote artifact that expires at a particular time. */
   private static final class RemoteFileArtifactValueWithExpiration extends RemoteFileArtifactValue {
-    private final long expireAtEpochMilli;
+    private long expireAtEpochMilli;
 
     private RemoteFileArtifactValueWithExpiration(
         byte[] digest,
@@ -670,6 +676,12 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     @Override
     public long getExpireAtEpochMilli() {
       return expireAtEpochMilli;
+    }
+
+    @Override
+    public void extendExpireAtEpochMilli(long expireAtEpochMilli) {
+      Preconditions.checkState(expireAtEpochMilli > this.expireAtEpochMilli);
+      this.expireAtEpochMilli = expireAtEpochMilli;
     }
 
     @Override
@@ -735,8 +747,12 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
     @Override
     public boolean wasModifiedSinceDigest(Path path) {
-      // We could store an mtime but I have no clue where to get one from createFromMetadata
-      return true;
+      try {
+        var newMetadata = FileArtifactValue.createForUnresolvedSymlink(path);
+        return !Arrays.equals(digest, newMetadata.getDigest());
+      } catch (IOException e) {
+        return true;
+      }
     }
   }
 

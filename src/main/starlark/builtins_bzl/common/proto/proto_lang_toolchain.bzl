@@ -40,6 +40,7 @@ def _rule_impl(ctx):
         ),
         ProtoLangToolchainInfo(
             out_replacement_format_flag = flag,
+            output_files = ctx.attr.output_files,
             plugin_format_flag = ctx.attr.plugin_format_flag,
             plugin = plugin,
             runtime = ctx.attr.runtime,
@@ -48,6 +49,7 @@ def _rule_impl(ctx):
             protoc_opts = ctx.fragments.proto.experimental_protoc_opts,
             progress_message = ctx.attr.progress_message,
             mnemonic = ctx.attr.mnemonic,
+            allowlist_different_package = ctx.attr.allowlist_different_package,
         ),
     ]
 
@@ -59,6 +61,7 @@ def make_proto_lang_toolchain(custom_proto_compiler):
                 "progress_message": attr.string(default = "Generating proto_library %{label}"),
                 "mnemonic": attr.string(default = "GenProto"),
                 "command_line": attr.string(mandatory = True),
+                "output_files": attr.string(values = ["single", "multiple", "legacy"], default = "legacy"),
                 "plugin_format_flag": attr.string(),
                 "plugin": attr.label(
                     executable = True,
@@ -67,6 +70,11 @@ def make_proto_lang_toolchain(custom_proto_compiler):
                 "runtime": attr.label(),
                 "blacklisted_protos": attr.label_list(
                     providers = [ProtoInfo],
+                ),
+                "allowlist_different_package": attr.label(
+                    default = semantics.allowlist_different_package,
+                    cfg = "exec",
+                    providers = ["PackageSpecificationProvider"],
                 ),
             },
             **({
@@ -84,5 +92,5 @@ def make_proto_lang_toolchain(custom_proto_compiler):
             })
         ),
         provides = [ProtoLangToolchainInfo],
-        fragments = ["proto"] + semantics.EXTRA_FRAGMENTS,
+        fragments = ["proto"],
     )

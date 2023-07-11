@@ -72,7 +72,9 @@ public class IndexRegistryTest extends FoundationTestCase {
 
     Registry registry = registryFactory.getRegistryWithUrl(server.getUrl() + "/myreg");
     assertThat(registry.getModuleFile(createModuleKey("foo", "1.0"), reporter))
-        .hasValue("lol".getBytes(UTF_8));
+        .hasValue(
+            ModuleFile.create(
+                "lol".getBytes(UTF_8), server.getUrl() + "/myreg/modules/foo/1.0/MODULE.bazel"));
     assertThat(registry.getModuleFile(createModuleKey("bar", "1.0"), reporter)).isEmpty();
   }
 
@@ -94,7 +96,9 @@ public class IndexRegistryTest extends FoundationTestCase {
 
     downloadManager.setNetrcCreds(new NetrcCredentials(netrc));
     assertThat(registry.getModuleFile(createModuleKey("foo", "1.0"), reporter))
-        .hasValue("lol".getBytes(UTF_8));
+        .hasValue(
+            ModuleFile.create(
+                "lol".getBytes(UTF_8), server.getUrl() + "/myreg/modules/foo/1.0/MODULE.bazel"));
     assertThat(registry.getModuleFile(createModuleKey("bar", "1.0"), reporter)).isEmpty();
   }
 
@@ -110,7 +114,7 @@ public class IndexRegistryTest extends FoundationTestCase {
         registryFactory.getRegistryWithUrl(
             new File(tempFolder.getRoot(), "fakereg").toURI().toString());
     assertThat(registry.getModuleFile(createModuleKey("foo", "1.0"), reporter))
-        .hasValue("lol".getBytes(UTF_8));
+        .hasValue(ModuleFile.create("lol".getBytes(UTF_8), file.toURI().toString()));
     assertThat(registry.getModuleFile(createModuleKey("bar", "1.0"), reporter)).isEmpty();
   }
 

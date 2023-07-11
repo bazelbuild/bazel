@@ -23,7 +23,8 @@ md5_cmd = "set -e -o pipefail && %s $(SRCS) | %s | %s > $@"
         "//src/main/tools:process-wrapper",
         "//src/main/tools:linux-sandbox",
         "//tools/osx:xcode-locator",
-        ":platforms_archive",
+        "//:platforms-srcs",
+        "//:rules_java-srcs",
     ] + select({
         "//src/conditions:windows": [],
         "//conditions:default": [
@@ -236,7 +237,8 @@ genrule(
     srcs = ([":embedded_tools" + suffix + ".zip"] if embed else []) + [
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
         "install_base_key" + suffix,
-        ":platforms_archive",
+        "//:platforms-srcs",
+        "//:rules_java-srcs",
         # Non-ordered items follow:
         "//src/main/java/net/starlark/java/eval:cpu_profiler",
         "//src/main/tools:build-runfiles",
@@ -267,15 +269,6 @@ genrule(
         "//src/conditions:openbsd": "cat $(SRCS) | sed -e 's@#!/bin/bash@#!/usr/local/bin/bash@' > $@",
         "//conditions:default": "cp $(SRCS) $@",
     }),
-)
-
-genrule(
-    name = "platforms_archive",
-    srcs = ["@platforms//:srcs"],
-    outs = ["platforms.zip"],
-    # Removing the WORKSPACE file since local_repository creates it no matter what and leaving
-    # it there would make the zip nondeterministic.
-    cmd = "zip -qX $@ $$(echo $(SRCS) | xargs -n 1 | grep -v '.*/WORKSPACE$$' | sort | xargs)",
 )
 
 [genrule(
@@ -564,36 +557,28 @@ filegroup(
         "@bazel_skylib//:WORKSPACE",
         "@com_google_protobuf//:WORKSPACE",
         "@remote_coverage_tools//:WORKSPACE",
-        "@remote_java_tools_darwin_arm64_for_testing//:WORKSPACE",
-        "@remote_java_tools_darwin_x86_64_for_testing//:WORKSPACE",
-        "@remote_java_tools_for_testing//:WORKSPACE",
-        "@remote_java_tools_linux_for_testing//:WORKSPACE",
-        "@remote_java_tools_test//:WORKSPACE",
-        "@remote_java_tools_test_darwin_arm64//:WORKSPACE",
-        "@remote_java_tools_test_darwin_x86_64//:WORKSPACE",
-        "@remote_java_tools_test_linux//:WORKSPACE",
-        "@remote_java_tools_test_windows//:WORKSPACE",
-        "@remote_java_tools_windows_for_testing//:WORKSPACE",
-        "@remotejdk11_linux_aarch64_for_testing//:WORKSPACE",
-        "@remotejdk11_linux_for_testing//:WORKSPACE",
-        "@remotejdk11_linux_ppc64le_for_testing//:WORKSPACE",
-        "@remotejdk11_linux_s390x_for_testing//:WORKSPACE",
-        "@remotejdk11_macos_aarch64_for_testing//:WORKSPACE",
-        "@remotejdk11_macos_for_testing//:WORKSPACE",
-        "@remotejdk11_win_arm64_for_testing//:WORKSPACE",
-        "@remotejdk11_win_for_testing//:WORKSPACE",
+        "@remote_java_tools//:GenClass",
+        "@remote_java_tools_darwin_arm64//:java_tools/src/tools/singlejar/singlejar_local",
+        "@remote_java_tools_darwin_x86_64//:java_tools/src/tools/singlejar/singlejar_local",
+        "@remote_java_tools_linux//:java_tools/src/tools/singlejar/singlejar_local",
+        "@remote_java_tools_windows//:java_tools/src/tools/singlejar/singlejar_local.exe",
+        "@remotejdk11_linux//:WORKSPACE",
+        "@remotejdk11_linux_aarch64//:WORKSPACE",
+        "@remotejdk11_linux_ppc64le//:WORKSPACE",
+        "@remotejdk11_linux_s390x//:WORKSPACE",
+        "@remotejdk11_macos//:WORKSPACE",
+        "@remotejdk11_macos_aarch64//:WORKSPACE",
+        "@remotejdk11_win//:WORKSPACE",
+        "@remotejdk11_win_arm64//:WORKSPACE",
         "@rules_cc//:WORKSPACE",
         "@rules_java//:WORKSPACE",
+        "@rules_java_builtin_for_testing//:WORKSPACE",
         "@rules_pkg//:WORKSPACE",
         "@rules_proto//:WORKSPACE",
         "@rules_python//:WORKSPACE",
         "@rules_testing//:WORKSPACE.bazel",
     ] + [
-        "@openjdk%s_%s_archive//:WORKSPACE" % (version, os)
-        for version in ("17", "20")
-        for os in ("darwin", "darwin_aarch64", "linux", "windows") + (("linux_s390x", "windows_arm64") if version != "20" else ())
-    ] + [
-        "@remotejdk%s_%s_for_testing//:WORKSPACE" % (version, os)
+        "@remotejdk%s_%s//:WORKSPACE" % (version, os)
         for version in ("17", "20")
         for os in ("macos", "macos_aarch64", "linux", "win") + (("linux_s390x", "win_arm64") if version != "20" else ())
     ],

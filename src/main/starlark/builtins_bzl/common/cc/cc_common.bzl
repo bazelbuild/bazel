@@ -589,13 +589,13 @@ def _register_linkstamp_compile_action(
         actions,
         cc_toolchain,
         feature_configuration,
-        grep_includes,
         source_file,
         output_file,
         compilation_inputs,
         inputs_for_validation,
         label_replacement,
-        output_replacement):
+        output_replacement,
+        grep_includes = None):
     cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return cc_common_internal.register_linkstamp_compile_action(
         actions = actions,
@@ -741,6 +741,7 @@ def _create_lto_backend_artifacts(
         *,
         ctx,
         lto_output_root_prefix,
+        lto_obj_root_prefix,
         bitcode_file,
         feature_configuration,
         cc_toolchain,
@@ -753,6 +754,7 @@ def _create_lto_backend_artifacts(
         ctx = ctx,
         bitcode_file = bitcode_file,
         lto_output_root_prefix = lto_output_root_prefix,
+        lto_obj_root_prefix = lto_obj_root_prefix,
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
         fdo_context = fdo_context,
@@ -784,13 +786,13 @@ def _create_compile_action(
         actions,
         cc_toolchain,
         feature_configuration,
-        grep_includes,
         source_file,
         output_file,
         variables,
         action_name,
         compilation_context,
         additional_inputs = None,
+        grep_includes = None,
         additional_outputs = []):
     cc_common_internal.check_private_api(allowlist = _CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES)
     return cc_common_internal.create_compile_action(

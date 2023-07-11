@@ -20,10 +20,15 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaInfo.JavaInfoInternalProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCompilationInfoProviderApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
 
 /**
  * A class that provides compilation information in Java rules, for perusal of aspects and tools.
@@ -35,6 +40,46 @@ public final class JavaCompilationInfoProvider
   @Nullable private final NestedSet<Artifact> runtimeClasspath;
   @Nullable private final NestedSet<Artifact> compilationClasspath;
   private final BootClassPathInfo bootClasspath;
+
+  /**
+   * Transforms the {@code compilation_info} field from a {@link JavaInfo} into a native instance.
+   *
+   * @param javaInfo A {@link JavaInfo} instance.
+   * @return a {@link JavaCompilationInfoProvider} instance or {@code null} if the {@code
+   *     compilation_info} field is not present in the supplied {@code javaInfo}
+   * @throws RuleErrorException if the {@code compilation_info} is of an incompatible type
+   * @throws EvalException if there are any errors accessing Starlark values
+   */
+  @Nullable
+  static JavaCompilationInfoProvider fromStarlarkJavaInfo(StructImpl javaInfo)
+      throws RuleErrorException, EvalException {
+    Object value = javaInfo.getValue("compilation_info");
+    if (value == null || value == Starlark.NONE) {
+      return null;
+    } else if (value instanceof JavaCompilationInfoProvider) {
+      return (JavaCompilationInfoProvider) value;
+    } else if (value instanceof StructImpl) {
+      StructImpl info = (StructImpl) value;
+      Builder builder =
+          new Builder()
+              .setJavacOpts(
+                  Sequence.cast(info.getValue("javac_options"), String.class, "javac_options")
+                      .getImmutableList())
+              .setBootClasspath(BootClassPathInfo.fromStarlark(info.getValue("boot_classpath")));
+      Object runtimeClasspath = info.getValue("runtime_classpath");
+      if (runtimeClasspath != null) {
+        builder.setRuntimeClasspath(
+            Depset.noneableCast(runtimeClasspath, Artifact.class, "runtime_classpath"));
+      }
+      Object compilationClasspath = info.getValue("compilation_classpath");
+      if (compilationClasspath != null) {
+        builder.setCompilationClasspath(
+            Depset.noneableCast(compilationClasspath, Artifact.class, "compilation_classpath"));
+      }
+      return builder.build();
+    }
+    throw new RuleErrorException("expected java_compilation_info, got: " + Starlark.type(value));
+  }
 
   @Override
   public boolean isImmutable() {

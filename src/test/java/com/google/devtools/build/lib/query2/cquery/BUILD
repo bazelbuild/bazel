@@ -128,6 +128,7 @@ java_test(
     deps = [
         ":configured_target_query_helper",
         ":configured_target_query_test",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/execution_transition_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -142,6 +143,8 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
+        "//third_party/protobuf:protobuf_java",
+        "//third_party/protobuf:protobuf_java_util",
     ],
 )
 
@@ -167,7 +170,6 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/query2/testutil",
         "//third_party:guava",
-        "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",
     ],

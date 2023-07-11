@@ -78,6 +78,8 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         "    blacklisted_protos = ['//third_party/x:denied'],",
         "    progress_message = 'Progress Message %{label}',",
         "    mnemonic = 'MyMnemonic',",
+        "    allowlist_different_package ="
+            + " '//tools/allowlists/proto_library_allowlists:lang_proto_library_allowed_in_different_package'",
         ")",
         "proto_lang_toolchain(",
         "    name = 'toolchain_noplugin',",
@@ -88,6 +90,13 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         "    mnemonic = 'MyMnemonic',",
         ")");
 
+    mockToolsConfig.overwrite(
+        "tools/allowlists/proto_library_allowlists/BUILD",
+        "package_group(",
+        "    name='lang_proto_library_allowed_in_different_package',",
+        "    packages=['//...', '-//test/...'],",
+        ")");
+
     scratch.file(
         "foo/generate.bzl",
         "def _resource_set_callback(os, inputs_size):",
@@ -95,8 +104,12 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         "def _impl(ctx):",
         "  outfile = ctx.actions.declare_file('out')",
         "  kwargs = {}",
-        "  if ctx.attr.plugin_output:",
-        "    kwargs['plugin_output'] = ctx.attr.plugin_output",
+        "  if ctx.attr.plugin_output == 'single':",
+        "    kwargs['plugin_output'] = outfile.path",
+        "  elif ctx.attr.plugin_output == 'multiple':",
+        "    kwargs['plugin_output'] = ctx.genfiles_dir.path",
+        "  elif ctx.attr.plugin_output == 'wrong':",
+        "    kwargs['plugin_output'] = ctx.genfiles_dir.path + '///'",
         "  if ctx.attr.additional_args:",
         "    additional_args = ctx.actions.args()",
         "    additional_args.add_all(ctx.attr.additional_args)",
@@ -180,9 +193,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
     assertThat(cmdLine)
         .comparingElementsUsing(MATCHES_REGEX)
         .containsExactly(
-            "--plugin=bl?azel?-out/[^/]*-exec-[^/]*/bin/third_party/x/plugin",
-            "-Ibar/A.proto=bar/A.proto",
-            "bar/A.proto")
+            "--plugin=bl?azel?-out/[^/]*-exec-[^/]*/bin/third_party/x/plugin", "-I.", "bar/A.proto")
         .inOrder();
     assertThat(spawnAction.getMnemonic()).isEqualTo("MyMnemonic");
     assertThat(spawnAction.getProgressMessage()).isEqualTo("Progress Message //bar:simple");
@@ -205,13 +216,13 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         getGeneratingSpawnAction(getBinArtifact("out", target)).getRemainingArguments();
     assertThat(cmdLine)
         .comparingElementsUsing(MATCHES_REGEX)
-        .containsExactly("-Ibar/A.proto=bar/A.proto", "bar/A.proto")
+        .containsExactly("-I.", "bar/A.proto")
         .inOrder();
   }
 
   /**
    * Verifies usage of <code>proto_common.generate_code</code> with <code>plugin_output</code>
-   * parameter.
+   * parameter set to file.
    */
   @Test
   public void generateCode_withPluginOutput() throws Exception {
@@ -220,7 +231,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         TestConstants.LOAD_PROTO_LIBRARY,
         "load('//foo:generate.bzl', 'generate_rule')",
         "proto_library(name = 'proto', srcs = ['A.proto'])",
-        "generate_rule(name = 'simple', proto_dep = ':proto', plugin_output = 'foo.srcjar')");
+        "generate_rule(name = 'simple', proto_dep = ':proto', plugin_output = 'single')");
 
     ConfiguredTarget target = getConfiguredTarget("//bar:simple");
 
@@ -229,9 +240,36 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
     assertThat(cmdLine)
         .comparingElementsUsing(MATCHES_REGEX)
         .containsExactly(
-            "--java_out=param1,param2:foo.srcjar",
+            "--java_out=param1,param2:bl?azel?-out/k8-fastbuild/bin/bar/out",
             "--plugin=bl?azel?-out/[^/]*-exec-[^/]*/bin/third_party/x/plugin",
-            "-Ibar/A.proto=bar/A.proto",
+            "-I.",
+            "bar/A.proto")
+        .inOrder();
+  }
+
+  /**
+   * Verifies usage of <code>proto_common.generate_code</code> with <code>plugin_output</code>
+   * parameter set to directory.
+   */
+  @Test
+  public void generateCode_withDirectoryPluginOutput() throws Exception {
+    scratch.file(
+        "bar/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "load('//foo:generate.bzl', 'generate_rule')",
+        "proto_library(name = 'proto', srcs = ['A.proto'])",
+        "generate_rule(name = 'simple', proto_dep = ':proto', plugin_output = 'multiple')");
+
+    ConfiguredTarget target = getConfiguredTarget("//bar:simple");
+
+    List<String> cmdLine =
+        getGeneratingSpawnAction(getBinArtifact("out", target)).getRemainingArguments();
+    assertThat(cmdLine)
+        .comparingElementsUsing(MATCHES_REGEX)
+        .containsExactly(
+            "--java_out=param1,param2:bl?azel?-out/k8-fastbuild/bin",
+            "--plugin=bl?azel?-out/[^/]*-exec-[^/]*/bin/third_party/x/plugin",
+            "-I.",
             "bar/A.proto")
         .inOrder();
   }
@@ -259,7 +297,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
             "--a",
             "--b",
             "--plugin=bl?azel?-out/[^/]*-exec-[^/]*/bin/third_party/x/plugin",
-            "-Ibar/A.proto=bar/A.proto",
+            "-I.",
             "bar/A.proto")
         .inOrder();
   }
@@ -375,9 +413,9 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         .comparingElementsUsing(MATCHES_REGEX)
         .containsExactly(
             "--plugin=bl?azel?-out/[^/]*-exec-[^/]*/bin/third_party/x/plugin",
+            "-I.",
             "--foo",
             "--bar",
-            "-Ibar/A.proto=bar/A.proto",
             "bar/A.proto")
         .inOrder();
   }
@@ -404,9 +442,8 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         .comparingElementsUsing(MATCHES_REGEX)
         .containsExactly(
             "--plugin=bl?azel?-out/[^/]*-exec-[^/]*/bin/third_party/x/plugin",
-            "--proto_path=bl?azel?-out/k8-fastbuild/bin",
-            "-Ibar/A.proto=bar/A.proto",
-            "-Ibar/G.proto=bl?azel?-out/k8-fastbuild/bin/bar/G.proto",
+            "-Ibl?azel?-out/k8-fastbuild/bin",
+            "-I.",
             "bar/A.proto",
             "bl?azel?-out/k8-fastbuild/bin/bar/G.proto")
         .inOrder();
@@ -435,9 +472,8 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         .comparingElementsUsing(MATCHES_REGEX)
         .containsExactly(
             "--plugin=bl?azel?-out/[^/]*-exec-[^/]*/bin/third_party/x/plugin",
-            "--proto_path=bl?azel?-out/k8-fastbuild/bin",
-            "-Ibar/A.proto=bar/A.proto",
-            "-Ibar/G.proto=bl?azel?-out/k8-fastbuild/bin/bar/G.proto",
+            "-Ibl?azel?-out/k8-fastbuild/bin",
+            "-I.",
             "bar/A.proto")
         .inOrder();
   }
@@ -448,15 +484,11 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
    */
   @Test
   @TestParameters({
-    "{sibling: false, generated: false, expectedFlags:"
-        + " ['--proto_path=external/foo','-Ie/E.proto=external/foo/e/E.proto']}",
+    "{sibling: false, generated: false, expectedFlags:" + " ['-Iexternal/foo']}",
     "{sibling: false, generated: true, expectedFlags:"
-        + " ['--proto_path=bl?azel?-out/k8-fastbuild/bin/external/foo',"
-        + " '-Ie/E.proto=bl?azel?-out/k8-fastbuild/bin/external/foo/e/E.proto']}",
-    "{sibling: true, generated: false,expectedFlags:"
-        + " ['--proto_path=../foo','-Ie/E.proto=../foo/e/E.proto']}",
-    "{sibling: true, generated: true, expectedFlags:"
-        + " ['--proto_path=bl?azel?-out/foo/k8-fastbuild/bin','-Ie/E.proto=bl?azel?-out/foo/k8-fastbuild/bin/e/E.proto']}",
+        + " ['-Ibl?azel?-out/k8-fastbuild/bin/external/foo']}",
+    "{sibling: true, generated: false,expectedFlags:" + " ['-I../foo']}",
+    "{sibling: true, generated: true, expectedFlags:" + " ['-Ibl?azel?-out/foo/k8-fastbuild/bin']}",
   })
   public void generateCode_externalProtoLibrary(
       boolean sibling, boolean generated, List<String> expectedFlags) throws Exception {
@@ -489,8 +521,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         .containsExactly(
             "--plugin=bl?azel?-out/[^/]*-exec-[^/]*/bin/third_party/x/plugin",
             expectedFlags.get(0),
-            "-Ibar/A.proto=bar/A.proto",
-            expectedFlags.get(1),
+            "-I.",
             "bar/A.proto")
         .inOrder();
   }
@@ -512,9 +543,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
     assertThat(cmdLine)
         .comparingElementsUsing(MATCHES_REGEX)
         .containsExactly(
-            "--plugin=bl?azel?-out/[^/]*-exec-[^/]*/bin/third_party/x/plugin",
-            "-Ibar/A.proto=bar/A.proto",
-            "bar/A.proto")
+            "--plugin=bl?azel?-out/[^/]*-exec-[^/]*/bin/third_party/x/plugin", "-I.", "bar/A.proto")
         .inOrder();
     assertThat(spawnAction.getMnemonic()).isEqualTo("MyMnemonic");
     assertThat(spawnAction.getProgressMessage()).isEqualTo("My //bar:simple");
@@ -602,5 +631,81 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
 
     assertThat(prettyArtifactNames(target.getProvider(FileProvider.class).getFilesToBuild()))
         .containsExactly("bar/my_proto/gen_pb2.py");
+  }
+
+  @Test
+  public void langProtoLibrary_inDifferentPackage_allowed() throws Exception {
+    scratch.file(
+        "proto/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "proto_library(name = 'proto', srcs = ['A.proto'])");
+    scratch.file(
+        "bar/BUILD",
+        "load('//foo:generate.bzl', 'generate_rule')",
+        "generate_rule(name = 'simple', proto_dep = '//proto:proto')");
+
+    getConfiguredTarget("//bar:simple");
+
+    assertNoEvents();
+  }
+
+  @Test
+  public void langProtoLibrary_inDifferentPackage_fails() throws Exception {
+    scratch.file(
+        "proto/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "proto_library(name = 'proto', srcs = ['A.proto'])");
+    scratch.file(
+        "test/BUILD",
+        "load('//foo:generate.bzl', 'generate_rule')",
+        "generate_rule(name = 'simple', proto_dep = '//proto:proto')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:simple");
+
+    assertContainsEvent(
+        "lang_proto_library '@//test:simple' may only be created in the same packageas"
+            + " proto_library '@//proto:proto'");
+  }
+
+  @Test
+  public void langProtoLibrary_exportNotAllowed() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "proto_library(name='foo', srcs=['foo.proto'], allow_exports = ':test')",
+        "package_group(",
+        "    name='test',",
+        "    packages=['//allowed'],",
+        ")");
+    scratch.file(
+        "notallowed/BUILD",
+        "load('//foo:generate.bzl', 'generate_rule')",
+        "generate_rule(name = 'simple', proto_dep = '//x:foo')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//notallowed:simple");
+
+    assertContainsEvent(
+        "proto_library '@//x:foo' can't be reexported in lang_proto_library"
+            + " '@//notallowed:simple'");
+  }
+
+  @Test
+  public void langProtoLibrary_exportAllowed() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "proto_library(name='foo', srcs=['foo.proto'], allow_exports = ':test')",
+        "package_group(",
+        "    name='test',",
+        "    packages=['//allowed'],",
+        ")");
+    scratch.file(
+        "allowed/BUILD",
+        "load('//foo:generate.bzl', 'generate_rule')",
+        "generate_rule(name = 'simple', proto_dep = '//x:foo')");
+
+    getConfiguredTarget("//allowed:simple");
+
+    assertNoEvents();
   }
 }

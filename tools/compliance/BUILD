@@ -1,6 +1,13 @@
 # Tools for gathering OSS licenses
 
-load("@rules_license//rules:compliance.bzl", "check_license")
+load(":gather_packages.bzl", "packages_used")
+load(":sbom.bzl", "sbom")
+
+# TODO(aiuto): fix copybara transforms.
+#package(
+#    default_package_metadata = ["//:license"],
+#    default_visibility = ["//visibility:private"],
+#)
 
 licenses(["notice"])  # Apache 2.0
 
@@ -13,24 +20,32 @@ filegroup(
     ],
 )
 
-check_license(
-    name = "check_bazel",
-    check_conditions = False,
-    copyright_notices = "bazel_copyrights.txt",
-    license_texts = "bazel_licenses.txt",
-    report = "bazel_report",
+packages_used(
+    name = "bazel_packages",
+    out = "bazel_packages.json",
+    target = "//src:bazel_nojdk",
+)
+
+py_test(
+    name = "packages_used_test",
+    size = "medium",
+    srcs = ["packages_used_test.py"],
+    data = [
+        ":bazel_packages.json",
+    ],
+    python_version = "PY3",
     deps = [
-        "//src:bazel-bin_nojdk",
     ],
 )
 
-check_license(
-    name = "check_srcs",
-    check_conditions = False,
-    copyright_notices = "srcs_copyrights.txt",
-    license_texts = "srcs_licenses.txt",
-    report = "srcs_report",
-    deps = [
-        "//:bazel-srcs",
-    ],
+sbom(
+    name = "bazel_sbom",
+    out = "bazel_sbom.json",
+    target = "//src:bazel_nojdk",
+)
+
+py_binary(
+    name = "write_sbom_private",
+    srcs = ["write_sbom.py"],
+    main = "write_sbom.py",
 )

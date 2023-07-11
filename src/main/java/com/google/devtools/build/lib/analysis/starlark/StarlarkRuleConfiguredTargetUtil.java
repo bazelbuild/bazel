@@ -297,7 +297,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
       Object rawProviders,
       Location implLoc,
       boolean isDefaultExecutableCreated)
-      throws EvalException {
+      throws EvalException, InterruptedException {
 
     StructImpl oldStyleProviders =
         StarlarkInfo.create(StructProvider.STRUCT, ImmutableMap.of(), implLoc);
@@ -513,7 +513,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
       RuleContext context,
       RuleConfiguredTargetBuilder builder,
       boolean isDefaultExecutableCreated)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     Depset files = null;
     Runfiles statelessRunfiles = null;
     Runfiles dataRunfiles = null;
@@ -617,7 +617,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
       Runfiles statelessRunfiles,
       Runfiles dataRunfiles,
       Runfiles defaultRunfiles)
-      throws EvalException {
+      throws EvalException, InterruptedException {
 
     // TODO(bazel-team) if both 'files' and 'executable' are provided, 'files' overrides
     // 'executable'

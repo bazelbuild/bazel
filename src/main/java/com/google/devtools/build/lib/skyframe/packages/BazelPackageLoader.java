@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe.packages;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.bazel.BazelRepositoryModule;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.bazel.rules.BazelRulesModule;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
@@ -98,7 +100,11 @@ public class BazelPackageLoader extends AbstractPackageLoader {
               RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
           PrecomputedValue.injected(
               RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
-              RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY));
+              RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
+          PrecomputedValue.injected(
+              RepositoryDelegatorFunction.OUTPUT_VERIFICATION_REPOSITORY_RULES, ImmutableSet.of()),
+          PrecomputedValue.injected(
+              RepositoryDelegatorFunction.RESOLVED_FILE_FOR_VERIFICATION, Optional.empty()));
     }
 
     @Override
@@ -129,6 +135,7 @@ public class BazelPackageLoader extends AbstractPackageLoader {
                       ImmutableMap::of,
                       directories,
                       EXTERNAL_PACKAGE_HELPER))
+              .put(SkyFunctions.RESOLVED_HASH_VALUES, new ResolvedHashesFunction())
               .build());
 
       return new BazelPackageLoader(this);

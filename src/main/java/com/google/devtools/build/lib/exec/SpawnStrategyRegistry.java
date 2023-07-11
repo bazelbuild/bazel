@@ -19,6 +19,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMultimap;
@@ -140,16 +141,19 @@ public final class SpawnStrategyRegistry
   }
 
   @Override
-  public List<SandboxedSpawnStrategy> getDynamicSpawnActionContexts(
+  public ImmutableCollection<SandboxedSpawnStrategy> getDynamicSpawnActionContexts(
       Spawn spawn, DynamicMode dynamicMode) {
     ImmutableMultimap<String, SandboxedSpawnStrategy> mnemonicToDynamicStrategies =
         dynamicMode == DynamicStrategyRegistry.DynamicMode.REMOTE
             ? mnemonicToRemoteDynamicStrategies
             : mnemonicToLocalDynamicStrategies;
-    return ImmutableList.<SandboxedSpawnStrategy>builder()
-        .addAll(mnemonicToDynamicStrategies.get(spawn.getMnemonic()))
-        .addAll(mnemonicToDynamicStrategies.get(""))
-        .build();
+    if (mnemonicToDynamicStrategies.containsKey(spawn.getMnemonic())) {
+      return mnemonicToDynamicStrategies.get(spawn.getMnemonic());
+    }
+    if (mnemonicToDynamicStrategies.containsKey("")) {
+      return mnemonicToDynamicStrategies.get("");
+    }
+    return ImmutableList.of();
   }
 
   @Nullable

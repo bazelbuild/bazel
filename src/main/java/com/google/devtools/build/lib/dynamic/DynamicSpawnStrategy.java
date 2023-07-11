@@ -50,7 +50,6 @@ import com.google.errorprone.annotations.FormatString;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -158,31 +157,33 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
   private static boolean canExecLocal(
       Spawn spawn,
       ExecutionPolicy executionPolicy,
-      ActionContext.ActionContextRegistry actionContextRegistry,
-      DynamicStrategyRegistry dynamicStrategyRegistry) {
+      ActionContext.ActionContextRegistry acr,
+      DynamicStrategyRegistry dsr) {
     if (!executionPolicy.canRunLocally()) {
       return false;
     }
-    List<SandboxedSpawnStrategy> localStrategies =
-        dynamicStrategyRegistry.getDynamicSpawnActionContexts(spawn, LOCAL);
-    return localStrategies.stream()
-        .anyMatch(
-            s ->
-                (s.canExec(spawn, actionContextRegistry)
-                    || s.canExecWithLegacyFallback(spawn, actionContextRegistry)));
+    for (SandboxedSpawnStrategy s : dsr.getDynamicSpawnActionContexts(spawn, LOCAL)) {
+      if ((s.canExec(spawn, acr) || s.canExecWithLegacyFallback(spawn, acr))) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private static boolean canExecRemote(
       Spawn spawn,
       ExecutionPolicy executionPolicy,
-      ActionContext.ActionContextRegistry actionContextRegistry,
-      DynamicStrategyRegistry dynamicStrategyRegistry) {
+      ActionContext.ActionContextRegistry acr,
+      DynamicStrategyRegistry dsr) {
     if (!executionPolicy.canRunRemotely()) {
       return false;
     }
-    List<SandboxedSpawnStrategy> remoteStrategies =
-        dynamicStrategyRegistry.getDynamicSpawnActionContexts(spawn, REMOTE);
-    return remoteStrategies.stream().anyMatch(s -> s.canExec(spawn, actionContextRegistry));
+    for (SandboxedSpawnStrategy s : dsr.getDynamicSpawnActionContexts(spawn, REMOTE)) {
+      if (s.canExec(spawn, acr)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   @Override

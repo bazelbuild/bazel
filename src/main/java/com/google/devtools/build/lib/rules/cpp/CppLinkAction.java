@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -88,6 +89,13 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
         RepositoryName repositoryName,
         BuildConfigurationValue configuration,
         PathFragment rootRelativePath);
+
+    /** Create a tree artifact at the specified root-relative path in the bin directory. */
+    SpecialArtifact createTreeArtifact(
+        ActionConstructionContext actionConstructionContext,
+        RepositoryName repositoryName,
+        BuildConfigurationValue configuration,
+        PathFragment rootRelativePath);
   }
 
   /**
@@ -104,6 +112,49 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
             PathFragment rootRelativePath) {
           return actionConstructionContext.getDerivedArtifact(
               rootRelativePath, configuration.getBinDirectory(repositoryName));
+        }
+
+        @Override
+        public SpecialArtifact createTreeArtifact(
+            ActionConstructionContext actionConstructionContext,
+            RepositoryName repositoryName,
+            BuildConfigurationValue configuration,
+            PathFragment rootRelativePath) {
+          return actionConstructionContext.getTreeArtifact(
+              rootRelativePath, configuration.getBinDirectory(repositoryName));
+        }
+      };
+
+  /**
+   * An implementation of {@link LinkArtifactFactory} that can create artifacts anywhere.
+   *
+   * <p>Necessary when the LTO backend actions of libraries should be shareable, and thus cannot be
+   * under the package directory.
+   *
+   * <p>Necessary because the actions of nativedeps libraries should be shareable, and thus cannot
+   * be under the package directory.
+   */
+  public static final LinkArtifactFactory SHAREABLE_LINK_ARTIFACT_FACTORY =
+      new LinkArtifactFactory() {
+        @Override
+        public Artifact create(
+            ActionConstructionContext actionConstructionContext,
+            RepositoryName repositoryName,
+            BuildConfigurationValue configuration,
+            PathFragment rootRelativePath) {
+          return actionConstructionContext.getShareableArtifact(
+              rootRelativePath, configuration.getBinDirectory(repositoryName));
+        }
+
+        @Override
+        public SpecialArtifact createTreeArtifact(
+            ActionConstructionContext actionConstructionContext,
+            RepositoryName repositoryName,
+            BuildConfigurationValue configuration,
+            PathFragment rootRelativePath) {
+          return actionConstructionContext
+              .getAnalysisEnvironment()
+              .getTreeArtifact(rootRelativePath, configuration.getBinDirectory(repositoryName));
         }
       };
 
@@ -292,9 +343,11 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
   private Spawn createSpawn(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException {
     try {
+      ArtifactExpander actionContextExpander = actionExecutionContext.getArtifactExpander();
+      ArtifactExpander expander = actionContextExpander;
       return new SimpleSpawn(
           this,
-          ImmutableList.copyOf(getCommandLine(actionExecutionContext.getArtifactExpander())),
+          ImmutableList.copyOf(getCommandLine(expander)),
           getEffectiveEnvironment(actionExecutionContext.getClientEnv()),
           getExecutionInfo(),
           getInputs(),

@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe.state;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+
 import com.google.devtools.build.skyframe.SkyFunction.LookupEnvironment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -264,5 +266,10 @@ abstract class Lookup implements SkyframeLookupResult.QueryDepCallback {
       }
       return false;
     }
+  }
+
+  @Override
+  public String toString() {
+    return toStringHelper(this).add("parent", parent).add("key", key).toString();
   }
 }

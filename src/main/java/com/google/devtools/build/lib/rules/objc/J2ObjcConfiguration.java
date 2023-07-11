@@ -156,10 +156,24 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
     return experimentalJ2ObjcHeaderMap;
   }
 
+  @Override
+  public boolean getExperimentalJ2ObjcHeaderMapForStarlark(StarlarkThread thread)
+      throws EvalException {
+    checkPrivateAccess(thread);
+    return experimentalJ2ObjcHeaderMap;
+  }
+
   /**
    * Returns whether to use a shorter path for generated header files.
    */
   public boolean experimentalShorterHeaderPath() {
+    return experimentalShorterHeaderPath;
+  }
+
+  @Override
+  public boolean experimentalShorterHeaderPathforStarlark(StarlarkThread thread)
+      throws EvalException {
+    checkPrivateAccess(thread);
     return experimentalShorterHeaderPath;
   }
 

@@ -242,7 +242,7 @@ public class RemoteServerCapabilitiesTest {
   public void testCheckClientServerCompatibility_apiVersionDeprecated() throws Exception {
     ServerCapabilities caps =
         ServerCapabilities.newBuilder()
-            .setDeprecatedApiVersion(ApiVersion.current.toSemVer())
+            .setDeprecatedApiVersion(ApiVersion.low.toSemVer())
             .setLowApiVersion(new ApiVersion(100, 0, 0, "").toSemVer())
             .setHighApiVersion(new ApiVersion(100, 0, 0, "").toSemVer())
             .setCacheCapabilities(
@@ -289,8 +289,8 @@ public class RemoteServerCapabilitiesTest {
       throws Exception {
     ServerCapabilities caps =
         ServerCapabilities.newBuilder()
-            .setLowApiVersion(ApiVersion.current.toSemVer())
-            .setHighApiVersion(ApiVersion.current.toSemVer())
+            .setLowApiVersion(ApiVersion.low.toSemVer())
+            .setHighApiVersion(ApiVersion.high.toSemVer())
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
                     .addDigestFunctions(DigestFunction.Value.MD5)
@@ -311,8 +311,8 @@ public class RemoteServerCapabilitiesTest {
   public void testCheckClientServerCompatibility_remoteCacheDoesNotSupportUpdate() {
     ServerCapabilities caps =
         ServerCapabilities.newBuilder()
-            .setLowApiVersion(ApiVersion.current.toSemVer())
-            .setHighApiVersion(ApiVersion.current.toSemVer())
+            .setLowApiVersion(ApiVersion.low.toSemVer())
+            .setHighApiVersion(ApiVersion.high.toSemVer())
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
                     .addDigestFunctions(DigestFunction.Value.SHA256)
@@ -340,8 +340,8 @@ public class RemoteServerCapabilitiesTest {
   public void testCheckClientServerCompatibility_remoteExecutionIsDisabled() throws Exception {
     ServerCapabilities caps =
         ServerCapabilities.newBuilder()
-            .setLowApiVersion(ApiVersion.current.toSemVer())
-            .setHighApiVersion(ApiVersion.current.toSemVer())
+            .setLowApiVersion(ApiVersion.low.toSemVer())
+            .setHighApiVersion(ApiVersion.high.toSemVer())
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
                     .addDigestFunctions(DigestFunction.Value.SHA256)
@@ -371,8 +371,8 @@ public class RemoteServerCapabilitiesTest {
       throws Exception {
     ServerCapabilities caps =
         ServerCapabilities.newBuilder()
-            .setLowApiVersion(ApiVersion.current.toSemVer())
-            .setHighApiVersion(ApiVersion.current.toSemVer())
+            .setLowApiVersion(ApiVersion.low.toSemVer())
+            .setHighApiVersion(ApiVersion.high.toSemVer())
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
                     .addDigestFunctions(DigestFunction.Value.SHA256)
@@ -401,8 +401,8 @@ public class RemoteServerCapabilitiesTest {
   public void testCheckClientServerCompatibility_localFallbackNoRemoteCacheUpdate() {
     ServerCapabilities caps =
         ServerCapabilities.newBuilder()
-            .setLowApiVersion(ApiVersion.current.toSemVer())
-            .setHighApiVersion(ApiVersion.current.toSemVer())
+            .setLowApiVersion(ApiVersion.low.toSemVer())
+            .setHighApiVersion(ApiVersion.high.toSemVer())
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
                     .addDigestFunctions(DigestFunction.Value.SHA256)
@@ -456,8 +456,8 @@ public class RemoteServerCapabilitiesTest {
   public void testCheckClientServerCompatibility_cachePriority() throws Exception {
     ServerCapabilities caps =
         ServerCapabilities.newBuilder()
-            .setLowApiVersion(ApiVersion.current.toSemVer())
-            .setHighApiVersion(ApiVersion.current.toSemVer())
+            .setLowApiVersion(ApiVersion.low.toSemVer())
+            .setHighApiVersion(ApiVersion.high.toSemVer())
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
                     .addDigestFunctions(DigestFunction.Value.SHA256)
@@ -498,8 +498,8 @@ public class RemoteServerCapabilitiesTest {
   public void testCheckClientServerCompatibility_executionPriority() throws Exception {
     ServerCapabilities caps =
         ServerCapabilities.newBuilder()
-            .setLowApiVersion(ApiVersion.current.toSemVer())
-            .setHighApiVersion(ApiVersion.current.toSemVer())
+            .setLowApiVersion(ApiVersion.low.toSemVer())
+            .setHighApiVersion(ApiVersion.high.toSemVer())
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
                     .addDigestFunctions(DigestFunction.Value.SHA256)
@@ -563,8 +563,8 @@ public class RemoteServerCapabilitiesTest {
   public void testCheckClientServerCompatibility_executionCapsOnly() throws Exception {
     ServerCapabilities caps =
         ServerCapabilities.newBuilder()
-            .setLowApiVersion(ApiVersion.current.toSemVer())
-            .setHighApiVersion(ApiVersion.current.toSemVer())
+            .setLowApiVersion(ApiVersion.low.toSemVer())
+            .setHighApiVersion(ApiVersion.high.toSemVer())
             .setExecutionCapabilities(
                 ExecutionCapabilities.newBuilder()
                     .setDigestFunction(DigestFunction.Value.SHA256)
@@ -587,8 +587,8 @@ public class RemoteServerCapabilitiesTest {
       throws Exception {
     ServerCapabilities caps =
         ServerCapabilities.newBuilder()
-            .setLowApiVersion(ApiVersion.current.toSemVer())
-            .setHighApiVersion(ApiVersion.current.toSemVer())
+            .setLowApiVersion(ApiVersion.low.toSemVer())
+            .setHighApiVersion(ApiVersion.high.toSemVer())
             .setExecutionCapabilities(
                 ExecutionCapabilities.newBuilder()
                     .addDigestFunctions(DigestFunction.Value.MD5)
@@ -611,8 +611,8 @@ public class RemoteServerCapabilitiesTest {
   public void testCheckClientServerCompatibility_cacheCapsOnly() throws Exception {
     ServerCapabilities caps =
         ServerCapabilities.newBuilder()
-            .setLowApiVersion(ApiVersion.current.toSemVer())
-            .setHighApiVersion(ApiVersion.current.toSemVer())
+            .setLowApiVersion(ApiVersion.low.toSemVer())
+            .setHighApiVersion(ApiVersion.high.toSemVer())
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
                     .addDigestFunctions(DigestFunction.Value.SHA256)

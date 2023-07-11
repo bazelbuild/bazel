@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.rules.java.JavaInfo.nullIfNone;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
@@ -22,6 +23,8 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaInfo.JavaInfoInternalProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -32,7 +35,9 @@ import java.util.Collection;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 
 /** Provides information about jar files produced by a Java rule. */
@@ -107,26 +112,22 @@ public final class JavaRuleOutputJarsProvider
     /** A list of sources archive files. */
     public abstract ImmutableList<Artifact> getSourceJars();
 
-    public static JavaOutput create(
-        Artifact classJar,
-        @Nullable Artifact compileJar,
-        @Nullable Artifact compileJdeps,
-        @Nullable Artifact generatedClassJar,
-        @Nullable Artifact generatedSourceJar,
-        @Nullable Artifact nativeHeadersJar,
-        @Nullable Artifact manifestProto,
-        @Nullable Artifact jdeps,
-        ImmutableList<Artifact> sourceJars) {
-      return builder()
-          .setClassJar(classJar)
-          .setCompileJar(compileJar)
-          .setCompileJdeps(compileJdeps)
-          .setGeneratedClassJar(generatedClassJar)
-          .setGeneratedSourceJar(generatedSourceJar)
-          .setNativeHeadersJar(nativeHeadersJar)
-          .setManifestProto(manifestProto)
-          .setJdeps(jdeps)
-          .addSourceJars(sourceJars)
+    public static JavaOutput fromStarlarkJavaOutput(StructImpl struct) throws EvalException {
+      return JavaOutput.builder()
+          .setClassJar(nullIfNone(struct.getValue("class_jar"), Artifact.class))
+          .setCompileJar(nullIfNone(struct.getValue("compile_jar"), Artifact.class))
+          .setCompileJdeps(nullIfNone(struct.getValue("compile_jdeps"), Artifact.class))
+          .setGeneratedClassJar(nullIfNone(struct.getValue("generated_class_jar"), Artifact.class))
+          .setGeneratedSourceJar(
+              nullIfNone(struct.getValue("generated_source_jar"), Artifact.class))
+          .setNativeHeadersJar(nullIfNone(struct.getValue("native_headers_jar"), Artifact.class))
+          .setManifestProto(nullIfNone(struct.getValue("manifest_proto"), Artifact.class))
+          .setJdeps(nullIfNone(struct.getValue("jdeps"), Artifact.class))
+          .addSourceJars(
+              Sequence.cast(
+                  struct.getValue("source_jars", StarlarkList.class),
+                  Artifact.class,
+                  "source_jars"))
           .build();
     }
 
@@ -281,5 +282,30 @@ public final class JavaRuleOutputJarsProvider
     public JavaRuleOutputJarsProvider build() {
       return new JavaRuleOutputJarsProvider(ImmutableList.copyOf(javaOutputs));
     }
+  }
+
+  /**
+   * Translates the {@code outputs} field of a {@link JavaInfo} instance into a native {@link
+   * JavaRuleOutputJarsProvider} instance.
+   *
+   * @param javaInfo the {@link JavaInfo} instance
+   * @return a {@link JavaRuleOutputJarsProvider} instance
+   * @throws EvalException if there are any errors accessing Starlark values
+   * @throws RuleErrorException if any of the {@code output} instances are of incompatible type
+   */
+  static JavaRuleOutputJarsProvider fromStarlarkJavaInfo(StructImpl javaInfo)
+      throws EvalException, RuleErrorException {
+    JavaRuleOutputJarsProvider.Builder builder = JavaRuleOutputJarsProvider.builder();
+    for (Object output :
+        Sequence.cast(javaInfo.getValue("java_outputs"), Object.class, "outputs")) {
+      if (output instanceof JavaOutput) {
+        builder.addJavaOutput((JavaOutput) output);
+      } else if (output instanceof StructImpl) {
+        builder.addJavaOutput(JavaOutput.fromStarlarkJavaOutput((StructImpl) output));
+      } else {
+        throw new RuleErrorException("expected JavaOutput, got: " + Starlark.type(output));
+      }
+    }
+    return builder.build();
   }
 }

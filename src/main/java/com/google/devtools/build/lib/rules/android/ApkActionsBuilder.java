@@ -181,7 +181,7 @@ public class ApkActionsBuilder {
   }
 
   /** Registers the actions needed to build the requested APKs in the rule context. */
-  public void registerActions(RuleContext ruleContext) {
+  public void registerActions(RuleContext ruleContext) throws InterruptedException {
     // If the caller did not request an unsigned APK, we still need to construct one so that
     // we can sign it. So we make up an intermediate artifact.
     Artifact intermediateUnsignedApk =
@@ -212,7 +212,7 @@ public class ApkActionsBuilder {
   }
 
   /** Registers generating actions for {@code outApk} that build an unsigned APK using SingleJar. */
-  private void buildApk(RuleContext ruleContext, Artifact outApk) {
+  private void buildApk(RuleContext ruleContext, Artifact outApk) throws InterruptedException {
     Artifact compressedApk = getApkArtifact(ruleContext, "compressed_" + outApk.getFilename());
 
     SpawnAction.Builder compressedApkActionBuilder =

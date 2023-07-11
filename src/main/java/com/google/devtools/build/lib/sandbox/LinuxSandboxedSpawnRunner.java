@@ -362,11 +362,8 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     } else if (sandboxOptions.sandboxFakeUsername) {
       commandLineBuilder.setUseFakeUsername(true);
     }
-    Path statisticsPath = null;
-    if (sandboxOptions.collectLocalSandboxExecutionStatistics) {
-      statisticsPath = sandboxPath.getRelative("stats.out");
-      commandLineBuilder.setStatisticsPath(statisticsPath);
-    }
+    Path statisticsPath = sandboxPath.getRelative("stats.out");
+    commandLineBuilder.setStatisticsPath(statisticsPath);
     if (sandboxfsProcess != null) {
       return new SandboxfsSandboxedSpawn(
           sandboxfsProcess,

@@ -443,7 +443,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
     return builder
         .setFilesToBuild(filesToBuild)
-        .addNativeDeclaredProvider(javaInfo)
+        .addStarlarkDeclaredProvider(javaInfo)
         .addProvider(
             RunfilesProvider.class,
             RunfilesProvider.withData(
@@ -547,7 +547,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     return builder.build();
   }
 
-  private static NestedSet<Artifact> getRuntimeJarsForTargets(TransitiveInfoCollection deps) {
+  private static NestedSet<Artifact> getRuntimeJarsForTargets(TransitiveInfoCollection deps)
+      throws RuleErrorException {
     // The dep may be a simple JAR and not a java rule, hence we can't simply do
     // dep.getProvider(JavaCompilationArgsProvider.class).getRecursiveJavaCompilationArgs(),
     // so we reuse the logic within JavaCompilationArgs to handle both scenarios.
@@ -634,7 +635,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
   /** Set test and robolectric specific jvm flags */
   protected abstract ImmutableList<String> getJvmFlags(RuleContext ruleContext, String testClass)
-      throws RuleErrorException;
+      throws RuleErrorException, InterruptedException;
 
   /**
    * Enables coverage support for Android and Java targets: adds instrumented jar to the classpath

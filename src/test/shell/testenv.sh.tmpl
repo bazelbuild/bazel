@@ -281,54 +281,34 @@ EOF
         "openjdk_macos_x86_64_vanilla"
         "openjdk_macos_aarch64_vanilla"
         "openjdk_win_vanilla"
-        "openjdk11_darwin_archive"
-        "openjdk11_darwin_aarch64_archive"
-        "openjdk11_linux_archive"
-        "openjdk11_linux_s390x_archive"
-        "openjdk11_windows_archive"
-        "openjdk11_windows_arm64_archive"
-        "openjdk17_darwin_archive"
-        "openjdk17_darwin_aarch64_archive"
-        "openjdk17_linux_archive"
-        "openjdk17_linux_s390x_archive"
-        "openjdk17_windows_archive"
-        "openjdk17_windows_arm64_archive"
-        "openjdk20_darwin_archive"
-        "openjdk20_darwin_aarch64_archive"
-        "openjdk20_linux_archive"
-        "openjdk20_windows_archive"
         "remote_coverage_tools"
-        "remote_java_tools_for_testing"
-        "remote_java_tools_darwin_x86_64_for_testing"
-        "remote_java_tools_darwin_arm64_for_testing"
-        "remote_java_tools_test"
-        "remote_java_tools_test_darwin_x86_64"
-        "remote_java_tools_test_darwin_arm64"
-        "remote_java_tools_test_linux"
-        "remote_java_tools_test_windows"
-        "remote_java_tools_linux_for_testing"
-        "remote_java_tools_windows_for_testing"
-        "remotejdk11_linux_for_testing"
-        "remotejdk11_linux_aarch64_for_testing"
-        "remotejdk11_linux_ppc64le_for_testing"
-        "remotejdk11_linux_s390x_for_testing"
-        "remotejdk11_macos_for_testing"
-        "remotejdk11_macos_aarch64_for_testing"
-        "remotejdk11_win_for_testing"
-        "remotejdk11_win_arm64_for_testing"
-        "remotejdk17_linux_for_testing"
-        "remotejdk17_linux_s390x_for_testing"
-        "remotejdk17_macos_for_testing"
-        "remotejdk17_macos_aarch64_for_testing"
-        "remotejdk17_win_for_testing"
-        "remotejdk17_win_arm64_for_testing"
-        "remotejdk20_linux_for_testing"
-        "remotejdk20_macos_for_testing"
-        "remotejdk20_macos_aarch64_for_testing"
-        "remotejdk20_win_for_testing"
-        "remotejdk20_win_arm64_for_testing"
+        "remote_java_tools"
+        "remote_java_tools_darwin_x86_64"
+        "remote_java_tools_darwin_arm64"
+        "remote_java_tools_linux"
+        "remote_java_tools_windows"
+        "remotejdk11_linux"
+        "remotejdk11_linux_aarch64"
+        "remotejdk11_linux_ppc64le"
+        "remotejdk11_linux_s390x"
+        "remotejdk11_macos"
+        "remotejdk11_macos_aarch64"
+        "remotejdk11_win"
+        "remotejdk11_win_arm64"
+        "remotejdk17_linux"
+        "remotejdk17_linux_s390x"
+        "remotejdk17_macos"
+        "remotejdk17_macos_aarch64"
+        "remotejdk17_win"
+        "remotejdk17_win_arm64"
+        "remotejdk20_linux"
+        "remotejdk20_macos"
+        "remotejdk20_macos_aarch64"
+        "remotejdk20_win"
+        "remotejdk20_win_arm64"
         "rules_cc"
         "rules_java"
+        "rules_java_builtin_for_testing"
         "rules_license"
         "rules_proto"
         "rules_python"
@@ -833,4 +813,38 @@ echo 'I am Python 3'
 EOF
     chmod +x tools/python/$PYTHON3_FILENAME
   fi
+}
+
+function mock_rules_java_to_avoid_downloading() {
+  rules_java_workspace="${TEST_TMPDIR}/rules_java_workspace"
+  mkdir -p "${rules_java_workspace}/java"
+  mkdir -p "${rules_java_workspace}/toolchains"
+  touch "${rules_java_workspace}/WORKSPACE"
+  touch "${rules_java_workspace}/toolchains/BUILD"
+  cat > "${rules_java_workspace}/toolchains/local_java_repository.bzl" <<EOF
+def local_java_repository(**attrs):
+    pass
+EOF
+  cat > "${rules_java_workspace}/toolchains/jdk_build_file.bzl" <<EOF
+JDK_BUILD_TEMPLATE = ''
+EOF
+  touch "${rules_java_workspace}/java/BUILD"
+  cat > "${rules_java_workspace}/java/repositories.bzl" <<EOF
+def rules_java_dependencies():
+    pass
+def rules_java_toolchains():
+    pass
+EOF
+  cat > "${rules_java_workspace}/java/defs.bzl" <<EOF
+def java_binary(**attrs):
+    native.java_binary(**attrs)
+def java_library(**attrs):
+    native.java_library(**attrs)
+def java_import(**attrs):
+    native.java_import(**attrs)
+def java_test(**attrs):
+    native.java_test(**attrs)
+EOF
+  add_to_bazelrc "common --override_repository=rules_java=${rules_java_workspace}"
+  add_to_bazelrc "common --override_repository=rules_java_builtin=${rules_java_workspace}"
 }

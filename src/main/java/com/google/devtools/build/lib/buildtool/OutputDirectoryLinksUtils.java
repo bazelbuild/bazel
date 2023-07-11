@@ -169,7 +169,9 @@ public final class OutputDirectoryLinksUtils {
       eventHandler.handle(
           Event.warn(
               String.format(
-                  "cleared convenience symlink(s) %s because their destinations would be ambiguous",
+                  "cleared convenience symlink(s) %s because they wouldn't contain "
+                      + "requested targets' outputs. Those targets self-transition to multiple "
+                      + "distinct configurations",
                   Joiner.on(", ").join(ambiguousLinks))));
     }
     return convenienceSymlinksBuilder.build();
@@ -179,14 +181,9 @@ public final class OutputDirectoryLinksUtils {
       Iterable<SymlinkDefinition> symlinkDefinitions,
       String symlinkPrefix,
       String productName,
-      Path workspaceDirectory,
-      Path workingDirectory) {
+      Path workspaceDirectory) {
     return new PathPrettyPrinter(
-        getAllLinkDefinitions(symlinkDefinitions),
-        symlinkPrefix,
-        productName,
-        workspaceDirectory,
-        workingDirectory);
+        getAllLinkDefinitions(symlinkDefinitions), symlinkPrefix, productName, workspaceDirectory);
   }
 
   private static void removeAllSymlinks(

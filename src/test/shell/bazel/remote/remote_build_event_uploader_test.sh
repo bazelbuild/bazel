@@ -236,7 +236,6 @@ EOF
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
       --disk_cache=$cache_dir \
-      --incompatible_remote_results_ignore_disk \
       --remote_upload_local_results=false \
       --remote_build_event_upload=minimal \
       --build_event_json_file=$BEP_JSON \
@@ -266,7 +265,6 @@ EOF
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
       --disk_cache=$cache_dir \
-      --incompatible_remote_results_ignore_disk \
       --remote_upload_local_results=false \
       --remote_build_event_upload=all \
       --build_event_json_file=$BEP_JSON \

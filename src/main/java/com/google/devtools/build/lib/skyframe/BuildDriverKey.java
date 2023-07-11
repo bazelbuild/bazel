@@ -141,7 +141,7 @@ public final class BuildDriverKey implements CPUHeavySkyKey {
 
   @Override
   public String toString() {
-    return String.format("ActionLookupKey: %s", actionLookupKey);
+    return String.format("BuildDriverKey of ActionLookupKey: %s", actionLookupKey);
   }
 
   @Override

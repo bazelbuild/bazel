@@ -55,6 +55,13 @@ tasks:
       - "-//src/test/shell/bazel:bazel_coverage_cc_released_test_gcc"
       - "-//src/test/shell/bazel:bazel_coverage_cc_head_test_gcc"
       - "-//src/test/shell/bazel:bazel_coverage_sh_test"
+      # https://github.com/bazelbuild/bazel/issues/18776
+      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test"
+      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
+      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_platforms"
+      - "-//src/test/shell/bazel/android:aapt_integration_test"
+      - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
+      - "-//src/test/shell/bazel/android:aapt_integration_test_with_platforms"
     include_json_profile:
       - build
       - test
@@ -80,6 +87,7 @@ tasks:
       - "--sandbox_writable_path=$HOME/bazeltest"
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
       - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
+      - "--test_tag_filters=-no_1804"
       # Configure and enable tests that require access to the network.
       - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
     test_targets:
@@ -95,6 +103,13 @@ tasks:
       - "//tools/python/..."
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
       - "-//src/java_tools/import_deps_checker/..."
+      # https://github.com/bazelbuild/bazel/issues/18776
+      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test"
+      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
+      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_platforms"
+      - "-//src/test/shell/bazel/android:aapt_integration_test"
+      - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
+      - "-//src/test/shell/bazel/android:aapt_integration_test_with_platforms"
     include_json_profile:
       - build
       - test
@@ -124,6 +139,7 @@ tasks:
       - "--sandbox_writable_path=$HOME/bazeltest"
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
       - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
+      - "--test_tag_filters=-no_1804"
     test_targets:
       - "//src/test/shell/bazel:cc_integration_test"
     include_json_profile:
@@ -166,6 +182,13 @@ tasks:
       - "//tools/python/..."
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
       - "-//src/java_tools/import_deps_checker/..."
+      # https://github.com/bazelbuild/bazel/issues/18776
+      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test"
+      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
+      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_platforms"
+      - "-//src/test/shell/bazel/android:aapt_integration_test"
+      - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
+      - "-//src/test/shell/bazel/android:aapt_integration_test_with_platforms"
     include_json_profile:
       - build
       - test
@@ -217,10 +240,13 @@ tasks:
       - "-//src/test/shell/bazel/apple:bazel_apple_test"
       # https://github.com/bazelbuild/bazel/issues/17408
       - "-//src/test/shell/bazel/apple:bazel_objc_test"
-      # https://github.com/bazelbuild/bazel/issues/16526#issuecomment-1415858550
+      # https://github.com/bazelbuild/bazel/issues/18776
       - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test"
       - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
       - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_platforms"
+      - "-//src/test/shell/bazel/android:aapt_integration_test"
+      - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
+      - "-//src/test/shell/bazel/android:aapt_integration_test_with_platforms"
       # https://github.com/bazelbuild/bazel/issues/17410
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
       # https://github.com/bazelbuild/bazel/issues/17411
@@ -274,7 +300,7 @@ tasks:
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
       # MacOS does not have cgroups so it can't support hardened sandbox
       - "-//src/test/shell/integration:bazel_hardened_sandboxed_worker_test"
-      # https://github.com/bazelbuild/bazel/issues/16521
+      # https://github.com/bazelbuild/bazel/issues/16521 & https://github.com/bazelbuild/bazel/issues/18776
       - "-//src/test/shell/bazel/android/..."
       - "-//src/tools/android/java/com/google/devtools/build/android/..."
       - "-//src/test/java/com/google/devtools/build/android/dexer:AllTests"
@@ -287,8 +313,6 @@ tasks:
       - "-//src/test/java/com/google/devtools/build/lib/skyframe/rewinding:RewindingTest"
       - "-//src/test/java/com/google/devtools/build/lib/buildtool:MiscAnalysisTest"
       - "-//src/test/java/com/google/devtools/build/lib/rules/objc:ObjcRulesTests"
-      # https://github.com/bazelbuild/bazel/issues/16975
-      - "-//scripts/docs:rewriter_test"
       # https://github.com/bazelbuild/bazel/issues/17007
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
     include_json_profile:
@@ -316,6 +340,7 @@ tasks:
       - "--host_copt=-w"
       - "--test_tag_filters=-no_windows,-slow"
       - "--test_env=JAVA_HOME"
+      - "--test_env=BAZEL_VC"
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest_install_base"
       - "--test_env=TEST_REPOSITORY_HOME=C:/b/bazeltest_external"
     test_targets:
@@ -379,6 +404,7 @@ tasks:
       - "--experimental_remote_download_outputs=minimal"
       - "--experimental_inmemory_jdeps_files"
       - "--experimental_inmemory_dotd_files"
+      - "--test_tag_filters=-no_1804"
     test_targets:
       - "//scripts/..."
       - "//src/java_tools/..."
@@ -406,6 +432,13 @@ tasks:
       - "-//src/test/py/bazel:bazel_repo_mapping_test"
       - "-//src/test/py/bazel:bazel_yanked_versions_test"
       - "-//src/test/shell/bazel:verify_workspace"
+      # https://github.com/bazelbuild/bazel/issues/18776
+      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test"
+      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
+      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_platforms"
+      - "-//src/test/shell/bazel/android:aapt_integration_test"
+      - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
+      - "-//src/test/shell/bazel/android:aapt_integration_test_with_platforms"
     include_json_profile:
       - build
       - test

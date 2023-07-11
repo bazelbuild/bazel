@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.configurationId;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFactory;
@@ -20,9 +22,7 @@ import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.bugreport.BugReporter;
-import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
@@ -76,10 +76,10 @@ class AspectCompletor
   }
 
   @Override
-  @Nullable
-  public BuildEventId getFailureData(AspectCompletionKey key, AspectValue value, Environment env)
-      throws InterruptedException {
-    return getConfigurationEventIdFromAspectKey(key.actionLookupKey(), env);
+  public BuildEventId getFailureData(AspectCompletionKey key, AspectValue value, Environment env) {
+    // TODO(b/261521010): this isn't used anymore, and exists only for consistency with the
+    // interface. See if there's a way to clean it up.
+    return configurationId(key.actionLookupKey().getConfigurationKey());
   }
 
   @Override
@@ -89,23 +89,7 @@ class AspectCompletor
       CompletionContext ctx,
       ImmutableMap<String, ArtifactsInOutputGroup> outputs,
       BuildEventId configurationEventId) {
-    return AspectCompleteEvent.createFailed(value, ctx, rootCauses, configurationEventId, outputs);
-  }
-
-  @Nullable
-  private static BuildEventId getConfigurationEventIdFromAspectKey(
-      AspectKey aspectKey, Environment env) throws InterruptedException {
-    if (aspectKey.getBaseConfiguredTargetKey().getConfigurationKey() == null) {
-      return BuildEventIdUtil.nullConfigurationId();
-    } else {
-      BuildConfigurationValue buildConfigurationValue =
-          (BuildConfigurationValue)
-              env.getValue(aspectKey.getBaseConfiguredTargetKey().getConfigurationKey());
-      if (buildConfigurationValue == null) {
-        return null;
-      }
-      return buildConfigurationValue.getEventId();
-    }
+    return AspectCompleteEvent.createFailed(value, ctx, rootCauses, outputs);
   }
 
   @Nullable
@@ -117,16 +101,7 @@ class AspectCompletor
       ArtifactsToBuild artifactsToBuild,
       Environment env)
       throws InterruptedException {
-    AspectKey aspectKey = skyKey.actionLookupKey();
-    BuildEventId configurationEventId = getConfigurationEventIdFromAspectKey(aspectKey, env);
-    if (configurationEventId == null) {
-      return null;
-    }
-
     return AspectCompleteEvent.createSuccessful(
-        value,
-        completionContext,
-        artifactsToBuild.getAllArtifactsByOutputGroup(),
-        configurationEventId);
+        value, completionContext, artifactsToBuild.getAllArtifactsByOutputGroup());
   }
 }

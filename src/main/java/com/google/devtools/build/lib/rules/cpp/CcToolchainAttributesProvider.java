@@ -39,10 +39,10 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.rules.cpp.CcToolchain.AdditionalBuildVariablesComputer;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkThread;
 
 /**
@@ -84,14 +84,15 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
   private final ImmutableList<Artifact> fdoOptimizeArtifacts;
   private final FdoPrefetchHintsProvider fdoPrefetch;
   private final PropellerOptimizeProvider propellerOptimize;
+  private final MemProfProfileProvider memprofProfileProvider;
   private final TransitiveInfoCollection moduleMap;
   private final Artifact moduleMapArtifact;
   private final Artifact zipper;
+  private final Artifact defaultZipper;
   private final String purposePrefix;
   private final String runtimeSolibDirBase;
   private final LicensesProvider licensesProvider;
   private final Label toolchainType;
-  private final AdditionalBuildVariablesComputer additionalBuildVariablesComputer;
   private final CcToolchainConfigInfo ccToolchainConfigInfo;
   private final String toolchainIdentifier;
   private final FdoProfileProvider fdoOptimizeProvider;
@@ -103,11 +104,12 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
   private final TransitiveInfoCollection dynamicRuntimeLib;
   private final PackageSpecificationProvider allowlistForLayeringCheck;
   private final PackageSpecificationProvider allowlistForLooseHeaderCheck;
+  private final StarlarkFunction ccToolchainBuildVariablesFunc;
 
   public CcToolchainAttributesProvider(
       RuleContext ruleContext,
       boolean isAppleToolchain,
-      AdditionalBuildVariablesComputer additionalBuildVariablesComputer) {
+      StarlarkFunction ccToolchainBuildVariablesFunc) {
     super();
     this.ccToolchainLabel = ruleContext.getLabel();
     this.toolchainIdentifier = ruleContext.attributes().get("toolchain_identifier", Type.STRING);
@@ -177,9 +179,13 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
         ruleContext.getPrerequisite(":fdo_prefetch_hints", FdoPrefetchHintsProvider.PROVIDER);
     this.propellerOptimize =
         ruleContext.getPrerequisite(":propeller_optimize", PropellerOptimizeProvider.PROVIDER);
+    this.memprofProfileProvider =
+        ruleContext.getPrerequisite(
+            CcToolchainRule.MEMPROF_PROFILE_ATTR, MemProfProfileProvider.PROVIDER);
     this.moduleMap = ruleContext.getPrerequisite("module_map");
     this.moduleMapArtifact = ruleContext.getPrerequisiteArtifact("module_map");
     this.zipper = ruleContext.getPrerequisiteArtifact(":zipper");
+    this.defaultZipper = ruleContext.getPrerequisiteArtifact(":default_zipper");
     this.purposePrefix = Actions.escapeLabel(ruleContext.getLabel()) + "_";
     this.runtimeSolibDirBase = "_solib_" + "_" + Actions.escapeLabel(ruleContext.getLabel());
     this.staticRuntimeLib = ruleContext.getPrerequisite("static_runtime_lib");
@@ -215,18 +221,29 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     } else {
       this.toolchainType = null;
     }
-    this.additionalBuildVariablesComputer = additionalBuildVariablesComputer;
     this.allowlistForLayeringCheck =
         Allowlist.fetchPackageSpecificationProvider(
             ruleContext, CcToolchain.ALLOWED_LAYERING_CHECK_FEATURES_ALLOWLIST);
     this.allowlistForLooseHeaderCheck =
         Allowlist.fetchPackageSpecificationProvider(
             ruleContext, CcToolchain.LOOSE_HEADER_CHECK_ALLOWLIST);
+    this.ccToolchainBuildVariablesFunc = ccToolchainBuildVariablesFunc;
   }
 
   @Override
   public BuiltinProvider<CcToolchainAttributesProvider> getProvider() {
     return PROVIDER;
+  }
+
+  @StarlarkMethod(
+      name = "build_vars_func",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  public StarlarkFunction getBuildVarsFunc(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return ccToolchainBuildVariablesFunc;
   }
 
   public String getCpu() {
@@ -251,12 +268,20 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     return runtimeSolibDirBase;
   }
 
+  public StarlarkFunction getCcToolchainBuildVariablesFunc() {
+    return ccToolchainBuildVariablesFunc;
+  }
+
   public FdoPrefetchHintsProvider getFdoPrefetch() {
     return fdoPrefetch;
   }
 
   public PropellerOptimizeProvider getPropellerOptimize() {
     return propellerOptimize;
+  }
+
+  public MemProfProfileProvider getMemProfProfileProvider() {
+    return memprofProfileProvider;
   }
 
   public String getToolchainIdentifier() {
@@ -320,10 +345,6 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
 
   public boolean isSupportsHeaderParsing() {
     return supportsHeaderParsing;
-  }
-
-  public AdditionalBuildVariablesComputer getAdditionalBuildVariablesComputer() {
-    return additionalBuildVariablesComputer;
   }
 
   public NestedSet<Artifact> getAllFiles() {
@@ -421,8 +442,14 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     return xfdoProfileProvider;
   }
 
+  /* Get the FDO-specific zipper. */
   public Artifact getZipper() {
     return zipper;
+  }
+
+  /* Get the non FDO-specific zipper. */
+  public Artifact getDefaultZipper() {
+    return defaultZipper;
   }
 
   public NestedSet<Artifact> getFullInputsForLink() {

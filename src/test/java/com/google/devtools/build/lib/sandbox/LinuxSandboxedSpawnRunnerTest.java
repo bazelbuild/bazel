@@ -165,40 +165,6 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
   }
 
   @Test
-  public void exec_statisticsCollectionDisabled_returnsEmptyStatistics() throws Exception {
-    CommandEnvironment commandEnvironment =
-        getCommandEnvironmentWithExecutionStatisticsOptionDisabled("workspace");
-    LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);
-    Path cpuTimeSpenderPath =
-        SpawnRunnerTestUtil.copyCpuTimeSpenderIntoPath(commandEnvironment.getExecRoot());
-    Duration minimumWallTimeToSpend = Duration.ofSeconds(10);
-    // Because of e.g. interference, wall time taken may be much larger than CPU time used.
-    Duration maximumWallTimeToSpend = Duration.ofSeconds(40);
-    Duration minimumUserTimeToSpend = minimumWallTimeToSpend;
-    Duration minimumSystemTimeToSpend = Duration.ZERO;
-    Spawn spawn =
-        new SpawnBuilder(
-                cpuTimeSpenderPath.getPathString(),
-                String.valueOf(minimumUserTimeToSpend.getSeconds()),
-                String.valueOf(minimumSystemTimeToSpend.getSeconds()))
-            .build();
-    SpawnExecutionContext policy = createSpawnExecutionContext(spawn);
-
-    SpawnResult spawnResult = runner.exec(spawn, policy);
-
-    assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
-    assertThat(spawnResult.exitCode()).isEqualTo(0);
-    assertThat(spawnResult.setupSuccess()).isTrue();
-    assertThat(spawnResult.getWallTimeInMs()).isAtLeast((int) minimumWallTimeToSpend.toMillis());
-    assertThat(spawnResult.getWallTimeInMs()).isAtMost((int) maximumWallTimeToSpend.toMillis());
-    assertThat(spawnResult.getUserTimeInMs()).isEqualTo(0);
-    assertThat(spawnResult.getSystemTimeInMs()).isEqualTo(0);
-    assertThat(spawnResult.getNumBlockOutputOperations()).isNull();
-    assertThat(spawnResult.getNumBlockInputOperations()).isNull();
-    assertThat(spawnResult.getNumInvoluntaryContextSwitches()).isNull();
-  }
-
-  @Test
   public void hermeticTmp_tmpCreatedAndMounted() throws Exception {
     runtimeWrapper.addOptions("--incompatible_sandbox_hermetic_tmp");
     CommandEnvironment commandEnvironment = createCommandEnvironment();

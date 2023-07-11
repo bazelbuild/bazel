@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.configurationId;
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
@@ -159,10 +161,7 @@ public final class AnalysisPhaseRunner {
       env.getReporter().post(new NoAnalyzeEvent());
       logger.atInfo().log("No analysis requested, so finished");
       FailureDetail failureDetail =
-          BuildView.createAnalysisFailureDetail(
-              loadingResult,
-              /* skyframeAnalysisResult= */ null,
-              /* hasTopLevelTargetsWithConfigurationError= */ false);
+          BuildView.createAnalysisFailureDetail(loadingResult, /* skyframeAnalysisResult= */ null);
       if (failureDetail != null) {
         throw new BuildFailedException(
             failureDetail.getMessage(), DetailedExitCode.of(failureDetail));
@@ -182,7 +181,7 @@ public final class AnalysisPhaseRunner {
       env.getEventBus()
           .post(
               new AbortedEvent(
-                  BuildEventIdUtil.targetCompleted(label, config.getEventId()),
+                  BuildEventIdUtil.targetCompleted(label, configurationId(config)),
                   AbortReason.SKIPPED,
                   String.format("Target %s build was skipped.", label),
                   label));

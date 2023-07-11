@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
+import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -236,14 +237,21 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       throws InterruptedException, AbruptExitException {
     if (evaluatorNeedsReset) {
       if (rewindingPermitted(options)) {
+        // Currently incompatible with Skymeld i.e. this code path won't be run in Skymeld mode. We
+        // may need to combine these GraphInconsistencyReceiver implementations in the future.
         var rewindableReceiver = new RewindableGraphInconsistencyReceiver();
         rewindableReceiver.setHeuristicallyDropNodes(heuristicallyDropNodes);
-        this.inconsistencyReceiver = rewindableReceiver;
+        inconsistencyReceiver = rewindableReceiver;
+      } else if (isMergedSkyframeAnalysisExecution()
+          && ((options.getOptions(AnalysisOptions.class) != null
+                  && options.getOptions(AnalysisOptions.class).discardAnalysisCache)
+              || !tracksStateForIncrementality()
+              || heuristicallyDropNodes)) {
+        inconsistencyReceiver = new SkymeldInconsistencyReceiver(heuristicallyDropNodes);
+      } else if (heuristicallyDropNodes) {
+        inconsistencyReceiver = new NodeDroppingInconsistencyReceiver();
       } else {
-        inconsistencyReceiver =
-            heuristicallyDropNodes
-                ? new NodeDroppingInconsistencyReceiver()
-                : GraphInconsistencyReceiver.THROWING;
+        inconsistencyReceiver = GraphInconsistencyReceiver.THROWING;
       }
 
       // Recreate MemoizingEvaluator so that graph is recreated with correct edge-clearing status,
@@ -503,7 +511,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         if (skyValue instanceof RuleConfiguredTargetValue) {
           tasks.add(
               () -> {
-                actionGraphDump.dumpConfiguredTarget((RuleConfiguredTargetValue) skyValue);
+                var configuredTarget = (RuleConfiguredTargetValue) skyValue;
+                // Only dumps the value for non-delegating keys.
+                if (configuredTarget.getConfiguredTarget().getKeyOrProxy().equals(key)) {
+                  actionGraphDump.dumpConfiguredTarget(configuredTarget);
+                }
                 return null;
               });
         } else if (key.functionName().equals(SkyFunctions.ASPECT)) {
@@ -562,7 +574,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       }
       try {
         if (skyValue instanceof RuleConfiguredTargetValue) {
-          actionGraphDump.dumpConfiguredTarget((RuleConfiguredTargetValue) skyValue);
+          var configuredTarget = (RuleConfiguredTargetValue) skyValue;
+          // Only dumps the value for non-delegating keys.
+          if (configuredTarget.getConfiguredTarget().getKeyOrProxy().equals(key)) {
+            actionGraphDump.dumpConfiguredTarget(configuredTarget);
+          }
         } else if (key.functionName().equals(SkyFunctions.ASPECT)) {
           AspectValue aspectValue = (AspectValue) skyValue;
           AspectKey aspectKey = (AspectKey) key;

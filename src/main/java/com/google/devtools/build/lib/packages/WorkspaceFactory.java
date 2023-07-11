@@ -75,6 +75,7 @@ public class WorkspaceFactory {
       RuleClassProvider ruleClassProvider,
       Mutability mutability,
       boolean allowOverride,
+      boolean allowWorkspaceFunction,
       @Nullable Path installDir,
       @Nullable Path workspaceDir,
       @Nullable Path defaultSystemJavabaseDir,
@@ -90,7 +91,7 @@ public class WorkspaceFactory {
         createWorkspaceFunctions(
             allowOverride,
             ruleClassProvider.getRuleClassMap(),
-            new WorkspaceGlobals(allowOverride, ruleClassProvider.getRuleClassMap()),
+            new WorkspaceGlobals(allowWorkspaceFunction, ruleClassProvider.getRuleClassMap()),
             starlarkSemantics);
   }
 
@@ -351,7 +352,7 @@ public class WorkspaceFactory {
       ImmutableMap<String, RuleClass> ruleClassMap, String bazelVersion) {
     // Machinery to build the collection of workspace functions.
     WorkspaceGlobals workspaceGlobals =
-        new WorkspaceGlobals(/* allowOverride= */ false, ruleClassMap);
+        new WorkspaceGlobals(/* allowWorkspaceFunction= */ false, ruleClassMap);
     // TODO(bazel-team): StarlarkSemantics should be a parameter here, as native module can be
     // configured by flags. [brandjon: This should be possible now that we create the native module
     // in StarlarkBuiltinsFunction. We could defer creation until the StarlarkSemantics are known.

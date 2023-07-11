@@ -95,6 +95,10 @@ public abstract class TestStrategy implements TestActionContext {
 
     @Override
     public synchronized void cancelOthers() {
+      if (cancelled) {
+        return;
+      }
+
       cancelled = true;
 
       for (Thread thread : runningThreads) {

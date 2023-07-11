@@ -32,6 +32,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:inspection",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:repo_rule_value",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod/modquery",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/starlark",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -58,8 +59,6 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:auto_value",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )

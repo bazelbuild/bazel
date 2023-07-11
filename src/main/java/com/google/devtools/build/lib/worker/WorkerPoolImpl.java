@@ -108,7 +108,7 @@ public class WorkerPoolImpl implements WorkerPool {
   }
 
   public int getNumIdlePerKey(WorkerKey key) {
-    return getPool(key).getNumIdle();
+    return getPool(key).getNumIdle(key);
   }
 
   @Override
@@ -120,13 +120,21 @@ public class WorkerPoolImpl implements WorkerPool {
   @Override
   public void evictWithPolicy(EvictionPolicy<Worker> evictionPolicy) throws InterruptedException {
     for (SimpleWorkerPool pool : workerPools.values()) {
-      try {
+      evictWithPolicy(evictionPolicy, pool);
+    }
+    for (SimpleWorkerPool pool : multiplexPools.values()) {
+      evictWithPolicy(evictionPolicy, pool);
+    }
+  }
+
+  private void evictWithPolicy(EvictionPolicy<Worker> evictionPolicy, SimpleWorkerPool pool)
+      throws InterruptedException {
+    try {
         pool.setEvictionPolicy(evictionPolicy);
         pool.evict();
       } catch (Throwable t) {
         Throwables.propagateIfPossible(t, InterruptedException.class);
-        throw new VerifyException("unexpected", t);
-      }
+      throw new VerifyException("unexpected", t);
     }
   }
 

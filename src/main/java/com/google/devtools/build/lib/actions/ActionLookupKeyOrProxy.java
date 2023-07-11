@@ -29,6 +29,7 @@ import javax.annotation.Nullable;
  * are subclasses of {@link ActionLookupKeyOrProxy}. This allows callers to easily find the value
  * key, while remaining agnostic to what action lookup values actually exist.
  */
+// TODO(b/261521010): this layer of indirection is no longer needed and may be cleaned up.
 public interface ActionLookupKeyOrProxy extends ArtifactOwner {
   /**
    * Returns the {@link BuildConfigurationKey} for the configuration associated with this key, or

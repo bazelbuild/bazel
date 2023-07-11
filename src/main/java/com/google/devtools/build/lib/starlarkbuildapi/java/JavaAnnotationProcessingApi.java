@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
@@ -37,7 +38,7 @@ public interface JavaAnnotationProcessingApi<FileTypeT extends FileApi> extends 
       name = "enabled",
       structField = true,
       doc = "Deprecated. Returns true if annotation processing was applied on this target.")
-  boolean usesAnnotationProcessing();
+  boolean usesAnnotationProcessing() throws EvalException;
 
   @StarlarkMethod(
       name = "class_jar",
@@ -46,7 +47,7 @@ public interface JavaAnnotationProcessingApi<FileTypeT extends FileApi> extends 
       doc =
           "Deprecated: Please use <code>JavaInfo.java_outputs.generated_class_jar</code> instead.")
   @Nullable
-  FileTypeT getGenClassJar();
+  FileTypeT getGenClassJar() throws EvalException;
 
   @StarlarkMethod(
       name = "source_jar",
@@ -55,7 +56,7 @@ public interface JavaAnnotationProcessingApi<FileTypeT extends FileApi> extends 
       doc =
           "Deprecated: Please use <code>JavaInfo.java_outputs.generated_source_jar</code> instead.")
   @Nullable
-  FileTypeT getGenSourceJar();
+  FileTypeT getGenSourceJar() throws EvalException;
 
   @StarlarkMethod(
       name = "transitive_class_jars",
@@ -63,7 +64,7 @@ public interface JavaAnnotationProcessingApi<FileTypeT extends FileApi> extends 
       doc =
           "Deprecated. Returns a transitive set of class file jars resulting from annotation "
               + "processing of this rule and its dependencies.")
-  Depset /*<FileTypeT>*/ getTransitiveGenClassJarsForStarlark();
+  Depset /*<FileTypeT>*/ getTransitiveGenClassJarsForStarlark() throws EvalException;
 
   @StarlarkMethod(
       name = "transitive_source_jars",
@@ -71,7 +72,7 @@ public interface JavaAnnotationProcessingApi<FileTypeT extends FileApi> extends 
       doc =
           "Deprecated. Returns a transitive set of source archives resulting from annotation "
               + "processing of this rule and its dependencies.")
-  Depset /*<FileTypeT>*/ getTransitiveGenSourceJarsForStarlark();
+  Depset /*<FileTypeT>*/ getTransitiveGenSourceJarsForStarlark() throws EvalException;
 
   @StarlarkMethod(
       name = "processor_classpath",
@@ -79,7 +80,7 @@ public interface JavaAnnotationProcessingApi<FileTypeT extends FileApi> extends 
       doc =
           "Deprecated: Please use <code>JavaInfo.plugins</code> instead. Returns a classpath of"
               + " annotation processors applied to this rule.")
-  Depset /*<FileTypeT>*/ getProcessorClasspathForStarlark();
+  Depset /*<FileTypeT>*/ getProcessorClasspathForStarlark() throws EvalException;
 
   @StarlarkMethod(
       name = "processor_classnames",
@@ -87,5 +88,5 @@ public interface JavaAnnotationProcessingApi<FileTypeT extends FileApi> extends 
       doc =
           "Deprecated: Please use <code>JavaInfo.plugins</code> instead. Returns class names of"
               + " annotation processors applied to this rule.")
-  ImmutableList<String> getProcessorClassNames();
+  ImmutableList<String> getProcessorClassNamesList() throws EvalException;
 }

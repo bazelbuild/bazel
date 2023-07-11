@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -216,6 +217,7 @@ public final class JavaLibraryHelper {
   public JavaCompilationArtifacts build(
       JavaSemantics semantics,
       JavaToolchainProvider javaToolchainProvider,
+      BootClassPathInfo bootClassPath,
       JavaRuleOutputJarsProvider.Builder outputJarsBuilder,
       boolean createOutputSourceJar,
       boolean includeCompilationInfo,
@@ -224,7 +226,7 @@ public final class JavaLibraryHelper {
       @Nullable JavaInfo.Builder javaInfoBuilder,
       List<JavaGenJarsProvider> transitiveJavaGenJars,
       ImmutableList<Artifact> additionalInputForDatabinding)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
 
     Preconditions.checkState(output != null, "must have an output file; use setOutput()");
     Preconditions.checkState(
@@ -232,6 +234,13 @@ public final class JavaLibraryHelper {
         "outputSourceJar cannot be null when createOutputSourceJar is true");
 
     JavaTargetAttributes.Builder attributes = new JavaTargetAttributes.Builder(semantics);
+
+    if (bootClassPath != null && !bootClassPath.isEmpty()) {
+      attributes.setBootClassPath(bootClassPath);
+    } else {
+      bootClassPath = javaToolchainProvider.getBootclasspath();
+    }
+
     attributes.addSourceJars(sourceJars);
     attributes.addSourceFiles(sourceFiles);
     addDepsToAttributes(attributes);
@@ -296,10 +305,7 @@ public final class JavaLibraryHelper {
     if (javaInfoBuilder != null && includeCompilationInfo) {
       ClasspathConfiguredFragment classpathFragment =
           new ClasspathConfiguredFragment(
-              javaArtifacts,
-              attributes.build(),
-              neverlink,
-              javaToolchainProvider.getBootclasspath());
+              javaArtifacts, attributes.build(), neverlink, bootClassPath);
 
       javaInfoBuilder.javaCompilationInfo(
           new JavaCompilationInfoProvider.Builder()
@@ -321,7 +327,8 @@ public final class JavaLibraryHelper {
       JavaCompilationHelper helper,
       @Nullable Artifact genClassJar,
       @Nullable Artifact genSourceJar,
-      List<JavaGenJarsProvider> transitiveJavaGenJars) {
+      List<JavaGenJarsProvider> transitiveJavaGenJars)
+      throws RuleErrorException {
     return JavaGenJarsProvider.create(
         helper.usesAnnotationProcessing(),
         genClassJar,
@@ -347,7 +354,6 @@ public final class JavaLibraryHelper {
     JavaCompilationArgsProvider directArgs =
         collectJavaCompilationArgs(
             /* isNeverLink= */ isNeverlink,
-            /* srcLessDepsExport= */ false,
             artifacts,
             deps,
             runtimeDeps,

@@ -81,6 +81,7 @@ import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -223,7 +224,7 @@ public final class RuleContext extends TargetContext
   }
 
   private FeatureSet computeFeatures() {
-    FeatureSet pkg = rule.getPackage().getFeatures();
+    FeatureSet pkg = rule.getPackage().getPackageArgs().features();
     FeatureSet rule =
         attributes().has("features", Type.STRING_LIST)
             ? FeatureSet.parse(attributes().get("features", Type.STRING_LIST))
@@ -235,7 +236,7 @@ public final class RuleContext extends TargetContext
   public boolean isAllowTagsPropagation() {
     return getAnalysisEnvironment()
         .getStarlarkSemantics()
-        .getBool(BuildLanguageOptions.EXPERIMENTAL_ALLOW_TAGS_PROPAGATION);
+        .getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION);
   }
 
   public RepositoryName getRepository() {
@@ -968,6 +969,15 @@ public final class RuleContext extends TargetContext
       String attributeName, Class<C> classType) {
     AnalysisUtils.checkProvider(classType);
     return AnalysisUtils.getProviders(getPrerequisites(attributeName), classType);
+  }
+
+  /**
+   * Returns all the declared Starlark wrapped providers for the specified constructor under the
+   * specified attribute of this target in the BUILD file.
+   */
+  public <T extends Info> ImmutableList<T> getPrerequisites(
+      String attributeName, StarlarkProviderWrapper<T> starlarkKey) throws RuleErrorException {
+    return AnalysisUtils.getProviders(getPrerequisites(attributeName), starlarkKey);
   }
 
   /**

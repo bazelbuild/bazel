@@ -94,15 +94,6 @@ public class AnalysisOptions extends OptionsBase {
   public long versionWindowForDirtyNodeGc;
 
   @Option(
-      name = "experimental_skyframe_prepare_analysis",
-      deprecationWarning = "This flag is a no-op and will be deleted in a future release.",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help = "Deprecated. No-op.")
-  public boolean skyframePrepareAnalysis;
-
-  @Option(
       name = "experimental_skyframe_cpu_heavy_skykeys_thread_pool_size",
       defaultValue = "HOST_CPUS",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

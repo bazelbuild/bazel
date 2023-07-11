@@ -330,12 +330,7 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   /** Sets {@link #reverseDeps}. Does not alter {@link #reverseDepsDataToConsolidate}. */
-  synchronized void setSingleReverseDepForReverseDepsUtil(SkyKey reverseDep) {
-    this.reverseDeps = reverseDep;
-  }
-
-  /** Sets {@link #reverseDeps}. Does not alter {@link #reverseDepsDataToConsolidate}. */
-  synchronized void setReverseDepsForReverseDepsUtil(List<SkyKey> reverseDeps) {
+  synchronized void setReverseDepsForReverseDepsUtil(Object reverseDeps) {
     this.reverseDeps = reverseDeps;
   }
 

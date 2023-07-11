@@ -223,15 +223,6 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     return value;
   }
 
-  private void setupRepositoryRoot(Path repoRoot) throws RepositoryFunctionException {
-    try {
-      repoRoot.deleteTree();
-      Preconditions.checkNotNull(repoRoot.getParentDirectory()).createDirectoryAndParents();
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
-    }
-  }
-
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
@@ -401,7 +392,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       Rule rule)
       throws InterruptedException, RepositoryFunctionException {
 
-    setupRepositoryRoot(repoRoot);
+    handler.setupRepoRootBeforeFetching(repoRoot);
 
     RepositoryName repoName = (RepositoryName) skyKey.argument();
     env.getListener().post(RepositoryFetchProgress.ongoing(repoName, "starting"));
@@ -425,7 +416,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     }
 
     if (env.valuesMissing()) {
-      env.getListener().post(RepositoryFetchProgress.ongoing(repoName, "Restarting."));
+      handler.reportSkyframeRestart(env, repoName);
       return null;
     }
     env.getListener().post(RepositoryFetchProgress.finished(repoName));
@@ -463,7 +454,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   private RepositoryDirectoryValue setupOverride(
       PathFragment sourcePath, Environment env, Path repoRoot, String pathAttr)
       throws RepositoryFunctionException, InterruptedException {
-    setupRepositoryRoot(repoRoot);
+    RepositoryFunction.setupRepoRoot(repoRoot);
     RepositoryDirectoryValue.Builder directoryValue =
         symlinkRepoRoot(
             directories,

@@ -25,7 +25,6 @@ sh_test(
         ":remote_utils",
         ":uds_proxy.py",
         "//src/test/shell/bazel:test-deps",
-        "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
         "//src/tools/remote:worker",
         "@bazel_tools//tools/bash/runfiles",
     ],
@@ -40,7 +39,6 @@ sh_test(
     data = [
         ":remote_utils",
         "//src/test/shell/bazel:test-deps",
-        "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
         "//src/tools/remote:worker",
         "@bazel_tools//tools/bash/runfiles",
     ],

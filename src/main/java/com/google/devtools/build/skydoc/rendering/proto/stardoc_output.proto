@@ -68,8 +68,8 @@ enum AttributeType {
 
 // Representation of a Starlark rule definition.
 message RuleInfo {
-  // The name under which the rule is exported by this module, including any
-  // structs it is nested in, for example "foo.foo_library".
+  // The name under which the rule is made accessible to a user of this module,
+  // including any structs it is nested in, for example "foo.foo_library".
   string rule_name = 1;
 
   // The documentation string of the rule.
@@ -146,8 +146,9 @@ message ProviderNameGroup {
 
 // Representation of Starlark function definition.
 message StarlarkFunctionInfo {
-  // The name under which the function is exported by this module, including any
-  // structs it is nested in, for example "foo.frobnicate".
+  // The name under which the function is made accessible to a user of this
+  // module, including any structs it is nested in, for example
+  // "foo.frobnicate".
   string function_name = 1;
 
   // The parameters for the function.
@@ -213,8 +214,8 @@ message ProviderFieldInfo {
 
 // Representation of a Starlark provider definition.
 message ProviderInfo {
-  // The name under which the provider is exported by this module, including any
-  // structs it is nested in, for example "foo.FooInfo".
+  // The name under which the provider is made accessible to a user of this
+  // module, including any structs it is nested in, for example "foo.FooInfo".
   string provider_name = 1;
 
   // The description of the provider.
@@ -232,8 +233,9 @@ message ProviderInfo {
 
 // Representation of a Starlark aspect definition.
 message AspectInfo {
-  // The name under which the aspect is exported by this module, including any
-  // structs it is nested in, for example "foo.foo_aspect".
+  // The name under which the aspect is made accessible to a user of this
+  // module, including any structs it is nested in, for example
+  // "foo.foo_aspect".
   string aspect_name = 1;
 
   // The documentation string of the aspect.

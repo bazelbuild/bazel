@@ -93,6 +93,7 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
+  @Nullable
   public <P extends TransitiveInfoProvider> P getProvider(Class<P> providerClass) {
     AnalysisUtils.checkProvider(providerClass);
 
@@ -174,7 +175,7 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
     }
 
     // Merge analysis failures.
-    List<NestedSet<AnalysisFailure>> analysisFailures = getAnalysisFailures(base, aspects);
+    ImmutableList<NestedSet<AnalysisFailure>> analysisFailures = getAnalysisFailures(base, aspects);
     if (!analysisFailures.isEmpty()) {
       nonBaseProviders.put(AnalysisFailureInfo.forAnalysisFailureSets(analysisFailures));
     }
@@ -297,8 +298,8 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  public Dict<String, Object> getProvidersDict() {
-    return ConfiguredTargetsUtil.getProvidersDict(this, nonBaseProviders);
+  public Dict<String, Object> getProvidersDictForQuery() {
+    return toProvidersDictForQuery(nonBaseProviders);
   }
 
   @Override

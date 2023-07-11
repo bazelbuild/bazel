@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
@@ -29,7 +30,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.List;
 import java.util.Map;
 
 /** Builds the action to package the resources for a Java rule into a jar. */
@@ -43,7 +43,7 @@ public class ResourceJarActionBuilder {
   private Map<PathFragment, Artifact> resources = ImmutableMap.of();
   private NestedSet<Artifact> resourceJars = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private ImmutableList<Artifact> classpathResources = ImmutableList.of();
-  private List<Artifact> messages = ImmutableList.of();
+  private ImmutableList<Artifact> messages = ImmutableList.of();
   private JavaToolchainProvider javaToolchain;
   private NestedSet<Artifact> additionalInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
 
@@ -105,16 +105,7 @@ public class ResourceJarActionBuilder {
     if (!resourceJars.isEmpty()) {
       command.addExecPaths("--sources", resourceJars);
     }
-    if (!resources.isEmpty() || !messages.isEmpty()) {
-      command.add("--resources");
-      for (Map.Entry<PathFragment, Artifact> resource : resources.entrySet()) {
-        addAsResourcePrefixedExecPath(resource.getKey(), resource.getValue(), command);
-      }
-      for (Artifact message : messages) {
-        addAsResourcePrefixedExecPath(
-            semantics.getDefaultJavaResourcePath(message.getRootRelativePath()), message, command);
-      }
-    }
+    addResources(command, semantics);
     if (!classpathResources.isEmpty()) {
       command.addExecPaths("--classpath_resources", classpathResources);
     }
@@ -136,13 +127,46 @@ public class ResourceJarActionBuilder {
             .build(ruleContext));
   }
 
-  private static void addAsResourcePrefixedExecPath(
-      PathFragment resourcePath, Artifact artifact, CustomCommandLine.Builder builder) {
-    PathFragment execPath = artifact.getExecPath();
-    if (execPath.equals(resourcePath)) {
-      builder.addFormatted("%s", resourcePath);
-    } else {
-      builder.addFormatted("%s:%s", execPath, resourcePath);
+  private void addResources(CustomCommandLine.Builder command, JavaSemantics semantics) {
+    if (resources.isEmpty() && messages.isEmpty()) {
+      return;
     }
+
+    command.add("--resources");
+    ImmutableList<Artifact> resourcesWithDefaultPath;
+
+    // When all resources use the default path (common case), save memory by throwing away those
+    // path fragments. The artifacts can be lazily converted to default-prefixed strings.
+    if (resources.entrySet().stream()
+        .allMatch(e -> e.getKey().equals(defaultResourcePath(e.getValue(), semantics)))) {
+      resourcesWithDefaultPath =
+          ImmutableList.<Artifact>builderWithExpectedSize(resources.size() + messages.size())
+              .addAll(resources.values())
+              .addAll(messages)
+              .build();
+    } else {
+      command.addObject(
+          Lists.transform(
+              ImmutableList.copyOf(resources.entrySet()),
+              e -> resourcePrefixedExecPath(e.getKey(), e.getValue())));
+      resourcesWithDefaultPath = messages;
+    }
+
+    if (!resourcesWithDefaultPath.isEmpty()) {
+      command.addObject(
+          Lists.transform(
+              resourcesWithDefaultPath,
+              artifact ->
+                  resourcePrefixedExecPath(defaultResourcePath(artifact, semantics), artifact)));
+    }
+  }
+
+  private static PathFragment defaultResourcePath(Artifact artifact, JavaSemantics semantics) {
+    return semantics.getDefaultJavaResourcePath(artifact.getRootRelativePath());
+  }
+
+  private static String resourcePrefixedExecPath(PathFragment resourcePath, Artifact artifact) {
+    PathFragment execPath = artifact.getExecPath();
+    return execPath.equals(resourcePath) ? execPath.getPathString() : execPath + ":" + resourcePath;
   }
 }

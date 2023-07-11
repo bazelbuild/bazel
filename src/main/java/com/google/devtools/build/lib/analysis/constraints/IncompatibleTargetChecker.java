@@ -11,13 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.analysis.constraints;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.DependencyKind;
@@ -27,6 +25,7 @@ import com.google.devtools.build.lib.analysis.IncompatiblePlatformProvider;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
+import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
@@ -45,7 +44,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper.ValidationException;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Rule;
@@ -104,7 +102,7 @@ public class IncompatibleTargetChecker {
     private final ConfigConditions configConditions;
     // Non-null when the target has an associated rule and does not opt out of toolchain resolution.
     @Nullable private final PlatformInfo platformInfo;
-    @Nullable private final NestedSetBuilder<Package> transitivePackages;
+    private final TransitiveDependencyState transitiveState;
 
     private final ResultSink sink;
 
@@ -125,14 +123,14 @@ public class IncompatibleTargetChecker {
         ConfiguredTargetKey configuredTargetKey,
         ConfigConditions configConditions,
         @Nullable PlatformInfo platformInfo,
-        @Nullable NestedSetBuilder<Package> transitivePackages,
+        TransitiveDependencyState transitiveState,
         ResultSink sink,
         StateMachine runAfter) {
       this.targetAndConfiguration = targetAndConfiguration;
       this.configuredTargetKey = configuredTargetKey;
       this.configConditions = configConditions;
       this.platformInfo = platformInfo;
-      this.transitivePackages = transitivePackages;
+      this.transitiveState = transitiveState;
       this.sink = sink;
       this.runAfter = runAfter;
     }
@@ -196,7 +194,7 @@ public class IncompatibleTargetChecker {
                     IncompatiblePlatformProvider.incompatibleDueToConstraints(
                         platformInfo.label(), invalidConstraintValues),
                     targetAndConfiguration.getTarget().getAssociatedRule().getRuleClass(),
-                    transitivePackages)));
+                    transitiveState)));
         return runAfter;
       }
       sink.acceptIncompatibleTarget(Optional.empty());
@@ -226,7 +224,7 @@ public class IncompatibleTargetChecker {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap,
       ConfigConditions configConditions,
       @Nullable PlatformInfo platformInfo,
-      @Nullable NestedSetBuilder<Package> transitivePackages) {
+      TransitiveDependencyState transitiveState) {
     Target target = targetAndConfiguration.getTarget();
     Rule rule = target.getAssociatedRule();
 
@@ -254,7 +252,7 @@ public class IncompatibleTargetChecker {
             configConditions,
             IncompatiblePlatformProvider.incompatibleDueToTargets(platformLabel, incompatibleDeps),
             rule.getRuleClass(),
-            transitivePackages));
+            transitiveState));
   }
 
   /** Thrown if this target is platform-incompatible with the current build. */
@@ -277,7 +275,7 @@ public class IncompatibleTargetChecker {
       ConfigConditions configConditions,
       IncompatiblePlatformProvider incompatiblePlatformProvider,
       String ruleClassString,
-      @Nullable NestedSetBuilder<Package> transitivePackages) {
+      TransitiveDependencyState transitiveState) {
     // Create dummy instances of the necessary data for a configured target. None of this data will
     // actually be used because actions associated with incompatible targets must not be evaluated.
     TransitiveInfoProviderMapBuilder providerBuilder =
@@ -286,9 +284,7 @@ public class IncompatibleTargetChecker {
             .add(RunfilesProvider.simple(Runfiles.EMPTY))
             .add(FileProvider.EMPTY)
             .add(FilesToRunProvider.EMPTY)
-            .add(
-                new SupportedEnvironments(
-                    EnvironmentCollection.EMPTY, EnvironmentCollection.EMPTY, ImmutableMap.of()));
+            .add(SupportedEnvironments.EMPTY);
     if (configuration.hasFragment(TestConfiguration.class)) {
       // Create a dummy TestProvider instance so that other parts of the code base stay happy. Even
       // though this test will never execute, some code still expects the provider.
@@ -303,8 +299,7 @@ public class IncompatibleTargetChecker {
             providerBuilder.build(),
             configConditions.asProviders(),
             ruleClassString);
-    return new RuleConfiguredTargetValue(
-        configuredTarget, transitivePackages == null ? null : transitivePackages.build());
+    return new RuleConfiguredTargetValue(configuredTarget, transitiveState.transitivePackages());
   }
 
   /**

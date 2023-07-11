@@ -34,6 +34,8 @@ import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.rpc.Code;
 import io.grpc.stub.StreamObserver;
+import java.io.IOException;
+import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashSet;
@@ -57,6 +59,17 @@ final class CasServer extends ContentAddressableStorageImplBase {
     for (Digest digest : request.getBlobDigestsList()) {
       if (!cache.containsKey(digest)) {
         response.addMissingBlobDigests(digest);
+      } else {
+        // Update mtime of referenced blobs to simulate lease extension.
+        //
+        // TODO(chiwang): Merge this into DiskCacheClient once we have implemented garbage
+        // collection for it.
+        var path = cache.getPath(digest);
+        try {
+          path.setLastModifiedTime(Instant.now().toEpochMilli());
+        } catch (IOException e) {
+          logger.atWarning().withCause(e).log("Failed to update mtime");
+        }
       }
     }
     responseObserver.onNext(response.build());

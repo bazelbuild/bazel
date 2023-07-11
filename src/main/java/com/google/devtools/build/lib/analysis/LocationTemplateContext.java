@@ -91,7 +91,7 @@ final class LocationTemplateContext implements TemplateContext {
   }
 
   @Override
-  public String lookupVariable(String name) throws ExpansionException {
+  public String lookupVariable(String name) throws ExpansionException, InterruptedException {
     String val = delegate.lookupVariable(name);
     if (windowsPath) {
       val = val.replace('/', '\\');

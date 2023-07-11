@@ -80,15 +80,13 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<Configured
           ActionGraphProtoOutputFormatterCallback.constructAqueryOutputHandler(
               OutputType.fromString(aqueryOptions.outputFormat),
               queryRuntimeHelper.getOutputStreamForQueryOutput(),
-              printStream,
-              aqueryOptions.parallelAqueryOutput)) {
+              printStream)) {
         ActionGraphDump actionGraphDump =
             new ActionGraphDump(
                 aqueryOptions.includeCommandline,
                 aqueryOptions.includeArtifacts,
                 actionFilters,
                 aqueryOptions.includeParamFiles,
-                aqueryOptions.deduplicateDepsets,
                 aqueryOptions.includeFileWriteContents,
                 aqueryOutputHandler,
                 env.getReporter());

@@ -16,14 +16,14 @@
 Definition of java_import rule.
 """
 
-load(":common/java/java_common.bzl", "construct_defaultinfo")
+load(":common/java/basic_java_library.bzl", "construct_defaultinfo")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/java/proguard_validation.bzl", "validate_proguard_specs")
 load(":common/java/import_deps_check.bzl", "import_deps_check")
 load(":common/cc/cc_info.bzl", "CcInfo")
-
-JavaInfo = _builtins.toplevel.JavaInfo
-java_common = _builtins.toplevel.java_common
+load(":common/java/java_info.bzl", "JavaInfo")
+load(":common/java/java_common.bzl", "java_common")
+load(":common/java/java_common_internal_for_builtins.bzl", _run_ijar_private_for_builtins = "run_ijar")
 
 def _filter_provider(provider, *attrs):
     return [dep[provider] for attr in attrs for dep in attr if provider in dep]
@@ -50,7 +50,7 @@ def _process_with_ijars_if_needed(jars, ctx):
             interface_jar_directory = "_ijar/" + ctx.label.name + "/" + ijar_basename
 
             interface_jar = ctx.actions.declare_file(interface_jar_directory)
-            java_common.run_ijar(
+            _run_ijar_private_for_builtins(
                 ctx.actions,
                 target_label = ctx.label,
                 jar = jar,
@@ -97,7 +97,6 @@ def bazel_java_import_rule(
         runtime_deps = [],
         exports = [],
         neverlink = False,
-        constraints = [],
         proguard_specs = []):
     """Implements java_import.
 
@@ -158,9 +157,6 @@ def bazel_java_import_rule(
         # TODO(kotlaja): Remove next line once all java_import targets with empty jars attribute are cleaned from depot (b/246559727).
         java_info = _create_java_info_with_dummy_output_file(ctx, srcjar, all_deps, exports, runtime_deps_list, neverlink, cc_info_list)
 
-    if len(constraints):
-        java_info = semantics.add_constraints(java_info, constraints)
-
     target = {"JavaInfo": java_info}
 
     target["ProguardSpecProvider"] = validate_proguard_specs(
@@ -202,7 +198,6 @@ def _proxy(ctx):
         ctx.attr.runtime_deps,
         ctx.attr.exports,
         ctx.attr.neverlink,
-        ctx.attr.constraints,
         ctx.files.proguard_specs,
     ).values()
 

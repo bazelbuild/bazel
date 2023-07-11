@@ -299,7 +299,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       name = "var",
       structField = true,
       doc = "Dictionary (String to String) of configuration variables.")
-  Dict<String, String> var() throws EvalException;
+  Dict<String, String> var() throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "toolchains",
@@ -434,7 +434,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       String attributeName,
       String command,
       final Dict<?, ?> additionalSubstitutions) // <String, String>
-      throws EvalException;
+      throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "info_file",
@@ -557,8 +557,10 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
               @ParamType(type = Depset.class, generic1 = SymlinkEntryApi.class)
             },
             doc =
-                "Either a SymlinkEntry depset or the map of symlinks, prefixed by workspace name,"
-                    + " to be added to the runfiles. See <a"
+                "Either a SymlinkEntry depset or the map of symlinks to be added to the runfiles."
+                    + " Symlinks are always added under the main workspace's runfiles directory"
+                    + " (e.g. <code>&lt;runfiles_root>/_main/&lt;symlink_path></code>, <b>not</b>"
+                    + " the directory corresponding to the current target's repository. See <a"
                     + " href=\"https://bazel.build/extending/rules#runfiles_symlinks\">Runfiles"
                     + " symlinks</a> in the rules guide."),
         @Param(
@@ -675,7 +677,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       Dict<?, ?> labelDictUnchecked,
       Dict<?, ?> executionRequirementsUnchecked,
       StarlarkThread thread)
-      throws EvalException;
+      throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "resolve_tools",

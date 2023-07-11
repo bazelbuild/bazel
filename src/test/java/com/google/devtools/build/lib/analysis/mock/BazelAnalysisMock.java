@@ -65,11 +65,25 @@ public final class BazelAnalysisMock extends AnalysisMock {
         config.getPath("local_config_platform_workspace").getPathString();
 
     return ImmutableList.of(
+        "# __SKIP_WORKSPACE_PREFIX__",
+        "bind(name = 'android/sdk', actual ="
+            + " '@bazel_tools//tools/android:poison_pill_android_sdk')",
+        "bind(name = 'android/dx_jar_import', actual ="
+            + " '@bazel_tools//tools/android:no_android_sdk_repository_error')",
+        "bind(name = 'android/d8_jar_import', actual ="
+            + " '@bazel_tools//tools/android:no_android_sdk_repository_error')",
+        "bind(name = 'android/crosstool', actual = '@bazel_tools//tools/cpp:toolchain')",
+        "bind(name = 'android_sdk_for_testing', actual = '@bazel_tools//tools/android:empty')",
+        "bind(name = 'android_ndk_for_testing', actual = '@bazel_tools//tools/android:empty')",
+        "bind(name = 'databinding_annotation_processor', actual ="
+            + " '@bazel_tools//tools/android:empty')",
+        "bind(name = 'has_androidsdk', actual = '@bazel_tools//tools/android:always_false')",
         "local_repository(name = 'bazel_tools', path = '" + bazelToolWorkspace + "')",
         "local_repository(name = 'platforms', path = '" + bazelPlatformsWorkspace + "')",
         "local_repository(name = 'local_config_xcode', path = '" + xcodeWorkspace + "')",
         "local_repository(name = 'com_google_protobuf', path = '" + protobufWorkspace + "')",
         "local_repository(name = 'rules_java', path = '" + rulesJavaWorkspace + "')",
+        "local_repository(name = 'rules_java_builtin', path = '" + rulesJavaWorkspace + "')",
         "local_repository(name = 'android_gmaven_r8', path = '" + androidGmavenR8Workspace + "')",
         "register_toolchains('@rules_java//java/toolchains/runtime:all')",
         "register_toolchains('@rules_java//java/toolchains/javac:all')",
@@ -96,7 +110,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "local_config_platform",
         "local_config_xcode",
         "platforms",
-        "rules_java");
+        "rules_java",
+        "rules_java_builtin");
   }
 
   @Override
@@ -116,7 +131,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create("local_config_xcode_workspace/WORKSPACE");
     config.create("protobuf_workspace/WORKSPACE");
     config.overwrite("WORKSPACE", workspaceContents.toArray(new String[0]));
-    /** The rest of platforms is initialized in {@link MockPlatformSupport}. */
+    /* The rest of platforms is initialized in {@link MockPlatformSupport}. */
     config.create("platforms_workspace/WORKSPACE", "workspace(name = 'platforms')");
     config.create("platforms_workspace/MODULE.bazel", "module(name = 'platforms')");
     config.create(
@@ -412,7 +427,21 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create("embedded_tools/objcproto/well_known_type.proto");
 
     config.create("rules_java_workspace/WORKSPACE", "workspace(name = 'rules_java')");
+    config.create("rules_java_workspace/MODULE.bazel", "module(name = 'rules_java')");
     config.create("rules_java_workspace/java/BUILD");
+    config.create("rules_java_workspace/toolchains/BUILD");
+    java.nio.file.Path path =
+        Paths.get(runfiles.rlocation("rules_java/toolchains/java_toolchain_alias.bzl"));
+    if (Files.exists(path)) {
+      config.create(
+          "rules_java_workspace/toolchains/java_toolchain_alias.bzl",
+          MoreFiles.asCharSource(path, UTF_8).read());
+    }
+    config.create(
+        "rules_java_workspace/toolchains/local_java_repository.bzl",
+        "def local_java_repository(**attrs):",
+        "    pass");
+    config.create("rules_java_workspace/toolchains/jdk_build_file.bzl", "JDK_BUILD_TEMPLATE = ''");
     config.create(
         "rules_java_workspace/java/defs.bzl",
         "def java_binary(**attrs):",
@@ -615,6 +644,12 @@ public final class BazelAnalysisMock extends AnalysisMock {
             directories
                 .getEmbeddedBinariesRoot()
                 .getRelative("platforms_workspace")
+                .getPathString()),
+        "rules_java",
+        LocalPathOverride.create(
+            directories
+                .getEmbeddedBinariesRoot()
+                .getRelative("rules_java_workspace")
                 .getPathString()));
   }
 

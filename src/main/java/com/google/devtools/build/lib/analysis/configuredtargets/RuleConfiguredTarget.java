@@ -290,7 +290,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  public Dict<String, Object> getProvidersDict() {
-    return ConfiguredTargetsUtil.getProvidersDict(this, providers);
+  public Dict<String, Object> getProvidersDictForQuery() {
+    return toProvidersDictForQuery(providers);
   }
 }

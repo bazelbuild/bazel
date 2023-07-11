@@ -60,6 +60,11 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     runtimeWrapper.newCommand();
   }
 
+  // TODO(b/281655526) incompatible with Skymeld.
+  protected void setIncompatibleWithSkymeld() {
+    addOptions("--noexperimental_merged_skyframe_analysis_execution");
+  }
+
   @Test
   public void outputsAreNotDownloaded() throws Exception {
     write(
@@ -1047,6 +1052,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
   @Test
   public void incrementalBuild_intermediateOutputDeleted_nothingIsReEvaluated() throws Exception {
+    setIncompatibleWithSkymeld();
     // Arrange: Prepare workspace and run a clean build
     write(
         "BUILD",
@@ -1200,6 +1206,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   @Test
   public void remoteCacheEvictBlobs_whenPrefetchingInputFile_incrementalBuildCanContinue()
       throws Exception {
+    setIncompatibleWithSkymeld();
     // Arrange: Prepare workspace and populate remote cache
     write(
         "a/BUILD",
@@ -1224,6 +1231,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     getOutputPath("a/bar.out").delete();
     getOutputBase().getRelative("action_cache").deleteTreesBelow();
     restartServer();
+    setIncompatibleWithSkymeld();
 
     // Clean build, foo.out isn't downloaded
     buildTarget("//a:bar");
@@ -1248,6 +1256,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   @Test
   public void remoteCacheEvictBlobs_whenPrefetchingInputTree_incrementalBuildCanContinue()
       throws Exception {
+    setIncompatibleWithSkymeld();
     // Arrange: Prepare workspace and populate remote cache
     write("BUILD");
     writeOutputDirRule();
@@ -1272,6 +1281,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     getOutputPath("a/bar.out").delete();
     getOutputBase().getRelative("action_cache").deleteTreesBelow();
     restartServer();
+    setIncompatibleWithSkymeld();
 
     // Clean build, foo.out isn't downloaded
     buildTarget("//a:bar");
@@ -1383,6 +1393,36 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
     // Assert: target was successfully built
     assertValidOutputFile("a/bar.out", "file-inside\nupdated bar" + lineSeparator());
+  }
+
+  @Test
+  public void nonDeclaredSymlinksFromLocalActions() throws Exception {
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = [],",
+        "  outs = ['foo.txt'],",
+        "  cmd = 'echo foo > $@',",
+        ")",
+        "genrule(",
+        "  name = 'foo-link',",
+        "  srcs = [':foo'],",
+        "  outs = ['foo.link'],",
+        "  cmd = 'ln -s foo.txt $@',",
+        "  local = True,",
+        ")",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo-link'],",
+        "  outs = ['foobar.txt'],",
+        "  cmd = 'cat $(location :foo-link) > $@ && echo bar >> $@',",
+        "  local = True,",
+        ")");
+
+    buildTarget("//:foobar");
+
+    assertValidOutputFile("foobar.txt", "foo\nbar\n");
   }
 
   protected void assertOutputsDoNotExist(String target) throws Exception {

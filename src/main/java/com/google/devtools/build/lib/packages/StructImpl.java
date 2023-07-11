@@ -29,7 +29,6 @@ import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.Structure;
-import net.starlark.java.syntax.Location;
 
 /**
  * An abstract base class for Starlark values that have fields, have to_json and to_proto methods,
@@ -46,23 +45,6 @@ import net.starlark.java.syntax.Location;
  * them both returns an error.
  */
 public abstract class StructImpl implements Info, Structure, StructApi {
-
-  private final Location location;
-
-  /**
-   * Constructs a {@link StructImpl}.
-   *
-   * @param location the Starlark location where this instance is created. If null, defaults to
-   *     {@link Location#BUILTIN}.
-   */
-  protected StructImpl(@Nullable Location location) {
-    this.location = location != null ? location : Location.BUILTIN;
-  }
-
-  @Override
-  public Location getCreationLocation() {
-    return location;
-  }
 
   /**
    * Returns the result of {@link #getValue(String)}, cast as the given type, throwing {@link

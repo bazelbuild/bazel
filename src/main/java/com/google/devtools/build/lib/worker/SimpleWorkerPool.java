@@ -62,6 +62,9 @@ final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
     // workers for one WorkerKey and can't accommodate a worker for another WorkerKey.
     config.setMaxTotal(-1);
 
+    // Don't limit number of workers to check during eviction
+    config.setNumTestsPerEvictionRun(Integer.MAX_VALUE);
+
     // Wait for a worker to become ready when a thread needs one.
     config.setBlockWhenExhausted(true);
 

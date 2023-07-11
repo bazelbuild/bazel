@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -441,7 +440,7 @@ public final class RunfilesSupport implements RunfilesSupplier {
    * that this method calls back into the passed in rule to obtain the runfiles.
    */
   public static RunfilesSupport withExecutable(
-      RuleContext ruleContext, Runfiles runfiles, Artifact executable) {
+      RuleContext ruleContext, Runfiles runfiles, Artifact executable) throws InterruptedException {
     return RunfilesSupport.create(
         ruleContext,
         executable,
@@ -455,7 +454,8 @@ public final class RunfilesSupport implements RunfilesSupplier {
    * that this method calls back into the passed in rule to obtain the runfiles.
    */
   public static RunfilesSupport withExecutable(
-      RuleContext ruleContext, Runfiles runfiles, Artifact executable, List<String> appendingArgs) {
+      RuleContext ruleContext, Runfiles runfiles, Artifact executable, List<String> appendingArgs)
+      throws InterruptedException {
     return RunfilesSupport.create(
         ruleContext,
         executable,
@@ -469,7 +469,8 @@ public final class RunfilesSupport implements RunfilesSupplier {
    * and args.
    */
   public static RunfilesSupport withExecutable(
-      RuleContext ruleContext, Runfiles runfiles, Artifact executable, CommandLine appendingArgs) {
+      RuleContext ruleContext, Runfiles runfiles, Artifact executable, CommandLine appendingArgs)
+      throws InterruptedException {
     return RunfilesSupport.create(
         ruleContext,
         executable,
@@ -478,7 +479,8 @@ public final class RunfilesSupport implements RunfilesSupplier {
         computeActionEnvironment(ruleContext));
   }
 
-  private static CommandLine computeArgs(RuleContext ruleContext, CommandLine additionalArgs) {
+  private static CommandLine computeArgs(RuleContext ruleContext, CommandLine additionalArgs)
+      throws InterruptedException {
     if (!ruleContext.getRule().isAttrDefined("args", Type.STRING_LIST)) {
       // Some non-_binary rules create RunfilesSupport instances; it is fine to not have an args
       // attribute here.
@@ -488,7 +490,8 @@ public final class RunfilesSupport implements RunfilesSupplier {
         ruleContext.getExpander().withDataLocations().tokenized("args"), additionalArgs);
   }
 
-  private static ActionEnvironment computeActionEnvironment(RuleContext ruleContext) {
+  private static ActionEnvironment computeActionEnvironment(RuleContext ruleContext)
+      throws InterruptedException {
     // Executable Starlark rules can use RunEnvironmentInfo to specify environment variables.
     boolean isNativeRule =
         ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironmentLabel() == null;
@@ -530,11 +533,8 @@ public final class RunfilesSupport implements RunfilesSupplier {
   @Nullable
   private static Artifact createRepoMappingManifestAction(
       RuleContext ruleContext, Runfiles runfiles, Artifact owningExecutable) {
-    if (!ruleContext
-        .getAnalysisEnvironment()
-        .getStarlarkSemantics()
-        .getBool(BuildLanguageOptions.ENABLE_BZLMOD)) {
-      // If Bzlmod is not enabled, we don't need a repo mapping manifest.
+    if (ruleContext.getTransitivePackagesForRunfileRepoMappingManifest() == null) {
+      // If transitive packages are not tracked for repo mapping manifest, we don't need the action.
       return null;
     }
 
@@ -554,7 +554,9 @@ public final class RunfilesSupport implements RunfilesSupplier {
                 ruleContext.getActionOwner(),
                 repoMappingManifest,
                 ruleContext.getTransitivePackagesForRunfileRepoMappingManifest(),
-                runfiles.getAllArtifacts(),
+                runfiles.getArtifacts(),
+                runfiles.getSymlinks(),
+                runfiles.getRootSymlinks(),
                 ruleContext.getWorkspaceName()));
     return repoMappingManifest;
   }

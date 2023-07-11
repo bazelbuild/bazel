@@ -46,15 +46,15 @@ landing_page:
     background: white
     heading: Release
     description: >
-      Learn about Bazel's version policy, read release notes, and browse older documentation.
+      Learn about Bazel's release model, latest releases, and compatibility policies.
     items_across: 4
     items:
-    - heading: Release policy
+    - heading: Release model
       path: /release/
-    - heading: Release versioning
-      path: /release/versioning
     - heading: Backward compatibility
       path: /release/backward-compatibility
+    - heading: Rule compatibility
+      path: /release/rule-compatibility
 
   # Basics row
   - options:
@@ -125,6 +125,8 @@ landing_page:
       path: /advanced/performance/json-trace-profile
     - heading: Optimize memory
       path: /advanced/performance/memory
+    - heading: Optimize build iteration speed
+      path: /advanced/performance/iteration-speed
 
   # Remote distrubution row
   - options:

@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
@@ -574,7 +573,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
    */
   @Test
   public void javaCommonCompile_requiresJavaPluginInfo() throws Exception {
-    useConfiguration("--incompatible_require_javaplugininfo_in_javacommon");
     JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/custom_rule.bzl",
@@ -1559,7 +1557,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     ConfiguredTarget javaLibraryTarget = getConfiguredTarget("//foo:jl");
     ConfiguredTarget topJavaLibraryTarget = getConfiguredTarget("//foo:jl_top");
 
-    Object javaProvider = myRuleTarget.get(JavaInfo.PROVIDER.getKey());
+    Object javaProvider = myRuleTarget.get(JavaInfo.PROVIDER);
     assertThat(javaProvider).isInstanceOf(JavaInfo.class);
 
     JavaInfo jlJavaInfo = javaLibraryTarget.get(JavaInfo.PROVIDER);
@@ -1704,18 +1702,14 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "bad_exports(name='bad_exports')",
         "bad_libs(name='bad_libs')");
 
-    checkError(
-        "//foo:bad_deps",
-        "Error in JavaInfo: at index 0 of deps, got element of type File, want JavaInfo");
+    checkError("//foo:bad_deps", "at index 0 of deps, got element of type File, want JavaInfo");
     checkError(
         "//foo:bad_runtime_deps",
-        "Error in JavaInfo: at index 0 of runtime_deps, got element of type File, want JavaInfo");
+        "at index 0 of runtime_deps, got element of type File, want JavaInfo");
     checkError(
-        "//foo:bad_exports",
-        "Error in JavaInfo: at index 0 of exports, got element of type File, want JavaInfo");
+        "//foo:bad_exports", "at index 0 of exports, got element of type File, want JavaInfo");
     checkError(
-        "//foo:bad_libs",
-        "Error in JavaInfo: at index 0 of native_libraries, got element of type File, want CcInfo");
+        "//foo:bad_libs", "at index 0 of native_libraries, got element of type File, want CcInfo");
   }
 
   @Test
@@ -1753,8 +1747,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "load(':javainfo_rules.bzl', 'only_outputjar')",
         "only_outputjar(name='only_outputjar')");
 
-    checkError(
-        "//foo:only_outputjar", "JavaInfo() missing 1 required positional argument: compile_jar");
+    checkError("//foo:only_outputjar", "missing 1 required positional argument: compile_jar");
   }
 
   @Test
@@ -2277,7 +2270,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//java/test:somedep");
 
-    JavaInfo javaInfo = (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
+    JavaInfo javaInfo = target.get(JavaInfo.PROVIDER);
     assertThat(javaInfo.isNeverlink()).isTrue();
   }
 
@@ -2314,7 +2307,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//java/test:somedep");
 
-    JavaInfo javaInfo = (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
+    JavaInfo javaInfo = target.get(JavaInfo.PROVIDER);
     assertThat(javaInfo.isNeverlink()).isTrue();
   }
 
@@ -2353,7 +2346,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//java/test:somedep");
 
-    JavaInfo javaInfo = (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
+    JavaInfo javaInfo = target.get(JavaInfo.PROVIDER);
     assertThat(javaInfo.isNeverlink()).isTrue();
   }
 
@@ -2645,7 +2638,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "java_library(name = 'b', srcs = ['java/B.java'])");
 
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:custom");
-    JavaInfo javaInfo = (JavaInfo) myRuleTarget.get(JavaInfo.PROVIDER.getKey());
+    JavaInfo javaInfo = myRuleTarget.get(JavaInfo.PROVIDER);
     List<String> directJars = prettyArtifactNames(javaInfo.getRuntimeOutputJars());
     assertThat(directJars).containsExactly("foo/liba.jar", "foo/libb.jar");
   }
@@ -3196,7 +3189,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     getConfiguredTarget("//foo:custom");
 
-    assertContainsEvent("Rule in 'foo' cannot use private API");
+    assertContainsEvent("got unexpected keyword argument: enable_compile_jar_action");
   }
 
   @Test
@@ -3231,7 +3224,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     getConfiguredTarget("//foo:custom");
 
-    assertContainsEvent("Rule in 'foo' cannot use private API");
+    assertContainsEvent("got unexpected keyword argument: classpath_resources");
   }
 
   @Test
@@ -3251,7 +3244,47 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     getConfiguredTarget("//foo:custom");
 
-    assertContainsEvent("Rule in 'foo' cannot use private API");
+    assertContainsEvent("no field or method 'get_build_info'");
+  }
+
+  @Test
+  public void testIsGoogleLegacyApiEnabledIsPrivateAPI() throws Exception {
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  java_common._google_legacy_api_enabled()",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {},",
+        ")");
+    scratch.file(
+        "foo/BUILD", "load(':custom_rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//foo:custom");
+
+    assertContainsEvent("no field or method '_google_legacy_api_enabled'");
+  }
+
+  @Test
+  public void testInstanceOfProviderIsPrivateApi() throws Exception {
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  java_common.check_provider_instances([], 'what', DefaultInfo)",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {},",
+        ")");
+    scratch.file(
+        "foo/BUILD", "load(':custom_rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//foo:custom");
+
+    assertContainsEvent("no field or method 'check_provider_instances'");
   }
 
   @Test
@@ -3284,7 +3317,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     getConfiguredTarget("//foo:custom");
 
-    assertContainsEvent("Rule in 'foo' cannot use private API");
+    assertContainsEvent("got unexpected keyword argument: injecting_rule_kind");
   }
 
   @Test
@@ -3317,7 +3350,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     getConfiguredTarget("//foo:custom");
 
-    assertContainsEvent("Rule in 'foo' cannot use private API");
+    assertContainsEvent("got unexpected keyword argument: enable_jspecify");
   }
 
   @Test
@@ -3343,7 +3376,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     getConfiguredTarget("//foo:custom");
 
-    assertContainsEvent("Rule in 'foo' cannot use private API");
+    assertContainsEvent("got unexpected keyword argument: merge_java_outputs");
   }
 
   @Test
@@ -3369,7 +3402,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     getConfiguredTarget("//foo:custom");
 
-    assertContainsEvent("Rule in 'foo' cannot use private API");
+    assertContainsEvent("got unexpected keyword argument: merge_source_jars");
   }
 
   @Test
@@ -3402,7 +3435,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     getConfiguredTarget("//foo:custom");
 
-    assertContainsEvent("Rule in 'foo' cannot use private API");
+    assertContainsEvent("got unexpected keyword argument: include_compilation_info");
   }
 
   @Test
@@ -3460,7 +3493,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testRunIjarIsPrivateApi() throws Exception {
+  public void testRunIjarWithOutputParameterIsPrivateApi() throws Exception {
     JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "foo/custom_rule.bzl",
@@ -3489,70 +3522,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     getConfiguredTarget("//foo:custom");
 
-    assertContainsEvent("Rule in 'foo' cannot use private API");
-  }
-
-  @Test
-  public void testGetRemoveDeadCodeFromJ2ObjcConfigurationForStarlarkIsPrivateAPI()
-      throws Exception {
-    scratch.file(
-        "foo/rule.bzl",
-        "def _impl(ctx):",
-        "  ctx.fragments.j2objc.remove_dead_code()",
-        "  return []",
-        "myrule = rule(",
-        "  implementation=_impl,",
-        "  fragments = ['j2objc']",
-        ")");
-    scratch.file("foo/BUILD", "load(':rule.bzl', 'myrule')", "myrule(name='myrule')");
-    reporter.removeHandler(failFastHandler);
-
-    getConfiguredTarget("//foo:myrule");
-
-    assertContainsEvent("Rule in 'foo' cannot use private API");
-  }
-
-  @Test
-  public void testJ2objcLibraryMigrationForStarlarkIsPrivateAPI() throws Exception {
-    scratch.file(
-        "foo/rule.bzl",
-        "def _impl(ctx):",
-        "  ctx.fragments.j2objc.j2objc_library_migration()",
-        "  return []",
-        "myrule = rule(",
-        "  implementation=_impl,",
-        "  fragments = ['j2objc']",
-        ")");
-    scratch.file("foo/BUILD", "load(':rule.bzl', 'myrule')", "myrule(name='myrule')");
-    reporter.removeHandler(failFastHandler);
-
-    getConfiguredTarget("//foo:myrule");
-
-    assertContainsEvent("Rule in '//foo:rule.bzl' cannot use private API");
-  }
-
-  @Test
-  public void testGetBuildInfoArtifacts() throws Exception {
-    scratch.file(
-        "bazel_internal/test/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  artifacts = java_common.get_build_info(ctx, False)",
-        "  return [DefaultInfo(files = depset(artifacts))]",
-        "custom_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {},",
-        ")");
-    scratch.file(
-        "bazel_internal/test/BUILD",
-        "load(':custom_rule.bzl', 'custom_rule')",
-        "custom_rule(name = 'custom')");
-
-    NestedSet<Artifact> artifacts =
-        getConfiguredTarget("//bazel_internal/test:custom")
-            .getProvider(FileProvider.class)
-            .getFilesToBuild();
-
-    assertThat(prettyArtifactNames(artifacts)).containsExactly("build-info-redacted.properties");
+    assertContainsEvent("got unexpected keyword argument: output");
   }
 
   @Test
@@ -3647,7 +3617,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     getConfiguredTarget("//foo:custom");
 
-    assertContainsEvent("Rule in 'foo' cannot use private API");
+    assertContainsEvent("no field or method 'collect_native_deps_dirs'");
   }
 
   @Test
@@ -3668,7 +3638,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     getConfiguredTarget("//foo:custom");
 
-    assertContainsEvent("Rule in 'foo' cannot use private API");
+    assertContainsEvent("no field or method 'get_runtime_classpath_for_archive'");
   }
 
   @Test

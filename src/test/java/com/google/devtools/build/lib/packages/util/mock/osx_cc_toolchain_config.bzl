@@ -81,6 +81,39 @@ _parse_headers_feature = feature(
     name = "parse_headers",
 )
 
+_special_linking_feature = feature(
+    name = "special_linking_feature",
+)
+
+_special_linking_flags_feature = feature(
+    "special_linking_flags_feature",
+    enabled = True,
+    flag_sets = [
+        flag_set(
+            actions = _ALL_LINK_ACTIONS,
+            flag_groups = [flag_group(flags = ["--special_linking_flag"])],
+            with_features = [with_feature_set(features = ["special_linking_feature"])],
+        ),
+    ],
+)
+
+_default_enabled_linking_feature = feature(
+    name = "default_enabled_linking_feature",
+    enabled = True,
+)
+
+_default_enabled_linking_flags_feature = feature(
+    "default_enabled_linking_flags_feature",
+    enabled = True,
+    flag_sets = [
+        flag_set(
+            actions = _ALL_LINK_ACTIONS,
+            flag_groups = [flag_group(flags = ["--default_enabled_linking_flag"])],
+            with_features = [with_feature_set(features = ["default_enabled_linking_feature"])],
+        ),
+    ],
+)
+
 _feature_name_to_feature = {
     "archive_param_file": _archive_param_file_feature,
     "default_feature": _default_feature,
@@ -89,6 +122,10 @@ _feature_name_to_feature = {
     "supports_interface_shared_libraries": _supports_interface_shared_libraries_feature,
     "supports_dynamic_linker": _supports_dynamic_linker_feature,
     "parse_headers": _parse_headers_feature,
+    "special_linking_feature": _special_linking_feature,
+    "special_linking_flags_feature": _special_linking_flags_feature,
+    "default_enabled_linking_feature": _default_enabled_linking_feature,
+    "default_enabled_linking_flags_feature": _default_enabled_linking_flags_feature,
 }
 
 _action_name_to_action = {}

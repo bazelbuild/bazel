@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.DependencyFilter;
+import com.google.devtools.build.lib.packages.PackageArgs;
 import com.google.devtools.build.lib.packages.Type;
 import java.util.Map;
 import java.util.function.BiConsumer;
@@ -110,23 +111,8 @@ public class FakeAttributeMapper implements AttributeMap {
   public void visitLabels(DependencyFilter filter, BiConsumer<Attribute, Label> consumer) {}
 
   @Override
-  public String getPackageDefaultHdrsCheck() {
-    return "???";
-  }
-
-  @Override
-  public boolean isPackageDefaultHdrsCheckSet() {
-    return false;
-  }
-
-  @Override
-  public Boolean getPackageDefaultTestOnly() {
-    return false;
-  }
-
-  @Override
-  public String getPackageDefaultDeprecation() {
-    return "???";
+  public PackageArgs getPackageArgs() {
+    return PackageArgs.DEFAULT;
   }
 
   public static FakeAttributeMapper empty() {

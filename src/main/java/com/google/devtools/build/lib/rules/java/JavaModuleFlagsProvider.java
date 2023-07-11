@@ -21,15 +21,21 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaInfo.JavaInfoInternalProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaModuleFlagsProviderApi;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /**
  * Provides information about {@code --add-exports=} and {@code --add-opens=} flags for Java
@@ -108,5 +114,33 @@ final class JavaModuleFlagsProvider
 
   public ImmutableList<String> toFlags() {
     return toFlags(addExports().toList(), addOpens().toList());
+  }
+
+  /**
+   * Translates the {@code module_flags_info} from a {@link JavaInfo} to the native class.
+   *
+   * @param javaInfo a {@link JavaInfo} provider instance
+   * @return a {@link JavaModuleFlagsProvider} instance or {@code null} if {@code module_flags_info}
+   *     is absent or {@code None}
+   * @throws EvalException if there are any errors accessing Starlark values
+   * @throws TypeException if any depset values are of an incompatible type
+   * @throws RuleErrorException if the {@code module_flags_info} is of an incompatible type
+   */
+  @Nullable
+  static JavaModuleFlagsProvider fromStarlarkJavaInfo(StructImpl javaInfo)
+      throws EvalException, TypeException, RuleErrorException {
+    Object value = javaInfo.getValue("module_flags_info");
+    if (value == null || value == Starlark.NONE) {
+      return null;
+    } else if (value instanceof JavaModuleFlagsProvider) {
+      return (JavaModuleFlagsProvider) value;
+    } else if (value instanceof StructImpl) {
+      StructImpl moduleFlagsInfo = (StructImpl) value;
+      return JavaModuleFlagsProvider.create(
+          moduleFlagsInfo.getValue("add_exports", Depset.class).toList(String.class),
+          moduleFlagsInfo.getValue("add_opens", Depset.class).toList(String.class),
+          Stream.empty());
+    }
+    throw new RuleErrorException("expected JavaModuleFlagsInfo, got: " + Starlark.type(value));
   }
 }

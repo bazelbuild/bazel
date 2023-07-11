@@ -14,12 +14,17 @@
 
 package com.google.devtools.build.lib.shell;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.shell.SubprocessBuilder.StreamAction;
+import com.google.devtools.build.lib.util.StringUtil;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.ProcessBuilder.Redirect;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -150,7 +155,15 @@ public class JavaSubprocessFactory implements SubprocessFactory {
   @Override
   public Subprocess create(SubprocessBuilder params) throws IOException {
     ProcessBuilder builder = new ProcessBuilder();
-    builder.command(params.getArgv());
+    ImmutableList<String> argv = params.getArgv();
+    if (Runtime.version().feature() >= 19
+        && Objects.equals(System.getProperty("sun.jnu.encoding"), "UTF-8")) {
+      // On JDK 19 and newer, java.lang.ProcessImpl#start encodes argv using sun.jnu.encoding, so if
+      // sun.jnu.encoding is set to UTF-8, our argv needs to be UTF-8. (Note that on some platforms,
+      // for example on macOS, sun.jnu.encoding is hard-coded in the JVM as UTF-8.)
+      argv = argv.stream().map(StringUtil::decodeBytestringUtf8).collect(toImmutableList());
+    }
+    builder.command(argv);
     if (params.getEnv() != null) {
       builder.environment().clear();
       builder.environment().putAll(params.getEnv());

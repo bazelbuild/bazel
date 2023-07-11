@@ -469,7 +469,8 @@ public final class AndroidBinaryMobileInstall {
       RuleContext ruleContext,
       ProcessedAndroidManifest mainManifest,
       String splitName,
-      boolean hasCode) {
+      boolean hasCode)
+      throws InterruptedException {
     Artifact splitManifest =
         mainManifest.createSplitManifest(ruleContext, splitName, hasCode).getManifest();
     Artifact splitResources = getMobileInstallArtifact(ruleContext, "split_" + splitName + ".ap_");

@@ -1330,4 +1330,62 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
     useConfiguration(linkingInfoMigrationFlag(/* linkingInfoMigration= */ true));
     checkRuntimeLib();
   }
+
+  @Test
+  public void testLinkMultiArchBinaryCanEnableFeature() throws Exception {
+    MockObjcSupport.setupCcToolchainConfig(
+        mockToolsConfig,
+        MockObjcSupport.darwinX86_64()
+            .withFeatures("special_linking_feature", "special_linking_flags_feature"));
+    scratch.file(
+        "package/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "objc_library(",
+        "    name = 'lib',",
+        "    srcs = ['a.m'],",
+        ")",
+        "apple_binary_starlark(name = 'test_with_feature',",
+        "    deps = [ ':lib' ],",
+        "    extra_requested_features = [ 'special_linking_feature' ],",
+        "    platform_type = 'macos')",
+        "apple_binary_starlark(name = 'test_without_feature',",
+        "    deps = [ ':lib' ],",
+        "    platform_type = 'macos')");
+
+    CommandAction actionWithFeature = linkAction("//package:test_with_feature");
+    CommandAction actionWithoutFeature = linkAction("//package:test_without_feature");
+
+    assertThat(actionWithFeature.getArguments()).contains("--special_linking_flag");
+    assertThat(actionWithoutFeature.getArguments()).doesNotContain("--special_linking_flag");
+  }
+
+  @Test
+  public void testLinkMultiArchBinaryCanDisableFeature() throws Exception {
+    MockObjcSupport.setupCcToolchainConfig(
+        mockToolsConfig,
+        MockObjcSupport.darwinX86_64()
+            .withFeatures(
+                "default_enabled_linking_feature", "default_enabled_linking_flags_feature"));
+    scratch.file(
+        "package/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "objc_library(",
+        "    name = 'lib',",
+        "    srcs = ['a.m'],",
+        ")",
+        "apple_binary_starlark(name = 'test_disabled_feature',",
+        "    deps = [ ':lib' ],",
+        "    extra_disabled_features = [ 'default_enabled_linking_feature' ],",
+        "    platform_type = 'macos')",
+        "apple_binary_starlark(name = 'test_enabled_feature',",
+        "    deps = [ ':lib' ],",
+        "    platform_type = 'macos')");
+
+    CommandAction actionDisabledFeature = linkAction("//package:test_disabled_feature");
+    CommandAction actionEnabledFeature = linkAction("//package:test_enabled_feature");
+
+    assertThat(actionDisabledFeature.getArguments())
+        .doesNotContain("--default_enabled_linking_flag");
+    assertThat(actionEnabledFeature.getArguments()).contains("--default_enabled_linking_flag");
+  }
 }

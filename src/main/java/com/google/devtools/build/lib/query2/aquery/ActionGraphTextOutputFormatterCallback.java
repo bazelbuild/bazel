@@ -31,11 +31,11 @@ import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
-import com.google.devtools.build.lib.analysis.SourceManifestAction;
-import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
+import com.google.devtools.build.lib.analysis.starlark.UnresolvedSymlinkAction;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -336,23 +336,21 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       stringBuilder.append("  ]\n");
     }
 
-    if (options.includeFileWriteContents && action instanceof FileWriteAction) {
-      FileWriteAction fileWriteAction = (FileWriteAction) action;
+    if (options.includeFileWriteContents
+        && action instanceof AbstractFileWriteAction.FileContentsProvider) {
+      String contents =
+          ((AbstractFileWriteAction.FileContentsProvider) action).getFileContents(eventHandler);
       stringBuilder
           .append("  FileWriteContents: [")
-          .append(
-              Base64.getEncoder().encodeToString(fileWriteAction.getFileContents().getBytes(UTF_8)))
+          .append(Base64.getEncoder().encodeToString(contents.getBytes(UTF_8)))
           .append("]\n");
     }
-    if (options.includeFileWriteContents && action instanceof SourceManifestAction) {
-      SourceManifestAction sourceManifestAction = (SourceManifestAction) action;
+
+    if (action instanceof UnresolvedSymlinkAction) {
       stringBuilder
-          .append("  FileWriteContents: [")
-          .append(
-              Base64.getEncoder()
-                  .encodeToString(
-                      sourceManifestAction.getFileContentsAsString(eventHandler).getBytes(UTF_8)))
-          .append("]\n");
+          .append("  UnresolvedSymlinkTarget: ")
+          .append(((UnresolvedSymlinkAction) action).getTarget())
+          .append("\n");
     }
 
     stringBuilder.append('\n');

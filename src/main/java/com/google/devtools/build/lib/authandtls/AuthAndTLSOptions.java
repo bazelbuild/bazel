@@ -141,7 +141,8 @@ public class AuthAndTLSOptions extends OptionsBase {
   public Duration grpcKeepaliveTimeout;
 
   @Option(
-      name = "experimental_credential_helper",
+      name = "credential_helper",
+      oldName = "experimental_credential_helper",
       defaultValue = "null",
       allowMultiple = true,
       converter = UnresolvedScopedCredentialHelperConverter.class,
@@ -160,7 +161,8 @@ public class AuthAndTLSOptions extends OptionsBase {
   public List<UnresolvedScopedCredentialHelper> credentialHelpers;
 
   @Option(
-      name = "experimental_credential_helper_timeout",
+      name = "credential_helper_timeout",
+      oldName = "experimental_credential_helper_timeout",
       defaultValue = "10s",
       converter = DurationConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -172,7 +174,8 @@ public class AuthAndTLSOptions extends OptionsBase {
   public Duration credentialHelperTimeout;
 
   @Option(
-      name = "experimental_credential_helper_cache_duration",
+      name = "credential_helper_cache_duration",
+      oldName = "experimental_credential_helper_cache_duration",
       defaultValue = "30m",
       converter = DurationConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -184,7 +187,7 @@ public class AuthAndTLSOptions extends OptionsBase {
               + " of this flag.")
   public Duration credentialHelperCacheTimeout;
 
-  /** One of the values of the `--experimental_credential_helper` flag. */
+  /** One of the values of the `--credential_helper` flag. */
   @AutoValue
   public abstract static class UnresolvedScopedCredentialHelper {
     /** Returns the scope of the credential helper (if any). */
@@ -194,7 +197,7 @@ public class AuthAndTLSOptions extends OptionsBase {
     public abstract String getPath();
   }
 
-  /** A {@link Converter} for the `--experimental_credential_helper` flag. */
+  /** A {@link Converter} for the `--credential_helper` flag. */
   public static final class UnresolvedScopedCredentialHelperConverter
       extends Converter.Contextless<UnresolvedScopedCredentialHelper> {
     public static final UnresolvedScopedCredentialHelperConverter INSTANCE =

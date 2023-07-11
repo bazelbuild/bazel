@@ -1,206 +1,52 @@
-load(
-    "@bazel_tools//tools/jdk:default_java_toolchain.bzl",
-    "DEFAULT_TOOLCHAIN_CONFIGURATION",
-    "PREBUILT_TOOLCHAIN_CONFIGURATION",
-    "VANILLA_TOOLCHAIN_CONFIGURATION",
-    "bootclasspath",
-    "default_java_toolchain",
-    "java_runtime_files",
-)
-load(
-    "//tools/jdk:java_toolchain_alias.bzl",
-    "java_host_runtime_alias",
-    "java_runtime_alias",
-    "java_runtime_version_alias",
-    "java_toolchain_alias",
-)
-load("@rules_python//python:defs.bzl", "py_binary", "py_test")
-
 package(default_visibility = ["//visibility:public"])
 
-# Used to distinguish toolchains used for Java development, ie the JavaToolchainProvider.
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+
+exports_files([
+    "BUILD.java_tools",
+    "java_stub_template.txt",
+])
+
+# A single binary distribution of a JDK (e.g., OpenJDK 17 for Windows arm64) provides three
+# different types of toolchains from the perspective of Bazel:
+
+# The compilation toolchain, which provides the Java runtime used to execute the Java compiler, as
+# well as various helper tools and settings.
+#
+# Toolchains of this type typically have constraints on the execution platform so that their Java
+# runtime can run the compiler, but not on the target platform as Java compilation outputs are
+# platform independent.
+#
+# Obtain the associated JavaToolchainInfo via:
+#   ctx.toolchains["@bazel_tools//tools/jdk:toolchain_type"].java
 toolchain_type(name = "toolchain_type")
 
-# Used to distinguish toolchains used for Java execution, ie the JavaRuntimeInfo.
+# The Java runtime that executable Java compilation outputs (e.g., java_binary with
+# create_executable = True) will run on.
+#
+# Toolchains of this type typically have constraints on the target platform so that the runtime's
+# native 'java' binary can be run there, but not on the execution platform as building an executable
+# Java target only requires copying or symlinking the runtime, which can be done on any platform.
+#
+# Obtain the associated JavaRuntimeInfo via:
+#   ctx.toolchains["@bazel_tools//tools/jdk:runtime_toolchain_type"].java_runtime
 toolchain_type(name = "runtime_toolchain_type")
 
-# Points to toolchain[":runtime_toolchain_type"] (was :legacy_current_java_runtime)
-java_runtime_alias(name = "current_java_runtime")
-
-# Host configuration of ":current_java_runtime"
-java_host_runtime_alias(name = "current_host_java_runtime")
-
-# Points to toolchain[":toolchain_type"] (was :legacy_current_java_toolchain)
-java_toolchain_alias(name = "current_java_toolchain")
+# The Java runtime to extract the bootclasspath from that is then used to compile Java sources.
+#
+# As the bootclasspath is platform independent, toolchains of this type may have no constraints.
+# Purely as an optimization to prevent unnecessary fetches of remote runtimes for other
+# architectures, toolchains of this type may have constraints on the execution platform that match
+# those on the corresponding compilation toolchain.
+#
+# Toolchains of this type are only consumed internally by the bootclasspath rule and should not be
+# accessed from Starlark.
+toolchain_type(name = "bootstrap_runtime_toolchain_type")
 
 # Aliases value of --plugins flag as a JavaPluginInfo
 java_plugins_flag_alias(
     name = "java_plugins_flag_alias",
 )
-
-# This is necessary to get the *host* Java runtime. Depending on
-# //tools/jdk:current_java_runtime from an attribute with the host transition
-# does not work because the dependency is determined based on the configuration
-# *before* the transition.
-alias(
-    name = "java_runtime_alias",
-    actual = "//tools/jdk:current_java_runtime",
-)
-
-# These individual jni_* targets are exposed for legacy reasons.
-# Most users should depend on :jni.
-
-java_runtime_files(
-    name = "jni_header",
-    srcs = ["include/jni.h"],
-)
-
-java_runtime_files(
-    name = "jni_md_header-darwin",
-    srcs = ["include/darwin/jni_md.h"],
-)
-
-java_runtime_files(
-    name = "jni_md_header-linux",
-    srcs = ["include/linux/jni_md.h"],
-)
-
-java_runtime_files(
-    name = "jni_md_header-windows",
-    srcs = ["include/win32/jni_md.h"],
-)
-
-java_runtime_files(
-    name = "jni_md_header-freebsd",
-    srcs = ["include/freebsd/jni_md.h"],
-)
-
-java_runtime_files(
-    name = "jni_md_header-openbsd",
-    srcs = ["include/openbsd/jni_md.h"],
-)
-
-# The Java native interface. Depend on this package if you #include <jni.h>.
-#
-# See test_jni in third_party/bazel/src/test/shell/bazel/bazel_java_test.sh for
-# an example of using Bazel to build a Java program that calls a C function.
-#
-# TODO(ilist): use //src:condition:linux when released in Bazel
-cc_library(
-    name = "jni",
-    hdrs = [":jni_header"] + select({
-        "//src/conditions:linux_aarch64": [":jni_md_header-linux"],
-        "//src/conditions:linux_ppc64le": [":jni_md_header-linux"],
-        "//src/conditions:linux_s390x": [":jni_md_header-linux"],
-        "//src/conditions:linux_mips64": [":jni_md_header-linux"],
-        "//src/conditions:linux_riscv64": [":jni_md_header-linux"],
-        "//src/conditions:linux_x86_64": [":jni_md_header-linux"],
-        "//src/conditions:darwin": [":jni_md_header-darwin"],
-        "//src/conditions:freebsd": [":jni_md_header-freebsd"],
-        "//src/conditions:openbsd": [":jni_md_header-openbsd"],
-        "//src/conditions:windows": [":jni_md_header-windows"],
-        "//conditions:default": [],
-    }),
-    includes = ["include"] + select({
-        "//src/conditions:linux_aarch64": ["include/linux"],
-        "//src/conditions:linux_ppc64le": ["include/linux"],
-        "//src/conditions:linux_s390x": ["include/linux"],
-        "//src/conditions:linux_mips64": ["include/linux"],
-        "//src/conditions:linux_riscv64": ["include/linux"],
-        "//src/conditions:linux_x86_64": ["include/linux"],
-        "//src/conditions:darwin": ["include/darwin"],
-        "//src/conditions:freebsd": ["include/freebsd"],
-        "//src/conditions:openbsd": ["include/openbsd"],
-        "//src/conditions:windows": ["include/win32"],
-        "//conditions:default": [],
-    }),
-)
-
-[
-    (
-        alias(
-            name = "ijar_prebuilt_binary_%s" % OS,
-            actual = "@remote_java_tools_%s//:ijar_prebuilt_binary" % OS,
-            visibility = ["//visibility:private"],
-        ),
-        alias(
-            name = "prebuilt_singlejar_%s" % OS,
-            actual = "@remote_java_tools_%s//:prebuilt_singlejar" % OS,
-            visibility = ["//visibility:private"],
-        ),
-    )
-    for OS in [
-        "linux",
-        "darwin_x86_64",
-        "darwin_arm64",
-        "windows",
-    ]
-]
-
-# On Windows, executables end in ".exe", but the label we reach it through
-# must be platform-independent. Thus, we create a little filegroup that
-# contains the appropriate platform-dependent file.
-alias(
-    name = "ijar",
-    actual = ":ijar_prebuilt_binary_or_cc_binary",
-)
-
-alias(
-    name = "ijar_prebuilt_binary_or_cc_binary",
-    actual = select({
-        "//src/conditions:linux_x86_64": ":ijar_prebuilt_binary_linux",
-        "//src/conditions:darwin_x86_64": ":ijar_prebuilt_binary_darwin_x86_64",
-        "//src/conditions:darwin_arm64": ":ijar_prebuilt_binary_darwin_arm64",
-        "//src/conditions:windows": ":ijar_prebuilt_binary_windows",
-        "//conditions:default": "@remote_java_tools//:ijar_cc_binary",
-    }),
-)
-
-alias(
-    name = "ijar_prebuilt_binary",
-    actual = select({
-        "//src/conditions:linux_x86_64": ":ijar_prebuilt_binary_linux",
-        "//src/conditions:darwin_x86_64": ":ijar_prebuilt_binary_darwin_x86_64",
-        "//src/conditions:darwin_arm64": ":ijar_prebuilt_binary_darwin_arm64",
-        "//src/conditions:windows": ":ijar_prebuilt_binary_windows",
-    }),
-)
-
-# On Windows, Java implementation of singlejar is used. We create a little
-# filegroup that contains the appropriate platform-dependent file.
-# Once https://github.com/bazelbuild/bazel/issues/2241 is fixed (that is,
-# the native singlejar is used on windows), this file group can be reused since
-# on Windows, executables end in ".exe", but the label we reach it through
-# must be platform-independent.
-alias(
-    name = "singlejar",
-    actual = ":singlejar_prebuilt_or_cc_binary",
-)
-
-alias(
-    name = "singlejar_prebuilt_or_cc_binary",
-    actual = select({
-        "//src/conditions:linux_x86_64": ":prebuilt_singlejar_linux",
-        "//src/conditions:darwin_x86_64": ":prebuilt_singlejar_darwin_x86_64",
-        "//src/conditions:darwin_arm64": ":prebuilt_singlejar_darwin_arm64",
-        "//src/conditions:windows": ":prebuilt_singlejar_windows",
-        "//conditions:default": "@remote_java_tools//:singlejar_cc_bin",
-    }),
-)
-
-alias(
-    name = "prebuilt_singlejar",
-    actual = select({
-        "//src/conditions:linux_x86_64": ":prebuilt_singlejar_linux",
-        "//src/conditions:darwin_x86_64": ":prebuilt_singlejar_darwin_x86_64",
-        "//src/conditions:darwin_arm64": ":prebuilt_singlejar_darwin_arm64",
-        "//src/conditions:windows": ":prebuilt_singlejar_windows",
-    }),
-)
-
-exports_files([
-    "BUILD.java_tools",
-])
 
 alias(
     name = "genclass",
@@ -278,90 +124,9 @@ alias(
     actual = ":remote_jdk11",
 )
 
-bootclasspath(
-    name = "platformclasspath",
-    src = "DumpPlatformClassPath.java",
-    host_javabase = ":current_java_runtime",
-    target_javabase = ":current_java_runtime",
-)
-
-default_java_toolchain(
-    name = "toolchain",
-    configuration = DEFAULT_TOOLCHAIN_CONFIGURATION,
-    toolchain_definition = False,
-)
-
-alias(
-    name = "remote_toolchain",
-    actual = ":toolchain",
-)
-
-RELEASES = (8, 9, 10, 11)
-
-[
-    default_java_toolchain(
-        name = "toolchain_java%d" % release,
-        configuration = DEFAULT_TOOLCHAIN_CONFIGURATION,
-        source_version = "%s" % release,
-        target_version = "%s" % release,
-    )
-    for release in RELEASES
-]
-
-# A toolchain that targets java 14.
-default_java_toolchain(
-    name = "toolchain_jdk_14",
-    configuration = dict(),
-    java_runtime = "@bazel_tools//tools/jdk:remotejdk_14",
-    source_version = "14",
-    target_version = "14",
-)
-
-# A toolchain that targets java 15.
-default_java_toolchain(
-    name = "toolchain_jdk_15",
-    configuration = dict(),
-    java_runtime = "@bazel_tools//tools/jdk:remotejdk_15",
-    source_version = "15",
-    target_version = "15",
-)
-
-# A toolchain that targets java 16.
-default_java_toolchain(
-    name = "toolchain_jdk_16",
-    configuration = dict(),
-    java_runtime = "@bazel_tools//tools/jdk:remotejdk_16",
-    source_version = "16",
-    target_version = "16",
-)
-
-# A toolchain that targets java 17.
-default_java_toolchain(
-    name = "toolchain_jdk_17",
-    configuration = dict(),
-    java_runtime = "@bazel_tools//tools/jdk:remotejdk_17",
-    source_version = "17",
-    target_version = "17",
-)
-
-# A toolchain that targets java 20.
-default_java_toolchain(
-    name = "toolchain_jdk_20",
-    configuration = dict(),
-    java_runtime = "@bazel_tools//tools/jdk:remotejdk_20",
-    source_version = "20",
-    target_version = "20",
-)
-
-default_java_toolchain(
-    name = "prebuilt_toolchain",
-    configuration = PREBUILT_TOOLCHAIN_CONFIGURATION,
-    toolchain_definition = False,
-)
-
 filegroup(
     name = "bzl_srcs",
-    srcs = glob(["*.bzl"]),
+    srcs = glob(["*.bzl"]) + ["@rules_java//toolchains:bzl_srcs"],
     visibility = ["//tools:__pkg__"],
 )
 
@@ -381,66 +146,38 @@ py_test(
     ],
 )
 
-# Aliases for JDKs, so that they are only downloaded when needed.
-_JDKS = [
-    "remotejdk11_macos",
-    "remotejdk11_macos_aarch64",
-    "remotejdk11_win",
-    "remotejdk11_win_arm64",
-    "remotejdk11_linux_aarch64",
-    "remotejdk11_linux",
-    "remotejdk11_linux_ppc64le",
-    "remotejdk11_linux_s390x",
+#### Aliases to rules_java to keep backward-compatibility (begin) ####
+
+TARGET_NAMES = [
+    "java_runtime_alias",
+    "current_host_java_runtime",
+    "current_java_runtime",
+    "current_java_toolchain",
+    "jni",
+    "jni_header",
+    "jni_md_header-darwin",
+    "jni_md_header-freebsd",
+    "jni_md_header-linux",
+    "jni_md_header-openbsd",
+    "jni_md_header-windows",
+    "platformclasspath",
+    "remote_jdk11",
+    "remote_toolchain",
+    "ijar",
+    "singlejar",
+    "toolchain",
 ] + [
-    "remotejdk%s_%s" % (version, os)
-    for version in ("17", "20")
-    for os in ("linux", "linux_aarch64", "macos", "macos_aarch64", "win") + (("linux_s390x", "win_arm64",) if version != "20" else ())
+    "toolchain_java%d" % version for version in (8, 9, 10, 11)
+] + [
+    "toolchain_jdk_%d" % version for version in (14, 15, 16, 17, 20)
 ]
 
 [
     alias(
-        name = JDK,
-        actual = "@%s//:jdk" % JDK,
-        visibility = ["//visibility:private"],
+        name = name,
+        actual = "@rules_java//toolchains:" + name,
     )
-    for JDK in _JDKS
+    for name in TARGET_NAMES
 ]
 
-# A JDK 11 for use as a --host_javabase.
-java_runtime_version_alias(
-    name = "remote_jdk11",
-    runtime_version = "remotejdk_11",
-    visibility = ["//visibility:public"],
-)
-
-java_runtime_version_alias(
-    name = "remotejdk_15",
-    runtime_version = "remotejdk_15",
-    visibility = ["//visibility:public"],
-)
-
-java_runtime_version_alias(
-    name = "remotejdk_16",
-    runtime_version = "remotejdk_16",
-    visibility = ["//visibility:public"],
-)
-
-java_runtime_version_alias(
-    name = "remotejdk_17",
-    runtime_version = "remotejdk_17",
-    visibility = ["//visibility:public"],
-)
-
-java_runtime_version_alias(
-    name = "remotejdk_20",
-    runtime_version = "remotejdk_20",
-    visibility = ["//visibility:public"],
-)
-
-java_runtime_version_alias(
-    name = "jdk_8",
-    runtime_version = "8",
-    visibility = ["//visibility:public"],
-)
-
-exports_files(["java_stub_template.txt"])
+#### Aliases to rules_java to keep backward-compatibility (end) ####

@@ -172,7 +172,7 @@ public class ConsistencyTest {
         .setBool(BuildLanguageOptions.ENABLE_BZLMOD, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_PLATFORMS_API, rand.nextBoolean())
-        .setBool(BuildLanguageOptions.EXPERIMENTAL_ALLOW_TAGS_PROPAGATION, rand.nextBoolean())
+        .setBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_CC_SHARED_LIBRARY, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_REPO_REMOTE_EXEC, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_ACTION_RESOURCE_SET, rand.nextBoolean())
