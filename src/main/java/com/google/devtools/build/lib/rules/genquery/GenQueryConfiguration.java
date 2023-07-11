@@ -29,16 +29,6 @@ public class GenQueryConfiguration extends Fragment {
   /** GenQuery-specific options. */
   public static class GenQueryOptions extends FragmentOptions {
     @Option(
-        name = "compress_in_memory_genquery_results",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-        help =
-            "If true, the in-memory representation of genquery results may be compressed as "
-                + "is necessary. Can save sufficient memory at the expense of more CPU usage.")
-    public boolean compressInMemoryResults;
-
-    @Option(
         name = "experimental_skip_ttvs_for_genquery",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -49,18 +39,10 @@ public class GenQueryConfiguration extends Fragment {
     public boolean skipTtvs;
   }
 
-  private final boolean inMemoryCompressionEnabled;
   private final boolean skipTtvs;
 
   public GenQueryConfiguration(BuildOptions buildOptions) {
-    this.inMemoryCompressionEnabled =
-        buildOptions.get(GenQueryOptions.class).compressInMemoryResults;
     this.skipTtvs = buildOptions.get(GenQueryOptions.class).skipTtvs;
-  }
-
-  /** Returns whether genquery results stored in memory can be stored in compressed form. */
-  boolean inMemoryCompressionEnabled() {
-    return inMemoryCompressionEnabled;
   }
 
   /** Returns whether genquery should load its scope's transitive closure directly. */
