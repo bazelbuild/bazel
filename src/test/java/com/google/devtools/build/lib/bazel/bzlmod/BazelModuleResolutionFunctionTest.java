@@ -112,7 +112,7 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
                     SkyFunctions.MODULE_FILE,
                     new ModuleFileFunction(registryFactory, rootDirectory, ImmutableMap.of()))
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
-                .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction(rootDirectory))
+                .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
                 .put(SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(rootDirectory))
                 .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
                 .put(
@@ -130,8 +130,8 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
         differencer, CheckDirectDepsMode.OFF);
     BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE.set(
         differencer, BazelCompatibilityMode.ERROR);
-    BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.OFF);
-    BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
+    BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.UPDATE);
+    YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
   }
 
   @Test
@@ -282,7 +282,7 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
   @Test
   public void testYankedVersionCheckIgnoredByAll() throws Exception {
     setupModulesForYankedVersion();
-    BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of("all"));
+    YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of("all"));
     EvaluationResult<BazelModuleResolutionValue> result =
         evaluator.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
     assertThat(result.hasError()).isFalse();
@@ -291,8 +291,7 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
   @Test
   public void testYankedVersionCheckIgnoredBySpecific() throws Exception {
     setupModulesForYankedVersion();
-    BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.set(
-        differencer, ImmutableList.of("b@1.0"));
+    YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of("b@1.0"));
     EvaluationResult<BazelModuleResolutionValue> result =
         evaluator.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
     assertThat(result.hasError()).isFalse();
@@ -301,8 +300,7 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
   @Test
   public void testBadYankedVersionFormat() throws Exception {
     setupModulesForYankedVersion();
-    BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.set(
-        differencer, ImmutableList.of("b~1.0"));
+    YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of("b~1.0"));
     EvaluationResult<BazelModuleResolutionValue> result =
         evaluator.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
     assertThat(result.hasError()).isTrue();
@@ -328,5 +326,87 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
             .addModule(createModuleKey("b", "1.0"), "module(name='b', version='1.0');")
             .addYankedVersion("b", ImmutableMap.of(Version.parse("1.0"), "1.0 is a bad version!"));
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+  }
+
+  @Test
+  public void testYankedVersionSideEffects_equalCompatibilityLevel() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='mod', version='1.0')",
+        "bazel_dep(name = 'a', version = '1.0')",
+        "bazel_dep(name = 'b', version = '1.1')");
+
+    FakeRegistry registry =
+        registryFactory
+            .newFakeRegistry("/bar")
+            .addModule(
+                createModuleKey("a", "1.0"),
+                "module(name='a', version='1.0')",
+                "bazel_dep(name='b', version='1.0')")
+            .addModule(createModuleKey("c", "1.0"), "module(name='c', version='1.0')")
+            .addModule(createModuleKey("c", "1.1"), "module(name='c', version='1.1')")
+            .addModule(
+                createModuleKey("b", "1.0"),
+                "module(name='b', version='1.0', compatibility_level = 2)",
+                "bazel_dep(name='c', version='1.1')",
+                "print('hello from yanked version')")
+            .addModule(
+                createModuleKey("b", "1.1"),
+                "module(name='b', version='1.1', compatibility_level = 2)",
+                "bazel_dep(name='c', version='1.0')")
+            .addYankedVersion("b", ImmutableMap.of(Version.parse("1.0"), "1.0 is a bad version!"));
+
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    EvaluationResult<BazelModuleResolutionValue> result =
+        evaluator.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
+
+    assertThat(result.hasError()).isFalse();
+    assertThat(result.get(BazelModuleResolutionValue.KEY).getResolvedDepGraph().keySet())
+        .containsExactly(
+            ModuleKey.ROOT,
+            createModuleKey("a", "1.0"),
+            createModuleKey("b", "1.1"),
+            createModuleKey("c", "1.0"));
+    assertDoesNotContainEvent("hello from yanked version");
+  }
+
+  @Test
+  public void testYankedVersionSideEffects_differentCompatibilityLevel() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='mod', version='1.0')",
+        "bazel_dep(name = 'a', version = '1.0')",
+        "bazel_dep(name = 'b', version = '1.1')");
+
+    FakeRegistry registry =
+        registryFactory
+            .newFakeRegistry("/bar")
+            .addModule(
+                createModuleKey("a", "1.0"),
+                "module(name='a', version='1.0')",
+                "bazel_dep(name='b', version='1.0')")
+            .addModule(createModuleKey("c", "1.0"), "module(name='c', version='1.0')")
+            .addModule(createModuleKey("c", "1.1"), "module(name='c', version='1.1')")
+            .addModule(
+                createModuleKey("b", "1.0"),
+                "module(name='b', version='1.0', compatibility_level = 2)",
+                "bazel_dep(name='c', version='1.1')",
+                "print('hello from yanked version')")
+            .addModule(
+                createModuleKey("b", "1.1"),
+                "module(name='b', version='1.1', compatibility_level = 3)",
+                "bazel_dep(name='c', version='1.0')")
+            .addYankedVersion("b", ImmutableMap.of(Version.parse("1.0"), "1.0 is a bad version!"));
+
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    EvaluationResult<BazelModuleResolutionValue> result =
+        evaluator.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
+
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().toString())
+        .contains(
+            "a@1.0 depends on b@1.0 with compatibility level 2, but <root> depends on b@1.1 with"
+                + " compatibility level 3 which is different");
+    assertDoesNotContainEvent("hello from yanked version");
   }
 }
