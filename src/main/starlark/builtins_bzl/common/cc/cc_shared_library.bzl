@@ -225,10 +225,10 @@ def _merge_cc_shared_library_infos(ctx):
     dynamic_deps = []
     transitive_dynamic_deps = []
     for dep in ctx.attr.dynamic_deps:
-        dynamic_dep_entry = (
-            dep[CcSharedLibraryInfo].exports,
-            dep[CcSharedLibraryInfo].linker_input,
-            dep[CcSharedLibraryInfo].link_once_static_libs,
+        dynamic_dep_entry = struct(
+            exports = dep[CcSharedLibraryInfo].exports,
+            linker_input = dep[CcSharedLibraryInfo].linker_input,
+            link_once_static_libs = dep[CcSharedLibraryInfo].link_once_static_libs,
         )
         dynamic_deps.append(dynamic_dep_entry)
         transitive_dynamic_deps.append(dep[CcSharedLibraryInfo].dynamic_deps)
@@ -238,8 +238,8 @@ def _merge_cc_shared_library_infos(ctx):
 def _build_exports_map_from_only_dynamic_deps(merged_shared_library_infos):
     exports_map = {}
     for entry in merged_shared_library_infos.to_list():
-        exports = entry[0]
-        linker_input = entry[1]
+        exports = entry.exports
+        linker_input = entry.linker_input
         for export in exports:
             if export in exports_map:
                 fail("Two shared libraries in dependencies export the same symbols. Both " +
@@ -254,8 +254,8 @@ def _build_exports_map_from_only_dynamic_deps(merged_shared_library_infos):
 def _build_link_once_static_libs_map(merged_shared_library_infos):
     link_once_static_libs_map = {}
     for entry in merged_shared_library_infos.to_list():
-        link_once_static_libs = entry[2]
-        linker_input = entry[1]
+        link_once_static_libs = entry.link_once_static_libs
+        linker_input = entry.linker_input
         for static_lib in link_once_static_libs:
             if static_lib in link_once_static_libs_map:
                 fail("Two shared libraries in dependencies link the same " +
@@ -588,8 +588,8 @@ def _build_map_direct_dynamic_dep_to_transitive_dynamic_deps(ctx):
         all_dynamic_dep_linker_inputs[owner] = dep[CcSharedLibraryInfo].linker_input
         transitive_dynamic_dep_labels = []
         for dynamic_dep in dep[CcSharedLibraryInfo].dynamic_deps.to_list():
-            all_dynamic_dep_linker_inputs[dynamic_dep[1].owner] = dynamic_dep[1]
-            transitive_dynamic_dep_labels.append(dynamic_dep[1].owner)
+            all_dynamic_dep_linker_inputs[dynamic_dep.linker_input.owner] = dynamic_dep.linker_input
+            transitive_dynamic_dep_labels.append(dynamic_dep.linker_input.owner)
         transitive_dynamic_dep_labels_set = depset(transitive_dynamic_dep_labels, order = "topological")
         for export in dep[CcSharedLibraryInfo].exports:
             direct_dynamic_dep_to_transitive_dynamic_deps[export] = transitive_dynamic_dep_labels_set
