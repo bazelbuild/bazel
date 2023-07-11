@@ -146,10 +146,12 @@ public class ExperimentalGrpcRemoteExecutor implements RemoteExecutionClient {
         // retrying when received a unauthenticated error, and propagate to refreshIfUnauthenticated
         // which will then call retrier again. It will reset the retry time counter so we could
         // retry more than --remote_retry times which is not expected.
-        response =
-            retrier.execute(
-                () -> Utils.refreshIfUnauthenticated(this::execute, callCredentialsProvider),
-                executeBackoff);
+        if (lastOperation == null) {
+          response =
+              retrier.execute(
+                  () -> Utils.refreshIfUnauthenticated(this::execute, callCredentialsProvider),
+                  executeBackoff);
+        }
 
         // If no response from Execute(), use WaitExecution() in a "loop" which is implemented
         // inside the retry block.
@@ -216,6 +218,7 @@ public class ExperimentalGrpcRemoteExecutor implements RemoteExecutionClient {
     }
 
     /** Process a stream of operations from Execute() or WaitExecution(). */
+    @Nullable
     ExecuteResponse handleOperationStream(Iterator<Operation> operationStream) throws IOException {
       try {
         while (operationStream.hasNext()) {
@@ -258,8 +261,8 @@ public class ExperimentalGrpcRemoteExecutor implements RemoteExecutionClient {
           }
         }
 
-        // The operation completed successfully but without a result.
-        throw new IOException("Remote server error: execution terminated with no result");
+        // The operation stream completed successfully but without a result.
+        return null;
       } finally {
         close(operationStream);
       }

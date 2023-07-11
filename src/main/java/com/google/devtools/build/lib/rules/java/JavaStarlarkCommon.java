@@ -42,11 +42,8 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCommonApi;
-import java.util.Objects;
-import java.util.stream.Collectors;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Sequence;
@@ -109,37 +106,11 @@ public class JavaStarlarkCommon
       StarlarkThread thread)
       throws EvalException, InterruptedException, RuleErrorException {
 
-    boolean acceptJavaInfo =
-        !starlarkRuleContext
-            .getRuleContext()
-            .getFragment(JavaConfiguration.class)
-            .requireJavaPluginInfo();
+    final ImmutableList<JavaPluginInfo> pluginsParam =
+        JavaPluginInfo.wrapSequence(plugins, "plugins");
+    final ImmutableList<JavaPluginInfo> exportedPluginsParam =
+        JavaPluginInfo.wrapSequence(exportedPlugins, "exported_plugins");
 
-    final ImmutableList<JavaPluginInfo> pluginsParam;
-    if (acceptJavaInfo && !plugins.isEmpty() && JavaInfo.isJavaInfo(plugins.get(0))) {
-      // Handle deprecated case where plugins is given a list of JavaInfos
-      pluginsParam =
-          JavaInfo.wrapSequence(plugins, "plugins").stream()
-              .map(JavaInfo::getJavaPluginInfo)
-              .filter(Objects::nonNull)
-              .collect(toImmutableList());
-    } else {
-      pluginsParam = JavaPluginInfo.wrapSequence(plugins, "plugins");
-    }
-
-    final ImmutableList<JavaPluginInfo> exportedPluginsParam;
-    if (acceptJavaInfo
-        && !exportedPlugins.isEmpty()
-        && JavaInfo.isJavaInfo(exportedPlugins.get(0))) {
-      // Handle deprecated case where exported_plugins is given a list of JavaInfos
-      exportedPluginsParam =
-          JavaInfo.wrapSequence(exportedPlugins, "exported_plugins").stream()
-              .map(JavaInfo::getJavaPluginInfo)
-              .filter(Objects::nonNull)
-              .collect(toImmutableList());
-    } else {
-      exportedPluginsParam = JavaPluginInfo.wrapSequence(exportedPlugins, "exported_plugins");
-    }
     // checks for private API access
     if (!enableCompileJarAction
         || !enableJSpecify
@@ -261,49 +232,6 @@ public class JavaStarlarkCommon
         && !label.getPackageIdentifier().getRepository().getName().equals("_builtins")) {
       throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
     }
-  }
-
-  @Override
-  public JavaInfo toJavaBinaryInfo(JavaInfo javaInfo, StarlarkThread thread) throws EvalException {
-    checkPrivateAccess(thread);
-    JavaRuleOutputJarsProvider ruleOutputs =
-        JavaRuleOutputJarsProvider.builder()
-            .addJavaOutput(
-                javaInfo.getJavaOutputs().stream()
-                    .map(
-                        output ->
-                            JavaOutput.create(
-                                output.getClassJar(),
-                                null,
-                                null,
-                                output.getGeneratedClassJar(),
-                                output.getGeneratedSourceJar(),
-                                output.getNativeHeadersJar(),
-                                output.getManifestProto(),
-                                output.getJdeps(),
-                                output.getSourceJars()))
-                    .collect(Collectors.toList()))
-            .build();
-    JavaInfo.Builder builder = JavaInfo.Builder.create();
-    if (javaInfo.getProvider(JavaCompilationInfoProvider.class) != null) {
-      builder.javaCompilationInfo(javaInfo.getCompilationInfoProvider());
-    } else if (javaInfo.getProvider(JavaCompilationArgsProvider.class) != null) {
-      JavaCompilationArgsProvider compilationArgsProvider =
-          javaInfo.getProvider(JavaCompilationArgsProvider.class);
-      builder.javaCompilationInfo(
-          new JavaCompilationInfoProvider.Builder()
-              .setCompilationClasspath(compilationArgsProvider.getTransitiveCompileTimeJars())
-              .setRuntimeClasspath(compilationArgsProvider.getRuntimeJars())
-              .build());
-    }
-    if (javaInfo.getProvider(JavaGenJarsProvider.class) != null) {
-      builder.javaGenJars(javaInfo.getGenJarsProvider());
-    }
-    return builder
-        .javaCcInfo(javaInfo.getProvider(JavaCcInfoProvider.class))
-        .javaSourceJars(javaInfo.getProvider(JavaSourceJarsProvider.class))
-        .javaRuleOutputs(ruleOutputs)
-        .build();
   }
 
   @Override

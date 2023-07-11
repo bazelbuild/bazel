@@ -514,6 +514,15 @@ public final class BazelRulesModule extends BlazeModule {
         },
         help = "no-op")
     public boolean collapseDuplicateDefines;
+
+    @Option(
+        name = "incompatible_require_javaplugininfo_in_javacommon",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "When enabled java_common.compile only accepts JavaPluginInfo for plugins.")
+    public boolean requireJavaPluginInfo;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */

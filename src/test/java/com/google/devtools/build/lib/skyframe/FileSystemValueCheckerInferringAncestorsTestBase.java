@@ -47,9 +47,9 @@ public class FileSystemValueCheckerInferringAncestorsTestBase {
   protected DefaultSyscallCache syscallCache = DefaultSyscallCache.newBuilder().build();
   protected Root root;
   protected InMemoryGraph inMemoryGraph;
+  protected Exception throwOnStat;
 
   private Root untrackedRoot;
-  Exception throwOnStat;
 
   @Before
   public void setUpGraphAndRoot() throws IOException {

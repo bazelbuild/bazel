@@ -238,6 +238,15 @@ public class ConfiguredTargetQueryEnvironment
             skyframeExecutor,
             accessor,
             aspectResolver,
+            OutputType.DELIMITED_BINARY,
+            ruleClassProvider),
+        new ProtoOutputFormatterCallback(
+            eventHandler,
+            cqueryOptions,
+            out,
+            skyframeExecutor,
+            accessor,
+            aspectResolver,
             OutputType.TEXT,
             ruleClassProvider),
         new ProtoOutputFormatterCallback(

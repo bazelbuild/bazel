@@ -573,7 +573,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
    */
   @Test
   public void javaCommonCompile_requiresJavaPluginInfo() throws Exception {
-    useConfiguration("--incompatible_require_javaplugininfo_in_javacommon");
     JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/custom_rule.bzl",

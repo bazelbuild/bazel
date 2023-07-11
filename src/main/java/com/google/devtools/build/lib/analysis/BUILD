@@ -1867,6 +1867,8 @@ java_library(
         ":config/build_options_cache",
         ":config/core_options",
         ":config/fragment_options",
+        ":config/transitions/comparing_transition",
+        ":config/transitions/configuration_transition",
         ":config/transitions/patch_transition",
         ":config/transitions/transition_factory",
         ":platform_options",
@@ -1877,6 +1879,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages:exec_group",
         "//src/main/java/com/google/devtools/build/lib/rules/config:feature_flag_value",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
+        "//src/main/java/com/google/devtools/build/lib/util:pair",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -1994,12 +1997,16 @@ java_library(
     name = "config/starlark_defined_config_transition",
     srcs = ["config/StarlarkDefinedConfigTransition.java"],
     deps = [
+        ":config/core_options",
         ":config/transitions/configuration_transition",
         ":config/transitions/patch_transition",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/config",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:caffeine",
@@ -2067,6 +2074,23 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//third_party:caffeine",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "config/transitions/comparing_transition",
+    srcs = ["config/transitions/ComparingTransition.java"],
+    deps = [
+        ":config/build_options",
+        ":config/core_options",
+        ":config/fragment_options",
+        ":config/transitions/configuration_transition",
+        ":config/transitions/patch_transition",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/util:pair",
+        "//third_party:flogger",
+        "//third_party:guava",
     ],
 )
 
