@@ -123,7 +123,8 @@ final class HeaderDiscovery {
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
 
     // Check inclusions.
-    IncludeProblems problems = new IncludeProblems();
+    IncludeProblems absolutePathProblems = new IncludeProblems();
+    IncludeProblems unresolvablePathProblems = new IncludeProblems();
     for (Path execPath : dependencies) {
       PathFragment execPathFragment = execPath.asFragment();
       if (execPathFragment.isAbsolute()) {
@@ -131,9 +132,9 @@ final class HeaderDiscovery {
         if (FileSystemUtils.startsWithAny(execPath, permittedSystemIncludePrefixes)) {
           continue;
         }
-        // Since gcc is given only relative paths on the command line, non-system include paths here
-        // should never be absolute. If they are, it's probably due to a non-hermetic #include, and
-        // we should stop the build with an error.
+        // Since gcc is given only relative paths on the command line, non-builtin include paths
+        // here should never be absolute. If they are, it's probably due to a non-hermetic #include,
+        // and we should stop the build with an error.
         if (execPath.startsWith(execRoot)) {
           execPathFragment = execPath.relativeTo(execRoot); // funky but tolerable path
         } else if (siblingRepositoryLayout && execPath.startsWith(execRoot.getParentDirectory())) {
@@ -142,7 +143,7 @@ final class HeaderDiscovery {
               LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(
                   execPath.relativeTo(execRoot.getParentDirectory()));
         } else {
-          problems.add(execPathFragment.getPathString());
+          absolutePathProblems.add(execPathFragment.getPathString());
           continue;
         }
       }
@@ -167,11 +168,28 @@ final class HeaderDiscovery {
       } else {
         // Record a problem if we see files that we can't resolve, likely caused by undeclared
         // includes or illegal include constructs.
-        problems.add(execPathFragment.getPathString());
+        unresolvablePathProblems.add(execPathFragment.getPathString());
       }
     }
     if (shouldValidateInclusions) {
-      problems.assertProblemFree(action, sourceFile);
+      absolutePathProblems.assertProblemFree(
+          "absolute path inclusion(s) found in rule '"
+              + action.getOwner().getLabel()
+              + "':\n"
+              + "the source file '"
+              + sourceFile.prettyPrint()
+              + "' includes the following non-builtin files with absolute paths "
+              + "(if these are builtin files, make sure these paths are in your toolchain):",
+          action);
+      unresolvablePathProblems.assertProblemFree(
+          "undeclared inclusion(s) in rule '"
+              + action.getOwner().getLabel()
+              + "':\n"
+              + "this rule is missing dependency declarations for the following files "
+              + "included by '"
+              + sourceFile.prettyPrint()
+              + "':",
+          action);
     }
     return inputs.build();
   }
