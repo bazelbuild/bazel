@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
@@ -35,8 +36,9 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.Lockfile
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.RuleVisibility;
+import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
@@ -57,9 +59,9 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
-import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesFunction;
+import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeTargetPatternEvaluator;
@@ -145,11 +147,6 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     performAdditionalClientSetup(mockToolsConfig);
 
     this.queryEnvironmentFactory = makeQueryEnvironmentFactory();
-  }
-
-  @Override
-  public final void cleanUp() {
-    skyframeExecutor.getEvaluator().cleanupInterningPools();
   }
 
   protected abstract String getRootDirectoryNameForSetup();
@@ -315,13 +312,10 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
 
   protected void initTargetPatternEvaluator(ConfiguredRuleClassProvider ruleClassProvider) {
     this.toolsRepository = ruleClassProvider.getToolsRepository();
-    if (skyframeExecutor != null) {
-      cleanUp();
-    }
     skyframeExecutor = createSkyframeExecutor(ruleClassProvider);
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
 
-    packageOptions.defaultVisibility = RuleVisibility.PRIVATE;
+    packageOptions.defaultVisibility = ConstantRuleVisibility.PRIVATE;
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 7;
     packageOptions.packagePath = ImmutableList.of(rootDirectory.getPathString());
@@ -340,7 +334,6 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
           ImmutableMap.of(),
           ImmutableMap.of(),
           new TimestampGranularityMonitor(BlazeClock.instance()),
-          QuiescingExecutorsImpl.forTesting(),
           FakeOptions.builder().put(packageOptions).put(buildLanguageOptions).build());
     } catch (InterruptedException | AbruptExitException e) {
       throw new IllegalStateException(e);
@@ -361,7 +354,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
   protected SkyframeExecutor createSkyframeExecutor(ConfiguredRuleClassProvider ruleClassProvider) {
     PackageFactory pkgFactory =
         ((PackageFactoryBuilderWithSkyframeForTesting)
-                TestPackageFactoryBuilderFactory.getInstance().builder(directories))
+            TestPackageFactoryBuilderFactory.getInstance().builder(directories))
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .setExtraPrecomputeValues(
                 ImmutableList.of(
@@ -379,7 +372,8 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
                         BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
                         BazelCompatibilityMode.ERROR),
                     PrecomputedValue.injected(
-                        BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.UPDATE)))
+                        BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.OFF)))
+            .setEnvironmentExtensions(getEnvironmentExtensions())
             .build(ruleClassProvider, fileSystem);
     SkyframeExecutor skyframeExecutor =
         BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
@@ -390,7 +384,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
             .setIgnoredPackagePrefixesFunction(
                 new IgnoredPackagePrefixesFunction(ignoredPackagePrefixesFile))
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
-            .setSyscallCache(delegatingSyscallCache)
+            .setPerCommandSyscallCache(delegatingSyscallCache)
             .build();
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.<PrecomputedValue.Injected>builder()
@@ -421,17 +415,21 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
                 PrecomputedValue.injected(
                     BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
                     BazelCompatibilityMode.ERROR))
-            .add(
-                PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.UPDATE))
+            .add(PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.OFF))
             .build());
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     return skyframeExecutor;
   }
 
+  protected abstract Iterable<EnvironmentExtension> getEnvironmentExtensions();
+
+  protected abstract BuildOptions getDefaultBuildOptions(
+      ConfiguredRuleClassProvider ruleClassProvider);
+
   @Override
   public void assertPackageNotLoaded(String packageName) throws Exception {
     MemoizingEvaluator evaluator = skyframeExecutor.getEvaluator();
-    SkyKey key = PackageIdentifier.createInMainRepo(packageName);
+    SkyKey key = PackageValue.key(PackageIdentifier.createInMainRepo(packageName));
     if (evaluator.getExistingValue(key) != null
         || evaluator.getExistingErrorForTesting(key) != null) {
       throw new IllegalStateException("Package was loaded: " + packageName);
