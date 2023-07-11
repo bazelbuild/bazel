@@ -60,14 +60,6 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
         PrecomputedValue.injected(BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS, ImmutableList.of()));
   }
 
-  @Override
-  protected SkyframeExecutorRepositoryHelpersHolder getRepositoryHelpersHolder() {
-    // Transitive packages are needed for RepoMappingManifestAction and are only stored when
-    // external repositories are enabled.
-    return SkyframeExecutorRepositoryHelpersHolder.create(
-        new RepositoryDirectoryDirtinessChecker());
-  }
-
   @Before
   public void enableBzlmod() throws Exception {
     setBuildLanguageOptions("--enable_bzlmod");
