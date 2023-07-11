@@ -116,6 +116,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -1389,11 +1390,20 @@ public final class SkyframeBuildView {
           if (!evaluationSuccessState.get().succeeded()) {
             return;
           }
-          configuredObjectCount.incrementAndGet();
           boolean isConfiguredTarget = skyKey.functionName().equals(SkyFunctions.CONFIGURED_TARGET);
           if (isConfiguredTarget) {
+            ConfiguredTargetKey configuredTargetKey = (ConfiguredTargetKey) skyKey;
+            ConfiguredTargetValue configuredTargetValue = (ConfiguredTargetValue) newValue;
+            if (!Objects.equals(
+                configuredTargetKey.getConfigurationKey(),
+                configuredTargetValue.getConfiguredTarget().getConfigurationKey())) {
+              // The node entry performs delegation and doesn't own the value. Skips it to avoid
+              // overcounting.
+              return;
+            }
             configuredTargetCount.incrementAndGet();
           }
+          configuredObjectCount.incrementAndGet();
           if (newValue instanceof ActionLookupValue) {
             // During multithreaded operation, this is only set to true, so no concurrency issues.
             someActionLookupValueEvaluated = true;
