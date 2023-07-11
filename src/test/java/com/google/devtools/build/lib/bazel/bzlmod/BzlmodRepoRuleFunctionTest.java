@@ -140,7 +140,7 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
-    BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
+    YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
     BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
         differencer, CheckDirectDepsMode.WARNING);
     BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE.set(

@@ -175,6 +175,7 @@ java_library(
         "SingleExtensionUsagesFunction.java",
         "StarlarkBazelModule.java",
         "TypeCheckedTag.java",
+        "YankedVersionsUtil.java",
     ],
     deps = [
         ":common",
