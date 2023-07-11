@@ -32,6 +32,8 @@
 # - ROOT                    Location from where the code coverage collection
 #                           was invoked.
 # - VERBOSE_COVERAGE        Print debug info from the coverage scripts
+# - LLVM_COV                Location of llvm-cov
+# - LLVM_PROFDATA           Location of llvm-profdata
 #
 # The script looks in $COVERAGE_DIR for the C++ metadata coverage files (either
 # gcda or profraw) and uses either lcov or gcov to get the coverage data.
@@ -78,7 +80,7 @@ function init_gcov() {
 function llvm_coverage_lcov() {
   local output_file="${1}"; shift
   export LLVM_PROFILE_FILE="${COVERAGE_DIR}/%h-%p-%m.profraw"
-  "${COVERAGE_GCOV_PATH}" merge -output "${output_file}.data" \
+  "${LLVM_PROFDATA}" merge -output "${output_file}.data" \
       "${COVERAGE_DIR}"/*.profraw
 
   local object_param=""
@@ -98,7 +100,7 @@ function llvm_coverage_lcov() {
 function llvm_coverage_profdata() {
   local output_file="${1}"; shift
   export LLVM_PROFILE_FILE="${COVERAGE_DIR}/%h-%p-%m.profraw"
-  "${COVERAGE_GCOV_PATH}" merge -output "${output_file}" \
+  "${LLVM_PROFDATA}" merge -output "${output_file}" \
       "${COVERAGE_DIR}"/*.profraw
 }
 
@@ -140,7 +142,9 @@ function gcov_coverage() {
           #   gcov (Debian 7.3.0-5) 7.3.0
           # llvm-cov gcov --version outputs a line like:
           #   LLVM version 9.0.1
-          gcov_major_version=$("${GCOV}" --version | sed -n -E -e 's/^.*\s([0-9]+)\.[0-9]+\.[0-9]+\s?.*$/\1/p')
+          # gcov (actually llvm-cov) on OS X outputs:
+          #   Apple LLVM version 12.0.5
+          gcov_major_version=$("${GCOV}" --version | sed -n -E -e 's/^.* ([0-9]+)\.[0-9]+\.[0-9]+ ?.*$/\1/p')
 
           # Invoke gcov to generate a code coverage report with the flags:
           # -i              Output gcov file in an intermediate text format.

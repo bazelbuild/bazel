@@ -31,16 +31,14 @@ function get_gcov_version() {
   #   gcov (Debian 7.3.0-5) 7.3.0
   # llvm-cov gcov --version outputs a line like:
   #   LLVM version 9.0.1
-  local version=$("${gcov_location}" --version | sed -n -E -e 's/^.*\s([0-9]+)\.[0-9]+\.[0-9]+\s?.*$/\1/p')
+  # gcov (actually llvm-cov) on OS X outputs:
+  #   Apple LLVM version 12.0.5
+  local version=$("${gcov_location}" --version | sed -n -E -e 's/^.* ([0-9]+)\.[0-9]+\.[0-9]+ ?.*$/\1/p')
   if [ "$version" -lt 7 ]; then
       echo "gcov versions before 7.0 is not supported."
       return 1
   fi
 
-  # Disable llvm-cov for now - coverage tests on OSX don't work
-  # TODO(cmita): Fix and enable.
-  "$gcov_location" -version | grep "LLVM" && \
-      echo "gcov LLVM version not supported." && return 1
   echo "$version"
 }
 
