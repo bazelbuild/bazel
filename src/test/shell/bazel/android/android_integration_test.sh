@@ -26,12 +26,12 @@
 # Load the test setup defined in the parent directory
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+source "${CURRENT_DIR}/../../integration_test_setup.sh" \
+  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
+
 source "${CURRENT_DIR}/android_helper.sh" \
   || { echo "android_helper.sh not found!" >&2; exit 1; }
 fail_if_no_android_sdk
-
-source "${CURRENT_DIR}/../../integration_test_setup.sh" \
-  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 resolve_android_toolchains "$1"
 
