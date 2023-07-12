@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
@@ -19,7 +18,6 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
-import java.util.ArrayList;
 
 /** Stores the values of flags and environment variables that affect the resolution */
 @AutoValue
@@ -65,8 +63,8 @@ abstract class BzlmodFlagsAndEnvVars {
   /** Error level of bazel compatability check */
   public abstract String compatibilityMode();
 
-  public ArrayList<String> getDiffFlags(BzlmodFlagsAndEnvVars flags) {
-    ArrayList<String> diffFlags = new ArrayList<>();
+  public ImmutableList<String> getDiffFlags(BzlmodFlagsAndEnvVars flags) {
+    ImmutableList.Builder<String> diffFlags = new ImmutableList.Builder<>();
     if (!flags.cmdRegistries().equals(cmdRegistries())) {
       diffFlags.add("the value of --registry flag has been modified");
     }
@@ -89,6 +87,6 @@ abstract class BzlmodFlagsAndEnvVars {
     if (!flags.compatibilityMode().equals(compatibilityMode())) {
       diffFlags.add("the value of --check_bazel_compatibility flag has been modified");
     }
-    return diffFlags;
+    return diffFlags.build();
   }
 }

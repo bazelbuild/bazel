@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
@@ -240,12 +241,12 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                         BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
                         CheckDirectDepsMode.WARNING),
                     PrecomputedValue.injected(
-                        BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
+                        YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
                     PrecomputedValue.injected(
                         BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
                         BazelCompatibilityMode.ERROR),
                     PrecomputedValue.injected(
-                        BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.OFF)))
+                        BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.UPDATE)))
             .build(ruleClassProvider, fileSystem);
     useConfiguration();
     skyframeExecutor = createSkyframeExecutor(pkgFactory);
@@ -290,11 +291,11 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                 BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
                 CheckDirectDepsMode.WARNING),
             PrecomputedValue.injected(
-                BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
+                YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
             PrecomputedValue.injected(
                 BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
                 BazelCompatibilityMode.WARNING),
-            PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.OFF)));
+            PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.UPDATE)));
   }
 
   /** Resets the SkyframeExecutor, as if a clean had been executed. */
