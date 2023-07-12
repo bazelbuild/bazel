@@ -29,7 +29,7 @@ To perform module resolution, Bazel starts by reading the root module's
 `MODULE.bazel` file from a [Bazel registry](/external/registry) until it
 discovers the entire dependency graph.
 
-By default, Bazel then [selects](#version_selection) one version of each module
+By default, Bazel then [selects](#version-selection) one version of each module
 to use. Bazel represents each module with a repo, and consults the registry
 again to learn how to define each of the repos.
 
@@ -58,7 +58,7 @@ Any valid SemVer version is a valid Bazel module version. Additionally, two
 SemVer versions `a` and `b` compare `a < b` if and only if the same holds when
 they're compared as Bazel module versions.
 
-## Version selection
+## Version selection {:#version-selection}
 
 Consider the diamond dependency problem, a staple in the versioned dependency
 management space. Suppose you have the dependency graph:
