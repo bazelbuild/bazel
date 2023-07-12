@@ -89,17 +89,19 @@ public final class MarkdownUtil {
   private static final Pattern CONSECUTIVE_BACKTICKS = Pattern.compile("`+");
 
   /**
-   * Returns a string that escapes the given string so that it can be used in a markdown inline code segment, delimited
-   * by backticks (not included in the returned string).
+   * Returns a Markdown code span (e.g. <code>`return foo;`</code>) that contains the given literal
+   * text, which may itself contain backticks.
    *
    * <p>For example:
+   *
    * <ul>
-   *     <li><code>foo</code> becomes <code>foo</code>
-   *     <li><code>`foo`</code> becomes <code>` `foo` `</code>
-   *     <li><code>``foo``</code> becomes <code>`` `foo` ``</code>
+   *   <li><code>foo</code> becomes <code>`foo`</code>
+   *   <li><code>fo`o</code> becomes <code>``fo`o``</code>
+   *   <li><code>`foo`</code> becomes <code>`` `foo` ``</code>
    * </ul>
    */
-  public String markdownInlineCodeEscape(String code) {
+  public String markdownCodeSpan(String code) {
+    // https://github.github.com/gfm/#code-span
     int numConsecutiveBackticks =
         CONSECUTIVE_BACKTICKS
             .matcher(code)
@@ -107,11 +109,9 @@ public final class MarkdownUtil {
             .map(match -> match.end() - match.start())
             .max(Comparator.naturalOrder())
             .orElse(0);
-    if (numConsecutiveBackticks == 0) {
-      return code;
-    } else {
-      return String.format("%1$s %2$s %1$s", "`".repeat(numConsecutiveBackticks), code);
-    }
+    String padding = code.startsWith("`") || code.endsWith("`") ? " " : "";
+    return String.format(
+        "%1$s%2$s%3$s%2$s%1$s", "`".repeat(numConsecutiveBackticks + 1), padding, code);
   }
 
   /**
