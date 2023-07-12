@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
-import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection;
@@ -105,7 +104,6 @@ import javax.annotation.Nullable;
  *       toolchain resolution.
  *   <li>{@link DependencyResolver}: Helper for {@link PrerequisiteProducer}: figures out what this
  *       target's dependencies are and what their configurations should be.
- *   <li>{@link Dependency}: Structured representation of a single dependency.
  *   <li>{@link DependencyKind}: Structured representation of a dependency's type (e.g. rule
  *       attribute vs. toolchain dependency).
  *   <li>{@link AspectFunction}: Evaluates aspects attached to this target's dependencies.

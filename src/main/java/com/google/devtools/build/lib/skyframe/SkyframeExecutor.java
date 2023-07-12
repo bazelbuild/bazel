@@ -83,7 +83,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
-import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.InconsistentNullConfigException;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
@@ -3818,13 +3817,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /**
-   * Returns a map from {@link Dependency} inputs to the {@link ConfiguredTargetAndData}s
+   * Returns a multimap from {@link DependencyKind} inputs to the {@link ConfiguredTargetAndData}s
    * corresponding to those dependencies.
    *
-   * <p>For use for legacy support and tests calling through {@code BuildView} only.
-   *
-   * <p>If a requested configured target is in error, the corresponding value is omitted from the
-   * returned list.
+   * <p>For use for tests calling through {@code BuildView} only.
    */
   @ThreadSafety.ThreadSafe
   public OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData>

@@ -142,14 +142,6 @@ public final class TransitiveDependencyState {
     packageCollector.aspectPackages.put(key, packages);
   }
 
-  /** Sets a batch of transitive packages to be added. */
-  public void setTransitivePackagesBatch(NestedSet<Package> packages) {
-    if (packageCollector == null) {
-      return;
-    }
-    packageCollector.transitivePackagesBatch = packages;
-  }
-
   @Nullable
   public Package getDependencyPackage(PackageIdentifier packageId) {
     return prerequisitePackages.get(packageId);
@@ -189,13 +181,6 @@ public final class TransitiveDependencyState {
         new TreeMap<>(ASPECT_KEY_ORDERING);
 
     /**
-     * Stores a single batch of packages computed by {@link
-     * PrerequisiteProducer#resolveConfiguredTargetDependencies}.
-     */
-    // TODO(b/261521010): delete this when the corresponding method is deleted.
-    private NestedSet<Package> transitivePackagesBatch;
-
-    /**
      * Constructs the deterministically ordered result.
      *
      * <p>It's safe to call this multiple times.
@@ -211,10 +196,6 @@ public final class TransitiveDependencyState {
       }
       for (NestedSet<Package> packageSet : aspectPackages.values()) {
         result.addTransitive(packageSet);
-      }
-
-      if (transitivePackagesBatch != null) {
-        result.addTransitive(transitivePackagesBatch);
       }
 
       return result.build();

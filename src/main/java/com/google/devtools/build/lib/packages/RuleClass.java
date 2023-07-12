@@ -1103,11 +1103,7 @@ public class RuleClass {
      *
      * <p>If you need the transition to depend on the rule it's being applied to, use {@link
      * #cfg(TransitionFactory)}.
-     *
-     * <p>This transition may be applied twice.
      */
-    // TODO(b/261521010): make this apply only once by deleting the rule transition from the
-    // target requesting the dependency.
     public Builder cfg(PatchTransition transition) {
       // Make sure this is cast to Serializable to avoid autocodec serialization errors.
       return cfg((TransitionFactory<RuleTransitionData> & Serializable) unused -> transition);
@@ -1118,11 +1114,7 @@ public class RuleClass {
      *
      * <p>Unlike {@link #cfg(PatchTransition)}, the factory can examine the rule when deciding what
      * transition to use.
-     *
-     * <p>This transition may be applied twice.
      */
-    // TODO(b/261521010): make this apply only once by deleting the rule transition from the
-    // target requesting the dependency.
     @CanIgnoreReturnValue
     public Builder cfg(TransitionFactory<RuleTransitionData> transitionFactory) {
       Preconditions.checkState(type != RuleClassType.ABSTRACT,

@@ -13,9 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.util;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.devtools.build.lib.analysis.config.transitions.TransitionCollector.NULL_TRANSITION_COLLECTOR;
 import static com.google.devtools.build.lib.skyframe.PrerequisiteProducer.getDependencyContext;
 
 import com.google.common.base.Preconditions;
@@ -35,23 +33,18 @@ import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
-import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
-import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
-import com.google.devtools.build.lib.analysis.DependencyKey;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyLabels;
-import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
-import com.google.devtools.build.lib.analysis.PartiallyResolvedDependency;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
@@ -63,13 +56,9 @@ import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
-import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
-import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
-import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.producers.DependencyContext;
 import com.google.devtools.build.lib.analysis.producers.PrerequisiteParameters;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
@@ -84,17 +73,12 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
-import com.google.devtools.build.lib.packages.RawAttributeMapper;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
-import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
@@ -115,14 +99,11 @@ import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.Version;
-import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.Collection;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import javax.annotation.Nullable;
 import net.starlark.java.eval.Mutability;
 
 /**
@@ -322,121 +303,6 @@ public class BuildViewForTesting {
             configuredTarget,
             prepareDependencyContext(eventHandler, configuredTarget))
         .values();
-  }
-
-  // Helper method to find the aspects needed for a target and merge them.
-  protected static ConfiguredTargetAndData mergeAspects(
-      WalkableGraph graph, ConfiguredTargetAndData ctd, @Nullable DependencyKey dependencyKey) {
-    if (dependencyKey == null || dependencyKey.getAspects().getUsedAspects().isEmpty()) {
-      return ctd;
-    }
-
-    ConfiguredTargetKey ctKey =
-        ConfiguredTargetKey.builder()
-            .setLabel(dependencyKey.getLabel())
-            .setConfiguration(ctd.getConfiguration())
-            .build();
-    List<SkyKey> aspectKeys =
-        dependencyKey.getAspects().getUsedAspects().stream()
-            .map(aspect -> AspectKeyCreator.createAspectKey(aspect.getAspect(), ctKey))
-            .collect(toImmutableList());
-
-    try {
-      ImmutableList<ConfiguredAspect> configuredAspects =
-          graph.getSuccessfulValues(aspectKeys).values().stream()
-              .map(value -> (AspectValue) value)
-              .map(AspectValue::getConfiguredAspect)
-              .collect(toImmutableList());
-
-      return ctd.fromConfiguredTarget(
-          MergedConfiguredTarget.of(ctd.getConfiguredTarget(), configuredAspects));
-    } catch (InterruptedException | DuplicateException e) {
-      throw new IllegalStateException("Unexpected exception while finding prerequisites", e);
-    }
-  }
-
-  public OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency>
-      getDirectPrerequisiteDependenciesForTesting(
-          final ExtendedEventHandler eventHandler,
-          final ConfiguredTarget ct,
-          @Nullable ToolchainCollection<ToolchainContext> toolchainContexts)
-          throws DependencyResolver.Failure,
-              InterruptedException,
-              InconsistentAspectOrderException,
-              StarlarkTransition.TransitionException,
-              InvalidConfigurationException {
-    Target target;
-    try {
-      target = skyframeExecutor.getPackageManager().getTarget(eventHandler, ct.getLabel());
-    } catch (NoSuchPackageException | NoSuchTargetException | InterruptedException e) {
-      eventHandler.handle(
-          Event.error("Failed to get target from package during prerequisite analysis." + e));
-      return OrderedSetMultimap.create();
-    }
-
-    if (!(target instanceof Rule)) {
-      return OrderedSetMultimap.create();
-    }
-
-    BuildConfigurationValue configuration =
-        skyframeExecutor.getConfiguration(eventHandler, ct.getConfigurationKey());
-    TargetAndConfiguration ctgNode = new TargetAndConfiguration(target, configuration);
-
-    DependencyLabels dependencyLabels =
-        DependencyResolver.computeDependencyLabels(
-            ctgNode,
-            /* aspects= */ ImmutableList.of(),
-            getConfigurableAttributeKeysForTesting(
-                eventHandler,
-                ctgNode,
-                toolchainContexts == null ? null : toolchainContexts.getTargetPlatform()),
-            toolchainContexts);
-    return DependencyResolver.partiallyResolveDependencies(
-        dependencyLabels.labels(),
-        target.getAssociatedRule(),
-        dependencyLabels.attributeMap(),
-        toolchainContexts,
-        /* aspects= */ ImmutableList.of(),
-        NULL_TRANSITION_COLLECTOR,
-        /* starlarkExecTransitionFactory= */ null);
-  }
-
-  /**
-   * Returns ConfigMatchingProvider instances corresponding to the configurable attribute keys
-   * present in this rule's attributes.
-   */
-  private ImmutableMap<Label, ConfigMatchingProvider> getConfigurableAttributeKeysForTesting(
-      ExtendedEventHandler eventHandler,
-      TargetAndConfiguration ctg,
-      @Nullable PlatformInfo platformInfo)
-      throws StarlarkTransition.TransitionException, InvalidConfigurationException,
-          InterruptedException {
-    if (!(ctg.getTarget() instanceof Rule)) {
-      return ImmutableMap.of();
-    }
-    Rule rule = (Rule) ctg.getTarget();
-    Map<Label, ConfigMatchingProvider> keys = new LinkedHashMap<>();
-    RawAttributeMapper mapper = RawAttributeMapper.of(rule);
-    for (Attribute attribute : rule.getAttributes()) {
-      for (Label label : mapper.getConfigurabilityKeys(attribute.getName(), attribute.getType())) {
-        if (BuildType.Selector.isDefaultConditionLabel(label)) {
-          continue;
-        }
-        ConfiguredTarget ct =
-            getConfiguredTargetForTesting(eventHandler, label, ctg.getConfiguration());
-        ConfigMatchingProvider matchProvider = ct.getProvider(ConfigMatchingProvider.class);
-        ConstraintValueInfo constraintValueInfo = ct.get(ConstraintValueInfo.PROVIDER);
-        if (matchProvider != null) {
-          keys.put(label, matchProvider);
-        } else if (constraintValueInfo != null && platformInfo != null) {
-          keys.put(label, constraintValueInfo.configMatchingProvider(platformInfo));
-        } else {
-          throw new InvalidConfigurationException(
-              String.format("%s isn't a valid select() condition", label));
-        }
-      }
-    }
-    return ImmutableMap.copyOf(keys);
   }
 
   private OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> getPrerequisiteMapForTesting(
