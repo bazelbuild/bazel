@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
@@ -72,6 +73,7 @@ import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceFileFunction;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
@@ -117,7 +119,9 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
   public void setupDelegator() throws Exception {
     rootPath = scratch.dir("/outputbase");
     scratch.file(
-        rootPath.getRelative("MODULE.bazel").getPathString(), "module(name='test',version='0.1')");
+        rootPath.getRelative("MODULE.bazel").getPathString(),
+        "module(name='test',version='0.1')",
+        "bazel_dep(name='bazel_tools',version='1.0')");
     BlazeDirectories directories =
         new BlazeDirectories(
             new ServerDirectories(rootPath, rootPath, rootPath),
@@ -162,6 +166,13 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             .build(ruleClassProvider, fileSystem);
 
     registryFactory = new FakeRegistry.Factory();
+    FakeRegistry registry =
+        registryFactory
+            .newFakeRegistry(scratch.dir("modules").getPathString())
+            .addModule(
+                createModuleKey("bazel_tools", "1.0"),
+                "module(name='bazel_tools', version='1.0');");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     HashFunction hashFunction = fileSystem.getDigestFunction().getHashFunction();
     evaluator =
@@ -217,6 +228,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                     SkyFunctions.BZL_LOAD,
                     BzlLoadFunction.create(
                         pkgFactory, directories, hashFunction, Caffeine.newBuilder().build()))
+                .put(SkyFunctions.STARLARK_BUILTINS, new StarlarkBuiltinsFunction(pkgFactory))
                 .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
                 .put(
                     SkyFunctions.IGNORED_PACKAGE_PREFIXES,
@@ -227,7 +239,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                 .put(
                     SkyFunctions.MODULE_FILE,
                     new ModuleFileFunction(registryFactory, rootPath, ImmutableMap.of()))
-                .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction(rootDirectory))
+                .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
+                .put(SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(rootDirectory))
                 .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
                 .put(
                     BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
@@ -254,12 +267,12 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     RepositoryDelegatorFunction.RESOLVED_FILE_FOR_VERIFICATION.set(differencer, Optional.empty());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
-    BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
+    YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
     BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
         differencer, CheckDirectDepsMode.WARNING);
     BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE.set(
         differencer, BazelCompatibilityMode.ERROR);
-    BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.OFF);
+    BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.UPDATE);
   }
 
   @Test
@@ -388,14 +401,6 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
         rootPath.getRelative("MODULE.bazel").getPathString(),
         "module(name='aaa',version='0.1')",
         "bazel_dep(name='bazel_tools',version='1.0')");
-    FakeRegistry registry =
-        registryFactory
-            .newFakeRegistry(scratch.dir("modules").getPathString())
-            .addModule(
-                createModuleKey("bazel_tools", "1.0"),
-                "module(name='bazel_tools', version='1.0');");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
-    // Note that bazel_tools is a well-known module, so its repo name will always be "bazel_tools".
     scratch.file(rootPath.getRelative("BUILD").getPathString());
     scratch.file(
         rootPath.getRelative("repo_rule.bzl").getPathString(),

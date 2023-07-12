@@ -27,21 +27,19 @@ namespace blaze {
 using std::string;
 using std::vector;
 
-static const char kWorkspaceDotBazelMarker[] = "WORKSPACE.bazel";
-static const char kWorkspaceMarker[] = "WORKSPACE";
-
 string WorkspaceLayout::GetOutputRoot() const {
   return blaze::GetOutputRoot();
 }
 
 bool WorkspaceLayout::InWorkspace(const string &workspace) const {
-  auto workspaceDotBazelPath =
-      blaze_util::JoinPath(workspace, kWorkspaceDotBazelMarker);
-  auto workspacePath = blaze_util::JoinPath(workspace, kWorkspaceMarker);
-  return (blaze_util::PathExists(workspaceDotBazelPath) &&
-          !blaze_util::IsDirectory(workspaceDotBazelPath)) ||
-         (blaze_util::PathExists(workspacePath) &&
-          !blaze_util::IsDirectory(workspacePath));
+  for (auto boundaryFileName :
+       {"MODULE.bazel", "REPO.bazel", "WORKSPACE.bazel", "WORKSPACE"}) {
+    auto boundaryFilePath = blaze_util::JoinPath(workspace, boundaryFileName);
+    if (blaze_util::PathExists(boundaryFilePath) &&
+        !blaze_util::IsDirectory(boundaryFilePath))
+      return true;
+  }
+  return false;
 }
 
 string WorkspaceLayout::GetWorkspace(const string &cwd) const {

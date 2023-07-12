@@ -148,6 +148,10 @@ public class CppLinkActionBuilder {
   private boolean isStampingEnabled;
   private final Map<String, String> executionInfo = new LinkedHashMap<>();
 
+  // We have to add the dynamicLibrarySolibOutput to the CppLinkActionBuilder so that it knows how
+  // to set up the RPATH properly with respect to the symlink itself and not the original library.
+  private Artifact dynamicLibrarySolibSymlinkOutput;
+
   /**
    * Creates a builder that builds {@link CppLinkAction}s.
    *
@@ -803,7 +807,8 @@ public class CppLinkActionBuilder {
             nonExpandedLinkerInputs,
             needWholeArchive,
             ruleErrorConsumer,
-            ((RuleContext) actionConstructionContext).getWorkspaceName());
+            ((RuleContext) actionConstructionContext).getWorkspaceName(),
+            dynamicLibrarySolibSymlinkOutput);
     CollectedLibrariesToLink collectedLibrariesToLink =
         librariesToLinkCollector.collectLibrariesToLink();
 
@@ -1534,6 +1539,13 @@ public class CppLinkActionBuilder {
   @CanIgnoreReturnValue
   public CppLinkActionBuilder addExecutionInfo(Map<String, String> executionInfo) {
     this.executionInfo.putAll(executionInfo);
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public CppLinkActionBuilder setDynamicLibrarySolibSymlinkOutput(
+      Artifact dynamicLibrarySolibSymlinkOutput) {
+    this.dynamicLibrarySolibSymlinkOutput = dynamicLibrarySolibSymlinkOutput;
     return this;
   }
 }

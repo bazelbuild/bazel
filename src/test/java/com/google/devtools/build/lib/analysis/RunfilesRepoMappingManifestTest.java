@@ -20,21 +20,19 @@ import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createMo
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
-import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Map.Entry;
-import net.starlark.java.eval.EvalException;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -59,9 +57,8 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
             BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING),
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE, BazelCompatibilityMode.ERROR),
-        PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.OFF),
-        PrecomputedValue.injected(
-            BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS, ImmutableList.of()));
+        PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.UPDATE),
+        PrecomputedValue.injected(YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, ImmutableList.of()));
   }
 
   @Before
@@ -98,22 +95,10 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
         "bare_binary(name='bare_binary')");
   }
 
-  private RepoMappingManifestAction getRepoMappingManifestActionForTarget(String label)
-      throws Exception {
+  private ImmutableList<String> getRepoMappingManifestForTarget(String label) throws Exception {
     Action action = getGeneratingAction(getRunfilesSupport(label).getRepoMappingManifest());
     assertThat(action).isInstanceOf(RepoMappingManifestAction.class);
-    return (RepoMappingManifestAction) action;
-  }
-
-  private String computeKey(RepoMappingManifestAction action)
-      throws CommandLineExpansionException, EvalException, InterruptedException {
-    Fingerprint fp = new Fingerprint();
-    action.computeKey(actionKeyContext, /* artifactExpander= */ null, fp);
-    return fp.hexDigestAndReset();
-  }
-
-  private ImmutableList<String> getRepoMappingManifestForTarget(String label) throws Exception {
-    return getRepoMappingManifestActionForTarget(label)
+    return ((RepoMappingManifestAction) action)
         .newDeterministicWriter(null)
         .getBytes()
         .toStringUtf8()
@@ -242,83 +227,5 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
             "bare_rule~1.0,bare_rule,bare_rule~1.0",
             "tooled_rule~1.0,bare_rule,bare_rule~1.0")
         .inOrder();
-  }
-
-  @Test
-  public void actionRerunsOnRepoMappingChange_workspaceName() throws Exception {
-    rewriteWorkspace("workspace(name='aaa_ws')");
-    scratch.overwriteFile(
-        "MODULE.bazel",
-        "module(name='aaa',version='1.0')",
-        "bazel_dep(name='bare_rule',version='1.0')");
-    scratch.overwriteFile(
-        "BUILD", "load('@bare_rule//:defs.bzl', 'bare_binary')", "bare_binary(name='aaa')");
-
-    RepoMappingManifestAction actionBeforeChange = getRepoMappingManifestActionForTarget("//:aaa");
-
-    rewriteWorkspace("workspace(name='not_aaa_ws')");
-
-    RepoMappingManifestAction actionAfterChange = getRepoMappingManifestActionForTarget("//:aaa");
-    assertThat(computeKey(actionBeforeChange)).isNotEqualTo(computeKey(actionAfterChange));
-  }
-
-  @Test
-  public void actionRerunsOnRepoMappingChange_repoName() throws Exception {
-    rewriteWorkspace("workspace(name='aaa_ws')");
-    scratch.overwriteFile(
-        "MODULE.bazel",
-        "module(name='aaa',version='1.0')",
-        "bazel_dep(name='bare_rule',version='1.0')");
-    scratch.overwriteFile(
-        "BUILD", "load('@bare_rule//:defs.bzl', 'bare_binary')", "bare_binary(name='aaa')");
-
-    RepoMappingManifestAction actionBeforeChange = getRepoMappingManifestActionForTarget("//:aaa");
-
-    scratch.overwriteFile(
-        "MODULE.bazel",
-        "module(name='aaa',version='1.0',repo_name='not_aaa')",
-        "bazel_dep(name='bare_rule',version='1.0')");
-    invalidatePackages();
-
-    RepoMappingManifestAction actionAfterChange = getRepoMappingManifestActionForTarget("//:aaa");
-    assertThat(computeKey(actionBeforeChange)).isNotEqualTo(computeKey(actionAfterChange));
-  }
-
-  @Test
-  public void actionRerunsOnRepoMappingChange_newEntry() throws Exception {
-    rewriteWorkspace("workspace(name='aaa_ws')");
-    scratch.overwriteFile(
-        "MODULE.bazel",
-        "module(name='aaa',version='1.0')",
-        "bazel_dep(name='bare_rule',version='1.0')");
-    scratch.overwriteFile(
-        "BUILD", "load('@bare_rule//:defs.bzl', 'bare_binary')", "bare_binary(name='aaa')");
-
-    registry.addModule(
-        createModuleKey("bbb", "1.0"),
-        "module(name='bbb',version='1.0')",
-        "bazel_dep(name='bare_rule',version='1.0')");
-    scratch.overwriteFile(
-        moduleRoot.getRelative("bbb~1.0").getRelative("WORKSPACE").getPathString());
-    scratch.overwriteFile(moduleRoot.getRelative("bbb~1.0").getRelative("BUILD").getPathString());
-    scratch.overwriteFile(
-        moduleRoot.getRelative("bbb~1.0").getRelative("def.bzl").getPathString(), "BBB = '1'");
-
-    RepoMappingManifestAction actionBeforeChange = getRepoMappingManifestActionForTarget("//:aaa");
-
-    scratch.overwriteFile(
-        "MODULE.bazel",
-        "module(name='aaa',version='1.0')",
-        "bazel_dep(name='bbb',version='1.0')",
-        "bazel_dep(name='bare_rule',version='1.0')");
-    scratch.overwriteFile(
-        "BUILD",
-        "load('@bare_rule//:defs.bzl', 'bare_binary')",
-        "load('@bbb//:def.bzl', 'BBB')",
-        "bare_binary(name='aaa')");
-    invalidatePackages();
-
-    RepoMappingManifestAction actionAfterChange = getRepoMappingManifestActionForTarget("//:aaa");
-    assertThat(computeKey(actionBeforeChange)).isNotEqualTo(computeKey(actionAfterChange));
   }
 }

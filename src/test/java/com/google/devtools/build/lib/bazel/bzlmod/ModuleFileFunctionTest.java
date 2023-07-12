@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunctio
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.BzlmodRepoRuleFunction;
+import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.FileFunction;
@@ -152,6 +153,9 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .put(
                     BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
                     new BzlmodRepoRuleFunction(ruleClassProvider, directories))
+                .put(
+                    SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE,
+                    new ClientEnvironmentFunction(new AtomicReference<>(ImmutableMap.of())))
                 .buildOrThrow(),
             differencer);
 
@@ -170,7 +174,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     RepositoryDelegatorFunction.RESOLVED_FILE_FOR_VERIFICATION.set(differencer, Optional.empty());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
-    BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
+    YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
   }
 
   @Test
@@ -483,6 +487,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                 "fake:0/modules/mymod/1.0/MODULE.bazel", 2, 23))
                         .setImports(ImmutableBiMap.of("repo1", "repo1"))
                         .setDevImports(ImmutableSet.of())
+                        .setHasDevUseExtension(false)
+                        .setHasNonDevUseExtension(true)
                         .addTag(
                             Tag.builder()
                                 .setTagName("tag")
@@ -508,6 +514,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                 "fake:0/modules/mymod/1.0/MODULE.bazel", 5, 23))
                         .setImports(ImmutableBiMap.of("other_repo1", "repo1", "repo2", "repo2"))
                         .setDevImports(ImmutableSet.of())
+                        .setHasDevUseExtension(false)
+                        .setHasNonDevUseExtension(true)
                         .addTag(
                             Tag.builder()
                                 .setTagName("tag1")
@@ -547,6 +555,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setImports(
                             ImmutableBiMap.of("mvn", "maven", "junit", "junit", "guava", "guava"))
                         .setDevImports(ImmutableSet.of())
+                        .setHasDevUseExtension(false)
+                        .setHasNonDevUseExtension(true)
                         .addTag(
                             Tag.builder()
                                 .setTagName("dep")
@@ -618,6 +628,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                 "alpha", "alpha", "beta", "beta", "gamma", "gamma", "delta",
                                 "delta"))
                         .setDevImports(ImmutableSet.of("alpha", "gamma"))
+                        .setHasDevUseExtension(true)
+                        .setHasNonDevUseExtension(true)
                         .addTag(
                             Tag.builder()
                                 .setTagName("tag")
@@ -715,6 +727,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                 "fake:0/modules/mymod/1.0/MODULE.bazel", 5, 23))
                         .setImports(ImmutableBiMap.of("beta", "beta", "delta", "delta"))
                         .setDevImports(ImmutableSet.of())
+                        .setHasDevUseExtension(false)
+                        .setHasNonDevUseExtension(true)
                         .addTag(
                             Tag.builder()
                                 .setTagName("tag")
@@ -1031,5 +1045,25 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
 
     assertContainsEvent("if module() is called, it must be called before any other functions");
+  }
+
+  @Test
+  public void isolatedExtensionWithoutImports() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "isolated_ext = use_extension('//:extensions.bzl', 'my_ext', isolate = True)");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().toString())
+        .contains(
+            "the isolated usage at /workspace/MODULE.bazel:1:29 of extension my_ext defined in "
+                + "@//:extensions.bzl has no effect as no repositories are imported from it. "
+                + "Either import one or more repositories generated by the extension with "
+                + "use_repo or remove the usage.");
   }
 }

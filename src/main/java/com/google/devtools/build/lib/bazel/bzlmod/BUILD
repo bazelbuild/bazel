@@ -6,7 +6,9 @@ package(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["*"]),
+    srcs = glob(["*"]) + [
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod/modcommand:srcs",
+    ],
     visibility = ["//src:__subpackages__"],
 )
 
@@ -86,20 +88,42 @@ java_library(
 )
 
 java_library(
+    name = "bazel_lockfile_module",
+    srcs = ["BazelLockFileModule.java"],
+    deps = [
+        ":resolution",
+        ":resolution_impl",
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository:repository_options",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:flogger",
+        "//third_party:gson",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "resolution",
     srcs = [
         "AbridgedModule.java",
         "ArchiveOverride.java",
         "BazelDepGraphValue.java",
         "BazelLockFileValue.java",
+        "BazelModuleResolutionEvent.java",
         "BazelModuleResolutionValue.java",
         "BzlmodFlagsAndEnvVars.java",
         "GitOverride.java",
         "InterimModule.java",
         "LocalPathOverride.java",
+        "LockFileModuleExtension.java",
         "Module.java",
         "ModuleBase.java",
         "ModuleExtensionEvalStarlarkThreadContext.java",
+        "ModuleExtensionResolutionEvent.java",
         "ModuleFileValue.java",
         "ModuleOverride.java",
         "MultipleVersionOverride.java",
@@ -153,6 +177,7 @@ java_library(
         "SingleExtensionUsagesFunction.java",
         "StarlarkBazelModule.java",
         "TypeCheckedTag.java",
+        "YankedVersionsUtil.java",
     ],
     deps = [
         ":common",
@@ -233,6 +258,7 @@ java_library(
     ],
     deps = [
         ":common",
+        ":module_extension",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -249,6 +275,7 @@ java_library(
     deps = [
         ":common",
         ":inspection",
+        ":module_extension",
         ":resolution",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",

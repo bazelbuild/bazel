@@ -28,6 +28,7 @@ import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.functions.Action;
 import io.reactivex.rxjava3.subjects.AsyncSubject;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -358,6 +359,32 @@ public final class AsyncTaskCache<KeyT, ValueT> {
   }
 
   /**
+   * Returns a {@link Completable} which will completes once the in-progress tasks identified by
+   * {@code keys} are completed. Tasks submitted after the call are not waited.
+   */
+  public Completable waitInProgressTasks(Collection<KeyT> keys) {
+    return Completable.defer(
+        () -> {
+          List<Execution> executions = new ArrayList<>();
+          synchronized (lock) {
+            for (var key : keys) {
+              var execution = inProgress.get(key);
+              if (execution != null) {
+                executions.add(execution);
+              }
+            }
+          }
+          if (executions.isEmpty()) {
+            return Completable.complete();
+          }
+
+          return Completable.fromPublisher(
+              Flowable.fromIterable(executions)
+                  .flatMapSingle(e -> Single.fromObservable(e.completion)));
+        });
+  }
+
+  /**
    * Waits for the in-progress tasks to finish. Any tasks that are submitted after the call are not
    * waited.
    */
@@ -533,6 +560,14 @@ public final class AsyncTaskCache<KeyT, ValueT> {
      */
     public void shutdown() {
       cache.shutdown();
+    }
+
+    /**
+     * Returns a {@link Completable} which will completes once the in-progress tasks identified by
+     * {@code keys} are completed. Tasks submitted after the call are not waited.
+     */
+    public Completable waitInProgressTasks(Collection<KeyT> keys) {
+      return cache.waitInProgressTasks(keys);
     }
 
     /**

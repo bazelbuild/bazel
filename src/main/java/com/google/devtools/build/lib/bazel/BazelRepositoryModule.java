@@ -48,8 +48,9 @@ import com.google.devtools.build.lib.bazel.bzlmod.RegistryFactoryImpl;
 import com.google.devtools.build.lib.bazel.bzlmod.RepoSpec;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionEvalFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionUsagesFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.commands.FetchCommand;
-import com.google.devtools.build.lib.bazel.commands.ModqueryCommand;
+import com.google.devtools.build.lib.bazel.commands.ModCommand;
 import com.google.devtools.build.lib.bazel.commands.SyncCommand;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformFunction;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformRule;
@@ -151,7 +152,7 @@ public class BazelRepositoryModule extends BlazeModule {
   private final AtomicBoolean ignoreDevDeps = new AtomicBoolean(false);
   private CheckDirectDepsMode checkDirectDepsMode = CheckDirectDepsMode.WARNING;
   private BazelCompatibilityMode bazelCompatibilityMode = BazelCompatibilityMode.ERROR;
-  private LockfileMode bazelLockfileMode = LockfileMode.OFF;
+  private LockfileMode bazelLockfileMode = LockfileMode.UPDATE;
   private List<String> allowedYankedVersions = ImmutableList.of();
   private SingleExtensionEvalFunction singleExtensionEvalFunction;
 
@@ -199,7 +200,7 @@ public class BazelRepositoryModule extends BlazeModule {
   @Override
   public void serverInit(OptionsParsingResult startupOptions, ServerBuilder builder) {
     builder.addCommands(new FetchCommand());
-    builder.addCommands(new ModqueryCommand());
+    builder.addCommands(new ModCommand());
     builder.addCommands(new SyncCommand());
     builder.addInfoItems(new RepositoryCacheInfoItem(repositoryCache));
   }
@@ -265,8 +266,7 @@ public class BazelRepositoryModule extends BlazeModule {
         .addSkyFunction(
             SkyFunctions.MODULE_FILE,
             new ModuleFileFunction(registryFactory, directories.getWorkspace(), builtinModules))
-        .addSkyFunction(
-            SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction(directories.getWorkspace()))
+        .addSkyFunction(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
         .addSkyFunction(
             SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(directories.getWorkspace()))
         .addSkyFunction(SkyFunctions.BAZEL_MODULE_INSPECTION, new BazelModuleInspectorFunction())
@@ -571,7 +571,7 @@ public class BazelRepositoryModule extends BlazeModule {
             BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE, bazelCompatibilityMode),
         PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, bazelLockfileMode),
         PrecomputedValue.injected(
-            BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS, allowedYankedVersions));
+            YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, allowedYankedVersions));
   }
 
   @Override

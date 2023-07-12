@@ -127,7 +127,7 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
                     new ModuleFileFunction(registryFactory, rootDirectory, ImmutableMap.of()))
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
                 .put(SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(rootDirectory))
-                .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction(rootDirectory))
+                .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
                 .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, resolutionFunctionMock)
                 .put(
                     SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE,
@@ -139,7 +139,6 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
     PrecomputedValue.STARLARK_SEMANTICS.set(
         differencer,
         StarlarkSemantics.builder().setBool(BuildLanguageOptions.ENABLE_BZLMOD, true).build());
-    BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.UPDATE);
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of());
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
@@ -147,8 +146,8 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
         differencer, CheckDirectDepsMode.OFF);
     BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE.set(
         differencer, BazelCompatibilityMode.ERROR);
-    BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.OFF);
-    BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
+    BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.UPDATE);
+    YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
   }
 
   @Test
@@ -220,6 +219,8 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
         .setDevImports(ImmutableSet.of())
         .setUsingModule(ModuleKey.ROOT)
         .setLocation(Location.BUILTIN)
+        .setHasDevUseExtension(false)
+        .setHasNonDevUseExtension(true)
         .build();
   }
 
@@ -291,7 +292,7 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
             maven, "rules_jvm_external~1.0~maven",
             pip, "rules_python~2.0~pip",
             myext, "dep~2.0~myext",
-            myext2, "dep~2.0~myext~2");
+            myext2, "dep~2.0~myext2");
 
     assertThat(value.getFullRepoMapping(ModuleKey.ROOT))
         .isEqualTo(
@@ -322,7 +323,7 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
                 "oneext",
                 "dep~2.0~myext~myext",
                 "twoext",
-                "dep~2.0~myext~2~myext"));
+                "dep~2.0~myext2~myext"));
   }
 
   @Test

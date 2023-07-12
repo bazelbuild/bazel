@@ -736,7 +736,8 @@ public final class CcLinkingHelper {
                 "-Wl,-soname="
                     + SolibSymlinkAction.getDynamicLibrarySoname(
                         linkerOutput.getRootRelativePath(),
-                        /* preserveName= */ false,
+                        /* preserveName= */ dynamicLinkType
+                            != LinkTargetType.NODEPS_DYNAMIC_LIBRARY,
                         actionConstructionContext.getConfiguration().getMnemonic()));
       }
     }
@@ -841,6 +842,10 @@ public final class CcLinkingHelper {
     if (dynamicLinkActionBuilder.getAllLtoBackendArtifacts() != null) {
       ccLinkingOutputs.addAllLtoArtifacts(dynamicLinkActionBuilder.getAllLtoBackendArtifacts());
     }
+    Artifact implLibraryLinkArtifact = getDynamicLibrarySolibSymlinkOutput(linkerOutput);
+    if (implLibraryLinkArtifact != null) {
+      dynamicLinkActionBuilder.setDynamicLibrarySolibSymlinkOutput(implLibraryLinkArtifact);
+    }
     CppLinkAction dynamicLinkAction = dynamicLinkActionBuilder.build();
     if (dynamicLinkType.isExecutable()) {
       ccLinkingOutputs.setExecutable(linkerOutput);
@@ -866,14 +871,16 @@ public final class CcLinkingHelper {
         }
         libraryToLinkBuilder.setDynamicLibrary(dynamicLibrary.getArtifact());
       } else {
-        Artifact implLibraryLinkArtifact =
-            SolibSymlinkAction.getDynamicLibrarySymlink(
-                /* actionRegistry= */ actionRegistry,
-                /* actionConstructionContext= */ actionConstructionContext,
-                ccToolchain.getSolibDirectory(),
-                dynamicLibrary.getArtifact(),
-                /* preserveName= */ false,
-                /* prefixConsumer= */ false);
+        if (dynamicLinkType == LinkTargetType.NODEPS_DYNAMIC_LIBRARY) {
+          implLibraryLinkArtifact =
+              SolibSymlinkAction.getDynamicLibrarySymlink(
+                  /* actionRegistry= */ actionRegistry,
+                  /* actionConstructionContext= */ actionConstructionContext,
+                  ccToolchain.getSolibDirectory(),
+                  dynamicLibrary.getArtifact(),
+                  /* preserveName= */ false,
+                  /* prefixConsumer= */ false);
+        }
         libraryToLinkBuilder.setDynamicLibrary(implLibraryLinkArtifact);
         libraryToLinkBuilder.setResolvedSymlinkDynamicLibrary(dynamicLibrary.getArtifact());
 
@@ -884,7 +891,8 @@ public final class CcLinkingHelper {
                   /* actionConstructionContext= */ actionConstructionContext,
                   ccToolchain.getSolibDirectory(),
                   interfaceLibrary.getArtifact(),
-                  /* preserveName= */ false,
+                  // Need to preserve name for transitive shared libraries that may be distributed.
+                  /* preserveName= */ dynamicLinkType != LinkTargetType.NODEPS_DYNAMIC_LIBRARY,
                   /* prefixConsumer= */ false);
           libraryToLinkBuilder.setInterfaceLibrary(libraryLinkArtifact);
           libraryToLinkBuilder.setResolvedSymlinkInterfaceLibrary(interfaceLibrary.getArtifact());
@@ -1047,5 +1055,25 @@ public final class CcLinkingHelper {
       librariesToLinkBuilder.add(libraryToLinkToUse);
     }
     return librariesToLinkBuilder.build();
+  }
+
+  @Nullable
+  private Artifact getDynamicLibrarySolibSymlinkOutput(Artifact linkerOutputArtifact) {
+    if (dynamicLinkType != LinkTargetType.DYNAMIC_LIBRARY
+        || neverlink
+        || featureConfiguration.isEnabled(CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY)) {
+      return null;
+    }
+    return SolibSymlinkAction.getDynamicLibrarySymlink(
+        /* actionRegistry= */ actionRegistry,
+        /* actionConstructionContext= */ actionConstructionContext,
+        ccToolchain.getSolibDirectory(),
+        linkerOutputArtifact,
+        // For transitive shared libraries we want to preserve the name of the original library so
+        // that distribution artifacts can be linked against it and not against the mangled name.
+        // This makes it possible to find the library on the system if the RPATH has been set
+        // properly.
+        /* preserveName= */ true,
+        /* prefixConsumer= */ false);
   }
 }

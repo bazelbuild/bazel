@@ -108,10 +108,6 @@ upper_tabs:
         path: /build/style-guide
       - title: Share variables
         path: /build/share-variables
-      - title: External dependencies
-        path: /build/external
-      - title: Manage dependencies with Bzlmod
-        path: /build/bzlmod
       - title: Recommended rules
         path: /community/recommended-rules
       - heading: Running Bazel
@@ -125,6 +121,23 @@ upper_tabs:
         path: /run/scripts
       - title: Client/server implementation
         path: /run/client-server
+      - heading: External dependencies
+      - title: Overview
+        path: /external/overview
+      - title: Bazel modules
+        path: /external/module
+      - title: Bazel registries
+        path: /external/registry
+      - title: Module extensions
+        path: /external/extension
+      - title: Module lockfile
+        path: /external/lockfile
+      - title: '`mod` command'
+        path: /external/mod-command
+      - title: Bzlmod migration guide
+        path: /external/migration
+      - title: Advanced topics
+        path: /external/advanced
       - heading: Querying your build
       - title: Query quickstart
         path: /query/quickstart
