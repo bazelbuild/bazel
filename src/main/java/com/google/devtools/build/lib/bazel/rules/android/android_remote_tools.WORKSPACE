@@ -5,8 +5,8 @@ load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 maybe(
     http_archive,
     name = "android_tools",
-    sha256 = "606d7722b69924c45b4869eb7050a8a92c576c5474867d49de27f959b00c8b48",  # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER
-    url = "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.27.1.tar",
+    sha256 = "5d0f140125afba82603ccd5050c78dd2e2863ca992a17f43f6df9a9119ffcb9b",  # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER
+    url = "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.27.2.tar",
 )
 
 # This must be kept in sync with the top-level WORKSPACE file.
