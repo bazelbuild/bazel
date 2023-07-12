@@ -450,221 +450,39 @@ class BazelModuleTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', ':a'], allow_failure=False)
     self.assertIn('I LUV U!', '\n'.join(stderr))
 
-  def testNativeModuleNameAndVersion(self):
-    self.main_registry.setModuleBasePath('projects')
-    projects_dir = self.main_registry.projects
+  def testArchiveWithArchiveType(self):
+    # make the archive without the .zip extension
+    self.main_registry.createCcModule(
+        'aaa', '1.2', archive_pattern='%s.%s', archive_type='zip'
+    )
 
     self.ScratchFile(
         'MODULE.bazel',
         [
-            'module(name="root",version="0.1")',
-            'bazel_dep(name="foo",version="1.0")',
-            'report_ext = use_extension("@foo//:ext.bzl", "report_ext")',
-            'use_repo(report_ext, "report_repo")',
-            'bazel_dep(name="bar")',
-            'local_path_override(module_name="bar",path="bar")',
+            'bazel_dep(name = "aaa", version = "1.2")',
         ],
-    )
-    self.ScratchFile('WORKSPACE')
-    self.ScratchFile(
-        'WORKSPACE.bzlmod', ['local_repository(name="quux",path="quux")']
     )
     self.ScratchFile(
         'BUILD',
         [
-            'load("@foo//:report.bzl", "report")',
-            'report()',
-        ],
-    )
-    # foo: a repo defined by a normal Bazel module. Also hosts the extension
-    #      `report_ext` which generates a repo `report_repo`.
-    self.main_registry.createLocalPathModule('foo', '1.0', 'foo')
-    projects_dir.joinpath('foo').mkdir(exist_ok=True)
-    scratchFile(projects_dir.joinpath('foo', 'WORKSPACE'))
-    scratchFile(
-        projects_dir.joinpath('foo', 'BUILD'),
-        [
-            'load(":report.bzl", "report")',
-            'report()',
-        ],
-    )
-    scratchFile(
-        projects_dir.joinpath('foo', 'report.bzl'),
-        [
-            'def report():',
-            '  repo = native.repository_name()',
-            '  name = str(native.module_name())',
-            '  version = str(native.module_version())',
-            '  print("@" + repo + " reporting in: " + name + "@" + version)',
-            '  native.filegroup(name="a")',
-        ],
-    )
-    scratchFile(
-        projects_dir.joinpath('foo', 'ext.bzl'),
-        [
-            'def _report_repo(rctx):',
-            '  rctx.file("BUILD",',
-            '    "load(\\"@foo//:report.bzl\\", \\"report\\")\\n" +',
-            '    "report()")',
-            'report_repo = repository_rule(_report_repo)',
-            'report_ext = module_extension(',
-            '  lambda mctx: report_repo(name="report_repo"))',
-        ],
-    )
-    # bar: a repo defined by a Bazel module with a non-registry override
-    self.ScratchFile('bar/WORKSPACE')
-    self.ScratchFile(
-        'bar/MODULE.bazel',
-        [
-            'module(name="bar", version="2.0")',
-            'bazel_dep(name="foo",version="1.0")',
-        ],
-    )
-    self.ScratchFile(
-        'bar/BUILD',
-        [
-            'load("@foo//:report.bzl", "report")',
-            'report()',
-        ],
-    )
-    # quux: a repo defined by WORKSPACE
-    self.ScratchFile('quux/WORKSPACE')
-    self.ScratchFile(
-        'quux/BUILD',
-        [
-            'load("@foo//:report.bzl", "report")',
-            'report()',
-        ],
-    )
-
-    _, _, stderr = self.RunBazel(
-        [
-            'build',
-            ':a',
-            '@foo//:a',
-            '@report_repo//:a',
-            '@bar//:a',
-            '@quux//:a',
-        ],
-        allow_failure=False,
-    )
-    stderr = '\n'.join(stderr)
-    self.assertIn('@@ reporting in: root@0.1', stderr)
-    self.assertIn('@@foo~1.0 reporting in: foo@1.0', stderr)
-    self.assertIn(
-        '@@foo~1.0~report_ext~report_repo reporting in: foo@1.0', stderr
-    )
-    self.assertIn('@@bar~override reporting in: bar@2.0', stderr)
-    self.assertIn('@@quux reporting in: None@None', stderr)
-
-  def testWorkspaceToolchainRegistrationWithPlatformsConstraint(self):
-    """Regression test for https://github.com/bazelbuild/bazel/issues/17289."""
-    self.ScratchFile('MODULE.bazel')
-    self.ScratchFile(
-        'WORKSPACE', ['register_toolchains("//:my_toolchain_toolchain")']
-    )
-    os.remove(self.Path('WORKSPACE.bzlmod'))
-
-    self.ScratchFile(
-        'BUILD.bazel',
-        [
-            'load(":defs.bzl", "get_host_os", "my_consumer", "my_toolchain")',
-            'toolchain_type(name = "my_toolchain_type")',
-            'my_toolchain(',
-            '    name = "my_toolchain",',
-            '    my_value = "Hello, Bzlmod!",',
-            ')',
-            'toolchain(',
-            '    name = "my_toolchain_toolchain",',
-            '    toolchain = ":my_toolchain",',
-            '    toolchain_type = ":my_toolchain_type",',
-            '    target_compatible_with = [',
-            '        "@platforms//os:" + get_host_os(),',
-            '    ],',
-            ')',
-            'my_consumer(',
-            '    name = "my_consumer",',
+            'cc_binary(',
+            '  name = "main",',
+            '  srcs = ["main.cc"],',
+            '  deps = ["@aaa//:lib_aaa"],',
             ')',
         ],
     )
-
     self.ScratchFile(
-        'defs.bzl',
+        'main.cc',
         [
-            (
-                'load("@local_config_platform//:constraints.bzl",'
-                ' "HOST_CONSTRAINTS")'
-            ),
-            'def _my_toolchain_impl(ctx):',
-            '    return [',
-            '        platform_common.ToolchainInfo(',
-            '            my_value = ctx.attr.my_value,',
-            '        ),',
-            '    ]',
-            'my_toolchain = rule(',
-            '    implementation = _my_toolchain_impl,',
-            '    attrs = {',
-            '        "my_value": attr.string(),',
-            '    },',
-            ')',
-            'def _my_consumer(ctx):',
-            '    my_toolchain_info = ctx.toolchains["//:my_toolchain_type"]',
-            '    out = ctx.actions.declare_file(ctx.attr.name)',
-            (
-                '    ctx.actions.write(out, "my_value ='
-                ' {}".format(my_toolchain_info.my_value))'
-            ),
-            '    return [DefaultInfo(files = depset([out]))]',
-            'my_consumer = rule(',
-            '    implementation = _my_consumer,',
-            '    attrs = {},',
-            '    toolchains = ["//:my_toolchain_type"],',
-            ')',
-            'def get_host_os():',
-            '    for constraint in HOST_CONSTRAINTS:',
-            '        if constraint.startswith("@platforms//os:"):',
-            '            return constraint.removeprefix("@platforms//os:")',
+            '#include "aaa.h"',
+            'int main() {',
+            '    hello_aaa("main function");',
+            '}',
         ],
     )
-
-    self.RunBazel([
-        'build',
-        '//:my_consumer',
-        '--toolchain_resolution_debug=//:my_toolchain_type',
-    ])
-    with open(self.Path('bazel-bin/my_consumer'), 'r') as f:
-      self.assertEqual(f.read().strip(), 'my_value = Hello, Bzlmod!')
-
-  def testModuleExtensionWithRuleError(self):
-    self.ScratchFile(
-        'MODULE.bazel',
-        [
-            'ext = use_extension("extensions.bzl", "ext")',
-            'use_repo(ext, "ext")',
-        ],
-    )
-    self.ScratchFile('BUILD')
-    self.ScratchFile(
-        'extensions.bzl',
-        [
-            'def _rule_impl(ctx):',
-            '  print("RULE CALLED")',
-            'init_rule = rule(_rule_impl)',
-            'def ext_impl(module_ctx):',
-            '  init_rule()',
-            'ext = module_extension(implementation = ext_impl,)',
-        ],
-    )
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '--nobuild', '@ext//:all'],
-        allow_failure=True,
-    )
-    self.AssertExitCode(exit_code, 48, stderr)
-    self.assertIn(
-        'Error in init_rule: A rule can only be instantiated in a BUILD file, '
-        'or a macro invoked from a BUILD file',
-        stderr,
-    )
+    _, stdout, _ = self.RunBazel(['run', '//:main'], allow_failure=False)
+    self.assertIn('main function => aaa@1.2', stdout)
 
 
 if __name__ == '__main__':
