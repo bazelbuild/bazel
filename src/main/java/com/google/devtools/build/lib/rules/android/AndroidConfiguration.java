@@ -545,7 +545,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         help = "use rex tool to rewrite dex files")
     public boolean useRexToCompressDexFiles;
 
-    @Deprecated
     @Option(
         name = "experimental_allow_android_library_deps_without_srcs",
         defaultValue = "false",
