@@ -28,6 +28,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.syntax.Location;
 
@@ -309,7 +310,7 @@ public final class BzlmodTestUtil {
   }
 
   public static TagClass createTagClass(Attribute... attrs) {
-    return TagClass.create(ImmutableList.copyOf(attrs), "doc", Location.BUILTIN);
+    return TagClass.create(ImmutableList.copyOf(attrs), Optional.of("doc"), Location.BUILTIN);
   }
 
   /** A builder for {@link Tag} for testing purposes. */
