@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.bzlmod.modquery;
+package com.google.devtools.build.lib.bazel.bzlmod.modcommand;
 
 import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
 
@@ -22,11 +22,11 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.Augm
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.bazel.bzlmod.Version;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryExecutor.ResultNode;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryExecutor.ResultNode.IsIndirect;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryExecutor.ResultNode.NodeMetadata;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryOptions.ExtensionShow;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.OutputFormatters.OutputFormatter;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultNode;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultNode.IsIndirect;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultNode.NodeMetadata;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.ExtensionShow;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.OutputFormatters.OutputFormatter;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashSet;
@@ -35,8 +35,8 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Outputs graph-based results of {@link ModqueryExecutor} in the Graphviz <i>dot</i> format which
- * can be further pipelined to create an image graph visualization.
+ * Outputs graph-based results of {@link ModExecutor} in the Graphviz <i>dot</i> format which can be
+ * further pipelined to create an image graph visualization.
  */
 public class GraphvizOutputFormatter extends OutputFormatter {
   private StringBuilder str;

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.bzlmod.modquery;
+package com.google.devtools.build.lib.bazel.bzlmod.modcommand;
 
 import static java.util.stream.Collectors.joining;
 
@@ -26,14 +26,14 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.Augm
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.bazel.bzlmod.Version;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryExecutor.ResultNode;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryOptions.OutputFormat;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultNode;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.OutputFormat;
 import java.io.PrintWriter;
 import javax.annotation.Nullable;
 
 /**
- * Contains the output formatters for the graph-based results of {@link ModqueryExecutor} that can
- * be specified using {@link ModqueryOptions#outputFormat}.
+ * Contains the output formatters for the graph-based results of {@link ModExecutor} that can be
+ * specified using {@link ModOptions#outputFormat}.
  */
 public final class OutputFormatters {
 
@@ -63,7 +63,7 @@ public final class OutputFormatters {
     protected ImmutableMap<ModuleExtensionId, ImmutableSetMultimap<String, ModuleKey>>
         extensionRepoImports;
     protected PrintWriter printer;
-    protected ModqueryOptions options;
+    protected ModOptions options;
 
     /** Compact representation of the data provided by the {@code --verbose} flag. */
     @AutoValue
@@ -111,7 +111,7 @@ public final class OutputFormatters {
         ImmutableMap<ModuleExtensionId, ImmutableSetMultimap<String, ModuleKey>>
             extensionRepoImports,
         PrintWriter printer,
-        ModqueryOptions options) {
+        ModOptions options) {
       this.result = result;
       this.depGraph = depGraph;
       this.extensionRepos = extensionRepos;
@@ -133,7 +133,7 @@ public final class OutputFormatters {
         ModuleKey key,
         ModuleKey parent,
         ImmutableMap<ModuleKey, AugmentedModule> depGraph,
-        ModqueryOptions options) {
+        ModOptions options) {
       this.depGraph = depGraph;
       this.options = options;
       return getExtraResolutionExplanation(key, parent);

@@ -17,7 +17,7 @@ java_library(
     ),
     resources = [
         "fetch.txt",
-        "modquery.txt",
+        "mod.txt",
         "sync.txt",
     ],
     deps = [
@@ -33,7 +33,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:repo_rule_value",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
-        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod/modquery",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod/modcommand",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/starlark",
         "//src/main/java/com/google/devtools/build/lib/cmdline",

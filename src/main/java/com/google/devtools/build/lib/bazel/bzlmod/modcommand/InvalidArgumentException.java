@@ -13,9 +13,9 @@
 // limitations under the License.
 //
 
-package com.google.devtools.build.lib.bazel.bzlmod.modquery;
+package com.google.devtools.build.lib.bazel.bzlmod.modcommand;
 
-import com.google.devtools.build.lib.server.FailureDetails.ModqueryCommand.Code;
+import com.google.devtools.build.lib.server.FailureDetails.ModCommand.Code;
 
 /**
  * Exception thrown when a user-input argument is invalid (wrong number of arguments or the

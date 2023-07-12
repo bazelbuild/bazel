@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.bzlmod.modquery;
+package com.google.devtools.build.lib.bazel.bzlmod.modcommand;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.AugmentedModuleBuilder.buildAugmentedModule;
@@ -26,11 +26,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModuleArg.AllVersionsOfModule;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModuleArg.ApparentRepoName;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModuleArg.CanonicalRepoName;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModuleArg.ModuleArgConverter;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModuleArg.SpecificVersionOfModule;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModuleArg.AllVersionsOfModule;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModuleArg.ApparentRepoName;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModuleArg.CanonicalRepoName;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModuleArg.ModuleArgConverter;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModuleArg.SpecificVersionOfModule;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.common.options.OptionsParsingException;

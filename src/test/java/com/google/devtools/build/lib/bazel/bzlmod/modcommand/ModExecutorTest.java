@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.bzlmod.modquery;
+package com.google.devtools.build.lib.bazel.bzlmod.modcommand;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.AugmentedModuleBuilder.buildAugmentedModule;
@@ -32,13 +32,13 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionUsage;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.bazel.bzlmod.Version;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryExecutor.ResultNode;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryExecutor.ResultNode.IsExpanded;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryExecutor.ResultNode.IsIndirect;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryOptions.ExtensionShow;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryOptions.OutputFormat;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.OutputFormatters.OutputFormatter;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.OutputFormatters.OutputFormatter.Explanation;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultNode;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultNode.IsExpanded;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultNode.IsIndirect;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.ExtensionShow;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.OutputFormat;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.OutputFormatters.OutputFormatter;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.OutputFormatters.OutputFormatter.Explanation;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -58,15 +58,15 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link ModqueryExecutor}. */
+/** Tests for {@link ModExecutor}. */
 @RunWith(JUnit4.class)
-public class ModqueryExecutorTest {
+public class ModExecutorTest {
   // TODO(andreisolo): Add a Json output test
   // TODO(andreisolo): Add a PATH query test
 
   private final Writer writer = new StringWriter();
 
-  // Tests for the ModqueryExecutor::expandAndPrune core function.
+  // Tests for the ModExecutor::expandAndPrune core function.
   //
   // (* In the ASCII graph hints "__>" or "-->" mean a direct edge, while "..>" means an indirect
   // edge. "aaa ..." means module "aaa" is unexpanded.)
@@ -93,8 +93,8 @@ public class ModqueryExecutorTest {
             .put(buildAugmentedModule("ddd", "1.0").addStillDependant("ccc", "1.0").buildEntry())
             .buildOrThrow();
 
-    ModqueryOptions options = ModqueryOptions.getDefaultOptions();
-    ModqueryExecutor executor = new ModqueryExecutor(depGraph, options, writer);
+    ModOptions options = ModOptions.getDefaultOptions();
+    ModExecutor executor = new ModExecutor(depGraph, options, writer);
 
     // RESULT:
     // <root> ...> ccc -> ddd
@@ -169,10 +169,10 @@ public class ModqueryExecutorTest {
             .put(buildAugmentedModule("hhh", "1.0").addStillDependant("ggg", "1.0").buildEntry())
             .buildOrThrow();
 
-    ModqueryOptions options = ModqueryOptions.getDefaultOptions();
+    ModOptions options = ModOptions.getDefaultOptions();
     options.cycles = true;
     options.depth = 1;
-    ModqueryExecutor executor = new ModqueryExecutor(depGraph, options, writer);
+    ModExecutor executor = new ModExecutor(depGraph, options, writer);
     MaybeCompleteSet<ModuleKey> targets =
         MaybeCompleteSet.copyOf(
             ImmutableSet.of(createModuleKey("eee", "1.0"), createModuleKey("hhh", "1.0")));
@@ -247,10 +247,10 @@ public class ModqueryExecutorTest {
                     .buildEntry())
             .buildOrThrow();
 
-    ModqueryOptions options = ModqueryOptions.getDefaultOptions();
+    ModOptions options = ModOptions.getDefaultOptions();
     options.cycles = true;
     options.depth = 1;
-    ModqueryExecutor executor = new ModqueryExecutor(depGraph, options, writer);
+    ModExecutor executor = new ModExecutor(depGraph, options, writer);
     MaybeCompleteSet<ModuleKey> targets =
         MaybeCompleteSet.copyOf(ImmutableSet.of(createModuleKey("eee", "1.0")));
 
@@ -280,7 +280,7 @@ public class ModqueryExecutorTest {
 
   // TODO(andreisolo): Add more eventual edge-case tests for the #expandAndPrune core method
 
-  //// Tests for the ModqueryExecutor OutputFormatters
+  //// Tests for the ModExecutor OutputFormatters
   //
 
   @Test
@@ -311,7 +311,7 @@ public class ModqueryExecutorTest {
             .put(buildAugmentedModule("E", "").addDependant("B", "1.0").buildEntry())
             .buildOrThrow();
 
-    ModqueryOptions options = ModqueryOptions.getDefaultOptions();
+    ModOptions options = ModOptions.getDefaultOptions();
     options.verbose = true;
     options.includeUnused = true;
 
@@ -462,7 +462,7 @@ public class ModqueryExecutorTest {
             createModuleKey("Y", "2.0"),
             ResultNode.builder().setTarget(true).build());
 
-    ModqueryOptions options = ModqueryOptions.getDefaultOptions();
+    ModOptions options = ModOptions.getDefaultOptions();
     options.cycles = true;
     options.includeUnused = true;
     options.verbose = true;
@@ -473,7 +473,7 @@ public class ModqueryExecutorTest {
     file.deleteOnExit();
     Writer writer = new OutputStreamWriter(new FileOutputStream(file), UTF_8);
 
-    ModqueryExecutor executor = new ModqueryExecutor(depGraph, options, writer);
+    ModExecutor executor = new ModExecutor(depGraph, options, writer);
     MaybeCompleteSet<ModuleKey> targets =
         MaybeCompleteSet.copyOf(
             ImmutableSet.of(
@@ -512,7 +512,7 @@ public class ModqueryExecutorTest {
     File fileGraph = File.createTempFile("output_graph", "txt");
     fileGraph.deleteOnExit();
     writer = new OutputStreamWriter(new FileOutputStream(fileGraph), UTF_8);
-    executor = new ModqueryExecutor(depGraph, options, writer);
+    executor = new ModExecutor(depGraph, options, writer);
 
     executor.allPaths(ImmutableSet.of(ModuleKey.ROOT), targets.getElementsIfNotComplete());
     List<String> graphOutput = Files.readAllLines(fileGraph.toPath());
@@ -610,6 +610,8 @@ public class ModqueryExecutorTest {
                     .setImports(ImmutableBiMap.of("repo1", "repo1", "repo3", "repo3"))
                     .setUsingModule(createModuleKey("C", "1.0"))
                     .setDevImports(ImmutableSet.of())
+                    .setHasDevUseExtension(false)
+                    .setHasNonDevUseExtension(true)
                     .build())
             .put(
                 mavenId,
@@ -621,6 +623,8 @@ public class ModqueryExecutorTest {
                     .setImports(ImmutableBiMap.of("repo1", "repo1", "repo2", "repo2"))
                     .setUsingModule(createModuleKey("D", "1.0"))
                     .setDevImports(ImmutableSet.of())
+                    .setHasDevUseExtension(false)
+                    .setHasNonDevUseExtension(true)
                     .build())
             .put(
                 gradleId,
@@ -632,6 +636,8 @@ public class ModqueryExecutorTest {
                     .setImports(ImmutableBiMap.of("repo2", "repo2"))
                     .setUsingModule(createModuleKey("Y", "2.0"))
                     .setDevImports(ImmutableSet.of())
+                    .setHasDevUseExtension(false)
+                    .setHasNonDevUseExtension(true)
                     .build())
             .put(
                 mavenId,
@@ -651,6 +657,8 @@ public class ModqueryExecutorTest {
                             .build())
                     .setUsingModule(createModuleKey("Y", "2.0"))
                     .setDevImports(ImmutableSet.of())
+                    .setHasDevUseExtension(false)
+                    .setHasNonDevUseExtension(true)
                     .build())
             .buildOrThrow();
 
@@ -665,15 +673,15 @@ public class ModqueryExecutorTest {
             .putAll(gradleId, ImmutableSet.of("repo1", "repo2"))
             .build();
 
-    ModqueryOptions options = ModqueryOptions.getDefaultOptions();
+    ModOptions options = ModOptions.getDefaultOptions();
     options.outputFormat = OutputFormat.TEXT;
     options.extensionInfo = ExtensionShow.ALL;
 
-    ModqueryExecutor executor =
-        new ModqueryExecutor(
+    ModExecutor executor =
+        new ModExecutor(
             depGraph, extensionUsages, extensionRepos, Optional.empty(), options, writer);
 
-    executor.tree(ImmutableSet.of(ModuleKey.ROOT));
+    executor.graph(ImmutableSet.of(ModuleKey.ROOT));
 
     List<String> textOutput = Files.readAllLines(file.toPath());
 
@@ -710,10 +718,10 @@ public class ModqueryExecutorTest {
     fileGraph.deleteOnExit();
     writer = new OutputStreamWriter(new FileOutputStream(fileGraph), UTF_8);
     executor =
-        new ModqueryExecutor(
+        new ModExecutor(
             depGraph, extensionUsages, extensionRepos, Optional.empty(), options, writer);
 
-    executor.tree(ImmutableSet.of(ModuleKey.ROOT));
+    executor.graph(ImmutableSet.of(ModuleKey.ROOT));
     List<String> graphOutput = Files.readAllLines(fileGraph.toPath());
 
     assertThat(graphOutput)
@@ -760,7 +768,7 @@ public class ModqueryExecutorTest {
     fileText2.deleteOnExit();
     writer = new OutputStreamWriter(new FileOutputStream(fileText2), UTF_8);
     executor =
-        new ModqueryExecutor(
+        new ModExecutor(
             depGraph,
             extensionUsages,
             extensionRepos,
