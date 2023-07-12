@@ -16,7 +16,6 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.collect.Comparators.emptiesFirst;
-import static com.google.common.primitives.Booleans.falseFirst;
 import static java.util.Comparator.comparing;
 
 import com.google.auto.value.AutoValue;
@@ -39,24 +38,16 @@ public abstract class ModuleExtensionId {
   abstract static class IsolationKey {
     static final Comparator<IsolationKey> LEXICOGRAPHIC_COMPARATOR =
         comparing(IsolationKey::getModule, ModuleKey.LEXICOGRAPHIC_COMPARATOR)
-            .thenComparing(IsolationKey::isDevUsage, falseFirst())
-            .thenComparing(IsolationKey::getIsolatedUsageIndex);
+            .thenComparing(IsolationKey::getUsageExportedName);
 
     /** The module which contains this isolated usage of a module extension. */
     public abstract ModuleKey getModule();
 
-    /** Whether this isolated usage specified {@code dev_dependency = True}. */
-    public abstract boolean isDevUsage();
+    /** The exported name of the first extension proxy for this usage. */
+    public abstract String getUsageExportedName();
 
-    /**
-     * The 0-based index of this isolated usage within the module's isolated usages of the same
-     * module extension and with the same {@link #isDevUsage()} value.
-     */
-    public abstract int getIsolatedUsageIndex();
-
-    public static IsolationKey create(
-        ModuleKey module, boolean isDevUsage, int isolatedUsageIndex) {
-      return new AutoValue_ModuleExtensionId_IsolationKey(module, isDevUsage, isolatedUsageIndex);
+    public static IsolationKey create(ModuleKey module, String usageExportedName) {
+      return new AutoValue_ModuleExtensionId_IsolationKey(module, usageExportedName);
     }
   }
 
