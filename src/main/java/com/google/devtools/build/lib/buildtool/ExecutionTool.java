@@ -707,7 +707,10 @@ public class ExecutionTool {
       ImmutableList<ConvenienceSymlink> convenienceSymlinks = ImmutableList.of();
       if (request.getBuildOptions().experimentalConvenienceSymlinks
           != ConvenienceSymlinksMode.IGNORE) {
-        convenienceSymlinks = createConvenienceSymlinks(request.getBuildOptions(), analysisResult);
+        convenienceSymlinks = createConvenienceSymlinks(
+            request.getBuildOptions(),
+            analysisResult.getTargetsToBuild(),
+            analysisResult.getConfigurationCollection().getTargetConfiguration());
       }
       if (request.getBuildOptions().experimentalConvenienceSymlinksBepEvent) {
         env.getEventBus().post(new ConvenienceSymlinksIdentifiedEvent(convenienceSymlinks));
@@ -729,7 +732,9 @@ public class ExecutionTool {
    * in fact gets removed if it was already present from a previous invocation.
    */
   private ImmutableList<ConvenienceSymlink> createConvenienceSymlinks(
-      BuildRequestOptions buildRequestOptions, AnalysisResult analysisResult) {
+      BuildRequestOptions buildRequestOptions,
+      ImmutableSet<ConfiguredTarget> targetsToBuild,
+      BuildConfigurationValue configuration) {
     SkyframeExecutor executor = env.getSkyframeExecutor();
     Reporter reporter = env.getReporter();
 
