@@ -25,10 +25,12 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -67,6 +69,27 @@ public class JavaStarlarkCommon
       ImmutableSet.of("bazel_internal/test");
   private final JavaSemantics javaSemantics;
 
+  private void checkJavaToolchainIsDeclaredOnRule(RuleContext ruleContext)
+      throws EvalException, LabelSyntaxException {
+    ToolchainInfo toolchainInfo =
+        ruleContext.getToolchainInfo(Label.parseCanonical(javaSemantics.getJavaToolchainType()));
+    if (toolchainInfo == null) {
+      String ruleLocation = ruleContext.getRule().getLocation().toString();
+      String ruleClass = ruleContext.getRule().getRuleClassObject().getName();
+      throw Starlark.errorf(
+          "Rule '%s' in '%s' must declare '%s' toolchain in order to use java_common.",
+          ruleClass, ruleLocation, javaSemantics.getJavaToolchainType());
+    }
+  }
+
+  @Override
+  public void checkJavaToolchainIsDeclaredOnRuleForStarlark(
+      StarlarkActionFactory actions, StarlarkThread thread)
+      throws EvalException, LabelSyntaxException {
+    checkPrivateAccess(thread);
+    checkJavaToolchainIsDeclaredOnRule(actions.getRuleContext());
+  }
+
   public JavaStarlarkCommon(JavaSemantics javaSemantics) {
     this.javaSemantics = javaSemantics;
   }
@@ -104,7 +127,8 @@ public class JavaStarlarkCommon
       Sequence<?> addExports, // <String> expected
       Sequence<?> addOpens, // <String> expected
       StarlarkThread thread)
-      throws EvalException, InterruptedException, RuleErrorException {
+      throws EvalException, InterruptedException, RuleErrorException, LabelSyntaxException {
+    checkJavaToolchainIsDeclaredOnRule(starlarkRuleContext.getRuleContext());
 
     final ImmutableList<JavaPluginInfo> pluginsParam =
         JavaPluginInfo.wrapSequence(plugins, "plugins");
