@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.skydoc.rendering;
 
+import static java.util.Comparator.naturalOrder;
+
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
@@ -26,11 +28,10 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.Rule
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.StarlarkFunctionInfo;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-/**
- * Contains a number of utility methods for markdown rendering.
- */
+/** Contains a number of utility methods for markdown rendering. */
 public final class MarkdownUtil {
   private static final int MAX_LINE_LENGTH = 100;
 
@@ -82,6 +83,34 @@ public final class MarkdownUtil {
    */
   public String htmlEscape(String docString) {
     return docString.replace("<", "&lt;").replace(">", "&gt;");
+  }
+
+  private static final Pattern CONSECUTIVE_BACKTICKS = Pattern.compile("`+");
+
+  /**
+   * Returns a Markdown code span (e.g. {@code `return foo;`}) that contains the given literal text,
+   * which may itself contain backticks.
+   *
+   * <p>For example:
+   *
+   * <ul>
+   *   <li>{@code markdownCodeSpan("foo")} returns {@code "`foo`"}
+   *   <li>{@code markdownCodeSpan("fo`o")} returns {@code "``fo`o``"}
+   *   <li>{@code markdownCodeSpan("`foo`")} returns {@code "`` foo` ``""}
+   * </ul>
+   */
+  public static String markdownCodeSpan(String code) {
+    // https://github.github.com/gfm/#code-span
+    int numConsecutiveBackticks =
+        CONSECUTIVE_BACKTICKS
+            .matcher(code)
+            .results()
+            .map(match -> match.end() - match.start())
+            .max(naturalOrder())
+            .orElse(0);
+    String padding = code.startsWith("`") || code.endsWith("`") ? " " : "";
+    return String.format(
+        "%1$s%2$s%3$s%2$s%1$s", "`".repeat(numConsecutiveBackticks + 1), padding, code);
   }
 
   /**
