@@ -84,9 +84,11 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
   private final ImmutableList<Artifact> fdoOptimizeArtifacts;
   private final FdoPrefetchHintsProvider fdoPrefetch;
   private final PropellerOptimizeProvider propellerOptimize;
+  private final MemProfProfileProvider memprofProfileProvider;
   private final TransitiveInfoCollection moduleMap;
   private final Artifact moduleMapArtifact;
   private final Artifact zipper;
+  private final Artifact defaultZipper;
   private final String purposePrefix;
   private final String runtimeSolibDirBase;
   private final LicensesProvider licensesProvider;
@@ -177,9 +179,13 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
         ruleContext.getPrerequisite(":fdo_prefetch_hints", FdoPrefetchHintsProvider.PROVIDER);
     this.propellerOptimize =
         ruleContext.getPrerequisite(":propeller_optimize", PropellerOptimizeProvider.PROVIDER);
+    this.memprofProfileProvider =
+        ruleContext.getPrerequisite(
+            CcToolchainRule.MEMPROF_PROFILE_ATTR, MemProfProfileProvider.PROVIDER);
     this.moduleMap = ruleContext.getPrerequisite("module_map");
     this.moduleMapArtifact = ruleContext.getPrerequisiteArtifact("module_map");
     this.zipper = ruleContext.getPrerequisiteArtifact(":zipper");
+    this.defaultZipper = ruleContext.getPrerequisiteArtifact(":default_zipper");
     this.purposePrefix = Actions.escapeLabel(ruleContext.getLabel()) + "_";
     this.runtimeSolibDirBase = "_solib_" + "_" + Actions.escapeLabel(ruleContext.getLabel());
     this.staticRuntimeLib = ruleContext.getPrerequisite("static_runtime_lib");
@@ -274,6 +280,10 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     return propellerOptimize;
   }
 
+  public MemProfProfileProvider getMemProfProfileProvider() {
+    return memprofProfileProvider;
+  }
+
   public String getToolchainIdentifier() {
     return toolchainIdentifier;
   }
@@ -295,6 +305,18 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
 
   public ImmutableList<Artifact> getFdoOptimizeArtifacts() {
     return fdoOptimizeArtifacts;
+  }
+
+  @StarlarkMethod(
+      name = "licenses_provider",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  public LicensesProvider getLicensesProviderForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getLicensesProvider();
   }
 
   public LicensesProvider getLicensesProvider() {
@@ -432,8 +454,14 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     return xfdoProfileProvider;
   }
 
+  /* Get the FDO-specific zipper. */
   public Artifact getZipper() {
     return zipper;
+  }
+
+  /* Get the non FDO-specific zipper. */
+  public Artifact getDefaultZipper() {
+    return defaultZipper;
   }
 
   public NestedSet<Artifact> getFullInputsForLink() {

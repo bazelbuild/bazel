@@ -136,12 +136,14 @@ public class CqueryTransitionResolver {
     BuildConfigurationValue configuration =
         cqueryThreadsafeCallback.getConfiguration(configuredTarget.getConfigurationKey());
 
-    var state = new PrerequisiteProducer.State(/* storeTransitivePackages= */ false);
-    state.targetAndConfiguration = new TargetAndConfiguration(target, configuration);
+    var targetAndConfiguration = new TargetAndConfiguration(target, configuration);
     var attributeTransitionCollector =
         HashBasedTable.<DependencyKind, Label, ConfigurationTransition>create();
+    var state =
+        PrerequisiteProducer.State.createForCquery(
+            targetAndConfiguration, attributeTransitionCollector::put);
 
-    var producer = new PrerequisiteProducer(state.targetAndConfiguration);
+    var producer = new PrerequisiteProducer(targetAndConfiguration);
     try {
       if (!producer.evaluate(
           state,
@@ -149,7 +151,6 @@ public class CqueryTransitionResolver {
           ruleClassProvider,
           transitionCache,
           /* semaphoreLocker= */ () -> {},
-          attributeTransitionCollector::put,
           accessor.getLookupEnvironment(),
           eventHandler)) {
         throw new EvaluateException("PrerequisiteProducer.evaluate did not complete");

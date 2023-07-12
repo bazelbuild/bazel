@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -100,7 +99,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             .addProvider(RunfilesProvider.simple(Runfiles.EMPTY));
 
     if (attributes.getLicensesProvider() != null) {
-      ruleConfiguredTargetBuilder.add(LicensesProvider.class, attributes.getLicensesProvider());
+      ruleConfiguredTargetBuilder.addNativeDeclaredProvider(attributes.getLicensesProvider());
     }
 
     if (!CppHelper.useToolchainResolution(ruleContext)) {

@@ -73,7 +73,7 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
     // simple identity checks so that we don't need to store a TransitiveInfoProviderMap.
     // Additionally, file providers are created on-demand when requested. These optimizations
     // combine to save over 1% of analysis heap.
-    if (providerClass == VisibilityProvider.class || providerClass == LicensesProvider.class) {
+    if (providerClass == VisibilityProvider.class) {
       return this;
     }
     if (providerClass == FileProvider.class) {

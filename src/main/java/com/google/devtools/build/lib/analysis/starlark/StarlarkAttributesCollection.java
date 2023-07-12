@@ -17,8 +17,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -203,10 +205,11 @@ class StarlarkAttributesCollection implements StarlarkAttributesCollectionApi {
           fileBuilder.put(skyname, Starlark.NONE);
         }
       }
+      NestedSet<Artifact> files =
+          PrerequisiteArtifacts.nestedSet(context.getRuleContext(), a.getName());
       filesBuilder.put(
           skyname,
-          StarlarkList.immutableCopyOf(
-              context.getRuleContext().getPrerequisiteArtifacts(a.getName()).list()));
+          files.isEmpty() ? StarlarkList.empty() : StarlarkList.lazyImmutable(files::toList));
 
       if (type == BuildType.LABEL && !a.getTransitionFactory().isSplit()) {
         Object prereq = context.getRuleContext().getPrerequisite(a.getName());

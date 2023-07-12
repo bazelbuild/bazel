@@ -13,11 +13,10 @@
 # limitations under the License.
 
 """
-Definition of JavaInfo provider.
+Definition of JavaInfo and JavaPluginInfo provider.
 """
 
 load(":common/cc/cc_common.bzl", "cc_common")
-load(":common/java/java_plugin_info.bzl", "EMPTY_PLUGIN_DATA", "merge_without_outputs")
 load(":common/cc/cc_info.bzl", "CcInfo")
 
 # TODO(hvd): remove this when:
@@ -81,6 +80,34 @@ _JavaCompilationInfo = provider(
     },
 )
 
+_EMPTY_COMPILATION_INFO = _JavaCompilationInfo(
+    compilation_classpath = depset(),
+    runtime_classpath = depset(),
+    boot_classpath = None,
+    javac_options = [],
+)
+
+def merge(
+        providers,
+        # private to @_builtins:
+        merge_java_outputs = True,
+        merge_source_jars = True):
+    """Merges the given providers into a single JavaInfo.
+
+    Args:
+        providers: ([JavaInfo]) The list of providers to merge.
+        merge_java_outputs: (bool)
+        merge_source_jars: (bool)
+
+    Returns:
+        (JavaInfo) The merged JavaInfo
+    """
+    return _java_common_internal.merge(
+        providers,
+        merge_java_outputs = merge_java_outputs,
+        merge_source_jars = merge_source_jars,
+    )
+
 def to_java_binary_info(java_info):
     """Get a copy of the given JavaInfo with minimal info returned by a java_binary
 
@@ -100,20 +127,21 @@ def to_java_binary_info(java_info):
         "_transitive_full_compile_time_jars": depset(),
         "_compile_time_java_dependencies": depset(),
         "runtime_output_jars": [],
-        "plugins": EMPTY_PLUGIN_DATA,
-        "api_generating_plugins": EMPTY_PLUGIN_DATA,
+        "plugins": _EMPTY_PLUGIN_DATA,
+        "api_generating_plugins": _EMPTY_PLUGIN_DATA,
         "module_flags_info": _ModuleFlagsInfo(add_exports = depset(), add_opens = depset()),
         "_neverlink": False,
         "_constraints": [],
         "annotation_processing": java_info.annotation_processing,
-        "cc_link_params_info": getattr(java_info, "cc_link_params_info", None),
         "transitive_native_libraries": java_info.transitive_native_libraries,
         "source_jars": java_info.source_jars,
         "transitive_source_jars": java_info.transitive_source_jars,
     }
+    if hasattr(java_info, "cc_link_params_info"):
+        result.update(cc_link_params_info = java_info.cc_link_params_info)
 
-    compilation_info = None
-    if hasattr(java_info, "compilation_info"):
+    compilation_info = _EMPTY_COMPILATION_INFO
+    if java_info.compilation_info:
         compilation_info = java_info.compilation_info
     elif java_info.transitive_compile_time_jars or java_info.transitive_runtime_jars:
         compilation_info = _JavaCompilationInfo(
@@ -140,10 +168,19 @@ def to_java_binary_info(java_info):
         )
         for output in java_info.java_outputs
     ]
+    all_jdeps = [output.jdeps for output in java_info.java_outputs if output.jdeps]
+    all_native_headers = [output.native_headers_jar for output in java_info.java_outputs if output.native_headers_jar]
     result.update(
         java_outputs = java_outputs,
-        outputs = _JavaRuleOutputJarsInfo(jars = java_outputs, jdeps = None, native_headers = None),
+        outputs = _JavaRuleOutputJarsInfo(
+            jars = java_outputs,
+            jdeps = all_jdeps[0] if len(all_jdeps) == 1 else None,
+            native_headers = all_native_headers[0] if len(all_native_headers) == 1 else None,
+        ),
     )
+
+    # so that translation into native JavaInfo does not add JavaCompilationArgsProvider
+    result.update(_is_binary = True)
     return _new_javainfo(**result)
 
 def _to_mutable_dict(java_info):
@@ -298,7 +335,7 @@ def _javainfo_init(
     _validate_provider_list(native_libraries, "native_libraries", CcInfo)
 
     source_jars = [source_jar] if source_jar else []
-    plugin_info = merge_without_outputs(exported_plugins + exports)
+    plugin_info = _merge_plugin_info_without_outputs(exported_plugins + exports)
     if neverlink:
         transitive_runtime_jars = depset()
     else:
@@ -479,6 +516,123 @@ JavaInfo, _new_javainfo = provider(
         "_compile_time_java_dependencies": "internal API, do not use",
         "_neverlink": "internal API, do not use",
         "_constraints": "internal API, do not use",
+        "_is_binary": "internal API, do not use",
     },
     init = _javainfo_init,
+)
+
+_JavaPluginDataInfo = provider(
+    doc = "Provider encapsulating information about a Java compatible plugin.",
+    fields = {
+        "processor_classes": "depset(str) The fully qualified classnames of entry points for the compiler",
+        "processor_jars": "depset(file) Deps containing an annotation processor",
+        "processor_data": "depset(file) Files needed during execution",
+    },
+)
+
+_EMPTY_PLUGIN_DATA = _JavaPluginDataInfo(
+    processor_classes = depset(),
+    processor_jars = depset(),
+    processor_data = depset(),
+)
+
+def _merge_plugin_info_without_outputs(infos):
+    """ Merge plugin information from a list of JavaPluginInfo or JavaInfo
+
+    Args:
+        infos: ([JavaPluginInfo|JavaInfo]) list of providers to merge
+
+    Returns:
+        (JavaPluginInfo)
+    """
+    plugins = []
+    api_generating_plugins = []
+    for info in infos:
+        if _has_plugin_data(info.plugins):
+            plugins.append(info.plugins)
+        if _has_plugin_data(info.api_generating_plugins):
+            api_generating_plugins.append(info.api_generating_plugins)
+    return _new_javaplugininfo(
+        plugins = _merge_plugin_data(plugins),
+        api_generating_plugins = _merge_plugin_data(api_generating_plugins),
+        java_outputs = [],
+    )
+
+def _has_plugin_data(plugin_data):
+    return plugin_data and (
+        plugin_data.processor_classes or
+        plugin_data.processor_jars or
+        plugin_data.processor_data
+    )
+
+def _merge_plugin_data(datas):
+    return _JavaPluginDataInfo(
+        processor_classes = depset(transitive = [p.processor_classes for p in datas]),
+        processor_jars = depset(transitive = [p.processor_jars for p in datas]),
+        processor_data = depset(transitive = [p.processor_data for p in datas]),
+    )
+
+def _javaplugininfo_init(
+        runtime_deps,
+        processor_class,
+        data = [],
+        generates_api = False):
+    """ Constructs JavaPluginInfo
+
+    Args:
+        runtime_deps: ([JavaInfo]) list of deps containing an annotation
+             processor.
+        processor_class: (String) The fully qualified class name that the Java
+             compiler uses as an entry point to the annotation processor.
+        data: (depset[File]) The files needed by this annotation
+             processor during execution.
+        generates_api: (boolean) Set to true when this annotation processor
+            generates API code. Such an annotation processor is applied to a
+            Java target before producing its header jars (which contains method
+            signatures). When no API plugins are present, header jars are
+            generated from the sources, reducing the critical path.
+            WARNING: This parameter affects build performance, use it only if
+            necessary.
+
+    Returns:
+        (JavaPluginInfo)
+    """
+
+    java_infos = merge(runtime_deps)
+    processor_data = data if type(data) == "depset" else depset(data)
+    plugins = _JavaPluginDataInfo(
+        processor_classes = depset([processor_class]) if processor_class else depset(),
+        processor_jars = java_infos.transitive_runtime_jars,
+        processor_data = processor_data,
+    )
+    return {
+        "plugins": plugins,
+        "api_generating_plugins": plugins if generates_api else _EMPTY_PLUGIN_DATA,
+        "java_outputs": java_infos.java_outputs,
+    }
+
+JavaPluginInfo, _new_javaplugininfo = provider(
+    doc = "Provider encapsulating information about Java plugins.",
+    fields = {
+        "plugins": """
+            Returns data about all plugins that a consuming target should apply.
+            This is typically either a <code>java_plugin</code> itself or a
+            <code>java_library</code> exporting one or more plugins.
+            A <code>java_library</code> runs annotation processing with all
+            plugins from this field appearing in <code>deps</code> and
+            <code>plugins</code> attributes.""",
+        "api_generating_plugins": """
+            Returns data about API generating plugins defined or exported by
+            this target.
+            Those annotation processors are applied to a Java target before
+            producing its header jars (which contain method signatures). When
+            no API plugins are present, header jars are generated from the
+            sources, reducing critical path.
+            The <code>api_generating_plugins</code> is a subset of
+            <code>plugins</code>.""",
+        "java_outputs": """
+            Returns information about outputs of this Java/Java-like target.
+        """,
+    },
+    init = _javaplugininfo_init,
 )

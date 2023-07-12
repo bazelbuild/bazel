@@ -760,12 +760,6 @@ public final class ResourceManagerTest {
     return rm.areResourcesAvailable(ResourceSet.create(ram, cpu, localTestCount));
   }
 
-  synchronized boolean isAvailable(
-      ResourceManager rm, double ram, double cpu, int localTestCount, WorkerKey workerKey) {
-    return rm.areResourcesAvailable(
-        ResourceSet.createWithWorkerKey(ram, cpu, localTestCount, workerKey));
-  }
-
   private static class ResourceOwnerStub implements ActionExecutionMetadata {
 
     @Override

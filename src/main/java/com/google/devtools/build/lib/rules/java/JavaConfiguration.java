@@ -108,7 +108,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean disallowResourceJars;
   private final boolean experimentalTurbineAnnotationProcessing;
   private final boolean experimentalEnableJspecify;
-  private final boolean requireJavaPluginInfo;
   private final boolean multiReleaseDeployJars;
   private final boolean disallowJavaImportExports;
   private final boolean disallowJavaImportEmptyJars;
@@ -150,7 +149,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.addTestSupportToCompileTimeDeps = javaOptions.addTestSupportToCompileTimeDeps;
     this.runAndroidLint = javaOptions.runAndroidLint;
     this.limitAndroidLintToAndroidCompatible = javaOptions.limitAndroidLintToAndroidCompatible;
-    this.requireJavaPluginInfo = javaOptions.requireJavaPluginInfo;
     this.multiReleaseDeployJars = javaOptions.multiReleaseDeployJars;
     this.disallowJavaImportExports = javaOptions.disallowJavaImportExports;
     this.disallowJavaImportEmptyJars = javaOptions.disallowJavaImportEmptyJars;
@@ -498,7 +496,4 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return experimentalEnableJspecify;
   }
 
-  public boolean requireJavaPluginInfo() {
-    return requireJavaPluginInfo;
-  }
 }

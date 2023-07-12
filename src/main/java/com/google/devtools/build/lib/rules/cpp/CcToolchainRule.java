@@ -46,6 +46,7 @@ public final class CcToolchainRule implements RuleDefinition {
   public static final String FDO_PROFILE_ATTR = ":fdo_profile";
   public static final String CSFDO_PROFILE_ATTR = ":csfdo_profile";
   public static final String XFDO_PROFILE_ATTR = ":xfdo_profile";
+  public static final String MEMPROF_PROFILE_ATTR = ":memprof_profile";
   public static final String TOOLCHAIN_CONFIG_ATTR = "toolchain_config";
 
   private static Label getLabel(AttributeMap attributes, String attrName, Label defaultValue) {
@@ -126,6 +127,12 @@ public final class CcToolchainRule implements RuleDefinition {
           null,
           (rule, attributes, cppConfig) -> cppConfig.getPropellerOptimizeLabel());
 
+  private static final LabelLateBoundDefault<?> MEMPROF_PROFILE_VALUE =
+      LabelLateBoundDefault.fromTargetConfiguration(
+          CppConfiguration.class,
+          /* defaultValue= */ null,
+          (rule, attributes, cppConfig) -> cppConfig.getMemProfProfileLabel());
+
   /**
    * Returns true if zipper should be loaded. We load the zipper executable if FDO optimization is
    * enabled through --fdo_optimize or --fdo_profile
@@ -136,9 +143,14 @@ public final class CcToolchainRule implements RuleDefinition {
         || cppConfiguration.getFdoPath() != null;
   }
 
+  private static boolean shouldIncludeDefaultZipperInToolchain(CppConfiguration cppConfiguration) {
+    return cppConfiguration.getMemProfProfileLabel() != null;
+  }
+
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     final Label zipper = env.getToolsLabel("//tools/zip:unzip_fdo");
+    final Label defaultZipper = env.getToolsLabel("//tools/zip:zipper");
     return builder
         .requiresConfigurationFragments(CppConfiguration.class, PlatformConfiguration.class)
         .advertiseProvider(TemplateVariableInfo.class)
@@ -312,6 +324,9 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(
             attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
                 .value(CppRuleClasses.ccToolchainTypeAttribute(env)))
+        // This is the FDO-specific zipper, which takes the cpu type and extracts the raw FDO
+        // profile filename that is the closest match for that target. The name is expected
+        // to be of the format fdocontrolz_profile[-$cpu].profraw
         .add(
             attr(":zipper", LABEL)
                 .cfg(ExecutionTransitionFactory.createFactory())
@@ -322,6 +337,20 @@ public final class CcToolchainRule implements RuleDefinition {
                         null,
                         (rule, attributes, cppConfig) ->
                             shouldIncludeZipperInToolchain(cppConfig) ? zipper : null)))
+        // This is the normal (non FDO-specific) zipper, that simply unzips the zipfile
+        // contents into the given destination directory.
+        .add(
+            attr(":default_zipper", LABEL)
+                .cfg(ExecutionTransitionFactory.createFactory())
+                .singleArtifact()
+                .value(
+                    LabelLateBoundDefault.fromTargetConfiguration(
+                        CppConfiguration.class,
+                        /* defaultValue= */ null,
+                        (rule, attributes, cppConfig) ->
+                            shouldIncludeDefaultZipperInToolchain(cppConfig)
+                                ? defaultZipper
+                                : null)))
 
         // TODO(b/78578234): Make this the default and remove the late-bound versions.
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(libc_top) -->
@@ -380,6 +409,12 @@ public final class CcToolchainRule implements RuleDefinition {
                 .mandatoryProviders(ImmutableList.of(PropellerOptimizeProvider.PROVIDER.id()))
                 .value(PROPELLER_OPTIMIZE)
                 // Should be in the target configuration
+                .cfg(NoTransition.createFactory()))
+        .add(
+            attr(MEMPROF_PROFILE_ATTR, LABEL)
+                .allowedRuleClasses("memprof_profile")
+                .mandatoryProviders(ImmutableList.of(MemProfProfileProvider.PROVIDER.id()))
+                .value(MEMPROF_PROFILE_VALUE)
                 .cfg(NoTransition.createFactory()))
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(toolchain_identifier) -->
         The identifier used to match this cc_toolchain with the corresponding

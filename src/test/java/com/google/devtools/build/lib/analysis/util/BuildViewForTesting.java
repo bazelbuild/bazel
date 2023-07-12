@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.DependencyKey;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
@@ -100,6 +101,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.PrerequisiteProducer;
 import com.google.devtools.build.lib.skyframe.SkyFunctionEnvironmentForTesting;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
@@ -108,6 +110,7 @@ import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
+import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -117,6 +120,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Mutability;
@@ -134,6 +138,24 @@ public class BuildViewForTesting {
   private final ConfiguredRuleClassProvider ruleClassProvider;
 
   private ImmutableMap<ActionLookupKey, Version> currentActionLookupKeys = ImmutableMap.of();
+
+  /**
+   * Tracks keys that mismatched at a previous diff computation.
+   *
+   * <p>{@link #populateActionLookupKeyMapAndGetDiff} scans the entire graph and computes a diff
+   * against the previous {@link #currentActionLookupKeys} value. For this to be consistent with
+   * {@link SkyframeExecutor#getEvaluatedCounts} it needs to filter out {@link
+   * SkyFunctions#CONFIGURED_TARGET} nodes that do not own the underlying {@link
+   * ConfiguredTargetValue}s. The owners have {@link ConfiguredTargetKey#getConfigurationKey} values
+   * matching the {@link ConfiguredTarget#getConfigurationKey} values.
+   *
+   * <p>The problem is that the Skyframe graph may contain entries that are not done at the time of
+   * graph inspection, so the {@link ConfiguredTargetValue} is unavailable and can't be compared.
+   * Since the node is not done, it means any value present in the node won't match the key, so it
+   * is still filtered. This set keeps track of previous mismatches in case their entries are
+   * dirtied in a subsequent evaluation.
+   */
+  private ImmutableSet<ConfiguredTargetKey> previousProxyNodeKeys = ImmutableSet.of();
 
   public BuildViewForTesting(
       BlazeDirectories directories,
@@ -161,10 +183,49 @@ public class BuildViewForTesting {
   }
 
   private Set<ActionLookupKey> populateActionLookupKeyMapAndGetDiff() {
+    InMemoryGraph graph = skyframeExecutor.getEvaluator().getInMemoryGraph();
+    var proxyNodeKeys = ImmutableSet.<ConfiguredTargetKey>builder();
     ImmutableMap<ActionLookupKey, Version> newMap =
-        skyframeExecutor.getEvaluator().getInMemoryGraph().getAllNodeEntries().stream()
-            .filter(e -> e.getKey() instanceof ActionLookupKey)
+        graph.getAllNodeEntries().stream()
+            .filter(
+                entry -> {
+                  SkyKey key = entry.getKey();
+                  if (!(key instanceof ActionLookupKey)) {
+                    return false;
+                  }
+                  if (!key.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
+                    return true;
+                  }
+
+                  var ctKey = (ConfiguredTargetKey) key;
+
+                  if (!entry.isDone()) {
+                    if (previousProxyNodeKeys.contains(ctKey)) {
+                      // The node is dirty and was a proxy previously. Filters the entry as long as
+                      // it remains not done.
+                      proxyNodeKeys.add(ctKey);
+                      return false;
+                    }
+                    return true;
+                  }
+
+                  var value = (ConfiguredTargetValue) entry.getValue();
+                  if (value == null) {
+                    // The node has an error. No filtering is applied in this case.
+                    return true;
+                  }
+                  if (!Objects.equals(
+                      ctKey.getConfigurationKey(),
+                      value.getConfiguredTarget().getConfigurationKey())) {
+                    // The configurations are not equal so the node is only performing delegation
+                    // and doesn't own the configured target.
+                    proxyNodeKeys.add(ctKey);
+                    return false;
+                  }
+                  return true;
+                })
             .collect(toImmutableMap(e -> (ActionLookupKey) e.getKey(), NodeEntry::getVersion));
+    previousProxyNodeKeys = proxyNodeKeys.build();
     MapDifference<ActionLookupKey, Version> difference =
         Maps.difference(newMap, currentActionLookupKeys);
     currentActionLookupKeys = newMap;
@@ -404,6 +465,7 @@ public class BuildViewForTesting {
                 ConfiguredTargetKey.fromConfiguredTarget(target),
                 state.targetAndConfiguration.getTarget(),
                 /* aspects= */ ImmutableList.of(),
+                /* starlarkTransitionProvider= */ null, // TODO(b/261521010): populate this.
                 skyframeBuildView.getStarlarkTransitionCache(),
                 toolchainContexts,
                 labels.attributeMap(),
@@ -549,9 +611,9 @@ public class BuildViewForTesting {
 
     SkyFunctionEnvironmentForTesting skyfunctionEnvironment =
         new SkyFunctionEnvironmentForTesting(eventHandler, skyframeExecutor);
-    var state = new PrerequisiteProducer.State(/* storeTransitivePackages= */ false);
-    state.targetAndConfiguration =
-        new TargetAndConfiguration(target.getAssociatedRule(), configuration);
+    var state =
+        PrerequisiteProducer.State.createForTesting(
+            new TargetAndConfiguration(target.getAssociatedRule(), configuration));
     NestedSetBuilder<Cause> transitiveRootCauses = NestedSetBuilder.stableOrder();
 
     try {

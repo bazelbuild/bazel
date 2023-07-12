@@ -73,9 +73,7 @@ public abstract class JavaPluginInfo extends NativeInfo
   public static class Provider extends StarlarkProviderWrapper<JavaPluginInfo>
       implements com.google.devtools.build.lib.packages.Provider {
     private Provider() {
-      super(
-          Label.parseCanonicalUnchecked("@_builtins//:common/java/java_plugin_info.bzl"),
-          PROVIDER_NAME);
+      super(Label.parseCanonicalUnchecked("@_builtins//:common/java/java_info.bzl"), PROVIDER_NAME);
     }
 
     @Override

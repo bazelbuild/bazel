@@ -376,6 +376,11 @@ function test_cc_test_coverage_gcov() {
       output_file_json="output_file.json"
       zcat $agcda $tgcda $dagcda > $output_file_json
 
+      # Remove all branch information from the json.
+      # We disable branch coverage for gcov 7 and it is easier to remove it
+      # than it is to put it back.
+      # Replace "branches": [..] with "branches": [] - (non-empty [..])
+      sed -E -i 's/"branches": \[[^]]+]/"branches": \[\]/g' "$output_file_json"
       assert_gcov_coverage_srcs_a_cc_json "$output_file_json"
       assert_gcov_coverage_srcs_t_cc_json "$output_file_json"
       assert_gcov_coverage_srcs_b_h_json "$output_file_json"

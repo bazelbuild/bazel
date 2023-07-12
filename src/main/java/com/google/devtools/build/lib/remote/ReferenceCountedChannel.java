@@ -13,10 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
+import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory;
 import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory.ChannelConnection;
 import com.google.devtools.build.lib.remote.grpc.DynamicConnectionPool;
@@ -28,9 +29,12 @@ import io.netty.util.AbstractReferenceCounted;
 import io.netty.util.ReferenceCounted;
 import io.reactivex.rxjava3.annotations.CheckReturnValue;
 import io.reactivex.rxjava3.core.Single;
+import io.reactivex.rxjava3.core.SingleObserver;
 import io.reactivex.rxjava3.core.SingleSource;
+import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.functions.Function;
 import java.io.IOException;
+import java.util.concurrent.ExecutionException;
 
 /**
  * A wrapper around a {@link DynamicConnectionPool} exposing {@link Channel} and a reference count.
@@ -80,17 +84,46 @@ public class ReferenceCountedChannel implements ReferenceCounted {
   }
 
   public <T> T withChannelBlocking(Function<Channel, T> source)
-      throws IOException, InterruptedException {
+      throws ExecutionException, IOException, InterruptedException {
     try {
-      return withChannel(channel -> Single.just(source.apply(channel))).blockingGet();
-    } catch (RuntimeException e) {
+      return withChannelBlockingGet(source);
+    } catch (ExecutionException e) {
       Throwable cause = e.getCause();
-      if (cause != null) {
-        throwIfInstanceOf(cause, IOException.class);
-        throwIfInstanceOf(cause, InterruptedException.class);
-      }
+      Throwables.throwIfInstanceOf(cause, IOException.class);
+      Throwables.throwIfUnchecked(cause);
       throw e;
     }
+  }
+
+  // prevents rxjava silent possible wrap of RuntimeException and misinterpretation
+  private <T> T withChannelBlockingGet(Function<Channel, T> source)
+      throws ExecutionException, InterruptedException {
+    SettableFuture<T> future = SettableFuture.create();
+    withChannel(channel -> Single.just(source.apply(channel)))
+        .subscribe(
+            new SingleObserver<T>() {
+              @Override
+              public void onError(Throwable t) {
+                future.setException(t);
+              }
+
+              @Override
+              public void onSuccess(T t) {
+                future.set(t);
+              }
+
+              @Override
+              public void onSubscribe(Disposable d) {
+                future.addListener(
+                    () -> {
+                      if (future.isCancelled()) {
+                        d.dispose();
+                      }
+                    },
+                    directExecutor());
+              }
+            });
+    return future.get();
   }
 
   @CheckReturnValue

@@ -89,12 +89,6 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void inputDiscoveringActionNoticesMissingDep() throws Exception {
-    skipIfBazel();
-    helper.runInputDiscoveringActionNoticesMissingDep();
-  }
-
-  @Test
   public void multipleLostInputsForRewindPlan() throws Exception {
     helper.runMultipleLostInputsForRewindPlan();
   }

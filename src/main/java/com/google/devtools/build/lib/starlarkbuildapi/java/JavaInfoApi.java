@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.starlarkbuildapi.java;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
-import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaPluginInfoApi.JavaPluginDataApi;
@@ -179,9 +178,4 @@ public interface JavaInfoApi<
 
   @StarlarkMethod(name = "_constraints", documented = false, structField = true)
   Sequence<String> getJavaConstraintsStarlark();
-
-  /** Provider class for {@link JavaInfoApi} objects. */
-  interface JavaInfoProviderApi extends ProviderApi {
-
-  }
 }

@@ -362,7 +362,16 @@ class BazelLockfileTest(test_base.TestBase):
     )
     _, _, stderr = self.RunBazel(['build', '@hello//:all'])
     self.assertIn('Hello from the other side!', ''.join(stderr))
-    self.RunBazel(['shutdown'])
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read().strip())
+      old_impl = lockfile['moduleExtensions']['//:extension.bzl%lockfile_ext'][
+          'bzlTransitiveDigest'
+      ]
+
+    # Run again to make sure the resolution value is cached. So even if module
+    # resolution doesn't rerun (its event is null), the lockfile is still
+    # updated with the newest extension eval results
+    self.RunBazel(['build', '@hello//:all'])
 
     # Update extension. Make sure that it is executed and updated in the
     # lockfile without errors (since it's already in the lockfile)
@@ -384,6 +393,12 @@ class BazelLockfileTest(test_base.TestBase):
     )
     _, _, stderr = self.RunBazel(['build', '@hello//:all'])
     self.assertIn('Hello from the other town!', ''.join(stderr))
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read().strip())
+      new_impl = lockfile['moduleExtensions']['//:extension.bzl%lockfile_ext'][
+          'bzlTransitiveDigest'
+      ]
+      self.assertNotEqual(new_impl, old_impl)
 
   def testUpdateModuleExtensionErrorMode(self):
     self.ScratchFile(

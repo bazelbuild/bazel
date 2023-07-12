@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.query2.cquery;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -23,6 +22,8 @@ import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Configuration;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.CqueryResult;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.CqueryResultOrBuilder;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
@@ -39,6 +40,7 @@ import com.google.devtools.build.lib.query2.cquery.CqueryOptions.Transitions;
 import com.google.devtools.build.lib.query2.cquery.CqueryTransitionResolver.EvaluateException;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
+import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import com.google.devtools.build.lib.query2.query.output.ProtoOutputFormatter;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
@@ -60,6 +62,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
   /** Defines the types of proto output this class can handle. */
   public enum OutputType {
     BINARY("proto"),
+    DELIMITED_BINARY("streamed_proto"),
     TEXT("textproto"),
     JSON("jsonproto");
 
@@ -102,14 +105,13 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
     }
   }
 
+  private CqueryResult.Builder cqueryResultBuilder;
   private final OutputType outputType;
   private final AspectResolver resolver;
   private final SkyframeExecutor skyframeExecutor;
   private final ConfigurationCache configurationCache = new ConfigurationCache();
   private final JsonFormat.Printer jsonPrinter = JsonFormat.printer();
   private final RuleClassProvider ruleClassProvider;
-
-  private AnalysisProtosV2.CqueryResult.Builder protoResult;
 
   private final Map<Label, Target> partialResultMap;
   private ConfiguredTarget currentTarget;
@@ -133,30 +135,72 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
 
   @Override
   public void start() {
-    protoResult = AnalysisProtosV2.CqueryResult.newBuilder();
+    cqueryResultBuilder = AnalysisProtosV2.CqueryResult.newBuilder();
+  }
+
+  private static QueryResult queryResultFromCqueryResult(CqueryResultOrBuilder cqueryResult) {
+    Build.QueryResult.Builder queryResult = Build.QueryResult.newBuilder();
+    cqueryResult.getResultsList().forEach(ct -> queryResult.addTarget(ct.getTarget()));
+    return queryResult.build();
   }
 
   @Override
   public void close(boolean failFast) throws IOException {
-    if (!failFast && printStream != null) {
-      if (options.protoIncludeConfigurations) {
-        writeData(getProtoResult());
-      } else {
-        // Documentation promises that setting this flag to false means we convert directly
-        // to the build.proto format. This is hard to test in integration testing due to the way
-        // proto output is turned readable (codex). So change the following code with caution.
-        Build.QueryResult.Builder queryResult = Build.QueryResult.newBuilder();
-        protoResult.getResultsList().forEach(ct -> queryResult.addTarget(ct.getTarget()));
-        writeData(queryResult.build());
-      }
-      printStream.flush();
+    if (failFast || printStream == null) {
+      return;
     }
+
+    // There are a few cases that affect the shape of the output:
+    //   1. --output=proto|textproto|jsonproto --proto:include_configurations =>
+    //        Writes a single CqueryResult containing all the ConfiguredTarget(s) and
+    //        Configuration(s) in the specified output format.
+    //   2. --output=streamed_proto --proto:include_configurations =>
+    //        Writes multiple length delimited CqueryResult protos, each containing a single
+    //        ConfiguredTarget or Configuration.
+    //   3. --output=proto|textproto|jsonproto --noproto:include_configurations =>
+    //        Writes a single QueryResult containing all the corresponding Target(s) in the
+    //        specified output format.
+    //   4.--output=streamed_proto --noproto:include_configurations =>
+    //        Writes multiple length delimited QueryResult protos, each containing a single Target.
+    switch (outputType) {
+      case BINARY:
+      case TEXT:
+      case JSON:
+        // Only at the end, we write the entire CqueryResult / QueryResult is written all together.
+        if (options.protoIncludeConfigurations) {
+          cqueryResultBuilder.addAllConfigurations(configurationCache.getConfigurations());
+        }
+        writeData(
+            options.protoIncludeConfigurations
+                ? cqueryResultBuilder.build()
+                : queryResultFromCqueryResult(cqueryResultBuilder));
+        break;
+      case DELIMITED_BINARY:
+        if (options.protoIncludeConfigurations) {
+          // The wrapped CqueryResult + ConfiguredTarget are already written in
+          // {@link #processOutput}, so we just need to write the Configuration(s) each wrapped in
+          // a CqueryResult.
+          for (Configuration configuration : configurationCache.getConfigurations()) {
+            writeData(
+                AnalysisProtosV2.CqueryResult.newBuilder()
+                    .addConfigurations(configuration)
+                    .build());
+          }
+        }
+        break;
+    }
+
+    outputStream.flush();
+    printStream.flush();
   }
 
   private void writeData(Message message) throws IOException {
     switch (outputType) {
       case BINARY:
         message.writeTo(outputStream);
+        break;
+      case DELIMITED_BINARY:
+        message.writeDelimitedTo(outputStream);
         break;
       case TEXT:
         TextFormat.printer().print(message, printStream);
@@ -165,8 +209,6 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
         jsonPrinter.appendTo(message, printStream);
         printStream.append('\n');
         break;
-      default:
-        throw new IllegalStateException("Unknown outputType " + outputType.formatName());
     }
   }
 
@@ -175,14 +217,9 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
     return outputType.formatName();
   }
 
-  @VisibleForTesting
-  public AnalysisProtosV2.CqueryResult getProtoResult() {
-    protoResult.addAllConfigurations(configurationCache.getConfigurations());
-    return protoResult.build();
-  }
-
   @Override
-  public void processOutput(Iterable<ConfiguredTarget> partialResult) throws InterruptedException {
+  public void processOutput(Iterable<ConfiguredTarget> partialResult)
+      throws InterruptedException, IOException {
     partialResult.forEach(
         kct -> partialResultMap.put(kct.getOriginalLabel(), accessor.getTarget(kct)));
 
@@ -239,6 +276,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
           throw new InterruptedException(e.getMessage());
         }
       }
+
       builder.setTarget(targetBuilder);
 
       if (options.protoIncludeConfigurations) {
@@ -259,7 +297,20 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
         }
       }
 
-      protoResult.addResults(builder.build());
+      if (outputType == OutputType.DELIMITED_BINARY) {
+        // If --proto:include_configurations, we wrap the single ConfiguredTarget in a CqueryResult.
+        // If --noproto:include_configurations, we wrap the single Target in a QueryResult.
+        // Then we write either result delimited to the stream.
+        writeData(
+            options.protoIncludeConfigurations
+                ? CqueryResult.newBuilder().addResults(builder).build()
+                : QueryResult.newBuilder().addTarget(builder.getTarget()).build());
+      } else {
+        // Except --output=streamed_proto, all other output types require they be wrapped in a
+        // CqueryResult or QueryResult. So we instead of writing straight to the stream, we
+        // aggregate the results in a CqueryResult.Builder before writing in {@link #close}.
+        cqueryResultBuilder.addResults(builder.build());
+      }
     }
   }
 

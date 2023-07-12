@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.starlarkbuildapi.java;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -25,7 +24,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
-import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import net.starlark.java.annot.Param;
@@ -376,15 +374,6 @@ public interface JavaCommonApi<
   ProviderApi getJavaRuntimeProvider();
 
   @StarlarkMethod(
-      name = "java_toolchain_label",
-      doc = "Returns the toolchain's label.",
-      parameters = {
-        @Param(name = "java_toolchain", positional = true, named = false, doc = "The toolchain."),
-      },
-      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
-  Label getJavaToolchainLabel(JavaToolchainStarlarkApiProviderApi toolchain) throws EvalException;
-
-  @StarlarkMethod(
       name = "BootClassPathInfo",
       doc = "The provider used to supply bootclasspath information",
       structField = true)
@@ -427,12 +416,11 @@ public interface JavaCommonApi<
 
   @StarlarkMethod(
       name = "collect_native_deps_dirs",
-      parameters = {@Param(name = "deps")},
+      parameters = {@Param(name = "libraries")},
       useStarlarkThread = true,
       documented = false)
-  Sequence<String> collectNativeLibsDirs(
-      Sequence<? extends TransitiveInfoCollectionApi> deps, StarlarkThread thread)
-      throws EvalException, RuleErrorException;
+  Sequence<String> collectNativeLibsDirs(Depset libraries, StarlarkThread thread)
+      throws EvalException, RuleErrorException, TypeException;
 
   @StarlarkMethod(
       name = "get_runtime_classpath_for_archive",

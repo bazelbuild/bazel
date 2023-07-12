@@ -567,15 +567,6 @@ public class JavaOptions extends FragmentOptions {
   public boolean dontCollectDataLibraries;
 
   @Option(
-      name = "incompatible_require_javaplugininfo_in_javacommon",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "When enabled java_common.compile only accepts JavaPluginInfo for plugins.")
-  public boolean requireJavaPluginInfo;
-
-  @Option(
       name = "incompatible_multi_release_deploy_jars",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -666,8 +657,6 @@ public class JavaOptions extends FragmentOptions {
     exec.hostJavaLanguageVersion = hostJavaLanguageVersion;
 
     exec.experimentalTurbineAnnotationProcessing = experimentalTurbineAnnotationProcessing;
-
-    exec.requireJavaPluginInfo = requireJavaPluginInfo;
 
     exec.multiReleaseDeployJars = multiReleaseDeployJars;
 

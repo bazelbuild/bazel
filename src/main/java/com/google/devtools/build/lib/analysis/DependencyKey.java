@@ -41,8 +41,7 @@ public abstract class DependencyKey implements BaseDependencySpecification {
      * Sets the execution platform {@link Label} that this dependency should use as an override for
      * toolchain resolution.
      */
-    @Nullable
-    Builder setExecutionPlatformLabel(Label executionPlatformLabel);
+    Builder setExecutionPlatformLabel(@Nullable Label executionPlatformLabel);
 
     /** Returns the new instance. */
     DependencyKey build();
