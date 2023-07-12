@@ -752,9 +752,11 @@ public class ModuleFileGlobals {
       name = "multiple_version_override",
       doc =
           "Specifies that a dependency should still come from a registry, but multiple versions of"
-              + " it should be allowed to coexist. This directive only takes effect in the root"
-              + " module; in other words, if a module is used as a dependency by others, its own"
-              + " overrides are ignored.",
+              + " it should be allowed to coexist. See <a"
+              + " href=\"/external/module#multiple-version_override\">the documentation</a> for"
+              + " more details. This"
+              + " directive only takes effect in the root module; in other words, if a module"
+              + " is used as a dependency by others, its own overrides are ignored.",
       parameters = {
         @Param(
             name = "module_name",

@@ -108,10 +108,6 @@ upper_tabs:
         path: /build/style-guide
       - title: Share variables
         path: /build/share-variables
-      - title: External dependencies
-        path: /build/external
-      - title: Manage dependencies with Bzlmod
-        path: /build/bzlmod
       - title: Recommended rules
         path: /community/recommended-rules
       - heading: Running Bazel
@@ -136,6 +132,8 @@ upper_tabs:
         path: /external/extension
       - title: Module lockfile
         path: /external/lockfile
+      - title: '`mod` command'
+        path: /external/mod-command
       - title: Bzlmod migration guide
         path: /external/migration
       - title: Advanced topics

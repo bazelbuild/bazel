@@ -66,6 +66,7 @@ class Module:
     self.module_dot_bazel = None
     self.patches = []
     self.patch_strip = 0
+    self.archive_type = None
 
   def set_source(self, archive_url, strip_prefix=None):
     self.archive_url = archive_url
@@ -79,6 +80,10 @@ class Module:
   def set_patches(self, patches, patch_strip):
     self.patches = patches
     self.patch_strip = patch_strip
+    return self
+
+  def set_archive_type(self, archive_type):
+    self.archive_type = archive_type
     return self
 
 
@@ -104,7 +109,14 @@ class BazelRegistry:
     """Return the URL of this registry."""
     return self.root.resolve().as_uri()
 
-  def generateCcSource(self, name, version, deps=None, repo_names=None):
+  def generateCcSource(
+      self,
+      name,
+      version,
+      deps=None,
+      repo_names=None,
+      extra_module_file_contents=None,
+  ):
     """Generate a cc project with given dependency information.
 
     1. The cc projects implements a hello_<lib_name> function.
@@ -119,6 +131,8 @@ class BazelRegistry:
       version: The module version.
       deps: The dependencies of this module.
       repo_names: The desired repository name for some dependencies.
+      extra_module_file_contents: Extra lines to append to the MODULE.bazel
+        file.
 
     Returns:
       The generated source directory.
@@ -133,6 +147,8 @@ class BazelRegistry:
     for dep in deps:
       if dep not in repo_names:
         repo_names[dep] = dep
+    if not extra_module_file_contents:
+      extra_module_file_contents = []
 
     def calc_repo_name_str(dep):
       if dep == repo_names[dep]:
@@ -141,17 +157,21 @@ class BazelRegistry:
 
     scratchFile(src_dir.joinpath('WORKSPACE'))
     scratchFile(
-        src_dir.joinpath('MODULE.bazel'), [
+        src_dir.joinpath('MODULE.bazel'),
+        [
             'module(',
             '  name = "%s",' % name,
             '  version = "%s",' % version,
             '  compatibility_level = 1,',
             ')',
-        ] + [
-            'bazel_dep(name = "%s", version = "%s"%s)' %
-            (dep, version, calc_repo_name_str(dep))
+        ]
+        + [
+            'bazel_dep(name = "%s", version = "%s"%s)'
+            % (dep, version, calc_repo_name_str(dep))
             for dep, version in deps.items()
-        ])
+        ]
+        + extra_module_file_contents,
+    )
 
     scratchFile(
         src_dir.joinpath(name.lower() + '.h'), [
@@ -189,9 +209,9 @@ class BazelRegistry:
         ])
     return src_dir
 
-  def createArchive(self, name, version, src_dir):
+  def createArchive(self, name, version, src_dir, filename_pattern='%s.%s.zip'):
     """Create an archive with a given source directory."""
-    zip_path = self.archives.joinpath('%s.%s.zip' % (name, version))
+    zip_path = self.archives.joinpath(filename_pattern % (name, version))
     zip_obj = zipfile.ZipFile(str(zip_path), 'w')
     for foldername, _, filenames in os.walk(str(src_dir)):
       for filename in filenames:
@@ -228,24 +248,42 @@ class BazelRegistry:
         source['patches'][patch.name] = integrity(read(patch))
         shutil.copy(str(patch), str(patch_dir))
 
+    if module.archive_type:
+      source['archive_type'] = module.archive_type
+
     with module_dir.joinpath('source.json').open('w') as f:
       json.dump(source, f, indent=4, sort_keys=True)
 
-  def createCcModule(self,
-                     name,
-                     version,
-                     deps=None,
-                     repo_names=None,
-                     patches=None,
-                     patch_strip=0):
+  def createCcModule(
+      self,
+      name,
+      version,
+      deps=None,
+      repo_names=None,
+      patches=None,
+      patch_strip=0,
+      extra_module_file_contents=None,
+      archive_pattern=None,
+      archive_type=None,
+  ):
     """Generate a cc project and add it as a module into the registry."""
-    src_dir = self.generateCcSource(name, version, deps, repo_names)
-    archive = self.createArchive(name, version, src_dir)
+    src_dir = self.generateCcSource(
+        name, version, deps, repo_names, extra_module_file_contents
+    )
+    if archive_pattern:
+      archive = self.createArchive(
+          name, version, src_dir, filename_pattern=archive_pattern
+      )
+    else:
+      archive = self.createArchive(name, version, src_dir)
     module = Module(name, version)
     module.set_source(archive.resolve().as_uri())
     module.set_module_dot_bazel(src_dir.joinpath('MODULE.bazel'))
     if patches:
       module.set_patches(patches, patch_strip)
+    if archive_type:
+      module.set_archive_type(archive_type)
+
     self.addModule(module)
     return self
 
