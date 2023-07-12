@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.bazel.commands;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryOptions.Charset.UTF8;
+import static com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.Charset.UTF8;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.joining;
@@ -33,15 +33,15 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.Augm
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ExtensionArg;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ExtensionArg.ExtensionArgConverter;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.InvalidArgumentException;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryExecutor;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryOptions;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryOptions.QueryType;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryOptions.QueryTypeConverter;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModuleArg;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModuleArg.ModuleArgConverter;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ExtensionArg;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ExtensionArg.ExtensionArgConverter;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.InvalidArgumentException;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.ModSubcommand;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.ModSubcommandConverter;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModuleArg;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModuleArg.ModuleArgConverter;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
@@ -54,7 +54,7 @@ import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.ModqueryCommand.Code;
+import com.google.devtools.build.lib.server.FailureDetails.ModCommand.Code;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -76,27 +76,27 @@ import java.util.Optional;
 
 /** Queries the Bzlmod external dependency graph. */
 @Command(
-    name = ModqueryCommand.NAME,
+    name = ModCommand.NAME,
     // TODO(andreisolo): figure out which extra options are really needed
     options = {
-      ModqueryOptions.class,
+      ModOptions.class,
       PackageOptions.class,
       KeepGoingOption.class,
       LoadingPhaseThreadsOption.class
     },
-    help = "resource:modquery.txt",
+    help = "resource:mod.txt",
     shortDescription = "Queries the Bzlmod external dependency graph",
     allowResidue = true)
-public final class ModqueryCommand implements BlazeCommand {
+public final class ModCommand implements BlazeCommand {
 
-  public static final String NAME = "modquery";
+  public static final String NAME = "mod";
 
   @Override
   public void editOptions(OptionsParser optionsParser) {
     try {
       optionsParser.parse(
           PriorityCategory.SOFTWARE_REQUIREMENT,
-          "Option required by the modquery command",
+          "Option required by the mod command",
           ImmutableList.of("--enable_bzlmod"));
     } catch (OptionsParsingException e) {
       // Should never happen.
@@ -141,7 +141,7 @@ public final class ModqueryCommand implements BlazeCommand {
           (BazelModuleInspectorValue) evaluationResult.get(BazelModuleInspectorValue.KEY);
 
     } catch (InterruptedException e) {
-      String errorMessage = "Modquery interrupted: " + e.getMessage();
+      String errorMessage = "mod command interrupted: " + e.getMessage();
       env.getReporter().handle(Event.error(errorMessage));
       return BlazeCommandResult.detailedExitCode(
           InterruptedFailureDetails.detailedExitCode(errorMessage));
@@ -150,24 +150,25 @@ public final class ModqueryCommand implements BlazeCommand {
       return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
     }
 
-    ModqueryOptions modqueryOptions = options.getOptions(ModqueryOptions.class);
-    Preconditions.checkArgument(modqueryOptions != null);
+    ModOptions modOptions = options.getOptions(ModOptions.class);
+    Preconditions.checkArgument(modOptions != null);
 
     if (options.getResidue().isEmpty()) {
       String errorMessage =
-          String.format("No query type specified, choose one of : %s.", QueryType.printValues());
-      return reportAndCreateFailureResult(env, errorMessage, Code.MODQUERY_COMMAND_UNKNOWN);
+          String.format(
+              "No subcommand specified, choose one of : %s.", ModSubcommand.printValues());
+      return reportAndCreateFailureResult(env, errorMessage, Code.MOD_COMMAND_UNKNOWN);
     }
 
-    // The first keyword in the residue must be the QueryType, and then comes a list of "arguments".
-    String queryInput = options.getResidue().get(0);
-    QueryType query;
+    // The first element in the residue must be the subcommand, and then comes a list of arguments.
+    String subcommandStr = options.getResidue().get(0);
+    ModSubcommand subcommand;
     try {
-      query = new QueryTypeConverter().convert(queryInput);
+      subcommand = new ModSubcommandConverter().convert(subcommandStr);
     } catch (OptionsParsingException e) {
       String errorMessage =
-          String.format("Invalid query type, choose one from : %s.", QueryType.printValues());
-      return reportAndCreateFailureResult(env, errorMessage, Code.MODQUERY_COMMAND_UNKNOWN);
+          String.format("Invalid subcommand, choose one from : %s.", ModSubcommand.printValues());
+      return reportAndCreateFailureResult(env, errorMessage, Code.MOD_COMMAND_UNKNOWN);
     }
     List<String> args = options.getResidue().subList(1, options.getResidue().size());
 
@@ -177,7 +178,7 @@ public final class ModqueryCommand implements BlazeCommand {
     AugmentedModule rootModule = moduleInspector.getDepGraph().get(ModuleKey.ROOT);
     try {
       ImmutableSet<ModuleKey> keys =
-          modqueryOptions.baseModule.resolveToModuleKeys(
+          modOptions.baseModule.resolveToModuleKeys(
               moduleInspector.getModulesIndex(),
               moduleInspector.getDepGraph(),
               rootModule.getDeps(),
@@ -198,12 +199,12 @@ public final class ModqueryCommand implements BlazeCommand {
           env,
           String.format(
               "In --base_module %s option: %s (Note that unused modules cannot be used here)",
-              modqueryOptions.baseModule, e.getMessage()),
+              modOptions.baseModule, e.getMessage()),
           Code.INVALID_ARGUMENTS);
     }
 
-    // The args can have different types depending on the query type, so create multiple
-    // containers which can be filled accordingly.
+    // The args can have different types depending on the subcommand, so create multiple containers
+    // which can be filled accordingly.
     ImmutableSet<ModuleKey> argsAsModules = null;
     ImmutableSortedSet<ModuleExtensionId> argsAsExtensions = null;
     ImmutableMap<String, RepositoryName> argsAsRepos = null;
@@ -212,15 +213,15 @@ public final class ModqueryCommand implements BlazeCommand {
         Objects.requireNonNull(moduleInspector.getDepGraph().get(baseModuleKey));
     RepositoryMapping baseModuleMapping = depGraphValue.getFullRepoMapping(baseModuleKey);
     try {
-      switch (query) {
-        case TREE:
-          // TREE doesn't take extra arguments.
+      switch (subcommand) {
+        case GRAPH:
+          // GRAPH doesn't take extra arguments.
           if (!args.isEmpty()) {
             throw new InvalidArgumentException(
-                "the 'tree' command doesn't take extra arguments", Code.TOO_MANY_ARGUMENTS);
+                "the 'graph' command doesn't take extra arguments", Code.TOO_MANY_ARGUMENTS);
           }
           break;
-        case SHOW:
+        case SHOW_REPO:
           ImmutableMap.Builder<String, RepositoryName> targetToRepoName =
               new ImmutableMap.Builder<>();
           for (String arg : args) {
@@ -277,7 +278,7 @@ public final class ModqueryCommand implements BlazeCommand {
                           moduleInspector.getDepGraph(),
                           baseModule.getDeps(),
                           baseModule.getUnusedDeps(),
-                          modqueryOptions.includeUnused,
+                          modOptions.includeUnused,
                           /* warnUnused= */ true));
             } catch (InvalidArgumentException | OptionsParsingException e) {
               throw new InvalidArgumentException(
@@ -296,42 +297,42 @@ public final class ModqueryCommand implements BlazeCommand {
     try {
       fromKeys =
           moduleArgListToKeys(
-              modqueryOptions.modulesFrom,
+              modOptions.modulesFrom,
               moduleInspector.getModulesIndex(),
               moduleInspector.getDepGraph(),
               baseModule.getDeps(),
               baseModule.getUnusedDeps(),
-              modqueryOptions.includeUnused);
+              modOptions.includeUnused);
     } catch (InvalidArgumentException e) {
       return reportAndCreateFailureResult(
           env,
-          String.format("In --from %s option: %s", modqueryOptions.modulesFrom, e.getMessage()),
+          String.format("In --from %s option: %s", modOptions.modulesFrom, e.getMessage()),
           Code.INVALID_ARGUMENTS);
     }
 
     try {
       usageKeys =
           moduleArgListToKeys(
-              modqueryOptions.extensionUsages,
+              modOptions.extensionUsages,
               moduleInspector.getModulesIndex(),
               moduleInspector.getDepGraph(),
               baseModule.getDeps(),
               baseModule.getUnusedDeps(),
-              modqueryOptions.includeUnused);
+              modOptions.includeUnused);
     } catch (InvalidArgumentException e) {
       return reportAndCreateFailureResult(
           env,
           String.format(
               "In --extension_usages %s option: %s (Note that unused modules cannot be used"
                   + " here)",
-              modqueryOptions.extensionUsages, e.getMessage()),
+              modOptions.extensionUsages, e.getMessage()),
           Code.INVALID_ARGUMENTS);
     }
 
     /* Extract and check the --extension_filter argument */
     Optional<MaybeCompleteSet<ModuleExtensionId>> filterExtensions = Optional.empty();
-    if (query.isGraph() && modqueryOptions.extensionFilter != null) {
-      if (modqueryOptions.extensionFilter.isEmpty()) {
+    if (subcommand.isGraph() && modOptions.extensionFilter != null) {
+      if (modOptions.extensionFilter.isEmpty()) {
         filterExtensions = Optional.of(MaybeCompleteSet.completeSet());
       } else {
         try {
@@ -339,7 +340,7 @@ public final class ModqueryCommand implements BlazeCommand {
               Optional.of(
                   MaybeCompleteSet.copyOf(
                       extensionArgListToIds(
-                          modqueryOptions.extensionFilter,
+                          modOptions.extensionFilter,
                           moduleInspector.getModulesIndex(),
                           moduleInspector.getDepGraph(),
                           baseModule.getDeps(),
@@ -349,7 +350,7 @@ public final class ModqueryCommand implements BlazeCommand {
               env,
               String.format(
                   "In --extension_filter %s option: %s",
-                  modqueryOptions.extensionFilter, e.getMessage()),
+                  modOptions.extensionFilter, e.getMessage()),
               Code.INVALID_ARGUMENTS);
         }
       }
@@ -357,8 +358,8 @@ public final class ModqueryCommand implements BlazeCommand {
 
     ImmutableMap<String, BzlmodRepoRuleValue> targetRepoRuleValues = null;
     try {
-      // If the query is a SHOW, also request the BzlmodRepoRuleValues from SkyFactory.
-      if (query == QueryType.SHOW) {
+      // If subcommand is a SHOW, also request the BzlmodRepoRuleValues from Skyframe.
+      if (subcommand == ModSubcommand.SHOW_REPO) {
         ImmutableSet<SkyKey> skyKeys =
             argsAsRepos.values().stream().map(BzlmodRepoRuleValue::key).collect(toImmutableSet());
         EvaluationResult<SkyValue> result =
@@ -381,7 +382,7 @@ public final class ModqueryCommand implements BlazeCommand {
                                 result.get(BzlmodRepoRuleValue.key(e.getValue()))));
       }
     } catch (InterruptedException e) {
-      String errorMessage = "Modquery interrupted: " + e.getMessage();
+      String errorMessage = "mod command interrupted: " + e.getMessage();
       env.getReporter().handle(Event.error(errorMessage));
       return BlazeCommandResult.detailedExitCode(
           InterruptedFailureDetails.detailedExitCode(errorMessage));
@@ -389,49 +390,49 @@ public final class ModqueryCommand implements BlazeCommand {
 
     // Workaround to allow different default value for DEPS and EXPLAIN, and also use
     // Integer.MAX_VALUE instead of the exact number string.
-    if (modqueryOptions.depth < 1) {
-      switch (query) {
+    if (modOptions.depth < 1) {
+      switch (subcommand) {
         case EXPLAIN:
-          modqueryOptions.depth = 1;
+          modOptions.depth = 1;
           break;
         case DEPS:
-          modqueryOptions.depth = 2;
+          modOptions.depth = 2;
           break;
         default:
-          modqueryOptions.depth = Integer.MAX_VALUE;
+          modOptions.depth = Integer.MAX_VALUE;
       }
     }
 
-    ModqueryExecutor modqueryExecutor =
-        new ModqueryExecutor(
+    ModExecutor modExecutor =
+        new ModExecutor(
             moduleInspector.getDepGraph(),
             depGraphValue.getExtensionUsagesTable(),
             moduleInspector.getExtensionToRepoInternalNames(),
             filterExtensions,
-            modqueryOptions,
+            modOptions,
             new OutputStreamWriter(
                 env.getReporter().getOutErr().getOutputStream(),
-                modqueryOptions.charset == UTF8 ? UTF_8 : US_ASCII));
+                modOptions.charset == UTF8 ? UTF_8 : US_ASCII));
 
-    switch (query) {
-      case TREE:
-        modqueryExecutor.tree(fromKeys);
+    switch (subcommand) {
+      case GRAPH:
+        modExecutor.graph(fromKeys);
         break;
       case DEPS:
-        modqueryExecutor.tree(argsAsModules);
+        modExecutor.graph(argsAsModules);
         break;
       case PATH:
-        modqueryExecutor.path(fromKeys, argsAsModules);
+        modExecutor.path(fromKeys, argsAsModules);
         break;
       case ALL_PATHS:
       case EXPLAIN:
-        modqueryExecutor.allPaths(fromKeys, argsAsModules);
+        modExecutor.allPaths(fromKeys, argsAsModules);
         break;
-      case SHOW:
-        modqueryExecutor.show(targetRepoRuleValues);
+      case SHOW_REPO:
+        modExecutor.showRepo(targetRepoRuleValues);
         break;
       case SHOW_EXTENSION:
-        modqueryExecutor.showExtension(argsAsExtensions, usageKeys);
+        modExecutor.showExtension(argsAsExtensions, usageKeys);
         break;
     }
 
@@ -479,7 +480,7 @@ public final class ModqueryCommand implements BlazeCommand {
     }
     String fullMessage =
         String.format(
-            message.concat(" Type '%s help modquery' for syntax and help."),
+            message.concat(" Type '%s help mod' for syntax and help."),
             env.getRuntime().getProductName());
     env.getReporter().handle(Event.error(fullMessage));
     return createFailureResult(fullMessage, detailedCode);
@@ -489,8 +490,7 @@ public final class ModqueryCommand implements BlazeCommand {
     return BlazeCommandResult.detailedExitCode(
         DetailedExitCode.of(
             FailureDetail.newBuilder()
-                .setModqueryCommand(
-                    FailureDetails.ModqueryCommand.newBuilder().setCode(detailedCode).build())
+                .setModCommand(FailureDetails.ModCommand.newBuilder().setCode(detailedCode).build())
                 .setMessage(message)
                 .build()));
   }

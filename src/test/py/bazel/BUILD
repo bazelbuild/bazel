@@ -348,9 +348,9 @@ py_test(
 )
 
 py_test(
-    name = "modquery_test",
+    name = "mod_command_test",
     size = "large",
-    srcs = ["bzlmod/modquery_test.py"],
+    srcs = ["bzlmod/mod_command_test.py"],
     tags = [
         "requires-network",
     ],

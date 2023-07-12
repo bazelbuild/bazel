@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.bazel.bzlmod.modquery;
+package com.google.devtools.build.lib.bazel.bzlmod.modcommand;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableBiMap;
@@ -22,12 +22,12 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModuleArg.ModuleArgConverter;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModuleArg.ModuleArgConverter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.RepoContext;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
-import com.google.devtools.build.lib.server.FailureDetails.ModqueryCommand.Code;
+import com.google.devtools.build.lib.server.FailureDetails.ModCommand.Code;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters.CommaSeparatedNonEmptyOptionListConverter;
 import com.google.devtools.common.options.OptionsParsingException;

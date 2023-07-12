@@ -8,7 +8,7 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["*"]) + [
-        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod/modquery:srcs",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod/modcommand:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )

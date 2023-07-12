@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.bzlmod.modquery;
+package com.google.devtools.build.lib.bazel.bzlmod.modcommand;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
@@ -35,9 +35,9 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionUsage;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.bazel.bzlmod.Tag;
 import com.google.devtools.build.lib.bazel.bzlmod.Version;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryExecutor.ResultNode.IsExpanded;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryExecutor.ResultNode.IsIndirect;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryExecutor.ResultNode.NodeMetadata;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultNode.IsExpanded;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultNode.IsIndirect;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultNode.NodeMetadata;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.query2.query.output.BuildOutputFormatter.AttributeReader;
@@ -62,23 +62,23 @@ import java.util.function.Predicate;
 import net.starlark.java.eval.Starlark;
 
 /**
- * Executes inspection queries for {@link
- * com.google.devtools.build.lib.bazel.commands.ModqueryCommand} and prints the resulted output to
- * the reporter's output stream using the different defined {@link OutputFormatters}.
+ * Executes inspection queries for {@link com.google.devtools.build.lib.bazel.commands.ModCommand}
+ * and prints the resulted output to the reporter's output stream using the different defined {@link
+ * OutputFormatters}.
  */
-public class ModqueryExecutor {
+public class ModExecutor {
 
   private final ImmutableMap<ModuleKey, AugmentedModule> depGraph;
   private final ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsages;
   private final ImmutableSetMultimap<ModuleExtensionId, String> extensionRepos;
   private final Optional<MaybeCompleteSet<ModuleExtensionId>> extensionFilter;
-  private final ModqueryOptions options;
+  private final ModOptions options;
   private final PrintWriter printer;
   private ImmutableMap<ModuleExtensionId, ImmutableSetMultimap<String, ModuleKey>>
       extensionRepoImports;
 
-  public ModqueryExecutor(
-      ImmutableMap<ModuleKey, AugmentedModule> depGraph, ModqueryOptions options, Writer writer) {
+  public ModExecutor(
+      ImmutableMap<ModuleKey, AugmentedModule> depGraph, ModOptions options, Writer writer) {
     this(
         depGraph,
         ImmutableTable.of(),
@@ -88,12 +88,12 @@ public class ModqueryExecutor {
         writer);
   }
 
-  public ModqueryExecutor(
+  public ModExecutor(
       ImmutableMap<ModuleKey, AugmentedModule> depGraph,
       ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsages,
       ImmutableSetMultimap<ModuleExtensionId, String> extensionRepos,
       Optional<MaybeCompleteSet<ModuleExtensionId>> extensionFilter,
-      ModqueryOptions options,
+      ModOptions options,
       Writer writer) {
     this.depGraph = depGraph;
     this.extensionUsages = extensionUsages;
@@ -106,7 +106,7 @@ public class ModqueryExecutor {
     this.extensionRepoImports = computeRepoImportsTable(depGraph.keySet());
   }
 
-  public void tree(ImmutableSet<ModuleKey> from) {
+  public void graph(ImmutableSet<ModuleKey> from) {
     ImmutableMap<ModuleKey, ResultNode> result =
         expandAndPrune(from, computeExtensionFilterTargets(), false);
     OutputFormatters.getFormatter(options.outputFormat)
@@ -129,7 +129,7 @@ public class ModqueryExecutor {
         .output(result, depGraph, extensionRepos, extensionRepoImports, printer, options);
   }
 
-  public void show(ImmutableMap<String, BzlmodRepoRuleValue> targetRepoRuleValues) {
+  public void showRepo(ImmutableMap<String, BzlmodRepoRuleValue> targetRepoRuleValues) {
     RuleDisplayOutputter outputter = new RuleDisplayOutputter(printer);
     for (Entry<String, BzlmodRepoRuleValue> e : targetRepoRuleValues.entrySet()) {
       printer.printf("## %s:\n", e.getKey());
@@ -230,9 +230,9 @@ public class ModqueryExecutor {
     /**
      * Constructs a ResultGraphPruner to prune the result graph after the specified depth.
      *
-     * @param targets If not complete, it means that the result tree contains paths to some specific
-     *     targets. This will cause some branches to contain, after the specified depths, some
-     *     targets or target parents. As any other nodes omitted, transitive edges (embedding
+     * @param targets If not complete, it means that the result graph contains paths to some
+     *     specific targets. This will cause some branches to contain, after the specified depths,
+     *     some targets or target parents. As any other nodes omitted, transitive edges (embedding
      *     multiple edges) will be stored as <i>indirect</i>.
      * @param oldResult The unpruned result graph.
      */
@@ -559,8 +559,7 @@ public class ModqueryExecutor {
 
       private static NodeMetadata create(
           IsExpanded isExpanded, IsIndirect isIndirect, IsCycle isCycle) {
-        return new AutoValue_ModqueryExecutor_ResultNode_NodeMetadata(
-            isExpanded, isIndirect, isCycle);
+        return new AutoValue_ModExecutor_ResultNode_NodeMetadata(isExpanded, isIndirect, isCycle);
       }
     }
 
@@ -583,7 +582,7 @@ public class ModqueryExecutor {
     }
 
     static ResultNode.Builder builder() {
-      return new AutoValue_ModqueryExecutor_ResultNode.Builder().setTarget(false);
+      return new AutoValue_ModExecutor_ResultNode.Builder().setTarget(false);
     }
 
     @AutoValue.Builder

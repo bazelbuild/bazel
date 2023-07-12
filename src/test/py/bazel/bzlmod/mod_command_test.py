@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tests the modquery command."""
+"""Tests the mod command."""
 
 import os
 import tempfile
@@ -23,8 +23,8 @@ from src.test.py.bazel.bzlmod.test_utils import BazelRegistry
 from src.test.py.bazel.bzlmod.test_utils import scratchFile
 
 
-class ModqueryTest(test_base.TestBase):
-  """Test class for the modquery command."""
+class ModCommandTest(test_base.TestBase):
+  """Test class for the mod command."""
 
   def setUp(self):
     test_base.TestBase.setUp(self)
@@ -41,15 +41,15 @@ class ModqueryTest(test_base.TestBase):
         [
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
-            'modquery --enable_bzlmod',
-            'modquery --registry=' + self.main_registry.getURL(),
+            'mod --enable_bzlmod',
+            'mod --registry=' + self.main_registry.getURL(),
             # We need to have BCR here to make sure built-in modules like
             # bazel_tools can work.
-            'modquery --registry=https://bcr.bazel.build',
+            'mod --registry=https://bcr.bazel.build',
             # Disable yanked version check so we are not affected BCR changes.
-            'modquery --allow_yanked_versions=all',
+            'mod --allow_yanked_versions=all',
             # Make sure Bazel CI tests pass in all environments
-            'modquery --charset=ascii',
+            'mod --charset=ascii',
         ],
     )
     self.ScratchFile('WORKSPACE')
@@ -141,8 +141,8 @@ class ModqueryTest(test_base.TestBase):
     scratchFile(self.projects_dir.joinpath('ext2', 'BUILD'))
     scratchFile(self.projects_dir.joinpath('ext2', 'ext.bzl'), ext_src)
 
-  def testTree(self):
-    _, stdout, _ = self.RunBazel(['modquery', 'tree'], rstrip=True)
+  def testGraph(self):
+    _, stdout, _ = self.RunBazel(['mod', 'graph'], rstrip=True)
     self.assertListEqual(
         stdout,
         [
@@ -159,12 +159,12 @@ class ModqueryTest(test_base.TestBase):
             '    |___ext@1.0 (*)',
             '',
         ],
-        'wrong output in tree query',
+        'wrong output in graph query',
     )
 
-  def testTreeWithExtensions(self):
+  def testGraphWithExtensions(self):
     _, stdout, _ = self.RunBazel(
-        ['modquery', 'tree', '--extension_info=all'], rstrip=True
+        ['mod', 'graph', '--extension_info=all'], rstrip=True
     )
     self.assertListEqual(
         stdout,
@@ -197,14 +197,14 @@ class ModqueryTest(test_base.TestBase):
             '    |___ext@1.0 (*)',
             '',
         ],
-        'wrong output in tree with extensions query',
+        'wrong output in graph with extensions query',
     )
 
-  def testTreeWithExtensionFilter(self):
+  def testGraphWithExtensionFilter(self):
     _, stdout, _ = self.RunBazel(
         [
-            'modquery',
-            'tree',
+            'mod',
+            'graph',
             '--extension_info=repos',
             '--extension_filter=@ext//:ext.bzl%ext',
         ],
@@ -229,12 +229,12 @@ class ModqueryTest(test_base.TestBase):
             '    |___bar@2.0 (*)',
             '',
         ],
-        'wrong output in tree query with extension filter specified',
+        'wrong output in graph query with extension filter specified',
     )
 
   def testShowExtensionAllUsages(self):
     _, stdout, _ = self.RunBazel(
-        ['modquery', 'show_extension', '@ext//:ext.bzl%ext'], rstrip=True
+        ['mod', 'show_extension', '@ext//:ext.bzl%ext'], rstrip=True
     )
     self.assertRegex(
         stdout.pop(9), r'^## Usage in <root> from .*MODULE\.bazel:11$'
@@ -297,7 +297,7 @@ class ModqueryTest(test_base.TestBase):
   def testShowExtensionSomeExtensionsSomeUsages(self):
     _, stdout, _ = self.RunBazel(
         [
-            'modquery',
+            'mod',
             'show_extension',
             '@ext//:ext.bzl%ext',
             '@ext2//:ext.bzl%ext',
@@ -361,8 +361,8 @@ class ModqueryTest(test_base.TestBase):
   def testShowModuleAndExtensionReposFromBaseModule(self):
     _, stdout, _ = self.RunBazel(
         [
-            'modquery',
-            'show',
+            'mod',
+            'show_repo',
             '--base_module=foo@2.0',
             '@bar_from_foo2',
             'ext@1.0',
@@ -452,15 +452,14 @@ class ModqueryTest(test_base.TestBase):
 
   def testShowRepoThrowsUnusedModule(self):
     _, _, stderr = self.RunBazel(
-        ['modquery', 'show', 'bar@1.0', '--base_module=@foo2'],
+        ['mod', 'show_repo', 'bar@1.0', '--base_module=@foo2'],
         allow_failure=True,
         rstrip=True,
     )
     self.assertIn(
         'ERROR: In repo argument bar@1.0: Module version bar@1.0 does not'
         ' exist, available versions: [bar@2.0]. (Note that unused modules'
-        " cannot be used here). Type 'bazel help modquery' for syntax and"
-        ' help.',
+        " cannot be used here). Type 'bazel help mod' for syntax and help.",
         stderr,
     )
 

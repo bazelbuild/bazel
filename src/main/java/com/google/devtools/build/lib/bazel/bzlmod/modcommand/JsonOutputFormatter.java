@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.bzlmod.modquery;
+package com.google.devtools.build.lib.bazel.bzlmod.modcommand;
 
 import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
 
@@ -21,13 +21,13 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryExecutor.ResultNode;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryExecutor.ResultNode.IsCycle;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryExecutor.ResultNode.IsExpanded;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryExecutor.ResultNode.IsIndirect;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryExecutor.ResultNode.NodeMetadata;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryOptions.ExtensionShow;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.OutputFormatters.OutputFormatter;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultNode;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultNode.IsCycle;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultNode.IsExpanded;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultNode.IsIndirect;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultNode.NodeMetadata;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.ExtensionShow;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.OutputFormatters.OutputFormatter;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -35,7 +35,7 @@ import java.util.HashSet;
 import java.util.Map.Entry;
 import java.util.Set;
 
-/** Outputs graph-based results of {@link ModqueryExecutor} in JSON format. */
+/** Outputs graph-based results of {@link ModExecutor} in JSON format. */
 public class JsonOutputFormatter extends OutputFormatter {
   private Set<ModuleExtensionId> seenExtensions;
 
