@@ -14,8 +14,13 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod.modquery;
 
+import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
+
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.bazel.bzlmod.Version;
 import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryExecutor.ResultNode;
@@ -24,12 +29,15 @@ import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryExecutor.Resu
 import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryExecutor.ResultNode.IsIndirect;
 import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryExecutor.ResultNode.NodeMetadata;
 import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryOptions.Charset;
+import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryOptions.ExtensionShow;
 import com.google.devtools.build.lib.bazel.bzlmod.modquery.OutputFormatters.OutputFormatter;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Outputs graph-based results of {@link
@@ -40,6 +48,8 @@ public class TextOutputFormatter extends OutputFormatter {
 
   private Deque<Boolean> isLastChildStack;
   private DrawCharset drawCharset;
+  private Set<ModuleExtensionId> seenExtensions;
+  private StringBuilder str;
 
   @Override
   public void output() {
@@ -49,20 +59,14 @@ public class TextOutputFormatter extends OutputFormatter {
       drawCharset = DrawCharset.UTF8;
     }
     isLastChildStack = new ArrayDeque<>();
-    printTree(ModuleKey.ROOT, null, IsExpanded.TRUE, IsIndirect.FALSE, IsCycle.FALSE, 0);
+    seenExtensions = new HashSet<>();
+    str = new StringBuilder();
+    printModule(ModuleKey.ROOT, null, IsExpanded.TRUE, IsIndirect.FALSE, IsCycle.FALSE, 0);
+    this.printer.println(str);
   }
 
-  // Depth-first traversal to print the actual output
-  void printTree(
-      ModuleKey key,
-      ModuleKey parent,
-      IsExpanded expanded,
-      IsIndirect indirect,
-      IsCycle cycle,
-      int depth) {
-    ResultNode node = Objects.requireNonNull(result.get(key));
-    StringBuilder str = new StringBuilder();
-
+  // Prints the indents and the tree drawing characters.
+  private void printTreeDrawing(IsIndirect indirect, int depth) {
     if (depth > 0) {
       int indents = isLastChildStack.size() - 1;
       Iterator<Boolean> value = isLastChildStack.descendingIterator();
@@ -89,19 +93,85 @@ public class TextOutputFormatter extends OutputFormatter {
         }
       }
     }
+  }
 
-    int totalChildrenNum = node.getChildren().size();
+  // Helper to print module extensions similarly to printModule.
+  private void printExtension(
+      ModuleKey key, ModuleExtensionId extensionId, boolean unexpanded, int depth) {
+    printTreeDrawing(IsIndirect.FALSE, depth);
+    str.append('$');
+    str.append(extensionId.asTargetString());
+    str.append(' ');
+    if (unexpanded && options.extensionInfo == ExtensionShow.ALL) {
+      str.append("... ");
+    }
+    str.append("\n");
+    if (options.extensionInfo == ExtensionShow.USAGES) {
+      return;
+    }
+    ImmutableSortedSet<String> repoImports =
+        ImmutableSortedSet.copyOf(extensionRepoImports.get(extensionId).inverse().get(key));
+    ImmutableSortedSet<String> unusedRepos = ImmutableSortedSet.of();
+    if (!unexpanded && options.extensionInfo == ExtensionShow.ALL) {
+      unusedRepos =
+          ImmutableSortedSet.copyOf(
+              Sets.difference(
+                  extensionRepos.get(extensionId), extensionRepoImports.get(extensionId).keySet()));
+    }
+    int totalChildrenNum = repoImports.size() + unusedRepos.size();
+    int currChild = 1;
+    for (String usedRepo : repoImports) {
+      isLastChildStack.push(currChild++ == totalChildrenNum);
+      printExtensionRepo(usedRepo, IsIndirect.FALSE, depth + 1);
+      isLastChildStack.pop();
+    }
+    if (unexpanded || options.extensionInfo == ExtensionShow.REPOS) {
+      return;
+    }
+    for (String unusedPackage : unusedRepos) {
+      isLastChildStack.push(currChild++ == totalChildrenNum);
+      printExtensionRepo(unusedPackage, IsIndirect.TRUE, depth + 1);
+      isLastChildStack.pop();
+    }
+  }
 
+  // Prints an extension repo line.
+  private void printExtensionRepo(String repoName, IsIndirect indirectLink, int depth) {
+    printTreeDrawing(indirectLink, depth);
+    str.append(repoName).append("\n");
+  }
+
+  // Depth-first traversal to print the actual output
+  private void printModule(
+      ModuleKey key,
+      ModuleKey parent,
+      IsExpanded expanded,
+      IsIndirect indirect,
+      IsCycle cycle,
+      int depth) {
+    printTreeDrawing(indirect, depth);
+
+    ResultNode node = Objects.requireNonNull(result.get(key));
     if (key.equals(ModuleKey.ROOT)) {
       AugmentedModule rootModule = depGraph.get(ModuleKey.ROOT);
       Preconditions.checkNotNull(rootModule);
       str.append(
           String.format(
-              "root (%s@%s)",
+              "<root> (%s@%s)",
               rootModule.getName(),
               rootModule.getVersion().equals(Version.EMPTY) ? "_" : rootModule.getVersion()));
     } else {
       str.append(key).append(" ");
+    }
+
+    int totalChildrenNum = node.getChildren().size();
+
+    ImmutableSortedSet<ModuleExtensionId> extensionsUsed =
+        extensionRepoImports.keySet().stream()
+            .filter(e -> extensionRepoImports.get(e).inverse().containsKey(key))
+            .collect(toImmutableSortedSet(ModuleExtensionId.LEXICOGRAPHIC_COMPARATOR));
+    if (options.extensionInfo != ExtensionShow.HIDDEN) {
+      totalChildrenNum += extensionsUsed.size();
     }
 
     if (cycle == IsCycle.TRUE) {
@@ -114,34 +184,40 @@ public class TextOutputFormatter extends OutputFormatter {
       }
     }
     AugmentedModule module = Objects.requireNonNull(depGraph.get(key));
-
-    if (!options.extra && !module.isUsed()) {
+    if (!options.verbose && !module.isUsed()) {
       str.append("(unused) ");
     }
     // If the edge is indirect, the parent is not only unknown, but the node could have come
-    // from
-    // multiple paths merged in the process, so we skip the resolution explanation.
-    if (indirect == IsIndirect.FALSE && options.extra && parent != null) {
+    // from multiple paths merged in the process, so we skip the resolution explanation.
+    if (indirect == IsIndirect.FALSE && options.verbose && parent != null) {
       Explanation explanation = getExtraResolutionExplanation(key, parent);
       if (explanation != null) {
         str.append(explanation.toExplanationString(!module.isUsed()));
       }
     }
 
-    this.printer.println(str);
+    str.append("\n");
 
     if (expanded == IsExpanded.FALSE) {
       return;
     }
 
     int currChild = 1;
+    if (options.extensionInfo != ExtensionShow.HIDDEN) {
+      for (ModuleExtensionId extensionId : extensionsUsed) {
+        boolean unexpandedExtension = !seenExtensions.add(extensionId);
+        isLastChildStack.push(currChild++ == totalChildrenNum);
+        printExtension(key, extensionId, unexpandedExtension, depth + 1);
+        isLastChildStack.pop();
+      }
+    }
     for (Entry<ModuleKey, NodeMetadata> e : node.getChildrenSortedByEdgeType()) {
       ModuleKey childKey = e.getKey();
       IsExpanded childExpanded = e.getValue().isExpanded();
       IsIndirect childIndirect = e.getValue().isIndirect();
       IsCycle childCycles = e.getValue().isCycle();
       isLastChildStack.push(currChild++ == totalChildrenNum);
-      printTree(childKey, key, childExpanded, childIndirect, childCycles, depth + 1);
+      printModule(childKey, key, childExpanded, childIndirect, childCycles, depth + 1);
       isLastChildStack.pop();
     }
   }

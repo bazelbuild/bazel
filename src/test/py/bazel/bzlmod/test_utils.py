@@ -104,7 +104,14 @@ class BazelRegistry:
     """Return the URL of this registry."""
     return self.root.resolve().as_uri()
 
-  def generateCcSource(self, name, version, deps=None, repo_names=None):
+  def generateCcSource(
+      self,
+      name,
+      version,
+      deps=None,
+      repo_names=None,
+      extra_module_file_contents=None,
+  ):
     """Generate a cc project with given dependency information.
 
     1. The cc projects implements a hello_<lib_name> function.
@@ -119,6 +126,8 @@ class BazelRegistry:
       version: The module version.
       deps: The dependencies of this module.
       repo_names: The desired repository name for some dependencies.
+      extra_module_file_contents: Extra lines to append to the MODULE.bazel
+        file.
 
     Returns:
       The generated source directory.
@@ -133,6 +142,8 @@ class BazelRegistry:
     for dep in deps:
       if dep not in repo_names:
         repo_names[dep] = dep
+    if not extra_module_file_contents:
+      extra_module_file_contents = []
 
     def calc_repo_name_str(dep):
       if dep == repo_names[dep]:
@@ -141,17 +152,21 @@ class BazelRegistry:
 
     scratchFile(src_dir.joinpath('WORKSPACE'))
     scratchFile(
-        src_dir.joinpath('MODULE.bazel'), [
+        src_dir.joinpath('MODULE.bazel'),
+        [
             'module(',
             '  name = "%s",' % name,
             '  version = "%s",' % version,
             '  compatibility_level = 1,',
             ')',
-        ] + [
-            'bazel_dep(name = "%s", version = "%s"%s)' %
-            (dep, version, calc_repo_name_str(dep))
+        ]
+        + [
+            'bazel_dep(name = "%s", version = "%s"%s)'
+            % (dep, version, calc_repo_name_str(dep))
             for dep, version in deps.items()
-        ])
+        ]
+        + extra_module_file_contents,
+    )
 
     scratchFile(
         src_dir.joinpath(name.lower() + '.h'), [
@@ -231,15 +246,20 @@ class BazelRegistry:
     with module_dir.joinpath('source.json').open('w') as f:
       json.dump(source, f, indent=4, sort_keys=True)
 
-  def createCcModule(self,
-                     name,
-                     version,
-                     deps=None,
-                     repo_names=None,
-                     patches=None,
-                     patch_strip=0):
+  def createCcModule(
+      self,
+      name,
+      version,
+      deps=None,
+      repo_names=None,
+      patches=None,
+      patch_strip=0,
+      extra_module_file_contents=None,
+  ):
     """Generate a cc project and add it as a module into the registry."""
-    src_dir = self.generateCcSource(name, version, deps, repo_names)
+    src_dir = self.generateCcSource(
+        name, version, deps, repo_names, extra_module_file_contents
+    )
     archive = self.createArchive(name, version, src_dir)
     module = Module(name, version)
     module.set_source(archive.resolve().as_uri())

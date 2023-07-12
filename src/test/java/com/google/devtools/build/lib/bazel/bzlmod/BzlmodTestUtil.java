@@ -315,6 +315,7 @@ public final class BzlmodTestUtil {
   /** A builder for {@link Tag} for testing purposes. */
   public static class TestTagBuilder {
     private final Dict.Builder<String, Object> attrValuesBuilder = Dict.builder();
+    private Location location = Location.BUILTIN;
     private final String tagName;
     private boolean devDependency = false;
 
@@ -334,10 +335,15 @@ public final class BzlmodTestUtil {
       return this;
     }
 
+    public TestTagBuilder setLocation(String file, int row, int column) {
+      location = Location.fromFileLineColumn(file, row, column);
+      return this;
+    }
+
     public Tag build() {
       return Tag.builder()
           .setTagName(tagName)
-          .setLocation(Location.BUILTIN)
+          .setLocation(location)
           .setAttributeValues(AttributeValues.create(attrValuesBuilder.buildImmutable()))
           .setDevDependency(devDependency)
           .build();

@@ -14,18 +14,24 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod.modquery;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
+
+import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.bazel.bzlmod.Version;
 import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryExecutor.ResultNode;
 import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryExecutor.ResultNode.IsIndirect;
 import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryExecutor.ResultNode.NodeMetadata;
+import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryOptions.ExtensionShow;
 import com.google.devtools.build.lib.bazel.bzlmod.modquery.OutputFormatters.OutputFormatter;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -33,31 +39,31 @@ import java.util.Set;
  * can be further pipelined to create an image graph visualization.
  */
 public class GraphvizOutputFormatter extends OutputFormatter {
+  private StringBuilder str;
 
   @Override
   public void output() {
-    StringBuilder str = new StringBuilder();
+    str = new StringBuilder();
     str.append("digraph mygraph {\n")
         .append("  ")
         .append("node [ shape=box ]\n")
         .append("  ")
         .append("edge [ fontsize=8 ]\n");
     Set<ModuleKey> seen = new HashSet<>();
+    Set<ModuleExtensionId> seenExtensions = new HashSet<>();
     Deque<ModuleKey> toVisit = new ArrayDeque<>();
     seen.add(ModuleKey.ROOT);
     toVisit.add(ModuleKey.ROOT);
 
     while (!toVisit.isEmpty()) {
       ModuleKey key = toVisit.pop();
-      AugmentedModule module = depGraph.get(key);
-      ResultNode node = result.get(key);
-      Preconditions.checkNotNull(module);
-      Preconditions.checkNotNull(node);
+      AugmentedModule module = Objects.requireNonNull(depGraph.get(key));
+      ResultNode node = Objects.requireNonNull(result.get(key));
       String sourceId = toId(key);
 
       if (key.equals(ModuleKey.ROOT)) {
-        String rootLabel = String.format("root (%s@%s)", module.getName(), module.getVersion());
-        str.append(String.format("  root [ label=\"%s\" ]\n", rootLabel));
+        String rootLabel = String.format("<root> (%s@%s)", module.getName(), module.getVersion());
+        str.append(String.format("  \"<root>\" [ label=\"%s\" ]\n", rootLabel));
       } else if (node.isTarget() || !module.isUsed()) {
         String shapeString = node.isTarget() ? "diamond" : "box";
         String styleString = module.isUsed() ? "solid" : "dotted";
@@ -65,6 +71,26 @@ public class GraphvizOutputFormatter extends OutputFormatter {
             String.format("  %s [ shape=%s style=%s ]\n", toId(key), shapeString, styleString));
       }
 
+      if (options.extensionInfo != ExtensionShow.HIDDEN) {
+        ImmutableSortedSet<ModuleExtensionId> extensionsUsed =
+            extensionRepoImports.keySet().stream()
+                .filter(e -> extensionRepoImports.get(e).inverse().containsKey(key))
+                .collect(toImmutableSortedSet(ModuleExtensionId.LEXICOGRAPHIC_COMPARATOR));
+        for (ModuleExtensionId extensionId : extensionsUsed) {
+          if (options.extensionInfo == ExtensionShow.USAGES) {
+            str.append(String.format("  %s -> \"%s\"\n", toId(key), toId(extensionId)));
+            continue;
+          }
+          if (seenExtensions.add(extensionId)) {
+            printExtension(extensionId);
+          }
+          ImmutableSortedSet<String> repoImports =
+              ImmutableSortedSet.copyOf(extensionRepoImports.get(extensionId).inverse().get(key));
+          for (String repo : repoImports) {
+            str.append(String.format("  %s -> %s\n", toId(key), toId(extensionId, repo)));
+          }
+        }
+      }
       for (Entry<ModuleKey, NodeMetadata> e : node.getChildrenSortedByKey()) {
         ModuleKey childKey = e.getKey();
         IsIndirect childIndirect = e.getValue().isIndirect();
@@ -87,15 +113,45 @@ public class GraphvizOutputFormatter extends OutputFormatter {
 
   private String toId(ModuleKey key) {
     if (key.equals(ModuleKey.ROOT)) {
-      return "root";
+      return "\"<root>\"";
     }
     return String.format(
         "\"%s@%s\"",
         key.getName(), key.getVersion().equals(Version.EMPTY) ? "_" : key.getVersion());
   }
 
+  private String toId(ModuleExtensionId id) {
+    return id.asTargetString();
+  }
+
+  private String toId(ModuleExtensionId id, String repo) {
+    return String.format("\"%s%%%s\"", toId(id), repo);
+  }
+
+  private void printExtension(ModuleExtensionId id) {
+    str.append(String.format("  subgraph \"cluster_%s\" {\n", toId(id)));
+    str.append(String.format("    label=\"%s\"\n", toId(id)));
+    if (options.extensionInfo == ExtensionShow.USAGES) {
+      return;
+    }
+    ImmutableSortedSet<String> usedRepos =
+        ImmutableSortedSet.copyOf(extensionRepoImports.get(id).keySet());
+    for (String repo : usedRepos) {
+      str.append(String.format("    %s [ label=\"%s\" ]\n", toId(id, repo), repo));
+    }
+    if (options.extensionInfo == ExtensionShow.REPOS) {
+      return;
+    }
+    ImmutableSortedSet<String> unusedRepos =
+        ImmutableSortedSet.copyOf(Sets.difference(extensionRepos.get(id), usedRepos));
+    for (String repo : unusedRepos) {
+      str.append(String.format("    %s [ label=\"%s\" style=dotted ]\n", toId(id, repo), repo));
+    }
+    str.append("  }\n");
+  }
+
   private String getReasonLabel(ModuleKey key, ModuleKey parent) {
-    if (!options.extra) {
+    if (!options.verbose) {
       return "";
     }
     Explanation explanation = getExtraResolutionExplanation(key, parent);
