@@ -81,8 +81,8 @@ exported_rules = {
     "proto_lang_toolchain": proto_lang_toolchain,
     "+py_runtime": py_runtime,
     "+cc_toolchain_alias": cc_toolchain_alias,
-    "-cc_toolchain": cc_toolchain,
-    "-apple_cc_toolchain": apple_cc_toolchain,
+    "+cc_toolchain": cc_toolchain,
+    "+apple_cc_toolchain": apple_cc_toolchain,
 }
 
 # A list of Starlark functions callable from native rules implementation.
