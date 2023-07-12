@@ -271,7 +271,7 @@ public class BazelDepGraphFunction implements SkyFunction {
         continue;
       }
       int suffix = 2;
-      while (extensionUniqueNames.putIfAbsent(bestName + suffix, id) != null) {
+      while (extensionUniqueNames.putIfAbsent(bestName + "~" + suffix, id) != null) {
         suffix++;
       }
     }
