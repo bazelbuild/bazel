@@ -245,7 +245,8 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
 
   @Override
   public ResultAndTargets<Target> evaluateQuery(String query)
-      throws QueryException, InterruptedException {
+      throws QueryException, InterruptedException, AbruptExitException {
+    skyframeExecutor.handleDiffsForTesting(getReporter());
     try (AbstractBlazeQueryEnvironment<Target> env = getQueryEnvironment()) {
       return evaluateQuery(query, env);
     }
