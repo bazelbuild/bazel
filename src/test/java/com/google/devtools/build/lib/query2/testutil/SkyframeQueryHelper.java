@@ -246,7 +246,11 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
   @Override
   public ResultAndTargets<Target> evaluateQuery(String query)
       throws QueryException, InterruptedException, AbruptExitException {
+    // Ensure that modified files are invalidated in the skyframe. If a file has
+    // already been read prior to the test's writes, this forces the query to
+    // pick up the modified versions.
     skyframeExecutor.handleDiffsForTesting(getReporter());
+
     try (AbstractBlazeQueryEnvironment<Target> env = getQueryEnvironment()) {
       return evaluateQuery(query, env);
     }
