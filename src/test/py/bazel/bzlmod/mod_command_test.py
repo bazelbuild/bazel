@@ -374,13 +374,13 @@ class ModCommandTest(test_base.TestBase):
     )
     self.assertRegex(stdout.pop(4), r'^  urls = \[".*"\],$')
     self.assertRegex(stdout.pop(4), r'^  integrity = ".*",$')
-    stdout.pop(11)
-    self.assertRegex(stdout.pop(16), r'^  path = ".*",$')
-    stdout.pop(29)
-    stdout.pop(39)
-    self.assertRegex(stdout.pop(44), r'^  urls = \[".*"\],$')
-    self.assertRegex(stdout.pop(44), r'^  integrity = ".*",$')
-    stdout.pop(51)
+    stdout.pop(9)
+    self.assertRegex(stdout.pop(14), r'^  path = ".*",$')
+    stdout.pop(23)
+    stdout.pop(31)
+    self.assertRegex(stdout.pop(36), r'^  urls = \[".*"\],$')
+    self.assertRegex(stdout.pop(36), r'^  integrity = ".*",$')
+    stdout.pop(41)
     self.assertListEqual(
         stdout,
         [
@@ -394,19 +394,15 @@ class ModCommandTest(test_base.TestBase):
             '  remote_patches = {},',
             '  remote_patch_strip = 0,',
             ')',
-            '# Rule bar~2.0 instantiated at (most recent call last):',
-            '#   <builtin> in <toplevel>',
             '# Rule http_archive defined at (most recent call last):',
-            # pop(11)
+            # pop(9)
             '',
             '## ext@1.0:',
             '# <builtin>',
             'local_repository(',
             '  name = "ext~1.0",',
-            # pop(16) -- path=...
+            # pop(14) -- path=...
             ')',
-            '# Rule ext~1.0 instantiated at (most recent call last):',
-            '#   <builtin> in <toplevel>',
             '',
             '## @my_repo3:',
             '# <builtin>',
@@ -414,10 +410,8 @@ class ModCommandTest(test_base.TestBase):
             '  name = "ext~1.0~ext~repo3",',
             '  data = "requested repo",',
             ')',
-            '# Rule ext~1.0~ext~repo3 instantiated at (most recent call last):',
-            '#   <builtin> in <toplevel>',
             '# Rule data_repo defined at (most recent call last):',
-            # pop(29)
+            # pop(23)
             '',
             '## @my_repo4:',
             '# <builtin>',
@@ -425,25 +419,21 @@ class ModCommandTest(test_base.TestBase):
             '  name = "ext~1.0~ext~repo4",',
             '  data = "requested repo",',
             ')',
-            '# Rule ext~1.0~ext~repo4 instantiated at (most recent call last):',
-            '#   <builtin> in <toplevel>',
             '# Rule data_repo defined at (most recent call last):',
-            # pop(39)
+            # pop(31)
             '',
             '## bar@2.0:',
             '# <builtin>',
             'http_archive(',
             '  name = "bar~2.0",',
-            # pop(44) -- urls=[...]
-            # pop(44) -- integrity=...
+            # pop(36) -- urls=[...]
+            # pop(36) -- integrity=...
             '  strip_prefix = "",',
             '  remote_patches = {},',
             '  remote_patch_strip = 0,',
             ')',
-            '# Rule bar~2.0 instantiated at (most recent call last):',
-            '#   <builtin> in <toplevel>',
             '# Rule http_archive defined at (most recent call last):',
-            # pop(51)
+            # pop(41)
             '',
         ],
         'wrong output in the show query for module and extension-generated'
