@@ -168,9 +168,15 @@ def to_java_binary_info(java_info):
         )
         for output in java_info.java_outputs
     ]
+    all_jdeps = [output.jdeps for output in java_info.java_outputs if output.jdeps]
+    all_native_headers = [output.native_headers_jar for output in java_info.java_outputs if output.native_headers_jar]
     result.update(
         java_outputs = java_outputs,
-        outputs = _JavaRuleOutputJarsInfo(jars = java_outputs, jdeps = None, native_headers = None),
+        outputs = _JavaRuleOutputJarsInfo(
+            jars = java_outputs,
+            jdeps = all_jdeps[0] if len(all_jdeps) == 1 else None,
+            native_headers = all_native_headers[0] if len(all_native_headers) == 1 else None,
+        ),
     )
 
     # so that translation into native JavaInfo does not add JavaCompilationArgsProvider
