@@ -50,7 +50,9 @@ public class StarlarkBazelModuleTest {
         .setUsingModule(ModuleKey.ROOT)
         .setLocation(Location.BUILTIN)
         .setImports(ImmutableBiMap.of())
-        .setDevImports(ImmutableSet.of());
+        .setDevImports(ImmutableSet.of())
+        .setHasDevUseExtension(false)
+        .setHasNonDevUseExtension(true);
   }
 
   /** A builder for ModuleExtension that sets all the mandatory but irrelevant fields. */

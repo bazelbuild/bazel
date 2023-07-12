@@ -515,6 +515,9 @@ public class ModuleFileGlobals {
     private final ImmutableSet.Builder<String> devImports;
     private final ImmutableList.Builder<Tag> tags;
 
+    private boolean hasNonDevUseExtension;
+    private boolean hasDevUseExtension;
+
     ModuleExtensionUsageBuilder(
         String extensionBzlFile,
         String extensionName,
@@ -539,6 +542,8 @@ public class ModuleFileGlobals {
               .setLocation(location)
               .setImports(ImmutableBiMap.copyOf(imports))
               .setDevImports(devImports.build())
+              .setHasDevUseExtension(hasDevUseExtension)
+              .setHasNonDevUseExtension(hasNonDevUseExtension)
               .setTags(tags.build());
       return builder.build();
     }
@@ -548,6 +553,11 @@ public class ModuleFileGlobals {
      * tags with all other such proxies, thus preserving their order across dev/non-dev deps.
      */
     ModuleExtensionProxy getProxy(boolean devDependency) {
+      if (devDependency) {
+        hasDevUseExtension = true;
+      } else {
+        hasNonDevUseExtension = true;
+      }
       return new ModuleExtensionProxy(devDependency);
     }
 
