@@ -345,7 +345,13 @@ class TestBase(unittest.TestCase):
     return abspath
 
   def RunBazel(
-      self, args, env_remove=None, env_add=None, cwd=None, allow_failure=False
+      self,
+      args,
+      env_remove=None,
+      env_add=None,
+      cwd=None,
+      allow_failure=False,
+      rstrip=False,
   ):
     """Runs "bazel <args>", waits for it to exit.
 
@@ -355,16 +361,27 @@ class TestBase(unittest.TestCase):
         to Bazel
       env_add: {string: string}; optional; environment variables to pass to
         Bazel, won't be removed by env_remove.
-      cwd: string; the working directory of Bazel, will be self._test_cwd if
-        not specified.
+      cwd: string; the working directory of Bazel, will be self._test_cwd if not
+        specified.
       allow_failure: bool; if false, the function checks the return code is 0
+      rstrip: bool; if true, the output is rstripped instead of stripped
+
     Returns:
       (int, [string], [string]) tuple: exit code, stdout lines, stderr lines
     """
-    return self.RunProgram([
-        self.Rlocation('io_bazel/src/bazel'),
-        '--bazelrc=' + self._test_bazelrc
-    ] + args, env_remove, env_add, False, cwd, allow_failure)
+    return self.RunProgram(
+        [
+            self.Rlocation('io_bazel/src/bazel'),
+            '--bazelrc=' + self._test_bazelrc,
+        ]
+        + args,
+        env_remove,
+        env_add,
+        False,
+        cwd,
+        allow_failure,
+        rstrip,
+    )
 
   def StartRemoteWorker(self):
     """Runs a "local remote worker" to run remote builds and tests on.
@@ -457,6 +474,7 @@ class TestBase(unittest.TestCase):
       shell=False,
       cwd=None,
       allow_failure=False,
+      rstrip=False,
       executable=None,
   ):
     """Runs a program (args[0]), waits for it to exit.
@@ -465,15 +483,16 @@ class TestBase(unittest.TestCase):
       args: [string]; the args to run; args[0] should be the program itself
       env_remove: iterable(string); optional; environment variables to NOT pass
         to the program
-      env_add: {string: string}; optional; environment variables to pass to
-        the program, won't be removed by env_remove.
-      shell: {bool: bool}; optional; whether to use the shell as the program
-        to execute
+      env_add: {string: string}; optional; environment variables to pass to the
+        program, won't be removed by env_remove.
+      shell: {bool: bool}; optional; whether to use the shell as the program to
+        execute
       cwd: string; the current working directory, will be self._test_cwd if not
         specified.
       allow_failure: bool; if false, the function checks the return code is 0
-      executable: string or None; executable program to run; use args[0]
-        if None
+      rstrip: bool; if true, the output is rstripped instead of stripped
+      executable: string or None; executable program to run; use args[0] if None
+
     Returns:
       (int, [string], [string]) tuple: exit code, stdout lines, stderr lines
     """
@@ -491,13 +510,17 @@ class TestBase(unittest.TestCase):
 
         stdout.seek(0)
         stdout_lines = [
-            l.decode(locale.getpreferredencoding()).strip()
+            l.decode(locale.getpreferredencoding()).rstrip()
+            if rstrip
+            else l.decode(locale.getpreferredencoding()).strip()
             for l in stdout.readlines()
         ]
 
         stderr.seek(0)
         stderr_lines = [
-            l.decode(locale.getpreferredencoding()).strip()
+            l.decode(locale.getpreferredencoding()).rstrip()
+            if rstrip
+            else l.decode(locale.getpreferredencoding()).strip()
             for l in stderr.readlines()
         ]
 

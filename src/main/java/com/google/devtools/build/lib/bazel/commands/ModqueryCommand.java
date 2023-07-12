@@ -18,24 +18,32 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryOptions.Charset.UTF8;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.stream.Collectors.joining;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
-import com.google.devtools.build.lib.bazel.bzlmod.Version;
+import com.google.devtools.build.lib.bazel.bzlmod.modquery.ExtensionArg;
+import com.google.devtools.build.lib.bazel.bzlmod.modquery.ExtensionArg.ExtensionArgConverter;
+import com.google.devtools.build.lib.bazel.bzlmod.modquery.InvalidArgumentException;
 import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryExecutor;
 import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryOptions;
 import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryOptions.QueryType;
 import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryOptions.QueryTypeConverter;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryOptions.TargetModule;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryOptions.TargetModuleListConverter;
+import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModuleArg;
+import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModuleArg.ModuleArgConverter;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
@@ -51,15 +59,20 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
+import com.google.devtools.build.lib.util.MaybeCompleteSet;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.common.options.OptionPriority.PriorityCategory;
+import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.OutputStreamWriter;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.Optional;
 
 /** Queries the Bzlmod external dependency graph. */
 @Command(
@@ -67,7 +80,6 @@ import java.util.Objects;
     // TODO(andreisolo): figure out which extra options are really needed
     options = {
       ModqueryOptions.class,
-      // Don't know what these do but were used in fetch
       PackageOptions.class,
       KeepGoingOption.class,
       LoadingPhaseThreadsOption.class
@@ -80,7 +92,21 @@ public final class ModqueryCommand implements BlazeCommand {
   public static final String NAME = "modquery";
 
   @Override
+  public void editOptions(OptionsParser optionsParser) {
+    try {
+      optionsParser.parse(
+          PriorityCategory.SOFTWARE_REQUIREMENT,
+          "Option required by the modquery command",
+          ImmutableList.of("--enable_bzlmod"));
+    } catch (OptionsParsingException e) {
+      // Should never happen.
+      throw new IllegalStateException("Unexpected exception", e);
+    }
+  }
+
+  @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
+    BazelDepGraphValue depGraphValue;
     BazelModuleInspectorValue moduleInspector;
 
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
@@ -97,7 +123,8 @@ public final class ModqueryCommand implements BlazeCommand {
 
       EvaluationResult<SkyValue> evaluationResult =
           skyframeExecutor.prepareAndGet(
-              ImmutableSet.of(BazelModuleInspectorValue.KEY), evaluationContext);
+              ImmutableSet.of(BazelDepGraphValue.KEY, BazelModuleInspectorValue.KEY),
+              evaluationContext);
 
       if (evaluationResult.hasError()) {
         Exception e = evaluationResult.getError().getException();
@@ -107,6 +134,8 @@ public final class ModqueryCommand implements BlazeCommand {
         }
         return reportAndCreateFailureResult(env, message, Code.INVALID_ARGUMENTS);
       }
+
+      depGraphValue = (BazelDepGraphValue) evaluationResult.get(BazelDepGraphValue.KEY);
 
       moduleInspector =
           (BazelModuleInspectorValue) evaluationResult.get(BazelModuleInspectorValue.KEY);
@@ -126,7 +155,7 @@ public final class ModqueryCommand implements BlazeCommand {
 
     if (options.getResidue().isEmpty()) {
       String errorMessage =
-          String.format("No query type specified, choose one from : %s.", QueryType.printValues());
+          String.format("No query type specified, choose one of : %s.", QueryType.printValues());
       return reportAndCreateFailureResult(env, errorMessage, Code.MODQUERY_COMMAND_UNKNOWN);
     }
 
@@ -142,89 +171,243 @@ public final class ModqueryCommand implements BlazeCommand {
     }
     List<String> args = options.getResidue().subList(1, options.getResidue().size());
 
-    // Arguments are structured as a list of comma-separated target lists for generality,
-    // even though there can only be 0 or 1 args so far.
-    ImmutableList<ImmutableSet<ModuleKey>> argsKeysList;
+    // Extract and check the --base_module argument first to use it when parsing the other args.
+    // Can only be a TargetModule or a repoName relative to the ROOT.
+    ModuleKey baseModuleKey;
     AugmentedModule rootModule = moduleInspector.getDepGraph().get(ModuleKey.ROOT);
     try {
-      argsKeysList =
-          parseTargetArgs(
-              query.getArgNumber(),
+      ImmutableSet<ModuleKey> keys =
+          modqueryOptions.baseModule.resolveToModuleKeys(
               moduleInspector.getModulesIndex(),
-              args,
+              moduleInspector.getDepGraph(),
               rootModule.getDeps(),
               rootModule.getUnusedDeps(),
-              modqueryOptions.includeUnused);
+              false,
+              false);
+      if (keys.size() > 1) {
+        throw new InvalidArgumentException(
+            String.format(
+                "The --base_module option can only specify exactly one module version, choose one"
+                    + " of: %s.",
+                keys.stream().map(ModuleKey::toString).collect(joining(", "))),
+            Code.INVALID_ARGUMENTS);
+      }
+      baseModuleKey = Iterables.getOnlyElement(keys);
+    } catch (InvalidArgumentException e) {
+      return reportAndCreateFailureResult(
+          env,
+          String.format(
+              "In --base_module %s option: %s (Note that unused modules cannot be used here)",
+              modqueryOptions.baseModule, e.getMessage()),
+          Code.INVALID_ARGUMENTS);
+    }
+
+    // The args can have different types depending on the query type, so create multiple
+    // containers which can be filled accordingly.
+    ImmutableSet<ModuleKey> argsAsModules = null;
+    ImmutableSortedSet<ModuleExtensionId> argsAsExtensions = null;
+    ImmutableMap<String, RepositoryName> argsAsRepos = null;
+
+    AugmentedModule baseModule =
+        Objects.requireNonNull(moduleInspector.getDepGraph().get(baseModuleKey));
+    RepositoryMapping baseModuleMapping = depGraphValue.getFullRepoMapping(baseModuleKey);
+    try {
+      switch (query) {
+        case TREE:
+          // TREE doesn't take extra arguments.
+          if (!args.isEmpty()) {
+            throw new InvalidArgumentException(
+                "the 'tree' command doesn't take extra arguments", Code.TOO_MANY_ARGUMENTS);
+          }
+          break;
+        case SHOW:
+          ImmutableMap.Builder<String, RepositoryName> targetToRepoName =
+              new ImmutableMap.Builder<>();
+          for (String arg : args) {
+            try {
+              targetToRepoName.putAll(
+                  ModuleArgConverter.INSTANCE
+                      .convert(arg)
+                      .resolveToRepoNames(
+                          moduleInspector.getModulesIndex(),
+                          moduleInspector.getDepGraph(),
+                          baseModuleMapping));
+            } catch (InvalidArgumentException | OptionsParsingException e) {
+              throw new InvalidArgumentException(
+                  String.format(
+                      "In repo argument %s: %s (Note that unused modules cannot be used here)",
+                      arg, e.getMessage()),
+                  Code.INVALID_ARGUMENTS,
+                  e);
+            }
+          }
+          argsAsRepos = targetToRepoName.buildKeepingLast();
+          break;
+        case SHOW_EXTENSION:
+          ImmutableSortedSet.Builder<ModuleExtensionId> extensionsBuilder =
+              new ImmutableSortedSet.Builder<>(ModuleExtensionId.LEXICOGRAPHIC_COMPARATOR);
+          for (String arg : args) {
+            try {
+              extensionsBuilder.add(
+                  ExtensionArgConverter.INSTANCE
+                      .convert(arg)
+                      .resolveToExtensionId(
+                          moduleInspector.getModulesIndex(),
+                          moduleInspector.getDepGraph(),
+                          baseModule.getDeps(),
+                          baseModule.getUnusedDeps()));
+            } catch (InvalidArgumentException | OptionsParsingException e) {
+              throw new InvalidArgumentException(
+                  String.format("In extension argument: %s %s", arg, e.getMessage()),
+                  Code.INVALID_ARGUMENTS,
+                  e);
+            }
+          }
+          argsAsExtensions = extensionsBuilder.build();
+          break;
+        default:
+          ImmutableSet.Builder<ModuleKey> keysBuilder = new ImmutableSet.Builder<>();
+          for (String arg : args) {
+            try {
+              keysBuilder.addAll(
+                  ModuleArgConverter.INSTANCE
+                      .convert(arg)
+                      .resolveToModuleKeys(
+                          moduleInspector.getModulesIndex(),
+                          moduleInspector.getDepGraph(),
+                          baseModule.getDeps(),
+                          baseModule.getUnusedDeps(),
+                          modqueryOptions.includeUnused,
+                          /* warnUnused= */ true));
+            } catch (InvalidArgumentException | OptionsParsingException e) {
+              throw new InvalidArgumentException(
+                  String.format("In module argument %s: %s", arg, e.getMessage()),
+                  Code.INVALID_ARGUMENTS);
+            }
+          }
+          argsAsModules = keysBuilder.build();
+      }
     } catch (InvalidArgumentException e) {
       return reportAndCreateFailureResult(env, e.getMessage(), e.getCode());
-    } catch (OptionsParsingException e) {
-      return reportAndCreateFailureResult(env, e.getMessage(), Code.INVALID_ARGUMENTS);
     }
-    /* Extract and check the --from argument */
+    /* Extract and check the --from and --extension_usages argument */
     ImmutableSet<ModuleKey> fromKeys;
-    if (modqueryOptions.modulesFrom == null) {
-      fromKeys = ImmutableSet.of(ModuleKey.ROOT);
-    } else {
-      try {
-        fromKeys =
-            targetListToModuleKeySet(
-                modqueryOptions.modulesFrom,
-                moduleInspector.getModulesIndex(),
-                rootModule.getDeps(),
-                rootModule.getUnusedDeps(),
-                modqueryOptions.includeUnused);
-      } catch (InvalidArgumentException e) {
-        return reportAndCreateFailureResult(env, e.getMessage(), e.getCode());
+    ImmutableSet<ModuleKey> usageKeys;
+    try {
+      fromKeys =
+          moduleArgListToKeys(
+              modqueryOptions.modulesFrom,
+              moduleInspector.getModulesIndex(),
+              moduleInspector.getDepGraph(),
+              baseModule.getDeps(),
+              baseModule.getUnusedDeps(),
+              modqueryOptions.includeUnused);
+    } catch (InvalidArgumentException e) {
+      return reportAndCreateFailureResult(
+          env,
+          String.format("In --from %s option: %s", modqueryOptions.modulesFrom, e.getMessage()),
+          Code.INVALID_ARGUMENTS);
+    }
+
+    try {
+      usageKeys =
+          moduleArgListToKeys(
+              modqueryOptions.extensionUsages,
+              moduleInspector.getModulesIndex(),
+              moduleInspector.getDepGraph(),
+              baseModule.getDeps(),
+              baseModule.getUnusedDeps(),
+              modqueryOptions.includeUnused);
+    } catch (InvalidArgumentException e) {
+      return reportAndCreateFailureResult(
+          env,
+          String.format(
+              "In --extension_usages %s option: %s (Note that unused modules cannot be used"
+                  + " here)",
+              modqueryOptions.extensionUsages, e.getMessage()),
+          Code.INVALID_ARGUMENTS);
+    }
+
+    /* Extract and check the --extension_filter argument */
+    Optional<MaybeCompleteSet<ModuleExtensionId>> filterExtensions = Optional.empty();
+    if (query.isGraph() && modqueryOptions.extensionFilter != null) {
+      if (modqueryOptions.extensionFilter.isEmpty()) {
+        filterExtensions = Optional.of(MaybeCompleteSet.completeSet());
+      } else {
+        try {
+          filterExtensions =
+              Optional.of(
+                  MaybeCompleteSet.copyOf(
+                      extensionArgListToIds(
+                          modqueryOptions.extensionFilter,
+                          moduleInspector.getModulesIndex(),
+                          moduleInspector.getDepGraph(),
+                          baseModule.getDeps(),
+                          baseModule.getUnusedDeps())));
+        } catch (InvalidArgumentException e) {
+          return reportAndCreateFailureResult(
+              env,
+              String.format(
+                  "In --extension_filter %s option: %s",
+                  modqueryOptions.extensionFilter, e.getMessage()),
+              Code.INVALID_ARGUMENTS);
+        }
       }
     }
 
-    ImmutableMap<ModuleKey, BzlmodRepoRuleValue> repoRuleValues = null;
-    // If the query is a SHOW, also request the BzlmodRepoRuleValues from SkyFrame.
-    // Unused modules do not have a BzlmodRepoRuleValue, so they are filtered out.
-    if (query == QueryType.SHOW) {
-      try {
-        ImmutableSet<ModuleKey> keys =
-            argsKeysList.get(0).stream()
-                .filter(
-                    k ->
-                        ModqueryExecutor.filterUnused(
-                            k, modqueryOptions.includeUnused, false, moduleInspector.getDepGraph()))
-                .collect(toImmutableSet());
+    ImmutableMap<String, BzlmodRepoRuleValue> targetRepoRuleValues = null;
+    try {
+      // If the query is a SHOW, also request the BzlmodRepoRuleValues from SkyFactory.
+      if (query == QueryType.SHOW) {
         ImmutableSet<SkyKey> skyKeys =
-            keys.stream()
-                .map(k -> BzlmodRepoRuleValue.key(k.getCanonicalRepoName()))
-                .collect(toImmutableSet());
+            argsAsRepos.values().stream().map(BzlmodRepoRuleValue::key).collect(toImmutableSet());
         EvaluationResult<SkyValue> result =
             env.getSkyframeExecutor().prepareAndGet(skyKeys, evaluationContext);
-        repoRuleValues =
-            keys.stream()
+        if (result.hasError()) {
+          Exception e = result.getError().getException();
+          String message = "Unexpected error during repository rule evaluation.";
+          if (e != null) {
+            message = e.getMessage();
+          }
+          return reportAndCreateFailureResult(env, message, Code.INVALID_ARGUMENTS);
+        }
+        targetRepoRuleValues =
+            argsAsRepos.entrySet().stream()
                 .collect(
                     toImmutableMap(
-                        k -> k,
-                        k ->
+                        Entry::getKey,
+                        e ->
                             (BzlmodRepoRuleValue)
-                                result.get(BzlmodRepoRuleValue.key(k.getCanonicalRepoName()))));
-      } catch (InterruptedException e) {
-        String errorMessage = "Modquery interrupted: " + e.getMessage();
-        env.getReporter().handle(Event.error(errorMessage));
-        return BlazeCommandResult.detailedExitCode(
-            InterruptedFailureDetails.detailedExitCode(errorMessage));
+                                result.get(BzlmodRepoRuleValue.key(e.getValue()))));
       }
+    } catch (InterruptedException e) {
+      String errorMessage = "Modquery interrupted: " + e.getMessage();
+      env.getReporter().handle(Event.error(errorMessage));
+      return BlazeCommandResult.detailedExitCode(
+          InterruptedFailureDetails.detailedExitCode(errorMessage));
     }
 
     // Workaround to allow different default value for DEPS and EXPLAIN, and also use
     // Integer.MAX_VALUE instead of the exact number string.
     if (modqueryOptions.depth < 1) {
-      if (query == QueryType.EXPLAIN || query == QueryType.DEPS) {
-        modqueryOptions.depth = 1;
-      } else {
-        modqueryOptions.depth = Integer.MAX_VALUE;
+      switch (query) {
+        case EXPLAIN:
+          modqueryOptions.depth = 1;
+          break;
+        case DEPS:
+          modqueryOptions.depth = 2;
+          break;
+        default:
+          modqueryOptions.depth = Integer.MAX_VALUE;
       }
     }
 
     ModqueryExecutor modqueryExecutor =
         new ModqueryExecutor(
             moduleInspector.getDepGraph(),
+            depGraphValue.getExtensionUsagesTable(),
+            moduleInspector.getExtensionToRepoInternalNames(),
+            filterExtensions,
             modqueryOptions,
             new OutputStreamWriter(
                 env.getReporter().getOutErr().getOutputStream(),
@@ -235,124 +418,58 @@ public final class ModqueryCommand implements BlazeCommand {
         modqueryExecutor.tree(fromKeys);
         break;
       case DEPS:
-        modqueryExecutor.tree(argsKeysList.get(0));
+        modqueryExecutor.tree(argsAsModules);
         break;
       case PATH:
-        modqueryExecutor.path(fromKeys, argsKeysList.get(0));
+        modqueryExecutor.path(fromKeys, argsAsModules);
         break;
       case ALL_PATHS:
-        modqueryExecutor.allPaths(fromKeys, argsKeysList.get(0));
-        break;
       case EXPLAIN:
-        modqueryExecutor.allPaths(fromKeys, argsKeysList.get(0));
+        modqueryExecutor.allPaths(fromKeys, argsAsModules);
         break;
       case SHOW:
-        Preconditions.checkArgument(repoRuleValues != null);
-        modqueryExecutor.show(repoRuleValues);
+        modqueryExecutor.show(targetRepoRuleValues);
+        break;
+      case SHOW_EXTENSION:
+        modqueryExecutor.showExtension(argsAsExtensions, usageKeys);
         break;
     }
 
     return BlazeCommandResult.success();
   }
 
-  /**
-   * A general parser for an undefined number of arguments. The arguments are comma-separated lists
-   * of {@link TargetModule}s. Each target {@link TargetModule} can represent a {@code repo_name},
-   * as defined in the {@code MODULE.bazel} file of the root project, a specific version of a
-   * module, or all present versions of a module. The root module can only be specified by the
-   * {@code root} keyword, which takes precedence over the other above (in case of modules named
-   * root).
-   */
-  @VisibleForTesting
-  public static ImmutableList<ImmutableSet<ModuleKey>> parseTargetArgs(
-      int requiredArgNum,
+  /** Collects a list of {@link ModuleArg} into a set of {@link ModuleKey}s. */
+  private static ImmutableSet<ModuleKey> moduleArgListToKeys(
+      ImmutableList<ModuleArg> argList,
       ImmutableMap<String, ImmutableSet<ModuleKey>> modulesIndex,
-      List<String> args,
-      ImmutableBiMap<String, ModuleKey> rootDeps,
-      ImmutableBiMap<String, ModuleKey> rootUnusedDeps,
-      boolean includeUnused)
-      throws OptionsParsingException, InvalidArgumentException {
-    if (requiredArgNum != args.size()) {
-      throw new InvalidArgumentException(
-          String.format(
-              "Invalid number of arguments (provided %d, required %d).",
-              args.size(), requiredArgNum),
-          requiredArgNum > args.size() ? Code.MISSING_ARGUMENTS : Code.TOO_MANY_ARGUMENTS);
-    }
-
-    TargetModuleListConverter converter = new TargetModuleListConverter();
-    ImmutableList.Builder<ImmutableSet<ModuleKey>> argsKeysListBuilder =
-        new ImmutableList.Builder<>();
-
-    for (String arg : args) {
-      ImmutableList<TargetModule> targetList = converter.convert(arg);
-      ImmutableSet<ModuleKey> argModuleKeys =
-          targetListToModuleKeySet(
-              targetList, modulesIndex, rootDeps, rootUnusedDeps, includeUnused);
-      argsKeysListBuilder.add(argModuleKeys);
-    }
-    return argsKeysListBuilder.build();
-  }
-
-  /** Collects a list of {@link TargetModule} into a set of {@link ModuleKey}s. */
-  private static ImmutableSet<ModuleKey> targetListToModuleKeySet(
-      ImmutableList<TargetModule> targetList,
-      ImmutableMap<String, ImmutableSet<ModuleKey>> modulesIndex,
-      ImmutableBiMap<String, ModuleKey> rootDeps,
-      ImmutableBiMap<String, ModuleKey> rootUnusedDeps,
+      ImmutableMap<ModuleKey, AugmentedModule> depGraph,
+      ImmutableBiMap<String, ModuleKey> baseModuleDeps,
+      ImmutableBiMap<String, ModuleKey> baseModuleUnusedDeps,
       boolean includeUnused)
       throws InvalidArgumentException {
     ImmutableSet.Builder<ModuleKey> allTargetKeys = new ImmutableSet.Builder<>();
-    for (TargetModule targetModule : targetList) {
+    for (ModuleArg moduleArg : argList) {
       allTargetKeys.addAll(
-          targetToModuleKeySet(
-              targetModule, modulesIndex, rootDeps, rootUnusedDeps, includeUnused));
+          moduleArg.resolveToModuleKeys(
+              modulesIndex, depGraph, baseModuleDeps, baseModuleUnusedDeps, includeUnused, true));
     }
     return allTargetKeys.build();
   }
 
-  /**
-   * Helper to check the module (and version) of the given {@link TargetModule} exists and retrieve
-   * it, (or retrieve all present versions if it's semantic specifies it, i.e. when <code>
-   * Version == null</code>).
-   */
-  private static ImmutableSet<ModuleKey> targetToModuleKeySet(
-      TargetModule target,
+  private static ImmutableSortedSet<ModuleExtensionId> extensionArgListToIds(
+      ImmutableList<ExtensionArg> args,
       ImmutableMap<String, ImmutableSet<ModuleKey>> modulesIndex,
-      ImmutableBiMap<String, ModuleKey> rootDeps,
-      ImmutableBiMap<String, ModuleKey> rootUnusedDeps,
-      boolean includeUnused)
+      ImmutableMap<ModuleKey, AugmentedModule> depGraph,
+      ImmutableBiMap<String, ModuleKey> baseModuleDeps,
+      ImmutableBiMap<String, ModuleKey> baseModuleUnusedDeps)
       throws InvalidArgumentException {
-    if (target.getName().isEmpty() && Objects.equals(target.getVersion(), Version.EMPTY)) {
-      return ImmutableSet.of(ModuleKey.ROOT);
+    ImmutableSortedSet.Builder<ModuleExtensionId> extensionsBuilder =
+        new ImmutableSortedSet.Builder<>(ModuleExtensionId.LEXICOGRAPHIC_COMPARATOR);
+    for (ExtensionArg arg : args) {
+      extensionsBuilder.add(
+          arg.resolveToExtensionId(modulesIndex, depGraph, baseModuleDeps, baseModuleUnusedDeps));
     }
-    if (rootDeps.containsKey(target.getName())) {
-      if (includeUnused && rootUnusedDeps.containsKey(target.getName())) {
-        return ImmutableSet.of(
-            rootDeps.get(target.getName()), rootUnusedDeps.get(target.getName()));
-      }
-      return ImmutableSet.of(rootDeps.get(target.getName()));
-    }
-    ImmutableSet<ModuleKey> existingKeys = modulesIndex.get(target.getName());
-
-    if (existingKeys == null) {
-      throw new InvalidArgumentException(
-          String.format("Module %s does not exist in the dependency graph.", target.getName()),
-          Code.INVALID_ARGUMENTS);
-    }
-
-    if (target.getVersion() == null) {
-      return existingKeys;
-    }
-    ModuleKey key = ModuleKey.create(target.getName(), target.getVersion());
-    if (!existingKeys.contains(key)) {
-      throw new InvalidArgumentException(
-          String.format(
-              "Module version %s@%s does not exist, available versions: %s.",
-              target.getName(), key, existingKeys),
-          Code.INVALID_ARGUMENTS);
-    }
-    return ImmutableSet.of(key);
+    return extensionsBuilder.build();
   }
 
   private static BlazeCommandResult reportAndCreateFailureResult(
@@ -376,23 +493,5 @@ public final class ModqueryCommand implements BlazeCommand {
                     FailureDetails.ModqueryCommand.newBuilder().setCode(detailedCode).build())
                 .setMessage(message)
                 .build()));
-  }
-
-  /**
-   * Exception thrown when a user-input argument is invalid (wrong number of arguments or the
-   * specified modules do not exist).
-   */
-  @VisibleForTesting
-  public static class InvalidArgumentException extends Exception {
-    private final Code code;
-
-    private InvalidArgumentException(String message, Code code) {
-      super(message);
-      this.code = code;
-    }
-
-    public Code getCode() {
-      return code;
-    }
   }
 }
