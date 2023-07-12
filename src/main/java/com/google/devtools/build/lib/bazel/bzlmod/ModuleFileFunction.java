@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFile
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
@@ -147,7 +148,13 @@ public class ModuleFileFunction implements SkyFunction {
             env);
 
     // Perform some sanity checks.
-    InterimModule module = moduleFileGlobals.buildModule();
+    InterimModule module;
+    try {
+      module = moduleFileGlobals.buildModule();
+    } catch (EvalException e) {
+      env.getListener().handle(Event.error(e.getMessageWithStack()));
+      throw errorf(Code.BAD_MODULE, "error executing MODULE.bazel file for %s", moduleKey);
+    }
     if (!module.getName().equals(moduleKey.getName())) {
       throw errorf(
           Code.BAD_MODULE,
@@ -203,7 +210,13 @@ public class ModuleFileFunction implements SkyFunction {
             /* printIsNoop= */ false,
             starlarkSemantics,
             env);
-    InterimModule module = moduleFileGlobals.buildModule();
+    InterimModule module;
+    try {
+      module = moduleFileGlobals.buildModule();
+    } catch (EvalException e) {
+      env.getListener().handle(Event.error(e.getMessageWithStack()));
+      throw errorf(Code.BAD_MODULE, "error executing MODULE.bazel file for the root module");
+    }
     for (ModuleExtensionUsage usage : module.getExtensionUsages()) {
       if (usage.getIsolationKey().isPresent() && usage.getImports().isEmpty()) {
         throw errorf(
@@ -271,6 +284,15 @@ public class ModuleFileFunction implements SkyFunction {
       } else {
         thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
       }
+      thread.setPostAssignHook(
+          (name, value) -> {
+            if (value instanceof StarlarkExportable) {
+              StarlarkExportable exportable = (StarlarkExportable) value;
+              if (!exportable.isExported()) {
+                exportable.export(env.getListener(), null, name);
+              }
+            }
+          });
       Starlark.execFileProgram(program, predeclaredEnv, thread);
     } catch (SyntaxError.Exception e) {
       Event.replayEventsOn(env.getListener(), e.errors());
