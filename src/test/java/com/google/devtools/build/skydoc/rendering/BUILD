@@ -9,7 +9,7 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["*"]),
-    visibility = ["//src/main/java/com/google/devtools/build/skydoc:__pkg__"],
+    visibility = ["//src/test/java/com/google/devtools/build/skydoc:__pkg__"],
 )
 
 java_test(
