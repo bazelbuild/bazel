@@ -766,16 +766,39 @@ public class ExecutionTool {
     Reporter reporter = env.getReporter();
 
     // Gather configurations to consider.
-    Set<BuildConfigurationValue> targetConfigurations =
-        buildRequestOptions.useTopLevelTargetsForSymlinks() && !targetsToBuild.isEmpty()
-            ? targetsToBuild.stream()
-                .map(ConfiguredTarget::getActual)
-                .map(ConfiguredTarget::getConfigurationKey)
-                .filter(Objects::nonNull)
-                .distinct()
-                .map((key) -> executor.getConfiguration(reporter, key))
-                .collect(toImmutableSet())
-            : ImmutableSet.of(configuration);
+    ImmutableSet<BuildConfigurationValue> targetConfigs;
+    if (buildRequestOptions.useTopLevelTargetsForSymlinks() && !targetsToBuild.isEmpty()) {
+      // Collect the configuration of each top-level requested target. These may be different than
+      // the build's top-level configuration because of self-transitions.
+      ImmutableSet<BuildConfigurationValue> requestedTargetConfigs =
+          targetsToBuild.stream()
+              .map(ConfiguredTarget::getActual)
+              .map(ConfiguredTarget::getConfigurationKey)
+              .filter(Objects::nonNull)
+              .distinct()
+              .map((key) -> executor.getConfiguration(reporter, key))
+              .collect(toImmutableSet());
+      if (requestedTargetConfigs.size() == 1) {
+        // All top-level targets have the same configuration, so use that one.
+        targetConfigs = requestedTargetConfigs;
+      } else if (requestedTargetConfigs.stream()
+          .anyMatch(
+              c -> c.getOutputDirectoryName().equals(configuration.getOutputDirectoryName()))) {
+        // Mixed configs but at least one matches the top-level config's output path (this doesn't
+        // mean it's the same as the top-level config: --trim_test_configuration means non-test
+        // targets use the default output path but lack the top-level config's TestOptions). Set
+        // symlinks to the top-level config so at least non-transitioned targets resolve. See
+        // https://github.com/bazelbuild/bazel/issues/17081.
+        targetConfigs = ImmutableSet.of(configuration);
+      } else {
+        // Mixed configs, none of which include the top-level config. Delete the symlinks because
+        // they won't contain any relevant data. This is handled in the
+        // createOutputDirectorySymlinks call below.
+        targetConfigs = requestedTargetConfigs;
+      }
+    } else {
+      targetConfigs = ImmutableSet.of(configuration);
+    }
 
     String productName = runtime.getProductName();
     try (SilentCloseable c =
@@ -787,7 +810,7 @@ public class ExecutionTool {
           env.getWorkspace(),
           env.getDirectories(),
           getReporter(),
-          targetConfigurations,
+          targetConfigs,
           options -> getConfiguration(executor, reporter, options),
           productName);
     }

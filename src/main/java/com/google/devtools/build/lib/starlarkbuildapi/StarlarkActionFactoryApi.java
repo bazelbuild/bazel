@@ -59,7 +59,15 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
   static final String TEMPLATE_DOC =
       "A <code>template</code> file according to which the output <code>dict</code> from"
           + " <code>transform_func</code> will be formatted and written to a file.";
-  static final String OUTPUT_DOC = "Output of the action.";
+  static final String INFO_OUTPUT_DOC =
+      "Name of the output file of the action. File will be created under generating rule's"
+          + " directory, similar to what <code>ctx.actions.declare_file</code> does.";
+  static final String VERSION_OUTPUT_DOC =
+      "Name of the output file of the action. File will be created under generating rule's"
+          + " directory, similar to what <code>ctx.actions.declare_file</code> does. Due to its"
+          + " volatile nature the output file of this action is special cased in Bazel, similar to"
+          + " <code>ctx.version_file</code>. Therefore changes in this file will not retrigger"
+          + " actions depending on it.";
 
   @StarlarkMethod(
       name = "declare_file",
@@ -858,15 +866,18 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             positional = false,
             named = true),
         @Param(
-            name = "output",
-            doc = OUTPUT_DOC,
-            allowedTypes = {@ParamType(type = FileApi.class)},
+            name = "output_file_name",
+            doc = VERSION_OUTPUT_DOC,
+            allowedTypes = {@ParamType(type = String.class)},
             positional = false,
             named = true),
       },
       useStarlarkThread = true)
-  void transformVersionFile(
-      Object transformFuncObject, Object templateObject, Object outputObject, StarlarkThread thread)
+  FileApi transformVersionFile(
+      Object transformFuncObject,
+      Object templateObject,
+      String outputFileName,
+      StarlarkThread thread)
       throws InterruptedException, EvalException;
 
   @StarlarkMethod(
@@ -899,14 +910,17 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             positional = false,
             named = true),
         @Param(
-            name = "output",
-            doc = OUTPUT_DOC,
-            allowedTypes = {@ParamType(type = FileApi.class)},
+            name = "output_file_name",
+            doc = INFO_OUTPUT_DOC,
+            allowedTypes = {@ParamType(type = String.class)},
             positional = false,
             named = true),
       },
       useStarlarkThread = true)
-  void transformInfoFile(
-      Object transformFuncObject, Object templateObject, Object outputObject, StarlarkThread thread)
+  FileApi transformInfoFile(
+      Object transformFuncObject,
+      Object templateObject,
+      String outputFileName,
+      StarlarkThread thread)
       throws InterruptedException, EvalException;
 }

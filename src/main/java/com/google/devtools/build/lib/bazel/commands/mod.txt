@@ -1,0 +1,28 @@
+
+Usage: %{product} %{command} [<option> ...] <query_type> [<args> ...]
+
+The command will display the external dependency graph or parts thereof, structured to display different kinds of insights depending on the query type.
+
+<query_type> [<args> ...] can be one of the following:
+
+    - graph: Displays the full dependency graph. Use the --from option to specify which module(s) you want the graph to start from (defaults to "<root>" which displays the whole dependency graph).
+    - deps <module>...: Displays the direct dependencies of the target module(s).
+    - path <module>...: Displays the shortest path found in the dependency graph from (any of) the --from module(s) to any of the target modules.
+    - all_paths <module>...: Display the dependency graph starting from (any of) the --from module(s) and containing any existing paths to any of the target modules.
+    - explain <module>...: Prints all the places where the module is (or was) requested as a direct dependency, along with the reason why the respective final version was selected. It will display a pruned version of the `all_paths <module>...` command which only contains the direct deps of the root, the <module(s)> leaves, along with their dependants (can be modified with --depth).
+    - show_repo <module>...: Prints the rule that generated the specified repos (i.e. http_archive()). The arguments may refer to extension-generated repos.
+    - show_extension <extension>...: Prints information about the given extension(s). Usages can be filtered down to only those from modules in --extension_usage.
+
+
+<module> arguments must be one of the following:
+
+    - "<root>": The current (root) module you are inside of.
+    - <name>@<version>: A specific module version.
+    - <name>@_: Specifies the empty version of a module (for modules with a non-registry override).
+    - <name>: Can be used as a placeholder for all the present versions of the module <name>.
+    - @<repo_name>: The apparent repo name of one of the root project’s direct dependencies, as it is defined in the MODULE.bazel file. Unless otherwise specified, this must refer to a module, not an extension-generated repo.
+    - @@<repo_name>: The canonical name of any repo. Unless otherwise specified, this must refer to a module, not an extension-generated repo.
+
+<extension> arguments must be of the form <module><label_to_bzl_file>%<extension_name>. For example, both rules_java//java:extensions.bzl%toolchains and @rules_java//java:extensions.bzl%toolchains are valid specifications of extensions.
+
+%{options}

@@ -1405,38 +1405,6 @@ EOF
   expect_log "--skyframe_state must be used with --output=proto\|textproto\|jsonproto. Invalid aquery output format: text"
 }
 
-function test_aquery_skyframe_state_parallel_output() {
-  local pkg="${FUNCNAME[0]}"
-  mkdir -p "$pkg" || fail "mkdir -p $pkg"
-  cat > "$pkg/BUILD" <<'EOF'
-genrule(
-    name = "foo",
-    srcs = ["foo_matching_in.java"],
-    outs = ["foo_matching_out"],
-    cmd = "echo unused > $(OUTS)",
-)
-EOF
-
-  bazel clean
-
-  bazel aquery --output=textproto --skyframe_state --experimental_parallel_aquery_output > output 2> "$TEST_log" \
-    || fail "Expected success"
-  cat output >> "$TEST_log"
-  assert_not_contains "actions" output
-
-  bazel build --nobuild "//$pkg:foo"
-
-  bazel aquery --output=textproto --skyframe_state --experimental_parallel_aquery_output > output 2> "$TEST_log" \
-    || fail "Expected success"
-  cat output >> "$TEST_log"
-
-  expect_log_once "actions {"
-  assert_contains "input_dep_set_ids: 1" output
-  assert_contains "output_ids: 3" output
-  assert_contains "mnemonic: \"Genrule\"" output
-}
-
-
 function test_summary_output() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"

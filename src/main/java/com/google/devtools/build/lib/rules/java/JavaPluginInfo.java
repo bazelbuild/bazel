@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -72,44 +71,9 @@ public abstract class JavaPluginInfo extends NativeInfo
 
   /** Provider class for {@link JavaPluginInfo} objects. */
   public static class Provider extends StarlarkProviderWrapper<JavaPluginInfo>
-      implements JavaPluginInfoApi.Provider<JavaInfo>,
-          com.google.devtools.build.lib.packages.Provider {
+      implements com.google.devtools.build.lib.packages.Provider {
     private Provider() {
-      super(
-          Label.parseCanonicalUnchecked("@_builtins//:common/java/java_plugin_info.bzl"),
-          PROVIDER_NAME);
-    }
-
-    @Override
-    public JavaPluginInfoApi<Artifact, JavaPluginData, JavaOutput> javaPluginInfo(
-        Sequence<?> runtimeDeps, Object processorClass, Object processorData, Boolean generatesApi)
-        throws EvalException, TypeException {
-      NestedSet<String> processorClasses =
-          processorClass == Starlark.NONE
-              ? NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER)
-              : NestedSetBuilder.create(Order.NAIVE_LINK_ORDER, (String) processorClass);
-      JavaInfo javaInfos =
-          JavaInfo.merge(
-              Sequence.cast(runtimeDeps, JavaInfo.class, "runtime_deps"),
-              /* mergeJavaOutputs= */ true,
-              /* mergeSourceJars= */ true);
-
-      NestedSet<Artifact> processorClasspath =
-          javaInfos.getTransitiveRuntimeJars().getSet(Artifact.class);
-
-      final NestedSet<Artifact> data;
-      if (processorData instanceof Depset) {
-        data = Depset.cast(processorData, Artifact.class, "data");
-      } else {
-        data =
-            NestedSetBuilder.wrap(
-                Order.NAIVE_LINK_ORDER, Sequence.cast(processorData, Artifact.class, "data"));
-      }
-
-      return JavaPluginInfo.create(
-          JavaPluginData.create(processorClasses, processorClasspath, data),
-          generatesApi,
-          javaInfos.getJavaOutputs());
+      super(Label.parseCanonicalUnchecked("@_builtins//:common/java/java_info.bzl"), PROVIDER_NAME);
     }
 
     @Override

@@ -880,9 +880,22 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     JavaInfo javaInfo = JavaInfo.PROVIDER.wrap(starlarkInfo);
 
     assertThat(javaInfo).isNotNull();
+    assertThat(javaInfo.getProvider(JavaCompilationArgsProvider.class)).isNotNull();
     assertThat(javaInfo.getCompilationInfoProvider()).isNull();
     assertThat(javaInfo.getJavaModuleFlagsInfo()).isEqualTo(JavaModuleFlagsProvider.EMPTY);
     assertThat(javaInfo.getJavaPluginInfo()).isEqualTo(JavaPluginInfo.empty());
+  }
+
+  @Test
+  public void translateStarlarkJavaInfo_binariesDoNotContainCompilationArgs() throws Exception {
+    ImmutableMap<String, Object> fields =
+        getBuilderWithMandataryFields().put("_is_binary", true).buildOrThrow();
+    StarlarkInfo starlarkInfo = makeStruct(fields);
+
+    JavaInfo javaInfo = JavaInfo.PROVIDER.wrap(starlarkInfo);
+
+    assertThat(javaInfo).isNotNull();
+    assertThat(javaInfo.getProvider(JavaCompilationArgsProvider.class)).isNull();
   }
 
   @Test

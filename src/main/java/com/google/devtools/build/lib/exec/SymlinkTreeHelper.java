@@ -120,19 +120,19 @@ public final class SymlinkTreeHelper {
   /**
    * Creates symlink tree and output manifest using the {@code build-runfiles.cc} tool.
    *
-   * @param enableRunfiles If {@code false} only the output manifest is created.
+   * @param manifestOnly If {@code true}, only the output manifest is created.
    */
   public void createSymlinks(
       Path execRoot,
       OutErr outErr,
       BinTools binTools,
       Map<String, String> shellEnvironment,
-      boolean enableRunfiles)
+      boolean manifestOnly)
       throws ExecException, InterruptedException {
-    if (enableRunfiles) {
-      createSymlinksUsingCommand(execRoot, binTools, shellEnvironment, outErr);
-    } else {
+    if (manifestOnly) {
       copyManifest();
+    } else {
+      createSymlinksUsingCommand(execRoot, binTools, shellEnvironment, outErr);
     }
   }
 

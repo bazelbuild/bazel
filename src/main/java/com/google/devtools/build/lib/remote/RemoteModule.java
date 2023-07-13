@@ -191,6 +191,7 @@ public final class RemoteModule extends BlazeModule {
     return !Strings.isNullOrEmpty(options.remoteDownloader);
   }
 
+  @Nullable
   private static ServerCapabilities getAndVerifyServerCapabilities(
       RemoteOptions remoteOptions,
       ReferenceCountedChannel channel,
@@ -578,7 +579,9 @@ public final class RemoteModule extends BlazeModule {
                 digestUtil,
                 ServerCapabilitiesRequirement.CACHE);
       }
-    } catch (IOException e) {
+    } catch (AbruptExitException e) {
+      throw e; // prevent abrupt interception
+    } catch (Exception e) {
       String errorMessage =
           "Failed to query remote execution capabilities: "
               + Utils.grpcAwareErrorMessage(e, verboseFailures);
@@ -603,11 +606,11 @@ public final class RemoteModule extends BlazeModule {
     if (Strings.isNullOrEmpty(remoteBytestreamUriPrefix)) {
       try {
         remoteBytestreamUriPrefix = cacheChannel.withChannelBlocking(Channel::authority);
-      } catch (IOException e) {
+      } catch (Exception e) {
+        if (e instanceof InterruptedException) {
+          Thread.currentThread().interrupt();
+        }
         handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
-        return;
-      } catch (InterruptedException e) {
-        handleInitFailure(env, new IOException(e), Code.CACHE_INIT_FAILURE);
         return;
       }
       if (!Strings.isNullOrEmpty(remoteOptions.remoteInstanceName)) {
@@ -630,7 +633,7 @@ public final class RemoteModule extends BlazeModule {
                   remoteOptions.remoteVerifyDownloads,
                   digestUtil,
                   cacheClient);
-        } catch (IOException e) {
+        } catch (Exception e) {
           handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
           return;
         }
@@ -695,7 +698,7 @@ public final class RemoteModule extends BlazeModule {
                   remoteOptions.remoteVerifyDownloads,
                   digestUtil,
                   cacheClient);
-        } catch (IOException e) {
+        } catch (Exception e) {
           handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
           return;
         }
@@ -741,7 +744,7 @@ public final class RemoteModule extends BlazeModule {
   }
 
   private static void handleInitFailure(
-      CommandEnvironment env, IOException e, Code remoteExecutionCode) {
+      CommandEnvironment env, Exception e, Code remoteExecutionCode) {
     env.getReporter().handle(Event.error(e.getMessage()));
     env.getBlazeModuleEnvironment()
         .exit(
@@ -884,7 +887,7 @@ public final class RemoteModule extends BlazeModule {
   }
 
   @Override
-  public void afterCommand() throws AbruptExitException {
+  public void afterCommand() {
     Preconditions.checkNotNull(blockWaitingModule, "blockWaitingModule must not be null");
 
     // Some cleanup tasks must wait until every other BlazeModule's afterCommand() has run, as

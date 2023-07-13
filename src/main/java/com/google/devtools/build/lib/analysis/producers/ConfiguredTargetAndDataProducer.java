@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.producers;
 
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
@@ -21,6 +22,7 @@ import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -41,13 +43,17 @@ import javax.annotation.Nullable;
 public final class ConfiguredTargetAndDataProducer
     implements StateMachine,
         Consumer<SkyValue>,
-        StateMachine.ValueOrException2Sink<
-            ConfiguredValueCreationException, InconsistentNullConfigException> {
+        StateMachine.ValueOrException3Sink<
+            ConfiguredValueCreationException,
+            NoSuchThingException,
+            InconsistentNullConfigException> {
   /** Interface for accepting values produced by this class. */
   public interface ResultSink {
     void acceptConfiguredTargetAndData(ConfiguredTargetAndData value, int index);
 
     void acceptConfiguredTargetAndDataError(ConfiguredValueCreationException error);
+
+    void acceptConfiguredTargetAndDataError(NoSuchThingException error);
 
     void acceptConfiguredTargetAndDataError(InconsistentNullConfigException error);
   }
@@ -85,16 +91,21 @@ public final class ConfiguredTargetAndDataProducer
     tasks.lookUp(
         key.toKey(),
         ConfiguredValueCreationException.class,
+        NoSuchThingException.class,
         InconsistentNullConfigException.class,
-        (ValueOrException2Sink<ConfiguredValueCreationException, InconsistentNullConfigException>)
+        (ValueOrException3Sink<
+                ConfiguredValueCreationException,
+                NoSuchThingException,
+                InconsistentNullConfigException>)
             this);
     return this::fetchConfigurationAndPackage;
   }
 
   @Override
-  public void acceptValueOrException2(
+  public void acceptValueOrException3(
       @Nullable SkyValue value,
       @Nullable ConfiguredValueCreationException error,
+      @Nullable NoSuchThingException missingTargetError,
       @Nullable InconsistentNullConfigException visibilityError) {
     if (value != null) {
       var configuredTargetValue = (ConfiguredTargetValue) value;
@@ -109,6 +120,10 @@ public final class ConfiguredTargetAndDataProducer
     if (error != null) {
       transitiveState.addTransitiveCauses(error.getRootCauses());
       sink.acceptConfiguredTargetAndDataError(error);
+      return;
+    }
+    if (missingTargetError != null) {
+      sink.acceptConfiguredTargetAndDataError(missingTargetError);
       return;
     }
     if (visibilityError != null) {

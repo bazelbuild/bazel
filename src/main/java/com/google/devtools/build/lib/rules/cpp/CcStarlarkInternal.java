@@ -50,6 +50,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
 
@@ -72,6 +73,20 @@ public class CcStarlarkInternal implements StarlarkValue {
     return Dict.cast(d, String.class, String.class, "tool_paths").entrySet().stream()
         .map(p -> Pair.of(p.getKey(), PathFragment.create(p.getValue())))
         .collect(toImmutableMap(Pair::getFirst, Pair::getSecond));
+  }
+
+  @StarlarkMethod(
+      name = "construct_cc_toolchain_attributes_info",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "is_apple", positional = false, named = true),
+        @Param(name = "build_vars_func", positional = false, named = true),
+      })
+  public CcToolchainAttributesProvider constructCcToolchainAttributesInfo(
+      StarlarkRuleContext ruleContext, boolean isApple, Object buildVarsFunc) throws EvalException {
+    return new CcToolchainAttributesProvider(
+        ruleContext.getRuleContext(), isApple, (StarlarkFunction) buildVarsFunc);
   }
 
   @StarlarkMethod(

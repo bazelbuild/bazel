@@ -16,17 +16,15 @@ package com.google.devtools.build.lib.starlarkbuildapi.java;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
-import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
-import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import net.starlark.java.annot.Param;
@@ -315,7 +313,7 @@ public interface JavaCommonApi<
       Sequence<?> addExports, // <String> expected.
       Sequence<?> addOpens, // <String> expected.
       StarlarkThread thread)
-      throws EvalException, InterruptedException, RuleErrorException;
+      throws EvalException, InterruptedException, RuleErrorException, LabelSyntaxException;
 
   @StarlarkMethod(
       name = "default_javac_opts",
@@ -361,16 +359,6 @@ public interface JavaCommonApi<
       throws EvalException;
 
   @StarlarkMethod(
-      name = "make_non_strict",
-      doc =
-          "Returns a new Java provider whose direct-jars part is the union of both the direct and"
-              + " indirect jars of the given Java provider.",
-      parameters = {
-        @Param(name = "java_info", positional = true, named = false, doc = "The java info."),
-      })
-  JavaInfoT makeNonStrict(JavaInfoT javaInfo);
-
-  @StarlarkMethod(
       name = "JavaToolchainInfo",
       doc =
           "The key used to retrieve the provider that contains information about the Java "
@@ -385,78 +373,6 @@ public interface JavaCommonApi<
               + "runtime being used.",
       structField = true)
   ProviderApi getJavaRuntimeProvider();
-
-  @StarlarkMethod(
-      name = "set_annotation_processing",
-      doc = "Returns a copy of the given JavaInfo with the given annotation_processing info.",
-      parameters = {
-        @Param(
-            name = "java_info",
-            positional = true,
-            named = false,
-            doc = "The JavaInfo to enhance."),
-        @Param(
-            name = "enabled",
-            named = true,
-            positional = false,
-            defaultValue = "False",
-            doc = "Returns true if the rule uses annotation processing."),
-        @Param(
-            name = "processor_classnames",
-            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
-            named = true,
-            positional = false,
-            defaultValue = "[]",
-            doc = "Class names of annotation processors applied to this rule."),
-        @Param(
-            name = "processor_classpath",
-            allowedTypes = {
-              @ParamType(type = Depset.class),
-              @ParamType(type = NoneType.class),
-            },
-            named = true,
-            positional = false,
-            defaultValue = "None",
-            doc = "Class names of annotation processors applied to this rule."),
-        @Param(
-            name = "class_jar",
-            allowedTypes = {
-              @ParamType(type = FileApi.class),
-              @ParamType(type = NoneType.class),
-            },
-            named = true,
-            positional = false,
-            defaultValue = "None",
-            doc = "Jar file that is the result of annotation processing for this rule, or None."),
-        @Param(
-            name = "source_jar",
-            allowedTypes = {
-              @ParamType(type = FileApi.class),
-              @ParamType(type = NoneType.class),
-            },
-            named = true,
-            positional = false,
-            defaultValue = "None",
-            doc = "Source archive resulting from annotation processing of this rule, or None."),
-      },
-      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
-  JavaInfoT setAnnotationProcessing(
-      Info javaInfo,
-      boolean enabled,
-      Sequence<?> processorClassnames /* <String> expected. */,
-      Object processorClasspath,
-      Object classJar,
-      Object sourceJar)
-      throws EvalException, RuleErrorException;
-
-  @StarlarkMethod(
-      name = "java_toolchain_label",
-      doc = "Returns the toolchain's label.",
-      parameters = {
-        @Param(name = "java_toolchain", positional = true, named = false, doc = "The toolchain."),
-      },
-      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
-  Label getJavaToolchainLabel(JavaToolchainStarlarkApiProviderApi toolchain) throws EvalException;
 
   @StarlarkMethod(
       name = "BootClassPathInfo",
@@ -501,12 +417,11 @@ public interface JavaCommonApi<
 
   @StarlarkMethod(
       name = "collect_native_deps_dirs",
-      parameters = {@Param(name = "deps")},
+      parameters = {@Param(name = "libraries")},
       useStarlarkThread = true,
       documented = false)
-  Sequence<String> collectNativeLibsDirs(
-      Sequence<? extends TransitiveInfoCollectionApi> deps, StarlarkThread thread)
-      throws EvalException, RuleErrorException;
+  Sequence<String> collectNativeLibsDirs(Depset libraries, StarlarkThread thread)
+      throws EvalException, RuleErrorException, TypeException;
 
   @StarlarkMethod(
       name = "get_runtime_classpath_for_archive",
@@ -532,4 +447,13 @@ public interface JavaCommonApi<
 
   @StarlarkMethod(name = "_google_legacy_api_enabled", documented = false, useStarlarkThread = true)
   boolean isLegacyGoogleApiEnabled(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "_check_java_toolchain_is_declared_on_rule",
+      documented = false,
+      parameters = {@Param(name = "actions")},
+      useStarlarkThread = true)
+  void checkJavaToolchainIsDeclaredOnRuleForStarlark(
+      StarlarkActionFactoryT actions, StarlarkThread thread)
+      throws EvalException, LabelSyntaxException;
 }

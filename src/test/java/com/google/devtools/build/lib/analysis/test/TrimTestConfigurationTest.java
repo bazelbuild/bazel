@@ -658,16 +658,14 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
     assertNumberOfConfigurationsOfTargets(
         visitedTargets,
         new ImmutableMap.Builder<String, Integer>()
-            .put("//test:native_test", 2) // Top-level and exec.
-            .put("//test:starlark_test", 2) // Top-level and exec.
-            // Top-level, rule-transitioned and exec.
-            .put("//test:native_dep", 3)
-            // Top-level, rule-transitioned and exec.
-            .put("//test:starlark_dep", 3)
-            // Top-level, rule-transitioned and exec.
-            .put("//test:native_shared_dep", 3)
-            // Top-level, rule-transitioned and exec.
-            .put("//test:starlark_shared_dep", 3)
+            // Top-level and exec.
+            .put("//test:native_test", 2)
+            .put("//test:starlark_test", 2)
+            // Target and exec.
+            .put("//test:native_dep", 2)
+            .put("//test:starlark_dep", 2)
+            .put("//test:native_shared_dep", 2)
+            .put("//test:starlark_shared_dep", 2)
             .build());
   }
 

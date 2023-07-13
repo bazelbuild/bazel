@@ -71,12 +71,11 @@ public final class TransitiveDependencyState {
    * through the dependency. This is compatible with bottom-up change pruning because {@link
    * ConfiguredTargetValue} uses identity equals.
    */
-  @Nullable // TODO(b/261521010): make this non-null.
   private final ConcurrentHashMap<PackageIdentifier, Package> prerequisitePackages;
 
   public TransitiveDependencyState(
       boolean storeTransitivePackages,
-      @Nullable ConcurrentHashMap<PackageIdentifier, Package> prerequisitePackages) {
+      ConcurrentHashMap<PackageIdentifier, Package> prerequisitePackages) {
     this.transitiveRootCauses = NestedSetBuilder.stableOrder();
     this.packageCollector = storeTransitivePackages ? new PackageCollector() : null;
     this.prerequisitePackages = prerequisitePackages;
@@ -111,6 +110,10 @@ public final class TransitiveDependencyState {
     transitiveRootCauses.add(cause);
   }
 
+  public boolean hasRootCause() {
+    return !transitiveRootCauses.isEmpty();
+  }
+
   public boolean storeTransitivePackages() {
     return packageCollector != null;
   }
@@ -139,26 +142,12 @@ public final class TransitiveDependencyState {
     packageCollector.aspectPackages.put(key, packages);
   }
 
-  /** Sets a batch of transitive packages to be added. */
-  public void setTransitivePackagesBatch(NestedSet<Package> packages) {
-    if (packageCollector == null) {
-      return;
-    }
-    packageCollector.transitivePackagesBatch = packages;
-  }
-
   @Nullable
   public Package getDependencyPackage(PackageIdentifier packageId) {
-    if (prerequisitePackages == null) {
-      return null;
-    }
     return prerequisitePackages.get(packageId);
   }
 
   public void putDependencyPackageIfAbsent(PackageIdentifier packageId, Package pkg) {
-    if (prerequisitePackages == null) {
-      return;
-    }
     prerequisitePackages.putIfAbsent(packageId, pkg);
   }
 
@@ -192,13 +181,6 @@ public final class TransitiveDependencyState {
         new TreeMap<>(ASPECT_KEY_ORDERING);
 
     /**
-     * Stores a single batch of packages computed by {@link
-     * PrerequisiteProducer#resolveConfiguredTargetDependencies}.
-     */
-    // TODO(b/261521010): delete this when the corresponding method is deleted.
-    private NestedSet<Package> transitivePackagesBatch;
-
-    /**
      * Constructs the deterministically ordered result.
      *
      * <p>It's safe to call this multiple times.
@@ -214,10 +196,6 @@ public final class TransitiveDependencyState {
       }
       for (NestedSet<Package> packageSet : aspectPackages.values()) {
         result.addTransitive(packageSet);
-      }
-
-      if (transitivePackagesBatch != null) {
-        result.addTransitive(transitivePackagesBatch);
       }
 
       return result.build();

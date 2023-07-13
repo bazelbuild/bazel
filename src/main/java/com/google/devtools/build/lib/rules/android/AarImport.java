@@ -194,9 +194,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
             ruleContext, aar, ANDROID_MANIFEST, jdepsArtifact, androidManifestArtifact));
 
     JavaCompilationArgsProvider javaCompilationArgsProvider =
-        common.collectJavaCompilationArgs(
-            /* isNeverLink = */ JavaCommon.isNeverLink(ruleContext),
-            /* srcLessDepsExport = */ false);
+        common.collectJavaCompilationArgs(/* isNeverLink= */ JavaCommon.isNeverLink(ruleContext));
 
     // Wire up the source jar for the current target and transitive source jars from dependencies.
     ImmutableList<Artifact> srcJars = ImmutableList.of();

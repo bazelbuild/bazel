@@ -115,6 +115,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -881,6 +882,64 @@ public class RemoteSpawnRunnerTest {
 
     SpawnResult res = runner.exec(spawn, policy);
     assertThat(res.status()).isEqualTo(Status.TIMEOUT);
+
+    verify(executor)
+        .executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class));
+    verify(service).downloadOutputs(any(), eq(RemoteActionResult.createFromResponse(resp)));
+  }
+
+  @Test
+  public void testRemoteExecutionTimeoutTimings() throws Exception {
+    // If remote execution times out the SpawnResult should still have the start and wall times
+    // reported correctly.
+
+    remoteOptions.remoteLocalFallback = false;
+
+    RemoteSpawnRunner runner = newSpawnRunner();
+    RemoteExecutionService service = runner.getRemoteExecutionService();
+
+    com.google.protobuf.Duration oneSecond = Durations.fromMillis(1000);
+    Timestamp executionStart = Timestamp.getDefaultInstance();
+    Timestamp executionCompleted = Timestamps.add(executionStart, oneSecond);
+    ExecutedActionMetadata executedMetadata =
+        ExecutedActionMetadata.newBuilder()
+            .setExecutionStartTimestamp(executionStart)
+            .setExecutionCompletedTimestamp(executionCompleted)
+            .build();
+
+    ActionResult cachedResult =
+        ActionResult.newBuilder().setExitCode(0).setExecutionMetadata(executedMetadata).build();
+    when(cache.downloadActionResult(
+            any(RemoteActionExecutionContext.class),
+            any(ActionKey.class),
+            /* inlineOutErr= */ eq(false)))
+        .thenReturn(null);
+    ExecuteResponse resp =
+        ExecuteResponse.newBuilder()
+            .setResult(cachedResult)
+            .setStatus(
+                com.google.rpc.Status.newBuilder()
+                    .setCode(Code.DEADLINE_EXCEEDED.getNumber())
+                    .build())
+            .build();
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
+        .thenThrow(new IOException(new ExecutionStatusException(resp.getStatus(), resp)));
+
+    Spawn spawn = newSimpleSpawn();
+
+    SpawnExecutionContext policy = getSpawnContext(spawn);
+
+    SpawnResult res = runner.exec(spawn, policy);
+    assertThat(res.status()).isEqualTo(Status.TIMEOUT);
+    assertThat(res.getWallTimeInMs()).isEqualTo(1000);
+    assertThat(res.getStartTime())
+        .isEqualTo(Instant.ofEpochSecond(executionStart.getSeconds(), executionStart.getNanos()));
 
     verify(executor)
         .executeRemotely(

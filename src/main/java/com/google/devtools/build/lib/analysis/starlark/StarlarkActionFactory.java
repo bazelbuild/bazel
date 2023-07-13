@@ -441,31 +441,46 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   }
 
   @Override
-  public void transformVersionFile(
-      Object transformFuncObject, Object templateObject, Object outputObject, StarlarkThread thread)
+  public Artifact transformVersionFile(
+      Object transformFuncObject,
+      Object templateObject,
+      String outputFileName,
+      StarlarkThread thread)
       throws InterruptedException, EvalException {
     checkPrivateAccess(PRIVATE_BUILDINFO_API_ALLOWLIST, thread);
-    transformBuildInfoFile(transformFuncObject, templateObject, outputObject, true, thread);
+    return transformBuildInfoFile(
+        transformFuncObject, templateObject, outputFileName, true, thread);
   }
 
   @Override
-  public void transformInfoFile(
-      Object transformFuncObject, Object templateObject, Object outputObject, StarlarkThread thread)
-      throws InterruptedException, EvalException {
-    checkPrivateAccess(PRIVATE_BUILDINFO_API_ALLOWLIST, thread);
-    transformBuildInfoFile(transformFuncObject, templateObject, outputObject, false, thread);
-  }
-
-  private void transformBuildInfoFile(
+  public Artifact transformInfoFile(
       Object transformFuncObject,
       Object templateObject,
-      Object outputObject,
+      String outputFileName,
+      StarlarkThread thread)
+      throws InterruptedException, EvalException {
+    checkPrivateAccess(PRIVATE_BUILDINFO_API_ALLOWLIST, thread);
+    return transformBuildInfoFile(
+        transformFuncObject, templateObject, outputFileName, false, thread);
+  }
+
+  private Artifact transformBuildInfoFile(
+      Object transformFuncObject,
+      Object templateObject,
+      String outputFileName,
       boolean isVolatile,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     RuleContext ruleContext = getRuleContext();
     Artifact templateFile = (Artifact) templateObject;
-    Artifact buildInfoFile = (Artifact) outputObject;
+    PathFragment fragment =
+        ruleContext.getPackageDirectory().getRelative(PathFragment.create(outputFileName));
+    Artifact buildInfoFile =
+        isVolatile
+            ? ruleContext
+                .getAnalysisEnvironment()
+                .getConstantMetadataArtifact(fragment, newFileRoot())
+            : ruleContext.getDerivedArtifact(fragment, newFileRoot());
     StarlarkFunction translationFunc = (StarlarkFunction) transformFuncObject;
     BuildInfoFileWriteAction action =
         new BuildInfoFileWriteAction(
@@ -479,6 +494,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
             isVolatile,
             thread.getSemantics());
     registerAction(action);
+    return buildInfoFile;
   }
 
   private void validateActionCreation() throws EvalException {
