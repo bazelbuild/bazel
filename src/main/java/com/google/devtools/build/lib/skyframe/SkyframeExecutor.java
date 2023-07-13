@@ -98,7 +98,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
 import com.google.devtools.build.lib.analysis.producers.ConfiguredTargetAndDataProducer;
 import com.google.devtools.build.lib.analysis.producers.DependencyError;
@@ -1155,8 +1154,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /** Signals whether nodes (or some internal node data) can be removed from the analysis cache. */
-  @ForOverride
-  protected boolean processDiscardAndDetermineRemoval(
+  private static boolean processDiscardAndDetermineRemoval(
       InMemoryNodeEntry entry,
       DiscardType discardType,
       ImmutableSet<PackageIdentifier> topLevelPackages,
@@ -2962,7 +2960,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       if (!(newValue instanceof RuleConfiguredTargetValue)) {
         return;
       }
-      var t = (RuleConfiguredTarget) ((RuleConfiguredTargetValue) newValue).getConfiguredTarget();
+      var t = ((RuleConfiguredTargetValue) newValue).getConfiguredTarget();
       if (!t.getRuleClassString().equals("genquery")) {
         return;
       }
