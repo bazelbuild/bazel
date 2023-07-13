@@ -122,7 +122,27 @@ public class BazelAndroidSemantics implements AndroidSemantics {
   /* Bazel does not currently support baseline profiles in the final apk.  */
   @Override
   public Artifact getArtProfileForApk(
-      RuleContext ruleContext, Artifact finalClassesDex, Artifact proguardOutputMap) {
+      RuleContext ruleContext,
+      Artifact finalClassesDex,
+      Artifact proguardOutputMap,
+      String baselineProfileDir) {
+    return null;
+  }
+
+  /* Bazel does not currently support baseline profiles in the final apk.  */
+  @Override
+  public Artifact compileBaselineProfile(
+      RuleContext ruleContext,
+      Artifact finalClassesDex,
+      Artifact proguardOutputMap,
+      Artifact mergedStaticProfile,
+      String baselineProfileDir) {
+    return null;
+  }
+
+  /* Bazel does not currently support baseline profiles in the final apk.  */
+  @Override
+  public Artifact mergeBaselineProfiles(RuleContext ruleContext, String baselineProfileDir) {
     return null;
   }
 }

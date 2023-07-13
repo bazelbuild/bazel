@@ -531,6 +531,17 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       }
     }
 
+    BaselineProfileProvider baselineprofileProvider =
+        ruleContext.getPrerequisite("application_resources", BaselineProfileProvider.PROVIDER);
+
+    Artifact baselineProfile = null;
+    String baselineProfileDir = ruleContext.getLabel().getName() + "-baseline-profile/";
+    if (baselineprofileProvider == null
+        && Allowlist.hasAllowlist(ruleContext, "allow_baseline_profiles_optimizer_integration")
+        && Allowlist.isAvailable(ruleContext, "allow_baseline_profiles_optimizer_integration")) {
+      baselineProfile = androidSemantics.mergeBaselineProfiles(ruleContext, baselineProfileDir);
+    }
+
     ProguardOutput proguardOutput =
         applyProguard(
             ruleContext,
@@ -539,7 +550,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             binaryJar,
             proguardSpecs,
             proguardMapping,
-            proguardOutputMap);
+            proguardOutputMap,
+            baselineProfile,
+            baselineProfileDir);
 
     // Determine the outputs for the proguard map transition through post-processing and adding of
     // desugared library map.
@@ -682,13 +695,28 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       proguardOutput.addAllToSet(filesBuilder, finalProguardOutputMap);
     }
 
-    BaselineProfileProvider baselineprofileProvider =
-        ruleContext.getPrerequisite("application_resources", BaselineProfileProvider.PROVIDER);
-    Artifact artProfileZip =
-        (baselineprofileProvider != null)
-            ? baselineprofileProvider.getArtProfileZip()
-            : androidSemantics.getArtProfileForApk(
-                ruleContext, finalClassesDex, finalProguardOutputMap);
+    Artifact artProfileZip = null;
+    if (baselineprofileProvider != null) {
+      // This happens when baseline profiles are provided via starlark.
+      artProfileZip = baselineprofileProvider.getArtProfileZip();
+    } else if (baselineProfile == null) {
+      // This happens when optimizer profile rewriting isn't enabled.
+      artProfileZip =
+          androidSemantics.getArtProfileForApk(
+              ruleContext, finalClassesDex, finalProguardOutputMap, baselineProfileDir);
+    } else {
+      // This happens when optimizer profile rewriting is enabled.
+      artProfileZip =
+          androidSemantics.compileBaselineProfile(
+              ruleContext,
+              finalClassesDex,
+              // Minified symbols are emitted when rewriting, so map isn't needed.
+              /* proguardOutputMap= */ null,
+              proguardOutput.getBaselineProfileOut() == null
+                  ? baselineProfile
+                  : proguardOutput.getBaselineProfileOut(),
+              baselineProfileDir);
+    }
 
     Artifact unsignedApk =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_UNSIGNED_APK);
@@ -1054,7 +1082,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       Artifact deployJarArtifact,
       ImmutableList<Artifact> proguardSpecs,
       Artifact proguardMapping,
-      @Nullable Artifact proguardOutputMap)
+      @Nullable Artifact proguardOutputMap,
+      @Nullable Artifact baselineProfile,
+      String baselineProfileDir)
       throws InterruptedException {
     Artifact proguardOutputJar =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_PROGUARD_JAR);
@@ -1101,7 +1131,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         proguardOutputJar,
         javaSemantics,
         getProguardOptimizationPasses(ruleContext),
-        proguardOutputMap);
+        proguardOutputMap,
+        baselineProfile,
+        baselineProfileDir);
   }
 
   @Nullable
@@ -1131,7 +1163,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             ruleContext,
             semantics,
             proguardOutputMap,
-            null);
+            /* libraryJar= */ null,
+            /* baselineProfileOutput= */ null);
     outputs.addAllToSet(failures);
     ruleContext.registerAction(
         new FailAction(
