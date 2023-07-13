@@ -20,6 +20,8 @@
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
+source "${CURRENT_DIR}/coverage_helpers.sh" \
+  || { echo "coverage_helpers.sh not found!" >&2; exit 1; }
 
 # Check if all the tools required by CC coverage are installed.
 [[ -z $( which gcov ) ]] && fail "gcov not installed. Skipping test" && exit 0
@@ -188,26 +190,6 @@ function tear_down() {
   rm -rf coverage_srcs/
 }
 
-# Asserts if the given expected coverage result is included in the given output
-# file.
-#
-# - expected_coverage The expected result that must be included in the output.
-# - output_file       The location of the coverage output file.
-function assert_coverage_entry_in_file() {
-    local expected_coverage="${1}"; shift
-    local output_file="${1}"; shift
-
-    # Replace newlines with commas to facilitate the assertion.
-    local expected_coverage_no_newlines="$( echo -n "$expected_coverage" | tr '\n' ',' | tr -d "\"")"
-    local output_file_no_newlines="$( cat "$output_file" | tr '\n' ',' | tr -d "\"")"
-
-    (echo "$output_file_no_newlines" | fgrep  "$expected_coverage_no_newlines")\
-        || fail "Expected coverage result
-<$expected_coverage>
-was not found in actual coverage report:
-<$( cat $output_file )>"
-}
-
 # Asserts if coverage result in gcov format for coverage_srcs/a.cc is included
 # in the given output file.
 #
@@ -222,7 +204,7 @@ lcount:4,1
 lcount:5,1
 lcount:6,1
 lcount:8,0"
-    assert_coverage_entry_in_file "$expected_gcov_result_a_cc" "$output_file"
+    assert_coverage_result "$expected_gcov_result_a_cc" "$output_file"
 }
 
 
@@ -240,7 +222,7 @@ lcount:5,1
 lcount:6,1
 lcount:7,1
 lcount:8,1"
-    assert_coverage_entry_in_file "$expected_gcov_result_t_cc" "$output_file"
+    assert_coverage_result "$expected_gcov_result_t_cc" "$output_file"
 }
 
 function assert_gcov_coverage_srcs_b_h() {
@@ -253,7 +235,7 @@ lcount:1,1
 lcount:2,1
 lcount:3,1
 lcount:5,0"
-    assert_coverage_entry_in_file "$expected_gcov_result" "$output_file"
+    assert_coverage_result "$expected_gcov_result" "$output_file"
 }
 
 function assert_gcov_coverage_srcs_d_a_cc() {
@@ -266,7 +248,7 @@ lcount:1,1
 lcount:2,1
 lcount:3,0
 lcount:5,1"
-    assert_coverage_entry_in_file "$expected_gcov_result_d_a_cc" "$output_file"
+    assert_coverage_result "$expected_gcov_result_d_a_cc" "$output_file"
 }
 
 function assert_gcov_coverage_srcs_a_cc_json() {
@@ -277,7 +259,7 @@ function assert_gcov_coverage_srcs_a_cc_json() {
 {"lines": [{"branches": [], "count": 1, "line_number": 4, "unexecuted_block": false, "function_name": "_Z1ab"}, {"branches": [], "count": 1, "line_number": 5, "unexecuted_block": false, "function_name": "_Z1ab"}, {"branches": [], "count": 1, "line_number": 6, "unexecuted_block": false, "function_name": "_Z1ab"}, {"branches": [], "count": 0, "line_number": 8, "unexecuted_block": true, "function_name": "_Z1ab"}], "functions": [{"blocks": 4, "end_column": 1, "start_line": 4, "name": "_Z1ab", "blocks_executed": 3, "execution_count": 1, "demangled_name": "a(bool)", "start_column": 5, "end_line": 10}], "file": "coverage_srcs/a.cc"}
 EOF
 local expected_gcov_result_a_cc=$(cat expected_gcov_result_a_cc | tr -d '\n')
-    assert_coverage_entry_in_file "$expected_gcov_result_a_cc" "$output_file"
+    assert_coverage_result "$expected_gcov_result_a_cc" "$output_file"
 }
 
 
@@ -293,7 +275,7 @@ function assert_gcov_coverage_srcs_t_cc_json() {
 {"lines": [{"branches": [], "count": 1, "line_number": 5, "unexecuted_block": false, "function_name": "main"}, {"branches": [], "count": 1, "line_number": 6, "unexecuted_block": false, "function_name": "main"}, {"branches": [], "count": 1, "line_number": 7, "unexecuted_block": false, "function_name": "main"}, {"branches": [], "count": 1, "line_number": 8, "unexecuted_block": false, "function_name": "main"}], "functions": [{"blocks": 4, "end_column": 1, "start_line": 5, "name": "main", "blocks_executed": 4, "execution_count": 1, "demangled_name": "main", "start_column": 5, "end_line": 8}], "file": "coverage_srcs/t.cc"}
 EOF
     local expected_gcov_result_t_cc=$(cat expected_gcov_result_t_cc | tr -d '\n')
-    assert_coverage_entry_in_file "$expected_gcov_result_t_cc" "$output_file"
+    assert_coverage_result "$expected_gcov_result_t_cc" "$output_file"
 }
 
 function assert_gcov_coverage_srcs_b_h_json() {
@@ -304,7 +286,7 @@ function assert_gcov_coverage_srcs_b_h_json() {
 {"lines": [{"branches": [], "count": 1, "line_number": 1, "unexecuted_block": false, "function_name": "_Z1bi"}, {"branches": [], "count": 1, "line_number": 2, "unexecuted_block": false, "function_name": "_Z1bi"}, {"branches": [], "count": 1, "line_number": 3, "unexecuted_block": false, "function_name": "_Z1bi"}, {"branches": [], "count": 0, "line_number": 5, "unexecuted_block": true, "function_name": "_Z1bi"}], "functions": [{"blocks": 4, "end_column": 1, "start_line": 1, "name": "_Z1bi", "blocks_executed": 3, "execution_count": 1, "demangled_name": "b(int)", "start_column": 5, "end_line": 7}], "file": "coverage_srcs/b.h"}
 EOF
     local expected_gcov_result_b_h=$(cat expected_gcov_result_b_h | tr -d '\n')
-    assert_coverage_entry_in_file "$expected_gcov_result_b_h" "$output_file"
+    assert_coverage_result "$expected_gcov_result_b_h" "$output_file"
 }
 
 function assert_gcov_coverage_srcs_d_a_cc_json() {
@@ -315,7 +297,7 @@ function assert_gcov_coverage_srcs_d_a_cc_json() {
 {"lines": [{"branches": [], "count": 1, "line_number": 1, "unexecuted_block": false, "function_name": "_Z11different_ab"}, {"branches": [], "count": 1, "line_number": 2, "unexecuted_block": false, "function_name": "_Z11different_ab"}, {"branches": [], "count": 0, "line_number": 3, "unexecuted_block": true, "function_name": "_Z11different_ab"}, {"branches": [], "count": 1, "line_number": 5, "unexecuted_block": false, "function_name": "_Z11different_ab"}], "functions": [{"blocks": 4, "end_column": 1, "start_line": 1, "name": "_Z11different_ab", "blocks_executed": 3, "execution_count": 1, "demangled_name": "different_a(bool)", "start_column": 5, "end_line": 7}], "file": "coverage_srcs/different/a.cc"}
 EOF
 local expected_gcov_result_d_a_cc=$(cat expected_gcov_result_d_a_cc | tr -d '\n')
-    assert_coverage_entry_in_file "$expected_gcov_result_d_a_cc" "$output_file"
+    assert_coverage_result "$expected_gcov_result_d_a_cc" "$output_file"
 }
 
 function test_cc_test_coverage_gcov() {
@@ -376,6 +358,11 @@ function test_cc_test_coverage_gcov() {
       output_file_json="output_file.json"
       zcat $agcda $tgcda $dagcda > $output_file_json
 
+      # Remove all branch information from the json.
+      # We disable branch coverage for gcov 7 and it is easier to remove it
+      # than it is to put it back.
+      # Replace "branches": [..] with "branches": [] - (non-empty [..])
+      sed -E -i 's/"branches": \[[^]]+]/"branches": \[\]/g' "$output_file_json"
       assert_gcov_coverage_srcs_a_cc_json "$output_file_json"
       assert_gcov_coverage_srcs_t_cc_json "$output_file_json"
       assert_gcov_coverage_srcs_b_h_json "$output_file_json"

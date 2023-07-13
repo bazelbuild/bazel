@@ -108,7 +108,7 @@ public class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
             .handle(
                 Event.error(
                     targetContext.getTarget().getLocation(),
-                    String.format("label '%s' does not refer to a package group", label)));
+                    String.format("Label '%s' does not refer to a package group", label)));
         continue;
       }
 

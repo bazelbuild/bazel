@@ -15,41 +15,35 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.configurationId;
+import static com.google.devtools.build.lib.analysis.config.transitions.TransitionCollector.NULL_TRANSITION_COLLECTOR;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
-import com.google.devtools.build.lib.analysis.AspectResolver;
-import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
-import com.google.devtools.build.lib.analysis.Dependency;
-import com.google.devtools.build.lib.analysis.DependencyKey;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
-import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection;
-import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
+import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyException;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
+import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionCollector;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
@@ -58,14 +52,18 @@ import com.google.devtools.build.lib.analysis.producers.DependencyContext;
 import com.google.devtools.build.lib.analysis.producers.DependencyContextError;
 import com.google.devtools.build.lib.analysis.producers.DependencyContextProducer;
 import com.google.devtools.build.lib.analysis.producers.DependencyContextProducerWithCompatibilityCheck;
+import com.google.devtools.build.lib.analysis.producers.DependencyError;
+import com.google.devtools.build.lib.analysis.producers.DependencyMapProducer;
+import com.google.devtools.build.lib.analysis.producers.MissingEdgeError;
+import com.google.devtools.build.lib.analysis.producers.PrerequisiteParameters;
 import com.google.devtools.build.lib.analysis.producers.TargetAndConfigurationProducer;
 import com.google.devtools.build.lib.analysis.producers.UnloadedToolchainContextsInputs;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
-import com.google.devtools.build.lib.bugreport.BugReport;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
@@ -73,7 +71,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
@@ -91,18 +88,14 @@ import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeCompa
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunction.LookupEnvironment;
-import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.devtools.build.skyframe.state.Driver;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashSet;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 
 /**
  * Helper logic for {@link ConfiguredTargetFunction} and {@link AspectFunction}: performs the
@@ -138,8 +131,10 @@ public final class PrerequisiteProducer {
    * Memoizies computation steps of {@link #evaluate} so they do not need to be repeated on {@code
    * Skyframe} restart.
    */
-  @VisibleForTesting
-  public static class State implements SkyKeyComputeState, DependencyContextProducer.ResultSink {
+  public static class State
+      implements SkyKeyComputeState,
+          DependencyContextProducer.ResultSink,
+          DependencyMapProducer.ResultSink {
     /** Must be set before calling {@link #evaluate}. */
     public TargetAndConfiguration targetAndConfiguration;
 
@@ -162,25 +157,19 @@ public final class PrerequisiteProducer {
 
     @Nullable DependencyContextError dependencyContextError;
 
-    /** Null if not yet computed or if {@link #resolveConfigurationsResult} is non-null. */
-    @Nullable private OrderedSetMultimap<DependencyKind, DependencyKey> dependentNodeMapResult;
-
-    /** Null if not yet computed or if {@link #computeDependenciesResult} is non-null. */
-    @Nullable private OrderedSetMultimap<DependencyKind, Dependency> resolveConfigurationsResult;
-
-    /** Null if not yet computed or if {@link #computeDependenciesResult} is non-null. */
-    @Nullable
-    private Map<ConfiguredTargetKey, ConfiguredTargetAndData>
-        resolveConfiguredTargetDependenciesResult;
-
     /**
-     * Non-null if all the work in {@link #computeDependencies} is already done. This field contains
-     * the result.
+     * Computes the configured target dependency map, including aspects if applicable.
+     *
+     * <p>One of {@link #dependencyMap} or {@link #dependencyMapError} will be set upon completion.
      */
-    @Nullable
-    private OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> computeDependenciesResult;
+    @Nullable // Non-null when in-flight.
+    private Driver dependencyMapProducer;
+
+    @Nullable private OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> dependencyMap;
+    @Nullable private DependencyError dependencyMapError;
 
     final TransitiveDependencyState transitiveState;
+    private final TransitionCollector transitionCollector;
 
     /**
      * Stores events emitted by memoized computations.
@@ -193,9 +182,34 @@ public final class PrerequisiteProducer {
      */
     final StoredEventHandler storedEvents = new StoredEventHandler();
 
-    public State(boolean storeTransitivePackages) {
+    public static State createForTesting(TargetAndConfiguration targetAndConfiguration) {
+      var state = new State(/* storeTransitivePackages= */ false, new ConcurrentHashMap<>());
+      state.targetAndConfiguration = targetAndConfiguration;
+      return state;
+    }
+
+    public static State createForCquery(
+        TargetAndConfiguration targetAndConfiguration, TransitionCollector transitionCollector) {
+      var state =
+          new State(
+              /* storeTransitivePackages= */ false, new ConcurrentHashMap<>(), transitionCollector);
+      state.targetAndConfiguration = targetAndConfiguration;
+      return state;
+    }
+
+    State(
+        boolean storeTransitivePackages,
+        ConcurrentHashMap<PackageIdentifier, Package> prerequisitePackages) {
+      this(storeTransitivePackages, prerequisitePackages, NULL_TRANSITION_COLLECTOR);
+    }
+
+    private State(
+        boolean storeTransitivePackages,
+        ConcurrentHashMap<PackageIdentifier, Package> prerequisitePackages,
+        TransitionCollector transitionCollector) {
       this.transitiveState =
-          new TransitiveDependencyState(storeTransitivePackages, /* prerequisitePackages= */ null);
+          new TransitiveDependencyState(storeTransitivePackages, prerequisitePackages);
+      this.transitionCollector = transitionCollector;
     }
 
     public NestedSetBuilder<Cause> transitiveRootCauses() {
@@ -215,13 +229,29 @@ public final class PrerequisiteProducer {
     public void acceptDependencyContextError(DependencyContextError error) {
       this.dependencyContextError = error;
     }
-  }
 
-  /**
-   * Thrown if this is an invalid target because it's a rule with a null configuration or a
-   * non-null-configured dep of a null-configured target.
-   */
-  static class InconsistentNullConfigException extends Exception {}
+    @Override
+    public void acceptDependencyMap(
+        OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> value) {
+      this.dependencyMap = value;
+    }
+
+    @Override
+    public void acceptDependencyMapError(DependencyError error) {
+      this.dependencyMapError = error;
+    }
+
+    @Override
+    public void acceptDependencyMapError(MissingEdgeError error) {
+      error.emitCausesAndEvents(targetAndConfiguration, transitiveState, storedEvents);
+    }
+
+    @Override
+    public void acceptTransition(
+        DependencyKind kind, Label label, ConfigurationTransition transition) {
+      transitionCollector.acceptTransition(kind, label, transition);
+    }
+  }
 
   /** Lets calling logic provide a semaphore to restrict the number of concurrent analysis calls. */
   public interface SemaphoreAcquirer {
@@ -299,7 +329,6 @@ public final class PrerequisiteProducer {
       RuleClassProvider ruleClassProvider,
       StarlarkTransitionCache transitionCache,
       SemaphoreAcquirer semaphoreLocker,
-      TransitionCollector transitionCollector,
       LookupEnvironment env,
       ExtendedEventHandler listener)
       throws ReportedException,
@@ -355,10 +384,9 @@ public final class PrerequisiteProducer {
       depValueMap =
           computeDependencies(
               state,
+              configuredTargetKey,
               /* aspects= */ ImmutableList.of(),
-              ruleClassProvider,
               transitionCache,
-              transitionCollector,
               starlarkExecTransition.orElse(null),
               env,
               listener);
@@ -488,26 +516,13 @@ public final class PrerequisiteProducer {
         case INCOMPATIBLE_TARGET:
           throw error.incompatibleTarget();
         case VALIDATION:
-          var targetAndConfiguration = state.targetAndConfiguration;
-          BuildConfigurationValue configuration = targetAndConfiguration.getConfiguration();
-          Label label = targetAndConfiguration.getLabel();
           var validationException = error.validation();
-          BuildEventId configurationEventId = configurationId(configuration);
-          listener.post(
-              AnalysisRootCauseEvent.withConfigurationValue(
-                  configuration, label, validationException.getMessage()));
-          throw new DependencyEvaluationException(
-              new ConfiguredValueCreationException(
-                  targetAndConfiguration.getTarget().getLocation(),
-                  validationException.getMessage(),
-                  label,
-                  configurationEventId,
-                  null,
-                  null),
-              // These errors occur within DependencyResolver, which is attached to the current
-              // target. i.e. no dependent ConfiguredTargetFunction call happens to report its own
-              // error.
-              /* depReportedOwnError= */ false);
+          var targetAndConfiguration = state.targetAndConfiguration;
+          throw handleDependencyRootCauseError(
+              targetAndConfiguration,
+              targetAndConfiguration.getTarget().getLocation(),
+              validationException.getMessage(),
+              listener);
       }
       throw new IllegalStateException("unreachable");
     }
@@ -619,8 +634,8 @@ public final class PrerequisiteProducer {
    * <p>REQUIRES: {@code state.dependencyContext} is populated.
    *
    * @param state the compute state
-   * @param ruleClassProvider rule class provider to supply a trimming transition factory
-   * @param transitionCollector a callback that observes attribute transitions for Cquery
+   * @param configuredTargetKey key associated with {@code state.targetAndConfiguration}'s
+   *     configuration
    * @param starlarkTransitionProvider the Starlark transition that implements exec transition
    *     logic, if specified. Null if Bazel uses native logic.
    * @param env the Skyframe environment
@@ -630,10 +645,9 @@ public final class PrerequisiteProducer {
   @Nullable
   public static OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> computeDependencies(
       State state,
+      ConfiguredTargetKey configuredTargetKey,
       Iterable<Aspect> aspects,
-      RuleClassProvider ruleClassProvider,
       StarlarkTransitionCache transitionCache,
-      TransitionCollector transitionCollector,
       @Nullable StarlarkAttributeTransitionProvider starlarkTransitionProvider,
       LookupEnvironment env,
       ExtendedEventHandler listener)
@@ -644,149 +658,100 @@ public final class PrerequisiteProducer {
     // Replays stored events unless a Skyframe restart is immediately needed and the events would
     // be unused anyway.
     boolean shouldReplayStoredEvents = true;
-    var transitiveRootCauses = state.transitiveRootCauses();
     try {
-      if (state.computeDependenciesResult != null) {
-        return state.computeDependenciesResult;
+      if (state.dependencyMap != null) {
+        return state.dependencyMap;
       }
-
-      TargetAndConfiguration ctgValue = state.targetAndConfiguration;
-      OrderedSetMultimap<DependencyKind, Dependency> depValueNames;
-      if (state.resolveConfigurationsResult != null) {
-        depValueNames = state.resolveConfigurationsResult;
-      } else {
-        // Create the map from attributes to set of (target, transition) pairs.
-        OrderedSetMultimap<DependencyKind, DependencyKey> initialDependencies;
+      if (state.dependencyMapProducer == null) {
+        var ctgValue = state.targetAndConfiguration;
         DependencyContext dependencyContext = state.dependencyContext;
-        if (state.dependentNodeMapResult != null) {
-          initialDependencies = state.dependentNodeMapResult;
-        } else {
-          BuildConfigurationValue configuration = ctgValue.getConfiguration();
-          Label label = ctgValue.getLabel();
-          try {
-            initialDependencies =
-                new SkyframeDependencyResolver(env, listener)
-                    .dependentNodeMap(
-                        ctgValue,
-                        aspects,
-                        dependencyContext.configConditions().asProviders(),
-                        dependencyContext.toolchainContexts(),
-                        transitiveRootCauses,
-                        ((ConfiguredRuleClassProvider) ruleClassProvider)
-                            .getTrimmingTransitionFactory(),
-                        transitionCollector,
-                        starlarkTransitionProvider);
-          } catch (DependencyResolver.Failure e) {
-            listener.post(
-                AnalysisRootCauseEvent.withConfigurationValue(
-                    configuration, label, e.getMessage()));
-            throw new DependencyEvaluationException(
-                new ConfiguredValueCreationException(
-                    e.getLocation(),
-                    e.getMessage(),
-                    label,
-                    configurationId(configuration),
-                    null,
-                    null),
-                // These errors occur within DependencyResolver, which is attached to the current
-                // target. i.e. no dependent ConfiguredTargetFunction call happens to report its own
-                // error.
-                /* depReportedOwnError= */ false);
-          } catch (InconsistentAspectOrderException e) {
-            throw new DependencyEvaluationException(e);
-          }
-          if (!env.valuesMissing()) {
-            state.dependentNodeMapResult = initialDependencies;
-          }
-        }
-        // Trim each dep's configuration so it only includes the fragments needed by its transitive
-        // closure.
-        ConfigurationResolver configResolver =
-            new ConfigurationResolver(
-                env, ctgValue, dependencyContext.configConditions().asProviders(), transitionCache);
-        StoredEventHandler storedEventHandler = new StoredEventHandler();
+        ToolchainCollection<ToolchainContext> toolchainContexts =
+            dependencyContext.toolchainContexts();
+        DependencyResolver.DependencyLabels dependencyLabels;
         try {
-          depValueNames =
-              configResolver.resolveConfigurations(initialDependencies, storedEventHandler);
-        } catch (ConfiguredValueCreationException e) {
-          storedEventHandler.replayOn(state.storedEvents);
-          throw e;
+          dependencyLabels =
+              DependencyResolver.computeDependencyLabels(
+                  ctgValue,
+                  aspects,
+                  dependencyContext.configConditions().asProviders(),
+                  toolchainContexts);
+        } catch (DependencyResolver.Failure e) {
+          throw handleDependencyRootCauseError(ctgValue, e.getLocation(), e.getMessage(), listener);
         }
-        if (!env.valuesMissing()) {
-          state.resolveConfigurationsResult = depValueNames;
-          storedEventHandler.replayOn(state.storedEvents);
-
-          // We won't need this anymore.
-          state.dependentNodeMapResult = null;
+        state.dependencyMapProducer =
+            new Driver(
+                new DependencyMapProducer(
+                    new PrerequisiteParameters(
+                        configuredTargetKey,
+                        ctgValue.getTarget(),
+                        aspects,
+                        starlarkTransitionProvider,
+                        transitionCache,
+                        toolchainContexts,
+                        dependencyLabels.attributeMap(),
+                        state.transitiveState),
+                    dependencyLabels.labels(),
+                    (DependencyMapProducer.ResultSink) state));
+      }
+      try {
+        if (state.dependencyMapProducer.drive(env, state.storedEvents)) {
+          state.dependencyMapProducer = null;
         }
-      }
-
-      // Return early in case packages were not loaded yet. In theory, we could start configuring
-      // dependent targets in loaded packages. However, that creates an artificial sync boundary
-      // between loading all dependent packages (fast) and configuring some dependent targets (can
-      // have a long tail).
-      if (env.valuesMissing()) {
-        shouldReplayStoredEvents = false;
-        return null;
-      }
-
-      var transitivePackages =
-          state.transitiveState.storeTransitivePackages()
-              ? NestedSetBuilder.<Package>stableOrder()
-              : null;
-      // Resolve configured target dependencies and handle errors.
-      Map<ConfiguredTargetKey, ConfiguredTargetAndData> depValues;
-      if (state.resolveConfiguredTargetDependenciesResult != null) {
-        depValues = state.resolveConfiguredTargetDependenciesResult;
-      } else {
-        depValues =
-            resolveConfiguredTargetDependencies(
-                env, ctgValue, depValueNames.values(), transitivePackages, transitiveRootCauses);
-        if (env.valuesMissing()) {
-          shouldReplayStoredEvents = false;
+      } catch (InterruptedException e) {
+        // In practice, this comes from resolveConfigurations: other InterruptedExceptions are
+        // declared for Skyframe value retrievals, which don't throw in reality.
+        if (state.transitiveState.hasRootCause()) {
+          // Allow caller to throw, don't prioritize interrupt: we may be error bubbling.
+          Thread.currentThread().interrupt();
           return null;
         }
-        state.resolveConfiguredTargetDependenciesResult = depValues;
+        throw e;
       }
 
-      // Resolve required aspects.
-      OrderedSetMultimap<Dependency, ConfiguredAspect> depAspects =
-          AspectResolver.resolveAspectDependencies(
-              env, depValues, depValueNames.values(), transitivePackages);
-      if (env.valuesMissing()) {
-        shouldReplayStoredEvents = false;
-        return null;
+      DependencyError error = state.dependencyMapError;
+      if (error != null) {
+        var ctgValue = state.targetAndConfiguration;
+        switch (error.kind()) {
+          case DEPENDENCY_TRANSITION:
+            {
+              TransitionException e = error.dependencyTransition();
+              throw new ConfiguredValueCreationException(ctgValue, e.getMessage());
+            }
+          case DEPENDENCY_OPTIONS_PARSING:
+            {
+              OptionsParsingException e = error.dependencyOptionsParsing();
+              throw new ConfiguredValueCreationException(ctgValue, e.getMessage());
+            }
+          case INVALID_VISIBILITY:
+            {
+              InvalidVisibilityDependencyException e = error.invalidVisibility();
+              throw handleDependencyRootCauseError(
+                  ctgValue,
+                  ctgValue.getTarget().getLocation(),
+                  String.format("Label '%s' does not refer to a package group.", e.label()),
+                  listener);
+            }
+          case DEPENDENCY_CREATION:
+            {
+              ConfiguredValueCreationException e = error.dependencyCreation();
+              throw new DependencyEvaluationException(
+                  new ConfiguredValueCreationException(
+                      ctgValue,
+                      e.getMessage(),
+                      state.transitiveRootCauses().build(),
+                      e.getDetailedExitCode()),
+                  /* depReportedOwnError= */ true);
+            }
+          case ASPECT_EVALUATION:
+            throw error.aspectEvaluation();
+          case ASPECT_CREATION:
+            throw error.aspectCreation();
+        }
       }
-
-      // Merge the dependent configured targets and aspects into a single map.
-      OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> mergeAspectsResult;
-      try {
-        mergeAspectsResult = AspectResolver.mergeAspects(depValueNames, depValues, depAspects);
-      } catch (DuplicateException e) {
-        throw new DependencyEvaluationException(
-            new ConfiguredValueCreationException(ctgValue, e.getMessage()),
-            /*depReportedOwnError=*/ false);
+      if (!state.transitiveState.hasRootCause() && state.dependencyMap == null) {
+        shouldReplayStoredEvents = false; // Skyframe restart is needed.
       }
-      state.computeDependenciesResult = mergeAspectsResult;
-
-      if (transitivePackages != null) {
-        state.transitiveState.setTransitivePackagesBatch(transitivePackages.build());
-      }
-
-      // We won't need these anymore.
-      state.resolveConfigurationsResult = null;
-      state.resolveConfiguredTargetDependenciesResult = null;
-
-      return mergeAspectsResult;
-    } catch (InterruptedException e) {
-      // In practice, this comes from resolveConfigurations: other InterruptedExceptions are
-      // declared for Skyframe value retrievals, which don't throw in reality.
-      if (!transitiveRootCauses.isEmpty()) {
-        // Allow caller to throw, don't prioritize interrupt: we may be error bubbling.
-        Thread.currentThread().interrupt();
-        return null;
-      }
-      throw e;
+      return state.dependencyMap;
     } finally {
       if (shouldReplayStoredEvents) {
         state.storedEvents.replayOn(listener);
@@ -903,143 +868,25 @@ public final class PrerequisiteProducer {
     return BuildConfigurationKey.withoutPlatformMapping(toolchainOptions);
   }
 
-  /**
-   * Resolves the targets referenced in depValueNames and returns their {@link
-   * ConfiguredTargetAndData} instances.
-   *
-   * <p>Returns null if not all instances are available yet.
-   */
-  @Nullable
-  private static Map<ConfiguredTargetKey, ConfiguredTargetAndData>
-      resolveConfiguredTargetDependencies(
-          LookupEnvironment env,
-          TargetAndConfiguration ctgValue,
-          Collection<Dependency> deps,
-          @Nullable NestedSetBuilder<Package> transitivePackages,
-          NestedSetBuilder<Cause> transitiveRootCauses)
-          throws DependencyEvaluationException, InterruptedException {
-    boolean missedValues = env.valuesMissing();
-    ConfiguredValueCreationException rootError = null;
-    DetailedExitCode detailedExitCode = null;
-    // Naively we would like to just fetch all requested ConfiguredTargets, together with their
-    // Packages. However, some ConfiguredTargets are AliasConfiguredTargets, which means that their
-    // associated Targets (and therefore associated Packages) don't correspond to their own Labels.
-    // We don't know the associated Package until we fetch the ConfiguredTarget. Therefore, we have
-    // to do a potential second pass, in which we fetch all the Packages for AliasConfiguredTargets.
-    ImmutableSet<SkyKey> packageKeys =
-        ImmutableSet.copyOf(
-            Iterables.transform(deps, input -> input.getLabel().getPackageIdentifier()));
-    Iterable<SkyKey> depKeys =
-        Iterables.concat(
-            Iterables.transform(deps, dep -> dep.getConfiguredTargetKey().toKey()), packageKeys);
-    SkyframeLookupResult depValuesOrExceptions = env.getValuesAndExceptions(depKeys);
-    boolean depValuesMissingForDebugging = env.valuesMissing();
-    Map<ConfiguredTargetKey, ConfiguredTargetAndData> result =
-        Maps.newHashMapWithExpectedSize(deps.size());
-    Set<SkyKey> aliasPackagesToFetch = new HashSet<>();
-    List<Dependency> aliasDepsToRedo = new ArrayList<>();
-    SkyframeLookupResult aliasPackageValues = null;
-    Collection<Dependency> depsToProcess = deps;
-    for (int i = 0; i < 2; i++) {
-      for (Dependency dep : depsToProcess) {
-        ConfiguredTargetKey key = dep.getConfiguredTargetKey();
-        ConfiguredTargetValue depValue;
-        try {
-          depValue =
-              (ConfiguredTargetValue)
-                  depValuesOrExceptions.getOrThrow(
-                      key.toKey(), ConfiguredValueCreationException.class);
-        } catch (ConfiguredValueCreationException e) {
-          transitiveRootCauses.addTransitive(e.getRootCauses());
-          detailedExitCode =
-              DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
-                  e.getDetailedExitCode(), detailedExitCode);
-          if (e.getDetailedExitCode().equals(detailedExitCode)) {
-            rootError = e;
-          }
-          continue;
-        }
-        if (depValue == null) {
-          if (!depValuesMissingForDebugging) {
-            BugReport.logUnexpected(
-                "Unexpected exception: dep %s had null value, even though there were no values"
-                    + " missing in the initial fetch. That means it had an unexpected exception"
-                    + " type (not ConfiguredValueCreationException)",
-                dep);
-            depValuesMissingForDebugging = true;
-          }
-          missedValues = true;
-          continue;
-        }
-
-        ConfiguredTarget depCt = depValue.getConfiguredTarget();
-        Label depLabel = depCt.getLabel();
-        SkyKey packageKey = depLabel.getPackageIdentifier();
-        PackageValue pkgValue;
-        if (i == 0) {
-          if (!packageKeys.contains(packageKey)) {
-            aliasPackagesToFetch.add(packageKey);
-            aliasDepsToRedo.add(dep);
-            continue;
-          } else {
-            pkgValue = (PackageValue) depValuesOrExceptions.get(packageKey);
-            if (pkgValue == null) {
-              // In a race, the getValuesAndExceptions call above may have retrieved the package
-              // before it was done but the configured target after it was done. Since
-              // SkyFunctionEnvironment may cache absent values, re-requesting it on this evaluation
-              // may be useless, just treat it as missing.
-              missedValues = true;
-              continue;
-            }
-          }
-        } else {
-          // We were doing AliasConfiguredTarget mop-up.
-          pkgValue = (PackageValue) aliasPackageValues.get(packageKey);
-          if (pkgValue == null) {
-            // This is unexpected: on the second iteration, all packages should be present, since
-            // the configured targets that depend on them are present. But since that is not a
-            // guarantee Skyframe makes, we tolerate their absence.
-            missedValues = true;
-            continue;
-          }
-        }
-
-        try {
-          BuildConfigurationValue depConfiguration = dep.getConfiguration();
-          BuildConfigurationKey depKey = depValue.getConfiguredTarget().getConfigurationKey();
-          if (depKey != null && !depKey.equals(depConfiguration.getKey())) {
-            depConfiguration = (BuildConfigurationValue) env.getValue(depKey);
-          }
-          result.put(
-              key,
-              new ConfiguredTargetAndData(
-                  depValue.getConfiguredTarget(),
-                  pkgValue.getPackage().getTarget(depLabel.getName()),
-                  depConfiguration,
-                  dep.getTransitionKeys()));
-        } catch (NoSuchTargetException e) {
-          throw new IllegalStateException("Target already verified for " + dep, e);
-        }
-        if (transitivePackages != null) {
-          transitivePackages.addTransitive(
-              Preconditions.checkNotNull(depValue.getTransitivePackages()));
-        }
-      }
-
-      if (aliasDepsToRedo.isEmpty()) {
-        break;
-      }
-      aliasPackageValues = env.getValuesAndExceptions(aliasPackagesToFetch);
-      depsToProcess = aliasDepsToRedo;
-    }
-
-    if (rootError != null) {
-      throw new DependencyEvaluationException(
-          new ConfiguredValueCreationException(
-              ctgValue, rootError.getMessage(), transitiveRootCauses.build(), detailedExitCode),
-          /*depReportedOwnError=*/ true);
-    }
-    return missedValues ? null : result;
+  private static DependencyEvaluationException handleDependencyRootCauseError(
+      TargetAndConfiguration targetAndConfiguration,
+      @Nullable Location location,
+      String message,
+      ExtendedEventHandler listener) {
+    BuildConfigurationValue configuration = targetAndConfiguration.getConfiguration();
+    Label label = targetAndConfiguration.getLabel();
+    listener.post(AnalysisRootCauseEvent.withConfigurationValue(configuration, label, message));
+    return new DependencyEvaluationException(
+        new ConfiguredValueCreationException(
+            location,
+            message,
+            label,
+            configurationId(configuration),
+            /* rootCauses= */ null,
+            /* detailedExitCode= */ null),
+        // These errors occur in dependency resolution, which is attached to the current target.
+        // i.e. no dependent ConfiguredTargetFunction call happens to report its own error.
+        /* depReportedOwnError= */ false);
   }
 
   static DetailedExitCode getPrioritizedDetailedExitCode(NestedSet<Cause> causes) {

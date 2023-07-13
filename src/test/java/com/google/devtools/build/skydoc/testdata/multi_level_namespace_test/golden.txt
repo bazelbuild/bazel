@@ -1,38 +1,15 @@
 <!-- Generated with Stardoc: http://skydoc.bazel.build -->
 
-<a name="#my_namespace.min"></a>
+<a name="#my_namespace.foo.bar.baz"></a>
 
-## my_namespace.min
+## my_namespace.foo.bar.baz
 
 <pre>
-my_namespace.min(<a href="#my_namespace.min-integers">integers</a>)
+my_namespace.foo.bar.baz()
 </pre>
 
-Returns the minimum of given elements.
+This function does nothing.
 
-### Returns
-
-The minimum integer in the given list.
-
-### Parameters
-
-<table class="params-table">
-  <colgroup>
-    <col class="col-param" />
-    <col class="col-description" />
-  </colgroup>
-  <tbody>
-    <tr id="my_namespace.min-integers">
-      <td><code>integers</code></td>
-      <td>
-        required.
-        <p>
-          A list of integers. Must not be empty.
-        </p>
-      </td>
-    </tr>
-  </tbody>
-</table>
 
 
 <a name="#my_namespace.math.min"></a>
@@ -70,12 +47,47 @@ The minimum integer in the given list.
 </table>
 
 
-<a name="#my_namespace.foo.bar.baz"></a>
+<a name="#my_namespace.min"></a>
 
-## my_namespace.foo.bar.baz
+## my_namespace.min
 
 <pre>
-my_namespace.foo.bar.baz()
+my_namespace.min(<a href="#my_namespace.min-integers">integers</a>)
+</pre>
+
+Returns the minimum of given elements.
+
+### Returns
+
+The minimum integer in the given list.
+
+### Parameters
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr id="my_namespace.min-integers">
+      <td><code>integers</code></td>
+      <td>
+        required.
+        <p>
+          A list of integers. Must not be empty.
+        </p>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+
+<a name="#my_namespace.one.three.does_nothing"></a>
+
+## my_namespace.one.three.does_nothing
+
+<pre>
+my_namespace.one.three.does_nothing()
 </pre>
 
 This function does nothing.
@@ -115,17 +127,5 @@ The minimum integer in the given list.
     </tr>
   </tbody>
 </table>
-
-
-<a name="#my_namespace.one.three.does_nothing"></a>
-
-## my_namespace.one.three.does_nothing
-
-<pre>
-my_namespace.one.three.does_nothing()
-</pre>
-
-This function does nothing.
-
 
 

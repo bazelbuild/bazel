@@ -30,7 +30,10 @@ import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyExcepti
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigurationTransitionEvent;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionCollector;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
+import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LoadingFailedCause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
@@ -39,8 +42,10 @@ import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.skyframe.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
@@ -65,7 +70,7 @@ final class DependencyProducer
     implements StateMachine, TransitionApplier.ResultSink, PrerequisitesProducer.ResultSink {
   private static final ConfiguredTargetAndData[] EMPTY_OUTPUT = new ConfiguredTargetAndData[0];
 
-  interface ResultSink {
+  interface ResultSink extends TransitionCollector {
     /**
      * Accepts dependency values for a given kind and label.
      *
@@ -77,6 +82,8 @@ final class DependencyProducer
     void acceptDependencyValues(int index, ConfiguredTargetAndData[] values);
 
     void acceptDependencyError(DependencyError error);
+
+    void acceptDependencyError(MissingEdgeError error);
   }
 
   // -------------------- Input --------------------
@@ -144,7 +151,10 @@ final class DependencyProducer
           AttributeConfiguration.ofUnary(configurationKey), /* executionPlatformLabel= */ null);
     }
 
-    var transitionData = AttributeTransitionData.builder().attributes(parameters.attributeMap());
+    var transitionData =
+        AttributeTransitionData.builder()
+            .attributes(parameters.attributeMap())
+            .analysisData(parameters.starlarkTransitionProvider());
     ExecutionPlatformResult executionPlatformResult =
         getExecutionPlatformLabel(kind, parameters.toolchainContexts(), parameters.aspects());
     switch (executionPlatformResult.kind()) {
@@ -160,9 +170,12 @@ final class DependencyProducer
       case ERROR:
         return new ExecGroupErrorEmitter(executionPlatformResult.error());
     }
+    ConfigurationTransition attributeTransition =
+        attribute.getTransitionFactory().create(transitionData.build());
+    sink.acceptTransition(kind, toLabel, attributeTransition);
     return new TransitionApplier(
         configurationKey,
-        attribute.getTransitionFactory().create(transitionData.build()),
+        attributeTransition,
         parameters.transitionCache(),
         (TransitionApplier.ResultSink) this,
         /* runAfter= */ this::processTransitionResult);
@@ -248,17 +261,41 @@ final class DependencyProducer
   }
 
   @Override
+  public void acceptPrerequisitesError(NoSuchThingException error) {
+    sink.acceptDependencyError(new MissingEdgeError(kind, toLabel, error));
+  }
+
+  @Override
   public void acceptPrerequisitesError(InvalidVisibilityDependencyException error) {
     sink.acceptDependencyError(DependencyError.of(error));
   }
 
   @Override
   public void acceptPrerequisitesCreationError(ConfiguredValueCreationException error) {
-    sink.acceptDependencyError(DependencyError.of(error));
+    // Cases where the child target cannot be loaded at all are propagated as
+    // `NoSuchThingException`. In some cases, child target loading completes with errors. In that
+    // case, the error is propagated as a `ConfiguredValueCreationException` with a
+    // `LoadingFailedCause`. Requests parent-side context to be added to such errors by propagating
+    // a `MissingEdgeError`.
+    for (Cause cause : error.getRootCauses().toList()) {
+      if (cause instanceof LoadingFailedCause) {
+        var loadingFailed = (LoadingFailedCause) cause;
+        if (loadingFailed.getLabel().equals(toLabel)) {
+          sink.acceptDependencyError(
+              new MissingEdgeError(
+                  kind, toLabel, NoSuchTargetException.createForParentPropagation(toLabel)));
+        }
+      }
+    }
   }
 
   @Override
   public void acceptPrerequisitesAspectError(DependencyEvaluationException error) {
+    sink.acceptDependencyError(DependencyError.of(error));
+  }
+
+  @Override
+  public void acceptPrerequisitesAspectError(AspectCreationException error) {
     sink.acceptDependencyError(DependencyError.of(error));
   }
 

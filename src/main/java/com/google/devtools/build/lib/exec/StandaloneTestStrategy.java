@@ -261,10 +261,7 @@ public class StandaloneTestStrategy extends TestStrategy {
 
     if (dataBuilder.getStatus() == BlazeTestStatus.PASSED) {
       dataBuilder.setPassedLog(renamedTestLog.toString());
-    } else if (dataBuilder.getStatus() == BlazeTestStatus.INCOMPLETE) {
-      // Incomplete (cancelled) test runs don't have a log.
-      Preconditions.checkState(renamedTestLog == null);
-    } else {
+    } else if (dataBuilder.getStatus() != BlazeTestStatus.INCOMPLETE) {
       dataBuilder.addFailedLogs(renamedTestLog.toString());
     }
 

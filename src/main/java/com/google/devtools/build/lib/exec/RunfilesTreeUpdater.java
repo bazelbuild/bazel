@@ -83,7 +83,7 @@ public class RunfilesTreeUpdater {
         // We are the first attempt; update the runfiles tree and mark the future complete.
         try {
           updateRunfilesTree(
-              runfilesDir, env, outErr, runfilesSupplier.isRunfileLinksEnabled(runfilesDir));
+              runfilesDir, env, outErr, !runfilesSupplier.isRunfileLinksEnabled(runfilesDir));
           freshFuture.complete(null);
         } catch (Exception e) {
           freshFuture.completeExceptionally(e);
@@ -100,7 +100,7 @@ public class RunfilesTreeUpdater {
       PathFragment runfilesDir,
       ImmutableMap<String, String> env,
       OutErr outErr,
-      boolean enableRunfiles)
+      boolean manifestOnly)
       throws IOException, ExecException, InterruptedException {
     Path runfilesDirPath = execRoot.getRelative(runfilesDir);
     Path inputManifest = RunfilesSupport.inputManifestPath(runfilesDirPath);
@@ -131,6 +131,6 @@ public class RunfilesTreeUpdater {
 
     SymlinkTreeHelper helper =
         new SymlinkTreeHelper(inputManifest, runfilesDirPath, /* filesetTree= */ false);
-    helper.createSymlinks(execRoot, outErr, binTools, env, enableRunfiles);
+    helper.createSymlinks(execRoot, outErr, binTools, env, manifestOnly);
   }
 }

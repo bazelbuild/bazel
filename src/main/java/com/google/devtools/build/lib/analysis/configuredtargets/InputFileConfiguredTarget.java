@@ -17,11 +17,13 @@ package com.google.devtools.build.lib.analysis.configuredtargets;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
+import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.TargetContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.License;
@@ -58,6 +60,11 @@ public final class InputFileConfiguredTarget extends FileConfiguredTarget {
   }
 
   @Override
+  public BuiltinProvider<LicensesProvider> getProvider() {
+    return LicensesProvider.PROVIDER;
+  }
+
+  @Override
   public SourceArtifact getArtifact() {
     return (SourceArtifact) super.getArtifact();
   }
@@ -65,7 +72,9 @@ public final class InputFileConfiguredTarget extends FileConfiguredTarget {
   @Override
   @Nullable
   protected Info rawGetStarlarkProvider(Provider.Key providerKey) {
-    // FileConfiguredTarget only defines native providers, which are not available to Starlark.
+    if (providerKey.equals(LicensesProvider.PROVIDER.getKey())) {
+      return this;
+    }
     return null;
   }
 

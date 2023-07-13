@@ -31,73 +31,36 @@ import org.junit.runners.JUnit4;
 public class GenQueryOutputStreamTest {
 
   @Test
-  public void testSmallOutputMultibyteWriteWithCompressionEnabled() throws IOException {
+  public void testSmallOutputMultibyteWrite() throws IOException {
     runMultibyteWriteTest(
         "xyz".repeat(10_000),
-        /*compressionEnabled=*/ true,
         GenQueryOutputStream.RegularResult.class);
   }
 
   @Test
-  public void testSmallOutputMultibyteWriteWithCompressionDisabled() throws IOException {
-    runMultibyteWriteTest(
-        "xyz".repeat(10_000),
-        /*compressionEnabled=*/ false,
-        GenQueryOutputStream.RegularResult.class);
-  }
-
-  @Test
-  public void testBigOutputMultibyteWriteWithCompressionEnabled() throws IOException {
+  public void testBigOutputMultibyteWrite() throws IOException {
     runMultibyteWriteTest(
         "xyz".repeat(1_000_000),
-        /*compressionEnabled=*/ true,
         GenQueryOutputStream.CompressedResult.class);
   }
 
   @Test
-  public void testBigOutputMultibyteWriteWithCompressionDisabled() throws IOException {
-    runMultibyteWriteTest(
-        "xyz".repeat(1_000_000),
-        /*compressionEnabled=*/ false,
-        GenQueryOutputStream.RegularResult.class);
-  }
-
-  @Test
-  public void testSmallOutputSingleByteWritesWithCompressionEnabled() throws IOException {
+  public void testSmallOutputSingleByteWrites() throws IOException {
     runSingleByteWriteTest(
         "xyz".repeat(10_000),
-        /*compressionEnabled=*/ true,
         GenQueryOutputStream.RegularResult.class);
   }
 
   @Test
-  public void testSmallOutputSingleByteWritesWithCompressionDisabled() throws IOException {
-    runSingleByteWriteTest(
-        "xyz".repeat(10_000),
-        /*compressionEnabled=*/ false,
-        GenQueryOutputStream.RegularResult.class);
-  }
-
-  @Test
-  public void testBigOutputSingleByteWritesWithCompressionEnabled() throws IOException {
+  public void testBigOutputSingleByteWrites() throws IOException {
     runSingleByteWriteTest(
         "xyz".repeat(1_000_000),
-        /*compressionEnabled=*/ true,
         GenQueryOutputStream.CompressedResult.class);
-  }
-
-  @Test
-  public void testBigOutputSingleByteWritesWithCompressionDisabled() throws IOException {
-    runSingleByteWriteTest(
-        "xyz".repeat(1_000_000),
-        /*compressionEnabled=*/ false,
-        GenQueryOutputStream.RegularResult.class);
   }
 
   private static void runMultibyteWriteTest(
-      String data, boolean compressionEnabled, Class<? extends GenQueryResult> resultClass)
-      throws IOException {
-    GenQueryOutputStream underTest = new GenQueryOutputStream(compressionEnabled);
+      String data, Class<? extends GenQueryResult> resultClass) throws IOException {
+    GenQueryOutputStream underTest = new GenQueryOutputStream();
     underTest.write(data.getBytes(StandardCharsets.UTF_8));
     underTest.close();
 
@@ -116,9 +79,8 @@ public class GenQueryOutputStreamTest {
   }
 
   private static void runSingleByteWriteTest(
-      String data, boolean compressionEnabled, Class<? extends GenQueryResult> resultClass)
-      throws IOException {
-    GenQueryOutputStream underTest = new GenQueryOutputStream(compressionEnabled);
+      String data, Class<? extends GenQueryResult> resultClass) throws IOException {
+    GenQueryOutputStream underTest = new GenQueryOutputStream();
     for (byte b : data.getBytes(StandardCharsets.UTF_8)) {
       underTest.write(b);
     }

@@ -17,11 +17,13 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.License;
 import java.util.Objects;
 
 /** A {@link ConfiguredTarget} that has licensed targets in its transitive closure. */
-public interface LicensesProvider extends TransitiveInfoProvider {
+public interface LicensesProvider extends Info {
   /**
    * The set of label - license associations in the transitive closure.
    *
@@ -41,6 +43,9 @@ public interface LicensesProvider extends TransitiveInfoProvider {
    * Return whether there is an output_licenses.
    */
   boolean hasOutputLicenses();
+
+  public static final BuiltinProvider<LicensesProvider> PROVIDER =
+      new BuiltinProvider<LicensesProvider>("LicenseInfo", LicensesProvider.class) {};
 
   /** License association for a particular target. */
   final class TargetLicense {

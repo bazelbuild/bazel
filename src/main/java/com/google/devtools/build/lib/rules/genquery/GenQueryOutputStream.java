@@ -63,17 +63,11 @@ class GenQueryOutputStream extends OutputStream {
      */
     void writeTo(OutputStream out) throws IOException;
   }
-
-  private final boolean compressionEnabled;
   private int bytesWritten = 0;
   private boolean compressed = false;
   private boolean closed = false;
   private ByteString.Output bytesOut = ByteString.newOutput();
   private OutputStream out = bytesOut;
-
-  GenQueryOutputStream(boolean compressionEnabled) {
-    this.compressionEnabled = compressionEnabled;
-  }
 
   @Override
   public void write(int b) throws IOException {
@@ -113,10 +107,6 @@ class GenQueryOutputStream extends OutputStream {
   }
 
   private void maybeStartCompression(int additionalBytes) throws IOException {
-    if (!compressionEnabled) {
-      return;
-    }
-
     if (compressed) {
       return;
     }

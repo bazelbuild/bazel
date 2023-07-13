@@ -13,14 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.testutil.Scratch;
-import java.util.ArrayList;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -77,18 +74,11 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
         "state(name = 'arizona')",
         "string_flag(name = 'formation', build_setting_default = 'canyon')");
 
-    var collector = new AnalysisRootCauseCollector();
-    eventBus.register(collector);
     reporter.removeHandler(failFastHandler);
 
     getConfiguredTarget("//test:arizona");
     assertContainsEvent(
         "Transition declares duplicate build setting '@@//test:formation' in INPUTS");
-
-    // Verifies that the AnalysisRootCauseEvent has a no associated configuration. In this case,
-    // the error occurs during a transition, so no configuration has been determined.
-    AnalysisRootCauseEvent rootCause = getOnlyElement(collector.rootCauses);
-    assertThat(rootCause.getConfigurations()).isEmpty();
   }
 
   @Test
@@ -265,14 +255,5 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
     assertThat(
             getConfiguration(getConfiguredTarget("//test:foo")).getOptions().getStarlarkOptions())
         .containsExactly(Label.parseCanonicalUnchecked("//options:usually_orange"), "orange-eaten");
-  }
-
-  private static class AnalysisRootCauseCollector {
-    private final ArrayList<AnalysisRootCauseEvent> rootCauses = new ArrayList<>();
-
-    @Subscribe
-    public void rootCause(AnalysisRootCauseEvent event) {
-      rootCauses.add(event);
-    }
   }
 }

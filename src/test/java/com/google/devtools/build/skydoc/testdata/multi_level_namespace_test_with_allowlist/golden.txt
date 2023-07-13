@@ -1,33 +1,5 @@
 <!-- Generated with Stardoc: http://skydoc.bazel.build -->
 
-<a name="#my_namespace.min"></a>
-
-## my_namespace.min
-
-<pre>
-my_namespace.min(<a href="#my_namespace.min-integers">integers</a>)
-</pre>
-
-Returns the minimum of given elements.
-
-### Parameters
-
-<table class="params-table">
-  <colgroup>
-    <col class="col-param" />
-    <col class="col-description" />
-  </colgroup>
-  <tbody>
-    <tr id="my_namespace.min-integers">
-      <td><code>integers</code></td>
-      <td>
-        required.
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-
 <a name="#my_namespace.math.min"></a>
 
 ## my_namespace.math.min
@@ -47,6 +19,34 @@ Returns the minimum of given elements.
   </colgroup>
   <tbody>
     <tr id="my_namespace.math.min-integers">
+      <td><code>integers</code></td>
+      <td>
+        required.
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+
+<a name="#my_namespace.min"></a>
+
+## my_namespace.min
+
+<pre>
+my_namespace.min(<a href="#my_namespace.min-integers">integers</a>)
+</pre>
+
+Returns the minimum of given elements.
+
+### Parameters
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr id="my_namespace.min-integers">
       <td><code>integers</code></td>
       <td>
         required.

@@ -16,8 +16,9 @@
 
 load("@_builtins//:common/cc/cc_import.bzl", "cc_import")
 load("@_builtins//:common/cc/cc_binary_wrapper.bzl", "cc_binary")
+load("@_builtins//:common/cc/cc_toolchain_wrapper.bzl", "apple_cc_toolchain", "cc_toolchain")
 load("@_builtins//:common/cc/cc_toolchain_provider_helper.bzl", "get_cc_toolchain_provider")
-load("@_builtins//:common/cc/cc_test_wrapper.bzl", cc_test = "cc_test_wrapper")
+load("@_builtins//:common/cc/cc_test_wrapper.bzl", "cc_test")
 load("@_builtins//:common/cc/cc_shared_library.bzl", "CcSharedLibraryInfo", "cc_shared_library")
 load("@_builtins//:common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
 load("@_builtins//:common/objc/objc_import.bzl", "objc_import")
@@ -38,8 +39,7 @@ load("@_builtins//:common/cc/cc_toolchain_alias.bzl", "cc_toolchain_alias")
 load("@_builtins//:common/cc/cc_common.bzl", "cc_common")
 load("@_builtins//:common/cc/cc_helper.bzl", "cc_helper")
 load(":common/objc/objc_common.bzl", "objc_common")
-load(":common/java/java_plugin_info.bzl", "JavaPluginInfo")
-load(":common/java/java_info.bzl", "JavaInfo")
+load(":common/java/java_info.bzl", "JavaInfo", "JavaPluginInfo")
 load(":common/java/java_common.bzl", "java_common")
 
 exported_toplevels = {
@@ -81,6 +81,8 @@ exported_rules = {
     "proto_lang_toolchain": proto_lang_toolchain,
     "+py_runtime": py_runtime,
     "+cc_toolchain_alias": cc_toolchain_alias,
+    "+cc_toolchain": cc_toolchain,
+    "+apple_cc_toolchain": apple_cc_toolchain,
 }
 
 # A list of Starlark functions callable from native rules implementation.

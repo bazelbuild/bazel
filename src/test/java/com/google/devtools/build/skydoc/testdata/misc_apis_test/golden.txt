@@ -5,7 +5,7 @@
 ## my_rule
 
 <pre>
-my_rule(<a href="#my_rule-name">name</a>, <a href="#my_rule-deps">deps</a>, <a href="#my_rule-extra_arguments">extra_arguments</a>, <a href="#my_rule-out">out</a>, <a href="#my_rule-src">src</a>, <a href="#my_rule-tool">tool</a>)
+my_rule(<a href="#my_rule-name">name</a>, <a href="#my_rule-deps">deps</a>, <a href="#my_rule-src">src</a>, <a href="#my_rule-out">out</a>, <a href="#my_rule-extra_arguments">extra_arguments</a>, <a href="#my_rule-tool">tool</a>)
 </pre>
 
 This rule exercises some of the build API.
@@ -39,10 +39,13 @@ This rule exercises some of the build API.
         </p>
       </td>
     </tr>
-    <tr id="my_rule-extra_arguments">
-      <td><code>extra_arguments</code></td>
+    <tr id="my_rule-src">
+      <td><code>src</code></td>
       <td>
-        List of strings; optional
+        <a href="https://bazel.build/concepts/labels">Label</a>; optional
+        <p>
+          The source file.
+        </p>
       </td>
     </tr>
     <tr id="my_rule-out">
@@ -54,13 +57,10 @@ This rule exercises some of the build API.
         </p>
       </td>
     </tr>
-    <tr id="my_rule-src">
-      <td><code>src</code></td>
+    <tr id="my_rule-extra_arguments">
+      <td><code>extra_arguments</code></td>
       <td>
-        <a href="https://bazel.build/concepts/labels">Label</a>; optional
-        <p>
-          The source file.
-        </p>
+        List of strings; optional
       </td>
     </tr>
     <tr id="my_rule-tool">

@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Aspect;
@@ -37,6 +38,7 @@ public final class PrerequisiteParameters {
   private final Target target;
 
   private final ImmutableList<Aspect> aspects;
+  @Nullable private final StarlarkAttributeTransitionProvider starlarkTransitionProvider;
   private final StarlarkTransitionCache transitionCache;
   @Nullable private final ToolchainCollection<ToolchainContext> toolchainContexts;
 
@@ -47,6 +49,7 @@ public final class PrerequisiteParameters {
       ConfiguredTargetKey configuredTargetKey,
       Target target,
       Iterable<Aspect> aspects,
+      @Nullable StarlarkAttributeTransitionProvider starlarkTransitionProvider,
       StarlarkTransitionCache transitionCache,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
       @Nullable ConfiguredAttributeMapper attributeMap,
@@ -54,6 +57,7 @@ public final class PrerequisiteParameters {
     this.configuredTargetKey = configuredTargetKey;
     this.target = target;
     this.aspects = ImmutableList.copyOf(aspects);
+    this.starlarkTransitionProvider = starlarkTransitionProvider;
     this.transitionCache = transitionCache;
     this.toolchainContexts = toolchainContexts;
     this.attributeMap = attributeMap;
@@ -80,6 +84,11 @@ public final class PrerequisiteParameters {
 
   public ImmutableList<Aspect> aspects() {
     return aspects;
+  }
+
+  @Nullable
+  public StarlarkAttributeTransitionProvider starlarkTransitionProvider() {
+    return starlarkTransitionProvider;
   }
 
   public StarlarkTransitionCache transitionCache() {

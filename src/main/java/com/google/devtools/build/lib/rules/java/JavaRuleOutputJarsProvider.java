@@ -112,29 +112,6 @@ public final class JavaRuleOutputJarsProvider
     /** A list of sources archive files. */
     public abstract ImmutableList<Artifact> getSourceJars();
 
-    public static JavaOutput create(
-        Artifact classJar,
-        @Nullable Artifact compileJar,
-        @Nullable Artifact compileJdeps,
-        @Nullable Artifact generatedClassJar,
-        @Nullable Artifact generatedSourceJar,
-        @Nullable Artifact nativeHeadersJar,
-        @Nullable Artifact manifestProto,
-        @Nullable Artifact jdeps,
-        ImmutableList<Artifact> sourceJars) {
-      return builder()
-          .setClassJar(classJar)
-          .setCompileJar(compileJar)
-          .setCompileJdeps(compileJdeps)
-          .setGeneratedClassJar(generatedClassJar)
-          .setGeneratedSourceJar(generatedSourceJar)
-          .setNativeHeadersJar(nativeHeadersJar)
-          .setManifestProto(manifestProto)
-          .setJdeps(jdeps)
-          .addSourceJars(sourceJars)
-          .build();
-    }
-
     public static JavaOutput fromStarlarkJavaOutput(StructImpl struct) throws EvalException {
       return JavaOutput.builder()
           .setClassJar(nullIfNone(struct.getValue("class_jar"), Artifact.class))

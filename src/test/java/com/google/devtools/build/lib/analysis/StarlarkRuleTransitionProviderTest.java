@@ -13,12 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
@@ -48,6 +50,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -123,9 +126,16 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
         "  })");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
 
+    var collector = new AnalysisRootCauseCollector();
+    eventBus.register(collector);
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test");
     assertContainsEvent("transition function returned string, want dict or list of dicts");
+
+    // Verifies that the AnalysisRootCauseEvent has a no associated configuration. In this case,
+    // the error occurs during a transition, so no configuration has been determined.
+    AnalysisRootCauseEvent rootCause = getOnlyElement(collector.rootCauses);
+    assertThat(rootCause.getConfigurations()).isEmpty();
   }
 
   @Test
@@ -1243,9 +1253,8 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     assertContainsEvent(
         "transition outputs [//test:attr_transition_output_flag2] were not defined by transition "
             + "function");
-    assertContainsEvent(
-        "transition outputs [//test:self_transition_output_flag2] were not defined by transition "
-            + "function");
+    // While _self_impl is in error as it does not define //test:self_transition_output_flag2,
+    // evaluation stops at the faulty _attr_impl definition so it does not cause an error.
   }
 
   @Test
@@ -1945,5 +1954,14 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
                 .get(DummyTestOptions.class)
                 .foo)
         .isEqualTo("second build");
+  }
+
+  private static class AnalysisRootCauseCollector {
+    private final ArrayList<AnalysisRootCauseEvent> rootCauses = new ArrayList<>();
+
+    @Subscribe
+    public void rootCause(AnalysisRootCauseEvent event) {
+      rootCauses.add(event);
+    }
   }
 }
