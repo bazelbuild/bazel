@@ -26,6 +26,7 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Optional;
@@ -341,22 +342,20 @@ public class ModuleExtensionMetadata implements StarlarkValue {
       return Optional.empty();
     }
 
-    String extensionUsageIdentifier = extensionName;
+    var commandParts = new ArrayList<String>();
+    commandParts.add(cmd);
     if (isolationKey.isPresent()) {
-      // We verified in create() that the extension did not report root module deps of a kind that
-      // does not match the isolated (and hence only) usage. It also isn't possible for users to
-      // specify repo usages of the wrong kind, so we can't get here.
-      Preconditions.checkState(isolationKey.get().isDevUsage() == devDependency);
-      extensionUsageIdentifier += ":" + isolationKey.get().getIsolatedUsageIndex();
+      commandParts.add(isolationKey.get().getUsageExportedName());
+    } else {
+      if (devDependency) {
+        commandParts.add("dev");
+      }
+      commandParts.add(extensionBzlFile);
+      commandParts.add(extensionName);
     }
+    commandParts.addAll(repos);
     return Optional.of(
-        String.format(
-            "buildozer '%s%s %s %s %s' //MODULE.bazel:all",
-            cmd,
-            devDependency ? " dev" : "",
-            extensionBzlFile,
-            extensionUsageIdentifier,
-            String.join(" ", repos)));
+        String.format("buildozer '%s' //MODULE.bazel:all", String.join(" ", commandParts)));
   }
 
   private Optional<ImmutableSet<String>> getRootModuleDirectDeps(Set<String> allRepos)
