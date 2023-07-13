@@ -24,9 +24,9 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
-import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainTypeLookupUtil.InvalidToolchainTypeException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -164,7 +164,7 @@ public class ToolchainTypeLookupUtilTest extends ToolchainTestCase {
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
         .hasCauseThat()
-        .isInstanceOf(ConfiguredValueCreationException.class);
+        .isInstanceOf(NoSuchPackageException.class);
 
     assertContainsEvent("no such package 'fake': BUILD file not found");
   }

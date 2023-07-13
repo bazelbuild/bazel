@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.actions.AnalysisGraphStatsEvent;
 import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
+import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseStartedEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
@@ -281,6 +282,12 @@ class MetricsCollector {
 
   private void postBuildMetricsEvent() {
     env.getEventBus().post(new BuildMetricsEvent(createBuildMetrics()));
+  }
+
+  @SuppressWarnings("unused")
+  @Subscribe
+  private void logActionCacheStatistics(ActionCacheStatistics stats) {
+    actionSummary.setActionCacheStatistics(stats);
   }
 
   private BuildMetrics createBuildMetrics() {

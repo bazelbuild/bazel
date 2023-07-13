@@ -400,7 +400,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Artifact executable = (Artifact) executableUnchecked;
       FilesToRunProvider provider = context.getExecutableRunfiles(executable);
       if (provider == null) {
-        if (useAutoExecGroups) {
+        if (useAutoExecGroups && execGroupUnchecked == Starlark.NONE) {
           checkToolchainParameterIsSet(toolchainUnchecked);
         }
         builder.setExecutable(executable);
@@ -414,7 +414,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
           PathFragment.create((String) executableUnchecked).getPathString());
     } else if (executableUnchecked instanceof FilesToRunProvider) {
       if (useAutoExecGroups
-          && !context.areRunfilesFromDeps((FilesToRunProvider) executableUnchecked)) {
+          && !context.areRunfilesFromDeps((FilesToRunProvider) executableUnchecked)
+          && execGroupUnchecked == Starlark.NONE) {
         checkToolchainParameterIsSet(toolchainUnchecked);
       }
       builder.setExecutable((FilesToRunProvider) executableUnchecked);
@@ -737,19 +738,20 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
           if (provider != null) {
             builder.addTool(provider);
           } else {
-            if (useAutoExecGroups) {
+            if (useAutoExecGroups && execGroupUnchecked == Starlark.NONE) {
               checkToolchainParameterIsSet(toolchainUnchecked);
             }
           }
         } else if (toolUnchecked instanceof FilesToRunProvider) {
           if (useAutoExecGroups
-              && !context.areRunfilesFromDeps((FilesToRunProvider) toolUnchecked)) {
+              && !context.areRunfilesFromDeps((FilesToRunProvider) toolUnchecked)
+              && execGroupUnchecked == Starlark.NONE) {
             checkToolchainParameterIsSet(toolchainUnchecked);
           }
           builder.addTool((FilesToRunProvider) toolUnchecked);
         } else if (toolUnchecked instanceof Depset) {
           try {
-            if (useAutoExecGroups) {
+            if (useAutoExecGroups && execGroupUnchecked == Starlark.NONE) {
               checkToolchainParameterIsSet(toolchainUnchecked);
             }
             builder.addTransitiveTools(((Depset) toolUnchecked).getSet(Artifact.class));

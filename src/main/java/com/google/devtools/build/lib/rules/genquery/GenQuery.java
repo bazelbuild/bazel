@@ -352,12 +352,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       throw new RuntimeException(e);
     }
 
-    GenQueryOutputStream outputStream =
-        new GenQueryOutputStream(
-            ruleContext
-                .getConfiguration()
-                .getFragment(GenQueryConfiguration.class)
-                .inMemoryCompressionEnabled());
+    GenQueryOutputStream outputStream = new GenQueryOutputStream();
     Set<Target> result = targets.getResult();
     try {
       QueryOutputUtils.output(

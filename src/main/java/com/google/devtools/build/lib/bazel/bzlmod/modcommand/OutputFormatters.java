@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.bzlmod.modquery;
+package com.google.devtools.build.lib.bazel.bzlmod.modcommand;
 
 import static java.util.stream.Collectors.joining;
 
@@ -20,18 +20,20 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.bazel.bzlmod.Version;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryExecutor.ResultNode;
-import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryOptions.OutputFormat;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultNode;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.OutputFormat;
 import java.io.PrintWriter;
 import javax.annotation.Nullable;
 
 /**
- * Contains the output formatters for the graph-based results of {@link ModqueryExecutor} that can
- * be specified using {@link ModqueryOptions#outputFormat}.
+ * Contains the output formatters for the graph-based results of {@link ModExecutor} that can be
+ * specified using {@link ModOptions#outputFormat}.
  */
 public final class OutputFormatters {
 
@@ -57,10 +59,13 @@ public final class OutputFormatters {
 
     protected ImmutableMap<ModuleKey, ResultNode> result;
     protected ImmutableMap<ModuleKey, AugmentedModule> depGraph;
+    protected ImmutableSetMultimap<ModuleExtensionId, String> extensionRepos;
+    protected ImmutableMap<ModuleExtensionId, ImmutableSetMultimap<String, ModuleKey>>
+        extensionRepoImports;
     protected PrintWriter printer;
-    protected ModqueryOptions options;
+    protected ModOptions options;
 
-    /** Compact representation of the data provided by the {@link ModqueryOptions#extra} flag. */
+    /** Compact representation of the data provided by the {@code --verbose} flag. */
     @AutoValue
     abstract static class Explanation {
 
@@ -83,8 +88,8 @@ public final class OutputFormatters {
       }
 
       /**
-       * Gets the exact label that is printed next to the module if the {@link
-       * ModqueryOptions#extra} flag is enabled.
+       * Gets the exact label that is printed next to the module if the {@code --verbose} flag is
+       * enabled.
        */
       String toExplanationString(boolean unused) {
         String changedVersionLabel =
@@ -102,10 +107,15 @@ public final class OutputFormatters {
     void output(
         ImmutableMap<ModuleKey, ResultNode> result,
         ImmutableMap<ModuleKey, AugmentedModule> depGraph,
+        ImmutableSetMultimap<ModuleExtensionId, String> extensionRepos,
+        ImmutableMap<ModuleExtensionId, ImmutableSetMultimap<String, ModuleKey>>
+            extensionRepoImports,
         PrintWriter printer,
-        ModqueryOptions options) {
+        ModOptions options) {
       this.result = result;
       this.depGraph = depGraph;
+      this.extensionRepos = extensionRepos;
+      this.extensionRepoImports = extensionRepoImports;
       this.printer = printer;
       this.options = options;
       output();
@@ -123,7 +133,7 @@ public final class OutputFormatters {
         ModuleKey key,
         ModuleKey parent,
         ImmutableMap<ModuleKey, AugmentedModule> depGraph,
-        ModqueryOptions options) {
+        ModOptions options) {
       this.depGraph = depGraph;
       this.options = options;
       return getExtraResolutionExplanation(key, parent);

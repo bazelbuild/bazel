@@ -14,14 +14,20 @@ filegroup(
 )
 
 java_library(
-    name = "ModqueryTests_lib",
+    name = "ModCommandTests_lib",
     srcs = glob(
         ["*.java"],
     ),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:inspection",
-        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod/modquery",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod/modcommand",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/util:maybe_complete_set",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
         "//src/test/java/com/google/devtools/build/lib/bazel/bzlmod:util",
         "//third_party:guava",
         "//third_party:junit4",
@@ -30,10 +36,10 @@ java_library(
 )
 
 java_test(
-    name = "ModqueryTests",
+    name = "ModCommandTests",
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
-        ":ModqueryTests_lib",
+        ":ModCommandTests_lib",
         "//src/test/java/com/google/devtools/build/lib:test_runner",
     ],
 )

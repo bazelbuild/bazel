@@ -11,6 +11,7 @@ filegroup(
     testonly = 0,
     srcs = glob(["**"]) + [
         "//src/test/java/com/google/devtools/build/skydoc/private:srcs",
+        "//src/test/java/com/google/devtools/build/skydoc/rendering:srcs",
         "//src/test/java/com/google/devtools/build/skydoc/testdata/same_level_file_test:srcs",
     ],
     visibility = ["//src:__pkg__"],

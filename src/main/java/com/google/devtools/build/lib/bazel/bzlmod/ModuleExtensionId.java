@@ -15,32 +15,39 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.collect.Comparators.emptiesFirst;
+import static java.util.Comparator.comparing;
+
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.cmdline.Label;
+import java.util.Comparator;
 import java.util.Optional;
 
 /** A unique identifier for a {@link ModuleExtension}. */
 @AutoValue
 public abstract class ModuleExtensionId {
+  public static final Comparator<ModuleExtensionId> LEXICOGRAPHIC_COMPARATOR =
+      comparing(ModuleExtensionId::getBzlFileLabel)
+          .thenComparing(ModuleExtensionId::getExtensionName)
+          .thenComparing(
+              ModuleExtensionId::getIsolationKey,
+              emptiesFirst(IsolationKey.LEXICOGRAPHIC_COMPARATOR));
 
   /** A unique identifier for a single isolated usage of a fixed module extension. */
   @AutoValue
   abstract static class IsolationKey {
+    static final Comparator<IsolationKey> LEXICOGRAPHIC_COMPARATOR =
+        comparing(IsolationKey::getModule, ModuleKey.LEXICOGRAPHIC_COMPARATOR)
+            .thenComparing(IsolationKey::getUsageExportedName);
+
     /** The module which contains this isolated usage of a module extension. */
     public abstract ModuleKey getModule();
 
-    /** Whether this isolated usage specified {@code dev_dependency = True}. */
-    public abstract boolean isDevUsage();
+    /** The exported name of the first extension proxy for this usage. */
+    public abstract String getUsageExportedName();
 
-    /**
-     * The 0-based index of this isolated usage within the module's isolated usages of the same
-     * module extension and with the same {@link #isDevUsage()} value.
-     */
-    public abstract int getIsolatedUsageIndex();
-
-    public static IsolationKey create(
-        ModuleKey module, boolean isDevUsage, int isolatedUsageIndex) {
-      return new AutoValue_ModuleExtensionId_IsolationKey(module, isDevUsage, isolatedUsageIndex);
+    public static IsolationKey create(ModuleKey module, String usageExportedName) {
+      return new AutoValue_ModuleExtensionId_IsolationKey(module, usageExportedName);
     }
   }
 
@@ -53,5 +60,10 @@ public abstract class ModuleExtensionId {
   public static ModuleExtensionId create(
       Label bzlFileLabel, String extensionName, Optional<IsolationKey> isolationKey) {
     return new AutoValue_ModuleExtensionId(bzlFileLabel, extensionName, isolationKey);
+  }
+
+  public String asTargetString() {
+    return String.format(
+        "%s%%%s", getBzlFileLabel().getUnambiguousCanonicalForm(), getExtensionName());
   }
 }

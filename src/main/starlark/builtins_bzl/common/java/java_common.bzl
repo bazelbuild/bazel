@@ -83,6 +83,7 @@ def _compile(
     )
 
 def _run_ijar(actions, jar, java_toolchain, target_label = None):
+    _java_common_internal._check_java_toolchain_is_declared_on_rule(actions)
     return run_ijar(
         actions = actions,
         jar = jar,
@@ -107,6 +108,7 @@ def _stamp_jar(actions, jar, java_toolchain, target_label):
         (File) The output artifact
 
     """
+    _java_common_internal._check_java_toolchain_is_declared_on_rule(actions)
     output = actions.declare_file(paths.replace_extension(jar.basename, "-stamped.jar"), sibling = jar)
     args = actions.args()
     args.add(jar)
@@ -145,6 +147,7 @@ def _pack_sources(
     Returns:
         (File) The output artifact
     """
+    _java_common_internal._check_java_toolchain_is_declared_on_rule(actions)
     return helper.create_single_jar(
         actions,
         toolchain = java_toolchain,

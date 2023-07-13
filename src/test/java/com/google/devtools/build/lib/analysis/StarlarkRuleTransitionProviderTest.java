@@ -1253,9 +1253,8 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     assertContainsEvent(
         "transition outputs [//test:attr_transition_output_flag2] were not defined by transition "
             + "function");
-    assertContainsEvent(
-        "transition outputs [//test:self_transition_output_flag2] were not defined by transition "
-            + "function");
+    // While _self_impl is in error as it does not define //test:self_transition_output_flag2,
+    // evaluation stops at the faulty _attr_impl definition so it does not cause an error.
   }
 
   @Test

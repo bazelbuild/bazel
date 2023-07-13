@@ -400,6 +400,9 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         throw new SingleExtensionEvalFunctionException(e, Transience.PERSISTENT);
       }
     }
+    ModuleExtensionUsage rootUsage = usagesValue.getExtensionUsages().get(ModuleKey.ROOT);
+    boolean rootModuleHasNonDevDependency =
+        rootUsage != null && rootUsage.getHasNonDevUseExtension();
     return new ModuleExtensionContext(
         workingDirectory,
         env,
@@ -410,7 +413,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         starlarkSemantics,
         repositoryRemoteExecutor,
         extensionId,
-        StarlarkList.immutableCopyOf(modules));
+        StarlarkList.immutableCopyOf(modules),
+        rootModuleHasNonDevDependency);
   }
 
   static final class SingleExtensionEvalFunctionException extends SkyFunctionException {

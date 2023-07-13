@@ -50,13 +50,16 @@ public class StarlarkBazelModuleTest {
         .setUsingModule(ModuleKey.ROOT)
         .setLocation(Location.BUILTIN)
         .setImports(ImmutableBiMap.of())
-        .setDevImports(ImmutableSet.of());
+        .setDevImports(ImmutableSet.of())
+        .setHasDevUseExtension(false)
+        .setHasNonDevUseExtension(true);
   }
 
   /** A builder for ModuleExtension that sets all the mandatory but irrelevant fields. */
   private static ModuleExtension.Builder getBaseExtensionBuilder() {
     return ModuleExtension.builder()
-        .setDoc("")
+        .setDoc(Optional.empty())
+        .setDefiningBzlFileLabel(Label.parseCanonicalUnchecked("//:rje.bzl"))
         .setLocation(Location.BUILTIN)
         .setImplementation(() -> "maven");
   }

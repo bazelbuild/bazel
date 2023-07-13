@@ -15,8 +15,6 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.HashBiMap;
@@ -30,7 +28,10 @@ import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileGlobals.ModuleExtensionUsageBuilder.ModuleExtensionProxy;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.StarlarkExportable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -72,8 +73,6 @@ public class ModuleFileGlobals {
   private final List<ModuleExtensionUsageBuilder> extensionUsageBuilders = new ArrayList<>();
   private final Map<String, ModuleOverride> overrides = new HashMap<>();
   private final Map<String, RepoNameUsage> repoNameUsages = new HashMap<>();
-  private int nextIsolatedNonDevUsageIndex = 0;
-  private int nextIsolatedDevUsageIndex = 0;
 
   public ModuleFileGlobals(
       ImmutableMap<String, NonRegistryOverride> builtinModules,
@@ -457,22 +456,9 @@ public class ModuleFileGlobals {
     hadNonModuleCall = true;
 
     String extensionBzlFile = normalizeLabelString(rawExtensionBzlFile);
-
-    Optional<ModuleExtensionId.IsolationKey> isolationKey;
-    if (isolate) {
-      isolationKey =
-          Optional.of(
-              ModuleExtensionId.IsolationKey.create(
-                  module.getKey(),
-                  devDependency,
-                  devDependency ? nextIsolatedDevUsageIndex++ : nextIsolatedNonDevUsageIndex++));
-    } else {
-      isolationKey = Optional.empty();
-    }
-
     ModuleExtensionUsageBuilder newUsageBuilder =
         new ModuleExtensionUsageBuilder(
-            extensionBzlFile, extensionName, isolationKey, thread.getCallerLocation());
+            extensionBzlFile, extensionName, isolate, thread.getCallerLocation());
 
     if (ignoreDevDeps && devDependency) {
       // This is a no-op proxy.
@@ -485,7 +471,7 @@ public class ModuleFileGlobals {
       for (ModuleExtensionUsageBuilder usageBuilder : extensionUsageBuilders) {
         if (usageBuilder.extensionBzlFile.equals(extensionBzlFile)
             && usageBuilder.extensionName.equals(extensionName)
-            && usageBuilder.isolationKey.isEmpty()) {
+            && !usageBuilder.isolate) {
           return usageBuilder.getProxy(devDependency);
         }
       }
@@ -515,37 +501,49 @@ public class ModuleFileGlobals {
   class ModuleExtensionUsageBuilder {
     private final String extensionBzlFile;
     private final String extensionName;
-    private final Optional<ModuleExtensionId.IsolationKey> isolationKey;
+    private final boolean isolate;
     private final Location location;
     private final HashBiMap<String, String> imports;
     private final ImmutableSet.Builder<String> devImports;
     private final ImmutableList.Builder<Tag> tags;
 
+    private boolean hasNonDevUseExtension;
+    private boolean hasDevUseExtension;
+    private String exportedName;
+
     ModuleExtensionUsageBuilder(
-        String extensionBzlFile,
-        String extensionName,
-        Optional<ModuleExtensionId.IsolationKey> isolationKey,
-        Location location) {
+        String extensionBzlFile, String extensionName, boolean isolate, Location location) {
       this.extensionBzlFile = extensionBzlFile;
       this.extensionName = extensionName;
-      this.isolationKey = isolationKey;
+      this.isolate = isolate;
       this.location = location;
       this.imports = HashBiMap.create();
       this.devImports = ImmutableSet.builder();
       this.tags = ImmutableList.builder();
     }
 
-    ModuleExtensionUsage buildUsage() {
+    ModuleExtensionUsage buildUsage() throws EvalException {
       var builder =
           ModuleExtensionUsage.builder()
               .setExtensionBzlFile(extensionBzlFile)
               .setExtensionName(extensionName)
-              .setIsolationKey(isolationKey)
               .setUsingModule(module.getKey())
               .setLocation(location)
               .setImports(ImmutableBiMap.copyOf(imports))
               .setDevImports(devImports.build())
+              .setHasDevUseExtension(hasDevUseExtension)
+              .setHasNonDevUseExtension(hasNonDevUseExtension)
               .setTags(tags.build());
+      if (isolate) {
+        if (exportedName == null) {
+          throw Starlark.errorf(
+              "Isolated extension usage at %s must be assigned to a top-level variable", location);
+        }
+        builder.setIsolationKey(
+            Optional.of(ModuleExtensionId.IsolationKey.create(module.getKey(), exportedName)));
+      } else {
+        builder.setIsolationKey(Optional.empty());
+      }
       return builder.build();
     }
 
@@ -554,11 +552,16 @@ public class ModuleFileGlobals {
      * tags with all other such proxies, thus preserving their order across dev/non-dev deps.
      */
     ModuleExtensionProxy getProxy(boolean devDependency) {
+      if (devDependency) {
+        hasDevUseExtension = true;
+      } else {
+        hasNonDevUseExtension = true;
+      }
       return new ModuleExtensionProxy(devDependency);
     }
 
     @StarlarkBuiltin(name = "module_extension_proxy", documented = false)
-    class ModuleExtensionProxy implements Structure {
+    class ModuleExtensionProxy implements Structure, StarlarkExportable {
 
       private final boolean devDependency;
 
@@ -614,6 +617,16 @@ public class ModuleFileGlobals {
       @Override
       public String getErrorMessageForUnknownField(String field) {
         return null;
+      }
+
+      @Override
+      public boolean isExported() {
+        return exportedName != null;
+      }
+
+      @Override
+      public void export(EventHandler handler, Label bzlFileLabel, String name) {
+        exportedName = name;
       }
     }
   }
@@ -972,14 +985,15 @@ public class ModuleFileGlobals {
     addOverride(moduleName, LocalPathOverride.create(path));
   }
 
-  public InterimModule buildModule() {
+  public InterimModule buildModule() throws EvalException {
+    var extensionUsages = ImmutableList.<ModuleExtensionUsage>builder();
+    for (var extensionUsageBuilder : extensionUsageBuilders) {
+      extensionUsages.add(extensionUsageBuilder.buildUsage());
+    }
     return module
         .setDeps(ImmutableMap.copyOf(deps))
         .setOriginalDeps(ImmutableMap.copyOf(deps))
-        .setExtensionUsages(
-            extensionUsageBuilders.stream()
-                .map(ModuleExtensionUsageBuilder::buildUsage)
-                .collect(toImmutableList()))
+        .setExtensionUsages(extensionUsages.build())
         .build();
   }
 
