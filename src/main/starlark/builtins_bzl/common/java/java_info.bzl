@@ -430,7 +430,7 @@ def _javainfo_init(
                     if dep.annotation_processing
                 ],
             ),
-            processor_classnames = depset(),
+            processor_classnames = [],
             processor_classpath = depset(),
         ),
         "compilation_info": None,
