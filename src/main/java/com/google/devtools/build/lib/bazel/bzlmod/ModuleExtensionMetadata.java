@@ -253,6 +253,28 @@ public class ModuleExtensionMetadata implements StarlarkValue {
               String.join(", ", missingImports));
     }
 
+    var nonDevImportsOfDevDeps =
+        ImmutableSortedSet.copyOf(Sets.intersection(expectedDevImports, actualImports));
+    if (!nonDevImportsOfDevDeps.isEmpty()) {
+      message +=
+          String.format(
+              "Imported as a regular dependency, but reported as a dev dependency by the "
+                  + "extension (may cause the build to fail when used by other modules):\n"
+                  + "    %s\n\n",
+              String.join(", ", nonDevImportsOfDevDeps));
+    }
+
+    var devImportsOfNonDevDeps =
+        ImmutableSortedSet.copyOf(Sets.intersection(expectedImports, actualDevImports));
+    if (!devImportsOfNonDevDeps.isEmpty()) {
+      message +=
+          String.format(
+              "Imported as a dev dependency, but reported as a regular dependency by the "
+                  + "extension (may cause the build to fail when used by other modules):\n"
+                  + "    %s\n\n",
+              String.join(", ", devImportsOfNonDevDeps));
+    }
+
     var indirectDepImports =
         ImmutableSortedSet.copyOf(
             Sets.difference(Sets.intersection(allActualImports, allRepos), allExpectedImports));
