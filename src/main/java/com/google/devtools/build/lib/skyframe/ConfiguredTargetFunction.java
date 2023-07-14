@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker;
 import com.google.devtools.build.lib.analysis.producers.TargetAndConfigurationProducer;
-import com.google.devtools.build.lib.analysis.producers.TargetAndConfigurationProducer.NoSuchTargetExceptionWithLocation;
 import com.google.devtools.build.lib.analysis.producers.TargetAndConfigurationProducer.TargetAndConfigurationError;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailurePropagationException;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
@@ -53,7 +52,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
@@ -475,9 +473,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                         .getTrimmingTransitionFactory(),
                     buildViewProvider.getSkyframeBuildView().getStarlarkTransitionCache(),
                     state.computeDependenciesState.transitiveState,
-                    (TargetAndConfigurationProducer.ResultSink) state));
+                    (TargetAndConfigurationProducer.ResultSink) state,
+                    storedEvents));
       }
-      if (state.targetAndConfigurationProducer.drive(env, storedEvents)) {
+      if (state.targetAndConfigurationProducer.drive(env)) {
         state.targetAndConfigurationProducer = null;
       }
       result = state.targetAndConfigurationResult;
@@ -500,15 +499,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               storedEvents.handle(Event.error(e.getLocation(), e.getMessage()));
             }
             throw new ReportedException(e);
-          case NO_SUCH_PACKAGE:
-            NoSuchPackageException noSuchPackage = error.noSuchPackage();
-            storedEvents.handle(Event.error(noSuchPackage.getMessage()));
-            throw new DependencyException(noSuchPackage);
-          case NO_SUCH_TARGET:
-            NoSuchTargetExceptionWithLocation noSuchTarget = error.noSuchTarget();
-            storedEvents.handle(
-                Event.error(noSuchTarget.location(), noSuchTarget.exception().getMessage()));
-            throw new DependencyException(noSuchTarget.exception());
+          case NO_SUCH_THING:
+            throw new DependencyException(error.noSuchThing());
           case INCONSISTENT_NULL_CONFIG:
             throw new DependencyException(error.inconsistentNullConfig());
         }

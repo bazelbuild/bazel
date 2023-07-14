@@ -72,7 +72,7 @@ public final class StateMachineEvaluatorForTesting {
 
     EvaluationResult<SkyValue> result = null;
     boolean hasError = false;
-    while (!driver.drive(env, context.getEventHandler())) {
+    while (!driver.drive(env)) {
       if (hasError) {
         return result; // Exits if there was an error in the previous round.
       }

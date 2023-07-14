@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LoadingFailedCause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
@@ -115,7 +114,7 @@ final class DependencyProducer
   }
 
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     @Nullable Attribute attribute = kind.getAttribute();
 
     if (kind == VISIBILITY_DEPENDENCY
@@ -178,6 +177,7 @@ final class DependencyProducer
         attributeTransition,
         parameters.transitionCache(),
         (TransitionApplier.ResultSink) this,
+        parameters.eventHandler(),
         /* runAfter= */ this::processTransitionResult);
   }
 
@@ -197,12 +197,12 @@ final class DependencyProducer
     sink.acceptDependencyError(DependencyError.of(e));
   }
 
-  private StateMachine processTransitionResult(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine processTransitionResult(Tasks tasks) {
     if (transitionedConfigurations == null) {
       return DONE; // There was a previously reported error.
     }
 
-    if (isNonconfigurableTargetInSamePackage(listener)) {
+    if (isNonconfigurableTargetInSamePackage()) {
       // The target is in the same package as the parent and non-configurable. In the general case
       // loading a child target would defeat Package-based sharding. However, when the target is in
       // the same Package, that concern no longer applies. This optimization means that delegation,
@@ -224,7 +224,9 @@ final class DependencyProducer
     for (BuildConfigurationKey configuration : transitionedConfigurations.values()) {
       String childChecksum = configuration.getOptionsChecksum();
       if (!parentChecksum.equals(childChecksum)) {
-        listener.post(ConfigurationTransitionEvent.create(parentChecksum, childChecksum));
+        parameters
+            .eventHandler()
+            .post(ConfigurationTransitionEvent.create(parentChecksum, childChecksum));
       }
     }
 
@@ -299,7 +301,7 @@ final class DependencyProducer
     sink.acceptDependencyError(DependencyError.of(error));
   }
 
-  private boolean isNonconfigurableTargetInSamePackage(ExtendedEventHandler listener) {
+  private boolean isNonconfigurableTargetInSamePackage() {
     Target parentTarget = parameters.target();
     if (parentTarget.getLabel().getPackageIdentifier().equals(toLabel.getPackageIdentifier())) {
       try {
@@ -311,10 +313,12 @@ final class DependencyProducer
         parameters
             .transitiveState()
             .addTransitiveCause(new LoadingFailedCause(toLabel, e.getDetailedExitCode()));
-        listener.handle(
-            Event.error(
-                TargetUtils.getLocationMaybe(parentTarget),
-                TargetUtils.formatMissingEdge(parentTarget, toLabel, e, kind.getAttribute())));
+        parameters
+            .eventHandler()
+            .handle(
+                Event.error(
+                    TargetUtils.getLocationMaybe(parentTarget),
+                    TargetUtils.formatMissingEdge(parentTarget, toLabel, e, kind.getAttribute())));
       }
     }
     return false;
@@ -338,7 +342,7 @@ final class DependencyProducer
     }
 
     @Override
-    public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+    public StateMachine step(Tasks tasks) {
       // The configuration value should already exist as a dependency so this lookup is safe enough
       // for error handling.
       tasks.lookUp(parameters.configurationKey(), (Consumer<SkyValue>) this);
@@ -350,8 +354,10 @@ final class DependencyProducer
       this.configuration = (BuildConfigurationValue) value;
     }
 
-    private StateMachine postEvent(Tasks tasks, ExtendedEventHandler listener) {
-      listener.post(AnalysisRootCauseEvent.withConfigurationValue(configuration, toLabel, message));
+    private StateMachine postEvent(Tasks tasks) {
+      parameters
+          .eventHandler()
+          .post(AnalysisRootCauseEvent.withConfigurationValue(configuration, toLabel, message));
       sink.acceptDependencyError(
           DependencyError.of(
               new DependencyEvaluationException(

@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
@@ -45,6 +46,8 @@ public final class PrerequisiteParameters {
   @Nullable private final ConfiguredAttributeMapper attributeMap;
   private final TransitiveDependencyState transitiveState;
 
+  private final ExtendedEventHandler eventHandler;
+
   public PrerequisiteParameters(
       ConfiguredTargetKey configuredTargetKey,
       Target target,
@@ -53,7 +56,8 @@ public final class PrerequisiteParameters {
       StarlarkTransitionCache transitionCache,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
       @Nullable ConfiguredAttributeMapper attributeMap,
-      TransitiveDependencyState transitiveState) {
+      TransitiveDependencyState transitiveState,
+      ExtendedEventHandler eventHandler) {
     this.configuredTargetKey = configuredTargetKey;
     this.target = target;
     this.aspects = ImmutableList.copyOf(aspects);
@@ -62,6 +66,7 @@ public final class PrerequisiteParameters {
     this.toolchainContexts = toolchainContexts;
     this.attributeMap = attributeMap;
     this.transitiveState = transitiveState;
+    this.eventHandler = eventHandler;
   }
 
   public Label label() {
@@ -124,5 +129,9 @@ public final class PrerequisiteParameters {
 
   public TransitiveDependencyState transitiveState() {
     return transitiveState;
+  }
+
+  public ExtendedEventHandler eventHandler() {
+    return eventHandler;
   }
 }

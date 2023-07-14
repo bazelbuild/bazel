@@ -425,7 +425,7 @@ final class AspectFunction implements SkyFunction {
                   state.transitiveState,
                   (DependencyContextProducer.ResultSink) state));
     }
-    if (state.dependencyContextProducer.drive(env, env.getListener())) {
+    if (state.dependencyContextProducer.drive(env)) {
       state.dependencyContextProducer = null;
     }
 

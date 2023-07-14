@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.skyframe.AspectCreationException;
@@ -109,7 +108,7 @@ final class PrerequisitesProducer
   }
 
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     switch (configuration.kind()) {
       case VISIBILITY:
         tasks.enqueue(
@@ -187,7 +186,7 @@ final class PrerequisitesProducer
     sink.acceptPrerequisitesCreationError(error);
   }
 
-  private StateMachine computeConfiguredAspects(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine computeConfiguredAspects(Tasks tasks) {
     if (hasError) {
       return DONE;
     }
@@ -259,7 +258,7 @@ final class PrerequisitesProducer
     sink.acceptPrerequisitesAspectError(error);
   }
 
-  private StateMachine emitMergedTargets(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine emitMergedTargets(Tasks tasks) {
     if (!hasError) {
       sink.acceptPrerequisitesValue(configuredTargets);
     }

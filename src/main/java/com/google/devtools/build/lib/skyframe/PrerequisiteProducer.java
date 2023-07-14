@@ -501,7 +501,7 @@ public final class PrerequisiteProducer {
                   state.transitiveState,
                   (DependencyContextProducer.ResultSink) state));
     }
-    if (state.dependencyContextProducer.drive(env, listener)) {
+    if (state.dependencyContextProducer.drive(env)) {
       state.dependencyContextProducer = null;
     }
 
@@ -689,12 +689,13 @@ public final class PrerequisiteProducer {
                         transitionCache,
                         toolchainContexts,
                         dependencyLabels.attributeMap(),
-                        state.transitiveState),
+                        state.transitiveState,
+                        state.storedEvents),
                     dependencyLabels.labels(),
                     (DependencyMapProducer.ResultSink) state));
       }
       try {
-        if (state.dependencyMapProducer.drive(env, state.storedEvents)) {
+        if (state.dependencyMapProducer.drive(env)) {
           state.dependencyMapProducer = null;
         }
       } catch (InterruptedException e) {

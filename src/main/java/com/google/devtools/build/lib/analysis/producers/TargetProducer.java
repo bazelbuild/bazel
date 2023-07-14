@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.producers;
 import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.causes.LoadingFailedCause;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
@@ -71,7 +70,7 @@ final class TargetProducer implements StateMachine, ValueOrExceptionSink<NoSuchP
   }
 
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     tasks.lookUp(
         label.getPackageIdentifier(),
         NoSuchPackageException.class,
@@ -91,7 +90,7 @@ final class TargetProducer implements StateMachine, ValueOrExceptionSink<NoSuchP
     sink.acceptTargetError(error);
   }
 
-  private StateMachine unwrapTarget(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine unwrapTarget(Tasks tasks) {
     if (pkg == null) {
       return DONE; // An error occurred.
     }

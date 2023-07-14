@@ -335,7 +335,8 @@ public class BuildViewForTesting {
                 skyframeBuildView.getStarlarkTransitionCache(),
                 toolchainContexts,
                 labels.attributeMap(),
-                transitiveState),
+                transitiveState,
+                eventHandler),
             labels.labels());
     if (!transitiveState.transitiveRootCauses().isEmpty()) {
       throw new IllegalStateException(

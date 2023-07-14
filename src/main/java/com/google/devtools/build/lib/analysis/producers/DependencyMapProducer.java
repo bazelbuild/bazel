@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionCollector;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -86,7 +85,7 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
   }
 
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     int index = 0;
     for (Map.Entry<DependencyKind, Collection<Label>> entry : dependencyLabels.asMap().entrySet()) {
       var kind = entry.getKey();
@@ -122,7 +121,7 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
     sink.acceptTransition(kind, label, transition);
   }
 
-  private StateMachine buildAndEmitResult(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine buildAndEmitResult(Tasks tasks) {
     if (lastError != null || parameters.transitiveState().hasRootCause()) {
       return DONE; // There was an error.
     }

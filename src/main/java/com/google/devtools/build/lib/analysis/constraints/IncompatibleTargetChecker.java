@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper.ValidationException;
@@ -136,7 +135,7 @@ public class IncompatibleTargetChecker {
     }
 
     @Override
-    public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+    public StateMachine step(Tasks tasks) {
       Rule rule = targetAndConfiguration.getTarget().getAssociatedRule();
       if (rule == null || !rule.useToolchainResolution() || platformInfo == null) {
         sink.acceptIncompatibleTarget(Optional.empty());
@@ -178,7 +177,7 @@ public class IncompatibleTargetChecker {
       invalidConstraintValuesBuilder.add(info);
     }
 
-    private StateMachine processResult(Tasks tasks, ExtendedEventHandler listener) {
+    private StateMachine processResult(Tasks tasks) {
       var invalidConstraintValues = invalidConstraintValuesBuilder.build();
       if (!invalidConstraintValues.isEmpty()) {
         sink.acceptIncompatibleTarget(

@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.skyframe.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
@@ -73,7 +72,7 @@ final class ConfiguredAspectProducer
   }
 
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     var baseKey = ConfiguredTargetKey.fromConfiguredTarget(prerequisite.getConfiguredTarget());
     var memoTable = new HashMap<AspectDescriptor, AspectKey>();
     for (AspectDeps deps : aspects.getUsedAspects()) {
@@ -96,7 +95,7 @@ final class ConfiguredAspectProducer
     sink.acceptConfiguredAspectError(error);
   }
 
-  private StateMachine processResult(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine processResult(Tasks tasks) {
     ImmutableSet<AspectDeps> usedAspects = aspects.getUsedAspects();
     if (aspectValues.size() < usedAspects.size()) {
       return DONE; // There was an error.
