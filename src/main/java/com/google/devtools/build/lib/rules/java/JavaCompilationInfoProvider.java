@@ -19,6 +19,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -65,7 +67,12 @@ public final class JavaCompilationInfoProvider
               .setJavacOpts(
                   Sequence.cast(info.getValue("javac_options"), String.class, "javac_options")
                       .getImmutableList())
-              .setBootClasspath(BootClassPathInfo.fromStarlark(info.getValue("boot_classpath")));
+              .setBootClasspath(
+                  BootClassPathInfo.create(
+                      NestedSetBuilder.wrap(
+                          Order.NAIVE_LINK_ORDER,
+                          Sequence.noneableCast(
+                              info.getValue("boot_classpath"), Artifact.class, "boot_classpath"))));
       Object runtimeClasspath = info.getValue("runtime_classpath");
       if (runtimeClasspath != null) {
         builder.setRuntimeClasspath(

@@ -907,10 +907,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
                 makeStruct(
                     ImmutableMap.of(
                         "javac_options", StarlarkList.immutableOf("opt1", "opt2"),
-                        "boot_classpath",
-                            BootClassPathInfo.create(
-                                NestedSetBuilder.create(
-                                    Order.STABLE_ORDER, createArtifact("cp.jar"))))))
+                        "boot_classpath", StarlarkList.immutableOf(createArtifact("cp.jar")))))
             .buildOrThrow();
     StarlarkInfo starlarkInfo = makeStruct(fields);
 
