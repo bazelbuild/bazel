@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.configurationId;
 
 import com.google.auto.value.AutoOneOf;
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
@@ -77,12 +78,18 @@ public final class TargetAndConfigurationProducer
     /** Tags the error type. */
     public enum Kind {
       CONFIGURED_VALUE_CREATION,
+      NO_SUCH_PACKAGE,
+      NO_SUCH_TARGET,
       INCONSISTENT_NULL_CONFIG
     }
 
     public abstract Kind kind();
 
     public abstract ConfiguredValueCreationException configuredValueCreation();
+
+    public abstract NoSuchPackageException noSuchPackage();
+
+    public abstract NoSuchTargetExceptionWithLocation noSuchTarget();
 
     public abstract InconsistentNullConfigException inconsistentNullConfig();
 
@@ -91,9 +98,39 @@ public final class TargetAndConfigurationProducer
           .configuredValueCreation(e);
     }
 
+    private static TargetAndConfigurationError of(NoSuchPackageException e) {
+      return AutoOneOf_TargetAndConfigurationProducer_TargetAndConfigurationError.noSuchPackage(e);
+    }
+
+    private static TargetAndConfigurationError of(NoSuchTargetException e, Location location) {
+      return AutoOneOf_TargetAndConfigurationProducer_TargetAndConfigurationError.noSuchTarget(
+          NoSuchTargetExceptionWithLocation.create(e, location));
+    }
+
     private static TargetAndConfigurationError of(InconsistentNullConfigException e) {
       return AutoOneOf_TargetAndConfigurationProducer_TargetAndConfigurationError
           .inconsistentNullConfig(e);
+    }
+  }
+
+  /**
+   * A wrapper attaching {@link Location} information to {@link NoSuchTargetException} so it can be
+   * reported in an event.
+   */
+  @AutoValue
+  public abstract static class NoSuchTargetExceptionWithLocation {
+    // TODO(b/261521010): This class is needed so that the event can be created with the location
+    // information. Instead of having this class, inject an `ExtendedEventListener` into the
+    // `TargetAndConfigurationProducer` so events can be handled locally.
+
+    public abstract NoSuchTargetException exception();
+
+    public abstract Location location();
+
+    private static NoSuchTargetExceptionWithLocation create(
+        NoSuchTargetException exception, Location location) {
+      return new AutoValue_TargetAndConfigurationProducer_NoSuchTargetExceptionWithLocation(
+          exception, location);
     }
   }
 
@@ -139,22 +176,19 @@ public final class TargetAndConfigurationProducer
 
   @Override
   public void acceptTargetError(NoSuchPackageException e) {
-    emitError(e.getMessage(), /* location= */ null, e.getDetailedExitCode());
+    sink.acceptTargetAndConfigurationError(TargetAndConfigurationError.of(e));
   }
 
   @Override
   public void acceptTargetError(NoSuchTargetException e, Location location) {
-    emitError(e.getMessage(), location, e.getDetailedExitCode());
+    sink.acceptTargetAndConfigurationError(TargetAndConfigurationError.of(e, location));
   }
 
   private StateMachine determineConfiguration(Tasks tasks, ExtendedEventHandler listener) {
     if (target == null) {
-      return DONE; // There was an error.
+      return DONE; // A target could not be determined.
     }
 
-    // TODO(b/261521010): after removing the rule transition from dependency resolution, remove
-    // this. It won't be possible afterwards because null configuration keys will only be used for
-    // visibility dependencies.
     BuildConfigurationKey configurationKey = preRuleTransitionKey.getConfigurationKey();
     if (configurationKey == null) {
       if (target.isConfigurable()) {

@@ -5,10 +5,10 @@
 ## antlr
 
 <pre>
-antlr(<a href="#antlr-name">name</a>, <a href="#antlr-Xconversiontimeout">Xconversiontimeout</a>, <a href="#antlr-Xdbgconversion">Xdbgconversion</a>, <a href="#antlr-Xdbgst">Xdbgst</a>, <a href="#antlr-Xdfa">Xdfa</a>, <a href="#antlr-Xdfaverbose">Xdfaverbose</a>, <a href="#antlr-Xgrtree">Xgrtree</a>, <a href="#antlr-Xm">Xm</a>,
+antlr(<a href="#antlr-name">name</a>, <a href="#antlr-deps">deps</a>, <a href="#antlr-srcs">srcs</a>, <a href="#antlr-Xconversiontimeout">Xconversiontimeout</a>, <a href="#antlr-Xdbgconversion">Xdbgconversion</a>, <a href="#antlr-Xdbgst">Xdbgst</a>, <a href="#antlr-Xdfa">Xdfa</a>, <a href="#antlr-Xdfaverbose">Xdfaverbose</a>, <a href="#antlr-Xgrtree">Xgrtree</a>, <a href="#antlr-Xm">Xm</a>,
       <a href="#antlr-Xmaxdfaedges">Xmaxdfaedges</a>, <a href="#antlr-Xmaxinlinedfastates">Xmaxinlinedfastates</a>, <a href="#antlr-Xminswitchalts">Xminswitchalts</a>, <a href="#antlr-Xmultithreaded">Xmultithreaded</a>, <a href="#antlr-Xnfastates">Xnfastates</a>, <a href="#antlr-Xnocollapse">Xnocollapse</a>,
-      <a href="#antlr-Xnomergestopstates">Xnomergestopstates</a>, <a href="#antlr-Xnoprune">Xnoprune</a>, <a href="#antlr-XsaveLexer">XsaveLexer</a>, <a href="#antlr-Xwatchconversion">Xwatchconversion</a>, <a href="#antlr-debug">debug</a>, <a href="#antlr-depend">depend</a>, <a href="#antlr-deps">deps</a>, <a href="#antlr-dfa">dfa</a>, <a href="#antlr-dump">dump</a>,
-      <a href="#antlr-imports">imports</a>, <a href="#antlr-language">language</a>, <a href="#antlr-message_format">message_format</a>, <a href="#antlr-nfa">nfa</a>, <a href="#antlr-package">package</a>, <a href="#antlr-profile">profile</a>, <a href="#antlr-report">report</a>, <a href="#antlr-srcs">srcs</a>, <a href="#antlr-trace">trace</a>)
+      <a href="#antlr-Xnomergestopstates">Xnomergestopstates</a>, <a href="#antlr-Xnoprune">Xnoprune</a>, <a href="#antlr-XsaveLexer">XsaveLexer</a>, <a href="#antlr-Xwatchconversion">Xwatchconversion</a>, <a href="#antlr-debug">debug</a>, <a href="#antlr-depend">depend</a>, <a href="#antlr-dfa">dfa</a>, <a href="#antlr-dump">dump</a>, <a href="#antlr-imports">imports</a>,
+      <a href="#antlr-language">language</a>, <a href="#antlr-message_format">message_format</a>, <a href="#antlr-nfa">nfa</a>, <a href="#antlr-package">package</a>, <a href="#antlr-profile">profile</a>, <a href="#antlr-report">report</a>, <a href="#antlr-trace">trace</a>)
 </pre>
 
 Runs [ANTLR 3](https://www.antlr3.org//) on a set of grammars.
@@ -27,6 +27,26 @@ Runs [ANTLR 3](https://www.antlr3.org//) on a set of grammars.
         <a href="https://bazel.build/concepts/labels#target-names">Name</a>; required
         <p>
           A unique name for this target.
+        </p>
+      </td>
+    </tr>
+    <tr id="antlr-deps">
+      <td><code>deps</code></td>
+      <td>
+        <a href="https://bazel.build/concepts/labels">List of labels</a>; optional
+        <p>
+          The dependencies to use. Defaults to the most recent ANTLR 3 release,
+but if you need to use a different version, you can specify the
+dependencies here.
+        </p>
+      </td>
+    </tr>
+    <tr id="antlr-srcs">
+      <td><code>srcs</code></td>
+      <td>
+        <a href="https://bazel.build/concepts/labels">List of labels</a>; required
+        <p>
+          The grammar files to process.
         </p>
       </td>
     </tr>
@@ -201,17 +221,6 @@ Runs [ANTLR 3](https://www.antlr3.org//) on a set of grammars.
         </p>
       </td>
     </tr>
-    <tr id="antlr-deps">
-      <td><code>deps</code></td>
-      <td>
-        <a href="https://bazel.build/concepts/labels">List of labels</a>; optional
-        <p>
-          The dependencies to use. Defaults to the most recent ANTLR 3 release,
-but if you need to use a different version, you can specify the
-dependencies here.
-        </p>
-      </td>
-    </tr>
     <tr id="antlr-dfa">
       <td><code>dfa</code></td>
       <td>
@@ -290,15 +299,6 @@ dependencies here.
         Boolean; optional
         <p>
           Print out a report about the grammar(s) processed.
-        </p>
-      </td>
-    </tr>
-    <tr id="antlr-srcs">
-      <td><code>srcs</code></td>
-      <td>
-        <a href="https://bazel.build/concepts/labels">List of labels</a>; required
-        <p>
-          The grammar files to process.
         </p>
       </td>
     </tr>

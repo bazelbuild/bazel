@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
@@ -509,14 +510,14 @@ public final class SkyframeErrorProcessor {
     } else if (exception instanceof ActionConflictException) {
       ((ActionConflictException) exception).reportTo(eventHandler);
       analysisRootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    } else if (exception instanceof NoSuchPackageException) {
+    } else if (exception instanceof NoSuchThingException) {
       // This branch is only taken in --nokeep_going builds. In a --keep_going build, the
       // AnalysisFailedCause is properly reported through the ConfiguredValueCreationException.
       AnalysisFailedCause analysisFailedCause =
           new AnalysisFailedCause(
               topLevelLabel,
               configurationIdMessage(ctKey.getConfigurationKey()),
-              ((NoSuchPackageException) exception).getDetailedExitCode());
+              ((NoSuchThingException) exception).getDetailedExitCode());
       analysisRootCauses = NestedSetBuilder.create(Order.STABLE_ORDER, analysisFailedCause);
     } else if (exception instanceof TargetCompatibilityCheckException) {
       analysisRootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);

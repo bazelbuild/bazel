@@ -22,12 +22,14 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.Rule;
+import net.starlark.java.eval.StarlarkValue;
 
 /** A {@link ConfiguredTarget} that has licensed targets in its transitive closure. */
 @Immutable
-public final class LicensesProviderImpl implements LicensesProvider {
+public final class LicensesProviderImpl implements LicensesProvider, StarlarkValue {
   public static final LicensesProvider EMPTY =
       new LicensesProviderImpl(NestedSetBuilder.<TargetLicense>emptySet(Order.LINK_ORDER), null);
 
@@ -38,6 +40,11 @@ public final class LicensesProviderImpl implements LicensesProvider {
       NestedSet<TargetLicense> transitiveLicenses, TargetLicense outputLicenses) {
     this.transitiveLicenses = transitiveLicenses;
     this.outputLicenses = outputLicenses;
+  }
+
+  @Override
+  public BuiltinProvider<LicensesProvider> getProvider() {
+    return LicensesProvider.PROVIDER;
   }
 
   /**
@@ -78,7 +85,7 @@ public final class LicensesProviderImpl implements LicensesProvider {
           // output_licenses.
           Attribute attribute = attributes.getAttributeDefinition(depAttrName);
           for (TransitiveInfoCollection dep : configuredMap.get(depAttrName)) {
-            LicensesProvider provider = dep.getProvider(LicensesProvider.class);
+            LicensesProvider provider = dep.get(LicensesProvider.PROVIDER);
             if (provider == null) {
               continue;
             }

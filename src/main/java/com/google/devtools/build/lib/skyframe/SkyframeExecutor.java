@@ -83,7 +83,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
-import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.InconsistentNullConfigException;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
@@ -98,11 +97,12 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
 import com.google.devtools.build.lib.analysis.producers.ConfiguredTargetAndDataProducer;
 import com.google.devtools.build.lib.analysis.producers.DependencyError;
 import com.google.devtools.build.lib.analysis.producers.DependencyMapProducer;
+import com.google.devtools.build.lib.analysis.producers.MissingEdgeError;
 import com.google.devtools.build.lib.analysis.producers.PrerequisiteParameters;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
@@ -361,6 +361,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   protected final SkyframeActionExecutor skyframeActionExecutor;
   private ActionExecutionFunction actionExecutionFunction;
   private BuildDriverFunction buildDriverFunction;
+  private ConfiguredTargetFunction configuredTargetFunction;
   private GlobFunction globFunction;
   protected SkyframeProgressReceiver progressReceiver;
   private CyclesReporter cyclesReporter = null;
@@ -635,21 +636,24 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.TARGET_PATTERN_ERROR, new TargetPatternErrorFunction());
     map.put(TransitiveTargetKey.NAME, new TransitiveTargetFunction());
     map.put(Label.TRANSITIVE_TRAVERSAL, getTransitiveTraversalFunction());
+    var prerequisitePackages = new ConcurrentHashMap<PackageIdentifier, Package>();
     map.put(
         SkyFunctions.CONFIGURED_TARGET,
-        new ConfiguredTargetFunction(
-            new BuildViewProvider(),
-            ruleClassProvider,
-            oomSensitiveSkyFunctionsSemaphore,
-            shouldStoreTransitivePackagesInLoadingAndAnalysis(),
-            shouldUnblockCpuWorkWhenFetchingDeps,
-            configuredTargetProgress));
+        configuredTargetFunction =
+            new ConfiguredTargetFunction(
+                new BuildViewProvider(),
+                ruleClassProvider,
+                oomSensitiveSkyFunctionsSemaphore,
+                shouldStoreTransitivePackagesInLoadingAndAnalysis(),
+                shouldUnblockCpuWorkWhenFetchingDeps,
+                configuredTargetProgress,
+                prerequisitePackages));
     map.put(
         SkyFunctions.ASPECT,
         new AspectFunction(
             new BuildViewProvider(),
-            ruleClassProvider,
-            shouldStoreTransitivePackagesInLoadingAndAnalysis()));
+            shouldStoreTransitivePackagesInLoadingAndAnalysis(),
+            prerequisitePackages));
     map.put(SkyFunctions.TOP_LEVEL_ASPECTS, new ToplevelStarlarkAspectFunction());
     map.put(
         SkyFunctions.BUILD_TOP_LEVEL_ASPECTS_DETAILS, new BuildTopLevelAspectsDetailsFunction());
@@ -723,9 +727,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(
         SkyFunctions.PLATFORM_MAPPING,
         new PlatformMappingFunction(ruleClassProvider.getFragmentRegistry().getOptionsClasses()));
-    map.put(
-        SkyFunctions.ARTIFACT_NESTED_SET,
-        ArtifactNestedSetFunction.createInstance(valueBasedChangePruningEnabled()));
+    map.put(SkyFunctions.ARTIFACT_NESTED_SET, ArtifactNestedSetFunction.createInstance());
     BuildDriverFunction buildDriverFunction =
         new BuildDriverFunction(
             new TransitiveActionLookupValuesHelper() {
@@ -772,10 +774,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected SkyFunction newCollectPackagesUnderDirectoryFunction(BlazeDirectories directories) {
     return new CollectPackagesUnderDirectoryFunction(directories);
-  }
-
-  protected boolean valueBasedChangePruningEnabled() {
-    return true;
   }
 
   @Nullable
@@ -959,6 +957,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     skyframeBuildView.clearInvalidatedActionLookupKeys();
     skyframeBuildView.clearLegacyData();
     ArtifactNestedSetFunction.getInstance().resetArtifactNestedSetFunctionMaps();
+  }
+
+  public void clearPrerequisitePackages() {
+    configuredTargetFunction.clearPrerequisitePackages();
   }
 
   /** Used with dump --rules. */
@@ -1152,8 +1154,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /** Signals whether nodes (or some internal node data) can be removed from the analysis cache. */
-  @ForOverride
-  protected boolean processDiscardAndDetermineRemoval(
+  private static boolean processDiscardAndDetermineRemoval(
       InMemoryNodeEntry entry,
       DiscardType discardType,
       ImmutableSet<PackageIdentifier> topLevelPackages,
@@ -1738,7 +1739,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   @Nullable
   public BuildConfigurationValue getConfiguration(
-      ExtendedEventHandler eventHandler, BuildConfigurationKey configurationKey) {
+      ExtendedEventHandler eventHandler, @Nullable BuildConfigurationKey configurationKey) {
     if (configurationKey == null) {
       return null;
     }
@@ -2959,7 +2960,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       if (!(newValue instanceof RuleConfiguredTargetValue)) {
         return;
       }
-      var t = (RuleConfiguredTarget) ((RuleConfiguredTargetValue) newValue).getConfiguredTarget();
+      var t = ((RuleConfiguredTargetValue) newValue).getConfiguredTarget();
       if (!t.getRuleClassString().equals("genquery")) {
         return;
       }
@@ -3754,6 +3755,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Label label,
       @Nullable BuildConfigurationValue configuration)
       throws InterruptedException {
+    clearPrerequisitePackages();
     var sink =
         new ConfiguredTargetAndDataProducer.ResultSink() {
           @Nullable private ConfiguredTargetAndData result;
@@ -3768,6 +3770,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
           @Override
           public void acceptConfiguredTargetAndDataError(InconsistentNullConfigException error) {}
+
+          @Override
+          public void acceptConfiguredTargetAndDataError(NoSuchThingException error) {}
         };
 
     EvaluationResult<SkyValue> result;
@@ -3804,13 +3809,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /**
-   * Returns a map from {@link Dependency} inputs to the {@link ConfiguredTargetAndData}s
+   * Returns a multimap from {@link DependencyKind} inputs to the {@link ConfiguredTargetAndData}s
    * corresponding to those dependencies.
    *
-   * <p>For use for legacy support and tests calling through {@code BuildView} only.
-   *
-   * <p>If a requested configured target is in error, the corresponding value is omitted from the
-   * returned list.
+   * <p>For use for tests calling through {@code BuildView} only.
    */
   @ThreadSafety.ThreadSafe
   public OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData>
@@ -3819,7 +3821,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           PrerequisiteParameters parameters,
           OrderedSetMultimap<DependencyKind, Label> labels)
           throws InterruptedException {
+    clearPrerequisitePackages();
     checkActive();
+    BuildConfigurationValue configuration =
+        getConfiguration(eventHandler, parameters.configurationKey());
 
     var sink =
         new DependencyMapProducer.ResultSink() {
@@ -3836,6 +3841,18 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           public void acceptDependencyMapError(DependencyError error) {
             this.error = error;
           }
+
+          @Override
+          public void acceptDependencyMapError(MissingEdgeError error) {
+            error.emitCausesAndEvents(
+                new TargetAndConfiguration(parameters.target(), configuration),
+                parameters.transitiveState(),
+                eventHandler);
+          }
+
+          @Override
+          public void acceptTransition(
+              DependencyKind kind, Label label, ConfigurationTransition transition) {}
         };
 
     EvaluationResult<SkyValue> result;

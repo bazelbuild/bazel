@@ -400,7 +400,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Artifact executable = (Artifact) executableUnchecked;
       FilesToRunProvider provider = context.getExecutableRunfiles(executable);
       if (provider == null) {
-        if (useAutoExecGroups) {
+        if (useAutoExecGroups && execGroupUnchecked == Starlark.NONE) {
           checkToolchainParameterIsSet(toolchainUnchecked);
         }
         builder.setExecutable(executable);
@@ -414,7 +414,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
           PathFragment.create((String) executableUnchecked).getPathString());
     } else if (executableUnchecked instanceof FilesToRunProvider) {
       if (useAutoExecGroups
-          && !context.areRunfilesFromDeps((FilesToRunProvider) executableUnchecked)) {
+          && !context.areRunfilesFromDeps((FilesToRunProvider) executableUnchecked)
+          && execGroupUnchecked == Starlark.NONE) {
         checkToolchainParameterIsSet(toolchainUnchecked);
       }
       builder.setExecutable((FilesToRunProvider) executableUnchecked);
@@ -441,31 +442,46 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   }
 
   @Override
-  public void transformVersionFile(
-      Object transformFuncObject, Object templateObject, Object outputObject, StarlarkThread thread)
+  public Artifact transformVersionFile(
+      Object transformFuncObject,
+      Object templateObject,
+      String outputFileName,
+      StarlarkThread thread)
       throws InterruptedException, EvalException {
     checkPrivateAccess(PRIVATE_BUILDINFO_API_ALLOWLIST, thread);
-    transformBuildInfoFile(transformFuncObject, templateObject, outputObject, true, thread);
+    return transformBuildInfoFile(
+        transformFuncObject, templateObject, outputFileName, true, thread);
   }
 
   @Override
-  public void transformInfoFile(
-      Object transformFuncObject, Object templateObject, Object outputObject, StarlarkThread thread)
-      throws InterruptedException, EvalException {
-    checkPrivateAccess(PRIVATE_BUILDINFO_API_ALLOWLIST, thread);
-    transformBuildInfoFile(transformFuncObject, templateObject, outputObject, false, thread);
-  }
-
-  private void transformBuildInfoFile(
+  public Artifact transformInfoFile(
       Object transformFuncObject,
       Object templateObject,
-      Object outputObject,
+      String outputFileName,
+      StarlarkThread thread)
+      throws InterruptedException, EvalException {
+    checkPrivateAccess(PRIVATE_BUILDINFO_API_ALLOWLIST, thread);
+    return transformBuildInfoFile(
+        transformFuncObject, templateObject, outputFileName, false, thread);
+  }
+
+  private Artifact transformBuildInfoFile(
+      Object transformFuncObject,
+      Object templateObject,
+      String outputFileName,
       boolean isVolatile,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     RuleContext ruleContext = getRuleContext();
     Artifact templateFile = (Artifact) templateObject;
-    Artifact buildInfoFile = (Artifact) outputObject;
+    PathFragment fragment =
+        ruleContext.getPackageDirectory().getRelative(PathFragment.create(outputFileName));
+    Artifact buildInfoFile =
+        isVolatile
+            ? ruleContext
+                .getAnalysisEnvironment()
+                .getConstantMetadataArtifact(fragment, newFileRoot())
+            : ruleContext.getDerivedArtifact(fragment, newFileRoot());
     StarlarkFunction translationFunc = (StarlarkFunction) transformFuncObject;
     BuildInfoFileWriteAction action =
         new BuildInfoFileWriteAction(
@@ -479,6 +495,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
             isVolatile,
             thread.getSemantics());
     registerAction(action);
+    return buildInfoFile;
   }
 
   private void validateActionCreation() throws EvalException {
@@ -721,19 +738,20 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
           if (provider != null) {
             builder.addTool(provider);
           } else {
-            if (useAutoExecGroups) {
+            if (useAutoExecGroups && execGroupUnchecked == Starlark.NONE) {
               checkToolchainParameterIsSet(toolchainUnchecked);
             }
           }
         } else if (toolUnchecked instanceof FilesToRunProvider) {
           if (useAutoExecGroups
-              && !context.areRunfilesFromDeps((FilesToRunProvider) toolUnchecked)) {
+              && !context.areRunfilesFromDeps((FilesToRunProvider) toolUnchecked)
+              && execGroupUnchecked == Starlark.NONE) {
             checkToolchainParameterIsSet(toolchainUnchecked);
           }
           builder.addTool((FilesToRunProvider) toolUnchecked);
         } else if (toolUnchecked instanceof Depset) {
           try {
-            if (useAutoExecGroups) {
+            if (useAutoExecGroups && execGroupUnchecked == Starlark.NONE) {
               checkToolchainParameterIsSet(toolchainUnchecked);
             }
             builder.addTransitiveTools(((Depset) toolUnchecked).getSet(Artifact.class));

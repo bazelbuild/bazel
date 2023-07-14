@@ -68,6 +68,18 @@ public abstract class ModuleExtensionUsage {
   /** All the tags specified by this module for this extension. */
   public abstract ImmutableList<Tag> getTags();
 
+  /**
+   * Whether any <code>use_extension</code> calls for this usage had <code>dev_dependency = True
+   * </code> set.*
+   */
+  public abstract boolean getHasDevUseExtension();
+
+  /**
+   * Whether any <code>use_extension</code> calls for this usage had <code>dev_dependency = False
+   * </code> set.*
+   */
+  public abstract boolean getHasNonDevUseExtension();
+
   public static Builder builder() {
     return new AutoValue_ModuleExtensionUsage.Builder();
   }
@@ -99,6 +111,10 @@ public abstract class ModuleExtensionUsage {
       tagsBuilder().add(value);
       return this;
     }
+
+    public abstract Builder setHasDevUseExtension(boolean hasDevUseExtension);
+
+    public abstract Builder setHasNonDevUseExtension(boolean hasNonDevUseExtension);
 
     public abstract ModuleExtensionUsage build();
   }

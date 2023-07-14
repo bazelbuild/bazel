@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Provider;
@@ -53,6 +54,11 @@ public final class OutputFileConfiguredTarget extends FileConfiguredTarget {
   }
 
   @Override
+  public BuiltinProvider<LicensesProvider> getProvider() {
+    return LicensesProvider.PROVIDER;
+  }
+
+  @Override
   @Nullable
   public <P extends TransitiveInfoProvider> P getProvider(Class<P> providerClass) {
     P provider = super.getProvider(providerClass);
@@ -70,6 +76,10 @@ public final class OutputFileConfiguredTarget extends FileConfiguredTarget {
   protected Info rawGetStarlarkProvider(Provider.Key providerKey) {
     // The following Starlark providers do not implement TransitiveInfoProvider and thus may only be
     // requested via this method using a Provider.Key, not via getProvider(Class) above.
+
+    if (providerKey.equals(LicensesProvider.PROVIDER.getKey())) {
+      return generatingRule.get(LicensesProvider.PROVIDER);
+    }
 
     if (providerKey.equals(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR.getKey())) {
       return firstNonNull(
@@ -132,8 +142,7 @@ public final class OutputFileConfiguredTarget extends FileConfiguredTarget {
   }
 
   private LicensesProvider getLicencesProviderFromGeneratingRule() {
-    return firstNonNull(
-        generatingRule.getProvider(LicensesProvider.class), LicensesProviderImpl.EMPTY);
+    return firstNonNull(generatingRule.get(LicensesProvider.PROVIDER), LicensesProviderImpl.EMPTY);
   }
 
   @Override

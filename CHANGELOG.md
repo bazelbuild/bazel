@@ -1,3 +1,56 @@
+## Release 7.0.0-pre.20230628.2 (2023-07-12)
+
+```
+Baseline: 604a9ef6332d49110d14d427317bd726225fff1d
+
+Cherry picks:
+
+   + 15c412eb9aa38e1b81f7dd2047849bbb55417a83:
+     Automated rollback of commit
+     52dbdc7a92cedfa212ef681f88e0b733cb5280e0.
+   + 990d97e576d4ec7d0c45f3efa5732171492d50b1:
+     Automated rollback of commit
+     0bda661e589ded1caad9edd58c9bebc3f647e41d.
+   + 6c393ec5539b34e9708b43b0145488b9df1c0878:
+     Add temporary rules_go bazel_dep to restore CI
+```
+
+Incompatible changes:
+
+  - Loading `.bzl` files under `@bazel_tools//tools/jdk` in WORKSPACE
+    now requires `rules_java` to be defined in advance.
+  - cc_binary targets with dynamic_deps attributes no longer link
+    indirect dynamic_deps on Unix. This might be an incompatible
+    change if you are using RUNPATHs (instead of RPATHs) in your
+    cc_shared_libraries. Enable the feature
+    "exclude_bazel_rpaths_in_transitive_libs" or
+    "use_rpath_instead_of_runpath" for those cc_shared_libraries.
+
+Important changes:
+
+  - Add aquery --output=streamed_proto which writes a stream of
+    length delimited ActionGraphContainer containing a single
+    Artifact, Action, Target, DepSetOfFiles, Configuration,
+    AspectDescriptor, RuleClass, PathFragment proto. This breaks up
+    the ActionGraphContainer into multiple which will prevent large
+    protos from crashing blaze.
+  - (BEP) TargetConfigured events will be marked aborted instead
+    of published when there is an analysis error. This is motivated
+    by a
+    low level Blaze change aimed at improving scalability.
+  - Add flag --experimental_collect_code_coverage_for_generated_files.
+  - Added a new output format for cquery --output=streamed_proto that
+    writes multiple length-delimited CqueryResult protos, each
+    containing a single ConfiguredTarget or Configuration. This
+    allows us to "bypass" the hard limit of 2GB on the size of
+    protocol buffers by splitting it up into multiple.
+  - Enable starlark_doc_extract - a native rule for Starlark
+    documentation
+    extraction. This rule is intended mainly for internal use by
+    Stardoc.
+
+This release contains contributions from many people at Google, as well as Anshuman Mishra, Benjamin Peterson, Benjamin Peterson, Daniel Wagner-Hall, Fabian Meumertzheim, Jay Conrod, Maksim, Rasrack, Sam Shadwell, Son Luong Ngoc, Takeo Sawada, Tyler Williams, Xavier Bonaventura, Yannic, Yuval Kaplan.
+
 ## Release 7.0.0-pre.20230530.3 (2023-06-09)
 
 ```

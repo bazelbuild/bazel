@@ -75,7 +75,7 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
         baseConfiguredTargetValue.getConfiguredTarget().getConfigurationKey();
     if (!Objects.equals(realConfiguration, baseConfiguredTargetKey.getConfigurationKey())) {
       baseConfiguredTargetKey =
-          baseConfiguredTargetKey.toBuilder().setConfigurationKey(realConfiguration).build();
+          ConfiguredTargetKey.fromConfiguredTarget(baseConfiguredTargetValue.getConfiguredTarget());
     }
 
     Collection<AspectKey> aspectsKeys =

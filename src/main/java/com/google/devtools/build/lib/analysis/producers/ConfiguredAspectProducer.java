@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.analysis.producers;
 import static com.google.devtools.build.lib.analysis.AspectCollection.buildAspectKey;
 import static com.google.devtools.build.lib.analysis.AspectResolutionHelpers.aspectMatchesConfiguredTarget;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.AspectCollection;
+import com.google.devtools.build.lib.analysis.AspectCollection.AspectDeps;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.DuplicateException;
@@ -24,18 +26,23 @@ import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
+import com.google.devtools.build.lib.skyframe.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Map;
+import javax.annotation.Nullable;
 
 /** Computes {@link ConfiguredAspect}s and merges them into a prerequisite. */
-final class ConfiguredAspectProducer implements StateMachine {
+final class ConfiguredAspectProducer
+    implements StateMachine, StateMachine.ValueOrExceptionSink<AspectCreationException> {
   interface ResultSink {
     void acceptConfiguredAspectMergedTarget(int outputIndex, ConfiguredTargetAndData mergedTarget);
+
+    void acceptConfiguredAspectError(AspectCreationException error);
 
     void acceptConfiguredAspectError(DuplicateException error);
   }
@@ -67,17 +74,34 @@ final class ConfiguredAspectProducer implements StateMachine {
 
   @Override
   public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
-    ConfiguredTargetKey baseKey =
-        ConfiguredTargetKey.fromConfiguredTarget(prerequisite.getConfiguredTarget());
-    getAspectKeys(aspects, baseKey)
-        .forEach(
-            (aspectDescriptor, aspectKey) ->
-                tasks.lookUp(aspectKey, v -> aspectValues.put(aspectDescriptor, (AspectValue) v)));
+    var baseKey = ConfiguredTargetKey.fromConfiguredTarget(prerequisite.getConfiguredTarget());
+    var memoTable = new HashMap<AspectDescriptor, AspectKey>();
+    for (AspectDeps deps : aspects.getUsedAspects()) {
+      tasks.lookUp(
+          buildAspectKey(deps, memoTable, baseKey),
+          AspectCreationException.class,
+          (ValueOrExceptionSink<AspectCreationException>) this);
+    }
     return this::processResult;
   }
 
+  @Override
+  public void acceptValueOrException(
+      @Nullable SkyValue untypedValue, @Nullable AspectCreationException error) {
+    if (untypedValue != null) {
+      var value = (AspectValue) untypedValue;
+      aspectValues.put(value.getKey().getAspectDescriptor(), value);
+      return;
+    }
+    sink.acceptConfiguredAspectError(error);
+  }
+
   private StateMachine processResult(Tasks tasks, ExtendedEventHandler listener) {
-    var usedAspects = aspects.getUsedAspects();
+    ImmutableSet<AspectDeps> usedAspects = aspects.getUsedAspects();
+    if (aspectValues.size() < usedAspects.size()) {
+      return DONE; // There was an error.
+    }
+
     var configuredAspects = new ArrayList<ConfiguredAspect>(usedAspects.size());
     for (AspectCollection.AspectDeps depAspect : usedAspects) {
       var value = aspectValues.get(depAspect.getAspect());
@@ -98,14 +122,5 @@ final class ConfiguredAspectProducer implements StateMachine {
       sink.acceptConfiguredAspectError(e);
     }
     return DONE;
-  }
-
-  private static Map<AspectDescriptor, AspectKey> getAspectKeys(
-      AspectCollection aspects, ConfiguredTargetKey baseKey) {
-    var result = new HashMap<AspectDescriptor, AspectKey>();
-    for (AspectCollection.AspectDeps aspectDeps : aspects.getUsedAspects()) {
-      buildAspectKey(aspectDeps, result, baseKey);
-    }
-    return result;
   }
 }

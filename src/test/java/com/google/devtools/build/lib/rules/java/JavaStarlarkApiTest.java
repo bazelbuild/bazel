@@ -563,8 +563,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         ")");
 
     testAnnotationProcessingInfoIsStarlarkAccessible(
-        /*toBeProcessedRuleName=*/ "java_custom_library",
-        /*extraLoad=*/ "load(':custom_rule.bzl', 'java_custom_library')");
+        /* toBeProcessedRuleName= */ "java_custom_library",
+        /* extraLoad= */ "load(':custom_rule.bzl', 'java_custom_library')");
   }
 
   /**
@@ -573,7 +573,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
    */
   @Test
   public void javaCommonCompile_requiresJavaPluginInfo() throws Exception {
-    useConfiguration("--incompatible_require_javaplugininfo_in_javacommon");
     JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/custom_rule.bzl",
@@ -1024,7 +1023,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   @Test
   public void testJavaPlugin() throws Exception {
     testAnnotationProcessingInfoIsStarlarkAccessible(
-        /*toBeProcessedRuleName=*/ "java_library", /*extraLoad=*/ "");
+        /* toBeProcessedRuleName= */ "java_library", /* extraLoad= */ "");
   }
 
   /**
@@ -1167,10 +1166,10 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     JavaPluginData pluginData =
         retrieveStarlarkPluginData(
-            "//java/test:plugin", /* provider = */ "JavaPluginInfo", /* apiGenerating = */ false);
+            "//java/test:plugin", /* provider= */ "JavaPluginInfo", /* apiGenerating= */ false);
     JavaPluginData apiPluginData =
         retrieveStarlarkPluginData(
-            "//java/test:plugin", /* provider = */ "JavaPluginInfo", /* apiGenerating = */ true);
+            "//java/test:plugin", /* provider= */ "JavaPluginInfo", /* apiGenerating= */ true);
 
     assertThat(pluginData.processorClasses().toList()).containsExactly("com.google.process.stuff");
     assertThat(pluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
@@ -1201,10 +1200,10 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     JavaPluginData pluginData =
         retrieveStarlarkPluginData(
-            "//java/test:plugin", /* provider = */ "JavaPluginInfo", /* apiGenerating = */ false);
+            "//java/test:plugin", /* provider= */ "JavaPluginInfo", /* apiGenerating= */ false);
     JavaPluginData apiPluginData =
         retrieveStarlarkPluginData(
-            "//java/test:plugin", /* provider = */ "JavaPluginInfo", /* apiGenerating = */ true);
+            "//java/test:plugin", /* provider= */ "JavaPluginInfo", /* apiGenerating= */ true);
 
     assertThat(apiPluginData.processorClasses().toList())
         .containsExactly("com.google.process.stuff");
@@ -1244,10 +1243,10 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     JavaPluginData pluginData =
         retrieveStarlarkPluginData(
-            "//java/test:library", /* provider = */ "JavaInfo", /* apiGenerating = */ false);
+            "//java/test:library", /* provider= */ "JavaInfo", /* apiGenerating= */ false);
     JavaPluginData apiPluginData =
         retrieveStarlarkPluginData(
-            "//java/test:library", /* provider = */ "JavaInfo", /* apiGenerating = */ true);
+            "//java/test:library", /* provider= */ "JavaInfo", /* apiGenerating= */ true);
 
     assertThat(pluginData.processorClasses().toList())
         .containsExactly("com.google.process.stuff", "com.google.process.apistuff");
@@ -3266,6 +3265,26 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     getConfiguredTarget("//foo:custom");
 
     assertContainsEvent("no field or method '_google_legacy_api_enabled'");
+  }
+
+  @Test
+  public void testCheckJavaToolchainIsDeclaredOnRuleIsPrivateAPI() throws Exception {
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  java_common._check_java_toolchain_is_declared_on_rule()",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {},",
+        ")");
+    scratch.file(
+        "foo/BUILD", "load(':custom_rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//foo:custom");
+
+    assertContainsEvent("no field or method '_check_java_toolchain_is_declared_on_rule'");
   }
 
   @Test

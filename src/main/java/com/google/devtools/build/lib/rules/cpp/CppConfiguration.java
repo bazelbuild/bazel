@@ -54,6 +54,8 @@ import net.starlark.java.eval.StarlarkValue;
 @RequiresOptions(options = {AppleCommandLineOptions.class, CppOptions.class})
 public final class CppConfiguration extends Fragment
     implements CppConfigurationApi<InvalidConfigurationException> {
+  private static final String BAZEL_TOOLS_REPO = "@bazel_tools";
+
   /**
    * String indicating a Mac system, for example when used in a crosstool configuration's exec or
    * target system name.
@@ -310,6 +312,24 @@ public final class CppConfiguration extends Fragment
     } else {
       return cppOptions.crosstoolTop;
     }
+  }
+
+  @Nullable
+  @StarlarkConfigurationField(name = "zipper", doc = "The zipper label for FDO.")
+  public Label getFdoZipper() {
+    if (getFdoOptimizeLabel() != null || getFdoProfileLabel() != null || getFdoPath() != null) {
+      return Label.parseCanonicalUnchecked(BAZEL_TOOLS_REPO + "//tools/zip:unzip_fdo");
+    }
+    return null;
+  }
+
+  @Nullable
+  @StarlarkConfigurationField(name = "default_zipper", doc = "The default zipper label for FDO.")
+  public Label getDefaultFdoZipper() {
+    if (getMemProfProfileLabel() != null) {
+      return Label.parseCanonicalUnchecked(BAZEL_TOOLS_REPO + "//tools/zip:zipper");
+    }
+    return null;
   }
 
   /** Returns the configured current compilation mode. */
@@ -613,7 +633,8 @@ public final class CppConfiguration extends Fragment
     return fdoPath;
   }
 
-  Label getFdoOptimizeLabel() {
+  @StarlarkConfigurationField(name = "fdo_optimize", doc = "The label specified in --fdo_optimize")
+  public Label getFdoOptimizeLabel() {
     return fdoOptimizeLabel;
   }
 
@@ -634,20 +655,30 @@ public final class CppConfiguration extends Fragment
   }
 
   @Nullable
-  Label getFdoPrefetchHintsLabel() {
+  @StarlarkConfigurationField(
+      name = "fdo_prefetch_hints",
+      doc = "The label specified in --fdo_prefetch_hints")
+  public Label getFdoPrefetchHintsLabel() {
     return cppOptions.getFdoPrefetchHintsLabel();
   }
 
-  Label getFdoProfileLabel() {
+  @StarlarkConfigurationField(name = "fdo_profile", doc = "The label specified in --fdo_profile")
+  public Label getFdoProfileLabel() {
     return cppOptions.fdoProfileLabel;
   }
 
+  @StarlarkConfigurationField(
+      name = "cs_fdo_profile",
+      doc = "The label specified in --cs_fdo_profile")
   public Label getCSFdoProfileLabel() {
     return cppOptions.csFdoProfileLabel;
   }
 
   @Nullable
-  Label getPropellerOptimizeLabel() {
+  @StarlarkConfigurationField(
+      name = "propeller_optimize",
+      doc = "The label specified in --propeller_optimize")
+  public Label getPropellerOptimizeLabel() {
     if (cppOptions.fdoInstrumentForBuild != null || cppOptions.csFdoInstrumentForBuild != null) {
       return null;
     }
@@ -655,7 +686,8 @@ public final class CppConfiguration extends Fragment
   }
 
   @Nullable
-  Label getXFdoProfileLabel() {
+  @StarlarkConfigurationField(name = "xbinary_fdo", doc = "The label specified in --xbinary_fdo")
+  public Label getXFdoProfileLabel() {
     if (cppOptions.fdoOptimizeForBuild != null
         || cppOptions.fdoInstrumentForBuild != null
         || cppOptions.fdoProfileLabel != null
@@ -667,7 +699,10 @@ public final class CppConfiguration extends Fragment
   }
 
   @Nullable
-  Label getMemProfProfileLabel() {
+  @StarlarkConfigurationField(
+      name = "memprof_profile",
+      doc = "The memprof profile label for cc_toolchain rule")
+  public Label getMemProfProfileLabel() {
     return cppOptions.getMemProfProfileLabel();
   }
 
@@ -694,6 +729,7 @@ public final class CppConfiguration extends Fragment
   /**
    * Returns the value of the libc top-level directory (--grte_top) as specified on the command line
    */
+  @StarlarkConfigurationField(name = "libc_top", doc = "The libc_top label for cc_toolchain.")
   public Label getLibcTopLabel() {
     return cppOptions.libcTopLabel;
   }
@@ -714,6 +750,9 @@ public final class CppConfiguration extends Fragment
    * Returns the value of the libc top-level directory (--grte_top) as specified on the command line
    */
   @Nullable
+  @StarlarkConfigurationField(
+      name = "target_libc_top_DO_NOT_USE_ONLY_FOR_CC_TOOLCHAIN",
+      doc = "DO NOT USE")
   public Label getTargetLibcTopLabel() {
     if (!isToolConfigurationDoNotUseWillBeRemovedFor129045294) {
       // This isn't for a platform-enabled C++ toolchain (legacy C++ toolchains evaluate in the
@@ -740,6 +779,16 @@ public final class CppConfiguration extends Fragment
 
   public boolean collectCodeCoverage() {
     return collectCodeCoverage;
+  }
+
+  @StarlarkMethod(
+      name = "enable_cc_toolchain_resolution",
+      documented = false,
+      useStarlarkThread = true)
+  public boolean enableCcToolchainResolutionForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return enableCcToolchainResolution();
   }
 
   public boolean enableCcToolchainResolution() {

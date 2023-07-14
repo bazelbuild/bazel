@@ -48,22 +48,18 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
   private static void validateRuleContext(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
     /**
-     * TODO(b/14473160): Remove when deps are no longer implicitly exported.
-     *
-     * <p>Warn if android_library rule contains deps without srcs or locally-used resources. Such
-     * deps are implicitly exported (deprecated behavior), and will soon be disallowed entirely.
+     * Report an error if android_library rule contains deps without srcs or locally-used resources.
+     * Such deps are implicitly exported (deprecated behavior), and will soon be disallowed
+     * entirely.
      */
+    // TODO(cushon): this rule doesn't cover srcs-less deps exporting in android_binary, which
+    // it is possible to add to deps
     if (usesDeprecatedImplicitExport(ruleContext)) {
       String message =
           "android_library will be deprecating the use of deps to export "
               + "targets implicitly. Please use android_library.exports to explicitly specify "
               + "targets this rule exports";
-      AndroidConfiguration androidConfig = ruleContext.getFragment(AndroidConfiguration.class);
-      if (androidConfig.allowSrcsLessAndroidLibraryDeps(ruleContext)) {
-        ruleContext.attributeWarning("deps", message);
-      } else {
-        ruleContext.attributeError("deps", message);
-      }
+      ruleContext.attributeError("deps", message);
     }
   }
 

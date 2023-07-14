@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.analysis.AspectResolutionHelpers.aspectMatchesConfiguredTarget;
-import static com.google.devtools.build.lib.analysis.config.transitions.TransitionCollector.NULL_TRANSITION_COLLECTOR;
 import static com.google.devtools.build.lib.skyframe.PrerequisiteProducer.createDefaultToolchainContextKey;
 
 import com.google.common.base.Preconditions;
@@ -72,7 +71,6 @@ import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
 import com.google.devtools.build.lib.packages.Target;
@@ -97,6 +95,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -119,7 +118,6 @@ import net.starlark.java.eval.StarlarkSemantics;
  */
 final class AspectFunction implements SkyFunction {
   private final BuildViewProvider buildViewProvider;
-  private final RuleClassProvider ruleClassProvider;
   /**
    * Indicates whether the set of packages transitively loaded for a given {@link AspectValue} will
    * be needed later (see {@link
@@ -128,13 +126,20 @@ final class AspectFunction implements SkyFunction {
    */
   private final boolean storeTransitivePackages;
 
+  /**
+   * Packages of prerequistes.
+   *
+   * <p>See {@link ConfiguredTargetFunction#prerequisitePackages} for more details.
+   */
+  private final ConcurrentHashMap<PackageIdentifier, Package> prerequisitePackages;
+
   AspectFunction(
       BuildViewProvider buildViewProvider,
-      RuleClassProvider ruleClassProvider,
-      boolean storeTransitivePackages) {
+      boolean storeTransitivePackages,
+      ConcurrentHashMap<PackageIdentifier, Package> prerequisitePackages) {
     this.buildViewProvider = buildViewProvider;
-    this.ruleClassProvider = ruleClassProvider;
     this.storeTransitivePackages = storeTransitivePackages;
+    this.prerequisitePackages = prerequisitePackages;
   }
 
   static class State implements SkyKeyComputeState {
@@ -142,8 +147,11 @@ final class AspectFunction implements SkyFunction {
 
     final PrerequisiteProducer.State computeDependenciesState;
 
-    private State(boolean storeTransitivePackages) {
-      this.computeDependenciesState = new PrerequisiteProducer.State(storeTransitivePackages);
+    private State(
+        boolean storeTransitivePackages,
+        ConcurrentHashMap<PackageIdentifier, Package> prerequisitePackages) {
+      this.computeDependenciesState =
+          new PrerequisiteProducer.State(storeTransitivePackages, prerequisitePackages);
     }
   }
 
@@ -167,7 +175,7 @@ final class AspectFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws AspectFunctionException, InterruptedException {
     AspectKey key = (AspectKey) skyKey.argument();
-    State state = env.getState(() -> new State(storeTransitivePackages));
+    State state = env.getState(() -> new State(storeTransitivePackages, prerequisitePackages));
 
     PrerequisiteProducer.State computeDependenciesState = state.computeDependenciesState;
     if (state.initialValues == null) {
@@ -285,29 +293,26 @@ final class AspectFunction implements SkyFunction {
         return null;
       }
 
-      OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap;
+      Optional<StarlarkAttributeTransitionProvider> starlarkExecTransition;
       try {
-        Optional<StarlarkAttributeTransitionProvider> starlarkExecTransition =
+        starlarkExecTransition =
             PrerequisiteProducer.loadStarlarkExecTransition(targetAndConfiguration, env);
         if (starlarkExecTransition == null) {
           return null; // Need Skyframe deps.
         }
-        depValueMap =
-            PrerequisiteProducer.computeDependencies(
-                computeDependenciesState,
-                topologicalAspectPath,
-                ruleClassProvider,
-                buildViewProvider.getSkyframeBuildView().getStarlarkTransitionCache(),
-                NULL_TRANSITION_COLLECTOR,
-                starlarkExecTransition.orElse(null),
-                env,
-                env.getListener());
-      } catch (ConfiguredValueCreationException e) {
-        throw new AspectCreationException(
-            e.getMessage(), key.getLabel(), configuration, e.getDetailedExitCode());
       } catch (UnreportedException e) {
         throw new AspectCreationException(e.getMessage(), key.getLabel(), configuration);
       }
+
+      OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap =
+          PrerequisiteProducer.computeDependencies(
+              computeDependenciesState,
+              ConfiguredTargetKey.fromConfiguredTarget(associatedTarget),
+              topologicalAspectPath,
+              buildViewProvider.getSkyframeBuildView().getStarlarkTransitionCache(),
+              starlarkExecTransition.orElse(null),
+              env,
+              env.getListener());
       if (depValueMap == null) {
         return null;
       }
@@ -398,11 +403,8 @@ final class AspectFunction implements SkyFunction {
 
   /** Populates {@code state.execGroupCollection} as a side effect. */
   @Nullable // Null if a Skyframe restart is needed.
-  private static DependencyContext getDependencyContext(
-      PrerequisiteProducer.State state,
-      AspectKey key,
-      Aspect aspect,
-      Environment env)
+  private DependencyContext getDependencyContext(
+      PrerequisiteProducer.State state, AspectKey key, Aspect aspect, Environment env)
       throws InterruptedException, ConfiguredValueCreationException, ToolchainException {
     if (state.dependencyContext != null) {
       return state.dependencyContext;

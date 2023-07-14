@@ -18,18 +18,25 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
+import com.google.devtools.build.lib.analysis.config.transitions.ComparingTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.rules.config.FeatureFlagValue;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkConfigApi.ExecTransitionFactoryApi;
+import com.google.devtools.build.lib.util.Pair;
 import java.util.Map;
+import java.util.StringJoiner;
 import javax.annotation.Nullable;
 
 /**
@@ -53,11 +60,6 @@ public class ExecutionTransitionFactory
     return new ExecutionTransitionFactory(DEFAULT_EXEC_GROUP_NAME);
   }
 
-  /** Returns a new {@link ExecutionTransition} immediately. */
-  public static PatchTransition createTransition(@Nullable Label executionPlatform) {
-    return new ExecutionTransition(executionPlatform);
-  }
-
   /**
    * Returns a new {@link ExecutionTransitionFactory} for the given {@link
    * com.google.devtools.build.lib.packages.ExecGroup}.
@@ -66,9 +68,38 @@ public class ExecutionTransitionFactory
     return new ExecutionTransitionFactory(execGroup);
   }
 
+  /** Returns a new {@link NativeExecTransition} immediately. */
+  public static PatchTransition createTransition(@Nullable Label executionPlatform) {
+    // TODO(b/288258583): support Starlark transitions.
+    return new ExecTransitionFinalizer(executionPlatform, NativeExecTransition.INSTANCE);
+  }
+
   @Override
   public PatchTransition create(AttributeTransitionData data) {
-    return new ExecutionTransition(data.executionPlatform());
+    PatchTransition nativeTransition =
+        new ExecTransitionFinalizer(data.executionPlatform(), NativeExecTransition.INSTANCE);
+    @SuppressWarnings("unchecked")
+    TransitionFactory<AttributeTransitionData> starlarkExecTransitionProvider =
+        (TransitionFactory<AttributeTransitionData>) data.analysisData();
+    if (starlarkExecTransitionProvider == null) {
+      // No Starlark transition specified for this build. Use default native behavior.
+      return nativeTransition;
+    }
+    // TODO(b/288258583): support event handling properly: cache the Starlark transition instance
+    // so it's not re-instantiated on every exec config (which regresses memory).
+    PatchTransition starlarkTransition =
+        new ExecTransitionFinalizer(
+            data.executionPlatform(), starlarkExecTransitionProvider.create(data));
+
+    // We don't yet know if --experimental_exec_config_diff is set becase this method doesn't have
+    // access to BuildOptions. So universally construct a ComparingTransition and let it figure out
+    // if it should run both transitions or just the Starlark transition.
+    return new ComparingTransition(
+        /* activeTransition= */ starlarkTransition,
+        /* activeTransitionDesc= */ "starlark",
+        /* altTransition= */ nativeTransition,
+        /* altTransitionDesc= */ "native",
+        /* runBoth= */ b -> b.get(CoreOptions.class).execConfigDiff);
   }
 
   private final String execGroup;
@@ -91,26 +122,37 @@ public class ExecutionTransitionFactory
     return true;
   }
 
-  private static final class ExecutionTransition implements PatchTransition {
+  /**
+   * Complete exec transition.
+   *
+   * <p>Takes as input the execution platform and the "main" transition used for this build: either
+   * a native or Starlark transition. Calls the main transitino, the runs finalizer logic that's
+   * common to both transition modes.
+   */
+  private static class ExecTransitionFinalizer implements PatchTransition {
+    private static final ImmutableSet<Class<? extends FragmentOptions>> FRAGMENTS =
+        ImmutableSet.of(CoreOptions.class, PlatformOptions.class);
+
+    // We added this cache after observing an O(100,000)-node build graph that applied multiple exec
+    // transitions on every node via an aspect. Before this cache, this produced O(500,000)
+    // BuildOptions instances that consumed over 3 gigabytes of memory.
+    private static final BuildOptionsCache<Pair<Label, ConfigurationTransition>> cache =
+        new BuildOptionsCache<>(ExecTransitionFinalizer::transitionImpl);
+
     @Nullable private final Label executionPlatform;
 
-    ExecutionTransition(@Nullable Label executionPlatform) {
+    private final ConfigurationTransition mainTransition;
+
+    ExecTransitionFinalizer(
+        @Nullable Label executionPlatform, ConfigurationTransition mainTransition) {
       this.executionPlatform = executionPlatform;
+      this.mainTransition = mainTransition;
     }
 
     @Override
     public String getName() {
       return "exec";
     }
-
-    // We added this cache after observing an O(100,000)-node build graph that applied multiple exec
-    // transitions on every node via an aspect. Before this cache, this produced O(500,000)
-    // BuildOptions instances that consumed over 3 gigabytes of memory.
-    private static final BuildOptionsCache<Label> cache =
-        new BuildOptionsCache<>(ExecutionTransition::transitionImpl);
-
-    private static final ImmutableSet<Class<? extends FragmentOptions>> FRAGMENTS =
-        ImmutableSet.of(CoreOptions.class, PlatformOptions.class);
 
     @Override
     public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
@@ -130,20 +172,43 @@ public class ExecutionTransitionFactory
       return cache.applyTransition(
           options,
           // The execution platform impacts the output's --platform_suffix and --platforms flags.
-          executionPlatform);
+          Pair.of(executionPlatform, mainTransition));
     }
 
-    private static BuildOptions transitionImpl(BuildOptionsView options, Label executionPlatform) {
-      // Start by converting to exec options.
-      BuildOptionsView execOptions =
-          new BuildOptionsView(options.underlying().createExecOptions(), FRAGMENTS);
+    private static class DebuggingEventHandler implements EventHandler {
+      final StringJoiner messages = new StringJoiner("\n");
 
-      CoreOptions coreOptions = checkNotNull(execOptions.get(CoreOptions.class));
-      coreOptions.isExec = true;
-      // Disable extra actions
-      coreOptions.actionListeners = ImmutableList.of();
+      @Override
+      public void handle(Event event) {
+        messages.add(event.getMessage());
+      }
+    }
 
-      // Then set the target to the saved execution platform if there is one.
+    private static BuildOptions transitionImpl(
+        BuildOptionsView options, Pair<Label, ConfigurationTransition> data) {
+      Label executionPlatform = data.first;
+      ConfigurationTransition mainTransition = data.second;
+
+      BuildOptions execOptions;
+      DebuggingEventHandler errorHandler = new DebuggingEventHandler();
+      try {
+
+        Map.Entry<String, BuildOptions> splitOptions =
+            Iterables.getOnlyElement(mainTransition.apply(options, errorHandler).entrySet());
+        if (splitOptions.getKey().equals("error")) {
+          // TODO(b/288258583): support event handling properly.
+          throw new VerifyException(
+              "Starlark transition failed on "
+                  + options.underlying().checksum()
+                  + ": "
+                  + errorHandler.messages);
+        }
+        execOptions = splitOptions.getValue();
+      } catch (InterruptedException e) {
+        throw new VerifyException(e);
+      }
+
+      // Set the target to the saved execution platform if there is one.
       PlatformOptions platformOptions = execOptions.get(PlatformOptions.class);
       if (platformOptions != null) {
         platformOptions.platforms = ImmutableList.of(executionPlatform);
@@ -151,24 +216,21 @@ public class ExecutionTransitionFactory
 
       // Remove any FeatureFlags that were set.
       ImmutableList<Label> featureFlags =
-          execOptions.underlying().getStarlarkOptions().entrySet().stream()
+          execOptions.getStarlarkOptions().entrySet().stream()
               .filter(entry -> entry.getValue() instanceof FeatureFlagValue)
               .map(Map.Entry::getKey)
               .collect(toImmutableList());
 
-      BuildOptions result = execOptions.underlying();
+      BuildOptions result = execOptions;
       if (!featureFlags.isEmpty()) {
         BuildOptions.Builder resultBuilder = result.toBuilder();
         featureFlags.forEach(resultBuilder::removeStarlarkOption);
         result = resultBuilder.build();
       }
 
-      // Finally, set the configuration distinguisher, platform_suffix, according to the
-      //   selected scheme.
-
       // The conditional use of a Builder above may have replaced result and underlying options
-      //   with a clone so must refresh it.
-      coreOptions = result.get(CoreOptions.class);
+      // with a clone so must refresh it.
+      CoreOptions coreOptions = result.get(CoreOptions.class);
       // TODO(blaze-configurability-team): These updates probably requires a bit too much knowledge
       //   of exactly how the immutable state and mutable state of BuildOptions is interacting.
       //   Might be good to have an option to wipeout that state rather than cloning so much.
@@ -203,6 +265,28 @@ public class ExecutionTransitionFactory
       }
 
       return result;
+    }
+  }
+
+  /** Logic unique to the native exec transition. */
+  private static class NativeExecTransition implements PatchTransition {
+    private static final NativeExecTransition INSTANCE = new NativeExecTransition();
+
+    private static final ImmutableSet<Class<? extends FragmentOptions>> FRAGMENTS =
+        ImmutableSet.of(CoreOptions.class, PlatformOptions.class);
+
+    @Override
+    public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
+      // Start by converting to exec options.
+      BuildOptionsView execOptions =
+          new BuildOptionsView(options.underlying().createExecOptions(), FRAGMENTS);
+
+      CoreOptions coreOptions = checkNotNull(execOptions.get(CoreOptions.class));
+      coreOptions.isExec = true;
+      // Disable extra actions
+      coreOptions.actionListeners = ImmutableList.of();
+
+      return execOptions.underlying();
     }
   }
 }

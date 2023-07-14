@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.BashCommandConstructor;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
-import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.LocationExpander;
@@ -68,7 +67,6 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -522,11 +520,6 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   /** Returns the wrapped ruleContext. */
   public RuleContext getRuleContext() {
     return ruleContext;
-  }
-
-  @Override
-  public Provider getDefaultProvider() {
-    return DefaultInfo.PROVIDER;
   }
 
   @Override
