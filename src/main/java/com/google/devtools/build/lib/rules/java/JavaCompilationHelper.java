@@ -529,14 +529,10 @@ public final class JavaCompilationHelper {
   /**
    * Creates the Action that compiles ijars from source.
    *
-   * @param runtimeJar the jar output of this java compilation, used to create output-relative paths
-   *     for new artifacts.
+   * @param headerJar the jar output of this java compilation
+   * @param headerDeps the .jdeps output of this java compilation
    */
-  private Artifact createHeaderCompilationAction(
-      Artifact runtimeJar, JavaCompilationArtifacts.Builder artifactBuilder) {
-
-    Artifact headerJar = turbineOutput(runtimeJar, "-hjar.jar");
-    Artifact headerDeps = turbineOutput(runtimeJar, "-hjar.jdeps");
+  private void createHeaderCompilationAction(Artifact headerJar, Artifact headerDeps) {
 
     JavaTargetAttributes attributes = getAttributes();
 
@@ -556,9 +552,6 @@ public final class JavaCompilationHelper {
     }
     builder.enableDirectClasspath(enableDirectClasspath);
     builder.build(javaToolchain);
-
-    artifactBuilder.setCompileTimeDependencies(headerDeps);
-    return headerJar;
   }
 
   private JavaHeaderCompileAction.Builder getJavaHeaderCompileActionBuilder() {
@@ -717,7 +710,10 @@ public final class JavaCompilationHelper {
     Artifact jar;
     boolean isFullJar = false;
     if (shouldUseHeaderCompilation()) {
-      jar = createHeaderCompilationAction(runtimeJar, builder);
+      jar = turbineOutput(runtimeJar, "-hjar.jar");
+      Artifact headerDeps = turbineOutput(runtimeJar, "-hjar.jdeps");
+      createHeaderCompilationAction(jar, headerDeps);
+      builder.setCompileTimeDependencies(headerDeps);
     } else if (getJavaConfiguration().getUseIjars()) {
       JavaTargetAttributes attributes = getAttributes();
       jar =
