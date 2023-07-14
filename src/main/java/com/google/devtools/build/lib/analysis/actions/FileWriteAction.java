@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OnDemandString;
 import java.io.ByteArrayInputStream;
@@ -169,26 +170,36 @@ public final class FileWriteAction extends AbstractFileWriteAction
   }
 
   private static final class CompressedString extends OnDemandString {
-    final byte[] bytes;
-    final int uncompressedSize;
+    private final byte[] compressedBytes;
+    private final int uncompressedSize;
+    private final byte coder;
 
     CompressedString(String chars) {
-      byte[] dataToCompress = chars.getBytes(ISO_8859_1);
-      ByteArrayOutputStream byteStream = new ByteArrayOutputStream(dataToCompress.length);
+      // Grab the string's internal byte array. Calling getBytes() makes a copy, which can cause
+      // memory spikes resulting in OOMs (b/290807073). Do not mutate this!
+      byte[] dataToCompress = StringUnsafe.getInstance().getByteArray(chars);
+
+      // Empirically, compressed sizes range from roughly 1/100 to 3/4 of the uncompressed size.
+      // Presize on the small end to avoid over-allocating memory.
+      ByteArrayOutputStream byteStream = new ByteArrayOutputStream(dataToCompress.length / 100);
+
       try (GZIPOutputStream zipStream = new GZIPOutputStream(byteStream)) {
         zipStream.write(dataToCompress);
       } catch (IOException e) {
         // This should be impossible since we're writing to a byte array.
-        throw new RuntimeException(e);
+        throw new IllegalStateException(e);
       }
+
+      this.compressedBytes = byteStream.toByteArray();
       this.uncompressedSize = dataToCompress.length;
-      this.bytes = byteStream.toByteArray();
+      this.coder = StringUnsafe.getInstance().getCoder(chars);
     }
 
     @Override
     public String toString() {
       byte[] uncompressedBytes = new byte[uncompressedSize];
-      try (GZIPInputStream zipStream = new GZIPInputStream(new ByteArrayInputStream(bytes))) {
+      try (GZIPInputStream zipStream =
+          new GZIPInputStream(new ByteArrayInputStream(compressedBytes))) {
         int read;
         int totalRead = 0;
         while (totalRead < uncompressedSize
@@ -198,13 +209,18 @@ public final class FileWriteAction extends AbstractFileWriteAction
         }
         if (totalRead != uncompressedSize) {
           // This should be impossible.
-          throw new RuntimeException("Corrupt byte buffer in FileWriteAction.");
+          throw new IllegalStateException("Corrupt byte buffer in FileWriteAction.");
         }
       } catch (IOException e) {
         // This should be impossible since we're reading from a byte array.
-        throw new RuntimeException(e);
+        throw new IllegalStateException(e);
       }
-      return new String(uncompressedBytes, ISO_8859_1);
+
+      try {
+        return StringUnsafe.getInstance().newInstance(uncompressedBytes, coder);
+      } catch (ReflectiveOperationException e) {
+        throw new IllegalStateException(e);
+      }
     }
   }
 
