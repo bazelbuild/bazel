@@ -879,6 +879,9 @@ public abstract class CcModule
       StarlarkThread thread)
       throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
+    if (compilationContexts.isEmpty() && nonExportedCompilationContexts.isEmpty()) {
+      return CcCompilationContext.EMPTY;
+    }
     return CcCompilationContext.builder(
             /* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null)
         .addDependentCcCompilationContexts(
