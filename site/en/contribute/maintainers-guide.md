@@ -38,8 +38,8 @@ repository.
 
 ## Lifecycle of an Issue {:#lifecycle-issue}
 
-1. A user creates an issue using the [Issue
-   Template](https://github.com/bazelbuild/bazel/blob/master/ISSUE_TEMPLATE.md){: .external}
+1. A user creates an issue by choosing one of the
+[issue templates](https://github.com/bazelbuild/bazel/issues/new/choose){: .external}
    and it enters the pool of [unreviewed open
    issues](https://github.com/bazelbuild/bazel/issues?utf8=%E2%9C%93&q=is%3Aissue+is%3Aopen+-label%3Auntriaged+-label%3Ap2+-label%3Ap1+-label%3Ap3+-label%3Ap4+-label%3Ateam-Starlark+-label%3Ateam-Rules-CPP+-label%3Ateam-Rules-Java+-label%3Ateam-XProduct+-label%3Ateam-Android+-label%3Ateam-Apple+-label%3Ateam-Configurability++-label%3Ateam-Performance+-label%3Ateam-Rules-Server+-label%3Ateam-Core+-label%3Ateam-Rules-Python+-label%3Ateam-Remote-Exec+-label%3Ateam-Local-Exec+-label%3Ateam-Bazel){: .external}.
 1. A member on the Developer Experience (DevEx) subteam rotation reviews the
@@ -55,8 +55,9 @@ repository.
       to the correct repository.
    1. If the issue is vague or has missing information, the DevEx member will
       assign the issue back to the user to request for more information before
-      continuing. This usually occurs when the user does not follow the [Issue
-      Template](https://github.com/bazelbuild/bazel/blob/master/ISSUE_TEMPLATE.md){: .external}.
+      continuing. This usually occurs when the user does not choose the right
+      [issue template](https://github.com/bazelbuild/bazel/issues/new/choose)
+      {: .external} or provides incomplete information.
 1. After reviewing the issue, the DevEx member decides if the issue requires
    immediate attention. If it does, they will assign the **P0**
    [priority](#priority) label and an owner from the list of team leads.
