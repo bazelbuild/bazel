@@ -258,10 +258,7 @@ def _is_vs_2017_or_newer(repository_ctx, vc_path):
     # From VS 2022 17.6, a fourth "vcpkg" directory is also present, but we only check presence of the three
     # directories above in case other directories pop up in the future
 
-    vc_2017_or_newer_contents = ["auxiliary", "redist", "tools"]
-    vc_path_contents = [d.basename.lower() for d in repository_ctx.path(vc_path).readdir()]
-    vc_path_contents = sorted([d for d in vc_path_contents if d in vc_2017_or_newer_contents])
-    return vc_path_contents == vc_2017_or_newer_contents
+    return repository_ctx.path(vc_path).get_child("tools").exists
 
 def _is_msbuildtools(vc_path):
     """Check if the installed VC version is from MSBuildTools."""
