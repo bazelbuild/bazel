@@ -412,8 +412,8 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             defaultValue = "False",
             named = true,
             doc =
-                "If set, indicate the error in the return value"
-                    + " instead of raising an error for failed downloads"),
+                "If set, indicate the error in the return value instead of raising an error for"
+                    + " failed downloads. This silences errors and warnings."),
         @Param(
             name = "canonical_id",
             defaultValue = "''",
@@ -586,8 +586,8 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             defaultValue = "False",
             named = true,
             doc =
-                "If set, indicate the error in the return value"
-                    + " instead of raising an error for failed downloads"),
+                "If set, indicate the error in the return value instead of raising an error for"
+                    + " failed downloads. This silences errors and warnings."),
         @Param(
             name = "canonical_id",
             defaultValue = "''",
@@ -691,7 +691,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
               canonicalId,
               Optional.of(type),
               downloadDirectory,
-              env.getListener(),
+              allowFail ? NullEventHandler.INSTANCE : env.getListener(),
               envVariables,
               getIdentifyingStringForLogging());
     } catch (InterruptedException e) {
