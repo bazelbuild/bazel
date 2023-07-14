@@ -89,7 +89,7 @@ public final class ConfiguredTargetAndDataProducer
   @Override
   public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
     tasks.lookUp(
-        key.toKey(),
+        key,
         ConfiguredValueCreationException.class,
         NoSuchThingException.class,
         InconsistentNullConfigException.class,

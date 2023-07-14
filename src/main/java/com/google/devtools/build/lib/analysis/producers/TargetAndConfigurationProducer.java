@@ -214,8 +214,7 @@ public final class TargetAndConfigurationProducer
           ConfiguredTargetKey.builder()
               .setLabel(preRuleTransitionKey.getLabel())
               .setExecutionPlatformLabel(preRuleTransitionKey.getExecutionPlatformLabel())
-              .build()
-              .toKey());
+              .build());
       return DONE;
     }
 
@@ -410,7 +409,7 @@ public final class TargetAndConfigurationProducer
           // rule transition.
           keyBuilder.setShouldApplyRuleTransition(false);
         }
-        delegateTo(tasks, keyBuilder.build().toKey());
+        delegateTo(tasks, keyBuilder.build());
         return DONE;
       }
     }

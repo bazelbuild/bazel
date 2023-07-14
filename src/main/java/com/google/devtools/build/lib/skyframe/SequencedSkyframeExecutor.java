@@ -513,7 +513,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
               () -> {
                 var configuredTarget = (RuleConfiguredTargetValue) skyValue;
                 // Only dumps the value for non-delegating keys.
-                if (configuredTarget.getConfiguredTarget().getKeyOrProxy().equals(key)) {
+                if (configuredTarget.getConfiguredTarget().getLookupKey().equals(key)) {
                   actionGraphDump.dumpConfiguredTarget(configuredTarget);
                 }
                 return null;
@@ -523,8 +523,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
           AspectKey aspectKey = (AspectKey) key;
           ConfiguredTargetValue configuredTargetValue =
               (ConfiguredTargetValue)
-                  memoizingEvaluator.getExistingValue(
-                      aspectKey.getBaseConfiguredTargetKey().toKey());
+                  memoizingEvaluator.getExistingValue(aspectKey.getBaseConfiguredTargetKey());
           tasks.add(
               () -> {
                 actionGraphDump.dumpAspect(aspectValue, configuredTargetValue);
@@ -576,7 +575,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         if (skyValue instanceof RuleConfiguredTargetValue) {
           var configuredTarget = (RuleConfiguredTargetValue) skyValue;
           // Only dumps the value for non-delegating keys.
-          if (configuredTarget.getConfiguredTarget().getKeyOrProxy().equals(key)) {
+          if (configuredTarget.getConfiguredTarget().getLookupKey().equals(key)) {
             actionGraphDump.dumpConfiguredTarget(configuredTarget);
           }
         } else if (key.functionName().equals(SkyFunctions.ASPECT)) {
@@ -584,8 +583,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
           AspectKey aspectKey = (AspectKey) key;
           ConfiguredTargetValue configuredTargetValue =
               (ConfiguredTargetValue)
-                  memoizingEvaluator.getExistingValue(
-                      aspectKey.getBaseConfiguredTargetKey().toKey());
+                  memoizingEvaluator.getExistingValue(aspectKey.getBaseConfiguredTargetKey());
           actionGraphDump.dumpAspect(aspectValue, configuredTargetValue);
         }
       } catch (InterruptedException e) {

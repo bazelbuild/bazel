@@ -138,7 +138,7 @@ public final class TargetSummaryEventTest {
             .setLabel(Label.create(path, targetName))
             .setConfigurationKey(configurationKey)
             .build();
-    when(target.getKeyOrProxy()).thenReturn(key);
+    when(target.getLookupKey()).thenReturn(key);
     return target;
   }
 }

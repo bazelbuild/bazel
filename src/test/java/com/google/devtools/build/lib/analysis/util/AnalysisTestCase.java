@@ -623,8 +623,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         ConfiguredTargetKey.builder()
             .setLabel(label)
             .setConfigurationKey(owner.getConfigurationKey())
-            .build()
-            .toKey();
+            .build();
     ActionLookupValue actionLookupValue;
     try {
       actionLookupValue =

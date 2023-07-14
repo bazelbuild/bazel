@@ -329,8 +329,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
                     ConfiguredTargetKey.builder()
                         .setLabel(pkg.getLabel())
                         .setConfiguration(getConfiguration(pkg))
-                        .build()
-                        .toKey())
+                        .build())
                 .getValue();
     ImmutableList<ActionAnalysisMetadata> linkstampCompileActions =
         configuredTargetValue.getActions().stream()

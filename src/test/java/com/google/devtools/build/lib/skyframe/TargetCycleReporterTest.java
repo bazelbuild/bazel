@@ -58,7 +58,7 @@ public final class TargetCycleReporterTest extends BuildViewTestCase {
             .setLabel(Label.parseCanonicalUnchecked("//foo:a"))
             .setConfiguration(targetConfig)
             .build();
-    assertThat(cycleReporter.getAdditionalMessageAboutCycle(reporter, ctKey.toKey(), cycle))
+    assertThat(cycleReporter.getAdditionalMessageAboutCycle(reporter, ctKey, cycle))
         .contains(
             "The cycle is caused by a visibility edge from //foo:b to the non-package_group "
                 + "target //foo:c");

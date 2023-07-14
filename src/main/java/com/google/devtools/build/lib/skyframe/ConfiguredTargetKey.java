@@ -95,11 +95,6 @@ public class ConfiguredTargetKey implements ActionLookupKey {
     return configurationKey;
   }
 
-  @Override
-  public final ConfiguredTargetKey toKey() {
-    return this;
-  }
-
   @Nullable
   public Label getExecutionPlatformLabel() {
     return null;
@@ -244,7 +239,7 @@ public class ConfiguredTargetKey implements ActionLookupKey {
     //
     // The cast exists because the key passes through parts of analysis that work on both aspects
     // and configured targets. This process discards the key's specific type information.
-    return (ConfiguredTargetKey) configuredTarget.unwrapIfMerged().getKeyOrProxy();
+    return (ConfiguredTargetKey) configuredTarget.unwrapIfMerged().getLookupKey();
   }
 
   /** A helper class to create instances of {@link ConfiguredTargetKey}. */

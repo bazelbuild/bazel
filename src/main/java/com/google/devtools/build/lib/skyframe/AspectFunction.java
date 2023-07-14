@@ -459,7 +459,7 @@ final class AspectFunction implements SkyFunction {
   private static InitialValues getInitialValues(
       PrerequisiteProducer.State state, AspectKey key, Environment env)
       throws AspectFunctionException, InterruptedException {
-    ActionLookupKey configuredTargetLookupKey = key.getBaseConfiguredTargetKey().toKey();
+    ActionLookupKey configuredTargetLookupKey = key.getBaseConfiguredTargetKey();
     PackageIdentifier basePackageKey =
         key.getBaseConfiguredTargetKey().getLabel().getPackageIdentifier();
     var initialKeys =
