@@ -459,6 +459,7 @@ def _javainfo_init(
     else:
         result.update(
             transitive_native_libraries = depset(
+                order = "topological",
                 transitive = [dep.transitive_native_libraries for dep in runtime_deps + exports + deps] +
                              ([cc_common.merge_cc_infos(cc_infos = native_libraries).transitive_native_libraries()] if native_libraries else []),
             ),
