@@ -94,7 +94,7 @@ public final class JavaInfo extends NativeInfo
       throws RuleErrorException {
     JavaInfo javaInfo = JavaInfo.getJavaInfo(target);
     if (javaInfo != null && javaInfo.providerJavaCompilationInfo != null) {
-      return javaInfo.providerJavaCompilationInfo.getBootClasspathAsNestedSet();
+      return javaInfo.providerJavaCompilationInfo.bootClasspath();
     }
     return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }

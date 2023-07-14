@@ -42,12 +42,13 @@ import net.starlark.java.eval.StarlarkList;
 
 /** Provides information about jar files produced by a Java rule. */
 @Immutable
-public final class JavaRuleOutputJarsProvider
+@AutoValue
+public abstract class JavaRuleOutputJarsProvider
     implements JavaInfoInternalProvider, JavaRuleOutputJarsProviderApi<JavaOutput> {
 
   @SerializationConstant
   public static final JavaRuleOutputJarsProvider EMPTY =
-      new JavaRuleOutputJarsProvider(ImmutableList.<JavaOutput>of());
+      new AutoValue_JavaRuleOutputJarsProvider(ImmutableList.<JavaOutput>of());
 
   /** A collection of artifacts associated with a jar output. */
   @AutoValue
@@ -194,30 +195,22 @@ public final class JavaRuleOutputJarsProvider
     }
   }
 
-  final ImmutableList<JavaOutput> javaOutputs;
-
-  private JavaRuleOutputJarsProvider(ImmutableList<JavaOutput> javaOutputs) {
-    this.javaOutputs = javaOutputs;
-  }
-
   @Override
   public boolean isImmutable() {
     return true; // immutable and Starlark-hashable
   }
 
   @Override
-  public ImmutableList<JavaOutput> getJavaOutputs() {
-    return javaOutputs;
-  }
+  public abstract ImmutableList<JavaOutput> getJavaOutputs();
 
-  /** Collects all class output jars from {@link #javaOutputs} */
+  /** Collects all class output jars from {@link #getJavaOutputs} */
   public Iterable<Artifact> getAllClassOutputJars() {
-    return javaOutputs.stream().map(JavaOutput::getClassJar).collect(Collectors.toList());
+    return getJavaOutputs().stream().map(JavaOutput::getClassJar).collect(Collectors.toList());
   }
 
-  /** Collects all source output jars from {@link #javaOutputs} */
+  /** Collects all source output jars from {@link #getJavaOutputs} */
   public ImmutableList<Artifact> getAllSrcOutputJars() {
-    return javaOutputs.stream()
+    return getJavaOutputs().stream()
         .map(JavaOutput::getSourceJars)
         .flatMap(ImmutableList::stream)
         .collect(toImmutableList());
@@ -228,7 +221,7 @@ public final class JavaRuleOutputJarsProvider
   @Deprecated
   public Artifact getJdeps() {
     ImmutableList<Artifact> jdeps =
-        javaOutputs.stream()
+        getJavaOutputs().stream()
             .map(JavaOutput::getJdeps)
             .filter(Objects::nonNull)
             .collect(toImmutableList());
@@ -240,7 +233,7 @@ public final class JavaRuleOutputJarsProvider
   @Deprecated
   public Artifact getNativeHeaders() {
     ImmutableList<Artifact> nativeHeaders =
-        javaOutputs.stream()
+        getJavaOutputs().stream()
             .map(JavaOutput::getNativeHeadersJar)
             .filter(Objects::nonNull)
             .collect(toImmutableList());
@@ -280,7 +273,7 @@ public final class JavaRuleOutputJarsProvider
     }
 
     public JavaRuleOutputJarsProvider build() {
-      return new JavaRuleOutputJarsProvider(ImmutableList.copyOf(javaOutputs));
+      return new AutoValue_JavaRuleOutputJarsProvider(ImmutableList.copyOf(javaOutputs));
     }
   }
 

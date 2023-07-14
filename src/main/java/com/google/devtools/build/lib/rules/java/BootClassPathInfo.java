@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -22,7 +23,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
-import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
@@ -37,12 +38,12 @@ import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
 
 /** Information about the system APIs for a Java compilation. */
 @Immutable
-public final class BootClassPathInfo extends NativeInfo implements StarlarkValue {
+@AutoValue
+public abstract class BootClassPathInfo implements Info {
 
   /** Provider singleton constant. */
   public static final Provider PROVIDER = new Provider();
@@ -106,7 +107,7 @@ public final class BootClassPathInfo extends NativeInfo implements StarlarkValue
         throws EvalException {
       NestedSet<Artifact> systemInputs = getSystemInputs(systemOrNone);
       Optional<PathFragment> systemPath = getSystemPath(systemInputs);
-      return new BootClassPathInfo(
+      return new AutoValue_BootClassPathInfo(
           getBootClassPath(bootClassPathList),
           getAuxiliary(auxiliaryList),
           systemInputs,
@@ -167,71 +168,52 @@ public final class BootClassPathInfo extends NativeInfo implements StarlarkValue
     }
   }
 
-  private final NestedSet<Artifact> bootclasspath;
-  private final NestedSet<Artifact> auxiliary;
-  private final NestedSet<Artifact> systemInputs;
-  private final Optional<PathFragment> systemPath;
-
-  private BootClassPathInfo(
-      NestedSet<Artifact> bootclasspath,
-      NestedSet<Artifact> auxiliary,
-      NestedSet<Artifact> systemInputs,
-      Optional<PathFragment> systemPath,
-      Location creationLocation) {
-    super(creationLocation);
-    this.bootclasspath = bootclasspath;
-    this.auxiliary = auxiliary;
-    this.systemInputs = systemInputs;
-    this.systemPath = systemPath;
-  }
-
   @Override
   public Provider getProvider() {
     return PROVIDER;
   }
 
   public static BootClassPathInfo create(NestedSet<Artifact> bootclasspath) {
-    return new BootClassPathInfo(
+    return new AutoValue_BootClassPathInfo(
         bootclasspath,
         NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
         NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
         Optional.empty(),
-        null);
+        Location.BUILTIN);
   }
 
   public static BootClassPathInfo empty() {
-    return new BootClassPathInfo(
+    return new AutoValue_BootClassPathInfo(
         NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
         NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
         NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
         Optional.empty(),
-        null);
+        Location.BUILTIN);
   }
 
   /** The jar files containing classes for system APIs, i.e. a Java <= 8 bootclasspath. */
-  public NestedSet<Artifact> bootclasspath() {
-    return bootclasspath;
-  }
+  public abstract NestedSet<Artifact> bootclasspath();
 
   /**
    * The jar files containing extra classes for system APIs that should not be put in the system
    * image to support split-package compilation scenarios.
    */
-  public NestedSet<Artifact> auxiliary() {
-    return auxiliary;
-  }
-
-  /** An argument to the javac >= 9 {@code --system} flag. */
-  public Optional<PathFragment> systemPath() {
-    return systemPath;
-  }
+  public abstract NestedSet<Artifact> auxiliary();
 
   /** Contents of the directory that is passed to the javac >= 9 {@code --system} flag. */
-  public NestedSet<Artifact> systemInputs() {
-    return systemInputs;
+  public abstract NestedSet<Artifact> systemInputs();
+
+  /** An argument to the javac >= 9 {@code --system} flag. */
+  public abstract Optional<PathFragment> systemPath();
+
+  public abstract Location creationLocation();
+
+  @Override
+  public Location getCreationLocation() {
+    return creationLocation();
   }
 
   public boolean isEmpty() {
-    return bootclasspath.isEmpty();
+    return bootclasspath().isEmpty();
   }
 }

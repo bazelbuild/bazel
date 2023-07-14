@@ -917,8 +917,8 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     assertThat(javaInfo.getCompilationInfoProvider()).isNotNull();
     assertThat(javaInfo.getCompilationInfoProvider().getJavacOpts())
         .containsExactly("opt1", "opt2");
-    assertThat(javaInfo.getCompilationInfoProvider().getBootClasspath()).hasSize(1);
-    assertThat(prettyArtifactNames(javaInfo.getCompilationInfoProvider().getBootClasspath()))
+    assertThat(javaInfo.getCompilationInfoProvider().getBootClasspathList()).hasSize(1);
+    assertThat(prettyArtifactNames(javaInfo.getCompilationInfoProvider().getBootClasspathList()))
         .containsExactly("cp.jar");
   }
 
