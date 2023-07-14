@@ -450,7 +450,7 @@ def _javainfo_init(
     if _java_common_internal._google_legacy_api_enabled():
         cc_info = cc_common.merge_cc_infos(
             cc_infos = [dep.cc_link_params_info for dep in runtime_deps + exports + deps] +
-                       [cc_common.merge_cc_infos(cc_infos = native_libraries)],
+                       ([cc_common.merge_cc_infos(cc_infos = native_libraries)] if native_libraries else []),
         )
         result.update(
             cc_link_params_info = cc_info,
@@ -460,7 +460,7 @@ def _javainfo_init(
         result.update(
             transitive_native_libraries = depset(
                 transitive = [dep.transitive_native_libraries for dep in runtime_deps + exports + deps] +
-                             [cc_common.merge_cc_infos(cc_infos = native_libraries).transitive_native_libraries()],
+                             ([cc_common.merge_cc_infos(cc_infos = native_libraries).transitive_native_libraries()] if native_libraries else []),
             ),
         )
     return result
