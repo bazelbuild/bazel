@@ -526,7 +526,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         QuiescingExecutorsImpl.forTesting(),
         tsgm);
     skyframeExecutor.setActionEnv(ImmutableMap.of());
-    skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageOptions.getDeletedPackages()));
+    skyframeExecutor.setDeletedPackages(packageOptions.getDeletedPackages());
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
@@ -1570,7 +1570,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         packageRelativePath,
         getConfiguration(owner).getBinDirectory(RepositoryName.MAIN),
         AspectKeyCreator.createAspectKey(
-            new AspectDescriptor(creatingAspectFactory, parameters),
+            AspectDescriptor.of(creatingAspectFactory, parameters),
             ConfiguredTargetKey.builder()
                 .setLabel(owner.getLabel())
                 .setConfiguration(getConfiguration(owner))
@@ -1662,7 +1662,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected AspectKey getOwnerForAspect(
       ConfiguredTarget owner, AspectClass creatingAspectFactory, AspectParameters params) {
     return AspectKeyCreator.createAspectKey(
-        new AspectDescriptor(creatingAspectFactory, params),
+        AspectDescriptor.of(creatingAspectFactory, params),
         ConfiguredTargetKey.builder()
             .setLabel(owner.getLabel())
             .setConfiguration(getConfiguration(owner))
