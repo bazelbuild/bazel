@@ -388,8 +388,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
       String arch,
       List<String> inputArchives,
       List<PathFragment> importedFrameworks,
-      ExtraLinkArgs extraLinkArgs,
-      boolean linkingInfoMigration)
+      ExtraLinkArgs extraLinkArgs)
       throws Exception {
     final CommandAction binAction = (CommandAction) getGeneratingAction(binArtifact);
 
@@ -399,12 +398,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     }
     ImmutableList.Builder<String> frameworkPathFragmentParents = ImmutableList.builder();
     ImmutableList.Builder<String> frameworkPathBaseNames = ImmutableList.builder();
-    if (!linkingInfoMigration) {
-      for (PathFragment importedFramework : importedFrameworks) {
-        frameworkPathFragmentParents.add(importedFramework.getParentDirectory().toString());
-        frameworkPathBaseNames.add(importedFramework.getBaseName());
-      }
-    }
 
     ImmutableList<String> expectedCommandLineFragments =
         ImmutableList.<String>builder()
@@ -770,15 +763,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     return containedArtifacts;
   }
 
-  protected String linkingInfoMigrationFlag(boolean linkingInfoMigration) {
-    return "--incompatible_objc_linking_info_migration="
-        + (linkingInfoMigration ? "true" : "false");
-  }
-
-  protected void checkFrameworkDepLinkFlags(
-      RuleType ruleType, ExtraLinkArgs extraLinkArgs, boolean linkingInfoMigration)
+  protected void checkFrameworkDepLinkFlags(RuleType ruleType, ExtraLinkArgs extraLinkArgs)
       throws Exception {
-    useConfiguration(linkingInfoMigrationFlag(linkingInfoMigration));
     scratch.file(
         "libs/defs.bzl",
         "def _custom_static_framework_import_impl(ctx):",
@@ -832,13 +818,10 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "x86_64",
         ImmutableList.of("libobjc_lib.a"),
         ImmutableList.of(PathFragment.create("libs/buzzbuzz")),
-        extraLinkArgs,
-        linkingInfoMigration);
+        extraLinkArgs);
   }
 
-  protected void checkBundleLoaderIsCorrectlyPassedToTheLinker(
-      RuleType ruleType, boolean linkingInfoMigration) throws Exception {
-    useConfiguration(linkingInfoMigrationFlag(linkingInfoMigration));
+  protected void checkBundleLoaderIsCorrectlyPassedToTheLinker(RuleType ruleType) throws Exception {
     if (!"apple_binary_starlark".equals(ruleType.getRuleTypeName())) {
       addAppleBinaryStarlarkRule(scratch);
     }
@@ -1237,11 +1220,9 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         ")");
   }
 
-  protected void checkAvoidDepsDependencies(
-      RuleType ruleType, ExtraLinkArgs extraLinkArgs, boolean linkingInfoMigration)
+  protected void checkAvoidDepsDependencies(RuleType ruleType, ExtraLinkArgs extraLinkArgs)
       throws Exception {
-    useConfiguration(
-        "--ios_multi_cpus=i386,x86_64", linkingInfoMigrationFlag(linkingInfoMigration));
+    useConfiguration("--ios_multi_cpus=i386,x86_64");
 
     ruleType.scratchTarget(scratch, "avoid_deps", "['//fx:framework_import']");
 
@@ -1271,16 +1252,14 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "i386",
         ImmutableList.of(),
         ImmutableList.of(PathFragment.create("fx/MyFramework")),
-        extraLinkArgs,
-        linkingInfoMigration);
+        extraLinkArgs);
     verifyLinkAction(
         x8664BinArtifact,
         x8664FilelistArtifact,
         "x86_64",
         ImmutableList.of(),
         ImmutableList.of(PathFragment.create("fx/MyFramework")),
-        extraLinkArgs,
-        linkingInfoMigration);
+        extraLinkArgs);
   }
 
   protected void checkLipoBinaryAction(RuleType ruleType) throws Exception {
@@ -1312,10 +1291,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertRequiresDarwin(action);
   }
 
-  protected void checkMultiarchCcDep(RuleType ruleType, boolean linkingInfoMigration)
-      throws Exception {
-    useConfiguration(
-        "--ios_multi_cpus=i386,x86_64", linkingInfoMigrationFlag(linkingInfoMigration));
+  protected void checkMultiarchCcDep(RuleType ruleType) throws Exception {
+    useConfiguration("--ios_multi_cpus=i386,x86_64");
     ruleType.scratchTarget(scratch, "deps", "['//package:cclib']");
     scratch.file("package/BUILD", "cc_library(name = 'cclib', srcs = ['dep.c'])");
 
@@ -1343,9 +1320,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   // Regression test for b/32310268.
-  protected void checkAliasedLinkoptsThroughObjcLibrary(
-      RuleType ruleType, boolean linkingInfoMigration) throws Exception {
-    useConfiguration("--cpu=ios_i386", linkingInfoMigrationFlag(linkingInfoMigration));
+  protected void checkAliasedLinkoptsThroughObjcLibrary(RuleType ruleType) throws Exception {
+    useConfiguration("--cpu=ios_i386");
     scratch.file(
         "bin/BUILD",
         "objc_library(",
@@ -1369,9 +1345,9 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(Joiner.on(" ").join(linkAction("//x").getArguments())).contains("-somelinkopt");
   }
 
-  protected void checkCcDependencyLinkoptsArePropagatedToLinkAction(
-      RuleType ruleType, boolean linkingInfoMigration) throws Exception {
-    useConfiguration("--cpu=ios_i386", linkingInfoMigrationFlag(linkingInfoMigration));
+  protected void checkCcDependencyLinkoptsArePropagatedToLinkAction(RuleType ruleType)
+      throws Exception {
+    useConfiguration("--cpu=ios_i386");
 
     scratch.file(
         "bin/BUILD",
@@ -1410,20 +1386,14 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .isEqualTo(linkArgsCommandLine.lastIndexOf("-framework F2"));
     assertThat(linkArgsCommandLine.indexOf("-weak_framework F3"))
         .isEqualTo(linkArgsCommandLine.lastIndexOf("-weak_framework F3"));
-    if (!linkingInfoMigration) {
-      // Linkopts should also be grouped together.  Note ObjcProvider may not emit linkargs
-      // according to dependency order.
-      assertThat(linkArgsCommandLine).contains("-another-opt -Wl,--other-opt -one-more-opt");
-    } else {
-      assertThat(linkArgs)
-          .containsAtLeast("-another-opt", "-one-more-opt", "-Wl,--other-opt")
-          .inOrder();
-    }
+    assertThat(linkArgs)
+        .containsAtLeast("-another-opt", "-one-more-opt", "-Wl,--other-opt")
+        .inOrder();
   }
 
-  protected void checkObjcLibraryLinkoptsArePropagatedToLinkAction(
-      RuleType ruleType, boolean linkingInfoMigration) throws Exception {
-    useConfiguration("--cpu=ios_i386", linkingInfoMigrationFlag(linkingInfoMigration));
+  protected void checkObjcLibraryLinkoptsArePropagatedToLinkAction(RuleType ruleType)
+      throws Exception {
+    useConfiguration("--cpu=ios_i386");
 
     scratch.file(
         "bin/BUILD",
@@ -1463,52 +1433,33 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .isEqualTo(linkArgsCommandLine.lastIndexOf("-framework F2"));
     assertThat(linkArgsCommandLine.indexOf("-weak_framework F3"))
         .isEqualTo(linkArgsCommandLine.lastIndexOf("-weak_framework F3"));
-    if (!linkingInfoMigration) {
-      // Linkopts should also be grouped together.  Note ObjcProvider may not emit linkargs
-      // according to dependency order (though it happens to here).
-      assertThat(linkArgsCommandLine).contains("-another-opt -one-more-opt -Wl,--other-opt");
-    } else {
-      assertThat(linkArgs)
-          .containsAtLeast("-another-opt", "-one-more-opt", "-Wl,--other-opt")
-          .inOrder();
-    }
+    assertThat(linkArgs)
+        .containsAtLeast("-another-opt", "-one-more-opt", "-Wl,--other-opt")
+        .inOrder();
   }
 
-  protected void checkLinkInputsInLinkAction(RuleType ruleType, boolean linkingInfoMigration)
-      throws Exception {
-    useConfiguration("--cpu=ios_i386", linkingInfoMigrationFlag(linkingInfoMigration));
+  protected void checkLinkInputsInLinkAction(RuleType ruleType) throws Exception {
+    useConfiguration("--cpu=ios_i386");
 
-    if (!linkingInfoMigration) {
-      scratch.file(
-          "bin/defs.bzl",
-          "def _custom_rule_impl(ctx):",
-          "  return struct(objc=apple_common.new_objc_provider(",
-          "      link_inputs=depset(ctx.files.link_inputs)))",
-          "custom_rule = rule(",
-          "    _custom_rule_impl,",
-          "    attrs={'link_inputs': attr.label_list(allow_files=True)},",
-          ")");
-    } else {
-      scratch.file(
-          "bin/defs.bzl",
-          "def _custom_rule_impl(ctx):",
-          "    linker_input = cc_common.create_linker_input(",
-          "        owner = ctx.label,",
-          "        additional_inputs = depset(direct = ctx.files.link_inputs),",
-          "    )",
-          "    return [",
-          "        apple_common.new_objc_provider(),",
-          "        CcInfo(",
-          "            linking_context = cc_common.create_linking_context(",
-          "                linker_inputs = depset(direct = [linker_input]),",
-          "            ),",
-          "        ),",
-          "    ]",
-          "custom_rule = rule(",
-          "    _custom_rule_impl,",
-          "    attrs={'link_inputs': attr.label_list(allow_files=True)},",
-          ")");
-    }
+    scratch.file(
+        "bin/defs.bzl",
+        "def _custom_rule_impl(ctx):",
+        "    linker_input = cc_common.create_linker_input(",
+        "        owner = ctx.label,",
+        "        additional_inputs = depset(direct = ctx.files.link_inputs),",
+        "    )",
+        "    return [",
+        "        apple_common.new_objc_provider(),",
+        "        CcInfo(",
+        "            linking_context = cc_common.create_linking_context(",
+        "                linker_inputs = depset(direct = [linker_input]),",
+        "            ),",
+        "        ),",
+        "    ]",
+        "custom_rule = rule(",
+        "    _custom_rule_impl,",
+        "    attrs={'link_inputs': attr.label_list(allow_files=True)},",
+        ")");
 
     scratch.file("bin/input.txt");
 
@@ -1770,10 +1721,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(getFirstArtifactEndingWith(action.getInputs(), "package/libavoidLibDep.a")).isNull();
   }
 
-  public void checkAvoidDepsObjects(RuleType ruleType, boolean linkingInfoMigration)
-      throws Exception {
-    useConfiguration(
-        "--ios_multi_cpus=i386,x86_64", linkingInfoMigrationFlag(linkingInfoMigration));
+  public void checkAvoidDepsObjects(RuleType ruleType) throws Exception {
+    useConfiguration("--ios_multi_cpus=i386,x86_64");
     assertAvoidDepsObjects(ruleType);
   }
 
@@ -1796,10 +1745,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(getFirstArtifactEndingWith(action.getInputs(), "package/libavoidLib.a")).isNull();
   }
 
-  public void checkAvoidDepsObjcLibraries(RuleType ruleType, boolean linkingInfoMigration)
-      throws Exception {
-    useConfiguration(
-        "--ios_multi_cpus=i386,x86_64", linkingInfoMigrationFlag(linkingInfoMigration));
+  public void checkAvoidDepsObjcLibraries(RuleType ruleType) throws Exception {
+    useConfiguration("--ios_multi_cpus=i386,x86_64");
     assertAvoidDepsObjcLibraries(ruleType);
   }
 
@@ -1822,10 +1769,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(getFirstArtifactEndingWith(action.getInputs(), "package/libavoidLib.a")).isNull();
   }
 
-  public void checkAvoidDepsObjcLibrariesAvoidViaCcLibrary(
-      RuleType ruleType, boolean linkingInfoMigration) throws Exception {
-    useConfiguration(
-        "--ios_multi_cpus=i386,x86_64", linkingInfoMigrationFlag(linkingInfoMigration));
+  public void checkAvoidDepsObjcLibrariesAvoidViaCcLibrary(RuleType ruleType) throws Exception {
+    useConfiguration("--ios_multi_cpus=i386,x86_64");
     assertAvoidDepsObjcLibrariesAvoidViaCcLibrary(ruleType);
   }
 
@@ -1833,9 +1778,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
    * Verifies that if apple_binary_starlark A has an avoid deps dep on B1 which then depends on an
    * apple_binary_starlark B2, that the symbols from B2 are not present in A.
    */
-  public void checkAvoidDepsThroughAvoidDep(RuleType ruleType, boolean linkingInfoMigration)
-      throws Exception {
-    useConfiguration(linkingInfoMigrationFlag(linkingInfoMigration));
+  public void checkAvoidDepsThroughAvoidDep(RuleType ruleType) throws Exception {
     ruleType.scratchTarget(
         scratch, "deps", "['//package:ObjcLib']", "avoid_deps", "['//package:dylib1']");
     if (!"apple_binary_starlark".equals(ruleType.getRuleTypeName())) {
@@ -1895,9 +1838,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
    * removed from the main binary.
    */
   // transitively avoided, even if it is not present in deps.
-  public void checkAvoidDepsObjectsAvoidViaCcLibrary(
-      RuleType ruleType, boolean linkingInfoMigration) throws Exception {
-    useConfiguration(linkingInfoMigrationFlag(linkingInfoMigration));
+  public void checkAvoidDepsObjectsAvoidViaCcLibrary(RuleType ruleType) throws Exception {
     ruleType.scratchTarget(
         scratch, "deps", "['//package:objcLib']", "avoid_deps", "['//package:avoidLib']");
     if (!"apple_binary_starlark".equals(ruleType.getRuleTypeName())) {
@@ -1926,10 +1867,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .isNull();
   }
 
-  public void checkAvoidDepsSubtractsImportedLibrary(
-      RuleType ruleType, boolean linkingInfoMigration) throws Exception {
-    useConfiguration(linkingInfoMigrationFlag(linkingInfoMigration));
-
+  public void checkAvoidDepsSubtractsImportedLibrary(RuleType ruleType) throws Exception {
     if (!ruleType.getRuleTypeName().equals("apple_binary_starlark")) {
       addAppleBinaryStarlarkRule(scratch);
     }

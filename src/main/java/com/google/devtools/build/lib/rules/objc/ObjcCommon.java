@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_L
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.J2OBJC_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKOPT;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
@@ -53,9 +52,7 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
-import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
@@ -97,7 +94,6 @@ public final class ObjcCommon implements StarlarkValue {
   static class Builder {
     private final Purpose purpose;
     private final RuleContext context;
-    private final StarlarkSemantics semantics;
     private final BuildConfigurationValue buildConfiguration;
     private Optional<CompilationAttributes> compilationAttributes = Optional.absent();
     private Optional<CompilationArtifacts> compilationArtifacts = Optional.absent();
@@ -105,7 +101,6 @@ public final class ObjcCommon implements StarlarkValue {
     private Iterable<PathFragment> includes = ImmutableList.of();
     private IntermediateArtifacts intermediateArtifacts;
     private boolean alwayslink;
-    private Iterable<String> linkopts = ImmutableList.of();
     private boolean hasModuleMap;
     private Iterable<Artifact> extraImportLibraries = ImmutableList.of();
     private final List<CcCompilationContext> ccCompilationContexts = new ArrayList<>();
@@ -138,7 +133,6 @@ public final class ObjcCommon implements StarlarkValue {
         throws InterruptedException {
       this.purpose = purpose;
       this.context = Preconditions.checkNotNull(context);
-      this.semantics = context.getAnalysisEnvironment().getStarlarkSemantics();
       this.buildConfiguration = Preconditions.checkNotNull(buildConfiguration);
     }
 
@@ -311,7 +305,7 @@ public final class ObjcCommon implements StarlarkValue {
       ObjcCompilationContext.Builder objcCompilationContextBuilder =
           ObjcCompilationContext.builder();
 
-      ObjcProvider.Builder objcProvider = new ObjcProvider.Builder(semantics);
+      ObjcProvider.Builder objcProvider = new ObjcProvider.Builder();
 
       objcProvider
           .addAll(IMPORTED_LIBRARY, extraImportLibraries)
@@ -327,17 +321,12 @@ public final class ObjcCommon implements StarlarkValue {
           .addImplementationCcCompilationContexts(implementationCcCompilationContexts);
 
       for (CcLinkingContext ccLinkingContext : ccLinkingContextsForMerging) {
-        ImmutableList<String> linkOpts = ccLinkingContext.getFlattenedUserLinkFlags();
-        if (!buildConfiguration.getFragment(ObjcConfiguration.class).linkingInfoMigration()) {
-          addLinkoptsToObjcProvider(linkOpts, objcProvider);
-        }
         objcProvider.addTransitiveAndPropagate(
             CC_LIBRARY,
             NestedSetBuilder.<LibraryToLink>linkOrder()
                 .addTransitive(ccLinkingContext.getLibraries())
                 .build());
       }
-      addLinkoptsToObjcProvider(linkopts, objcProvider);
 
       if (compilationAttributes.isPresent()) {
         CompilationAttributes attributes = compilationAttributes.get();
@@ -410,34 +399,6 @@ public final class ObjcCommon implements StarlarkValue {
           objcCompilationContext,
           ccLinkingContexts,
           compilationArtifacts);
-    }
-
-    private void addLinkoptsToObjcProvider(
-        Iterable<String> linkopts, ObjcProvider.Builder objcProvider) {
-      ImmutableSet.Builder<String> frameworkLinkOpts = new ImmutableSet.Builder<>();
-      ImmutableSet.Builder<String> weakFrameworkLinkOpts = new ImmutableSet.Builder<>();
-      ImmutableList.Builder<String> nonFrameworkLinkOpts = new ImmutableList.Builder<>();
-      // Add any framework flags as frameworks directly, rather than as linkopts.  Otherwise the
-      // "-framework" flag can get incorrectly deduped.
-      for (Iterator<String> iterator = linkopts.iterator(); iterator.hasNext(); ) {
-        String arg = iterator.next();
-        if (arg.equals("-framework") && iterator.hasNext()) {
-          frameworkLinkOpts.add(iterator.next());
-        } else if (arg.equals("-weak_framework") && iterator.hasNext()) {
-          weakFrameworkLinkOpts.add(iterator.next());
-        } else if (arg.startsWith("-Wl,-framework,")) {
-          frameworkLinkOpts.add(arg.split(",", -1)[2]);
-        } else if (arg.startsWith("-Wl,-weak_framework,")) {
-          weakFrameworkLinkOpts.add(arg.split(",", -1)[2]);
-        } else {
-          nonFrameworkLinkOpts.add(arg);
-        }
-      }
-
-      objcProvider
-          .addAll(SDK_FRAMEWORK, frameworkLinkOpts.build())
-          .addAll(WEAK_SDK_FRAMEWORK, weakFrameworkLinkOpts.build())
-          .addAll(LINKOPT, nonFrameworkLinkOpts.build());
     }
   }
 

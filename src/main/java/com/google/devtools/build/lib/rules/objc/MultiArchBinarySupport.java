@@ -78,7 +78,7 @@ public class MultiArchBinarySupport {
     static DependencySpecificConfiguration create(
         BuildConfigurationValue config,
         CcToolchainProvider toolchain,
-        Object linkingInfoProvider,
+        CcLinkingContext linkingInfoProvider,
         ObjcProvider objcProviderWithAvoidDepsSymbols,
         CcInfo ccInfoWithAvoidDepsSymbols) {
       return new AutoValue_MultiArchBinarySupport_DependencySpecificConfiguration(
@@ -96,10 +96,10 @@ public class MultiArchBinarySupport {
     abstract CcToolchainProvider toolchain();
 
     /**
-     * Returns the {@link Object} that has most of the information used for linking. This is either
-     * an ObjcProvider or a CcInfo whose avoid deps symbols have been subtracted.
+     * Returns the {@link CcLinkingContext} that has most of the information used for linking, whose
+     * avoid deps symbols have been subtracted.
      */
-    abstract Object linkingInfoProvider();
+    abstract CcLinkingContext linkingInfoProvider();
 
     /**
      * Returns the {@link ObjcProvider} to propagate up to dependers; this will not have avoid deps
@@ -191,7 +191,6 @@ public class MultiArchBinarySupport {
         .registerLinkActions(
             dependencySpecificConfiguration.linkingInfoProvider(),
             dependencySpecificConfiguration.objcProviderWithAvoidDepsSymbols(),
-            dependencySpecificConfiguration.ccInfoWithAvoidDepsSymbols().getCcLinkingContext(),
             j2ObjcMappingFileProvider,
             j2ObjcEntryClassProvider,
             extraLinkArgs,
@@ -278,10 +277,6 @@ public class MultiArchBinarySupport {
           throws RuleErrorException, InterruptedException {
     Iterable<ObjcProvider> avoidDepsObjcProviders = getAvoidDepsObjcProviders(avoidDepsProviders);
     Iterable<CcInfo> avoidDepsCcInfos = getAvoidDepsCcInfos(avoidDepsProviders);
-    ImmutableList<CcLinkingContext> avoidDepsCcLinkingContexts =
-        getTypedProviders(avoidDepsProviders, CcInfo.PROVIDER).stream()
-            .map(CcInfo::getCcLinkingContext)
-            .collect(toImmutableList());
 
     ImmutableMap.Builder<Optional<String>, DependencySpecificConfiguration> childInfoBuilder =
         ImmutableMap.builder();
@@ -307,20 +302,11 @@ public class MultiArchBinarySupport {
       ObjcProvider objcProviderWithAvoidDepsSymbols = common.getObjcProvider();
       CcInfo ccInfoWithAvoidDepsSymbols = common.createCcInfo();
 
-      Object linkingInfoProvider;
-      if (!childToolchainConfig.getFragment(ObjcConfiguration.class).linkingInfoMigration()) {
-        linkingInfoProvider =
-            objcProviderWithAvoidDepsSymbols.subtractSubtrees(
-                avoidDepsObjcProviders, avoidDepsCcLinkingContexts);
-      } else {
-        linkingInfoProvider =
-            ccLinkingContextSubtractSubtrees(
-                ruleContext,
-                ImmutableList.of(ccInfoWithAvoidDepsSymbols.getCcLinkingContext()),
-                stream(avoidDepsCcInfos)
-                    .map(CcInfo::getCcLinkingContext)
-                    .collect(toImmutableList()));
-      }
+      CcLinkingContext linkingInfoProvider =
+          ccLinkingContextSubtractSubtrees(
+              ruleContext,
+              ImmutableList.of(ccInfoWithAvoidDepsSymbols.getCcLinkingContext()),
+              stream(avoidDepsCcInfos).map(CcInfo::getCcLinkingContext).collect(toImmutableList()));
 
       CcToolchainProvider toolchainProvider =
           ctad.getConfiguredTarget().get(CcToolchainProvider.PROVIDER);
@@ -621,21 +607,7 @@ public class MultiArchBinarySupport {
 
   private static Iterable<ObjcProvider> getAvoidDepsObjcProviders(
       ImmutableList<TransitiveInfoCollection> transitiveInfoCollections) {
-    ImmutableList<ObjcProvider> frameworkObjcProviders =
-        getTypedProviders(transitiveInfoCollections, AppleDynamicFrameworkInfo.STARLARK_CONSTRUCTOR)
-            .stream()
-            .map(frameworkProvider -> frameworkProvider.getDepsObjcProvider())
-            .collect(toImmutableList());
-    ImmutableList<ObjcProvider> executableObjcProviders =
-        getTypedProviders(transitiveInfoCollections, AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR)
-            .stream()
-            .map(frameworkProvider -> frameworkProvider.getDepsObjcProvider())
-            .collect(toImmutableList());
-
-    return Iterables.concat(
-        frameworkObjcProviders,
-        executableObjcProviders,
-        getTypedProviders(transitiveInfoCollections, ObjcProvider.STARLARK_CONSTRUCTOR));
+    return getTypedProviders(transitiveInfoCollections, ObjcProvider.STARLARK_CONSTRUCTOR);
   }
 
   private static Iterable<CcInfo> getAvoidDepsCcInfos(

@@ -120,7 +120,6 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
         "        ctx.actions.symlink(target_file = lipo_inputs[0], output = processed_library)",
         "    providers = [",
         "        DefaultInfo(files = depset(files_to_build), runfiles = runfiles),",
-        "        link_result.objc,",
         "        link_result.output_groups,",
         "    ]",
         "    return providers",
