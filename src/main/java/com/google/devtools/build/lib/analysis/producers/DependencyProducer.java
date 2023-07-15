@@ -30,17 +30,21 @@ import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyExcepti
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigurationTransitionEvent;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionCollector;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
+import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LoadingFailedCause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.skyframe.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
@@ -65,7 +69,7 @@ final class DependencyProducer
     implements StateMachine, TransitionApplier.ResultSink, PrerequisitesProducer.ResultSink {
   private static final ConfiguredTargetAndData[] EMPTY_OUTPUT = new ConfiguredTargetAndData[0];
 
-  interface ResultSink {
+  interface ResultSink extends TransitionCollector {
     /**
      * Accepts dependency values for a given kind and label.
      *
@@ -77,6 +81,8 @@ final class DependencyProducer
     void acceptDependencyValues(int index, ConfiguredTargetAndData[] values);
 
     void acceptDependencyError(DependencyError error);
+
+    void acceptDependencyError(MissingEdgeError error);
   }
 
   // -------------------- Input --------------------
@@ -108,7 +114,7 @@ final class DependencyProducer
   }
 
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     @Nullable Attribute attribute = kind.getAttribute();
 
     if (kind == VISIBILITY_DEPENDENCY
@@ -144,7 +150,10 @@ final class DependencyProducer
           AttributeConfiguration.ofUnary(configurationKey), /* executionPlatformLabel= */ null);
     }
 
-    var transitionData = AttributeTransitionData.builder().attributes(parameters.attributeMap());
+    var transitionData =
+        AttributeTransitionData.builder()
+            .attributes(parameters.attributeMap())
+            .analysisData(parameters.starlarkTransitionProvider());
     ExecutionPlatformResult executionPlatformResult =
         getExecutionPlatformLabel(kind, parameters.toolchainContexts(), parameters.aspects());
     switch (executionPlatformResult.kind()) {
@@ -160,11 +169,15 @@ final class DependencyProducer
       case ERROR:
         return new ExecGroupErrorEmitter(executionPlatformResult.error());
     }
+    ConfigurationTransition attributeTransition =
+        attribute.getTransitionFactory().create(transitionData.build());
+    sink.acceptTransition(kind, toLabel, attributeTransition);
     return new TransitionApplier(
         configurationKey,
-        attribute.getTransitionFactory().create(transitionData.build()),
+        attributeTransition,
         parameters.transitionCache(),
         (TransitionApplier.ResultSink) this,
+        parameters.eventHandler(),
         /* runAfter= */ this::processTransitionResult);
   }
 
@@ -184,12 +197,12 @@ final class DependencyProducer
     sink.acceptDependencyError(DependencyError.of(e));
   }
 
-  private StateMachine processTransitionResult(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine processTransitionResult(Tasks tasks) {
     if (transitionedConfigurations == null) {
       return DONE; // There was a previously reported error.
     }
 
-    if (isNonconfigurableTargetInSamePackage(listener)) {
+    if (isNonconfigurableTargetInSamePackage()) {
       // The target is in the same package as the parent and non-configurable. In the general case
       // loading a child target would defeat Package-based sharding. However, when the target is in
       // the same Package, that concern no longer applies. This optimization means that delegation,
@@ -211,7 +224,9 @@ final class DependencyProducer
     for (BuildConfigurationKey configuration : transitionedConfigurations.values()) {
       String childChecksum = configuration.getOptionsChecksum();
       if (!parentChecksum.equals(childChecksum)) {
-        listener.post(ConfigurationTransitionEvent.create(parentChecksum, childChecksum));
+        parameters
+            .eventHandler()
+            .post(ConfigurationTransitionEvent.create(parentChecksum, childChecksum));
       }
     }
 
@@ -248,13 +263,32 @@ final class DependencyProducer
   }
 
   @Override
+  public void acceptPrerequisitesError(NoSuchThingException error) {
+    sink.acceptDependencyError(new MissingEdgeError(kind, toLabel, error));
+  }
+
+  @Override
   public void acceptPrerequisitesError(InvalidVisibilityDependencyException error) {
     sink.acceptDependencyError(DependencyError.of(error));
   }
 
   @Override
   public void acceptPrerequisitesCreationError(ConfiguredValueCreationException error) {
-    sink.acceptDependencyError(DependencyError.of(error));
+    // Cases where the child target cannot be loaded at all are propagated as
+    // `NoSuchThingException`. In some cases, child target loading completes with errors. In that
+    // case, the error is propagated as a `ConfiguredValueCreationException` with a
+    // `LoadingFailedCause`. Requests parent-side context to be added to such errors by propagating
+    // a `MissingEdgeError`.
+    for (Cause cause : error.getRootCauses().toList()) {
+      if (cause instanceof LoadingFailedCause) {
+        var loadingFailed = (LoadingFailedCause) cause;
+        if (loadingFailed.getLabel().equals(toLabel)) {
+          sink.acceptDependencyError(
+              new MissingEdgeError(
+                  kind, toLabel, NoSuchTargetException.createForParentPropagation(toLabel)));
+        }
+      }
+    }
   }
 
   @Override
@@ -262,7 +296,12 @@ final class DependencyProducer
     sink.acceptDependencyError(DependencyError.of(error));
   }
 
-  private boolean isNonconfigurableTargetInSamePackage(ExtendedEventHandler listener) {
+  @Override
+  public void acceptPrerequisitesAspectError(AspectCreationException error) {
+    sink.acceptDependencyError(DependencyError.of(error));
+  }
+
+  private boolean isNonconfigurableTargetInSamePackage() {
     Target parentTarget = parameters.target();
     if (parentTarget.getLabel().getPackageIdentifier().equals(toLabel.getPackageIdentifier())) {
       try {
@@ -274,10 +313,12 @@ final class DependencyProducer
         parameters
             .transitiveState()
             .addTransitiveCause(new LoadingFailedCause(toLabel, e.getDetailedExitCode()));
-        listener.handle(
-            Event.error(
-                TargetUtils.getLocationMaybe(parentTarget),
-                TargetUtils.formatMissingEdge(parentTarget, toLabel, e, kind.getAttribute())));
+        parameters
+            .eventHandler()
+            .handle(
+                Event.error(
+                    TargetUtils.getLocationMaybe(parentTarget),
+                    TargetUtils.formatMissingEdge(parentTarget, toLabel, e, kind.getAttribute())));
       }
     }
     return false;
@@ -301,7 +342,7 @@ final class DependencyProducer
     }
 
     @Override
-    public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+    public StateMachine step(Tasks tasks) {
       // The configuration value should already exist as a dependency so this lookup is safe enough
       // for error handling.
       tasks.lookUp(parameters.configurationKey(), (Consumer<SkyValue>) this);
@@ -313,8 +354,10 @@ final class DependencyProducer
       this.configuration = (BuildConfigurationValue) value;
     }
 
-    private StateMachine postEvent(Tasks tasks, ExtendedEventHandler listener) {
-      listener.post(AnalysisRootCauseEvent.withConfigurationValue(configuration, toLabel, message));
+    private StateMachine postEvent(Tasks tasks) {
+      parameters
+          .eventHandler()
+          .post(AnalysisRootCauseEvent.withConfigurationValue(configuration, toLabel, message));
       sink.acceptDependencyError(
           DependencyError.of(
               new DependencyEvaluationException(

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.producers;
 import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.causes.LoadingFailedCause;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
@@ -71,7 +70,7 @@ final class TargetProducer implements StateMachine, ValueOrExceptionSink<NoSuchP
   }
 
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     tasks.lookUp(
         label.getPackageIdentifier(),
         NoSuchPackageException.class,
@@ -91,7 +90,7 @@ final class TargetProducer implements StateMachine, ValueOrExceptionSink<NoSuchP
     sink.acceptTargetError(error);
   }
 
-  private StateMachine unwrapTarget(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine unwrapTarget(Tasks tasks) {
     if (pkg == null) {
       return DONE; // An error occurred.
     }
@@ -100,12 +99,18 @@ final class TargetProducer implements StateMachine, ValueOrExceptionSink<NoSuchP
     try {
       target = pkg.getTarget(label.getName());
     } catch (NoSuchTargetException e) {
+      transitiveState.addTransitiveCause(new LoadingFailedCause(label, e.getDetailedExitCode()));
       sink.acceptTargetError(e, pkg.getBuildFile().getLocation());
       return runAfter;
     }
 
     if (pkg.containsErrors()) {
       FailureDetail failureDetail = pkg.contextualizeFailureDetailForTarget(target);
+      // The target can be loaded but may have associated errors, for example, a missing required
+      // attribute. In these cases, instead of failing fast, it's possible to perform dependency
+      // resolution using the target-in-error to uncover any other errors that could be present in
+      // its dependencies. This error is turned into an exception when the transitive causes are
+      // examined after dependency resolution.
       transitiveState.addTransitiveCause(
           new LoadingFailedCause(label, DetailedExitCode.of(failureDetail)));
     }

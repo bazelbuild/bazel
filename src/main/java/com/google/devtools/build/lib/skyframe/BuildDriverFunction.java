@@ -29,7 +29,6 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AspectConfiguredEvent;
 import com.google.devtools.build.lib.analysis.AspectValue;
@@ -155,7 +154,7 @@ public class BuildDriverFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
     BuildDriverKey buildDriverKey = (BuildDriverKey) skyKey;
-    ActionLookupKeyOrProxy actionLookupKey = buildDriverKey.getActionLookupKey();
+    ActionLookupKey actionLookupKey = buildDriverKey.getActionLookupKey();
     TopLevelArtifactContext topLevelArtifactContext = buildDriverKey.getTopLevelArtifactContext();
     State state = env.getState(State::new);
 
@@ -166,7 +165,7 @@ public class BuildDriverFunction implements SkyFunction {
     // Why SkyValue and not ActionLookupValue? The evaluation of some ActionLookupKey can result in
     // classes that don't implement ActionLookupValue
     // (e.g. ConfiguredTargetKey -> NonRuleConfiguredTargetValue).
-    SkyValue topLevelSkyValue = env.getValue(actionLookupKey.toKey());
+    SkyValue topLevelSkyValue = env.getValue(actionLookupKey);
 
     if (env.valuesMissing()) {
       return null;
@@ -609,8 +608,7 @@ public class BuildDriverFunction implements SkyFunction {
 
   @VisibleForTesting
   ImmutableMap<ActionAnalysisMetadata, ConflictException> checkActionConflicts(
-      ActionLookupKeyOrProxy actionLookupKey, boolean strictConflictCheck)
-      throws InterruptedException {
+      ActionLookupKey actionLookupKey, boolean strictConflictCheck) throws InterruptedException {
     IncrementalArtifactConflictFinder localRef = incrementalArtifactConflictFinder.get();
     // a null value means that the conflict checker is shut down.
     if (localRef == null) {
@@ -675,8 +673,7 @@ public class BuildDriverFunction implements SkyFunction {
      * Perform the traversal of the transitive closure of the {@code key} and collect the
      * corresponding ActionLookupValues.
      */
-    ActionLookupValuesCollectionResult collect(ActionLookupKeyOrProxy key)
-        throws InterruptedException;
+    ActionLookupValuesCollectionResult collect(ActionLookupKey key) throws InterruptedException;
 
     /** Register with the helper that the {@code keys} are conflict-free. */
     void registerConflictFreeKeys(ImmutableSet<ActionLookupKey> keys);

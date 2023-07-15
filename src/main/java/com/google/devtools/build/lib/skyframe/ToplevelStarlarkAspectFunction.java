@@ -57,14 +57,14 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
 
     SkyframeLookupResult initialLookupResult =
         env.getValuesAndExceptions(
-            ImmutableList.of(topLevelAspectsDetailsKey, baseConfiguredTargetKey.toKey()));
+            ImmutableList.of(topLevelAspectsDetailsKey, baseConfiguredTargetKey));
     var topLevelAspectsDetails =
         (BuildTopLevelAspectsDetailsValue) initialLookupResult.get(topLevelAspectsDetailsKey);
     if (topLevelAspectsDetails == null) {
       return null; // some aspects details are not ready
     }
     var baseConfiguredTargetValue =
-        (ConfiguredTargetValue) initialLookupResult.get(baseConfiguredTargetKey.toKey());
+        (ConfiguredTargetValue) initialLookupResult.get(baseConfiguredTargetKey);
     if (baseConfiguredTargetValue == null) {
       return null;
     }
@@ -75,7 +75,7 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
         baseConfiguredTargetValue.getConfiguredTarget().getConfigurationKey();
     if (!Objects.equals(realConfiguration, baseConfiguredTargetKey.getConfigurationKey())) {
       baseConfiguredTargetKey =
-          baseConfiguredTargetKey.toBuilder().setConfigurationKey(realConfiguration).build();
+          ConfiguredTargetKey.fromConfiguredTarget(baseConfiguredTargetValue.getConfiguredTarget());
     }
 
     Collection<AspectKey> aspectsKeys =

@@ -40,41 +40,6 @@ Asserts the two given lists are not empty.
 </table>
 
 
-<a name="#my_namespace.min"></a>
-
-## my_namespace.min
-
-<pre>
-my_namespace.min(<a href="#my_namespace.min-integers">integers</a>)
-</pre>
-
-Returns the minimum of given elements.
-
-### Returns
-
-The minimum integer in the given list.
-
-### Parameters
-
-<table class="params-table">
-  <colgroup>
-    <col class="col-param" />
-    <col class="col-description" />
-  </colgroup>
-  <tbody>
-    <tr id="my_namespace.min-integers">
-      <td><code>integers</code></td>
-      <td>
-        required.
-        <p>
-          A list of integers. Must not be empty.
-        </p>
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-
 <a name="#my_namespace.join_strings"></a>
 
 ## my_namespace.join_strings
@@ -112,6 +77,41 @@ The joined string.
         optional. default is <code>", "</code>
         <p>
           The delimiter to use
+        </p>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+
+<a name="#my_namespace.min"></a>
+
+## my_namespace.min
+
+<pre>
+my_namespace.min(<a href="#my_namespace.min-integers">integers</a>)
+</pre>
+
+Returns the minimum of given elements.
+
+### Returns
+
+The minimum integer in the given list.
+
+### Parameters
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr id="my_namespace.min-integers">
+      <td><code>integers</code></td>
+      <td>
+        required.
+        <p>
+          A list of integers. Must not be empty.
         </p>
       </td>
     </tr>

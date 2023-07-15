@@ -177,8 +177,7 @@ public class AppleStarlarkCommon
   // This method is registered statically for Starlark, and never called directly.
   public ObjcProvider newObjcProvider(Dict<String, Object> kwargs, StarlarkThread thread)
       throws EvalException {
-    ObjcProvider.StarlarkBuilder resultBuilder =
-        new ObjcProvider.StarlarkBuilder(thread.getSemantics());
+    ObjcProvider.StarlarkBuilder resultBuilder = new ObjcProvider.StarlarkBuilder();
     for (Map.Entry<String, Object> entry : kwargs.entrySet()) {
       ObjcProvider.Key<?> key = ObjcProvider.getStarlarkKeyForString(entry.getKey());
       if (key != null) {
@@ -229,7 +228,7 @@ public class AppleStarlarkCommon
     if (depsObjcProvider != Starlark.NONE) {
       objcProvider = (ObjcProvider) depsObjcProvider;
     } else {
-      objcProvider = new ObjcProvider.StarlarkBuilder(thread.getSemantics()).build();
+      objcProvider = new ObjcProvider.StarlarkBuilder().build();
     }
     return new AppleDynamicFrameworkInfo(
         binary, ccInfo, objcProvider, frameworkDirs, frameworkFiles);
@@ -246,7 +245,7 @@ public class AppleStarlarkCommon
     if (depsObjcProvider != Starlark.NONE) {
       objcProvider = (ObjcProvider) depsObjcProvider;
     } else {
-      objcProvider = new ObjcProvider.StarlarkBuilder(thread.getSemantics()).build();
+      objcProvider = new ObjcProvider.StarlarkBuilder().build();
     }
     return new AppleExecutableBinaryInfo(binary, ccInfo, objcProvider);
   }

@@ -13,14 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.producers;
 
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.InconsistentNullConfigException;
 import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -41,13 +42,17 @@ import javax.annotation.Nullable;
 public final class ConfiguredTargetAndDataProducer
     implements StateMachine,
         Consumer<SkyValue>,
-        StateMachine.ValueOrException2Sink<
-            ConfiguredValueCreationException, InconsistentNullConfigException> {
+        StateMachine.ValueOrException3Sink<
+            ConfiguredValueCreationException,
+            NoSuchThingException,
+            InconsistentNullConfigException> {
   /** Interface for accepting values produced by this class. */
   public interface ResultSink {
     void acceptConfiguredTargetAndData(ConfiguredTargetAndData value, int index);
 
     void acceptConfiguredTargetAndDataError(ConfiguredValueCreationException error);
+
+    void acceptConfiguredTargetAndDataError(NoSuchThingException error);
 
     void acceptConfiguredTargetAndDataError(InconsistentNullConfigException error);
   }
@@ -81,20 +86,25 @@ public final class ConfiguredTargetAndDataProducer
   }
 
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     tasks.lookUp(
-        key.toKey(),
+        key,
         ConfiguredValueCreationException.class,
+        NoSuchThingException.class,
         InconsistentNullConfigException.class,
-        (ValueOrException2Sink<ConfiguredValueCreationException, InconsistentNullConfigException>)
+        (ValueOrException3Sink<
+                ConfiguredValueCreationException,
+                NoSuchThingException,
+                InconsistentNullConfigException>)
             this);
     return this::fetchConfigurationAndPackage;
   }
 
   @Override
-  public void acceptValueOrException2(
+  public void acceptValueOrException3(
       @Nullable SkyValue value,
       @Nullable ConfiguredValueCreationException error,
+      @Nullable NoSuchThingException missingTargetError,
       @Nullable InconsistentNullConfigException visibilityError) {
     if (value != null) {
       var configuredTargetValue = (ConfiguredTargetValue) value;
@@ -111,6 +121,10 @@ public final class ConfiguredTargetAndDataProducer
       sink.acceptConfiguredTargetAndDataError(error);
       return;
     }
+    if (missingTargetError != null) {
+      sink.acceptConfiguredTargetAndDataError(missingTargetError);
+      return;
+    }
     if (visibilityError != null) {
       sink.acceptConfiguredTargetAndDataError(visibilityError);
       return;
@@ -118,7 +132,7 @@ public final class ConfiguredTargetAndDataProducer
     throw new IllegalArgumentException("both value and error were null");
   }
 
-  private StateMachine fetchConfigurationAndPackage(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine fetchConfigurationAndPackage(Tasks tasks) {
     if (configuredTarget == null) {
       return DONE; // There was a previous error.
     }
@@ -159,7 +173,7 @@ public final class ConfiguredTargetAndDataProducer
     throw new IllegalArgumentException("unexpected value: " + value);
   }
 
-  private StateMachine constructResult(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine constructResult(Tasks tasks) {
     Target target;
     try {
       target = pkg.getTarget(configuredTarget.getLabel().getName());

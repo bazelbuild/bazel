@@ -19,6 +19,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.StarlarkRuleFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtension;
+import com.google.devtools.build.lib.bazel.bzlmod.TagClass;
+import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule.RepositoryRuleFunction;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -35,16 +38,20 @@ import com.google.devtools.build.skydoc.rendering.FunctionUtil;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleExtensionInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleExtensionTagClassInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.OriginKey;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderFieldInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderNameGroup;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RepositoryRuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -68,8 +75,29 @@ final class ModuleInfoExtractor {
           .setDocString("A unique name for this target.")
           .build();
 
-  // TODO(b/276733504): do we want to add an implicit repo_mapping attribute for repo rules, as
-  // FakeRepositoryModule currently does?
+  @VisibleForTesting
+  static final ImmutableList<AttributeInfo> IMPLICIT_REPOSITORY_RULE_ATTRIBUTES =
+      ImmutableList.of(
+          AttributeInfo.newBuilder()
+              .setName("name")
+              .setType(AttributeType.NAME)
+              .setMandatory(true)
+              .setDocString("A unique name for this repository.")
+              .build(),
+          AttributeInfo.newBuilder()
+              .setName("repo_mapping")
+              .setType(AttributeType.STRING_DICT)
+              .setDocString(
+                  "In <code>WORKSPACE</code> context only: a dictionary from local repository name"
+                      + " to global repository name. This allows controls over workspace dependency"
+                      + " resolution for dependencies of this repository.<p>For example, an entry"
+                      + " `\"@foo\": \"@bar\"` declares that, for any time this repository depends"
+                      + " on `@foo` (such as a dependency on `@foo//some:target`, it should"
+                      + " actually resolve that dependency within globally-declared `@bar`"
+                      + " (`@bar//some:target`).<p>This attribute is <em>not</em> supported in"
+                      + " <code>MODULE.bazel</code> context (when invoking a repository rule inside"
+                      + " a module extension's implementation function).")
+              .build());
 
   /**
    * Constructs an instance of {@code ModuleInfoExtractor}.
@@ -173,6 +201,10 @@ final class ModuleInfoExtractor {
           visitFunction(qualifiedName, (StarlarkFunction) value);
         } else if (value instanceof StarlarkDefinedAspect) {
           visitAspect(qualifiedName, (StarlarkDefinedAspect) value);
+        } else if (value instanceof RepositoryRuleFunction) {
+          visitRepositoryRule(qualifiedName, (RepositoryRuleFunction) value);
+        } else if (value instanceof ModuleExtension) {
+          visitModuleExtension(qualifiedName, (ModuleExtension) value);
         } else if (value instanceof Structure) {
           recurseIntoStructure(
               qualifiedName, (Structure) value, /* shouldVisitVerifiedForAncestor= */ true);
@@ -197,6 +229,13 @@ final class ModuleInfoExtractor {
         throws ExtractionException {}
 
     protected void visitAspect(String qualifiedName, StarlarkDefinedAspect aspect)
+        throws ExtractionException {}
+
+    protected void visitModuleExtension(String qualifiedName, ModuleExtension moduleExtension)
+        throws ExtractionException {}
+
+    protected void visitRepositoryRule(
+        String qualifiedName, RepositoryRuleFunction repositoryRuleFunction)
         throws ExtractionException {}
 
     private void recurseIntoStructure(
@@ -323,13 +362,8 @@ final class ModuleInfoExtractor {
       ruleFunction.getDocumentation().ifPresent(ruleInfoBuilder::setDocString);
       RuleClass ruleClass = ruleFunction.getRuleClass();
       ruleInfoBuilder.addAttribute(IMPLICIT_NAME_ATTRIBUTE_INFO); // name comes first
-      for (Attribute attribute : ruleClass.getAttributes()) {
-        if (attribute.starlarkDefined()
-            && attribute.isDocumented()
-            && isPublicName(attribute.getPublicName())) {
-          ruleInfoBuilder.addAttribute(buildAttributeInfo(attribute, "rule " + qualifiedName));
-        }
-      }
+      addDocumentableAttributes(
+          ruleClass.getAttributes(), ruleInfoBuilder::addAttribute, "rule " + qualifiedName);
       ImmutableSet<StarlarkProviderIdentifier> advertisedProviders =
           ruleClass.getAdvertisedProviders().getStarlarkProviders();
       if (!advertisedProviders.isEmpty()) {
@@ -394,12 +428,64 @@ final class ModuleInfoExtractor {
         }
       }
       aspectInfoBuilder.addAttribute(IMPLICIT_NAME_ATTRIBUTE_INFO); // name comes first
-      for (Attribute attribute : aspect.getAttributes()) {
-        if (isPublicName(attribute.getPublicName())) {
-          aspectInfoBuilder.addAttribute(buildAttributeInfo(attribute, "aspect " + qualifiedName));
-        }
-      }
+      addDocumentableAttributes(
+          aspect.getAttributes(), aspectInfoBuilder::addAttribute, "aspect " + qualifiedName);
       moduleInfoBuilder.addAspectInfo(aspectInfoBuilder);
+    }
+
+    @Override
+    protected void visitModuleExtension(String qualifiedName, ModuleExtension moduleExtension)
+        throws ExtractionException {
+      ModuleExtensionInfo.Builder moduleExtensionInfoBuilder = ModuleExtensionInfo.newBuilder();
+      moduleExtensionInfoBuilder.setExtensionName(qualifiedName);
+      moduleExtensionInfoBuilder.setOriginKey(
+          OriginKey.newBuilder()
+              // TODO(arostovtsev): attempt to retrieve the name under which the module was
+              // originally defined so we can call setName() too. The easiest solution might be to
+              // make ModuleExtension a StarlarkExportable (partially reverting cl/513213080).
+              // Alternatively, we'd need to search the defining module's globals, similarly to what
+              // we do in FunctionUtil#getFunctionOriginKey.
+              .setFile(
+                  moduleExtension.getDefiningBzlFileLabel().getDisplayForm(repositoryMapping)));
+      moduleExtension.getDoc().ifPresent(moduleExtensionInfoBuilder::setDocString);
+      for (Map.Entry<String, TagClass> entry : moduleExtension.getTagClasses().entrySet()) {
+        ModuleExtensionTagClassInfo.Builder tagClassInfoBuilder =
+            ModuleExtensionTagClassInfo.newBuilder();
+        tagClassInfoBuilder.setTagName(entry.getKey());
+        entry.getValue().getDoc().ifPresent(tagClassInfoBuilder::setDocString);
+        addDocumentableAttributes(
+            entry.getValue().getAttributes(),
+            tagClassInfoBuilder::addAttribute,
+            String.format("module extension %s tag class %s", qualifiedName, entry.getKey()));
+        moduleExtensionInfoBuilder.addTagClass(tagClassInfoBuilder);
+      }
+      moduleInfoBuilder.addModuleExtensionInfo(moduleExtensionInfoBuilder);
+    }
+
+    @Override
+    protected void visitRepositoryRule(
+        String qualifiedName, RepositoryRuleFunction repositoryRuleFunction)
+        throws ExtractionException {
+      RepositoryRuleInfo.Builder repositoryRuleInfoBuilder = RepositoryRuleInfo.newBuilder();
+      repositoryRuleInfoBuilder.setRuleName(qualifiedName);
+      repositoryRuleFunction.getDocumentation().ifPresent(repositoryRuleInfoBuilder::setDocString);
+      RuleClass ruleClass = repositoryRuleFunction.getRuleClass();
+      repositoryRuleInfoBuilder.setOriginKey(
+          OriginKey.newBuilder()
+              .setName(ruleClass.getName())
+              .setFile(
+                  repositoryRuleFunction.getExtensionLabel().getDisplayForm(repositoryMapping)));
+
+      repositoryRuleInfoBuilder.addAllAttribute(IMPLICIT_REPOSITORY_RULE_ATTRIBUTES);
+      addDocumentableAttributes(
+          ruleClass.getAttributes(),
+          repositoryRuleInfoBuilder::addAttribute,
+          "repository rule " + qualifiedName);
+      if (ruleClass.hasAttr("$environ", Type.STRING_LIST)) {
+        repositoryRuleInfoBuilder.addAllEnviron(
+            Type.STRING_LIST.cast(ruleClass.getAttributeByName("$environ").getDefaultValue()));
+      }
+      moduleInfoBuilder.addRepositoryRuleInfo(repositoryRuleInfoBuilder);
     }
 
     /**
@@ -504,6 +590,8 @@ final class ModuleInfoExtractor {
       builder.setMandatory(attribute.isMandatory());
       for (ImmutableSet<StarlarkProviderIdentifier> providerGroup :
           attribute.getRequiredProviders().getStarlarkProviders()) {
+        // TODO(b/290788853): it is meaningless to require a provider on an attribute of a
+        // repository rule or of a module extension tag.
         builder.addProviderNameGroup(buildProviderNameGroup(providerGroup));
       }
 
@@ -512,6 +600,18 @@ final class ModuleInfoExtractor {
         builder.setDefaultValue(new Printer().repr(stringifyLabels(defaultValue)).toString());
       }
       return builder.build();
+    }
+
+    private void addDocumentableAttributes(
+        Iterable<Attribute> attributes, Consumer<AttributeInfo> builder, String where)
+        throws ExtractionException {
+      for (Attribute attribute : attributes) {
+        if (attribute.starlarkDefined()
+            && attribute.isDocumented()
+            && isPublicName(attribute.getPublicName())) {
+          builder.accept(buildAttributeInfo(attribute, where));
+        }
+      }
     }
 
     /**

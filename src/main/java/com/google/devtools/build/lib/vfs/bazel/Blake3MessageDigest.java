@@ -10,23 +10,26 @@ public final class Blake3MessageDigest extends MessageDigest {
   public static final int KEY_LEN = 32;
   public static final int OUT_LEN = 32;
 
-  // To reduce the number of calls made via JNI, buffer up to this many bytes.
-  // If a call to "hash()" is made and less than this much data has been
-  // written, a single JNI call will be made that initializes, hashes, and
-  // cleans up the hasher, rather than making separate calls for each operation.
+  private static int STATE_SIZE = Blake3JNI.hasher_size();
+  private static byte[] INITIAL_STATE = new byte[STATE_SIZE];
+
+  static {
+    Blake3JNI.initialize_hasher(INITIAL_STATE);
+  }
+
+  // To reduce the number of calls made via JNI, buffer up to this many bytes
+  // before updating the hasher.
   public static final int ONESHOT_THRESHOLD = 8 * 1024;
+
   private ByteBuffer buffer = ByteBuffer.allocate(ONESHOT_THRESHOLD);
-  private long hasher = -1;
+  private byte[] hasher = new byte[STATE_SIZE];
 
   public Blake3MessageDigest() {
     super("BLAKE3");
+    System.arraycopy(INITIAL_STATE, 0, hasher, 0, STATE_SIZE);
   }
 
   private void flush() {
-    if (hasher == -1) {
-      hasher = Blake3JNI.allocate_and_initialize_hasher();
-    }
-
     if (buffer.position() > 0) {
       Blake3JNI.blake3_hasher_update(hasher, buffer.array(), buffer.position());
       buffer.clear();
@@ -58,17 +61,12 @@ public final class Blake3MessageDigest extends MessageDigest {
   }
 
   private byte[] getOutput(int outputLength) {
+    flush();
+
     byte[] retByteArray = new byte[outputLength];
+    Blake3JNI.blake3_hasher_finalize(hasher, retByteArray, outputLength);
 
-    if (hasher == -1) {
-      // If no flush has happened yet; oneshot this.
-      Blake3JNI.oneshot(buffer.array(), buffer.position(), retByteArray, outputLength);
-    } else {
-      flush();
-      Blake3JNI.blake3_hasher_finalize_and_reset(hasher, retByteArray, outputLength);
-    }
-
-    buffer.clear();
+    engineReset();
     return retByteArray;
   }
 
@@ -77,10 +75,8 @@ public final class Blake3MessageDigest extends MessageDigest {
   }
 
   public void engineReset() {
-    if (hasher != -1) {
-      Blake3JNI.blake3_hasher_reset(hasher);
-    }
     buffer.clear();
+    System.arraycopy(INITIAL_STATE, 0, hasher, 0, STATE_SIZE);
   }
 
   public void engineUpdate(ByteBuffer input) {
@@ -113,13 +109,5 @@ public final class Blake3MessageDigest extends MessageDigest {
     byte[] digestBytes = getOutput(OUT_LEN);
     System.arraycopy(digestBytes, 0, buf, off, digestBytes.length);
     return digestBytes.length;
-  }
-
-  @Override
-  protected void finalize() throws Throwable {
-    if (hasher != -1) {
-      Blake3JNI.blake3_hasher_close(hasher);
-      hasher = -1;
-    }
   }
 }

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -41,37 +42,31 @@ import net.starlark.java.eval.Starlark;
  * Provides information about {@code --add-exports=} and {@code --add-opens=} flags for Java
  * targets.
  */
-final class JavaModuleFlagsProvider
+@AutoValue
+abstract class JavaModuleFlagsProvider
     implements JavaInfoInternalProvider, JavaModuleFlagsProviderApi {
 
-  private final NestedSet<String> addExports;
-  private final NestedSet<String> addOpens;
+  public abstract NestedSet<String> addExports();
 
-  public NestedSet<String> addExports() {
-    return addExports;
-  }
-
-  public NestedSet<String> addOpens() {
-    return addOpens;
-  }
+  public abstract NestedSet<String> addOpens();
 
   @Override
   public Depset /*String*/ getAddExports() {
-    return Depset.of(String.class, addExports);
+    return Depset.of(String.class, addExports());
   }
 
   @Override
   public Depset /*String*/ getAddOpens() {
-    return Depset.of(String.class, addOpens);
+    return Depset.of(String.class, addOpens());
   }
 
-  public JavaModuleFlagsProvider(NestedSet<String> addExports, NestedSet<String> addOpens) {
-    this.addExports = addExports;
-    this.addOpens = addOpens;
+  public static JavaModuleFlagsProvider create(
+      NestedSet<String> addExports, NestedSet<String> addOpens) {
+    return new AutoValue_JavaModuleFlagsProvider(addExports, addOpens);
   }
 
   public static final JavaModuleFlagsProvider EMPTY =
-      new JavaModuleFlagsProvider(
+      create(
           NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.emptySet(Order.STABLE_ORDER));
 
@@ -93,7 +88,7 @@ final class JavaModuleFlagsProvider
     if (addExportsBuilder.isEmpty() && addOpensBuilder.isEmpty()) {
       return EMPTY;
     }
-    return new JavaModuleFlagsProvider(addExportsBuilder.build(), addOpensBuilder.build());
+    return create(addExportsBuilder.build(), addOpensBuilder.build());
   }
 
   public static JavaModuleFlagsProvider create(

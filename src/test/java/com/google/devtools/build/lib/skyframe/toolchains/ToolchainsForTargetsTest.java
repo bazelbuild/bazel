@@ -130,8 +130,8 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
         throws ComputeUnloadedToolchainContextsException, InterruptedException {
       Key key = (Key) skyKey.argument();
       var state =
-          env.getState(() -> new PrerequisiteProducer.State(/* storeTransitivePackages= */ false));
-      state.targetAndConfiguration = key.targetAndConfiguration();
+          env.getState(
+              () -> PrerequisiteProducer.State.createForTesting(key.targetAndConfiguration()));
       DependencyContext result;
       try {
         result =

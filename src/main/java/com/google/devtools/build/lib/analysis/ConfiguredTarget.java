@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
@@ -43,12 +43,12 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, Structure {
   /** All <code>ConfiguredTarget</code>s have a "files" field. */
   String FILES_FIELD = "files";
 
-  /** Returns a key provider that may be used to lookup this {@link ConfiguredTarget}. */
-  ActionLookupKeyOrProxy getKeyOrProxy();
+  /** Returns a key that may be used to lookup this {@link ConfiguredTarget}. */
+  ActionLookupKey getLookupKey();
 
   @Override
   default Label getLabel() {
-    return getKeyOrProxy().getLabel();
+    return getLookupKey().getLabel();
   }
 
   @Nullable
@@ -69,7 +69,7 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, Structure {
    */
   @Nullable
   default BuildConfigurationKey getConfigurationKey() {
-    return getKeyOrProxy().getConfigurationKey();
+    return getLookupKey().getConfigurationKey();
   }
 
   /** Returns keys for a legacy Starlark provider. */

@@ -133,11 +133,12 @@ def to_java_binary_info(java_info):
         "_neverlink": False,
         "_constraints": [],
         "annotation_processing": java_info.annotation_processing,
-        "cc_link_params_info": getattr(java_info, "cc_link_params_info", None),
         "transitive_native_libraries": java_info.transitive_native_libraries,
         "source_jars": java_info.source_jars,
         "transitive_source_jars": java_info.transitive_source_jars,
     }
+    if hasattr(java_info, "cc_link_params_info"):
+        result.update(cc_link_params_info = java_info.cc_link_params_info)
 
     compilation_info = _EMPTY_COMPILATION_INFO
     if java_info.compilation_info:
@@ -167,9 +168,15 @@ def to_java_binary_info(java_info):
         )
         for output in java_info.java_outputs
     ]
+    all_jdeps = [output.jdeps for output in java_info.java_outputs if output.jdeps]
+    all_native_headers = [output.native_headers_jar for output in java_info.java_outputs if output.native_headers_jar]
     result.update(
         java_outputs = java_outputs,
-        outputs = _JavaRuleOutputJarsInfo(jars = java_outputs, jdeps = None, native_headers = None),
+        outputs = _JavaRuleOutputJarsInfo(
+            jars = java_outputs,
+            jdeps = all_jdeps[0] if len(all_jdeps) == 1 else None,
+            native_headers = all_native_headers[0] if len(all_native_headers) == 1 else None,
+        ),
     )
 
     # so that translation into native JavaInfo does not add JavaCompilationArgsProvider
@@ -423,7 +430,7 @@ def _javainfo_init(
                     if dep.annotation_processing
                 ],
             ),
-            processor_classnames = depset(),
+            processor_classnames = [],
             processor_classpath = depset(),
         ),
         "compilation_info": None,
@@ -443,7 +450,7 @@ def _javainfo_init(
     if _java_common_internal._google_legacy_api_enabled():
         cc_info = cc_common.merge_cc_infos(
             cc_infos = [dep.cc_link_params_info for dep in runtime_deps + exports + deps] +
-                       [cc_common.merge_cc_infos(cc_infos = native_libraries)],
+                       ([cc_common.merge_cc_infos(cc_infos = native_libraries)] if native_libraries else []),
         )
         result.update(
             cc_link_params_info = cc_info,
@@ -452,8 +459,9 @@ def _javainfo_init(
     else:
         result.update(
             transitive_native_libraries = depset(
+                order = "topological",
                 transitive = [dep.transitive_native_libraries for dep in runtime_deps + exports + deps] +
-                             [cc_common.merge_cc_infos(cc_infos = native_libraries).transitive_native_libraries()],
+                             ([cc_common.merge_cc_infos(cc_infos = native_libraries).transitive_native_libraries()] if native_libraries else []),
             ),
         )
     return result

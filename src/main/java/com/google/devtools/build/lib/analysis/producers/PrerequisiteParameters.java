@@ -20,8 +20,10 @@ import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
@@ -37,27 +39,34 @@ public final class PrerequisiteParameters {
   private final Target target;
 
   private final ImmutableList<Aspect> aspects;
+  @Nullable private final StarlarkAttributeTransitionProvider starlarkTransitionProvider;
   private final StarlarkTransitionCache transitionCache;
   @Nullable private final ToolchainCollection<ToolchainContext> toolchainContexts;
 
   @Nullable private final ConfiguredAttributeMapper attributeMap;
   private final TransitiveDependencyState transitiveState;
 
+  private final ExtendedEventHandler eventHandler;
+
   public PrerequisiteParameters(
       ConfiguredTargetKey configuredTargetKey,
       Target target,
       Iterable<Aspect> aspects,
+      @Nullable StarlarkAttributeTransitionProvider starlarkTransitionProvider,
       StarlarkTransitionCache transitionCache,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
       @Nullable ConfiguredAttributeMapper attributeMap,
-      TransitiveDependencyState transitiveState) {
+      TransitiveDependencyState transitiveState,
+      ExtendedEventHandler eventHandler) {
     this.configuredTargetKey = configuredTargetKey;
     this.target = target;
     this.aspects = ImmutableList.copyOf(aspects);
+    this.starlarkTransitionProvider = starlarkTransitionProvider;
     this.transitionCache = transitionCache;
     this.toolchainContexts = toolchainContexts;
     this.attributeMap = attributeMap;
     this.transitiveState = transitiveState;
+    this.eventHandler = eventHandler;
   }
 
   public Label label() {
@@ -80,6 +89,11 @@ public final class PrerequisiteParameters {
 
   public ImmutableList<Aspect> aspects() {
     return aspects;
+  }
+
+  @Nullable
+  public StarlarkAttributeTransitionProvider starlarkTransitionProvider() {
+    return starlarkTransitionProvider;
   }
 
   public StarlarkTransitionCache transitionCache() {
@@ -115,5 +129,9 @@ public final class PrerequisiteParameters {
 
   public TransitiveDependencyState transitiveState() {
     return transitiveState;
+  }
+
+  public ExtendedEventHandler eventHandler() {
+    return eventHandler;
   }
 }

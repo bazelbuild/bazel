@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -141,7 +140,7 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
   }
 
   private static void assertNumberOfConfigurationsOfTargets(
-      Set<? extends ActionLookupKeyOrProxy> keys, Map<String, Integer> targetsWithCounts) {
+      Set<? extends ActionLookupKey> keys, Map<String, Integer> targetsWithCounts) {
     ImmutableMultiset<Label> actualSet =
         keys.stream()
             .filter(key -> key instanceof ConfiguredTargetKey)
@@ -333,8 +332,7 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
         "//test:starlark_dep",
         "//test:native_shared_dep",
         "//test:starlark_shared_dep");
-    var visitedTargetKeys =
-        new LinkedHashSet<ActionLookupKeyOrProxy>(getEvaluatedTargetValueKeys());
+    var visitedTargetKeys = new LinkedHashSet<ActionLookupKey>(getEvaluatedTargetValueKeys());
     // asserting that the top-level targets are the same as the ones in the diamond starting at
     // //test:suite
     assertNumberOfConfigurationsOfTargets(
@@ -375,15 +373,14 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
             .build());
   }
 
-  private ImmutableSet<ActionLookupKeyOrProxy> getEvaluatedTargetValueKeys()
-      throws InterruptedException {
+  private ImmutableSet<ActionLookupKey> getEvaluatedTargetValueKeys() throws InterruptedException {
     MemoizingEvaluator evaluator = skyframeExecutor.getEvaluator();
-    var result = ImmutableSet.<ActionLookupKeyOrProxy>builder();
+    var result = ImmutableSet.<ActionLookupKey>builder();
     for (ActionLookupKey key : getSkyframeEvaluatedTargetKeys()) {
       result.add(
-          ((ConfiguredTargetValue) evaluator.getExistingValue(key.toKey()))
+          ((ConfiguredTargetValue) evaluator.getExistingValue(key))
               .getConfiguredTarget()
-              .getKeyOrProxy());
+              .getLookupKey());
     }
     return result.build();
   }

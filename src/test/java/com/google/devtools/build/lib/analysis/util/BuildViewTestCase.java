@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
@@ -527,7 +526,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         QuiescingExecutorsImpl.forTesting(),
         tsgm);
     skyframeExecutor.setActionEnv(ImmutableMap.of());
-    skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageOptions.getDeletedPackages()));
+    skyframeExecutor.setDeletedPackages(packageOptions.getDeletedPackages());
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
@@ -1448,13 +1447,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected final Artifact.DerivedArtifact getDerivedArtifact(
       PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
-    if (owner instanceof ActionLookupKeyOrProxy) {
+    if (owner instanceof ActionLookupKey) {
       SkyValue skyValue;
       try {
-        skyValue =
-            skyframeExecutor
-                .getEvaluator()
-                .getExistingValue(((ActionLookupKeyOrProxy) owner).toKey());
+        skyValue = skyframeExecutor.getEvaluator().getExistingValue(((ActionLookupKey) owner));
       } catch (InterruptedException e) {
         throw new IllegalStateException(e);
       }
@@ -1481,7 +1477,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * "foo.o".
    */
   protected final Artifact getTreeArtifact(String packageRelativePath, ConfiguredTarget owner) {
-    ActionLookupKeyOrProxy actionLookupKey = ConfiguredTargetKey.fromConfiguredTarget(owner);
+    ActionLookupKey actionLookupKey = ConfiguredTargetKey.fromConfiguredTarget(owner);
     return getDerivedArtifact(
         owner.getLabel().getPackageFragment().getRelative(packageRelativePath),
         getConfiguration(owner).getBinDirectory(RepositoryName.MAIN),
@@ -1574,7 +1570,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         packageRelativePath,
         getConfiguration(owner).getBinDirectory(RepositoryName.MAIN),
         AspectKeyCreator.createAspectKey(
-            new AspectDescriptor(creatingAspectFactory, parameters),
+            AspectDescriptor.of(creatingAspectFactory, parameters),
             ConfiguredTargetKey.builder()
                 .setLabel(owner.getLabel())
                 .setConfiguration(getConfiguration(owner))
@@ -1666,7 +1662,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected AspectKey getOwnerForAspect(
       ConfiguredTarget owner, AspectClass creatingAspectFactory, AspectParameters params) {
     return AspectKeyCreator.createAspectKey(
-        new AspectDescriptor(creatingAspectFactory, params),
+        AspectDescriptor.of(creatingAspectFactory, params),
         ConfiguredTargetKey.builder()
             .setLabel(owner.getLabel())
             .setConfiguration(getConfiguration(owner))

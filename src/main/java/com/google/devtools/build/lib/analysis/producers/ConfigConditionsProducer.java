@@ -22,8 +22,8 @@ import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -83,7 +83,7 @@ final class ConfigConditionsProducer
   }
 
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     if (configLabels == null) {
       sink.acceptConfigConditions(ConfigConditions.EMPTY);
       return runAfter;
@@ -115,19 +115,12 @@ final class ConfigConditionsProducer
 
   @Override
   public void acceptConfiguredTargetAndDataError(ConfiguredValueCreationException error) {
-    DetailedExitCode newExitCode = error.getDetailedExitCode();
-    mostImportantExitCode =
-        DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
-            newExitCode, mostImportantExitCode);
-    if (newExitCode.equals(mostImportantExitCode)) {
-      sink.acceptConfigConditionsError(
-          // The precise error is reported by the dependency that failed to load.
-          // TODO(gregce): beautify this error: https://github.com/bazelbuild/bazel/issues/11984.
-          new ConfiguredValueCreationException(
-              targetAndConfiguration,
-              "errors encountered resolving select() keys for "
-                  + targetAndConfiguration.getLabel()));
-    }
+    emitErrorIfMostImportant(error.getDetailedExitCode());
+  }
+
+  @Override
+  public void acceptConfiguredTargetAndDataError(NoSuchThingException error) {
+    emitErrorIfMostImportant(error.getDetailedExitCode());
   }
 
   @Override
@@ -139,7 +132,7 @@ final class ConfigConditionsProducer
         "ConfigCondition dependency should never be evaluated with a null configuration.", error);
   }
 
-  private StateMachine constructConfigConditions(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine constructConfigConditions(Tasks tasks) {
     if (mostImportantExitCode != null) {
       return runAfter; // There was a previous error.
     }
@@ -196,5 +189,20 @@ final class ConfigConditionsProducer
       return null;
     }
     return configLabels;
+  }
+
+  private void emitErrorIfMostImportant(@Nullable DetailedExitCode newExitCode) {
+    mostImportantExitCode =
+        DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
+            newExitCode, mostImportantExitCode);
+    if (newExitCode.equals(mostImportantExitCode)) {
+      sink.acceptConfigConditionsError(
+          // The precise error is reported by the dependency that failed to load.
+          // TODO(gregce): beautify this error: https://github.com/bazelbuild/bazel/issues/11984.
+          new ConfiguredValueCreationException(
+              targetAndConfiguration,
+              "errors encountered resolving select() keys for "
+                  + targetAndConfiguration.getLabel()));
+    }
   }
 }

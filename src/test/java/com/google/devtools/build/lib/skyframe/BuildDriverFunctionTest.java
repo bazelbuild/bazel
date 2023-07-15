@@ -15,11 +15,9 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.skyframe.BuildDriverFunction.ActionLookupValuesCollectionResult;
 import com.google.devtools.build.lib.skyframe.BuildDriverFunction.TransitiveActionLookupValuesHelper;
@@ -35,15 +33,15 @@ public class BuildDriverFunctionTest {
 
   @Test
   public void checkActionConflicts_noConflict_conflictFreeKeysRegistered() throws Exception {
-    Set<ActionLookupKeyOrProxy> globalSet = new HashSet<>();
+    Set<ActionLookupKey> globalSet = new HashSet<>();
     IncrementalArtifactConflictFinder dummyConflictFinder =
         IncrementalArtifactConflictFinder.createWithActionGraph(mock(MutableActionGraph.class));
     TransitiveActionLookupValuesHelper fakeHelper =
         new TransitiveActionLookupValuesHelper() {
           @Override
-          public ActionLookupValuesCollectionResult collect(ActionLookupKeyOrProxy key) {
+          public ActionLookupValuesCollectionResult collect(ActionLookupKey key) {
             return ActionLookupValuesCollectionResult.create(
-                ImmutableSet.of(), ImmutableSet.of(key.toKey()));
+                ImmutableSet.of(), ImmutableSet.of(key));
           }
 
           @Override
@@ -52,7 +50,6 @@ public class BuildDriverFunctionTest {
           }
         };
     ActionLookupKey dummyKey = mock(ActionLookupKey.class);
-    when(dummyKey.toKey()).thenReturn(dummyKey);
     BuildDriverFunction function =
         new BuildDriverFunction(
             fakeHelper,

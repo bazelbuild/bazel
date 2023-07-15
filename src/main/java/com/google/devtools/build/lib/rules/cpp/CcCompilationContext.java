@@ -229,6 +229,17 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   }
 
   @Override
+  public Depset getStarlarkExternalIncludeDirs() {
+    return Depset.of(
+        String.class,
+        NestedSetBuilder.wrap(
+            Order.STABLE_ORDER,
+            getExternalIncludeDirs().stream()
+                .map(PathFragment::getSafePathString)
+                .collect(ImmutableList.toImmutableList())));
+  }
+
+  @Override
   public Depset getStarlarkQuoteIncludeDirs() {
     return Depset.of(
         String.class,
@@ -337,7 +348,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
    * directory" (possibly empty but never null).
    */
   public NestedSet<PathFragment> getLooseHdrsDirs() {
-    return looseHdrsDirs;
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
   /**
@@ -686,7 +697,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   }
 
   public CppConfiguration.HeadersCheckingMode getHeadersCheckingMode() {
-    return headersCheckingMode;
+    return CppConfiguration.HeadersCheckingMode.STRICT;
   }
 
   public NestedSet<Tuple> getVirtualToOriginalHeaders() {

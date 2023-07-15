@@ -72,7 +72,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws ActionTemplateExpansionFunctionException, InterruptedException {
     ActionTemplateExpansionKey key = (ActionTemplateExpansionKey) skyKey.argument();
-    ActionLookupValue value = (ActionLookupValue) env.getValue(key.getActionLookupKey().toKey());
+    ActionLookupValue value = (ActionLookupValue) env.getValue(key.getActionLookupKey());
     if (value == null) {
       // Because of the phase boundary separating analysis and execution, all needed
       // ActionLookupValues must have already been evaluated, so a missing ActionLookupValue is

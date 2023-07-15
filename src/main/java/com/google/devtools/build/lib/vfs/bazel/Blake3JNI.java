@@ -23,16 +23,11 @@ final class Blake3JNI {
     JniLoader.loadJni();
   }
 
-  public static final native long allocate_and_initialize_hasher();
+  public static final native int hasher_size();
 
-  public static final native void blake3_hasher_reset(long self);
+  public static final native void initialize_hasher(byte[] hasher);
 
-  public static final native void blake3_hasher_close(long self);
+  public static final native void blake3_hasher_update(byte[] hasher, byte[] input, int input_len);
 
-  public static final native void blake3_hasher_update(long self, byte[] input, int input_len);
-
-  public static final native void blake3_hasher_finalize_and_reset(
-      long self, byte[] out, int out_len);
-
-  public static final native void oneshot(byte[] input, int input_len, byte[] out, int out_len);
+  public static final native void blake3_hasher_finalize(byte[] hasher, byte[] out, int out_len);
 }

@@ -14,11 +14,14 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -34,12 +37,9 @@ import net.starlark.java.eval.Starlark;
  * A class that provides compilation information in Java rules, for perusal of aspects and tools.
  */
 @Immutable
-public final class JavaCompilationInfoProvider
+@AutoValue
+public abstract class JavaCompilationInfoProvider
     implements JavaInfoInternalProvider, JavaCompilationInfoProviderApi<Artifact> {
-  private final ImmutableList<String> javacOpts;
-  @Nullable private final NestedSet<Artifact> runtimeClasspath;
-  @Nullable private final NestedSet<Artifact> compilationClasspath;
-  private final BootClassPathInfo bootClasspath;
 
   /**
    * Transforms the {@code compilation_info} field from a {@link JavaInfo} into a native instance.
@@ -65,7 +65,12 @@ public final class JavaCompilationInfoProvider
               .setJavacOpts(
                   Sequence.cast(info.getValue("javac_options"), String.class, "javac_options")
                       .getImmutableList())
-              .setBootClasspath(BootClassPathInfo.fromStarlark(info.getValue("boot_classpath")));
+              .setBootClasspath(
+                  BootClassPathInfo.create(
+                      NestedSetBuilder.wrap(
+                          Order.NAIVE_LINK_ORDER,
+                          Sequence.noneableCast(
+                              info.getValue("boot_classpath"), Artifact.class, "boot_classpath"))));
       Object runtimeClasspath = info.getValue("runtime_classpath");
       if (runtimeClasspath != null) {
         builder.setRuntimeClasspath(
@@ -118,45 +123,39 @@ public final class JavaCompilationInfoProvider
     }
 
     public JavaCompilationInfoProvider build() {
-      return new JavaCompilationInfoProvider(
-          javacOpts, runtimeClasspath, compilationClasspath, bootClasspath);
+      return new AutoValue_JavaCompilationInfoProvider(
+          javacOpts, runtimeClasspath, compilationClasspath, bootClasspath.bootclasspath());
     }
   }
 
   @Override
-  public ImmutableList<String> getJavacOpts() {
-    return javacOpts;
-  }
+  @Nullable
+  public abstract ImmutableList<String> getJavacOpts();
+
+  @Nullable
+  public abstract NestedSet<Artifact> runtimeClasspath();
 
   @Override
   @Nullable
   public Depset /*<Artifact>*/ getRuntimeClasspath() {
-    return runtimeClasspath == null ? null : Depset.of(Artifact.class, runtimeClasspath);
+    return runtimeClasspath() == null ? null : Depset.of(Artifact.class, runtimeClasspath());
   }
+
+  @Nullable
+  public abstract NestedSet<Artifact> compilationClasspath();
 
   @Override
   @Nullable
   public Depset /*<Artifact>*/ getCompilationClasspath() {
-    return compilationClasspath == null ? null : Depset.of(Artifact.class, compilationClasspath);
+    return compilationClasspath() == null
+        ? null
+        : Depset.of(Artifact.class, compilationClasspath());
   }
 
   @Override
-  public ImmutableList<Artifact> getBootClasspath() {
-    return bootClasspath.bootclasspath().toList();
+  public ImmutableList<Artifact> getBootClasspathList() {
+    return bootClasspath().toList();
   }
 
-  public NestedSet<Artifact> getBootClasspathAsNestedSet() {
-    return bootClasspath.bootclasspath();
-  }
-
-  private JavaCompilationInfoProvider(
-      ImmutableList<String> javacOpts,
-      @Nullable NestedSet<Artifact> runtimeClasspath,
-      @Nullable NestedSet<Artifact> compilationClasspath,
-      BootClassPathInfo bootClasspath) {
-    this.javacOpts = javacOpts;
-    this.runtimeClasspath = runtimeClasspath;
-    this.compilationClasspath = compilationClasspath;
-    this.bootClasspath = Preconditions.checkNotNull(bootClasspath);
-  }
+  public abstract NestedSet<Artifact> bootClasspath();
 }

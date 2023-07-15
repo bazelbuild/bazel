@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
@@ -60,7 +60,7 @@ import net.starlark.java.eval.StarlarkSemantics;
 public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
 
   private final ArtifactFactory artifactFactory;
-  private final ActionLookupKeyOrProxy owner;
+  private final ActionLookupKey owner;
   private final boolean extendedSanityChecks;
   private final boolean allowAnalysisFailures;
   private final ActionKeyContext actionKeyContext;
@@ -91,7 +91,7 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
   public CachingAnalysisEnvironment(
       ArtifactFactory artifactFactory,
       ActionKeyContext actionKeyContext,
-      ActionLookupKeyOrProxy owner,
+      ActionLookupKey owner,
       boolean extendedSanityChecks,
       boolean allowAnalysisFailures,
       ExtendedEventHandler errorEventListener,
@@ -386,7 +386,7 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
-  public ActionLookupKeyOrProxy getOwner() {
+  public ActionLookupKey getOwner() {
     return owner;
   }
 

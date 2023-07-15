@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.java;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -312,7 +313,7 @@ public interface JavaCommonApi<
       Sequence<?> addExports, // <String> expected.
       Sequence<?> addOpens, // <String> expected.
       StarlarkThread thread)
-      throws EvalException, InterruptedException, RuleErrorException;
+      throws EvalException, InterruptedException, RuleErrorException, LabelSyntaxException;
 
   @StarlarkMethod(
       name = "default_javac_opts",
@@ -446,4 +447,13 @@ public interface JavaCommonApi<
 
   @StarlarkMethod(name = "_google_legacy_api_enabled", documented = false, useStarlarkThread = true)
   boolean isLegacyGoogleApiEnabled(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "_check_java_toolchain_is_declared_on_rule",
+      documented = false,
+      parameters = {@Param(name = "actions")},
+      useStarlarkThread = true)
+  void checkJavaToolchainIsDeclaredOnRuleForStarlark(
+      StarlarkActionFactoryT actions, StarlarkThread thread)
+      throws EvalException, LabelSyntaxException;
 }

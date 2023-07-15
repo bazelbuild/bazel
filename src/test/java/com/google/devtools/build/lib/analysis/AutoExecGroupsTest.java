@@ -599,6 +599,37 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void execGroupSetOnAction_noToolchainParameter_noError() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('test_' + ctx.label.name + '.jar')",
+        "  ctx.actions.run(",
+        "    outputs = [output_jar],",
+        "    executable = ctx.toolchains['//rule:toolchain_type_2'].tool,",
+        "    exec_group = 'custom_exec_group',",
+        "  )",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  exec_groups = { ",
+        "    'custom_exec_group': exec_group(toolchains = ['//rule:toolchain_type_2']),",
+        "  },",
+        "  toolchains = ['//rule:toolchain_type_2'],",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'custom_rule')",
+        "custom_rule(name = 'custom_rule_name')");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:custom_rule_name");
+
+    assertNoEvents();
+  }
+
+  @Test
   @TestParameters({
     "{action: ctx.actions.run}",
     "{action: ctx.actions.run_shell}",

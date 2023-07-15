@@ -125,19 +125,19 @@ distdir_tar(
     name = "additional_distfiles",
     # Keep in sync with the archives fetched as part of building bazel.
     archives = [
-        "android_tools_pkg-0.28.0.tar",
+        "android_tools_pkg-0.29.0.tar",
         # for android_gmaven_r8
         "r8-8.0.40.jar",
     ],
     dirname = "derived/distdir",
     dist_deps = {dep: attrs for dep, attrs in DIST_DEPS.items() if "additional_distfiles" in attrs["used_in"]},
     sha256 = {
-        "android_tools_pkg-0.28.0.tar": "db3b02421ae974e0b33573f3e4f658d5f89cc9a0b42baae0ba2ac08e25c0720a",
+        "android_tools_pkg-0.29.0.tar": "d7223664ca5b0de490f2a918c31f35cdf4f23a1446fe261d7470b8a22bd7bcf1",
         "r8-8.0.40.jar": "ab1379835c7d3e5f21f80347c3c81e2f762e0b9b02748ae5232c3afa14adf702",
     },
     urls = {
-        "android_tools_pkg-0.28.0.tar": [
-            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.28.0.tar",
+        "android_tools_pkg-0.29.0.tar": [
+            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.29.0.tar",
         ],
         "r8-8.0.40.jar": [
             "https://maven.google.com/com/android/tools/r8/8.0.40/r8-8.0.40.jar",
@@ -280,8 +280,8 @@ http_archive(
     name = "android_tools_for_testing",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "db3b02421ae974e0b33573f3e4f658d5f89cc9a0b42baae0ba2ac08e25c0720a",  # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER
-    url = "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.28.0.tar",
+    sha256 = "d7223664ca5b0de490f2a918c31f35cdf4f23a1446fe261d7470b8a22bd7bcf1",  # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER
+    url = "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.29.0.tar",
 )
 
 # This is here to override the android_gmaven_r8 rule from
@@ -419,11 +419,11 @@ maven_install(
         "com.google.code.findbugs:jsr305:3.0.2",
         "com.google.code.gson:gson:2.9.0",
         "com.google.code.java-allocation-instrumenter:java-allocation-instrumenter:3.3.0",
-        "com.google.errorprone:error_prone_annotation:2.19.0",
-        "com.google.errorprone:error_prone_annotations:2.19.0",
-        "com.google.errorprone:error_prone_check_api:2.19.0",
-        "com.google.errorprone:error_prone_core:2.19.0",
-        "com.google.errorprone:error_prone_type_annotations:2.19.0",
+        "com.google.errorprone:error_prone_annotation:2.19.1",
+        "com.google.errorprone:error_prone_annotations:2.19.1",
+        "com.google.errorprone:error_prone_check_api:2.19.1",
+        "com.google.errorprone:error_prone_core:2.19.1",
+        "com.google.errorprone:error_prone_type_annotations:2.19.1",
         "com.google.flogger:flogger-system-backend:0.5.1",
         "com.google.flogger:flogger:0.5.1",
         "com.google.flogger:google-extensions:0.5.1",

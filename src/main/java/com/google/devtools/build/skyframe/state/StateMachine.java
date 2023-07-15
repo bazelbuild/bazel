@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe.state;
 
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -54,7 +53,7 @@ import javax.annotation.Nullable;
 public interface StateMachine {
   /** A sentinel value returned when a {@code StateMachine} is done. */
   public static final StateMachine DONE =
-      (t, l) -> {
+      t -> {
         throw new IllegalStateException("Sentinel DONE state should not be executed.");
       };
 
@@ -76,7 +75,7 @@ public interface StateMachine {
    *     other state machines should not use it.
    * @return an instance indicating the next computation or {@link #DONE} on completion.
    */
-  StateMachine step(Tasks tasks, ExtendedEventHandler listener) throws InterruptedException;
+  StateMachine step(Tasks tasks) throws InterruptedException;
 
   /**
    * Tasks allows registering logically parallel subtasks.

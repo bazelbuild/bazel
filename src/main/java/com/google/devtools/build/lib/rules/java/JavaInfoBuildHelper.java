@@ -237,7 +237,7 @@ final class JavaInfoBuildHelper {
                 streamProviders(runtimeDeps, JavaCcInfoProvider.class),
                 streamProviders(exports, JavaCcInfoProvider.class),
                 streamProviders(deps, JavaCcInfoProvider.class),
-                Stream.of(new JavaCcInfoProvider(CcInfo.merge(nativeLibraries))))
+                Stream.of(JavaCcInfoProvider.create(CcInfo.merge(nativeLibraries))))
             .collect(toImmutableList());
 
     return javaInfoBuilder

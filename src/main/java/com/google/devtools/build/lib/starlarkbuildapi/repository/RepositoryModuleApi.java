@@ -103,7 +103,11 @@ public interface RepositoryModuleApi {
             valueWhenDisabled = "False"),
         @Param(
             name = "doc",
-            defaultValue = "''",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
             doc =
                 "A description of the repository rule that can be extracted by documentation "
                     + "generating tools.",
@@ -118,7 +122,7 @@ public interface RepositoryModuleApi {
       Sequence<?> environ, // <String> expected
       Boolean configure,
       Boolean remotable,
-      String doc,
+      Object doc,
       StarlarkThread thread)
       throws EvalException;
 
@@ -147,7 +151,11 @@ public interface RepositoryModuleApi {
             positional = false),
         @Param(
             name = "doc",
-            defaultValue = "''",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
             doc =
                 "A description of the module extension that can be extracted by documentation"
                     + " generating tools.",
@@ -158,7 +166,7 @@ public interface RepositoryModuleApi {
   Object moduleExtension(
       StarlarkCallable implementation,
       Dict<?, ?> tagClasses, // Dict<String, TagClassApi>
-      String doc,
+      Object doc,
       StarlarkThread thread)
       throws EvalException;
 
@@ -178,7 +186,11 @@ public interface RepositoryModuleApi {
                     + " href=\"../toplevel/attr.html\">attr</a> module)."),
         @Param(
             name = "doc",
-            defaultValue = "''",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
             doc =
                 "A description of the tag class that can be extracted by documentation"
                     + " generating tools.",
@@ -188,7 +200,7 @@ public interface RepositoryModuleApi {
       useStarlarkThread = true)
   TagClassApi tagClass(
       Dict<?, ?> attrs, // Dict<String, StarlarkAttrModuleApi.Descriptor>
-      String doc,
+      Object doc,
       StarlarkThread thread)
       throws EvalException;
 

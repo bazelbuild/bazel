@@ -17,7 +17,6 @@ import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
@@ -71,7 +70,7 @@ public final class DependencyContextProducer
   }
 
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     return new UnloadedToolchainContextsProducer(
         unloadedToolchainContextsInputs,
         (UnloadedToolchainContextsProducer.ResultSink) this,
@@ -90,7 +89,7 @@ public final class DependencyContextProducer
     sink.acceptDependencyContextError(DependencyContextError.of(error));
   }
 
-  private StateMachine computeConfigConditions(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine computeConfigConditions(Tasks tasks) {
     if (hasError) {
       return DONE;
     }
@@ -114,7 +113,7 @@ public final class DependencyContextProducer
     sink.acceptDependencyContextError(DependencyContextError.of(error));
   }
 
-  private StateMachine constructResult(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine constructResult(Tasks tasks) {
     if (hasError) {
       return DONE;
     }

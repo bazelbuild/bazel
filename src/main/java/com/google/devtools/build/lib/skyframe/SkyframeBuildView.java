@@ -33,7 +33,6 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.AnalysisGraphStatsEvent;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -116,6 +115,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -158,7 +158,7 @@ public final class SkyframeBuildView {
    */
   private boolean skyframeAnalysisWasDiscarded;
 
-  private ImmutableSet<ActionLookupKeyOrProxy> largestTopLevelKeySetCheckedForConflicts =
+  private ImmutableSet<ActionLookupKey> largestTopLevelKeySetCheckedForConflicts =
       ImmutableSet.of();
   private boolean foundActionConflictInLatestCheck;
 
@@ -371,8 +371,7 @@ public final class SkyframeBuildView {
     try (SilentCloseable c =
         Profiler.instance().profile("skyframeExecutor.findArtifactConflicts")) {
       var newKeys =
-          ImmutableSet.<ActionLookupKeyOrProxy>builderWithExpectedSize(
-                  ctKeys.size() + aspectKeys.size())
+          ImmutableSet.<ActionLookupKey>builderWithExpectedSize(ctKeys.size() + aspectKeys.size())
               .addAll(ctKeys)
               .addAll(aspectKeys)
               .build();
@@ -471,7 +470,7 @@ public final class SkyframeBuildView {
       }
       // Report an AnalysisFailureEvent to BEP for the top-level targets with discoverable action
       // conflicts, then finally throw if evaluation is --nokeep_going.
-      for (ActionLookupKeyOrProxy ctKey : Iterables.concat(ctKeys, aspectKeys)) {
+      for (ActionLookupKey ctKey : Iterables.concat(ctKeys, aspectKeys)) {
         if (!topLevelActionConflictReport.isErrorFree(ctKey)) {
           Optional<ConflictException> e = topLevelActionConflictReport.getConflictException(ctKey);
           if (e.isEmpty()) {
@@ -481,9 +480,9 @@ public final class SkyframeBuildView {
           // which reflects any transitions or trimming.
           if (ctKey instanceof ConfiguredTargetKey) {
             ctKey =
-                ((ConfiguredTargetValue) evaluationResult.get(ctKey.toKey()))
+                ((ConfiguredTargetValue) evaluationResult.get(ctKey))
                     .getConfiguredTarget()
-                    .getKeyOrProxy();
+                    .getLookupKey();
           }
           AnalysisFailedCause failedCause =
               makeArtifactConflictAnalysisFailedCause(e.get(), ctKey.getConfigurationKey());
@@ -515,8 +514,7 @@ public final class SkyframeBuildView {
               .filter(topLevelActionConflictReport::isErrorFree)
               .map(
                   k ->
-                      Preconditions.checkNotNull(
-                              (ConfiguredTargetValue) evaluationResult.get(k.toKey()), k)
+                      Preconditions.checkNotNull((ConfiguredTargetValue) evaluationResult.get(k), k)
                           .getConfiguredTarget())
               .collect(toImmutableSet());
 
@@ -576,7 +574,7 @@ public final class SkyframeBuildView {
     EvaluationResult<SkyValue> evaluationResult;
 
     var newKeys =
-        ImmutableSet.<ActionLookupKeyOrProxy>builderWithExpectedSize(
+        ImmutableSet.<ActionLookupKey>builderWithExpectedSize(
                 ctKeys.size() + topLevelAspectsKeys.size())
             .addAll(ctKeys)
             .addAll(topLevelAspectsKeys)
@@ -892,7 +890,7 @@ public final class SkyframeBuildView {
       // Here we already have the <TopLevelAspectKey, error> mapping, but what we need to fit into
       // the existing AnalysisFailureEvent is <AspectKey, error>. An extra Skyframe evaluation is
       // required.
-      Iterable<ActionLookupKeyOrProxy> effectiveTopLevelKeysForConflictReporting =
+      Iterable<ActionLookupKey> effectiveTopLevelKeysForConflictReporting =
           Iterables.concat(ctKeys, getDerivedAspectKeysForConflictReporting(topLevelAspectsKeys));
       TopLevelActionConflictReport topLevelActionConflictReport;
       enableAnalysis(true);
@@ -930,7 +928,7 @@ public final class SkyframeBuildView {
   private static void reportActionConflictErrors(
       TopLevelActionConflictReport topLevelActionConflictReport,
       WalkableGraph graph,
-      Iterable<ActionLookupKeyOrProxy> effectiveTopLevelKeysForConflictReporting,
+      Iterable<ActionLookupKey> effectiveTopLevelKeysForConflictReporting,
       ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts,
       ExtendedEventHandler eventHandler,
       EventBus eventBus,
@@ -963,7 +961,7 @@ public final class SkyframeBuildView {
     }
     // Report an AnalysisFailureEvent to BEP for the top-level targets with discoverable action
     // conflicts, then finally throw.
-    for (ActionLookupKeyOrProxy actionLookupKey : effectiveTopLevelKeysForConflictReporting) {
+    for (ActionLookupKey actionLookupKey : effectiveTopLevelKeysForConflictReporting) {
       if (topLevelActionConflictReport.isErrorFree(actionLookupKey)) {
         continue;
       }
@@ -980,9 +978,9 @@ public final class SkyframeBuildView {
         // This is a graph lookup instead of an EvalutionResult lookup because Skymeld's
         // EvalutionResult does not contain ConfiguredTargetKey.
         actionLookupKey =
-            ((ConfiguredTargetValue) graph.getValue(actionLookupKey.toKey()))
+            ((ConfiguredTargetValue) graph.getValue(actionLookupKey))
                 .getConfiguredTarget()
-                .getKeyOrProxy();
+                .getLookupKey();
       }
       AnalysisFailedCause failedCause =
           makeArtifactConflictAnalysisFailedCause(
@@ -1169,7 +1167,7 @@ public final class SkyframeBuildView {
   }
 
   private boolean shouldCheckForConflicts(
-      boolean specifiedValueInRequest, ImmutableSet<ActionLookupKeyOrProxy> newKeys) {
+      boolean specifiedValueInRequest, ImmutableSet<ActionLookupKey> newKeys) {
     if (!specifiedValueInRequest) {
       // A build request by default enables action conflict checking, except for some cases e.g.
       // cquery.
@@ -1248,7 +1246,7 @@ public final class SkyframeBuildView {
   }
 
   CachingAnalysisEnvironment createAnalysisEnvironment(
-      ActionLookupKeyOrProxy owner,
+      ActionLookupKey owner,
       ExtendedEventHandler eventHandler,
       Environment env,
       BuildConfigurationValue config,
@@ -1389,11 +1387,20 @@ public final class SkyframeBuildView {
           if (!evaluationSuccessState.get().succeeded()) {
             return;
           }
-          configuredObjectCount.incrementAndGet();
           boolean isConfiguredTarget = skyKey.functionName().equals(SkyFunctions.CONFIGURED_TARGET);
           if (isConfiguredTarget) {
+            ConfiguredTargetKey configuredTargetKey = (ConfiguredTargetKey) skyKey;
+            ConfiguredTargetValue configuredTargetValue = (ConfiguredTargetValue) newValue;
+            if (!Objects.equals(
+                configuredTargetKey.getConfigurationKey(),
+                configuredTargetValue.getConfiguredTarget().getConfigurationKey())) {
+              // The node entry performs delegation and doesn't own the value. Skips it to avoid
+              // overcounting.
+              return;
+            }
             configuredTargetCount.incrementAndGet();
           }
+          configuredObjectCount.incrementAndGet();
           if (newValue instanceof ActionLookupValue) {
             // During multithreaded operation, this is only set to true, so no concurrency issues.
             someActionLookupValueEvaluated = true;

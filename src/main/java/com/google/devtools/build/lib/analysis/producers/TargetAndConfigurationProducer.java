@@ -32,9 +32,11 @@ import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransi
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Target;
@@ -77,6 +79,7 @@ public final class TargetAndConfigurationProducer
     /** Tags the error type. */
     public enum Kind {
       CONFIGURED_VALUE_CREATION,
+      NO_SUCH_THING,
       INCONSISTENT_NULL_CONFIG
     }
 
@@ -84,11 +87,17 @@ public final class TargetAndConfigurationProducer
 
     public abstract ConfiguredValueCreationException configuredValueCreation();
 
+    public abstract NoSuchThingException noSuchThing();
+
     public abstract InconsistentNullConfigException inconsistentNullConfig();
 
     private static TargetAndConfigurationError of(ConfiguredValueCreationException e) {
       return AutoOneOf_TargetAndConfigurationProducer_TargetAndConfigurationError
           .configuredValueCreation(e);
+    }
+
+    private static TargetAndConfigurationError of(NoSuchThingException e) {
+      return AutoOneOf_TargetAndConfigurationProducer_TargetAndConfigurationError.noSuchThing(e);
     }
 
     private static TargetAndConfigurationError of(InconsistentNullConfigException e) {
@@ -106,6 +115,7 @@ public final class TargetAndConfigurationProducer
 
   // -------------------- Output --------------------
   private final ResultSink sink;
+  private final ExtendedEventHandler eventHandler;
 
   // -------------------- Internal State --------------------
   private Target target;
@@ -115,16 +125,18 @@ public final class TargetAndConfigurationProducer
       @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory,
       StarlarkTransitionCache transitionCache,
       TransitiveDependencyState transitiveState,
-      ResultSink sink) {
+      ResultSink sink,
+      ExtendedEventHandler eventHandler) {
     this.preRuleTransitionKey = preRuleTransitionKey;
     this.trimmingTransitionFactory = trimmingTransitionFactory;
     this.transitionCache = transitionCache;
     this.transitiveState = transitiveState;
     this.sink = sink;
+    this.eventHandler = eventHandler;
   }
 
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     return new TargetProducer(
         preRuleTransitionKey.getLabel(),
         transitiveState,
@@ -139,22 +151,21 @@ public final class TargetAndConfigurationProducer
 
   @Override
   public void acceptTargetError(NoSuchPackageException e) {
-    emitError(e.getMessage(), /* location= */ null, e.getDetailedExitCode());
+    eventHandler.handle(Event.error(e.getMessage()));
+    sink.acceptTargetAndConfigurationError(TargetAndConfigurationError.of(e));
   }
 
   @Override
   public void acceptTargetError(NoSuchTargetException e, Location location) {
-    emitError(e.getMessage(), location, e.getDetailedExitCode());
+    eventHandler.handle(Event.error(location, e.getMessage()));
+    sink.acceptTargetAndConfigurationError(TargetAndConfigurationError.of(e));
   }
 
-  private StateMachine determineConfiguration(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine determineConfiguration(Tasks tasks) {
     if (target == null) {
-      return DONE; // There was an error.
+      return DONE; // A target could not be determined.
     }
 
-    // TODO(b/261521010): after removing the rule transition from dependency resolution, remove
-    // this. It won't be possible afterwards because null configuration keys will only be used for
-    // visibility dependencies.
     BuildConfigurationKey configurationKey = preRuleTransitionKey.getConfigurationKey();
     if (configurationKey == null) {
       if (target.isConfigurable()) {
@@ -180,8 +191,7 @@ public final class TargetAndConfigurationProducer
           ConfiguredTargetKey.builder()
               .setLabel(preRuleTransitionKey.getLabel())
               .setExecutionPlatformLabel(preRuleTransitionKey.getExecutionPlatformLabel())
-              .build()
-              .toKey());
+              .build());
       return DONE;
     }
 
@@ -248,12 +258,13 @@ public final class TargetAndConfigurationProducer
     }
 
     @Override
-    public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+    public StateMachine step(Tasks tasks) {
       return new TransitionApplier(
           preRuleTransitionKey.getConfigurationKey(),
           transition,
           transitionCache,
           (TransitionApplier.ResultSink) this,
+          eventHandler,
           /* runAfter= */ this::processTransitionedKey);
     }
 
@@ -278,7 +289,7 @@ public final class TargetAndConfigurationProducer
       emitTransitionErrorMessage(e.getMessage());
     }
 
-    private StateMachine processTransitionedKey(Tasks tasks, ExtendedEventHandler listener) {
+    private StateMachine processTransitionedKey(Tasks tasks) {
       if (configurationKey == null) {
         return DONE; // There was an error.
       }
@@ -290,7 +301,7 @@ public final class TargetAndConfigurationProducer
         return DONE;
       }
 
-      listener.post(
+      eventHandler.post(
           ConfigurationTransitionEvent.create(
               parentConfiguration.getOptionsChecksum(), configurationKey.getOptionsChecksum()));
 
@@ -329,12 +340,13 @@ public final class TargetAndConfigurationProducer
       private BuildConfigurationKey configurationKey2;
 
       @Override
-      public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+      public StateMachine step(Tasks tasks) {
         return new TransitionApplier(
             configurationKey,
             transition,
             transitionCache,
             (TransitionApplier.ResultSink) this,
+            eventHandler,
             /* runAfter= */ this::checkIdempotencyAndDelegate);
       }
 
@@ -360,7 +372,7 @@ public final class TargetAndConfigurationProducer
         emitTransitionErrorMessage(e.getMessage());
       }
 
-      private StateMachine checkIdempotencyAndDelegate(Tasks tasks, ExtendedEventHandler listener) {
+      private StateMachine checkIdempotencyAndDelegate(Tasks tasks) {
         if (configurationKey2 == null) {
           return DONE; // There was an error.
         }
@@ -376,7 +388,7 @@ public final class TargetAndConfigurationProducer
           // rule transition.
           keyBuilder.setShouldApplyRuleTransition(false);
         }
-        delegateTo(tasks, keyBuilder.build().toKey());
+        delegateTo(tasks, keyBuilder.build());
         return DONE;
       }
     }

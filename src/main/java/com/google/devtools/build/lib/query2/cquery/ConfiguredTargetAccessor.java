@@ -199,8 +199,7 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
                     ConfiguredTargetKey.builder()
                         .setLabel(((OutputFileConfiguredTarget) kct).getGeneratingRule().getLabel())
                         .setConfigurationKey(kct.getConfigurationKey())
-                        .build()
-                        .toKey()))
+                        .build()))
             .getConfiguredTarget();
   }
 }

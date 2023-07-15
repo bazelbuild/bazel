@@ -602,7 +602,7 @@ public class JavaCommon {
 
     CcInfo mergedCcInfo = CcInfo.merge(ccInfos);
 
-    javaInfoBuilder.javaCcInfo(new JavaCcInfoProvider(mergedCcInfo));
+    javaInfoBuilder.javaCcInfo(JavaCcInfoProvider.create(mergedCcInfo));
   }
 
   private InstrumentedFilesInfo getInstrumentationFilesProvider(

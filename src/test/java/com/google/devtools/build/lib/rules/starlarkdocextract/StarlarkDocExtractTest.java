@@ -22,6 +22,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.BinaryFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
@@ -35,18 +36,24 @@ import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
+import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
+import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionParamInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleExtensionInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleExtensionTagClassInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.OriginKey;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderNameGroup;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RepositoryRuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.StarlarkFunctionInfo;
 import com.google.protobuf.ExtensionRegistry;
@@ -84,6 +91,15 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE, BazelCompatibilityMode.ERROR),
         PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.UPDATE));
+  }
+
+  @Override
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addStandardRules(builder);
+    // Ensure repository_rule is supported.
+    builder.addStarlarkBootstrap(new RepositoryBootstrap(new StarlarkRepositoryModule()));
+    return builder.build();
   }
 
   private static ModuleInfo protoFromBinaryFileWriteAction(Action action) throws Exception {
@@ -792,5 +808,144 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
     assertThat(extractTwoFilesError)
         .hasMessageThat()
         .contains("'//:two_files' must produce a single file");
+  }
+
+  @Test
+  public void repositoryRule() throws Exception {
+    scratch.file(
+        "dep.bzl",
+        "def _impl(repository_ctx):",
+        "    pass",
+        "",
+        "my_repo_rule = repository_rule(",
+        "    implementation = _impl,",
+        "    doc = 'My repository rule',",
+        "    attrs = {",
+        "        'a': attr.string(doc = 'My doc', default = 'foo'),",
+        "        'b': attr.string(mandatory = True),",
+        "        '_c': attr.string(doc = 'Hidden attribute'),",
+        "    },",
+        "    environ = ['FOO_PATH', 'BAR_COMPILER'],",
+        ")");
+    scratch.file(
+        "foo.bzl", //
+        "load('//:dep.bzl', 'my_repo_rule')",
+        "foo = struct(repo_rule = my_repo_rule)");
+    scratch.file(
+        "BUILD", //
+        "load('bzl_library.bzl', 'bzl_library')",
+        "bzl_library(",
+        "    name = 'dep_bzl',",
+        "    srcs = ['dep.bzl'],",
+        ")",
+        "starlark_doc_extract(",
+        "    name = 'extract',",
+        "    src = 'foo.bzl',",
+        "    deps = ['dep_bzl'],",
+        ")");
+    ModuleInfo moduleInfo = protoFromConfiguredTarget("//:extract");
+    assertThat(moduleInfo.getRepositoryRuleInfoList())
+        .containsExactly(
+            RepositoryRuleInfo.newBuilder()
+                .setRuleName("foo.repo_rule")
+                .setOriginKey(
+                    OriginKey.newBuilder().setName("my_repo_rule").setFile("//:dep.bzl").build())
+                .setDocString("My repository rule")
+                .addAllAttribute(ModuleInfoExtractor.IMPLICIT_REPOSITORY_RULE_ATTRIBUTES)
+                .addAttribute(
+                    AttributeInfo.newBuilder()
+                        .setName("a")
+                        .setType(AttributeType.STRING)
+                        .setDocString("My doc")
+                        .setDefaultValue("\"foo\""))
+                .addAttribute(
+                    AttributeInfo.newBuilder()
+                        .setName("b")
+                        .setType(AttributeType.STRING)
+                        .setMandatory(true))
+                .addEnviron("FOO_PATH")
+                .addEnviron("BAR_COMPILER")
+                .build());
+  }
+
+  @Test
+  public void moduleExtension() throws Exception {
+    scratch.file(
+        "dep.bzl",
+        "_install = tag_class(",
+        "    doc = 'Install',",
+        "    attrs = {",
+        "        'artifacts': attr.string_list(doc = 'Artifacts'),",
+        "        '_hidden': attr.bool(),",
+        "    },",
+        ")",
+        "",
+        "_artifact = tag_class(",
+        "    attrs = {",
+        "        'group': attr.string(),",
+        "        'artifact': attr.string(default = 'foo'),",
+        "    },",
+        ")",
+        "",
+        "def _impl(ctx):",
+        "    pass",
+        "",
+        "my_ext = module_extension(",
+        "    doc = 'My extension',",
+        "    tag_classes = {",
+        "        'install': _install,",
+        "        'artifact': _artifact,",
+        "    },",
+        "    implementation = _impl,",
+        ")");
+    scratch.file(
+        "foo.bzl", //
+        "load('//:dep.bzl', 'my_ext')",
+        "foo = struct(ext = my_ext)");
+    scratch.file(
+        "BUILD", //
+        "load('bzl_library.bzl', 'bzl_library')",
+        "bzl_library(",
+        "    name = 'dep_bzl',",
+        "    srcs = ['dep.bzl'],",
+        ")",
+        "starlark_doc_extract(",
+        "    name = 'extract',",
+        "    src = 'foo.bzl',",
+        "    deps = ['dep_bzl'],",
+        ")");
+    ModuleInfo moduleInfo = protoFromConfiguredTarget("//:extract");
+    assertThat(moduleInfo.getModuleExtensionInfoList())
+        .containsExactly(
+            ModuleExtensionInfo.newBuilder()
+                .setExtensionName("foo.ext")
+                .setDocString("My extension")
+                .setOriginKey(OriginKey.newBuilder().setFile("//:dep.bzl").build())
+                .addTagClass(
+                    ModuleExtensionTagClassInfo.newBuilder()
+                        .setTagName("install")
+                        .setDocString("Install")
+                        .addAttribute(
+                            AttributeInfo.newBuilder()
+                                .setName("artifacts")
+                                .setType(AttributeType.STRING_LIST)
+                                .setDocString("Artifacts")
+                                .setDefaultValue("[]"))
+                        .build())
+                .addTagClass(
+                    ModuleExtensionTagClassInfo.newBuilder()
+                        .setTagName("artifact")
+                        .addAttribute(
+                            AttributeInfo.newBuilder()
+                                .setName("group")
+                                .setType(AttributeType.STRING)
+                                .setDefaultValue("\"\""))
+                        .addAttribute(
+                            AttributeInfo.newBuilder()
+                                .setName("artifact")
+                                .setType(AttributeType.STRING)
+                                .setDefaultValue("\"foo\""))
+                        .build())
+                .build());
   }
 }

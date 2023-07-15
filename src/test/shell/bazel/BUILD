@@ -50,6 +50,7 @@ filegroup(
     testonly = 1,
     srcs = [
         "cc_api_rules.bzl",
+        "coverage_helpers.sh",
         "remote_helpers.sh",
         "testing_server.py",
         ":hamcrest_jar",

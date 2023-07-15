@@ -149,13 +149,6 @@ def _create_context_and_provider(
     # objc_provider.
     all_non_sdk_linkopts = []
     for cc_linking_context in cc_linking_contexts_for_merging:
-        if not ctx.fragments.objc.linking_info_migration:
-            linkopts = []
-            for linker_input in cc_linking_context.linker_inputs.to_list():
-                linkopts.extend(linker_input.user_link_flags)
-            non_sdk_linkopts = _add_linkopts(objc_provider_kwargs, linkopts)
-            all_non_sdk_linkopts.extend(non_sdk_linkopts)
-
         libraries_to_link = []
         for linker_input in cc_linking_context.linker_inputs.to_list():
             libraries_to_link.extend(linker_input.libraries)
