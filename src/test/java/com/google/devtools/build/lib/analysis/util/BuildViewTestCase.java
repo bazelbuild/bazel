@@ -1146,16 +1146,13 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * finer grained selection for different configurations, you'll need to expand this method.
    */
   protected ConfiguredAspect getAspect(String label) throws Exception {
-    AspectValue aspect =
-        (AspectValue)
-            skyframeExecutor.getEvaluator().getDoneValues().entrySet().stream()
-                .filter(
-                    entry ->
-                        entry.getKey() instanceof AspectKey
-                            && ((AspectKey) entry.getKey()).getAspectName().equals(label))
-                .map(Map.Entry::getValue)
-                .collect(onlyElement());
-    return aspect.getConfiguredAspect();
+    return skyframeExecutor.getEvaluator().getDoneValues().entrySet().stream()
+        .filter(
+            e ->
+                e.getKey() instanceof AspectKey
+                    && ((AspectKey) e.getKey()).getAspectName().equals(label))
+        .map(e -> (AspectValue) e.getValue())
+        .collect(onlyElement());
   }
 
   /**

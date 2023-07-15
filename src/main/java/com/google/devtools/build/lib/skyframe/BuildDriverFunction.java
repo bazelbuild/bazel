@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AspectConfiguredEvent;
 import com.google.devtools.build.lib.analysis.AspectValue;
-import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
@@ -379,8 +378,7 @@ public class BuildDriverFunction implements SkyFunction {
                   /* aspectClassName= */ aspectKey.getAspectClass().getName(),
                   aspectKey.getAspectDescriptor().getDescription(),
                   getConfigurationValue(env, aspectKey.getConfigurationKey())));
-      ConfiguredAspect configuredAspect = aspectValue.getConfiguredAspect();
-      env.getListener().post(AspectAnalyzedEvent.create(aspectKey, configuredAspect));
+      env.getListener().post(AspectAnalyzedEvent.create(aspectKey, aspectValue));
     }
   }
 
@@ -560,9 +558,8 @@ public class BuildDriverFunction implements SkyFunction {
             TopLevelStatusEvents.Type.TOP_LEVEL_TARGET_READY_FOR_SYMLINK_PLANTING);
     for (AspectValue aspectValue : topLevelAspectsValue.getTopLevelAspectsValues()) {
       AspectKey aspectKey = aspectValue.getKey();
-      ConfiguredAspect configuredAspect = aspectValue.getConfiguredAspect();
       addExtraActionsIfRequested(
-          configuredAspect.getProvider(ExtraActionArtifactsProvider.class),
+          aspectValue.getProvider(ExtraActionArtifactsProvider.class),
           artifactsToBuild,
           buildDriverKey.isExtraActionTopLevelOnly());
 

@@ -1935,7 +1935,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       }
       for (AspectValue aspectValue : value.getTopLevelAspectsValues()) {
         AspectKey aspectKey = aspectValue.getKey();
-        aspects.put(aspectKey, aspectValue.getConfiguredAspect());
+        aspects.put(aspectKey, aspectValue);
         BuildConfigurationValue configuration =
             getConfigurationFromGraph(graph, aspectKey.getConfigurationKey());
         eventHandler.post(
