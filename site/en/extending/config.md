@@ -688,7 +688,7 @@ def _rule_impl(ctx):
     transitioned_dep = ctx.attr.dep[0]
 
     # Note: Access doesn't change, other_deps was already a list
-    for other dep in ctx.attr.other_deps:
+    for other_dep in ctx.attr.other_deps:
       # ...
 
 
