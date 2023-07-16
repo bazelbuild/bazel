@@ -767,7 +767,7 @@ Building `//pkg:app` requires \\(2n+2\\) targets:
 * `//pkg:dep`
 * `//pkg:i_0` and `//pkg:i_1` for \\(i\\) in \\([1..n]\\)
 
-Imagine you [implement](#user-defined-build-settings)) a flag
+Imagine you [implement](#user-defined-build-settings) a flag
 `--//foo:owner=<STRING>` and `//pkg:i_b` applies
 
     depConfig = myConfig + depConfig.owner="$(myConfig.owner)$(b)"
