@@ -755,11 +755,11 @@ might create exponential growth of your build graph.
 
 **Figure 1.** Scalability graph showing a top level target and its dependencies.
 
-This graph shows a top level target, //pkg:app, which depends on two targets, a
-//pkg:1_0 and //pkg:1_1. Both these targets depend on two targets, //pkg:2_0 and
-//pkg:2_1. Both these targets depend on two targets, //pkg:3_0 and //pkg:3_1.
-This continues on until //pkg:n_0 and //pkg:n_1, which both depend on a single
-target, //pkg:dep.
+This graph shows a top level target, `//pkg:app`, which depends on two targets, a
+`//pkg:1_0` and `//pkg:1_1`. Both these targets depend on two targets, `//pkg:2_0` and
+`//pkg:2_1`. Both these targets depend on two targets, `//pkg:3_0` and `//pkg:3_1`.
+This continues on until `//pkg:n_0` and `//pkg:n_1`, which both depend on a single
+target, `//pkg:dep`.
 
 Building `//pkg:app` requires \\(2n+2\\) targets:
 
