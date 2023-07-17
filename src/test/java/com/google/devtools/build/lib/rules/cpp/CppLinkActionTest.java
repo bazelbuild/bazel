@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -49,6 +50,7 @@ import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
 import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
+import com.google.devtools.build.lib.rules.cpp.CppLinkAction.LocalResourcesEstimator;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
@@ -770,24 +772,50 @@ public final class CppLinkActionTest extends BuildViewTestCase {
     assertThat(builder.canSplitCommandLine()).isTrue();
   }
 
+  private static NestedSet<Artifact> createInputs(RuleContext ruleContext, int count) {
+    NestedSetBuilder<Artifact> builder = new NestedSetBuilder<>(Order.LINK_ORDER);
+    for (int i = 0; i < count; i++) {
+      Artifact artifact =
+          ActionsTestUtil.createArtifact(
+              ruleContext.getBinDirectory(), String.format("input-%d", i));
+      builder.add(artifact);
+    }
+    return builder.build();
+  }
+
+  private ResourceSet estimateResourceConsumptionLocal(
+      RuleContext ruleContext, OS os, int inputsCount) throws Exception {
+    NestedSet<Artifact> inputs = createInputs(ruleContext, inputsCount);
+    try {
+      LocalResourcesEstimator estimator = new LocalResourcesEstimator(os, inputs);
+      return estimator.get();
+    } finally {
+      for (Artifact input : inputs.toList()) {
+        input.getPath().delete();
+      }
+    }
+  }
+
   @Test
-  public void tesLocalLinkResourceEstimate() {
-    assertThat(CppLinkAction.estimateResourceConsumptionLocal(OS.DARWIN, 100))
+  public void testLocalLinkResourceEstimate() throws Exception {
+    RuleContext ruleContext = createDummyRuleContext();
+
+    assertThat(estimateResourceConsumptionLocal(ruleContext, OS.DARWIN, 100))
         .isEqualTo(ResourceSet.createWithRamCpu(20, 1));
 
-    assertThat(CppLinkAction.estimateResourceConsumptionLocal(OS.DARWIN, 1000))
+    assertThat(estimateResourceConsumptionLocal(ruleContext, OS.DARWIN, 1000))
         .isEqualTo(ResourceSet.createWithRamCpu(65, 1));
 
-    assertThat(CppLinkAction.estimateResourceConsumptionLocal(OS.LINUX, 100))
+    assertThat(estimateResourceConsumptionLocal(ruleContext, OS.LINUX, 100))
         .isEqualTo(ResourceSet.createWithRamCpu(50, 1));
 
-    assertThat(CppLinkAction.estimateResourceConsumptionLocal(OS.LINUX, 10000))
+    assertThat(estimateResourceConsumptionLocal(ruleContext, OS.LINUX, 10000))
         .isEqualTo(ResourceSet.createWithRamCpu(900, 1));
 
-    assertThat(CppLinkAction.estimateResourceConsumptionLocal(OS.WINDOWS, 0))
+    assertThat(estimateResourceConsumptionLocal(ruleContext, OS.WINDOWS, 0))
         .isEqualTo(ResourceSet.createWithRamCpu(1500, 1));
 
-    assertThat(CppLinkAction.estimateResourceConsumptionLocal(OS.WINDOWS, 1000))
+    assertThat(estimateResourceConsumptionLocal(ruleContext, OS.WINDOWS, 1000))
         .isEqualTo(ResourceSet.createWithRamCpu(2500, 1));
   }
 
