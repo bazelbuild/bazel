@@ -415,6 +415,13 @@ public interface AppleCommonApi<
                     + "If -1 (the default), then the behavior is determined by the --[no]stamp "
                     + "flag. This should be set to 0 when generating the executable output for "
                     + "test rules."),
+        @Param(
+            name = "variables_extension",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Dict.class)},
+            defaultValue = "unbound"),
       },
       useStarlarkThread = true)
   // TODO(b/70937317): Iterate on, improve, and solidify this API.
@@ -426,6 +433,7 @@ public interface AppleCommonApi<
       Sequence<?> extraRequestedFeatures, // <String> expected.
       Sequence<?> extraDisabledFeatures, // <String> expected.
       StarlarkInt stamp,
+      Object variablesExtension,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 

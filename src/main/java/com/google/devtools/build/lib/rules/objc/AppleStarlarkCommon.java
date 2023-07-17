@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcModule;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
+import com.google.devtools.build.lib.rules.cpp.UserVariablesExtension;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag;
 import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.objc.AppleCommonApi;
@@ -250,6 +251,10 @@ public class AppleStarlarkCommon
     return new AppleExecutableBinaryInfo(binary, ccInfo, objcProvider);
   }
 
+  private Dict<?, ?> asDict(Object o) {
+    return o == Starlark.UNBOUND ? Dict.empty() : (Dict<?, ?>) o;
+  }
+
   @Override
   public StructImpl linkMultiArchBinary(
       StarlarkRuleContext starlarkRuleContext,
@@ -259,6 +264,7 @@ public class AppleStarlarkCommon
       Sequence<?> extraRequestedFeatures,
       Sequence<?> extraDisabledFeatures,
       StarlarkInt stamp,
+      Object variablesExtension,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     try {
@@ -279,7 +285,8 @@ public class AppleStarlarkCommon
               Sequence.cast(extraLinkInputs, Artifact.class, "extra_link_inputs"),
               Sequence.cast(extraRequestedFeatures, String.class, "extra_requested_features"),
               Sequence.cast(extraDisabledFeatures, String.class, "extra_disabled_features"),
-              isStampingEnabled);
+              isStampingEnabled,
+              new UserVariablesExtension(asDict(variablesExtension)));
       return createStarlarkLinkingOutputs(linkingOutputs, thread);
     } catch (RuleErrorException exception) {
       throw new EvalException(exception);

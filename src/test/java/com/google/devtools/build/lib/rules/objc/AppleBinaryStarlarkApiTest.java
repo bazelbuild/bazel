@@ -1233,4 +1233,32 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
         .doesNotContain("--default_enabled_linking_flag");
     assertThat(actionEnabledFeature.getArguments()).contains("--default_enabled_linking_flag");
   }
+
+  @Test
+  public void testLinkMultiArchBinaryWithVariablesExtension() throws Exception {
+    MockObjcSupport.setupCcToolchainConfig(
+        mockToolsConfig,
+        MockObjcSupport.darwinX86_64().withFeatures("check_additional_variables_feature"));
+    scratch.file(
+        "package/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "objc_library(",
+        "    name = 'lib',",
+        "    srcs = ['a.m'],",
+        ")",
+        "apple_binary_starlark(name = 'bin',",
+        "    deps = [ ':lib' ],",
+        "    string_variables_extension = {",
+        "        'string_variable': 'foo',",
+        "    },",
+        "    string_list_variables_extension = {",
+        "        'list_variable': ['bar', 'baz'],",
+        "    },",
+        "    platform_type = 'macos')");
+
+    CommandAction action = linkAction("//package:bin");
+
+    assertThat(action.getArguments())
+        .containsAtLeast("--my_string=foo", "--my_list_element=bar", "--my_list_element=baz");
+  }
 }
