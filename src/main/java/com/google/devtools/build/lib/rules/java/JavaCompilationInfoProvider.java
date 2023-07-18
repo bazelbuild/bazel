@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -54,6 +55,23 @@ public abstract class JavaCompilationInfoProvider
   static JavaCompilationInfoProvider fromStarlarkJavaInfo(StructImpl javaInfo)
       throws RuleErrorException, EvalException {
     Object value = javaInfo.getValue("compilation_info");
+    return fromStarlarkCompilationInfo(value);
+  }
+
+  /**
+   * Translates an instance of {@link JavaCompilationInfoProvider} for use in native code.
+   *
+   * @param value The object to translate
+   * @return a {@link JavaCompilationInfoProvider} instance, or null if the supplied value is null
+   *     or {@link Starlark#NONE}
+   * @throws EvalException if there are errors reading any fields from the {@link StructImpl}
+   * @throws RuleErrorException if the supplied value is not compatible with {@link
+   *     JavaCompilationInfoProvider}
+   */
+  @Nullable
+  @VisibleForTesting
+  public static JavaCompilationInfoProvider fromStarlarkCompilationInfo(Object value)
+      throws EvalException, RuleErrorException {
     if (value == null || value == Starlark.NONE) {
       return null;
     } else if (value instanceof JavaCompilationInfoProvider) {

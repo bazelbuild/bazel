@@ -18,6 +18,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.rules.java.JavaInfo.nullIfNone;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -54,6 +55,32 @@ public abstract class JavaRuleOutputJarsProvider
   @AutoValue
   @Immutable
   public abstract static class JavaOutput implements JavaOutputApi<Artifact> {
+
+    /**
+     * Translates a collection of {@link JavaOutput} for use in native code.
+     *
+     * @param outputs the collection of translate
+     * @return an immutable list of {@link JavaOutput} instances
+     * @throws EvalException if there were errors reading fields from the {@code Starlark} object
+     * @throws RuleErrorException if any item in the supplied collection is not a valid {@link
+     *     JavaOutput}
+     */
+    @VisibleForTesting
+    public static ImmutableList<JavaOutput> wrapSequence(Collection<?> outputs)
+        throws EvalException, RuleErrorException {
+      ImmutableList.Builder<JavaOutput> result = ImmutableList.builder();
+      for (Object info : outputs) {
+        if (info instanceof JavaOutput) {
+          result.add((JavaOutput) info);
+        } else if (info instanceof StructImpl) {
+          result.add(fromStarlarkJavaOutput((StructImpl) info));
+        } else {
+          throw new RuleErrorException("expected JavaOutput, got: " + Starlark.type(info));
+        }
+      }
+      return result.build();
+    }
+
     @Override
     public boolean isImmutable() {
       return true; // immutable and Starlark-hashable
@@ -281,6 +308,10 @@ public abstract class JavaRuleOutputJarsProvider
    * Translates the {@code outputs} field of a {@link JavaInfo} instance into a native {@link
    * JavaRuleOutputJarsProvider} instance.
    *
+   * <p>This method first attempts to transform the {@code outputs} field of the supplied {@code
+   * JavaInfo}. If this is not present (for example, in Bazel), it attempts to create the result
+   * from the {@code java_outputs} field instead.
+   *
    * @param javaInfo the {@link JavaInfo} instance
    * @return a {@link JavaRuleOutputJarsProvider} instance
    * @throws EvalException if there are any errors accessing Starlark values
@@ -288,17 +319,43 @@ public abstract class JavaRuleOutputJarsProvider
    */
   static JavaRuleOutputJarsProvider fromStarlarkJavaInfo(StructImpl javaInfo)
       throws EvalException, RuleErrorException {
-    JavaRuleOutputJarsProvider.Builder builder = JavaRuleOutputJarsProvider.builder();
-    for (Object output :
-        Sequence.cast(javaInfo.getValue("java_outputs"), Object.class, "outputs")) {
-      if (output instanceof JavaOutput) {
-        builder.addJavaOutput((JavaOutput) output);
-      } else if (output instanceof StructImpl) {
-        builder.addJavaOutput(JavaOutput.fromStarlarkJavaOutput((StructImpl) output));
-      } else {
-        throw new RuleErrorException("expected JavaOutput, got: " + Starlark.type(output));
-      }
+    Object outputs = javaInfo.getValue("outputs");
+    if (outputs == null) {
+      return JavaRuleOutputJarsProvider.builder()
+          .addJavaOutput(
+              JavaOutput.wrapSequence(
+                  Sequence.cast(javaInfo.getValue("java_outputs"), Objects.class, "java_outputs")))
+          .build();
+    } else {
+      return fromStarlark(outputs);
     }
-    return builder.build();
+  }
+
+  /**
+   * Translates the supplied object into a {@link JavaRuleOutputJarsProvider} instance.
+   *
+   * @param obj the object to translate
+   * @return a {@link JavaRuleOutputJarsProvider} instance, or null if the supplied object was null
+   *     or {@link Starlark#NONE}
+   * @throws EvalException if there were any errors reading fields from the supplied object
+   * @throws RuleErrorException if the supplied object is not a {@link JavaRuleOutputJarsProvider}
+   */
+  @VisibleForTesting
+  public static JavaRuleOutputJarsProvider fromStarlark(Object obj)
+      throws EvalException, RuleErrorException {
+    if (obj == Starlark.NONE) {
+      return JavaRuleOutputJarsProvider.EMPTY;
+    } else if (obj instanceof JavaRuleOutputJarsProvider) {
+      return (JavaRuleOutputJarsProvider) obj;
+    } else if (obj instanceof StructImpl) {
+      return JavaRuleOutputJarsProvider.builder()
+          .addJavaOutput(
+              JavaOutput.wrapSequence(
+                  Sequence.cast(((StructImpl) obj).getValue("jars"), Object.class, "jars")))
+          .build();
+    } else {
+      throw new RuleErrorException(
+          "expected JavaRuleOutputJarsProvider, got: " + Starlark.type(obj));
+    }
   }
 }
