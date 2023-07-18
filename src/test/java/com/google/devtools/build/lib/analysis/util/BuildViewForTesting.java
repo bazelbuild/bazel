@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.DependencyKind;
-import com.google.devtools.build.lib.analysis.DependencyResolver;
+import com.google.devtools.build.lib.analysis.DependencyResolutionHelpers;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
@@ -76,7 +76,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.ReportedException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.UnreportedException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
-import com.google.devtools.build.lib.skyframe.PrerequisiteProducer;
+import com.google.devtools.build.lib.skyframe.DependencyResolver;
 import com.google.devtools.build.lib.skyframe.SkyFunctionEnvironmentForTesting;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
@@ -276,7 +276,7 @@ public class BuildViewForTesting {
   public Collection<ConfiguredTarget> getDirectPrerequisitesForTesting(
       ExtendedEventHandler eventHandler, ConfiguredTarget ct)
       throws InterruptedException,
-          DependencyResolver.Failure,
+          DependencyResolutionHelpers.Failure,
           InvalidConfigurationException,
           InconsistentAspectOrderException,
           StarlarkTransition.TransitionException {
@@ -289,13 +289,13 @@ public class BuildViewForTesting {
       getConfiguredTargetAndDataDirectPrerequisitesForTesting(
           ExtendedEventHandler eventHandler, ConfiguredTarget configuredTarget)
           throws InterruptedException,
-              DependencyResolver.Failure,
+              DependencyResolutionHelpers.Failure,
               InvalidConfigurationException,
               InconsistentAspectOrderException,
               StarlarkTransition.TransitionException {
-    PrerequisiteProducer.State state =
-        initializePrerequisiteProducerState(eventHandler, configuredTarget);
-    PrerequisiteProducer producer = runPrerequisiteProducer(eventHandler, configuredTarget, state);
+    DependencyResolver.State state =
+        initializeDependencyResolverState(eventHandler, configuredTarget);
+    DependencyResolver producer = runDependencyResolver(eventHandler, configuredTarget, state);
     return producer.getDepValueMap().values();
   }
 
@@ -323,7 +323,7 @@ public class BuildViewForTesting {
    */
   public RuleContext getRuleContextForTesting(
       ConfiguredTarget target, StoredEventHandler eventHandler)
-      throws DependencyResolver.Failure,
+      throws DependencyResolutionHelpers.Failure,
           InvalidConfigurationException,
           InterruptedException,
           InconsistentAspectOrderException,
@@ -359,16 +359,16 @@ public class BuildViewForTesting {
    */
   public RuleContext getRuleContextForTesting(
       ExtendedEventHandler eventHandler, ConfiguredTarget configuredTarget, AnalysisEnvironment env)
-      throws DependencyResolver.Failure,
+      throws DependencyResolutionHelpers.Failure,
           InvalidConfigurationException,
           InterruptedException,
           InconsistentAspectOrderException,
           ToolchainException,
           StarlarkTransition.TransitionException,
           InvalidExecGroupException {
-    PrerequisiteProducer.State state =
-        initializePrerequisiteProducerState(eventHandler, configuredTarget);
-    PrerequisiteProducer producer = runPrerequisiteProducer(eventHandler, configuredTarget, state);
+    DependencyResolver.State state =
+        initializeDependencyResolverState(eventHandler, configuredTarget);
+    DependencyResolver producer = runDependencyResolver(eventHandler, configuredTarget, state);
 
     OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap =
         producer.getDepValueMap();
@@ -414,12 +414,12 @@ public class BuildViewForTesting {
         .unsafeBuild();
   }
 
-  private PrerequisiteProducer runPrerequisiteProducer(
+  private DependencyResolver runDependencyResolver(
       ExtendedEventHandler eventHandler,
       ConfiguredTarget configuredTarget,
-      PrerequisiteProducer.State state)
+      DependencyResolver.State state)
       throws InterruptedException {
-    PrerequisiteProducer producer = new PrerequisiteProducer(state.targetAndConfiguration);
+    DependencyResolver producer = new DependencyResolver(state.targetAndConfiguration);
     try {
       if (!producer.evaluate(
           state,
@@ -437,7 +437,7 @@ public class BuildViewForTesting {
     return producer;
   }
 
-  private PrerequisiteProducer.State initializePrerequisiteProducerState(
+  private DependencyResolver.State initializeDependencyResolverState(
       ExtendedEventHandler eventHandler, ConfiguredTarget configuredTarget)
       throws InterruptedException {
     // In production, the TargetAndConfiguration value is based on final configuration of the
@@ -453,7 +453,7 @@ public class BuildViewForTesting {
           Event.error("Failed to get target when trying to get rule context for testing"));
       throw new IllegalStateException(e);
     }
-    return PrerequisiteProducer.State.createForTesting(
+    return DependencyResolver.State.createForTesting(
         new TargetAndConfiguration(target.getAssociatedRule(), configuration));
   }
 

@@ -17,7 +17,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.ToolchainCollectionSubject.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.ToolchainContextSubject.assertThat;
-import static com.google.devtools.build.lib.skyframe.PrerequisiteProducer.getDependencyContext;
+import static com.google.devtools.build.lib.skyframe.DependencyResolver.getDependencyContext;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
@@ -45,7 +45,7 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
-import com.google.devtools.build.lib.skyframe.PrerequisiteProducer;
+import com.google.devtools.build.lib.skyframe.DependencyResolver;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -69,7 +69,7 @@ import org.junit.runners.JUnit4;
  * <p>{@link ConfiguredTargetFunction} is a complicated class that does a lot of things. This test
  * focuses purely on the task of toolchain resolution. So instead of evaluating full {@link
  * ConfiguredTargetFunction} instances, it evaluates a mock {@link SkyFunction} that just wraps the
- * {@link PrerequisiteProducer#getDependencyContext} part. This keeps focus tight and integration
+ * {@link DependencyResolver#getDependencyContext} part. This keeps focus tight and integration
  * dependencies narrow.
  *
  * <p>We can't just call {@link ToolchainContextProducer} directly because that method needs a
@@ -99,7 +99,7 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
 
   /**
    * Returns a {@link ToolchainCollection< UnloadedToolchainContext >} as the result of {@link
-   * PrerequisiteProducer#getDependencyContext}.
+   * DependencyResolver#getDependencyContext}.
    */
   @AutoValue
   abstract static class Value implements SkyValue {
@@ -111,8 +111,8 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
   }
 
   /**
-   * A mock {@link SkyFunction} that just calls {@link PrerequisiteProducer#getDependencyContext}
-   * and returns its results.
+   * A mock {@link SkyFunction} that just calls {@link DependencyResolver#getDependencyContext} and
+   * returns its results.
    */
   static class ComputeUnloadedToolchainContextsFunction implements SkyFunction {
     static final SkyFunctionName SKYFUNCTION_NAME =
@@ -131,7 +131,7 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
       Key key = (Key) skyKey.argument();
       var state =
           env.getState(
-              () -> PrerequisiteProducer.State.createForTesting(key.targetAndConfiguration()));
+              () -> DependencyResolver.State.createForTesting(key.targetAndConfiguration()));
       DependencyContext result;
       try {
         result =
