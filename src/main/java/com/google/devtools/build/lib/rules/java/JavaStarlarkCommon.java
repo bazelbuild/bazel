@@ -77,7 +77,8 @@ public class JavaStarlarkCommon
       String ruleLocation = ruleContext.getRule().getLocation().toString();
       String ruleClass = ruleContext.getRule().getRuleClassObject().getName();
       throw Starlark.errorf(
-          "Rule '%s' in '%s' must declare '%s' toolchain in order to use java_common.",
+          "Rule '%s' in '%s' must declare '%s' toolchain in order to use java_common. See"
+              + " https://github.com/bazelbuild/bazel/issues/18970.",
           ruleClass, ruleLocation, javaSemantics.getJavaToolchainType());
     }
   }
