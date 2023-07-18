@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.concurrent.Uninterruptibles.callUninterruptibly;
 import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ACTION_CONFLICTS;
 
@@ -3083,6 +3084,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
   }
 
+  public boolean hasDiffAwareness() {
+    return diffAwarenessManager != null;
+  }
+
   /** Uses diff awareness on all the package paths to invalidate changed files. */
   @VisibleForTesting
   public void handleDiffsForTesting(ExtendedEventHandler eventHandler)
@@ -3134,18 +3139,39 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     Set<Pair<Root, ProcessableModifiedFileSet>> pathEntriesWithoutDiffInformation =
         Sets.newHashSet();
     ImmutableList<Root> pkgRoots = pkgLocator.get().getPathEntries();
-    for (Root pathEntry : pkgRoots) {
-      DiffAwarenessManager.ProcessableModifiedFileSet modifiedFileSet =
-          diffAwarenessManager.getDiff(eventHandler, getPathForModifiedFileSet(pathEntry), options);
-      if (pkgRoots.size() == 1) {
-        workspaceInfo = modifiedFileSet.getWorkspaceInfo();
-        workspaceInfoFromDiffReceiver.syncWorkspaceInfoFromDiff(
-            pathEntry.asPath().asFragment(), workspaceInfo);
-      }
-      if (modifiedFileSet.getModifiedFileSet().treatEverythingAsModified()) {
-        pathEntriesWithoutDiffInformation.add(Pair.of(pathEntry, modifiedFileSet));
-      } else {
-        modifiedFilesByPathEntry.put(pathEntry, modifiedFileSet);
+
+    Path workspacePath = directories.getWorkspace();
+    EvaluationResult<SkyValue> evaluationResult =
+        evaluateSkyKeys(eventHandler, ImmutableList.of(IgnoredPackagePrefixesValue.key()));
+    IgnoredPackagePrefixesValue ignoredPackagePrefixesValue =
+        (IgnoredPackagePrefixesValue) evaluationResult.get(IgnoredPackagePrefixesValue.key());
+
+    if (diffAwarenessManager != null) {
+      for (Root pathEntry : pkgRoots) {
+        // Ignored package prefixes are specified relative to the workspace root
+        // by definition of .bazelignore. So, we only use ignored paths when the
+        // package root is equal to the workspace path.
+        ImmutableSet<Path> ignoredPaths = ImmutableSet.of();
+        if (workspacePath != null && workspacePath.equals(pathEntry.asPath())) {
+          ignoredPaths =
+              ignoredPackagePrefixesValue.getPatterns().stream()
+                  .map(pathEntry::getRelative)
+                  .collect(toImmutableSet());
+        }
+
+        DiffAwarenessManager.ProcessableModifiedFileSet modifiedFileSet =
+            diffAwarenessManager.getDiff(
+                eventHandler, getPathForModifiedFileSet(pathEntry), ignoredPaths, options);
+        if (pkgRoots.size() == 1) {
+          workspaceInfo = modifiedFileSet.getWorkspaceInfo();
+          workspaceInfoFromDiffReceiver.syncWorkspaceInfoFromDiff(
+              pathEntry.asPath().asFragment(), workspaceInfo);
+        }
+        if (modifiedFileSet.getModifiedFileSet().treatEverythingAsModified()) {
+          pathEntriesWithoutDiffInformation.add(Pair.of(pathEntry, modifiedFileSet));
+        } else {
+          modifiedFilesByPathEntry.put(pathEntry, modifiedFileSet);
+        }
       }
     }
     BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
