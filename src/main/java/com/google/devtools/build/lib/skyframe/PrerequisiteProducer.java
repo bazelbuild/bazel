@@ -306,8 +306,9 @@ public final class PrerequisiteProducer {
    *
    * <p>{@link #evaluate} must be called before this info is available.
    */
+  @VisibleForTesting
   @Nullable
-  ToolchainCollection<UnloadedToolchainContext> getUnloadedToolchainContexts() {
+  public ToolchainCollection<UnloadedToolchainContext> getUnloadedToolchainContexts() {
     return unloadedToolchainContexts;
   }
 
