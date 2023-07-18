@@ -1,0 +1,39 @@
+rule_info {
+  rule_name: "my_rule"
+  doc_string: "This is my rule. It does stuff."
+  attribute {
+    name: "name"
+    doc_string: "A unique name for this target."
+    type: NAME
+    mandatory: true
+  }
+  attribute {
+    name: "first"
+    doc_string: "first doc string"
+    type: LABEL
+    mandatory: true
+  }
+  attribute {
+    name: "fourth"
+    doc_string: "fourth doc string"
+    type: BOOLEAN
+    default_value: "False"
+  }
+  attribute {
+    name: "second"
+    type: STRING_DICT
+    mandatory: true
+  }
+  attribute {
+    name: "third"
+    type: OUTPUT
+    mandatory: true
+  }
+}
+func_info {
+  function_name: "my_rule_impl"
+  parameter {
+    name: "ctx"
+    mandatory: true
+  }
+}

@@ -1,0 +1,29 @@
+rule_info {
+  rule_name: "int_setting"
+  attribute {
+    name: "name"
+    doc_string: "A unique name for this target."
+    type: NAME
+    mandatory: true
+  }
+}
+rule_info {
+  rule_name: "string_flag"
+  attribute {
+    name: "name"
+    doc_string: "A unique name for this target."
+    type: NAME
+    mandatory: true
+  }
+}
+func_info {
+  function_name: "exercise_the_api"
+}
+func_info {
+  function_name: "transition_func"
+  parameter {
+    name: "settings"
+    mandatory: true
+  }
+  doc_string: "A no-op transition function."
+}
