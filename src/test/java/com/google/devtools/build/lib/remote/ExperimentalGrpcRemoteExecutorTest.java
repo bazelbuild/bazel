@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.util.TestUtils;
-import com.google.rpc.Code;
 import io.grpc.Status;
 import java.io.IOException;
 import java.util.concurrent.Executors;
@@ -90,7 +89,9 @@ public class ExperimentalGrpcRemoteExecutorTest extends GrpcRemoteExecutorTestBa
   public void executeRemotely_executeAndRetryWait_failForConsecutiveErrors() {
     executionService.whenExecute(DUMMY_REQUEST).thenAck().finish();
     for (int i = 0; i < MAX_RETRY_ATTEMPTS * 2; ++i) {
-      executionService.whenWaitExecution(DUMMY_REQUEST).thenError(Code.UNAVAILABLE);
+      executionService
+          .whenWaitExecution(DUMMY_REQUEST)
+          .thenError(Status.UNAVAILABLE.asRuntimeException());
     }
 
     assertThrows(
@@ -150,7 +151,10 @@ public class ExperimentalGrpcRemoteExecutorTest extends GrpcRemoteExecutorTestBa
   public void executeRemotely_retryWaitExecutionWhenUnauthenticated()
       throws IOException, InterruptedException {
     executionService.whenExecute(DUMMY_REQUEST).thenAck().finish();
-    executionService.whenWaitExecution(DUMMY_REQUEST).thenAck().thenError(Code.UNAUTHENTICATED);
+    executionService
+        .whenWaitExecution(DUMMY_REQUEST)
+        .thenAck()
+        .thenError(Status.UNAUTHENTICATED.asRuntimeException());
     executionService.whenWaitExecution(DUMMY_REQUEST).thenAck().thenDone(DUMMY_RESPONSE);
 
     ExecuteResponse response =

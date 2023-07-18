@@ -1527,8 +1527,13 @@ public abstract class CcModule
     if (value == null || value.isEmpty()) {
       throw infoError(envEntryStruct, "'value' parameter of env_entry must be a nonempty string.");
     }
+    String expandIfAvailable =
+        getOptionalFieldFromStarlarkProvider(envEntryStruct, "expand_if_available", String.class);
     StringValueParser parser = new StringValueParser(value);
-    return new EnvEntry(key, parser.getChunks());
+    return new EnvEntry(
+        key,
+        parser.getChunks(),
+        expandIfAvailable == null ? ImmutableSet.of() : ImmutableSet.of(expandIfAvailable));
   }
 
   /** Creates a {@link WithFeatureSet} from a {@link StarlarkInfo}. */

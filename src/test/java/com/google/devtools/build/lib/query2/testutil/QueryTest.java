@@ -316,6 +316,10 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
     writeFile("a/c/BUILD", "filegroup(name = 'a_c')");
     writeFile("a/d/BUILD", "filegroup(name = 'a_d')");
     writeFile("a/e/BUILD", "filegroup(name = 'a_e')");
+    // Ensure that modified files are invalidated in the skyframe. If a file has
+    // already been read prior to the test's writes, this forces the query to
+    // pick up the modified versions.
+    helper.maybeHandleDiffs();
     Iterable<String> result = targetLabels(eval("//..."));
     assertThat(result).containsAtLeast("//a:a", "//b:b", "//a/d:a_d", "//a/e:a_e");
     assertThat(result).containsNoneOf("//a/b:a_b", "//a/c:a_c");

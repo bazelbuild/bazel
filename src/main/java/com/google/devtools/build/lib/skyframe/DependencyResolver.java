@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.DependencyKind;
-import com.google.devtools.build.lib.analysis.DependencyResolver;
+import com.google.devtools.build.lib.analysis.DependencyResolutionHelpers;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection;
 import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyException;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
@@ -124,9 +124,9 @@ import net.starlark.java.syntax.Location;
  * <p>See {@link ConfiguredTargetFunction} for more review on analysis implementation.
  *
  * <p>{@link AspectFunction} shares the logic computing a target's prerequisites via the {@link
- * PrerequisiteProducer#computeDependencies}.
+ * DependencyResolver#computeDependencies}.
  */
-public final class PrerequisiteProducer {
+public final class DependencyResolver {
   /**
    * Memoizies computation steps of {@link #evaluate} so they do not need to be repeated on {@code
    * Skyframe} restart.
@@ -264,7 +264,7 @@ public final class PrerequisiteProducer {
   private PlatformInfo platformInfo = null;
   @Nullable private ToolchainCollection<UnloadedToolchainContext> unloadedToolchainContexts = null;
 
-  public PrerequisiteProducer(TargetAndConfiguration targetAndConfiguration) {
+  public DependencyResolver(TargetAndConfiguration targetAndConfiguration) {
     this.targetAndConfiguration = Preconditions.checkNotNull(targetAndConfiguration);
   }
 
@@ -306,17 +306,18 @@ public final class PrerequisiteProducer {
    *
    * <p>{@link #evaluate} must be called before this info is available.
    */
+  @VisibleForTesting
   @Nullable
-  ToolchainCollection<UnloadedToolchainContext> getUnloadedToolchainContexts() {
+  public ToolchainCollection<UnloadedToolchainContext> getUnloadedToolchainContexts() {
     return unloadedToolchainContexts;
   }
 
   /**
    * Runs the analysis phase for this target through prerequisite evaluation.
    *
-   * <p>See {@link PrerequisiteProducer} javadoc for details.
+   * <p>See {@link DependencyResolver} javadoc for details.
    *
-   * <p>This is the main entry point to {@link PrerequisiteProducer}. This method runs its share of
+   * <p>This is the main entry point to {@link DependencyResolver}. This method runs its share of
    * the analysis phase, after which all the data is computes is accessible to calling code through
    * related getters.
    *
@@ -667,15 +668,15 @@ public final class PrerequisiteProducer {
         DependencyContext dependencyContext = state.dependencyContext;
         ToolchainCollection<ToolchainContext> toolchainContexts =
             dependencyContext.toolchainContexts();
-        DependencyResolver.DependencyLabels dependencyLabels;
+        DependencyResolutionHelpers.DependencyLabels dependencyLabels;
         try {
           dependencyLabels =
-              DependencyResolver.computeDependencyLabels(
+              DependencyResolutionHelpers.computeDependencyLabels(
                   ctgValue,
                   aspects,
                   dependencyContext.configConditions().asProviders(),
                   toolchainContexts);
-        } catch (DependencyResolver.Failure e) {
+        } catch (DependencyResolutionHelpers.Failure e) {
           throw handleDependencyRootCauseError(ctgValue, e.getLocation(), e.getMessage(), listener);
         }
         state.dependencyMapProducer =

@@ -636,30 +636,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   }
 
   /**
-   * Returns a {@code CcCompilationContext} that is based on a given {@code CcCompilationContext}
-   * but returns empty sets for {@link #getLooseHdrsDirs()}.
-   */
-  public static CcCompilationContext disallowUndeclaredHeaders(
-      CcCompilationContext ccCompilationContext) {
-    return new CcCompilationContext(
-        ccCompilationContext.commandLineCcCompilationContext,
-        ccCompilationContext.compilationPrerequisites,
-        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        ccCompilationContext.declaredIncludeSrcs,
-        ccCompilationContext.nonCodeInputs,
-        ccCompilationContext.headerInfo,
-        ccCompilationContext.transitiveModules,
-        ccCompilationContext.transitivePicModules,
-        ccCompilationContext.directModuleMaps,
-        ccCompilationContext.exportingModuleMaps,
-        ccCompilationContext.cppModuleMap,
-        ccCompilationContext.propagateModuleMapAsActionInput,
-        ccCompilationContext.headersCheckingMode,
-        ccCompilationContext.virtualToOriginalHeaders,
-        ccCompilationContext.headerTokens);
-  }
-
-  /**
    * Returns a {@code CcCompilationContext} that is based on a given {@code CcCompilationContext},
    * with {@code extraHeaderTokens} added to the header tokens.
    */
@@ -694,10 +670,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   /** Returns the list of dependencies' C++ module maps re-exported by this compilation context. */
   public ImmutableList<CppModuleMap> getExportingModuleMaps() {
     return exportingModuleMaps;
-  }
-
-  public CppConfiguration.HeadersCheckingMode getHeadersCheckingMode() {
-    return CppConfiguration.HeadersCheckingMode.STRICT;
   }
 
   public NestedSet<Tuple> getVirtualToOriginalHeaders() {
@@ -1144,13 +1116,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     @CanIgnoreReturnValue
     public Builder addVirtualToOriginalHeaders(NestedSet<Tuple> virtualToOriginalHeaders) {
       this.virtualToOriginalHeaders.addTransitive(virtualToOriginalHeaders);
-      return this;
-    }
-
-    /** Adds a set of header tokens. */
-    @CanIgnoreReturnValue
-    public Builder addHeaderTokens(Iterable<Artifact> headerTokens) {
-      this.headerTokens.addAll(headerTokens);
       return this;
     }
 

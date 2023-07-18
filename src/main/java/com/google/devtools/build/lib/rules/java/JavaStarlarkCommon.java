@@ -77,7 +77,8 @@ public class JavaStarlarkCommon
       String ruleLocation = ruleContext.getRule().getLocation().toString();
       String ruleClass = ruleContext.getRule().getRuleClassObject().getName();
       throw Starlark.errorf(
-          "Rule '%s' in '%s' must declare '%s' toolchain in order to use java_common.",
+          "Rule '%s' in '%s' must declare '%s' toolchain in order to use java_common. See"
+              + " https://github.com/bazelbuild/bazel/issues/18970.",
           ruleClass, ruleLocation, javaSemantics.getJavaToolchainType());
     }
   }
@@ -334,12 +335,19 @@ public class JavaStarlarkCommon
         if (!isInstanceOfProvider(elem, (Provider) providerType)) {
           throw Starlark.errorf(
               "at index %d of %s, got element of type %s, want %s",
-              i, what, Starlark.type(elem), ((Provider) providerType).getPrintableName());
+              i, what, printableType(elem), ((Provider) providerType).getPrintableName());
         }
       }
     } else {
       throw Starlark.errorf("wanted Provider, got %s", Starlark.type(providerType));
     }
+  }
+
+  private static String printableType(Object elem) {
+    if (elem instanceof StarlarkInfoWithSchema) {
+      return ((StarlarkInfoWithSchema) elem).getProvider().getPrintableName();
+    }
+    return Starlark.type(elem);
   }
 
   @Override

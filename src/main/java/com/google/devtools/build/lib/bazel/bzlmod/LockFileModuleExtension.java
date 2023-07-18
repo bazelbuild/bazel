@@ -31,10 +31,15 @@ public abstract class LockFileModuleExtension implements Postable {
   @SuppressWarnings("mutable")
   public abstract byte[] getBzlTransitiveDigest();
 
+  public abstract ImmutableMap<String, String> getEnvVariables();
+
   public abstract ImmutableMap<String, RepoSpec> getGeneratedRepoSpecs();
 
   public static LockFileModuleExtension create(
-      byte[] transitiveDigest, ImmutableMap<String, RepoSpec> generatedRepoSpecs) {
-    return new AutoValue_LockFileModuleExtension(transitiveDigest, generatedRepoSpecs);
+      byte[] transitiveDigest,
+      ImmutableMap<String, String> envVariables,
+      ImmutableMap<String, RepoSpec> generatedRepoSpecs) {
+    return new AutoValue_LockFileModuleExtension(
+        transitiveDigest, envVariables, generatedRepoSpecs);
   }
 }

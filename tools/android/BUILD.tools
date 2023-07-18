@@ -443,9 +443,14 @@ java_binary(
     ],
 )
 
-alias(
+java_plugin(
     name = "databinding_annotation_processor",
-    actual = "//external:databinding_annotation_processor",
+    generates_api = True,
+    processor_class = "android.databinding.annotationprocessor.ProcessDataBinding",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@bazel_tools//src/tools/android/java/com/google/devtools/build/android:all_android_tools",
+    ],
 )
 
 # This is the default value of databinding_annotation_processor if the user does

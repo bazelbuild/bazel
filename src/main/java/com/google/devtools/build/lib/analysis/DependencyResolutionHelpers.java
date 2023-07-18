@@ -57,13 +57,13 @@ import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
 /**
- * Resolver for dependencies between configured targets.
+ * Helpers for resolution for dependencies between configured targets.
  *
  * <p>Includes logic to determine all attribute dependencies and their associated labels.
  */
-public final class DependencyResolver {
+public final class DependencyResolutionHelpers {
 
-  private DependencyResolver() {}
+  private DependencyResolutionHelpers() {}
 
   /** The tuple {@link #computeDependencyLabels} outputs. */
   public static final class DependencyLabels {
@@ -125,7 +125,7 @@ public final class DependencyResolver {
   }
 
   /** The results of {@link #getExecutionPlatformLabel} as a tagged union. */
-  @AutoOneOf(DependencyResolver.ExecutionPlatformResult.Kind.class)
+  @AutoOneOf(DependencyResolutionHelpers.ExecutionPlatformResult.Kind.class)
   public abstract static class ExecutionPlatformResult {
     /** Tags for the possible results. */
     public enum Kind {
@@ -159,19 +159,19 @@ public final class DependencyResolver {
     public abstract String error();
 
     private static ExecutionPlatformResult ofLabel(Label label) {
-      return AutoOneOf_DependencyResolver_ExecutionPlatformResult.label(label);
+      return AutoOneOf_DependencyResolutionHelpers_ExecutionPlatformResult.label(label);
     }
 
     private static ExecutionPlatformResult ofNullLabel() {
-      return AutoOneOf_DependencyResolver_ExecutionPlatformResult.nullLabel();
+      return AutoOneOf_DependencyResolutionHelpers_ExecutionPlatformResult.nullLabel();
     }
 
     private static ExecutionPlatformResult ofSkip() {
-      return AutoOneOf_DependencyResolver_ExecutionPlatformResult.skip();
+      return AutoOneOf_DependencyResolutionHelpers_ExecutionPlatformResult.skip();
     }
 
     private static ExecutionPlatformResult ofError(String message) {
-      return AutoOneOf_DependencyResolver_ExecutionPlatformResult.error(message);
+      return AutoOneOf_DependencyResolutionHelpers_ExecutionPlatformResult.error(message);
     }
   }
 
@@ -223,7 +223,7 @@ public final class DependencyResolver {
     return Iterables.getLast(aspectsList).getAspectClass().equals(owningAspect);
   }
 
-  /** A DependencyResolver.Failure indicates a failure during dependency resolution. */
+  /** Indicates a failure during dependency resolution. */
   public static class Failure extends Exception {
     @Nullable private final Location location;
 
@@ -379,7 +379,7 @@ public final class DependencyResolver {
     } else if (attribute.isLateBound()) {
       attributeValue =
           type.cast(resolveLateBoundDefault(rule, attributeMap, attribute, ruleConfig));
-    } else if (attributeMap.has(attribute.getName())) {
+    } else if (dependencyKind.getOwningAspect() == null && attributeMap.has(attribute.getName())) {
       // This condition is false for aspect attributes that do not give rise to dependencies because
       // attributes that come from aspects do not appear in attributeMap (see the comment in the
       // case that handles implicit attributes).

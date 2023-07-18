@@ -180,7 +180,7 @@ java_library(
         "ConfiguredRuleClassProvider.java",
         "ConfiguredTargetFactory.java",
         "DefaultInfo.java",
-        "DependencyResolver.java",
+        "DependencyResolutionHelpers.java",
         "EmptyConfiguredTarget.java",
         "EventHandlingErrorReporter.java",
         "Expander.java",

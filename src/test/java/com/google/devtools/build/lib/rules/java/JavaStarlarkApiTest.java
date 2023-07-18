@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -256,7 +257,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     Depset fullCompileJars = ((Depset) info.getValue("full_compile_jars"));
     @SuppressWarnings("unchecked")
     Sequence<Artifact> sourceJars = ((Sequence<Artifact>) info.getValue("source_jars"));
-    JavaRuleOutputJarsProvider outputs = ((JavaRuleOutputJarsProvider) info.getValue("outputs"));
+    JavaRuleOutputJarsProvider outputs =
+        JavaRuleOutputJarsProvider.fromStarlark(info.getValue("outputs"));
 
     assertThat(artifactFilesNames(transitiveRuntimeJars.toList(Artifact.class)))
         .containsExactly("libdep.jar");
@@ -425,7 +427,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
                 new StarlarkProvider.Key(
                     Label.parseCanonical("//java/test:extension.bzl"), "result"));
 
-    JavaRuleOutputJarsProvider outputs = ((JavaRuleOutputJarsProvider) info.getValue("outputs"));
+    JavaRuleOutputJarsProvider outputs =
+        JavaRuleOutputJarsProvider.fromStarlark(info.getValue("outputs"));
     assertThat(outputs.getJavaOutputs()).hasSize(1);
 
     JavaOutput javaOutput = outputs.getJavaOutputs().get(0);
@@ -1533,8 +1536,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     StarlarkProvider.Key myProviderKey =
         new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "my_provider");
     StructImpl declaredProvider = (StructImpl) myRuleTarget.get(myProviderKey);
-    Object javaProvider = declaredProvider.getValue("p");
-    assertThat(javaProvider).isInstanceOf(JavaInfo.class);
+    // attempting to wrap will error out if not a JavaInfo
+    Object javaProvider = JavaInfo.PROVIDER.wrap(declaredProvider.getValue("p", Info.class));
     assertThat(javaLibraryTarget.get(JavaInfo.PROVIDER)).isEqualTo(javaProvider);
   }
 
@@ -1562,7 +1565,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     JavaInfo jlJavaInfo = javaLibraryTarget.get(JavaInfo.PROVIDER);
 
-    assertThat(jlJavaInfo == javaProvider).isTrue();
+    assertThat(jlJavaInfo).isEqualTo(javaProvider);
 
     JavaInfo jlTopJavaInfo = topJavaLibraryTarget.get(JavaInfo.PROVIDER);
 
@@ -2140,7 +2143,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
             myRuleTarget.get(
                 new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "result"));
 
-    JavaGenJarsProvider javaGenJarsProvider = (JavaGenJarsProvider) info.getValue("property");
+    JavaGenJarsProvider javaGenJarsProvider = JavaGenJarsProvider.from(info.getValue("property"));
 
     assertThat(javaGenJarsProvider.getGenClassJar().getFilename())
         .isEqualTo("libmy_java_lib_a-gen.jar");
@@ -2170,7 +2173,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
                 new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "result"));
 
     JavaCompilationInfoProvider javaCompilationInfoProvider =
-        (JavaCompilationInfoProvider) info.getValue("property");
+        JavaCompilationInfoProvider.fromStarlarkCompilationInfo(info.getValue("property"));
 
     assertThat(
             prettyArtifactNames(
@@ -3678,6 +3681,33 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     getConfiguredTarget("//foo:myrule");
 
     assertContainsEvent("Rule in 'foo' cannot use private API");
+  }
+
+  @Test
+  public void testProviderValidationPrintsProviderName() throws Exception {
+    scratch.file(
+        "foo/rule.bzl",
+        "def _impl(ctx):",
+        "  cc_info = ctx.attr.dep[CcInfo]",
+        "  JavaInfo(output_jar = None, compile_jar = None, deps = [cc_info])",
+        "  return []",
+        "myrule = rule(",
+        "  implementation=_impl,",
+        "  attrs = {'dep' : attr.label()},",
+        "  fragments = []",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load(':rule.bzl', 'myrule')",
+        "cc_library(name = 'cc_lib')",
+        "myrule(name='myrule',",
+        "    dep = ':cc_lib',",
+        ")");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//foo:myrule");
+
+    assertContainsEvent("got element of type CcInfo, want JavaInfo");
   }
 
   private String getJvmFlags(Artifact executable)

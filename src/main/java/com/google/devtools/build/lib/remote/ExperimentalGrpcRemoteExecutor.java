@@ -179,7 +179,7 @@ public class ExperimentalGrpcRemoteExecutor implements RemoteExecutionClient {
 
       try {
         Iterator<Operation> operationStream = executeFunction.apply(request);
-        return handleOperationStream(operationStream);
+        return handleOperationStream(operationStream, /* waitExecution= */ false);
       } catch (Throwable e) {
         // If lastOperation is not null, we know the execution request is accepted by the server. In
         // this case, we will fallback to WaitExecution() loop when the stream is broken.
@@ -199,34 +199,43 @@ public class ExperimentalGrpcRemoteExecutor implements RemoteExecutionClient {
           WaitExecutionRequest.newBuilder().setName(lastOperation.getName()).build();
       try {
         Iterator<Operation> operationStream = waitExecutionFunction.apply(request);
-        return handleOperationStream(operationStream);
+        return handleOperationStream(operationStream, /* waitExecution= */ true);
+      } catch (StatusRuntimeException e) {
+        throw new IOException(e);
       } catch (Throwable e) {
-        // A NOT_FOUND error means Operation was lost on the server, retry Execute().
-        //
-        // However, we only retry Execute() if executeBackoff should retry. Also increase the retry
-        // counter at the same time (done by nextDelayMillis()).
-        if (e instanceof StatusRuntimeException) {
-          StatusRuntimeException sre = (StatusRuntimeException) e;
-          if (sre.getStatus().getCode() == Code.NOT_FOUND
-              && executeBackoff.nextDelayMillis(sre) >= 0) {
-            lastOperation = null;
-            return null;
-          }
-        }
+        lastOperation = null;
         throw new IOException(e);
       }
     }
 
     /** Process a stream of operations from Execute() or WaitExecution(). */
     @Nullable
-    ExecuteResponse handleOperationStream(Iterator<Operation> operationStream) throws IOException {
+    ExecuteResponse handleOperationStream(
+        Iterator<Operation> operationStream, boolean waitExecution) throws IOException {
       try {
         while (operationStream.hasNext()) {
           Operation operation = operationStream.next();
-          ExecuteResponse response = extractResponseOrThrowIfError(operation);
 
-          // At this point, we successfully received a response that is not an error.
-          lastOperation = operation;
+          // Either done or should be repeated
+          lastOperation = operation.getDone() ? null : operation;
+
+          ExecuteResponse response;
+          try {
+            response = extractResponseOrThrowIfError(operation);
+          } catch (StatusRuntimeException e) {
+            // An operation error means Operation has been terminally completed, retry Execute().
+            //
+            // However, we only retry Execute() if executeBackoff should retry. Also increase the
+            // retry
+            // counter at the same time (done by nextDelayMillis()).
+            if (waitExecution
+                && (retrier.isRetriable(e) || e.getStatus().getCode() == Code.NOT_FOUND)
+                && executeBackoff.nextDelayMillis(e) >= 0) {
+              lastOperation = null;
+              return null;
+            }
+            throw e;
+          }
 
           // We don't want to reset executeBackoff since if there is an error:
           //   1. If happened before we received a first response, we want to ensure the retry
