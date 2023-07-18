@@ -505,6 +505,70 @@ class BazelLockfileTest(test_base.TestBase):
       lockfile = json.loads(f.read().strip())
       self.assertEqual(len(lockfile['moduleExtensions']), 0)
 
+  def testNoAbsoluteRootModuleFilePath(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("extension.bzl", "ext")',
+            'ext.dep(generate = True)',
+            'use_repo(ext, ext_hello = "hello")',
+            'other_ext = use_extension("extension.bzl", "other_ext")',
+            'other_ext.dep(generate = False)',
+            'use_repo(other_ext, other_ext_hello = "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("WORKSPACE")',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            '',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            '',
+            'def _module_ext_impl(ctx):',
+            '    for mod in ctx.modules:',
+            '        for dep in mod.tags.dep:',
+            '            if dep.generate:',
+            '                repo_rule(name="hello")',
+            '',
+            '_dep = tag_class(attrs={"generate": attr.bool()})',
+            'ext = module_extension(',
+            '    implementation=_module_ext_impl,',
+            '    tag_classes={"dep": _dep},',
+            ')',
+            'other_ext = module_extension(',
+            '    implementation=_module_ext_impl,',
+            '    tag_classes={"dep": _dep},',
+            ')',
+        ],
+    )
+
+    # Paths to module files in error message always use forward slashes as
+    # separators, even on Windows.
+    module_file_path = self.Path('MODULE.bazel').replace('\\', '/')
+
+    self.RunBazel(['build', '--nobuild', '@ext_hello//:all'])
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      self.assertNotIn(module_file_path, f.read())
+
+    self.RunBazel(['shutdown'])
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--nobuild', '@other_ext_hello//:all'], allow_failure=True
+    )
+    self.AssertNotExitCode(exit_code, 0, stderr)
+    self.assertIn(
+        (
+            'ERROR: module extension "other_ext" from "//:extension.bzl" does '
+            'not generate repository "hello", yet it is imported as '
+            '"other_ext_hello" in the usage at '
+            + module_file_path
+            + ':4:26'
+        ),
+        stderr,
+    )
+
 
 if __name__ == '__main__':
   unittest.main()
