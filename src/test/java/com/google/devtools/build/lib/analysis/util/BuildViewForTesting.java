@@ -131,10 +131,12 @@ public class BuildViewForTesting {
    * matching the {@link ConfiguredTarget#getConfigurationKey} values.
    *
    * <p>The problem is that the Skyframe graph may contain entries that are not done at the time of
-   * graph inspection, so the {@link ConfiguredTargetValue} is unavailable and can't be compared.
-   * Since the node is not done, it means any value present in the node won't match the key, so it
-   * is still filtered. This set keeps track of previous mismatches in case their entries are
-   * dirtied in a subsequent evaluation.
+   * graph inspection. This may occur when there's an incremental evaluation that doesn't require a
+   * previously computed value.
+   *
+   * <p>If the {@link ConfiguredTargetValue} is unavailable and can't be compared, the diff still
+   * needs to decide whether to skip it. If it was skipped previously, it needs to be skipped again.
+   * Otherwise it'll show up as a newly evaluated node.
    */
   private ImmutableSet<ConfiguredTargetKey> previousProxyNodeKeys = ImmutableSet.of();
 
