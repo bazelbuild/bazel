@@ -20,11 +20,13 @@ import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFact
 import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFactory.IMMUTABLE_MAP;
 import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFactory.IMMUTABLE_SET;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParseException;
@@ -42,6 +44,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 
 /**
  * Utility class to hold type adapters and helper methods to get gson registered with type adapters
@@ -188,24 +191,102 @@ public final class GsonTypeAdapterUtil {
     }
   }
 
-  public static final Gson LOCKFILE_GSON =
-      new GsonBuilder()
-          .setPrettyPrinting()
-          .disableHtmlEscaping()
-          .enableComplexMapKeySerialization()
-          .registerTypeAdapterFactory(GenerateTypeAdapter.FACTORY)
-          .registerTypeAdapterFactory(DICT)
-          .registerTypeAdapterFactory(IMMUTABLE_MAP)
-          .registerTypeAdapterFactory(IMMUTABLE_LIST)
-          .registerTypeAdapterFactory(IMMUTABLE_BIMAP)
-          .registerTypeAdapterFactory(IMMUTABLE_SET)
-          .registerTypeAdapterFactory(OPTIONAL)
-          .registerTypeAdapter(Version.class, VERSION_TYPE_ADAPTER)
-          .registerTypeAdapter(ModuleKey.class, MODULE_KEY_TYPE_ADAPTER)
-          .registerTypeAdapter(ModuleExtensionId.class, MODULE_EXTENSION_ID_TYPE_ADAPTER)
-          .registerTypeAdapter(AttributeValues.class, new AttributeValuesAdapter())
-          .registerTypeAdapter(byte[].class, BYTE_ARRAY_TYPE_ADAPTER)
-          .create();
+  /**
+   * A variant of {@link Location} that converts the absolute path to the root module file to a
+   * constant and back.
+   */
+  // protected only for @AutoValue
+  @GenerateTypeAdapter
+  @AutoValue
+  protected abstract static class RootModuleFileEscapingLocation {
+    // This marker string is neither a valid absolute path nor a valid URL and thus cannot conflict
+    // with any real module file location.
+    private static final String ROOT_MODULE_FILE_LABEL = "@@//:MODULE.bazel";
+
+    public abstract String file();
+
+    public abstract int line();
+
+    public abstract int column();
+
+    public Location toLocation(String moduleFilePath) {
+      String file;
+      if (file().equals(ROOT_MODULE_FILE_LABEL)) {
+        file = moduleFilePath;
+      } else {
+        file = file();
+      }
+      return Location.fromFileLineColumn(file, line(), column());
+    }
+
+    public static RootModuleFileEscapingLocation fromLocation(
+        Location location, String moduleFilePath) {
+      String file;
+      if (location.file().equals(moduleFilePath)) {
+        file = ROOT_MODULE_FILE_LABEL;
+      } else {
+        file = location.file();
+      }
+      return new AutoValue_GsonTypeAdapterUtil_RootModuleFileEscapingLocation(
+          file, location.line(), location.column());
+    }
+  }
+
+  private static final class LocationTypeAdapterFactory implements TypeAdapterFactory {
+
+    private final String moduleFilePath;
+
+    public LocationTypeAdapterFactory(Path moduleFilePath) {
+      this.moduleFilePath = moduleFilePath.getPathString();
+    }
+
+    @Nullable
+    @Override
+    @SuppressWarnings("unchecked")
+    public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> typeToken) {
+      if (typeToken.getRawType() != Location.class) {
+        return null;
+      }
+      TypeAdapter<RootModuleFileEscapingLocation> relativizedLocationTypeAdapter =
+          gson.getAdapter(RootModuleFileEscapingLocation.class);
+      return (TypeAdapter<T>)
+          new TypeAdapter<Location>() {
+
+            @Override
+            public void write(JsonWriter jsonWriter, Location location) throws IOException {
+              relativizedLocationTypeAdapter.write(
+                  jsonWriter,
+                  RootModuleFileEscapingLocation.fromLocation(location, moduleFilePath));
+            }
+
+            @Override
+            public Location read(JsonReader jsonReader) throws IOException {
+              return relativizedLocationTypeAdapter.read(jsonReader).toLocation(moduleFilePath);
+            }
+          };
+    }
+  }
+
+  public static Gson createLockFileGson(Path moduleFilePath) {
+    return new GsonBuilder()
+        .setPrettyPrinting()
+        .disableHtmlEscaping()
+        .enableComplexMapKeySerialization()
+        .registerTypeAdapterFactory(GenerateTypeAdapter.FACTORY)
+        .registerTypeAdapterFactory(DICT)
+        .registerTypeAdapterFactory(IMMUTABLE_MAP)
+        .registerTypeAdapterFactory(IMMUTABLE_LIST)
+        .registerTypeAdapterFactory(IMMUTABLE_BIMAP)
+        .registerTypeAdapterFactory(IMMUTABLE_SET)
+        .registerTypeAdapterFactory(OPTIONAL)
+        .registerTypeAdapterFactory(new LocationTypeAdapterFactory(moduleFilePath))
+        .registerTypeAdapter(Version.class, VERSION_TYPE_ADAPTER)
+        .registerTypeAdapter(ModuleKey.class, MODULE_KEY_TYPE_ADAPTER)
+        .registerTypeAdapter(ModuleExtensionId.class, MODULE_EXTENSION_ID_TYPE_ADAPTER)
+        .registerTypeAdapter(AttributeValues.class, new AttributeValuesAdapter())
+        .registerTypeAdapter(byte[].class, BYTE_ARRAY_TYPE_ADAPTER)
+        .create();
+  }
 
   private GsonTypeAdapterUtil() {}
 }
