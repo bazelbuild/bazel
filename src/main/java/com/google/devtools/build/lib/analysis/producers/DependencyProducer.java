@@ -234,7 +234,7 @@ final class DependencyProducer
       BuildConfigurationKey patchedConfiguration =
           transitionedConfigurations.get(PATCH_TRANSITION_KEY);
       if (patchedConfiguration != null) {
-        // It was a patch transition. Drops the transition key.
+        // It was a patch transition or no-op split transition.
         return computePrerequisites(
             AttributeConfiguration.ofUnary(patchedConfiguration),
             /* executionPlatformLabel= */ null);
