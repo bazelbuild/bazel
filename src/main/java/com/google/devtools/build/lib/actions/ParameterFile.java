@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.GccParamFileEscaper;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.util.StringUtil;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -33,6 +34,7 @@ import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetEncoder;
+import java.util.stream.StreamSupport;
 
 /**
  * Support for parameter file generation (as used by gcc and other tools, e.g.
@@ -119,7 +121,13 @@ public class ParameterFile {
     if (charset.equals(ISO_8859_1)) {
       writeContentLatin1(outputStream, arguments);
     } else if (charset.equals(UTF_8)) {
-      writeContentUtf8(outputStream, arguments);
+      // Decode potentially already Utf8 strings here, so that they don't get doubly encoded as
+      // Utf8 again.
+      ImmutableList<String> args =
+          StreamSupport.stream(arguments.spliterator(), /* parallel= */ false)
+              .map(StringUtil::decodeBytestringUtf8)
+              .collect(ImmutableList.toImmutableList());
+      writeContentUtf8(outputStream, args);
     } else {
       // Generic charset support
       OutputStreamWriter out = new OutputStreamWriter(outputStream, charset);
