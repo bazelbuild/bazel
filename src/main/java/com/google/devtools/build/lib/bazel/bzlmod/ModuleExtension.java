@@ -16,21 +16,28 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
 
 /**
  * A module extension object, which can be used to perform arbitrary logic in order to create repos
  * or register toolchains and execution platforms.
  */
+@StarlarkBuiltin(
+    name = "module_extension",
+    category = DocCategory.BUILTIN,
+    doc = "A module extension declared using the <code>module_extension</code> function.")
 @AutoValue
-public abstract class ModuleExtension {
+public abstract class ModuleExtension implements StarlarkValue {
   public abstract String getName();
 
   public abstract StarlarkCallable getImplementation();
@@ -42,6 +49,8 @@ public abstract class ModuleExtension {
   public abstract Label getDefinitionEnvironmentLabel();
 
   public abstract Location getLocation();
+
+  public abstract ImmutableList<String> getEnvVariables();
 
   public static Builder builder() {
     return new AutoValue_ModuleExtension.Builder();
@@ -62,6 +71,8 @@ public abstract class ModuleExtension {
     public abstract Builder setImplementation(StarlarkCallable value);
 
     public abstract Builder setTagClasses(ImmutableMap<String, TagClass> value);
+
+    public abstract Builder setEnvVariables(ImmutableList<String> value);
 
     public abstract ModuleExtension build();
   }

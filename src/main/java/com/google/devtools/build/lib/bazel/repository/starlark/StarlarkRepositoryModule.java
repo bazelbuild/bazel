@@ -296,6 +296,15 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
                 "A description of the module extension that can be extracted by documentation"
                     + " generating tools.",
             named = true,
+            positional = false),
+        @Param(
+            name = "environ",
+            defaultValue = "[]",
+            doc =
+                "Provides a list of environment variable that this module extension depends on. If "
+                    + "an environment variable in that list changes, the extension will be "
+                    + "re-evaluated.",
+            named = true,
             positional = false)
       },
       useStarlarkThread = true)
@@ -303,10 +312,11 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       StarlarkCallable implementation,
       Dict<?, ?> tagClasses, // Dict<String, TagClass>
       String doc,
+      Sequence<?> environ, // <String>
       StarlarkThread thread)
       throws EvalException {
     ModuleExtension.InStarlark inStarlark = new ModuleExtension.InStarlark();
-    inStarlark
+    return inStarlark
         .getBuilder()
         .setImplementation(implementation)
         .setTagClasses(
@@ -314,8 +324,8 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
         .setDoc(doc)
         .setDefinitionEnvironmentLabel(
             BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread)).label())
+        .setEnvVariables(ImmutableList.copyOf(Sequence.cast(environ, String.class, "environ")))
         .setLocation(thread.getCallerLocation());
-    return inStarlark;
   }
 
   @StarlarkMethod(
