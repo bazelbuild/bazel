@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
+import com.google.devtools.build.lib.rules.cpp.UserVariablesExtension;
 import com.google.devtools.build.lib.rules.objc.ObjcVariablesExtension.VariableCategory;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -478,6 +479,7 @@ public class CompilationSupport implements StarlarkValue {
    * @param j2ObjcEntryClassProvider contains j2objc entry class information for dead code removal
    * @param extraLinkArgs any additional arguments to pass to the linker
    * @param extraLinkInputs any additional input artifacts to pass to the link action
+   * @param userVariablesExtension the UserVariablesExtension to pass to the linker action
    * @return this compilation support
    */
   @CanIgnoreReturnValue
@@ -490,7 +492,8 @@ public class CompilationSupport implements StarlarkValue {
       Iterable<Artifact> extraLinkInputs,
       Iterable<String> extraRequestedFeatures,
       Iterable<String> extraDisabledFeatures,
-      boolean isStampingEnabled)
+      boolean isStampingEnabled,
+      UserVariablesExtension userVariablesExtension)
       throws InterruptedException, RuleErrorException, EvalException {
     // We need to split input libraries into those that require -force_load and those that don't.
     // Clang loads archives specified in filelists and also specified as -force_load twice,
@@ -592,6 +595,7 @@ public class CompilationSupport implements StarlarkValue {
             .addNonCodeLinkerInputs(ImmutableList.copyOf(extraLinkInputs))
             .addNonCodeLinkerInputs(ImmutableList.copyOf(attributes.linkInputs()))
             .addNonCodeLinkerInputs(ImmutableList.of(inputFileList))
+            .addVariableExtension(userVariablesExtension)
             .setShouldCreateStaticLibraries(false)
             .setDynamicLinkType(LinkTargetType.OBJC_EXECUTABLE)
             .setLinkingMode(LinkingMode.STATIC)

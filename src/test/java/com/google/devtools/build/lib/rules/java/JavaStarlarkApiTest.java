@@ -3680,6 +3680,33 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     assertContainsEvent("Rule in 'foo' cannot use private API");
   }
 
+  @Test
+  public void testProviderValidationPrintsProviderName() throws Exception {
+    scratch.file(
+        "foo/rule.bzl",
+        "def _impl(ctx):",
+        "  cc_info = ctx.attr.dep[CcInfo]",
+        "  JavaInfo(output_jar = None, compile_jar = None, deps = [cc_info])",
+        "  return []",
+        "myrule = rule(",
+        "  implementation=_impl,",
+        "  attrs = {'dep' : attr.label()},",
+        "  fragments = []",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load(':rule.bzl', 'myrule')",
+        "cc_library(name = 'cc_lib')",
+        "myrule(name='myrule',",
+        "    dep = ':cc_lib',",
+        ")");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//foo:myrule");
+
+    assertContainsEvent("got element of type CcInfo, want JavaInfo");
+  }
+
   private String getJvmFlags(Artifact executable)
       throws CommandLineExpansionException, InterruptedException, EvalException {
     if (OS.getCurrent() == OS.WINDOWS) {

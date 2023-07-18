@@ -1,5 +1,6 @@
 package com.google.devtools.build.lib.vfs.bazel;
 
+import com.google.devtools.build.lib.jni.JniLoader;
 import java.nio.ByteBuffer;
 import java.security.DigestException;
 import java.security.MessageDigest;
@@ -10,11 +11,15 @@ public final class Blake3MessageDigest extends MessageDigest {
   public static final int KEY_LEN = 32;
   public static final int OUT_LEN = 32;
 
-  private static int STATE_SIZE = Blake3JNI.hasher_size();
+  static {
+    JniLoader.loadJni();
+  }
+
+  private static int STATE_SIZE = hasher_size();
   private static byte[] INITIAL_STATE = new byte[STATE_SIZE];
 
   static {
-    Blake3JNI.initialize_hasher(INITIAL_STATE);
+    initialize_hasher(INITIAL_STATE);
   }
 
   // To reduce the number of calls made via JNI, buffer up to this many bytes
@@ -31,7 +36,7 @@ public final class Blake3MessageDigest extends MessageDigest {
 
   private void flush() {
     if (buffer.position() > 0) {
-      Blake3JNI.blake3_hasher_update(hasher, buffer.array(), buffer.position());
+      blake3_hasher_update(hasher, buffer.array(), buffer.position());
       buffer.clear();
     }
   }
@@ -64,7 +69,7 @@ public final class Blake3MessageDigest extends MessageDigest {
     flush();
 
     byte[] retByteArray = new byte[outputLength];
-    Blake3JNI.blake3_hasher_finalize(hasher, retByteArray, outputLength);
+    blake3_hasher_finalize(hasher, retByteArray, outputLength);
 
     engineReset();
     return retByteArray;
@@ -110,4 +115,12 @@ public final class Blake3MessageDigest extends MessageDigest {
     System.arraycopy(digestBytes, 0, buf, off, digestBytes.length);
     return digestBytes.length;
   }
+
+  public static final native int hasher_size();
+
+  public static final native void initialize_hasher(byte[] hasher);
+
+  public static final native void blake3_hasher_update(byte[] hasher, byte[] input, int input_len);
+
+  public static final native void blake3_hasher_finalize(byte[] hasher, byte[] out, int out_len);
 }

@@ -62,11 +62,11 @@ cc_library(
         ":jni_md.h",
     ],
     includes = ["."],  # For jni headers.
+    visibility = ["//src/main/native:__subpackages__"],
     deps = [
         "@blake3",
     ],
     alwayslink = 1,
-    visibility = ["//src/main/native:__subpackages__"],
 )
 
 cc_binary(

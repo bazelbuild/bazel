@@ -21,20 +21,21 @@
 namespace blaze_jni {
 
 jbyte *get_byte_array(JNIEnv *env, jbyteArray java_array) {
-  return env->GetByteArrayElements(java_array, nullptr);
+  return (jbyte *)env->GetPrimitiveArrayCritical(java_array, nullptr);
 }
 
 void release_byte_array(JNIEnv *env, jbyteArray array, jbyte *addr) {
-  return env->ReleaseByteArrayElements(array, addr, 0);
+  env->ReleasePrimitiveArrayCritical(array, addr, 0);
 }
 
-extern "C" JNIEXPORT long JNICALL
-Java_com_google_devtools_build_lib_vfs_bazel_Blake3JNI_hasher_1size() {
+extern "C" JNIEXPORT int JNICALL
+Java_com_google_devtools_build_lib_vfs_bazel_Blake3MessageDigest_hasher_1size(
+    JNIEnv *env, jobject obj) {
   return (int)sizeof(blake3_hasher);
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_vfs_bazel_Blake3JNI_initialize_1hasher(
+Java_com_google_devtools_build_lib_vfs_bazel_Blake3MessageDigest_initialize_1hasher(
     JNIEnv *env, jobject obj, jbyteArray jhasher) {
   blake3_hasher *hasher = (blake3_hasher *)get_byte_array(env, jhasher);
   if (hasher) {
@@ -44,7 +45,7 @@ Java_com_google_devtools_build_lib_vfs_bazel_Blake3JNI_initialize_1hasher(
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_vfs_bazel_Blake3JNI_blake3_1hasher_1update(
+Java_com_google_devtools_build_lib_vfs_bazel_Blake3MessageDigest_blake3_1hasher_1update(
     JNIEnv *env, jobject obj, jbyteArray jhasher, jbyteArray input,
     jint input_len) {
 
@@ -58,7 +59,7 @@ Java_com_google_devtools_build_lib_vfs_bazel_Blake3JNI_blake3_1hasher_1update(
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_vfs_bazel_Blake3JNI_blake3_1hasher_1finalize(
+Java_com_google_devtools_build_lib_vfs_bazel_Blake3MessageDigest_blake3_1hasher_1finalize(
     JNIEnv *env, jobject obj, jbyteArray jhasher, jbyteArray out,
     jint out_len) {
 

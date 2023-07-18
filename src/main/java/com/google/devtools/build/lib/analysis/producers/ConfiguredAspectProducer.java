@@ -107,7 +107,7 @@ final class ConfiguredAspectProducer
       if (!aspectMatchesConfiguredTarget(prerequisite, value.getAspect())) {
         continue;
       }
-      configuredAspects.add(value.getConfiguredAspect());
+      configuredAspects.add(value);
       if (transitiveState.storeTransitivePackages()) {
         transitiveState.updateTransitivePackages(value.getKey(), value.getTransitivePackages());
       }

@@ -201,7 +201,7 @@ final class AspectFunction implements SkyFunction {
         // most flags or dependencies and are likely to be unsound. So make aspects propagating to
         // these configurations no-ops.
         (configuration != null && configuration.getOptions().hasNoConfig())) {
-      return new AspectValue(
+      return AspectValue.create(
           key,
           aspect,
           target.getLocation(),
@@ -242,7 +242,7 @@ final class AspectFunction implements SkyFunction {
             .getDefinition()
             .getRequiredProviders()
             .isSatisfiedBy(((Rule) target).getRuleClassObject().getAdvertisedProviders())) {
-          return new AspectValue(
+          return AspectValue.create(
               key,
               aspect,
               target.getLocation(),
@@ -276,8 +276,7 @@ final class AspectFunction implements SkyFunction {
       topologicalAspectPath = topologicalAspectPathBuilder.add(aspect).build();
 
       List<ConfiguredAspect> directlyRequiredAspects =
-          Lists.transform(
-              key.getBaseKeys(), k -> ((AspectValue) aspectValues.get(k)).getConfiguredAspect());
+          Lists.transform(key.getBaseKeys(), k -> ((AspectValue) aspectValues.get(k)));
       try {
         associatedTarget = MergedConfiguredTarget.of(associatedTarget, directlyRequiredAspects);
       } catch (DuplicateException e) {
@@ -705,11 +704,11 @@ final class AspectFunction implements SkyFunction {
                 .addTransitive(real.getTransitivePackages())
                 .build()
             : null;
-    return new AspectValue(
+    return AspectValue.create(
         originalKey,
         aspect,
         originalTarget.getLocation(),
-        ConfiguredAspect.forAlias(real.getConfiguredAspect()),
+        ConfiguredAspect.forAlias(real),
         transitivePackages);
   }
 
@@ -814,7 +813,7 @@ final class AspectFunction implements SkyFunction {
     analysisEnvironment.disable(associatedTarget);
     Preconditions.checkNotNull(configuredAspect);
 
-    return new AspectValue(
+    return AspectValue.create(
         key,
         aspect,
         associatedTarget.getLocation(),

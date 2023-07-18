@@ -1133,7 +1133,7 @@ public final class SkyframeBuildView {
       }
       TopLevelAspectsValue topLevelAspectsValue = (TopLevelAspectsValue) value.getWrappedSkyValue();
       for (AspectValue aspectValue : topLevelAspectsValue.getTopLevelAspectsValues()) {
-        aspects.put(aspectValue.getKey(), aspectValue.getConfiguredAspect());
+        aspects.put(aspectValue.getKey(), aspectValue);
       }
     }
     return aspects.buildOrThrow();

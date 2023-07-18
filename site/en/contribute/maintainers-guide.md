@@ -70,7 +70,7 @@ repository.
 1. If the issue is low priority and can be worked on by a new community
    contributor, the DevEx member assigns the `good first issue` label.
 At this stage, the issue enters the pool of [untriaged open
-issues](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+is%3Aopen+label%3Auntriaged){: .external}.
+issues](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+is%3Aopen+label%3Auntriaged).
 
 Each Bazel subteam will triage all issues under labels they own, preferably on a
 weekly basis. The subteam will review and evaluate the issue and provide a

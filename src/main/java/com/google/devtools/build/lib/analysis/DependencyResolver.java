@@ -379,7 +379,7 @@ public final class DependencyResolver {
     } else if (attribute.isLateBound()) {
       attributeValue =
           type.cast(resolveLateBoundDefault(rule, attributeMap, attribute, ruleConfig));
-    } else if (attributeMap.has(attribute.getName())) {
+    } else if (dependencyKind.getOwningAspect() == null && attributeMap.has(attribute.getName())) {
       // This condition is false for aspect attributes that do not give rise to dependencies because
       // attributes that come from aspects do not appear in attributeMap (see the comment in the
       // case that handles implicit attributes).

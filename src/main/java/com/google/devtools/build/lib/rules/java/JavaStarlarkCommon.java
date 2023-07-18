@@ -334,12 +334,19 @@ public class JavaStarlarkCommon
         if (!isInstanceOfProvider(elem, (Provider) providerType)) {
           throw Starlark.errorf(
               "at index %d of %s, got element of type %s, want %s",
-              i, what, Starlark.type(elem), ((Provider) providerType).getPrintableName());
+              i, what, printableType(elem), ((Provider) providerType).getPrintableName());
         }
       }
     } else {
       throw Starlark.errorf("wanted Provider, got %s", Starlark.type(providerType));
     }
+  }
+
+  private static String printableType(Object elem) {
+    if (elem instanceof StarlarkInfoWithSchema) {
+      return ((StarlarkInfoWithSchema) elem).getProvider().getPrintableName();
+    }
+    return Starlark.type(elem);
   }
 
   @Override
