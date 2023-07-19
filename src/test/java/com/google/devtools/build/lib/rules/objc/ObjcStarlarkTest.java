@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
@@ -111,13 +110,12 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         "   library_to_link = dep[CcInfo].linking_context.linker_inputs.to_list()[0].libraries[0]",
         "   return MyInfo(",
         "      found_hdrs = dep[CcInfo].compilation_context.headers.to_list(),",
-        "      found_cc_libs = [library_to_link.static_library],",
-        "      found_objc_libs = dep[apple_common.Objc].library.to_list(),",
+        "      found_libs = [library_to_link.static_library],",
         "    )",
         "my_rule = rule(implementation = my_rule_impl,",
         "   attrs = {",
         "   'deps': attr.label_list(allow_files = False, mandatory = False,",
-        "                           providers = [[apple_common.Objc, CcInfo]]),",
+        "                           providers = [[CcInfo]]),",
         "})");
     scratch.file("examples/apple_starlark/a.m");
     scratch.file(
@@ -137,12 +135,10 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
     StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
     List<Artifact> starlarkHdrs = (List<Artifact>) myInfo.getValue("found_hdrs");
-    List<Artifact> starlarkCcLibraries = (List<Artifact>) myInfo.getValue("found_cc_libs");
-    List<Artifact> starlarkObjcLibraries = (List<Artifact>) myInfo.getValue("found_objc_libs");
+    List<Artifact> starlarkLibraries = (List<Artifact>) myInfo.getValue("found_libs");
 
     assertThat(ActionsTestUtil.baseArtifactNames(starlarkHdrs)).contains("b.h");
-    assertThat(ActionsTestUtil.baseArtifactNames(starlarkCcLibraries)).contains("liblib.a");
-    assertThat(ActionsTestUtil.baseArtifactNames(starlarkObjcLibraries)).contains("liblib.a");
+    assertThat(ActionsTestUtil.baseArtifactNames(starlarkLibraries)).contains("liblib.a");
   }
 
   @Test
@@ -310,11 +306,8 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     ConfiguredTarget binaryTarget = getConfiguredTarget("//examples/apple_starlark:bin");
     AppleExecutableBinaryInfo executableProvider =
         binaryTarget.get(AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR);
-    ObjcProvider objcProvider = executableProvider.getDepsObjcProvider();
     CcLinkingContext ccLinkingContext = executableProvider.getDepsCcInfo().getCcLinkingContext();
 
-    assertThat(Artifact.toRootRelativePaths(objcProvider.get(ObjcProvider.LIBRARY)))
-        .contains("examples/apple_starlark/liblib.a");
     assertThat(
             Artifact.toRootRelativePaths(
                 ccLinkingContext.getStaticModeParamsForDynamicLibraryLibraries()))
@@ -895,8 +888,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
               "implementation = swift_binary_impl,",
               "attrs = {",
               "   'deps': attr.label_list(",
-              "allow_files = False, mandatory = False, providers = [[apple_common.Objc],"
-                  + " [apple_common.Objc]])",
+              "allow_files = False, mandatory = False, providers = [[apple_common.Objc]])",
               "})"
             },
             String.class);
@@ -914,7 +906,6 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         "objc_library(",
         "   name = 'lib',",
         "   srcs = ['a.m'],",
-        "   sdk_frameworks = ['framework_from_dep']",
         ")");
 
     return getConfiguredTarget("//examples/objc_starlark:my_target");
@@ -924,46 +915,15 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
   public void testStarlarkCanCreateObjcProviderFromScratch() throws Exception {
     ConfiguredTarget starlarkTarget =
         createObjcProviderStarlarkTarget(
-            "   linkopts = depset(['somelinkopt'])",
-            "   created_provider = apple_common.new_objc_provider\\",
-            "(linkopt=linkopts)",
-            "   return [created_provider]");
-
-    Iterable<String> foundLinkopts =
-        starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).get(ObjcProvider.LINKOPT).toList();
-
-    assertThat(foundLinkopts).containsExactly("somelinkopt");
-  }
-
-  @Test
-  public void testStarlarkCanPassLinkInputsInObjcProvider() throws Exception {
-    ConfiguredTarget starlarkTarget =
-        createObjcProviderStarlarkTarget(
-            "   file = ctx.actions.declare_file('foo.ast')",
+            "   file = ctx.actions.declare_file('foo.m')",
             "   ctx.actions.run_shell(outputs=[file], command='echo')",
-            "   link_inputs = depset([file])",
-            "   created_provider = apple_common.new_objc_provider\\",
-            "(link_inputs=link_inputs)",
+            "   created_provider = apple_common.new_objc_provider(source=depset([file]))",
             "   return [created_provider]");
 
-    NestedSet<Artifact> foundLinkInputs =
-        starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).get(ObjcProvider.LINK_INPUTS);
-    assertThat(ActionsTestUtil.baseArtifactNames(foundLinkInputs)).contains("foo.ast");
-  }
+    ImmutableList<Artifact> sources =
+        starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).get(ObjcProvider.SOURCE).toList();
 
-  @Test
-  public void testStarlarkCanCreateObjcProviderWithLinkopts() throws Exception {
-    ConfiguredTarget starlarkTarget =
-        createObjcProviderStarlarkTarget(
-            "   linkopt = depset(['opt1', 'opt2', 'opt3'])",
-            "   created_provider = apple_common.new_objc_provider\\",
-            "(linkopt=linkopt)",
-            "   return [created_provider]");
-
-    Iterable<String> foundLinkopts =
-        starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).get(ObjcProvider.LINKOPT).toList();
-
-    assertThat(foundLinkopts).containsExactly("opt1", "opt2", "opt3");
+    assertThat(ActionsTestUtil.baseArtifactNames(sources)).containsExactly("foo.m");
   }
 
   @Test
@@ -971,8 +931,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     ConfiguredTarget starlarkTarget =
         createObjcProviderStarlarkTarget(
             "   strict_includes = depset(['path'])",
-            "   created_provider = apple_common.new_objc_provider\\",
-            "(strict_include=strict_includes)",
+            "   created_provider = apple_common.new_objc_provider(strict_include=strict_includes)",
             "   return [created_provider, CcInfo()]");
 
     ObjcProvider starlarkProvider = starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
@@ -1153,49 +1112,6 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
     Depset emptyValue = (Depset) getMyInfoFromTarget(starlarkTarget).getValue("empty_value");
     assertThat(emptyValue.toList()).isEmpty();
-  }
-
-  @Test
-  public void testStarlarkCanAccessSdkFrameworks() throws Exception {
-    scratch.file("examples/rule/BUILD");
-    scratch.file(
-        "examples/rule/apple_rules.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _test_rule_impl(ctx):",
-        "    dep = ctx.attr.deps[0]",
-        "    objc_provider = dep[apple_common.Objc]",
-        "    return MyInfo(",
-        "        sdk_frameworks=objc_provider.sdk_framework,",
-        "    )",
-        "test_rule = rule(",
-        "    implementation = _test_rule_impl,",
-        "    attrs = {",
-        "        'deps': attr.label_list(",
-        "            allow_files = False,",
-        "            mandatory = False,",
-        "            providers = [[apple_common.Objc, CcInfo]],",
-        "        )",
-        "    }",
-        ")");
-
-    scratch.file(
-        "examples/apple_starlark/BUILD",
-        "package(default_visibility = ['//visibility:public'])",
-        "load('//examples/rule:apple_rules.bzl', 'test_rule')",
-        "objc_library(",
-        "    name = 'lib',",
-        "    srcs = ['a.m'],",
-        "    sdk_frameworks = ['Accelerate', 'GLKit'],",
-        ")",
-        "test_rule(",
-        "    name = 'my_target',",
-        "    deps = [':lib'],",
-        ")");
-
-    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
-
-    Depset sdkFrameworks = (Depset) getMyInfoFromTarget(starlarkTarget).getValue("sdk_frameworks");
-    assertThat(sdkFrameworks.toList()).containsAtLeast("Accelerate", "GLKit");
   }
 
   @Test
@@ -1422,21 +1338,11 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     useConfiguration("--ios_multi_cpus=armv7,arm64");
     ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
     StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
-    ObjcProvider armv7Objc =
-        ((StarlarkInfo) myInfo.getValue("ios_armv7")).getValue("objc", ObjcProvider.class);
-    ObjcProvider arm64Objc =
-        ((StarlarkInfo) myInfo.getValue("ios_arm64")).getValue("objc", ObjcProvider.class);
     CcInfo armv7CcInfo = ((StarlarkInfo) myInfo.getValue("ios_armv7")).getValue("cc", CcInfo.class);
     CcInfo arm64CcInfo = ((StarlarkInfo) myInfo.getValue("ios_arm64")).getValue("cc", CcInfo.class);
 
-    assertThat(armv7Objc).isNotNull();
-    assertThat(arm64Objc).isNotNull();
     assertThat(armv7CcInfo).isNotNull();
     assertThat(arm64CcInfo).isNotNull();
-    assertThat(Iterables.getOnlyElement(armv7Objc.getObjcLibraries()).getExecPathString())
-        .contains("ios_armv7");
-    assertThat(Iterables.getOnlyElement(arm64Objc.getObjcLibraries()).getExecPathString())
-        .contains("ios_arm64");
     assertThat(getOnlyLibraryExecPath(armv7CcInfo)).contains("ios_armv7");
     assertThat(getOnlyLibraryExecPath(arm64CcInfo)).contains("ios_arm64");
   }
@@ -1449,21 +1355,12 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     useConfiguration("--ios_multi_cpus=armv7,arm64,armv7");
     ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
     StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
-    ObjcProvider armv7Objc =
-        ((StarlarkInfo) myInfo.getValue("ios_armv7")).getValue("objc", ObjcProvider.class);
-    ObjcProvider arm64Objc =
-        ((StarlarkInfo) myInfo.getValue("ios_arm64")).getValue("objc", ObjcProvider.class);
+
     CcInfo armv7CcInfo = ((StarlarkInfo) myInfo.getValue("ios_armv7")).getValue("cc", CcInfo.class);
     CcInfo arm64CcInfo = ((StarlarkInfo) myInfo.getValue("ios_arm64")).getValue("cc", CcInfo.class);
 
-    assertThat(arm64Objc).isNotNull();
-    assertThat(armv7Objc).isNotNull();
     assertThat(armv7CcInfo).isNotNull();
     assertThat(arm64CcInfo).isNotNull();
-    assertThat(Iterables.getOnlyElement(armv7Objc.getObjcLibraries()).getExecPathString())
-        .contains("ios_armv7");
-    assertThat(Iterables.getOnlyElement(arm64Objc.getObjcLibraries()).getExecPathString())
-        .contains("ios_arm64");
     assertThat(getOnlyLibraryExecPath(armv7CcInfo)).contains("ios_armv7");
     assertThat(getOnlyLibraryExecPath(arm64CcInfo)).contains("ios_arm64");
   }
@@ -1476,13 +1373,8 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     useConfiguration("--cpu=ios_arm64");
     ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
     StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
-    ObjcProvider arm64Objc =
-        ((StarlarkInfo) myInfo.getValue("ios_arm64")).getValue("objc", ObjcProvider.class);
     CcInfo arm64CcInfo = ((StarlarkInfo) myInfo.getValue("ios_arm64")).getValue("cc", CcInfo.class);
 
-    assertThat(arm64Objc).isNotNull();
-    assertThat(Iterables.getOnlyElement(arm64Objc.getObjcLibraries()).getExecPathString())
-        .contains("ios_arm64");
     assertThat(arm64CcInfo).isNotNull();
     assertThat(getOnlyLibraryExecPath(arm64CcInfo)).contains("ios_arm64");
   }

@@ -14,21 +14,13 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.CC_LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.J2OBJC_LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SOURCE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.UMBRELLA_HEADER;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.HEADERS;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.OBJECT_FILE_SOURCES;
 
-import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -39,15 +31,11 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.BuiltinProvider;
-import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -100,18 +88,12 @@ public final class ObjcCommon implements StarlarkValue {
     private Iterable<ObjcProvider> objcProviders = ImmutableList.of();
     private Iterable<PathFragment> includes = ImmutableList.of();
     private IntermediateArtifacts intermediateArtifacts;
-    private boolean alwayslink;
     private boolean hasModuleMap;
-    private Iterable<Artifact> extraImportLibraries = ImmutableList.of();
     private final List<CcCompilationContext> ccCompilationContexts = new ArrayList<>();
     private final List<CcLinkingContext> ccLinkingContexts = new ArrayList<>();
     private final List<CcCompilationContext> directCCompilationContexts = new ArrayList<>();
     private final List<CcCompilationContext> implementationCcCompilationContexts =
         new ArrayList<>();
-    // List of CcLinkingContext to be merged into ObjcProvider, to be done for deps that don't have
-    // ObjcProviders.
-    // TODO(b/171413861): remove after objc link info migration.
-    private final List<CcLinkingContext> ccLinkingContextsForMerging = new ArrayList<>();
 
     private static final ImmutableSet<String> J2OBJC_SUPPORTED_RULES =
         ImmutableSet.of("java_import", "java_library", "java_proto_library", "proto_library");
@@ -198,46 +180,20 @@ public final class ObjcCommon implements StarlarkValue {
       ImmutableList.Builder<CcInfo> ccInfos = ImmutableList.builder();
 
       for (TransitiveInfoCollection dep : deps) {
-        if (dep.get(ObjcProvider.STARLARK_CONSTRUCTOR) != null) {
-          addAnyProviders(objcProviders, dep, ObjcProvider.STARLARK_CONSTRUCTOR);
-        } else {
-          // We only use CcInfo's linking info if there is no ObjcProvider.  This is required so
-          // that objc_library archives do not get treated as if they are from cc targets.
-          addAnyContexts(
-              ccLinkingContextsForMerging, dep, CcInfo.PROVIDER, CcInfo::getCcLinkingContext);
+        ObjcProvider objcProvider = dep.get(ObjcProvider.STARLARK_CONSTRUCTOR);
+        if (objcProvider != null) {
+          objcProviders.add(objcProvider);
         }
-        addAnyProviders(ccInfos, dep, CcInfo.PROVIDER);
+        CcInfo ccInfo = dep.get(CcInfo.PROVIDER);
+        if (ccInfo != null) {
+          ccInfos.add(ccInfo);
+        }
       }
 
       addObjcProviders(objcProviders.build());
       addCcInfos(ccInfos.build());
 
       return this;
-    }
-
-    @CanIgnoreReturnValue
-    private static <T extends Info> ImmutableList.Builder<T> addAnyProviders(
-        ImmutableList.Builder<T> listBuilder,
-        TransitiveInfoCollection collection,
-        BuiltinProvider<T> providerClass) {
-      T provider = collection.get(providerClass);
-      if (provider != null) {
-        listBuilder.add(provider);
-      }
-      return listBuilder;
-    }
-
-    @CanIgnoreReturnValue
-    private static <T extends Info, U> List<U> addAnyContexts(
-        List<U> list,
-        TransitiveInfoCollection collection,
-        BuiltinProvider<T> providerClass,
-        Function<T, U> getContext) {
-      T provider = collection.get(providerClass);
-      if (provider != null) {
-        list.add(getContext.apply(provider));
-      }
-      return list;
     }
 
     /**
@@ -272,12 +228,6 @@ public final class ObjcCommon implements StarlarkValue {
       return this;
     }
 
-    @CanIgnoreReturnValue
-    Builder setAlwayslink(boolean alwayslink) {
-      this.alwayslink = alwayslink;
-      return this;
-    }
-
     /**
      * Specifies that this target has a clang module map. This should be called if this target
      * compiles sources or exposes headers for other targets to use. Note that this does not add the
@@ -299,8 +249,6 @@ public final class ObjcCommon implements StarlarkValue {
           ImmutableList.copyOf(this.directCCompilationContexts);
       ImmutableList<CcCompilationContext> implementationCcCompilationContexts =
           ImmutableList.copyOf(this.implementationCcCompilationContexts);
-      ImmutableList<CcLinkingContext> ccLinkingContextsForMerging =
-          ImmutableList.copyOf(this.ccLinkingContextsForMerging);
 
       ObjcCompilationContext.Builder objcCompilationContextBuilder =
           ObjcCompilationContext.builder();
@@ -308,7 +256,6 @@ public final class ObjcCommon implements StarlarkValue {
       ObjcProvider.Builder objcProvider = new ObjcProvider.Builder();
 
       objcProvider
-          .addAll(IMPORTED_LIBRARY, extraImportLibraries)
           .addTransitiveAndPropagate(objcProviders);
 
       objcCompilationContextBuilder
@@ -320,24 +267,12 @@ public final class ObjcCommon implements StarlarkValue {
           .addCcCompilationContexts(ccCompilationContexts)
           .addImplementationCcCompilationContexts(implementationCcCompilationContexts);
 
-      for (CcLinkingContext ccLinkingContext : ccLinkingContextsForMerging) {
-        objcProvider.addTransitiveAndPropagate(
-            CC_LIBRARY,
-            NestedSetBuilder.<LibraryToLink>linkOrder()
-                .addTransitive(ccLinkingContext.getLibraries())
-                .build());
-      }
-
       if (compilationAttributes.isPresent()) {
         CompilationAttributes attributes = compilationAttributes.get();
         PathFragment usrIncludeDir = PathFragment.create(AppleToolchain.sdkDir() + "/usr/include/");
         Iterable<PathFragment> sdkIncludes =
             Iterables.transform(
                 attributes.sdkIncludes().toList(), (p) -> usrIncludeDir.getRelative(p));
-        objcProvider
-            .addAll(SDK_FRAMEWORK, attributes.sdkFrameworks())
-            .addAll(WEAK_SDK_FRAMEWORK, attributes.weakSdkFrameworks())
-            .addAll(SDK_DYLIB, attributes.sdkDylibs());
         objcCompilationContextBuilder
             .addPublicHeaders(filterFileset(attributes.hdrs().toList()))
             .addPublicTextualHeaders(filterFileset(attributes.textualHdrs().toList()))
@@ -356,7 +291,6 @@ public final class ObjcCommon implements StarlarkValue {
                 FileType.except(artifacts.getSrcs(), OBJECT_FILE_SOURCES),
                 artifacts.getNonArcSrcs());
         objcProvider
-            .addAll(LIBRARY, artifacts.getArchive().asSet())
             .addAll(SOURCE, allSources)
             .addAllDirect(SOURCE, allSources);
         objcCompilationContextBuilder.addPublicHeaders(
@@ -367,17 +301,6 @@ public final class ObjcCommon implements StarlarkValue {
         if (artifacts.getArchive().isPresent()
             && J2OBJC_SUPPORTED_RULES.contains(context.getRule().getRuleClass())) {
           objcProvider.addAll(J2OBJC_LIBRARY, artifacts.getArchive().asSet());
-        }
-      }
-
-      if (alwayslink) {
-        for (CompilationArtifacts artifacts : compilationArtifacts.asSet()) {
-          for (Artifact archive : artifacts.getArchive().asSet()) {
-            objcProvider.add(FORCE_LOAD_LIBRARY, archive);
-          }
-        }
-        for (Artifact archive : extraImportLibraries) {
-          objcProvider.add(FORCE_LOAD_LIBRARY, archive);
         }
       }
 

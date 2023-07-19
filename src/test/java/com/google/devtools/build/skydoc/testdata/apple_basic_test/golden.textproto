@@ -1,0 +1,41 @@
+rule_info {
+  rule_name: "apple_related_rule"
+  doc_string: "This rule does apple-related things."
+  attribute {
+    name: "name"
+    doc_string: "A unique name for this target."
+    type: NAME
+    mandatory: true
+  }
+  attribute {
+    name: "first"
+    type: LABEL
+    mandatory: true
+  }
+  attribute {
+    name: "fourth"
+    type: BOOLEAN
+    default_value: "False"
+  }
+  attribute {
+    name: "second"
+    type: STRING_DICT
+    mandatory: true
+  }
+  attribute {
+    name: "third"
+    type: OUTPUT
+    mandatory: true
+  }
+}
+func_info {
+  function_name: "exercise_the_api"
+}
+func_info {
+  function_name: "my_rule_impl"
+  parameter {
+    name: "ctx"
+    mandatory: true
+  }
+}
+module_docstring: "Stardoc test to verify some apple-related parts of the build API."

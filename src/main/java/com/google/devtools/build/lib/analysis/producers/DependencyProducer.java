@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.analysis.producers;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.analysis.DependencyKind.OUTPUT_FILE_RULE_DEPENDENCY;
 import static com.google.devtools.build.lib.analysis.DependencyKind.VISIBILITY_DEPENDENCY;
-import static com.google.devtools.build.lib.analysis.DependencyResolver.getExecutionPlatformLabel;
+import static com.google.devtools.build.lib.analysis.DependencyResolutionHelpers.getExecutionPlatformLabel;
 import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition.PATCH_TRANSITION_KEY;
 
 import com.google.common.collect.ImmutableList;
@@ -24,8 +24,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyKind.ToolchainDependencyKind;
-import com.google.devtools.build.lib.analysis.DependencyResolver;
-import com.google.devtools.build.lib.analysis.DependencyResolver.ExecutionPlatformResult;
+import com.google.devtools.build.lib.analysis.DependencyResolutionHelpers;
+import com.google.devtools.build.lib.analysis.DependencyResolutionHelpers.ExecutionPlatformResult;
 import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigurationTransitionEvent;
@@ -76,7 +76,7 @@ final class DependencyProducer
      * <p>Multiple values may occur if there is a split transition.
      *
      * <p>For a skipped dependency, outputs an empty array. See comments in {@link
-     * DependencyResolver#getExecutionPlatformLabel} for when this happens.
+     * DependencyResolutionHelpers#getExecutionPlatformLabel} for when this happens.
      */
     void acceptDependencyValues(int index, ConfiguredTargetAndData[] values);
 
@@ -124,7 +124,7 @@ final class DependencyProducer
           AttributeConfiguration.ofVisibility(), /* executionPlatformLabel= */ null);
     }
 
-    // The logic of `DependencyResolver.computeDependencyLabels` implies that
+    // The logic of `DependencyResolutionHelpers.computeDependencyLabels` implies that
     // `parameters.configurationKey()` is non-null for everything that follows.
     BuildConfigurationKey configurationKey = checkNotNull(parameters.configurationKey());
 
@@ -234,7 +234,7 @@ final class DependencyProducer
       BuildConfigurationKey patchedConfiguration =
           transitionedConfigurations.get(PATCH_TRANSITION_KEY);
       if (patchedConfiguration != null) {
-        // It was a patch transition. Drops the transition key.
+        // It was a patch transition or no-op split transition.
         return computePrerequisites(
             AttributeConfiguration.ofUnary(patchedConfiguration),
             /* executionPlatformLabel= */ null);

@@ -33,11 +33,11 @@ import java.util.Set;
  * A utility class that allows us to store reverse dependencies in a memory-efficient way. At the
  * same time it allows us to group the removals and uniqueness checks so that it also performs well.
  *
- * <p>The operations {@link #addReverseDep}, {@link #checkReverseDep}, and {@link #removeReverseDep}
- * here are optimized for a done entry. Done entries rarely have rdeps added and removed, but do
- * have {@link Op#CHECK} operations performed frequently. As well, done node entries may never have
- * their data forcibly consolidated, since their reverse deps will only be retrieved as a whole if
- * they are marked dirty. Thus, we consolidate periodically.
+ * <p>The operations {@link #addReverseDep} and {@link #removeReverseDep} here are optimized for a
+ * done entry. Done entries rarely have rdeps added and removed, but do have {@link Op#CHECK}
+ * operations performed frequently. As well, done node entries may never have their data forcibly
+ * consolidated, since their reverse deps will only be retrieved as a whole if they are marked
+ * dirty. Thus, we consolidate periodically.
  *
  * <p>{@link InMemoryNodeEntry} manages pending reverse dep operations on a marked-dirty or
  * initially evaluating node itself, using similar logic tuned to those cases, and calls into {@link
@@ -130,10 +130,6 @@ abstract class ReverseDepsUtility {
     } else {
       ((List<SkyKey>) raw).add(newReverseDep);
     }
-  }
-
-  static void checkReverseDep(InMemoryNodeEntry entry, SkyKey reverseDep) {
-    maybeDelayReverseDepOp(entry, reverseDep, Op.CHECK);
   }
 
   /** See {@link #addReverseDep} method. */

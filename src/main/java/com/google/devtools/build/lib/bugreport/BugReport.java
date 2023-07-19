@@ -38,7 +38,6 @@ import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -62,30 +61,12 @@ public final class BugReport {
 
   private static BlazeRuntimeInterface runtime = null;
 
-  /**
-   * The most recent throwable that reported a crash; used only for testing purposes where the JVM
-   * will not halt.
-   */
   @SuppressWarnings("StaticAssignmentOfThrowable")
   @GuardedBy("LOCK")
   @Nullable
   private static Throwable lastCrashingThrowable = null;
 
-  /**
-   * A global lock object, used with {@code synchronized} blocks to provide thread-safe access to
-   * {@link BugReport#lastCrashingThrowable}.
-   */
   private static final Object LOCK = new Object();
-
-  /**
-   * Flag set by {@link #handleCrash(Crash, CrashContext)} using {@link
-   * AtomicBoolean#compareAndSet(boolean, boolean)} to determine which thread "wins" racing crashes.
-   *
-   * <p>All concurrent calls to {@link #handleCrash(Crash, CrashContext)} will be logged, but only
-   * the thread which sets this flag {@code true} will propagate the crash to exit data and to each
-   * {@code BlazeModule}.
-   */
-  private static final AtomicBoolean alreadyHandlingCrash = new AtomicBoolean(false);
 
   private static final boolean SHOULD_NOT_SEND_BUG_REPORT_BECAUSE_IN_TEST =
       TestType.isInTest() && System.getenv("ENABLE_BUG_REPORT_LOGGING_IN_TEST") == null;
@@ -207,7 +188,7 @@ public final class BugReport {
    * report} without additional arguments.
    */
   public static void sendBugReport(Throwable exception) {
-    sendBugReport(exception, /* args= */ ImmutableList.of());
+    sendBugReport(exception, /*args=*/ ImmutableList.of());
   }
 
   /**
@@ -218,12 +199,12 @@ public final class BugReport {
    * @param values Additional string values to clarify the exception.
    */
   public static void sendBugReport(Throwable exception, List<String> args, String... values) {
-    sendBugReportInternal(exception, /* isFatal= */ true, filterArgs(args), values);
+    sendBugReportInternal(exception, /*isFatal=*/ true, filterArgs(args), values);
   }
 
   /** Logs the bug report, indicating it is not a crash. */
   public static void sendNonFatalBugReport(Throwable exception) {
-    sendBugReportInternal(exception, /* isFatal= */ false, /* args= */ ImmutableList.of());
+    sendBugReportInternal(exception, /*isFatal=*/ false, /*args=*/ ImmutableList.of());
   }
 
   private static void sendBugReportInternal(
@@ -259,45 +240,43 @@ public final class BugReport {
    * Otherwise, for {@link CrashContext#keepAlive}, returns {@code null}, in which case the caller
    * is responsible for shutting down the server.
    */
-  @SuppressWarnings({"StaticAssignmentOfThrowable", "LogAndThrow"})
+  @SuppressWarnings("StaticAssignmentOfThrowable")
   public static void handleCrash(Crash crash, CrashContext ctx) {
+    int numericExitCode = crash.getDetailedExitCode().getExitCode().getNumericExitCode();
     Throwable throwable = crash.getThrowable();
     if (runtime != null) {
       runtime.fillInCrashContext(ctx);
     }
-
-    boolean isFirstCrash = alreadyHandlingCrash.compareAndSet(false, true);
-    logger.atSevere().withCause(throwable).log(
-        "Handling crash (isFirstCrash = %s) with CrashContext %s", isFirstCrash, ctx);
     try {
-      if (TestType.isInTest()) {
-        synchronized (LOCK) {
+      synchronized (LOCK) {
+        logger.atSevere().withCause(throwable).log("Handling crash with %s", ctx);
+
+        if (TestType.isInTest()) {
           lastCrashingThrowable = throwable;
         }
-      }
 
-      String crashMsg;
-      String heapDumpPath;
-      // Might be a wrapped OOM - the detailed exit code reflects the root cause.
-      boolean isOom = crash.getDetailedExitCode().getExitCode().equals(ExitCode.OOM_ERROR);
-      if (isOom) {
-        crashMsg = constructOomExitMessage(ctx.getExtraOomInfo());
-        heapDumpPath = ctx.getHeapDumpPath();
-        if (heapDumpPath != null) {
-          crashMsg += " An attempt will be made to write a heap dump to " + heapDumpPath + ".";
+        String crashMsg;
+        String heapDumpPath;
+        // Might be a wrapped OOM - the detailed exit code reflects the root cause.
+        boolean isOom = crash.getDetailedExitCode().getExitCode().equals(ExitCode.OOM_ERROR);
+        if (isOom) {
+          crashMsg = constructOomExitMessage(ctx.getExtraOomInfo());
+          heapDumpPath = ctx.getHeapDumpPath();
+          if (heapDumpPath != null) {
+            crashMsg += " An attempt will be made to write a heap dump to " + heapDumpPath + ".";
+          }
+        } else {
+          crashMsg = getProductName() + " crashed due to an internal error.";
+          heapDumpPath = null;
         }
-      } else {
-        crashMsg = getProductName() + " crashed due to an internal error.";
-        heapDumpPath = null;
-      }
-      crashMsg += " Printing stack trace:\n" + Throwables.getStackTraceAsString(throwable);
-      ctx.getEventHandler().handle(Event.fatal(crashMsg));
-      if (isFirstCrash) {
+        crashMsg += " Printing stack trace:\n" + Throwables.getStackTraceAsString(throwable);
+        ctx.getEventHandler().handle(Event.fatal(crashMsg));
+
         try {
           // Emit exit data before sending a bug report. Bug reports involve an RPC, and given that
           // we are crashing, who knows if it will complete. It's more important that we write
           // exit code and failure detail information so that the crash can be handled correctly.
-          emitExitData(crash, ctx, heapDumpPath);
+          emitExitData(crash, ctx, numericExitCode, heapDumpPath);
           // Skip sending a bug report if the crash is an OOM - attempting an RPC while out of
           // memory can cause issues. Also, don't try to send a bug report during a crash in a test,
           // it will throw itself.
@@ -305,14 +284,13 @@ public final class BugReport {
             sendBugReport(throwable, ctx.getArgs());
           }
         } finally {
-          try {
-            haltJvmIfRequested(crash, ctx);
-          } finally {
-            // Reset the global `alreadyHandlingCrash` flag while testing, so subsequent tests can
-            // exercise BugReport#handleCrash(). (Note that Runtime#halt() throws in tests.)
-            if (TestType.isInTest()) {
-              alreadyHandlingCrash.set(false);
-            }
+          if (ctx.shouldHaltJvm()) {
+            // Avoid shutdown deadlock issues: If an application shutdown hook crashes, it will
+            // trigger our Blaze crash handler (this method). Calling System#exit() here, would
+            // therefore induce a deadlock. This call would block on the shutdown sequence
+            // completing, but the shutdown sequence would in turn be blocked on this thread
+            // finishing. Instead, exit fast via halt().
+            Runtime.getRuntime().halt(numericExitCode);
           }
         }
       }
@@ -331,7 +309,9 @@ public final class BugReport {
       System.err.println("Exception encountered during BugReport#handleCrash:");
       t.printStackTrace(System.err);
     } finally {
-      haltJvmIfRequested(crash, ctx);
+      if (ctx.shouldHaltJvm()) {
+        Runtime.getRuntime().halt(numericExitCode);
+      }
     }
     if (!ctx.shouldHaltJvm()) {
       return;
@@ -340,26 +320,14 @@ public final class BugReport {
     throw new IllegalStateException("Should have halted", throwable);
   }
 
-  private static void haltJvmIfRequested(Crash crash, CrashContext ctx) {
-    if (ctx.shouldHaltJvm()) {
-      // Avoid shutdown deadlock issues: If an application shutdown hook crashes, it will
-      // trigger our Blaze crash handler (this method). Calling System#exit() here, would
-      // therefore induce a deadlock. This call would block on the shutdown sequence
-      // completing, but the shutdown sequence would in turn be blocked on this thread
-      // finishing. Instead, exit fast via halt().
-      Runtime.getRuntime().halt(crash.getDetailedExitCode().getExitCode().getNumericExitCode());
-    }
-  }
-
   /**
    * Writes exit status files, dumps heap if requested, and calls {@link
    * BlazeRuntimeInterface#cleanUpForCrash}.
    */
-  private static void emitExitData(Crash crash, CrashContext ctx, @Nullable String heapDumpPath) {
+  private static void emitExitData(
+      Crash crash, CrashContext ctx, int numericExitCode, @Nullable String heapDumpPath) {
     // Writing the exit code status file is only necessary if we are halting. Otherwise, the
     // caller is responsible for an orderly shutdown with the proper exit code.
-    DetailedExitCode detailedExitCode = crash.getDetailedExitCode();
-    int numericExitCode = detailedExitCode.getExitCode().getNumericExitCode();
     if (ctx.shouldHaltJvm()) {
       if (CustomExitCodePublisher.maybeWriteExitStatusFile(numericExitCode)) {
         logger.atInfo().log("Wrote exit status file.");
@@ -369,7 +337,7 @@ public final class BugReport {
     }
 
     if (CustomFailureDetailPublisher.maybeWriteFailureDetailFile(
-        detailedExitCode.getFailureDetail())) {
+        crash.getDetailedExitCode().getFailureDetail())) {
       logger.atInfo().log("Wrote failure detail file.");
     } else {
       logger.atWarning().log("Did not write failure detail file; check stderr for errors.");
@@ -386,7 +354,7 @@ public final class BugReport {
     }
 
     if (runtime != null) {
-      runtime.cleanUpForCrash(detailedExitCode);
+      runtime.cleanUpForCrash(crash.getDetailedExitCode());
       logger.atInfo().log("Cleaned up runtime.");
     } else {
       logger.atInfo().log("No runtime to clean.");
@@ -404,7 +372,7 @@ public final class BugReport {
             ManagementFactory.getPlatformMBeanServer(),
             "com.sun.management:type=HotSpotDiagnostic",
             HotSpotDiagnosticMXBean.class);
-    mxBean.dumpHeap(path, /* live= */ true);
+    mxBean.dumpHeap(path, /*live=*/ true);
   }
 
   /**

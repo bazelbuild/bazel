@@ -455,19 +455,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .containsEntry("XCODE_VERSION_OVERRIDE", versionNumber);
   }
 
-  protected ObjcProvider objcProviderForTarget(String label) throws Exception {
-    ObjcProvider objcProvider = getConfiguredTarget(label).get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    if (objcProvider != null) {
-      return objcProvider;
-    }
-    AppleExecutableBinaryInfo executableProvider =
-        getConfiguredTarget(label).get(AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR);
-    if (executableProvider != null) {
-      return executableProvider.getDepsObjcProvider();
-    }
-    return null;
-  }
-
   protected CcInfo ccInfoForTarget(String label) throws Exception {
     CcInfo ccInfo = getConfiguredTarget(label).get(CcInfo.PROVIDER);
     if (ccInfo != null) {
@@ -1961,11 +1948,12 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(compileActionA.getArguments()).doesNotContain("-fmodule-maps");
     assertThat(compileActionA.getArguments()).doesNotContain("-fmodule-name");
 
-    ObjcProvider provider = objcProviderForTarget("//z:testModuleMap");
+    ObjcProvider provider =
+        getConfiguredTarget("//z:testModuleMap").get(ObjcProvider.STARLARK_CONSTRUCTOR);
     assertThat(Artifact.asExecPaths(provider.get(MODULE_MAP)))
         .containsExactly("y/module.modulemap");
 
-    provider = objcProviderForTarget("//x:x");
+    provider = getConfiguredTarget("//x:x").get(ObjcProvider.STARLARK_CONSTRUCTOR);
     assertThat(Artifact.asExecPaths(provider.get(MODULE_MAP))).contains("y/module.modulemap");
   }
 

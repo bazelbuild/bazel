@@ -114,10 +114,6 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     ConfiguredTarget j2objcLibraryTarget = getConfiguredTarget(
         "//java/com/google/dummy/test:transpile");
 
-    ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    assertThat(baseArtifactNames(provider.get(ObjcProvider.LIBRARY)))
-        .containsExactly("libjre_core_lib.a", "libtest_j2objc.lo");
-
     CcLinkingContext ccLinkingContext =
         j2objcLibraryTarget.get(CcInfo.PROVIDER).getCcLinkingContext();
     assertThat(baseArtifactNames(ccLinkingContext.getStaticModeParamsForDynamicLibraryLibraries()))
@@ -174,9 +170,6 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         ")");
 
     ConfiguredTarget target = getConfiguredTarget("//java/com/google/test:transpile");
-    ObjcProvider provider = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    assertThat(baseArtifactNames(provider.get(ObjcProvider.LIBRARY)))
-        .containsExactly("libjre_core_lib.a", "libtest_j2objc.lo");
 
     CcLinkingContext ccLinkingContext = target.get(CcInfo.PROVIDER).getCcLinkingContext();
     assertThat(baseArtifactNames(ccLinkingContext.getStaticModeParamsForDynamicLibraryLibraries()))
@@ -226,14 +219,6 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ConfiguredTarget j2objcLibraryTarget = getConfiguredTarget(
         "//java/com/google/dummy/test/proto:transpile");
-
-    ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    assertThat(baseArtifactNames(provider.get(ObjcProvider.LIBRARY)))
-        .containsExactly(
-            "libjre_core_lib.a",
-            "libproto_runtime.a",
-            "libtest_j2objc.lo",
-            "libtest_proto_j2objc.lo");
 
     CcLinkingContext ccLinkingContext =
         j2objcLibraryTarget.get(CcInfo.PROVIDER).getCcLinkingContext();
@@ -493,11 +478,6 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     ConfiguredTarget j2objcLibraryTarget = getConfiguredTarget(
         "//java/com/google/dummy/test:transpile");
 
-    // jre_io_lib and jre_emul_lib should be excluded.
-    ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    assertThat(baseArtifactNames(provider.get(ObjcProvider.LIBRARY)))
-        .containsExactly("libjre_core_lib.a", "libtest_j2objc.lo");
-
     CcLinkingContext ccLinkingContext =
         j2objcLibraryTarget.get(CcInfo.PROVIDER).getCcLinkingContext();
     assertThat(baseArtifactNames(ccLinkingContext.getStaticModeParamsForDynamicLibraryLibraries()))
@@ -733,10 +713,6 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ConfiguredTarget objcTarget = getConfiguredTarget("//app:lib");
 
-    ObjcProvider provider = objcTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    assertThat(baseArtifactNames(provider.get(ObjcProvider.LIBRARY)))
-        .containsExactly("libjre_core_lib.a", "libtest_j2objc.lo", "liblib.a");
-
     CcLinkingContext ccLinkingContext = objcTarget.get(CcInfo.PROVIDER).getCcLinkingContext();
     assertThat(baseArtifactNames(ccLinkingContext.getStaticModeParamsForDynamicLibraryLibraries()))
         .containsExactly("libjre_core_lib.a", "libtest_j2objc.lo", "liblib.a");
@@ -781,11 +757,6 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         ")");
 
     ConfiguredTarget objcTarget = getConfiguredTarget("//app:lib");
-
-    ObjcProvider provider = objcTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    assertThat(baseArtifactNames(provider.get(ObjcProvider.LIBRARY)))
-        .containsExactly(
-            "libjre_core_lib.a", "libdummyOne_j2objc.lo", "libdummyTwo_j2objc.lo", "liblib.a");
 
     CcLinkingContext ccLinkingContext = objcTarget.get(CcInfo.PROVIDER).getCcLinkingContext();
     assertThat(baseArtifactNames(ccLinkingContext.getStaticModeParamsForDynamicLibraryLibraries()))
@@ -1126,10 +1097,6 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     ConfiguredTarget objcTarget = getConfiguredTarget("//examples:lib");
 
     // The only way that //examples:lib can see inner's archive is through the Starlark rule.
-    ObjcProvider provider = objcTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    assertThat(baseArtifactNames(provider.get(ObjcProvider.LIBRARY)))
-        .contains("libinner_j2objc.lo");
-
     CcLinkingContext ccLinkingContext = objcTarget.get(CcInfo.PROVIDER).getCcLinkingContext();
     assertThat(baseArtifactNames(ccLinkingContext.getStaticModeParamsForDynamicLibraryLibraries()))
         .contains("libinner_j2objc.lo");
@@ -1231,14 +1198,6 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ConfiguredTarget j2objcLibraryTarget =
         getConfiguredTarget("//java/com/google/dummy/test/proto:transpile");
-
-    ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    assertThat(baseArtifactNames(provider.get(ObjcProvider.LIBRARY)))
-        .containsExactly(
-            "libjre_core_lib.a",
-            "libalt_proto_runtime.a",
-            "libtest_j2objc.lo",
-            "libtest_proto_j2objc.lo");
 
     CcLinkingContext ccLinkingContext =
         j2objcLibraryTarget.get(CcInfo.PROVIDER).getCcLinkingContext();

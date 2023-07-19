@@ -24,7 +24,9 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.NonRootModuleFileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
@@ -37,6 +39,7 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -199,11 +202,11 @@ public class ModuleFileFunction implements SkyFunction {
     if (env.getValue(FileValue.key(moduleFilePath)) == null) {
       return null;
     }
-    ModuleFile moduleFile = readModuleFile(moduleFilePath.asPath());
-    String moduleFileHash = new Fingerprint().addBytes(moduleFile.getContent()).hexDigestAndReset();
+    byte[] moduleFileContents = readModuleFile(moduleFilePath.asPath());
+    String moduleFileHash = new Fingerprint().addBytes(moduleFileContents).hexDigestAndReset();
     ModuleFileGlobals moduleFileGlobals =
         execModuleFile(
-            moduleFile,
+            ModuleFile.create(moduleFileContents, moduleFilePath.asPath().toString()),
             /* registry= */ null,
             ModuleKey.ROOT,
             /* ignoreDevDeps= */ Objects.requireNonNull(IGNORE_DEV_DEPS.get(env)),
@@ -335,8 +338,15 @@ public class ModuleFileFunction implements SkyFunction {
       if (env.getValue(FileValue.key(moduleFilePath)) == null) {
         return null;
       }
+      Label moduleFileLabel =
+          Label.createUnvalidated(
+              PackageIdentifier.create(key.getCanonicalRepoName(), PathFragment.EMPTY_FRAGMENT),
+              LabelConstants.MODULE_DOT_BAZEL_FILE_NAME.getBaseName());
       GetModuleFileResult result = new GetModuleFileResult();
-      result.moduleFile = readModuleFile(moduleFilePath.asPath());
+      result.moduleFile =
+          ModuleFile.create(
+              readModuleFile(moduleFilePath.asPath()),
+              moduleFileLabel.getUnambiguousCanonicalForm());
       return result;
     }
 
@@ -392,10 +402,9 @@ public class ModuleFileFunction implements SkyFunction {
     throw errorf(Code.MODULE_NOT_FOUND, "module not found in registries: %s", key);
   }
 
-  private static ModuleFile readModuleFile(Path path) throws ModuleFileFunctionException {
+  private static byte[] readModuleFile(Path path) throws ModuleFileFunctionException {
     try {
-      return ModuleFile.create(
-          FileSystemUtils.readWithKnownFileSize(path, path.getFileSize()), path.getPathString());
+      return FileSystemUtils.readWithKnownFileSize(path, path.getFileSize());
     } catch (IOException e) {
       throw errorf(Code.MODULE_NOT_FOUND, "MODULE.bazel expected but not found at %s", path);
     }

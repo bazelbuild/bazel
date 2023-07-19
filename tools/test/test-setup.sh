@@ -19,7 +19,7 @@ exec 2>&1
 
 # Executing the test log will page it.
 echo 'exec ${PAGER:-/usr/bin/less} "$0" || exit 1'
-echo "Executing tests from ${TEST_TARGET} at $(date +"%F %T %Z")"
+echo "Executing tests from ${TEST_TARGET}"
 
 function is_absolute {
   [[ "$1" = /* ]] || [[ "$1" =~ ^[a-zA-Z]:[/\\].* ]]
@@ -350,7 +350,7 @@ childPid=$!
  done
  # Parent process not found - we've been abandoned! Clean up test processes.
  kill_group SIGKILL $childPid
-) &
+) &>/dev/null &
 cleanupPid=$!
 
 set +m

@@ -43,7 +43,6 @@ def _build_common_variables(
         implementation_deps = [],
         extra_disabled_features = [],
         extra_enabled_features = [],
-        extra_import_libraries = [],
         attr_linkopts = [],
         alwayslink = False,
         has_module_map = False,
@@ -66,9 +65,7 @@ def _build_common_variables(
         deps = deps,
         implementation_deps = implementation_deps,
         intermediate_artifacts = intermediate_artifacts,
-        alwayslink = alwayslink,
         has_module_map = has_module_map,
-        extra_import_libraries = extra_import_libraries,
         attr_linkopts = attr_linkopts,
         direct_cc_compilation_contexts = direct_cc_compilation_contexts,
     )

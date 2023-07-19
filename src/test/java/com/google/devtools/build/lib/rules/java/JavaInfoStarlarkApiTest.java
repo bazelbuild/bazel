@@ -873,6 +873,66 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
+  public void javaOutputSourceJarsReturnsListWithIncompatibleFlagDisabled() throws Exception {
+    setBuildLanguageOptions("--noincompatible_depset_for_java_output_source_jars");
+    scratch.file(
+        "foo/extension.bzl",
+        "MyInfo = provider()",
+        "",
+        "def _impl(ctx):",
+        "  return MyInfo(source_jars = ctx.attr.dep[JavaInfo].java_outputs[0].source_jars)",
+        "",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {'dep' : attr.label()}",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "java_library(name = 'lib')",
+        "my_rule(name = 'my_starlark_rule', dep = ':lib')");
+
+    ConfiguredTarget target = getConfiguredTarget("//foo:my_starlark_rule");
+
+    StarlarkInfo info =
+        (StarlarkInfo)
+            target.get(
+                new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "MyInfo"));
+    assertThat(info).isNotNull();
+    assertThat(info.getValue("source_jars")).isInstanceOf(StarlarkList.class);
+  }
+
+  @Test
+  public void javaOutputSourceJarsReturnsDepsetWithIncompatibleFlagEnabled() throws Exception {
+    setBuildLanguageOptions("--incompatible_depset_for_java_output_source_jars");
+    scratch.file(
+        "foo/extension.bzl",
+        "MyInfo = provider()",
+        "",
+        "def _impl(ctx):",
+        "  return MyInfo(source_jars = ctx.attr.dep[JavaInfo].java_outputs[0].source_jars)",
+        "",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {'dep' : attr.label()}",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "java_library(name = 'lib')",
+        "my_rule(name = 'my_starlark_rule', dep = ':lib')");
+
+    ConfiguredTarget target = getConfiguredTarget("//foo:my_starlark_rule");
+
+    StarlarkInfo info =
+        (StarlarkInfo)
+            target.get(
+                new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "MyInfo"));
+    assertThat(info).isNotNull();
+    assertThat(info.getValue("source_jars")).isInstanceOf(Depset.class);
+  }
+
+  @Test
   public void translateStarlarkJavaInfo_minimal() throws Exception {
     ImmutableMap<String, Object> fields = getBuilderWithMandataryFields().buildOrThrow();
     StarlarkInfo starlarkInfo = makeStruct(fields);

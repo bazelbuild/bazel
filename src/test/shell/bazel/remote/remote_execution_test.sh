@@ -1263,6 +1263,36 @@ EOF
   expect_not_log "1 local"
 }
 
+function test_require_cached() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = ["foo.in"],
+  outs = ["foo.out"],
+  cmd = "cp \"$<\" \"$@\"",
+)
+EOF
+
+  echo "input 1" >a/foo.in
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
+
+  expect_log "1 remote"
+
+  echo "input 2" >a/foo.in
+  if bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_remote_require_cached \
+    //a:foo >& $TEST_log; then
+    fail "Build of //a:foo succeeded but it should have failed"
+  fi
+
+  expect_log "Action must be cached due to --experimental_remote_require_cached but it is not"
+  expect_not_log "remote cache hit"
+}
+
 function test_nobuild_runfile_links() {
   mkdir data && echo "hello" > data/hello && echo "world" > data/world
     cat > WORKSPACE <<EOF

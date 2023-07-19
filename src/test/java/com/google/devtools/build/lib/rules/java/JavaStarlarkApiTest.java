@@ -47,9 +47,7 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaO
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.OS;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
@@ -273,7 +271,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaOutput javaOutput = outputs.getJavaOutputs().get(0);
     assertThat(javaOutput.getClassJar().getFilename()).isEqualTo("libdep.jar");
     assertThat(javaOutput.getCompileJar().getFilename()).isEqualTo("libdep-hjar.jar");
-    assertThat(artifactFilesNames(javaOutput.getSourceJars())).containsExactly("libdep-src.jar");
+    assertThat(artifactFilesNames(javaOutput.getSourceJarsAsList()))
+        .containsExactly("libdep-src.jar");
     assertThat(javaOutput.getJdeps().getFilename()).isEqualTo("libdep.jdeps");
     assertThat(javaOutput.getCompileJdeps().getFilename()).isEqualTo("libdep-hjar.jdeps");
   }
@@ -320,7 +319,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaOutput javaOutput = javaOutputs.get(0);
     assertThat(javaOutput.getClassJar().getFilename()).isEqualTo("libdep.jar");
     assertThat(javaOutput.getCompileJar().getFilename()).isEqualTo("libdep-hjar.jar");
-    assertThat(artifactFilesNames(javaOutput.getSourceJars())).containsExactly("libdep-src.jar");
+    assertThat(artifactFilesNames(javaOutput.getSourceJarsAsList()))
+        .containsExactly("libdep-src.jar");
     assertThat(javaOutput.getJdeps().getFilename()).isEqualTo("libdep.jdeps");
     assertThat(javaOutput.getCompileJdeps().getFilename()).isEqualTo("libdep-hjar.jdeps");
   }
@@ -434,7 +434,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaOutput javaOutput = outputs.getJavaOutputs().get(0);
     assertThat(javaOutput.getClassJar().getFilename()).isEqualTo("libdep.jar");
     assertThat(javaOutput.getCompileJar().getFilename()).isEqualTo("libdep-hjar.jar");
-    assertThat(prettyArtifactNames(javaOutput.getSourceJars()))
+    assertThat(prettyArtifactNames(javaOutput.getSourceJarsAsList()))
         .containsExactly("java/test/libdep-src.jar");
     assertThat(javaOutput.getJdeps().getFilename()).isEqualTo("libdep.jdeps");
     assertThat(javaOutput.getNativeHeadersJar().getFilename())
@@ -1007,16 +1007,16 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     assertThat(artifactFilesNames(javaAction.getOutputs())).contains("custom_additional_output");
   }
 
-  private static Collection<String> artifactFilesNames(NestedSet<Artifact> artifacts) {
+  private static ImmutableList<String> artifactFilesNames(NestedSet<Artifact> artifacts) {
     return artifactFilesNames(artifacts.toList());
   }
 
-  private static Collection<String> artifactFilesNames(Iterable<Artifact> artifacts) {
-    List<String> result = new ArrayList<>();
+  private static ImmutableList<String> artifactFilesNames(Iterable<Artifact> artifacts) {
+    ImmutableList.Builder<String> result = ImmutableList.builder();
     for (Artifact artifact : artifacts) {
       result.add(artifact.getFilename());
     }
-    return result;
+    return result.build();
   }
 
   /**
@@ -1511,8 +1511,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         jlJavaCompilationArgsProvider.getTransitiveCompileTimeJars();
 
     // Using reference equality since should be precisely identical
-    assertThat(myCompileJars == jlCompileJars).isTrue();
-    assertThat(myTransitiveRuntimeJars == jlTransitiveRuntimeJars).isTrue();
+    assertThat(myCompileJars).isSameInstanceAs(jlCompileJars);
+    assertThat(myTransitiveRuntimeJars).isSameInstanceAs(jlTransitiveRuntimeJars);
     assertThat(myTransitiveCompileTimeJars).isEqualTo(jlTransitiveCompileTimeJars);
   }
 
@@ -3054,7 +3054,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testJavaLibaryCollectsCoverageDependenciesFromResources() throws Exception {
+  public void testJavaLibraryCollectsCoverageDependenciesFromResources() throws Exception {
     useConfiguration("--collect_code_coverage");
 
     scratch.file(
@@ -3150,7 +3150,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaCompileAction turbineAction =
         (JavaCompileAction) getGeneratingAction(getBinArtifact("libcustom-hjar.jar", custom));
     assertThat(turbineAction.getMnemonic()).isEqualTo("JavacTurbine");
-    List<String> args = turbineAction.getArguments();
+    ImmutableList<String> args = turbineAction.getArguments();
     assertThat(args).doesNotContain("--processors");
 
     // enable_annotation_processing=False shouldn't disable direct classpaths if there are no
@@ -3462,7 +3462,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCompileWithResorceJarsIsPrivateApi() throws Exception {
+  public void testCompileWithResourceJarsIsPrivateApi() throws Exception {
     JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "foo/custom_rule.bzl",

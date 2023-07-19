@@ -21,11 +21,6 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.ABSOLUTE_INCLUDES_PATH_FORMAT;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.BOTH_MODULE_NAME_AND_MODULE_MAP_SPECIFIED;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.CC_LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
@@ -388,10 +383,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setList("deps", "//baselib:baselib")
         .write();
 
-    ObjcProvider provider = objcProviderForTarget("//lib:lib");
-    assertThat(provider.get(LIBRARY).toList())
-        .containsExactlyElementsIn(archiveAction("//baselib:baselib").getOutputs());
-
     CcLinkingContext ccLinkingContext =
         getConfiguredTarget("//lib:lib").get(CcInfo.PROVIDER).getCcLinkingContext();
     assertThat(ccLinkingContext.getStaticModeParamsForDynamicLibraryLibraries())
@@ -748,21 +739,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void checkDoesNotStoreObjcLibsAsCC() throws Exception {
-    createLibraryTargetWriter("//objc:lib_dep")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "a.h", "b.h")
-        .write();
-    createLibraryTargetWriter("//objc2:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "c.h", "d.h")
-        .setList("deps", "//objc:lib_dep")
-        .write();
-    ObjcProvider objcProvider = objcProviderForTarget("//objc2:lib");
-    assertThat(objcProvider.get(CC_LIBRARY).toList()).isEmpty();
-  }
-
-  @Test
   public void testIncludesDirsGetPassedToCompileAction() throws Exception {
     createLibraryTargetWriter("//lib:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
@@ -892,10 +868,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             .setList("implementation_deps", "//objc_impl:lib")
             .write();
 
-    assertThat(getArifactPaths(target, LIBRARY)).containsExactly("objc/liblib.a");
-    assertThat(getArifactPaths(impltarget, LIBRARY)).containsExactly("objc_impl/liblib.a");
-    assertThat(getArifactPaths(depender, LIBRARY))
-        .containsExactly("objc/liblib.a", "objc_impl/liblib.a", "objc_depender/liblib.a");
     assertThat(getArifactPathsOfLibraries(target)).containsExactly("objc/liblib.a");
     assertThat(getArifactPathsOfLibraries(depender))
         .containsExactly("objc/liblib.a", "objc_impl/liblib.a", "objc_depender/liblib.a");
@@ -913,12 +885,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             "objc_depender/private.h");
   }
 
-  private static Iterable<String> getArifactPaths(
-      ConfiguredTarget target, ObjcProvider.Key<Artifact> artifactKey) {
-    return Artifact.toRootRelativePaths(
-        target.get(ObjcProvider.STARLARK_CONSTRUCTOR).get(artifactKey));
-  }
-
   @Test
   public void testCollectsWeakSdkFrameworksTransitively() throws Exception {
     createLibraryTargetWriter("//base_lib:lib")
@@ -930,11 +896,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setList("weak_sdk_frameworks", "bar")
         .setList("deps", "//base_lib:lib")
         .write();
-
-    ObjcProvider baseProvider = objcProviderForTarget("//base_lib:lib");
-    ObjcProvider dependerProvider = objcProviderForTarget("//depender_lib:lib");
-    assertThat(baseProvider.get(WEAK_SDK_FRAMEWORK).toList()).containsExactly("foo");
-    assertThat(dependerProvider.get(WEAK_SDK_FRAMEWORK).toList()).containsExactly("foo", "bar");
 
     ImmutableList<String> baseLinkFlags = getCcInfoUserLinkFlagsFromTarget("//base_lib:lib");
     assertThat(baseLinkFlags).containsExactly("-weak_framework", "foo").inOrder();
@@ -979,9 +940,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setList("sdk_dylibs", "libdy1", "libdy2")
         .write();
-
-    ObjcProvider provider = objcProviderForTarget("//lib:lib");
-    assertThat(provider.get(SDK_DYLIB).toList()).containsExactly("libdy1", "libdy2");
 
     CcLinkingContext ccLinkingContext = ccInfoForTarget("//lib:lib").getCcLinkingContext();
     assertThat(ccLinkingContext.getFlattenedUserLinkFlags()).containsExactly("-ldy1", "-ldy2");
@@ -1223,49 +1181,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void checkStoresCcLibsAsCc() throws Exception {
-    ScratchAttributeWriter.fromLabelString(this, "cc_library", "//cc:lib")
-        .setAndCreateFiles("srcs", "a.cc")
-        .write();
-    scratch.file(
-        "third_party/cc_lib/BUILD",
-        "licenses(['unencumbered'])",
-        "cc_library(",
-        "    name = 'cc_lib_impl',",
-        "    srcs = [",
-        "        'a.c',",
-        "        'a.h',",
-        "    ],",
-        ")",
-        "",
-        "cc_library(",
-        "    name = 'cc_lib',",
-        "    hdrs = ['a.h'],",
-        "    deps = [':cc_lib_impl'],",
-        ")");
-    createLibraryTargetWriter("//objc2:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m")
-        .setAndCreateFiles("hdrs", "c.h", "d.h")
-        .setList("deps", "//cc:lib", "//third_party/cc_lib:cc_lib_impl")
-        .write();
-    ObjcProvider objcProvider = objcProviderForTarget("//objc2:lib");
-
-    Iterable<String> linkerInputArtifacts =
-        Iterables.transform(
-            objcProvider.get(CC_LIBRARY).toList(),
-            (library) -> removeConfigFragment(library.getStaticLibrary().getExecPathString()));
-
-    assertThat(linkerInputArtifacts)
-        .containsAtLeast(
-            removeConfigFragment(
-                getBinArtifact("liblib.a", getConfiguredTarget("//cc:lib")).getExecPathString()),
-            removeConfigFragment(
-                getBinArtifact(
-                        "libcc_lib_impl.a", getConfiguredTarget("//third_party/cc_lib:cc_lib_impl"))
-                    .getExecPathString()));
-  }
-
-  @Test
   public void testCollectsSdkFrameworksTransitively() throws Exception {
     createLibraryTargetWriter("//base_lib:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
@@ -1276,11 +1191,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setList("sdk_frameworks", "bar")
         .setList("deps", "//base_lib:lib")
         .write();
-
-    ObjcProvider baseProvider = objcProviderForTarget("//base_lib:lib");
-    ObjcProvider dependerProvider = objcProviderForTarget("//depender_lib:lib");
-    assertThat(baseProvider.get(SDK_FRAMEWORK).toList()).containsExactly("foo");
-    assertThat(dependerProvider.get(SDK_FRAMEWORK).toList()).containsExactly("foo", "bar");
 
     ImmutableList<String> baseLinkFlags = getCcInfoUserLinkFlagsFromTarget("//base_lib:lib");
     assertThat(baseLinkFlags).containsExactly("-framework", "foo").inOrder();
@@ -1785,7 +1695,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "    deps = [':foo'],",
         ")");
 
-    ObjcProvider dependerProvider = objcProviderForTarget("//x:bar");
+    ObjcProvider dependerProvider =
+        getConfiguredTarget("//x:bar").get(ObjcProvider.STARLARK_CONSTRUCTOR);
     assertThat(baseArtifactNames(dependerProvider.getDirect(ObjcProvider.SOURCE)))
         .containsExactly("bar.m", "bar_impl.h");
 
@@ -2247,42 +2158,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         ")");
 
     getConfiguredTarget("//x:foo");
-  }
-
-  @Test
-  public void testRightOrderCcLibs() throws Exception {
-    scratch.file(
-        "x/BUILD",
-        "cc_library(",
-        "    name = 'qux',",
-        "    srcs = ['qux.cc'],",
-        ")",
-        "cc_library(",
-        "    name = 'baz',",
-        "    srcs = ['baz.cc'],",
-        ")",
-        "objc_library(",
-        "    name = 'quux',",
-        "    srcs = ['quux.m'],",
-        "    deps = ['qux'],",
-        ")",
-        "cc_library(",
-        "    name = 'foo',",
-        "    srcs = ['foo.cc'],",
-        "    deps = [':baz'],",
-        ")",
-        "objc_library(",
-        "    name = 'bar',",
-        "    srcs = ['bar.m'],",
-        "    deps = ['quux', ':foo'],",
-        ")");
-    assertThat(
-            artifactsToStrings(
-                getConfiguredTarget("//x:bar")
-                    .get(ObjcProvider.STARLARK_CONSTRUCTOR)
-                    .getCcLibraries()))
-        .containsExactly("/ x/libqux.a", "/ x/libfoo.a", "/ x/libbaz.a")
-        .inOrder();
   }
 
   @Test
