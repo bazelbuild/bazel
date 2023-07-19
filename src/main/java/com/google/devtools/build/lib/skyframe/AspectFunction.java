@@ -15,7 +15,8 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.analysis.AspectResolutionHelpers.aspectMatchesConfiguredTarget;
-import static com.google.devtools.build.lib.skyframe.PrerequisiteProducer.createDefaultToolchainContextKey;
+import static com.google.devtools.build.lib.skyframe.DependencyResolver.createDefaultToolchainContextKey;
+import static com.google.devtools.build.lib.skyframe.DependencyResolver.getPrioritizedDetailedExitCode;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -145,13 +146,13 @@ final class AspectFunction implements SkyFunction {
   static class State implements SkyKeyComputeState {
     @Nullable InitialValues initialValues;
 
-    final PrerequisiteProducer.State computeDependenciesState;
+    final DependencyResolver.State computeDependenciesState;
 
     private State(
         boolean storeTransitivePackages,
         ConcurrentHashMap<PackageIdentifier, Package> prerequisitePackages) {
       this.computeDependenciesState =
-          new PrerequisiteProducer.State(storeTransitivePackages, prerequisitePackages);
+          new DependencyResolver.State(storeTransitivePackages, prerequisitePackages);
     }
   }
 
@@ -177,7 +178,7 @@ final class AspectFunction implements SkyFunction {
     AspectKey key = (AspectKey) skyKey.argument();
     State state = env.getState(() -> new State(storeTransitivePackages, prerequisitePackages));
 
-    PrerequisiteProducer.State computeDependenciesState = state.computeDependenciesState;
+    DependencyResolver.State computeDependenciesState = state.computeDependenciesState;
     if (state.initialValues == null) {
       InitialValues initialValues = getInitialValues(computeDependenciesState, key, env);
       if (initialValues == null) {
@@ -295,7 +296,7 @@ final class AspectFunction implements SkyFunction {
       Optional<StarlarkAttributeTransitionProvider> starlarkExecTransition;
       try {
         starlarkExecTransition =
-            PrerequisiteProducer.loadStarlarkExecTransition(targetAndConfiguration, env);
+            DependencyResolver.loadStarlarkExecTransition(targetAndConfiguration, env);
         if (starlarkExecTransition == null) {
           return null; // Need Skyframe deps.
         }
@@ -304,7 +305,7 @@ final class AspectFunction implements SkyFunction {
       }
 
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap =
-          PrerequisiteProducer.computeDependencies(
+          DependencyResolver.computeDependencies(
               computeDependenciesState,
               ConfiguredTargetKey.fromConfiguredTarget(associatedTarget),
               topologicalAspectPath,
@@ -319,9 +320,7 @@ final class AspectFunction implements SkyFunction {
         NestedSet<Cause> causes = computeDependenciesState.transitiveRootCauses().build();
         throw new AspectFunctionException(
             new AspectCreationException(
-                "Loading failed",
-                causes,
-                ConfiguredTargetFunction.getPrioritizedDetailedExitCode(causes)));
+                "Loading failed", causes, getPrioritizedDetailedExitCode(causes)));
       }
 
       // Load the requested toolchains into the ToolchainContext, now that we have dependencies.
@@ -403,7 +402,7 @@ final class AspectFunction implements SkyFunction {
   /** Populates {@code state.execGroupCollection} as a side effect. */
   @Nullable // Null if a Skyframe restart is needed.
   private DependencyContext getDependencyContext(
-      PrerequisiteProducer.State state, AspectKey key, Aspect aspect, Environment env)
+      DependencyResolver.State state, AspectKey key, Aspect aspect, Environment env)
       throws InterruptedException, ConfiguredValueCreationException, ToolchainException {
     if (state.dependencyContext != null) {
       return state.dependencyContext;
@@ -456,7 +455,7 @@ final class AspectFunction implements SkyFunction {
 
   @Nullable
   private static InitialValues getInitialValues(
-      PrerequisiteProducer.State state, AspectKey key, Environment env)
+      DependencyResolver.State state, AspectKey key, Environment env)
       throws AspectFunctionException, InterruptedException {
     ActionLookupKey configuredTargetLookupKey = key.getBaseConfiguredTargetKey();
     PackageIdentifier basePackageKey =

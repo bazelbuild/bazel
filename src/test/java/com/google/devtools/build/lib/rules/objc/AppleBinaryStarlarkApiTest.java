@@ -1041,9 +1041,6 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
     getRuleType()
         .scratchTarget(scratch, "binary_type", "'executable'", "deps", "['//testlib:lib']");
 
-    ObjcProvider objcProvider = objcProviderForTarget("//x:x");
-    assertThat(Artifact.toRootRelativePaths(objcProvider.get(ObjcProvider.LIBRARY)))
-        .contains("testlib/liblib.a");
     CcLinkingContext ccLinkingContext = ccInfoForTarget("//x:x").getCcLinkingContext();
     assertThat(
             Artifact.toRootRelativePaths(

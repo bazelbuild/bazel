@@ -1,0 +1,169 @@
+rule_info {
+  rule_name: "my_rule"
+  doc_string: "This is my rule. It does stuff."
+  attribute {
+    name: "name"
+    doc_string: "A unique name for this target."
+    type: NAME
+    mandatory: true
+  }
+  attribute {
+    name: "a"
+    doc_string: "Some bool"
+    type: BOOLEAN
+    default_value: "False"
+  }
+  attribute {
+    name: "b"
+    doc_string: "Some int"
+    type: INT
+    default_value: "2"
+  }
+  attribute {
+    name: "c"
+    doc_string: "Some int_list"
+    type: INT_LIST
+    default_value: "[0, 1]"
+  }
+  attribute {
+    name: "d"
+    doc_string: "Some label"
+    type: LABEL
+    default_value: "//foo:bar"
+  }
+  attribute {
+    name: "e"
+    doc_string: "Some label_keyed_string_dict"
+    type: LABEL_STRING_DICT
+    default_value: "{\"//foo:bar\": \"hello\", \"//bar:baz\": \"goodbye\"}"
+  }
+  attribute {
+    name: "f"
+    doc_string: "Some label_list"
+    type: LABEL_LIST
+    default_value: "[\"//foo:bar\", \"//bar:baz\"]"
+  }
+  attribute {
+    name: "g"
+    doc_string: "Some string"
+    type: STRING
+    default_value: "\"\""
+  }
+  attribute {
+    name: "h"
+    doc_string: "Some string_dict"
+    type: STRING_DICT
+    default_value: "{\"animal\": \"bunny\", \"color\": \"orange\"}"
+  }
+  attribute {
+    name: "i"
+    doc_string: "Some string_list"
+    type: STRING_LIST
+    default_value: "[\"cat\", \"dog\"]"
+  }
+  attribute {
+    name: "j"
+    doc_string: "Some string_list_dict"
+    type: STRING_LIST_DICT
+    default_value: "{\"animal\": [\"cat\", \"bunny\"], \"color\": [\"blue\", \"orange\"]}"
+  }
+  attribute {
+    name: "k"
+    doc_string: "Some bool"
+    type: BOOLEAN
+    mandatory: true
+  }
+  attribute {
+    name: "l"
+    doc_string: "Some int"
+    type: INT
+    mandatory: true
+  }
+  attribute {
+    name: "m"
+    doc_string: "Some int_list"
+    type: INT_LIST
+    mandatory: true
+  }
+  attribute {
+    name: "n"
+    doc_string: "Some label"
+    type: LABEL
+    mandatory: true
+  }
+  attribute {
+    name: "o"
+    doc_string: "Some label_keyed_string_dict"
+    type: LABEL_STRING_DICT
+    mandatory: true
+  }
+  attribute {
+    name: "p"
+    doc_string: "Some label_list"
+    type: LABEL_LIST
+    mandatory: true
+  }
+  attribute {
+    name: "q"
+    doc_string: "Some string"
+    type: STRING
+    mandatory: true
+  }
+  attribute {
+    name: "r"
+    doc_string: "Some string_dict"
+    type: STRING_DICT
+    mandatory: true
+  }
+  attribute {
+    name: "s"
+    doc_string: "Some string_list"
+    type: STRING_LIST
+    mandatory: true
+  }
+  attribute {
+    name: "t"
+    doc_string: "Some string_list_dict"
+    type: STRING_LIST_DICT
+    mandatory: true
+  }
+  attribute {
+    name: "u"
+    type: STRING
+    default_value: "\"\""
+  }
+  attribute {
+    name: "v"
+    type: LABEL
+    default_value: "None"
+  }
+  attribute {
+    name: "w"
+    type: INT
+    default_value: "0"
+  }
+}
+aspect_info {
+  aspect_name: "my_aspect"
+  doc_string: "This is my aspect. It does stuff."
+  aspect_attribute: "deps"
+  aspect_attribute: "attr_aspect"
+  attribute {
+    name: "name"
+    doc_string: "A unique name for this target."
+    type: NAME
+    mandatory: true
+  }
+  attribute {
+    name: "y"
+    doc_string: "some string"
+    type: STRING
+    default_value: "\"why\""
+  }
+  attribute {
+    name: "z"
+    type: STRING
+    mandatory: true
+  }
+}
+module_docstring: "A golden test to verify attribute default values."

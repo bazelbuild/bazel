@@ -1,0 +1,45 @@
+func_info {
+  function_name: "my_namespace.min"
+  parameter {
+    name: "integers"
+    doc_string: "A list of integers. Must not be empty."
+    mandatory: true
+  }
+  doc_string: "Returns the minimum of given elements."
+  return {
+    doc_string: "The minimum integer in the given list."
+  }
+}
+func_info {
+  function_name: "my_namespace.math.min"
+  parameter {
+    name: "integers"
+    doc_string: "A list of integers. Must not be empty."
+    mandatory: true
+  }
+  doc_string: "Returns the minimum of given elements."
+  return {
+    doc_string: "The minimum integer in the given list."
+  }
+}
+func_info {
+  function_name: "my_namespace.foo.bar.baz"
+  doc_string: "This function does nothing."
+}
+func_info {
+  function_name: "my_namespace.one.two.min"
+  parameter {
+    name: "integers"
+    doc_string: "A list of integers. Must not be empty."
+    mandatory: true
+  }
+  doc_string: "Returns the minimum of given elements."
+  return {
+    doc_string: "The minimum integer in the given list."
+  }
+}
+func_info {
+  function_name: "my_namespace.one.three.does_nothing"
+  doc_string: "This function does nothing."
+}
+module_docstring: "A test that verifies documenting a multi-leveled namespace of functions."

@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.bugreport;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -36,8 +34,6 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Crash.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.testutil.TestThread;
-import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.CustomExitCodePublisher;
 import com.google.devtools.build.lib.util.CustomFailureDetailPublisher;
@@ -52,7 +48,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.Permission;
 import java.util.Arrays;
-import java.util.concurrent.CountDownLatch;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
@@ -140,17 +135,17 @@ public final class BugReportTest {
   private enum ExceptionType {
     FATAL(
         new RuntimeException("fatal exception"),
-        /* isFatal= */ true,
+        /*isFatal=*/ true,
         Level.SEVERE,
         "myProductName crashed with args: arg foo"),
     NONFATAL(
         new IllegalStateException("bug report"),
-        /* isFatal= */ false,
+        /*isFatal=*/ false,
         Level.WARNING,
         "myProductName had a non fatal error with args: arg foo"),
     OOM(
         new OutOfMemoryError("Java heap space"),
-        /* isFatal= */ true,
+        /*isFatal=*/ true,
         Level.SEVERE,
         "myProductName OOMError: arg foo");
 
@@ -222,67 +217,6 @@ public final class BugReportTest {
     }
     assertThat(got.getThrown()).isSameInstanceAs(exceptionType.throwable);
     assertThat(got.getLevel()).isEqualTo(exceptionType.level);
-  }
-
-  /**
-   * Regression test verifying that {@link BugReport#handleCrash(Crash, CrashContext)} is re-entrant
-   * and can be called from multiple threads even if the first caller is blocking.
-   */
-  @Test
-  public void handleCrash_reentrant(@TestParameter CrashType crashType)
-      throws InterruptedException {
-    ////// Arrange:
-    // A separate thread will block until `firstCrashWaitsLatch` is ready, then crash using the
-    // `crashType` test parameter.
-    CountDownLatch firstCrashStartedReportingLatch = new CountDownLatch(1);
-    CountDownLatch firstCrashWaitsLatch = new CountDownLatch(1);
-    doAnswer(
-            (inv) -> {
-              firstCrashStartedReportingLatch.countDown();
-              awaitUninterruptibly(firstCrashWaitsLatch);
-              return null;
-            })
-        .when(mockRuntime)
-        .cleanUpForCrash(any());
-
-    Throwable t = crashType.createThrowable();
-    TestThread blockingCrashThread =
-        new TestThread(
-            () -> {
-              SecurityException e =
-                  assertThrows(SecurityException.class, () -> BugReport.handleCrash(t));
-              if (e instanceof ExitException) {
-                int code = ((ExitException) e).code;
-                assertThat(code).isEqualTo(crashType.expectedExitCode.getNumericExitCode());
-              }
-            });
-    blockingCrashThread.start();
-    // Wait for the TestThread to start, call BugReport#handleCrash(), and call
-    // BlazeRuntimeInterface#cleanUpForCrash().
-    assertThat(firstCrashStartedReportingLatch.await(TestUtils.WAIT_TIMEOUT_SECONDS, SECONDS))
-        .isTrue();
-    assertThat(blockingCrashThread.isAlive()).isTrue();
-
-    ////// Act:
-    // Crash on the main test thread while the first crash is still blocking forever.
-    Throwable secondThreadCrash = new UnsupportedOperationException("Second thread crashing.");
-    SecurityException secondThreadSecurityException =
-        assertThrows(SecurityException.class, () -> BugReport.handleCrash(secondThreadCrash));
-
-    ////// Assert:
-    if (secondThreadSecurityException instanceof ExitException) {
-      int code = ((ExitException) secondThreadSecurityException).code;
-      assertThat(code).isEqualTo(ExitCode.BLAZE_INTERNAL_ERROR.getNumericExitCode());
-    }
-    // Verify the latest exception stored is the main-thread crashing throwable.
-    assertThat(BugReport.getAndResetLastCrashingThrowableIfInTest())
-        .isSameInstanceAs(secondThreadCrash);
-
-    // Unblock the first crashing thread and verify that it completes. Asserting its state will
-    // ensure the test fails if the wrong exit code is returned to the first call to handleCrash().
-    firstCrashWaitsLatch.countDown();
-    blockingCrashThread.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
-    verify(mockRuntime).cleanUpForCrash(any());
   }
 
   @Test
@@ -467,3 +401,4 @@ public final class BugReportTest {
     public void checkPermission(Permission p) {} // Allow everything else.
   }
 }
+

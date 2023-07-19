@@ -36,7 +36,7 @@ _JavaOutputInfo = provider(
         "native_headers_jar": "(File) A jar of CC header files supporting native method implementation.",
         "manifest_proto": "(File) The manifest protobuf file of the manifest generated from JavaBuilder.",
         "jdeps": "(File) The jdeps protobuf file of the manifest generated from JavaBuilder.",
-        "source_jars": "([File]) A list of sources archive files.",
+        "source_jars": "(depset[File]) A depset of sources archive files.",
         "source_jar": "Deprecated: Please use source_jars instead.",
     },
 )
@@ -155,9 +155,9 @@ def to_java_binary_info(java_info):
     java_outputs = [
         _JavaOutputInfo(
             compile_jar = None,
+            ijar = None,  # deprecated
             compile_jdeps = None,
             class_jar = output.class_jar,
-            ijar = output.compile_jar,  # deprecated
             generated_class_jar = output.generated_class_jar,
             generated_source_jar = output.generated_source_jar,
             native_headers_jar = output.native_headers_jar,
@@ -359,7 +359,7 @@ def _javainfo_init(
         native_headers_jar = native_headers_jar,
         manifest_proto = manifest_proto,
         jdeps = jdeps,
-        source_jars = source_jars,
+        source_jars = depset(source_jars) if _java_common_internal._incompatible_depset_for_java_output_source_jars() else source_jars,
         source_jar = source_jar,  # deprecated
     )]
 

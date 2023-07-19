@@ -42,8 +42,9 @@ import java.util.Optional;
 /**
  * Represents a Bazel module registry that serves a list of module metadata from a static HTTP
  * server or a local file path.
+ *
+ * <p>For details, see <a href="https://bazel.build/external/registry">the docs</a>
  */
-// TODO(wyv): Insert "For details, see ..." when we have public documentation.
 public class IndexRegistry implements Registry {
   private final URI uri;
   private final DownloadManager downloadManager;

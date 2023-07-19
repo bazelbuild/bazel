@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.producers;
 
+import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition.PATCH_TRANSITION_KEY;
+
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -146,12 +148,13 @@ final class TransitionApplier
   }
 
   private StateMachine convertOptionsToKeys(Map<String, BuildOptions> transitionedOptions) {
-    // If there is a single, unchanged value, just outputs the original key.
+    // If there is a single, unchanged value, just outputs the original configuration, stripping any
+    // transition key.
     if (transitionedOptions.size() == 1) {
-      Map.Entry<String, BuildOptions> entry = transitionedOptions.entrySet().iterator().next();
-      BuildOptions options = entry.getValue();
+      BuildOptions options = transitionedOptions.values().iterator().next();
       if (options.checksum().equals(fromConfiguration.getOptionsChecksum())) {
-        sink.acceptTransitionedConfigurations(ImmutableMap.of(entry.getKey(), fromConfiguration));
+        sink.acceptTransitionedConfigurations(
+            ImmutableMap.of(PATCH_TRANSITION_KEY, fromConfiguration));
         return runAfter;
       }
     }

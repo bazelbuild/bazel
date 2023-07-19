@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -2415,5 +2416,7 @@ public abstract class AbstractQueryTest<T> {
     Path getModuleRoot();
 
     void setMainRepoTargetParser(RepositoryMapping mapping);
+
+    void maybeHandleDiffs() throws AbruptExitException, InterruptedException;
   }
 }

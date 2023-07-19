@@ -288,8 +288,6 @@ public class MultiArchBinarySupport {
       ConfiguredTargetAndData ctad =
           Iterables.getOnlyElement(splitToolchains.get(splitTransitionKey));
       BuildConfigurationValue childToolchainConfig = ctad.getConfiguration();
-      IntermediateArtifacts intermediateArtifacts =
-          new IntermediateArtifacts(ruleContext, childToolchainConfig);
 
       List<? extends TransitiveInfoCollection> propagatedDeps =
           getProvidersFromCtads(splitDeps.get(splitTransitionKey));
@@ -298,7 +296,6 @@ public class MultiArchBinarySupport {
           common(
               ruleContext,
               childToolchainConfig,
-              intermediateArtifacts,
               propagatedDeps,
               avoidDepsCcInfos,
               avoidDepsObjcProviders);
@@ -635,21 +632,18 @@ public class MultiArchBinarySupport {
   private ObjcCommon common(
       RuleContext ruleContext,
       BuildConfigurationValue buildConfiguration,
-      IntermediateArtifacts intermediateArtifacts,
       List<? extends TransitiveInfoCollection> propagatedDeps,
       Iterable<CcInfo> additionalDepCcInfos,
       Iterable<ObjcProvider> additionalDepObjcProviders)
       throws InterruptedException {
 
     ObjcCommon.Builder commonBuilder =
-        new ObjcCommon.Builder(ObjcCommon.Purpose.LINK_ONLY, ruleContext, buildConfiguration)
+        new ObjcCommon.Builder(ruleContext, buildConfiguration)
             .setCompilationAttributes(
                 CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
             .addDeps(propagatedDeps)
             .addCcLinkingContexts(additionalDepCcInfos)
-            .addObjcProviders(additionalDepObjcProviders)
-            .setIntermediateArtifacts(intermediateArtifacts)
-            .setAlwayslink(false);
+            .addObjcProviders(additionalDepObjcProviders);
 
     return commonBuilder.build();
   }

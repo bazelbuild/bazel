@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import static com.google.devtools.build.lib.bazel.bzlmod.GsonTypeAdapterUtil.LOCKFILE_GSON;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableMap;
@@ -136,7 +135,14 @@ public class BazelLockFileModule extends BlazeModule {
   public static void updateLockfile(RootedPath lockfilePath, BazelLockFileValue updatedLockfile) {
     try {
       FileSystemUtils.writeContent(
-          lockfilePath.asPath(), UTF_8, LOCKFILE_GSON.toJson(updatedLockfile));
+          lockfilePath.asPath(),
+          UTF_8,
+          GsonTypeAdapterUtil.createLockFileGson(
+                  lockfilePath
+                      .asPath()
+                      .getParentDirectory()
+                      .getRelative(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME))
+              .toJson(updatedLockfile));
     } catch (IOException e) {
       logger.atSevere().withCause(e).log(
           "Error while updating MODULE.bazel.lock file: %s", e.getMessage());

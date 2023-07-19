@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DependencyKind;
-import com.google.devtools.build.lib.analysis.DependencyResolver;
+import com.google.devtools.build.lib.analysis.DependencyResolutionHelpers;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
@@ -63,20 +63,20 @@ import org.junit.runners.JUnit4;
  * Tests {@link ConfiguredTargetFunction}'s logic for determining each target's {@link
  * BuildConfigurationValue}.
  *
- * <p>This is essentially an integration test for {@link PrerequisiteProducer#computeDependencies}
- * and {@link DependencyResolver}. These methods form the core logic that figures out what a
+ * <p>This is essentially an integration test for {@link DependencyResolver#computeDependencies} and
+ * {@link DependencyResolutionHelpers}. These methods form the core logic that figures out what a
  * target's deps are, how their configurations should differ from their parent, and how to
  * instantiate those configurations as tangible {@link BuildConfigurationValue} objects.
  *
  * <p>{@link ConfiguredTargetFunction} is a complicated class that does a lot of things. This test
  * focuses purely on the task of determining configurations for deps. So instead of evaluating full
  * {@link ConfiguredTargetFunction} instances, it evaluates a mock {@link SkyFunction} that just
- * wraps the {@link PrerequisiteProducer#computeDependencies} part. This keeps focus tight and
+ * wraps the {@link DependencyResolver#computeDependencies} part. This keeps focus tight and
  * integration dependencies narrow.
  *
- * <p>We can't just call {@link PrerequisiteProducer#computeDependencies} directly because that
- * method needs a {@link SkyFunction.Environment} and Blaze's test infrastructure doesn't support
- * direct access to environments.
+ * <p>We can't just call {@link DependencyResolver#computeDependencies} directly because that method
+ * needs a {@link SkyFunction.Environment} and Blaze's test infrastructure doesn't support direct
+ * access to environments.
  */
 @RunWith(JUnit4.class)
 public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
@@ -86,7 +86,7 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
   private static final Label EXEC_PLATFORM_LABEL = Label.parseCanonicalUnchecked("//platform:exec");
 
   /**
-   * A mock {@link SkyFunction} that just calls {@link PrerequisiteProducer#computeDependencies} and
+   * A mock {@link SkyFunction} that just calls {@link DependencyResolver#computeDependencies} and
    * returns its results.
    */
   private static class ComputeDependenciesFunction implements SkyFunction {
@@ -130,7 +130,7 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
       try {
         var targetAndConfiguration = (TargetAndConfiguration) skyKey.argument();
         // Set up the toolchain context so that exec transitions resolve properly.
-        var state = PrerequisiteProducer.State.createForTesting(targetAndConfiguration);
+        var state = DependencyResolver.State.createForTesting(targetAndConfiguration);
         state.dependencyContext =
             DependencyContext.create(
                 ToolchainCollection.<UnloadedToolchainContext>builder()
@@ -149,7 +149,7 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
                     .build(),
                 ConfigConditions.EMPTY);
         OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depMap =
-            PrerequisiteProducer.computeDependencies(
+            DependencyResolver.computeDependencies(
                 state,
                 ConfiguredTargetKey.builder()
                     .setLabel(targetAndConfiguration.getLabel())

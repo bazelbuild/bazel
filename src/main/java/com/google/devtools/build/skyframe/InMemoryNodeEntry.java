@@ -362,10 +362,9 @@ public class InMemoryNodeEntry implements NodeEntry {
     checkNotNull(reverseDep, this);
     checkState(keepsEdges(), "Incremental means keeping edges %s %s", reverseDep, this);
     if (isDone()) {
-      ReverseDepsUtility.checkReverseDep(this, reverseDep);
-    } else {
-      appendToReverseDepOperations(reverseDep, Op.CHECK);
+      return DependencyState.DONE;
     }
+    appendToReverseDepOperations(reverseDep, Op.CHECK);
     return addReverseDepAndCheckIfDone(null);
   }
 
