@@ -23,9 +23,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.java.JavaInfo.JavaInfoInternalProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -40,6 +45,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /** Provides information about jar files produced by a Java rule. */
 @Immutable
@@ -124,23 +130,41 @@ public abstract class JavaRuleOutputJarsProvider
     @Override
     public abstract Artifact getJdeps();
 
+    /** A {@link NestedSet} of sources archive files. */
+    public abstract NestedSet<Artifact> getSourceJars();
+
     @Nullable
     @Deprecated
     @Override
     public Artifact getSrcJar() {
-      return Iterables.getOnlyElement(getSourceJars(), null);
+      return Iterables.getOnlyElement(getSourceJarsAsList(), null);
+    }
+
+    public ImmutableList<Artifact> getSourceJarsAsList() {
+      return getSourceJars().toList();
     }
 
     @Nullable
     @Override
-    public Sequence<Artifact> getSrcJarsStarlark() {
-      return StarlarkList.immutableCopyOf(getSourceJars());
+    public Object getSrcJarsStarlark(StarlarkSemantics semantics) {
+      if (semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_DEPSET_FOR_JAVA_OUTPUT_SOURCE_JARS)) {
+        return Depset.of(Artifact.class, getSourceJars());
+      } else {
+        return StarlarkList.immutableCopyOf(getSourceJarsAsList());
+      }
     }
 
-    /** A list of sources archive files. */
-    public abstract ImmutableList<Artifact> getSourceJars();
-
     public static JavaOutput fromStarlarkJavaOutput(StructImpl struct) throws EvalException {
+      NestedSet<Artifact> sourceJars;
+      Object starlarkSourceJars = struct.getValue("source_jars");
+      if (starlarkSourceJars == Starlark.NONE || starlarkSourceJars instanceof Depset) {
+        sourceJars = Depset.noneableCast(starlarkSourceJars, Artifact.class, "source_jars");
+      } else {
+        sourceJars =
+            NestedSetBuilder.wrap(
+                Order.STABLE_ORDER,
+                Sequence.cast(starlarkSourceJars, Artifact.class, "source_jars"));
+      }
       return JavaOutput.builder()
           .setClassJar(nullIfNone(struct.getValue("class_jar"), Artifact.class))
           .setCompileJar(nullIfNone(struct.getValue("compile_jar"), Artifact.class))
@@ -151,17 +175,14 @@ public abstract class JavaRuleOutputJarsProvider
           .setNativeHeadersJar(nullIfNone(struct.getValue("native_headers_jar"), Artifact.class))
           .setManifestProto(nullIfNone(struct.getValue("manifest_proto"), Artifact.class))
           .setJdeps(nullIfNone(struct.getValue("jdeps"), Artifact.class))
-          .addSourceJars(
-              Sequence.cast(
-                  struct.getValue("source_jars", StarlarkList.class),
-                  Artifact.class,
-                  "source_jars"))
+          .addSourceJars(sourceJars)
           .build();
     }
 
     /** Builder for OutputJar. */
     @AutoValue.Builder
     public abstract static class Builder {
+      private final NestedSetBuilder<Artifact> sourceJarsBuilder = NestedSetBuilder.stableOrder();
 
       public abstract Builder setClassJar(Artifact value);
 
@@ -179,19 +200,18 @@ public abstract class JavaRuleOutputJarsProvider
 
       public abstract Builder setJdeps(Artifact value);
 
-      abstract ImmutableList.Builder<Artifact> sourceJarsBuilder();
-
       @CanIgnoreReturnValue
+      abstract Builder setSourceJars(NestedSet<Artifact> value);
+
       public Builder addSourceJar(@Nullable Artifact value) {
         if (value != null) {
-          sourceJarsBuilder().add(value);
+          sourceJarsBuilder.add(value);
         }
         return this;
       }
 
-      @CanIgnoreReturnValue
-      public Builder addSourceJars(Iterable<Artifact> values) {
-        sourceJarsBuilder().addAll(values);
+      public Builder addSourceJars(NestedSet<Artifact> values) {
+        sourceJarsBuilder.addTransitive(values);
         return this;
       }
 
@@ -214,7 +234,12 @@ public abstract class JavaRuleOutputJarsProvider
         return this;
       }
 
-      public abstract JavaOutput build();
+      abstract JavaOutput autoBuild();
+
+      public JavaOutput build() {
+        setSourceJars(sourceJarsBuilder.build());
+        return autoBuild();
+      }
     }
 
     public static Builder builder() {
@@ -238,7 +263,7 @@ public abstract class JavaRuleOutputJarsProvider
   /** Collects all source output jars from {@link #getJavaOutputs} */
   public ImmutableList<Artifact> getAllSrcOutputJars() {
     return getJavaOutputs().stream()
-        .map(JavaOutput::getSourceJars)
+        .map(JavaOutput::getSourceJarsAsList)
         .flatMap(ImmutableList::stream)
         .collect(toImmutableList());
   }

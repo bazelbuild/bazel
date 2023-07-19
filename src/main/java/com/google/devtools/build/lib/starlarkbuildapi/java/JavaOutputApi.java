@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
 
 /** A tuple of a java classes jar and its associated source and interface archives. */
@@ -115,9 +115,10 @@ public interface JavaOutputApi<FileT extends FileApi> extends StarlarkValue {
 
   @StarlarkMethod(
       name = "source_jars",
-      doc = "A list of sources archive files.",
+      doc = "A depset of sources archive files.",
       allowReturnNones = true,
+      useStarlarkSemantics = true,
       structField = true)
   @Nullable
-  Sequence<FileT> getSrcJarsStarlark();
+  Object getSrcJarsStarlark(StarlarkSemantics semantics);
 }

@@ -593,6 +593,17 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean incompatibleDepsetForLibrariesToLinkGetter;
 
   @Option(
+      name = "incompatible_depset_for_java_output_source_jars",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "When true, Bazel no longer returns a list from java_info.java_output[0].source_jars but "
+              + "returns a depset instead.")
+  public boolean incompatibleDepsetForJavaOutputSourceJars;
+
+  @Option(
       name = "incompatible_java_common_parameters",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -735,6 +746,9 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 INCOMPATIBLE_DEPSET_FOR_LIBRARIES_TO_LINK_GETTER,
                 incompatibleDepsetForLibrariesToLinkGetter)
+            .setBool(
+                INCOMPATIBLE_DEPSET_FOR_JAVA_OUTPUT_SOURCE_JARS,
+                incompatibleDepsetForJavaOutputSourceJars)
             .setBool(INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API, incompatibleRequireLinkerInputCcApi)
             .set(MAX_COMPUTATION_STEPS, maxComputationSteps)
             .set(NESTED_SET_DEPTH_LIMIT, nestedSetDepthLimit)
@@ -794,6 +808,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "+incompatible_always_check_depset_elements";
   public static final String INCOMPATIBLE_DEPSET_FOR_LIBRARIES_TO_LINK_GETTER =
       "+incompatible_depset_for_libraries_to_link_getter";
+  public static final String INCOMPATIBLE_DEPSET_FOR_JAVA_OUTPUT_SOURCE_JARS =
+      "+incompatible_depset_for_java_output_source_jars";
   public static final String INCOMPATIBLE_DISABLE_TARGET_PROVIDER_FIELDS =
       "-incompatible_disable_target_provider_fields";
   public static final String INCOMPATIBLE_DISALLOW_EMPTY_GLOB = "-incompatible_disallow_empty_glob";

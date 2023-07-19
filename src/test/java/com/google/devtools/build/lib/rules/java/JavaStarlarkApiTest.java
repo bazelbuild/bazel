@@ -273,7 +273,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaOutput javaOutput = outputs.getJavaOutputs().get(0);
     assertThat(javaOutput.getClassJar().getFilename()).isEqualTo("libdep.jar");
     assertThat(javaOutput.getCompileJar().getFilename()).isEqualTo("libdep-hjar.jar");
-    assertThat(artifactFilesNames(javaOutput.getSourceJars())).containsExactly("libdep-src.jar");
+    assertThat(artifactFilesNames(javaOutput.getSourceJarsAsList()))
+        .containsExactly("libdep-src.jar");
     assertThat(javaOutput.getJdeps().getFilename()).isEqualTo("libdep.jdeps");
     assertThat(javaOutput.getCompileJdeps().getFilename()).isEqualTo("libdep-hjar.jdeps");
   }
@@ -320,7 +321,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaOutput javaOutput = javaOutputs.get(0);
     assertThat(javaOutput.getClassJar().getFilename()).isEqualTo("libdep.jar");
     assertThat(javaOutput.getCompileJar().getFilename()).isEqualTo("libdep-hjar.jar");
-    assertThat(artifactFilesNames(javaOutput.getSourceJars())).containsExactly("libdep-src.jar");
+    assertThat(artifactFilesNames(javaOutput.getSourceJarsAsList()))
+        .containsExactly("libdep-src.jar");
     assertThat(javaOutput.getJdeps().getFilename()).isEqualTo("libdep.jdeps");
     assertThat(javaOutput.getCompileJdeps().getFilename()).isEqualTo("libdep-hjar.jdeps");
   }
@@ -434,7 +436,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaOutput javaOutput = outputs.getJavaOutputs().get(0);
     assertThat(javaOutput.getClassJar().getFilename()).isEqualTo("libdep.jar");
     assertThat(javaOutput.getCompileJar().getFilename()).isEqualTo("libdep-hjar.jar");
-    assertThat(prettyArtifactNames(javaOutput.getSourceJars()))
+    assertThat(prettyArtifactNames(javaOutput.getSourceJarsAsList()))
         .containsExactly("java/test/libdep-src.jar");
     assertThat(javaOutput.getJdeps().getFilename()).isEqualTo("libdep.jdeps");
     assertThat(javaOutput.getNativeHeadersJar().getFilename())

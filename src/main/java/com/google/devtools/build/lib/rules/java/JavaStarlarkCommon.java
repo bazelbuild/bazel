@@ -356,6 +356,15 @@ public class JavaStarlarkCommon
     return thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API);
   }
 
+  @Override
+  public boolean isDepsetForJavaOutputSourceJarsEnabled(StarlarkThread thread)
+      throws EvalException {
+    checkPrivateAccess(thread);
+    return thread
+        .getSemantics()
+        .getBool(BuildLanguageOptions.INCOMPATIBLE_DEPSET_FOR_JAVA_OUTPUT_SOURCE_JARS);
+  }
+
   static boolean isInstanceOfProvider(Object obj, Provider provider) {
     if (obj instanceof NativeInfo) {
       return ((NativeInfo) obj).getProvider().getKey().equals(provider.getKey());
