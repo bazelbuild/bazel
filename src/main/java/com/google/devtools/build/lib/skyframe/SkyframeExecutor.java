@@ -1904,7 +1904,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         ImmutableList.<TargetAndConfiguration>builderWithExpectedSize(configuredTargetKeys.size());
     ImmutableSet.Builder<ConfiguredTarget> configuredTargets = ImmutableSet.builder();
     ImmutableMap.Builder<AspectKey, ConfiguredAspect> aspects = ImmutableMap.builder();
-    Root singleSourceRoot = getForcedSingleSourceRootIfNoExecrootSymlinkCreation();
 
     WalkableGraph graph = result.getWalkableGraph();
     for (ConfiguredTargetKey key : configuredTargetKeys) {
@@ -1941,17 +1940,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       }
     }
 
-    PackageRoots packageRoots =
-        singleSourceRoot == null
-            ? new MapAsPackageRoots(collectPackageRoots())
-            : new PackageRootsNoSymlinkCreation(singleSourceRoot);
-
     return new AutoValue_SkyframeExecutor_ConfigureTargetsResult(
         result,
         configuredTargets.build(),
         aspects.buildOrThrow(),
         targetsWithConfiguration.build(),
-        packageRoots);
+        getPackageRoots());
+  }
+
+  @ForOverride
+  protected PackageRoots getPackageRoots() {
+    return new MapAsPackageRoots(collectPackageRoots());
   }
 
   @Nullable
@@ -1987,12 +1986,20 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
                 if (packageValue != null) { // Null for errors e.g. "no such package"
                   Optional<Root> sourceRoot = packageValue.getPackage().getSourceRoot();
                   if (sourceRoot.isPresent()) {
-                    roots.put((PackageIdentifier) key, sourceRoot.get());
+                    roots.put(
+                        (PackageIdentifier) key,
+                        maybeTransformSourceRootForExecrootSymlinkCreation(sourceRoot.get()));
                   }
                 }
               }
             });
     return ImmutableMap.copyOf(roots);
+  }
+
+  /** Returns a possibly transformed source root of a package for execroot symlink creation. */
+  @ForOverride
+  protected Root maybeTransformSourceRootForExecrootSymlinkCreation(Root sourceRoot) {
+    return sourceRoot;
   }
 
   void clearSyscallCache() {
