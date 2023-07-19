@@ -60,9 +60,12 @@ abstract class ReverseDepsUtility {
   /**
    * Returns the {@link Op} to store bare instead of wrapping in {@link KeyToConsolidate}.
    *
-   * <p>We can store one type of operation bare in order to save memory. For done nodes, most
-   * operations are {@link Op#CHECK}. For nodes on their initial build and nodes not keeping reverse
-   * deps, most are {@link Op#ADD}.
+   * <p>We can store one type of operation bare in order to save memory. For nodes on their initial
+   * build and nodes not keeping reverse deps, most operations are {@link Op#ADD}.
+   *
+   * <p>Done nodes have very few delayed ops - {@link Op#CHECK} is never stored on a done node and
+   * {@link Op#ADD} is only delayed if there are already pending delayed ops. Returning {@link
+   * Op#CHECK} in this case just makes it easy to distinguish from nodes on their initial build.
    */
   static Op getOpToStoreBare(InMemoryNodeEntry entry) {
     DirtyBuildingState dirtyBuildingState = entry.dirtyBuildingState;
