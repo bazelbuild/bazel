@@ -68,7 +68,10 @@ import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.gson.stream.JsonWriter;
+import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -106,6 +109,28 @@ public final class ModCommand implements BlazeCommand {
 
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
+    ModOptions modOptions = options.getOptions(ModOptions.class);
+    Preconditions.checkArgument(modOptions != null);
+
+    if (options.getResidue().isEmpty()) {
+      String errorMessage =
+          String.format(
+              "No subcommand specified, choose one of : %s.", ModSubcommand.printValues());
+      return reportAndCreateFailureResult(env, errorMessage, Code.MOD_COMMAND_UNKNOWN);
+    }
+
+    // The first element in the residue must be the subcommand, and then comes a list of arguments.
+    String subcommandStr = options.getResidue().get(0);
+    ModSubcommand subcommand;
+    try {
+      subcommand = new ModSubcommandConverter().convert(subcommandStr);
+    } catch (OptionsParsingException e) {
+      String errorMessage =
+          String.format("Invalid subcommand, choose one from : %s.", ModSubcommand.printValues());
+      return reportAndCreateFailureResult(env, errorMessage, Code.MOD_COMMAND_UNKNOWN);
+    }
+    List<String> args = options.getResidue().subList(1, options.getResidue().size());
+
     BazelDepGraphValue depGraphValue;
     BazelModuleInspectorValue moduleInspector;
 
@@ -121,10 +146,12 @@ public final class ModCommand implements BlazeCommand {
     try {
       env.syncPackageLoading(options);
 
+      var keys = ImmutableSet.<SkyKey>builder().add(BazelDepGraphValue.KEY);
+      if (!subcommand.equals(ModSubcommand.DUMP_REPO_MAPPING)) {
+        keys.add(BazelModuleInspectorValue.KEY);
+      }
       EvaluationResult<SkyValue> evaluationResult =
-          skyframeExecutor.prepareAndGet(
-              ImmutableSet.of(BazelDepGraphValue.KEY, BazelModuleInspectorValue.KEY),
-              evaluationContext);
+          skyframeExecutor.prepareAndGet(keys.build(), evaluationContext);
 
       if (evaluationResult.hasError()) {
         Exception e = evaluationResult.getError().getException();
@@ -150,27 +177,14 @@ public final class ModCommand implements BlazeCommand {
       return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
     }
 
-    ModOptions modOptions = options.getOptions(ModOptions.class);
-    Preconditions.checkArgument(modOptions != null);
-
-    if (options.getResidue().isEmpty()) {
-      String errorMessage =
-          String.format(
-              "No subcommand specified, choose one of : %s.", ModSubcommand.printValues());
-      return reportAndCreateFailureResult(env, errorMessage, Code.MOD_COMMAND_UNKNOWN);
+    if (subcommand.equals(ModSubcommand.DUMP_REPO_MAPPING)) {
+      dumpRepoMapping(
+          depGraphValue,
+          new OutputStreamWriter(
+              env.getReporter().getOutErr().getOutputStream(),
+              modOptions.charset == UTF8 ? UTF_8 : US_ASCII));
+      return BlazeCommandResult.success();
     }
-
-    // The first element in the residue must be the subcommand, and then comes a list of arguments.
-    String subcommandStr = options.getResidue().get(0);
-    ModSubcommand subcommand;
-    try {
-      subcommand = new ModSubcommandConverter().convert(subcommandStr);
-    } catch (OptionsParsingException e) {
-      String errorMessage =
-          String.format("Invalid subcommand, choose one from : %s.", ModSubcommand.printValues());
-      return reportAndCreateFailureResult(env, errorMessage, Code.MOD_COMMAND_UNKNOWN);
-    }
-    List<String> args = options.getResidue().subList(1, options.getResidue().size());
 
     // Extract and check the --base_module argument first to use it when parsing the other args.
     // Can only be a TargetModule or a repoName relative to the ROOT.
@@ -434,6 +448,8 @@ public final class ModCommand implements BlazeCommand {
       case SHOW_EXTENSION:
         modExecutor.showExtension(argsAsExtensions, usageKeys);
         break;
+      default:
+        throw new IllegalStateException("Unexpected subcommand: " + subcommand);
     }
 
     return BlazeCommandResult.success();
@@ -493,5 +509,39 @@ public final class ModCommand implements BlazeCommand {
                 .setModCommand(FailureDetails.ModCommand.newBuilder().setCode(detailedCode).build())
                 .setMessage(message)
                 .build()));
+  }
+
+  public static void dumpRepoMapping(BazelDepGraphValue depGraphValue, Writer writer) {
+    try (JsonWriter jsonWriter = new JsonWriter(writer)) {
+      jsonWriter.beginObject();
+
+      jsonWriter.name("module_repos");
+      jsonWriter.beginObject();
+      for (ModuleKey modules : depGraphValue.getDepGraph().keySet()) {
+        jsonWriter.name(modules.getCanonicalRepoName().getName()).beginObject();
+        for (Entry<String, RepositoryName> e :
+            depGraphValue.getFullRepoMapping(modules).entries().entrySet()) {
+          jsonWriter.name(e.getKey()).value(e.getValue().getName());
+        }
+        jsonWriter.endObject();
+      }
+      jsonWriter.endObject();
+
+      jsonWriter.name("extension_repo_prefixes");
+      jsonWriter.beginObject();
+      for (Entry<ModuleExtensionId, String> e :
+          depGraphValue.getExtensionUniqueNames().entrySet()) {
+        ModuleKey owningModule =
+            depGraphValue
+                .getCanonicalRepoNameLookup()
+                .get(e.getKey().getBzlFileLabel().getRepository());
+        jsonWriter.name(e.getValue() + "~").value(owningModule.getCanonicalRepoName().getName());
+      }
+      jsonWriter.endObject();
+
+      jsonWriter.endObject();
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
   }
 }
