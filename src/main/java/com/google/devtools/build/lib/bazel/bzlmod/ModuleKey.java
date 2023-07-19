@@ -30,9 +30,6 @@ public abstract class ModuleKey {
    * <p>The repository name of certain modules are required to be exact strings (instead of the
    * normal format seen in {@link #getCanonicalRepoName()}) due to backwards compatibility reasons.
    * For example, bazel_tools must be known as "@bazel_tools" for WORKSPACE repos to work correctly.
-   *
-   * <p>TODO(wyv): After we make all flag values go through repo mapping, we can remove the concept
-   * of well-known modules altogether.
    */
   private static final ImmutableMap<String, RepositoryName> WELL_KNOWN_MODULES =
       ImmutableMap.of(
