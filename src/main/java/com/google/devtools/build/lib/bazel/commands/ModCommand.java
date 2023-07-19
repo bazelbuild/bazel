@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.commands;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.Charset.UTF8;
@@ -44,6 +45,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.ModSubco
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.ModSubcommandConverter;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModuleArg;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModuleArg.ModuleArgConverter;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
@@ -57,6 +59,7 @@ import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.ModCommand.Code;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -70,11 +73,17 @@ import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.stream.JsonWriter;
+import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
 /** Queries the Bzlmod external dependency graph. */
 @Command(
@@ -125,50 +134,6 @@ public final class ModCommand implements BlazeCommand {
   }
 
   private BlazeCommandResult execInternal(CommandEnvironment env, OptionsParsingResult options) {
-    BazelDepGraphValue depGraphValue;
-    BazelModuleInspectorValue moduleInspector;
-
-    SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
-    LoadingPhaseThreadsOption threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
-
-    EvaluationContext evaluationContext =
-        EvaluationContext.newBuilder()
-            .setParallelism(threadsOption.threads)
-            .setEventHandler(env.getReporter())
-            .build();
-
-    try {
-      env.syncPackageLoading(options);
-
-      EvaluationResult<SkyValue> evaluationResult =
-          skyframeExecutor.prepareAndGet(
-              ImmutableSet.of(BazelDepGraphValue.KEY, BazelModuleInspectorValue.KEY),
-              evaluationContext);
-
-      if (evaluationResult.hasError()) {
-        Exception e = evaluationResult.getError().getException();
-        String message = "Unexpected error during repository rule evaluation.";
-        if (e != null) {
-          message = e.getMessage();
-        }
-        return reportAndCreateFailureResult(env, message, Code.INVALID_ARGUMENTS);
-      }
-
-      depGraphValue = (BazelDepGraphValue) evaluationResult.get(BazelDepGraphValue.KEY);
-
-      moduleInspector =
-          (BazelModuleInspectorValue) evaluationResult.get(BazelModuleInspectorValue.KEY);
-
-    } catch (InterruptedException e) {
-      String errorMessage = "mod command interrupted: " + e.getMessage();
-      env.getReporter().handle(Event.error(errorMessage));
-      return BlazeCommandResult.detailedExitCode(
-          InterruptedFailureDetails.detailedExitCode(errorMessage));
-    } catch (AbruptExitException e) {
-      env.getReporter().handle(Event.error(null, "Unknown error: " + e.getMessage()));
-      return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
-    }
-
     ModOptions modOptions = options.getOptions(ModOptions.class);
     Preconditions.checkArgument(modOptions != null);
 
@@ -190,6 +155,104 @@ public final class ModCommand implements BlazeCommand {
       return reportAndCreateFailureResult(env, errorMessage, Code.MOD_COMMAND_UNKNOWN);
     }
     List<String> args = options.getResidue().subList(1, options.getResidue().size());
+
+    ImmutableList.Builder<RepositoryMappingValue.Key> repositoryMappingKeysBuilder =
+        ImmutableList.builder();
+    if (subcommand.equals(ModSubcommand.DUMP_REPO_MAPPING)) {
+      if (args.isEmpty()) {
+        // Make this case an error so that we are free to add a mode that emits all mappings in a
+        // single JSON object later.
+        return reportAndCreateFailureResult(
+            env, "No repository name(s) specified", Code.INVALID_ARGUMENTS);
+      }
+      for (String arg : args) {
+        try {
+          repositoryMappingKeysBuilder.add(RepositoryMappingValue.key(RepositoryName.create(arg)));
+        } catch (LabelSyntaxException e) {
+          return reportAndCreateFailureResult(env, e.getMessage(), Code.INVALID_ARGUMENTS);
+        }
+      }
+    }
+    ImmutableList<RepositoryMappingValue.Key> repoMappingKeys =
+        repositoryMappingKeysBuilder.build();
+
+    BazelDepGraphValue depGraphValue;
+    BazelModuleInspectorValue moduleInspector;
+    List<RepositoryMappingValue> repoMappingValues;
+
+    SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
+    LoadingPhaseThreadsOption threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
+
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setParallelism(threadsOption.threads)
+            .setEventHandler(env.getReporter())
+            .build();
+
+    try {
+      env.syncPackageLoading(options);
+
+      ImmutableSet.Builder<SkyKey> keys = ImmutableSet.builder();
+      if (subcommand.equals(ModSubcommand.DUMP_REPO_MAPPING)) {
+        keys.addAll(repoMappingKeys);
+      } else {
+        keys.add(BazelDepGraphValue.KEY, BazelModuleInspectorValue.KEY);
+      }
+      EvaluationResult<SkyValue> evaluationResult =
+          skyframeExecutor.prepareAndGet(keys.build(), evaluationContext);
+
+      if (evaluationResult.hasError()) {
+        Exception e = evaluationResult.getError().getException();
+        String message = "Unexpected error during repository rule evaluation.";
+        if (e != null) {
+          message = e.getMessage();
+        }
+        return reportAndCreateFailureResult(env, message, Code.INVALID_ARGUMENTS);
+      }
+
+      depGraphValue = (BazelDepGraphValue) evaluationResult.get(BazelDepGraphValue.KEY);
+
+      moduleInspector =
+          (BazelModuleInspectorValue) evaluationResult.get(BazelModuleInspectorValue.KEY);
+
+      repoMappingValues =
+          repoMappingKeys.stream()
+              .map(evaluationResult::get)
+              .map(RepositoryMappingValue.class::cast)
+              .collect(toImmutableList());
+    } catch (InterruptedException e) {
+      String errorMessage = "mod command interrupted: " + e.getMessage();
+      env.getReporter().handle(Event.error(errorMessage));
+      return BlazeCommandResult.detailedExitCode(
+          InterruptedFailureDetails.detailedExitCode(errorMessage));
+    } catch (AbruptExitException e) {
+      env.getReporter().handle(Event.error(null, "Unknown error: " + e.getMessage()));
+      return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
+    }
+
+    if (subcommand.equals(ModSubcommand.DUMP_REPO_MAPPING)) {
+      String missingRepos =
+          IntStream.range(0, repoMappingKeys.size())
+              .filter(i -> repoMappingValues.get(i) == RepositoryMappingValue.NOT_FOUND_VALUE)
+              .mapToObj(repoMappingKeys::get)
+              .map(RepositoryMappingValue.Key::repoName)
+              .map(RepositoryName::getName)
+              .collect(joining(", "));
+      if (!missingRepos.isEmpty()) {
+        return reportAndCreateFailureResult(
+            env, "Repositories not found: " + missingRepos, Code.INVALID_ARGUMENTS);
+      }
+      try {
+        dumpRepoMappings(
+            repoMappingValues,
+            new OutputStreamWriter(
+                env.getReporter().getOutErr().getOutputStream(),
+                modOptions.charset == UTF8 ? UTF_8 : US_ASCII));
+      } catch (IOException e) {
+        throw new IllegalStateException(e);
+      }
+      return BlazeCommandResult.success();
+    }
 
     // Extract and check the --base_module argument first to use it when parsing the other args.
     // Can only be a TargetModule or a repoName relative to the ROOT.
@@ -453,6 +516,8 @@ public final class ModCommand implements BlazeCommand {
       case SHOW_EXTENSION:
         modExecutor.showExtension(argsAsExtensions, usageKeys);
         break;
+      default:
+        throw new IllegalStateException("Unexpected subcommand: " + subcommand);
     }
 
     return BlazeCommandResult.success();
@@ -509,5 +574,22 @@ public final class ModCommand implements BlazeCommand {
                 .setModCommand(FailureDetails.ModCommand.newBuilder().setCode(detailedCode).build())
                 .setMessage(message)
                 .build()));
+  }
+
+  public static void dumpRepoMappings(List<RepositoryMappingValue> repoMappings, Writer writer)
+      throws IOException {
+    Gson gson = new GsonBuilder().disableHtmlEscaping().create();
+    for (RepositoryMappingValue repoMapping : repoMappings) {
+      JsonWriter jsonWriter = gson.newJsonWriter(writer);
+      jsonWriter.beginObject();
+      for (Entry<String, RepositoryName> entry :
+          repoMapping.getRepositoryMapping().entries().entrySet()) {
+        jsonWriter.name(entry.getKey());
+        jsonWriter.value(entry.getValue().getName());
+      }
+      jsonWriter.endObject();
+      writer.write('\n');
+    }
+    writer.flush();
   }
 }
