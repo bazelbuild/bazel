@@ -237,6 +237,7 @@ tasks:
       - "--host_copt=-w"
       - "--test_tag_filters=-no_windows,-slow"
       - "--test_env=JAVA_HOME"
+      - "--test_env=BAZEL_VC"
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest_install_base"
       - "--test_env=TEST_REPOSITORY_HOME=C:/b/bazeltest_external"
     test_targets:
