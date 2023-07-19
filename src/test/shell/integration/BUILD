@@ -873,7 +873,7 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
     # TODO(arostovtsev): figure out how to make this test Windows-compatible.
-    tags = ["no_windows"],
+    #    tags = ["no_windows"],
 )
 
 ########################################################################
