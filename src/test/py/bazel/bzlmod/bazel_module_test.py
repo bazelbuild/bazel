@@ -697,6 +697,43 @@ class BazelModuleTest(test_base.TestBase):
         stderr,
     )
 
+  def testLocationRoot(self):
+    """Tests that the reported location of the MODULE.bazel file of the root module is as expected."""
+    self.ScratchFile('MODULE.bazel', ['wat'])
+    _, _, stderr = self.RunBazel(['build', '@what'], allow_failure=True)
+    self.assertIn(
+        'ERROR: ' + self.Path('MODULE.bazel').replace('\\', '/'),
+        '\n'.join(stderr).replace('\\', '/'),
+    )
+
+  def testLocationRegistry(self):
+    """Tests that the reported location of the MODULE.bazel file of a module from a registry is as expected."""
+    self.ScratchFile('MODULE.bazel', ['bazel_dep(name="hello",version="1.0")'])
+    self.main_registry.createCcModule(
+        'hello', '1.0', extra_module_file_contents=['wat']
+    )
+    _, _, stderr = self.RunBazel(['build', '@what'], allow_failure=True)
+    self.assertIn(
+        'ERROR: '
+        + self.main_registry.getURL()
+        + '/modules/hello/1.0/MODULE.bazel',
+        '\n'.join(stderr),
+    )
+
+  def testLocationNonRegistry(self):
+    """Tests that the reported location of the MODULE.bazel file of a module with a non-registry override is as expected."""
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name="hello")',
+            'local_path_override(module_name="hello",path="hello")',
+        ],
+    )
+    self.ScratchFile('hello/MODULE.bazel', ['wat'])
+    self.ScratchFile('hello/WORKSPACE.bazel')
+    _, _, stderr = self.RunBazel(['build', '@what'], allow_failure=True)
+    self.assertIn('ERROR: @@hello~override//:MODULE.bazel', '\n'.join(stderr))
+
 
 if __name__ == '__main__':
   unittest.main()
