@@ -350,7 +350,7 @@ childPid=$!
  done
  # Parent process not found - we've been abandoned! Clean up test processes.
  kill_group SIGKILL $childPid
-) &
+) &>/dev/null &
 cleanupPid=$!
 
 set +m
