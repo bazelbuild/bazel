@@ -155,9 +155,9 @@ def to_java_binary_info(java_info):
     java_outputs = [
         _JavaOutputInfo(
             compile_jar = None,
+            ijar = None,  # deprecated
             compile_jdeps = None,
             class_jar = output.class_jar,
-            ijar = output.compile_jar,  # deprecated
             generated_class_jar = output.generated_class_jar,
             generated_source_jar = output.generated_source_jar,
             native_headers_jar = output.native_headers_jar,
