@@ -36,17 +36,15 @@ landing_page:
         path: https://www.aspect.build/
         classname: button
     # Item 2
-    - image_path: /community/images/flare-logo.png
+    - image_path: /community/images/Bitrise.png
       heading: Bitrise
       description: >
-        Flare Build Systems, Inc. is the world’s first Bazel-focused SaaS & consulting company.
-        We’ve made a name for ourselves by assisting enterprises and high-growth, high-value
-        startups migrate their build & test systems into Bazel, interacting with almost every major
-        language and ruleset along the way, but we didn’t stop there—we also have launched a build
-        CI & engineering productivity-focused product line, and offer advanced Bazel training.
+        Bitrise Inc. is the world’s leading mobile-first CI/CD Platform.
+        Our Bitrise Build Cache & CDN product enables enterprises and high-growth organizations to optimize and elevate their Bazel projects.
+        Bitrise brings to market an uncontested build and test caching solution available nowhere else. The first of its kind, fully managed by Bitrise requiring no setup or maintenance, you can use our out-of-the-box cache Steps to enjoy a deeply integrated CI/CD & Bazel experience or integrate our cache directly into your builds on any other platform..
       buttons:
       - label: Learn more
-        path: https://flare.build/
+        path: https://bitrise.io/why/features/mobile-build-caching-for-better-build-test-performance
         classname: button
     # Item 3
     - image_path: /community/images/buildbuddy-logo.svg
