@@ -952,9 +952,18 @@ bool_flag = rule(
     build_setting = config.bool(flag = True),
 )
 
+def _list_flag_impl(ctx):
+    return BuildSettingInfo(value = ctx.build_setting_value)
+
+list_flag = rule(
+    implementation = _list_flag_impl,
+    build_setting = config.string_list(flag = True),
+)
+
 def _dep_transition_impl(settings, attr):
     return {
         "//$pkg:myflag": True,
+        "//$pkg:mylistflag": ["a", "b"],
         "//command_line_option:platform_suffix": "blah"
     }
 
@@ -963,6 +972,7 @@ _dep_transition = transition(
     inputs = [],
     outputs = [
         "//$pkg:myflag",
+        "//$pkg:mylistflag",
         "//command_line_option:platform_suffix",
     ],
 )
@@ -980,13 +990,18 @@ root_rule = rule(
 EOF
 
   cat > $pkg/BUILD <<'EOF'
-load(":rules.bzl", "bool_flag", "root_rule")
+load(":rules.bzl", "bool_flag", "list_flag", "root_rule")
 
 exports_files(["rules.bzl"])
 
 bool_flag(
     name = "myflag",
     build_setting_default = False,
+)
+
+list_flag(
+    name = "mylistflag",
+    build_setting_default = ["c"],
 )
 
 py_library(
@@ -1008,24 +1023,31 @@ def format(target):
     return str(target.label) + '%None'
   first = str(bo['//command_line_option:platform_suffix'])
   second = str(('//$pkg:myflag' in bo) and bo['//$pkg:myflag'])
-  return str(target.label) + '%' + first + '%' + second
+  third = str(bo['//$pkg:mylistflag'] if '//$pkg:mylistflag' in bo else None)
+  return str(target.label) + '%' + first + '%' + second + '%' + third
 EOF
 
   bazel cquery "//$pkg:bar" --output=starlark \
     --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"
 
-  assert_contains "//$pkg:bar%None%False" output
+  assert_contains "//$pkg:bar%None%False%None" output
+
+  bazel cquery "//$pkg:bar" --output=starlark \
+    --//$pkg:myflag=True --//$pkg:mylistflag=c,d \
+    --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:bar%None%True%\\[\"c\", \"d\"]" output
 
   bazel cquery "//$pkg:foo" --output=starlark \
     --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"
 
-  assert_contains "//$pkg:foo%None%False" output
+  assert_contains "//$pkg:foo%None%False%None" output
 
   bazel cquery "kind(rule, deps(//$pkg:foo))" --output=starlark \
     --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"
 
-  assert_contains "//$pkg:foo%None%False" output
-  assert_contains "//$pkg:bar%blah%True" output
+  assert_contains "//$pkg:foo%None%False%None" output
+  assert_contains "//$pkg:bar%blah%True%\\[\"a\", \"b\"]" output
 
   bazel cquery "//$pkg:rules.bzl" --output=starlark \
     --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"
