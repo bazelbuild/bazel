@@ -334,22 +334,16 @@ class BazelLockfileTest(test_base.TestBase):
             'lockfile_ext = module_extension(',
             '    implementation=_module_ext_impl,',
             '    tag_classes={"dep": _dep},',
-            '    environ=["GREEN_TREES", "NOT_SET"],',
             ')',
         ],
     )
 
-    # Only set one env var, to make sure null variables don't crash
-    _, _, stderr = self.RunBazel(
-        ['build', '@hello//:all'], env_add={'GREEN_TREES': 'In the city'}
-    )
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
     self.assertIn('Hello from the other side!', ''.join(stderr))
     self.assertIn('Name: bmbm , Versions: ["v1", "v2"]', ''.join(stderr))
 
     self.RunBazel(['shutdown'])
-    _, _, stderr = self.RunBazel(
-        ['build', '@hello//:all'], env_add={'GREEN_TREES': 'In the city'}
-    )
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
     self.assertNotIn('Hello from the other side!', ''.join(stderr))
 
   def testModuleExtensionsInDifferentBuilds(self):
