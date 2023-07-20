@@ -19,6 +19,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import static java.util.stream.Collectors.partitioningBy;
 
@@ -40,6 +41,7 @@ import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -67,6 +69,7 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
   static final String SRC_ATTR = "src";
   static final String DEPS_ATTR = "deps";
   static final String SYMBOL_NAMES_ATTR = "symbol_names";
+  static final String RENDER_MAIN_REPO_NAME = "render_main_repo_name";
   static final SafeImplicitOutputsFunction BINARYPROTO_OUT = fromTemplates("%{name}.binaryproto");
   static final SafeImplicitOutputsFunction TEXTPROTO_OUT = fromTemplates("%{name}.textproto");
 
@@ -279,7 +282,7 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
                   .getAnalysisEnvironment()
                   .getSkyframeEnv()
                   .getValueOrThrow(
-                      RepositoryMappingValue.key(ruleContext.getRepository()),
+                      RepositoryMappingValue.key(RepositoryName.MAIN),
                       RepositoryMappingResolutionException.class);
     } catch (RepositoryMappingResolutionException e) {
       ruleContext.ruleError(e.getMessage());
@@ -295,7 +298,11 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
     ModuleInfo moduleInfo;
     try {
       moduleInfo =
-          new ModuleInfoExtractor(getWantedSymbolPredicate(ruleContext), repositoryMapping)
+          new ModuleInfoExtractor(
+                  getWantedSymbolPredicate(ruleContext),
+                  repositoryMapping,
+                  /* renderMainRepoName= */ (Boolean)
+                      ruleContext.getRule().getAttr(RENDER_MAIN_REPO_NAME, BOOLEAN))
               .extractFrom(module);
     } catch (ModuleInfoExtractor.ExtractionException e) {
       ruleContext.ruleError(e.getMessage());

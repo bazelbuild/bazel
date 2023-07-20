@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionDeprecationInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionParamInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionReturnInfo;
@@ -32,6 +32,7 @@ import com.google.devtools.starlark.common.DocstringUtils.ParameterDoc;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkFunction;
@@ -50,8 +51,9 @@ public final class FunctionUtil {
    * @param fn the function object
    * @param withOriginKey set the {@link OriginKey} for the original name and original module where
    *     the function was defined
-   * @param repositoryMapping the repository mapping for the repo in which we want to render labels
-   *     for {@link OriginKey}. Unused if {@code withOriginKey} is false. Must not be null if {@code
+   * @param labelRenderer a string renderer for the file label of {@link OriginKey}; typically, this
+   *     a wrapper around {@link Label#getDisplayForm} with an appropriate repository mapping or
+   *     other logic. Unused if {@code withOriginKey} is false. Must not be null if {@code
    *     withOriginKey} is true.
    * @throws com.google.devtools.build.skydoc.rendering.DocstringParseException if the function's
    *     docstring is malformed
@@ -62,14 +64,14 @@ public final class FunctionUtil {
       String functionName,
       StarlarkFunction fn,
       boolean withOriginKey,
-      @Nullable RepositoryMapping repositoryMapping)
+      @Nullable Function<Label, String> labelRenderer)
       throws DocstringParseException {
     Map<String, String> paramNameToDocMap = Maps.newLinkedHashMap();
     StarlarkFunctionInfo.Builder functionInfoBuilder =
         StarlarkFunctionInfo.newBuilder().setFunctionName(functionName);
     if (withOriginKey) {
-      Preconditions.checkNotNull(repositoryMapping);
-      functionInfoBuilder.setOriginKey(getFunctionOriginKey(fn, repositoryMapping));
+      Preconditions.checkNotNull(labelRenderer);
+      functionInfoBuilder.setOriginKey(getFunctionOriginKey(fn, labelRenderer));
     }
 
     String doc = fn.getDocumentation();
@@ -157,7 +159,7 @@ public final class FunctionUtil {
   }
 
   private static OriginKey getFunctionOriginKey(
-      StarlarkFunction fn, RepositoryMapping repositoryMapping) {
+      StarlarkFunction fn, Function<Label, String> labelRenderer) {
     OriginKey.Builder builder = OriginKey.newBuilder();
     // We can't just `builder.setName(fn.getName())` - fn could be a nested function or a lambda, so
     // fn.getName() may not be a unique name in fn's module. Instead, we look for fn in the module's
@@ -176,7 +178,7 @@ public final class FunctionUtil {
 
     BazelModuleContext moduleContext = BazelModuleContext.of(fn.getModule());
     if (moduleContext != null) {
-      builder.setFile(moduleContext.label().getDisplayForm(repositoryMapping));
+      builder.setFile(labelRenderer.apply(moduleContext.label()));
     }
     return builder.build();
   }

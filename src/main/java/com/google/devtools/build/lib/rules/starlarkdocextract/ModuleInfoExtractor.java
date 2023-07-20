@@ -52,6 +52,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -65,6 +66,7 @@ import net.starlark.java.eval.Structure;
 final class ModuleInfoExtractor {
   private final Predicate<String> isWantedQualifiedName;
   private final RepositoryMapping repositoryMapping;
+  private final Function<Label, String> labelRenderer;
 
   @VisibleForTesting
   static final AttributeInfo IMPLICIT_NAME_ATTRIBUTE_INFO =
@@ -109,11 +111,17 @@ final class ModuleInfoExtractor {
    *     predicate.
    * @param repositoryMapping the repository mapping for the repo in which we want to render labels
    *     as strings
+   * @param renderMainRepoName if true, render labels in the main repo as strings with a repo
+   *     component; in other words, if this parameter is true and {@code repositoryMapping} maps
+   *     "my_repo" to MAIN, we will render {@code //foo:bar.bzl} as {@code @my_repo//foo:bar.bzl}.
    */
   public ModuleInfoExtractor(
-      Predicate<String> isWantedQualifiedName, RepositoryMapping repositoryMapping) {
+      Predicate<String> isWantedQualifiedName,
+      RepositoryMapping repositoryMapping,
+      boolean renderMainRepoName) {
     this.isWantedQualifiedName = isWantedQualifiedName;
     this.repositoryMapping = repositoryMapping;
+    this.labelRenderer = new LabelRenderer(repositoryMapping, renderMainRepoName);
   }
 
   /** Extracts structured documentation for the loadable symbols of a given module. */
@@ -121,7 +129,7 @@ final class ModuleInfoExtractor {
     ModuleInfo.Builder builder = ModuleInfo.newBuilder();
     Optional.ofNullable(module.getDocumentation()).ifPresent(builder::setModuleDocstring);
     Optional.ofNullable(BazelModuleContext.of(module))
-        .map(bazelModuleContext -> bazelModuleContext.label().getDisplayForm(repositoryMapping))
+        .map(bazelModuleContext -> labelRenderer.apply(bazelModuleContext.label()))
         .ifPresent(builder::setFile);
 
     // We do two traversals over the module's globals: (1) find qualified names (including any
@@ -135,7 +143,7 @@ final class ModuleInfoExtractor {
         new DocumentationExtractor(
             builder,
             isWantedQualifiedName,
-            repositoryMapping,
+            labelRenderer,
             providerQualifiedNameCollector.buildQualifiedNames());
     documentationExtractor.traverse(module);
     return builder.build();
@@ -143,6 +151,44 @@ final class ModuleInfoExtractor {
 
   private static boolean isPublicName(String name) {
     return name.length() > 0 && Character.isAlphabetic(name.charAt(0));
+  }
+
+  /**
+   * Renders a label to a string via {@link Label#getShorthandDisplayForm} and explicitly adding the
+   * repo component for labels in the main repo if the main repo is mapped in {@link
+   * #repositoryMapping}.
+   */
+  private static class LabelRenderer implements Function<Label, String> {
+    private final RepositoryMapping repositoryMapping;
+    private final String mainRepoName;
+
+    LabelRenderer(RepositoryMapping repositoryMapping, boolean renderMainRepoName) {
+      this.repositoryMapping = repositoryMapping;
+      if (renderMainRepoName) {
+        // Find the first public name in the map - skipping "@", "__main__", etc.
+        mainRepoName =
+            repositoryMapping.entries().entrySet().stream()
+                .filter(entry -> entry.getValue().isMain() && isPublicName(entry.getKey()))
+                .findFirst()
+                .map(Map.Entry::getKey)
+                .orElse("");
+      } else {
+        mainRepoName = "";
+      }
+    }
+
+    @Override
+    public String apply(Label label) {
+      String labelString = label.getShorthandDisplayForm(repositoryMapping);
+      if (mainRepoName.isEmpty() || labelString.startsWith("@")) {
+        return labelString;
+      } else {
+        // label.getShorthandDisplayForm omits the repo name part for labels in the main repo
+        // regardless of what repositoryMapping says. Therefore, if we want to rename the main repo
+        // in labels in emitted docs, we have to do so manually.
+        return String.format("@%s%s", mainRepoName, labelString);
+      }
+    }
   }
 
   /** An exception indicating that the module's API documentation could not be extracted. */
@@ -304,7 +350,7 @@ final class ModuleInfoExtractor {
   private static final class DocumentationExtractor extends GlobalsVisitor {
     private final ModuleInfo.Builder moduleInfoBuilder;
     private final Predicate<String> isWantedQualifiedName;
-    private final RepositoryMapping repositoryMapping;
+    private final Function<Label, String> labelRenderer;
     private final ImmutableMap<StarlarkProvider.Key, String> providerQualifiedNames;
 
     /**
@@ -314,7 +360,7 @@ final class ModuleInfoExtractor {
      *     other words, the first character of each component of the qualified name is alphabetic)
      *     and (2) the qualified name, or one of its ancestor qualified names, satisfies the wanted
      *     predicate.
-     * @param repositoryMapping repo mapping to use for stringifying labels
+     * @param labelRenderer a function for stringifying labels
      * @param providerQualifiedNames a map from the keys of documentable Starlark providers loadable
      *     from this module to the qualified names (including structure namespaces) under which
      *     those providers are accessible to a user of this module
@@ -322,11 +368,11 @@ final class ModuleInfoExtractor {
     DocumentationExtractor(
         ModuleInfo.Builder moduleInfoBuilder,
         Predicate<String> isWantedQualifiedName,
-        RepositoryMapping repositoryMapping,
+        Function<Label, String> labelRenderer,
         ImmutableMap<StarlarkProvider.Key, String> providerQualifiedNames) {
       this.moduleInfoBuilder = moduleInfoBuilder;
       this.isWantedQualifiedName = isWantedQualifiedName;
-      this.repositoryMapping = repositoryMapping;
+      this.labelRenderer = labelRenderer;
       this.providerQualifiedNames = providerQualifiedNames;
     }
 
@@ -341,7 +387,7 @@ final class ModuleInfoExtractor {
       try {
         moduleInfoBuilder.addFuncInfo(
             FunctionUtil.fromNameAndFunction(
-                qualifiedName, function, /* withOriginKey= */ true, repositoryMapping));
+                qualifiedName, function, /* withOriginKey= */ true, labelRenderer));
       } catch (DocstringParseException e) {
         throw new ExtractionException(e);
       }
@@ -358,7 +404,7 @@ final class ModuleInfoExtractor {
       ruleInfoBuilder.setOriginKey(
           OriginKey.newBuilder()
               .setName(ruleFunction.getName())
-              .setFile(ruleFunction.getExtensionLabel().getDisplayForm(repositoryMapping)));
+              .setFile(labelRenderer.apply(ruleFunction.getExtensionLabel())));
       ruleFunction.getDocumentation().ifPresent(ruleInfoBuilder::setDocString);
       RuleClass ruleClass = ruleFunction.getRuleClass();
       ruleInfoBuilder.addAttribute(IMPLICIT_NAME_ATTRIBUTE_INFO); // name comes first
@@ -392,7 +438,7 @@ final class ModuleInfoExtractor {
       providerInfoBuilder.setOriginKey(
           OriginKey.newBuilder()
               .setName(provider.getName())
-              .setFile(provider.getKey().getExtensionLabel().getDisplayForm(repositoryMapping)));
+              .setFile(labelRenderer.apply(provider.getKey().getExtensionLabel())));
       provider.getDocumentation().ifPresent(providerInfoBuilder::setDocString);
       ImmutableMap<String, Optional<String>> schema = provider.getSchema();
       if (schema != null) {
@@ -419,8 +465,7 @@ final class ModuleInfoExtractor {
       aspectInfoBuilder.setOriginKey(
           OriginKey.newBuilder()
               .setName(aspect.getAspectClass().getExportedName())
-              .setFile(
-                  aspect.getAspectClass().getExtensionLabel().getDisplayForm(repositoryMapping)));
+              .setFile(labelRenderer.apply(aspect.getAspectClass().getExtensionLabel())));
       aspect.getDocumentation().ifPresent(aspectInfoBuilder::setDocString);
       for (String aspectAttribute : aspect.getAttributeAspects()) {
         if (isPublicName(aspectAttribute)) {
@@ -445,8 +490,7 @@ final class ModuleInfoExtractor {
               // make ModuleExtension a StarlarkExportable (partially reverting cl/513213080).
               // Alternatively, we'd need to search the defining module's globals, similarly to what
               // we do in FunctionUtil#getFunctionOriginKey.
-              .setFile(
-                  moduleExtension.getDefiningBzlFileLabel().getDisplayForm(repositoryMapping)));
+              .setFile(labelRenderer.apply(moduleExtension.getDefiningBzlFileLabel())));
       moduleExtension.getDoc().ifPresent(moduleExtensionInfoBuilder::setDocString);
       for (Map.Entry<String, TagClass> entry : moduleExtension.getTagClasses().entrySet()) {
         ModuleExtensionTagClassInfo.Builder tagClassInfoBuilder =
@@ -473,8 +517,7 @@ final class ModuleInfoExtractor {
       repositoryRuleInfoBuilder.setOriginKey(
           OriginKey.newBuilder()
               .setName(ruleClass.getName())
-              .setFile(
-                  repositoryRuleFunction.getExtensionLabel().getDisplayForm(repositoryMapping)));
+              .setFile(labelRenderer.apply(repositoryRuleFunction.getExtensionLabel())));
 
       repositoryRuleInfoBuilder.addAllAttribute(IMPLICIT_REPOSITORY_RULE_ATTRIBUTES);
       addDocumentableAttributes(
@@ -489,51 +532,51 @@ final class ModuleInfoExtractor {
     }
 
     /**
-     * Recursively transforms labels to strings via {@link Label#getShorthandDisplayForm}.
+     * Recursively transforms labels to strings via {@link #labelRenderer}.
      *
      * @return the label's shorthand display string if {@code o} is a label; a container with label
-     *     elements transformed into shorthand display strings recursively if {@code o} is a
-     *     Starlark container; or the original object {@code o} if no label stringification was
+     *     elements transformed recursively into strings via {@link #labelRenderer} if {@code o} is
+     *     a Starlark container; or the original object {@code o} if no label stringification was
      *     performed.
      */
-    private Object stringifyLabels(Object o) {
+    private Object renderLabels(Object o) {
       if (o instanceof Label) {
-        return ((Label) o).getShorthandDisplayForm(repositoryMapping);
+        return labelRenderer.apply((Label) o);
       } else if (o instanceof Map) {
-        return stringifyLabelsOfMap((Map<?, ?>) o);
+        return renderLabelsOfMap((Map<?, ?>) o);
       } else if (o instanceof List) {
-        return stringifyLabelsOfList((List<?>) o);
+        return renderLabelsOfList((List<?>) o);
       } else {
         return o;
       }
     }
 
-    private Object stringifyLabelsOfMap(Map<?, ?> dict) {
-      boolean neededToStringify = false;
+    private Object renderLabelsOfMap(Map<?, ?> dict) {
+      boolean neededToRender = false;
       ImmutableMap.Builder<Object, Object> builder = ImmutableMap.builder();
       for (Map.Entry<?, ?> entry : dict.entrySet()) {
-        Object keyWithStringifiedLabels = stringifyLabels(entry.getKey());
-        Object valueWithStringifiedLabels = stringifyLabels(entry.getValue());
-        if (keyWithStringifiedLabels != entry.getKey()
-            || valueWithStringifiedLabels != entry.getValue() /* as Objects */) {
-          neededToStringify = true;
+        Object keyWithRenderedLabels = renderLabels(entry.getKey());
+        Object valueWithRenderedLabels = renderLabels(entry.getValue());
+        if (keyWithRenderedLabels != entry.getKey()
+            || valueWithRenderedLabels != entry.getValue() /* as Objects */) {
+          neededToRender = true;
         }
-        builder.put(keyWithStringifiedLabels, valueWithStringifiedLabels);
+        builder.put(keyWithRenderedLabels, valueWithRenderedLabels);
       }
-      return neededToStringify ? Dict.immutableCopyOf(builder.buildOrThrow()) : dict;
+      return neededToRender ? Dict.immutableCopyOf(builder.buildOrThrow()) : dict;
     }
 
-    private Object stringifyLabelsOfList(List<?> list) {
-      boolean neededToStringify = false;
+    private Object renderLabelsOfList(List<?> list) {
+      boolean neededToRender = false;
       ImmutableList.Builder<Object> builder = ImmutableList.builder();
       for (Object element : list) {
-        Object elementWithStringifiedLabels = stringifyLabels(element);
-        if (elementWithStringifiedLabels != element /* as Objects */) {
-          neededToStringify = true;
+        Object elementWithRenderedLabels = renderLabels(element);
+        if (elementWithRenderedLabels != element /* as Objects */) {
+          neededToRender = true;
         }
-        builder.add(elementWithStringifiedLabels);
+        builder.add(elementWithRenderedLabels);
       }
-      return neededToStringify ? StarlarkList.immutableCopyOf(builder.build()) : list;
+      return neededToRender ? StarlarkList.immutableCopyOf(builder.build()) : list;
     }
 
     private static AttributeType getAttributeType(Attribute attribute, String where)
@@ -597,7 +640,7 @@ final class ModuleInfoExtractor {
 
       if (!attribute.isMandatory()) {
         Object defaultValue = Attribute.valueToStarlark(attribute.getDefaultValueUnchecked());
-        builder.setDefaultValue(new Printer().repr(stringifyLabels(defaultValue)).toString());
+        builder.setDefaultValue(new Printer().repr(renderLabels(defaultValue)).toString());
       }
       return builder.build();
     }
@@ -641,7 +684,7 @@ final class ModuleInfoExtractor {
         if (!provider.isLegacy()) {
           if (provider.getKey() instanceof StarlarkProvider.Key) {
             Label definingModule = ((StarlarkProvider.Key) provider.getKey()).getExtensionLabel();
-            providerKeyBuilder.setFile(definingModule.getDisplayForm(repositoryMapping));
+            providerKeyBuilder.setFile(labelRenderer.apply(definingModule));
           } else if (provider.getKey() instanceof BuiltinProvider.Key) {
             providerKeyBuilder.setFile("<native>");
           }

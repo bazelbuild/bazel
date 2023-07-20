@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromFunctions;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
@@ -93,6 +94,12 @@ public final class StarlarkDocExtractRule implements RuleDefinition {
         .add(
             attr(StarlarkDocExtract.SYMBOL_NAMES_ATTR, STRING_LIST)
                 .value(ImmutableList.<String>of()))
+        /*<!-- #BLAZE_RULE(starlark_doc_extract).ATTRIBUTE(render_main_repo_name) -->
+        If true, render the name of the main repository (as specified in <code>WORKSPACE</code> or
+        <code>MODULE.bazel</code>) in labels in emitted documentation. In other words, labels like
+        <code>//foo:bar.bzl</code> will be emitted as <code>@my_repo//foo:bar.bzl</code>.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(attr(StarlarkDocExtract.RENDER_MAIN_REPO_NAME, BOOLEAN).value(false))
         /*<!-- #BLAZE_RULE(starlark_doc_extract).IMPLICIT_OUTPUTS -->
         <ul>
           <li><code><var>name</var>.binaryproto</code> (the default output): A

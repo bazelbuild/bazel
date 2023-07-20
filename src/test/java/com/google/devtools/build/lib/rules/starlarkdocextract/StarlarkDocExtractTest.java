@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDir
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
@@ -119,11 +120,13 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
 
   private ModuleInfo protoFromConfiguredTarget(String targetName) throws Exception {
     ConfiguredTarget target = getConfiguredTarget(targetName);
-    return protoFromBinaryFileWriteAction(
-        getGeneratingAction(
-            target,
-            Label.parseCanonicalUnchecked(targetName).toPathFragment().getPathString()
-                + ".binaryproto"));
+    Label targetLabel = Label.parseCanonicalUnchecked(targetName);
+    String outputName = targetLabel.toPathFragment().getPathString() + ".binaryproto";
+    if (targetLabel.getRepository() != RepositoryName.MAIN) {
+      outputName =
+          String.format("external/%s/%s", targetLabel.getRepository().getName(), outputName);
+    }
+    return protoFromBinaryFileWriteAction(getGeneratingAction(target, outputName));
   }
 
   @Before
@@ -915,6 +918,7 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         "    deps = ['dep_bzl'],",
         ")");
     ModuleInfo moduleInfo = protoFromConfiguredTarget("//:extract");
+    assertThat(moduleInfo.getFile()).isEqualTo("//:foo.bzl");
     assertThat(moduleInfo.getModuleExtensionInfoList())
         .containsExactly(
             ModuleExtensionInfo.newBuilder()
@@ -947,5 +951,159 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
                                 .setDefaultValue("\"foo\""))
                         .build())
                 .build());
+  }
+
+  @Test
+  public void labels_whenStarlarkDocExtractInMainBzlmodModule_respectRenderMainRepoNameAttr()
+      throws Exception {
+    setBuildLanguageOptions("--enable_bzlmod");
+    scratch.overwriteFile("MODULE.bazel", "module(name = 'my_module')");
+    scratch.file(
+        "foo.bzl", //
+        "my_rule = rule(",
+        "    implementation = lambda ctx: None,",
+        "    attrs = {'a': attr.label(default = '//target')},",
+        ")");
+    scratch.file(
+        "BUILD", //
+        "starlark_doc_extract(",
+        "    name = 'with_main_repo_name',",
+        "    src = 'foo.bzl',",
+        "    render_main_repo_name = True,",
+        ")",
+        "",
+        // render_main_repo_name is false by default
+        "starlark_doc_extract(",
+        "    name = 'without_main_repo_name',",
+        "    src = 'foo.bzl',",
+        ")");
+
+    ModuleInfo withMainRepoName = protoFromConfiguredTarget("//:with_main_repo_name");
+    assertThat(withMainRepoName.getFile()).isEqualTo("@my_module//:foo.bzl");
+    assertThat(withMainRepoName.getRuleInfo(0).getOriginKey().getFile())
+        .isEqualTo("@my_module//:foo.bzl");
+    assertThat(
+            withMainRepoName
+                .getRuleInfo(0)
+                .getAttribute(1) // 0 is the implicit name attribute
+                .getDefaultValue())
+        .isEqualTo("\"@my_module//target\"");
+
+    ModuleInfo withoutMainRepoName = protoFromConfiguredTarget("//:without_main_repo_name");
+    assertThat(withoutMainRepoName.getFile()).isEqualTo("//:foo.bzl");
+    assertThat(withoutMainRepoName.getRuleInfo(0).getOriginKey().getFile()).isEqualTo("//:foo.bzl");
+    assertThat(
+            withoutMainRepoName
+                .getRuleInfo(0)
+                .getAttribute(1) // 0 is the implicit name attribute
+                .getDefaultValue())
+        .isEqualTo("\"//target\"");
+  }
+
+  @Test
+  public void labels_whenStarlarkDocExtractInMainWorkspaceRepo_respectRenderMainRepoNameAttr()
+      throws Exception {
+    rewriteWorkspace("workspace(name = 'my_repo')");
+    scratch.file(
+        "foo.bzl", //
+        "my_rule = rule(",
+        "    implementation = lambda ctx: None,",
+        "    attrs = {'a': attr.label(default = '//target')},",
+        ")");
+    scratch.file(
+        "BUILD", //
+        "starlark_doc_extract(",
+        "    name = 'with_main_repo_name',",
+        "    src = 'foo.bzl',",
+        "    render_main_repo_name = True,",
+        ")",
+        "",
+        // render_main_repo_name is false by default
+        "starlark_doc_extract(",
+        "    name = 'without_main_repo_name',",
+        "    src = 'foo.bzl',",
+        ")");
+
+    ModuleInfo withMainRepoName = protoFromConfiguredTarget("//:with_main_repo_name");
+    assertThat(withMainRepoName.getFile()).isEqualTo("@my_repo//:foo.bzl");
+    assertThat(withMainRepoName.getRuleInfo(0).getOriginKey().getFile())
+        .isEqualTo("@my_repo//:foo.bzl");
+    assertThat(
+            withMainRepoName
+                .getRuleInfo(0)
+                .getAttribute(1) // 0 is the implicit name attribute
+                .getDefaultValue())
+        .isEqualTo("\"@my_repo//target\"");
+
+    ModuleInfo withoutMainRepoName = protoFromConfiguredTarget("//:without_main_repo_name");
+    assertThat(withoutMainRepoName.getFile()).isEqualTo("//:foo.bzl");
+    assertThat(withoutMainRepoName.getRuleInfo(0).getOriginKey().getFile()).isEqualTo("//:foo.bzl");
+    assertThat(
+            withoutMainRepoName
+                .getRuleInfo(0)
+                .getAttribute(1) // 0 is the implicit name attribute
+                .getDefaultValue())
+        .isEqualTo("\"//target\"");
+  }
+
+  @Test
+  public void labels_whenStarlarkDocExtractInBzlmodDep_renderRepoName() throws Exception {
+    setBuildLanguageOptions("--enable_bzlmod");
+    scratch.overwriteFile(
+        "MODULE.bazel", "module(name = 'my_module')", "bazel_dep(name='dep_mod', version='0.1')");
+    registry.addModule(
+        BzlmodTestUtil.createModuleKey("dep_mod", "0.1"), "module(name='dep_mod', version='0.1')");
+    Path depModRepoPath = moduleRoot.getRelative("dep_mod~0.1");
+    scratch.file(depModRepoPath.getRelative("WORKSPACE").getPathString());
+    scratch.file(
+        depModRepoPath.getRelative("foo.bzl").getPathString(), //
+        "my_rule = rule(",
+        "    implementation = lambda ctx: None,",
+        "    attrs = {'a': attr.label(default = '//target')},",
+        ")");
+    scratch.file(
+        depModRepoPath.getRelative("BUILD").getPathString(), //
+        "starlark_doc_extract(",
+        "    name = 'extract',",
+        "    src = 'foo.bzl',",
+        ")");
+
+    ModuleInfo moduleInfo = protoFromConfiguredTarget("@dep_mod~0.1//:extract");
+    assertThat(moduleInfo.getFile()).isEqualTo("@dep_mod//:foo.bzl");
+    assertThat(moduleInfo.getRuleInfo(0).getOriginKey().getFile()).isEqualTo("@dep_mod//:foo.bzl");
+    assertThat(
+            moduleInfo
+                .getRuleInfo(0)
+                .getAttribute(1) // 0 is the implicit name attribute
+                .getDefaultValue())
+        .isEqualTo("\"@dep_mod//target\"");
+  }
+
+  @Test
+  public void labels_whenStarlarkDocExtractInWorkspaceDep_renderRepoName() throws Exception {
+    rewriteWorkspace("local_repository(name = 'dep', path = 'my_dep_path'");
+    scratch.file("dep_path/WORKSPACE", "workspace(name = 'dep')");
+    scratch.file(
+        "dep_path/foo.bzl", //
+        "my_rule = rule(",
+        "    implementation = lambda ctx: None,",
+        "    attrs = {'a': attr.label(default = '//target')},",
+        ")");
+    scratch.file(
+        "dep_path/BUILD", //
+        "starlark_doc_extract(",
+        "    name = 'extract',",
+        "    src = 'foo.bzl',",
+        ")");
+
+    ModuleInfo moduleInfo = protoFromConfiguredTarget("@dep//:extract");
+    assertThat(moduleInfo.getFile()).isEqualTo("@dep//:foo.bzl");
+    assertThat(moduleInfo.getRuleInfo(0).getOriginKey().getFile()).isEqualTo("@dep//:foo.bzl");
+    assertThat(
+            moduleInfo
+                .getRuleInfo(0)
+                .getAttribute(1) // 0 is the implicit name attribute
+                .getDefaultValue())
+        .isEqualTo("\"@dep//target\"");
   }
 }
