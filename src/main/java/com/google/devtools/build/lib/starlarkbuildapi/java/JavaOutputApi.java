@@ -14,20 +14,16 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.java;
 
-import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import javax.annotation.Nullable;
-import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
-import net.starlark.java.eval.StarlarkValue;
 
 /** A tuple of a java classes jar and its associated source and interface archives. */
-@StarlarkBuiltin(
-    name = "java_output",
-    category = DocCategory.BUILTIN,
-    doc = "The outputs of Java compilation.")
-public interface JavaOutputApi<FileT extends FileApi> extends StarlarkValue {
+public interface JavaOutputApi<FileT extends FileApi> extends StructApi {
 
   @StarlarkMethod(name = "class_jar", doc = "A classes jar file.", structField = true)
   FileT getClassJar();
@@ -121,4 +117,14 @@ public interface JavaOutputApi<FileT extends FileApi> extends StarlarkValue {
       structField = true)
   @Nullable
   Object getSrcJarsStarlark(StarlarkSemantics semantics);
+
+  @Override
+  default String toProto() throws EvalException {
+    throw Starlark.errorf("unsupported method");
+  }
+
+  @Override
+  default String toJson() throws EvalException {
+    throw Starlark.errorf("unsupported method");
+  }
 }
