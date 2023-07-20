@@ -16,9 +16,11 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import java.util.Comparator;
+import java.util.List;
 
 /** A module name, version pair that identifies a module in the external dependency graph. */
 @AutoValue
@@ -78,5 +80,18 @@ public abstract class ModuleKey {
     }
     return RepositoryName.createUnvalidated(
         String.format("%s~%s", getName(), getVersion().isEmpty() ? "override" : getVersion()));
+  }
+
+  public static ModuleKey fromString(String s) throws Version.ParseException {
+    if (s.equals("<root>")) {
+      return ModuleKey.ROOT;
+    }
+    List<String> parts = Splitter.on('@').splitToList(s);
+    if (parts.get(1).equals("_")) {
+      return ModuleKey.create(parts.get(0), Version.EMPTY);
+    }
+
+    Version version = Version.parse(parts.get(1));
+    return ModuleKey.create(parts.get(0), version);
   }
 }

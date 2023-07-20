@@ -299,6 +299,58 @@ class BazelLockfileTest(test_base.TestBase):
     )
     self.assertNotIn('Hello from the other side!', ''.join(stderr))
 
+  def testIsolatedModuleExtension(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            (
+                'lockfile_ext = use_extension("extension.bzl", "lockfile_ext",'
+                ' isolate = True)'
+            ),
+            'lockfile_ext.dep(name = "bmbm", versions = ["v1", "v2"])',
+            'use_repo(lockfile_ext, "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("WORKSPACE")',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            '',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            '',
+            'def _module_ext_impl(ctx):',
+            '    print("Hello from the other side!")',
+            '    repo_rule(name="hello")',
+            '    for mod in ctx.modules:',
+            '        for dep in mod.tags.dep:',
+            '            print("Name:", dep.name, ", Versions:", dep.versions)',
+            '',
+            '_dep = tag_class(attrs={"name": attr.string(), "versions":',
+            ' attr.string_list()})',
+            'lockfile_ext = module_extension(',
+            '    implementation=_module_ext_impl,',
+            '    tag_classes={"dep": _dep},',
+            '    environ=["GREEN_TREES", "NOT_SET"],',
+            ')',
+        ],
+    )
+
+    # Only set one env var, to make sure null variables don't crash
+    _, _, stderr = self.RunBazel(
+        ['build', '@hello//:all'], env_add={'GREEN_TREES': 'In the city'}
+    )
+    self.assertIn('Hello from the other side!', ''.join(stderr))
+    self.assertIn('Name: bmbm , Versions: ["v1", "v2"]', ''.join(stderr))
+
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(
+        ['build', '@hello//:all'], env_add={'GREEN_TREES': 'In the city'}
+    )
+    self.assertNotIn('Hello from the other side!', ''.join(stderr))
+
   def testModuleExtensionsInDifferentBuilds(self):
     # Test that the module extension stays in the lockfile (as long as it's
     # used in the module) even if it is not in the current build
