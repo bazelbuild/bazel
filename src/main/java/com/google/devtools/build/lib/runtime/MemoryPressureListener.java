@@ -19,6 +19,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.metrics.GarbageCollectionMetricsUtils;
 import com.sun.management.GarbageCollectionNotificationInfo;
@@ -28,6 +29,8 @@ import java.lang.management.MemoryUsage;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import javax.management.Notification;
@@ -41,18 +44,29 @@ final class MemoryPressureListener implements NotificationListener {
   private final AtomicReference<EventBus> eventBus = new AtomicReference<>();
   private final RetainedHeapLimiter retainedHeapLimiter;
   private final AtomicReference<GcThrashingDetector> gcThrashingDetector = new AtomicReference<>();
+  private final Executor executor;
 
-  private MemoryPressureListener(RetainedHeapLimiter retainedHeapLimiter) {
+  private MemoryPressureListener(RetainedHeapLimiter retainedHeapLimiter, Executor executor) {
     this.retainedHeapLimiter = retainedHeapLimiter;
+    this.executor = executor;
   }
 
   static MemoryPressureListener create(RetainedHeapLimiter retainedHeapLimiter) {
-    return createFromBeans(ManagementFactory.getGarbageCollectorMXBeans(), retainedHeapLimiter);
+    return createFromBeans(
+        ManagementFactory.getGarbageCollectorMXBeans(),
+        retainedHeapLimiter,
+        // Use a dedicated thread to broadcast memory pressure events. The service thread that calls
+        // handleNotification for GC events is not a typical Java thread - it doesn't work with
+        // debugger breakpoints and may not show up in thread dumps.
+        Executors.newSingleThreadExecutor(
+            new ThreadFactoryBuilder().setNameFormat("memory-pressure-listener-%d").build()));
   }
 
   @VisibleForTesting
   static MemoryPressureListener createFromBeans(
-      List<GarbageCollectorMXBean> gcBeans, RetainedHeapLimiter retainedHeapLimiter) {
+      List<GarbageCollectorMXBean> gcBeans,
+      RetainedHeapLimiter retainedHeapLimiter,
+      Executor executor) {
     ImmutableList<NotificationEmitter> tenuredGcEmitters = findTenuredCollectorBeans(gcBeans);
     if (tenuredGcEmitters.isEmpty()) {
       var names =
@@ -65,7 +79,8 @@ final class MemoryPressureListener implements NotificationListener {
               "Unable to find tenured collector from %s: names were %s.", gcBeans, names));
     }
 
-    MemoryPressureListener memoryPressureListener = new MemoryPressureListener(retainedHeapLimiter);
+    MemoryPressureListener memoryPressureListener =
+        new MemoryPressureListener(retainedHeapLimiter, executor);
     tenuredGcEmitters.forEach(e -> e.addNotificationListener(memoryPressureListener, null, null));
     return memoryPressureListener;
   }
@@ -125,7 +140,10 @@ final class MemoryPressureListener implements NotificationListener {
             .setTenuredSpaceUsedBytes(tenuredSpaceUsedBytes)
             .setTenuredSpaceMaxBytes(tenuredSpaceMaxBytes)
             .build();
+    executor.execute(() -> broadcast(event));
+  }
 
+  private void broadcast(MemoryPressureEvent event) {
     GcThrashingDetector gcThrashingDetector = this.gcThrashingDetector.get();
     if (gcThrashingDetector != null) {
       gcThrashingDetector.handle(event);
