@@ -62,7 +62,7 @@ import javax.annotation.Nullable;
  * order. Any removal invalidates any ordering guarantees.
  *
  * <p>NOTE: This is an older version of Guava's {@code
- * com.google.java.common.colllect.CompactHashSet}, but it outperforms the newer version on large
+ * com.google.java.common.collect.CompactHashSet}, but it outperforms the newer version on large
  * builds significantly, as it uses only 50% of cpu time in comparison.
  */
 public class CompactHashSet<E> extends AbstractSet<E> {

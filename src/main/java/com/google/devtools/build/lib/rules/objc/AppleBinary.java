@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
+import com.google.devtools.build.lib.rules.cpp.UserVariablesExtension;
 import com.google.devtools.build.lib.rules.objc.AppleDebugOutputsInfo.OutputType;
 import com.google.devtools.build.lib.rules.objc.AppleLinkingOutputs.TargetTriplet;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
@@ -56,9 +57,10 @@ public class AppleBinary {
    * @param avoidDeps a list of {@code TransitiveInfoColllection} that contain information about
    *     dependencies whose symbols are used by the linked binary but should not be linked into the
    *     binary itself
-   * @param extraLinkopts extra linkopts to pass to the linker actions
+   * @param extraLinkopts extra linkopts to pass to the linker action
    * @param extraLinkInputs extra input files to pass to the linker action
    * @param isStampingEnabled whether linkstamping is enabled
+   * @param userVariablesExtension the UserVariablesExtension to pass to the linker action
    * @return a tuple containing all necessary information about the linked binary
    */
   public static AppleLinkingOutputs linkMultiArchBinary(
@@ -69,7 +71,8 @@ public class AppleBinary {
       Iterable<Artifact> extraLinkInputs,
       Iterable<String> extraRequestedFeatures,
       Iterable<String> extraDisabledFeatures,
-      boolean isStampingEnabled)
+      boolean isStampingEnabled,
+      UserVariablesExtension userVariablesExtension)
       throws InterruptedException, RuleErrorException, EvalException {
     Map<Optional<String>, List<ConfiguredTargetAndData>> splitDeps =
         ruleContext.getSplitPrerequisiteConfiguredTargetAndTargets("deps");
@@ -141,6 +144,7 @@ public class AppleBinary {
               extraRequestedFeatures,
               extraDisabledFeatures,
               isStampingEnabled,
+              userVariablesExtension,
               propagatedDeps,
               outputGroupCollector);
 

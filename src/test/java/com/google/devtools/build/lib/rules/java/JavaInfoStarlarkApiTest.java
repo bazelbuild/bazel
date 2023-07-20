@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.Map;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -870,6 +871,118 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
 
     assertThat(ruleOutputs.toFlags())
         .containsExactly("--add-opens=java.base/java.lang=ALL-UNNAMED");
+  }
+
+  @Test
+  public void starlarkJavaOutputsCanBeAddedToJavaPluginInfo() throws Exception {
+    Artifact classJar = createArtifact("foo.jar");
+    StarlarkInfo starlarkJavaOutput =
+        makeStruct(ImmutableMap.of("source_jars", Starlark.NONE, "class_jar", classJar));
+    StarlarkInfo starlarkPluginInfo =
+        makeStruct(
+            ImmutableMap.of(
+                "java_outputs", StarlarkList.immutableOf(starlarkJavaOutput),
+                "plugins", JavaPluginData.empty(),
+                "api_generating_plugins", JavaPluginData.empty()));
+
+    JavaPluginInfo pluginInfo = JavaPluginInfo.PROVIDER.wrap(starlarkPluginInfo);
+
+    assertThat(pluginInfo).isNotNull();
+    assertThat(pluginInfo.getJavaOutputs()).hasSize(1);
+    assertThat(pluginInfo.getJavaOutputs().get(0).getClassJar()).isEqualTo(classJar);
+  }
+
+  @Test
+  public void javaOutputSourceJarsReturnsListWithIncompatibleFlagDisabled() throws Exception {
+    setBuildLanguageOptions("--noincompatible_depset_for_java_output_source_jars");
+    scratch.file(
+        "foo/extension.bzl",
+        "MyInfo = provider()",
+        "",
+        "def _impl(ctx):",
+        "  return MyInfo(source_jars = ctx.attr.dep[JavaInfo].java_outputs[0].source_jars)",
+        "",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {'dep' : attr.label()}",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "java_library(name = 'lib')",
+        "my_rule(name = 'my_starlark_rule', dep = ':lib')");
+
+    ConfiguredTarget target = getConfiguredTarget("//foo:my_starlark_rule");
+
+    StarlarkInfo info =
+        (StarlarkInfo)
+            target.get(
+                new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "MyInfo"));
+    assertThat(info).isNotNull();
+    assertThat(info.getValue("source_jars")).isInstanceOf(StarlarkList.class);
+  }
+
+  @Test
+  public void javaOutputSourceJarsReturnsDepsetWithIncompatibleFlagEnabled() throws Exception {
+    setBuildLanguageOptions("--incompatible_depset_for_java_output_source_jars");
+    scratch.file(
+        "foo/extension.bzl",
+        "MyInfo = provider()",
+        "",
+        "def _impl(ctx):",
+        "  return MyInfo(source_jars = ctx.attr.dep[JavaInfo].java_outputs[0].source_jars)",
+        "",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {'dep' : attr.label()}",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "java_library(name = 'lib')",
+        "my_rule(name = 'my_starlark_rule', dep = ':lib')");
+
+    ConfiguredTarget target = getConfiguredTarget("//foo:my_starlark_rule");
+
+    StarlarkInfo info =
+        (StarlarkInfo)
+            target.get(
+                new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "MyInfo"));
+    assertThat(info).isNotNull();
+    assertThat(info.getValue("source_jars")).isInstanceOf(Depset.class);
+  }
+
+  @Test
+  public void nativeAndStarlarkJavaOutputsCanBeAddedToADepset() throws Exception {
+    scratch.file(
+        "foo/extension.bzl",
+        "def _impl(ctx):",
+        "  f = ctx.actions.declare_file(ctx.label.name + '.jar')",
+        "  ctx.actions.write(f, '')",
+        "  return [JavaInfo(output_jar=f, compile_jar=None)]",
+        "",
+        "my_rule = rule(implementation = _impl)");
+    scratch.file(
+        "foo/BUILD",
+        //
+        "load(':extension.bzl', 'my_rule')",
+        "my_rule(name = 'my_starlark_rule')");
+    JavaOutput nativeOutput =
+        JavaOutput.builder().setClassJar(createArtifact("native.jar")).build();
+    StarlarkList<?> starlarkOutputs =
+        ((StarlarkInfo)
+                getConfiguredTarget("//foo:my_starlark_rule").get(JavaInfo.PROVIDER.getKey()))
+            .getValue("java_outputs", StarlarkList.class);
+
+    Depset depset =
+        Depset.fromDirectAndTransitive(
+            Order.STABLE_ORDER,
+            /* direct= */ ImmutableList.builder().add(nativeOutput).addAll(starlarkOutputs).build(),
+            /* transitive= */ ImmutableList.of(),
+            /* strict= */ true);
+
+    assertThat(depset).isNotNull();
+    assertThat(depset.toList()).hasSize(2);
   }
 
   @Test

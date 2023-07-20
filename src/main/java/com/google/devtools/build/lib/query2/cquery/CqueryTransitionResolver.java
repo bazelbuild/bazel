@@ -47,7 +47,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.ReportedException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.UnreportedException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
-import com.google.devtools.build.lib.skyframe.PrerequisiteProducer;
+import com.google.devtools.build.lib.skyframe.DependencyResolver;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.util.Collection;
 import java.util.Map;
@@ -140,10 +140,10 @@ public class CqueryTransitionResolver {
     var attributeTransitionCollector =
         HashBasedTable.<DependencyKind, Label, ConfigurationTransition>create();
     var state =
-        PrerequisiteProducer.State.createForCquery(
+        DependencyResolver.State.createForCquery(
             targetAndConfiguration, attributeTransitionCollector::put);
 
-    var producer = new PrerequisiteProducer(targetAndConfiguration);
+    var producer = new DependencyResolver(targetAndConfiguration);
     try {
       if (!producer.evaluate(
           state,
@@ -153,7 +153,7 @@ public class CqueryTransitionResolver {
           /* semaphoreLocker= */ () -> {},
           accessor.getLookupEnvironment(),
           eventHandler)) {
-        throw new EvaluateException("PrerequisiteProducer.evaluate did not complete");
+        throw new EvaluateException("DependencyResolver.evaluate did not complete");
       }
     } catch (ReportedException | UnreportedException | IncompatibleTargetException e) {
       throw new EvaluateException(e.getMessage());

@@ -706,31 +706,12 @@ public final class JavaInfo extends NativeInfo
     private boolean neverlink;
     private Location creationLocation = Location.BUILTIN;
 
-    private Builder(@Nullable JavaInfo other) {
-      if (other != null) {
-        this.providerJavaCcInfo = other.providerJavaCcInfo;
-        this.providerJavaCompilationArgs = other.providerJavaCompilationArgs;
-        this.providerJavaCompilationInfo = other.providerJavaCompilationInfo;
-        this.providerJavaGenJars = other.providerJavaGenJars;
-        this.providerModuleFlags = other.providerModuleFlags;
-        this.providerJavaPlugin = other.providerJavaPlugin;
-        this.providerJavaRuleOutputJars = other.providerJavaRuleOutputJars;
-        this.providerJavaSourceJars = other.providerJavaSourceJars;
-      }
-    }
+    private Builder() {}
 
     public static Builder create() {
-      return new Builder(null)
+      return new Builder()
           .setRuntimeJars(ImmutableList.of())
           .setJavaConstraints(ImmutableList.of());
-    }
-
-    public static Builder copyOf(JavaInfo javaInfo) {
-      return new Builder(javaInfo)
-          .setRuntimeJars(javaInfo.getDirectRuntimeJars())
-          .setNeverlink(javaInfo.isNeverlink())
-          .setJavaConstraints(javaInfo.getJavaConstraints())
-          .setLocation(javaInfo.getCreationLocation());
     }
 
     @CanIgnoreReturnValue

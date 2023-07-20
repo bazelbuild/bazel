@@ -1968,7 +1968,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     EnvEntry entry = CcModule.envEntryFromStarlark(entryProvider);
     assertThat(entry).isNotNull();
     StringValueParser parser = new StringValueParser("def");
-    assertThat(entry).isEqualTo(new EnvEntry("abc", parser.getChunks()));
+    assertThat(entry).isEqualTo(new EnvEntry("abc", parser.getChunks(), ImmutableSet.of()));
   }
 
   @Test

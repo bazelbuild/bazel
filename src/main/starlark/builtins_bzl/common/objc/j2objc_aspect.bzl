@@ -448,10 +448,8 @@ def _common(
         intermediate_artifacts = intermediate_artifacts,
         includes = header_search_paths,
         compilation_attributes = None,
-        extra_import_libraries = [],
         implementation_deps = [],
         attr_linkopts = [],
-        alwayslink = False,
         is_aspect = True,
     )
 

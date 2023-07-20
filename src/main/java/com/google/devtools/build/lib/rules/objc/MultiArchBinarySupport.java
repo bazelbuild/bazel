@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkerInput;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
+import com.google.devtools.build.lib.rules.cpp.UserVariablesExtension;
 import com.google.devtools.build.lib.rules.objc.AppleLinkingOutputs.TargetTriplet;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -153,6 +154,7 @@ public class MultiArchBinarySupport {
    *     binaries together
    * @param extraLinkInputs the extra linker inputs to be made available during link actions
    * @param isStampingEnabled whether linkstamping is enabled
+   * @param userVariablesExtension the UserVariablesExtension to pass to the linker actions
    * @param infoCollections a list of provider collections which are propagated from the
    *     dependencies in the requested configuration
    * @param outputMapCollector a map to which output groups created by compile action generation are
@@ -167,6 +169,7 @@ public class MultiArchBinarySupport {
       Iterable<String> extraRequestedFeatures,
       Iterable<String> extraDisabledFeatures,
       boolean isStampingEnabled,
+      UserVariablesExtension userVariablesExtension,
       Iterable<? extends TransitiveInfoCollection> infoCollections,
       Map<String, NestedSet<Artifact>> outputMapCollector)
       throws RuleErrorException, InterruptedException, EvalException {
@@ -197,7 +200,8 @@ public class MultiArchBinarySupport {
             extraLinkInputs,
             extraRequestedFeatures,
             extraDisabledFeatures,
-            isStampingEnabled)
+            isStampingEnabled,
+            userVariablesExtension)
         .validateAttributes();
     ruleContext.assertNoErrors();
 
@@ -284,8 +288,6 @@ public class MultiArchBinarySupport {
       ConfiguredTargetAndData ctad =
           Iterables.getOnlyElement(splitToolchains.get(splitTransitionKey));
       BuildConfigurationValue childToolchainConfig = ctad.getConfiguration();
-      IntermediateArtifacts intermediateArtifacts =
-          new IntermediateArtifacts(ruleContext, childToolchainConfig);
 
       List<? extends TransitiveInfoCollection> propagatedDeps =
           getProvidersFromCtads(splitDeps.get(splitTransitionKey));
@@ -294,7 +296,6 @@ public class MultiArchBinarySupport {
           common(
               ruleContext,
               childToolchainConfig,
-              intermediateArtifacts,
               propagatedDeps,
               avoidDepsCcInfos,
               avoidDepsObjcProviders);
@@ -631,21 +632,18 @@ public class MultiArchBinarySupport {
   private ObjcCommon common(
       RuleContext ruleContext,
       BuildConfigurationValue buildConfiguration,
-      IntermediateArtifacts intermediateArtifacts,
       List<? extends TransitiveInfoCollection> propagatedDeps,
       Iterable<CcInfo> additionalDepCcInfos,
       Iterable<ObjcProvider> additionalDepObjcProviders)
       throws InterruptedException {
 
     ObjcCommon.Builder commonBuilder =
-        new ObjcCommon.Builder(ObjcCommon.Purpose.LINK_ONLY, ruleContext, buildConfiguration)
+        new ObjcCommon.Builder(ruleContext, buildConfiguration)
             .setCompilationAttributes(
                 CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
             .addDeps(propagatedDeps)
             .addCcLinkingContexts(additionalDepCcInfos)
-            .addObjcProviders(additionalDepObjcProviders)
-            .setIntermediateArtifacts(intermediateArtifacts)
-            .setAlwayslink(false);
+            .addObjcProviders(additionalDepObjcProviders);
 
     return commonBuilder.build();
   }

@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.InconsistentNullConfigException;
 import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyException;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -275,22 +274,12 @@ final class PrerequisitesProducer
 
   private void cleanupValues() {
     if (configuredTargets.length == 1) {
-      // Clears the transition keys if there was no effective transition.
-      BuildConfigurationKey fromConfigurationKey = parameters.configurationKey();
-      BuildConfigurationValue transitionedConfiguration = configuredTargets[0].getConfiguration();
-      // `fromConfigurationKey` == null implies `transitionedConfiguration` == null.
-      if (fromConfigurationKey == null
-          || (transitionedConfiguration != null
-              && fromConfigurationKey
-                  .getOptions()
-                  .equals(transitionedConfiguration.getOptions()))) {
-        configuredTargets[0] = configuredTargets[0].copyWithClearedTransitionKeys();
-      }
       return;
     }
-    // Otherwise, there was a split transition. Aggregates the transition keys if the resulting
-    // configurations are null.
+    // Otherwise, there was a split transition.
+
     if (configuredTargets[0].getConfiguration() == null) {
+      // The resulting configurations are null. Aggregates the transition keys.
       var keys = new ImmutableList.Builder<String>();
       keys.addAll(configuredTargets[0].getTransitionKeys());
       for (int i = 1; i < configuredTargets.length; ++i) {

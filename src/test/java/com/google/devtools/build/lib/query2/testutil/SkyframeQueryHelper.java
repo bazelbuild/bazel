@@ -165,6 +165,13 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
   }
 
   @Override
+  public void maybeHandleDiffs() throws AbruptExitException, InterruptedException {
+    if (skyframeExecutor.hasDiffAwareness()) {
+      skyframeExecutor.handleDiffsForTesting(getReporter());
+    }
+  }
+
+  @Override
   public PathFragment getIgnoredPackagePrefixesFile() {
     return ignoredPackagePrefixesFile;
   }

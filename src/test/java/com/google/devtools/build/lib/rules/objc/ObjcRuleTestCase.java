@@ -455,19 +455,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .containsEntry("XCODE_VERSION_OVERRIDE", versionNumber);
   }
 
-  protected ObjcProvider objcProviderForTarget(String label) throws Exception {
-    ObjcProvider objcProvider = getConfiguredTarget(label).get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    if (objcProvider != null) {
-      return objcProvider;
-    }
-    AppleExecutableBinaryInfo executableProvider =
-        getConfiguredTarget(label).get(AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR);
-    if (executableProvider != null) {
-      return executableProvider.getDepsObjcProvider();
-    }
-    return null;
-  }
-
   protected CcInfo ccInfoForTarget(String label) throws Exception {
     CcInfo ccInfo = getConfiguredTarget(label).get(CcInfo.PROVIDER);
     if (ccInfo != null) {
@@ -558,6 +545,9 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    bundle_loader = ctx.attr.bundle_loader",
         "    linkopts = []",
         "    link_inputs = []",
+        "    variables_extension = {}",
+        "    variables_extension.update(ctx.attr.string_variables_extension)",
+        "    variables_extension.update(ctx.attr.string_list_variables_extension)",
         "    if binary_type == 'dylib':",
         "        linkopts.append('-dynamiclib')",
         "    elif binary_type == 'loadable_bundle':",
@@ -577,6 +567,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "        extra_requested_features = ctx.attr.extra_requested_features,",
         "        extra_disabled_features = ctx.attr.extra_disabled_features,",
         "        stamp = ctx.attr.stamp,",
+        "        variables_extension = variables_extension,",
         "    )",
         "    processed_binary = ctx.actions.declare_file('{}_lipobin'.format(ctx.label.name))",
         "    lipo_inputs = [output.binary for output in link_result.outputs]",
@@ -660,6 +651,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "        'platform_type': attr.string(),",
         "        'minimum_os_version': attr.string(),",
         "        'stamp': attr.int(values=[-1,0,1],default=-1),",
+        "        'string_variables_extension': attr.string_dict(),",
+        "        'string_list_variables_extension': attr.string_list_dict(),",
         "    },",
         "    fragments = ['apple', 'objc', 'cpp',],",
         ")");
@@ -1955,11 +1948,12 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(compileActionA.getArguments()).doesNotContain("-fmodule-maps");
     assertThat(compileActionA.getArguments()).doesNotContain("-fmodule-name");
 
-    ObjcProvider provider = objcProviderForTarget("//z:testModuleMap");
+    ObjcProvider provider =
+        getConfiguredTarget("//z:testModuleMap").get(ObjcProvider.STARLARK_CONSTRUCTOR);
     assertThat(Artifact.asExecPaths(provider.get(MODULE_MAP)))
         .containsExactly("y/module.modulemap");
 
-    provider = objcProviderForTarget("//x:x");
+    provider = getConfiguredTarget("//x:x").get(ObjcProvider.STARLARK_CONSTRUCTOR);
     assertThat(Artifact.asExecPaths(provider.get(MODULE_MAP))).contains("y/module.modulemap");
   }
 

@@ -456,4 +456,10 @@ public interface JavaCommonApi<
   void checkJavaToolchainIsDeclaredOnRuleForStarlark(
       StarlarkActionFactoryT actions, StarlarkThread thread)
       throws EvalException, LabelSyntaxException;
+
+  @StarlarkMethod(
+      name = "_incompatible_depset_for_java_output_source_jars",
+      documented = false,
+      useStarlarkThread = true)
+  boolean isDepsetForJavaOutputSourceJarsEnabled(StarlarkThread thread) throws EvalException;
 }
