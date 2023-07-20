@@ -18,6 +18,12 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import java.util.Optional;
 
+// TODO(brandjon): Almost all the uses of this class are in lib/analysis and specific native rule
+// implementations. But there are a couple of uses in lib/packages, namely RuleClassProvider and
+// BazelStarlarkContext. In principle, lib/packages should not depend on lib/analysis. Since nothing
+// in this class currently depends on types defined in lib/analysis, we could migrate it to
+// lib/packages, though it has a large blast radius of changing the import lines in over a hundred
+// files.
 /**
  * A minimal context available during rule definition, for both native and starlark rules.
  *

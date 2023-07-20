@@ -31,12 +31,16 @@ public final class BzlInitThreadContext extends BazelStarlarkContext {
 
   private final Label bzlFile;
 
+  /* Digest of the .bzl file being initialized along with all its transitive loads. */
+  private final byte[] transitiveDigest;
+
   // For storing the result of calling `visibility()`.
   @Nullable private BzlVisibility bzlVisibility;
 
   // TODO(b/236456122): Are all these arguments needed for .bzl initialization?
   public BzlInitThreadContext(
       Label bzlFile,
+      byte[] transitiveDigest,
       @Nullable RepositoryName toolsRepository,
       @Nullable ImmutableMap<String, Class<?>> fragmentNameToClass,
       SymbolGenerator<?> symbolGenerator,
@@ -46,9 +50,10 @@ public final class BzlInitThreadContext extends BazelStarlarkContext {
         toolsRepository,
         fragmentNameToClass,
         symbolGenerator,
-        /*analysisRuleLabel=*/ null,
+        /* analysisRuleLabel= */ null,
         networkAllowlistForTests);
     this.bzlFile = bzlFile;
+    this.transitiveDigest = transitiveDigest;
   }
 
   /**
@@ -86,6 +91,11 @@ public final class BzlInitThreadContext extends BazelStarlarkContext {
    */
   public Label getBzlFile() {
     return bzlFile;
+  }
+
+  /** Returns the transitive digest of the .bzl module being initialized. */
+  public byte[] getTransitiveDigest() {
+    return transitiveDigest;
   }
 
   /**
