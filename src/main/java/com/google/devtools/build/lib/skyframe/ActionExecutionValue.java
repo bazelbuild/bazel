@@ -503,7 +503,7 @@ public abstract class ActionExecutionValue implements SkyValue {
           return false;
         }
       }
-      return true;
+      return super.isEntirelyRemote();
     }
   }
 }

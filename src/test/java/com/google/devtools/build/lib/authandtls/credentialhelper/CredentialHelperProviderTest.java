@@ -138,6 +138,8 @@ public class CredentialHelperProviderTest {
         .isEqualTo(helper);
     assertThat(provider.findCredentialHelper(URI.create("grpcs://example.com/foo")).get().getPath())
         .isEqualTo(helper);
+    assertThat(provider.findCredentialHelper(URI.create("unix:///tmp/grpc.sock")).get().getPath())
+        .isEqualTo(helper);
     assertThat(
             provider.findCredentialHelper(URI.create("custom://example.com/foo")).get().getPath())
         .isEqualTo(helper);
@@ -183,6 +185,8 @@ public class CredentialHelperProviderTest {
         .isEqualTo(defaultHelper);
     assertThat(
             provider.findCredentialHelper(URI.create("https://other-domain.com")).get().getPath())
+        .isEqualTo(defaultHelper);
+    assertThat(provider.findCredentialHelper(URI.create("unix:///tmp/grpc.sock")).get().getPath())
         .isEqualTo(defaultHelper);
   }
 
@@ -235,6 +239,9 @@ public class CredentialHelperProviderTest {
 
     assertThat(
             provider.findCredentialHelper(URI.create("https://other-domain.com")).get().getPath())
+        .isEqualTo(defaultHelper);
+
+    assertThat(provider.findCredentialHelper(URI.create("unix:///tmp/grpc.sock")).get().getPath())
         .isEqualTo(defaultHelper);
   }
 

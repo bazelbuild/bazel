@@ -38,7 +38,7 @@ public class SpawnMetrics {
     this.setupTimeInMs = builder.setupTimeInMs;
     this.uploadTimeInMs = builder.uploadTimeInMs;
     this.executionWallTimeInMs = builder.executionWallTimeInMs;
-    this.retryTimeInMs = builder.retryTimeInMs;
+    this.retryTimeInMs = ImmutableMap.copyOf(builder.retryTimeInMs);
     this.processOutputsTimeInMs = builder.processOutputsTimeInMs;
     this.inputBytes = builder.inputBytes;
     this.inputFiles = builder.inputFiles;
@@ -79,7 +79,7 @@ public class SpawnMetrics {
   int processOutputsTimeInMs;
   int networkTimeInMs;
   // error code to duration in ms
-  Map<Integer, Integer> retryTimeInMs;
+  ImmutableMap<Integer, Integer> retryTimeInMs;
   long inputBytes;
   long inputFiles;
   long memoryEstimateBytes;
