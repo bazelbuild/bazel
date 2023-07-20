@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaInfo.JavaInfoInternalProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCompilationInfoProviderApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -176,4 +177,43 @@ public abstract class JavaCompilationInfoProvider
   }
 
   public abstract NestedSet<Artifact> bootClasspath();
+
+  /*
+   * Underrides the @Autovalue implementation.
+   * We shouldn't be doing this, but this is necessary to allow Starlark-constructed instances to
+   * be compared with natively constructed instances. The difference arises only because of the
+   * boot classpath. The Starlark API returns a list, while we store a NestedSet in
+   * native for efficiency. When we reconstruct a native instance from a Starlark one, the list is
+   * wrapped in a new NestedSet instance. Since NestedSet equality relies on
+   * reference-equality, here, we perform a NestedSet#shallowEquals only for the bootClasspath to
+   * verify the contents are the same.
+   * Note: this is temporary, and is required only while JavaCompilationInfoProvider is still
+   * constructed in native code. Once the migration to Starlark is complete, this will be deleted as
+   * this class will no longer have any fields but will simply wrap the StarlarkInfo instance and
+   * delegate in each of its public methods.
+   */
+  @Override
+  public final boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (!(obj instanceof JavaCompilationInfoProvider)) {
+      return false;
+    }
+    JavaCompilationInfoProvider other = (JavaCompilationInfoProvider) obj;
+    return Objects.equals(getJavacOpts(), other.getJavacOpts())
+        && Objects.equals(getRuntimeClasspath(), other.getRuntimeClasspath())
+        && Objects.equals(getCompilationClasspath(), other.getCompilationClasspath())
+        && bootClasspath().shallowEquals(other.bootClasspath());
+  }
+
+  /* See comment for #equals above on why we need this. */
+  @Override
+  public final int hashCode() {
+    return Objects.hash(
+        getJavacOpts(),
+        getRuntimeClasspath(),
+        getCompilationClasspath(),
+        bootClasspath().shallowHashCode());
+  }
 }

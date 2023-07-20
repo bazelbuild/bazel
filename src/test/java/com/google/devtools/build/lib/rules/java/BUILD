@@ -108,6 +108,21 @@ java_test(
 )
 
 java_test(
+    name = "JavaCompilationInfoProviderTest",
+    srcs = ["JavaCompilationInfoProviderTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//third_party:guava-testlib",
+        "//third_party:junit4",
+    ],
+)
+
+java_test(
     name = "JavaOptionsTest",
     srcs = ["JavaOptionsTest.java"],
     deps = [

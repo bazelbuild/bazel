@@ -1036,6 +1036,37 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
+  public void translatedStarlarkCompilationInfoEqualsNativeInstance() throws Exception {
+    Artifact bootClasspathArtifact = createArtifact("boot.jar");
+    NestedSet<Artifact> compilationClasspath =
+        NestedSetBuilder.create(Order.NAIVE_LINK_ORDER, createArtifact("compile.jar"));
+    NestedSet<Artifact> runtimeClasspath =
+        NestedSetBuilder.create(Order.NAIVE_LINK_ORDER, createArtifact("runtime.jar"));
+    StarlarkInfo starlarkInfo =
+        makeStruct(
+            ImmutableMap.of(
+                "compilation_classpath", Depset.of(Artifact.class, compilationClasspath),
+                "runtime_classpath", Depset.of(Artifact.class, runtimeClasspath),
+                "javac_options", StarlarkList.immutableOf("opt1", "opt2"),
+                "boot_classpath", StarlarkList.immutableOf(bootClasspathArtifact)));
+    JavaCompilationInfoProvider nativeCompilationInfo =
+        new JavaCompilationInfoProvider.Builder()
+            .setCompilationClasspath(compilationClasspath)
+            .setRuntimeClasspath(runtimeClasspath)
+            .setJavacOpts(ImmutableList.of("opt1", "opt2"))
+            .setBootClasspath(
+                BootClassPathInfo.create(
+                    NestedSetBuilder.create(Order.NAIVE_LINK_ORDER, bootClasspathArtifact)))
+            .build();
+
+    JavaCompilationInfoProvider starlarkCompilationInfo =
+        JavaCompilationInfoProvider.fromStarlarkCompilationInfo(starlarkInfo);
+
+    assertThat(starlarkCompilationInfo).isNotNull();
+    assertThat(starlarkCompilationInfo).isEqualTo(nativeCompilationInfo);
+  }
+
+  @Test
   public void translateStarlarkJavaInfo_moduleFlagsInfo() throws Exception {
     ImmutableMap<String, Object> fields =
         getBuilderWithMandataryFields()
