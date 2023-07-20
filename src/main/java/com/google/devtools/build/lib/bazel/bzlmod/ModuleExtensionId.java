@@ -19,8 +19,10 @@ import static com.google.common.collect.Comparators.emptiesFirst;
 import static java.util.Comparator.comparing;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Splitter;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Optional;
 
 /** A unique identifier for a {@link ModuleExtension}. */
@@ -48,6 +50,17 @@ public abstract class ModuleExtensionId {
 
     public static IsolationKey create(ModuleKey module, String usageExportedName) {
       return new AutoValue_ModuleExtensionId_IsolationKey(module, usageExportedName);
+    }
+
+    @Override
+    public final String toString() {
+      return getModule() + "~" + getUsageExportedName();
+    }
+
+    public static IsolationKey fromString(String s) throws Version.ParseException {
+      List<String> isolationKeyParts = Splitter.on("~").splitToList(s);
+      return ModuleExtensionId.IsolationKey.create(
+          ModuleKey.fromString(isolationKeyParts.get(0)), isolationKeyParts.get(1));
     }
   }
 

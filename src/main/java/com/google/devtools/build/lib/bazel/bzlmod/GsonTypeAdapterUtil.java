@@ -41,7 +41,6 @@ import java.io.IOException;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.Base64;
-import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
@@ -82,47 +81,76 @@ public final class GsonTypeAdapterUtil {
         @Override
         public ModuleKey read(JsonReader jsonReader) throws IOException {
           String jsonString = jsonReader.nextString();
-          if (jsonString.equals("<root>")) {
-            return ModuleKey.ROOT;
-          }
-          List<String> parts = Splitter.on('@').splitToList(jsonString);
-          if (parts.get(1).equals("_")) {
-            return ModuleKey.create(parts.get(0), Version.EMPTY);
-          }
-
-          Version version;
           try {
-            version = Version.parse(parts.get(1));
+            return ModuleKey.fromString(jsonString);
           } catch (ParseException e) {
             throw new JsonParseException(
                 String.format("Unable to parse ModuleKey %s version from the lockfile", jsonString),
                 e);
           }
-          return ModuleKey.create(parts.get(0), version);
         }
       };
 
-  // TODO(salmasamy) need to handle "isolated" in module extensions when it is stable
   public static final TypeAdapter<ModuleExtensionId> MODULE_EXTENSION_ID_TYPE_ADAPTER =
       new TypeAdapter<>() {
         @Override
         public void write(JsonWriter jsonWriter, ModuleExtensionId moduleExtId) throws IOException {
-          jsonWriter.value(moduleExtId.getBzlFileLabel() + "%" + moduleExtId.getExtensionName());
+          String isolationKeyPart = moduleExtId.getIsolationKey().map(key -> "%" + key).orElse("");
+          jsonWriter.value(
+              moduleExtId.getBzlFileLabel()
+                  + "%"
+                  + moduleExtId.getExtensionName()
+                  + isolationKeyPart);
         }
 
         @Override
         public ModuleExtensionId read(JsonReader jsonReader) throws IOException {
           String jsonString = jsonReader.nextString();
-          // [0] is labelString, [1] is extensionName
-          List<String> extIdParts = Splitter.on("%").splitToList(jsonString);
+          var extIdParts = Splitter.on('%').splitToList(jsonString);
+          Optional<ModuleExtensionId.IsolationKey> isolationKey;
+          if (extIdParts.size() > 2) {
+            try {
+              isolationKey =
+                  Optional.of(ModuleExtensionId.IsolationKey.fromString(extIdParts.get(2)));
+            } catch (ParseException e) {
+              throw new JsonParseException(
+                  String.format(
+                      "Unable to parse ModuleExtensionID isolation key: '%s' from the lockfile",
+                      extIdParts.get(2)),
+                  e);
+            }
+          } else {
+            isolationKey = Optional.empty();
+          }
           try {
             return ModuleExtensionId.create(
-                Label.parseCanonical(extIdParts.get(0)), extIdParts.get(1), Optional.empty());
+                Label.parseCanonical(extIdParts.get(0)), extIdParts.get(1), isolationKey);
           } catch (LabelSyntaxException e) {
             throw new JsonParseException(
                 String.format(
-                    "Unable to parse ModuleExtensionID bzl file label:  '%s' from the lockfile",
+                    "Unable to parse ModuleExtensionID bzl file label: '%s' from the lockfile",
                     extIdParts.get(0)),
+                e);
+          }
+        }
+      };
+
+  public static final TypeAdapter<ModuleExtensionId.IsolationKey> ISOLATION_KEY_TYPE_ADAPTER =
+      new TypeAdapter<>() {
+        @Override
+        public void write(JsonWriter jsonWriter, ModuleExtensionId.IsolationKey isolationKey)
+            throws IOException {
+          jsonWriter.value(isolationKey.toString());
+        }
+
+        @Override
+        public ModuleExtensionId.IsolationKey read(JsonReader jsonReader) throws IOException {
+          String jsonString = jsonReader.nextString();
+          try {
+            return ModuleExtensionId.IsolationKey.fromString(jsonString);
+          } catch (ParseException e) {
+            throw new JsonParseException(
+                String.format("Unable to parse isolation key: '%s' from the lockfile", jsonString),
                 e);
           }
         }
@@ -283,6 +311,7 @@ public final class GsonTypeAdapterUtil {
         .registerTypeAdapter(Version.class, VERSION_TYPE_ADAPTER)
         .registerTypeAdapter(ModuleKey.class, MODULE_KEY_TYPE_ADAPTER)
         .registerTypeAdapter(ModuleExtensionId.class, MODULE_EXTENSION_ID_TYPE_ADAPTER)
+        .registerTypeAdapter(ModuleExtensionId.IsolationKey.class, ISOLATION_KEY_TYPE_ADAPTER)
         .registerTypeAdapter(AttributeValues.class, new AttributeValuesAdapter())
         .registerTypeAdapter(byte[].class, BYTE_ARRAY_TYPE_ADAPTER)
         .create();
