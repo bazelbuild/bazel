@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
+import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps;
@@ -144,9 +145,16 @@ public class SingleExtensionEvalFunction implements SkyFunction {
           Transience.PERSISTENT);
     }
 
-    // Check the lockfile first for that module extension
+    ModuleExtension extension = (ModuleExtension) exported;
+    ImmutableMap<String, String> extensionEnvVars =
+        RepositoryFunction.getEnvVarValues(env, extension.getEnvVariables());
+    if (extensionEnvVars == null) {
+      return null;
+    }
     byte[] bzlTransitiveDigest =
         BazelModuleContext.of(bzlLoadValue.getModule()).bzlTransitiveDigest();
+
+    // Check the lockfile first for that module extension
     LockfileMode lockfileMode = BazelLockFileFunction.LOCKFILE_MODE.get(env);
     if (!lockfileMode.equals(LockfileMode.OFF)) {
       BazelLockFileValue lockfile = (BazelLockFileValue) env.getValue(BazelLockFileValue.KEY);
@@ -155,14 +163,18 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       }
       SingleExtensionEvalValue singleExtensionEvalValue =
           tryGettingValueFromLockFile(
-              extensionId, usagesValue, bzlTransitiveDigest, lockfileMode, lockfile);
+              extensionId,
+              extensionEnvVars,
+              usagesValue,
+              bzlTransitiveDigest,
+              lockfileMode,
+              lockfile);
       if (singleExtensionEvalValue != null) {
         return singleExtensionEvalValue;
       }
     }
 
     // Run that extension!
-    ModuleExtension extension = (ModuleExtension) exported;
     ImmutableMap<String, RepoSpec> generatedRepoSpecs =
         runModuleExtension(
             extensionId, extension, usagesValue, bzlLoadValue.getModule(), starlarkSemantics, env);
@@ -177,7 +189,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
           .post(
               ModuleExtensionResolutionEvent.create(
                   extensionId,
-                  LockFileModuleExtension.create(bzlTransitiveDigest, generatedRepoSpecs)));
+                  LockFileModuleExtension.create(
+                      bzlTransitiveDigest, extensionEnvVars, generatedRepoSpecs)));
     }
     return createSingleExtentionValue(generatedRepoSpecs, usagesValue);
   }
@@ -185,6 +198,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
   @Nullable
   private SingleExtensionEvalValue tryGettingValueFromLockFile(
       ModuleExtensionId extensionId,
+      ImmutableMap<String, String> envVariables,
       SingleExtensionUsagesValue usagesValue,
       byte[] bzlTransitiveDigest,
       LockfileMode lockfileMode,
@@ -205,7 +219,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     // If we have the extension, check if the implementation and usage haven't changed
     if (lockedExtension != null
         && Arrays.equals(bzlTransitiveDigest, lockedExtension.getBzlTransitiveDigest())
-        && usagesValue.getExtensionUsages().equals(lockedExtensionUsages)) {
+        && usagesValue.getExtensionUsages().equals(lockedExtensionUsages)
+        && envVariables.equals(lockedExtension.getEnvVariables())) {
       return createSingleExtentionValue(lockedExtension.getGeneratedRepoSpecs(), usagesValue);
     } else if (lockfileMode.equals(LockfileMode.ERROR)) {
       ImmutableList<String> extDiff =
@@ -214,6 +229,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
               lockedExtensionUsages,
               extensionId,
               bzlTransitiveDigest,
+              envVariables,
               usagesValue.getExtensionUsages());
       throw new SingleExtensionEvalFunctionException(
           ExternalDepsException.withMessage(

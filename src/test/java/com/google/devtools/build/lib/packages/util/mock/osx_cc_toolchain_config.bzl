@@ -114,6 +114,27 @@ _default_enabled_linking_flags_feature = feature(
     ],
 )
 
+_check_additional_variables_feature = feature(
+    "check_additional_variables_feature",
+    enabled = True,
+    flag_sets = [
+        flag_set(
+            actions = _ALL_LINK_ACTIONS,
+            flag_groups = [
+                flag_group(
+                    flags = ["--my_string=%{string_variable}"],
+                    expand_if_available = "string_variable",
+                ),
+                flag_group(
+                    flags = ["--my_list_element=%{list_variable}"],
+                    iterate_over = "list_variable",
+                    expand_if_available = "list_variable",
+                ),
+            ],
+        ),
+    ],
+)
+
 _feature_name_to_feature = {
     "archive_param_file": _archive_param_file_feature,
     "default_feature": _default_feature,
@@ -126,6 +147,7 @@ _feature_name_to_feature = {
     "special_linking_flags_feature": _special_linking_flags_feature,
     "default_enabled_linking_feature": _default_enabled_linking_feature,
     "default_enabled_linking_flags_feature": _default_enabled_linking_flags_feature,
+    "check_additional_variables_feature": _check_additional_variables_feature,
 }
 
 _action_name_to_action = {}

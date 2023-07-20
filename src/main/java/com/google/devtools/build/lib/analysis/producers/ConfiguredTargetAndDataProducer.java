@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.InconsistentNullConfigException;
 import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
@@ -87,9 +86,9 @@ public final class ConfiguredTargetAndDataProducer
   }
 
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     tasks.lookUp(
-        key.toKey(),
+        key,
         ConfiguredValueCreationException.class,
         NoSuchThingException.class,
         InconsistentNullConfigException.class,
@@ -133,7 +132,7 @@ public final class ConfiguredTargetAndDataProducer
     throw new IllegalArgumentException("both value and error were null");
   }
 
-  private StateMachine fetchConfigurationAndPackage(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine fetchConfigurationAndPackage(Tasks tasks) {
     if (configuredTarget == null) {
       return DONE; // There was a previous error.
     }
@@ -174,7 +173,7 @@ public final class ConfiguredTargetAndDataProducer
     throw new IllegalArgumentException("unexpected value: " + value);
   }
 
-  private StateMachine constructResult(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine constructResult(Tasks tasks) {
     Target target;
     try {
       target = pkg.getTarget(configuredTarget.getLabel().getName());

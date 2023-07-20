@@ -23,7 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -141,7 +141,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       }
 
       @Override
-      public ActionLookupKeyOrProxy getOwner() {
+      public ActionLookupKey getOwner() {
         return starlarkActionFactory
             .getActionConstructionContext()
             .getAnalysisEnvironment()
@@ -400,7 +400,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Artifact executable = (Artifact) executableUnchecked;
       FilesToRunProvider provider = context.getExecutableRunfiles(executable);
       if (provider == null) {
-        if (useAutoExecGroups) {
+        if (useAutoExecGroups && execGroupUnchecked == Starlark.NONE) {
           checkToolchainParameterIsSet(toolchainUnchecked);
         }
         builder.setExecutable(executable);
@@ -414,7 +414,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
           PathFragment.create((String) executableUnchecked).getPathString());
     } else if (executableUnchecked instanceof FilesToRunProvider) {
       if (useAutoExecGroups
-          && !context.areRunfilesFromDeps((FilesToRunProvider) executableUnchecked)) {
+          && !context.areRunfilesFromDeps((FilesToRunProvider) executableUnchecked)
+          && execGroupUnchecked == Starlark.NONE) {
         checkToolchainParameterIsSet(toolchainUnchecked);
       }
       builder.setExecutable((FilesToRunProvider) executableUnchecked);
@@ -737,19 +738,20 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
           if (provider != null) {
             builder.addTool(provider);
           } else {
-            if (useAutoExecGroups) {
+            if (useAutoExecGroups && execGroupUnchecked == Starlark.NONE) {
               checkToolchainParameterIsSet(toolchainUnchecked);
             }
           }
         } else if (toolUnchecked instanceof FilesToRunProvider) {
           if (useAutoExecGroups
-              && !context.areRunfilesFromDeps((FilesToRunProvider) toolUnchecked)) {
+              && !context.areRunfilesFromDeps((FilesToRunProvider) toolUnchecked)
+              && execGroupUnchecked == Starlark.NONE) {
             checkToolchainParameterIsSet(toolchainUnchecked);
           }
           builder.addTool((FilesToRunProvider) toolUnchecked);
         } else if (toolUnchecked instanceof Depset) {
           try {
-            if (useAutoExecGroups) {
+            if (useAutoExecGroups && execGroupUnchecked == Starlark.NONE) {
               checkToolchainParameterIsSet(toolchainUnchecked);
             }
             builder.addTransitiveTools(((Depset) toolUnchecked).getSet(Artifact.class));

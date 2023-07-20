@@ -253,6 +253,7 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
+        "//third_party/protobuf:protobuf_java",
         "@com_google_testparameterinjector//:testparameterinjector",
     ],
 )

@@ -11,6 +11,7 @@ if needed as a backup option (for example, if you don't have admin access).
 
 Supported Ubuntu Linux platforms:
 
+*   22.04 (LTS)
 *   20.04 (LTS)
 *   18.04 (LTS)
 
@@ -91,11 +92,7 @@ install any specific version of Java.
 However, if you want to build Java code using Bazel, you have to install a JDK.
 
 ```posix-terminal
-# Ubuntu 16.04 (LTS) uses OpenJDK 8 by default:
-sudo apt install openjdk-8-jdk
-
-# Ubuntu 18.04 (LTS) uses OpenJDK 11 by default:
-sudo apt install openjdk-11-jdk
+sudo apt install default-jdk
 ```
 
 ## Using the binary installer {:#binary-installer}
@@ -120,11 +117,7 @@ sudo apt install g++ unzip zip
 If you want to build Java code using Bazel, install a JDK:
 
 ```posix-terminal
-# Ubuntu 16.04 (LTS) uses OpenJDK 8 by default:
-sudo apt-get install openjdk-8-jdk
-
-# Ubuntu 18.04 (LTS) uses OpenJDK 11 by default:
-sudo apt-get install openjdk-11-jdk
+sudo apt-get install default-jdk
 ```
 
 ### Step 2: Run the installer {:#run-installer}

@@ -34,9 +34,9 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 public abstract class KeyToConsolidate {
   enum Op {
     /**
-     * Assert that the reverse dep is already present in the set of reverse deps. If the entry is
-     * re-evaluating, add this reverse dep to the set of reverse deps to signal when this entry is
-     * done.
+     * If the entry is re-evaluating, assert that the reverse dep is already present in the set of
+     * reverse deps and add this reverse dep to the set of reverse deps to signal when this entry is
+     * done. If the entry is already done, do nothing.
      */
     CHECK,
     /**

@@ -43,7 +43,7 @@ public final class TargetSummaryEvent implements BuildEventWithOrderConstraint {
       boolean expectTestSummary,
       @Nullable BlazeTestStatus overallTestStatus) {
     Label label = target.getOriginalLabel();
-    BuildEventId configId = configurationId(target.getKeyOrProxy().getConfigurationKey());
+    BuildEventId configId = configurationId(target.getLookupKey().getConfigurationKey());
     ImmutableList.Builder<BuildEventId> postAfter = ImmutableList.builder();
     postAfter.add(BuildEventIdUtil.targetCompleted(label, configId));
     if (expectTestSummary) {

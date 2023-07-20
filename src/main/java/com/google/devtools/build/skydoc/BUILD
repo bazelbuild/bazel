@@ -17,7 +17,6 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi:srcs",
-        "//src/main/java/com/google/devtools/build/skydoc/renderer:srcs",
         "//src/main/java/com/google/devtools/build/skydoc/rendering:srcs",
         "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:srcs",
     ],

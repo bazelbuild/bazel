@@ -313,4 +313,18 @@ public abstract class GrpcRemoteExecutorTestBase {
             FakeExecutionService.ackOperation(DUMMY_REQUEST),
             FakeExecutionService.doneOperation(DUMMY_REQUEST, DUMMY_RESPONSE));
   }
+
+  @Test
+  public void executeRemotely_retryExecuteOnNoResultDoneOperation()
+      throws IOException, InterruptedException {
+    executionService.whenExecute(DUMMY_REQUEST).thenAck().thenError(Code.UNAVAILABLE);
+    executionService.whenExecute(DUMMY_REQUEST).thenAck().thenDone(DUMMY_RESPONSE);
+
+    ExecuteResponse response =
+        executor.executeRemotely(context, DUMMY_REQUEST, OperationObserver.NO_OP);
+
+    assertThat(executionService.getExecTimes()).isEqualTo(2);
+    assertThat(executionService.getWaitTimes()).isEqualTo(0);
+    assertThat(response).isEqualTo(DUMMY_RESPONSE);
+  }
 }

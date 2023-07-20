@@ -338,8 +338,7 @@ public class ConfiguredTargetQueryEnvironment
             ConfiguredTargetKey.builder()
                 .setLabel(label)
                 .setConfigurationKey(configurationKey)
-                .build()
-                .toKey());
+                .build());
     // The configurations might not match if the target's configuration changed due to a transition
     // or trimming. Filters such targets.
     if (target == null || !Objects.equals(configurationKey, target.getConfigurationKey())) {

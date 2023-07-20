@@ -77,7 +77,8 @@ public class JavaStarlarkCommon
       String ruleLocation = ruleContext.getRule().getLocation().toString();
       String ruleClass = ruleContext.getRule().getRuleClassObject().getName();
       throw Starlark.errorf(
-          "Rule '%s' in '%s' must declare '%s' toolchain in order to use java_common.",
+          "Rule '%s' in '%s' must declare '%s' toolchain in order to use java_common. See"
+              + " https://github.com/bazelbuild/bazel/issues/18970.",
           ruleClass, ruleLocation, javaSemantics.getJavaToolchainType());
     }
   }
@@ -334,7 +335,7 @@ public class JavaStarlarkCommon
         if (!isInstanceOfProvider(elem, (Provider) providerType)) {
           throw Starlark.errorf(
               "at index %d of %s, got element of type %s, want %s",
-              i, what, Starlark.type(elem), ((Provider) providerType).getPrintableName());
+              i, what, printableType(elem), ((Provider) providerType).getPrintableName());
         }
       }
     } else {
@@ -342,10 +343,26 @@ public class JavaStarlarkCommon
     }
   }
 
+  private static String printableType(Object elem) {
+    if (elem instanceof StarlarkInfoWithSchema) {
+      return ((StarlarkInfoWithSchema) elem).getProvider().getPrintableName();
+    }
+    return Starlark.type(elem);
+  }
+
   @Override
   public boolean isLegacyGoogleApiEnabled(StarlarkThread thread) throws EvalException {
     checkPrivateAccess(thread);
     return thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API);
+  }
+
+  @Override
+  public boolean isDepsetForJavaOutputSourceJarsEnabled(StarlarkThread thread)
+      throws EvalException {
+    checkPrivateAccess(thread);
+    return thread
+        .getSemantics()
+        .getBool(BuildLanguageOptions.INCOMPATIBLE_DEPSET_FOR_JAVA_OUTPUT_SOURCE_JARS);
   }
 
   static boolean isInstanceOfProvider(Object obj, Provider provider) {

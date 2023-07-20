@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
@@ -84,7 +83,7 @@ final class ConfigConditionsProducer
   }
 
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     if (configLabels == null) {
       sink.acceptConfigConditions(ConfigConditions.EMPTY);
       return runAfter;
@@ -133,7 +132,7 @@ final class ConfigConditionsProducer
         "ConfigCondition dependency should never be evaluated with a null configuration.", error);
   }
 
-  private StateMachine constructConfigConditions(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine constructConfigConditions(Tasks tasks) {
     if (mostImportantExitCode != null) {
       return runAfter; // There was a previous error.
     }

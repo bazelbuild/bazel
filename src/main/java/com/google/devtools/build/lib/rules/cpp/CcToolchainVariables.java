@@ -574,7 +574,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     /** Returns an immutable string sequence. */
     @Override
     public StringSequence build() {
-      return new StringSequence(values.build());
+      return StringSequence.of(values.build());
     }
   }
 
@@ -638,7 +638,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     /** Adds a field to the structure. */
     @CanIgnoreReturnValue
     public StructureBuilder addField(String name, ImmutableList<String> values) {
-      fields.put(name, new StringSequence(values));
+      fields.put(name, StringSequence.of(values));
       return this;
     }
 
@@ -892,7 +892,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
               expandedObjectFiles.add(objectFile.getExecPathString());
             }
           }
-          return new StringSequence(expandedObjectFiles.build());
+          return StringSequence.of(expandedObjectFiles.build());
         }
 
         return super.getFieldValue(variableName, field, expander, throwOnMissingVariable);
@@ -983,10 +983,19 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
    */
   @Immutable
   private static final class StringSequence extends VariableValueAdapter {
-    private final Iterable<String> values;
+    static final Interner<StringSequence> stringSequenceInterner = BlazeInterners.newWeakInterner();
+    private final ImmutableList<String> values;
 
-    StringSequence(Iterable<String> values) {
-      this.values = Preconditions.checkNotNull(values);
+    static StringSequence of(Iterable<String> values) {
+      return stringSequenceInterner.intern(new StringSequence(values));
+    }
+
+    private StringSequence(Iterable<String> values) {
+      ImmutableList.Builder<String> valuesBuilder = new ImmutableList.Builder<>();
+      for (String value : values) {
+        valuesBuilder.add(value.intern());
+      }
+      this.values = valuesBuilder.build();
     }
 
     @Override
@@ -1267,7 +1276,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
       ImmutableList.Builder<String> builder = ImmutableList.builder();
       builder.addAll(values);
-      variablesMap.put(name, new StringSequence(builder.build()));
+      variablesMap.put(name, StringSequence.of(builder.build()));
       return this;
     }
 
@@ -1296,7 +1305,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     public Builder addStringSequenceVariable(String name, Iterable<String> values) {
       checkVariableNotPresentAlready(name);
       Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
-      variablesMap.put(name, new StringSequence(values));
+      variablesMap.put(name, StringSequence.of(values));
       return this;
     }
 

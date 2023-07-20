@@ -88,15 +88,15 @@ final class ModuleInfoExtractor {
               .setName("repo_mapping")
               .setType(AttributeType.STRING_DICT)
               .setDocString(
-                  "In <code>WORKSPACE</code> context only: a dictionary from local repository name"
-                      + " to global repository name. This allows controls over workspace dependency"
-                      + " resolution for dependencies of this repository.<p>For example, an entry"
-                      + " `\"@foo\": \"@bar\"` declares that, for any time this repository depends"
-                      + " on `@foo` (such as a dependency on `@foo//some:target`, it should"
-                      + " actually resolve that dependency within globally-declared `@bar`"
-                      + " (`@bar//some:target`).<p>This attribute is <em>not</em> supported in"
-                      + " <code>MODULE.bazel</code> context (when invoking a repository rule inside"
-                      + " a module extension's implementation function).")
+                  "In `WORKSPACE` context only: a dictionary from local repository name to global"
+                      + " repository name. This allows controls over workspace dependency"
+                      + " resolution for dependencies of this repository.\n\n"
+                      + "For example, an entry `\"@foo\": \"@bar\"` declares that, for any time"
+                      + " this repository depends on `@foo` (such as a dependency on"
+                      + " `@foo//some:target`, it should actually resolve that dependency within"
+                      + " globally-declared `@bar` (`@bar//some:target`).\n\n"
+                      + "This attribute is _not_ supported in `MODULE.bazel` context (when invoking"
+                      + " a repository rule inside a module extension's implementation function).")
               .build());
 
   /**

@@ -195,7 +195,7 @@ public class ActionGraphQueryEnvironment
   @Nullable
   private ConfiguredTargetValue createConfiguredTargetValueFromKey(ConfiguredTargetKey key)
       throws InterruptedException {
-    ConfiguredTargetValue value = getConfiguredTargetValue(key.toKey());
+    ConfiguredTargetValue value = getConfiguredTargetValue(key);
     if (value == null
         || !Objects.equals(
             value.getConfiguredTarget().getConfigurationKey(), key.getConfigurationKey())) {
@@ -244,7 +244,7 @@ public class ActionGraphQueryEnvironment
   @Override
   protected ConfiguredTargetValue getValueFromKey(SkyKey key) throws InterruptedException {
     Preconditions.checkState(key instanceof ConfiguredTargetKey);
-    return getConfiguredTargetValue(((ConfiguredTargetKey) key).toKey());
+    return getConfiguredTargetValue(key);
   }
 
   @Nullable

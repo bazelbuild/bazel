@@ -170,18 +170,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public boolean incompatibleAvoidHardcodedObjcCompilationFlags;
 
   @Option(
-      name = "incompatible_objc_linking_info_migration",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.CHANGES_INPUTS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If true, ObjC builtin rules will get their linking info from CcInfo instead of "
-              + "ObjcProvider.  See https://github.com/bazelbuild/bazel/issues/16939 for "
-              + "details and migration information")
-  public boolean incompatibleObjcLinkingInfoMigration;
-
-  @Option(
       name = "incompatible_disallow_sdk_frameworks_attributes",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -222,7 +210,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
     exec.enableCcDeps = enableCcDeps;
     exec.incompatibleAvoidHardcodedObjcCompilationFlags =
         incompatibleAvoidHardcodedObjcCompilationFlags;
-    exec.incompatibleObjcLinkingInfoMigration = incompatibleObjcLinkingInfoMigration;
     exec.incompatibleDisallowSdkFrameworksAttributes = incompatibleDisallowSdkFrameworksAttributes;
     exec.incompatibleObjcAlwayslinkByDefault = incompatibleObjcAlwayslinkByDefault;
     return exec;

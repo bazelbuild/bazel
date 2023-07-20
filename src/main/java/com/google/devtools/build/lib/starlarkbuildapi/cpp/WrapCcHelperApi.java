@@ -57,46 +57,12 @@ public interface WrapCcHelperApi<
     extends StarlarkValue {
 
   @StarlarkMethod(
-      name = "feature_configuration",
-      documented = false,
-      doc = "",
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-        @Param(name = "cc_toolchain", positional = false, named = true),
-      })
-  public FeatureConfigurationT starlarkGetFeatureConfiguration(
-      starlarkRuleContextT starlarkRuleContext, CcToolchainProviderT ccToolchain)
-      throws EvalException, InterruptedException;
-
-  @StarlarkMethod(
       name = "collect_transitive_swig_includes",
       documented = false,
       parameters = {
         @Param(name = "ctx", positional = false, named = true),
       })
   public Depset starlarkCollectTransitiveSwigIncludes(starlarkRuleContextT starlarkRuleContext);
-
-  @StarlarkMethod(
-      name = "create_compile_actions",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-        @Param(name = "feature_configuration", positional = false, named = true),
-        @Param(name = "cc_toolchain", positional = false, named = true),
-        @Param(name = "cc_file", positional = false, named = true),
-        @Param(name = "header_file", positional = false, named = true),
-        @Param(name = "dep_compilation_contexts", positional = false, named = true),
-        @Param(name = "target_copts", positional = false, named = true),
-      })
-  public CompilationInfoT starlarkCreateCompileActions(
-      starlarkRuleContextT starlarkRuleContext,
-      FeatureConfigurationT featureConfiguration,
-      CcToolchainProviderT ccToolchain,
-      FileT ccFile,
-      FileT headerFile,
-      Sequence<?> depCcCompilationContexts, // <CcCompilationContextT> expected
-      Sequence<?> targetCopts /* <String> expected */)
-      throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "mangled_target_name",

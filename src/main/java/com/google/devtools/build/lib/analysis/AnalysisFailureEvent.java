@@ -20,7 +20,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
@@ -60,7 +60,7 @@ public class AnalysisFailureEvent implements BuildEvent {
   }
 
   public static AnalysisFailureEvent actionConflict(
-      ActionLookupKeyOrProxy failedTarget, NestedSet<Cause> rootCauses) {
+      ActionLookupKey failedTarget, NestedSet<Cause> rootCauses) {
     Preconditions.checkArgument(
         failedTarget instanceof ConfiguredTargetKey || failedTarget instanceof AspectKey);
     if (failedTarget instanceof ConfiguredTargetKey) {

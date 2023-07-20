@@ -36,7 +36,7 @@ _JavaOutputInfo = provider(
         "native_headers_jar": "(File) A jar of CC header files supporting native method implementation.",
         "manifest_proto": "(File) The manifest protobuf file of the manifest generated from JavaBuilder.",
         "jdeps": "(File) The jdeps protobuf file of the manifest generated from JavaBuilder.",
-        "source_jars": "([File]) A list of sources archive files.",
+        "source_jars": "(depset[File]) A depset of sources archive files.",
         "source_jar": "Deprecated: Please use source_jars instead.",
     },
 )
@@ -155,9 +155,9 @@ def to_java_binary_info(java_info):
     java_outputs = [
         _JavaOutputInfo(
             compile_jar = None,
+            ijar = None,  # deprecated
             compile_jdeps = None,
             class_jar = output.class_jar,
-            ijar = output.compile_jar,  # deprecated
             generated_class_jar = output.generated_class_jar,
             generated_source_jar = output.generated_source_jar,
             native_headers_jar = output.native_headers_jar,
@@ -359,7 +359,7 @@ def _javainfo_init(
         native_headers_jar = native_headers_jar,
         manifest_proto = manifest_proto,
         jdeps = jdeps,
-        source_jars = source_jars,
+        source_jars = depset(source_jars) if _java_common_internal._incompatible_depset_for_java_output_source_jars() else source_jars,
         source_jar = source_jar,  # deprecated
     )]
 
@@ -430,7 +430,7 @@ def _javainfo_init(
                     if dep.annotation_processing
                 ],
             ),
-            processor_classnames = depset(),
+            processor_classnames = [],
             processor_classpath = depset(),
         ),
         "compilation_info": None,
@@ -450,7 +450,7 @@ def _javainfo_init(
     if _java_common_internal._google_legacy_api_enabled():
         cc_info = cc_common.merge_cc_infos(
             cc_infos = [dep.cc_link_params_info for dep in runtime_deps + exports + deps] +
-                       [cc_common.merge_cc_infos(cc_infos = native_libraries)],
+                       ([cc_common.merge_cc_infos(cc_infos = native_libraries)] if native_libraries else []),
         )
         result.update(
             cc_link_params_info = cc_info,
@@ -459,8 +459,9 @@ def _javainfo_init(
     else:
         result.update(
             transitive_native_libraries = depset(
+                order = "topological",
                 transitive = [dep.transitive_native_libraries for dep in runtime_deps + exports + deps] +
-                             [cc_common.merge_cc_infos(cc_infos = native_libraries).transitive_native_libraries()],
+                             ([cc_common.merge_cc_infos(cc_infos = native_libraries).transitive_native_libraries()] if native_libraries else []),
             ),
         )
     return result

@@ -113,7 +113,21 @@ public interface AndroidSemantics {
 
   /** The artifact for ART profile information. */
   Artifact getArtProfileForApk(
-      RuleContext ruleContext, Artifact finalClassesDex, Artifact proguardOutputMap);
+      RuleContext ruleContext,
+      Artifact finalClassesDex,
+      Artifact proguardOutputMap,
+      String baselineProfileDir);
+
+  /** The merged baseline profiles from the {@code baseline_profiles} attribute. */
+  Artifact mergeBaselineProfiles(RuleContext ruleContext, String baselineProfileDir);
+
+  /** The artifact for ART profile information, given a particular merged profile. */
+  Artifact compileBaselineProfile(
+      RuleContext ruleContext,
+      Artifact finalClassesDex,
+      Artifact proguardOutputMap,
+      Artifact mergedStaticProfile,
+      String baselineProfileDir);
 
   boolean postprocessClassesRewritesMap(RuleContext ruleContext);
 

@@ -135,6 +135,7 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.Keep;
+import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.ArrayList;
@@ -945,6 +946,10 @@ public abstract class BuildIntegrationTestCase {
 
   protected String readContentAsLatin1String(Artifact artifact) throws IOException {
     return new String(FileSystemUtils.readContentAsLatin1(artifact.getPath()));
+  }
+
+  protected ByteString readContentAsByteArray(Artifact artifact) throws IOException {
+    return ByteString.copyFrom(FileSystemUtils.readContent(artifact.getPath()));
   }
 
   /**

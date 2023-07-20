@@ -48,27 +48,14 @@ public class AppleDynamicLibraryTest extends AppleBinaryStarlarkApiTest {
 
   @Override
   @Test
-  public void testCcDependencyLinkoptsArePropagatedToLinkActionPreMigration() throws Exception {
-    checkCcDependencyLinkoptsArePropagatedToLinkAction(
-        RULE_TYPE, /* linkingInfoMigration= */ false);
+  public void testCcDependencyLinkoptsArePropagatedToLinkAction() throws Exception {
+    checkCcDependencyLinkoptsArePropagatedToLinkAction(RULE_TYPE);
   }
 
   @Override
   @Test
-  public void testCcDependencyLinkoptsArePropagatedToLinkActionPostMigration() throws Exception {
-    checkCcDependencyLinkoptsArePropagatedToLinkAction(RULE_TYPE, /* linkingInfoMigration= */ true);
-  }
-
-  @Override
-  @Test
-  public void testObjcLibraryLinkoptsArePropagatedToLinkActionPreMigration() throws Exception {
-    checkObjcLibraryLinkoptsArePropagatedToLinkAction(RULE_TYPE, /* linkingInfoMigration= */ false);
-  }
-
-  @Override
-  @Test
-  public void testObjcLibraryLinkoptsArePropagatedToLinkActionPostMigration() throws Exception {
-    checkObjcLibraryLinkoptsArePropagatedToLinkAction(RULE_TYPE, /* linkingInfoMigration= */ true);
+  public void testObjcLibraryLinkoptsArePropagatedToLinkAction() throws Exception {
+    checkObjcLibraryLinkoptsArePropagatedToLinkAction(RULE_TYPE);
   }
 
   @Override
@@ -97,26 +84,14 @@ public class AppleDynamicLibraryTest extends AppleBinaryStarlarkApiTest {
 
   @Override
   @Test
-  public void testAliasedLinkoptsThroughObjcLibraryPreMigration() throws Exception {
-    checkAliasedLinkoptsThroughObjcLibrary(RULE_TYPE, /* linkingInfoMigration= */ false);
+  public void testAliasedLinkoptsThroughObjcLibrary() throws Exception {
+    checkAliasedLinkoptsThroughObjcLibrary(RULE_TYPE);
   }
 
   @Override
   @Test
-  public void testAliasedLinkoptsThroughObjcLibraryPostMigration() throws Exception {
-    checkAliasedLinkoptsThroughObjcLibrary(RULE_TYPE, /* linkingInfoMigration= */ true);
-  }
-
-  @Override
-  @Test
-  public void testLinkInputsInLinkActionPreMigration() throws Exception {
-    checkLinkInputsInLinkAction(RULE_TYPE, /* linkingInfoMigration= */ false);
-  }
-
-  @Override
-  @Test
-  public void testLinkInputsInLinkActionPostMigration() throws Exception {
-    checkLinkInputsInLinkAction(RULE_TYPE, /* linkingInfoMigration= */ true);
+  public void testLinkInputsInLinkAction() throws Exception {
+    checkLinkInputsInLinkAction(RULE_TYPE);
   }
 
   @Override
@@ -139,26 +114,14 @@ public class AppleDynamicLibraryTest extends AppleBinaryStarlarkApiTest {
 
   @Override
   @Test
-  public void testAvoidDepsObjectsAvoidViaCcLibraryPreMigration() throws Exception {
-    checkAvoidDepsObjectsAvoidViaCcLibrary(RULE_TYPE, /* linkingInfoMigration= */ false);
+  public void testAvoidDepsObjectsAvoidViaCcLibrary() throws Exception {
+    checkAvoidDepsObjectsAvoidViaCcLibrary(RULE_TYPE);
   }
 
   @Override
   @Test
-  public void testAvoidDepsObjectsAvoidViaCcLibraryPostMigration() throws Exception {
-    checkAvoidDepsObjectsAvoidViaCcLibrary(RULE_TYPE, /* linkingInfoMigration= */ true);
-  }
-
-  @Override
-  @Test
-  public void testAvoidDepsSubtractsImportedLibraryPreMigration() throws Exception {
-    checkAvoidDepsSubtractsImportedLibrary(RULE_TYPE, /* linkingInfoMigration= */ false);
-  }
-
-  @Override
-  @Test
-  public void testAvoidDepsSubtractsImportedLibraryPostMigration() throws Exception {
-    checkAvoidDepsSubtractsImportedLibrary(RULE_TYPE, /* linkingInfoMigration= */ true);
+  public void testAvoidDepsSubtractsImportedLibrary() throws Exception {
+    checkAvoidDepsSubtractsImportedLibrary(RULE_TYPE);
   }
 
   @Override
@@ -168,13 +131,8 @@ public class AppleDynamicLibraryTest extends AppleBinaryStarlarkApiTest {
   }
 
   @Test
-  public void testMultiarchCcDepPreMigration() throws Exception {
-    checkMultiarchCcDep(RULE_TYPE, /* linkingInfoMigration= */ false);
-  }
-
-  @Test
-  public void testMultiarchCcDepPostMigration() throws Exception {
-    checkMultiarchCcDep(RULE_TYPE, /* linkingInfoMigration= */ true);
+  public void testMultiarchCcDep() throws Exception {
+    checkMultiarchCcDep(RULE_TYPE);
   }
 
   @Override
@@ -185,30 +143,14 @@ public class AppleDynamicLibraryTest extends AppleBinaryStarlarkApiTest {
 
   @Override
   @Test
-  public void testFrameworkDepLinkFlagsPreMigration() throws Exception {
-    checkFrameworkDepLinkFlags(
-        RULE_TYPE, new ExtraLinkArgs("-dynamiclib"), /* linkingInfoMigration= */ false);
+  public void testFrameworkDepLinkFlags() throws Exception {
+    checkFrameworkDepLinkFlags(RULE_TYPE, new ExtraLinkArgs("-dynamiclib"));
   }
 
   @Override
   @Test
-  public void testFrameworkDepLinkFlagsPostMigration() throws Exception {
-    checkFrameworkDepLinkFlags(
-        RULE_TYPE, new ExtraLinkArgs("-dynamiclib"), /* linkingInfoMigration= */ true);
-  }
-
-  @Override
-  @Test
-  public void testAvoidDepsDependenciesPreMigration() throws Exception {
-    checkAvoidDepsDependencies(
-        RULE_TYPE, new ExtraLinkArgs("-dynamiclib"), /* linkingInfoMigration= */ false);
-  }
-
-  @Override
-  @Test
-  public void testAvoidDepsDependenciesPostMigration() throws Exception {
-    checkAvoidDepsDependencies(
-        RULE_TYPE, new ExtraLinkArgs("-dynamiclib"), /* linkingInfoMigration= */ true);
+  public void testAvoidDepsDependencies() throws Exception {
+    checkAvoidDepsDependencies(RULE_TYPE, new ExtraLinkArgs("-dynamiclib"));
   }
 
   @Override
@@ -255,14 +197,8 @@ public class AppleDynamicLibraryTest extends AppleBinaryStarlarkApiTest {
 
   @Override
   @Test
-  public void testAvoidDepsObjectsPreMigration() throws Exception {
-    checkAvoidDepsObjects(RULE_TYPE, /* linkingInfoMigration= */ false);
-  }
-
-  @Override
-  @Test
-  public void testAvoidDepsObjectsPostMigration() throws Exception {
-    checkAvoidDepsObjects(RULE_TYPE, /* linkingInfoMigration= */ true);
+  public void testAvoidDepsObjects() throws Exception {
+    checkAvoidDepsObjects(RULE_TYPE);
   }
 
   @Override
