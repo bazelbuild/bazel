@@ -65,6 +65,7 @@ import net.starlark.java.eval.Structure;
 final class ModuleInfoExtractor {
   private final Predicate<String> isWantedQualifiedName;
   private final RepositoryMapping repositoryMapping;
+  private final String defaultRepoName;
 
   @VisibleForTesting
   static final AttributeInfo IMPLICIT_NAME_ATTRIBUTE_INFO =
@@ -109,11 +110,17 @@ final class ModuleInfoExtractor {
    *     predicate.
    * @param repositoryMapping the repository mapping for the repo in which we want to render labels
    *     as strings
+   * @param defaultRepoName the repository name to use for labels pointing inside the current
+   *     repository. If this is the empty string, such labels will be emitted in repository-relative
+   *     form.
    */
   public ModuleInfoExtractor(
-      Predicate<String> isWantedQualifiedName, RepositoryMapping repositoryMapping) {
+      Predicate<String> isWantedQualifiedName,
+      RepositoryMapping repositoryMapping,
+      String defaultRepoName) {
     this.isWantedQualifiedName = isWantedQualifiedName;
     this.repositoryMapping = repositoryMapping;
+    this.defaultRepoName = defaultRepoName;
   }
 
   /** Extracts structured documentation for the loadable symbols of a given module. */
@@ -121,7 +128,14 @@ final class ModuleInfoExtractor {
     ModuleInfo.Builder builder = ModuleInfo.newBuilder();
     Optional.ofNullable(module.getDocumentation()).ifPresent(builder::setModuleDocstring);
     Optional.ofNullable(BazelModuleContext.of(module))
-        .map(bazelModuleContext -> bazelModuleContext.label().getDisplayForm(repositoryMapping))
+        .map(bazelModuleContext -> {
+          String labelString = bazelModuleContext.label().getDisplayForm(repositoryMapping);
+          if (labelString.startsWith("//") && !defaultRepoName.isEmpty()) {
+            return "@" + defaultRepoName + labelString;
+          } else {
+            return labelString;
+          }
+        })
         .ifPresent(builder::setFile);
 
     // We do two traversals over the module's globals: (1) find qualified names (including any
@@ -136,7 +150,8 @@ final class ModuleInfoExtractor {
             builder,
             isWantedQualifiedName,
             repositoryMapping,
-            providerQualifiedNameCollector.buildQualifiedNames());
+            providerQualifiedNameCollector.buildQualifiedNames(),
+            defaultRepoName);
     documentationExtractor.traverse(module);
     return builder.build();
   }
@@ -306,6 +321,7 @@ final class ModuleInfoExtractor {
     private final Predicate<String> isWantedQualifiedName;
     private final RepositoryMapping repositoryMapping;
     private final ImmutableMap<StarlarkProvider.Key, String> providerQualifiedNames;
+    private final String defaultRepoName;
 
     /**
      * @param moduleInfoBuilder builder to which {@link #traverse} adds extracted documentation
@@ -318,16 +334,21 @@ final class ModuleInfoExtractor {
      * @param providerQualifiedNames a map from the keys of documentable Starlark providers loadable
      *     from this module to the qualified names (including structure namespaces) under which
      *     those providers are accessible to a user of this module
+     * @param defaultRepoName the repository name to use for labels pointing inside the current
+     *     repository. If this is the empty string, such labels will be emitted in
+     *     repository-relative form.
      */
     DocumentationExtractor(
         ModuleInfo.Builder moduleInfoBuilder,
         Predicate<String> isWantedQualifiedName,
         RepositoryMapping repositoryMapping,
-        ImmutableMap<StarlarkProvider.Key, String> providerQualifiedNames) {
+        ImmutableMap<StarlarkProvider.Key, String> providerQualifiedNames,
+        String defaultRepoName) {
       this.moduleInfoBuilder = moduleInfoBuilder;
       this.isWantedQualifiedName = isWantedQualifiedName;
       this.repositoryMapping = repositoryMapping;
       this.providerQualifiedNames = providerQualifiedNames;
+      this.defaultRepoName = defaultRepoName;
     }
 
     @Override
@@ -498,7 +519,12 @@ final class ModuleInfoExtractor {
      */
     private Object stringifyLabels(Object o) {
       if (o instanceof Label) {
-        return ((Label) o).getShorthandDisplayForm(repositoryMapping);
+        String labelString = ((Label) o).getShorthandDisplayForm(repositoryMapping);
+        if (labelString.startsWith("//") && !defaultRepoName.isEmpty()) {
+          return "@" + defaultRepoName + labelString;
+        } else {
+          return labelString;
+        }
       } else if (o instanceof Map) {
         return stringifyLabelsOfMap((Map<?, ?>) o);
       } else if (o instanceof List) {

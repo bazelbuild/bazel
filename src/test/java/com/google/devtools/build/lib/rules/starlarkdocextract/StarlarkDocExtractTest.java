@@ -915,6 +915,7 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         "    deps = ['dep_bzl'],",
         ")");
     ModuleInfo moduleInfo = protoFromConfiguredTarget("//:extract");
+    assertThat(moduleInfo.getFile()).isEqualTo("//:foo.bzl");
     assertThat(moduleInfo.getModuleExtensionInfoList())
         .containsExactly(
             ModuleExtensionInfo.newBuilder()
@@ -931,6 +932,89 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
                                 .setType(AttributeType.STRING_LIST)
                                 .setDocString("Artifacts")
                                 .setDefaultValue("[]"))
+                        .build())
+                .addTagClass(
+                    ModuleExtensionTagClassInfo.newBuilder()
+                        .setTagName("artifact")
+                        .addAttribute(
+                            AttributeInfo.newBuilder()
+                                .setName("group")
+                                .setType(AttributeType.STRING)
+                                .setDefaultValue("\"\""))
+                        .addAttribute(
+                            AttributeInfo.newBuilder()
+                                .setName("artifact")
+                                .setType(AttributeType.STRING)
+                                .setDefaultValue("\"foo\""))
+                        .build())
+                .build());
+  }
+
+  @Test
+  public void moduleExtension_defaultRepoName() throws Exception {
+    scratch.file(
+        "dep.bzl",
+        "_install = tag_class(",
+        "    doc = 'Install',",
+        "    attrs = {",
+        "        'artifacts': attr.label_list(doc = 'Artifacts', default = ['//:target']),",
+        "        '_hidden': attr.bool(),",
+        "    },",
+        ")",
+        "",
+        "_artifact = tag_class(",
+        "    attrs = {",
+        "        'group': attr.string(),",
+        "        'artifact': attr.string(default = 'foo'),",
+        "    },",
+        ")",
+        "",
+        "def _impl(ctx):",
+        "    pass",
+        "",
+        "my_ext = module_extension(",
+        "    doc = 'My extension',",
+        "    tag_classes = {",
+        "        'install': _install,",
+        "        'artifact': _artifact,",
+        "    },",
+        "    implementation = _impl,",
+        ")");
+    scratch.file(
+        "foo.bzl", //
+        "load('//:dep.bzl', 'my_ext')",
+        "foo = struct(ext = my_ext)");
+    scratch.file(
+        "BUILD", //
+        "load('bzl_library.bzl', 'bzl_library')",
+        "bzl_library(",
+        "    name = 'dep_bzl',",
+        "    srcs = ['dep.bzl'],",
+        ")",
+        "starlark_doc_extract(",
+        "    name = 'extract',",
+        "    src = 'foo.bzl',",
+        "    default_repo_name = 'my_module',",
+        "    deps = ['dep_bzl'],",
+        ")");
+    ModuleInfo moduleInfo = protoFromConfiguredTarget("//:extract");
+    assertThat(moduleInfo.getFile()).isEqualTo("@my_module//:foo.bzl");
+    assertThat(moduleInfo.getModuleExtensionInfoList())
+        .containsExactly(
+            ModuleExtensionInfo.newBuilder()
+                .setExtensionName("foo.ext")
+                .setDocString("My extension")
+                .setOriginKey(OriginKey.newBuilder().setFile("//:dep.bzl").build())
+                .addTagClass(
+                    ModuleExtensionTagClassInfo.newBuilder()
+                        .setTagName("install")
+                        .setDocString("Install")
+                        .addAttribute(
+                            AttributeInfo.newBuilder()
+                                .setName("artifacts")
+                                .setType(AttributeType.LABEL_LIST)
+                                .setDocString("Artifacts")
+                                .setDefaultValue("[\"@my_module//:target\"]"))
                         .build())
                 .addTagClass(
                     ModuleExtensionTagClassInfo.newBuilder()

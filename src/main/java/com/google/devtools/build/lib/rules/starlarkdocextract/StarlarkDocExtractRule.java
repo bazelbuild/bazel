@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromFunctions;
+import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
@@ -93,6 +94,12 @@ public final class StarlarkDocExtractRule implements RuleDefinition {
         .add(
             attr(StarlarkDocExtract.SYMBOL_NAMES_ATTR, STRING_LIST)
                 .value(ImmutableList.<String>of()))
+        /*<!-- #BLAZE_RULE(starlark_doc_extract).ATTRIBUTE(symbol_names) -->
+        The repository name to emit for labels that reference targets in the same repository as this
+        rule. If set to the empty string (the default), such labels are rendered in
+        repository-relative form.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(attr(StarlarkDocExtract.DEFAULT_REPO_NAME_ATTR, STRING).value(""))
         /*<!-- #BLAZE_RULE(starlark_doc_extract).IMPLICIT_OUTPUTS -->
         <ul>
           <li><code><var>name</var>.binaryproto</code> (the default output): A

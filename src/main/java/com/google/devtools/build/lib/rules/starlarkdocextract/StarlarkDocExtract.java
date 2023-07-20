@@ -19,6 +19,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
+import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import static java.util.stream.Collectors.partitioningBy;
 
@@ -67,6 +68,7 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
   static final String SRC_ATTR = "src";
   static final String DEPS_ATTR = "deps";
   static final String SYMBOL_NAMES_ATTR = "symbol_names";
+  static final String DEFAULT_REPO_NAME_ATTR = "default_repo_name";
   static final SafeImplicitOutputsFunction BINARYPROTO_OUT = fromTemplates("%{name}.binaryproto");
   static final SafeImplicitOutputsFunction TEXTPROTO_OUT = fromTemplates("%{name}.textproto");
 
@@ -295,7 +297,10 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
     ModuleInfo moduleInfo;
     try {
       moduleInfo =
-          new ModuleInfoExtractor(getWantedSymbolPredicate(ruleContext), repositoryMapping)
+          new ModuleInfoExtractor(
+                  getWantedSymbolPredicate(ruleContext),
+                  repositoryMapping,
+                  (String) ruleContext.getRule().getAttr(DEFAULT_REPO_NAME_ATTR, STRING))
               .extractFrom(module);
     } catch (ModuleInfoExtractor.ExtractionException e) {
       ruleContext.ruleError(e.getMessage());
