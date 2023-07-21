@@ -60,6 +60,7 @@ import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Module;
@@ -77,7 +78,8 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
   @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws ActionConflictException, InterruptedException, RuleErrorException {
-    RepositoryMapping repositoryMapping = getTargetRepositoryMapping(ruleContext);
+    RepositoryMappingValue mainRepositoryMappingValue = getMainRepositoryMappingValue(ruleContext);
+    RepositoryMapping repositoryMapping = mainRepositoryMappingValue.getRepositoryMapping();
     Module module = loadModule(ruleContext, repositoryMapping);
     if (module == null) {
       // Skyframe restart
@@ -87,7 +89,14 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
       return null;
     }
     verifyModuleDeps(ruleContext, module, repositoryMapping);
-    ModuleInfo moduleInfo = getModuleInfo(ruleContext, module, repositoryMapping);
+    ModuleInfo moduleInfo =
+        getModuleInfo(
+            ruleContext,
+            module,
+            new LabelRenderer(
+                repositoryMapping,
+                (Boolean) ruleContext.getRule().getAttr(RENDER_MAIN_REPO_NAME, BOOLEAN),
+                mainRepositoryMappingValue.getAssociatedModuleName().orElse("")));
 
     NestedSet<Artifact> filesToBuild =
         new NestedSetBuilder<Artifact>(Order.STABLE_ORDER)
@@ -264,15 +273,8 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
     return unknown.build();
   }
 
-  /**
-   * Returns the starlark_doc_extract target's repository's repo mapping.
-   *
-   * <p>We return the target's repository's repo mapping, as opposed to the main repo mapping, to
-   * ensure label stringification does not change regardless of whether we are the main repo or a
-   * dependency. However, this does mean that label stringifactions we produce could be invalid in
-   * the main repo.
-   */
-  private static RepositoryMapping getTargetRepositoryMapping(RuleContext ruleContext)
+  /** Returns the main repository's repo mapping value. */
+  private static RepositoryMappingValue getMainRepositoryMappingValue(RuleContext ruleContext)
       throws RuleErrorException, InterruptedException {
     RepositoryMappingValue repositoryMappingValue;
     try {
@@ -289,20 +291,16 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
       throw new RuleErrorException(e);
     }
     verifyNotNull(repositoryMappingValue);
-    return repositoryMappingValue.getRepositoryMapping();
+    return repositoryMappingValue;
   }
 
   private static ModuleInfo getModuleInfo(
-      RuleContext ruleContext, Module module, RepositoryMapping repositoryMapping)
+      RuleContext ruleContext, Module module, LabelRenderer labelRenderer)
       throws RuleErrorException {
     ModuleInfo moduleInfo;
     try {
       moduleInfo =
-          new ModuleInfoExtractor(
-                  getWantedSymbolPredicate(ruleContext),
-                  repositoryMapping,
-                  /* renderMainRepoName= */ (Boolean)
-                      ruleContext.getRule().getAttr(RENDER_MAIN_REPO_NAME, BOOLEAN))
+          new ModuleInfoExtractor(getWantedSymbolPredicate(ruleContext), labelRenderer)
               .extractFrom(module);
     } catch (ModuleInfoExtractor.ExtractionException e) {
       ruleContext.ruleError(e.getMessage());
@@ -318,6 +316,55 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
       return name -> true;
     } else {
       return symbolNames::contains;
+    }
+  }
+
+  /**
+   * Renders a label to a string via {@link Label#getShorthandDisplayForm}, optionally explicitly
+   * adding the repo component for labels in the main repo.
+   */
+  private static class LabelRenderer implements Function<Label, String> {
+    private final RepositoryMapping repositoryMapping;
+    private final String mainRepoName;
+
+    LabelRenderer(
+        RepositoryMapping repositoryMapping,
+        boolean renderMainRepoName,
+        String mainBzlmodModuleName) {
+      this.repositoryMapping = repositoryMapping;
+      if (renderMainRepoName) {
+        if (!mainBzlmodModuleName.isEmpty()) {
+          mainRepoName = mainBzlmodModuleName;
+        } else {
+          // Look for the first public name for the main repo in the repo map - skipping "@",
+          // "__main__", etc.
+          mainRepoName =
+              repositoryMapping.entries().entrySet().stream()
+                  .filter(
+                      entry ->
+                          entry.getValue().isMain()
+                              && entry.getKey().length() > 0
+                              && Character.isAlphabetic(entry.getKey().charAt(0)))
+                  .map(Map.Entry::getKey)
+                  .findFirst()
+                  .orElse("");
+        }
+      } else {
+        mainRepoName = "";
+      }
+    }
+
+    @Override
+    public String apply(Label label) {
+      String labelString = label.getShorthandDisplayForm(repositoryMapping);
+      if (mainRepoName.isEmpty() || labelString.startsWith("@")) {
+        return labelString;
+      } else {
+        // label.getShorthandDisplayForm omits the repo name part for labels in the main repo
+        // regardless of what repositoryMapping says. Therefore, if we want to rename the main repo
+        // in labels in emitted docs, we have to do so manually.
+        return String.format("@%s%s", mainRepoName, labelString);
+      }
     }
   }
 

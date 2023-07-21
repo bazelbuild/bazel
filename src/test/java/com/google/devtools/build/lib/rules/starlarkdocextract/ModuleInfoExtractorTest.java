@@ -73,18 +73,29 @@ public final class ModuleInfoExtractorTest {
   }
 
   private static ModuleInfoExtractor getExtractor() {
+    RepositoryMapping repositoryMapping = RepositoryMapping.ALWAYS_FALLBACK;
     return new ModuleInfoExtractor(
-        name -> true, RepositoryMapping.ALWAYS_FALLBACK, /* renderMainRepoName= */ false);
+        name -> true, label -> label.getShorthandDisplayForm(repositoryMapping));
   }
 
   private static ModuleInfoExtractor getExtractor(Predicate<String> isWantedQualifiedName) {
+    RepositoryMapping repositoryMapping = RepositoryMapping.ALWAYS_FALLBACK;
     return new ModuleInfoExtractor(
-        isWantedQualifiedName, RepositoryMapping.ALWAYS_FALLBACK, /* renderMainRepoName= */ false);
+        isWantedQualifiedName, label -> label.getShorthandDisplayForm(repositoryMapping));
   }
 
   private static ModuleInfoExtractor getExtractor(
-      RepositoryMapping repositoryMapping, boolean renderMainRepoName) {
-    return new ModuleInfoExtractor(name -> true, repositoryMapping, renderMainRepoName);
+      RepositoryMapping repositoryMapping, String mainRepoName) {
+    return new ModuleInfoExtractor(
+        name -> true,
+        label -> {
+          if (!mainRepoName.isEmpty() && label.getRepository().isMain()) {
+            return String.format(
+                "@%s%s", mainRepoName, label.getShorthandDisplayForm(repositoryMapping));
+          } else {
+            return label.getShorthandDisplayForm(repositoryMapping);
+          }
+        });
   }
 
   @Test
@@ -684,43 +695,7 @@ public final class ModuleInfoExtractorTest {
     RepositoryName canonicalName = RepositoryName.create("canonical");
     RepositoryMapping repositoryMapping =
         RepositoryMapping.create(ImmutableMap.of("local", canonicalName), RepositoryName.MAIN);
-    ModuleInfo moduleInfo =
-        getExtractor(repositoryMapping, /* renderMainRepoName= */ false).extractFrom(module);
-    assertThat(
-            moduleInfo.getRuleInfoList().get(0).getAttributeList().stream()
-                .filter(attr -> !attr.equals(ModuleInfoExtractor.IMPLICIT_NAME_ATTRIBUTE_INFO))
-                .map(AttributeInfo::getDefaultValue))
-        .containsExactly(
-            "\"//test:foo\"",
-            "[\"//x\", \"@local//y\", \"@local//y:z\"]",
-            "{\"//x\": \"label_in_main\", \"@local//y\": \"label_in_dep\"}");
-  }
-
-  @Test
-  public void labelStringification_mainRepoName() throws Exception {
-    Module module =
-        exec(
-            "def _my_impl(ctx):",
-            "    pass",
-            "my_lib = rule(",
-            "    implementation = _my_impl,",
-            "    attrs = {",
-            "        'label': attr.label(default = '//test:foo'),",
-            "        'label_list': attr.label_list(",
-            "            default = ['//x', '@canonical//y', '@canonical//y:z'],",
-            "        ),",
-            "        'label_keyed_string_dict': attr.label_keyed_string_dict(",
-            "           default = {'//x': 'label_in_main', '@canonical//y': 'label_in_dep'}",
-            "         ),",
-            "    }",
-            ")");
-    RepositoryName canonicalName = RepositoryName.create("canonical");
-    RepositoryMapping repositoryMapping =
-        RepositoryMapping.create(
-            ImmutableMap.of("local", canonicalName, "my_repo", RepositoryName.MAIN),
-            RepositoryName.MAIN);
-    ModuleInfo moduleInfo =
-        getExtractor(repositoryMapping, /* renderMainRepoName= */ true).extractFrom(module);
+    ModuleInfo moduleInfo = getExtractor(repositoryMapping, "my_repo").extractFrom(module);
     assertThat(
             moduleInfo.getRuleInfoList().get(0).getAttributeList().stream()
                 .filter(attr -> !attr.equals(ModuleInfoExtractor.IMPLICIT_NAME_ATTRIBUTE_INFO))

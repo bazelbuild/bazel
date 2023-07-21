@@ -1000,6 +1000,55 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
   }
 
   @Test
+  public void labels_whenStarlarkDocExtractInMainBzlmodModuleWithRepoName_useModuleName()
+      throws Exception {
+    setBuildLanguageOptions("--enable_bzlmod");
+    scratch.overwriteFile(
+        "MODULE.bazel", //
+        "module(name = 'my_module', repo_name = 'legacy_internal_repo_name')");
+    scratch.file(
+        "foo.bzl", //
+        "my_rule = rule(",
+        "    implementation = lambda ctx: None,",
+        "    attrs = {'a': attr.label(default = '//target')},",
+        ")");
+    scratch.file(
+        "BUILD", //
+        "starlark_doc_extract(",
+        "    name = 'with_main_repo_name',",
+        "    src = 'foo.bzl',",
+        "    render_main_repo_name = True,",
+        ")",
+        "",
+        // render_main_repo_name is false by default
+        "starlark_doc_extract(",
+        "    name = 'without_main_repo_name',",
+        "    src = 'foo.bzl',",
+        ")");
+
+    ModuleInfo withMainRepoName = protoFromConfiguredTarget("//:with_main_repo_name");
+    assertThat(withMainRepoName.getFile()).isEqualTo("@my_module//:foo.bzl");
+    assertThat(withMainRepoName.getRuleInfo(0).getOriginKey().getFile())
+        .isEqualTo("@my_module//:foo.bzl");
+    assertThat(
+            withMainRepoName
+                .getRuleInfo(0)
+                .getAttribute(1) // 0 is the implicit name attribute
+                .getDefaultValue())
+        .isEqualTo("\"@my_module//target\"");
+
+    ModuleInfo withoutMainRepoName = protoFromConfiguredTarget("//:without_main_repo_name");
+    assertThat(withoutMainRepoName.getFile()).isEqualTo("//:foo.bzl");
+    assertThat(withoutMainRepoName.getRuleInfo(0).getOriginKey().getFile()).isEqualTo("//:foo.bzl");
+    assertThat(
+            withoutMainRepoName
+                .getRuleInfo(0)
+                .getAttribute(1) // 0 is the implicit name attribute
+                .getDefaultValue())
+        .isEqualTo("\"//target\"");
+  }
+
+  @Test
   public void labels_whenStarlarkDocExtractInMainWorkspaceRepo_respectRenderMainRepoNameAttr()
       throws Exception {
     rewriteWorkspace("workspace(name = 'my_repo')");

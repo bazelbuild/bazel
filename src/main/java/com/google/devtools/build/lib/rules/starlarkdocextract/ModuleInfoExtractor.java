@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.bazel.bzlmod.TagClass;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule.RepositoryRuleFunction;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
@@ -108,18 +107,14 @@ final class ModuleInfoExtractor {
    *     other words, the first character of each component of the qualified name is alphabetic) and
    *     (2) the qualified name, or one of its ancestor qualified names, satisfies the wanted
    *     predicate.
-   * @param repositoryMapping the repository mapping for the repo in which we want to render labels
-   *     as strings
-   * @param renderMainRepoName if true, render labels in the main repo as strings with a repo
-   *     component; in other words, if this parameter is true and {@code repositoryMapping} maps
-   *     "my_repo" to MAIN, we will render {@code //foo:bar.bzl} as {@code @my_repo//foo:bar.bzl}.
+   * @param labelRenderer a string renderer for the file label of {@link OriginKey}; typically, this
+   *     a wrapper around {@link Label#getShorthandDisplayForm} with an appropriate repository
+   *     mapping and additional logic for rendering labels in the main repo.
    */
   public ModuleInfoExtractor(
-      Predicate<String> isWantedQualifiedName,
-      RepositoryMapping repositoryMapping,
-      boolean renderMainRepoName) {
+      Predicate<String> isWantedQualifiedName, Function<Label, String> labelRenderer) {
     this.isWantedQualifiedName = isWantedQualifiedName;
-    this.labelRenderer = new LabelRenderer(repositoryMapping, renderMainRepoName);
+    this.labelRenderer = labelRenderer;
   }
 
   /** Extracts structured documentation for the loadable symbols of a given module. */
@@ -149,44 +144,6 @@ final class ModuleInfoExtractor {
 
   private static boolean isPublicName(String name) {
     return name.length() > 0 && Character.isAlphabetic(name.charAt(0));
-  }
-
-  /**
-   * Renders a label to a string via {@link Label#getShorthandDisplayForm} and explicitly adding the
-   * repo component for labels in the main repo if the main repo is mapped in {@link
-   * #repositoryMapping}.
-   */
-  private static class LabelRenderer implements Function<Label, String> {
-    private final RepositoryMapping repositoryMapping;
-    private final String mainRepoName;
-
-    LabelRenderer(RepositoryMapping repositoryMapping, boolean renderMainRepoName) {
-      this.repositoryMapping = repositoryMapping;
-      if (renderMainRepoName) {
-        // Find the first public name in the map - skipping "@", "__main__", etc.
-        mainRepoName =
-            repositoryMapping.entries().entrySet().stream()
-                .filter(entry -> entry.getValue().isMain() && isPublicName(entry.getKey()))
-                .map(Map.Entry::getKey)
-                .findFirst()
-                .orElse("");
-      } else {
-        mainRepoName = "";
-      }
-    }
-
-    @Override
-    public String apply(Label label) {
-      String labelString = label.getShorthandDisplayForm(repositoryMapping);
-      if (mainRepoName.isEmpty() || labelString.startsWith("@")) {
-        return labelString;
-      } else {
-        // label.getShorthandDisplayForm omits the repo name part for labels in the main repo
-        // regardless of what repositoryMapping says. Therefore, if we want to rename the main repo
-        // in labels in emitted docs, we have to do so manually.
-        return String.format("@%s%s", mainRepoName, labelString);
-      }
-    }
   }
 
   /** An exception indicating that the module's API documentation could not be extracted. */

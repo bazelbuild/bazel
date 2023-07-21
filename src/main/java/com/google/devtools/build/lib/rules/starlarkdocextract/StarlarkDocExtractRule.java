@@ -95,9 +95,15 @@ public final class StarlarkDocExtractRule implements RuleDefinition {
             attr(StarlarkDocExtract.SYMBOL_NAMES_ATTR, STRING_LIST)
                 .value(ImmutableList.<String>of()))
         /*<!-- #BLAZE_RULE(starlark_doc_extract).ATTRIBUTE(render_main_repo_name) -->
-        If true, render the name of the main repository (as specified in <code>WORKSPACE</code> or
-        <code>MODULE.bazel</code>) in labels in emitted documentation. In other words, labels like
-        <code>//foo:bar.bzl</code> will be emitted as <code>@my_repo//foo:bar.bzl</code>.
+        If true, render main repo labels in emitted documentation with a repo component (in other
+        words, <code>//foo:bar.bzl</code> will be emitted as <code>@my_repo//foo:bar.bzl</code>).
+        <p>The name of the main repo is obtained from <code>module(name = ...)<code> in
+        <code>MODULE.bazel</code> (if it is available and Bzlmod is enabled), or from
+        <code>workspace(name = ...)</code> in <code>WORKSPACE</code>.
+        <p>This attribute should be set to <code>False</code> when generating documentation for
+        Starlark files which are intended to be used only within the same repository, and to
+        <code>True</code> when generating documentation for Starlark files which are intended to be
+        used from other repositories.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr(StarlarkDocExtract.RENDER_MAIN_REPO_NAME, BOOLEAN).value(false))
         /*<!-- #BLAZE_RULE(starlark_doc_extract).IMPLICIT_OUTPUTS -->
