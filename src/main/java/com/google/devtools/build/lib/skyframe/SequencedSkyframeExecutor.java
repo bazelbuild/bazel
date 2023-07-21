@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
@@ -123,6 +124,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private boolean trackIncrementalState = true;
 
   private boolean evaluatorNeedsReset = false;
+  private boolean lastCommandKeptState = false;
+  private boolean needGcAfterResettingEvaluator = false;
 
   private final AtomicInteger outputDirtyFiles = new AtomicInteger();
   private final ArrayBlockingQueue<String> outputDirtyFilesExecPathSample =
@@ -258,6 +261,15 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       // or if the graph doesn't have edges, so that a fresh graph can be used.
       resetEvaluator();
       evaluatorNeedsReset = false;
+      if (needGcAfterResettingEvaluator) {
+        // Collect weakly reachable objects to avoid resurrection. See b/291641466.
+        try (var profiler =
+            GoogleAutoProfilerUtils.logged(
+                "manual GC to clean up from --keep_state_after_build command")) {
+          System.gc();
+        }
+        needGcAfterResettingEvaluator = false;
+      }
     }
     super.sync(
         eventHandler,
@@ -389,13 +401,17 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     }
 
     // Now check if it is necessary to wipe the previous state. We do this if either the previous
-    // or current incrementalStateRetentionStrategy requires the build to have been isolated.
+    // or current command requires the build to have been isolated.
     if (oldValueOfTrackIncrementalState != trackIncrementalState) {
       logger.atInfo().log("Set incremental state to %b", trackIncrementalState);
       evaluatorNeedsReset = true;
     } else if (!trackIncrementalState) {
       evaluatorNeedsReset = true;
     }
+    if (evaluatorNeedsReset && lastCommandKeptState) {
+      needGcAfterResettingEvaluator = true;
+    }
+    lastCommandKeptState = keepStateAfterBuild;
   }
 
   @Override
