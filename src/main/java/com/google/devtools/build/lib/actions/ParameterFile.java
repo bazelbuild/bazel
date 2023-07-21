@@ -121,13 +121,7 @@ public class ParameterFile {
     if (charset.equals(ISO_8859_1)) {
       writeContentLatin1(outputStream, arguments);
     } else if (charset.equals(UTF_8)) {
-      // Decode potentially already Utf8 strings here, so that they don't get doubly encoded as
-      // Utf8 again.
-      ImmutableList<String> args =
-          StreamSupport.stream(arguments.spliterator(), /* parallel= */ false)
-              .map(StringUtil::decodeBytestringUtf8)
-              .collect(ImmutableList.toImmutableList());
-      writeContentUtf8(outputStream, args);
+      writeContentUtf8(outputStream, arguments);
     } else {
       // Generic charset support
       OutputStreamWriter out = new OutputStreamWriter(outputStream, charset);
@@ -177,6 +171,10 @@ public class ParameterFile {
     for (String line : arguments) {
       byte[] bytes = stringUnsafe.getByteArray(line);
       if (stringUnsafe.getCoder(line) == StringUnsafe.LATIN1 && isAscii(bytes)) {
+        outputStream.write(bytes);
+      } else if (!StringUtil.decodeBytestringUtf8(line).equals(line)) {
+        // We successfully decoded line from utf8 - meaning it was already encoded as utf8.
+        // We do not want to double-encode.
         outputStream.write(bytes);
       } else {
         ByteBuffer encodedBytes = encoder.encode(CharBuffer.wrap(line));
