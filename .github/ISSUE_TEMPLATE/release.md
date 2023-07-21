@@ -3,6 +3,8 @@ name: 'Release issue (For release managers only)'
 about: Communicate the progress of a release
 title: 'Release X.Y.Z - $MONTH $YEAR'
 labels: ['release','team-OSS','P1','type: process']
+assignees:
+  - iancha1992
 
 ---
 
