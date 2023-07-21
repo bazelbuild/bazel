@@ -299,7 +299,57 @@ class BazelLockfileTest(test_base.TestBase):
     )
     self.assertNotIn('Hello from the other side!', ''.join(stderr))
 
-  def testIsolatedModuleExtension(self):
+  def testIsolatedAndNonIsolatedModuleExtensions(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            (
+                'lockfile_ext_1 = use_extension("extension.bzl",'
+                ' "lockfile_ext", isolate = True)'
+            ),
+            'use_repo(lockfile_ext_1, hello_1 = "hello")',
+            'lockfile_ext_2 = use_extension("extension.bzl", "lockfile_ext")',
+            'use_repo(lockfile_ext_2, hello_2 = "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("WORKSPACE")',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            '',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            '',
+            'def _module_ext_impl(ctx):',
+            '    print("Hello from the other side, %s!" % ctx.is_isolated)',
+            '    repo_rule(name="hello")',
+            '',
+            'lockfile_ext = module_extension(',
+            '    implementation=_module_ext_impl,',
+            ')',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@hello_1//:all', '@hello_2//:all'])
+    self.assertIn('Hello from the other side, True!', ''.join(stderr))
+    self.assertIn('Hello from the other side, False!', ''.join(stderr))
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read().strip())
+      self.assertIn(
+          '//:extension.bzl%lockfile_ext%<root>~lockfile_ext_1',
+          lockfile['moduleExtensions'],
+      )
+      self.assertIn(
+          '//:extension.bzl%lockfile_ext', lockfile['moduleExtensions']
+      )
+
+    # Verify that the build succeeds using the lockfile.
+    self.RunBazel(['shutdown'])
+    self.RunBazel(['build', '@hello_1//:all', '@hello_2//:all'])
+
+  def testUpdateIsolatedModuleExtension(self):
     self.ScratchFile(
         'MODULE.bazel',
         [
@@ -307,7 +357,6 @@ class BazelLockfileTest(test_base.TestBase):
                 'lockfile_ext = use_extension("extension.bzl", "lockfile_ext",'
                 ' isolate = True)'
             ),
-            'lockfile_ext.dep(name = "bmbm", versions = ["v1", "v2"])',
             'use_repo(lockfile_ext, "hello")',
         ],
     )
@@ -322,34 +371,54 @@ class BazelLockfileTest(test_base.TestBase):
             'repo_rule = repository_rule(implementation=_repo_rule_impl)',
             '',
             'def _module_ext_impl(ctx):',
-            '    print("Hello from the other side!")',
+            '    print("Hello from the other side, %s!" % ctx.is_isolated)',
             '    repo_rule(name="hello")',
-            '    for mod in ctx.modules:',
-            '        for dep in mod.tags.dep:',
-            '            print("Name:", dep.name, ", Versions:", dep.versions)',
             '',
-            '_dep = tag_class(attrs={"name": attr.string(), "versions":',
-            ' attr.string_list()})',
             'lockfile_ext = module_extension(',
             '    implementation=_module_ext_impl,',
-            '    tag_classes={"dep": _dep},',
-            '    environ=["GREEN_TREES", "NOT_SET"],',
             ')',
         ],
     )
 
-    # Only set one env var, to make sure null variables don't crash
-    _, _, stderr = self.RunBazel(
-        ['build', '@hello//:all'], env_add={'GREEN_TREES': 'In the city'}
-    )
-    self.assertIn('Hello from the other side!', ''.join(stderr))
-    self.assertIn('Name: bmbm , Versions: ["v1", "v2"]', ''.join(stderr))
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    self.assertIn('Hello from the other side, True!', ''.join(stderr))
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read().strip())
+      self.assertIn(
+          '//:extension.bzl%lockfile_ext%<root>~lockfile_ext',
+          lockfile['moduleExtensions'],
+      )
+      self.assertNotIn(
+          '//:extension.bzl%lockfile_ext', lockfile['moduleExtensions']
+      )
 
+    # Verify that the build succeeds using the lockfile.
     self.RunBazel(['shutdown'])
-    _, _, stderr = self.RunBazel(
-        ['build', '@hello//:all'], env_add={'GREEN_TREES': 'In the city'}
+    self.RunBazel(['build', '@hello//:all'])
+
+    # Update extension usage to be non-isolated.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'lockfile_ext = use_extension("extension.bzl", "lockfile_ext")',
+            'use_repo(lockfile_ext, "hello")',
+        ],
     )
-    self.assertNotIn('Hello from the other side!', ''.join(stderr))
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    self.assertIn('Hello from the other side, False!', ''.join(stderr))
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read().strip())
+      self.assertNotIn(
+          '//:extension.bzl%lockfile_ext%<root>~lockfile_ext',
+          lockfile['moduleExtensions'],
+      )
+      self.assertIn(
+          '//:extension.bzl%lockfile_ext', lockfile['moduleExtensions']
+      )
+
+    # Verify that the build succeeds using the lockfile.
+    self.RunBazel(['shutdown'])
+    self.RunBazel(['build', '@hello//:all'])
 
   def testModuleExtensionsInDifferentBuilds(self):
     # Test that the module extension stays in the lockfile (as long as it's
