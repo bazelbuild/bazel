@@ -5,19 +5,18 @@ Book: /_book.yaml
 
 {% include "_buttons.html" %}
 
-__Dynamic execution__ is a feature in Bazel
-[since version 0.21](https://blog.bazel.build/2019/02/01/dynamic-spawn-scheduler.html){: .external},
-where local and remote execution of the same action are started in parallel,
-using the output from the first branch that finishes, cancelling the other
-branch. It combines the execution power and/or large shared cache of a remote
-build system with the low latency of local execution, providing the best of both
-worlds for clean and incremental builds alike.
+__Dynamic execution__ is a feature in Bazel where local and remote execution of
+the same action are started in parallel, using the output from the first branch
+that finishes, cancelling the other branch. It combines the execution power
+and/or large shared cache of a remote build system with the low latency of local
+execution, providing the best of both worlds for clean and incremental builds
+alike.
 
 This page describes how to enable, tune, and debug dynamic execution. If you
 have both local and remote execution set up and are trying to adjust Bazel
 settings for better performance, this page is for you. If you don't already have
-remote execution set up, go to the Bazel
-[Remote Execution Overview](/remote/rbe) first.
+remote execution set up, go to the Bazel [Remote Execution
+Overview](/remote/rbe) first.
 
 ## Enabling dynamic execution? {:#enabling-dynamic-execution}
 
@@ -41,23 +40,23 @@ the Javac mnemonic only. The remote version works the same way. Both flags can
 be specified multiple times. If an action cannot be executed locally, it is
 executed remotely as normal, and vice-versa.
 
-If your remote system has a cache, the `--dynamic_local_execution_delay`
-flag adds a delay in milliseconds to the local execution after the remote system
-has indicated a cache hit. This avoids running local execution when more cache
-hits are likely. The default value is 1000ms, but should be tuned to being just
-a bit longer than cache hits usually take. The actual time depends both on the
-remote system and on how long a round-trip takes. Usually, the value will be the
-same for all users of a given remote system, unless some of them are far enough
-away to add roundtrip latency. You can use the
-[Bazel profiling features](/rules/performance#performance-profiling)
-to look at how long typical cache hits take.
+If your remote system has a cache, the `--dynamic_local_execution_delay` flag
+adds a delay in milliseconds to the local execution after the remote system has
+indicated a cache hit. This avoids running local execution when more cache hits
+are likely. The default value is 1000ms, but should be tuned to being just a bit
+longer than cache hits usually take. The actual time depends both on the remote
+system and on how long a round-trip takes. Usually, the value will be the same
+for all users of a given remote system, unless some of them are far enough away
+to add roundtrip latency. You can use the [Bazel profiling
+features](/rules/performance#performance-profiling) to look at how long typical
+cache hits take.
 
 Dynamic execution can be used with local sandboxed strategy as well as with
-[persistent workers](/remote/persistent). Persistent workers will
-automatically run with sandboxing when used with dynamic execution, and cannot
-use [multiplex workers](/remote/multiplex). On Darwin and Windows systems,
-the sandboxed strategy can be slow; you can pass
-`--reuse_sandbox_directories` to reduce overhead of creating sandboxes on these systems.
+[persistent workers](/remote/persistent). Persistent workers will automatically
+run with sandboxing when used with dynamic execution, and cannot use [multiplex
+workers](/remote/multiplex). On Darwin and Windows systems, the sandboxed
+strategy can be slow; you can pass `--reuse_sandbox_directories` to reduce
+overhead of creating sandboxes on these systems.
 
 Dynamic execution can also run with the `standalone` strategy, though since the
 `standalone` strategy must take the output lock when it starts executing, it
@@ -71,32 +70,31 @@ entire action fails. This is an intentional choice to prevent differences
 between local and remote execution from going unnoticed.
 
 For more background on how dynamic execution and its locking works, see Julio
-Merino's excellent
-[blog posts](https://jmmv.dev/series/bazel-dynamic-execution/){: .external}
+Merino's excellent [blog
+posts](https://jmmv.dev/series/bazel-dynamic-execution/){: .external}
 
 ## When should I use dynamic execution? {:#when-to-use}
 
-Dynamic execution requires some form of
-[remote execution system](/remote/rbe). It is not currently
-possible to use a cache-only remote system, as a cache miss would be considered
-a failed action.
+Dynamic execution requires some form of [remote execution system](/remote/rbe).
+It is not currently possible to use a cache-only remote system, as a cache miss
+would be considered a failed action.
 
 Not all types of actions are well suited for remote execution. The best
 candidates are those that are inherently faster locally, for instance through
-the use of [persistent workers](/remote/persistent), or those that run
-fast enough that the overhead of remote execution dominates execution time.
-Since each locally executed action locks some amount of CPU and memory
-resources, running actions that don't fall into those categories merely delays
-execution for those that do.
+the use of [persistent workers](/remote/persistent), or those that run fast
+enough that the overhead of remote execution dominates execution time. Since
+each locally executed action locks some amount of CPU and memory resources,
+running actions that don't fall into those categories merely delays execution
+for those that do.
 
 As of release
 [5.0.0-pre.20210708.4](https://github.com/bazelbuild/bazel/releases/tag/5.0.0-pre.20210708.4){: .external},
-[performance profiling](/rules/performance#performance-profiling)
-contains data about worker execution, including time spent finishing a work
-request after losing a dynamic execution race. If you see dynamic execution
-worker threads spending significant time acquiring resources, or a lot of time
-in the `async-worker-finish`, you may have some slow local actions delaying the
-worker threads.
+[performance profiling](/rules/performance#performance-profiling) contains data
+about worker execution, including time spent finishing a work request after
+losing a dynamic execution race. If you see dynamic execution worker threads
+spending significant time acquiring resources, or a lot of time in the
+`async-worker-finish`, you may have some slow local actions delaying the worker
+threads.
 
 <p align="center">
 <img width="596px" alt="Profiling data with poor dynamic execution performance"
@@ -124,10 +122,10 @@ mnemonics, which would often lead to these kinds of problems.
 
 Problems with dynamic execution can be subtle and hard to debug, as they can
 manifest only under some specific combinations of local and remote execution.
-The `--debug_spawn_scheduler` adds extra output from the dynamic
-execution system that can help debug these problems. You can also adjust the
-`--dynamic_local_execution_delay` flag and number of remote vs. local jobs
-to make it easier to reproduce the problems.
+The `--debug_spawn_scheduler` adds extra output from the dynamic execution
+system that can help debug these problems. You can also adjust the
+`--dynamic_local_execution_delay` flag and number of remote vs. local jobs to
+make it easier to reproduce the problems.
 
 If you are experiencing problems with dynamic execution using the `standalone`
 strategy, try running without `--experimental_local_lockfree_output`, or run
