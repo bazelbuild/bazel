@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.starlark.util;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -76,7 +78,7 @@ public class StarlarkOptionsTestCase extends BuildViewTestCase {
     if (!onlyStarlarkParser) {
       optionsParser.parse(asList);
     }
-    starlarkOptionsParser.parseGivenArgs(asList);
+    assertThat(starlarkOptionsParser.parseGivenArgs(asList)).isTrue();
     return starlarkOptionsParser.getNativeOptionsParserFortesting();
   }
 
@@ -86,11 +88,13 @@ public class StarlarkOptionsTestCase extends BuildViewTestCase {
     List<String> bazelrcOptionsList = Arrays.asList(bazelrcOptions.split(" "));
     optionsParser.parse(PriorityCategory.COMMAND_LINE, /* source= */ null, commandLineOptionsList);
     optionsParser.parse(PriorityCategory.RC_FILE, "fake.bazelrc", bazelrcOptionsList);
-    starlarkOptionsParser.parseGivenArgs(
-        ImmutableList.<String>builder()
-            .addAll(commandLineOptionsList)
-            .addAll(bazelrcOptionsList)
-            .build());
+    assertThat(
+            starlarkOptionsParser.parseGivenArgs(
+                ImmutableList.<String>builder()
+                    .addAll(commandLineOptionsList)
+                    .addAll(bazelrcOptionsList)
+                    .build()))
+        .isTrue();
     return starlarkOptionsParser.getNativeOptionsParserFortesting();
   }
 
