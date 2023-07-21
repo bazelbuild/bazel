@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
@@ -28,8 +29,16 @@ import javax.annotation.Nullable;
  *
  * <p>It uses {@link PlatformInfo} derived from the unloaded toolchain contexts to compute config
  * conditions, creating a sequential dependency between the two.
+ *
+ * <p>It's possible to use {@link DependencyContextProducerWithCompatibilityCheck} here instead but
+ * that necessarily evaluates {@link ConfigConditions} before computing the unloaded toolchain
+ * contexts, which in turn requires evaluating {@link PlatformInfo} in advance. This ordering is
+ * necessary because the compatibility check must precede the unloaded toolchain contexts
+ * computation.
+ *
+ * <p>This producer optimizes for the case where no compatibility check is needed and saves memory
+ * by using the {@link PlatformInfo} computed as a side effect of the unloaded toolchain contexts.
  */
-// TODO(b/278878321): unify this and DependencyContextProducerWithCompatibilityCheck.
 public final class DependencyContextProducer
     implements StateMachine,
         UnloadedToolchainContextsProducer.ResultSink,

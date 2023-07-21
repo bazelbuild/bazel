@@ -38,7 +38,6 @@ import javax.annotation.Nullable;
  * <p>See <a href="https://bazel.build/extending/platforms#skipping-incompatible-targets">Skipping
  * Incompatible Targets</a> for more details on platform compatibility.
  */
-// TODO(b/278878321): unify this and DependencyContextProducer.
 public final class DependencyContextProducerWithCompatibilityCheck
     implements StateMachine,
         PlatformInfoProducer.ResultSink,
