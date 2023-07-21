@@ -668,27 +668,6 @@ public final class SkyframeBuildView {
           skyframeExecutor.resetBuildDriverFunction();
           skyframeExecutor.setTestTypeResolver(null);
 
-          // Coverage needs to be done after the list of analyzed targets/tests is known.
-          ImmutableSet<Artifact> coverageArtifacts =
-              coverageReportActionsWrapperSupplier.getCoverageArtifacts(
-                  buildResultListener.getAnalyzedTargets(), buildResultListener.getAnalyzedTests());
-          eventBus.post(CoverageArtifactsKnownEvent.create(coverageArtifacts));
-          additionalArtifactsResult =
-              skyframeExecutor.evaluateSkyKeys(
-                  eventHandler, Artifact.keys(coverageArtifacts), keepGoing);
-          eventBus.post(new CoverageActionFinishedEvent());
-          if (additionalArtifactsResult.hasError()) {
-            detailedExitCodes.add(
-                SkyframeErrorProcessor.processErrors(
-                        additionalArtifactsResult,
-                        skyframeExecutor.getCyclesReporter(),
-                        eventHandler,
-                        keepGoing,
-                        eventBus,
-                        bugReporter,
-                        /* includeExecutionPhase= */ true)
-                    .executionDetailedExitCode());
-          }
           // These attributes affect whether conflict checking will be done during the next build.
           if (shouldCheckForConflicts(checkForActionConflicts, newKeys)) {
             largestTopLevelKeySetCheckedForConflicts = newKeys;
@@ -699,7 +678,7 @@ public final class SkyframeBuildView {
         // The exclusive tests whose analysis succeeded i.e. those that can be run.
         ImmutableSet<ConfiguredTarget> exclusiveTestsToRun = getExclusiveTests(evaluationResult);
         boolean continueWithExclusiveTests =
-            (!evaluationResult.hasError() && !additionalArtifactsResult.hasError()) || keepGoing;
+            !evaluationResult.hasError() || keepGoing;
 
         if (continueWithExclusiveTests && !exclusiveTestsToRun.isEmpty()) {
           skyframeExecutor.getIsBuildingExclusiveArtifacts().set(true);
@@ -728,6 +707,27 @@ public final class SkyframeBuildView {
                       .executionDetailedExitCode());
             }
           }
+        }
+        // Coverage needs to be done after the list of analyzed targets/tests is known.
+        ImmutableSet<Artifact> coverageArtifacts =
+            coverageReportActionsWrapperSupplier.getCoverageArtifacts(
+                buildResultListener.getAnalyzedTargets(), buildResultListener.getAnalyzedTests());
+        eventBus.post(CoverageArtifactsKnownEvent.create(coverageArtifacts));
+        additionalArtifactsResult =
+            skyframeExecutor.evaluateSkyKeys(
+                eventHandler, Artifact.keys(coverageArtifacts), keepGoing);
+        eventBus.post(new CoverageActionFinishedEvent());
+        if (additionalArtifactsResult.hasError()) {
+          detailedExitCodes.add(
+              SkyframeErrorProcessor.processErrors(
+                      additionalArtifactsResult,
+                      skyframeExecutor.getCyclesReporter(),
+                      eventHandler,
+                      keepGoing,
+                      eventBus,
+                      bugReporter,
+                      /* includeExecutionPhase= */ true)
+                  .executionDetailedExitCode());
         }
       } finally {
         // No more action execution beyond this point.
