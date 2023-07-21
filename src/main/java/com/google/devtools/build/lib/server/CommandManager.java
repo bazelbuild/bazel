@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.server.CommandProtos.CancelRequest;
+import com.google.devtools.build.lib.server.IdleServerTasks.IdleServerCleanupStrategy;
 import com.google.devtools.build.lib.util.ThreadUtils;
 import java.util.Collections;
 import java.util.HashMap;
@@ -43,7 +44,7 @@ class CommandManager {
   CommandManager(boolean doIdleServerTasks, @Nullable String slowInterruptMessageSuffix) {
     this.doIdleServerTasks = doIdleServerTasks;
     this.slowInterruptMessageSuffix = slowInterruptMessageSuffix;
-    idle();
+    idle(IdleServerCleanupStrategy.DELAYED);
   }
 
   void preemptEligibleCommands() {
@@ -132,11 +133,11 @@ class CommandManager {
     logger.atInfo().log("Starting command %s on thread %s", command.id, command.thread.getName());
   }
 
-  private void idle() {
+  private void idle(IdleServerCleanupStrategy cleanupStrategy) {
     Preconditions.checkState(idleServerTasks == null);
     if (doIdleServerTasks) {
       idleServerTasks = new IdleServerTasks();
-      idleServerTasks.idle();
+      idleServerTasks.idle(cleanupStrategy);
     }
   }
 
@@ -176,10 +177,11 @@ class CommandManager {
     interruptWatcherThread.start();
   }
 
-  class RunningCommand implements AutoCloseable {
+  final class RunningCommand implements AutoCloseable {
     private final Thread thread;
     private final String id;
     private final boolean preemptible;
+    private IdleServerCleanupStrategy cleanupStrategy = IdleServerCleanupStrategy.DELAYED;
 
     private RunningCommand(boolean preemptible) {
       thread = Thread.currentThread();
@@ -192,7 +194,7 @@ class CommandManager {
       synchronized (runningCommandsMap) {
         runningCommandsMap.remove(id);
         if (runningCommandsMap.isEmpty()) {
-          idle();
+          idle(cleanupStrategy);
         }
         runningCommandsMap.notify();
       }
@@ -205,7 +207,12 @@ class CommandManager {
     }
 
     boolean isPreemptible() {
-      return this.preemptible;
+      return preemptible;
+    }
+
+    /** Requests a manual GC as soon as the server becomes idle. */
+    void requestEagerIdleServerCleanup() {
+      cleanupStrategy = IdleServerCleanupStrategy.EAGER;
     }
   }
 }
