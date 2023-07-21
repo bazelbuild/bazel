@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CcToolchainRequiringRule;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.core.CoreRules;
-import com.google.devtools.build.lib.rules.cpp.CcHostToolchainAliasRule;
 import com.google.devtools.build.lib.rules.cpp.CcImportRule;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLibcTopAlias;
@@ -83,7 +82,6 @@ public class CcRules implements RuleSet {
     builder.addRuleDefinition(new CcToolchainRule());
     builder.addRuleDefinition(new CcToolchainSuiteRule());
     builder.addRuleDefinition(new CcToolchainAliasRule());
-    builder.addRuleDefinition(new CcHostToolchainAliasRule());
     builder.addRuleDefinition(new CcLibcTopAlias());
     builder.addRuleDefinition(new CcImportRule());
     builder.addRuleDefinition(new CcToolchainRequiringRule());

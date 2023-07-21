@@ -733,17 +733,6 @@ public final class DependencyResolver {
                   String.format("Label '%s' does not refer to a package group.", e.label()),
                   listener);
             }
-          case DEPENDENCY_CREATION:
-            {
-              ConfiguredValueCreationException e = error.dependencyCreation();
-              throw new DependencyEvaluationException(
-                  new ConfiguredValueCreationException(
-                      ctgValue,
-                      e.getMessage(),
-                      state.transitiveRootCauses().build(),
-                      e.getDetailedExitCode()),
-                  /* depReportedOwnError= */ true);
-            }
           case ASPECT_EVALUATION:
             throw error.aspectEvaluation();
           case ASPECT_CREATION:

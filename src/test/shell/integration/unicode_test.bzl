@@ -51,3 +51,28 @@ write_file_rule = rule(
         "is_executable": attr.bool(),
     },
 )
+
+def _run_executable_with_param_file_impl(ctx):
+    args = ctx.actions.args()
+    args.use_param_file("%s", use_always = True)
+    args.add(ctx.attr.content)
+    ctx.actions.run(
+        inputs = [],
+        outputs = [ctx.outputs.out],
+        arguments = [args, ctx.outputs.out.path],
+        executable = ctx.executable.executable,
+    )
+
+run_executable_with_param_file_rule = rule(
+    implementation = _run_executable_with_param_file_impl,
+    doc = "Writes `content` to a param file and passes the file to the executable",
+    attrs = {
+        "out": attr.output(mandatory = True),
+        "content": attr.string(mandatory = True),
+        "executable": attr.label(
+            allow_files = True,
+            executable = True,
+            cfg = "exec",
+        ),
+    },
+)
