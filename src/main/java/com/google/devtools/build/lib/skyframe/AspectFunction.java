@@ -46,13 +46,11 @@ import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.producers.DependencyContext;
 import com.google.devtools.build.lib.analysis.producers.DependencyContextProducer;
 import com.google.devtools.build.lib.analysis.producers.UnloadedToolchainContextsInputs;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
@@ -371,23 +369,13 @@ final class AspectFunction implements SkyFunction {
         throw new AspectFunctionException(
             new AspectCreationException(
                 cause.getMessage(), cause.getRootCauses(), cause.getDetailedExitCode()));
-      } else if (e.getCause() instanceof InconsistentAspectOrderException) {
-        InconsistentAspectOrderException cause = (InconsistentAspectOrderException) e.getCause();
-        env.getListener().handle(Event.error(cause.getLocation(), cause.getMessage()));
-        throw new AspectFunctionException(
-            new AspectCreationException(cause.getMessage(), key.getLabel(), configuration));
-      } else if (e.getCause() instanceof TransitionException) {
-        TransitionException cause = (TransitionException) e.getCause();
-        throw new AspectFunctionException(
-            new AspectCreationException(cause.getMessage(), key.getLabel(), configuration));
-      } else {
-        // Cast to InvalidConfigurationException as a consistency check. If you add any
-        // DependencyEvaluationException constructors, you may need to change this code, too.
-        InvalidConfigurationException cause = (InvalidConfigurationException) e.getCause();
-        throw new AspectFunctionException(
-            new AspectCreationException(
-                cause.getMessage(), key.getLabel(), configuration, cause.getDetailedExitCode()));
       }
+      // Cast to InconsistentAspectOrderException as a consistency check. If you add any
+      // DependencyEvaluationException constructors, you may need to change this code, too.
+      InconsistentAspectOrderException cause = (InconsistentAspectOrderException) e.getCause();
+      env.getListener().handle(Event.error(cause.getLocation(), cause.getMessage()));
+      throw new AspectFunctionException(
+          new AspectCreationException(cause.getMessage(), key.getLabel(), configuration));
     } catch (AspectCreationException e) {
       throw new AspectFunctionException(e);
     } catch (ConfiguredValueCreationException e) {

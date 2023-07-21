@@ -18,9 +18,6 @@ import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyExcepti
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.skyframe.AspectCreationException;
-import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
-import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.common.options.OptionsParsingException;
 
 /** Tagged union of exceptions thrown by {@link DependencyProducer}. */
@@ -36,7 +33,6 @@ public abstract class DependencyError {
     DEPENDENCY_OPTIONS_PARSING,
     DEPENDENCY_TRANSITION,
     INVALID_VISIBILITY,
-    DEPENDENCY_CREATION,
     /** An error occurred either computing the aspect collection or merging the aspect values. */
     ASPECT_EVALUATION,
     /** An error occurred during evaluation of the aspect using Skyframe. */
@@ -51,33 +47,13 @@ public abstract class DependencyError {
 
   public abstract InvalidVisibilityDependencyException invalidVisibility();
 
-  public abstract ConfiguredValueCreationException dependencyCreation();
-
   public abstract DependencyEvaluationException aspectEvaluation();
 
   public abstract AspectCreationException aspectCreation();
 
   public static boolean isSecondErrorMoreImportant(DependencyError first, DependencyError second) {
-    int cmp = first.kind().compareTo(second.kind());
-    if (cmp == 0) {
-      switch (first.kind()) {
-        case DEPENDENCY_OPTIONS_PARSING:
-        case DEPENDENCY_TRANSITION:
-        case INVALID_VISIBILITY:
-        case ASPECT_EVALUATION:
-        case ASPECT_CREATION:
-          // There isn't a good way to prioritize these so we just keep the first.
-          return false;
-        case DEPENDENCY_CREATION:
-          DetailedExitCode firstExitCode = first.dependencyCreation().getDetailedExitCode();
-          DetailedExitCode secondExitCode = second.dependencyCreation().getDetailedExitCode();
-          return secondExitCode.equals(
-              DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
-                  secondExitCode, firstExitCode));
-      }
-      throw new IllegalStateException("unreachable " + first.kind());
-    }
-    return cmp > 0;
+    // There isn't a good way to prioritize when the type matches, so we just keep the first.
+    return first.kind().compareTo(second.kind()) > 0;
   }
 
   public Exception getException() {
@@ -88,8 +64,6 @@ public abstract class DependencyError {
         return dependencyTransition();
       case INVALID_VISIBILITY:
         return invalidVisibility();
-      case DEPENDENCY_CREATION:
-        return dependencyCreation();
       case ASPECT_EVALUATION:
         return aspectEvaluation();
       case ASPECT_CREATION:
@@ -108,10 +82,6 @@ public abstract class DependencyError {
 
   static DependencyError of(InvalidVisibilityDependencyException e) {
     return AutoOneOf_DependencyError.invalidVisibility(e);
-  }
-
-  static DependencyError of(ConfiguredValueCreationException e) {
-    return AutoOneOf_DependencyError.dependencyCreation(e);
   }
 
   static DependencyError of(DependencyEvaluationException e) {
