@@ -68,9 +68,16 @@ public abstract class RepositoryMapping {
    * additional mappings. If there are conflicts, existing mappings will take precedence.
    */
   public RepositoryMapping withAdditionalMappings(Map<String, RepositoryName> additionalMappings) {
-    HashMap<String, RepositoryName> allMappings = new HashMap<>(additionalMappings);
+    // We want to preserve the existing sort order of entries, adding new ones only if they do
+    // not override an existing entry.
+    ImmutableMap.Builder<String, RepositoryName> allMappings = ImmutableMap.builder();
     allMappings.putAll(entries());
-    return createInternal(allMappings, ownerRepo());
+    for (Map.Entry<String, RepositoryName> entry : additionalMappings.entrySet()) {
+      if (!entries().containsKey(entry.getKey())) {
+        allMappings.put(entry);
+      }
+    }
+    return createInternal(allMappings.buildOrThrow(), ownerRepo());
   }
 
   /**

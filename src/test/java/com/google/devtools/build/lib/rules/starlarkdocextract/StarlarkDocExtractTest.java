@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDir
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
@@ -122,7 +121,7 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget(targetName);
     Label targetLabel = Label.parseCanonicalUnchecked(targetName);
     String outputName = targetLabel.toPathFragment().getPathString() + ".binaryproto";
-    if (targetLabel.getRepository() != RepositoryName.MAIN) {
+    if (!targetLabel.getRepository().isMain()) {
       outputName =
           String.format("external/%s/%s", targetLabel.getRepository().getName(), outputName);
     }
@@ -1081,7 +1080,7 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
 
   @Test
   public void labels_whenStarlarkDocExtractInWorkspaceDep_renderRepoName() throws Exception {
-    rewriteWorkspace("local_repository(name = 'dep', path = 'my_dep_path'");
+    rewriteWorkspace("local_repository(name = 'dep', path = 'dep_path')");
     scratch.file("dep_path/WORKSPACE", "workspace(name = 'dep')");
     scratch.file(
         "dep_path/foo.bzl", //

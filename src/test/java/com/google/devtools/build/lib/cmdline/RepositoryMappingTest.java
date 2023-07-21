@@ -69,6 +69,19 @@ public final class RepositoryMappingTest {
   }
 
   @Test
+  public void additionalMappings_iterationOrder() throws Exception {
+    RepositoryMapping mapping =
+        RepositoryMapping.createAllowingFallback(
+                ImmutableMap.of(
+                    "B",
+                    RepositoryName.create("com_foo_bar_b"),
+                    "C",
+                    RepositoryName.create("com_foo_bar_c")))
+            .withAdditionalMappings(ImmutableMap.of("A", RepositoryName.create("com_foo_bar_a")));
+    assertThat(mapping.entries().keySet()).containsExactly("B", "C", "A").inOrder();
+  }
+
+  @Test
   public void composeWith() throws Exception {
     RepositoryMapping mapping =
         RepositoryMapping.createAllowingFallback(

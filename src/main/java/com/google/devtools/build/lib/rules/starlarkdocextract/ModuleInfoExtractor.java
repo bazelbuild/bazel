@@ -65,7 +65,6 @@ import net.starlark.java.eval.Structure;
 /** API documentation extractor for a compiled, loaded Starlark module. */
 final class ModuleInfoExtractor {
   private final Predicate<String> isWantedQualifiedName;
-  private final RepositoryMapping repositoryMapping;
   private final Function<Label, String> labelRenderer;
 
   @VisibleForTesting
@@ -120,7 +119,6 @@ final class ModuleInfoExtractor {
       RepositoryMapping repositoryMapping,
       boolean renderMainRepoName) {
     this.isWantedQualifiedName = isWantedQualifiedName;
-    this.repositoryMapping = repositoryMapping;
     this.labelRenderer = new LabelRenderer(repositoryMapping, renderMainRepoName);
   }
 
@@ -169,8 +167,8 @@ final class ModuleInfoExtractor {
         mainRepoName =
             repositoryMapping.entries().entrySet().stream()
                 .filter(entry -> entry.getValue().isMain() && isPublicName(entry.getKey()))
-                .findFirst()
                 .map(Map.Entry::getKey)
+                .findFirst()
                 .orElse("");
       } else {
         mainRepoName = "";
