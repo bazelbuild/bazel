@@ -118,6 +118,54 @@ The previously recommended `--experimental_spawn_scheduler` flag is deprecated.
 It turns on dynamic execution and sets `dynamic` as the default strategy for all
 mnemonics, which would often lead to these kinds of problems.
 
+## Performance {:#performance}
+
+The dynamic execution approach assumes there are enough resources available
+locally and remotely that it's worth spending some extra resources to improve
+overall performance. But excessive resource usage may slow down Bazel itself or
+the machine it runs on, or put unexpected pressure on a remote system. There are
+several options for changing the behaviour of dynamic execution:
+
+`--dynamic_local_execution_delay` delays the start of a local branch by a number
+of milliseconds after the remote branch has started, but only if there has been
+a remote cache hit during the current build. This makes builds that benefit
+from remote caching not waste local resources when it is likely that most
+outputs can be found in the cache. Depending on the quality of the cache,
+reducing this might improve build speeds, at the cost of using more local
+resources.
+
+`--experimental_dynamic_local_load_factor` is an experimental advanced resource
+management option. It takes a value from 0 to 1, 0 turning off this feature.
+When set to a value above 0, Bazel adjusts the number of
+locally scheduled actions when many actions waiting to
+be scheduled. Setting it to 1 allows as many actions to be scheduled as there
+are CPUs available (as per `--local_cpu_resources`). Lower values set the number
+of actions scheduled to correspondingly fewer as higher numbers of actions are
+available to run. This may sound counter-intuitive, but with a good remote
+system, local execution does not help much when many actions are being run, and
+the local CPU is better spent managing remote actions.
+
+`--experimental_dynamic_slow_remote_time` prioritizes starting local branches
+when the remote branch has been running for at least this long. Normally the
+most recently scheduled action gets priority, as it has the greatest chance of
+winning the race, but if the remote system sometimes hangs or takes extra long,
+this can get a build to move along. This is not enabled by default, because it
+could hide issues with the remote system that should rather be fixed. Make sure
+to monitor your remote system performance if you enable this option.
+
+`--experimental_dynamic_ignore_local_signals` can be used to let the remote
+branch take over when a local spawn exits due to a given signal. This is
+is mainly useful together with worker resource limits (see
+[`--experimental_worker_memory_limit_mb`](https://bazel.build/reference/command-line-reference#flag--experimental_worker_memory_limit_mb),
+[`--experimental_worker_sandbox_hardening`](https://bazel.build/reference/command-line-reference#flag--experimental_worker_sandbox_hardening),
+and
+[`--experimental_sandbox_memory_limit_mb`)](https://bazel.build/reference/command-line-reference#flag--experimental_sandbox_memory_limit_mb)),
+where worker processes may be killed when they use too many resources.
+
+The [JSON trace profile](/advanced/performance/json-trace-profile) contains a
+number of performance-related graphs that can help identify ways to improve the
+trade-off of performance and resource usage.
+
 ## Troubleshooting {:#troubleshooting}
 
 Problems with dynamic execution can be subtle and hard to debug, as they can
