@@ -216,6 +216,14 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean enableBzlmod;
 
   @Option(
+      name = "experimental_isolated_extension_usages",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
+      help = "foo")
+  public boolean experimentalIsolatedExtensionUsages;
+
+  @Option(
       name = "experimental_java_proto_library_default_has_services",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -696,6 +704,7 @@ public final class BuildLanguageOptions extends OptionsBase {
                 EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, experimentalEnableAndroidMigrationApis)
             .setBool(EXPERIMENTAL_ENABLE_SCL_DIALECT, experimentalEnableSclDialect)
             .setBool(ENABLE_BZLMOD, enableBzlmod)
+            .setBool(EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, experimentalIsolatedExtensionUsages)
             .setBool(
                 EXPERIMENTAL_JAVA_PROTO_LIBRARY_DEFAULT_HAS_SERVICES,
                 experimentalJavaProtoLibraryDefaultHasServices)
@@ -791,6 +800,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-experimental_enable_android_migration_apis";
   public static final String EXPERIMENTAL_ENABLE_SCL_DIALECT = "-experimental_enable_scl_dialect";
   public static final String ENABLE_BZLMOD = "-enable_bzlmod";
+  public static final String EXPERIMENTAL_ISOLATED_EXTENSION_USAGES =
+      "-experimental_isolated_extension_usages";
   public static final String EXPERIMENTAL_JAVA_PROTO_LIBRARY_DEFAULT_HAS_SERVICES =
       "+experimental_java_proto_library_default_has_services";
   public static final String INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW =
