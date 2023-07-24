@@ -271,7 +271,10 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
 
     PrecomputedValue.STARLARK_SEMANTICS.set(
         differencer,
-        StarlarkSemantics.builder().setBool(BuildLanguageOptions.ENABLE_BZLMOD, true).build());
+        StarlarkSemantics.builder()
+            .setBool(BuildLanguageOptions.ENABLE_BZLMOD, true)
+            .setBool(BuildLanguageOptions.EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, true)
+            .build());
     RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING.set(
         differencer, RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY);
