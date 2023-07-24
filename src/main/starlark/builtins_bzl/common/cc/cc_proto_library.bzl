@@ -268,6 +268,7 @@ def _impl(ctx):
             attr = "deps",
         )
     dep = ctx.attr.deps[0]
+    proto_common.check_collocated(ctx.label, dep[ProtoInfo], ctx.attr._aspect_cc_proto_toolchain[ProtoLangToolchainInfo])
     cc_info = dep[CcInfo]
     output_groups = dep[OutputGroupInfo]
     return [cc_info, DefaultInfo(files = dep[ProtoCcFilesInfo].files), output_groups]
@@ -279,6 +280,9 @@ cc_proto_library = rule(
             aspects = [cc_proto_aspect],
             allow_rules = ["proto_library"],
             allow_files = False,
+        ),
+        "_aspect_cc_proto_toolchain": attr.label(
+            default = configuration_field(fragment = "proto", name = "proto_toolchain_for_cc"),
         ),
     },
     provides = [CcInfo],

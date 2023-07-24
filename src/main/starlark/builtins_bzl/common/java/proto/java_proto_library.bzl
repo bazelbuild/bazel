@@ -151,7 +151,10 @@ def bazel_java_proto_library_rule(ctx):
     Returns:
       ([JavaInfo, DefaultInfo, OutputGroupInfo])
     """
-
+    if hasattr(ctx.attr, "_aspect_java_proto_toolchain"):
+        proto_toolchain = ctx.attr._aspect_java_proto_toolchain[ProtoLangToolchainInfo]
+        for dep in ctx.attr.deps:
+            proto_common.check_collocated(ctx.label, dep[ProtoInfo], proto_toolchain)
     java_info = _merge_private_for_builtins([dep[JavaInfo] for dep in ctx.attr.deps], merge_java_outputs = False)
 
     transitive_src_and_runtime_jars = depset(transitive = [dep[JavaProtoAspectInfo].jars for dep in ctx.attr.deps])
@@ -172,6 +175,9 @@ java_proto_library = rule(
         "deps": attr.label_list(providers = [ProtoInfo], aspects = [bazel_java_proto_aspect]),
         "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
         "distribs": attr.string_list(),
+        "_aspect_java_proto_toolchain": attr.label(
+            default = configuration_field(fragment = "proto", name = "proto_toolchain_for_java"),
+        ),
     },
     provides = [JavaInfo],
 )

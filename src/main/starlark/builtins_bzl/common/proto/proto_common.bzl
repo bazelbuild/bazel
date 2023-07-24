@@ -104,6 +104,31 @@ def _output_directory(proto_info, root):
 
     return root.path + "/" + proto_source_root
 
+def _check_collocated(label, proto_info, proto_lang_toolchain_info):
+    """Checks if lang_proto_library is collocated with proto_library.
+
+    Exceptions are allowed by an allowlist defined on `proto_lang_toolchain` and
+    on an allowlist defined on `proto_library`'s `allow_exports` attribute.
+
+    If checks are not successful the function fails.
+
+    Args:
+      label: (Label) The label of lang_proto_library
+      proto_info: (ProtoInfo) The ProtoInfo from the proto_library dependency.
+      proto_lang_toolchain_info: (ProtoLangToolchainInfo) The proto lang toolchain info.
+        Obtained from a `proto_lang_toolchain` target.
+    """
+    if (proto_info.direct_descriptor_set.owner.package != label.package and
+        proto_lang_toolchain_info.allowlist_different_package):
+        if not proto_lang_toolchain_info.allowlist_different_package.isAvailableFor(label):
+            fail(("lang_proto_library '%s' may only be created in the same package " +
+                  "as proto_library '%s'") % (label, proto_info.direct_descriptor_set.owner))
+    if (proto_info.direct_descriptor_set.owner.package != label.package and
+        hasattr(proto_info, "allow_exports")):
+        if not proto_info.allow_exports.isAvailableFor(label):
+            fail(("lang_proto_library '%s' may only be created in the same package " +
+                  "as proto_library '%s'") % (label, proto_info.direct_descriptor_set.owner))
+
 def _compile(
         actions,
         proto_info,
@@ -152,17 +177,6 @@ def _compile(
         return  # nothing to do
     if experimental_output_files not in ["single", "multiple", "legacy"]:
         fail('experimental_output_files expected to be one of ["single", "multiple", "legacy"]')
-
-    if (proto_info.direct_descriptor_set.owner.package != generated_files[0].owner.package and
-        proto_lang_toolchain_info.allowlist_different_package):
-        if not proto_lang_toolchain_info.allowlist_different_package.isAvailableFor(generated_files[0].owner):
-            fail(("lang_proto_library '%s' may only be created in the same package" +
-                  "as proto_library '%s'") % (generated_files[0].owner, proto_info.direct_descriptor_set.owner))
-    if (proto_info.direct_descriptor_set.owner.package != generated_files[0].owner.package and
-        hasattr(proto_info, "allow_exports")):
-        if not proto_info.allow_exports.isAvailableFor(generated_files[0].owner):
-            fail("proto_library '%s' can't be reexported in lang_proto_library '%s'" %
-                 (proto_info.direct_descriptor_set.owner, generated_files[0].owner))
 
     args = actions.args()
     args.use_param_file(param_file_arg = "@%s")
@@ -335,6 +349,7 @@ def _declare_generated_files(
 proto_common_do_not_use = struct(
     compile = _compile,
     declare_generated_files = _declare_generated_files,
+    check_collocated = _check_collocated,
     experimental_should_generate_code = _experimental_should_generate_code,
     experimental_filter_sources = _experimental_filter_sources,
     ProtoLangToolchainInfo = ProtoLangToolchainInfo,

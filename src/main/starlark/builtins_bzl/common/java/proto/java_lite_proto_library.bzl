@@ -99,6 +99,9 @@ def _rule_impl(ctx):
     """
 
     proto_toolchain_info = ctx.attr._aspect_proto_toolchain_for_javalite[ProtoLangToolchainInfo]
+    for dep in ctx.attr.deps:
+        proto_common.check_collocated(ctx.label, dep[ProtoInfo], proto_toolchain_info)
+
     runtime = proto_toolchain_info.runtime
 
     if runtime:

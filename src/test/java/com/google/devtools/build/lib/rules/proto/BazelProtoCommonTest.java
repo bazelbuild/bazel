@@ -174,6 +174,20 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         "     'extension': attr.string(),",
         "     'python_names': attr.bool(default = False),",
         "  })");
+
+    scratch.file(
+        "foo/check_collocated.bzl",
+        "def _impl(ctx):",
+        "  proto_common_do_not_use.check_collocated(",
+        "    ctx.label,",
+        "    ctx.attr.proto_dep[ProtoInfo],",
+        "    ctx.attr.toolchain[proto_common_do_not_use.ProtoLangToolchainInfo])",
+        "  return None",
+        "check_collocated = rule(_impl,",
+        "  attrs = {",
+        "     'proto_dep': attr.label(),",
+        "     'toolchain': attr.label(default = '//foo:toolchain'),",
+        "  })");
   }
 
   /** Verifies basic usage of <code>proto_common.generate_code</code>. */
@@ -641,8 +655,8 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         "proto_library(name = 'proto', srcs = ['A.proto'])");
     scratch.file(
         "bar/BUILD",
-        "load('//foo:generate.bzl', 'generate_rule')",
-        "generate_rule(name = 'simple', proto_dep = '//proto:proto')");
+        "load('//foo:check_collocated.bzl', 'check_collocated')",
+        "check_collocated(name = 'simple', proto_dep = '//proto:proto')");
 
     getConfiguredTarget("//bar:simple");
 
@@ -657,14 +671,14 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         "proto_library(name = 'proto', srcs = ['A.proto'])");
     scratch.file(
         "test/BUILD",
-        "load('//foo:generate.bzl', 'generate_rule')",
-        "generate_rule(name = 'simple', proto_dep = '//proto:proto')");
+        "load('//foo:check_collocated.bzl', 'check_collocated')",
+        "check_collocated(name = 'simple', proto_dep = '//proto:proto')");
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:simple");
 
     assertContainsEvent(
-        "lang_proto_library '@//test:simple' may only be created in the same packageas"
+        "lang_proto_library '@//test:simple' may only be created in the same package as"
             + " proto_library '@//proto:proto'");
   }
 
@@ -679,15 +693,15 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "notallowed/BUILD",
-        "load('//foo:generate.bzl', 'generate_rule')",
-        "generate_rule(name = 'simple', proto_dep = '//x:foo')");
+        "load('//foo:check_collocated.bzl', 'check_collocated')",
+        "check_collocated(name = 'simple', proto_dep = '//x:foo')");
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//notallowed:simple");
 
     assertContainsEvent(
-        "proto_library '@//x:foo' can't be reexported in lang_proto_library"
-            + " '@//notallowed:simple'");
+        "lang_proto_library '@//notallowed:simple' may only be created in the same package as"
+            + " proto_library '@//x:foo'");
   }
 
   @Test
@@ -701,8 +715,8 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "allowed/BUILD",
-        "load('//foo:generate.bzl', 'generate_rule')",
-        "generate_rule(name = 'simple', proto_dep = '//x:foo')");
+        "load('//foo:check_collocated.bzl', 'check_collocated')",
+        "check_collocated(name = 'simple', proto_dep = '//x:foo')");
 
     getConfiguredTarget("//allowed:simple");
 
