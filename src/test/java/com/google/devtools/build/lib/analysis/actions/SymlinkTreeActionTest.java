@@ -45,13 +45,6 @@ public class SymlinkTreeActionTest extends BuildViewTestCase {
     VARIABLE_ENVIRONMENT
   }
 
-  private enum SkipManifestAttributes {
-    RUNFILES,
-    INPROCESS_SYMLINKS,
-    FIXED_ENVIRONMENT,
-    VARIABLE_ENVIRONMENT
-  }
-
   @Test
   public void testComputeKey() throws Exception {
     final Artifact inputManifest = getBinArtifactWithNoOwner("dir/manifest.in");
@@ -66,53 +59,32 @@ public class SymlinkTreeActionTest extends BuildViewTestCase {
                 new SymlinkTreeAction(
                     ActionsTestUtil.NULL_ACTION_OWNER,
                     inputManifest,
-                    /*runfiles=*/ attributesToFlip.contains(RunfilesActionAttributes.RUNFILES)
+                    /* runfiles= */ attributesToFlip.contains(RunfilesActionAttributes.RUNFILES)
                         ? new Runfiles.Builder("TESTING", false).addArtifact(runfile).build()
                         : new Runfiles.Builder("TESTING", false).addArtifact(runfile2).build(),
                     outputManifest,
-                    /*repoMappingManifest=*/ null,
-                    /*filesetRoot=*/ null,
+                    /* repoMappingManifest= */ null,
+                    /* filesetRoot= */ null,
                     createActionEnvironment(
                         attributesToFlip.contains(RunfilesActionAttributes.FIXED_ENVIRONMENT),
                         attributesToFlip.contains(RunfilesActionAttributes.VARIABLE_ENVIRONMENT)),
                     attributesToFlip.contains(RunfilesActionAttributes.ENABLE_RUNFILES),
-                    attributesToFlip.contains(RunfilesActionAttributes.INPROCESS_SYMLINKS),
-                    /*skipRunfilesManifests=*/ false))
+                    attributesToFlip.contains(RunfilesActionAttributes.INPROCESS_SYMLINKS)))
         .combinations(
             FilesetActionAttributes.class,
             (attributesToFlip) ->
                 new SymlinkTreeAction(
                     ActionsTestUtil.NULL_ACTION_OWNER,
                     inputManifest,
-                    /*runfiles=*/ null,
+                    /* runfiles= */ null,
                     outputManifest,
-                    /*repoMappingManifest=*/ null,
-                    /*filesetRoot=*/ "root",
+                    /* repoMappingManifest= */ null,
+                    /* filesetRoot= */ "root",
                     createActionEnvironment(
                         attributesToFlip.contains(FilesetActionAttributes.FIXED_ENVIRONMENT),
                         attributesToFlip.contains(FilesetActionAttributes.VARIABLE_ENVIRONMENT)),
                     attributesToFlip.contains(FilesetActionAttributes.ENABLE_RUNFILES),
-                    attributesToFlip.contains(FilesetActionAttributes.INPROCESS_SYMLINKS),
-                    /*skipRunfilesManifests=*/ false))
-        .combinations(
-            SkipManifestAttributes.class,
-            (attributesToFlip) ->
-                // skipRunfilesManifests requires !filesetTree and enableRunfiles
-                new SymlinkTreeAction(
-                    ActionsTestUtil.NULL_ACTION_OWNER,
-                    inputManifest,
-                    attributesToFlip.contains(SkipManifestAttributes.RUNFILES)
-                        ? new Runfiles.Builder("TESTING", false).addArtifact(runfile).build()
-                        : new Runfiles.Builder("TESTING", false).addArtifact(runfile2).build(),
-                    outputManifest,
-                    /*repoMappingManifest=*/ null,
-                    /*filesetRoot=*/ null,
-                    createActionEnvironment(
-                        attributesToFlip.contains(SkipManifestAttributes.FIXED_ENVIRONMENT),
-                        attributesToFlip.contains(SkipManifestAttributes.VARIABLE_ENVIRONMENT)),
-                    /*enableRunfiles=*/ true,
-                    attributesToFlip.contains(SkipManifestAttributes.INPROCESS_SYMLINKS),
-                    /*skipRunfilesManifests=*/ true))
+                    attributesToFlip.contains(FilesetActionAttributes.INPROCESS_SYMLINKS)))
         .runTest();
   }
 
@@ -132,13 +104,12 @@ public class SymlinkTreeActionTest extends BuildViewTestCase {
             new SymlinkTreeAction(
                 ActionsTestUtil.NULL_ACTION_OWNER,
                 inputManifest,
-                /*runfiles=*/ null,
+                /* runfiles= */ null,
                 outputManifest,
-                /*repoMappingManifest=*/ null,
-                /*filesetRoot=*/ null,
+                /* repoMappingManifest= */ null,
+                /* filesetRoot= */ null,
                 createActionEnvironment(false, false),
-                /*enableRunfiles=*/ true,
-                /*inprocessSymlinkCreation=*/ false,
-                /*skipRunfilesManifests=*/ false));
+                /* enableRunfiles= */ true,
+                /* inprocessSymlinkCreation= */ false));
   }
 }
