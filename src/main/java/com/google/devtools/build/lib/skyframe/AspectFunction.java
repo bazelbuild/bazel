@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
+import com.google.devtools.build.lib.analysis.TransitiveDependencyState.PrerequisitePackageFunction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
@@ -94,7 +95,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -130,12 +130,12 @@ final class AspectFunction implements SkyFunction {
    *
    * <p>See {@link ConfiguredTargetFunction#prerequisitePackages} for more details.
    */
-  private final ConcurrentHashMap<PackageIdentifier, Package> prerequisitePackages;
+  private final PrerequisitePackageFunction prerequisitePackages;
 
   AspectFunction(
       BuildViewProvider buildViewProvider,
       boolean storeTransitivePackages,
-      ConcurrentHashMap<PackageIdentifier, Package> prerequisitePackages) {
+      PrerequisitePackageFunction prerequisitePackages) {
     this.buildViewProvider = buildViewProvider;
     this.storeTransitivePackages = storeTransitivePackages;
     this.prerequisitePackages = prerequisitePackages;
@@ -147,8 +147,7 @@ final class AspectFunction implements SkyFunction {
     final DependencyResolver.State computeDependenciesState;
 
     private State(
-        boolean storeTransitivePackages,
-        ConcurrentHashMap<PackageIdentifier, Package> prerequisitePackages) {
+        boolean storeTransitivePackages, PrerequisitePackageFunction prerequisitePackages) {
       this.computeDependenciesState =
           new DependencyResolver.State(storeTransitivePackages, prerequisitePackages);
     }

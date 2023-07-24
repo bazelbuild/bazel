@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
+import com.google.devtools.build.lib.analysis.TransitiveDependencyState.PrerequisitePackageFunction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
@@ -63,7 +64,6 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.Transi
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
@@ -93,7 +93,6 @@ import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
@@ -183,7 +182,8 @@ public final class DependencyResolver {
     final StoredEventHandler storedEvents = new StoredEventHandler();
 
     public static State createForTesting(TargetAndConfiguration targetAndConfiguration) {
-      var state = new State(/* storeTransitivePackages= */ false, new ConcurrentHashMap<>());
+      var state =
+          new State(/* storeTransitivePackages= */ false, /* prerequisitePackages= */ p -> null);
       state.targetAndConfiguration = targetAndConfiguration;
       return state;
     }
@@ -192,20 +192,20 @@ public final class DependencyResolver {
         TargetAndConfiguration targetAndConfiguration, TransitionCollector transitionCollector) {
       var state =
           new State(
-              /* storeTransitivePackages= */ false, new ConcurrentHashMap<>(), transitionCollector);
+              /* storeTransitivePackages= */ false,
+              /* prerequisitePackages= */ p -> null,
+              transitionCollector);
       state.targetAndConfiguration = targetAndConfiguration;
       return state;
     }
 
-    State(
-        boolean storeTransitivePackages,
-        ConcurrentHashMap<PackageIdentifier, Package> prerequisitePackages) {
+    State(boolean storeTransitivePackages, PrerequisitePackageFunction prerequisitePackages) {
       this(storeTransitivePackages, prerequisitePackages, NULL_TRANSITION_COLLECTOR);
     }
 
     private State(
         boolean storeTransitivePackages,
-        ConcurrentHashMap<PackageIdentifier, Package> prerequisitePackages,
+        PrerequisitePackageFunction prerequisitePackages,
         TransitionCollector transitionCollector) {
       this.transitiveState =
           new TransitiveDependencyState(storeTransitivePackages, prerequisitePackages);

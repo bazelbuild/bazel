@@ -34,11 +34,20 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.TreeMap;
-import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /** Groups state associated with transitive dependencies. */
 public final class TransitiveDependencyState {
+  /**
+   * Directly retrieves packages of dependencies from Skyframe without adding a dependency edge.
+   *
+   * <p>See further discussion at {@link #prerequisitePackages}.
+   */
+  public interface PrerequisitePackageFunction {
+    @Nullable
+    Package getExistingPackage(PackageIdentifier id) throws InterruptedException;
+  }
+
   private final NestedSetBuilder<Cause> transitiveRootCauses;
 
   /**
@@ -53,7 +62,7 @@ public final class TransitiveDependencyState {
   @Nullable private final PackageCollector packageCollector;
 
   /**
-   * Contains packages that were previously requested by transitive dependencies.
+   * Retrieves packages that were previously requested by transitive dependencies.
    *
    * <p>When the {@link ConfiguredTargetFunction} computes a value, it depends on properties of its
    * dependencies. In some cases, those values are read directly out of the dependency's underlying
@@ -65,17 +74,16 @@ public final class TransitiveDependencyState {
    * ephemeral. Distributed implementations will include these properties in an extra provider. It
    * won't affect memory because the underlying package won't exist on the node loading it remotely.
    *
-   * <p>It's valid to obtain {@link Package}s of dependencies from this map instead of creating an
-   * edge in {@code Skyframe} due to the transitive dependency through the {@link ConfiguredTarget}
-   * if it is scoped to the invocation. Invalidation of the {@link Package} propagates upwards
-   * through the dependency. This is compatible with bottom-up change pruning because {@link
+   * <p>It's valid to obtain {@link Package}s of dependencies from this function instead of creating
+   * an edge in {@code Skyframe} due to the transitive dependency through the {@link
+   * ConfiguredTarget}. Invalidation of the {@link Package} propagates upwards through the
+   * dependency. This is compatible with bottom-up change pruning because {@link
    * ConfiguredTargetValue} uses identity equals.
    */
-  private final ConcurrentHashMap<PackageIdentifier, Package> prerequisitePackages;
+  private final PrerequisitePackageFunction prerequisitePackages;
 
   public TransitiveDependencyState(
-      boolean storeTransitivePackages,
-      ConcurrentHashMap<PackageIdentifier, Package> prerequisitePackages) {
+      boolean storeTransitivePackages, PrerequisitePackageFunction prerequisitePackages) {
     this.transitiveRootCauses = NestedSetBuilder.stableOrder();
     this.packageCollector = storeTransitivePackages ? new PackageCollector() : null;
     this.prerequisitePackages = prerequisitePackages;
@@ -84,10 +92,9 @@ public final class TransitiveDependencyState {
   public static TransitiveDependencyState createForTesting() {
     return new TransitiveDependencyState(
         /* storeTransitivePackages= */ false,
-        // Passing an empty map here means that there will be few, if any, existing prerequisite
-        // Packages. This causes the underlying code to fall back on declaring Package edges for
-        // prerequisites.
-        new ConcurrentHashMap<>());
+        // Always returning null here causes the underlying code to fall back on declaring Package
+        // edges for prerequisites, which is benign.
+        /* prerequisitePackages= */ p -> null);
   }
 
   public NestedSetBuilder<Cause> transitiveRootCauses() {
@@ -143,12 +150,8 @@ public final class TransitiveDependencyState {
   }
 
   @Nullable
-  public Package getDependencyPackage(PackageIdentifier packageId) {
-    return prerequisitePackages.get(packageId);
-  }
-
-  public void putDependencyPackageIfAbsent(PackageIdentifier packageId, Package pkg) {
-    prerequisitePackages.putIfAbsent(packageId, pkg);
+  public Package getDependencyPackage(PackageIdentifier packageId) throws InterruptedException {
+    return prerequisitePackages.getExistingPackage(packageId);
   }
 
   /**

@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGro
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
+import com.google.devtools.build.lib.analysis.TransitiveDependencyState.PrerequisitePackageFunction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
@@ -45,7 +46,6 @@ import com.google.devtools.build.lib.analysis.test.AnalysisFailurePropagationExc
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -73,7 +73,6 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.Driver;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -135,15 +134,14 @@ public final class ConfiguredTargetFunction implements SkyFunction {
    * Packages of prerequisites.
    *
    * <p>These packages are needed by {@link ConfiguredTarget}s that depend on them. Instead of
-   * looking them up in {@code Skyframe}, they can be looked up in this map to avoid creating
-   * unnecessary dependency edges. The package dependency is already implied by configured target
-   * dependency edge.
+   * declaring dependency edges on them in {@code Skyframe}, they can be looked up directly. The
+   * package dependency edge is already implied by configured target dependency edge.
    *
    * <p>It is only valid to use this to lookup packages of prerequisites. Using this to lookup the
    * package of the primary configured target would cause incrementality errors because an essential
    * dependency edge would not be registered.
    */
-  private final ConcurrentHashMap<PackageIdentifier, Package> prerequisitePackages;
+  private final PrerequisitePackageFunction prerequisitePackages;
 
   ConfiguredTargetFunction(
       BuildViewProvider buildViewProvider,
@@ -152,7 +150,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       boolean storeTransitivePackages,
       boolean shouldUnblockCpuWorkWhenFetchingDeps,
       @Nullable ConfiguredTargetProgressReceiver configuredTargetProgress,
-      ConcurrentHashMap<PackageIdentifier, Package> prerequisitePackages) {
+      PrerequisitePackageFunction prerequisitePackages) {
     this.buildViewProvider = buildViewProvider;
     this.ruleClassProvider = ruleClassProvider;
     this.cpuBoundSemaphore = cpuBoundSemaphore;
@@ -205,9 +203,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     final DependencyResolver.State computeDependenciesState;
 
-    State(
-        boolean storeTransitivePackages,
-        ConcurrentHashMap<PackageIdentifier, Package> prerequisitePackages) {
+    State(boolean storeTransitivePackages, PrerequisitePackageFunction prerequisitePackages) {
       this.computeDependenciesState =
           new DependencyResolver.State(storeTransitivePackages, prerequisitePackages);
     }
@@ -353,10 +349,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
   @Override
   public String extractTag(SkyKey skyKey) {
     return Label.print(((ConfiguredTargetKey) skyKey.argument()).getLabel());
-  }
-
-  void clearPrerequisitePackages() {
-    prerequisitePackages.clear();
   }
 
   @SuppressWarnings("LenientFormatStringValidation")

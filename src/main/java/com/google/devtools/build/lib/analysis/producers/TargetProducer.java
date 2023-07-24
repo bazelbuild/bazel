@@ -83,7 +83,6 @@ final class TargetProducer implements StateMachine, ValueOrExceptionSink<NoSuchP
       @Nullable SkyValue value, @Nullable NoSuchPackageException error) {
     if (value != null) {
       this.pkg = ((PackageValue) value).getPackage();
-      transitiveState.putDependencyPackageIfAbsent(label.getPackageIdentifier(), pkg);
       return;
     }
 

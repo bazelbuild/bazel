@@ -44,7 +44,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.ConcurrentHashMap;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -134,7 +133,7 @@ public final class TransitiveDependencyStateTest {
 
   private static TransitiveDependencyState newTransitiveState() {
     return new TransitiveDependencyState(
-        /* storeTransitivePackages= */ true, /* prerequisitePackages= */ new ConcurrentHashMap<>());
+        /* storeTransitivePackages= */ true, /* prerequisitePackages= */ p -> null);
   }
 
   private static Package createMockPackage(PackageIdentifier id) {

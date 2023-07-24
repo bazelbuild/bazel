@@ -329,7 +329,6 @@ public class BuildView {
       }
     } finally {
       skyframeBuildView.clearInvalidatedActionLookupKeys();
-      skyframeExecutor.clearPrerequisitePackages();
     }
 
     int numTargetsToAnalyze = labelToTargetMap.size();

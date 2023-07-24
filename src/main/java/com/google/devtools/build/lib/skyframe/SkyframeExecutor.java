@@ -354,7 +354,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   protected final SkyframeActionExecutor skyframeActionExecutor;
   private ActionExecutionFunction actionExecutionFunction;
   private BuildDriverFunction buildDriverFunction;
-  private ConfiguredTargetFunction configuredTargetFunction;
   private GlobFunction globFunction;
   protected SkyframeProgressReceiver progressReceiver;
   private CyclesReporter cyclesReporter = null;
@@ -629,24 +628,22 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.TARGET_PATTERN_ERROR, new TargetPatternErrorFunction());
     map.put(TransitiveTargetKey.NAME, new TransitiveTargetFunction());
     map.put(Label.TRANSITIVE_TRAVERSAL, getTransitiveTraversalFunction());
-    var prerequisitePackages = new ConcurrentHashMap<PackageIdentifier, Package>();
     map.put(
         SkyFunctions.CONFIGURED_TARGET,
-        configuredTargetFunction =
-            new ConfiguredTargetFunction(
-                new BuildViewProvider(),
-                ruleClassProvider,
-                oomSensitiveSkyFunctionsSemaphore,
-                shouldStoreTransitivePackagesInLoadingAndAnalysis(),
-                shouldUnblockCpuWorkWhenFetchingDeps,
-                configuredTargetProgress,
-                prerequisitePackages));
+        new ConfiguredTargetFunction(
+            new BuildViewProvider(),
+            ruleClassProvider,
+            oomSensitiveSkyFunctionsSemaphore,
+            shouldStoreTransitivePackagesInLoadingAndAnalysis(),
+            shouldUnblockCpuWorkWhenFetchingDeps,
+            configuredTargetProgress,
+            this::getExistingPackage));
     map.put(
         SkyFunctions.ASPECT,
         new AspectFunction(
             new BuildViewProvider(),
             shouldStoreTransitivePackagesInLoadingAndAnalysis(),
-            prerequisitePackages));
+            this::getExistingPackage));
     map.put(SkyFunctions.TOP_LEVEL_ASPECTS, new ToplevelStarlarkAspectFunction());
     map.put(
         SkyFunctions.BUILD_TOP_LEVEL_ASPECTS_DETAILS, new BuildTopLevelAspectsDetailsFunction());
@@ -950,10 +947,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     skyframeBuildView.clearInvalidatedActionLookupKeys();
     skyframeBuildView.clearLegacyData();
     ArtifactNestedSetFunction.getInstance().resetArtifactNestedSetFunctionMaps();
-  }
-
-  public void clearPrerequisitePackages() {
-    configuredTargetFunction.clearPrerequisitePackages();
   }
 
   /** Used with dump --rules. */
@@ -3667,6 +3660,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
   }
 
+  @Nullable
+  private Package getExistingPackage(PackageIdentifier id) throws InterruptedException {
+    var value = (PackageValue) memoizingEvaluator.getExistingValue(id);
+    if (value == null) {
+      return null;
+    }
+    return value.getPackage();
+  }
+
   @VisibleForTesting
   public ConfiguredRuleClassProvider getRuleClassProviderForTesting() {
     return ruleClassProvider;
@@ -3775,7 +3777,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Label label,
       @Nullable BuildConfigurationValue configuration)
       throws InterruptedException {
-    clearPrerequisitePackages();
     var sink =
         new ConfiguredTargetAndDataProducer.ResultSink() {
           @Nullable private ConfiguredTargetAndData result;

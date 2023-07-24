@@ -132,7 +132,7 @@ public final class ConfiguredTargetAndDataProducer
     throw new IllegalArgumentException("both value and error were null");
   }
 
-  private StateMachine fetchConfigurationAndPackage(Tasks tasks) {
+  private StateMachine fetchConfigurationAndPackage(Tasks tasks) throws InterruptedException {
     if (configuredTarget == null) {
       return DONE; // There was a previous error.
     }

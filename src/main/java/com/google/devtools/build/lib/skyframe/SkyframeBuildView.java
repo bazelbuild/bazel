@@ -858,8 +858,6 @@ public final class SkyframeBuildView {
     // TODO(b/273225564) Would this incur more CPU cost for the execution phase cache misses?
     skyframeExecutor.clearSyscallCache();
 
-    skyframeExecutor.clearPrerequisitePackages();
-
     enableAnalysis(false);
 
     eventBus.post(
