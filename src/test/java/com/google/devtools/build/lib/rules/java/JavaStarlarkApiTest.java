@@ -3545,6 +3545,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   @TestParameters({
+    "{api: create_header_compilation_action}",
+    "{api: create_compilation_action}",
     "{api: target_kind}",
     "{api: get_build_info}",
     "{api: collect_native_deps_dirs}",

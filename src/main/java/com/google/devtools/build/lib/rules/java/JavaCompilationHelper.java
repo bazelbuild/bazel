@@ -532,7 +532,7 @@ public final class JavaCompilationHelper {
    * @param headerJar the jar output of this java compilation
    * @param headerDeps the .jdeps output of this java compilation
    */
-  private void createHeaderCompilationAction(Artifact headerJar, Artifact headerDeps) {
+  public void createHeaderCompilationAction(Artifact headerJar, Artifact headerDeps) {
 
     JavaTargetAttributes attributes = getAttributes();
 

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.java;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
@@ -315,6 +316,110 @@ public interface JavaCommonApi<
       Sequence<?> addOpens, // <String> expected.
       StarlarkThread thread)
       throws EvalException, InterruptedException, RuleErrorException, LabelSyntaxException;
+
+  @StarlarkMethod(
+      name = "create_header_compilation_action",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx"),
+        @Param(name = "java_toolchain"),
+        @Param(name = "compile_jar"),
+        @Param(name = "compile_deps_proto"),
+        @Param(name = "plugin_info"),
+        @Param(name = "source_files"),
+        @Param(name = "source_jars"),
+        @Param(name = "compilation_classpath"),
+        @Param(name = "direct_jars"),
+        @Param(name = "bootclasspath"),
+        @Param(name = "compile_time_java_deps"),
+        @Param(name = "javac_opts"),
+        @Param(name = "strict_deps_mode"),
+        @Param(name = "target_label"),
+        @Param(name = "injecting_rule_kind"),
+        @Param(name = "enable_direct_classpath"),
+        @Param(name = "additional_inputs"),
+      })
+  void createHeaderCompilationAction(
+      StarlarkRuleContextT ctx,
+      JavaToolchainT javaToolchain,
+      FileT compileJar,
+      FileT compileDepsProto,
+      Info pluginInfo,
+      Depset sourceFiles,
+      Sequence<?> sourceJars,
+      Depset compileTimeClasspath,
+      Depset directJars,
+      Object bootClassPath,
+      Depset compileTimeDeps,
+      Sequence<?> javacOpts,
+      String strictDepsMode,
+      Label targetLabel,
+      Object injectingRuleKind,
+      boolean enableDirectClasspath,
+      Sequence<?> additionalInputs)
+      throws EvalException, TypeException, RuleErrorException, LabelSyntaxException;
+
+  @StarlarkMethod(
+      name = "create_compilation_action",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx"),
+        @Param(name = "java_toolchain"),
+        @Param(name = "output"),
+        @Param(name = "deps_proto"),
+        @Param(name = "gen_class"),
+        @Param(name = "gen_source"),
+        @Param(name = "manifest_proto"),
+        @Param(name = "native_header_jar"),
+        @Param(name = "plugin_info"),
+        @Param(name = "sources"),
+        @Param(name = "source_jars"),
+        @Param(name = "resources"),
+        @Param(name = "resource_jars"),
+        @Param(name = "compilation_classpath"),
+        @Param(name = "classpath_resources"),
+        @Param(name = "sourcepath"),
+        @Param(name = "direct_jars"),
+        @Param(name = "bootclasspath"),
+        @Param(name = "compile_time_java_deps"),
+        @Param(name = "javac_opts"),
+        @Param(name = "strict_deps_mode"),
+        @Param(name = "target_label"),
+        @Param(name = "injecting_rule_kind"),
+        @Param(name = "enable_jspecify"),
+        @Param(name = "enable_direct_classpath"),
+        @Param(name = "additional_inputs"),
+        @Param(name = "additional_outputs"),
+      })
+  void createCompilationAction(
+      StarlarkRuleContextT ctx,
+      JavaToolchainT javaToolchain,
+      FileT output,
+      Object depsProto,
+      Object genClass,
+      Object genSource,
+      FileT manifestProto,
+      FileT nativeHeader,
+      Info pluginInfo,
+      Depset sourceFiles,
+      Sequence<?> sourceJars,
+      Sequence<?> resources,
+      Depset resourceJars,
+      Depset compileTimeClasspath,
+      Sequence<?> classpathResources,
+      Sequence<?> sourcepath,
+      Depset directJars,
+      Object bootClassPath,
+      Depset compileTimeJavaDeps,
+      Sequence<?> javacOpts,
+      String strictDepsMode,
+      Label targetLabel,
+      Object injectingRuleKind,
+      boolean enableJSpecify,
+      boolean enableDirectClasspath,
+      Sequence<?> additionalInputs,
+      Sequence<?> additionalOutputs)
+      throws EvalException, TypeException, RuleErrorException, LabelSyntaxException;
 
   @StarlarkMethod(
       name = "default_javac_opts",
