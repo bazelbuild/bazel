@@ -272,7 +272,7 @@ DIST_DEPS = {
         "package_version": "1.5.2-3",
     },
     "blake3": {
-        "archive": "v1.3.3.zip",
+        "archive": "1.3.3.zip",
         "sha256": "bb529ba133c0256df49139bd403c17835edbf60d2ecd6463549c6a5fe279364d",
         "urls": [
             "https://github.com/BLAKE3-team/BLAKE3/archive/refs/tags/1.3.3.zip",

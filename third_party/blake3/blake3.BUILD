@@ -30,7 +30,9 @@ cc_library(
     ] + select({
         "@bazel_tools//src/conditions:linux_x86_64": [
             "c/blake3_avx2_x86-64_unix.S",
-            "c/blake3_avx512_x86-64_unix.S",
+            # Disable to appease bazel-ci which uses ubuntu-18 (EOL) and GCC 7
+            # lacking the headers to compile AVX512.
+            # "c/blake3_avx512_x86-64_unix.S",
             "c/blake3_sse2_x86-64_unix.S",
             "c/blake3_sse41_x86-64_unix.S",
         ],
@@ -50,16 +52,21 @@ cc_library(
         "c/blake3_impl.h",
     ],
     copts = select({
-        "@bazel_tools//src/conditions:linux_x86_64": [],
+        "@bazel_tools//src/conditions:linux_x86_64": [
+	    # Disable to appease bazel-ci which uses ubuntu-18 (EOL) and GCC 7
+            # lacking the headers to compile AVX512.
+	    "-DBLAKE3_NO_AVX512",
+	],
         "@bazel_tools//src/conditions:windows_x64": [],
         "@bazel_tools//src/conditions:darwin_arm64": [
             "-DBLAKE3_USE_NEON=1",
         ],
         "//conditions:default": [
-            "-DBLAKE3_NO_SSE2",
-            "-DBLAKE3_NO_SSE41",
             "-DBLAKE3_NO_AVX2",
             "-DBLAKE3_NO_AVX512",
+            "-DBLAKE3_NO_NEON",
+            "-DBLAKE3_NO_SSE2",
+            "-DBLAKE3_NO_SSE41",
         ],
     }),
     includes = ["."],
