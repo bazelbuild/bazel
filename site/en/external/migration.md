@@ -102,7 +102,7 @@ Bazel module when it also adopts Bzlmod.
 
     As you can see, it's a common pattern that users need to load transitive
     dependencies from a macro of the dependency. Assume both `bazel_skylib` and
-    `rules_java` depends on `platoform`, the exact version of the `platform`
+    `rules_java` depends on `platform`, the exact version of the `platform`
     dependency is determined by the order of the macros.
 
 *   **Bzlmod**
