@@ -364,7 +364,22 @@ function create_and_run_classpath_jar() {
     die "ERROR: $self failed because $JARBIN failed"
 
   # Execute JAVA command
-  $JAVABIN -classpath "$MANIFEST_JAR_FILE" "${ARGS[@]}"
+  $JAVABIN -classpath "$MANIFEST_JAR_FILE" "${ARGS[@]}" &
+
+  readonly child=$!
+  # Bash does not forward INT or TERM signals to child processes by default so
+  # we need to manually trap and forward the signals
+  _term() { kill -TERM "${child}" 2>/dev/null; }
+  _int() { kill -INT "${child}" 2>/dev/null; }
+  trap _term SIGTERM
+  trap _int SIGINT
+  wait "$child"
+  # Remove trap after first signal has been receieved and wait for child to exit
+  # (first wait returns immediately if SIGTERM is received while waiting).
+  # Second wait is a no-op if child has already terminated.
+  trap - SIGTERM SIGINT
+  wait "$child"
+
   exit_code=$?
   rm -f "$MANIFEST_FILE"
   rm -f "$MANIFEST_JAR_FILE"
