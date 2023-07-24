@@ -149,10 +149,6 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     packageOptions.defaultVisibility = defaultVisibility;
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = GLOBBING_THREADS;
-    skyframeExecutor.injectExtraPrecomputedValues(
-        ImmutableList.of(
-            PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty())));
     skyframeExecutor.preparePackageLoading(
         new PathPackageLocator(
             outputBase,
