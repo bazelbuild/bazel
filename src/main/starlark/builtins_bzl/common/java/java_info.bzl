@@ -16,7 +16,7 @@
 Definition of JavaInfo and JavaPluginInfo provider.
 """
 
-load(":common/cc/cc_common.bzl", "cc_common")
+load(":common/cc/cc_common.bzl", "CcNativeLibraryInfo", "cc_common")
 load(":common/cc/cc_info.bzl", "CcInfo")
 
 # TODO(hvd): remove this when:
@@ -280,6 +280,12 @@ def set_annotation_processing(
 def _validate_provider_list(provider_list, what, expected_provider_type):
     _java_common_internal.check_provider_instances(provider_list, what, expected_provider_type)
 
+def _minimize_cc_info(cc_info):
+    return CcInfo(
+        linking_context = cc_info.linking_context,
+        cc_native_library_info = CcNativeLibraryInfo(libraries_to_link = cc_info.transitive_native_libraries()),
+    )
+
 def _javainfo_init(
         output_jar,
         compile_jar,
@@ -448,10 +454,10 @@ def _javainfo_init(
         "_constraints": [],
     }
     if _java_common_internal._google_legacy_api_enabled():
-        cc_info = cc_common.merge_cc_infos(
+        cc_info = _minimize_cc_info(cc_common.merge_cc_infos(
             cc_infos = [dep.cc_link_params_info for dep in runtime_deps + exports + deps] +
                        ([cc_common.merge_cc_infos(cc_infos = native_libraries)] if native_libraries else []),
-        )
+        ))
         result.update(
             cc_link_params_info = cc_info,
             transitive_native_libraries = cc_info.transitive_native_libraries(),
