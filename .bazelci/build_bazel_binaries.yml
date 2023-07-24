@@ -53,6 +53,7 @@ platforms:
       - "-c"
       - "opt"
       - "--cpu=x64_arm64_windows"
+      - "--incompatible_enable_cc_toolchain_resolution"
     build_targets:
       - "//src:bazel.exe"
       - "//src:bazel_nojdk.exe"
