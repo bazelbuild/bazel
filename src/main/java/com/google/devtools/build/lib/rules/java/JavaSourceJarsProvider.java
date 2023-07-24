@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.rules.java.JavaInfo.JavaInfoInternalProvide
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
-import java.util.Iterator;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkList;
@@ -58,23 +57,6 @@ public abstract class JavaSourceJarsProvider implements JavaInfoInternalProvider
 
   /** Return the source jars that are to be built when the target is on the command line. */
   public abstract ImmutableList<Artifact> getSourceJars();
-
-  public static JavaSourceJarsProvider merge(Iterable<JavaSourceJarsProvider> providers) {
-    Iterator<JavaSourceJarsProvider> it = providers.iterator();
-    if (!it.hasNext()) {
-      return EMPTY;
-    }
-    JavaSourceJarsProvider first = it.next();
-    if (!it.hasNext()) {
-      return first;
-    }
-    JavaSourceJarsProvider.Builder result = builder();
-    result.mergeFrom(first);
-    do {
-      result.mergeFrom(it.next());
-    } while (it.hasNext());
-    return result.build();
-  }
 
   /** Returns a builder for a {@link JavaSourceJarsProvider}. */
   public static Builder builder() {
@@ -119,14 +101,6 @@ public abstract class JavaSourceJarsProvider implements JavaInfoInternalProvider
     @CanIgnoreReturnValue
     public Builder addAllTransitiveSourceJars(NestedSet<Artifact> transitiveSourceJars) {
       this.transitiveSourceJars.addTransitive(Preconditions.checkNotNull(transitiveSourceJars));
-      return this;
-    }
-
-    /** Merge the source jars and transitive source jars from the provider into this builder. */
-    @CanIgnoreReturnValue
-    public Builder mergeFrom(JavaSourceJarsProvider provider) {
-      addAllTransitiveSourceJars(provider.getTransitiveSourceJars());
-      addAllSourceJars(provider.getSourceJars());
       return this;
     }
 

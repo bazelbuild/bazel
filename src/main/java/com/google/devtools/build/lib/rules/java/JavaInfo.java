@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
@@ -41,7 +39,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaModuleFlagsProviderApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
@@ -175,15 +172,6 @@ public final class JavaInfo extends NativeInfo
     return builder.build();
   }
 
-  public static ImmutableList<JavaModuleFlagsProvider> moduleFlagsProviders(
-      Iterable<? extends TransitiveInfoCollection> targets) throws RuleErrorException {
-    ImmutableList.Builder<JavaModuleFlagsProvider> builder = ImmutableList.builder();
-    for (TransitiveInfoCollection target : targets) {
-      builder.add(JavaInfo.moduleFlagsProvider(target));
-    }
-    return builder.build();
-  }
-
   public static ImmutableList<JavaInfo> wrapSequence(Sequence<?> sequence, String what)
       throws EvalException {
     ImmutableList.Builder<JavaInfo> builder = ImmutableList.builder();
@@ -245,73 +233,6 @@ public final class JavaInfo extends NativeInfo
   @Nullable
   public JavaPluginInfo getJavaPluginInfo() {
     return providerJavaPlugin;
-  }
-
-  /**
-   * Merges the given providers into one {@link JavaInfo}. All the providers with the same type in
-   * the given list are merged into one provider that is added to the resulting {@link JavaInfo}.
-   */
-  public static JavaInfo merge(
-      List<JavaInfo> providers, boolean mergeJavaOutputs, boolean mergeSourceJars) {
-    ImmutableList<JavaCompilationArgsProvider> javaCompilationArgsProviders =
-        JavaInfo.fetchProvidersFromList(providers, JavaCompilationArgsProvider.class);
-
-    final ImmutableList<JavaSourceJarsProvider> javaSourceJarsProviders =
-        mergeSourceJars
-            ? JavaInfo.fetchProvidersFromList(providers, JavaSourceJarsProvider.class)
-            : ImmutableList.of();
-    final ImmutableList<JavaRuleOutputJarsProvider> javaRuleOutputJarsProviders =
-        mergeJavaOutputs
-            ? JavaInfo.fetchProvidersFromList(providers, JavaRuleOutputJarsProvider.class)
-            : ImmutableList.of();
-
-    ImmutableList<JavaPluginInfo> javaPluginInfos =
-        providers.stream()
-            .map(JavaInfo::getJavaPluginInfo)
-            .filter(Objects::nonNull)
-            .collect(toImmutableList());
-    ImmutableList<JavaCcInfoProvider> javaCcInfoProviders =
-        JavaInfo.fetchProvidersFromList(providers, JavaCcInfoProvider.class);
-
-    NestedSetBuilder<Artifact> runtimeJars = NestedSetBuilder.stableOrder();
-    NestedSetBuilder<String> javaConstraints = NestedSetBuilder.stableOrder();
-    boolean neverlink = false;
-    for (JavaInfo javaInfo : providers) {
-      if (mergeJavaOutputs) {
-        runtimeJars.addAll(javaInfo.getDirectRuntimeJars());
-      }
-      javaConstraints.addAll(javaInfo.getJavaConstraints());
-      neverlink = neverlink || javaInfo.neverlink;
-    }
-
-    ImmutableList<JavaModuleFlagsProvider> javaModuleFlagsProviderProviders =
-        JavaInfo.fetchProvidersFromList(providers, JavaModuleFlagsProvider.class);
-
-    JavaInfo.Builder javaInfoBuilder =
-        JavaInfo.Builder.create()
-            .javaCompilationArgs(JavaCompilationArgsProvider.merge(javaCompilationArgsProviders))
-            .javaSourceJars(JavaSourceJarsProvider.merge(javaSourceJarsProviders))
-            .javaRuleOutputs(JavaRuleOutputJarsProvider.merge(javaRuleOutputJarsProviders))
-            .javaPluginInfo(JavaPluginInfo.mergeWithoutJavaOutputs(javaPluginInfos))
-            .javaCcInfo(JavaCcInfoProvider.merge(javaCcInfoProviders))
-            // TODO(b/65618333): add merge function to JavaGenJarsProvider. See #3769
-            // TODO(iirina): merge or remove JavaCompilationInfoProvider
-            .setRuntimeJars(runtimeJars.build().toList())
-            .setJavaConstraints(javaConstraints.build().toList())
-            .setNeverlink(neverlink)
-            .javaModuleFlags(JavaModuleFlagsProvider.merge(javaModuleFlagsProviderProviders));
-
-    return javaInfoBuilder.build();
-  }
-
-  /**
-   * Returns a list of providers of the specified class, fetched from the given list of {@link
-   * JavaInfo}s. Returns an empty list if no providers can be fetched. Returns a list of the same
-   * size as the given list if the requested providers are of type JavaCompilationArgsProvider.
-   */
-  public static <T extends JavaInfoInternalProvider> ImmutableList<T> fetchProvidersFromList(
-      Iterable<JavaInfo> javaProviders, Class<T> providerClass) {
-    return streamProviders(javaProviders, providerClass).collect(toImmutableList());
   }
 
   /**

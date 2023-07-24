@@ -335,31 +335,6 @@ public interface JavaCommonApi<
   ImmutableList<String> getDefaultJavacOpts(JavaToolchainT javaToolchain) throws EvalException;
 
   @StarlarkMethod(
-      name = "merge",
-      doc = "Merges the given providers into a single JavaInfo.",
-      parameters = {
-        @Param(
-            name = "providers",
-            positional = true,
-            named = false,
-            allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
-            doc = "The list of providers to merge."),
-        @Param(
-            name = "merge_java_outputs",
-            positional = false,
-            named = true,
-            defaultValue = "True"),
-        @Param(name = "merge_source_jars", positional = false, named = true, defaultValue = "True"),
-      },
-      useStarlarkThread = true)
-  JavaInfoT mergeJavaProviders(
-      Sequence<?> providers /* <JavaInfoT> expected. */,
-      boolean mergeJavaOutputs,
-      boolean mergeSourceJars,
-      StarlarkThread thread)
-      throws EvalException;
-
-  @StarlarkMethod(
       name = "JavaToolchainInfo",
       doc =
           "The key used to retrieve the provider that contains information about the Java "

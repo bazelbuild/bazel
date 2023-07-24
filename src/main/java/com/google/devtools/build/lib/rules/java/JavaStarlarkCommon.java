@@ -206,20 +206,6 @@ public class JavaStarlarkCommon
   }
 
   @Override
-  public JavaInfo mergeJavaProviders(
-      Sequence<?> providers, /* <JavaInfo> expected. */
-      boolean mergeJavaOutputs,
-      boolean mergeSourceJars,
-      StarlarkThread thread)
-      throws EvalException {
-    if (!mergeJavaOutputs || !mergeSourceJars) {
-      checkPrivateAccess(thread);
-    }
-    return JavaInfo.merge(
-        JavaInfo.wrapSequence(providers, "providers"), mergeJavaOutputs, mergeSourceJars);
-  }
-
-  @Override
   public Provider getJavaToolchainProvider() {
     return JavaToolchainProvider.PROVIDER;
   }

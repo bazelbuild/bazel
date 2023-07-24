@@ -296,17 +296,6 @@ public abstract class JavaRuleOutputJarsProvider
     return new Builder();
   }
 
-  public static JavaRuleOutputJarsProvider merge(Collection<JavaRuleOutputJarsProvider> providers) {
-    if (providers.isEmpty()) {
-      return EMPTY;
-    }
-    Builder builder = new Builder();
-    for (JavaRuleOutputJarsProvider provider : providers) {
-      builder.addJavaOutput(provider.getJavaOutputs());
-    }
-    return builder.build();
-  }
-
   /** Builder for {@link JavaRuleOutputJarsProvider}. */
   public static class Builder {
     // CompactHashSet preserves insertion order here since we never perform any removals

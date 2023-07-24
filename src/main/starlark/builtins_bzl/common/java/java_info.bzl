@@ -102,11 +102,89 @@ def merge(
     Returns:
         (JavaInfo) The merged JavaInfo
     """
-    return _java_common_internal.merge(
-        providers,
-        merge_java_outputs = merge_java_outputs,
-        merge_source_jars = merge_source_jars,
-    )
+    _validate_provider_list(providers, "providers", JavaInfo)
+
+    plugin_info = _merge_plugin_info_without_outputs(providers)
+
+    source_jars = []  # [File]
+    transitive_source_jars = []  # [depset[File]]
+    java_outputs = []  # [_JavaOutputInfo]
+    runtime_output_jars = []  # [File]
+    transitive_runtime_jars = []  # [depset[File]]
+    transitive_compile_time_jars = []  # [depset[File]]
+    compile_jars = []  # [depset[File]]
+    full_compile_jars = []  # [depset[File]]
+    _transitive_full_compile_time_jars = []  # [depset[File]]
+    _compile_time_java_dependencies = []  # [depset[File]]
+    add_exports = []  # [depset[str]]
+    add_opens = []  # [depset[str]]
+    _neverlink = False
+    _constraints = []  # [str]
+    for p in providers:
+        if merge_source_jars:
+            source_jars.extend(p.source_jars)
+            transitive_source_jars.append(p.transitive_source_jars)
+        if merge_java_outputs:
+            java_outputs.extend(p.java_outputs)
+            runtime_output_jars.extend(p.runtime_output_jars)
+        transitive_runtime_jars.append(p.transitive_runtime_jars)
+        transitive_compile_time_jars.append(p.transitive_compile_time_jars)
+        compile_jars.append(p.compile_jars)
+        full_compile_jars.append(p.full_compile_jars)
+        _transitive_full_compile_time_jars.append(p._transitive_full_compile_time_jars)
+        _compile_time_java_dependencies.append(p._compile_time_java_dependencies)
+        add_exports.append(p.module_flags_info.add_exports)
+        add_opens.append(p.module_flags_info.add_opens)
+        _neverlink = _neverlink or p._neverlink
+        _constraints.extend(p._constraints)
+
+    transitive_runtime_jars = depset(order = "preorder", transitive = transitive_runtime_jars)
+    transitive_compile_time_jars = depset(order = "preorder", transitive = transitive_compile_time_jars)
+
+    # java_outputs is a list so we uniquify to avoid https://github.com/bazelbuild/bazel/issues/17170
+    java_outputs = depset(java_outputs).to_list()
+    result = {
+        "transitive_runtime_jars": transitive_runtime_jars,
+        "transitive_runtime_deps": transitive_runtime_jars,  # deprecated
+        "transitive_compile_time_jars": transitive_compile_time_jars,
+        "transitive_deps": transitive_compile_time_jars,  # deprecated
+        "compile_jars": depset(order = "preorder", transitive = compile_jars),
+        "full_compile_jars": depset(order = "preorder", transitive = full_compile_jars),
+        "_transitive_full_compile_time_jars": depset(order = "preorder", transitive = _transitive_full_compile_time_jars),
+        "_compile_time_java_dependencies": depset(order = "preorder", transitive = _compile_time_java_dependencies),
+        # runtime_output_jars is a list so we uniquify to avoid https://github.com/bazelbuild/bazel/issues/17170
+        "runtime_output_jars": depset(runtime_output_jars).to_list(),
+        # source_jars is a list so we uniquify to avoid https://github.com/bazelbuild/bazel/issues/17170
+        "source_jars": depset(source_jars).to_list(),
+        "transitive_source_jars": depset(transitive = transitive_source_jars),
+        "java_outputs": java_outputs,
+        "outputs": _JavaRuleOutputJarsInfo(jars = java_outputs, jdeps = None, native_headers = None),
+        "module_flags_info": _ModuleFlagsInfo(
+            add_exports = depset(transitive = add_exports),
+            add_opens = depset(transitive = add_opens),
+        ),
+        "plugins": plugin_info.plugins,
+        "api_generating_plugins": plugin_info.api_generating_plugins,
+        "_neverlink": _neverlink,
+        "_constraints": depset(_constraints).to_list(),
+        "annotation_processing": None,
+        "compilation_info": None,
+    }
+
+    if _java_common_internal._google_legacy_api_enabled():
+        cc_info = _minimize_cc_info(cc_common.merge_cc_infos(cc_infos = [p.cc_link_params_info for p in providers]))
+        result.update(
+            cc_link_params_info = cc_info,
+            transitive_native_libraries = cc_info.transitive_native_libraries(),
+        )
+    else:
+        result.update(
+            transitive_native_libraries = depset(
+                order = "topological",
+                transitive = [p.transitive_native_libraries for p in providers],
+            ),
+        )
+    return _java_common_internal.wrap_java_info(_new_javainfo(**result))
 
 def to_java_binary_info(java_info):
     """Get a copy of the given JavaInfo with minimal info returned by a java_binary
