@@ -257,11 +257,11 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
                 .cfg(ExecutionTransitionFactory.createFactory())
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .exec())
-        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(oneversion_enforcement_allowlist) -->
-        Label of the one-version-enforcement allowlist.
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(oneversion_allowlist_for_tests) -->
+        Label of the one-version allowlist for tests.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
-            attr("oneversion_enforcement_allowlist", LABEL)
+            attr("oneversion_allowlist_for_tests", LABEL)
                 .singleArtifact()
                 // This needs to be in the execution configuration.
                 .cfg(ExecutionTransitionFactory.createFactory())

@@ -113,7 +113,7 @@ public final class JavaToolchainProvider extends NativeInfo
       FilesToRunProvider singleJar,
       @Nullable FilesToRunProvider oneVersion,
       @Nullable Artifact oneVersionAllowlist,
-      @Nullable Artifact oneVersionEnforcementAllowlist,
+      @Nullable Artifact oneVersionAllowlistForTests,
       Artifact genClass,
       @Nullable Artifact depsChecker,
       @Nullable Artifact timezoneData,
@@ -141,7 +141,7 @@ public final class JavaToolchainProvider extends NativeInfo
         singleJar,
         oneVersion,
         oneVersionAllowlist,
-        oneVersionEnforcementAllowlist,
+        oneVersionAllowlistForTests,
         genClass,
         depsChecker,
         timezoneData,
@@ -175,7 +175,7 @@ public final class JavaToolchainProvider extends NativeInfo
   private final FilesToRunProvider singleJar;
   @Nullable private final FilesToRunProvider oneVersion;
   @Nullable private final Artifact oneVersionAllowlist;
-  @Nullable private final Artifact oneVersionEnforcementAllowlist;
+  @Nullable private final Artifact oneVersionAllowlistForTests;
   private final Artifact genClass;
   @Nullable private final Artifact depsChecker;
   @Nullable private final Artifact timezoneData;
@@ -209,7 +209,7 @@ public final class JavaToolchainProvider extends NativeInfo
       FilesToRunProvider singleJar,
       @Nullable FilesToRunProvider oneVersion,
       @Nullable Artifact oneVersionAllowlist,
-      @Nullable Artifact oneVersionEnforcementAllowlist,
+      @Nullable Artifact oneVersionAllowlistForTests,
       Artifact genClass,
       @Nullable Artifact depsChecker,
       @Nullable Artifact timezoneData,
@@ -242,7 +242,7 @@ public final class JavaToolchainProvider extends NativeInfo
     this.singleJar = singleJar;
     this.oneVersion = oneVersion;
     this.oneVersionAllowlist = oneVersionAllowlist;
-    this.oneVersionEnforcementAllowlist = oneVersionEnforcementAllowlist;
+    this.oneVersionAllowlistForTests = oneVersionAllowlistForTests;
     this.genClass = genClass;
     this.depsChecker = depsChecker;
     this.timezoneData = timezoneData;
@@ -375,19 +375,19 @@ public final class JavaToolchainProvider extends NativeInfo
   }
 
   /**
-   * Return the {@link Artifact} of the one-version-enforcement allowlist used by the one-version
+   * Return the {@link Artifact} of the one-version allowlist for tests used by the one-version
    * compliance checker.
    */
   @Nullable
-  public Artifact oneVersionEnforcementAllowlist() {
-    return oneVersionEnforcementAllowlist;
+  public Artifact oneVersionAllowlistForTests() {
+    return oneVersionAllowlistForTests;
   }
 
   @Override
   @Nullable
-  public Artifact getOneVersionEnforcementAllowlist(StarlarkThread thread) throws EvalException {
+  public Artifact getOneVersionAllowlistForTests(StarlarkThread thread) throws EvalException {
     checkPrivateAccess(thread);
-    return oneVersionEnforcementAllowlist();
+    return oneVersionAllowlistForTests();
   }
 
   /** Returns the {@link Artifact} of the GenClass deploy jar */

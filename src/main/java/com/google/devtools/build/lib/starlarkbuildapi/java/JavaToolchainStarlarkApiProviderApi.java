@@ -86,12 +86,12 @@ public interface JavaToolchainStarlarkApiProviderApi extends StructApi {
   FileApi getOneVersionAllowlist();
 
   @StarlarkMethod(
-      name = "one_version_enforcement_allowlist",
+      name = "one_version_allowlist_for_tests",
       doc = "The allowlist used by the One-Version compliance checker to disable enforcement",
       useStarlarkThread = true,
       allowReturnNones = true)
   @Nullable
-  FileApi getOneVersionEnforcementAllowlist(StarlarkThread thread) throws EvalException;
+  FileApi getOneVersionAllowlistForTests(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
       name = "bootclasspath",
