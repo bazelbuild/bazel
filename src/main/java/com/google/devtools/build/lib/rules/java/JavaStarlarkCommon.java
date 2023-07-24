@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -363,6 +364,13 @@ public class JavaStarlarkCommon
     return thread
         .getSemantics()
         .getBool(BuildLanguageOptions.INCOMPATIBLE_DEPSET_FOR_JAVA_OUTPUT_SOURCE_JARS);
+  }
+
+  @Override
+  public JavaInfo wrapJavaInfo(Info javaInfo, StarlarkThread thread)
+      throws EvalException, RuleErrorException {
+    checkPrivateAccess(thread);
+    return JavaInfo.PROVIDER.wrap(javaInfo);
   }
 
   static boolean isInstanceOfProvider(Object obj, Provider provider) {

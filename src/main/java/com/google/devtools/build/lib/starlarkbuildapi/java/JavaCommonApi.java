@@ -19,6 +19,7 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
@@ -462,4 +463,12 @@ public interface JavaCommonApi<
       documented = false,
       useStarlarkThread = true)
   boolean isDepsetForJavaOutputSourceJarsEnabled(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "wrap_java_info",
+      parameters = {@Param(name = "java_info")},
+      documented = false,
+      useStarlarkThread = true)
+  JavaInfoT wrapJavaInfo(Info javaInfo, StarlarkThread thread)
+      throws EvalException, RuleErrorException;
 }
