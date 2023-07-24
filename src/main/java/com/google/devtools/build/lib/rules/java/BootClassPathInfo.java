@@ -18,6 +18,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -193,6 +194,11 @@ public abstract class BootClassPathInfo implements Info {
 
   /** The jar files containing classes for system APIs, i.e. a Java <= 8 bootclasspath. */
   public abstract NestedSet<Artifact> bootclasspath();
+
+  @StarlarkMethod(name = "bootclasspath", documented = false, structField = true)
+  public Depset bootclasspathStarlark() {
+    return Depset.of(Artifact.class, bootclasspath());
+  }
 
   /**
    * The jar files containing extra classes for system APIs that should not be put in the system

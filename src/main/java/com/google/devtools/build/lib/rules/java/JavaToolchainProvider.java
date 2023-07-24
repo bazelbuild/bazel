@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.java.JavaToolchainStarlark
 import java.util.Iterator;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 
 /** Information about the JDK used by the <code>java_*</code> rules. */
@@ -331,6 +332,25 @@ public final class JavaToolchainProvider extends NativeInfo
     return forciblyDisableHeaderCompilation;
   }
 
+  @Override
+  public boolean getForciblyDisableHeaderCompilationStarlark(StarlarkThread thread)
+      throws EvalException {
+    checkPrivateAccess(thread);
+    return getForciblyDisableHeaderCompilation();
+  }
+
+  @Override
+  public boolean hasHeaderCompiler(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return getHeaderCompiler() != null;
+  }
+
+  @Override
+  public boolean hasHeaderCompilerDirect(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return getHeaderCompilerDirect() != null;
+  }
+
   /** Returns the {@link FilesToRunProvider} of the SingleJar tool. */
   @Override
   public FilesToRunProvider getSingleJar() {
@@ -458,6 +478,13 @@ public final class JavaToolchainProvider extends NativeInfo
   @Override
   public FilesToRunProvider getProguardAllowlister() {
     return proguardAllowlister;
+  }
+
+  @Override
+  public StarlarkList<JavaPackageConfigurationProvider> getPackageConfigurationStarlark(
+      StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return StarlarkList.immutableCopyOf(packageConfiguration);
   }
 
   public JavaSemantics getJavaSemantics() {

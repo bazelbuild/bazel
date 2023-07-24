@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getProcessorNames;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getProcessorPath;
+import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
@@ -44,23 +45,25 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.OS;
-import java.util.Arrays;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import com.google.testing.junit.testparameterinjector.TestParameters;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkList;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests Starlark API for Java rules. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class JavaStarlarkApiTest extends BuildViewTestCase {
   @Before
   public void setupMyInfo() throws Exception {
@@ -2578,48 +2581,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void useIjars_fails() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=+java_import");
-    scratch.file(
-        "foo/rule.bzl",
-        "result = provider()",
-        "def _impl(ctx):",
-        "  ctx.fragments.java.use_ijars()",
-        "  return []",
-        "myrule = rule(",
-        "  implementation=_impl,",
-        "  fragments = ['java']",
-        ")");
-    scratch.file("foo/BUILD", "load(':rule.bzl', 'myrule')", "myrule(name='myrule')");
-    reporter.removeHandler(failFastHandler);
-
-    getConfiguredTarget("//foo:myrule");
-
-    assertContainsEvent("Rule in 'foo' cannot use private API");
-  }
-
-  @Test
-  public void disallowJavaImportExports_fails() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=+java_import");
-    scratch.file(
-        "foo/rule.bzl",
-        "result = provider()",
-        "def _impl(ctx):",
-        "  ctx.fragments.java.disallow_java_import_exports()",
-        "  return []",
-        "myrule = rule(",
-        "  implementation=_impl,",
-        "  fragments = ['java']",
-        ")");
-    scratch.file("foo/BUILD", "load(':rule.bzl', 'myrule')", "myrule(name='myrule')");
-    reporter.removeHandler(failFastHandler);
-
-    getConfiguredTarget("//foo:myrule");
-
-    assertContainsEvent("Rule in 'foo' cannot use private API");
-  }
-
-  @Test
   public void mergeRuntimeOutputJarsTest() throws Exception {
     scratch.file(
         "foo/custom_library.bzl",
@@ -3231,86 +3192,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGetBuildInfoArtifactsIsPrivateApi() throws Exception {
-    scratch.file(
-        "foo/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  artifacts = java_common.get_build_info(ctx, True)",
-        "  return [DefaultInfo(files = depset(artifacts))]",
-        "custom_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {},",
-        ")");
-    scratch.file(
-        "foo/BUILD", "load(':custom_rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
-    reporter.removeHandler(failFastHandler);
-
-    getConfiguredTarget("//foo:custom");
-
-    assertContainsEvent("no field or method 'get_build_info'");
-  }
-
-  @Test
-  public void testIsGoogleLegacyApiEnabledIsPrivateAPI() throws Exception {
-    scratch.file(
-        "foo/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  java_common._google_legacy_api_enabled()",
-        "  return []",
-        "custom_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {},",
-        ")");
-    scratch.file(
-        "foo/BUILD", "load(':custom_rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
-    reporter.removeHandler(failFastHandler);
-
-    getConfiguredTarget("//foo:custom");
-
-    assertContainsEvent("no field or method '_google_legacy_api_enabled'");
-  }
-
-  @Test
-  public void testCheckJavaToolchainIsDeclaredOnRuleIsPrivateAPI() throws Exception {
-    scratch.file(
-        "foo/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  java_common._check_java_toolchain_is_declared_on_rule()",
-        "  return []",
-        "custom_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {},",
-        ")");
-    scratch.file(
-        "foo/BUILD", "load(':custom_rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
-    reporter.removeHandler(failFastHandler);
-
-    getConfiguredTarget("//foo:custom");
-
-    assertContainsEvent("no field or method '_check_java_toolchain_is_declared_on_rule'");
-  }
-
-  @Test
-  public void testInstanceOfProviderIsPrivateApi() throws Exception {
-    scratch.file(
-        "foo/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  java_common.check_provider_instances([], 'what', DefaultInfo)",
-        "  return []",
-        "custom_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {},",
-        ")");
-    scratch.file(
-        "foo/BUILD", "load(':custom_rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
-    reporter.removeHandler(failFastHandler);
-
-    getConfiguredTarget("//foo:custom");
-
-    assertContainsEvent("no field or method 'check_provider_instances'");
-  }
-
-  @Test
   public void testInjectingRuleKindIsPrivateApi() throws Exception {
     JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
@@ -3624,63 +3505,80 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCollectNativeLibsDirsIsPrivateApi() throws Exception {
+  @TestParameters({
+    "{module: java_config, api: use_ijars}",
+    "{module: java_config, api: disallow_java_import_exports}",
+    "{module: java_config, api: enforce_explicit_java_test_deps}",
+    "{module: java_config, api: use_header_compilation}",
+    "{module: java_config, api: generate_java_deps}",
+    "{module: java_config, api: reduce_java_classpath}",
+    "{module: java_toolchain, api: forcibly_disable_header_compilation}",
+    "{module: java_toolchain, api: has_header_compiler}",
+    "{module: java_toolchain, api: has_header_compiler_direct}",
+    "{module: java_toolchain, api: package_configuration}",
+  })
+  public void testNoArgsPrivateAPIsAreIndeedPrivate(String module, String api) throws Exception {
+    setBuildLanguageOptions("--experimental_builtins_injection_override=+java_import");
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "foo/custom_rule.bzl",
         "def _impl(ctx):",
-        "  artifacts = java_common.collect_native_deps_dirs([])",
+        "  java_config = ctx.fragments.java",
+        "  java_toolchain = ctx.toolchains['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'].java",
+        "  " + module + "." + api + "()",
         "  return []",
-        "custom_rule = rule(",
+        "java_custom_library = rule(",
         "  implementation = _impl,",
-        "  attrs = {},",
-        ")");
-    scratch.file(
-        "foo/BUILD", "load(':custom_rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
-    reporter.removeHandler(failFastHandler);
-
-    getConfiguredTarget("//foo:custom");
-
-    assertContainsEvent("no field or method 'collect_native_deps_dirs'");
-  }
-
-  @Test
-  public void testGetRuntimeClasspathForArchiveIsPrivateApi() throws Exception {
-    scratch.file(
-        "foo/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  d = depset()",
-        "  artifact = java_common.get_runtime_classpath_for_archive(d, d)",
-        "  return []",
-        "custom_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {},",
-        ")");
-    scratch.file(
-        "foo/BUILD", "load(':custom_rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
-    reporter.removeHandler(failFastHandler);
-
-    getConfiguredTarget("//foo:custom");
-
-    assertContainsEvent("no field or method 'get_runtime_classpath_for_archive'");
-  }
-
-  @Test
-  public void testEnforceExplicitJavaTestDepsIsPrivateApi() throws Exception {
-    scratch.file(
-        "foo/rule.bzl",
-        "def _impl(ctx):",
-        "  ctx.fragments.java.enforce_explicit_java_test_deps()",
-        "  return []",
-        "myrule = rule(",
-        "  implementation=_impl,",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
-    scratch.file("foo/BUILD", "load(':rule.bzl', 'myrule')", "myrule(name='myrule')");
+    scratch.file(
+        "foo/BUILD",
+        "load(':custom_rule.bzl', 'java_custom_library')",
+        "java_custom_library(name = 'custom')");
     reporter.removeHandler(failFastHandler);
 
-    getConfiguredTarget("//foo:myrule");
+    getConfiguredTarget("//foo:custom");
 
-    assertContainsEvent("Rule in 'foo' cannot use private API");
+    assertContainsEvent("Error in " + api + ": Rule in 'foo' cannot use private API");
+  }
+
+  @Test
+  @TestParameters({
+    "{api: target_kind}",
+    "{api: get_build_info}",
+    "{api: collect_native_deps_dirs}",
+    "{api: get_runtime_classpath_for_archive}",
+    "{api: check_provider_instances}",
+    "{api: _google_legacy_api_enabled}",
+    "{api: _check_java_toolchain_is_declared_on_rule}",
+    "{api: _incompatible_depset_for_java_output_source_jars}",
+  })
+  public void testJavaCommonPrivateApis_areNotVisibleToPublicStarlark(String api) throws Exception {
+    // validate that this api is present on the module, so this test fails when the API is deleted
+    var unused =
+        stream(JavaCommonApi.class.getDeclaredMethods())
+            .filter(method -> method.isAnnotationPresent(StarlarkMethod.class))
+            .filter(method -> method.getAnnotation(StarlarkMethod.class).name().equals(api))
+            .findAny()
+            .orElseThrow(
+                () -> new IllegalArgumentException("API not declared on java_common: " + api));
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  java_common." + api + "()",
+        "  return []",
+        "custom_rule = rule(implementation = _impl)");
+    scratch.file(
+        "foo/BUILD",
+        //
+        "load(':custom_rule.bzl', 'custom_rule')",
+        "custom_rule(name = 'custom')");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//foo:custom");
+
+    assertContainsEvent("no field or method '" + api + "'");
   }
 
   @Test
@@ -3715,7 +3613,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     if (OS.getCurrent() == OS.WINDOWS) {
       return getGeneratingSpawnActionArgs(executable).stream()
           .filter(a -> a.startsWith("jvm_flags="))
-          .flatMap(a -> Arrays.stream(a.substring("jvm_flags=".length()).split("\t")))
+          .flatMap(a -> stream(a.substring("jvm_flags=".length()).split("\t")))
           .collect(joining(" "));
     } else {
       return ((TemplateExpansionAction) getGeneratingAction(executable))

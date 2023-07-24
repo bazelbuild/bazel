@@ -248,13 +248,31 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return useHeaderCompilation;
   }
 
+  @Override
+  public boolean useHeaderCompilationStarlark(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return useHeaderCompilation();
+  }
+
   /** Returns true iff dependency information is generated after compilation. */
   public boolean getGenerateJavaDeps() {
     return generateJavaDeps;
   }
 
+  @Override
+  public boolean getGenerateJavaDepsStarlark(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return getGenerateJavaDeps();
+  }
+
   public JavaClasspathMode getReduceJavaClasspath() {
     return javaClasspath;
+  }
+
+  @Override
+  public String getReduceJavaClasspathStarlark(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return getReduceJavaClasspath().name();
   }
 
   public boolean inmemoryJdepsFiles() {

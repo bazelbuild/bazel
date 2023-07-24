@@ -27,6 +27,7 @@ import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -52,6 +53,18 @@ public interface JavaToolchainStarlarkApiProviderApi extends StructApi {
 
   @StarlarkMethod(name = "label", doc = "The toolchain label.", structField = true)
   Label getToolchainLabel();
+
+  @StarlarkMethod(
+      name = "forcibly_disable_header_compilation",
+      documented = false,
+      useStarlarkThread = true)
+  boolean getForciblyDisableHeaderCompilationStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "has_header_compiler", documented = false, useStarlarkThread = true)
+  boolean hasHeaderCompiler(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "has_header_compiler_direct", documented = false, useStarlarkThread = true)
+  boolean hasHeaderCompilerDirect(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(name = "single_jar", doc = "The SingleJar deploy jar.", structField = true)
   FilesToRunProviderApi<? extends FileApi> getSingleJar();
@@ -160,4 +173,7 @@ public interface JavaToolchainStarlarkApiProviderApi extends StructApi {
       structField = true,
       allowReturnNones = true)
   FilesToRunProviderApi<? extends FileApi> getProguardAllowlister();
+
+  @StarlarkMethod(name = "package_configuration", documented = false, useStarlarkThread = true)
+  Sequence<?> getPackageConfigurationStarlark(StarlarkThread thread) throws EvalException;
 }
