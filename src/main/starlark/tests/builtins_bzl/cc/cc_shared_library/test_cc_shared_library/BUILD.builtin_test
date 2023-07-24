@@ -34,7 +34,12 @@ py_test(
 cc_test(
     name = "cc_test",
     srcs = ["main.cc"],
+    data = ["datafile.txt"],
     dynamic_deps = ["foo_so"],
+    env = {
+        "ENV_GENDIR": "$(GENDIR)",
+        "ENV_LOCATION": "$(location :datafile.txt)",
+    },
     features = ["-dynamic_link_test_srcs"],
     deps = ["foo"],
 )
