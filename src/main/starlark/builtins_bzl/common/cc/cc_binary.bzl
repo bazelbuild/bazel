@@ -217,7 +217,15 @@ def _add_transitive_info_providers(ctx, cc_toolchain, cpp_config, feature_config
     output_groups["_validation"] = compilation_context.validation_artifacts
     return (cc_info, instrumented_files_provider, output_groups)
 
-def _collect_runfiles(ctx, feature_configuration, cc_toolchain, libraries, cc_library_linking_outputs, linking_mode, transitive_artifacts, link_compile_output_separately):
+def _collect_runfiles(
+        ctx,
+        feature_configuration,
+        cc_toolchain,
+        libraries,
+        cc_library_linking_outputs,
+        linking_mode,
+        transitive_artifacts,
+        link_compile_output_separately):
     # TODO(b/198254254): Add Legacyexternalrunfiles if necessary.
     runtime_objects_for_coverage = []
     builder_artifacts = []
@@ -630,7 +638,6 @@ def cc_binary_impl(ctx, additional_linkopts):
 
     additional_make_variable_substitutions = cc_helper.get_toolchain_global_make_variables(cc_toolchain)
     additional_make_variable_substitutions.update(cc_helper.get_cc_flags_make_variable(ctx, feature_configuration, cc_toolchain))
-
     (compilation_context, compilation_outputs) = cc_common.compile(
         name = ctx.label.name,
         actions = ctx.actions,
@@ -805,6 +812,8 @@ def cc_binary_impl(ctx, additional_linkopts):
     transitive_artifacts_list = [files_to_build, runtime_libraries_extra]
     if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "copy_dynamic_libraries_to_binary"):
         transitive_artifacts_list.append(copied_runtime_dynamic_libraries)
+    if cc_helper.should_create_per_object_debug_info(feature_configuration, cpp_config):
+        transitive_artifacts_list.append(dwo_files)
     transitive_artifacts = depset(transitive = transitive_artifacts_list)
 
     runtime_objects_for_coverage = [binary]
