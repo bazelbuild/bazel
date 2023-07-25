@@ -624,7 +624,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "        '_j2objc_dead_code_pruner': attr.label(",
         "            executable = True,",
         "            allow_files=True,",
-        "            cfg = 'exec',",
+        "            cfg = config.exec('j2objc'),",
         "            default = Label('" + toolsLoc + ":j2objc_dead_code_pruner_binary'),),",
         "        '_xcode_config': attr.label(",
         "            default=configuration_field(",
@@ -653,6 +653,9 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "        'stamp': attr.int(values=[-1,0,1],default=-1),",
         "        'string_variables_extension': attr.string_dict(),",
         "        'string_list_variables_extension': attr.string_list_dict(),",
+        "    },",
+        "    exec_groups = {",
+        "        'j2objc': exec_group()",
         "    },",
         "    fragments = ['apple', 'objc', 'cpp',],",
         ")");
