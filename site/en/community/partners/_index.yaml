@@ -21,16 +21,16 @@ landing_page:
     items_across: 2
     items:
     # Item 1
-    - image_path: /community/images/aspect-dev-logo.png
-      heading: Aspect
+    - image_path: /community/images/aspect-build-logo.png
+      heading: Aspect Build
       description: >
-        Aspect is a Bazel consulting company. For years our experts have contributed to Bazel at
-        Google and maintained official Bazel rules. We offer clients this firsthand, comprehensive
-        technical experience both with Bazel itself and with the ways it integrates with the
-        surrounding toolchain, developer workflow, and business processes. With decades of combined
-        industry experience, our experts have championed the benefits of Bazel since its initial
-        release in 2015. We're passionate about helping companies optimize the way they build and
-        test software with this innovative build tool.
+        Aspect Build is the ultimate build, test, and CI/CD platform designed exclusively for Bazel users. Harness the
+        power of Aspect Workflows, a seamless, turn-key Bazel CI/CD system, fully compatible with your existing CI
+        provider. Elevate your development experience with Aspect CLI, a convenient drop-in replacement for the native
+        Bazel CLI. Unleash the full potential of Bazel for front-end development with Aspect's JavaScript Bazel rules.
+        Enjoy accelerated build times and reduced compute costs with Aspect Workflows, thanks to fast warming,
+        auto-scaling CI workers, horizontally scaling remote cache, and auto-scaling remote build executors - delivering
+        a remarkable 10x performance boost to your Bazel projects. Say goodbye to waiting and hello to rapid iteration!
       buttons:
       - label: Learn more
         path: https://www.aspect.build/
