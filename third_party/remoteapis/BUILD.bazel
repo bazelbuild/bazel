@@ -34,7 +34,7 @@ filegroup(
         ":build_bazel_remote_asset_v1_remote_asset_java_grpc_srcs",
         ":build_bazel_remote_execution_v2_remote_execution_java_grpc_srcs",
     ],
-    visibility = ["@//src:__pkg__"],
+    visibility = ["@io_bazel//src:__pkg__"],
 )
 
 proto_library(
