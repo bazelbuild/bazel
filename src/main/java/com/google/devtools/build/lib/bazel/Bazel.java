@@ -49,7 +49,7 @@ public final class Bazel {
           com.google.devtools.build.lib.runtime.MemoryPressureModule.class,
           com.google.devtools.build.lib.platform.SleepPreventionModule.class,
           com.google.devtools.build.lib.platform.SystemSuspensionModule.class,
-          com.google.devtools.build.lib.runtime.BazelFileSystemModule.class,
+          BazelFileSystemModule.class,
           com.google.devtools.build.lib.runtime.mobileinstall.MobileInstallModule.class,
           com.google.devtools.build.lib.bazel.BazelWorkspaceStatusModule.class,
           com.google.devtools.build.lib.bazel.BazelDiffAwarenessModule.class,
