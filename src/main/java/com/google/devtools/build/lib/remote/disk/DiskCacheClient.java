@@ -15,8 +15,10 @@ package com.google.devtools.build.lib.remote.disk;
 
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.Tree;
+import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.Futures;
@@ -53,9 +55,16 @@ public class DiskCacheClient implements RemoteCacheClient {
    *     digest used to index that file.
    */
   public DiskCacheClient(Path root, boolean verifyDownloads, DigestUtil digestUtil) {
-    this.root = root;
     this.verifyDownloads = verifyDownloads;
     this.digestUtil = digestUtil;
+
+    if (isOldStyleDigestFunction(digestUtil.getDigestFunction())) {
+      this.root = root;
+    } else {
+      this.root =
+          root.getChild(
+              Ascii.toLowerCase(digestUtil.getDigestFunction().getValueDescriptor().getName()));
+    }
   }
 
   /** Returns {@code true} if the provided {@code key} is stored in the CAS. */
@@ -212,6 +221,14 @@ public class DiskCacheClient implements RemoteCacheClient {
 
   protected Path toPathNoSplit(String key) {
     return root.getChild(key);
+  }
+
+  private static boolean isOldStyleDigestFunction(DigestFunction.Value digestFunction) {
+    // Old-style digest functions (SHA256, etc) are distinguishable by the length
+    // of their hash alone and do not require extra specification, but newer
+    // digest functions (which may have the same length hashes as the older
+    // functions!) must be explicitly specified in the upload resource name.
+    return digestFunction.getNumber() <= 7;
   }
 
   protected Path toPath(String key, boolean actionResult) {
