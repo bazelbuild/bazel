@@ -364,6 +364,25 @@ def _minimize_cc_info(cc_info):
         cc_native_library_info = CcNativeLibraryInfo(libraries_to_link = cc_info.transitive_native_libraries()),
     )
 
+def _compute_concatenated_deps(deps, runtime_deps, exports):
+    deps_exports = []
+    deps_exports.extend(deps)
+    deps_exports.extend(exports)
+
+    exports_deps = []
+    exports_deps.extend(exports)
+    exports_deps.extend(deps)
+
+    runtimedeps_exports_deps = []
+    runtimedeps_exports_deps.extend(runtime_deps)
+    runtimedeps_exports_deps.extend(exports_deps)
+
+    return struct(
+        deps_exports = deps_exports,
+        exports_deps = exports_deps,
+        runtimedeps_exports_deps = runtimedeps_exports_deps,
+    )
+
 def _javainfo_init_base(
         output_jar,
         compile_jar,
@@ -385,12 +404,14 @@ def _javainfo_init_base(
     _validate_provider_list(exports, "exports", JavaInfo)
     _validate_provider_list(native_libraries, "native_libraries", CcInfo)
 
+    concatenated_deps = _compute_concatenated_deps(deps, runtime_deps, exports)
+
     source_jars = [source_jar] if source_jar else []
     plugin_info = _merge_plugin_info_without_outputs(exported_plugins + exports)
     transitive_compile_time_jars = depset(
         order = "preorder",
         direct = [compile_jar] if compile_jar else [],
-        transitive = [dep.transitive_compile_time_jars for dep in exports + deps],
+        transitive = [dep.transitive_compile_time_jars for dep in concatenated_deps.exports_deps],
     )
     java_outputs = [_JavaOutputInfo(
         class_jar = output_jar,
@@ -440,7 +461,7 @@ def _javainfo_init_base(
                 direct = [generated_class_jar] if generated_class_jar else [],
                 transitive = [
                     dep.annotation_processing.transitive_class_jars
-                    for dep in deps + exports
+                    for dep in concatenated_deps.deps_exports
                     if dep.annotation_processing
                 ],
             ),
@@ -448,7 +469,7 @@ def _javainfo_init_base(
                 direct = [generated_source_jar] if generated_source_jar else [],
                 transitive = [
                     dep.annotation_processing.transitive_source_jars
-                    for dep in deps + exports
+                    for dep in concatenated_deps.deps_exports
                     if dep.annotation_processing
                 ],
             ),
@@ -458,7 +479,7 @@ def _javainfo_init_base(
         "_transitive_full_compile_time_jars": depset(
             order = "preorder",
             direct = [output_jar],
-            transitive = [dep._transitive_full_compile_time_jars for dep in exports + deps],
+            transitive = [dep._transitive_full_compile_time_jars for dep in concatenated_deps.exports_deps],
         ),
         "_compile_time_java_dependencies": depset(
             order = "preorder",
@@ -471,10 +492,9 @@ def _javainfo_init_base(
     }
 
     if _java_common_internal._google_legacy_api_enabled():
-        cc_info = _minimize_cc_info(cc_common.merge_cc_infos(
-            cc_infos = [dep.cc_link_params_info for dep in runtime_deps + exports + deps] +
-                       ([cc_common.merge_cc_infos(cc_infos = native_libraries)] if native_libraries else []),
-        ))
+        transitive_cc_infos = [dep.cc_link_params_info for dep in concatenated_deps.runtimedeps_exports_deps]
+        transitive_cc_infos.extend(native_libraries)
+        cc_info = _minimize_cc_info(cc_common.merge_cc_infos(cc_infos = transitive_cc_infos))
         result.update(
             cc_link_params_info = cc_info,
             transitive_native_libraries = cc_info.transitive_native_libraries(),
@@ -483,11 +503,11 @@ def _javainfo_init_base(
         result.update(
             transitive_native_libraries = depset(
                 order = "topological",
-                transitive = [dep.transitive_native_libraries for dep in runtime_deps + exports + deps] +
+                transitive = [dep.transitive_native_libraries for dep in concatenated_deps.runtimedeps_exports_deps] +
                              ([cc_common.merge_cc_infos(cc_infos = native_libraries).transitive_native_libraries()] if native_libraries else []),
             ),
         )
-    return result
+    return result, concatenated_deps
 
 def _javainfo_init(
         output_jar,
@@ -538,7 +558,7 @@ def _javainfo_init(
     Returns:
         (dict) arguments to the JavaInfo provider constructor
     """
-    result = _javainfo_init_base(
+    result, concatenated_deps = _javainfo_init_base(
         output_jar,
         compile_jar,
         source_jar,
@@ -562,7 +582,7 @@ def _javainfo_init(
         transitive_runtime_jars = depset(
             order = "preorder",
             direct = [output_jar],
-            transitive = [dep.transitive_runtime_jars for dep in exports + deps + runtime_deps],
+            transitive = [dep.transitive_runtime_jars for dep in concatenated_deps.exports_deps + runtime_deps],
         )
     result.update(
         transitive_runtime_jars = transitive_runtime_jars,
@@ -578,11 +598,11 @@ def _javainfo_init(
         module_flags_info = _ModuleFlagsInfo(
             add_exports = depset(transitive = [
                 dep.module_flags_info.add_exports
-                for dep in deps + exports
+                for dep in concatenated_deps.deps_exports
             ]),
             add_opens = depset(transitive = [
                 dep.module_flags_info.add_opens
-                for dep in deps + exports
+                for dep in concatenated_deps.deps_exports
             ]),
         ),
     )
