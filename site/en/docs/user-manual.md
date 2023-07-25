@@ -348,7 +348,7 @@ Default value is `local_jdk`.
 Possible values are: `local_jdk`, `local_jdk_{{ "<var>" }}version{{ "</var>" }}`,
 `remotejdk_11`, and `remotejdk_17`.
 You can extend the values by registering custom JVM using either
-`local_java_repository` or `remote_java_repostory` repository rules.
+`local_java_repository` or `remote_java_repository` repository rules.
 
 #### `--tool_java_runtime_version={{ "<var>" }}version{{ "</var>" }}` {:#tool-java-runtime-version}
 
