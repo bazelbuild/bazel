@@ -323,7 +323,6 @@ public final class FileSystemValueCheckerInferringAncestors {
     }
     @Nullable Version newMtsv = dirtyResult.getNewMaxTransitiveSourceVersion();
     if (newMtsv == null && !skyValueDirtinessChecker.nullMaxTransitiveSourceVersionOk()) {
-      // TODO(b/287632270) - add test coverage for unexpected null mtsv's
       throw new StatFailedException(path, new IOException("Filesystem access failed."));
     }
 
@@ -385,7 +384,6 @@ public final class FileSystemValueCheckerInferringAncestors {
     Version newMtsv =
         skyValueDirtinessChecker.getMaxTransitiveSourceVersionForNewValue(key, newValue);
     if (newMtsv == null && !skyValueDirtinessChecker.nullMaxTransitiveSourceVersionOk()) {
-      // TODO(b/287632270) - add test coverage for unexpected null mtsv's
       throw new StatFailedException(path, new IOException("Filesystem access failed."));
     }
     valuesToInject.put(key, Delta.justNew(newValue, newMtsv));
