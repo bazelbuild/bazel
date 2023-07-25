@@ -176,7 +176,7 @@ public final class AndroidSdkProvider extends NativeInfo
               ANDROID_SDK_TOOLCHAIN_TYPE_ATTRIBUTE_NAME));
       return null;
     }
-    ToolchainInfo info = toolchainContext.forToolchainType(toolchainType);
+    ToolchainInfo info = ruleContext.getToolchainInfo(toolchainType);
     if (info == null) {
       ruleContext.ruleError(
           String.format(

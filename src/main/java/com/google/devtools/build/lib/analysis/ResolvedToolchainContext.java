@@ -130,7 +130,10 @@ public abstract class ResolvedToolchainContext implements ToolchainContext {
 
   /**
    * Returns the toolchain for the given type, or {@code null} if the toolchain type was not
-   * required in this context.
+   * required in this context. Be careful if {@code ResolvedToolchainContext} is from the
+   * default-exec-group (usually {@code RuleContext.getToolchainContext()}) because it will not have
+   * toolchains after Automatic Exec Groups are enabled. In that case please use {@code
+   * RuleContext.getToolchainInfo(toolchainTypeLabel)}.
    */
   @Nullable
   public ToolchainInfo forToolchainType(Label toolchainTypeLabel) {
