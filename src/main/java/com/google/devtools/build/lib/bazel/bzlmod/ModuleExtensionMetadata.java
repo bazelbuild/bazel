@@ -20,14 +20,15 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -82,23 +83,11 @@ public class ModuleExtensionMetadata implements StarlarkValue {
     // root_module_direct_dev_deps = [], but not root_module_direct_dev_deps = ["some_repo"].
     if (rootModuleDirectDepsUnchecked.equals("all")
         && rootModuleDirectDevDepsUnchecked.equals(StarlarkList.immutableOf())) {
-      if (extensionId.getIsolationKey().isPresent()
-          && extensionId.getIsolationKey().get().isDevUsage()) {
-        throw Starlark.errorf(
-            "root_module_direct_deps must be empty for an isolated extension usage with "
-                + "dev_dependency = True");
-      }
       return new ModuleExtensionMetadata(null, null, UseAllRepos.REGULAR);
     }
 
     if (rootModuleDirectDevDepsUnchecked.equals("all")
         && rootModuleDirectDepsUnchecked.equals(StarlarkList.immutableOf())) {
-      if (extensionId.getIsolationKey().isPresent()
-          && !extensionId.getIsolationKey().get().isDevUsage()) {
-        throw Starlark.errorf(
-            "root_module_direct_dev_deps must be empty for an isolated extension usage with "
-                + "dev_dependency = False");
-      }
       return new ModuleExtensionMetadata(null, null, UseAllRepos.DEV);
     }
 
@@ -127,20 +116,6 @@ public class ModuleExtensionMetadata implements StarlarkValue {
     Sequence<String> rootModuleDirectDevDeps =
         Sequence.cast(
             rootModuleDirectDevDepsUnchecked, String.class, "root_module_direct_dev_deps");
-
-    if (extensionId.getIsolationKey().isPresent()) {
-      ModuleExtensionId.IsolationKey isolationKey = extensionId.getIsolationKey().get();
-      if (isolationKey.isDevUsage() && !rootModuleDirectDeps.isEmpty()) {
-        throw Starlark.errorf(
-            "root_module_direct_deps must be empty for an isolated extension usage with "
-                + "dev_dependency = True");
-      }
-      if (!isolationKey.isDevUsage() && !rootModuleDirectDevDeps.isEmpty()) {
-        throw Starlark.errorf(
-            "root_module_direct_dev_deps must be empty for an isolated extension usage with "
-                + "dev_dependency = False");
-      }
-    }
 
     Set<String> explicitRootModuleDirectDeps = new LinkedHashSet<>();
     for (String dep : rootModuleDirectDeps) {
@@ -192,40 +167,46 @@ public class ModuleExtensionMetadata implements StarlarkValue {
       // expected to modify any other module's MODULE.bazel file.
       return Optional.empty();
     }
+    // Every module only has at most a single usage of a given extension.
+    ModuleExtensionUsage rootUsage = Iterables.getOnlyElement(rootUsages);
 
     var rootModuleDirectDevDeps = getRootModuleDirectDevDeps(allRepos);
     var rootModuleDirectDeps = getRootModuleDirectDeps(allRepos);
     if (rootModuleDirectDevDeps.isEmpty() && rootModuleDirectDeps.isEmpty()) {
       return Optional.empty();
     }
-
     Preconditions.checkState(
         rootModuleDirectDevDeps.isPresent() && rootModuleDirectDeps.isPresent());
+
+    if (!rootUsage.getHasNonDevUseExtension() && !rootModuleDirectDeps.get().isEmpty()) {
+      throw Starlark.errorf(
+          "root_module_direct_deps must be empty if the root module contains no "
+              + "usages with dev_dependency = False");
+    }
+    if (!rootUsage.getHasDevUseExtension() && !rootModuleDirectDevDeps.get().isEmpty()) {
+      throw Starlark.errorf(
+          "root_module_direct_dev_deps must be empty if the root module contains no "
+              + "usages with dev_dependency = True");
+    }
+
     return generateFixupMessage(
-        rootUsages, allRepos, rootModuleDirectDeps.get(), rootModuleDirectDevDeps.get());
+        rootUsage, allRepos, rootModuleDirectDeps.get(), rootModuleDirectDevDeps.get());
   }
 
   private static Optional<Event> generateFixupMessage(
-      List<ModuleExtensionUsage> rootUsages,
+      ModuleExtensionUsage rootUsage,
       Set<String> allRepos,
       Set<String> expectedImports,
       Set<String> expectedDevImports) {
-    var actualDevImports =
-        rootUsages.stream()
-            .flatMap(usage -> usage.getDevImports().stream())
-            .collect(toImmutableSet());
+    var actualDevImports = ImmutableSet.copyOf(rootUsage.getDevImports());
     var actualImports =
-        rootUsages.stream()
-            .flatMap(usage -> usage.getImports().values().stream())
+        rootUsage.getImports().values().stream()
             .filter(repo -> !actualDevImports.contains(repo))
             .collect(toImmutableSet());
 
-    // All label strings that map to the same Label are equivalent for buildozer as it implements
-    // the same normalization of label strings with no or empty repo name.
-    ModuleExtensionUsage firstUsage = rootUsages.get(0);
-    String extensionBzlFile = firstUsage.getExtensionBzlFile();
-    String extensionName = firstUsage.getExtensionName();
-    Location location = firstUsage.getLocation();
+    String extensionBzlFile = rootUsage.getExtensionBzlFile();
+    String extensionName = rootUsage.getExtensionName();
+    Location location = rootUsage.getLocation();
 
     var importsToAdd = ImmutableSortedSet.copyOf(Sets.difference(expectedImports, actualImports));
     var importsToRemove =
@@ -272,6 +253,28 @@ public class ModuleExtensionMetadata implements StarlarkValue {
               String.join(", ", missingImports));
     }
 
+    var nonDevImportsOfDevDeps =
+        ImmutableSortedSet.copyOf(Sets.intersection(expectedDevImports, actualImports));
+    if (!nonDevImportsOfDevDeps.isEmpty()) {
+      message +=
+          String.format(
+              "Imported as a regular dependency, but reported as a dev dependency by the "
+                  + "extension (may cause the build to fail when used by other modules):\n"
+                  + "    %s\n\n",
+              String.join(", ", nonDevImportsOfDevDeps));
+    }
+
+    var devImportsOfNonDevDeps =
+        ImmutableSortedSet.copyOf(Sets.intersection(expectedImports, actualDevImports));
+    if (!devImportsOfNonDevDeps.isEmpty()) {
+      message +=
+          String.format(
+              "Imported as a dev dependency, but reported as a regular dependency by the "
+                  + "extension (may cause the build to fail when used by other modules):\n"
+                  + "    %s\n\n",
+              String.join(", ", devImportsOfNonDevDeps));
+    }
+
     var indirectDepImports =
         ImmutableSortedSet.copyOf(
             Sets.difference(Sets.intersection(allActualImports, allRepos), allExpectedImports));
@@ -290,28 +293,28 @@ public class ModuleExtensionMetadata implements StarlarkValue {
                     importsToAdd,
                     extensionBzlFile,
                     extensionName,
-                    firstUsage.getIsolationKey()),
+                    rootUsage.getIsolationKey()),
                 makeUseRepoCommand(
                     "use_repo_remove",
                     false,
                     importsToRemove,
                     extensionBzlFile,
                     extensionName,
-                    firstUsage.getIsolationKey()),
+                    rootUsage.getIsolationKey()),
                 makeUseRepoCommand(
                     "use_repo_add",
                     true,
                     devImportsToAdd,
                     extensionBzlFile,
                     extensionName,
-                    firstUsage.getIsolationKey()),
+                    rootUsage.getIsolationKey()),
                 makeUseRepoCommand(
                     "use_repo_remove",
                     true,
                     devImportsToRemove,
                     extensionBzlFile,
                     extensionName,
-                    firstUsage.getIsolationKey()))
+                    rootUsage.getIsolationKey()))
             .flatMap(Optional::stream);
 
     return Optional.of(
@@ -339,22 +342,20 @@ public class ModuleExtensionMetadata implements StarlarkValue {
       return Optional.empty();
     }
 
-    String extensionUsageIdentifier = extensionName;
+    var commandParts = new ArrayList<String>();
+    commandParts.add(cmd);
     if (isolationKey.isPresent()) {
-      // We verified in create() that the extension did not report root module deps of a kind that
-      // does not match the isolated (and hence only) usage. It also isn't possible for users to
-      // specify repo usages of the wrong kind, so we can't get here.
-      Preconditions.checkState(isolationKey.get().isDevUsage() == devDependency);
-      extensionUsageIdentifier += ":" + isolationKey.get().getIsolatedUsageIndex();
+      commandParts.add(isolationKey.get().getUsageExportedName());
+    } else {
+      if (devDependency) {
+        commandParts.add("dev");
+      }
+      commandParts.add(extensionBzlFile);
+      commandParts.add(extensionName);
     }
+    commandParts.addAll(repos);
     return Optional.of(
-        String.format(
-            "buildozer '%s%s %s %s %s' //MODULE.bazel:all",
-            cmd,
-            devDependency ? " dev" : "",
-            extensionBzlFile,
-            extensionUsageIdentifier,
-            String.join(" ", repos)));
+        String.format("buildozer '%s' //MODULE.bazel:all", String.join(" ", commandParts)));
   }
 
   private Optional<ImmutableSet<String>> getRootModuleDirectDeps(Set<String> allRepos)

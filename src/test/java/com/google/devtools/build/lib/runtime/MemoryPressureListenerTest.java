@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -86,14 +87,14 @@ public final class MemoryPressureListenerTest {
         IllegalStateException.class,
         () ->
             MemoryPressureListener.createFromBeans(
-                ImmutableList.of(mockUselessBean), retainedHeapLimiter));
+                ImmutableList.of(mockUselessBean), retainedHeapLimiter, directExecutor()));
   }
 
   @Test
   public void simple() {
     MemoryPressureListener underTest =
         MemoryPressureListener.createFromBeans(
-            ImmutableList.of(mockUselessBean, mockBean), retainedHeapLimiter);
+            ImmutableList.of(mockUselessBean, mockBean), retainedHeapLimiter, directExecutor());
     underTest.setEventBus(eventBus);
     verify(mockBean).addNotificationListener(underTest, null, null);
     verify(mockUselessBean, never()).addNotificationListener(any(), any(), any());
@@ -133,7 +134,7 @@ public final class MemoryPressureListenerTest {
   public void nullEventBus_doNotPublishEvent() {
     MemoryPressureListener underTest =
         MemoryPressureListener.createFromBeans(
-            ImmutableList.of(mockUselessBean, mockBean), retainedHeapLimiter);
+            ImmutableList.of(mockUselessBean, mockBean), retainedHeapLimiter, directExecutor());
     verify(mockBean).addNotificationListener(underTest, null, null);
     verify(mockUselessBean, never()).addNotificationListener(any(), any(), any());
 
@@ -165,7 +166,8 @@ public final class MemoryPressureListenerTest {
   @Test
   public void manualGc() {
     MemoryPressureListener underTest =
-        MemoryPressureListener.createFromBeans(ImmutableList.of(mockBean), retainedHeapLimiter);
+        MemoryPressureListener.createFromBeans(
+            ImmutableList.of(mockBean), retainedHeapLimiter, directExecutor());
     underTest.setEventBus(eventBus);
     verify(mockBean).addNotificationListener(underTest, null, null);
 
@@ -196,7 +198,8 @@ public final class MemoryPressureListenerTest {
   @Test
   public void doesntInvokeHandlerWhenTenuredSpaceMaxSizeIsZero() {
     MemoryPressureListener underTest =
-        MemoryPressureListener.createFromBeans(ImmutableList.of(mockBean), retainedHeapLimiter);
+        MemoryPressureListener.createFromBeans(
+            ImmutableList.of(mockBean), retainedHeapLimiter, directExecutor());
     underTest.setEventBus(eventBus);
     verify(mockBean).addNotificationListener(underTest, null, null);
 
@@ -226,7 +229,7 @@ public final class MemoryPressureListenerTest {
 
     MemoryPressureListener underTest =
         MemoryPressureListener.createFromBeans(
-            ImmutableList.of(mockBean, anotherMockBean), retainedHeapLimiter);
+            ImmutableList.of(mockBean, anotherMockBean), retainedHeapLimiter, directExecutor());
     underTest.setEventBus(eventBus);
     verify(mockBean).addNotificationListener(underTest, null, null);
     verify(anotherMockBean).addNotificationListener(underTest, null, null);
@@ -264,14 +267,14 @@ public final class MemoryPressureListenerTest {
   }
 
   @Test
-  public void retainedHeapLimiter_aboveThreshold_handleCrash() throws Exception {
+  public void retainedHeapLimiter_aboveThreshold_handleCrash() {
     MemoryPressureOptions options = Options.getDefaults(MemoryPressureOptions.class);
     options.oomMoreEagerlyThreshold = 90;
     retainedHeapLimiter.setOptions(options);
 
     MemoryPressureListener underTest =
         MemoryPressureListener.createFromBeans(
-            ImmutableList.of(mockUselessBean, mockBean), retainedHeapLimiter);
+            ImmutableList.of(mockUselessBean, mockBean), retainedHeapLimiter, directExecutor());
     underTest.setEventBus(eventBus);
     verify(mockBean).addNotificationListener(underTest, null, null);
     verify(mockUselessBean, never()).addNotificationListener(any(), any(), any());

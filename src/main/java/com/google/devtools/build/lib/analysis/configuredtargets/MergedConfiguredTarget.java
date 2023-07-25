@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.analysis.configuredtargets;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -75,7 +75,7 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  public ActionLookupKeyOrProxy getKeyOrProxy() {
+  public ActionLookupKey getLookupKey() {
     throw new IllegalStateException(
         "MergedConfiguredTarget is ephemeral. It does not exist in the Skyframe graph and it does"
             + " not have a key.");

@@ -233,7 +233,7 @@ public class RemoteLeaseExtension implements LeaseExtension {
     var actionLookupValue =
         (ActionLookupValue)
             checkNotNull(
-                memoizingEvaluator.getExistingValue(actionLookupData.getActionLookupKey().toKey()));
+                memoizingEvaluator.getExistingValue(actionLookupData.getActionLookupKey()));
     return actionLookupValue.getAction(actionLookupData.getActionIndex());
   }
 

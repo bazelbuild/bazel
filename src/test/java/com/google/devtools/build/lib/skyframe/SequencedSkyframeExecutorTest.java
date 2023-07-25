@@ -438,7 +438,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   }
 
   private static DiffAwareness.Factory nothingChangedDiffAwarenessFactory() {
-    return pathEntry ->
+    return (pathEntry, ignoredPaths) ->
         new DiffAwareness() {
           @Override
           public View getCurrentView(OptionsProvider options) {

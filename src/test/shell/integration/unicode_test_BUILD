@@ -1,5 +1,5 @@
 # BUILD file for unicode_test
-load(":unicode_test.bzl", "run_executable_rule", "write_file_rule")
+load(":unicode_test.bzl", "run_executable_rule", "write_file_rule", "run_executable_with_param_file_rule")
 
 # In Russian and Bengali: "Down with mojibake! We want unicode!"
 non_ascii_string = "Долой кракозябры! আমরা ইউনিকোড চাই!"
@@ -30,4 +30,20 @@ write_file_rule(
     name = "action_write_content",
     content = non_ascii_string,
     out = "action_write_content.out",
+)
+
+run_executable_with_param_file_rule(
+    name = "action_run_param_file",
+    executable = "cat_param_file.sh",
+    content = non_ascii_string,
+    out = "action_run_param_file.out",
+)
+
+write_file_rule(
+    name = "cat_param_file",
+    content = """#!/bin/bash
+cat "$1" >> "$2";
+""",
+    out = "cat_param_file.sh",
+    is_executable = True,
 )

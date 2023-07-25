@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.analysis.AspectResolutionHelpers.computeAspectCollection;
 import static com.google.devtools.build.lib.analysis.producers.AttributeConfiguration.Kind.VISIBILITY;
 import static com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData.SPLIT_DEP_ORDERING;
+import static java.util.Arrays.copyOfRange;
 import static java.util.Arrays.sort;
 
 import com.google.common.collect.ImmutableList;
@@ -25,18 +26,19 @@ import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.InconsistentNullConfigException;
 import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyException;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
+import com.google.devtools.build.lib.packages.NoSuchThingException;
+import com.google.devtools.build.lib.skyframe.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import com.google.devtools.build.skyframe.state.StateMachine.Tasks;
+import java.util.HashSet;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -59,11 +61,15 @@ final class PrerequisitesProducer
   interface ResultSink {
     void acceptPrerequisitesValue(ConfiguredTargetAndData[] prerequisites);
 
+    void acceptPrerequisitesError(NoSuchThingException error);
+
     void acceptPrerequisitesError(InvalidVisibilityDependencyException error);
 
     void acceptPrerequisitesCreationError(ConfiguredValueCreationException error);
 
     void acceptPrerequisitesAspectError(DependencyEvaluationException error);
+
+    void acceptPrerequisitesAspectError(AspectCreationException error);
   }
 
   // -------------------- Input --------------------
@@ -101,7 +107,7 @@ final class PrerequisitesProducer
   }
 
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     switch (configuration.kind()) {
       case VISIBILITY:
         tasks.enqueue(
@@ -153,6 +159,12 @@ final class PrerequisitesProducer
   }
 
   @Override
+  public void acceptConfiguredTargetAndDataError(NoSuchThingException error) {
+    hasError = true;
+    sink.acceptPrerequisitesError(error);
+  }
+
+  @Override
   public void acceptConfiguredTargetAndDataError(InconsistentNullConfigException error) {
     hasError = true;
     if (configuration.kind() == VISIBILITY) {
@@ -173,7 +185,7 @@ final class PrerequisitesProducer
     sink.acceptPrerequisitesCreationError(error);
   }
 
-  private StateMachine computeConfiguredAspects(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine computeConfiguredAspects(Tasks tasks) {
     if (hasError) {
       return DONE;
     }
@@ -239,7 +251,13 @@ final class PrerequisitesProducer
             /* depReportedOwnError= */ false));
   }
 
-  private StateMachine emitMergedTargets(Tasks tasks, ExtendedEventHandler listener) {
+  @Override
+  public void acceptConfiguredAspectError(AspectCreationException error) {
+    hasError = true;
+    sink.acceptPrerequisitesAspectError(error);
+  }
+
+  private StateMachine emitMergedTargets(Tasks tasks) {
     if (!hasError) {
       sink.acceptPrerequisitesValue(configuredTargets);
     }
@@ -256,22 +274,12 @@ final class PrerequisitesProducer
 
   private void cleanupValues() {
     if (configuredTargets.length == 1) {
-      // Clears the transition keys if there was no effective transition.
-      BuildConfigurationKey fromConfigurationKey = parameters.configurationKey();
-      BuildConfigurationValue transitionedConfiguration = configuredTargets[0].getConfiguration();
-      // `fromConfigurationKey` == null implies `transitionedConfiguration` == null.
-      if (fromConfigurationKey == null
-          || (transitionedConfiguration != null
-              && fromConfigurationKey
-                  .getOptions()
-                  .equals(transitionedConfiguration.getOptions()))) {
-        configuredTargets[0] = configuredTargets[0].copyWithClearedTransitionKeys();
-      }
       return;
     }
-    // Otherwise, there was a split transition. Aggregates the transition keys if the resulting
-    // configurations are null.
+    // Otherwise, there was a split transition.
+
     if (configuredTargets[0].getConfiguration() == null) {
+      // The resulting configurations are null. Aggregates the transition keys.
       var keys = new ImmutableList.Builder<String>();
       keys.addAll(configuredTargets[0].getTransitionKeys());
       for (int i = 1; i < configuredTargets.length; ++i) {
@@ -285,6 +293,22 @@ final class PrerequisitesProducer
       configuredTargets =
           new ConfiguredTargetAndData[] {configuredTargets[0].copyWithTransitionKeys(keys.build())};
       return;
+    }
+
+    // Deduplicates entries that have identical configurations and thus identical values, keeping
+    // only the first entry with the configuration.
+    var seenConfigurations = new HashSet<BuildConfigurationKey>();
+    int firstIndex = 0;
+    for (int i = 0; i < configuredTargets.length; ++i) {
+      if (!seenConfigurations.add(configuredTargets[i].getConfigurationKey())) {
+        // The target at `i` was a duplicate of a previous target. Deletes it by:
+        // 1. overwriting it with the first target; and
+        // 2. removing the slot previously associated with the first target.
+        configuredTargets[i] = configuredTargets[firstIndex++];
+      }
+    }
+    if (firstIndex > 0) {
+      configuredTargets = copyOfRange(configuredTargets, firstIndex, configuredTargets.length);
     }
     sort(configuredTargets, SPLIT_DEP_ORDERING);
   }

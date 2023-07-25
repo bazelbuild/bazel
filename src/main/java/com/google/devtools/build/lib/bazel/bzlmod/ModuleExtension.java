@@ -15,7 +15,10 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.cmdline.Label;
+import java.util.Optional;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
@@ -29,9 +32,20 @@ public abstract class ModuleExtension implements StarlarkValue {
 
   public abstract ImmutableMap<String, TagClass> getTagClasses();
 
-  public abstract String getDoc();
+  public abstract Optional<String> getDoc();
+
+  /**
+   * The .bzl file where the module extension object was originally defined.
+   *
+   * <p>Note that if the extension object was then loaded and re-exported by a different .bzl file
+   * before being used in a MODULE.bazel file, the output of this function may differ from the
+   * corresponding ModuleExtensionUsage#getExtensionBzlFile and ModuleExtensionId#getBzlFileLabel.
+   */
+  public abstract Label getDefiningBzlFileLabel();
 
   public abstract Location getLocation();
+
+  public abstract ImmutableList<String> getEnvVariables();
 
   public static Builder builder() {
     return new AutoValue_ModuleExtension.Builder();
@@ -40,13 +54,17 @@ public abstract class ModuleExtension implements StarlarkValue {
   /** Builder for {@link ModuleExtension}. */
   @AutoValue.Builder
   public abstract static class Builder {
-    public abstract Builder setDoc(String value);
+    public abstract Builder setDoc(Optional<String> value);
+
+    public abstract Builder setDefiningBzlFileLabel(Label value);
 
     public abstract Builder setLocation(Location value);
 
     public abstract Builder setImplementation(StarlarkCallable value);
 
     public abstract Builder setTagClasses(ImmutableMap<String, TagClass> value);
+
+    public abstract Builder setEnvVariables(ImmutableList<String> value);
 
     public abstract ModuleExtension build();
   }

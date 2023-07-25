@@ -316,7 +316,7 @@ public class AliasTest extends BuildViewTestCase {
     assertThat(getLicenses("//a:b", "//a:a")).containsExactly(LicenseType.RESTRICTED);
     assertThat(
             getConfiguredTarget("//a:b")
-                .getProvider(LicensesProvider.class)
+                .get(LicensesProvider.PROVIDER)
                 .getTransitiveLicenses()
                 .toList())
         .hasSize(1);
@@ -335,8 +335,7 @@ public class AliasTest extends BuildViewTestCase {
 
   private Set<LicenseType> getLicenses(String topLevelTarget, String licenseTarget)
       throws Exception {
-    LicensesProvider licenses =
-        getConfiguredTarget(topLevelTarget).getProvider(LicensesProvider.class);
+    LicensesProvider licenses = getConfiguredTarget(topLevelTarget).get(LicensesProvider.PROVIDER);
     for (TargetLicense license : licenses.getTransitiveLicenses().toList()) {
       if (license.getLabel().toString().equals(licenseTarget)) {
         return license.getLicense().getLicenseTypes();

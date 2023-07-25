@@ -19,8 +19,9 @@ import static java.util.Arrays.asList;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.DependencyKind;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionCollector;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -38,10 +39,12 @@ import java.util.Map;
  */
 public final class DependencyMapProducer implements StateMachine, DependencyProducer.ResultSink {
   /** Receiver for output of {@link DependencyMapProducer}. */
-  public interface ResultSink {
+  public interface ResultSink extends TransitionCollector {
     void acceptDependencyMap(OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> value);
 
     void acceptDependencyMapError(DependencyError error);
+
+    void acceptDependencyMapError(MissingEdgeError error);
   }
 
   // -------------------- Input --------------------
@@ -82,7 +85,7 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
   }
 
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     int index = 0;
     for (Map.Entry<DependencyKind, Collection<Label>> entry : dependencyLabels.asMap().entrySet()) {
       var kind = entry.getKey();
@@ -107,14 +110,28 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
     emitErrorIfMostImportant(error);
   }
 
-  private StateMachine buildAndEmitResult(Tasks tasks, ExtendedEventHandler listener) {
-    if (lastError != null) {
+  @Override
+  public void acceptDependencyError(MissingEdgeError error) {
+    sink.acceptDependencyMapError(error);
+  }
+
+  @Override
+  public void acceptTransition(
+      DependencyKind kind, Label label, ConfigurationTransition transition) {
+    sink.acceptTransition(kind, label, transition);
+  }
+
+  private StateMachine buildAndEmitResult(Tasks tasks) {
+    if (lastError != null || parameters.transitiveState().hasRootCause()) {
       return DONE; // There was an error.
     }
     var output = new OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData>();
     int i = 0;
     for (DependencyKind kind : dependencyLabels.keys()) {
       ConfiguredTargetAndData[] result = results[i++];
+      if (result == null) {
+        return DONE; // There was an error.
+      }
       // An empty `result` means the entry is skipped due to a missing exec group.
       if (result.length > 0) {
         output.putAll(kind, asList(result));

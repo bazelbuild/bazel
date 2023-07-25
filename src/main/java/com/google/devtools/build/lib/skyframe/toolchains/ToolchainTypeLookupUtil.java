@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.skyframe.toolchains;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
@@ -39,9 +38,7 @@ public class ToolchainTypeLookupUtil {
   public static ImmutableMap<Label, ToolchainTypeInfo> resolveToolchainTypes(
       Environment env, Iterable<ConfiguredTargetKey> toolchainTypeKeys)
       throws InterruptedException, InvalidToolchainTypeException {
-    SkyframeLookupResult values =
-        env.getValuesAndExceptions(
-            Iterables.transform(toolchainTypeKeys, ConfiguredTargetKey::toKey));
+    SkyframeLookupResult values = env.getValuesAndExceptions(toolchainTypeKeys);
     boolean valuesMissing = env.valuesMissing();
     Map<Label, ToolchainTypeInfo> results = valuesMissing ? null : new HashMap<>();
     for (ConfiguredTargetKey key : toolchainTypeKeys) {
@@ -67,7 +64,7 @@ public class ToolchainTypeLookupUtil {
       ConfiguredTargetValue ctv =
           (ConfiguredTargetValue)
               values.getOrThrow(
-                  key.toKey(),
+                  key,
                   ConfiguredValueCreationException.class,
                   NoSuchThingException.class,
                   ActionConflictException.class);

@@ -866,6 +866,7 @@ public class BzlLoadFunction implements SkyFunction {
     BzlInitThreadContext context =
         new BzlInitThreadContext(
             label,
+            transitiveDigest,
             ruleClassProvider.getToolsRepository(),
             ruleClassProvider.getConfigurationFragmentMap(),
             new SymbolGenerator<>(label),

@@ -8,7 +8,7 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["*"]) + [
-        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod/modquery:srcs",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod/modcommand:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )
@@ -257,6 +257,7 @@ java_library(
     ],
     deps = [
         ":common",
+        ":module_extension",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -273,6 +274,7 @@ java_library(
     deps = [
         ":common",
         ":inspection",
+        ":module_extension",
         ":resolution",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",

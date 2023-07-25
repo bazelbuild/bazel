@@ -26,7 +26,7 @@ artifact-based build systems are excellent at enabling scale.
 
 Note: Much of this section's content comes from the _Build Systems and
 Build Philosophy_ chapter of the
-[_Software Engineering at Google_ book](https://abseil.io/resources/swe_at_google.2.pdf#page=399).
+[_Software Engineering at Google_ book](https://abseil.io/resources/swe-book/html/ch18.html).
 Thank you to the original author, Erik Kuefler, for allowing its reuse and
 modification here!
 

@@ -300,6 +300,66 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
     assertThat(env).doesNotContainEntry("doNotInclude", "doNotIncludePlease");
   }
 
+  @Test
+  public void testEnvVarsWithMissingVariableIsNotExpanded() throws Exception {
+    FeatureConfiguration configuration =
+        CcToolchainTestHelper.buildFeatures(
+                "feature {",
+                "  name: 'a'",
+                "  env_set {",
+                "     action: 'c++-compile'",
+                "     env_entry { key: 'foo', value: 'bar', expand_if_all_available: 'v' }",
+                "  }",
+                "}")
+            .getFeatureConfiguration(ImmutableSet.of("a"));
+
+    ImmutableMap<String, String> env =
+        configuration.getEnvironmentVariables(CppActionNames.CPP_COMPILE, createVariables());
+
+    assertThat(env).doesNotContainEntry("foo", "bar");
+  }
+
+  @Test
+  public void testEnvVarsWithAllVariablesPresentAreExpanded() throws Exception {
+    FeatureConfiguration configuration =
+        CcToolchainTestHelper.buildFeatures(
+                "feature {",
+                "  name: 'a'",
+                "  env_set {",
+                "     action: 'c++-compile'",
+                "     env_entry { key: 'foo', value: 'bar', expand_if_all_available: 'v' }",
+                "  }",
+                "}")
+            .getFeatureConfiguration(ImmutableSet.of("a"));
+
+    ImmutableMap<String, String> env =
+        configuration.getEnvironmentVariables(
+            CppActionNames.CPP_COMPILE, createVariables("v", "1"));
+
+    assertThat(env).containsExactly("foo", "bar").inOrder();
+  }
+
+  @Test
+  public void testEnvVarsWithAllVariablesPresentAreExpandedWithVariableExpansion()
+      throws Exception {
+    FeatureConfiguration configuration =
+        CcToolchainTestHelper.buildFeatures(
+                "feature {",
+                "  name: 'a'",
+                "  env_set {",
+                "     action: 'c++-compile'",
+                "     env_entry { key: 'foo', value: '%{v}', expand_if_all_available: 'v' }",
+                "  }",
+                "}")
+            .getFeatureConfiguration(ImmutableSet.of("a"));
+
+    ImmutableMap<String, String> env =
+        configuration.getEnvironmentVariables(
+            CppActionNames.CPP_COMPILE, createVariables("v", "1"));
+
+    assertThat(env).containsExactly("foo", "1").inOrder();
+  }
+
   private static String getExpansionOfFlag(String value) throws Exception {
     return getExpansionOfFlag(value, createVariables());
   }

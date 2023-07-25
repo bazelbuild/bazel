@@ -91,16 +91,25 @@ public class StarlarkTestingModule implements TestingModuleApi {
             /* execGroups= */ Starlark.NONE,
             thread);
 
-    // Export the rule
+    // Export the rule.
+    //
     // Because exporting can raise multiple errors, we need to accumulate them here into a single
     // EvalException. This is a code smell because any non-ERROR events will be lost, and any
     // location information in the events will be overwritten by the location of this rule's
     // definition.
+    //
     // However, this is currently fine because StarlarkRuleFunction#export only creates events that
     // are ERRORs and that have the rule definition as their location.
+    //
     // TODO(brandjon): Instead of accumulating events here, consider registering the rule in the
-    // BazelStarlarkContext, and exporting such rules after module evaluation in
-    // BzlLoadFunction#execAndExport.
+    // BazelStarlarkContext (or the appropriate subclass), and exporting such rules after module
+    // evaluation in BzlLoadFunction#execAndExport.
+    //
+    // TODO(b/291752414): The digest of the rule class is incorrect. It is usually based on the
+    // transitive digest of the .bzl being initialized. But since we're in a BUILD-evaluating
+    // thread, we should use the transitive digest of the BUILD file. This is not currently
+    // computed, but could be added to PackageFunction. In the meantime, we use a dummy empty digest
+    // for all analysis_test-generated rule classes.
     PackageContext pkgContext = thread.getThreadLocal(PackageContext.class);
     StoredEventHandler handler = new StoredEventHandler();
     starlarkRuleFunction.export(

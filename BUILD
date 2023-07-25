@@ -96,6 +96,7 @@ genrule(
 pkg_tar(
     name = "bootstrap-jars",
     srcs = [
+        "@blake3",
         "@com_google_protobuf//:protobuf_java",
         "@com_google_protobuf//:protobuf_java_util",
         "@com_google_protobuf//:protobuf_javalite",

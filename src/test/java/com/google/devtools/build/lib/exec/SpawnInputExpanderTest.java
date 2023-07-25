@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
@@ -56,6 +57,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -299,6 +301,44 @@ public class SpawnInputExpanderTest {
         .containsEntry(PathFragment.create("runfiles/workspace/treeArtifact/file1"), file1);
     assertThat(inputMappings)
         .containsEntry(PathFragment.create("runfiles/workspace/treeArtifact/file2"), file2);
+  }
+
+  @Test
+  public void testRunfilesWithArchivedTreeArtifacts() throws Exception {
+    SpecialArtifact treeArtifact = createTreeArtifact("treeArtifact");
+    ArchivedTreeArtifact archivedTreeArtifact = ArchivedTreeArtifact.createForTree(treeArtifact);
+    assertThat(archivedTreeArtifact).isNotNull();
+    assertThat(treeArtifact.isTreeArtifact()).isTrue();
+
+    Runfiles runfiles = new Runfiles.Builder("workspace").addArtifact(treeArtifact).build();
+    ArtifactExpander artifactExpander =
+        new ArtifactExpander() {
+          @Override
+          public void expand(Artifact artifact, Collection<? super Artifact> output) {
+            throw new IllegalStateException("Should not do expansion for archived tree");
+          }
+
+          @Nullable
+          @Override
+          public ArchivedTreeArtifact getArchivedTreeArtifact(SpecialArtifact treeArtifact) {
+            return archivedTreeArtifact;
+          }
+        };
+    RunfilesSupplier supplier =
+        AnalysisTestUtil.createRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
+
+    expander =
+        new SpawnInputExpander(
+            execRoot, /* strict= */ true, IGNORE, /* expandArchivedTreeArtifacts= */ false);
+    expander.addRunfilesToInputs(
+        inputMappings,
+        supplier,
+        new FakeActionInputFileCache(),
+        artifactExpander,
+        PathFragment.EMPTY_FRAGMENT);
+    assertThat(inputMappings).hasSize(1);
+    assertThat(inputMappings)
+        .containsExactly(PathFragment.create("runfiles/workspace/treeArtifact"), treeArtifact);
   }
 
   @Test

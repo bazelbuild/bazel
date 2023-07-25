@@ -36,7 +36,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -110,6 +110,7 @@ import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Identifier;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -171,7 +172,7 @@ public final class RuleContext extends TargetContext
   /** Map of exec group names to ActionOwners. */
   private final Map<String, ActionOwner> actionOwners = new HashMap<>();
 
-  private final SymbolGenerator<ActionLookupKeyOrProxy> actionOwnerSymbolGenerator;
+  private final SymbolGenerator<ActionLookupKey> actionOwnerSymbolGenerator;
 
   /* lazily computed cache for Make variables, computed from the above. See get... method */
   private transient ConfigurationMakeVariableContext configurationMakeVariableContext = null;
@@ -492,7 +493,7 @@ public final class RuleContext extends TargetContext
   }
 
   @Override
-  public ActionLookupKeyOrProxy getOwner() {
+  public ActionLookupKey getOwner() {
     return getAnalysisEnvironment().getOwner();
   }
 
@@ -1225,6 +1226,37 @@ public final class RuleContext extends TargetContext
     return toolchainContexts == null ? null : toolchainContexts.getToolchainContext(execGroup);
   }
 
+  private boolean isAutomaticExecGroup(String execGroupName) {
+    return !Identifier.isValid(execGroupName) && !execGroupName.equals(DEFAULT_EXEC_GROUP_NAME);
+  }
+
+  @Nullable
+  private ResolvedToolchainContext getToolchainContextForToolchainType(Label toolchainType) {
+    ResolvedToolchainContext toolchainContext =
+        toolchainContexts.getToolchainContext(toolchainType.toString());
+    if (toolchainContext != null && toolchainContext.forToolchainType(toolchainType) != null) {
+      // Return early if name of the Automatic Exec Group (AEG) and toolchain type matches.
+      return toolchainContext;
+    }
+
+    // Alias can be used for toolchains, in which case name of AEG will not match with the toolchain
+    // type in its ResolvedToolchainContext (AEGs are created before toolchain context is resolved).
+    String aliasName =
+        toolchainContexts.getExecGroupNames().stream()
+            .filter(this::isAutomaticExecGroup)
+            .filter(
+                name -> {
+                  ResolvedToolchainContext context = toolchainContexts.getToolchainContext(name);
+                  return (context != null
+                      && context
+                          .requestedToolchainTypeLabels()
+                          .containsKey(Label.parseCanonicalUnchecked(name)));
+                })
+            .findFirst()
+            .orElse(null);
+    return aliasName == null ? null : toolchainContexts.getToolchainContext(aliasName);
+  }
+
   /**
    * Returns the toolchain info from the default exec group in case automatic exec groups are not
    * enabled. If they are enabled, retrieves toolchain info from the corresponding automatic exec
@@ -1234,7 +1266,7 @@ public final class RuleContext extends TargetContext
   public ToolchainInfo getToolchainInfo(Label toolchainType) {
     ResolvedToolchainContext toolchainContext;
     if (useAutoExecGroups()) {
-      toolchainContext = toolchainContexts.getToolchainContext(toolchainType.toString());
+      toolchainContext = getToolchainContextForToolchainType(toolchainType);
     } else {
       toolchainContext = getToolchainContext();
     }
@@ -1666,7 +1698,7 @@ public final class RuleContext extends TargetContext
     private final RuleErrorConsumer reporter;
     private ConfiguredRuleClassProvider ruleClassProvider;
     private ConfigurationFragmentPolicy configurationFragmentPolicy;
-    private ActionLookupKeyOrProxy actionOwnerSymbol;
+    private ActionLookupKey actionOwnerSymbol;
     private OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap;
     private ConfigConditions configConditions;
     private Mutability mutability;
@@ -1798,7 +1830,7 @@ public final class RuleContext extends TargetContext
     }
 
     @CanIgnoreReturnValue
-    public Builder setActionOwnerSymbol(ActionLookupKeyOrProxy actionOwnerSymbol) {
+    public Builder setActionOwnerSymbol(ActionLookupKey actionOwnerSymbol) {
       this.actionOwnerSymbol = actionOwnerSymbol;
       return this;
     }

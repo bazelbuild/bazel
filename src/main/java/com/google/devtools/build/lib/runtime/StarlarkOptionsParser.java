@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -103,7 +102,6 @@ public class StarlarkOptionsParser {
   // OptionsParserImpl.identifyOptionAndPossibleArgument. Consider combining. This would probably
   // require multiple rounds of parsing to fit starlark-defined options into native option format.
   @VisibleForTesting
-  @CanIgnoreReturnValue
   public boolean parse() throws OptionsParsingException {
     return parseGivenArgs(nativeOptionsParser.getSkippedArgs());
   }
@@ -115,7 +113,6 @@ public class StarlarkOptionsParser {
    *     work to retrieve build setting targets (after which it'll call this method again)
    */
   @VisibleForTesting
-  @CanIgnoreReturnValue
   public boolean parseGivenArgs(List<String> args) throws OptionsParsingException {
     // Map of <option name (label), <unparsed option value, loaded option>>.
     Multimap<String, Pair<String, Target>> unparsedOptions = LinkedListMultimap.create();

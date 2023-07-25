@@ -350,7 +350,7 @@ childPid=$!
  done
  # Parent process not found - we've been abandoned! Clean up test processes.
  kill_group SIGKILL $childPid
-) &
+) &>/dev/null &
 cleanupPid=$!
 
 set +m
@@ -432,4 +432,8 @@ if [[ -n "$TEST_UNDECLARED_OUTPUTS_ZIP" ]] && cd "$TEST_UNDECLARED_OUTPUTS_DIR";
   fi
 fi
 
+# Raise the original signal if the test terminated abnormally.
+if [ $exitCode -gt 128 ]; then
+  kill -$(($exitCode - 128)) $$ &> /dev/null
+fi
 exit $exitCode

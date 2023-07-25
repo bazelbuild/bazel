@@ -109,6 +109,15 @@ java_library(
 )
 
 java_library(
+    name = "maybe_complete_set",
+    srcs = ["MaybeCompleteSet.java"],
+    deps = [
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "resource_converter",
     srcs = [
         "ResourceConverter.java",

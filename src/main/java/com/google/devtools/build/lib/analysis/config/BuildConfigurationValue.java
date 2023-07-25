@@ -845,10 +845,6 @@ public class BuildConfigurationValue
     return options.inprocessSymlinkCreation;
   }
 
-  public boolean skipRunfilesManifests() {
-    return options.skipRunfilesManifests;
-  }
-
   public boolean remotableSourceManifestActions() {
     return options.remotableSourceManifestActions;
   }

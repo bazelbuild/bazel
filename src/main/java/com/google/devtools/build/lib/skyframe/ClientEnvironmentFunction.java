@@ -30,9 +30,10 @@ public final class ClientEnvironmentFunction implements SkyFunction {
     return ClientEnvironmentFunction.Key.create(keyString);
   }
 
+  /** The Skyframe key for the client environment function. */
   @AutoCodec.VisibleForSerialization
   @AutoCodec
-  static class Key extends AbstractSkyKey<String> {
+  public static class Key extends AbstractSkyKey<String> {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     private Key(String arg) {
@@ -64,7 +65,7 @@ public final class ClientEnvironmentFunction implements SkyFunction {
 
   @Nullable
   @Override
-  public SkyValue compute(SkyKey key, Environment env) throws InterruptedException {
+  public SkyValue compute(SkyKey key, Environment env) {
     return new ClientEnvironmentValue(clientEnv.get().get((String) key.argument()));
   }
 }

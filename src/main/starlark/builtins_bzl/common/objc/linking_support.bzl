@@ -34,7 +34,6 @@ def _link_multi_arch_static_library(ctx, split_target_triplets):
 
     Returns:
         A Starlark struct containing the following attributes:
-            - objc: The Objc provider containing transitive linking information.
             - output_groups: OutputGroupInfo provider from transitive CcInfo validation_artifacts.
             - outputs: List of structs containing the following attributes:
                 - library: Artifact representing a linked static library.
@@ -42,7 +41,6 @@ def _link_multi_arch_static_library(ctx, split_target_triplets):
                 - platform: Linked static library target Apple platform (e.g. 'ios', 'macos').
                 - environment: Linked static library environment (e.g. 'device', 'simulator').
     """
-    linking_info_migration = ctx.fragments.objc.linking_info_migration
     split_deps = ctx.split_attr.deps
     split_avoid_deps = ctx.split_attr.avoid_deps
     child_configs_and_toolchains = ctx.split_attr._child_configuration_dummy
@@ -75,33 +73,16 @@ def _link_multi_arch_static_library(ctx, split_target_triplets):
 
         name = ctx.label.name + "-" + cc_toolchain.target_gnu_system_name + "-fl"
 
-        if not linking_info_migration:
-            objc_provider = common_variables.objc_provider.subtract_subtrees(
-                avoid_objc_providers = avoid_objc_providers,
-                avoid_cc_providers = avoid_cc_providers,
-            )
-            linking_outputs = compilation_support.register_fully_link_action(
-                name = name,
-                linking_info_migration = linking_info_migration,
-                common_variables = common_variables,
-                objc_provider = objc_provider,
-            )
-            sdk_dylib.append(objc_provider.sdk_dylib)
-            sdk_framework.append(objc_provider.sdk_framework)
-            weak_sdk_framework.append(objc_provider.weak_sdk_framework)
-        else:
-            cc_linking_context = objc_internal.subtract_linking_contexts(
-                ctx = ctx,
-                linking_contexts = common_variables.objc_linking_context.cc_linking_contexts,
-                avoid_dep_linking_contexts = avoid_cc_linking_contexts,
-            )
-            linking_outputs = compilation_support.register_fully_link_action(
-                name = name,
-                linking_info_migration = linking_info_migration,
-                common_variables = common_variables,
-                cc_linking_context = cc_linking_context,
-            )
-            objc_provider = apple_common.new_objc_provider()
+        cc_linking_context = objc_internal.subtract_linking_contexts(
+            ctx = ctx,
+            linking_contexts = common_variables.objc_linking_context.cc_linking_contexts,
+            avoid_dep_linking_contexts = avoid_cc_linking_contexts,
+        )
+        linking_outputs = compilation_support.register_fully_link_action(
+            name = name,
+            common_variables = common_variables,
+            cc_linking_context = cc_linking_context,
+        )
 
         output = {
             "library": linking_outputs.library_to_link.static_library,
@@ -115,13 +96,6 @@ def _link_multi_arch_static_library(ctx, split_target_triplets):
 
         outputs.append(struct(**output))
 
-    if not linking_info_migration:
-        objc_provider = apple_common.new_objc_provider(
-            sdk_dylib = depset(transitive = sdk_dylib),
-            sdk_framework = depset(transitive = sdk_framework),
-            weak_sdk_framework = depset(transitive = weak_sdk_framework),
-        )
-
     header_tokens = []
     for _, deps in split_deps.items():
         for dep in deps:
@@ -132,7 +106,6 @@ def _link_multi_arch_static_library(ctx, split_target_triplets):
 
     return struct(
         outputs = outputs,
-        objc = objc_provider,
         output_groups = OutputGroupInfo(**output_groups),
     )
 

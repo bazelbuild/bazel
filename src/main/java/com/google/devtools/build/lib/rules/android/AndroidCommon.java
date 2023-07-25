@@ -596,7 +596,7 @@ public class AndroidCommon {
               ruleContext, javaCommon.getDependencies(), runtimeJars.build());
       this.jarsProducedForRuntime = jarsProducedForRuntime.add(classJar).build();
       if (collectJavaCompilationArgs) {
-        this.javaCompilationArgs = collectJavaCompilationArgs(asNeverLink, attributes.hasSources());
+        this.javaCompilationArgs = javaCommon.collectJavaCompilationArgs(asNeverLink);
       }
     }
     return attributes;
@@ -689,8 +689,7 @@ public class AndroidCommon {
                 .addAll(javaCommon.getJavaCompilationArtifacts().getRuntimeJars())
                 .build());
     if (collectJavaCompilationArgs) {
-      boolean hasSources = attributes.hasSources();
-      this.javaCompilationArgs = collectJavaCompilationArgs(asNeverLink, hasSources);
+      this.javaCompilationArgs = javaCommon.collectJavaCompilationArgs(asNeverLink);
     }
   }
 
@@ -809,22 +808,6 @@ public class AndroidCommon {
         javaCommon.getJavaSemantics(),
         javaCommon.getJavaCompilationArtifacts(),
         asNeverLink);
-  }
-
-  /**
-   * Collects Java compilation arguments for this target.
-   *
-   * @param isNeverLink Whether the target has the 'neverlink' attr.
-   * @param hasSrcs If false, deps are exported (deprecated behaviour)
-   */
-  private JavaCompilationArgsProvider collectJavaCompilationArgs(
-      boolean isNeverLink, boolean hasSrcs) throws RuleErrorException {
-    boolean exportDeps =
-        !hasSrcs
-            && ruleContext
-                .getFragment(AndroidConfiguration.class)
-                .allowSrcsLessAndroidLibraryDeps(ruleContext);
-    return javaCommon.collectJavaCompilationArgs(isNeverLink, exportDeps);
   }
 
   public ImmutableList<String> getJavacOpts() {

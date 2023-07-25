@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionInputMapSink;
 import com.google.devtools.build.lib.actions.ActionLookupData;
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
@@ -160,10 +160,10 @@ final class ActionInputMapHelper {
       Environment env, SpecialArtifact actionInput) throws InterruptedException {
     checkState(actionInput.isFileset(), actionInput);
     ActionLookupData generatingActionKey = actionInput.getGeneratingActionKey();
-    ActionLookupKeyOrProxy filesetActionLookupKey = generatingActionKey.getActionLookupKey();
+    ActionLookupKey filesetActionLookupKey = generatingActionKey.getActionLookupKey();
 
     ActionLookupValue filesetActionLookupValue =
-        (ActionLookupValue) env.getValue(filesetActionLookupKey.toKey());
+        (ActionLookupValue) env.getValue(filesetActionLookupKey);
 
     ActionAnalysisMetadata generatingAction =
         filesetActionLookupValue.getAction(generatingActionKey.getActionIndex());

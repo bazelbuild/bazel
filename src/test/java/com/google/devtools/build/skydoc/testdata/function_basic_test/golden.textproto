@@ -1,0 +1,84 @@
+func_info {
+  function_name: "check_sources"
+  parameter {
+    name: "name"
+    doc_string: "A unique name for this rule."
+    mandatory: true
+  }
+  parameter {
+    name: "required_param"
+    doc_string: "Use your imagination."
+    mandatory: true
+  }
+  parameter {
+    name: "bool_param"
+    default_value: "True"
+  }
+  parameter {
+    name: "srcs"
+    doc_string: "Source files to run the checks against."
+    default_value: "[]"
+  }
+  parameter {
+    name: "string_param"
+    default_value: "\"\""
+  }
+  parameter {
+    name: "int_param"
+    doc_string: "Your favorite number."
+    default_value: "2"
+  }
+  parameter {
+    name: "dict_param"
+    default_value: "{}"
+  }
+  parameter {
+    name: "struct_param"
+    default_value: "struct(foo = \"bar\")"
+  }
+  doc_string: "Runs some checks on the given source files.\n\nThis rule runs checks on a given set of source files.\nUse `bazel build` to run the check.\n"
+}
+func_info {
+  function_name: "deprecated_do_not_use"
+  doc_string: "This function is deprecated."
+  deprecated {
+    doc_string: "Use literally anything but this function."
+  }
+}
+func_info {
+  function_name: "param_doc_multiline"
+  parameter {
+    name: "complex"
+    doc_string: "A parameter with some non-obvious behavior.\n\n For example, it does things that require **multiple paragraphs** to explain.\n\nNote: we should preserve the nested indent in the following code:\n\n```json\n{\n    \"key\": \"value\"\n}\n```"
+    mandatory: true
+  }
+  doc_string: "Has a complex parameter."
+}
+func_info {
+  function_name: "returns_a_thing"
+  parameter {
+    name: "name"
+    doc_string: "A unique name for this rule."
+    mandatory: true
+  }
+  doc_string: "Returns a suffixed name."
+  return {
+    doc_string: "A suffixed version of the name."
+  }
+}
+func_info {
+  function_name: "undocumented_function"
+  parameter {
+    name: "a"
+    mandatory: true
+  }
+  parameter {
+    name: "b"
+    mandatory: true
+  }
+  parameter {
+    name: "c"
+    mandatory: true
+  }
+}
+module_docstring: "A test that verifies basic user function documentation."

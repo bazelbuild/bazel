@@ -24,6 +24,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableBiMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -50,15 +51,19 @@ public class StarlarkBazelModuleTest {
         .setUsingModule(ModuleKey.ROOT)
         .setLocation(Location.BUILTIN)
         .setImports(ImmutableBiMap.of())
-        .setDevImports(ImmutableSet.of());
+        .setDevImports(ImmutableSet.of())
+        .setHasDevUseExtension(false)
+        .setHasNonDevUseExtension(true);
   }
 
   /** A builder for ModuleExtension that sets all the mandatory but irrelevant fields. */
   private static ModuleExtension.Builder getBaseExtensionBuilder() {
     return ModuleExtension.builder()
-        .setDoc("")
+        .setDoc(Optional.empty())
+        .setDefiningBzlFileLabel(Label.parseCanonicalUnchecked("//:rje.bzl"))
         .setLocation(Location.BUILTIN)
-        .setImplementation(() -> "maven");
+        .setImplementation(() -> "maven")
+        .setEnvVariables(ImmutableList.of());
   }
 
   @Test

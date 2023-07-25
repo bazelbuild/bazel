@@ -16,8 +16,11 @@ package com.google.devtools.build.lib.starlarkbuildapi.java;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
@@ -312,7 +315,111 @@ public interface JavaCommonApi<
       Sequence<?> addExports, // <String> expected.
       Sequence<?> addOpens, // <String> expected.
       StarlarkThread thread)
-      throws EvalException, InterruptedException, RuleErrorException;
+      throws EvalException, InterruptedException, RuleErrorException, LabelSyntaxException;
+
+  @StarlarkMethod(
+      name = "create_header_compilation_action",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx"),
+        @Param(name = "java_toolchain"),
+        @Param(name = "compile_jar"),
+        @Param(name = "compile_deps_proto"),
+        @Param(name = "plugin_info"),
+        @Param(name = "source_files"),
+        @Param(name = "source_jars"),
+        @Param(name = "compilation_classpath"),
+        @Param(name = "direct_jars"),
+        @Param(name = "bootclasspath"),
+        @Param(name = "compile_time_java_deps"),
+        @Param(name = "javac_opts"),
+        @Param(name = "strict_deps_mode"),
+        @Param(name = "target_label"),
+        @Param(name = "injecting_rule_kind"),
+        @Param(name = "enable_direct_classpath"),
+        @Param(name = "additional_inputs"),
+      })
+  void createHeaderCompilationAction(
+      StarlarkRuleContextT ctx,
+      JavaToolchainT javaToolchain,
+      FileT compileJar,
+      FileT compileDepsProto,
+      Info pluginInfo,
+      Depset sourceFiles,
+      Sequence<?> sourceJars,
+      Depset compileTimeClasspath,
+      Depset directJars,
+      Object bootClassPath,
+      Depset compileTimeDeps,
+      Sequence<?> javacOpts,
+      String strictDepsMode,
+      Label targetLabel,
+      Object injectingRuleKind,
+      boolean enableDirectClasspath,
+      Sequence<?> additionalInputs)
+      throws EvalException, TypeException, RuleErrorException, LabelSyntaxException;
+
+  @StarlarkMethod(
+      name = "create_compilation_action",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx"),
+        @Param(name = "java_toolchain"),
+        @Param(name = "output"),
+        @Param(name = "deps_proto"),
+        @Param(name = "gen_class"),
+        @Param(name = "gen_source"),
+        @Param(name = "manifest_proto"),
+        @Param(name = "native_header_jar"),
+        @Param(name = "plugin_info"),
+        @Param(name = "sources"),
+        @Param(name = "source_jars"),
+        @Param(name = "resources"),
+        @Param(name = "resource_jars"),
+        @Param(name = "compilation_classpath"),
+        @Param(name = "classpath_resources"),
+        @Param(name = "sourcepath"),
+        @Param(name = "direct_jars"),
+        @Param(name = "bootclasspath"),
+        @Param(name = "compile_time_java_deps"),
+        @Param(name = "javac_opts"),
+        @Param(name = "strict_deps_mode"),
+        @Param(name = "target_label"),
+        @Param(name = "injecting_rule_kind"),
+        @Param(name = "enable_jspecify"),
+        @Param(name = "enable_direct_classpath"),
+        @Param(name = "additional_inputs"),
+        @Param(name = "additional_outputs"),
+      })
+  void createCompilationAction(
+      StarlarkRuleContextT ctx,
+      JavaToolchainT javaToolchain,
+      FileT output,
+      Object depsProto,
+      Object genClass,
+      Object genSource,
+      FileT manifestProto,
+      FileT nativeHeader,
+      Info pluginInfo,
+      Depset sourceFiles,
+      Sequence<?> sourceJars,
+      Sequence<?> resources,
+      Depset resourceJars,
+      Depset compileTimeClasspath,
+      Sequence<?> classpathResources,
+      Sequence<?> sourcepath,
+      Depset directJars,
+      Object bootClassPath,
+      Depset compileTimeJavaDeps,
+      Sequence<?> javacOpts,
+      String strictDepsMode,
+      Label targetLabel,
+      Object injectingRuleKind,
+      boolean enableJSpecify,
+      boolean enableDirectClasspath,
+      Sequence<?> additionalInputs,
+      Sequence<?> additionalOutputs)
+      throws EvalException, TypeException, RuleErrorException, LabelSyntaxException;
 
   @StarlarkMethod(
       name = "default_javac_opts",
@@ -331,31 +438,6 @@ public interface JavaCommonApi<
   // TODO(b/78512644): migrate callers to passing explicit javacopts or using custom toolchains, and
   // delete
   ImmutableList<String> getDefaultJavacOpts(JavaToolchainT javaToolchain) throws EvalException;
-
-  @StarlarkMethod(
-      name = "merge",
-      doc = "Merges the given providers into a single JavaInfo.",
-      parameters = {
-        @Param(
-            name = "providers",
-            positional = true,
-            named = false,
-            allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
-            doc = "The list of providers to merge."),
-        @Param(
-            name = "merge_java_outputs",
-            positional = false,
-            named = true,
-            defaultValue = "True"),
-        @Param(name = "merge_source_jars", positional = false, named = true, defaultValue = "True"),
-      },
-      useStarlarkThread = true)
-  JavaInfoT mergeJavaProviders(
-      Sequence<?> providers /* <JavaInfoT> expected. */,
-      boolean mergeJavaOutputs,
-      boolean mergeSourceJars,
-      StarlarkThread thread)
-      throws EvalException;
 
   @StarlarkMethod(
       name = "JavaToolchainInfo",
@@ -446,4 +528,27 @@ public interface JavaCommonApi<
 
   @StarlarkMethod(name = "_google_legacy_api_enabled", documented = false, useStarlarkThread = true)
   boolean isLegacyGoogleApiEnabled(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "_check_java_toolchain_is_declared_on_rule",
+      documented = false,
+      parameters = {@Param(name = "actions")},
+      useStarlarkThread = true)
+  void checkJavaToolchainIsDeclaredOnRuleForStarlark(
+      StarlarkActionFactoryT actions, StarlarkThread thread)
+      throws EvalException, LabelSyntaxException;
+
+  @StarlarkMethod(
+      name = "_incompatible_depset_for_java_output_source_jars",
+      documented = false,
+      useStarlarkThread = true)
+  boolean isDepsetForJavaOutputSourceJarsEnabled(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "wrap_java_info",
+      parameters = {@Param(name = "java_info")},
+      documented = false,
+      useStarlarkThread = true)
+  JavaInfoT wrapJavaInfo(Info javaInfo, StarlarkThread thread)
+      throws EvalException, RuleErrorException;
 }

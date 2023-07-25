@@ -15,7 +15,6 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import static com.google.devtools.build.lib.bazel.bzlmod.GsonTypeAdapterUtil.LOCKFILE_GSON;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
@@ -93,7 +92,13 @@ public class BazelLockFileFunction implements SkyFunction {
     BazelLockFileValue bazelLockFileValue;
     try {
       String json = FileSystemUtils.readContent(lockfilePath.asPath(), UTF_8);
-      bazelLockFileValue = LOCKFILE_GSON.fromJson(json, BazelLockFileValue.class);
+      bazelLockFileValue =
+          GsonTypeAdapterUtil.createLockFileGson(
+                  lockfilePath
+                      .asPath()
+                      .getParentDirectory()
+                      .getRelative(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME))
+              .fromJson(json, BazelLockFileValue.class);
     } catch (FileNotFoundException e) {
       bazelLockFileValue = EMPTY_LOCKFILE;
     }

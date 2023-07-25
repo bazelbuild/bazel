@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkerInput;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
+import com.google.devtools.build.lib.rules.cpp.UserVariablesExtension;
 import com.google.devtools.build.lib.rules.objc.AppleLinkingOutputs.TargetTriplet;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -78,7 +79,7 @@ public class MultiArchBinarySupport {
     static DependencySpecificConfiguration create(
         BuildConfigurationValue config,
         CcToolchainProvider toolchain,
-        Object linkingInfoProvider,
+        CcLinkingContext linkingInfoProvider,
         ObjcProvider objcProviderWithAvoidDepsSymbols,
         CcInfo ccInfoWithAvoidDepsSymbols) {
       return new AutoValue_MultiArchBinarySupport_DependencySpecificConfiguration(
@@ -96,10 +97,10 @@ public class MultiArchBinarySupport {
     abstract CcToolchainProvider toolchain();
 
     /**
-     * Returns the {@link Object} that has most of the information used for linking. This is either
-     * an ObjcProvider or a CcInfo whose avoid deps symbols have been subtracted.
+     * Returns the {@link CcLinkingContext} that has most of the information used for linking, whose
+     * avoid deps symbols have been subtracted.
      */
-    abstract Object linkingInfoProvider();
+    abstract CcLinkingContext linkingInfoProvider();
 
     /**
      * Returns the {@link ObjcProvider} to propagate up to dependers; this will not have avoid deps
@@ -153,6 +154,7 @@ public class MultiArchBinarySupport {
    *     binaries together
    * @param extraLinkInputs the extra linker inputs to be made available during link actions
    * @param isStampingEnabled whether linkstamping is enabled
+   * @param userVariablesExtension the UserVariablesExtension to pass to the linker actions
    * @param infoCollections a list of provider collections which are propagated from the
    *     dependencies in the requested configuration
    * @param outputMapCollector a map to which output groups created by compile action generation are
@@ -167,6 +169,7 @@ public class MultiArchBinarySupport {
       Iterable<String> extraRequestedFeatures,
       Iterable<String> extraDisabledFeatures,
       boolean isStampingEnabled,
+      UserVariablesExtension userVariablesExtension,
       Iterable<? extends TransitiveInfoCollection> infoCollections,
       Map<String, NestedSet<Artifact>> outputMapCollector)
       throws RuleErrorException, InterruptedException, EvalException {
@@ -191,14 +194,14 @@ public class MultiArchBinarySupport {
         .registerLinkActions(
             dependencySpecificConfiguration.linkingInfoProvider(),
             dependencySpecificConfiguration.objcProviderWithAvoidDepsSymbols(),
-            dependencySpecificConfiguration.ccInfoWithAvoidDepsSymbols().getCcLinkingContext(),
             j2ObjcMappingFileProvider,
             j2ObjcEntryClassProvider,
             extraLinkArgs,
             extraLinkInputs,
             extraRequestedFeatures,
             extraDisabledFeatures,
-            isStampingEnabled)
+            isStampingEnabled,
+            userVariablesExtension)
         .validateAttributes();
     ruleContext.assertNoErrors();
 
@@ -278,10 +281,6 @@ public class MultiArchBinarySupport {
           throws RuleErrorException, InterruptedException {
     Iterable<ObjcProvider> avoidDepsObjcProviders = getAvoidDepsObjcProviders(avoidDepsProviders);
     Iterable<CcInfo> avoidDepsCcInfos = getAvoidDepsCcInfos(avoidDepsProviders);
-    ImmutableList<CcLinkingContext> avoidDepsCcLinkingContexts =
-        getTypedProviders(avoidDepsProviders, CcInfo.PROVIDER).stream()
-            .map(CcInfo::getCcLinkingContext)
-            .collect(toImmutableList());
 
     ImmutableMap.Builder<Optional<String>, DependencySpecificConfiguration> childInfoBuilder =
         ImmutableMap.builder();
@@ -289,8 +288,6 @@ public class MultiArchBinarySupport {
       ConfiguredTargetAndData ctad =
           Iterables.getOnlyElement(splitToolchains.get(splitTransitionKey));
       BuildConfigurationValue childToolchainConfig = ctad.getConfiguration();
-      IntermediateArtifacts intermediateArtifacts =
-          new IntermediateArtifacts(ruleContext, childToolchainConfig);
 
       List<? extends TransitiveInfoCollection> propagatedDeps =
           getProvidersFromCtads(splitDeps.get(splitTransitionKey));
@@ -299,7 +296,6 @@ public class MultiArchBinarySupport {
           common(
               ruleContext,
               childToolchainConfig,
-              intermediateArtifacts,
               propagatedDeps,
               avoidDepsCcInfos,
               avoidDepsObjcProviders);
@@ -307,20 +303,11 @@ public class MultiArchBinarySupport {
       ObjcProvider objcProviderWithAvoidDepsSymbols = common.getObjcProvider();
       CcInfo ccInfoWithAvoidDepsSymbols = common.createCcInfo();
 
-      Object linkingInfoProvider;
-      if (!childToolchainConfig.getFragment(ObjcConfiguration.class).linkingInfoMigration()) {
-        linkingInfoProvider =
-            objcProviderWithAvoidDepsSymbols.subtractSubtrees(
-                avoidDepsObjcProviders, avoidDepsCcLinkingContexts);
-      } else {
-        linkingInfoProvider =
-            ccLinkingContextSubtractSubtrees(
-                ruleContext,
-                ImmutableList.of(ccInfoWithAvoidDepsSymbols.getCcLinkingContext()),
-                stream(avoidDepsCcInfos)
-                    .map(CcInfo::getCcLinkingContext)
-                    .collect(toImmutableList()));
-      }
+      CcLinkingContext linkingInfoProvider =
+          ccLinkingContextSubtractSubtrees(
+              ruleContext,
+              ImmutableList.of(ccInfoWithAvoidDepsSymbols.getCcLinkingContext()),
+              stream(avoidDepsCcInfos).map(CcInfo::getCcLinkingContext).collect(toImmutableList()));
 
       CcToolchainProvider toolchainProvider =
           ctad.getConfiguredTarget().get(CcToolchainProvider.PROVIDER);
@@ -621,21 +608,7 @@ public class MultiArchBinarySupport {
 
   private static Iterable<ObjcProvider> getAvoidDepsObjcProviders(
       ImmutableList<TransitiveInfoCollection> transitiveInfoCollections) {
-    ImmutableList<ObjcProvider> frameworkObjcProviders =
-        getTypedProviders(transitiveInfoCollections, AppleDynamicFrameworkInfo.STARLARK_CONSTRUCTOR)
-            .stream()
-            .map(frameworkProvider -> frameworkProvider.getDepsObjcProvider())
-            .collect(toImmutableList());
-    ImmutableList<ObjcProvider> executableObjcProviders =
-        getTypedProviders(transitiveInfoCollections, AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR)
-            .stream()
-            .map(frameworkProvider -> frameworkProvider.getDepsObjcProvider())
-            .collect(toImmutableList());
-
-    return Iterables.concat(
-        frameworkObjcProviders,
-        executableObjcProviders,
-        getTypedProviders(transitiveInfoCollections, ObjcProvider.STARLARK_CONSTRUCTOR));
+    return getTypedProviders(transitiveInfoCollections, ObjcProvider.STARLARK_CONSTRUCTOR);
   }
 
   private static Iterable<CcInfo> getAvoidDepsCcInfos(
@@ -659,21 +632,18 @@ public class MultiArchBinarySupport {
   private ObjcCommon common(
       RuleContext ruleContext,
       BuildConfigurationValue buildConfiguration,
-      IntermediateArtifacts intermediateArtifacts,
       List<? extends TransitiveInfoCollection> propagatedDeps,
       Iterable<CcInfo> additionalDepCcInfos,
       Iterable<ObjcProvider> additionalDepObjcProviders)
       throws InterruptedException {
 
     ObjcCommon.Builder commonBuilder =
-        new ObjcCommon.Builder(ObjcCommon.Purpose.LINK_ONLY, ruleContext, buildConfiguration)
+        new ObjcCommon.Builder(ruleContext, buildConfiguration)
             .setCompilationAttributes(
                 CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
             .addDeps(propagatedDeps)
             .addCcLinkingContexts(additionalDepCcInfos)
-            .addObjcProviders(additionalDepObjcProviders)
-            .setIntermediateArtifacts(intermediateArtifacts)
-            .setAlwayslink(false);
+            .addObjcProviders(additionalDepObjcProviders);
 
     return commonBuilder.build();
   }

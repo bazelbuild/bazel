@@ -676,7 +676,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "incompatible_use_host_features",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -884,23 +884,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean inprocessSymlinkCreation;
 
   @Option(
-      name = "experimental_skip_runfiles_manifests",
-      defaultValue = "false",
-      converter = BooleanConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = OptionMetadataTag.HIDDEN,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.EXECUTION,
-        OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        OptionEffectTag.AFFECTS_OUTPUTS
-      },
-      help =
-          "If enabled, Bazel does not create runfiles symlink manifests. This flag is ignored "
-              + "if --experimental_enable_runfiles is set to false.")
-  public boolean skipRunfilesManifests;
-
-  @Option(
       name = "experimental_remotable_source_manifests",
       defaultValue = "false",
       converter = BooleanConverter.class,
@@ -995,7 +978,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     exec.buildRunfiles = buildRunfiles;
     exec.legacyExternalRunfiles = legacyExternalRunfiles;
     exec.remotableSourceManifestActions = remotableSourceManifestActions;
-    exec.skipRunfilesManifests = skipRunfilesManifests;
     exec.alwaysIncludeFilesToBuildInData = alwaysIncludeFilesToBuildInData;
 
     // === Filesets ===
