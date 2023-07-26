@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.rules.java.JavaInfoBuildHelper.getStrictDepsMode;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -463,9 +464,12 @@ public class JavaStarlarkCommon
     }
   }
 
-  private static String printableType(Object elem) {
+  @VisibleForTesting
+  static String printableType(Object elem) {
     if (elem instanceof StarlarkInfoWithSchema) {
       return ((StarlarkInfoWithSchema) elem).getProvider().getPrintableName();
+    } else if (elem instanceof NativeInfo) {
+      return ((NativeInfo) elem).getProvider().getPrintableName();
     }
     return Starlark.type(elem);
   }
