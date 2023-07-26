@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.DotBazelFileSyntaxChecker;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
@@ -277,10 +278,11 @@ public class ModuleFileFunction implements SkyFunction {
     ModuleFileGlobals moduleFileGlobals =
         new ModuleFileGlobals(builtinModules, moduleKey, registry, ignoreDevDeps);
     try (Mutability mu = Mutability.create("module file", moduleKey)) {
+      new DotBazelFileSyntaxChecker("MODULE.bazel files", /* canLoadBzl= */ false)
+          .check(starlarkFile);
       net.starlark.java.eval.Module predeclaredEnv =
           getPredeclaredEnv(moduleFileGlobals, starlarkSemantics);
       Program program = Program.compileFile(starlarkFile, predeclaredEnv);
-      // TODO(wyv): check that `program` has no `def`, `if`, etc
       StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
       if (printIsNoop) {
         thread.setPrintHandler((t, msg) -> {});

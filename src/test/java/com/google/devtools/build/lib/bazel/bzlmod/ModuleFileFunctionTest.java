@@ -1048,6 +1048,22 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
   }
 
   @Test
+  public void restrictedSyntax() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "if 3+5>7: module(name='aaa',version='0.1',repo_name='bbb')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+
+    reporter.removeHandler(failFastHandler); // expect failures
+    evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+
+    assertContainsEvent(
+        "`if` statements are not allowed in MODULE.bazel files. You may use an `if` expression for"
+            + " simple cases");
+  }
+
+  @Test
   public void isolatedUsageWithoutImports() throws Exception {
     PrecomputedValue.STARLARK_SEMANTICS.set(
         differencer,
