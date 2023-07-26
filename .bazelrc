@@ -38,6 +38,9 @@ build --tool_java_language_version=11
 # Fail if a glob doesn't match anything (https://github.com/bazelbuild/bazel/issues/8195)
 build --incompatible_disallow_empty_glob
 
+# Manually enable cc toolchain resolution before it is flipped. https://github.com/bazelbuild/bazel/issues/7260
+build --incompatible_enable_cc_toolchain_resolution
+
 # User-specific .bazelrc
 try-import %workspace%/user.bazelrc
 
