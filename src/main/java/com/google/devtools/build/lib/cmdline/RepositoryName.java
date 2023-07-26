@@ -251,6 +251,9 @@ public final class RepositoryName {
   public String getDisplayForm(RepositoryMapping mainRepositoryMapping) {
     Preconditions.checkArgument(
         mainRepositoryMapping.ownerRepo() == null || mainRepositoryMapping.ownerRepo().isMain());
+    if (!isVisible()) {
+      return '@' + getNameWithAt();
+    }
     if (isMain()) {
       // Packages in the main repository can always use repo-relative form.
       return "";
