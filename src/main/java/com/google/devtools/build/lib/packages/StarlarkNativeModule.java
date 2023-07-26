@@ -68,7 +68,6 @@ import net.starlark.java.eval.Tuple;
 import net.starlark.java.syntax.Location;
 
 /** The Starlark native module. */
-// TODO(cparsons): Move the definition of native.package() to this class.
 public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
