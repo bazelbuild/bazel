@@ -372,12 +372,10 @@ paths_test(
     name = "path_matching_test",
 )
 
-cc_library(
+cc_import(
     name = "prebuilt",
     hdrs = ["direct_so_file_cc_lib.h"],
-    srcs = [
-        ":just_main_output",
-    ],
+    shared_library = ":just_main_output",
 )
 
 filegroup(
