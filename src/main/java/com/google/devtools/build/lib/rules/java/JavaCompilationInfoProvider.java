@@ -143,7 +143,10 @@ public abstract class JavaCompilationInfoProvider
 
     public JavaCompilationInfoProvider build() {
       return new AutoValue_JavaCompilationInfoProvider(
-          javacOpts, runtimeClasspath, compilationClasspath, bootClasspath.bootclasspath());
+          JavaCompilationHelper.internJavacOpts(javacOpts),
+          runtimeClasspath,
+          compilationClasspath,
+          bootClasspath.bootclasspath());
     }
   }
 

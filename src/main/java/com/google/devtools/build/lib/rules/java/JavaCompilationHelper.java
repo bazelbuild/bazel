@@ -134,6 +134,14 @@ public final class JavaCompilationHelper {
         additionalInputsForDatabinding);
   }
 
+  @Nullable
+  static ImmutableList<String> internJavacOpts(@Nullable ImmutableList<String> javacOpts) {
+    if (javacOpts == null) {
+      return null;
+    }
+    return javacOptsInterner.intern(javacOpts);
+  }
+
   public void enableJspecify(boolean enableJspecify) {
     this.enableJspecify = enableJspecify;
   }
