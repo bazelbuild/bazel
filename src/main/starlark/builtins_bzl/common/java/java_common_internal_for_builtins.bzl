@@ -140,7 +140,8 @@ def run_ijar(
         java_toolchain,
         target_label = None,
         # private to @_builtins:
-        output = None):
+        output = None,
+        injecting_rule_kind = None):
     """Runs ijar on a jar, stripping it of its method bodies.
 
     This helps reduce rebuilding of dependent jars during any recompiles consisting only of simple
@@ -153,7 +154,7 @@ def run_ijar(
         target_label: (Label|None) A target label to stamp the jar with. Used for `add_dep` support.
             Typically, you would pass `ctx.label` to stamp the jar with the current rule's label.
         output: (File) Optional.
-
+        injecting_rule_kind: (str) the rule class of the current target
     Returns:
         (File) The output artifact
     """
@@ -164,6 +165,9 @@ def run_ijar(
     args.add(output)
     if target_label != None:
         args.add("--target_label", target_label)
+    if injecting_rule_kind != None:
+        args.add("--injecting_rule_kind", injecting_rule_kind)
+
     actions.run(
         mnemonic = "JavaIjar",
         inputs = [jar],
