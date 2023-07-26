@@ -679,6 +679,28 @@ _EMPTY_PLUGIN_DATA = _JavaPluginDataInfo(
     processor_data = depset(),
 )
 
+def disable_plugin_info_annotation_processing(plugin_info):
+    """Returns a copy of the provided JavaPluginInfo without annotation processing info
+
+    Args:
+        plugin_info: (JavaPluginInfo) the instance to transform
+
+    Returns:
+        (JavaPluginInfo) a new, transformed instance.
+     """
+    return _new_javaplugininfo(
+        plugins = _JavaPluginDataInfo(
+            processor_classes = depset(order = "preorder"),
+            # Preserve the processor path, since it may contain Error Prone plugins
+            # which will be service-loaded by JavaBuilder.
+            processor_jars = plugin_info.plugins.processor_jars,
+            # Preserve data, which may be used by Error Prone plugins.
+            processor_data = plugin_info.plugins.processor_data,
+        ),
+        api_generating_plugins = _EMPTY_PLUGIN_DATA,
+        java_outputs = plugin_info.java_outputs,
+    )
+
 def merge_plugin_info_without_outputs(infos):
     """ Merge plugin information from a list of JavaPluginInfo or JavaInfo
 
