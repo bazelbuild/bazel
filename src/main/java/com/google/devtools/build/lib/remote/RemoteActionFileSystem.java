@@ -688,24 +688,25 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   protected ImmutableList<String> getDirectoryEntries(PathFragment path) throws IOException {
     HashSet<String> entries = new HashSet<>();
 
-    boolean ignoredNotFoundInRemote = false;
+    boolean existsRemotely = false;
+
     if (isOutput(path)) {
       try {
-        delegateFs.getPath(path).getDirectoryEntries().stream()
+        remoteOutputTree.getPath(path).getDirectoryEntries().stream()
             .map(Path::getBaseName)
             .forEach(entries::add);
-        ignoredNotFoundInRemote = true;
+        existsRemotely = true;
       } catch (FileNotFoundException ignored) {
-        // Intentionally ignored
+        // Will be rethrown below if directory exists on neither side.
       }
     }
 
     try {
-      remoteOutputTree.getPath(path).getDirectoryEntries().stream()
+      delegateFs.getPath(path).getDirectoryEntries().stream()
           .map(Path::getBaseName)
           .forEach(entries::add);
     } catch (FileNotFoundException e) {
-      if (!ignoredNotFoundInRemote) {
+      if (!existsRemotely) {
         throw e;
       }
     }
@@ -719,30 +720,29 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
       throws IOException {
     HashMap<String, Dirent> entries = new HashMap<>();
 
-    boolean ignoredNotFoundInRemote = false;
+    boolean existsRemotely = false;
+
     if (isOutput(path)) {
       try {
         for (var entry :
-            delegateFs
+            remoteOutputTree
                 .getPath(path)
                 .readdir(followSymlinks ? Symlinks.FOLLOW : Symlinks.NOFOLLOW)) {
           entries.put(entry.getName(), entry);
         }
-        ignoredNotFoundInRemote = true;
+        existsRemotely = true;
       } catch (FileNotFoundException ignored) {
-        // Intentionally ignored
+        // Will be rethrown below if directory exists on neither side.
       }
     }
 
     try {
       for (var entry :
-          remoteOutputTree
-              .getPath(path)
-              .readdir(followSymlinks ? Symlinks.FOLLOW : Symlinks.NOFOLLOW)) {
+          delegateFs.getPath(path).readdir(followSymlinks ? Symlinks.FOLLOW : Symlinks.NOFOLLOW)) {
         entries.put(entry.getName(), entry);
       }
     } catch (FileNotFoundException e) {
-      if (!ignoredNotFoundInRemote) {
+      if (!existsRemotely) {
         throw e;
       }
     }
