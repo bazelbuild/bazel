@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.bazel.bzlmod.TagClass;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule.RepositoryRuleFunction;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
@@ -34,7 +33,8 @@ import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.skydoc.rendering.DocstringParseException;
-import com.google.devtools.build.skydoc.rendering.FunctionUtil;
+import com.google.devtools.build.skydoc.rendering.LabelRenderer;
+import com.google.devtools.build.skydoc.rendering.StarlarkFunctionInfoExtractor;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
@@ -48,23 +48,19 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.Prov
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RepositoryRuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
-import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
-import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.StarlarkFunction;
-import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.Structure;
 
 /** API documentation extractor for a compiled, loaded Starlark module. */
 final class ModuleInfoExtractor {
   private final Predicate<String> isWantedQualifiedName;
-  private final RepositoryMapping repositoryMapping;
+  private final LabelRenderer labelRenderer;
 
   @VisibleForTesting
   static final AttributeInfo IMPLICIT_NAME_ATTRIBUTE_INFO =
@@ -107,13 +103,11 @@ final class ModuleInfoExtractor {
    *     other words, the first character of each component of the qualified name is alphabetic) and
    *     (2) the qualified name, or one of its ancestor qualified names, satisfies the wanted
    *     predicate.
-   * @param repositoryMapping the repository mapping for the repo in which we want to render labels
-   *     as strings
+   * @param labelRenderer a string renderer for labels.
    */
-  public ModuleInfoExtractor(
-      Predicate<String> isWantedQualifiedName, RepositoryMapping repositoryMapping) {
+  public ModuleInfoExtractor(Predicate<String> isWantedQualifiedName, LabelRenderer labelRenderer) {
     this.isWantedQualifiedName = isWantedQualifiedName;
-    this.repositoryMapping = repositoryMapping;
+    this.labelRenderer = labelRenderer;
   }
 
   /** Extracts structured documentation for the loadable symbols of a given module. */
@@ -121,7 +115,7 @@ final class ModuleInfoExtractor {
     ModuleInfo.Builder builder = ModuleInfo.newBuilder();
     Optional.ofNullable(module.getDocumentation()).ifPresent(builder::setModuleDocstring);
     Optional.ofNullable(BazelModuleContext.of(module))
-        .map(bazelModuleContext -> bazelModuleContext.label().getDisplayForm(repositoryMapping))
+        .map(bazelModuleContext -> labelRenderer.render(bazelModuleContext.label()))
         .ifPresent(builder::setFile);
 
     // We do two traversals over the module's globals: (1) find qualified names (including any
@@ -135,7 +129,7 @@ final class ModuleInfoExtractor {
         new DocumentationExtractor(
             builder,
             isWantedQualifiedName,
-            repositoryMapping,
+            labelRenderer,
             providerQualifiedNameCollector.buildQualifiedNames());
     documentationExtractor.traverse(module);
     return builder.build();
@@ -304,7 +298,7 @@ final class ModuleInfoExtractor {
   private static final class DocumentationExtractor extends GlobalsVisitor {
     private final ModuleInfo.Builder moduleInfoBuilder;
     private final Predicate<String> isWantedQualifiedName;
-    private final RepositoryMapping repositoryMapping;
+    private final LabelRenderer labelRenderer;
     private final ImmutableMap<StarlarkProvider.Key, String> providerQualifiedNames;
 
     /**
@@ -314,7 +308,7 @@ final class ModuleInfoExtractor {
      *     other words, the first character of each component of the qualified name is alphabetic)
      *     and (2) the qualified name, or one of its ancestor qualified names, satisfies the wanted
      *     predicate.
-     * @param repositoryMapping repo mapping to use for stringifying labels
+     * @param labelRenderer a function for stringifying labels
      * @param providerQualifiedNames a map from the keys of documentable Starlark providers loadable
      *     from this module to the qualified names (including structure namespaces) under which
      *     those providers are accessible to a user of this module
@@ -322,11 +316,11 @@ final class ModuleInfoExtractor {
     DocumentationExtractor(
         ModuleInfo.Builder moduleInfoBuilder,
         Predicate<String> isWantedQualifiedName,
-        RepositoryMapping repositoryMapping,
+        LabelRenderer labelRenderer,
         ImmutableMap<StarlarkProvider.Key, String> providerQualifiedNames) {
       this.moduleInfoBuilder = moduleInfoBuilder;
       this.isWantedQualifiedName = isWantedQualifiedName;
-      this.repositoryMapping = repositoryMapping;
+      this.labelRenderer = labelRenderer;
       this.providerQualifiedNames = providerQualifiedNames;
     }
 
@@ -340,8 +334,8 @@ final class ModuleInfoExtractor {
         throws ExtractionException {
       try {
         moduleInfoBuilder.addFuncInfo(
-            FunctionUtil.fromNameAndFunction(
-                qualifiedName, function, /* withOriginKey= */ true, repositoryMapping));
+            StarlarkFunctionInfoExtractor.fromNameAndFunction(
+                qualifiedName, function, /* withOriginKey= */ true, labelRenderer));
       } catch (DocstringParseException e) {
         throw new ExtractionException(e);
       }
@@ -358,7 +352,7 @@ final class ModuleInfoExtractor {
       ruleInfoBuilder.setOriginKey(
           OriginKey.newBuilder()
               .setName(ruleFunction.getName())
-              .setFile(ruleFunction.getExtensionLabel().getDisplayForm(repositoryMapping)));
+              .setFile(labelRenderer.render(ruleFunction.getExtensionLabel())));
       ruleFunction.getDocumentation().ifPresent(ruleInfoBuilder::setDocString);
       RuleClass ruleClass = ruleFunction.getRuleClass();
       ruleInfoBuilder.addAttribute(IMPLICIT_NAME_ATTRIBUTE_INFO); // name comes first
@@ -392,7 +386,7 @@ final class ModuleInfoExtractor {
       providerInfoBuilder.setOriginKey(
           OriginKey.newBuilder()
               .setName(provider.getName())
-              .setFile(provider.getKey().getExtensionLabel().getDisplayForm(repositoryMapping)));
+              .setFile(labelRenderer.render(provider.getKey().getExtensionLabel())));
       provider.getDocumentation().ifPresent(providerInfoBuilder::setDocString);
       ImmutableMap<String, Optional<String>> schema = provider.getSchema();
       if (schema != null) {
@@ -419,8 +413,7 @@ final class ModuleInfoExtractor {
       aspectInfoBuilder.setOriginKey(
           OriginKey.newBuilder()
               .setName(aspect.getAspectClass().getExportedName())
-              .setFile(
-                  aspect.getAspectClass().getExtensionLabel().getDisplayForm(repositoryMapping)));
+              .setFile(labelRenderer.render(aspect.getAspectClass().getExtensionLabel())));
       aspect.getDocumentation().ifPresent(aspectInfoBuilder::setDocString);
       for (String aspectAttribute : aspect.getAttributeAspects()) {
         if (isPublicName(aspectAttribute)) {
@@ -445,8 +438,7 @@ final class ModuleInfoExtractor {
               // make ModuleExtension a StarlarkExportable (partially reverting cl/513213080).
               // Alternatively, we'd need to search the defining module's globals, similarly to what
               // we do in FunctionUtil#getFunctionOriginKey.
-              .setFile(
-                  moduleExtension.getDefiningBzlFileLabel().getDisplayForm(repositoryMapping)));
+              .setFile(labelRenderer.render(moduleExtension.getDefiningBzlFileLabel())));
       moduleExtension.getDoc().ifPresent(moduleExtensionInfoBuilder::setDocString);
       for (Map.Entry<String, TagClass> entry : moduleExtension.getTagClasses().entrySet()) {
         ModuleExtensionTagClassInfo.Builder tagClassInfoBuilder =
@@ -473,8 +465,7 @@ final class ModuleInfoExtractor {
       repositoryRuleInfoBuilder.setOriginKey(
           OriginKey.newBuilder()
               .setName(ruleClass.getName())
-              .setFile(
-                  repositoryRuleFunction.getExtensionLabel().getDisplayForm(repositoryMapping)));
+              .setFile(labelRenderer.render(repositoryRuleFunction.getExtensionLabel())));
 
       repositoryRuleInfoBuilder.addAllAttribute(IMPLICIT_REPOSITORY_RULE_ATTRIBUTES);
       addDocumentableAttributes(
@@ -486,54 +477,6 @@ final class ModuleInfoExtractor {
             Type.STRING_LIST.cast(ruleClass.getAttributeByName("$environ").getDefaultValue()));
       }
       moduleInfoBuilder.addRepositoryRuleInfo(repositoryRuleInfoBuilder);
-    }
-
-    /**
-     * Recursively transforms labels to strings via {@link Label#getShorthandDisplayForm}.
-     *
-     * @return the label's shorthand display string if {@code o} is a label; a container with label
-     *     elements transformed into shorthand display strings recursively if {@code o} is a
-     *     Starlark container; or the original object {@code o} if no label stringification was
-     *     performed.
-     */
-    private Object stringifyLabels(Object o) {
-      if (o instanceof Label) {
-        return ((Label) o).getShorthandDisplayForm(repositoryMapping);
-      } else if (o instanceof Map) {
-        return stringifyLabelsOfMap((Map<?, ?>) o);
-      } else if (o instanceof List) {
-        return stringifyLabelsOfList((List<?>) o);
-      } else {
-        return o;
-      }
-    }
-
-    private Object stringifyLabelsOfMap(Map<?, ?> dict) {
-      boolean neededToStringify = false;
-      ImmutableMap.Builder<Object, Object> builder = ImmutableMap.builder();
-      for (Map.Entry<?, ?> entry : dict.entrySet()) {
-        Object keyWithStringifiedLabels = stringifyLabels(entry.getKey());
-        Object valueWithStringifiedLabels = stringifyLabels(entry.getValue());
-        if (keyWithStringifiedLabels != entry.getKey()
-            || valueWithStringifiedLabels != entry.getValue() /* as Objects */) {
-          neededToStringify = true;
-        }
-        builder.put(keyWithStringifiedLabels, valueWithStringifiedLabels);
-      }
-      return neededToStringify ? Dict.immutableCopyOf(builder.buildOrThrow()) : dict;
-    }
-
-    private Object stringifyLabelsOfList(List<?> list) {
-      boolean neededToStringify = false;
-      ImmutableList.Builder<Object> builder = ImmutableList.builder();
-      for (Object element : list) {
-        Object elementWithStringifiedLabels = stringifyLabels(element);
-        if (elementWithStringifiedLabels != element /* as Objects */) {
-          neededToStringify = true;
-        }
-        builder.add(elementWithStringifiedLabels);
-      }
-      return neededToStringify ? StarlarkList.immutableCopyOf(builder.build()) : list;
     }
 
     private static AttributeType getAttributeType(Attribute attribute, String where)
@@ -597,7 +540,7 @@ final class ModuleInfoExtractor {
 
       if (!attribute.isMandatory()) {
         Object defaultValue = Attribute.valueToStarlark(attribute.getDefaultValueUnchecked());
-        builder.setDefaultValue(new Printer().repr(stringifyLabels(defaultValue)).toString());
+        builder.setDefaultValue(labelRenderer.reprWithoutLabelConstructor(defaultValue));
       }
       return builder.build();
     }
@@ -641,7 +584,7 @@ final class ModuleInfoExtractor {
         if (!provider.isLegacy()) {
           if (provider.getKey() instanceof StarlarkProvider.Key) {
             Label definingModule = ((StarlarkProvider.Key) provider.getKey()).getExtensionLabel();
-            providerKeyBuilder.setFile(definingModule.getDisplayForm(repositoryMapping));
+            providerKeyBuilder.setFile(labelRenderer.render(definingModule));
           } else if (provider.getKey() instanceof BuiltinProvider.Key) {
             providerKeyBuilder.setFile("<native>");
           }

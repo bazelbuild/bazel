@@ -14,12 +14,11 @@
 
 package com.google.devtools.build.skydoc.rendering;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionDeprecationInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionParamInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionReturnInfo;
@@ -33,12 +32,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkFunction;
 
 /** Contains a number of utility methods for functions and parameters. */
-public final class FunctionUtil {
-  private FunctionUtil() {} // static methods only
+public final class StarlarkFunctionInfoExtractor {
+  private final LabelRenderer labelRenderer;
+
+  private StarlarkFunctionInfoExtractor(LabelRenderer labelRenderer) {
+    this.labelRenderer = labelRenderer;
+  }
 
   /**
    * Create and return a {@link StarlarkFunctionInfo} object encapsulating information obtained from
@@ -50,26 +52,28 @@ public final class FunctionUtil {
    * @param fn the function object
    * @param withOriginKey set the {@link OriginKey} for the original name and original module where
    *     the function was defined
-   * @param repositoryMapping the repository mapping for the repo in which we want to render labels
-   *     for {@link OriginKey}. Unused if {@code withOriginKey} is false. Must not be null if {@code
-   *     withOriginKey} is true.
+   * @param labelRenderer a string renderer for {@link Label} values in argument defaults and for
+   *     the {@link OriginKey}'s file
    * @throws com.google.devtools.build.skydoc.rendering.DocstringParseException if the function's
    *     docstring is malformed
    */
-  // TODO(arostovtsev): remove withOriginKey parameter, make repositoryMapping non-nullable, and
-  // always export the origin key after we remove the legacy Stardoc extractor.
+  // TODO(arostovtsev): remove withOriginKey parameter and always export the origin key after we
+  // remove the legacy Stardoc extractor.
   public static StarlarkFunctionInfo fromNameAndFunction(
-      String functionName,
-      StarlarkFunction fn,
-      boolean withOriginKey,
-      @Nullable RepositoryMapping repositoryMapping)
+      String functionName, StarlarkFunction fn, boolean withOriginKey, LabelRenderer labelRenderer)
+      throws DocstringParseException {
+    return new StarlarkFunctionInfoExtractor(labelRenderer)
+        .extract(functionName, fn, withOriginKey);
+  }
+
+  private StarlarkFunctionInfo extract(
+      String functionName, StarlarkFunction fn, boolean withOriginKey)
       throws DocstringParseException {
     Map<String, String> paramNameToDocMap = Maps.newLinkedHashMap();
     StarlarkFunctionInfo.Builder functionInfoBuilder =
         StarlarkFunctionInfo.newBuilder().setFunctionName(functionName);
     if (withOriginKey) {
-      Preconditions.checkNotNull(repositoryMapping);
-      functionInfoBuilder.setOriginKey(getFunctionOriginKey(fn, repositoryMapping));
+      functionInfoBuilder.setOriginKey(getFunctionOriginKey(fn));
     }
 
     String doc = fn.getDocumentation();
@@ -104,15 +108,14 @@ public final class FunctionUtil {
     return functionInfoBuilder.build();
   }
 
-  /** Constructor to be used for normal parameters. */
-  public static FunctionParamInfo forParam(
+  private FunctionParamInfo forParam(
       String name, Optional<String> docString, @Nullable Object defaultValue) {
     FunctionParamInfo.Builder paramBuilder = FunctionParamInfo.newBuilder().setName(name);
     docString.ifPresent(paramBuilder::setDocString);
     if (defaultValue == null) {
       paramBuilder.setMandatory(true);
     } else {
-      paramBuilder.setDefaultValue(Starlark.repr(defaultValue)).setMandatory(false);
+      paramBuilder.setDefaultValue(labelRenderer.repr(defaultValue)).setMandatory(false);
     }
     return paramBuilder.build();
   }
@@ -126,7 +129,7 @@ public final class FunctionUtil {
         .build();
   }
 
-  private static List<FunctionParamInfo> parameterInfos(
+  private ImmutableList<FunctionParamInfo> parameterInfos(
       StarlarkFunction fn, Map<String, String> parameterDoc) {
     List<String> names = fn.getParameterNames();
     int nparams = names.size();
@@ -156,8 +159,7 @@ public final class FunctionUtil {
     return infos.build();
   }
 
-  private static OriginKey getFunctionOriginKey(
-      StarlarkFunction fn, RepositoryMapping repositoryMapping) {
+  private OriginKey getFunctionOriginKey(StarlarkFunction fn) {
     OriginKey.Builder builder = OriginKey.newBuilder();
     // We can't just `builder.setName(fn.getName())` - fn could be a nested function or a lambda, so
     // fn.getName() may not be a unique name in fn's module. Instead, we look for fn in the module's
@@ -176,7 +178,7 @@ public final class FunctionUtil {
 
     BazelModuleContext moduleContext = BazelModuleContext.of(fn.getModule());
     if (moduleContext != null) {
-      builder.setFile(moduleContext.label().getDisplayForm(repositoryMapping));
+      builder.setFile(labelRenderer.render(moduleContext.label()));
     }
     return builder.build();
   }

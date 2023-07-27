@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromFunctions;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
@@ -93,6 +94,19 @@ public final class StarlarkDocExtractRule implements RuleDefinition {
         .add(
             attr(StarlarkDocExtract.SYMBOL_NAMES_ATTR, STRING_LIST)
                 .value(ImmutableList.<String>of()))
+        /*<!-- #BLAZE_RULE(starlark_doc_extract).ATTRIBUTE(render_main_repo_name) -->
+        If true, render labels in the main repository in emitted documentation with a repo component
+        (in other words, <code>//foo:bar.bzl</code> will be emitted as
+        <code>@main_repo_name//foo:bar.bzl</code>).
+        <p>The name to use for the main repository is obtained from <code>module(name = ...)</code>
+        in the main repository's <code>MODULE.bazel</code> file (if Bzlmod is enabled), or from
+        <code>workspace(name = ...)</code> in the main repository's <code>WORKSPACE</code> file.
+        <p>This attribute should be set to <code>False</code> when generating documentation for
+        Starlark files which are intended to be used only within the same repository, and to
+        <code>True</code> when generating documentation for Starlark files which are intended to be
+        used from other repositories.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(attr(StarlarkDocExtract.RENDER_MAIN_REPO_NAME, BOOLEAN).value(false))
         /*<!-- #BLAZE_RULE(starlark_doc_extract).IMPLICIT_OUTPUTS -->
         <ul>
           <li><code><var>name</var>.binaryproto</code> (the default output): A

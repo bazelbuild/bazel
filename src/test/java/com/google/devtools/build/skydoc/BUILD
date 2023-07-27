@@ -10,6 +10,7 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/skydoc/rendering:srcs",
         "//src/test/java/com/google/devtools/build/skydoc/testdata/same_level_file_test:srcs",
     ],
     visibility = ["//src:__pkg__"],
@@ -26,7 +27,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/skydoc:skydoc_lib",
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi",
         "//src/main/java/com/google/devtools/build/skydoc/rendering",
-        "//src/main/java/com/google/devtools/build/skydoc/rendering:function_util",
+        "//src/main/java/com/google/devtools/build/skydoc/rendering:rendering_util",
         "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:stardoc_output_java_proto",
         "//src/main/java/net/starlark/java/eval",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
