@@ -200,6 +200,17 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean enableBzlmod;
 
   @Option(
+      name = "experimental_isolated_extension_usages",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
+      help =
+          "If true, enables the <code>isolate</code> parameter in the <a"
+              + " href=\"https://bazel.build/rules/lib/globals/module#use_extension\"><code>use_extension</code></a>"
+              + " function.")
+  public boolean experimentalIsolatedExtensionUsages;
+
+  @Option(
       name = "experimental_java_proto_library_default_has_services",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -669,6 +680,7 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, experimentalEnableAndroidMigrationApis)
             .setBool(ENABLE_BZLMOD, enableBzlmod)
+            .setBool(EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, experimentalIsolatedExtensionUsages)
             .setBool(
                 EXPERIMENTAL_JAVA_PROTO_LIBRARY_DEFAULT_HAS_SERVICES,
                 experimentalJavaProtoLibraryDefaultHasServices)
@@ -761,6 +773,8 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS =
       "-experimental_enable_android_migration_apis";
   public static final String ENABLE_BZLMOD = "-enable_bzlmod";
+  public static final String EXPERIMENTAL_ISOLATED_EXTENSION_USAGES =
+      "-experimental_isolated_extension_usages";
   public static final String EXPERIMENTAL_JAVA_PROTO_LIBRARY_DEFAULT_HAS_SERVICES =
       "+experimental_java_proto_library_default_has_services";
   public static final String INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW =
