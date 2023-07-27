@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.FailedTestCasesStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
+import com.google.devtools.build.lib.view.test.TestStatus.TestCase.Status;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -158,6 +159,10 @@ public class TestSummaryPrinter {
             + (verboseSummary ? getAttemptSummary(summary) + getTimeSummary(summary) : "")
             + "\n");
 
+    for (TestCase testCase : summary.getPassedTestCases()) {
+      TestSummaryPrinter.printTestCase(terminalPrinter, testCase);
+    }
+
     if (printFailedTestCases && summary.getStatus() == BlazeTestStatus.FAILED) {
       if (summary.getFailedTestCasesStatus() == FailedTestCasesStatus.NOT_AVAILABLE) {
         terminalPrinter.print(
@@ -220,9 +225,10 @@ public class TestSummaryPrinter {
       timeSummary = "";
     }
 
+    Mode mode = (testCase.getStatus() == Status.PASSED) ? Mode.INFO : Mode.ERROR;
     terminalPrinter.print(
         "    "
-        + Mode.ERROR
+        + mode
         + Strings.padEnd(testCase.getStatus().toString(), 8, ' ')
         + Mode.DEFAULT
         + testCase.getClassName()
