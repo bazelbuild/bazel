@@ -355,6 +355,137 @@ def set_annotation_processing(
     )
     return _new_javainfo(**result)
 
+def java_info_for_compilation(
+        output_jar,
+        compile_jar,
+        source_jar,
+        generated_class_jar,
+        generated_source_jar,
+        plugin_info,
+        deps,
+        runtime_deps,
+        exports,
+        exported_plugins,
+        compile_jdeps,
+        jdeps,
+        native_headers_jar,
+        manifest_proto,
+        native_libraries,
+        neverlink,
+        add_exports,
+        add_opens,
+        direct_runtime_jars,
+        compilation_info):
+    """Creates a JavaInfo instance represiting the result of java compilation.
+
+    Args:
+        output_jar: (File) The jar that was created as a result of a compilation.
+        compile_jar: (File) A jar that is the compile-time dependency in lieu of `output_jar`.
+        source_jar: (File) The source jar that was used to create the output jar.
+        generated_class_jar: (File) A jar file containing class files compiled from sources
+            generated during annotation processing.
+        generated_source_jar: (File) The source jar that was created as a result of annotation
+            processing.
+        plugin_info: (JavaPluginInfo) Information about annotation processing.
+        deps: ([JavaInfo]) Compile time dependencies that were used to create the output jar.
+        runtime_deps: ([JavaInfo]) Runtime dependencies that are needed for this library.
+        exports: ([JavaInfo]) Libraries to make available for users of this library.
+        exported_plugins: ([JavaPluginInfo]) A list of exported plugins.
+        compile_jdeps: (File) jdeps information about compile time dependencies to be consumed by
+            JavaCompileAction. This should be a binary proto encoded using the deps.proto protobuf
+            included with Bazel. If available this file is typically produced by a header compiler.
+        jdeps: (File) jdeps information for the rule output (if available). This should be a binary
+            proto encoded using the deps.proto protobuf included with Bazel. If available this file
+            is typically produced by a compiler. IDEs and other tools can use this information for
+            more efficient processing.
+        native_headers_jar: (File) A jar containing CC header files supporting native method
+            implementation (typically output of javac -h).
+        manifest_proto: (File) Manifest information for the rule output (if available). This should
+            be a binary proto encoded using the manifest.proto protobuf included with Bazel. IDEs
+            and other tools can use this information for more efficient processing.
+        native_libraries: ([CcInfo]) Native library dependencies that are needed for this library.
+        neverlink: (bool) If true, only use this library for compilation and not at runtime.
+        add_exports: ([str]) The <module>/<package>s this library was given access to.
+        add_opens: ([str]) The <module>/<package>s this library was given reflective access to.
+        direct_runtime_jars: ([File]) The class jars needed directly by this library at runtime.
+            This is usually just the output_jar or empty if there were no sources/resources.
+        compilation_info: (struct) Information for IDE/tools
+
+    Returns:
+        (JavaInfo) the JavaInfo instance
+    """
+    result, concatenated_deps = _javainfo_init_base(
+        output_jar,
+        compile_jar,
+        source_jar,
+        deps,
+        runtime_deps,
+        exports,
+        exported_plugins,
+        jdeps,
+        compile_jdeps,
+        native_headers_jar,
+        manifest_proto,
+        generated_class_jar,
+        generated_source_jar,
+        native_libraries,
+        neverlink,
+    )
+
+    # this differs ever so slightly from the usual JavaInfo in that direct_runtime_jars
+    # does not contain the output_jar is there were no sources/resources
+    transitive_runtime_jars = depset() if neverlink else depset(
+        order = "preorder",
+        direct = direct_runtime_jars,
+        transitive = [dep.transitive_runtime_jars for dep in concatenated_deps.exports_deps + runtime_deps],
+    )
+    result.update(
+        runtime_output_jars = direct_runtime_jars,
+        transitive_runtime_jars = transitive_runtime_jars,
+        transitive_runtime_deps = transitive_runtime_jars,
+        transitive_source_jars = depset(
+            direct = [source_jar],
+            # only differs from the usual java_info.transitive_source_jars in the order of deps
+            transitive = [dep.transitive_source_jars for dep in concatenated_deps.runtimedeps_exports_deps],
+        ),
+        # the JavaInfo constructor does not add flags from runtime_deps nor support
+        # adding this target's exports/opens
+        module_flags_info = _ModuleFlagsInfo(
+            add_exports = depset(add_exports, transitive = [
+                dep.module_flags_info.add_exports
+                for dep in concatenated_deps.runtimedeps_exports_deps
+            ]),
+            add_opens = depset(add_opens, transitive = [
+                dep.module_flags_info.add_opens
+                for dep in concatenated_deps.runtimedeps_exports_deps
+            ]),
+        ),
+    )
+    if compilation_info:
+        result.update(
+            compilation_info = _JavaCompilationInfo(
+                javac_options = compilation_info.javac_options,
+                boot_classpath = compilation_info.boot_classpath,
+                compilation_classpath = compilation_info.compilation_classpath,
+                runtime_classpath = compilation_info.runtime_classpath,
+            ),
+            annotation_processing = _JavaGenJarsInfo(
+                enabled = compilation_info.uses_annotation_processing,
+                class_jar = result["annotation_processing"].class_jar,
+                source_jar = result["annotation_processing"].source_jar,
+                processor_classnames = plugin_info.plugins.processor_classes.to_list(),
+                processor_classpath = plugin_info.plugins.processor_jars,
+                transitive_class_jars = result["annotation_processing"].transitive_class_jars,
+                transitive_source_jars = result["annotation_processing"].transitive_source_jars,
+            ),
+        )
+    else:
+        result.update(
+            compilation_info = None,
+            annotation_processing = None,
+        )
+    return _java_common_internal.wrap_java_info(_new_javainfo(**result))
+
 def _validate_provider_list(provider_list, what, expected_provider_type):
     _java_common_internal.check_provider_instances(provider_list, what, expected_provider_type)
 
