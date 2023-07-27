@@ -117,6 +117,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
     final int overhead =
         FindMissingBlobsRequest.newBuilder()
             .setInstanceName(options.remoteInstanceName)
+            .setDigestFunction(digestUtil.getDigestFunction())
             .build()
             .getSerializedSize();
     final int tagSize =
@@ -185,7 +186,9 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
     }
     // Need to potentially split the digests into multiple requests.
     FindMissingBlobsRequest.Builder requestBuilder =
-        FindMissingBlobsRequest.newBuilder().setInstanceName(options.remoteInstanceName);
+        FindMissingBlobsRequest.newBuilder()
+            .setInstanceName(options.remoteInstanceName)
+            .setDigestFunction(digestUtil.getDigestFunction());
     List<ListenableFuture<FindMissingBlobsResponse>> getMissingDigestCalls = new ArrayList<>();
     for (Digest digest : digests) {
       requestBuilder.addBlobDigests(digest);
@@ -260,6 +263,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
     GetActionResultRequest request =
         GetActionResultRequest.newBuilder()
             .setInstanceName(options.remoteInstanceName)
+            .setDigestFunction(digestUtil.getDigestFunction())
             .setActionDigest(actionKey.getDigest())
             .setInlineStderr(inlineOutErr)
             .setInlineStdout(inlineOutErr)
@@ -289,6 +293,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
                                         .updateActionResult(
                                             UpdateActionResultRequest.newBuilder()
                                                 .setInstanceName(options.remoteInstanceName)
+                                                .setDigestFunction(digestUtil.getDigestFunction())
                                                 .setActionDigest(actionKey.getDigest())
                                                 .setActionResult(actionResult)
                                                 .build())),
