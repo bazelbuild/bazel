@@ -750,7 +750,7 @@ public abstract class FileSystem {
    * @throws IOException if there was an error opening the file for writing
    */
   protected final OutputStream getOutputStream(PathFragment path) throws IOException {
-    return getOutputStream(path, false);
+    return getOutputStream(path, /* append= */ false);
   }
 
   /**
@@ -759,8 +759,10 @@ public abstract class FileSystem {
    * @param append whether to open the output stream in append mode
    * @throws IOException if there was an error opening the file for writing
    */
-  protected abstract OutputStream getOutputStream(PathFragment path, boolean append)
-      throws IOException;
+  protected final OutputStream getOutputStream(PathFragment path, boolean append)
+      throws IOException {
+    return getOutputStream(path, append, /* internal= */ false);
+  }
 
   /**
    * Creates an OutputStream accessing the file denoted by path.

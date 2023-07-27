@@ -779,8 +779,8 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     }
 
     @Override
-    protected synchronized OutputStream getOutputStream(PathFragment path, boolean append)
-        throws IOException {
+    protected synchronized OutputStream getOutputStream(
+        PathFragment path, boolean append, boolean internal) throws IOException {
       // To get an output stream from remote file, we need to first stage it.
       throw new IllegalStateException("Shouldn't be called directly");
     }

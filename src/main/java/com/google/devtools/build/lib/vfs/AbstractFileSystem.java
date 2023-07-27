@@ -168,11 +168,6 @@ public abstract class AbstractFileSystem extends FileSystem {
     }
   }
 
-  @Override
-  protected OutputStream getOutputStream(PathFragment path, boolean append) throws IOException {
-    return getOutputStream(path, append, /* internal= */ false);
-  }
-
   private static final class ProfiledInputStream extends FilterInputStream {
     private final InputStream impl;
     private final String name;

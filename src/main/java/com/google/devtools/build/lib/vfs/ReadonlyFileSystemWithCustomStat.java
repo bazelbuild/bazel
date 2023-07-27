@@ -30,7 +30,8 @@ public abstract class ReadonlyFileSystemWithCustomStat extends AbstractFileSyste
   }
 
   @Override
-  protected OutputStream getOutputStream(PathFragment path, boolean append) throws IOException {
+  protected OutputStream getOutputStream(PathFragment path, boolean append, boolean internal)
+      throws IOException {
     throw modificationException();
   }
 

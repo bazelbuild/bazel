@@ -184,11 +184,6 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
   }
 
   @Override
-  protected OutputStream getOutputStream(PathFragment path, boolean append) throws IOException {
-    return delegateFs.getOutputStream(toDelegatePath(path), append);
-  }
-
-  @Override
   protected OutputStream getOutputStream(PathFragment path, boolean append, boolean internal)
       throws IOException {
     return delegateFs.getOutputStream(toDelegatePath(path), append, internal);
