@@ -519,6 +519,23 @@ public class TestSummaryTest {
   }
 
   @Test
+  public void testCollectingPassedDetails() throws Exception {
+    TestCase rootCase = TestCase.newBuilder()
+        .setName("tests")
+        .setRunDurationMillis(5000L)
+        .addChild(newDetail("apple", TestCase.Status.PASSED, 1000L))
+        .build();
+
+    TestSummary summary =
+        getTemplateBuilder().collectTestCases(rootCase).setStatus(BlazeTestStatus.PASSED).build();
+
+    AnsiTerminalPrinter printer = Mockito.mock(AnsiTerminalPrinter.class);
+    TestSummaryPrinter.print(summary, printer, Path::getPathString, true, true);
+    verify(printer).print(contains("//package:name"));
+    verify(printer).print(find("PASSED.*apple"));
+  }
+
+  @Test
   public void countTotalTestCases() throws Exception {
     TestCase rootCase =
         TestCase.newBuilder()

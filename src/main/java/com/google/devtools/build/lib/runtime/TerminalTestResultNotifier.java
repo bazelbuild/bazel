@@ -243,7 +243,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
       case DETAILED:
         printSummary(
             summaries,
-            /* showAllTests= */ false,
+            /* showAllTests= */ true,
             /* showNoStatusTests= */ true,
             /* printFailedTestCases= */ true);
         break;
