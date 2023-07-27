@@ -220,6 +220,7 @@ cc_import = rule(
         ),
         "_cc_toolchain": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
     },
+    provides = [CcInfo],    
     toolchains = cc_helper.use_cpp_toolchain(),
     fragments = ["cpp"],
     incompatible_use_toolchain_transition = True,
