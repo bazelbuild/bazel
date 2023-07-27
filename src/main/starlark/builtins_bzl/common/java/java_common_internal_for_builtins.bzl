@@ -335,15 +335,13 @@ def _should_use_header_compilation(ctx, toolchain):
     if not toolchain.has_header_compiler():
         fail(
             "header compilation was requested but it is not supported by the " +
-            "current Java toolchain '" +
-            "//" + str(toolchain.label.package) + ":" + toolchain.label.name +
+            "current Java toolchain '" + str(toolchain.label) +
             "'; see the java_toolchain.header_compiler attribute",
         )
     if not toolchain.has_header_compiler_direct():
         fail(
             "header compilation was requested but it is not supported by the " +
-            "current Java toolchain '" +
-            "//" + str(toolchain.label.package) + ":" + toolchain.label.name +
+            "current Java toolchain '" + str(toolchain.label) +
             "'; see the java_toolchain.header_compiler_direct attribute",
         )
     return True
