@@ -127,7 +127,7 @@ public abstract class FileSystem {
    * this method returns {@code false}. The implementation can try to emulate these calls at its own
    * discretion.
    */
-  protected abstract boolean supportsHardLinksNatively(PathFragment path);
+  public abstract boolean supportsHardLinksNatively(PathFragment path);
 
   /***
    * Returns true if file path is case-sensitive on this file system. Default is true.

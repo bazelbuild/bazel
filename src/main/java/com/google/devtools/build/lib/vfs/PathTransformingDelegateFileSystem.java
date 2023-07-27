@@ -48,7 +48,7 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
   }
 
   @Override
-  protected boolean supportsHardLinksNatively(PathFragment path) {
+  public boolean supportsHardLinksNatively(PathFragment path) {
     return delegateFs.supportsHardLinksNatively(toDelegatePath(path));
   }
 
