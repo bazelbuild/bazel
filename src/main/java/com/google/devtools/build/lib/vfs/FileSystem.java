@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.vfs;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
@@ -432,10 +433,11 @@ public abstract class FileSystem {
   }
 
   /**
-   * Returns the canonical path for the given path. See {@link Path#resolveSymbolicLinks} for
-   * specification.
+   * Returns the canonical path for the given path, which must be absolute. See {@link
+   * Path#resolveSymbolicLinks} for specification.
    */
   protected Path resolveSymbolicLinks(PathFragment path) throws IOException {
+    checkArgument(path.isAbsolute());
     PathFragment parentNode = path.getParentDirectory();
     return parentNode == null
         ? getPath(path) // (root)
