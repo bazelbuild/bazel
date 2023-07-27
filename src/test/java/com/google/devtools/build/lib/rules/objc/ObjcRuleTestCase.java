@@ -83,8 +83,6 @@ import javax.annotation.Nullable;
 public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   private static final Correspondence<String, String> MATCHES_REGEX =
       Correspondence.from((a, b) -> Pattern.matches(b, a), "matches");
-  protected static final String MOCK_XCRUNWRAPPER_EXECUTABLE_PATH =
-      toolExecutable("tools/objc/xcrunwrapper");
   protected static final ImmutableList<String> FASTBUILD_COPTS = ImmutableList.of("-O0", "-DDEBUG");
 
   protected static final DottedVersion DEFAULT_IOS_SDK_VERSION =
@@ -165,12 +163,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
             .getGenfilesDirectory(RepositoryName.MAIN)
             .getExecPath()
             .getBaseName();
-  }
-
-  private static String toolExecutable(String toolSrcPath) {
-    return String.format(
-        "%s-out/[^/]*-exec-[^/]*/bin/%s",
-        TestConstants.PRODUCT_NAME, TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + toolSrcPath);
   }
 
   @SuppressWarnings("MissingCasesInEnumSwitch")
@@ -629,10 +621,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "        '_xcode_config': attr.label(",
         "            default=configuration_field(",
         "                fragment='apple', name='xcode_config_label'),),",
-        "        '_xcrunwrapper': attr.label(",
-        "            executable=True,",
-        "            cfg='exec',",
-        "            default=Label('" + toolsLoc + ":xcrunwrapper')),",
         "        'additional_linker_inputs': attr.label_list(",
         "            allow_files = True,",
         "        ),",

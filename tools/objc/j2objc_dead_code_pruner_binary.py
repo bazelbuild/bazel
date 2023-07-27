@@ -476,9 +476,6 @@ if __name__ == '__main__':
       '--entry_classes',
       help=('The comma-separated list of Java entry classes to be used as entry'
             ' point of the dead code analysis.'))
-  parser.add_argument(
-      '--xcrunwrapper', help='The xcrun wrapper script (legacy, unused).'
-  )
 
   args = parser.parse_args()
 
