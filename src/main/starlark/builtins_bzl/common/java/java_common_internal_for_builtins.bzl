@@ -16,8 +16,45 @@
 
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/paths.bzl", "paths")
+load(
+    ":common/java/java_info.bzl",
+    "JavaPluginInfo",
+    "disable_plugin_info_annotation_processing",
+    "java_info_for_compilation",
+    "merge_plugin_info_without_outputs",
+)
+load(":common/java/java_helper.bzl", "helper")
 
 _java_common_internal = _builtins.internal.java_common_internal_do_not_use
+
+def _derive_output_file(ctx, base_file, *, name_suffix = "", extension = None, extension_suffix = ""):
+    """Declares a new file whose name is derived from the given file
+
+    This method allows appending a suffix to the name (before extension), changing
+    the extension or appending a suffix after the extension. The new file is declared
+    as a sibling of the given base file. At least one of the three options must be
+    specified. It is an error to specify both `extension` and `extension_suffix`.
+
+    Args:
+        ctx: (RuleContext) the rule context.
+        base_file: (File) the file from which to derive the resultant file.
+        name_suffix: (str) Optional. The suffix to append to the name before the
+        extension.
+        extension: (str) Optional. The new extension to use (without '.'). By default,
+        the base_file's extension is used.
+        extension_suffix: (str) Optional. The suffix to append to the base_file's extension
+
+    Returns:
+        (File) the derived file
+    """
+    if not name_suffix and not extension_suffix and not extension:
+        fail("At least one of name_suffix, extension or extension_suffix is required")
+    if extension and extension_suffix:
+        fail("only one of extension or extension_suffix can be specified")
+    if extension == None:
+        extension = base_file.extension
+    new_basename = paths.replace_extension(base_file.basename, name_suffix + "." + extension + extension_suffix)
+    return ctx.actions.declare_file(new_basename, sibling = base_file)
 
 def compile(
         ctx,
@@ -102,37 +139,212 @@ def compile(
     Returns:
         (JavaInfo)
     """
-    return _java_common_internal.compile(
+    _java_common_internal.check_provider_instances(plugins, "plugins", JavaPluginInfo)
+
+    plugin_info = merge_plugin_info_without_outputs(plugins + deps)
+
+    all_javac_opts = []
+    all_javac_opts.extend(_java_common_internal.default_javac_opts(java_toolchain = java_toolchain))
+
+    all_javac_opts.extend(ctx.fragments.java.default_javac_flags)
+    all_javac_opts.extend(semantics.compatible_javac_options(ctx, java_toolchain, _java_common_internal))
+
+    if "com.google.devtools.build.runfiles.AutoBazelRepositoryProcessor" in plugin_info.plugins.processor_classes.to_list():
+        all_javac_opts.append("-Abazel.repository=" + ctx.label.workspace_name)
+    for package_config in java_toolchain.package_configuration():
+        if package_config.matches(ctx.label):
+            all_javac_opts.extend(package_config.javac_opts())
+
+    all_javac_opts.extend(["--add-exports=%s=ALL-UNNAMED" % x for x in add_exports])
+    all_javac_opts.extend(["--add-opens=%s=ALL-UNNAMED" % x for x in add_opens])
+    all_javac_opts.extend([token for x in javac_opts for token in ctx.tokenize(x)])
+
+    # Optimization: skip this if there are no annotation processors, to avoid unnecessarily
+    # disabling the direct classpath optimization if `enable_annotation_processor = False`
+    # but there aren't any annotation processors.
+    enable_direct_classpath = True
+    if not enable_annotation_processing and plugin_info.plugins.processor_classes:
+        plugin_info = disable_plugin_info_annotation_processing(plugin_info)
+        enable_direct_classpath = False
+
+    uses_annotation_processing = False
+    if "-processor" in all_javac_opts or plugin_info.plugins.processor_classes:
+        uses_annotation_processing = True
+
+    has_sources = source_files or source_jars
+    has_resources = resources or resource_jars
+
+    native_headers_jar = _derive_output_file(ctx, output, name_suffix = "-native-header")
+    manifest_proto = _derive_output_file(ctx, output, extension_suffix = "_manifest_proto")
+    deps_proto = None
+    if ctx.fragments.java.generate_java_deps() and has_sources:
+        deps_proto = _derive_output_file(ctx, output, extension = "jdeps")
+    generated_class_jar = None
+    generated_source_jar = None
+    if uses_annotation_processing:
+        generated_class_jar = _derive_output_file(ctx, output, name_suffix = "-gen")
+        generated_source_jar = _derive_output_file(ctx, output, name_suffix = "-gensrc")
+
+    is_strict_mode = strict_deps != "OFF"
+    classpath_mode = ctx.fragments.java.reduce_java_classpath()
+
+    direct_jars = depset()
+    if is_strict_mode:
+        direct_jars = depset(order = "preorder", transitive = [dep.compile_jars for dep in deps])
+    compilation_classpath = depset(
+        order = "preorder",
+        transitive = [direct_jars] + [dep.transitive_compile_time_jars for dep in deps],
+    )
+    compile_time_java_deps = depset()
+    if is_strict_mode and classpath_mode != "OFF":
+        compile_time_java_deps = depset(transitive = [dep._compile_time_java_dependencies for dep in deps])
+
+    _java_common_internal.create_compilation_action(
         ctx,
-        output = output,
-        java_toolchain = java_toolchain,
-        source_jars = source_jars,
-        source_files = source_files,
-        output_source_jar = output_source_jar,
-        javac_opts = javac_opts,
+        java_toolchain,
+        output,
+        deps_proto,
+        generated_class_jar,
+        generated_source_jar,
+        manifest_proto,
+        native_headers_jar,
+        plugin_info,
+        depset(source_files),
+        source_jars,
+        resources,
+        depset(resource_jars),
+        compilation_classpath,
+        classpath_resources,
+        sourcepath,
+        direct_jars,
+        bootclasspath,
+        compile_time_java_deps,
+        all_javac_opts,
+        strict_deps,
+        ctx.label,
+        injecting_rule_kind,
+        enable_jspecify,
+        enable_direct_classpath,
+        annotation_processor_additional_inputs,
+        annotation_processor_additional_outputs,
+    )
+
+    # create compile time jar action
+    if not has_sources:
+        compile_jar = None
+        compile_deps_proto = None
+    elif not enable_compile_jar_action:
+        compile_jar = output
+        compile_deps_proto = None
+    elif _should_use_header_compilation(ctx, java_toolchain):
+        compile_jar = _derive_output_file(ctx, output, name_suffix = "-hjar", extension = "jar")
+        compile_deps_proto = _derive_output_file(ctx, output, name_suffix = "-hjar", extension = "jdeps")
+        _java_common_internal.create_header_compilation_action(
+            ctx,
+            java_toolchain,
+            compile_jar,
+            compile_deps_proto,
+            plugin_info,
+            depset(source_files),
+            source_jars,
+            compilation_classpath,
+            direct_jars,
+            bootclasspath,
+            compile_time_java_deps,
+            all_javac_opts,
+            strict_deps,
+            ctx.label,
+            injecting_rule_kind,
+            enable_direct_classpath,
+            annotation_processor_additional_inputs,
+        )
+    elif ctx.fragments.java.use_ijars():
+        compile_jar = run_ijar(
+            ctx.actions,
+            output,
+            java_toolchain,
+            target_label = ctx.label,
+            injecting_rule_kind = injecting_rule_kind,
+        )
+        compile_deps_proto = None
+    else:
+        compile_jar = output
+        compile_deps_proto = None
+
+    create_output_source_jar = len(source_files) > 0 or source_jars != [output_source_jar]
+    if not output_source_jar:
+        output_source_jar = _derive_output_file(ctx, output, name_suffix = "-src", extension = "jar")
+    if create_output_source_jar:
+        helper.create_single_jar(
+            ctx.actions,
+            toolchain = java_toolchain,
+            output = output_source_jar,
+            sources = depset(source_jars + ([generated_source_jar] if generated_source_jar else [])),
+            resources = depset(source_files),
+            progress_message = "Building source jar %{output}",
+            mnemonic = "JavaSourceJar",
+        )
+
+    if has_sources or has_resources:
+        direct_runtime_jars = [output]
+    else:
+        direct_runtime_jars = []
+
+    compilation_info = struct(
+        javac_options = all_javac_opts,
+        # needs to be flattened because the public API is a list
+        boot_classpath = (bootclasspath.bootclasspath if bootclasspath else java_toolchain.bootclasspath).to_list(),
+        # we only add compile time jars from deps, and not exports
+        compilation_classpath = compilation_classpath,
+        runtime_classpath = depset(
+            order = "preorder",
+            direct = direct_runtime_jars,
+            transitive = [dep.transitive_runtime_jars for dep in runtime_deps + deps],
+        ),
+        uses_annotation_processing = uses_annotation_processing,
+    ) if include_compilation_info else None
+
+    return java_info_for_compilation(
+        output_jar = output,
+        compile_jar = compile_jar,
+        source_jar = output_source_jar,
+        generated_class_jar = generated_class_jar,
+        generated_source_jar = generated_source_jar,
+        plugin_info = plugin_info,
         deps = deps,
         runtime_deps = runtime_deps,
         exports = exports,
-        plugins = plugins,
         exported_plugins = exported_plugins,
+        compile_jdeps = compile_deps_proto if compile_deps_proto else deps_proto,
+        jdeps = deps_proto if include_compilation_info else None,
+        native_headers_jar = native_headers_jar,
+        manifest_proto = manifest_proto,
         native_libraries = native_libraries,
-        annotation_processor_additional_inputs = annotation_processor_additional_inputs,
-        annotation_processor_additional_outputs = annotation_processor_additional_outputs,
-        strict_deps = strict_deps,
-        bootclasspath = bootclasspath,
-        sourcepath = sourcepath,
-        resources = resources,
         neverlink = neverlink,
-        enable_annotation_processing = enable_annotation_processing,
         add_exports = add_exports,
         add_opens = add_opens,
-        enable_compile_jar_action = enable_compile_jar_action,
-        enable_jspecify = enable_jspecify,
-        include_compilation_info = include_compilation_info,
-        classpath_resources = classpath_resources,
-        resource_jars = resource_jars,
-        injecting_rule_kind = injecting_rule_kind,
+        direct_runtime_jars = direct_runtime_jars,
+        compilation_info = compilation_info,
     )
+
+def _should_use_header_compilation(ctx, toolchain):
+    if not ctx.fragments.java.use_header_compilation():
+        return False
+    if toolchain.forcibly_disable_header_compilation():
+        return False
+    if not toolchain.has_header_compiler():
+        fail(
+            "header compilation was requested but it is not supported by the " +
+            "current Java toolchain '" + str(toolchain.label) +
+            "'; see the java_toolchain.header_compiler attribute",
+        )
+    if not toolchain.has_header_compiler_direct():
+        fail(
+            "header compilation was requested but it is not supported by the " +
+            "current Java toolchain '" + str(toolchain.label) +
+            "'; see the java_toolchain.header_compiler_direct attribute",
+        )
+    return True
 
 def run_ijar(
         actions,

@@ -19,6 +19,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import static java.util.stream.Collectors.partitioningBy;
 
@@ -40,6 +41,7 @@ import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -50,6 +52,7 @@ import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedExcep
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
+import com.google.devtools.build.skydoc.rendering.LabelRenderer;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleInfo;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -57,6 +60,7 @@ import com.google.protobuf.TextFormat;
 import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
@@ -67,6 +71,7 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
   static final String SRC_ATTR = "src";
   static final String DEPS_ATTR = "deps";
   static final String SYMBOL_NAMES_ATTR = "symbol_names";
+  static final String RENDER_MAIN_REPO_NAME = "render_main_repo_name";
   static final SafeImplicitOutputsFunction BINARYPROTO_OUT = fromTemplates("%{name}.binaryproto");
   static final SafeImplicitOutputsFunction TEXTPROTO_OUT = fromTemplates("%{name}.textproto");
 
@@ -74,7 +79,8 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
   @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws ActionConflictException, InterruptedException, RuleErrorException {
-    RepositoryMapping repositoryMapping = getTargetRepositoryMapping(ruleContext);
+    RepositoryMappingValue mainRepositoryMappingValue = getMainRepositoryMappingValue(ruleContext);
+    RepositoryMapping repositoryMapping = mainRepositoryMappingValue.getRepositoryMapping();
     Module module = loadModule(ruleContext, repositoryMapping);
     if (module == null) {
       // Skyframe restart
@@ -84,7 +90,15 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
       return null;
     }
     verifyModuleDeps(ruleContext, module, repositoryMapping);
-    ModuleInfo moduleInfo = getModuleInfo(ruleContext, module, repositoryMapping);
+    Optional<String> mainRepoName = Optional.empty();
+    if (ruleContext.attributes().get(RENDER_MAIN_REPO_NAME, BOOLEAN)) {
+      mainRepoName = mainRepositoryMappingValue.getAssociatedModuleName();
+      if (mainRepoName.isEmpty()) {
+        mainRepoName = Optional.of(ruleContext.getWorkspaceName());
+      }
+    }
+    ModuleInfo moduleInfo =
+        getModuleInfo(ruleContext, module, new LabelRenderer(repositoryMapping, mainRepoName));
 
     NestedSet<Artifact> filesToBuild =
         new NestedSetBuilder<Artifact>(Order.STABLE_ORDER)
@@ -261,15 +275,8 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
     return unknown.build();
   }
 
-  /**
-   * Returns the starlark_doc_extract target's repository's repo mapping.
-   *
-   * <p>We return the target's repository's repo mapping, as opposed to the main repo mapping, to
-   * ensure label stringification does not change regardless of whether we are the main repo or a
-   * dependency. However, this does mean that label stringifactions we produce could be invalid in
-   * the main repo.
-   */
-  private static RepositoryMapping getTargetRepositoryMapping(RuleContext ruleContext)
+  /** Returns the main repository's repo mapping value. */
+  private static RepositoryMappingValue getMainRepositoryMappingValue(RuleContext ruleContext)
       throws RuleErrorException, InterruptedException {
     RepositoryMappingValue repositoryMappingValue;
     try {
@@ -279,23 +286,23 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
                   .getAnalysisEnvironment()
                   .getSkyframeEnv()
                   .getValueOrThrow(
-                      RepositoryMappingValue.key(ruleContext.getRepository()),
+                      RepositoryMappingValue.key(RepositoryName.MAIN),
                       RepositoryMappingResolutionException.class);
     } catch (RepositoryMappingResolutionException e) {
       ruleContext.ruleError(e.getMessage());
       throw new RuleErrorException(e);
     }
     verifyNotNull(repositoryMappingValue);
-    return repositoryMappingValue.getRepositoryMapping();
+    return repositoryMappingValue;
   }
 
   private static ModuleInfo getModuleInfo(
-      RuleContext ruleContext, Module module, RepositoryMapping repositoryMapping)
+      RuleContext ruleContext, Module module, LabelRenderer labelRenderer)
       throws RuleErrorException {
     ModuleInfo moduleInfo;
     try {
       moduleInfo =
-          new ModuleInfoExtractor(getWantedSymbolPredicate(ruleContext), repositoryMapping)
+          new ModuleInfoExtractor(getWantedSymbolPredicate(ruleContext), labelRenderer)
               .extractFrom(module);
     } catch (ModuleInfoExtractor.ExtractionException e) {
       ruleContext.ruleError(e.getMessage());

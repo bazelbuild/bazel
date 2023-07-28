@@ -673,8 +673,8 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected synchronized OutputStream getOutputStream(PathFragment path, boolean append)
-      throws IOException {
+  protected synchronized OutputStream getOutputStream(
+      PathFragment path, boolean append, boolean internal) throws IOException {
     InMemoryContentInfo status = getOrCreateWritableInode(path);
     return ((FileInfo) status).getOutputStream(append);
   }

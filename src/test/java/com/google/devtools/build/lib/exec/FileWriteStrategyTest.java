@@ -88,7 +88,7 @@ public final class FileWriteStrategyTest {
     OPEN_FAILURE {
       @Override
       void setupFileSystem(SpiedFileSystem fileSystem, PathFragment outputPath) throws IOException {
-        when(fileSystem.getOutputStream(outputPath, /*append=*/ false))
+        when(fileSystem.getOutputStream(outputPath, /* append= */ false, /* internal= */ false))
             .thenThrow(INJECTED_EXCEPTION);
       }
     },
@@ -103,7 +103,8 @@ public final class FileWriteStrategyTest {
       void setupFileSystem(SpiedFileSystem fileSystem, PathFragment outputPath) throws IOException {
         OutputStream outputStream = mock(OutputStream.class);
         doThrow(INJECTED_EXCEPTION).when(outputStream).close();
-        when(fileSystem.getOutputStream(outputPath, /*append=*/ false)).thenReturn(outputStream);
+        when(fileSystem.getOutputStream(outputPath, /* append= */ false, /* internal= */ false))
+            .thenReturn(outputStream);
       }
     };
 
