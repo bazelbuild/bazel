@@ -20,6 +20,7 @@ load(":common/java/java_semantics.bzl", "semantics")
 load(":common/rule_util.bzl", "merge_attrs")
 load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 load(":common/proto/proto_info.bzl", "ProtoInfo")
+load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/paths.bzl", "paths")
 load(":common/java/java_info.bzl", "JavaInfo", "JavaPluginInfo", "to_java_binary_info")
@@ -276,8 +277,13 @@ def basic_java_binary(
         executable = executable,
     )
 
+    run_environment_info = RunEnvironmentInfo(
+        environment = cc_helper.get_expanded_env(ctx, {}),
+    )
+
     return {
         "OutputGroupInfo": OutputGroupInfo(**output_groups),
+        "RunEnvironmentInfo": run_environment_info,
         "JavaInfo": java_binary_info,
         "InstrumentedFilesInfo": target["InstrumentedFilesInfo"],
         "JavaRuntimeClasspathInfo": JavaRuntimeClasspathInfo(runtime_classpath = java_info.transitive_runtime_jars),
