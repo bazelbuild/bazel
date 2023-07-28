@@ -1841,16 +1841,13 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + "Imported, but reported as indirect dependencies by the extension:\n"
             + "    indirect_dep, indirect_dev_dep\n"
             + "\n"
-            + "\033[35m\033[1m ** You can use the following buildozer command(s) to fix these"
+            + "\033[35m\033[1m ** You can use the following buildozer command to fix these"
             + " issues:\033[0m\n"
             + "\n"
             + "buildozer 'use_repo_add @ext//:defs.bzl ext missing_direct_dep non_dev_as_dev_dep'"
-            + " //MODULE.bazel:all\n"
-            + "buildozer 'use_repo_remove @ext//:defs.bzl ext dev_as_non_dev_dep"
-            + " indirect_dep invalid_dep' //MODULE.bazel:all\n"
-            + "buildozer 'use_repo_add dev @ext//:defs.bzl ext dev_as_non_dev_dep"
-            + " missing_direct_dev_dep' //MODULE.bazel:all\n"
-            + "buildozer 'use_repo_remove dev @ext//:defs.bzl ext indirect_dev_dep invalid_dev_dep"
+            + " 'use_repo_remove @ext//:defs.bzl ext dev_as_non_dev_dep indirect_dep invalid_dep'"
+            + " 'use_repo_add dev @ext//:defs.bzl ext dev_as_non_dev_dep missing_direct_dev_dep'"
+            + " 'use_repo_remove dev @ext//:defs.bzl ext indirect_dev_dep invalid_dev_dep"
             + " non_dev_as_dev_dep' //MODULE.bazel:all",
         ImmutableSet.of(EventKind.WARNING));
   }
@@ -1925,14 +1922,13 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + " extension (may cause the build to fail when used by other modules):\n"
             + "    direct_dev_dep, indirect_dev_dep\n"
             + "\n"
-            + "\033[35m\033[1m ** You can use the following buildozer command(s) to fix these"
+            + "\033[35m\033[1m ** You can use the following buildozer command to fix these"
             + " issues:\033[0m\n"
             + "\n"
             + "buildozer 'use_repo_add @ext//:defs.bzl ext direct_dev_dep indirect_dev_dep"
-            + " missing_direct_dep missing_direct_dev_dep' //MODULE.bazel:all\n"
-            + "buildozer 'use_repo_remove @ext//:defs.bzl ext invalid_dep' //MODULE.bazel:all\n"
-            + "buildozer 'use_repo_remove dev @ext//:defs.bzl ext direct_dev_dep indirect_dev_dep"
-            + " invalid_dev_dep' //MODULE.bazel:all",
+            + " missing_direct_dep missing_direct_dev_dep' 'use_repo_remove @ext//:defs.bzl ext"
+            + " invalid_dep' 'use_repo_remove dev @ext//:defs.bzl ext direct_dev_dep"
+            + " indirect_dev_dep invalid_dev_dep' //MODULE.bazel:all",
         ImmutableSet.of(EventKind.WARNING));
   }
 
@@ -2008,14 +2004,12 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + " extension (may cause the build to fail when used by other modules):\n"
             + "    direct_dep, indirect_dep\n"
             + "\n"
-            + "\033[35m\033[1m ** You can use the following buildozer command(s) to fix these"
+            + "\033[35m\033[1m ** You can use the following buildozer command to fix these"
             + " issues:\033[0m\n"
             + "\n"
             + "buildozer 'use_repo_remove @ext//:defs.bzl ext direct_dep indirect_dep invalid_dep'"
-            + " //MODULE.bazel:all\n"
-            + "buildozer 'use_repo_add dev @ext//:defs.bzl ext direct_dep indirect_dep"
-            + " missing_direct_dep missing_direct_dev_dep' //MODULE.bazel:all\n"
-            + "buildozer 'use_repo_remove dev @ext//:defs.bzl ext invalid_dev_dep'"
+            + " 'use_repo_add dev @ext//:defs.bzl ext direct_dep indirect_dep missing_direct_dep"
+            + " missing_direct_dev_dep' 'use_repo_remove dev @ext//:defs.bzl ext invalid_dev_dep'"
             + " //MODULE.bazel:all",
         ImmutableSet.of(EventKind.WARNING));
   }
@@ -2129,11 +2123,11 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + "Imported, but reported as indirect dependencies by the extension:\n"
             + "    indirect_dep\n"
             + "\n"
-            + "\033[35m\033[1m ** You can use the following buildozer command(s) to fix these"
+            + "\033[35m\033[1m ** You can use the following buildozer command to fix these"
             + " issues:\033[0m\n"
             + "\n"
-            + "buildozer 'use_repo_add ext1 direct_dep missing_direct_dep' //MODULE.bazel:all\n"
-            + "buildozer 'use_repo_remove ext1 indirect_dep' //MODULE.bazel:all",
+            + "buildozer 'use_repo_add ext1 direct_dep missing_direct_dep' 'use_repo_remove ext1"
+            + " indirect_dep' //MODULE.bazel:all",
         ImmutableSet.of(EventKind.WARNING));
     assertContainsEvent(
         "WARNING /ws/MODULE.bazel:8:21: The module extension ext defined in @ext//:defs.bzl"
@@ -2143,7 +2137,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + " build to fail):\n"
             + "    missing_direct_dep\n"
             + "\n"
-            + "\033[35m\033[1m ** You can use the following buildozer command(s) to fix these"
+            + "\033[35m\033[1m ** You can use the following buildozer command to fix these"
             + " issues:\033[0m\n"
             + "\n"
             + "buildozer 'use_repo_add ext2 missing_direct_dep' //MODULE.bazel:all",
@@ -2213,11 +2207,11 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + "Imported, but reported as indirect dependencies by the extension:\n"
             + "    indirect_dep\n"
             + "\n"
-            + "\033[35m\033[1m ** You can use the following buildozer command(s) to fix these"
+            + "\033[35m\033[1m ** You can use the following buildozer command to fix these"
             + " issues:\033[0m\n"
             + "\n"
-            + "buildozer 'use_repo_add ext1 direct_dep missing_direct_dep' //MODULE.bazel:all\n"
-            + "buildozer 'use_repo_remove ext1 indirect_dep' //MODULE.bazel:all",
+            + "buildozer 'use_repo_add ext1 direct_dep missing_direct_dep' 'use_repo_remove ext1"
+            + " indirect_dep' //MODULE.bazel:all",
         ImmutableSet.of(EventKind.WARNING));
     assertContainsEvent(
         "WARNING /ws/MODULE.bazel:8:21: The module extension ext defined in @ext//:defs.bzl"
@@ -2227,7 +2221,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + " build to fail):\n"
             + "    missing_direct_dep\n"
             + "\n"
-            + "\033[35m\033[1m ** You can use the following buildozer command(s) to fix these"
+            + "\033[35m\033[1m ** You can use the following buildozer command to fix these"
             + " issues:\033[0m\n"
             + "\n"
             + "buildozer 'use_repo_add ext2 missing_direct_dep' //MODULE.bazel:all",
