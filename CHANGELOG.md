@@ -1,3 +1,23 @@
+## Release 7.0.0-pre.20230710.5 (2023-07-28)
+
+```
+Baseline: 7845acae9769a72dc507dc2f57c4e032ebf429d3
+
+Cherry picks:
+
+   + d9e2f9181f8fa283e3986ee3b261e610c41cf61b:
+     Avoid overcounting in ActionLookupValueProgressReceiver.
+   + da23370dcdf6ea19545002fb86bd5d3e6519cdf6:
+     Fix crash for top level aspects on targets with non-idempotent
+     rule transitions.
+   + 4714cd70c83de43ba7ab10c29e63af716216770a:
+     Reuse the built set of tools in `SpawnAction.Builder`.
+   + 0a1d50533078283fab93024681c917303a91c46c:
+     Correctly handle symlinks when prefetching.
+```
+
+Initial release.
+
 ## Release 6.3.0 (2023-07-24)
 
 ```
