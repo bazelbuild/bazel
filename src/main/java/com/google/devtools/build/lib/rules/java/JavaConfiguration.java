@@ -154,10 +154,10 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.disallowJavaImportEmptyJars = javaOptions.disallowJavaImportEmptyJars;
 
     Map<String, Label> optimizers = javaOptions.bytecodeOptimizers;
-    if (optimizers.size() > 1) {
+    if (optimizers.size() != 1) {
       throw new InvalidConfigurationException(
           String.format(
-              "--experimental_bytecode_optimizers can only accept up to one mapping, but %d"
+              "--experimental_bytecode_optimizers can only accept exactly one mapping, but %d"
                   + " mappings were provided.",
               optimizers.size()));
     }
