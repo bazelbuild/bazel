@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.vfs.AbstractFileSystemWithCustomStat;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -143,7 +144,9 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   private boolean isRemote(PathFragment path) {
-    return getRemoteMetadata(path) != null;
+    var status = statInMemory(path, /* followSymlinks= */ true);
+    return (status instanceof FileStatusWithMetadata)
+        && ((FileStatusWithMetadata) status).getMetadata().isRemote();
   }
 
   public void updateContext(ActionExecutionMetadata action, MetadataInjector metadataInjector) {
@@ -214,8 +217,11 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
         "non-symlink artifact materialized as symlink must point to absolute path");
 
     if (output.isTreeArtifact()) {
-      TreeArtifactValue metadata = getRemoteTreeMetadata(targetPath);
-      if (metadata == null) {
+      TreeArtifactValue metadata =
+          inputArtifactData.getTreeMetadata(targetPath.relativeTo(execRoot));
+
+      // TODO: Handle partially remote tree artifacts.
+      if (metadata == null || !metadata.isEntirelyRemote()) {
         return;
       }
 
@@ -235,7 +241,14 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
 
       metadataInjector.injectTree(parent, injectedTree.build());
     } else {
-      RemoteFileArtifactValue metadata = getRemoteMetadata(targetPath);
+      RemoteFileArtifactValue metadata = null;
+
+      var status = statInMemory(targetPath, /* followSymlinks= */ true);
+      if (status instanceof FileStatusWithMetadata
+          && ((FileStatusWithMetadata) status).getMetadata().isRemote()) {
+        metadata = (RemoteFileArtifactValue) ((FileStatusWithMetadata) status).getMetadata();
+      }
+
       if (metadata == null) {
         return;
       }
@@ -327,18 +340,18 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   protected byte[] getFastDigest(PathFragment path) throws IOException {
-    RemoteFileArtifactValue m = getRemoteMetadata(path);
-    if (m != null) {
-      return m.getDigest();
+    var stat = statInMemory(path, /* followSymlinks= */ true);
+    if (stat instanceof FileStatusWithDigest) {
+      return ((FileStatusWithDigest) stat).getDigest();
     }
     return localFs.getPath(path).getFastDigest();
   }
 
   @Override
   protected byte[] getDigest(PathFragment path) throws IOException {
-    RemoteFileArtifactValue m = getRemoteMetadata(path);
-    if (m != null) {
-      return m.getDigest();
+    var status = statInMemory(path, /* followSymlinks= */ true);
+    if (status instanceof FileStatusWithDigest) {
+      return ((FileStatusWithDigest) status).getDigest();
     }
     return localFs.getPath(path).getDigest();
   }
@@ -348,7 +361,7 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
   // permissions.
 
   private boolean existsInMemory(PathFragment path) {
-    return remoteOutputTree.getPath(path).isDirectory() || getRemoteMetadata(path) != null;
+    return statInMemory(path, /* followSymlinks= */ true) != null;
   }
 
   @Override
@@ -430,8 +443,7 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   protected PathFragment readSymbolicLink(PathFragment path) throws IOException {
-    RemoteFileArtifactValue m = getRemoteMetadata(path);
-    if (m != null) {
+    if (isRemote(path)) {
       // We don't support symlinks as remote action outputs.
       throw new IOException(path + " is not a symbolic link");
     }
@@ -512,14 +524,27 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   protected FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
-    RemoteFileArtifactValue m = getRemoteMetadata(path);
-    if (m != null) {
-      return statFromRemoteMetadata(m);
+    var status = statInMemory(path, followSymlinks);
+    if (status != null) {
+      return status;
     }
     return localFs.getPath(path).stat(followSymlinks ? Symlinks.FOLLOW : Symlinks.NOFOLLOW);
   }
 
-  private static FileStatus statFromRemoteMetadata(RemoteFileArtifactValue m) {
+  @Nullable
+  private FileStatus statInMemory(PathFragment path, boolean followSymlinks) {
+    if (path.startsWith(execRoot)) {
+      var execPath = path.relativeTo(execRoot);
+      var metadata = inputArtifactData.getMetadata(execPath);
+      if (metadata != null) {
+        return statFromMetadata(metadata);
+      }
+    }
+
+    return remoteOutputTree.statNullable(path, followSymlinks);
+  }
+
+  private static FileStatusWithMetadata statFromMetadata(FileArtifactValue m) {
     return new FileStatusWithMetadata() {
       @Override
       public byte[] getDigest() {
@@ -567,7 +592,7 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
       }
 
       @Override
-      public RemoteFileArtifactValue getMetadata() {
+      public FileArtifactValue getMetadata() {
         return m;
       }
     };
@@ -595,48 +620,6 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
   FileArtifactValue getInputMetadata(ActionInput input) {
     PathFragment execPath = input.getExecPath();
     return inputArtifactData.getMetadata(execPath);
-  }
-
-  @Nullable
-  private FileArtifactValue getMetadataByExecPath(PathFragment execPath) {
-    FileArtifactValue m = inputArtifactData.getMetadata(execPath);
-    if (m != null) {
-      return m;
-    }
-
-    var stat =
-        remoteOutputTree.statNullable(execRoot.getRelative(execPath), /* followSymlinks= */ true);
-    if (stat instanceof FileStatusWithMetadata) {
-      return ((FileStatusWithMetadata) stat).getMetadata();
-    }
-
-    return null;
-  }
-
-  @Nullable
-  private RemoteFileArtifactValue getRemoteMetadata(PathFragment path) {
-    if (!isOutput(path)) {
-      return null;
-    }
-    FileArtifactValue m = getMetadataByExecPath(path.relativeTo(execRoot));
-    if (m != null && m.isRemote()) {
-      return (RemoteFileArtifactValue) m;
-    }
-    return null;
-  }
-
-  @Nullable
-  private TreeArtifactValue getRemoteTreeMetadata(PathFragment path) {
-    if (!isOutput(path)) {
-      return null;
-    }
-    TreeArtifactValue m = inputArtifactData.getTreeMetadata(path.relativeTo(execRoot));
-    // TODO: Handle partially remote tree artifacts.
-    if (m != null && m.isEntirelyRemote()) {
-      return m;
-    }
-    // TODO(tjgq): Synthesize TreeArtifactValue from remoteOutputTree.
-    return null;
   }
 
   private void downloadFileIfRemote(PathFragment path) throws IOException {

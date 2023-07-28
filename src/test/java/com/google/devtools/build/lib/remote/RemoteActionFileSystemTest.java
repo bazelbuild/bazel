@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -51,6 +52,8 @@ import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -60,6 +63,7 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Map;
 import org.junit.Before;
@@ -338,6 +342,64 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
 
     assertThat(actionFs.getInputMetadata(artifact)).isNull();
+  }
+
+  @Test
+  public void statAndExists_fromInputArtifactData() throws Exception {
+    ActionInputMap inputs = new ActionInputMap(1);
+    Artifact artifact = createLocalArtifact("local-file", "local contents", inputs);
+    PathFragment path = artifact.getPath().asFragment();
+    FileArtifactValue metadata = checkNotNull(inputs.getInputMetadata(artifact));
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
+
+    assertThat(actionFs.exists(path)).isTrue();
+
+    FileStatus st = actionFs.stat(path, /* followSymlinks= */ true);
+    assertThat(st.isFile()).isTrue();
+    assertThat(st).isInstanceOf(FileStatusWithDigest.class);
+    assertThat(((FileStatusWithDigest) st).getDigest()).isEqualTo(metadata.getDigest());
+  }
+
+  @Test
+  public void statAndExists_fromRemoteOutputTree() throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "out");
+    PathFragment path = artifact.getPath().asFragment();
+    FileArtifactValue metadata =
+        injectRemoteFile(actionFs, artifact.getPath().asFragment(), "remote contents");
+
+    assertThat(actionFs.exists(path)).isTrue();
+
+    FileStatus st = actionFs.stat(path, /* followSymlinks= */ true);
+    assertThat(st.isFile()).isTrue();
+    assertThat(st).isInstanceOf(FileStatusWithDigest.class);
+    assertThat(((FileStatusWithDigest) st).getDigest()).isEqualTo(metadata.getDigest());
+  }
+
+  @Test
+  public void statAndExists_fromLocalFilesystem() throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "out");
+    PathFragment path = artifact.getPath().asFragment();
+    writeLocalFile(actionFs, artifact.getPath().asFragment(), "local contents");
+
+    assertThat(actionFs.exists(path)).isTrue();
+
+    FileStatus st = actionFs.stat(path, /* followSymlinks= */ true);
+    assertThat(st.isFile()).isTrue();
+    assertThat(st.getSize()).isEqualTo("local contents".getBytes(UTF_8).length);
+  }
+
+  @Test
+  public void statAndExists_notFound() throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "out");
+    PathFragment path = artifact.getPath().asFragment();
+
+    assertThat(actionFs.exists(path)).isFalse();
+
+    assertThrows(
+        FileNotFoundException.class, () -> actionFs.stat(path, /* followSymlinks= */ true));
   }
 
   @Test
