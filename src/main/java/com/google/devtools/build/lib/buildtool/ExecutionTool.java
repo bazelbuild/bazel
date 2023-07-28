@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.ConvenienceSymlink;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions.ConvenienceSymlinksMode;
 import com.google.devtools.build.lib.buildtool.buildevent.ConvenienceSymlinksIdentifiedEvent;
-import com.google.devtools.build.lib.buildtool.buildevent.ExecRootPreparedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
@@ -282,9 +281,6 @@ public class ExecutionTool {
         incrementalPackageRoots.eagerlyPlantSymlinksToSingleSourceRoot();
       }
 
-      // We don't plant the symlinks via the subscribers of this ExecRootPreparedEvent, but rather
-      // via IncrementalPackageRoots.
-      env.getEventBus().post(ExecRootPreparedEvent.NO_PACKAGE_ROOTS_MAP);
       env.getSkyframeBuildView()
           .getArtifactFactory()
           .setPackageRoots(incrementalPackageRoots.getPackageRootLookup());
@@ -650,7 +646,6 @@ public class ExecutionTool {
             e);
       }
     }
-    env.getEventBus().post(new ExecRootPreparedEvent(packageRootMap));
   }
 
   private static void logDeleteTreeFailure(

@@ -510,7 +510,7 @@ class Parent implements StateMachine {
     //   return new Delegate(this::afterDelegation);
     // would cause `Delegate.step` to execute after `step` completes which would
     // cause lookups of `Key1` and `Key2` to be sequential instead of parallel.
-    return new Delegate(this::afterDelegation).step(tasks, listener);
+    return new Delegate(this::afterDelegation).step(tasks);
   }
 
   private StateMachine afterDelegation(Tasks tasks) {
@@ -931,7 +931,7 @@ private Result computeResult(State state, Skyfunction.Environment env)
     state.resultProducer = new Driver(new ResultProducer(
       new Parameters(), (ResultProducer.ResultSink)state));
   }
-  if (state.resultProducer.drive(env, env.getListener())) {
+  if (state.resultProducer.drive(env)) {
     // Clears the `Driver` instance as it is no longer needed.
     state.resultProducer = null;
   }
@@ -959,7 +959,7 @@ class ResultProducer implements StateMachine {
   @Nullable  // Null when a Skyframe restart is needed.
   public ResultType tryProduceValue( SkyFunction.Environment env)
       throws InterruptedException {
-    if (!driver.drive(env, listener)) {
+    if (!driver.drive(env)) {
       return null;
     }
     return result;
@@ -984,7 +984,7 @@ Result computeResult(SkyFunction.Environment env, State state)
   if (state.resultProducer == null) {
     state.resultProducer = new ResultProducer(new Parameters());
   }
-  var result = state.resultProducer.tryProduceValue(env, env.getListener());
+  var result = state.resultProducer.tryProduceValue(env);
   if (result == null) {
     return null;
   }

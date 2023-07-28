@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.vfs;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
@@ -127,7 +128,7 @@ public abstract class FileSystem {
    * this method returns {@code false}. The implementation can try to emulate these calls at its own
    * discretion.
    */
-  protected abstract boolean supportsHardLinksNatively(PathFragment path);
+  public abstract boolean supportsHardLinksNatively(PathFragment path);
 
   /***
    * Returns true if file path is case-sensitive on this file system. Default is true.
@@ -184,7 +185,19 @@ public abstract class FileSystem {
    * <p>This method is not atomic -- concurrent modifications for the same path will result in
    * undefined behavior.
    */
-  protected abstract boolean createWritableDirectory(PathFragment path) throws IOException;
+  protected boolean createWritableDirectory(PathFragment path) throws IOException {
+    FileStatus stat = statNullable(path, /* followSymlinks= */ false);
+    if (stat == null) {
+      return createDirectory(path);
+    }
+
+    if (!stat.isDirectory()) {
+      throw new IOException(path + " (Not a directory)");
+    }
+
+    chmod(path, 0755);
+    return false;
+  }
 
   /**
    * Creates all directories up to the path. See {@link Path#createDirectoryAndParents} for
@@ -420,10 +433,11 @@ public abstract class FileSystem {
   }
 
   /**
-   * Returns the canonical path for the given path. See {@link Path#resolveSymbolicLinks} for
-   * specification.
+   * Returns the canonical path for the given path, which must be absolute. See {@link
+   * Path#resolveSymbolicLinks} for specification.
    */
   protected Path resolveSymbolicLinks(PathFragment path) throws IOException {
+    checkArgument(path.isAbsolute());
     PathFragment parentNode = path.getParentDirectory();
     return parentNode == null
         ? getPath(path) // (root)
@@ -738,7 +752,7 @@ public abstract class FileSystem {
    * @throws IOException if there was an error opening the file for writing
    */
   protected final OutputStream getOutputStream(PathFragment path) throws IOException {
-    return getOutputStream(path, false);
+    return getOutputStream(path, /* append= */ false);
   }
 
   /**
@@ -747,8 +761,10 @@ public abstract class FileSystem {
    * @param append whether to open the output stream in append mode
    * @throws IOException if there was an error opening the file for writing
    */
-  protected abstract OutputStream getOutputStream(PathFragment path, boolean append)
-      throws IOException;
+  protected final OutputStream getOutputStream(PathFragment path, boolean append)
+      throws IOException {
+    return getOutputStream(path, append, /* internal= */ false);
+  }
 
   /**
    * Creates an OutputStream accessing the file denoted by path.
