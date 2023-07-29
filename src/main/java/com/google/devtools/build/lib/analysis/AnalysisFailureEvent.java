@@ -11,22 +11,22 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.analysis;
+
+import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.configurationId;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
-import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -40,29 +40,52 @@ import javax.annotation.Nullable;
  * target cannot be completed because of an error in one of its dependencies.
  */
 public class AnalysisFailureEvent implements BuildEvent {
-  @Nullable private final AspectKey failedAspect;
   private final ConfiguredTargetKey failedTarget;
-  private final BuildEventId configuration;
+  @Nullable private final AspectKey failedAspect;
+  /**
+   * True if the target is configured.
+   *
+   * <p>The configuration of a target is undefined until its analysis is complete so this is often
+   * false, but true for aspects and action conflict errors, both of which occur after the
+   * configuration is determined.
+   */
+  private final boolean isConfigured;
+
   private final NestedSet<Cause> rootCauses;
 
-  public AnalysisFailureEvent(
-      ActionLookupKeyOrProxy failedTarget,
-      BuildEventId configuration,
-      NestedSet<Cause> rootCauses) {
+  public static AnalysisFailureEvent whileAnalyzingTarget(
+      ConfiguredTargetKey failedTarget, NestedSet<Cause> rootCauses) {
+    return new AnalysisFailureEvent(
+        failedTarget, /* failedAspect= */ null, /* isConfigured= */ false, rootCauses);
+  }
+
+  public static AnalysisFailureEvent actionConflict(
+      ActionLookupKey failedTarget, NestedSet<Cause> rootCauses) {
     Preconditions.checkArgument(
         failedTarget instanceof ConfiguredTargetKey || failedTarget instanceof AspectKey);
     if (failedTarget instanceof ConfiguredTargetKey) {
-      this.failedAspect = null;
-      this.failedTarget = (ConfiguredTargetKey) failedTarget;
-    } else {
-      this.failedAspect = (AspectKey) failedTarget;
-      this.failedTarget = failedAspect.getBaseConfiguredTargetKey();
+      return new AnalysisFailureEvent(
+          (ConfiguredTargetKey) failedTarget,
+          /* failedAspect= */ null,
+          /* isConfigured= */ true,
+          rootCauses);
     }
-    if (configuration != null) {
-      this.configuration = configuration;
-    } else {
-      this.configuration = NullConfiguration.INSTANCE.getEventId();
-    }
+    AspectKey failedAspect = (AspectKey) failedTarget;
+    return new AnalysisFailureEvent(
+        failedAspect.getBaseConfiguredTargetKey(),
+        failedAspect,
+        /* isConfigured= */ true,
+        rootCauses);
+  }
+
+  private AnalysisFailureEvent(
+      ConfiguredTargetKey failedTarget,
+      @Nullable AspectKey failedAspect,
+      boolean isConfigured,
+      NestedSet<Cause> rootCauses) {
+    this.failedTarget = failedTarget;
+    this.failedAspect = failedAspect;
+    this.isConfigured = isConfigured;
     this.rootCauses = rootCauses;
   }
 
@@ -71,7 +94,7 @@ public class AnalysisFailureEvent implements BuildEvent {
     return MoreObjects.toStringHelper(this)
         .add("failedAspect", failedAspect)
         .add("failedTarget", failedTarget)
-        .add("configuration", configuration)
+        .add("isConfigured", isConfigured)
         .add("legacyFailureReason", getLegacyFailureReason())
         .toString();
   }
@@ -81,8 +104,9 @@ public class AnalysisFailureEvent implements BuildEvent {
   }
 
   @VisibleForTesting
+  @Nullable
   BuildEventId getConfigurationId() {
-    return configuration;
+    return isConfigured ? configurationId(failedTarget.getConfigurationKey()) : null;
   }
 
   /**
@@ -101,12 +125,16 @@ public class AnalysisFailureEvent implements BuildEvent {
 
   @Override
   public BuildEventId getEventId() {
-    if (failedAspect == null) {
-      return BuildEventIdUtil.targetCompleted(failedTarget.getLabel(), configuration);
-    } else {
-      return BuildEventIdUtil.aspectCompleted(
-          failedTarget.getLabel(), configuration, failedAspect.getAspectName());
+    Label label = failedTarget.getLabel();
+    if (!isConfigured) {
+      return BuildEventIdUtil.targetConfigured(label);
     }
+    if (failedAspect == null) {
+      return BuildEventIdUtil.targetCompleted(
+          label, configurationId(failedTarget.getConfigurationKey()));
+    }
+    return BuildEventIdUtil.aspectCompleted(
+        label, configurationId(failedAspect.getConfigurationKey()), failedAspect.getAspectName());
   }
 
   @Override

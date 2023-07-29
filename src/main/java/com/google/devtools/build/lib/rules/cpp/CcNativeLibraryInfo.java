@@ -84,8 +84,12 @@ public final class CcNativeLibraryInfo extends NativeInfo implements CcNativeLib
     @Override
     public CcNativeLibraryInfo createCcNativeLibraryInfo(Object librariesToLinkObject)
         throws EvalException {
-      return new CcNativeLibraryInfo(
-          Depset.cast(librariesToLinkObject, LibraryToLink.class, "libraries_to_link"));
+      NestedSet<LibraryToLink> librariesToLink =
+          Depset.cast(librariesToLinkObject, LibraryToLink.class, "libraries_to_link");
+      if (librariesToLink.isEmpty()) {
+        return EMPTY;
+      }
+      return new CcNativeLibraryInfo(librariesToLink);
     }
   }
 }

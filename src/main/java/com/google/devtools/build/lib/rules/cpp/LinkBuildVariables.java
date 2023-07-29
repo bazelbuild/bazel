@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuilder;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 
 /** Enum covering all build variables we create for all various {@link CppLinkAction}. */
 public enum LinkBuildVariables {
@@ -97,6 +98,7 @@ public enum LinkBuildVariables {
   }
 
   public static CcToolchainVariables setupVariables(
+      StarlarkThread thread,
       boolean isUsingLinkerNotArchiver,
       PathFragment binDirectoryPath,
       String outputFile,
@@ -116,16 +118,17 @@ public enum LinkBuildVariables {
       String interfaceLibraryBuilder,
       String interfaceLibraryOutput,
       PathFragment ltoOutputRootPrefix,
+      PathFragment ltoObjRootPrefix,
       String defFile,
       FdoContext fdoContext,
       NestedSet<String> runtimeLibrarySearchDirectories,
       SequenceBuilder librariesToLink,
       NestedSet<String> librarySearchDirectories,
       boolean addIfsoRelatedVariables)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     CcToolchainVariables.Builder buildVariables =
         CcToolchainVariables.builder(
-            ccToolchainProvider.getBuildVariables(buildOptions, cppConfiguration));
+            ccToolchainProvider.getBuildVariables(thread, buildOptions, cppConfiguration));
 
     // pic
     if (cppConfiguration.forcePic()) {
@@ -183,13 +186,27 @@ public enum LinkBuildVariables {
         // TODO(b/33846234): Remove once all the relevant crosstools don't depend on the variable.
         buildVariables.addStringVariable("thinlto_optional_params_file", "");
       }
-      // Given "fullbitcode_prefix;thinlto_index_prefix", replaces fullbitcode_prefix with
-      // thinlto_index_prefix to generate the index and imports files.
+      // Given "fullbitcode_prefix;thinlto_index_prefix;native_object_prefix", replaces
+      // fullbitcode_prefix with thinlto_index_prefix to generate the index and imports files.
       // fullbitcode_prefix is the empty string because we are appending a prefix to the fullbitcode
       // instead of replacing it. This argument is passed to the linker.
-      buildVariables.addStringVariable(
-          THINLTO_PREFIX_REPLACE.getVariableName(),
-          ";" + binDirectoryPath.getRelative(ltoOutputRootPrefix) + '/');
+      // The native objects generated after the LTOBackend action are stored in a directory by
+      // replacing the prefix "fullbitcode_prefix" with "native_object_prefix", and this is used
+      // when generating the param file in the indexing step, which will be used during the final
+      // link step.
+      if (!ltoOutputRootPrefix.equals(ltoObjRootPrefix)) {
+        buildVariables.addStringVariable(
+            THINLTO_PREFIX_REPLACE.getVariableName(),
+            ";"
+                + binDirectoryPath.getRelative(ltoOutputRootPrefix)
+                + "/;"
+                + binDirectoryPath.getRelative(ltoObjRootPrefix)
+                + "/");
+      } else {
+        buildVariables.addStringVariable(
+            THINLTO_PREFIX_REPLACE.getVariableName(),
+            ";" + binDirectoryPath.getRelative(ltoOutputRootPrefix) + "/");
+      }
       String objectFileExtension =
           ccToolchainProvider
               .getFeatures()

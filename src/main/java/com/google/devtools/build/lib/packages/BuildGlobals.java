@@ -121,7 +121,7 @@ public class BuildGlobals {
     PackageContext context = PackageFactory.getContext(thread);
     try {
       License license = BuildType.LICENSE.convert(licensesList, "'licenses' operand");
-      context.pkgBuilder.setDefaultLicense(license);
+      context.pkgBuilder.mergePackageArgsFrom(PackageArgs.builder().setLicense(license));
     } catch (ConversionException e) {
       context.eventHandler.handle(
           Package.error(thread.getCallerLocation(), e.getMessage(), Code.LICENSE_PARSE_FAILURE));
@@ -144,7 +144,7 @@ public class BuildGlobals {
     try {
       Set<DistributionType> distribs =
           BuildType.DISTRIBUTIONS.convert(object, "'distribs' operand");
-      context.pkgBuilder.setDefaultDistribs(distribs);
+      context.pkgBuilder.mergePackageArgsFrom(PackageArgs.builder().setDistribs(distribs));
     } catch (ConversionException e) {
       context.eventHandler.handle(
           Package.error(

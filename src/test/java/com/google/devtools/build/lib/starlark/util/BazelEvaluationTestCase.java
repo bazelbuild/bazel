@@ -44,7 +44,6 @@ import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.syntax.Expression;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.SyntaxError;
@@ -81,15 +80,6 @@ public final class BazelEvaluationTestCase {
 
   public ExtendedEventHandler getEventHandler() {
     return eventCollectionApparatus.reporter();
-  }
-
-  // TODO(adonovan): don't let subclasses inherit vaguely specified "helpers".
-  // Separate all the tests clearly into tests of the scanner, parser, resolver,
-  // and evaluation.
-
-  /** Parses an expression. */
-  final Expression parseExpression(String... lines) throws SyntaxError.Exception {
-    return Expression.parse(ParserInput.fromLines(lines));
   }
 
   /** Updates a global binding in the module. */
@@ -191,24 +181,10 @@ public final class BazelEvaluationTestCase {
     }
   }
 
-  public void checkEvalErrorDoesNotContain(String msg, String... input) throws Exception {
-    try {
-      exec(input);
-    } catch (SyntaxError.Exception | EvalException | EventCollectionApparatus.FailFastException e) {
-      assertThat(e).hasMessageThat().doesNotContain(msg);
-    }
-  }
-
   // Forward relevant methods to the EventCollectionApparatus
   @CanIgnoreReturnValue
   public BazelEvaluationTestCase setFailFast(boolean failFast) {
     eventCollectionApparatus.setFailFast(failFast);
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public BazelEvaluationTestCase assertNoWarningsOrErrors() {
-    eventCollectionApparatus.assertNoWarningsOrErrors();
     return this;
   }
 
@@ -218,20 +194,6 @@ public final class BazelEvaluationTestCase {
 
   public Event assertContainsError(String expectedMessage) {
     return eventCollectionApparatus.assertContainsError(expectedMessage);
-  }
-
-  public Event assertContainsWarning(String expectedMessage) {
-    return eventCollectionApparatus.assertContainsWarning(expectedMessage);
-  }
-
-  public Event assertContainsDebug(String expectedMessage) {
-    return eventCollectionApparatus.assertContainsDebug(expectedMessage);
-  }
-
-  @CanIgnoreReturnValue
-  public BazelEvaluationTestCase clearEvents() {
-    eventCollectionApparatus.clear();
-    return this;
   }
 
   /** Encapsulates a separate test which can be executed by a Scenario. */
@@ -297,13 +259,6 @@ public final class BazelEvaluationTestCase {
       return this;
     }
 
-    /** Evaluates an expression and compares its result to the ordered list of expected objects. */
-    @CanIgnoreReturnValue
-    public Scenario testExactOrder(String src, Object... items) throws Exception {
-      runTest(collectionTestable(src, items));
-      return this;
-    }
-
     /** Evaluates an expression and checks whether it fails with the expected error. */
     @CanIgnoreReturnValue
     public Scenario testIfExactError(String expectedError, String... lines) throws Exception {
@@ -315,13 +270,6 @@ public final class BazelEvaluationTestCase {
     @CanIgnoreReturnValue
     public Scenario testIfErrorContains(String expectedError, String... lines) throws Exception {
       runTest(errorTestable(false, expectedError, lines));
-      return this;
-    }
-
-    /** Looks up the value of the specified variable and compares it to the expected value. */
-    @CanIgnoreReturnValue
-    public Scenario testLookup(String name, Object expected) throws Exception {
-      runTest(createLookUpTestable(name, expected));
       return this;
     }
 
@@ -341,19 +289,6 @@ public final class BazelEvaluationTestCase {
           } else {
             checkEvalErrorContains(error, lines);
           }
-        }
-      };
-    }
-
-    /**
-     * Creates a Testable that checks whether the value of the expression is a sequence containing
-     * the expected elements.
-     */
-    private Testable collectionTestable(final String src, final Object... expected) {
-      return new Testable() {
-        @Override
-        public void run() throws Exception {
-          assertThat((Iterable<?>) eval(src)).containsExactly(expected).inOrder();
         }
       };
     }
@@ -382,23 +317,6 @@ public final class BazelEvaluationTestCase {
           }
 
           assertThat(actual).isEqualTo(realExpected);
-        }
-      };
-    }
-
-    /**
-     * Creates a Testable that looks up the given variable and compares its value to the expected
-     * value
-     *
-     * @param name
-     * @param expected
-     * @return An instance of Testable that does both lookup and comparison
-     */
-    private Testable createLookUpTestable(final String name, final Object expected) {
-      return new Testable() {
-        @Override
-        public void run() throws Exception {
-          assertThat(lookup(name)).isEqualTo(expected);
         }
       };
     }

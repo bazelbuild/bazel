@@ -14,10 +14,13 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Arrays.stream;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -31,6 +34,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputMap;
@@ -47,8 +51,12 @@ import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -58,6 +66,7 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Map;
 import org.junit.Before;
@@ -72,7 +81,7 @@ import org.mockito.stubbing.Answer;
 public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTestBase {
   private static final RemoteOutputChecker DUMMY_REMOTE_OUTPUT_CHECKER =
       new RemoteOutputChecker(
-          new JavaClock(), "build", /* downloadToplevel= */ false, ImmutableList.of());
+          new JavaClock(), "build", RemoteOutputsMode.MINIMAL, ImmutableList.of());
 
   private static final DigestHashFunction HASH_FUNCTION = DigestHashFunction.SHA256;
 
@@ -105,7 +114,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
             outputs,
             fileCache,
             inputFetcher);
-    remoteActionFileSystem.updateContext(metadataInjector);
+    remoteActionFileSystem.updateContext(mock(ActionExecutionMetadata.class), metadataInjector);
     remoteActionFileSystem.createDirectoryAndParents(outputRoot.getRoot().asPath().asFragment());
     return remoteActionFileSystem;
   }
@@ -156,7 +165,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     FileSystem actionFs = createActionFileSystem(inputs);
     doAnswer(mockPrefetchFile(artifact.getPath(), "remote contents"))
         .when(inputFetcher)
-        .prefetchFiles(eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL));
+        .prefetchFiles(any(), eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL));
 
     // act
     Path actionFsPath = actionFs.getPath(artifact.getPath().asFragment());
@@ -166,7 +175,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     assertThat(actionFsPath.getFileSystem()).isSameInstanceAs(actionFs);
     assertThat(contents).isEqualTo("remote contents");
     verify(inputFetcher)
-        .prefetchFiles(eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL));
+        .prefetchFiles(any(), eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL));
     verifyNoMoreInteractions(inputFetcher);
   }
 
@@ -178,7 +187,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     injectRemoteFile(actionFs, artifact.getPath().asFragment(), "remote contents");
     doAnswer(mockPrefetchFile(artifact.getPath(), "remote contents"))
         .when(inputFetcher)
-        .prefetchFiles(eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL));
+        .prefetchFiles(any(), eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL));
 
     // act
     Path actionFsPath = actionFs.getPath(artifact.getPath().asFragment());
@@ -188,7 +197,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     assertThat(actionFsPath.getFileSystem()).isSameInstanceAs(actionFs);
     assertThat(contents).isEqualTo("remote contents");
     verify(inputFetcher)
-        .prefetchFiles(eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL));
+        .prefetchFiles(any(), eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL));
     verifyNoMoreInteractions(inputFetcher);
   }
 
@@ -201,7 +210,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     injectRemoteFile(actionFs, path.asFragment(), "remote contents");
     doAnswer(mockPrefetchFile(path, "remote contents"))
         .when(inputFetcher)
-        .prefetchFiles(eq(ImmutableList.of(input)), any(), eq(Priority.CRITICAL));
+        .prefetchFiles(any(), eq(ImmutableList.of(input)), any(), eq(Priority.CRITICAL));
 
     // act
     Path actionFsPath = actionFs.getPath(path.asFragment());
@@ -210,7 +219,8 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     // assert
     assertThat(actionFsPath.getFileSystem()).isSameInstanceAs(actionFs);
     assertThat(contents).isEqualTo("remote contents");
-    verify(inputFetcher).prefetchFiles(eq(ImmutableList.of(input)), any(), eq(Priority.CRITICAL));
+    verify(inputFetcher)
+        .prefetchFiles(any(), eq(ImmutableList.of(input)), any(), eq(Priority.CRITICAL));
     verifyNoMoreInteractions(inputFetcher);
   }
 
@@ -335,6 +345,145 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
 
     assertThat(actionFs.getInputMetadata(artifact)).isNull();
+  }
+
+  @Test
+  public void statAndExists_fromInputArtifactData() throws Exception {
+    ActionInputMap inputs = new ActionInputMap(1);
+    Artifact artifact = createLocalArtifact("local-file", "local contents", inputs);
+    PathFragment path = artifact.getPath().asFragment();
+    FileArtifactValue metadata = checkNotNull(inputs.getInputMetadata(artifact));
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
+
+    assertThat(actionFs.exists(path)).isTrue();
+
+    FileStatus st = actionFs.stat(path, /* followSymlinks= */ true);
+    assertThat(st.isFile()).isTrue();
+    assertThat(st).isInstanceOf(FileStatusWithDigest.class);
+    assertThat(((FileStatusWithDigest) st).getDigest()).isEqualTo(metadata.getDigest());
+  }
+
+  @Test
+  public void statAndExists_fromRemoteOutputTree() throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "out");
+    PathFragment path = artifact.getPath().asFragment();
+    FileArtifactValue metadata =
+        injectRemoteFile(actionFs, artifact.getPath().asFragment(), "remote contents");
+
+    assertThat(actionFs.exists(path)).isTrue();
+
+    FileStatus st = actionFs.stat(path, /* followSymlinks= */ true);
+    assertThat(st.isFile()).isTrue();
+    assertThat(st).isInstanceOf(FileStatusWithDigest.class);
+    assertThat(((FileStatusWithDigest) st).getDigest()).isEqualTo(metadata.getDigest());
+  }
+
+  @Test
+  public void statAndExists_fromLocalFilesystem() throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "out");
+    PathFragment path = artifact.getPath().asFragment();
+    writeLocalFile(actionFs, artifact.getPath().asFragment(), "local contents");
+
+    assertThat(actionFs.exists(path)).isTrue();
+
+    FileStatus st = actionFs.stat(path, /* followSymlinks= */ true);
+    assertThat(st.isFile()).isTrue();
+    assertThat(st.getSize()).isEqualTo("local contents".getBytes(UTF_8).length);
+  }
+
+  @Test
+  public void statAndExists_notFound() throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "out");
+    PathFragment path = artifact.getPath().asFragment();
+
+    assertThat(actionFs.exists(path)).isFalse();
+
+    assertThrows(
+        FileNotFoundException.class, () -> actionFs.stat(path, /* followSymlinks= */ true));
+  }
+
+  @Test
+  public void readdir_fromRemoteOutputTree() throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    Artifact a1 = ActionsTestUtil.createArtifact(outputRoot, "dir/out1");
+    Artifact a2 = ActionsTestUtil.createArtifact(outputRoot, "dir/out2");
+    Artifact a3 = ActionsTestUtil.createArtifact(outputRoot, "dir/subdir/out3");
+    injectRemoteFile(actionFs, a1.getPath().asFragment(), "contents1");
+    injectRemoteFile(actionFs, a2.getPath().asFragment(), "contents2");
+    injectRemoteFile(actionFs, a3.getPath().asFragment(), "contents3");
+    PathFragment dirPath = a1.getPath().getParentDirectory().asFragment();
+
+    assertReaddir(
+        actionFs,
+        dirPath,
+        new Dirent("out1", Dirent.Type.FILE),
+        new Dirent("out2", Dirent.Type.FILE),
+        new Dirent("subdir", Dirent.Type.DIRECTORY));
+  }
+
+  @Test
+  public void readdir_fromLocalFilesystem() throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    Artifact a1 = ActionsTestUtil.createArtifact(outputRoot, "dir/out1");
+    Artifact a2 = ActionsTestUtil.createArtifact(outputRoot, "dir/out2");
+    Artifact a3 = ActionsTestUtil.createArtifact(outputRoot, "dir/subdir/out3");
+    writeLocalFile(actionFs, a1.getPath().asFragment(), "contents1");
+    writeLocalFile(actionFs, a2.getPath().asFragment(), "contents2");
+    writeLocalFile(actionFs, a3.getPath().asFragment(), "contents3");
+    PathFragment dirPath = a1.getPath().getParentDirectory().asFragment();
+
+    assertReaddir(
+        actionFs,
+        dirPath,
+        new Dirent("out1", Dirent.Type.FILE),
+        new Dirent("out2", Dirent.Type.FILE),
+        new Dirent("subdir", Dirent.Type.DIRECTORY));
+  }
+
+  @Test
+  public void readdir_fromBothFilesystems() throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    Artifact a1 = ActionsTestUtil.createArtifact(outputRoot, "dir/out1");
+    Artifact a2 = ActionsTestUtil.createArtifact(outputRoot, "dir/out2");
+    Artifact a3 = ActionsTestUtil.createArtifact(outputRoot, "dir/subdir/out3");
+    Artifact a4 = ActionsTestUtil.createArtifact(outputRoot, "dir/subdir/out4");
+    writeLocalFile(actionFs, a1.getPath().asFragment(), "contents1");
+    writeLocalFile(actionFs, a2.getPath().asFragment(), "contents2");
+    injectRemoteFile(actionFs, a2.getPath().asFragment(), "contents2");
+    injectRemoteFile(actionFs, a3.getPath().asFragment(), "contents3");
+    injectRemoteFile(actionFs, a4.getPath().asFragment(), "contents4");
+    PathFragment dirPath = a1.getPath().getParentDirectory().asFragment();
+
+    assertReaddir(
+        actionFs,
+        dirPath,
+        new Dirent("out1", Dirent.Type.FILE),
+        new Dirent("out2", Dirent.Type.FILE),
+        new Dirent("subdir", Dirent.Type.DIRECTORY));
+  }
+
+  @Test
+  public void readdir_notFound() throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "dir/out");
+    PathFragment path = artifact.getPath().getParentDirectory().asFragment();
+
+    assertThrows(FileNotFoundException.class, () -> actionFs.getDirectoryEntries(path));
+    assertThrows(
+        FileNotFoundException.class, () -> actionFs.readdir(path, /* followSymlinks= */ true));
+  }
+
+  private void assertReaddir(
+      RemoteActionFileSystem actionFs, PathFragment dirPath, Dirent... expected) throws Exception {
+    assertThat(actionFs.readdir(dirPath, /* followSymlinks= */ true))
+        .containsExactlyElementsIn(expected)
+        .inOrder();
+    assertThat(actionFs.getDirectoryEntries(dirPath))
+        .containsExactlyElementsIn(stream(expected).map(Dirent::getName).collect(toImmutableList()))
+        .inOrder();
   }
 
   @Test
@@ -539,6 +688,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   @Override
   protected void writeLocalFile(FileSystem actionFs, PathFragment path, String content)
       throws IOException {
+    actionFs.getPath(path).getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContent(actionFs.getPath(path), UTF_8, content);
   }
 

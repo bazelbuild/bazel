@@ -621,7 +621,7 @@ load('//test:rule.bzl', 'my_rule')
 my_rule(name = 'test')
 EOF
   bazel build //test:test >& "$TEST_log" || exit_code="$?"
-  assert_equals 2 "$exit_code" || fail "Expected exit code 2"
+  assert_equals 1 "$exit_code" || fail "Expected exit code 1"
   expect_log "CPU name '//bad:cpu'"
   expect_log "is invalid as part of a path: must not contain /"
 }

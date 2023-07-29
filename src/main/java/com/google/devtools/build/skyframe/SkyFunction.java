@@ -139,10 +139,11 @@ public interface SkyFunction {
   }
 
   /**
-   * The services provided to the {@link SkyFunction#compute} implementation by the Skyframe
-   * evaluation framework.
+   * Value lookup subset of services provided to {@link SkyFunction} implementations.
+   *
+   * <p>See {@link Environment} for the full set of services.
    */
-  interface Environment {
+  interface LookupEnvironment {
     /**
      * Returns a direct dependency. If the specified value is not in the set of already evaluated
      * direct dependencies, returns {@code null}. Also returns {@code null} if the specified value
@@ -157,6 +158,7 @@ public interface SkyFunction {
      * must not be caught by the {@link SkyFunction#compute} implementation. Instead, they should be
      * propagated up to the caller of {@link SkyFunction#compute}.
      */
+    @CanIgnoreReturnValue
     @Nullable
     SkyValue getValue(SkyKey valueName) throws InterruptedException;
 
@@ -174,15 +176,18 @@ public interface SkyFunction {
      * or a subtype of {@link InterruptedException}. See {@link
      * SkyFunctionException#validateExceptionType} for details.
      */
+    @CanIgnoreReturnValue
     @Nullable
     <E extends Exception> SkyValue getValueOrThrow(SkyKey depKey, Class<E> exceptionClass)
         throws E, InterruptedException;
 
+    @CanIgnoreReturnValue
     @Nullable
     <E1 extends Exception, E2 extends Exception> SkyValue getValueOrThrow(
         SkyKey depKey, Class<E1> exceptionClass1, Class<E2> exceptionClass2)
         throws E1, E2, InterruptedException;
 
+    @CanIgnoreReturnValue
     @Nullable
     <E1 extends Exception, E2 extends Exception, E3 extends Exception> SkyValue getValueOrThrow(
         SkyKey depKey,
@@ -191,6 +196,7 @@ public interface SkyFunction {
         Class<E3> exceptionClass3)
         throws E1, E2, E3, InterruptedException;
 
+    @CanIgnoreReturnValue
     @Nullable
     <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
         SkyValue getValueOrThrow(
@@ -257,14 +263,29 @@ public interface SkyFunction {
         throws InterruptedException;
 
     /**
+     * Returns a lookup result containing previously requested dependencies.
+     *
+     * <p>NB: this may contain fewer dependencies than expected if the node is restarted before all
+     * its dependencies have signaled. The two known cases are error bubbling and partial
+     * re-evaluation. In error bubbling, an error should be present.
+     */
+    SkyframeLookupResult getLookupHandleForPreviouslyRequestedDeps();
+  }
+
+  /**
+   * The services provided to the {@link SkyFunction#compute} implementation by the Skyframe
+   * evaluation framework.
+   */
+  interface Environment extends LookupEnvironment {
+    /**
      * Returns whether there was a previous getValue[s][OrThrow] that indicated a missing
      * dependency. Formally, returns true iff at least one of the following occurred:
      *
      * <ul>
      *   <li>getValue[OrThrow](k[, c]) returned {@code null} for some k
-     *   <li>A call to result#next[OrThrow]([c]) returned {@code null} where result =
+     *   <li>A call to {@code result#get[OrThrow](k[, c])} returned {@code null} where result =
      *       getValuesAndExceptions(ks) for some ks
-     *   <li>A call to result#get[OrThrow](k[, c]) returned {@code null} where result =
+     *   <li>A call to {@code result#queryDep(k, cb)} returned {@code false} where result =
      *       getValuesAndExceptions(ks) for some ks
      * </ul>
      *
@@ -360,15 +381,6 @@ public interface SkyFunction {
     boolean restartPermitted();
 
     /**
-     * Returns a lookup result containing previously requested dependencies.
-     *
-     * <p>NB: this may contain fewer dependencies than expected if the node is restarted before all
-     * its dependencies have signaled. The two known cases are error bubbling and partial
-     * re-evaluation. In error bubbling, an error should be present.
-     */
-    SkyframeLookupResult getLookupHandleForPreviouslyRequestedDeps();
-
-    /**
      * Container for data stored in between calls to {@link #compute} for the same {@link SkyKey}.
      *
      * <p>See the javadoc of {@link #getState} for motivation and an example.
@@ -383,6 +395,8 @@ public interface SkyFunction {
        * drop {@link SkyKeyComputeState} objects on high memory pressure. If the external resource
        * being held on to is approaching starvation, we currently don't do anything to alleviate
        * that pressure. So think *hard* before you start doing that!
+       *
+       * <p>Implementations <strong>MUST</strong> be idempotent.
        *
        * <p>Note also that this method should not perform any heavy work (especially blocking
        * operations).

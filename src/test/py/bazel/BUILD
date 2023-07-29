@@ -348,6 +348,19 @@ py_test(
 )
 
 py_test(
+    name = "mod_command_test",
+    size = "large",
+    srcs = ["bzlmod/mod_command_test.py"],
+    tags = [
+        "requires-network",
+    ],
+    deps = [
+        ":bzlmod_test_utils",
+        ":test_base",
+    ],
+)
+
+py_test(
     name = "bzlmod_credentials_test",
     size = "large",
     srcs = ["bzlmod/bzlmod_credentials_test.py"],

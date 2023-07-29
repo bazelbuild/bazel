@@ -22,13 +22,12 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.packages.RuleTransitionData;
+import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -46,12 +45,13 @@ import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.ThreadSafeMutableKeyExtractorBackedSetImpl;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.actiongraph.v2.StreamedOutputHandler;
+import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -137,7 +137,7 @@ public class ActionGraphQueryEnvironment
           ExtendedEventHandler eventHandler,
           OutputStream out,
           SkyframeExecutor skyframeExecutor,
-          @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory,
+          RuleClassProvider ruleClassProvider,
           PackageManager packageManager) {
     return ImmutableList.of(
         new ActionGraphProtoOutputFormatterCallback(
@@ -145,21 +145,28 @@ public class ActionGraphQueryEnvironment
             aqueryOptions,
             out,
             accessor,
-            StreamedOutputHandler.OutputType.BINARY,
+            AqueryOutputHandler.OutputType.BINARY,
             actionFilters),
         new ActionGraphProtoOutputFormatterCallback(
             eventHandler,
             aqueryOptions,
             out,
             accessor,
-            StreamedOutputHandler.OutputType.TEXT,
+            AqueryOutputHandler.OutputType.DELIMITED_BINARY,
             actionFilters),
         new ActionGraphProtoOutputFormatterCallback(
             eventHandler,
             aqueryOptions,
             out,
             accessor,
-            StreamedOutputHandler.OutputType.JSON,
+            AqueryOutputHandler.OutputType.TEXT,
+            actionFilters),
+        new ActionGraphProtoOutputFormatterCallback(
+            eventHandler,
+            aqueryOptions,
+            out,
+            accessor,
+            AqueryOutputHandler.OutputType.JSON,
             actionFilters),
         new ActionGraphTextOutputFormatterCallback(
             eventHandler, aqueryOptions, out, accessor, actionFilters, getMainRepoMapping()),
@@ -188,7 +195,15 @@ public class ActionGraphQueryEnvironment
   @Nullable
   private ConfiguredTargetValue createConfiguredTargetValueFromKey(ConfiguredTargetKey key)
       throws InterruptedException {
-    return getConfiguredTargetValue(key.toKey());
+    ConfiguredTargetValue value = getConfiguredTargetValue(key);
+    if (value == null
+        || !Objects.equals(
+            value.getConfiguredTarget().getConfigurationKey(), key.getConfigurationKey())) {
+      // The configurations might not match if the target's configuration changed due to a
+      // transition or trimming. Filters such targets.
+      return null;
+    }
+    return value;
   }
 
   @Nullable
@@ -229,7 +244,7 @@ public class ActionGraphQueryEnvironment
   @Override
   protected ConfiguredTargetValue getValueFromKey(SkyKey key) throws InterruptedException {
     Preconditions.checkState(key instanceof ConfiguredTargetKey);
-    return createConfiguredTargetValueFromKey((ConfiguredTargetKey) key);
+    return getConfiguredTargetValue(key);
   }
 
   @Nullable
@@ -329,6 +344,6 @@ public class ActionGraphQueryEnvironment
   }
 
   private static ConfiguredTargetKey getConfiguredTargetKeyImpl(ConfiguredTargetValue targetValue) {
-    return (ConfiguredTargetKey) targetValue.getConfiguredTarget().getKeyOrProxy();
+    return ConfiguredTargetKey.fromConfiguredTarget(targetValue.getConfiguredTarget());
   }
 }

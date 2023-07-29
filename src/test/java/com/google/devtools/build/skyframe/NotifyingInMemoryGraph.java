@@ -95,4 +95,10 @@ class NotifyingInMemoryGraph extends NotifyingHelper.NotifyingProcessableGraph
   public void removeIfDone(SkyKey key) {
     ((InMemoryGraph) delegate).removeIfDone(key);
   }
+
+  @Override
+  @Nullable
+  public InMemoryNodeEntry getIfPresent(SkyKey key) {
+    return ((InMemoryGraph) delegate).getIfPresent(key);
+  }
 }

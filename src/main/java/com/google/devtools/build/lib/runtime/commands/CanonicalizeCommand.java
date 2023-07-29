@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime.commands;
 import static com.google.devtools.common.options.Converters.BLAZE_ALIASING_FLAG;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
@@ -200,7 +201,7 @@ public final class CanonicalizeCommand implements BlazeCommand {
         StarlarkOptionsParser.newStarlarkOptionsParser(
             new SkyframeExecutorTargetLoader(env), parser);
     try {
-      starlarkOptionsParser.parse();
+      Preconditions.checkState(starlarkOptionsParser.parse());
     } catch (OptionsParsingException e) {
       return reportAndCreateCommandFailure(
           env, e.getMessage(), FailureDetails.Command.Code.STARLARK_OPTIONS_PARSE_FAILURE);

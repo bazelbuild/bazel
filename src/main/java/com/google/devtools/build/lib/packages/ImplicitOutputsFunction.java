@@ -361,6 +361,8 @@ public abstract class ImplicitOutputsFunction {
     // String attributes and lists are easy.
     if (Type.STRING == attrType) {
       return ImmutableSet.of(rule.get(attrName, Type.STRING));
+    } else if (Type.STRING_NO_INTERN == attrType) {
+      return ImmutableSet.of(rule.get(attrName, Type.STRING_NO_INTERN));
     } else if (Type.STRING_LIST == attrType) {
       return ImmutableSet.copyOf(rule.get(attrName, Type.STRING_LIST));
     } else if (BuildType.LABEL == attrType) {

@@ -20,19 +20,69 @@
 #    the golden file if changes are made to skydoc.
 """Convenience macro for skydoc tests."""
 
-load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
-load(":stardoc.bzl", "stardoc")
+load("@rules_java//java:defs.bzl", "java_binary")
+
+def _extract_binaryproto_impl(ctx):
+    output_file = ctx.outputs.output
+    extractor_args = ctx.actions.args()
+    extractor_args.add("--input=" + str(ctx.file.input.owner))
+    extractor_args.add("--output=" + output_file.path)
+    extractor_args.add("--workspace_name=" + ctx.workspace_name)
+    extractor_args.add_all(
+        ctx.attr.symbol_names,
+        format_each = "--symbols=%s",
+        omit_if_empty = True,
+    )
+    ctx.actions.run(
+        outputs = [output_file],
+        executable = ctx.executable.tool,
+        arguments = [extractor_args],
+        mnemonic = "Stardoc",
+        progress_message = ("Extracting Starlark doc for %s" % (ctx.label.name)),
+    )
+    outputs = [output_file]
+    return [DefaultInfo(files = depset(outputs), runfiles = ctx.runfiles(files = outputs))]
+
+extract_binaryproto = rule(
+    doc = "Minimalistic binary-proto-only variant of the Stardoc rule using the legacy extractor",
+    implementation = _extract_binaryproto_impl,
+    attrs = {
+        "input": attr.label(
+            doc = "The starlark file to generate documentation for.",
+            allow_single_file = [".bzl"],
+            mandatory = True,
+        ),
+        "output": attr.output(
+            doc = "The binary proto file to which documentation will be output.",
+            mandatory = True,
+        ),
+        "symbol_names": attr.string_list(
+            doc = """
+A list of symbol names to generate documentation for. These should correspond to
+the names of rule definitions in the input file. If this list is empty, then
+documentation for all exported rule definitions will be generated.
+""",
+            default = [],
+        ),
+        "tool": attr.label(
+            doc = "The location of the Stardoc legacy extractor tool.",
+            allow_files = True,
+            cfg = "exec",
+            executable = True,
+            mandatory = True,
+        ),
+    },
+)
 
 def skydoc_test(
         name,
         input_file,
         golden_file,
         deps = [],
-        format = "html_tables",
         **kwargs):
     """Creates a test target and golden-file regeneration target for skydoc testing.
 
-    The test target is named "{name}_e2e_test".
+    The test target is named "{name}".
     The golden-file regeneration target is named "regenerate_{name}_golden".
 
     Args:
@@ -42,62 +92,55 @@ def skydoc_test(
       golden_file: The label string of the golden file containing the documentation when skydoc
           is run on the input file.
       deps: A list of label strings of Starlark file dependencies of the input_file.
-      format: The output format of stardoc to test.
-          Valid values: "custom", "html_tables", "markdown_tables", or "proto".
-          "html_tables" by default.
       **kwargs: Remaining arguments to passthrough to the underlying stardoc rule.
       """
 
-    actual_generated_doc = "%s_output.txt" % name
-
-    # Skydoc requires an absolute input file label to both load the target file and
-    # track what its target is for the purpose of resolving relative labels.
-    abs_input_file_label = str(Label("//%s" % native.package_name()).relative(input_file))
+    extractor = "%s_legacy_extractor" % name
+    extractor_binary = "%s_binary" % extractor
+    generated_binaryproto = "%s.binaryproto" % extractor
+    generated_textproto = "%s.textproto" % extractor
+    textproto_to_binaryproto = Label("//src/test/java/com/google/devtools/build/skydoc:binaryprotoToTextproto")
 
     native.sh_test(
         name = name,
         srcs = ["diff_test_runner.sh"],
         args = [
-            "$(location %s)" % actual_generated_doc,
+            "$(location %s)" % generated_textproto,
             "$(location %s)" % golden_file,
         ],
         data = [
-            actual_generated_doc,
+            generated_textproto,
             golden_file,
         ],
     )
 
-    bzl_library(
-        name = "%s_lib" % name,
-        srcs = [input_file],
-        deps = deps,
+    java_binary(
+        name = extractor_binary,
+        main_class = "com.google.devtools.build.skydoc.SkydocMain",
+        runtime_deps = [Label("//src/main/java/com/google/devtools/build/skydoc:skydoc_deploy.jar")],
+        data = [input_file] + deps,
+        tags = ["manual", "notap"],
+        testonly = True,
+        visibility = ["//visibility:private"],
     )
 
-    # For rendering templates, use the templates under testdata/ instead of those of
-    # current Stardoc; these templates serve as 'staging' for changes to
-    # Stardoc's default templates.
-    if format == "html_tables":
-        kwargs["aspect_template"] = "test_templates/html_tables/aspect.vm"
-        kwargs["func_template"] = "test_templates/html_tables/func.vm"
-        kwargs["header_template"] = "test_templates/html_tables/header.vm"
-        kwargs["provider_template"] = "test_templates/html_tables/provider.vm"
-        kwargs["rule_template"] = "test_templates/html_tables/rule.vm"
-        format = "markdown"
-    elif format == "markdown_tables":
-        kwargs["aspect_template"] = "test_templates/markdown_tables/aspect.vm"
-        kwargs["func_template"] = "test_templates/markdown_tables/func.vm"
-        kwargs["header_template"] = "test_templates/markdown_tables/header.vm"
-        kwargs["provider_template"] = "test_templates/markdown_tables/provider.vm"
-        kwargs["rule_template"] = "test_templates/markdown_tables/rule.vm"
-        format = "markdown"
-    stardoc(
-        name = "regenerate_%s_golden" % name,
-        out = actual_generated_doc,
+    extract_binaryproto(
+        name = extractor,
         input = input_file,
-        deps = ["%s_lib" % name],
-        renderer = Label("//src/main/java/com/google/devtools/build/skydoc/renderer:renderer"),
-        stardoc = Label("//src/main/java/com/google/devtools/build/skydoc:skydoc_deploy.jar"),
-        format = format,
+        output = generated_binaryproto,
+        tool = extractor_binary,
         testonly = True,
-        **kwargs
+    )
+
+    native.genrule(
+        name = "regenerate_%s_golden" % name,
+        srcs = [generated_binaryproto],
+        outs = [generated_textproto],
+        cmd = "./$(location %s) < $(location %s) > $(location %s)" % (
+            textproto_to_binaryproto,
+            generated_binaryproto,
+            generated_textproto,
+        ),
+        tools = [textproto_to_binaryproto],
+        testonly = True,
     )

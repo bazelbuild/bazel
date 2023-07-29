@@ -420,7 +420,7 @@ public final class ActionExecutionFunction implements SkyFunction {
       LostInputsActionExecutionException e,
       ActionLookupData actionLookupData,
       Action action,
-      long actionStartTime,
+      long actionStartTimeNanos,
       Environment env,
       NestedSet<Artifact> allInputs,
       Iterable<SkyKey> depKeys,
@@ -483,7 +483,8 @@ public final class ActionExecutionFunction implements SkyFunction {
       }
 
       if (e.isActionStartedEventAlreadyEmitted()) {
-        env.getListener().post(new ActionRewoundEvent(actionStartTime, action));
+        env.getListener()
+            .post(new ActionRewoundEvent(actionStartTimeNanos, BlazeClock.nanoTime(), action));
       }
       skyframeActionExecutor.resetRewindingAction(actionLookupData, action, lostDiscoveredInputs);
       for (Action actionToRestart : rewindPlan.getAdditionalActionsToRestart()) {
@@ -496,7 +497,9 @@ public final class ActionExecutionFunction implements SkyFunction {
         // ActionCompletionEvent because it hoped rewinding would fix things. Because it won't, this
         // must emit one to compensate.
         env.getListener()
-            .post(new ActionCompletionEvent(actionStartTime, action, actionLookupData));
+            .post(
+                new ActionCompletionEvent(
+                    actionStartTimeNanos, BlazeClock.nanoTime(), action, actionLookupData));
       }
     }
   }

@@ -32,7 +32,6 @@ public class AnalysisPhaseCompleteEvent {
   private final PackageManagerStatistics pkgManagerStats;
   private final TotalAndConfiguredTargetOnlyMetric actionsConstructed;
   private final boolean analysisCacheDropped;
-  private final boolean skymeldEnabled;
 
   public AnalysisPhaseCompleteEvent(
       Collection<? extends ConfiguredTarget> topLevelTargets,
@@ -65,7 +64,6 @@ public class AnalysisPhaseCompleteEvent {
     this.pkgManagerStats = pkgManagerStats;
     this.actionsConstructed = checkNotNull(actionsConstructed);
     this.analysisCacheDropped = analysisCacheDropped;
-    this.skymeldEnabled = skymeldEnabled;
   }
 
   /**
@@ -117,14 +115,6 @@ public class AnalysisPhaseCompleteEvent {
 
   public boolean wasAnalysisCacheDropped() {
     return analysisCacheDropped;
-  }
-
-  /**
-   * Returns whether this event originated from Skymeld. Some subscribers are incompatible with
-   * Skymeld and this distinction is required for now.
-   */
-  public boolean isOriginatedFromSkymeld() {
-    return skymeldEnabled;
   }
 
   /**

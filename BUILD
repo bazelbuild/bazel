@@ -36,11 +36,14 @@ filegroup(
         "//scripts:srcs",
         "//site:srcs",
         "//src:srcs",
-        "//tools:srcs",
-        "//third_party:srcs",
-        "//src/main/starlark/tests/builtins_bzl:srcs",
         "//src/main/java/com/google/devtools/build/docgen/release:srcs",
-    ] + glob([".bazelci/*"]) + [".bazelrc", ".bazelversion"],
+        "//src/main/starlark/tests/builtins_bzl:srcs",
+        "//third_party:srcs",
+        "//tools:srcs",
+    ] + glob([".bazelci/*"]) + [
+        ".bazelrc",
+        ".bazelversion",
+    ],
     applicable_licenses = ["@io_bazel//:license"],
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
@@ -93,6 +96,7 @@ genrule(
 pkg_tar(
     name = "bootstrap-jars",
     srcs = [
+        "@blake3",
         "@com_google_protobuf//:protobuf_java",
         "@com_google_protobuf//:protobuf_java_util",
         "@com_google_protobuf//:protobuf_javalite",
@@ -161,6 +165,13 @@ pkg_tar(
     visibility = ["//:__subpackages__"],
 )
 
+pkg_tar(
+    name = "rules_java-srcs",
+    srcs = ["@rules_java//:distribution"],
+    strip_prefix = "external",
+    visibility = ["//:__subpackages__"],
+)
+
 # The @maven repository is created by maven_install from rules_jvm_external.
 # `@maven//:srcs` contains all jar files downloaded and BUILD files created by maven_install.
 pkg_tar(
@@ -168,6 +179,11 @@ pkg_tar(
     srcs = ["@maven//:srcs"],
     strip_prefix = "external",
     visibility = ["//:__subpackages__"],
+)
+
+exports_files(
+    ["maven_install.json"],
+    visibility = ["//tools/compliance:__pkg__"],
 )
 
 py_binary(
@@ -183,6 +199,7 @@ genrule(
         ":bazel-srcs",
         ":bootstrap-jars",
         ":platforms-srcs",
+        ":rules_java-srcs",
         ":maven-srcs",
         "//src:derived_java_srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:bootstrap_autocodec.tar",
@@ -201,6 +218,7 @@ genrule(
         ":bazel-srcs",
         ":bootstrap-jars",
         ":platforms-srcs",
+        ":rules_java-srcs",
         ":maven-srcs",
         "//src:derived_java_srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:bootstrap_autocodec.tar",

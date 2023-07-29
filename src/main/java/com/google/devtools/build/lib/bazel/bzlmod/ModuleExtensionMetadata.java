@@ -16,21 +16,22 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -69,7 +70,9 @@ public class ModuleExtensionMetadata implements StarlarkValue {
   }
 
   static ModuleExtensionMetadata create(
-      Object rootModuleDirectDepsUnchecked, Object rootModuleDirectDevDepsUnchecked)
+      Object rootModuleDirectDepsUnchecked,
+      Object rootModuleDirectDevDepsUnchecked,
+      ModuleExtensionId extensionId)
       throws EvalException {
     if (rootModuleDirectDepsUnchecked == Starlark.NONE
         && rootModuleDirectDevDepsUnchecked == Starlark.NONE) {
@@ -164,40 +167,46 @@ public class ModuleExtensionMetadata implements StarlarkValue {
       // expected to modify any other module's MODULE.bazel file.
       return Optional.empty();
     }
+    // Every module only has at most a single usage of a given extension.
+    ModuleExtensionUsage rootUsage = Iterables.getOnlyElement(rootUsages);
 
     var rootModuleDirectDevDeps = getRootModuleDirectDevDeps(allRepos);
     var rootModuleDirectDeps = getRootModuleDirectDeps(allRepos);
     if (rootModuleDirectDevDeps.isEmpty() && rootModuleDirectDeps.isEmpty()) {
       return Optional.empty();
     }
-
     Preconditions.checkState(
         rootModuleDirectDevDeps.isPresent() && rootModuleDirectDeps.isPresent());
+
+    if (!rootUsage.getHasNonDevUseExtension() && !rootModuleDirectDeps.get().isEmpty()) {
+      throw Starlark.errorf(
+          "root_module_direct_deps must be empty if the root module contains no "
+              + "usages with dev_dependency = False");
+    }
+    if (!rootUsage.getHasDevUseExtension() && !rootModuleDirectDevDeps.get().isEmpty()) {
+      throw Starlark.errorf(
+          "root_module_direct_dev_deps must be empty if the root module contains no "
+              + "usages with dev_dependency = True");
+    }
+
     return generateFixupMessage(
-        rootUsages, allRepos, rootModuleDirectDeps.get(), rootModuleDirectDevDeps.get());
+        rootUsage, allRepos, rootModuleDirectDeps.get(), rootModuleDirectDevDeps.get());
   }
 
   private static Optional<Event> generateFixupMessage(
-      List<ModuleExtensionUsage> rootUsages,
+      ModuleExtensionUsage rootUsage,
       Set<String> allRepos,
       Set<String> expectedImports,
       Set<String> expectedDevImports) {
-    var actualDevImports =
-        rootUsages.stream()
-            .flatMap(usage -> usage.getDevImports().stream())
-            .collect(toImmutableSet());
+    var actualDevImports = ImmutableSet.copyOf(rootUsage.getDevImports());
     var actualImports =
-        rootUsages.stream()
-            .flatMap(usage -> usage.getImports().values().stream())
+        rootUsage.getImports().values().stream()
             .filter(repo -> !actualDevImports.contains(repo))
             .collect(toImmutableSet());
 
-    // All label strings that map to the same Label are equivalent for buildozer as it implements
-    // the same normalization of label strings with no or empty repo name.
-    ModuleExtensionUsage firstUsage = rootUsages.get(0);
-    String extensionBzlFile = firstUsage.getExtensionBzlFile();
-    String extensionName = firstUsage.getExtensionName();
-    Location location = firstUsage.getLocation();
+    String extensionBzlFile = rootUsage.getExtensionBzlFile();
+    String extensionName = rootUsage.getExtensionName();
+    Location location = rootUsage.getLocation();
 
     var importsToAdd = ImmutableSortedSet.copyOf(Sets.difference(expectedImports, actualImports));
     var importsToRemove =
@@ -244,6 +253,28 @@ public class ModuleExtensionMetadata implements StarlarkValue {
               String.join(", ", missingImports));
     }
 
+    var nonDevImportsOfDevDeps =
+        ImmutableSortedSet.copyOf(Sets.intersection(expectedDevImports, actualImports));
+    if (!nonDevImportsOfDevDeps.isEmpty()) {
+      message +=
+          String.format(
+              "Imported as a regular dependency, but reported as a dev dependency by the "
+                  + "extension (may cause the build to fail when used by other modules):\n"
+                  + "    %s\n\n",
+              String.join(", ", nonDevImportsOfDevDeps));
+    }
+
+    var devImportsOfNonDevDeps =
+        ImmutableSortedSet.copyOf(Sets.intersection(expectedImports, actualDevImports));
+    if (!devImportsOfNonDevDeps.isEmpty()) {
+      message +=
+          String.format(
+              "Imported as a dev dependency, but reported as a regular dependency by the "
+                  + "extension (may cause the build to fail when used by other modules):\n"
+                  + "    %s\n\n",
+              String.join(", ", devImportsOfNonDevDeps));
+    }
+
     var indirectDepImports =
         ImmutableSortedSet.copyOf(
             Sets.difference(Sets.intersection(allActualImports, allRepos), allExpectedImports));
@@ -254,29 +285,48 @@ public class ModuleExtensionMetadata implements StarlarkValue {
               String.join(", ", indirectDepImports));
     }
 
-    var fixupCommands =
+    var fixupCommand =
         Stream.of(
                 makeUseRepoCommand(
-                    "use_repo_add", false, importsToAdd, extensionBzlFile, extensionName),
+                    "use_repo_add",
+                    false,
+                    importsToAdd,
+                    extensionBzlFile,
+                    extensionName,
+                    rootUsage.getIsolationKey()),
                 makeUseRepoCommand(
-                    "use_repo_remove", false, importsToRemove, extensionBzlFile, extensionName),
+                    "use_repo_remove",
+                    false,
+                    importsToRemove,
+                    extensionBzlFile,
+                    extensionName,
+                    rootUsage.getIsolationKey()),
                 makeUseRepoCommand(
-                    "use_repo_add", true, devImportsToAdd, extensionBzlFile, extensionName),
+                    "use_repo_add",
+                    true,
+                    devImportsToAdd,
+                    extensionBzlFile,
+                    extensionName,
+                    rootUsage.getIsolationKey()),
                 makeUseRepoCommand(
-                    "use_repo_remove", true, devImportsToRemove, extensionBzlFile, extensionName))
-            .flatMap(Optional::stream);
+                    "use_repo_remove",
+                    true,
+                    devImportsToRemove,
+                    extensionBzlFile,
+                    extensionName,
+                    rootUsage.getIsolationKey()))
+            .flatMap(Optional::stream)
+            .collect(joining(" ", "buildozer ", " //MODULE.bazel:all"));
 
     return Optional.of(
         Event.warn(
             location,
             message
                 + String.format(
-                    "%s ** You can use the following buildozer command(s) to fix these"
+                    "%s ** You can use the following buildozer command to fix these"
                         + " issues:%s\n\n"
                         + "%s",
-                    "\033[35m\033[1m",
-                    "\033[0m",
-                    fixupCommands.collect(Collectors.joining("\n")))));
+                    "\033[35m\033[1m", "\033[0m", fixupCommand)));
   }
 
   private static Optional<String> makeUseRepoCommand(
@@ -284,18 +334,26 @@ public class ModuleExtensionMetadata implements StarlarkValue {
       boolean devDependency,
       Collection<String> repos,
       String extensionBzlFile,
-      String extensionName) {
+      String extensionName,
+      Optional<ModuleExtensionId.IsolationKey> isolationKey) {
+
     if (repos.isEmpty()) {
       return Optional.empty();
     }
-    return Optional.of(
-        String.format(
-            "buildozer '%s%s %s %s %s' //MODULE.bazel:all",
-            cmd,
-            devDependency ? " dev" : "",
-            extensionBzlFile,
-            extensionName,
-            String.join(" ", repos)));
+
+    var commandParts = new ArrayList<String>();
+    commandParts.add(cmd);
+    if (isolationKey.isPresent()) {
+      commandParts.add(isolationKey.get().getUsageExportedName());
+    } else {
+      if (devDependency) {
+        commandParts.add("dev");
+      }
+      commandParts.add(extensionBzlFile);
+      commandParts.add(extensionName);
+    }
+    commandParts.addAll(repos);
+    return Optional.of(commandParts.stream().collect(joining(" ", "'", "'")));
   }
 
   private Optional<ImmutableSet<String>> getRootModuleDirectDeps(Set<String> allRepos)

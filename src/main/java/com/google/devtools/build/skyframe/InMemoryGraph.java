@@ -96,4 +96,11 @@ public interface InMemoryGraph extends ProcessableGraph {
    * instances back to weak interner and uninstall current pool.
    */
   void cleanupInterningPool();
+
+  /**
+   * Returns the {@link InMemoryNodeEntry} for a given {@link SkyKey} if present in the graph.
+   * Otherwise, returns null.
+   */
+  @Nullable
+  InMemoryNodeEntry getIfPresent(SkyKey key);
 }

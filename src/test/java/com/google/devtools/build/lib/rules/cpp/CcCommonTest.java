@@ -1275,4 +1275,30 @@ public class CcCommonTest extends BuildViewTestCase {
         "This attribute was removed. See https://github.com/bazelbuild/bazel/issues/8706 for"
             + " details.");
   }
+
+  @Test
+  public void testLinkExtra() throws Exception {
+    ConfiguredTarget target =
+        scratchConfiguredTarget(
+            "mypackage",
+            "mybinary",
+            "cc_binary(name = 'mybinary',",
+            "          srcs = ['mybinary.cc'])");
+    List<String> artifactNames = baseArtifactNames(getLinkerInputs(target));
+    assertThat(artifactNames).contains("liblink_extra_lib.a");
+  }
+
+  @Test
+  public void testNoLinkExtra() throws Exception {
+    ConfiguredTarget target =
+        scratchConfiguredTarget(
+            "mypackage",
+            "mybinary",
+            "cc_library(name = 'empty_lib')",
+            "cc_binary(name = 'mybinary',",
+            "          srcs = ['mybinary.cc'],",
+            "          link_extra_lib = ':empty_lib')");
+    List<String> artifactNames = baseArtifactNames(getLinkerInputs(target));
+    assertThat(artifactNames).doesNotContain("liblink_extra_lib.a");
+  }
 }

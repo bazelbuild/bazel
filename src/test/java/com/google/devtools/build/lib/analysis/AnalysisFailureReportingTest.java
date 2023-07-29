@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.configurationIdMessage;
-import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.configurationIdMessage;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Iterables;
@@ -25,6 +24,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LoadingFailedCause;
@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
-import java.util.HashMap;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -102,8 +101,7 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
         .containsExactly(
             new AnalysisFailedCause(
                 causeLabel,
-                configurationIdMessage(
-                    getOnlyElement(collector.failedTargets.values()).getConfigurationKey()),
+                collector.getOnlyConfigurationId(),
                 createPackageLoadingDetailedExitCode(
                     "BUILD file not found in any of the following"
                         + " directories. Add a BUILD file to a directory to mark it as a"
@@ -130,8 +128,7 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
         .containsExactly(
             new AnalysisFailedCause(
                 topLevel,
-                configurationIdMessage(
-                    getOnlyElement(collector.failedTargets.values()).getConfigurationKey()),
+                collector.getOnlyConfigurationId(),
                 createAnalysisDetailedExitCode(
                     "in cmd attribute of genrule rule //test:bad: variable '$<' : no input file")));
   }
@@ -164,7 +161,7 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
         .containsExactly(
             new AnalysisFailedCause(
                 Label.parseCanonical("//cycles1"),
-                configurationIdMessage(collector.failedTargets.get(topLevel).getConfigurationKey()),
+                collector.getOnlyConfigurationId(),
                 createPackageLoadingDetailedExitCode(message, code)));
   }
 
@@ -181,8 +178,7 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
         .containsExactly(
             new AnalysisFailedCause(
                 Label.parseCanonical("//foo"),
-                configurationIdMessage(
-                    getOnlyElement(collector.failedTargets.values()).getConfigurationKey()),
+                collector.getOnlyConfigurationId(),
                 createAnalysisDetailedExitCode(
                     "in sh_library rule //foo:foo: target '//bar:bar' is not visible from"
                         + " target '//foo:foo'. Check the visibility declaration of the"
@@ -204,8 +200,7 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
         .containsExactly(
             new AnalysisFailedCause(
                 Label.parseCanonical("//foo"),
-                configurationIdMessage(
-                    getOnlyElement(collector.failedTargets.values()).getConfigurationKey()),
+                collector.getOnlyConfigurationId(),
                 DetailedExitCode.of(
                     FailureDetail.newBuilder()
                         .setMessage(
@@ -277,19 +272,22 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
   /** Class to collect analysis failures. */
   public static class AnalysisFailureEventCollector {
     private final Multimap<Label, Cause> events = HashMultimap.create();
-    private final HashMap<Label, ConfiguredTargetKey> failedTargets = new HashMap<>();
-
-    Multimap<Label, Cause> causesByLabel() {
-      Multimap<Label, Cause> result = HashMultimap.create();
-      return result;
-    }
 
     @Subscribe
     public void failureEvent(AnalysisFailureEvent event) {
       ConfiguredTargetKey failedTarget = event.getFailedTarget();
-      Label label = event.getFailedTarget().getLabel();
-      events.putAll(label, event.getRootCauses().toList());
-      failedTargets.put(label, failedTarget);
+      events.putAll(failedTarget.getLabel(), event.getRootCauses().toList());
+    }
+
+    private ConfigurationId getOnlyConfigurationId() {
+      // Analysis errors after the target's configuration has been determined are reported using a
+      // possibly transitioned ID which is hard to retrieve from the graph if analysis of that
+      // target fails. This method simply extracts them from the event ID.
+      return getOnlyElement(events.entries())
+          .getValue()
+          .getIdProto()
+          .getConfiguredLabel()
+          .getConfiguration();
     }
   }
 }

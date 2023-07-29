@@ -18,16 +18,22 @@ import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaInfo.JavaInfoInternalProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Iterator;
 import java.util.Optional;
+import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 
 /** A collection of recursively collected Java build information. */
 @AutoValue
@@ -117,7 +123,7 @@ public abstract class JavaCompilationArgsProvider implements JavaInfoInternalPro
   // TODO(b/11285003): disallow jar files in deps, require java_import instead
   @Deprecated
   public static JavaCompilationArgsProvider legacyFromTargets(
-      Iterable<? extends TransitiveInfoCollection> infos) {
+      Iterable<? extends TransitiveInfoCollection> infos) throws RuleErrorException {
     Builder argsBuilder = builder();
     for (TransitiveInfoCollection info : infos) {
       Optional<JavaCompilationArgsProvider> provider = JavaInfo.getCompilationArgsProvider(info);
@@ -260,6 +266,21 @@ public abstract class JavaCompilationArgsProvider implements JavaInfoInternalPro
       return this;
     }
 
+    // Needed to preserve order while translating Starlark JavaInfo
+    private Builder addStrictlyDirectCompileTimeJars(
+        NestedSet<Artifact> interfaceJars, NestedSet<Artifact> fullJars) {
+      this.directCompileTimeJarsBuilder.addTransitive(interfaceJars);
+      this.directFullCompileTimeJarsBuilder.addTransitive(fullJars);
+      return this;
+    }
+
+    private Builder addTransitiveCompileTimeJars(
+        NestedSet<Artifact> interfaceJars, NestedSet<Artifact> fullJars) {
+      this.transitiveCompileTimeJarsBuilder.addTransitive(interfaceJars);
+      this.transitiveFullCompileTimeJarsBuilder.addTransitive(fullJars);
+      return this;
+    }
+
     @CanIgnoreReturnValue
     public Builder addCompileTimeJavaDependencyArtifacts(
         NestedSet<Artifact> compileTimeJavaDependencyArtifacts) {
@@ -275,7 +296,6 @@ public abstract class JavaCompilationArgsProvider implements JavaInfoInternalPro
     public Builder addExports(JavaCompilationArgsProvider args) {
       return addExports(args, ClasspathType.BOTH);
     }
-
     /**
      * Add the {@link JavaCompilationArgsProvider} for a dependency with export-like semantics:
      * direct jars of the input are direct jars of the output.
@@ -292,6 +312,7 @@ public abstract class JavaCompilationArgsProvider implements JavaInfoInternalPro
 
     * @param type of jars to collect; use {@link ClasspathType#RUNTIME} for neverlink
     */
+
     public Builder addDeps(JavaCompilationArgsProvider args, ClasspathType type) {
       return addArgs(args, type, false);
     }
@@ -339,5 +360,43 @@ public abstract class JavaCompilationArgsProvider implements JavaInfoInternalPro
           transitiveFullCompileTimeJarsBuilder.build(),
           compileTimeJavaDependencyArtifactsBuilder.build());
     }
+  }
+
+  /**
+   * Constructs a {@link JavaCompilationArgsProvider} instance for a Starlark-constructed {@link
+   * JavaInfo}.
+   *
+   * @param javaInfo the {@link JavaInfo} instance from which to extract the relevant fields
+   * @return a {@link JavaCompilationArgsProvider} instance, or {@code null} if this is a {@link
+   *     JavaInfo} for a {@code java_binary} or {@code java_test}
+   * @throws EvalException if there were errors reading any fields
+   * @throws TypeException if some field was not a {@link Depset} of {@link Artifact}s
+   */
+  @Nullable
+  static JavaCompilationArgsProvider fromStarlarkJavaInfo(StructImpl javaInfo)
+      throws EvalException, TypeException {
+    Boolean isBinary = javaInfo.getValue("_is_binary", Boolean.class);
+    if (isBinary != null && isBinary) {
+      return null;
+    }
+    JavaCompilationArgsProvider.Builder builder =
+        JavaCompilationArgsProvider.builder()
+            .addStrictlyDirectCompileTimeJars(
+                javaInfo.getValue("compile_jars", Depset.class).getSet(Artifact.class),
+                javaInfo.getValue("full_compile_jars", Depset.class).getSet(Artifact.class))
+            .addTransitiveCompileTimeJars(
+                javaInfo
+                    .getValue("transitive_compile_time_jars", Depset.class)
+                    .getSet(Artifact.class),
+                javaInfo
+                    .getValue("_transitive_full_compile_time_jars", Depset.class)
+                    .getSet(Artifact.class))
+            .addCompileTimeJavaDependencyArtifacts(
+                javaInfo
+                    .getValue("_compile_time_java_dependencies", Depset.class)
+                    .getSet(Artifact.class))
+            .addRuntimeJars(
+                javaInfo.getValue("transitive_runtime_jars", Depset.class).getSet(Artifact.class));
+    return builder.build();
   }
 }

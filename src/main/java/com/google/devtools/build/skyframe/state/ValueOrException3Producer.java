@@ -15,9 +15,8 @@ package com.google.devtools.build.skyframe.state;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import com.google.devtools.build.skyframe.SkyFunction.LookupEnvironment;
 import javax.annotation.Nullable;
 
 /**
@@ -45,9 +44,8 @@ public abstract class ValueOrException3Producer<
    * set, they are prioritized by number.
    */
   @Nullable
-  public final V tryProduceValue(Environment env, ExtendedEventHandler listener)
-      throws InterruptedException, E1, E2, E3 {
-    boolean done = driver.drive(env, listener);
+  public final V tryProduceValue(LookupEnvironment env) throws InterruptedException, E1, E2, E3 {
+    boolean done = driver.drive(env);
     if (exception1 != null) {
       throw exception1;
     }

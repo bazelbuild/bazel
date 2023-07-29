@@ -417,7 +417,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
             Instant.ofEpochMilli(100)));
     module.actionComplete(
         new ActionCompletionEvent(
-            0, new ActionsTestUtil.NullAction(createOutputArtifact("foo/out")), null));
+            0, 0, new ActionsTestUtil.NullAction(createOutputArtifact("foo/out")), null));
     module.buildComplete(new BuildCompleteEvent(new BuildResult(1000)));
 
     assertThat(parse(buffer))
@@ -449,7 +449,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
             createRemoteSpawnResult(200),
             Instant.ofEpochMilli(100)));
     var action = new ActionsTestUtil.NullAction(createOutputArtifact("bar/out"));
-    module.actionComplete(new ActionCompletionEvent(0, action, null));
+    module.actionComplete(new ActionCompletionEvent(0, 0, action, null));
     module.buildComplete(new BuildCompleteEvent(new BuildResult(1000)));
 
     assertThat(parse(buffer))

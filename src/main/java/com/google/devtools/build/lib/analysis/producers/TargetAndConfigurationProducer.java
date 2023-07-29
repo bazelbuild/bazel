@@ -13,26 +13,34 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.producers;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.configurationId;
+
 import com.google.auto.value.AutoOneOf;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.InconsistentNullConfigException;
-import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyException;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
+import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.ConfigurationTransitionEvent;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
+import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
-import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.packages.PackageGroup;
+import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
@@ -48,16 +56,14 @@ import net.starlark.java.syntax.Location;
  * Computes the target and configuration for a configured target key.
  *
  * <p>If the key has a configuration and the target is configurable, attempts to apply a rule side
- * transition. If the target is not configurable, directly transitions to the null configuration. If
- * the resulting configuration already has an owner, delegates to the owner instead of recomputing
- * the configured target.
- *
- * <p>If the key does not have a configuration, it was requested as a visibility dependency.
- * Verifies that the {@link Target} is a {@link PackageGroup}, throwing {@link
- * InvalidVisibilityDependencyException} if that's not the case.
+ * transition. If the configuration changes, delegates to a target with the new configuration. If
+ * the target is not configurable, directly delegates to the null configuration.
  */
 public final class TargetAndConfigurationProducer
-    implements StateMachine, Consumer<SkyValue>, TargetProducer.ResultSink {
+    implements StateMachine,
+        StateMachine.ValueOrExceptionSink<InvalidConfigurationException>,
+        Consumer<SkyValue>,
+        TargetProducer.ResultSink {
   /** Accepts results of this producer. */
   public interface ResultSink {
     void acceptTargetAndConfiguration(TargetAndConfiguration value, ConfiguredTargetKey fullKey);
@@ -73,7 +79,7 @@ public final class TargetAndConfigurationProducer
     /** Tags the error type. */
     public enum Kind {
       CONFIGURED_VALUE_CREATION,
-      INVALID_VISIBILITY_DEPENDENCY,
+      NO_SUCH_THING,
       INCONSISTENT_NULL_CONFIG
     }
 
@@ -81,7 +87,7 @@ public final class TargetAndConfigurationProducer
 
     public abstract ConfiguredValueCreationException configuredValueCreation();
 
-    public abstract InvalidVisibilityDependencyException invalidVisibilityDependency();
+    public abstract NoSuchThingException noSuchThing();
 
     public abstract InconsistentNullConfigException inconsistentNullConfig();
 
@@ -90,15 +96,10 @@ public final class TargetAndConfigurationProducer
           .configuredValueCreation(e);
     }
 
-    // TODO(b/261521010): enable this error once Rule transitions are removed from dependency
-    // resolution.
-    // private static TargetAndConfigurationError of(InvalidVisibilityDependencyException e) {
-    // return AutoOneOf_TargetAndConfigurationProducer_TargetAndConfigurationError
-    // .invalidVisibilityDependency(e);
-    // }
+    private static TargetAndConfigurationError of(NoSuchThingException e) {
+      return AutoOneOf_TargetAndConfigurationProducer_TargetAndConfigurationError.noSuchThing(e);
+    }
 
-    // TODO(b/261521010): delete this error once Rule transitions are removed from dependency
-    // resolution.
     private static TargetAndConfigurationError of(InconsistentNullConfigException e) {
       return AutoOneOf_TargetAndConfigurationProducer_TargetAndConfigurationError
           .inconsistentNullConfig(e);
@@ -114,6 +115,7 @@ public final class TargetAndConfigurationProducer
 
   // -------------------- Output --------------------
   private final ResultSink sink;
+  private final ExtendedEventHandler eventHandler;
 
   // -------------------- Internal State --------------------
   private Target target;
@@ -123,16 +125,18 @@ public final class TargetAndConfigurationProducer
       @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory,
       StarlarkTransitionCache transitionCache,
       TransitiveDependencyState transitiveState,
-      ResultSink sink) {
+      ResultSink sink,
+      ExtendedEventHandler eventHandler) {
     this.preRuleTransitionKey = preRuleTransitionKey;
     this.trimmingTransitionFactory = trimmingTransitionFactory;
     this.transitionCache = transitionCache;
     this.transitiveState = transitiveState;
     this.sink = sink;
+    this.eventHandler = eventHandler;
   }
 
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     return new TargetProducer(
         preRuleTransitionKey.getLabel(),
         transitiveState,
@@ -147,147 +151,63 @@ public final class TargetAndConfigurationProducer
 
   @Override
   public void acceptTargetError(NoSuchPackageException e) {
-    emitError(e.getMessage(), /* location= */ null, e.getDetailedExitCode());
+    eventHandler.handle(Event.error(e.getMessage()));
+    sink.acceptTargetAndConfigurationError(TargetAndConfigurationError.of(e));
   }
 
   @Override
   public void acceptTargetError(NoSuchTargetException e, Location location) {
-    emitError(e.getMessage(), location, e.getDetailedExitCode());
+    eventHandler.handle(Event.error(location, e.getMessage()));
+    sink.acceptTargetAndConfigurationError(TargetAndConfigurationError.of(e));
   }
 
-  private StateMachine determineConfiguration(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine determineConfiguration(Tasks tasks) {
     if (target == null) {
-      return DONE; // There was an error.
+      return DONE; // A target could not be determined.
     }
 
-    // TODO(b/261521010): after removing the rule transition from dependency resolution, remove
-    // this. It won't be possible afterwards because null configuration keys will only be used for
-    // visibility dependencies.
     BuildConfigurationKey configurationKey = preRuleTransitionKey.getConfigurationKey();
     if (configurationKey == null) {
       if (target.isConfigurable()) {
         // We somehow ended up in a target that requires a non-null configuration but with a key
-        // that doesn't have a configuration. This is always an error, but we need to analyze the
-        // dependencies of the latter target to realize that. Short-circuit the evaluation to avoid
-        // doing useless work and running code with a null configuration that's not prepared for it.
+        // that doesn't have a configuration. This is always an error, but we need to bubble this
+        // up to the parent to provide more context.
         sink.acceptTargetAndConfigurationError(
             TargetAndConfigurationError.of(new InconsistentNullConfigException()));
         return DONE;
       }
-      // TODO(b/261521010): after removing the rule transition from dependency resolution, the logic
-      // here changes.
-      //
-      // A null configuration key will only be used for visibility dependencies so when that's
-      // true, a check that the target is a PackageGroup will be performed, throwing
-      // InvalidVisibilityDependencyException on failure.
-      //
-      // The ConfiguredTargetKey cannot fan-in in this case.
       sink.acceptTargetAndConfiguration(
           new TargetAndConfiguration(target, /* configuration= */ null), preRuleTransitionKey);
       return DONE;
     }
 
-    // This may happen for top-level ConfiguredTargets.
-    //
-    // TODO(b/261521010): this may also happen for targets that are not top-level after removing
-    // rule transitions from dependency resolution. Update this comment.
     if (!target.isConfigurable()) {
-      var nullConfiguredTargetKey =
-          ConfiguredTargetKey.builder().setDelegate(preRuleTransitionKey).build();
-      ActionLookupKey delegate = nullConfiguredTargetKey.toKey();
-      if (!delegate.equals(preRuleTransitionKey)) {
-        // Delegates to the key that already owns the null configuration.
-        delegateTo(tasks, delegate);
-        return DONE;
-      }
-      sink.acceptTargetAndConfiguration(
-          new TargetAndConfiguration(target, /* configuration= */ null), nullConfiguredTargetKey);
+      // If target is not configurable, but requested with a configuration. Delegates to a key with
+      // the null configuration. This is expected to be uncommon. The common case of a
+      // non-configurable target is an input file, but those are usually package local and requested
+      // correctly with the null configuration.
+      delegateTo(
+          tasks,
+          ConfiguredTargetKey.builder()
+              .setLabel(preRuleTransitionKey.getLabel())
+              .setExecutionPlatformLabel(preRuleTransitionKey.getExecutionPlatformLabel())
+              .build());
       return DONE;
     }
 
-    return new RuleTransitionConfigurationProducer();
-  }
-
-  /** Applies any requested rule transition before producing the final configuration. */
-  private class RuleTransitionConfigurationProducer
-      implements StateMachine,
-          RuleTransitionApplier.ResultSink,
-          ValueOrExceptionSink<InvalidConfigurationException> {
-    // -------------------- Internal State --------------------
-    private BuildConfigurationKey configurationKey;
-    private ConfiguredTargetKey fullKey;
-
-    @Override
-    public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
-      return new RuleTransitionApplier(
-          preRuleTransitionKey.getConfigurationKey(),
-          target.getAssociatedRule(),
-          trimmingTransitionFactory,
-          transitionCache,
-          (RuleTransitionApplier.ResultSink) this,
-          /* runAfter= */ this::processTransitionedKey);
-    }
-
-    @Override
-    public void acceptRuleTransitionResult(BuildConfigurationKey result) {
-      this.configurationKey = result;
-    }
-
-    @Override
-    public void acceptRuleTransitionError(TransitionException e) {
-      emitTransitionErrorMessage(e.getMessage());
-    }
-
-    @Override
-    public void acceptRuleTransitionError(OptionsParsingException e) {
-      emitTransitionErrorMessage(e.getMessage());
-    }
-
-    private StateMachine processTransitionedKey(Tasks tasks, ExtendedEventHandler listener) {
-      if (configurationKey == null) {
-        return DONE; // There was an error.
-      }
-
-      if (!configurationKey.equals(preRuleTransitionKey.getConfigurationKey())) {
-        fullKey =
-            ConfiguredTargetKey.builder()
-                .setDelegate(preRuleTransitionKey)
-                .setConfigurationKey(configurationKey)
-                .build();
-        ActionLookupKey delegate = fullKey.toKey();
-        if (!delegate.equals(preRuleTransitionKey)) {
-          // Delegates to the key that already owns this configuration.
-          delegateTo(tasks, delegate);
-          return DONE;
-        }
-      } else {
-        fullKey = preRuleTransitionKey;
-      }
-
-      // This key owns the configuration and the computation completes normally.
-      tasks.lookUp(
-          configurationKey,
-          InvalidConfigurationException.class,
-          (ValueOrExceptionSink<InvalidConfigurationException>) this);
+    if (!preRuleTransitionKey.shouldApplyRuleTransition()) {
+      lookUpConfigurationValue(tasks);
       return DONE;
     }
 
-    @Override
-    public void acceptValueOrException(
-        @Nullable SkyValue value, @Nullable InvalidConfigurationException error) {
-      if (value != null) {
-        sink.acceptTargetAndConfiguration(
-            new TargetAndConfiguration(target, (BuildConfigurationValue) value), fullKey);
-        return;
-      }
-      emitTransitionErrorMessage(error.getMessage());
+    ConfigurationTransition transition =
+        computeTransition(target.getAssociatedRule(), trimmingTransitionFactory);
+    if (transition == null) {
+      lookUpConfigurationValue(tasks);
+      return DONE;
     }
 
-    private void emitTransitionErrorMessage(String message) {
-      // The target must be a rule because these errors happen during the Rule transition.
-      Rule rule = target.getAssociatedRule();
-      emitError(message, rule.getLocation(), /* exitCode= */ null);
-    }
+    return new RuleTransitionApplier(transition);
   }
 
   private void delegateTo(Tasks tasks, ActionLookupKey delegate) {
@@ -299,6 +219,185 @@ public final class TargetAndConfigurationProducer
     sink.acceptTargetAndConfigurationDelegatedValue((ConfiguredTargetValue) value);
   }
 
+  private void lookUpConfigurationValue(Tasks tasks) {
+    tasks.lookUp(
+        preRuleTransitionKey.getConfigurationKey(),
+        InvalidConfigurationException.class,
+        (ValueOrExceptionSink<InvalidConfigurationException>) this);
+  }
+
+  @Override
+  public void acceptValueOrException(
+      @Nullable SkyValue value, @Nullable InvalidConfigurationException error) {
+    if (value != null) {
+      sink.acceptTargetAndConfiguration(
+          new TargetAndConfiguration(target, (BuildConfigurationValue) value),
+          preRuleTransitionKey);
+      return;
+    }
+    emitError(
+        error.getMessage(), TargetUtils.getLocationMaybe(target), error.getDetailedExitCode());
+  }
+
+  /**
+   * Applies the requested rule transition.
+   *
+   * <p>When the rule transition results in a new configuration, performs an idempotency check and
+   * constructs a delegate {@link ConfiguredTargetKey} with the appropriate {@link
+   * ConfiguredTargetKey#shouldApplyRuleTransition} value. Otherwise, just looks up the
+   * configuration.
+   */
+  private class RuleTransitionApplier implements StateMachine, TransitionApplier.ResultSink {
+    // -------------------- Input --------------------
+    private final ConfigurationTransition transition;
+    // -------------------- Internal State --------------------
+    private BuildConfigurationKey configurationKey;
+
+    private RuleTransitionApplier(ConfigurationTransition transition) {
+      this.transition = transition;
+    }
+
+    @Override
+    public StateMachine step(Tasks tasks) {
+      return new TransitionApplier(
+          preRuleTransitionKey.getConfigurationKey(),
+          transition,
+          transitionCache,
+          (TransitionApplier.ResultSink) this,
+          eventHandler,
+          /* runAfter= */ this::processTransitionedKey);
+    }
+
+    @Override
+    public void acceptTransitionedConfigurations(
+        ImmutableMap<String, BuildConfigurationKey> transitionResult) {
+      checkState(transitionResult.size() == 1, "Expected exactly one result: %s", transitionResult);
+      this.configurationKey =
+          checkNotNull(
+              transitionResult.get(ConfigurationTransition.PATCH_TRANSITION_KEY),
+              "Transition result missing patch transition entry: %s",
+              transitionResult);
+    }
+
+    @Override
+    public void acceptTransitionError(TransitionException e) {
+      emitTransitionErrorMessage(e.getMessage());
+    }
+
+    @Override
+    public void acceptTransitionError(OptionsParsingException e) {
+      emitTransitionErrorMessage(e.getMessage());
+    }
+
+    private StateMachine processTransitionedKey(Tasks tasks) {
+      if (configurationKey == null) {
+        return DONE; // There was an error.
+      }
+
+      BuildConfigurationKey parentConfiguration = preRuleTransitionKey.getConfigurationKey();
+      if (configurationKey.equals(parentConfiguration)) {
+        // This key owns the configuration and the computation completes normally.
+        lookUpConfigurationValue(tasks);
+        return DONE;
+      }
+
+      eventHandler.post(
+          ConfigurationTransitionEvent.create(
+              parentConfiguration.getOptionsChecksum(), configurationKey.getOptionsChecksum()));
+
+      return new IdempotencyChecker();
+    }
+
+    /**
+     * Checks the transition for idempotency before applying delegation.
+     *
+     * <p>If the transition is non-idempotent, marks {@link
+     * ConfiguredTargetKey#shouldApplyRuleTransition} false in the delegate key.
+     */
+    private class IdempotencyChecker implements StateMachine, TransitionApplier.ResultSink {
+      /* At first glance, it seems like setting `shouldApplyRuleTransition=false` should be benign
+       * in both cases, but it would be an error in the idempotent case.
+       *
+       * Idempotent Case
+       *
+       * If we were to mark the idempotent case with `shouldApplyRuleTransition=false`, it would
+       * lead to action conflicts. Let `//foo[123]` be a key that rule transitions to `//foo[abc]`
+       * and suppose the outcome is marked `//foo[abc] shouldApplyRuleTransition=false`.
+       *
+       * A different parent might directly request `//foo[abc] shouldApplyRuleTransition=true`.
+       * Since the rule transition is a idempotent, it would result in the same actions as
+       * `//foo[abc] shouldApplyRuleTransition=false` with a different key, causing action
+       * conflicts.
+       *
+       * Non-idempotent Case
+       *
+       * In the example of //foo[abc] shouldApplyRuleTransition=false and //foo[abc]
+       * shouldApplyRuleTransition=true, there should be no action conflicts because the
+       * `shouldApplyRuleTransition=false` is the result of a non-idempotent rule transition and
+       * `shouldApplyRuleTransition=true` will produce a different configuration. */
+
+      // -------------------- Internal State --------------------
+      private BuildConfigurationKey configurationKey2;
+
+      @Override
+      public StateMachine step(Tasks tasks) {
+        return new TransitionApplier(
+            configurationKey,
+            transition,
+            transitionCache,
+            (TransitionApplier.ResultSink) this,
+            eventHandler,
+            /* runAfter= */ this::checkIdempotencyAndDelegate);
+      }
+
+      @Override
+      public void acceptTransitionedConfigurations(
+          ImmutableMap<String, BuildConfigurationKey> transitionResult) {
+        checkState(
+            transitionResult.size() == 1, "Expected exactly one result: %s", transitionResult);
+        this.configurationKey2 =
+            checkNotNull(
+                transitionResult.get(ConfigurationTransition.PATCH_TRANSITION_KEY),
+                "Transition result missing patch transition entry: %s",
+                transitionResult);
+      }
+
+      @Override
+      public void acceptTransitionError(TransitionException e) {
+        emitTransitionErrorMessage(e.getMessage());
+      }
+
+      @Override
+      public void acceptTransitionError(OptionsParsingException e) {
+        emitTransitionErrorMessage(e.getMessage());
+      }
+
+      private StateMachine checkIdempotencyAndDelegate(Tasks tasks) {
+        if (configurationKey2 == null) {
+          return DONE; // There was an error.
+        }
+
+        ConfiguredTargetKey.Builder keyBuilder =
+            ConfiguredTargetKey.builder()
+                .setLabel(preRuleTransitionKey.getLabel())
+                .setExecutionPlatformLabel(preRuleTransitionKey.getExecutionPlatformLabel())
+                .setConfigurationKey(configurationKey);
+
+        if (!configurationKey.equals(configurationKey2)) {
+          // The transition was not idempotent. Explicitly informs the delegate to avoid applying a
+          // rule transition.
+          keyBuilder.setShouldApplyRuleTransition(false);
+        }
+        delegateTo(tasks, keyBuilder.build());
+        return DONE;
+      }
+    }
+
+    private void emitTransitionErrorMessage(String message) {
+      emitError(message, TargetUtils.getLocationMaybe(target), /* exitCode= */ null);
+    }
+  }
+
   private void emitError(
       String message, @Nullable Location location, @Nullable DetailedExitCode exitCode) {
     sink.acceptTargetAndConfigurationError(
@@ -307,14 +406,34 @@ public final class TargetAndConfigurationProducer
                 location,
                 message,
                 preRuleTransitionKey.getLabel(),
-                getConfigurationId(preRuleTransitionKey.getConfigurationKey()),
+                configurationId(preRuleTransitionKey.getConfigurationKey()),
                 /* rootCauses= */ null,
                 exitCode)));
   }
 
-  private static BuildEventId getConfigurationId(@Nullable BuildConfigurationKey configurationKey) {
-    return configurationKey == null
-        ? BuildEventIdUtil.nullConfigurationId()
-        : BuildEventIdUtil.configurationId(configurationKey.getOptions().checksum());
+  // Public for Cquery.
+  @Nullable
+  public static ConfigurationTransition computeTransition(
+      Rule rule, @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory) {
+    var transitionData = RuleTransitionData.create(rule);
+
+    ConfigurationTransition transition = null;
+
+    TransitionFactory<RuleTransitionData> transitionFactory =
+        rule.getRuleClassObject().getTransitionFactory();
+    if (transitionFactory != null) {
+      transition = transitionFactory.create(transitionData);
+    }
+
+    if (trimmingTransitionFactory != null) {
+      var trimmingTransition = trimmingTransitionFactory.create(transitionData);
+      if (transition != null) {
+        transition = ComposingTransition.of(transition, trimmingTransition);
+      } else {
+        transition = trimmingTransition;
+      }
+    }
+
+    return transition;
   }
 }

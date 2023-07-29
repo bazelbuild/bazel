@@ -600,7 +600,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     public Builder() {}
 
     /** Creates a builder that is a copy of another builder. */
-    Builder(Builder other) {
+    public Builder(Builder other) {
       this.toolsBuilder.addTransitive(other.toolsBuilder.build());
       this.inputsBuilder.addTransitive(other.inputsBuilder.build());
       this.outputs.addAll(other.outputs);
@@ -657,7 +657,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     }
 
     @CheckReturnValue
-    SpawnAction buildForActionTemplate(ActionOwner owner) {
+    public SpawnAction buildForActionTemplate(ActionOwner owner) {
       CommandLines.Builder result = CommandLines.builder();
       if (executableArg != null) {
         result.addSingleArgument(executableArg);
@@ -683,7 +683,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         ActionEnvironment env) {
       NestedSet<Artifact> tools = toolsBuilder.build();
 
-      // Tools are by definition a subset of the inputs, so make sure they're present there, too.
+      // Don't call getInputsAndTools - it wouldn't reuse the built set of tools.
       NestedSet<Artifact> inputsAndTools =
           NestedSetBuilder.<Artifact>stableOrder()
               .addTransitive(inputsBuilder.build())
@@ -786,6 +786,21 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     public Builder addInputs(Iterable<Artifact> artifacts) {
       inputsBuilder.addAll(artifacts);
       return this;
+    }
+
+    /**
+     * Returns the inputs that the spawn action will depend on. Tools are by definition a subset of
+     * the inputs, so they are also present.
+     *
+     * <p>Warning: this calls {@link NestedSetBuilder#build} on both inputs and tools.
+     */
+    // TODO(antunesi): Refactor so this method isn't needed. Building new NestedSets on every call
+    // is a memory vulnerability, see b/291063247.
+    public NestedSet<Artifact> getInputsAndTools() {
+      return NestedSetBuilder.<Artifact>stableOrder()
+          .addTransitive(inputsBuilder.build())
+          .addTransitive(toolsBuilder.build())
+          .build();
     }
 
     /** Adds transitive inputs to this action. */

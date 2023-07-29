@@ -40,6 +40,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -61,15 +62,14 @@ public class SuccessfulArtifactFilterTest {
   }
 
   @SafeVarargs
-  final void initializeOutputGroupInfo(Pair<String, NestedSet<Artifact>>... groups) {
-    ImmutableSortedSet.Builder<String> setBuilder = ImmutableSortedSet.naturalOrder();
-    ImmutableMap.Builder<String, NestedSet<Artifact>> mapBuilder = ImmutableMap.builder();
-    for (Pair<String, NestedSet<Artifact>> pair : groups) {
-      setBuilder.add(pair.first);
-      mapBuilder.put(pair.first, pair.second);
+  private void initializeOutputGroupInfo(Pair<String, NestedSet<Artifact>>... groups) {
+    TreeMap<String, NestedSetBuilder<Artifact>> outputGroups = new TreeMap<>();
+    for (var pair : groups) {
+      outputGroups.put(pair.first, NestedSetBuilder.fromNestedSet(pair.second));
     }
-    ctx = new TopLevelArtifactContext(false, false, false, setBuilder.build());
-    groupProvider = new OutputGroupInfo(mapBuilder.build());
+    groupProvider = OutputGroupInfo.fromBuilders(outputGroups);
+    ctx =
+        new TopLevelArtifactContext(false, false, false, ImmutableSortedSet.copyOf(groupProvider));
   }
 
   @Test

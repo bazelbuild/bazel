@@ -45,13 +45,18 @@
       struct timespec ts;                                           \
       clock_gettime(CLOCK_REALTIME, &ts);                           \
                                                                     \
-      fprintf(stderr, "%" PRId64 ".%09ld: %s:%d: " fmt "\n",        \
+      fprintf(global_debug, "%" PRId64 ".%09ld: %s:%d: " fmt "\n",  \
               ((int64_t)ts.tv_sec), ts.tv_nsec, __FILE__, __LINE__, \
               ##__VA_ARGS__);                                       \
+                                                                    \
+      /* Minimize probability of losing output if we're killed. */  \
+      fflush(global_debug);                                         \
     }                                                               \
   } while (0)
 
-// Set to `true` to let PRINT_DEBUG() print messages.
-extern bool global_debug;
+// The file PRINT_DEBUG writes to.
+// Initialized to null (no debug logging) in logging.cc.
+// Set in the linux-sandbox.cc main() if the -D command line option is set.
+extern FILE* global_debug;
 
 #endif  // SRC_MAIN_TOOLS_LOGGING_H_

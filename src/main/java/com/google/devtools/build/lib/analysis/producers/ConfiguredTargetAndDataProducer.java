@@ -13,13 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.producers;
 
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
-import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyException;
+import com.google.devtools.build.lib.analysis.InconsistentNullConfigException;
+import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -37,24 +39,27 @@ import javax.annotation.Nullable;
  * <p>The resulting package and configuration are based on the resulting {@link ConfiguredTarget}
  * and may be different from what is in the key, for example, if there is an alias.
  */
-final class ConfiguredTargetAndDataProducer
+public final class ConfiguredTargetAndDataProducer
     implements StateMachine,
         Consumer<SkyValue>,
-        StateMachine.ValueOrException2Sink<
-            ConfiguredValueCreationException, InvalidVisibilityDependencyException> {
+        StateMachine.ValueOrException3Sink<
+            ConfiguredValueCreationException,
+            NoSuchThingException,
+            InconsistentNullConfigException> {
   /** Interface for accepting values produced by this class. */
-  interface ResultSink {
+  public interface ResultSink {
     void acceptConfiguredTargetAndData(ConfiguredTargetAndData value, int index);
 
     void acceptConfiguredTargetAndDataError(ConfiguredValueCreationException error);
 
-    void acceptConfiguredTargetAndDataError(InvalidVisibilityDependencyException error);
+    void acceptConfiguredTargetAndDataError(NoSuchThingException error);
+
+    void acceptConfiguredTargetAndDataError(InconsistentNullConfigException error);
   }
 
   // -------------------- Input --------------------
   private final ConfiguredTargetKey key;
-  @Nullable // Null if no transition key is needed (patch transition or no-op split transition).
-  private final String transitionKey;
+  private final ImmutableList<String> transitionKeys;
   private final TransitiveDependencyState transitiveState;
 
   // -------------------- Output --------------------
@@ -69,43 +74,55 @@ final class ConfiguredTargetAndDataProducer
 
   public ConfiguredTargetAndDataProducer(
       ConfiguredTargetKey key,
-      @Nullable String transitionKey,
+      ImmutableList<String> transitionKeys,
       TransitiveDependencyState transitiveState,
       ResultSink sink,
       int outputIndex) {
     this.key = key;
-    this.transitionKey = transitionKey;
+    this.transitionKeys = transitionKeys;
     this.transitiveState = transitiveState;
     this.sink = sink;
     this.outputIndex = outputIndex;
   }
 
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     tasks.lookUp(
-        key.toKey(),
+        key,
         ConfiguredValueCreationException.class,
-        InvalidVisibilityDependencyException.class,
-        (ValueOrException2Sink<
-                ConfiguredValueCreationException, InvalidVisibilityDependencyException>)
+        NoSuchThingException.class,
+        InconsistentNullConfigException.class,
+        (ValueOrException3Sink<
+                ConfiguredValueCreationException,
+                NoSuchThingException,
+                InconsistentNullConfigException>)
             this);
     return this::fetchConfigurationAndPackage;
   }
 
   @Override
-  public void acceptValueOrException2(
+  public void acceptValueOrException3(
       @Nullable SkyValue value,
       @Nullable ConfiguredValueCreationException error,
-      @Nullable InvalidVisibilityDependencyException visibilityError) {
+      @Nullable NoSuchThingException missingTargetError,
+      @Nullable InconsistentNullConfigException visibilityError) {
     if (value != null) {
       var configuredTargetValue = (ConfiguredTargetValue) value;
       this.configuredTarget = configuredTargetValue.getConfiguredTarget();
-      transitiveState.updateTransitivePackages(configuredTargetValue);
+      if (transitiveState.storeTransitivePackages()) {
+        transitiveState.updateTransitivePackages(
+            ConfiguredTargetKey.fromConfiguredTarget(configuredTarget),
+            configuredTargetValue.getTransitivePackages());
+      }
       return;
     }
     if (error != null) {
       transitiveState.addTransitiveCauses(error.getRootCauses());
       sink.acceptConfiguredTargetAndDataError(error);
+      return;
+    }
+    if (missingTargetError != null) {
+      sink.acceptConfiguredTargetAndDataError(missingTargetError);
       return;
     }
     if (visibilityError != null) {
@@ -115,7 +132,7 @@ final class ConfiguredTargetAndDataProducer
     throw new IllegalArgumentException("both value and error were null");
   }
 
-  private StateMachine fetchConfigurationAndPackage(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine fetchConfigurationAndPackage(Tasks tasks) throws InterruptedException {
     if (configuredTarget == null) {
       return DONE; // There was a previous error.
     }
@@ -156,7 +173,7 @@ final class ConfiguredTargetAndDataProducer
     throw new IllegalArgumentException("unexpected value: " + value);
   }
 
-  private StateMachine constructResult(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine constructResult(Tasks tasks) {
     Target target;
     try {
       target = pkg.getTarget(configuredTarget.getLabel().getName());
@@ -166,11 +183,7 @@ final class ConfiguredTargetAndDataProducer
       throw new IllegalStateException("Target already verified for " + configuredTarget, e);
     }
     sink.acceptConfiguredTargetAndData(
-        new ConfiguredTargetAndData(
-            configuredTarget,
-            target,
-            configurationValue,
-            transitionKey == null ? ImmutableList.of() : ImmutableList.of(transitionKey)),
+        new ConfiguredTargetAndData(configuredTarget, target, configurationValue, transitionKeys),
         outputIndex);
     return DONE;
   }

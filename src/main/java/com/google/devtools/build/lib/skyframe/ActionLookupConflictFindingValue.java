@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -35,7 +35,7 @@ public class ActionLookupConflictFindingValue implements SkyValue {
 
   private ActionLookupConflictFindingValue() {}
 
-  public static Key key(ActionLookupKeyOrProxy lookupKey) {
+  public static Key key(ActionLookupKey lookupKey) {
     return Key.create(lookupKey);
   }
 
@@ -47,16 +47,16 @@ public class ActionLookupConflictFindingValue implements SkyValue {
 
   @AutoCodec.VisibleForSerialization
   @AutoCodec
-  static class Key extends AbstractSkyKey<ActionLookupKeyOrProxy> {
+  static class Key extends AbstractSkyKey<ActionLookupKey> {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
-    private Key(ActionLookupKeyOrProxy arg) {
+    private Key(ActionLookupKey arg) {
       super(arg);
     }
 
     @AutoCodec.VisibleForSerialization
     @AutoCodec.Instantiator
-    static Key create(ActionLookupKeyOrProxy arg) {
+    static Key create(ActionLookupKey arg) {
       return interner.intern(new Key(arg));
     }
 

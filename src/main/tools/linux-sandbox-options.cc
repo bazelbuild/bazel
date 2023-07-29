@@ -75,7 +75,7 @@ static void Usage(char *program_name, const char *fmt, ...) {
           "  -R  if set, make the uid/gid be root\n"
           "  -U  if set, make the uid/gid be nobody\n"
           "  -P  if set, make the gid be tty and make /dev/pts writable\n"
-          "  -D  if set, debug info will be printed\n"
+          "  -D <debug-file> if set, debug info will be printed to this file\n"
           "  -p  if set, the process is persistent and ignores parent thread "
           "death signals\n"
           "  -C <dir> if set, put all subprocesses inside this cgroup.\n"
@@ -102,7 +102,7 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
   int c;
   bool source_specified = false;
   while ((c = getopt(args->size(), args->data(),
-                     ":W:T:t:il:L:w:e:M:m:S:h:pC:HnNRUPD")) != -1) {
+                     ":W:T:t:il:L:w:e:M:m:S:h:pC:HnNRUPD:")) != -1) {
     if (c != 'M' && c != 'm') source_specified = false;
     switch (c) {
       case 'W':
@@ -240,7 +240,13 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
         opt.enable_pty = true;
         break;
       case 'D':
-        opt.debug = true;
+        if (opt.debug_path.empty()) {
+          ValidateIsAbsolutePath(optarg, args->front(), static_cast<char>(c));
+          opt.debug_path.assign(optarg);
+        } else {
+          Usage(args->front(),
+                "Cannot write debug output to more than one file.");
+        }
         break;
       case '?':
         Usage(args->front(), "Unrecognized argument: -%c (%d)", optopt, optind);

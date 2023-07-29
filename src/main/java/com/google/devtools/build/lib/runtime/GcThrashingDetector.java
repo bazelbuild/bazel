@@ -90,8 +90,8 @@ final class GcThrashingDetector {
     this.bugReporter = bugReporter;
   }
 
-  // This is called from MemoryPressureListener on a GC notification thread, so it should never be
-  // called concurrently, but mark it synchronized for good measure.
+  // This is called from MemoryPressureListener on a single memory-pressure-listener-0 thread, so it
+  // should never be called concurrently, but mark it synchronized for good measure.
   synchronized void handle(MemoryPressureEvent event) {
     if (event.percentTenuredSpaceUsed() < threshold) {
       for (var tracker : trackers) {

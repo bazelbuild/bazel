@@ -104,12 +104,11 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
             inputManifest,
             runfiles,
             outputManifest,
-            /*repoMappingManifest=*/ null,
-            /*filesetRoot=*/ null,
+            /* repoMappingManifest= */ null,
+            /* filesetRoot= */ null,
             ActionEnvironment.EMPTY,
-            /*enableRunfiles=*/ true,
-            /*inprocessSymlinkCreation=*/ false,
-            /*skipRunfilesManifests=*/ false);
+            /* enableRunfiles= */ true,
+            /* inprocessSymlinkCreation= */ false);
 
     action.execute(context);
 
@@ -165,8 +164,7 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
             /* filesetRoot= */ null,
             ActionEnvironment.EMPTY,
             /* enableRunfiles= */ true,
-            /* inprocessSymlinkCreation= */ true,
-            /* skipRunfilesManifests= */ false);
+            /* inprocessSymlinkCreation= */ true);
 
     action.execute(context);
     // Check that the OutputService is not used.

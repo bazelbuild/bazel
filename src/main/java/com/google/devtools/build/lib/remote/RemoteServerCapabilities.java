@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import io.grpc.CallCredentials;
 import io.grpc.Channel;
-import io.grpc.StatusRuntimeException;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -73,21 +72,17 @@ class RemoteServerCapabilities {
     RequestMetadata metadata =
         TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "capabilities", null);
     RemoteActionExecutionContext context = RemoteActionExecutionContext.create(metadata);
-    try {
-      GetCapabilitiesRequest request =
-          instanceName == null
-              ? GetCapabilitiesRequest.getDefaultInstance()
-              : GetCapabilitiesRequest.newBuilder().setInstanceName(instanceName).build();
-      return retrier.execute(
-          () ->
-              channel.withChannelBlocking(
-                  channel -> capabilitiesBlockingStub(context, channel).getCapabilities(request)));
-    } catch (StatusRuntimeException e) {
-      if (e.getCause() instanceof IOException) {
-        throw (IOException) e.getCause();
-      }
-      throw new IOException(e);
-    }
+    GetCapabilitiesRequest request =
+        instanceName == null
+            ? GetCapabilitiesRequest.getDefaultInstance()
+            : GetCapabilitiesRequest.newBuilder().setInstanceName(instanceName).build();
+    ServerCapabilities caps =
+        retrier.execute(
+            () ->
+                channel.withChannelBlocking(
+                    channel ->
+                        capabilitiesBlockingStub(context, channel).getCapabilities(request)));
+    return caps;
   }
 
   static class ClientServerCompatibilityStatus {
@@ -182,8 +177,8 @@ class RemoteServerCapabilities {
     }
 
     // Check API version.
-    ApiVersion.ServerSupportedStatus st =
-        ApiVersion.current.checkServerSupportedVersions(capabilities);
+    ClientApiVersion.ServerSupportedStatus st =
+        ClientApiVersion.current.checkServerSupportedVersions(capabilities);
     if (st.isUnsupported()) {
       result.addError(st.getMessage());
     }

@@ -50,7 +50,7 @@ public class GenericRules implements RuleSet {
     GenQueryRule.register(builder);
     builder.addRuleDefinition(new LabelBuildSettingRule());
     builder.addRuleDefinition(new LabelBuildFlagRule());
-    StarlarkDocExtractRule.register(builder);
+    builder.addRuleDefinition(new StarlarkDocExtractRule());
 
     try {
       builder.addWorkspaceFilePrefix(

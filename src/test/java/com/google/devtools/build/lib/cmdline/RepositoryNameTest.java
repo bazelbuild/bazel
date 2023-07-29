@@ -93,5 +93,16 @@ public class RepositoryNameTest {
         .isEqualTo("@local");
     assertThat(RepositoryName.create("other").getDisplayForm(repositoryMapping))
         .isEqualTo("@@other");
+
+    assertThat(
+            RepositoryName.create("")
+                .toNonVisible(RepositoryName.create("owner"))
+                .getDisplayForm(repositoryMapping))
+        .isEqualTo("@@[unknown repo '' requested from @owner]");
+    assertThat(
+            RepositoryName.create("local")
+                .toNonVisible(RepositoryName.create("owner"))
+                .getDisplayForm(repositoryMapping))
+        .isEqualTo("@@[unknown repo 'local' requested from @owner]");
   }
 }

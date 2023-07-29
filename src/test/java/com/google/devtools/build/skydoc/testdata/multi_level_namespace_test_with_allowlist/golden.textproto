@@ -1,0 +1,29 @@
+func_info {
+  function_name: "my_namespace.min"
+  parameter {
+    name: "integers"
+    mandatory: true
+  }
+  doc_string: "Returns the minimum of given elements."
+}
+func_info {
+  function_name: "my_namespace.math.min"
+  parameter {
+    name: "integers"
+    mandatory: true
+  }
+  doc_string: "Returns the minimum of given elements."
+}
+func_info {
+  function_name: "other_namespace.foo.nothing"
+  doc_string: "This function does nothing."
+}
+func_info {
+  function_name: "other_namespace.min"
+  parameter {
+    name: "integers"
+    mandatory: true
+  }
+  doc_string: "Returns the minimum of given elements."
+}
+module_docstring: "A test that verifies documenting a multi-leveled namespace of functions with allowlist symbols.\nThe allowlist symbols should cause everything in my_namespace to to be documented, but only a\nspecific symbol in other_namespace to be documented."

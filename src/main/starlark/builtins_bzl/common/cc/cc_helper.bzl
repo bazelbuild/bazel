@@ -18,12 +18,14 @@ load(":common/objc/semantics.bzl", objc_semantics = "semantics")
 load(":common/paths.bzl", "paths")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/cc_common.bzl", "cc_common")
+load(":common/objc/objc_common.bzl", "objc_common")
 
 cc_internal = _builtins.internal.cc_internal
 CcNativeLibraryInfo = _builtins.internal.CcNativeLibraryInfo
 config_common = _builtins.toplevel.config_common
 coverage_common = _builtins.toplevel.coverage_common
 platform_common = _builtins.toplevel.platform_common
+apple_common = _builtins.toplevel.apple_common
 
 artifact_category = struct(
     STATIC_LIBRARY = "STATIC_LIBRARY",
@@ -49,17 +51,6 @@ artifact_category = struct(
 linker_mode = struct(
     LINKING_DYNAMIC = "dynamic_linking_mode",
     LINKING_STATIC = "static_linking_mode",
-)
-
-ios_cpus = struct(
-    IOS_SIMULATOR_TARGET_CPUS = ["ios_x86_64", "ios_i386", "ios_sim_arm64"],
-    IOS_DEVICE_TARGET_CPUS = ["ios_armv6", "ios_arm64", "ios_armv7", "ios_armv7s", "ios_arm64e"],
-    WATCHOS_SIMULATOR_TARGET_CPUS = ["watchos_i386", "watchos_x86_64", "watchos_arm64"],
-    WATCHOS_DEVICE_TARGET_CPUS = ["watchos_armv7k", "watchos_arm64_32", "watchos_device_arm64", "watchos_device_arm64e"],
-    TVOS_SIMULATOR_TARGET_CPUS = ["tvos_x86_64", "tvos_sim_arm64"],
-    TVOS_DEVICE_TARGET_CPUS = ["tvos_arm64"],
-    CATALYST_TARGET_CPUS = ["catalyst_x86_64"],
-    MACOS_TARGET_CPUS = ["darwin_x86_64", "darwin_arm64", "darwin_arm64e"],
 )
 
 cpp_file_types = struct(
@@ -917,16 +908,19 @@ def _expand_single_make_variable(ctx, token, additional_make_variable_substituti
 
 def _expand_make_variables_for_copts(ctx, tokenization, unexpanded_tokens, additional_make_variable_substitutions):
     tokens = []
+    targets = []
+    for additional_compiler_input in getattr(ctx.attr, "additional_compiler_inputs", []):
+        targets.append(additional_compiler_input)
     for token in unexpanded_tokens:
         if tokenization:
-            expanded_token = _expand(ctx, token, additional_make_variable_substitutions)
+            expanded_token = _expand(ctx, token, additional_make_variable_substitutions, targets = targets)
             _tokenize(tokens, expanded_token)
         else:
             exp = _expand_single_make_variable(ctx, token, additional_make_variable_substitutions)
             if exp != None:
                 _tokenize(tokens, exp)
             else:
-                tokens.append(_expand(ctx, token, additional_make_variable_substitutions))
+                tokens.append(_expand(ctx, token, additional_make_variable_substitutions, targets = targets))
     return tokens
 
 def _get_copts(ctx, feature_configuration, additional_make_variable_substitutions):
@@ -1136,16 +1130,6 @@ def _create_cc_instrumented_files_info(ctx, cc_config, cc_toolchain, metadata_fi
     )
     return info
 
-def _is_apple_platform(cpu):
-    return cpu in ios_cpus.IOS_SIMULATOR_TARGET_CPUS or \
-           cpu in ios_cpus.IOS_DEVICE_TARGET_CPUS or \
-           cpu in ios_cpus.WATCHOS_SIMULATOR_TARGET_CPUS or \
-           cpu in ios_cpus.WATCHOS_DEVICE_TARGET_CPUS or \
-           cpu in ios_cpus.TVOS_SIMULATOR_TARGET_CPUS or \
-           cpu in ios_cpus.TVOS_DEVICE_TARGET_CPUS or \
-           cpu in ios_cpus.CATALYST_TARGET_CPUS or \
-           cpu in ios_cpus.MACOS_TARGET_CPUS
-
 def _linkopts(ctx, additional_make_variable_substitutions, cc_toolchain):
     linkopts = getattr(ctx.attr, "linkopts", [])
     if len(linkopts) == 0:
@@ -1157,7 +1141,7 @@ def _linkopts(ctx, additional_make_variable_substitutions, cc_toolchain):
     for linkopt in linkopts:
         expanded_linkopt = _expand(ctx, linkopt, additional_make_variable_substitutions, targets = targets)
         _tokenize(tokens, expanded_linkopt)
-    if _is_apple_platform(cc_toolchain.cpu) and "-static" in tokens:
+    if objc_common.is_apple_platform(cc_toolchain.cpu) and "-static" in tokens:
         fail("in linkopts attribute of cc_library rule {}: Apple builds do not support statically linked binaries".format(ctx.label))
     return tokens
 
@@ -1209,14 +1193,21 @@ def _copts_filter(ctx, additional_make_variable_substitutions):
     # Expand nocopts and create CoptsFilter.
     return _expand(ctx, nocopts, additional_make_variable_substitutions)
 
-def _proto_output_root(proto_root, genfiles_dir_path, bin_dir_path):
+def _proto_output_root(proto_root, bin_dir_path):
     if proto_root == ".":
         return bin_dir_path
 
-    if proto_root.startswith(genfiles_dir_path):
-        return bin_dir_path + "/" + proto_root[len(genfiles_dir_path):]
+    if proto_root.startswith(bin_dir_path):
+        return proto_root
     else:
         return bin_dir_path + "/" + proto_root
+
+# buildifier: disable=unused-variable
+def _cc_toolchain_build_variables(xcode_config):
+    def cc_toolchain_build_variables(platform, cpu, cpp_config, sysroot):
+        return cc_internal.cc_toolchain_variables(vars = objc_common.get_common_vars(cpp_config, sysroot))
+
+    return cc_toolchain_build_variables
 
 cc_helper = struct(
     CPP_TOOLCHAIN_TYPE = _CPP_TOOLCHAIN_TYPE,
@@ -1282,4 +1273,5 @@ cc_helper = struct(
     package_exec_path = _package_exec_path,
     repository_exec_path = _repository_exec_path,
     proto_output_root = _proto_output_root,
+    cc_toolchain_build_variables = _cc_toolchain_build_variables,
 )

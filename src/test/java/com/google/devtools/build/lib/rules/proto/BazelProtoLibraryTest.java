@@ -83,10 +83,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     Artifact file = getDescriptorOutput("//x:foo");
 
     assertThat(getGeneratingSpawnAction(file).getRemainingArguments())
-        .containsAtLeast(
-            "-Ix/foo.proto=x/foo.proto",
-            "--descriptor_set_out=" + file.getExecPathString(),
-            "x/foo.proto");
+        .containsAtLeast("-I.", "--descriptor_set_out=" + file.getExecPathString(), "x/foo.proto");
   }
 
   /** Asserts that we register a FileWriteAction with empty contents if there are no srcs. */
@@ -288,7 +285,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     assertThat(
             getGeneratingSpawnAction(getDescriptorOutput("//third_party/x/foo:nodeps"))
                 .getRemainingArguments())
-        .contains("--proto_path=" + genfiles + "/third_party/x/foo/_virtual_imports/nodeps");
+        .contains("-I" + genfiles + "/third_party/x/foo/_virtual_imports/nodeps");
   }
 
   @Test
@@ -373,8 +370,8 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
             getGeneratingSpawnAction(getDescriptorOutput("//third_party/x/foo:withdeps"))
                 .getRemainingArguments())
         .containsAtLeast(
-            "--proto_path=" + genfiles + "/third_party/x/foo/_virtual_imports/withdeps",
-            "--proto_path=" + genfiles + "/third_party/x/foo/_virtual_imports/dep");
+            "-I" + genfiles + "/third_party/x/foo/_virtual_imports/withdeps",
+            "-I" + genfiles + "/third_party/x/foo/_virtual_imports/dep");
   }
 
   @Test
@@ -744,8 +741,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     ImmutableList<String> commandLine =
         allArgsForAction((SpawnAction) getDescriptorWriteAction("//third_party/a/b:d"));
     String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
-    assertThat(commandLine)
-        .contains("-Id.proto=" + genfiles + "/third_party/a/b/_virtual_imports/d/d.proto");
+    assertThat(commandLine).contains("-I" + genfiles + "/third_party/a/b/_virtual_imports/d");
   }
 
   @Test
@@ -762,8 +758,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     ImmutableList<String> commandLine =
         allArgsForAction((SpawnAction) getDescriptorWriteAction("//third_party/a/b:d"));
     String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
-    assertThat(commandLine)
-        .contains("-Ib/c/d.proto=" + genfiles + "/third_party/a/b/_virtual_imports/d/b/c/d.proto");
+    assertThat(commandLine).contains("-I" + genfiles + "/third_party/a/b/_virtual_imports/d");
   }
 
   @Test
@@ -780,8 +775,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     ImmutableList<String> commandLine =
         allArgsForAction((SpawnAction) getDescriptorWriteAction("//third_party/a/b:d"));
     String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
-    assertThat(commandLine)
-        .contains("-Ib/c/d.proto=" + genfiles + "/third_party/a/b/_virtual_imports/d/b/c/d.proto");
+    assertThat(commandLine).contains("-I" + genfiles + "/third_party/a/b/_virtual_imports/d");
   }
 
   @Test
@@ -802,8 +796,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     ImmutableList<String> commandLine =
         allArgsForAction((SpawnAction) getDescriptorWriteAction("//a/b:d"));
     String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
-    assertThat(commandLine)
-        .contains("-Ifoo/d.proto=" + genfiles + "/a/b/_virtual_imports/d/foo/d.proto");
+    assertThat(commandLine).contains("-I" + genfiles + "/a/b/_virtual_imports/d");
   }
 
   @Test
@@ -823,8 +816,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     ImmutableList<String> commandLine =
         allArgsForAction((SpawnAction) getDescriptorWriteAction("//a/b:d"));
     String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
-    assertThat(commandLine)
-        .contains("-Ifoo/a/b/c/d.proto=" + genfiles + "/a/b/_virtual_imports/d/foo/a/b/c/d.proto");
+    assertThat(commandLine).contains("-I" + genfiles + "/a/b/_virtual_imports/d");
   }
 
   @Test
@@ -994,8 +986,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     ImmutableList<String> commandLine =
         allArgsForAction((SpawnAction) getDescriptorWriteAction("//a:a"));
     String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
-    assertThat(commandLine)
-        .contains("-Iy/z/q.proto=" + genfiles + "/external/foo/x/y/_virtual_imports/q/y/z/q.proto");
+    assertThat(commandLine).contains("-I" + genfiles + "/external/foo/x/y/_virtual_imports/q");
   }
 
   private Artifact getDescriptorOutput(String label) throws Exception {
@@ -1056,8 +1047,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     ImmutableList<String> commandLine =
         allArgsForAction((SpawnAction) getDescriptorWriteAction("//a:p"));
     String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
-    assertThat(commandLine)
-        .containsAtLeast("-Ia/s.proto=a/s.proto", "-Ia/g.proto=" + genfiles + "/a/g.proto");
+    assertThat(commandLine).containsAtLeast("-I.", "-I" + genfiles);
   }
 
   @Test
@@ -1089,15 +1079,13 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     {
       ImmutableList<String> commandLine =
           allArgsForAction((SpawnAction) getDescriptorWriteAction("//x:a"));
-      assertThat(commandLine)
-          .containsAtLeast("-Ix/a.proto=x/a.proto", "-Ia.proto=external/foo/a.proto");
+      assertThat(commandLine).containsAtLeast("-Iexternal/foo", "-I.");
     }
 
     {
       ImmutableList<String> commandLine =
           allArgsForAction((SpawnAction) getDescriptorWriteAction("//x:c"));
-      assertThat(commandLine)
-          .containsAtLeast("-Ix/c.proto=x/c.proto", "-Ia/b/c.proto=external/foo/a/b/c.proto");
+      assertThat(commandLine).containsAtLeast("-Iexternal/foo", "-I.");
     }
   }
 
@@ -1164,5 +1152,61 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     ProtoInfo provider = getConfiguredTarget("//x:foo").get(ProtoInfo.PROVIDER);
     assertThat(Iterables.transform(provider.getDirectSources(), s -> s.getExecPathString()))
         .containsExactly(genfiles + "/x/generated.proto", "x/a.proto");
+  }
+
+  @Test
+  public void protoLibrary_reexport_allowed() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "proto_library(name='foo', srcs=['foo.proto'], allow_exports = ':test')",
+        "package_group(",
+        "    name='test',",
+        "    packages=['//allowed'],",
+        ")");
+    scratch.file(
+        "allowed/BUILD",
+        "proto_library(name='test1', deps = ['//x:foo'])",
+        "proto_library(name='test2', srcs = ['A.proto'], exports = ['//x:foo'])");
+
+    getConfiguredTarget("//allowed:test1");
+    getConfiguredTarget("//allowed:test2");
+
+    assertNoEvents();
+  }
+
+  @Test
+  public void protoLibrary_implcitReexport_fails() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "proto_library(name='foo', srcs=['foo.proto'], allow_exports = ':test')",
+        "package_group(",
+        "    name='test',",
+        "    packages=['//allowed'],",
+        ")");
+    scratch.file("notallowed/BUILD", "proto_library(name='test', deps = ['//x:foo'])");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//notallowed:test");
+
+    assertContainsEvent("proto_library '@//x:foo' can't be reexported in package '//notallowed'");
+  }
+
+  @Test
+  public void protoLibrary_explicitExport_fails() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "proto_library(name='foo', srcs=['foo.proto'], allow_exports = ':test')",
+        "package_group(",
+        "    name='test',",
+        "    packages=['//allowed'],",
+        ")");
+    scratch.file(
+        "notallowed/BUILD",
+        "proto_library(name='test', srcs = ['A.proto'], exports = ['//x:foo'])");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//notallowed:test");
+
+    assertContainsEvent("proto_library '@//x:foo' can't be reexported in package '//notallowed'");
   }
 }

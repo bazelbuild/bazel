@@ -2792,7 +2792,7 @@ genrule(
 EOF
   execroot="$(bazel info execution_root)"
 
-  bazel build --experimental_merged_skyframe_analysis_execution --experimental_skymeld_ui //:foo \
+  bazel build --experimental_merged_skyframe_analysis_execution //:foo \
     || fail 'Expected build to succeed with Skymeld'
 
   test -h "$execroot/external/ext" || fail "Expected symlink to external repo."

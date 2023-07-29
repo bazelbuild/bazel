@@ -13,17 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyException;
+import com.google.devtools.build.lib.analysis.InconsistentNullConfigException;
+import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 
 /** Exceptions thrown by {@link ConfiguredTargetFunction}. */
-final class ConfiguredTargetEvaluationExceptions {
+public final class ConfiguredTargetEvaluationExceptions {
   /**
    * {@link ConfiguredTargetFunction#compute} exception that has already had its error reported to
    * the user. Callers (like {@link com.google.devtools.build.lib.buildtool.BuildTool}) won't also
    * report the error.
    */
-  static class ReportedException extends SkyFunctionException {
+  public static class ReportedException extends SkyFunctionException {
     ReportedException(ConfiguredValueCreationException e) {
       super(withoutMessage(e), Transience.PERSISTENT);
     }
@@ -46,7 +47,7 @@ final class ConfiguredTargetEvaluationExceptions {
    * user. Callers (like {@link com.google.devtools.build.lib.buildtool.BuildTool}) are responsible
    * for reporting the error.
    */
-  static class UnreportedException extends SkyFunctionException {
+  public static class UnreportedException extends SkyFunctionException {
     UnreportedException(ConfiguredValueCreationException e) {
       super(e, Transience.PERSISTENT);
     }
@@ -54,8 +55,33 @@ final class ConfiguredTargetEvaluationExceptions {
 
   /** A dependency error that should be caught and rethrown by the parent with more context. */
   static class DependencyException extends SkyFunctionException {
-    DependencyException(InvalidVisibilityDependencyException e) {
+    enum Kind {
+      INCONSISTENT_NULL_CONFIG,
+      NO_SUCH_THING
+    }
+
+    private final Kind kind;
+
+    Kind kind() {
+      return kind;
+    }
+
+    InconsistentNullConfigException inconsistentNullConfig() {
+      return (InconsistentNullConfigException) getCause();
+    }
+
+    NoSuchThingException noSuchThing() {
+      return (NoSuchThingException) getCause();
+    }
+
+    DependencyException(InconsistentNullConfigException e) {
       super(e, Transience.PERSISTENT);
+      this.kind = Kind.INCONSISTENT_NULL_CONFIG;
+    }
+
+    DependencyException(NoSuchThingException e) {
+      super(e, Transience.PERSISTENT);
+      this.kind = Kind.NO_SUCH_THING;
     }
   }
 

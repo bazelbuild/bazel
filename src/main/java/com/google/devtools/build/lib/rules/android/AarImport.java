@@ -194,9 +194,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
             ruleContext, aar, ANDROID_MANIFEST, jdepsArtifact, androidManifestArtifact));
 
     JavaCompilationArgsProvider javaCompilationArgsProvider =
-        common.collectJavaCompilationArgs(
-            /* isNeverLink = */ JavaCommon.isNeverLink(ruleContext),
-            /* srcLessDepsExport = */ false);
+        common.collectJavaCompilationArgs(/* isNeverLink= */ JavaCommon.isNeverLink(ruleContext));
 
     // Wire up the source jar for the current target and transitive source jars from dependencies.
     ImmutableList<Artifact> srcJars = ImmutableList.of();
@@ -242,7 +240,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .addNativeDeclaredProvider(
             new AndroidNativeLibsInfo(
                 AndroidCommon.collectTransitiveNativeLibs(ruleContext).add(nativeLibs).build()))
-        .addNativeDeclaredProvider(javaInfoBuilder.build());
+        .addStarlarkDeclaredProvider(javaInfoBuilder.build());
     if (jdepsArtifact != null) {
       // Add the deps check result so that we can unit test it.
       ruleBuilder.addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, jdepsArtifact);
@@ -251,7 +249,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
   }
 
   private static NestedSet<Artifact> getCompileTimeJarsFromCollection(
-      ImmutableList<TransitiveInfoCollection> deps, boolean isDirect) {
+      ImmutableList<TransitiveInfoCollection> deps, boolean isDirect) throws RuleErrorException {
     JavaCompilationArgsProvider provider = JavaCompilationArgsProvider.legacyFromTargets(deps);
     return isDirect ? provider.getDirectCompileTimeJars() : provider.getTransitiveCompileTimeJars();
   }

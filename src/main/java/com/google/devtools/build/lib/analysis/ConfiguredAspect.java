@@ -14,11 +14,12 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.analysis.ExtraActionUtils.createExtraActionProvider;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Actions;
@@ -28,12 +29,9 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkApiProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.Arrays;
-import java.util.Map;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -54,75 +52,51 @@ import net.starlark.java.eval.Starlark;
  * @see com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory
  * @see com.google.devtools.build.lib.packages.AspectClass
  */
-@Immutable
-public final class ConfiguredAspect implements ProviderCollection {
-  private final ImmutableList<ActionAnalysisMetadata> actions;
-  private final TransitiveInfoProviderMap providers;
+public interface ConfiguredAspect extends ProviderCollection {
 
-  private ConfiguredAspect(
-      ImmutableList<ActionAnalysisMetadata> actions, TransitiveInfoProviderMap providers) {
-    this.actions = actions;
-    this.providers = providers;
-
-    // Initialize every StarlarkApiProvider
-    for (int i = 0; i < providers.getProviderCount(); i++) {
-      Object obj = providers.getProviderInstanceAt(i);
-      if (obj instanceof StarlarkApiProvider) {
-        ((StarlarkApiProvider) obj).init(providers);
-      }
-    }
-  }
-
-  public ImmutableList<ActionAnalysisMetadata> getActions() {
-    return actions;
-  }
+  ImmutableList<ActionAnalysisMetadata> getActions();
 
   /** Returns the providers created by the aspect. */
-  public TransitiveInfoProviderMap getProviders() {
-    return providers;
-  }
+  TransitiveInfoProviderMap getProviders();
 
   @Override
   @Nullable
-  public <P extends TransitiveInfoProvider> P getProvider(Class<P> providerClass) {
+  default <P extends TransitiveInfoProvider> P getProvider(Class<P> providerClass) {
     AnalysisUtils.checkProvider(providerClass);
-    return providers.getProvider(providerClass);
+    return getProviders().getProvider(providerClass);
   }
 
   @Override
-  public Info get(Provider.Key key) {
-    return providers.get(key);
+  default Info get(Provider.Key key) {
+    return getProviders().get(key);
   }
 
   @Override
-  public Object get(String legacyKey) {
+  default Object get(String legacyKey) {
     if (OutputGroupInfo.STARLARK_NAME.equals(legacyKey)) {
       return get(OutputGroupInfo.STARLARK_CONSTRUCTOR.getKey());
     }
-    return providers.get(legacyKey);
+    return getProviders().get(legacyKey);
   }
 
-  public static ConfiguredAspect forAlias(ConfiguredAspect real) {
-    return new ConfiguredAspect(real.actions, real.providers);
+  static ConfiguredAspect forAlias(ConfiguredAspect real) {
+    return BasicConfiguredAspect.create(real.getActions(), real.getProviders());
   }
 
-  public static ConfiguredAspect forNonapplicableTarget() {
-    return new ConfiguredAspect(
-        ImmutableList.of(),
-        new TransitiveInfoProviderMapBuilder().add().build());
+  static ConfiguredAspect forNonapplicableTarget() {
+    return BasicConfiguredAspect.create(
+        ImmutableList.of(), new TransitiveInfoProviderMapBuilder().build());
   }
 
-  public static Builder builder(RuleContext ruleContext) {
+  static Builder builder(RuleContext ruleContext) {
     return new Builder(ruleContext);
   }
 
-  /**
-   * Builder for {@link ConfiguredAspect}.
-   */
-  public static class Builder {
+  /** Builder for {@link ConfiguredAspect}. */
+  final class Builder {
     private final TransitiveInfoProviderMapBuilder providers =
         new TransitiveInfoProviderMapBuilder();
-    private final Map<String, NestedSetBuilder<Artifact>> outputGroupBuilders = new TreeMap<>();
+    private final TreeMap<String, NestedSetBuilder<Artifact>> outputGroupBuilders = new TreeMap<>();
     private final RuleContext ruleContext;
 
     public Builder(RuleContext ruleContext) {
@@ -132,7 +106,7 @@ public final class ConfiguredAspect implements ProviderCollection {
     @CanIgnoreReturnValue
     public <T extends TransitiveInfoProvider> Builder addProvider(
         Class<? extends T> providerClass, T provider) {
-      Preconditions.checkNotNull(provider);
+      checkNotNull(provider);
       checkProviderClass(providerClass);
       providers.put(providerClass, provider);
       return this;
@@ -141,34 +115,13 @@ public final class ConfiguredAspect implements ProviderCollection {
     /** Adds a provider to the aspect. */
     @CanIgnoreReturnValue
     public Builder addProvider(TransitiveInfoProvider provider) {
-      Preconditions.checkNotNull(provider);
+      checkNotNull(provider);
       addProvider(TransitiveInfoProviderEffectiveClassHelper.get(provider), provider);
       return this;
     }
 
     private static void checkProviderClass(Class<? extends TransitiveInfoProvider> providerClass) {
-      Preconditions.checkNotNull(providerClass);
-    }
-
-    /** Adds providers to the aspect. */
-    @CanIgnoreReturnValue
-    public Builder addProviders(TransitiveInfoProviderMap providers) {
-      this.providers.addAll(providers);
-      return this;
-    }
-
-    /** Adds providers to the aspect. */
-    public Builder addProviders(TransitiveInfoProvider... providers) {
-      return addProviders(Arrays.asList(providers));
-    }
-
-    /** Adds providers to the aspect. */
-    @CanIgnoreReturnValue
-    public Builder addProviders(Iterable<TransitiveInfoProvider> providers) {
-      for (TransitiveInfoProvider provider : providers) {
-        addProvider(provider);
-      }
-      return this;
+      checkNotNull(providerClass);
     }
 
     /** Adds a set of files to an output group. */
@@ -214,16 +167,11 @@ public final class ConfiguredAspect implements ProviderCollection {
     @Nullable
     public ConfiguredAspect build() throws ActionConflictException, InterruptedException {
       if (!outputGroupBuilders.isEmpty()) {
-        ImmutableMap.Builder<String, NestedSet<Artifact>> outputGroups = ImmutableMap.builder();
-        for (Map.Entry<String, NestedSetBuilder<Artifact>> entry : outputGroupBuilders.entrySet()) {
-          outputGroups.put(entry.getKey(), entry.getValue().build());
-        }
-
         if (providers.contains(OutputGroupInfo.STARLARK_CONSTRUCTOR.getKey())) {
           throw new IllegalStateException(
               "OutputGroupInfo was provided explicitly; do not use addOutputGroup");
         }
-        addDeclaredProvider(new OutputGroupInfo(outputGroups.buildOrThrow()));
+        addDeclaredProvider(OutputGroupInfo.fromBuilders(outputGroupBuilders));
       }
 
       addProvider(
@@ -241,7 +189,17 @@ public final class ConfiguredAspect implements ProviderCollection {
 
       maybeAddRequiredConfigFragmentsProvider();
 
-      return new ConfiguredAspect(actions, providers.build());
+      TransitiveInfoProviderMap providerMap = providers.build();
+
+      // Initialize every StarlarkApiProvider
+      for (int i = 0; i < providerMap.getProviderCount(); i++) {
+        Object obj = providerMap.getProviderInstanceAt(i);
+        if (obj instanceof StarlarkApiProvider) {
+          ((StarlarkApiProvider) obj).init(providerMap);
+        }
+      }
+
+      return BasicConfiguredAspect.create(actions, providerMap);
     }
 
     /**
@@ -258,5 +216,17 @@ public final class ConfiguredAspect implements ProviderCollection {
         addProvider(ruleContext.getRequiredConfigFragments());
       }
     }
+  }
+
+  /** Basic implementation of {@link ConfiguredAspect}. */
+  @AutoValue
+  abstract class BasicConfiguredAspect implements ConfiguredAspect {
+
+    private static BasicConfiguredAspect create(
+        ImmutableList<ActionAnalysisMetadata> actions, TransitiveInfoProviderMap providers) {
+      return new AutoValue_ConfiguredAspect_BasicConfiguredAspect(actions, providers);
+    }
+
+    BasicConfiguredAspect() {}
   }
 }

@@ -151,7 +151,7 @@ public final class Actions {
   public static void assignOwnersAndThrowIfConflict(
       ActionKeyContext actionKeyContext,
       ImmutableList<ActionAnalysisMetadata> actions,
-      ActionLookupKeyOrProxy actionLookupKey)
+      ActionLookupKey actionLookupKey)
       throws ActionConflictException, InterruptedException, ArtifactGeneratedByOtherRuleException {
     assignOwnersAndThrowIfConflictMaybeToleratingSharedActions(
         actionKeyContext, actions, actionLookupKey, /* allowSharedAction= */ false);
@@ -172,7 +172,7 @@ public final class Actions {
   public static void assignOwnersAndThrowIfConflictToleratingSharedActions(
       ActionKeyContext actionKeyContext,
       ImmutableList<ActionAnalysisMetadata> actions,
-      ActionLookupKeyOrProxy actionLookupKey)
+      ActionLookupKey actionLookupKey)
       throws ActionConflictException, InterruptedException, ArtifactGeneratedByOtherRuleException {
     assignOwnersAndThrowIfConflictMaybeToleratingSharedActions(
         actionKeyContext, actions, actionLookupKey, /* allowSharedAction= */ true);
@@ -213,7 +213,7 @@ public final class Actions {
   private static void assignOwnersAndThrowIfConflictMaybeToleratingSharedActions(
       ActionKeyContext actionKeyContext,
       ImmutableList<ActionAnalysisMetadata> actions,
-      ActionLookupKeyOrProxy actionLookupKey,
+      ActionLookupKey actionLookupKey,
       boolean allowSharedAction)
       throws ActionConflictException, InterruptedException, ArtifactGeneratedByOtherRuleException {
     Map<PathFragment, Artifact.DerivedArtifact> seenArtifacts = new HashMap<>();

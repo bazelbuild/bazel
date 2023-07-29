@@ -1,4 +1,4 @@
-# Copyright 2019 The Bazel Authors. All rights reserved.
+# Copyright 2023 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,36 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""
-Finds the Java toolchain.
-Returns the toolchain if enabled, and falls back to a toolchain constructed from
-legacy toolchain selection.
-"""
 
-def find_java_toolchain(ctx, target):
-    """
-    Finds the Java toolchain.
-    If the Java toolchain is in use, returns it.  Otherwise, returns a Java
-    toolchain derived from legacy toolchain selection.
-    Args:
-      ctx: The rule context for which to find a toolchain.
-      target: A java_toolchain target (for legacy toolchain resolution).
-    Returns:
-      A JavaToolchainInfo.
-    """
-    _ignore = [ctx]
-    return target[java_common.JavaToolchainInfo]
+"""Redirect symbols from rules_java to keep backward-compatibility."""
 
-def find_java_runtime_toolchain(ctx, target):
-    """
-    Finds the Java runtime.
-    If the Java toolchain is in use, returns it.  Otherwise, returns a Java
-    runtime derived from legacy toolchain selection.
-    Args:
-      ctx: The rule context for which to find a toolchain.
-      target: A java_runtime target (for legacy toolchain resolution).
-    Returns:
-      A JavaRuntimeInfo.
-    """
-    _ignore = [ctx]
-    return target[java_common.JavaRuntimeInfo]
+load(
+    "@rules_java//toolchains:toolchain_utils.bzl",
+    _find_java_runtime_toolchain = "find_java_runtime_toolchain",
+    _find_java_toolchain = "find_java_toolchain",
+)
+
+find_java_toolchain = _find_java_toolchain
+find_java_runtime_toolchain = _find_java_runtime_toolchain

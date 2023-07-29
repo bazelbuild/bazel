@@ -4,7 +4,6 @@ load("//tools/build_defs/repo:http.bzl", "http_archive")
 load("//:distdir.bzl", "dist_http_archive", "dist_http_jar", "distdir_tar")
 load("//:distdir_deps.bzl", "DIST_DEPS")
 load("//:repositories.bzl", "embedded_jdk_repositories")
-load("//tools/jdk:jdk_build_file.bzl", "JDK_BUILD_TEMPLATE")
 
 # These can be used as values for the patch_cmds and patch_cmds_win attributes
 # of http_archive, in order to export the WORKSPACE file from the BUILD or
@@ -126,19 +125,19 @@ distdir_tar(
     name = "additional_distfiles",
     # Keep in sync with the archives fetched as part of building bazel.
     archives = [
-        "android_tools_pkg-0.28.0.tar",
+        "android_tools_pkg-0.29.0.tar",
         # for android_gmaven_r8
         "r8-8.0.40.jar",
     ],
     dirname = "derived/distdir",
     dist_deps = {dep: attrs for dep, attrs in DIST_DEPS.items() if "additional_distfiles" in attrs["used_in"]},
     sha256 = {
-        "android_tools_pkg-0.28.0.tar": "db3b02421ae974e0b33573f3e4f658d5f89cc9a0b42baae0ba2ac08e25c0720a",
+        "android_tools_pkg-0.29.0.tar": "d7223664ca5b0de490f2a918c31f35cdf4f23a1446fe261d7470b8a22bd7bcf1",
         "r8-8.0.40.jar": "ab1379835c7d3e5f21f80347c3c81e2f762e0b9b02748ae5232c3afa14adf702",
     },
     urls = {
-        "android_tools_pkg-0.28.0.tar": [
-            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.28.0.tar",
+        "android_tools_pkg-0.29.0.tar": [
+            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.29.0.tar",
         ],
         "r8-8.0.40.jar": [
             "https://maven.google.com/com/android/tools/r8/8.0.40/r8-8.0.40.jar",
@@ -195,49 +194,14 @@ dist_http_archive(
     strip_prefix = "zstd-jni-1.5.2-3",
 )
 
-http_archive(
-    name = "org_snakeyaml",
-    build_file_content = """
-java_library(
-    name = "snakeyaml",
-    srcs = glob(["src/main/**/*.java"]),
-    visibility = [
-        "@io_bazel//src/main/java/com/google/devtools/build/docgen/release:__pkg__",
-        "@com_google_testparameterinjector//:__pkg__",
-    ],
-)
-""",
-    sha256 = "fd0e0cc6c5974fc8f08be3a15fb4a59954c7dd958b5b68186a803de6420b6e40",
-    strip_prefix = "asomov-snakeyaml-b28f0b4d87c6",
-    urls = ["https://mirror.bazel.build/bitbucket.org/asomov/snakeyaml/get/snakeyaml-1.28.tar.gz"],
+dist_http_archive(
+    name = "blake3",
+    build_file = "//third_party:blake3/blake3.BUILD",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
+    strip_prefix = "BLAKE3-1.3.3",
 )
 
-http_archive(
-    name = "com_google_testparameterinjector",
-    build_file_content = """
-java_library(
-    name = "testparameterinjector",
-    testonly = True,
-    srcs = glob(["src/main/**/*.java"]),
-    deps = [
-      "@org_snakeyaml//:snakeyaml",
-      "@//third_party:auto_value",
-      "@//third_party:guava",
-      "@//third_party:junit4",
-      "@//third_party/protobuf:protobuf_java",
-    ],
-    visibility = ["//visibility:public"],
-)
-""",
-    sha256 = "562a0e87eb413a7dcad29ebc8d578f6f97503473943585b051c1398a58189b06",
-    strip_prefix = "TestParameterInjector-1.0",
-    urls = [
-        "https://mirror.bazel.build/github.com/google/TestParameterInjector/archive/v1.0.tar.gz",
-        "https://github.com/google/TestParameterInjector/archive/v1.0.tar.gz",
-    ],
-)
-
-# Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
 dist_http_archive(
     name = "rules_cc",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
@@ -246,6 +210,10 @@ dist_http_archive(
 
 dist_http_archive(
     name = "rules_java",
+)
+
+dist_http_archive(
+    name = "rules_java_builtin_for_testing",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
 )
@@ -254,26 +222,6 @@ dist_http_archive(
     name = "rules_proto",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
-)
-
-# For testing, have an distdir_tar with all the archives implicit in every
-# WORKSPACE, to that they don't have to be refetched for every test
-# calling `bazel sync`.
-distdir_tar(
-    name = "test_WORKSPACE_files",
-    archives = [
-        "android_tools_pkg-0.28.0.tar",
-    ],
-    dirname = "test_WORKSPACE/distdir",
-    dist_deps = {dep: attrs for dep, attrs in DIST_DEPS.items() if "test_WORKSPACE_files" in attrs["used_in"]},
-    sha256 = {
-        "android_tools_pkg-0.28.0.tar": "db3b02421ae974e0b33573f3e4f658d5f89cc9a0b42baae0ba2ac08e25c0720a",
-    },
-    urls = {
-        "android_tools_pkg-0.28.0.tar": [
-            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.28.0.tar",
-        ],
-    },
 )
 
 dist_http_archive(
@@ -290,8 +238,8 @@ http_archive(
     name = "android_tools_for_testing",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "db3b02421ae974e0b33573f3e4f658d5f89cc9a0b42baae0ba2ac08e25c0720a",  # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER
-    url = "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.28.0.tar",
+    sha256 = "d7223664ca5b0de490f2a918c31f35cdf4f23a1446fe261d7470b8a22bd7bcf1",  # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER
+    url = "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.29.0.tar",
 )
 
 # This is here to override the android_gmaven_r8 rule from
@@ -309,208 +257,11 @@ dist_http_archive(
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
 )
 
-dist_http_archive(
-    name = "remotejdk11_linux_for_testing",
-    build_file_content = JDK_BUILD_TEMPLATE.format(RUNTIME_VERSION = 11),
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
-)
+load("@rules_java//java:repositories.bzl", "rules_java_dependencies", "rules_java_toolchains")
 
-dist_http_archive(
-    name = "remotejdk11_linux_aarch64_for_testing",
-    build_file_content = JDK_BUILD_TEMPLATE.format(RUNTIME_VERSION = 11),
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
-)
+rules_java_dependencies()
 
-dist_http_archive(
-    name = "remotejdk11_linux_ppc64le_for_testing",
-    build_file_content = JDK_BUILD_TEMPLATE.format(RUNTIME_VERSION = 11),
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
-)
-
-dist_http_archive(
-    name = "remotejdk11_linux_s390x_for_testing",
-    build_file_content = JDK_BUILD_TEMPLATE.format(RUNTIME_VERSION = 11),
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
-)
-
-dist_http_archive(
-    name = "remotejdk11_macos_for_testing",
-    build_file_content = JDK_BUILD_TEMPLATE.format(RUNTIME_VERSION = 11),
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
-)
-
-dist_http_archive(
-    name = "remotejdk11_macos_aarch64_for_testing",
-    build_file_content = JDK_BUILD_TEMPLATE.format(RUNTIME_VERSION = 11),
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
-)
-
-dist_http_archive(
-    name = "remotejdk11_win_for_testing",
-    build_file_content = JDK_BUILD_TEMPLATE.format(RUNTIME_VERSION = 11),
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
-)
-
-dist_http_archive(
-    name = "remotejdk11_win_arm64_for_testing",
-    build_file_content = JDK_BUILD_TEMPLATE.format(RUNTIME_VERSION = 11),
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
-)
-
-[
-    dist_http_archive(
-        name = "remotejdk%s_%s_for_testing" % (version, os),
-        build_file_content = JDK_BUILD_TEMPLATE.format(RUNTIME_VERSION = version),
-        patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
-        patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
-    )
-    for version in ("17", "20")
-    for os in ("linux", "macos", "macos_aarch64", "win") + (("linux_s390x", "win_arm64") if version != "20" else ())
-]
-
-# Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
-dist_http_archive(
-    name = "remote_java_tools_for_testing",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-)
-
-# Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
-dist_http_archive(
-    name = "remote_java_tools_linux_for_testing",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-)
-
-# Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
-dist_http_archive(
-    name = "remote_java_tools_windows_for_testing",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-)
-
-# Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
-dist_http_archive(
-    name = "remote_java_tools_darwin_x86_64_for_testing",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-)
-
-# Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
-dist_http_archive(
-    name = "remote_java_tools_darwin_arm64_for_testing",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-)
-
-# Used in src/test/shell/bazel/testdata/jdk_http_archives.
-dist_http_archive(
-    name = "remote_java_tools_test",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-)
-
-# Used in src/test/shell/bazel/testdata/jdk_http_archives.
-dist_http_archive(
-    name = "remote_java_tools_test_linux",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-)
-
-# Used in src/test/shell/bazel/testdata/jdk_http_archives.
-dist_http_archive(
-    name = "remote_java_tools_test_windows",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-)
-
-# Used in src/test/shell/bazel/testdata/jdk_http_archives.
-dist_http_archive(
-    name = "remote_java_tools_test_darwin_x86_64",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-)
-
-# Used in src/test/shell/bazel/testdata/jdk_http_archives.
-dist_http_archive(
-    name = "remote_java_tools_test_darwin_arm64",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-)
-
-dist_http_archive(
-    name = "openjdk11_linux_archive",
-    build_file_content = """
-java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
-exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
-""",
-)
-
-# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-dist_http_archive(
-    name = "openjdk11_linux_s390x_archive",
-    build_file_content = """
-java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
-exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
-""",
-)
-
-# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-dist_http_archive(
-    name = "openjdk11_darwin_archive",
-    build_file_content = """
-java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
-exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
-""",
-)
-
-# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-dist_http_archive(
-    name = "openjdk11_darwin_aarch64_archive",
-    build_file_content = """
-java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
-exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
-""",
-)
-
-# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-dist_http_archive(
-    name = "openjdk11_windows_archive",
-    build_file_content = """
-java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
-exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
-""",
-)
-
-# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-dist_http_archive(
-    name = "openjdk11_windows_arm64_archive",
-    build_file_content = """
-java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
-exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
-""",
-)
-
-# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-[
-    dist_http_archive(
-        name = "openjdk%s_%s_archive" % (version, os),
-        build_file_content = """
-java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
-exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
-""",
-    )
-    for version in ("17", "20")
-    for os in ("linux", "darwin", "darwin_aarch64", "windows") + (("linux_s390x", "windows_arm64") if version != "20" else ())
-]
+rules_java_toolchains()
 
 load("@io_bazel_skydoc//:setup.bzl", "stardoc_repositories")
 
@@ -626,11 +377,11 @@ maven_install(
         "com.google.code.findbugs:jsr305:3.0.2",
         "com.google.code.gson:gson:2.9.0",
         "com.google.code.java-allocation-instrumenter:java-allocation-instrumenter:3.3.0",
-        "com.google.errorprone:error_prone_annotation:2.19.0",
-        "com.google.errorprone:error_prone_annotations:2.19.0",
-        "com.google.errorprone:error_prone_check_api:2.19.0",
-        "com.google.errorprone:error_prone_core:2.19.0",
-        "com.google.errorprone:error_prone_type_annotations:2.19.0",
+        "com.google.errorprone:error_prone_annotation:2.20.0",
+        "com.google.errorprone:error_prone_annotations:2.20.0",
+        "com.google.errorprone:error_prone_check_api:2.20.0",
+        "com.google.errorprone:error_prone_core:2.20.0",
+        "com.google.errorprone:error_prone_type_annotations:2.20.0",
         "com.google.flogger:flogger-system-backend:0.5.1",
         "com.google.flogger:flogger:0.5.1",
         "com.google.flogger:google-extensions:0.5.1",
@@ -680,14 +431,13 @@ maven_install(
         "io.netty:netty-transport-native-unix-common:jar:linux-x86_64:4.1.93.Final",
         "io.netty:netty-transport-native-unix-common:jar:osx-aarch_64:4.1.93.Final",
         "io.netty:netty-transport-native-unix-common:jar:osx-x86_64:4.1.93.Final",
-        "io.netty:netty-transport-sctp:4.1.93.Final",
         "io.netty:netty-transport:4.1.93.Final",
         "io.reactivex.rxjava3:rxjava:3.1.2",
         "javax.activation:javax.activation-api:1.2.0",
         "javax.annotation:javax.annotation-api:1.3.2",
         "javax.inject:javax.inject:1",
-        "net.bytebuddy:byte-buddy-agent:1.11.13",
-        "net.bytebuddy:byte-buddy:1.11.13",
+        "net.bytebuddy:byte-buddy-agent:1.14.5",
+        "net.bytebuddy:byte-buddy:1.14.5",
         "org.apache.commons:commons-compress:1.19",
         "org.apache.commons:commons-pool2:2.8.0",
         "org.apache.tomcat:tomcat-annotations-api:8.0.5",
@@ -701,6 +451,7 @@ maven_install(
         "org.pcollections:pcollections:3.1.4",
         "org.threeten:threeten-extra:1.5.0",
         "org.tukaani:xz:1.9",
+        "org.yaml:snakeyaml:1.28",
         "tools.profiler:async-profiler:2.9",
         # The following jars are for testing.
         # junit is not test only due to //src/java_tools/junitrunner/java/com/google/testing/junit/junit4:runner,
@@ -723,6 +474,12 @@ maven_install(
             "com.google.testing.compile",
             "compile-testing",
             "0.18",
+            testonly = True,
+        ),
+        maven.artifact(
+            "com.google.testparameterinjector",
+            "test-parameter-injector",
+            "1.0",
             testonly = True,
         ),
         maven.artifact(
@@ -752,7 +509,7 @@ maven_install(
         maven.artifact(
             "org.mockito",
             "mockito-core",
-            "3.12.4",
+            "5.4.0",
             testonly = True,
         ),
     ],
@@ -766,7 +523,8 @@ maven_install(
         "com.google.protobuf:protobuf-java",
         "com.google.protobuf:protobuf-javalite",
     ],
-    fail_if_repin_required = False,
+    # Don't forget to change this to back to True before submitting your change.
+    fail_if_repin_required = True,
     maven_install_json = "//:maven_install.json",
     repositories = [
         "https://repo1.maven.org/maven2",
@@ -790,6 +548,7 @@ maven_install(
         "com.android.tools:common:30.1.3",
         "com.android.tools:repository:30.1.3",
     ],
+    # Don't forget to change this to back to True before submitting your change.
     fail_if_repin_required = True,
     maven_install_json = "//src/tools/android:maven_android_install.json",
     repositories = [

@@ -46,26 +46,26 @@ public class DiskCacheClient implements RemoteCacheClient {
 
   private final Path root;
   private final boolean verifyDownloads;
-  private final boolean checkActionResult;
   private final DigestUtil digestUtil;
 
   /**
    * @param verifyDownloads whether verify the digest of downloaded content are the same as the
    *     digest used to index that file.
-   * @param checkActionResult whether check referenced blobs exist in CAS when checking AC. If this
-   *     is {@code true} and blobs referenced by the AC are missing, ignore the AC.
    */
-  public DiskCacheClient(
-      Path root, boolean verifyDownloads, boolean checkActionResult, DigestUtil digestUtil) {
+  public DiskCacheClient(Path root, boolean verifyDownloads, DigestUtil digestUtil) {
     this.root = root;
     this.verifyDownloads = verifyDownloads;
-    this.checkActionResult = checkActionResult;
     this.digestUtil = digestUtil;
   }
 
   /** Returns {@code true} if the provided {@code key} is stored in the CAS. */
   public boolean contains(Digest digest) {
     return toPath(digest.getHash(), /* actionResult= */ false).exists();
+  }
+
+  /** Returns {@link Path} into the CAS for the given {@link Digest}. */
+  public Path getPath(Digest digest) {
+    return toPath(digest.getHash(), /* actionResult= */ false);
   }
 
   public void captureFile(Path src, Digest digest, boolean isActionCache) throws IOException {
@@ -155,12 +155,10 @@ public class DiskCacheClient implements RemoteCacheClient {
             return Futures.immediateFuture(null);
           }
 
-          if (checkActionResult) {
-            try {
-              checkActionResult(actionResult);
-            } catch (CacheNotFoundException e) {
-              return Futures.immediateFuture(null);
-            }
+          try {
+            checkActionResult(actionResult);
+          } catch (CacheNotFoundException e) {
+            return Futures.immediateFuture(null);
           }
 
           return Futures.immediateFuture(CachedActionResult.disk(actionResult));

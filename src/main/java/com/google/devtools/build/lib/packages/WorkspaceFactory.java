@@ -24,9 +24,7 @@ import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.vfs.Path;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -75,6 +73,7 @@ public class WorkspaceFactory {
       RuleClassProvider ruleClassProvider,
       Mutability mutability,
       boolean allowOverride,
+      boolean allowWorkspaceFunction,
       @Nullable Path installDir,
       @Nullable Path workspaceDir,
       @Nullable Path defaultSystemJavabaseDir,
@@ -90,7 +89,7 @@ public class WorkspaceFactory {
         createWorkspaceFunctions(
             allowOverride,
             ruleClassProvider.getRuleClassMap(),
-            new WorkspaceGlobals(allowOverride, ruleClassProvider.getRuleClassMap()),
+            new WorkspaceGlobals(allowWorkspaceFunction, ruleClassProvider.getRuleClassMap()),
             starlarkSemantics);
   }
 
@@ -114,6 +113,7 @@ public class WorkspaceFactory {
     StoredEventHandler localReporter = new StoredEventHandler();
     try {
       // compile
+      new DotBazelFileSyntaxChecker("WORKSPACE files", /* canLoadBzl= */ true).check(file);
       Program prog = Program.compileFile(file, module);
 
       // create thread
@@ -130,31 +130,18 @@ public class WorkspaceFactory {
       // are, by definition, not in an external repository and so they don't need the mapping
       new BazelStarlarkContext(
               BazelStarlarkContext.Phase.WORKSPACE,
-              /*toolsRepository=*/ null,
-              /*fragmentNameToClass=*/ null,
+              /* toolsRepository= */ null,
+              /* fragmentNameToClass= */ null,
               new SymbolGenerator<>(workspaceFileKey),
-              /*analysisRuleLabel=*/ null,
-              /*networkAllowlistForTests=*/ null)
+              /* analysisRuleLabel= */ null,
+              /* networkAllowlistForTests= */ null)
           .storeInThread(thread);
 
-      List<String> globs = new ArrayList<>(); // unused
-      if (PackageFactory.checkBuildSyntax(
-          file,
-          /*globs=*/ globs,
-          /*globsWithDirs=*/ globs,
-          /*subpackages=*/ globs,
-          new HashMap<>(),
-          error ->
-              localReporter.handle(
-                  Package.error(
-                      error.location(), error.message(), PackageLoading.Code.SYNTAX_ERROR)))) {
-        try {
-          Starlark.execFileProgram(prog, module, thread);
-        } catch (EvalException ex) {
-          localReporter.handle(
-              Package.error(
-                  null, ex.getMessageWithStack(), PackageLoading.Code.STARLARK_EVAL_ERROR));
-        }
+      try {
+        Starlark.execFileProgram(prog, module, thread);
+      } catch (EvalException ex) {
+        localReporter.handle(
+            Package.error(null, ex.getMessageWithStack(), PackageLoading.Code.STARLARK_EVAL_ERROR));
       }
 
       // Accumulate the global bindings created by this chunk of the WORKSPACE file,
@@ -351,7 +338,7 @@ public class WorkspaceFactory {
       ImmutableMap<String, RuleClass> ruleClassMap, String bazelVersion) {
     // Machinery to build the collection of workspace functions.
     WorkspaceGlobals workspaceGlobals =
-        new WorkspaceGlobals(/* allowOverride= */ false, ruleClassMap);
+        new WorkspaceGlobals(/* allowWorkspaceFunction= */ false, ruleClassMap);
     // TODO(bazel-team): StarlarkSemantics should be a parameter here, as native module can be
     // configured by flags. [brandjon: This should be possible now that we create the native module
     // in StarlarkBuiltinsFunction. We could defer creation until the StarlarkSemantics are known.

@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -49,6 +50,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
 
@@ -71,6 +73,20 @@ public class CcStarlarkInternal implements StarlarkValue {
     return Dict.cast(d, String.class, String.class, "tool_paths").entrySet().stream()
         .map(p -> Pair.of(p.getKey(), PathFragment.create(p.getValue())))
         .collect(toImmutableMap(Pair::getFirst, Pair::getSecond));
+  }
+
+  @StarlarkMethod(
+      name = "construct_cc_toolchain_attributes_info",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "is_apple", positional = false, named = true),
+        @Param(name = "build_vars_func", positional = false, named = true),
+      })
+  public CcToolchainAttributesProvider constructCcToolchainAttributesInfo(
+      StarlarkRuleContext ruleContext, boolean isApple, Object buildVarsFunc) throws EvalException {
+    return new CcToolchainAttributesProvider(
+        ruleContext.getRuleContext(), isApple, (StarlarkFunction) buildVarsFunc);
   }
 
   @StarlarkMethod(
@@ -123,6 +139,7 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "strip", positional = false, named = true),
         @Param(name = "ld", positional = false, named = true),
         @Param(name = "gcov", positional = false, named = true),
+        @Param(name = "vars", positional = false, named = true),
       })
   public CcToolchainProvider getCcToolchainProvider(
       StarlarkRuleContext ruleContext,
@@ -156,7 +173,8 @@ public class CcStarlarkInternal implements StarlarkValue {
       String arExecutable,
       String stripExecutable,
       String ldExecutable,
-      String gcovExecutable)
+      String gcovExecutable,
+      Object vars)
       throws EvalException {
     CppConfiguration cppConfiguration = CcModule.convertFromNoneable(cppConfigurationObject, null);
     PathFragment toolsDirectory = PathFragment.create(toolsDirectoryStr);
@@ -211,8 +229,8 @@ public class CcStarlarkInternal implements StarlarkValue {
         /* ccCompilationContext= */ ccCompilationContext,
         /* supportsParamFiles= */ attributes.isSupportsParamFiles(),
         /* supportsHeaderParsing= */ attributes.isSupportsHeaderParsing(),
-        /* additionalBuildVariablesComputer= */ attributes.getAdditionalBuildVariablesComputer(),
-        /* buildOptions= */ ruleContext.getRuleContext().getConfiguration().getOptions(),
+        /* buildOptions */ ruleContext.getRuleContext().getConfiguration().getOptions(),
+        /* buildVariables= */ (CcToolchainVariables) vars,
         /* builtinIncludeFiles= */ Sequence.cast(
                 builtinIncludeFiles, Artifact.class, "builtin_include_files")
             .getImmutableList(),
@@ -252,7 +270,23 @@ public class CcStarlarkInternal implements StarlarkValue {
         /* arExecutable= */ arExecutable,
         /* stripExecutable= */ stripExecutable,
         /* ldExecutable= */ ldExecutable,
-        /* gcovExecutable= */ gcovExecutable);
+        /* gcovExecutable= */ gcovExecutable,
+        /* ccToolchainBuildVariablesFunc */ attributes.getCcToolchainBuildVariablesFunc());
+  }
+
+  @StarlarkMethod(
+      name = "cc_toolchain_variables",
+      documented = false,
+      parameters = {
+        @Param(name = "vars", positional = false, named = true),
+      })
+  public CcToolchainVariables getCcToolchainVariables(Object vars) throws EvalException {
+    CcToolchainVariables.Builder ccToolchainVariables = CcToolchainVariables.builder();
+    for (Map.Entry<String, String> entry :
+        Dict.noneableCast(vars, String.class, String.class, "vars").entrySet()) {
+      ccToolchainVariables.addStringVariable(entry.getKey(), entry.getValue());
+    }
+    return ccToolchainVariables.build();
   }
 
   @StarlarkMethod(
@@ -324,7 +358,12 @@ public class CcStarlarkInternal implements StarlarkValue {
       parameters = {@Param(name = "ctx", positional = false, named = true)})
   public boolean isPackageHeadersCheckingModeSetForStarlark(
       StarlarkRuleContext starlarkRuleContext) {
-    return starlarkRuleContext.getRuleContext().getRule().getPackage().isDefaultHdrsCheckSet();
+    return starlarkRuleContext
+        .getRuleContext()
+        .getRule()
+        .getPackage()
+        .getPackageArgs()
+        .isDefaultHdrsCheckSet();
   }
 
   @StarlarkMethod(
@@ -332,7 +371,12 @@ public class CcStarlarkInternal implements StarlarkValue {
       documented = false,
       parameters = {@Param(name = "ctx", positional = false, named = true)})
   public String getPackageHeadersCheckingModeForStarlark(StarlarkRuleContext starlarkRuleContext) {
-    return starlarkRuleContext.getRuleContext().getRule().getPackage().getDefaultHdrsCheck();
+    return starlarkRuleContext
+        .getRuleContext()
+        .getRule()
+        .getPackage()
+        .getPackageArgs()
+        .getDefaultHdrsCheck();
   }
 
   @StarlarkMethod(
@@ -341,7 +385,12 @@ public class CcStarlarkInternal implements StarlarkValue {
       parameters = {@Param(name = "ctx", positional = false, named = true)})
   public boolean isPackageHeadersCheckingModeSetForStarlarkAspect(
       StarlarkRuleContext starlarkRuleContext) {
-    return starlarkRuleContext.getRuleContext().getTarget().getPackage().isDefaultHdrsCheckSet();
+    return starlarkRuleContext
+        .getRuleContext()
+        .getTarget()
+        .getPackage()
+        .getPackageArgs()
+        .isDefaultHdrsCheckSet();
   }
 
   @StarlarkMethod(
@@ -350,7 +399,12 @@ public class CcStarlarkInternal implements StarlarkValue {
       parameters = {@Param(name = "ctx", positional = false, named = true)})
   public String getPackageHeadersCheckingModeForStarlarkAspect(
       StarlarkRuleContext starlarkRuleContext) {
-    return starlarkRuleContext.getRuleContext().getTarget().getPackage().getDefaultHdrsCheck();
+    return starlarkRuleContext
+        .getRuleContext()
+        .getTarget()
+        .getPackage()
+        .getPackageArgs()
+        .getDefaultHdrsCheck();
   }
 
   @StarlarkMethod(
@@ -399,7 +453,9 @@ public class CcStarlarkInternal implements StarlarkValue {
       implements NativeComputedDefaultApi {
     @Override
     public Object getDefault(AttributeMap rule) {
-      return rule.isPackageDefaultHdrsCheckSet() ? rule.getPackageDefaultHdrsCheck() : "";
+      return rule.getPackageArgs().isDefaultHdrsCheckSet()
+          ? rule.getPackageArgs().getDefaultHdrsCheck()
+          : "";
     }
 
     @Override

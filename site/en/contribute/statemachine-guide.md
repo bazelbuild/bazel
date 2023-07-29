@@ -64,7 +64,7 @@ the following, curiously recursive, definition[^2].
 ```
 @FunctionalInterface
 public interface StateMachine {
-  StateMachine step(Tasks tasks, ExtendedEventHandler listener) throws InterruptedException;
+  StateMachine step(Tasks tasks) throws InterruptedException;
 }
 ```
 
@@ -78,12 +78,12 @@ of a sequence of steps, inductively. `step` returns `DONE` when the
 ```
 class HelloWorld implements StateMachine {
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     System.out.println("hello");
     return this::step2;  // The next step is HelloWorld.step2.
   }
 
-  private StateMachine step2(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine step2(Tasks tasks) {
      System.out.println("world");
      // DONE is special value defined in the `StateMachine` interface signaling
      // that the computation is done.
@@ -184,7 +184,7 @@ class DoesLookup implements StateMachine, Consumer<SkyValue> {
   private Value value;
 
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     tasks.lookUp(new Key(), (Consumer<SkyValue>) this);
     return this::processValue;
   }
@@ -195,7 +195,7 @@ class DoesLookup implements StateMachine, Consumer<SkyValue> {
     this.value = (Value)value;
   }
 
-  private StateMachine processValue(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine processValue(Tasks tasks) {
     System.out.println(value);  // Prints the string representation of `value`.
     return DONE;
   }
@@ -227,7 +227,7 @@ class Subtasks implements StateMachine {
   private int i = 0;
 
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     tasks.enqueue(new Subtask1());
     tasks.enqueue(new Subtask2());
     // The next step is Subtasks.processResults. It won't be called until both
@@ -235,14 +235,14 @@ class Subtasks implements StateMachine {
     return this::processResults;
   }
 
-  private StateMachine processResults(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine processResults(Tasks tasks) {
     System.out.println(i);  // Prints "3".
     return DONE;  // Subtasks is done.
   }
 
   private class Subtask1 implements StateMachine {
     @Override
-    public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+    public StateMachine step(Tasks tasks) {
       i += 1;
       return DONE;  // Subtask1 is done.
     }
@@ -250,7 +250,7 @@ class Subtasks implements StateMachine {
 
   private class Subtask2 implements StateMachine {
     @Override
-    public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+    public StateMachine step(Tasks tasks) {
       i += 2;
       return DONE;  // Subtask2 is done.
     }
@@ -298,7 +298,7 @@ values using regular *Java* control flow, as shown in the following example.
 ```
 class Branch implements StateMachine {
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     // Returns different state machines, depending on condition.
     if (shouldUseA()) {
       return this::performA;
@@ -332,7 +332,7 @@ class S implements StateMachine { … }
 
 class M1 implements StateMachine {
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     performA();
     return new S();
   }
@@ -340,7 +340,7 @@ class M1 implements StateMachine {
 
 class M2 implements StateMachine {
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     performX();
     return new S();
   }
@@ -357,7 +357,7 @@ sometimes possible to slightly abuse[^6] the subtask mechanism.
 ```
 class M1 implements StateMachine {
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     performA();
     // S starts after `step` returns and by contract must complete before `doB`
     // begins. It is effectively sequential, inducing the sequence < A, S, B >.
@@ -365,7 +365,7 @@ class M1 implements StateMachine {
     return this::doB;
   }
 
-  private StateMachine doB(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine doB(Tasks tasks) {
     performB();
     return DONE;
   }
@@ -373,14 +373,14 @@ class M1 implements StateMachine {
 
 class M2 implements StateMachine {
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     performX();
     // Similarly, this induces the sequence < X, S, Y>.
     tasks.enqueue(new S());
     return this::doY;
   }
 
-  private StateMachine doY(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine doY(Tasks tasks) {
     performY();
     return DONE;
   }
@@ -400,13 +400,13 @@ class S implements StateMachine {
   private final StateMachine runAfter;
 
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     … // Performs some computations.
     return this::processResults;
   }
 
   @Nullable
-  private StateMachine processResults(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine processResults(Tasks tasks) {
     … // Does some additional processing.
 
     // Executes the state machine defined by `runAfter` after S completes.
@@ -416,14 +416,14 @@ class S implements StateMachine {
 
 class M1 implements StateMachine {
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     performA();
     // Passes `this::doB` as the `runAfter` parameter of S, resulting in the
     // sequence < A, S, B >.
     return new S(/* runAfter= */ this::doB);
   }
 
-  private StateMachine doB(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine doB(Tasks tasks) {
     performB();
     return DONE;
   }
@@ -431,14 +431,14 @@ class M1 implements StateMachine {
 
 class M2 implements StateMachine {
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     performX();
     // Passes `this::doY` as the `runAfter` parameter of S, resulting in the
     // sequence < X, S, Y >.
     return new S(/* runAfter= */ this::doY);
   }
 
-  private StateMachine doY(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine doY(Tasks tasks) {
     performY();
     return DONE;
   }
@@ -457,12 +457,12 @@ the road to [Callback Hell](#callback-hell). It’s better to break up sequentia
 can be replaced with the following.
 
 ```
-  private StateMachine step1(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine step1(Tasks tasks) {
      doStep1();
      return new S(/* runAfter= */ this::intermediateStep);
   }
 
-  private StateMachine intermediateStep(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine intermediateStep(Tasks tasks) {
     return new T(/* runAfter= */ this::nextStep);
   }
 ```
@@ -502,7 +502,7 @@ perform direct delegation, as shown in the example below.
 ```
 class Parent implements StateMachine {
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks ) {
     tasks.lookUp(new Key1(), this);
     // Directly delegates to `Delegate`.
     //
@@ -510,10 +510,10 @@ class Parent implements StateMachine {
     //   return new Delegate(this::afterDelegation);
     // would cause `Delegate.step` to execute after `step` completes which would
     // cause lookups of `Key1` and `Key2` to be sequential instead of parallel.
-    return new Delegate(this::afterDelegation).step(tasks, listener);
+    return new Delegate(this::afterDelegation).step(tasks);
   }
 
-  private StateMachine afterDelegation(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine afterDelegation(Tasks tasks) {
     …
   }
 }
@@ -526,7 +526,7 @@ class Delegate implements StateMachine {
   }
 
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     tasks.lookUp(new Key2(), this);
     return …;
   }
@@ -534,7 +534,7 @@ class Delegate implements StateMachine {
   // Rest of implementation.
   …
 
-  private StateMachine complete(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine complete(Tasks tasks) {
     …
     return runAfter;
   }
@@ -598,7 +598,7 @@ class PerformLookupWithError extends StateMachine, ValueOrExceptionSink<MyExcept
   private MyException error;
 
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     tasks.lookUp(new MyKey(), MyException.class, ValueOrExceptionSink<MyException>) this);
     return this::processResult;
   }
@@ -616,7 +616,7 @@ class PerformLookupWithError extends StateMachine, ValueOrExceptionSink<MyExcept
     throw new IllegalArgumentException("Both parameters were unexpectedly null.");
   }
 
-  private StateMachine processResult(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine processResult(Tasks tasks) {
     if (exception != null) {
       // Handles the error.
       …
@@ -642,8 +642,7 @@ been simplified from prototype production code.
 
 ```
   @Nullable
-  private StateMachine fetchConfigurationAndPackage(Tasks tasks,
-      ExtendedEventHandler listener) {
+  private StateMachine fetchConfigurationAndPackage(Tasks tasks) {
     var configurationKey = configuredTarget.getConfigurationKey();
     if (configurationKey != null) {
       tasks.lookUp(configurationKey, (Consumer<SkyValue>) this);
@@ -700,7 +699,7 @@ class BarProducer implements StateMachine {
 
   … // StateMachine steps that end with this::complete.
 
-  private StateMachine complete(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine complete(Tasks tasks) {
     if (hasError()) {
       sink.acceptBarError(getError());
       return DONE;
@@ -741,7 +740,7 @@ class Caller implements StateMachine, BarProducer.ResultSink {
 
   @Override
   @Nullable
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     tasks.enqueue(new BarProducer((BarProducer.ResultSink) this));
     return this::processResult;
   }
@@ -756,7 +755,7 @@ class Caller implements StateMachine, BarProducer.ResultSink {
     sink.acceptCallerError(error);
   }
 
-  private StateMachine processResult(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine processResult(Tasks tasks) {
     // Since all enqueued subtasks resolve before `processResult` starts, one of
     // the `BarResultSink` callbacks must have been called by this point.
     if (value == null) {
@@ -816,6 +815,15 @@ If a `Driver` is being utilized directly, it is essential to check for
 propagated errors from the SkyFunction, even if the machine has not finished
 processing.
 
+### Event Handling {:#event-handling}
+
+For SkyFunctions that need to emit events, a `StoredEventHandler` is injected
+into SkyKeyComputeState and further injected into `StateMachine`s that require
+them. Historically, the `StoredEventHandler` was needed due to Skyframe dropping
+certain events unless they are replayed but this was subsequently fixed.
+`StoredEventHandler` injection is preserved because it simplifies the
+implementation of events emitted from error handling callbacks.
+
 ## `Driver`s and bridging to SkyFunctions {:#drivers-and-bridging}
 
 A `Driver` is responsible for managing the execution of `StateMachine`s,
@@ -830,8 +838,7 @@ There are a number of classes built around the `Driver`, with the following API.
 ```
 public final class Driver {
   public Driver(StateMachine root);
-  public boolean drive(SkyFunction.Environment env, ExtendedEventHandler listener)
-      throws InterruptedException;
+  public boolean drive(SkyFunction.Environment env) throws InterruptedException;
 }
 ```
 
@@ -899,12 +906,12 @@ class ResultProducer implements StateMachine {
   }
 
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     …  // Implementation.
     return this::complete;
   }
 
-  private StateMachine complete(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine complete(Tasks tasks) {
     sink.acceptResult(getResult());
     return DONE;
   }
@@ -924,7 +931,7 @@ private Result computeResult(State state, Skyfunction.Environment env)
     state.resultProducer = new Driver(new ResultProducer(
       new Parameters(), (ResultProducer.ResultSink)state));
   }
-  if (state.resultProducer.drive(env, env.getListener())) {
+  if (state.resultProducer.drive(env)) {
     // Clears the `Driver` instance as it is no longer needed.
     state.resultProducer = null;
   }
@@ -950,17 +957,16 @@ class ResultProducer implements StateMachine {
   }
 
   @Nullable  // Null when a Skyframe restart is needed.
-  public ResultType tryProduceValue(
-      SkyFunction.Environment env,
-      ExtendedEventHandler listener) throws InterruptedException {
-    if (!driver.drive(env, listener)) {
+  public ResultType tryProduceValue( SkyFunction.Environment env)
+      throws InterruptedException {
+    if (!driver.drive(env)) {
       return null;
     }
     return result;
   }
 
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     …  // Implementation.
 }
 ```
@@ -978,7 +984,7 @@ Result computeResult(SkyFunction.Environment env, State state)
   if (state.resultProducer == null) {
     state.resultProducer = new ResultProducer(new Parameters());
   }
-  var result = state.resultProducer.tryProduceValue(env, env.getListener());
+  var result = state.resultProducer.tryProduceValue(env);
   if (result == null) {
     return null;
   }
@@ -1002,7 +1008,7 @@ The `ValueOrExceptionProducer` abstract class includes the following methods.
 public abstract class ValueOrExceptionProducer<V, E extends Exception>
     implements StateMachine {
   @Nullable
-  public final V tryProduceValue(Environment env, ExtendedEventHandler listener)
+  public final V tryProduceValue(Environment env)
       throws InterruptedException, E {
     …  // Implementation.
   }
@@ -1066,7 +1072,7 @@ deep. If coupled with control flow the code becomes unmanageable.
 ```
 class CallbackHell implements StateMachine {
   @Override
-  public StateMachine step(Tasks task, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks task) {
     doA();
     return (t, l) -> {
       doB();
@@ -1088,17 +1094,17 @@ shown as follows.
 ```
 class CallbackHellAvoided implements StateMachine {
   @Override
-  public StateMachine step(Tasks task, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks task) {
     doA();
     return this::step2;
   }
 
-  private StateMachine step2(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine step2(Tasks tasks) {
     doB();
     return this::step3;
   }
 
-  private StateMachine step3(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine step3(Tasks tasks) {
     doC();
     return DONE;
   }
@@ -1106,8 +1112,8 @@ class CallbackHellAvoided implements StateMachine {
 ```
 
 Callback hell may also occur if the [`runAfter` injection](#runafter-injection)
-pattern is used too densely, but this can be avoided by interspersing
-injections with sequential steps.
+pattern is used too densely, but this can be avoided by interspersing injections
+with sequential steps.
 
 #### Example: Chained SkyValue lookups {:#chained-skyvalue-lookups}
 
@@ -1185,7 +1191,7 @@ the recommended pattern for [Propagating values between
 `StateMachine`s](#propagating-values) is also helpful. Observe that when
 following the pattern, only child `StateMachine`s have references to parent
 `StateMachine`s and not vice versa. This means that as children complete and
-update the parents via result callbacks, the children naturally fall out of
+update the parents using result callbacks, the children naturally fall out of
 scope and become eligible for GC.
 
 Finally, in some cases, a `StateMachine` variable is needed in earlier states
@@ -1210,13 +1216,13 @@ The blocks form a small tree.
 
 ![Structured Concurrency 3D](/contribute/images/structured-concurrency-3d.svg)
 
-[^1]: In contrast to Skyframe’s convention of restarting from the beginning
- when values are not available.
+[^1]: In contrast to Skyframe's convention of restarting from the beginning when
+ values are not available.
 [^2]: Note that `step` is permitted to throw `InterruptedException`, but the
  examples omit this. There are a few low methods in *Bazel* code that throw
- this exception and it will be propagated up to the `Driver`, to be
- described later, that runs the `StateMachine`. It’s fine to not declare it
- to be thrown when unneeded.
+ this exception and it propagates up to the `Driver`, to be described later,
+ that runs the `StateMachine`. It's fine to not declare it to be thrown when
+ unneeded.
 [^3]: Concurrent subtasks were motivated by the `ConfiguredTargetFunction` which
  performs *independent* work for each dependency. Instead of manipulating
  complex data structures that process all the dependencies at once,

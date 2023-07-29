@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
@@ -35,8 +36,10 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map.Entry;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.syntax.Location;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -61,9 +64,8 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
             BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING),
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE, BazelCompatibilityMode.ERROR),
-        PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.OFF),
-        PrecomputedValue.injected(
-            BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS, ImmutableList.of()));
+        PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.UPDATE),
+        PrecomputedValue.injected(YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, ImmutableList.of()));
   }
 
   @Override
@@ -330,5 +332,89 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
 
     RepoMappingManifestAction actionAfterChange = getRepoMappingManifestActionForTarget("//:aaa");
     assertThat(computeKey(actionBeforeChange)).isNotEqualTo(computeKey(actionAfterChange));
+  }
+
+  @Test
+  public void hasMappingForSymlinks() throws Exception {
+    rewriteWorkspace("workspace(name='my_workspace')");
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        "module(name='my_module',version='1.0')",
+        "bazel_dep(name='aaa',version='1.0')");
+
+    registry.addModule(
+        createModuleKey("aaa", "1.0"),
+        "module(name='aaa',version='1.0')",
+        "bazel_dep(name='my_module',version='1.0')",
+        "bazel_dep(name='bare_rule',version='1.0')",
+        "bazel_dep(name='symlinks',version='1.0')");
+    scratch.overwriteFile(moduleRoot.getRelative("aaa~1.0/WORKSPACE").getPathString());
+    scratch.overwriteFile(
+        moduleRoot.getRelative("aaa~1.0/BUILD").getPathString(),
+        "load('@bare_rule//:defs.bzl', 'bare_binary')",
+        "bare_binary(name='aaa',data=['@symlinks'])");
+
+    registry.addModule(
+        createModuleKey("symlinks", "1.0"),
+        "module(name='symlinks',version='1.0')",
+        "bazel_dep(name='ddd',version='1.0')");
+    scratch.overwriteFile(moduleRoot.getRelative("symlinks~1.0/WORKSPACE").getPathString());
+    scratch.overwriteFile(
+        moduleRoot.getRelative("symlinks~1.0/defs.bzl").getPathString(),
+        "def _symlinks_impl(ctx):",
+        "  runfiles = ctx.runfiles(",
+        "    symlinks = {'path/to/pkg/symlink': ctx.file.data},",
+        "    root_symlinks = {ctx.label.workspace_name + '/path/to/pkg/root_symlink':"
+            + " ctx.file.data},",
+        "  )",
+        "  return DefaultInfo(runfiles=runfiles)",
+        "symlinks = rule(",
+        "  implementation=_symlinks_impl,",
+        "  attrs={'data':attr.label(allow_single_file=True)},",
+        ")");
+    scratch.overwriteFile(
+        moduleRoot.getRelative("symlinks~1.0/BUILD").getPathString(),
+        "load('//:defs.bzl', 'symlinks')",
+        "symlinks(name='symlinks',data='@ddd')");
+
+    registry.addModule(
+        createModuleKey("ddd", "1.0"),
+        "module(name='ddd',version='1.0')",
+        "bazel_dep(name='bare_rule',version='1.0')");
+    scratch.overwriteFile(moduleRoot.getRelative("ddd~1.0/WORKSPACE").getPathString());
+    scratch.overwriteFile(
+        moduleRoot.getRelative("ddd~1.0/BUILD").getPathString(),
+        "load('@bare_rule//:defs.bzl', 'bare_binary')",
+        "bare_binary(name='ddd')");
+
+    RunfilesSupport runfilesSupport = getRunfilesSupport("@aaa~1.0//:aaa");
+    ImmutableList<String> runfilesPaths =
+        runfilesSupport
+            .getRunfiles()
+            .getRunfilesInputs(reporter, Location.BUILTIN, runfilesSupport.getRepoMappingManifest())
+            .keySet()
+            .stream()
+            .map(PathFragment::getPathString)
+            .collect(toImmutableList());
+    assertThat(runfilesPaths)
+        .containsExactly(
+            "aaa~1.0/aaa",
+            "_main/external/aaa~1.0/aaa",
+            "_main/path/to/pkg/symlink",
+            "symlinks~1.0/path/to/pkg/root_symlink",
+            "_repo_mapping");
+
+    assertThat(getRepoMappingManifestForTarget("@aaa~1.0//:aaa"))
+        .containsExactly(
+            // @aaa~1.0 contributes the top-level executable to runfiles.
+            "aaa~1.0,aaa,aaa~1.0",
+            // The symlink is staged under the main repository's runfiles directory and aaa has a
+            // repo mapping entry
+            // for it.
+            "aaa~1.0,my_module,_main",
+            // @symlinks~1.0 appears as the first segment of a root symlink.
+            "aaa~1.0,symlinks,symlinks~1.0",
+            "symlinks~1.0,symlinks,symlinks~1.0")
+        .inOrder();
   }
 }

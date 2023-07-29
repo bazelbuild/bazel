@@ -330,12 +330,7 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   /** Sets {@link #reverseDeps}. Does not alter {@link #reverseDepsDataToConsolidate}. */
-  synchronized void setSingleReverseDepForReverseDepsUtil(SkyKey reverseDep) {
-    this.reverseDeps = reverseDep;
-  }
-
-  /** Sets {@link #reverseDeps}. Does not alter {@link #reverseDepsDataToConsolidate}. */
-  synchronized void setReverseDepsForReverseDepsUtil(List<SkyKey> reverseDeps) {
+  synchronized void setReverseDepsForReverseDepsUtil(Object reverseDeps) {
     this.reverseDeps = reverseDeps;
   }
 
@@ -367,10 +362,9 @@ public class InMemoryNodeEntry implements NodeEntry {
     checkNotNull(reverseDep, this);
     checkState(keepsEdges(), "Incremental means keeping edges %s %s", reverseDep, this);
     if (isDone()) {
-      ReverseDepsUtility.checkReverseDep(this, reverseDep);
-    } else {
-      appendToReverseDepOperations(reverseDep, Op.CHECK);
+      return DependencyState.DONE;
     }
+    appendToReverseDepOperations(reverseDep, Op.CHECK);
     return addReverseDepAndCheckIfDone(null);
   }
 

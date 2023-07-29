@@ -11,14 +11,16 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
-# TODO(arostovtsev): move function_util to rules/starlarkdocextract when we remove legacy Stardoc.
+# TODO(arostovtsev): move rendering_util to rules/starlarkdocextract when we remove legacy Stardoc.
 java_library(
-    name = "function_util",
+    name = "rendering_util",
     srcs = [
         "DocstringParseException.java",
-        "FunctionUtil.java",
+        "LabelRenderer.java",
+        "StarlarkFunctionInfoExtractor.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:stardoc_output_java_proto",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
@@ -34,15 +36,15 @@ java_library(
         ["*.java"],
         exclude = [
             "DocstringParseException.java",
-            "FunctionUtil.java",
+            "LabelRenderer.java",
+            "StarlarkFunctionInfoExtractor.java",
         ],
     ),
     deps = [
-        ":function_util",
+        ":rendering_util",
         "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:stardoc_output_java_proto",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
-        "//third_party:apache_velocity",
-        "//third_party:guava",
+        "//third_party:error_prone_annotations",
     ],
 )

@@ -13,15 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.producers;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyException;
+import com.google.devtools.build.lib.analysis.InconsistentNullConfigException;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
+import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -81,7 +83,7 @@ final class ConfigConditionsProducer
   }
 
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     if (configLabels == null) {
       sink.acceptConfigConditions(ConfigConditions.EMPTY);
       return runAfter;
@@ -98,7 +100,7 @@ final class ConfigConditionsProducer
                   .setLabel(configLabels.get(i))
                   .setConfiguration(targetAndConfiguration.getConfiguration())
                   .build(),
-              /* transitionKey= */ null,
+              /* transitionKeys= */ ImmutableList.of(),
               transitiveState,
               (ConfiguredTargetAndDataProducer.ResultSink) this,
               i));
@@ -113,36 +115,24 @@ final class ConfigConditionsProducer
 
   @Override
   public void acceptConfiguredTargetAndDataError(ConfiguredValueCreationException error) {
-    DetailedExitCode newExitCode = error.getDetailedExitCode();
-    mostImportantExitCode =
-        DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
-            newExitCode, mostImportantExitCode);
-    if (newExitCode.equals(mostImportantExitCode)) {
-      sink.acceptConfigConditionsError(
-          // The precise error is reported by the dependency that failed to load.
-          // TODO(gregce): beautify this error: https://github.com/bazelbuild/bazel/issues/11984.
-          new ConfiguredValueCreationException(
-              targetAndConfiguration,
-              "errors encountered resolving select() keys for "
-                  + targetAndConfiguration.getLabel()));
-    }
+    emitErrorIfMostImportant(error.getDetailedExitCode());
   }
 
   @Override
-  public void acceptConfiguredTargetAndDataError(InvalidVisibilityDependencyException error) {
-    // After removing the rule transition from dependency resolution, a ConfiguredTargetKey in
-    // Skyframe with a null BuildConfigurationKey will only be used to request visibility
-    // dependencies. This will never be the case for ConfigConditions, which are always requested
-    // with the parent configuration. At the moment, nothing throws
-    // InvalidVisibilityDependencyException.
-    //
-    // TODO(b/261521010): update this comment once rule transitions are removed from dependency
-    // resolution.
-    throw new IllegalArgumentException(
-        "ConfigCondition dependency should never be marked visibility.", error);
+  public void acceptConfiguredTargetAndDataError(NoSuchThingException error) {
+    emitErrorIfMostImportant(error.getDetailedExitCode());
   }
 
-  private StateMachine constructConfigConditions(Tasks tasks, ExtendedEventHandler listener) {
+  @Override
+  public void acceptConfiguredTargetAndDataError(InconsistentNullConfigException error) {
+    // A config label was evaluated with a null configuration. This should never happen as
+    // ConfigConditions are only present if the parent is a Rule, then always evaluated with the
+    // parent configuration.
+    throw new IllegalArgumentException(
+        "ConfigCondition dependency should never be evaluated with a null configuration.", error);
+  }
+
+  private StateMachine constructConfigConditions(Tasks tasks) {
     if (mostImportantExitCode != null) {
       return runAfter; // There was a previous error.
     }
@@ -199,5 +189,20 @@ final class ConfigConditionsProducer
       return null;
     }
     return configLabels;
+  }
+
+  private void emitErrorIfMostImportant(@Nullable DetailedExitCode newExitCode) {
+    mostImportantExitCode =
+        DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
+            newExitCode, mostImportantExitCode);
+    if (newExitCode.equals(mostImportantExitCode)) {
+      sink.acceptConfigConditionsError(
+          // The precise error is reported by the dependency that failed to load.
+          // TODO(gregce): beautify this error: https://github.com/bazelbuild/bazel/issues/11984.
+          new ConfiguredValueCreationException(
+              targetAndConfiguration,
+              "errors encountered resolving select() keys for "
+                  + targetAndConfiguration.getLabel()));
+    }
   }
 }

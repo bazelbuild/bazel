@@ -13,11 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe.state;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import com.google.devtools.build.skyframe.SkyFunction.LookupEnvironment;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -51,7 +51,7 @@ public final class Driver {
    *
    * @return true if execution is complete, false if a restart is needed.
    */
-  public boolean drive(Environment env, ExtendedEventHandler listener) throws InterruptedException {
+  public boolean drive(LookupEnvironment env) throws InterruptedException {
     if (!pending.isEmpty()) {
       // If pending is non-empty, it means there was a Skyframe restart. Either everything that was
       // pending is available now or we are in error bubbling. In the latter case, this method
@@ -84,7 +84,7 @@ public final class Driver {
       // Runs all ready tasks, including ones that may be added during execution.
       TaskTreeNode next;
       while ((next = ready.poll()) != null) {
-        next.run(listener);
+        next.run();
       }
 
       // No more tasks are ready. If there are no newly added lookups, it isn't possible to drive
@@ -124,5 +124,14 @@ public final class Driver {
    */
   void addLookup(Lookup lookup) {
     newlyAdded.add(lookup);
+  }
+
+  @Override
+  public String toString() {
+    return toStringHelper(this)
+        .add("ready", ready)
+        .add("newlyAdded", newlyAdded)
+        .add("pending", pending)
+        .toString();
   }
 }

@@ -507,6 +507,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     boolean postprocessingRewritesMap = androidSemantics.postprocessClassesRewritesMap(ruleContext);
     boolean desugarJava8LibsGeneratesMap =
         AndroidCommon.getAndroidConfig(ruleContext).desugarJava8Libs();
+    boolean optimizingDexing = ruleContext.getExecutablePrerequisite(":optimizing_dexer") != null;
     if (generateProguardMap) {
       // Determine the output of the Proguard map from shrinking the app. This depends on the
       // additional steps which can process the map before the final Proguard map artifact is
@@ -514,6 +515,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       if (!hasProguardSpecs && !postprocessingRewritesMap) {
         // When no shrinking happens a generating rule for the output map artifact is still needed.
         proguardOutputMap = androidSemantics.getProguardOutputMap(ruleContext);
+      } else if (optimizingDexing) {
+        proguardOutputMap = ProguardHelper.getProguardTempArtifact(ruleContext, "pre_dexing.map");
       } else if (postprocessingRewritesMap) {
         // Proguard map from shrinking goes to postprocessing.
         proguardOutputMap =
@@ -528,6 +531,17 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       }
     }
 
+    BaselineProfileProvider baselineprofileProvider =
+        ruleContext.getPrerequisite("application_resources", BaselineProfileProvider.PROVIDER);
+
+    Artifact baselineProfile = null;
+    String baselineProfileDir = ruleContext.getLabel().getName() + "-baseline-profile/";
+    if (baselineprofileProvider == null
+        && Allowlist.hasAllowlist(ruleContext, "allow_baseline_profiles_optimizer_integration")
+        && Allowlist.isAvailable(ruleContext, "allow_baseline_profiles_optimizer_integration")) {
+      baselineProfile = androidSemantics.mergeBaselineProfiles(ruleContext, baselineProfileDir);
+    }
+
     ProguardOutput proguardOutput =
         applyProguard(
             ruleContext,
@@ -536,7 +550,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             binaryJar,
             proguardSpecs,
             proguardMapping,
-            proguardOutputMap);
+            proguardOutputMap,
+            baselineProfile,
+            baselineProfileDir);
 
     // Determine the outputs for the proguard map transition through post-processing and adding of
     // desugared library map.
@@ -545,13 +561,13 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     if (proguardOutput.hasMapping()) {
       // Determine the Proguard map artifacts for the additional steps (if any) if shrinking of
       // the app is enabled.
-      if (postprocessingRewritesMap && desugarJava8LibsGeneratesMap) {
+      if ((optimizingDexing || postprocessingRewritesMap) && desugarJava8LibsGeneratesMap) {
         // Proguard map from preprocessing will be merged with Proguard map for desugared
         // library.
         postProcessingOutputMap =
             getDxArtifact(ruleContext, "_proguard_output_for_desugared_library.map");
         finalProguardOutputMap = androidSemantics.getProguardOutputMap(ruleContext);
-      } else if (postprocessingRewritesMap) {
+      } else if (optimizingDexing || postprocessingRewritesMap) {
         // No desugared library, Proguard map from preprocessing is the final Proguard map.
         postProcessingOutputMap = androidSemantics.getProguardOutputMap(ruleContext);
         finalProguardOutputMap = postProcessingOutputMap;
@@ -592,7 +608,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             resourceApk.getMainDexProguardConfig(),
             resourceClasses,
             derivedJarFunction,
-            proguardOutputMap);
+            proguardOutputMap,
+            postProcessingOutputMap,
+            proguardOutput.getLibraryJar(),
+            !proguardSpecs.isEmpty());
 
     DexPostprocessingOutput dexPostprocessingOutput =
         androidSemantics.postprocessClassesDexZip(
@@ -676,13 +695,28 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       proguardOutput.addAllToSet(filesBuilder, finalProguardOutputMap);
     }
 
-    BaselineProfileProvider baselineprofileProvider =
-        ruleContext.getPrerequisite("application_resources", BaselineProfileProvider.PROVIDER);
-    Artifact artProfileZip =
-        (baselineprofileProvider != null)
-            ? baselineprofileProvider.getArtProfileZip()
-            : androidSemantics.getArtProfileForApk(
-                ruleContext, finalClassesDex, finalProguardOutputMap);
+    Artifact artProfileZip = null;
+    if (baselineprofileProvider != null) {
+      // This happens when baseline profiles are provided via starlark.
+      artProfileZip = baselineprofileProvider.getArtProfileZip();
+    } else if (baselineProfile == null) {
+      // This happens when optimizer profile rewriting isn't enabled.
+      artProfileZip =
+          androidSemantics.getArtProfileForApk(
+              ruleContext, finalClassesDex, finalProguardOutputMap, baselineProfileDir);
+    } else {
+      // This happens when optimizer profile rewriting is enabled.
+      artProfileZip =
+          androidSemantics.compileBaselineProfile(
+              ruleContext,
+              finalClassesDex,
+              // Minified symbols are emitted when rewriting, so map isn't needed.
+              /* proguardOutputMap= */ null,
+              proguardOutput.getBaselineProfileOut() == null
+                  ? baselineProfile
+                  : proguardOutput.getBaselineProfileOut(),
+              baselineProfileDir);
+    }
 
     Artifact unsignedApk =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_UNSIGNED_APK);
@@ -1048,7 +1082,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       Artifact deployJarArtifact,
       ImmutableList<Artifact> proguardSpecs,
       Artifact proguardMapping,
-      @Nullable Artifact proguardOutputMap)
+      @Nullable Artifact proguardOutputMap,
+      @Nullable Artifact baselineProfile,
+      String baselineProfileDir)
       throws InterruptedException {
     Artifact proguardOutputJar =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_PROGUARD_JAR);
@@ -1095,7 +1131,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         proguardOutputJar,
         javaSemantics,
         getProguardOptimizationPasses(ruleContext),
-        proguardOutputMap);
+        proguardOutputMap,
+        baselineProfile,
+        baselineProfileDir);
   }
 
   @Nullable
@@ -1120,11 +1158,13 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     ProguardOutput outputs =
         ProguardHelper.getProguardOutputs(
             proguardOutputJar,
-            /*proguardSeeds=*/ null,
-            /*proguardUsage=*/ null,
+            /* proguardSeeds= */ null,
+            /* proguardUsage= */ null,
             ruleContext,
             semantics,
-            proguardOutputMap);
+            proguardOutputMap,
+            /* libraryJar= */ null,
+            /* baselineProfileOutput= */ null);
     outputs.addAllToSet(failures);
     ruleContext.registerAction(
         new FailAction(
@@ -1318,8 +1358,12 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       @Nullable Artifact mainDexProguardSpec,
       JavaTargetAttributes attributes,
       Function<Artifact, Artifact> derivedJarFunction,
-      @Nullable Artifact proguardOutputMap)
+      @Nullable Artifact proguardOutputMap,
+      @Nullable Artifact postProcessingOutputMap,
+      @Nullable Artifact libraryJar,
+      boolean isOptimizedBuild)
       throws InterruptedException, RuleErrorException {
+    FilesToRunProvider optimizingDexer = ruleContext.getExecutablePrerequisite(":optimizing_dexer");
     List<String> dexopts = ruleContext.getExpander().withDataLocations().tokenized("dexopts");
     MultidexMode multidexMode = getMultidexMode(ruleContext);
     if (!supportsMultidexMode(ruleContext, multidexMode)) {
@@ -1370,7 +1414,55 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     }
 
     Artifact classesDex = getDxArtifact(ruleContext, "classes.dex.zip");
-    if (dexShards > 1) {
+    if (optimizingDexer != null && isOptimizedBuild) {
+      SpawnAction.Builder dexAction =
+          new SpawnAction.Builder()
+              .useDefaultShellEnvironment()
+              .setExecutable(optimizingDexer)
+              .setProgressMessage("Optimized dexing for %{label}")
+              .setMnemonic("OptimizingDex")
+              .addInput(proguardedJar)
+              .addOutput(classesDex);
+
+      boolean nativeMultidex = multidexMode == MultidexMode.NATIVE;
+      CustomCommandLine.Builder dexCommand =
+          CustomCommandLine.builder()
+              .addExecPath(proguardedJar)
+              .add("--release")
+              .add("--no-desugaring")
+              .addExecPath("--output", classesDex)
+              .addAll(dexopts);
+
+      if (proguardOutputMap != null) {
+        dexAction.addInput(proguardOutputMap).addOutput(postProcessingOutputMap);
+        dexCommand
+            .addExecPath("--pg-map", proguardOutputMap)
+            .addExecPath("--pg-map-output", postProcessingOutputMap);
+      }
+
+      // TODO(b/261110876): Pass min SDK through here based on the value in the merged manifest. The
+      // current value is statically defined for the entire depot.
+      // We currently set the minimum SDK version to 21 if you are doing native multidex as that is
+      // required for native multidex to work in the first place and as a result is required for
+      // correct behavior from the dexer.
+      int sdk = nativeMultidex ? Math.max(21, minSdkVersion) : minSdkVersion;
+      if (sdk != 0) {
+        dexCommand.add("--min-api", Integer.toString(sdk));
+      }
+      if (mainDexList != null) {
+        dexCommand.addExecPath("--main-dex-list", mainDexList);
+        dexAction.addInput(mainDexList);
+      }
+      if (libraryJar != null) {
+        dexCommand.addExecPath("--lib", libraryJar);
+        dexAction.addInput(libraryJar);
+      }
+
+      dexAction.addCommandLine(dexCommand.build());
+      ruleContext.registerAction(dexAction.build(ruleContext));
+      return new DexingOutput(
+          classesDex, javaResourceSourceJar, ImmutableList.of(classesDex), mainDexList);
+    } else if (dexShards > 1) {
       ImmutableList<Artifact> shards =
           makeShardArtifacts(ruleContext, dexShards, usesDexArchives ? ".jar.dex.zip" : ".jar");
 

@@ -19,7 +19,6 @@ import static org.mockito.Mockito.mock;
 
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Target;
@@ -52,7 +51,7 @@ public class SkyframeErrorProcessorTest {
             .build();
     ConfiguredValueCreationException analysisException =
         new ConfiguredValueCreationException(
-            new TargetAndConfiguration(mock(Target.class), mock(BuildConfigurationValue.class)),
+            new TargetAndConfiguration(mock(Target.class), /* configuration= */ null),
             "analysis exception");
     ErrorInfo analysisErrorInfo =
         ErrorInfo.fromException(
@@ -61,7 +60,7 @@ public class SkyframeErrorProcessorTest {
             /*isTransitivelyTransient=*/ false);
 
     EvaluationResult<SkyValue> result =
-        EvaluationResult.builder().addError(analysisErrorKey.toKey(), analysisErrorInfo).build();
+        EvaluationResult.builder().addError(analysisErrorKey, analysisErrorInfo).build();
 
     ViewCreationFailedException thrown =
         assertThrows(
@@ -69,7 +68,6 @@ public class SkyframeErrorProcessorTest {
             () ->
                 SkyframeErrorProcessor.processErrors(
                     result,
-                    /*configurationLookupSupplier=*/ null,
                     /*cyclesReporter=*/ new CyclesReporter(),
                     /*eventHandler=*/ mock(ExtendedEventHandler.class),
                     /*keepGoing=*/ false,

@@ -14,18 +14,18 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.packages.TargetUtils.isTestRuleName;
 import static com.google.devtools.build.lib.skyframe.CoverageReportValue.COVERAGE_REPORT_KEY;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
@@ -34,7 +34,9 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.clock.Clock;
-import java.util.Set;
+import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
+import com.google.devtools.build.lib.remote.util.ConcurrentPathTrie;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
@@ -51,15 +53,14 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
 
   private final Clock clock;
   private final CommandMode commandMode;
-  private final boolean downloadToplevel;
+  private final RemoteOutputsMode outputsMode;
   private final ImmutableList<Pattern> patternsToDownload;
-  private final Set<ActionInput> toplevelArtifactsToDownload = Sets.newConcurrentHashSet();
-  private final Set<ActionInput> inputsToDownload = Sets.newConcurrentHashSet();
+  private final ConcurrentPathTrie pathsToDownload = new ConcurrentPathTrie();
 
   public RemoteOutputChecker(
       Clock clock,
       String commandName,
-      boolean downloadToplevel,
+      RemoteOutputsMode outputsMode,
       ImmutableList<Pattern> patternsToDownload) {
     this.clock = clock;
     switch (commandName) {
@@ -78,18 +79,57 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
       default:
         this.commandMode = CommandMode.UNKNOWN;
     }
-    this.downloadToplevel = downloadToplevel;
+    this.outputsMode = outputsMode;
     this.patternsToDownload = patternsToDownload;
   }
 
-  // TODO(chiwang): Code path reserved for skymeld.
+  // Skymeld-only.
   public void afterTopLevelTargetAnalysis(
       ConfiguredTarget configuredTarget,
       Supplier<TopLevelArtifactContext> topLevelArtifactContextSupplier) {
+    if (outputsMode == RemoteOutputsMode.ALL) {
+      // For ALL, there's no need to keep track of toplevel targets - we download everything.
+      return;
+    }
     addTopLevelTarget(configuredTarget, configuredTarget, topLevelArtifactContextSupplier);
   }
 
+  // Skymeld-only.
+  public void afterTestAnalyzedEvent(ConfiguredTarget configuredTarget) {
+    if (outputsMode == RemoteOutputsMode.ALL) {
+      // For ALL, there's no need to keep track of toplevel targets - we download everything.
+      return;
+    }
+    addTargetUnderTest(configuredTarget);
+  }
+
+  // Skymeld-only.
+  public void afterAspectAnalysis(
+      ConfiguredAspect configuredAspect,
+      Supplier<TopLevelArtifactContext> topLevelArtifactContextSupplier) {
+    if (outputsMode == RemoteOutputsMode.ALL) {
+      // For ALL, there's no need to keep track of toplevel targets - we download everything.
+      return;
+    }
+    addTopLevelTarget(
+        configuredAspect, /* configuredTarget= */ null, topLevelArtifactContextSupplier);
+  }
+
+  // Skymeld-only.
+  public void coverageArtifactsKnown(ImmutableSet<Artifact> coverageArtifacts) {
+    if (outputsMode == RemoteOutputsMode.ALL) {
+      // For ALL, there's no need to keep track of toplevel targets - we download everything.
+      return;
+    }
+    maybeAddCoverageArtifacts(coverageArtifacts);
+  }
+
+  // Non-Skymeld only.
   public void afterAnalysis(AnalysisResult analysisResult) {
+    if (outputsMode == RemoteOutputsMode.ALL) {
+      // For ALL, there's no need to keep track of toplevel targets - we download everything.
+      return;
+    }
     for (var target : analysisResult.getTargetsToBuild()) {
       addTopLevelTarget(target, target, analysisResult::getTopLevelContext);
     }
@@ -99,8 +139,9 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
     var targetsToTest = analysisResult.getTargetsToTest();
     if (targetsToTest != null) {
       for (var target : targetsToTest) {
-        addTargetUnderTest(target, analysisResult.getArtifactsToBuild());
+        addTargetUnderTest(target);
       }
+      maybeAddCoverageArtifacts(analysisResult.getArtifactsToBuild());
     }
   }
 
@@ -113,8 +154,7 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
       var artifactsToBuild =
           TopLevelArtifactHelper.getAllArtifactsToBuild(target, topLevelArtifactContext)
               .getImportantArtifacts();
-      toplevelArtifactsToDownload.addAll(artifactsToBuild.toList());
-
+      addOutputsToDownload(artifactsToBuild.toList());
       addRunfiles(target);
     }
   }
@@ -133,46 +173,61 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
       if (runfile.isSourceArtifact()) {
         continue;
       }
-      toplevelArtifactsToDownload.add(runfile);
+      addOutputToDownload(runfile);
     }
     for (var symlink : runfiles.getSymlinks().toList()) {
       var artifact = symlink.getArtifact();
       if (artifact.isSourceArtifact()) {
         continue;
       }
-      toplevelArtifactsToDownload.add(artifact);
+      addOutputToDownload(artifact);
     }
     for (var symlink : runfiles.getRootSymlinks().toList()) {
       var artifact = symlink.getArtifact();
       if (artifact.isSourceArtifact()) {
         continue;
       }
-      toplevelArtifactsToDownload.add(artifact);
+      addOutputToDownload(artifact);
     }
   }
 
-  private void addTargetUnderTest(
-      ProviderCollection target, ImmutableSet<Artifact> artifactsToBuild) {
+  private void addTargetUnderTest(ProviderCollection target) {
     TestProvider testProvider = checkNotNull(target.getProvider(TestProvider.class));
-    if (downloadToplevel && commandMode == CommandMode.TEST) {
+    if (outputsMode != RemoteOutputsMode.MINIMAL && commandMode == CommandMode.TEST) {
       // In test mode, download the outputs of the test runner action.
-      toplevelArtifactsToDownload.addAll(testProvider.getTestParams().getOutputs());
+      addOutputsToDownload(testProvider.getTestParams().getOutputs());
     }
     if (commandMode == CommandMode.COVERAGE) {
       // In coverage mode, download the per-test and aggregated coverage files.
       // Do this even for MINIMAL, since coverage (unlike test) doesn't produce any observable
       // results other than outputs.
-      toplevelArtifactsToDownload.addAll(testProvider.getTestParams().getCoverageArtifacts());
-      for (Artifact artifactToBuild : artifactsToBuild) {
-        if (artifactToBuild.getArtifactOwner().equals(COVERAGE_REPORT_KEY)) {
-          toplevelArtifactsToDownload.add(artifactToBuild);
-        }
+      addOutputsToDownload(testProvider.getTestParams().getCoverageArtifacts());
+    }
+  }
+
+  private void maybeAddCoverageArtifacts(ImmutableSet<Artifact> artifactsToBuild) {
+    if (commandMode != CommandMode.COVERAGE) {
+      return;
+    }
+    for (Artifact artifactToBuild : artifactsToBuild) {
+      if (artifactToBuild.getArtifactOwner().equals(COVERAGE_REPORT_KEY)) {
+        addOutputToDownload(artifactToBuild);
       }
     }
   }
 
-  public void addInputToDownload(ActionInput file) {
-    inputsToDownload.add(file);
+  private void addOutputsToDownload(Iterable<? extends ActionInput> files) {
+    for (ActionInput file : files) {
+      addOutputToDownload(file);
+    }
+  }
+
+  public void addOutputToDownload(ActionInput file) {
+    if (file instanceof Artifact && ((Artifact) file).isTreeArtifact()) {
+      pathsToDownload.addPrefix(file.getExecPath());
+    } else {
+      pathsToDownload.add(file.getExecPath());
+    }
   }
 
   private boolean shouldAddTopLevelTarget(@Nullable ConfiguredTarget configuredTarget) {
@@ -186,56 +241,36 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
         if (configuredTarget instanceof RuleConfiguredTarget) {
           var ruleConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
           var isTestRule = isTestRuleName(ruleConfiguredTarget.getRuleClassString());
-          return !isTestRule && downloadToplevel;
+          return !isTestRule && outputsMode != RemoteOutputsMode.MINIMAL;
         }
-        return downloadToplevel;
+        return outputsMode != RemoteOutputsMode.MINIMAL;
       default:
-        return downloadToplevel;
+        return outputsMode != RemoteOutputsMode.MINIMAL;
     }
   }
 
-  private boolean shouldDownloadOutputForToplevel(ActionInput output) {
-    return shouldDownloadOutputFor(output, toplevelArtifactsToDownload);
-  }
-
-  private boolean shouldDownloadOutputForLocalAction(ActionInput output) {
-    return shouldDownloadOutputFor(output, inputsToDownload);
-  }
-
-  private boolean shouldDownloadOutputForRegex(ActionInput output) {
-    if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
-      return false;
-    }
-
+  private boolean matchesPattern(PathFragment execPath) {
     for (var pattern : patternsToDownload) {
-      if (pattern.matcher(output.getExecPathString()).matches()) {
+      if (pattern.matcher(execPath.toString()).matches()) {
         return true;
       }
     }
-
     return false;
   }
 
-  private static boolean shouldDownloadOutputFor(
-      ActionInput output, Set<ActionInput> artifactCollection) {
-    if (output instanceof TreeFileArtifact) {
-      if (artifactCollection.contains(((Artifact) output).getParent())) {
-        return true;
-      }
-    } else if (artifactCollection.contains(output)) {
-      return true;
-    }
-
-    return false;
-  }
-
-  /**
-   * Returns {@code true} if Bazel should download this {@link ActionInput} during spawn execution.
-   */
+  /** Returns whether this {@link ActionInput} should be downloaded. */
   public boolean shouldDownloadOutput(ActionInput output) {
-    return shouldDownloadOutputForToplevel(output)
-        || shouldDownloadOutputForLocalAction(output)
-        || shouldDownloadOutputForRegex(output);
+    checkState(
+        !(output instanceof Artifact && ((Artifact) output).isTreeArtifact()),
+        "shouldDownloadOutput should not be called on a tree artifact");
+    return shouldDownloadOutput(output.getExecPath());
+  }
+
+  /** Returns whether an {@link ActionInput} with the given path should be downloaded. */
+  public boolean shouldDownloadOutput(PathFragment execPath) {
+    return outputsMode == RemoteOutputsMode.ALL
+        || pathsToDownload.contains(execPath)
+        || matchesPattern(execPath);
   }
 
   @Override

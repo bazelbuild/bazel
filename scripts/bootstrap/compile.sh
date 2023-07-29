@@ -330,6 +330,9 @@ mkdir -p ${ARCHIVE_DIR}
 # Prepare @platforms local repository
 link_dir ${PWD}/platforms ${ARCHIVE_DIR}/platforms
 
+# Prepare @rules_java_builtin local repository
+link_dir ${PWD}/rules_java ${ARCHIVE_DIR}/rules_java
+
 # Dummy build-runfiles (we can't compile C++ yet, so we can't have the real one)
 if [ "${PLATFORM}" = "windows" ]; then
   # We don't rely on runfiles trees on Windows

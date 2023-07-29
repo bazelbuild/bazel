@@ -15,9 +15,13 @@
 """Definition of proto_common module, together with bazel providers for proto rules."""
 
 ProtoLangToolchainInfo = provider(
-    doc = "Specifies how to generate language-specific code from .proto files. Used by LANG_proto_library rules.",
+    doc = """Specifies how to generate language-specific code from .proto files.
+            Used by LANG_proto_library rules.""",
     fields = dict(
-        out_replacement_format_flag = "(str) Format string used when passing output to the plugin used by proto compiler.",
+        out_replacement_format_flag = """(str) Format string used when passing output to the plugin
+          used by proto compiler.""",
+        output_files = """("single","multiple","legacy") Format out_replacement_format_flag with
+          a path to single file or a directory in case of multiple files.""",
         plugin_format_flag = "(str) Format string used when passing plugin to proto compiler.",
         plugin = "(FilesToRunProvider) Proto compiler plugin.",
         runtime = "(Target) Runtime.",
@@ -26,16 +30,43 @@ ProtoLangToolchainInfo = provider(
         protoc_opts = "(list[str]) Options to pass to proto compiler.",
         progress_message = "(str) Progress message to set on the proto compiler action.",
         mnemonic = "(str) Mnemonic to set on the proto compiler action.",
+        allowlist_different_package = """(Target) Allowlist to create lang_proto_library in a
+          different package than proto_library""",
     ),
 )
 
-def _proto_path_flag(path):
-    if path == ".":
-        return None
-    return "--proto_path=%s" % path
+def _import_virtual_proto_path(path):
+    """Imports all paths for virtual imports.
 
-def _Iimport_path_equals_fullpath(proto_source):
-    return "-I%s=%s" % (get_import_path(proto_source), proto_source.path)
+      They're of the form:
+      'bazel-out/k8-fastbuild/bin/external/foo/e/_virtual_imports/e' or
+      'bazel-out/foo/k8-fastbuild/bin/e/_virtual_imports/e'"""
+    if path.count("/") > 4:
+        return "-I%s" % path
+    return None
+
+def _import_repo_proto_path(path):
+    """Imports all paths for generated files in external repositories.
+
+      They are of the form:
+      'bazel-out/k8-fastbuild/bin/external/foo' or
+      'bazel-out/foo/k8-fastbuild/bin'"""
+    path_count = path.count("/")
+    if path_count > 2 and path_count <= 4:
+        return "-I%s" % path
+    return None
+
+def _import_main_output_proto_path(path):
+    """Imports all paths for generated files or source files in external repositories.
+
+      They're of the form:
+      'bazel-out/k8-fastbuild/bin'
+      'external/foo'
+      '../foo'
+    """
+    if path.count("/") <= 2 and path != ".":
+        return "-I%s" % path
+    return None
 
 def _remove_repo(file):
     """Removes `../repo/` prefix from path, e.g. `../repo/package/path -> package/path`"""
@@ -62,6 +93,42 @@ def get_import_path(proto_source):
         repo_path = repo_path[index + 1:]
     return repo_path
 
+def _output_directory(proto_info, root):
+    proto_source_root = proto_info.proto_source_root
+    if proto_source_root.startswith(root.path):
+        #TODO(b/281812523): remove this branch when bin_dir is removed from proto_source_root
+        proto_source_root = proto_source_root.removeprefix(root.path).removeprefix("/")
+
+    if proto_source_root == "" or proto_source_root == ".":
+        return root.path
+
+    return root.path + "/" + proto_source_root
+
+def _check_collocated(label, proto_info, proto_lang_toolchain_info):
+    """Checks if lang_proto_library is collocated with proto_library.
+
+    Exceptions are allowed by an allowlist defined on `proto_lang_toolchain` and
+    on an allowlist defined on `proto_library`'s `allow_exports` attribute.
+
+    If checks are not successful the function fails.
+
+    Args:
+      label: (Label) The label of lang_proto_library
+      proto_info: (ProtoInfo) The ProtoInfo from the proto_library dependency.
+      proto_lang_toolchain_info: (ProtoLangToolchainInfo) The proto lang toolchain info.
+        Obtained from a `proto_lang_toolchain` target.
+    """
+    if (proto_info.direct_descriptor_set.owner.package != label.package and
+        proto_lang_toolchain_info.allowlist_different_package):
+        if not proto_lang_toolchain_info.allowlist_different_package.isAvailableFor(label):
+            fail(("lang_proto_library '%s' may only be created in the same package " +
+                  "as proto_library '%s'") % (label, proto_info.direct_descriptor_set.owner))
+    if (proto_info.direct_descriptor_set.owner.package != label.package and
+        hasattr(proto_info, "allow_exports")):
+        if not proto_info.allow_exports.isAvailableFor(label):
+            fail(("lang_proto_library '%s' may only be created in the same package " +
+                  "as proto_library '%s'") % (label, proto_info.direct_descriptor_set.owner))
+
 def _compile(
         actions,
         proto_info,
@@ -73,7 +140,8 @@ def _compile(
         additional_inputs = depset(),
         resource_set = None,
         experimental_exec_group = None,
-        experimental_progress_message = None):
+        experimental_progress_message = None,
+        experimental_output_files = "legacy"):
     """Creates proto compile action for compiling *.proto files to language specific sources.
 
     Args:
@@ -84,8 +152,10 @@ def _compile(
       generated_files: (list[File]) The output files generated by the proto compiler.
         Callee needs to declare files using `ctx.actions.declare_file`.
         See also: `proto_common.declare_generated_files`.
-      plugin_output: (File|str) The file or directory passed to the plugin.
-        Formatted with `proto_lang_toolchain.out_replacement_format_flag`
+      plugin_output: (File|str) Deprecated: Set `proto_lang_toolchain.output_files`
+        and remove the parameter.
+        For backwards compatibility, when the proto_lang_toolchain isn't updated
+        the value is used.
       additional_args: (Args) Additional arguments to add to the action.
         Accepts an ctx.actions.args() object that is added at the beginning
         of the command line.
@@ -98,11 +168,33 @@ def _compile(
         Avoid using this parameter.
       experimental_progress_message: Overrides progress_message from the toolchain.
         Don't use this parameter. It's only intended for the transition.
+      experimental_output_files: (str) Overwrites output_files from the toolchain.
+        Don't use this parameter. It's only intended for the transition.
     """
+    if type(generated_files) != type([]):
+        fail("generated_files is expected to be a list of Files")
+    if not generated_files:
+        return  # nothing to do
+    if experimental_output_files not in ["single", "multiple", "legacy"]:
+        fail('experimental_output_files expected to be one of ["single", "multiple", "legacy"]')
+
     args = actions.args()
     args.use_param_file(param_file_arg = "@%s")
     args.set_param_file_format("multiline")
     tools = list(additional_tools)
+
+    if experimental_output_files != "legacy":
+        output_files = experimental_output_files
+    else:
+        output_files = getattr(proto_lang_toolchain_info, "output_files", "legacy")
+    if output_files != "legacy":
+        if proto_lang_toolchain_info.out_replacement_format_flag:
+            if output_files == "single":
+                if len(generated_files) > 1:
+                    fail("generated_files only expected a single file")
+                plugin_output = generated_files[0]
+            else:
+                plugin_output = _output_directory(proto_info, generated_files[0].root)
 
     if plugin_output:
         args.add(plugin_output, format = proto_lang_toolchain_info.out_replacement_format_flag)
@@ -110,17 +202,20 @@ def _compile(
         tools.append(proto_lang_toolchain_info.plugin)
         args.add(proto_lang_toolchain_info.plugin.executable, format = proto_lang_toolchain_info.plugin_format_flag)
 
-    args.add_all(proto_info.transitive_proto_path, map_each = _proto_path_flag)
-    # Example: `--proto_path=--proto_path=bazel-bin/target/third_party/pkg/_virtual_imports/subpkg`
+    # Protoc searches for .protos -I paths in order they are given and then
+    # uses the path within the directory as the package.
+    # This requires ordering the paths from most specific (longest) to least
+    # specific ones, so that no path in the list is a prefix of any of the
+    # following paths in the list.
+    # For example: 'bazel-out/k8-fastbuild/bin/external/foo' needs to be listed
+    # before 'bazel-out/k8-fastbuild/bin'. If not, protoc will discover file under
+    # the shorter path and use 'external/foo/...' as its package path.
+    args.add_all(proto_info.transitive_proto_path, map_each = _import_virtual_proto_path)
+    args.add_all(proto_info.transitive_proto_path, map_each = _import_repo_proto_path)
+    args.add_all(proto_info.transitive_proto_path, map_each = _import_main_output_proto_path)
+    args.add("-I.")  # Needs to come last
 
     args.add_all(proto_lang_toolchain_info.protoc_opts)
-
-    # Include maps
-    # For each import, include both the import as well as the import relativized against its
-    # protoSourceRoot. This ensures that protos can reference either the full path or the short
-    # path when including other protos.
-    args.add_all(proto_info._transitive_proto_sources, map_each = _Iimport_path_equals_fullpath)
-    # Example: `-Ia.proto=bazel-bin/target/third_party/pkg/_virtual_imports/subpkg/a.proto`
 
     args.add_all(proto_info.direct_sources)
 
@@ -254,6 +349,7 @@ def _declare_generated_files(
 proto_common_do_not_use = struct(
     compile = _compile,
     declare_generated_files = _declare_generated_files,
+    check_collocated = _check_collocated,
     experimental_should_generate_code = _experimental_should_generate_code,
     experimental_filter_sources = _experimental_filter_sources,
     ProtoLangToolchainInfo = ProtoLangToolchainInfo,

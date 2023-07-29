@@ -24,12 +24,14 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableBiMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import java.util.Optional;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.syntax.Location;
 import org.junit.Test;
@@ -45,18 +47,23 @@ public class StarlarkBazelModuleTest {
     return ModuleExtensionUsage.builder()
         .setExtensionBzlFile("//:rje.bzl")
         .setExtensionName("maven")
+        .setIsolationKey(Optional.empty())
         .setUsingModule(ModuleKey.ROOT)
         .setLocation(Location.BUILTIN)
         .setImports(ImmutableBiMap.of())
-        .setDevImports(ImmutableSet.of());
+        .setDevImports(ImmutableSet.of())
+        .setHasDevUseExtension(false)
+        .setHasNonDevUseExtension(true);
   }
 
   /** A builder for ModuleExtension that sets all the mandatory but irrelevant fields. */
   private static ModuleExtension.Builder getBaseExtensionBuilder() {
     return ModuleExtension.builder()
-        .setDoc("")
+        .setDoc(Optional.empty())
+        .setDefiningBzlFileLabel(Label.parseCanonicalUnchecked("//:rje.bzl"))
         .setLocation(Location.BUILTIN)
-        .setImplementation(() -> "maven");
+        .setImplementation(() -> "maven")
+        .setEnvVariables(ImmutableList.of());
   }
 
   @Test

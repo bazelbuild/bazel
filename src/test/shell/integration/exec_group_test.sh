@@ -408,6 +408,7 @@ EOF
   cat > ${pkg}/BUILD <<EOF
 constraint_setting(name = "setting")
 constraint_value(name = "local", constraint_setting = ":setting")
+cc_library(name = "empty_lib")
 cc_test(
   name = "a",
   srcs = ["a.cc"],
@@ -415,6 +416,7 @@ cc_test(
     "platform_key": "override_value",
   },
   exec_compatible_with = [":local"],
+  link_extra_lib = ":empty_lib",
 )
 
 platform(
@@ -483,6 +485,7 @@ EOF
   cat > ${pkg}/BUILD <<EOF
 constraint_setting(name = "setting")
 constraint_value(name = "local", constraint_setting = ":setting")
+cc_library(name = "empty_lib")
 cc_test(
   name = "a",
   srcs = ["a.cc"],
@@ -491,6 +494,7 @@ cc_test(
     "test.platform_key": "test_override",
   },
   exec_compatible_with = [":local"],
+  link_extra_lib = ":empty_lib",
 )
 
 platform(
@@ -522,10 +526,12 @@ EOF
   cat > ${pkg}/BUILD <<EOF
 constraint_setting(name = "setting")
 constraint_value(name = "local", constraint_setting = ":setting")
+cc_library(name = "empty_lib")
 cc_test(
   name = "a",
   srcs = ["a.cc"],
   exec_compatible_with = [":local"],
+  link_extra_lib = ":empty_lib",
 )
 
 # This platform should be first in --extra_execution_platforms.

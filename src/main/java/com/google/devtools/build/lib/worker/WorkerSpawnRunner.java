@@ -61,7 +61,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.XattrProvider;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.protobuf.ByteString;
@@ -92,13 +92,11 @@ final class WorkerSpawnRunner implements SpawnRunner {
   private final Path execRoot;
   private final ImmutableList<Root> packageRoots;
   private final ExtendedEventHandler reporter;
-  private final BinTools binTools;
   private final ResourceManager resourceManager;
   private final RunfilesTreeUpdater runfilesTreeUpdater;
   private final WorkerOptions workerOptions;
   private final WorkerParser workerParser;
   private final AtomicInteger requestIdCounter = new AtomicInteger(1);
-  private final XattrProvider xattrProvider;
   private final WorkerMetricsCollector metricsCollector;
 
   public WorkerSpawnRunner(
@@ -113,16 +111,13 @@ final class WorkerSpawnRunner implements SpawnRunner {
       RunfilesTreeUpdater runfilesTreeUpdater,
       WorkerOptions workerOptions,
       WorkerMetricsCollector workerMetricsCollector,
-      XattrProvider xattrProvider,
       Clock clock) {
     this.helpers = helpers;
     this.execRoot = execRoot;
     this.packageRoots = packageRoots;
     this.reporter = reporter;
-    this.binTools = binTools;
     this.resourceManager = resourceManager;
     this.runfilesTreeUpdater = runfilesTreeUpdater;
-    this.xattrProvider = xattrProvider;
     this.workerParser = new WorkerParser(execRoot, workerOptions, localEnvProvider, binTools);
     this.workerOptions = workerOptions;
     this.resourceManager.setWorkerPool(workers);
@@ -138,6 +133,12 @@ final class WorkerSpawnRunner implements SpawnRunner {
   @Override
   public boolean canExec(Spawn spawn) {
     if (!Spawns.supportsWorkers(spawn) && !Spawns.supportsMultiplexWorkers(spawn)) {
+      return false;
+    }
+    // Note: `allowlist` is sorted, we could binary search.
+    if (workerOptions.allowlist != null
+        && !workerOptions.allowlist.isEmpty()
+        && !workerOptions.allowlist.contains(Spawns.getWorkerKeyMnemonic(spawn))) {
       return false;
     }
     if (spawn.getToolFiles().isEmpty()) {
@@ -175,13 +176,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
                 String.format(
                     "%s worker %s", spawn.getMnemonic(), spawn.getResourceOwner().describe()))) {
 
-      runfilesTreeUpdater.updateRunfilesDirectory(
-          execRoot,
-          spawn.getRunfilesSupplier(),
-          binTools,
-          spawn.getEnvironment(),
-          context.getFileOutErr(),
-          xattrProvider);
+      runfilesTreeUpdater.updateRunfiles(
+          spawn.getRunfilesSupplier(), spawn.getEnvironment(), context.getFileOutErr());
 
       InputMetadataProvider inputFileCache = context.getInputMetadataProvider();
 
@@ -240,6 +236,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
   private WorkRequest createWorkRequest(
       Spawn spawn,
       SpawnExecutionContext context,
+      SandboxInputs inputFiles,
       List<String> flagfiles,
       Map<VirtualActionInput, byte[]> virtualInputDigests,
       InputMetadataProvider inputFileCache,
@@ -247,7 +244,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       throws IOException, InterruptedException {
     WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
     for (String flagfile : flagfiles) {
-      expandArgument(execRoot, flagfile, requestBuilder);
+      expandArgument(inputFiles, flagfile, requestBuilder);
     }
 
     List<ActionInput> inputs =
@@ -292,27 +289,34 @@ final class WorkerSpawnRunner implements SpawnRunner {
    * <p>Also check that the argument is not an external repository label, because they start with
    * `@` and are not flagfile locations.
    *
-   * @param execRoot the current execroot of the build (relative paths will be assumed to be
-   *     relative to this directory).
+   * @param inputs the inputs to locate flag files in.
    * @param arg the argument to expand.
    * @param requestBuilder the WorkRequest to whose arguments the expanded arguments will be added.
    * @throws java.io.IOException if one of the files containing options cannot be read.
    */
-  static void expandArgument(Path execRoot, String arg, WorkRequest.Builder requestBuilder)
+  static void expandArgument(SandboxInputs inputs, String arg, WorkRequest.Builder requestBuilder)
       throws IOException, InterruptedException {
     if (arg.startsWith("@") && !arg.startsWith("@@") && !isExternalRepositoryLabel(arg)) {
       if (Thread.interrupted()) {
         throw new InterruptedException();
       }
       String argValue = arg.substring(1);
-      Path path = execRoot.getRelative(argValue);
+      RootedPath path = inputs.getFiles().get(PathFragment.create(argValue));
+      if (path == null) {
+        throw new IOException(
+            String.format(
+                "Failed to read @-argument '%s': file is not a declared input", argValue));
+      }
       try {
-        for (String line : FileSystemUtils.readLines(path, UTF_8)) {
-          expandArgument(execRoot, line, requestBuilder);
+        for (String line : FileSystemUtils.readLines(path.asPath(), UTF_8)) {
+          expandArgument(inputs, line, requestBuilder);
         }
       } catch (IOException e) {
         throw new IOException(
-            String.format("Failed to read @-argument '%s' from file '%s'.", argValue, path), e);
+            String.format(
+                "Failed to read @-argument '%s' from file '%s'.",
+                argValue, path.asPath().getPathString()),
+            e);
       }
     } else {
       requestBuilder.addArguments(arg);
@@ -412,7 +416,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
       workerOwner = new WorkerOwner(handle.getWorker());
       workerOwner.getWorker().setReporter(workerOptions.workerVerbose ? reporter : null);
       request =
-          createWorkRequest(spawn, context, flagFiles, virtualInputDigests, inputFileCache, key);
+          createWorkRequest(
+              spawn, context, inputFiles, flagFiles, virtualInputDigests, inputFileCache, key);
 
       // We acquired a worker and resources -- mark that as queuing time.
       spawnMetrics.setQueueTimeInMs((int) queueStopwatch.elapsed().toMillis());

@@ -64,7 +64,7 @@ public class InputFile extends FileTarget {
 
   @Override
   public RuleVisibility getVisibility() {
-    return pkg.getDefaultVisibility();
+    return pkg.getPackageArgs().defaultVisibility();
   }
 
   @Override

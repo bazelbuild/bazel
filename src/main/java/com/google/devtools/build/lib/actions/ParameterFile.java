@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.GccParamFileEscaper;
 import com.google.devtools.build.lib.util.ShellEscaper;
+import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -169,6 +170,10 @@ public class ParameterFile {
     for (String line : arguments) {
       byte[] bytes = stringUnsafe.getByteArray(line);
       if (stringUnsafe.getCoder(line) == StringUnsafe.LATIN1 && isAscii(bytes)) {
+        outputStream.write(bytes);
+      } else if (!StringUtil.decodeBytestringUtf8(line).equals(line)) {
+        // We successfully decoded line from utf8 - meaning it was already encoded as utf8.
+        // We do not want to double-encode.
         outputStream.write(bytes);
       } else {
         ByteBuffer encodedBytes = encoder.encode(CharBuffer.wrap(line));

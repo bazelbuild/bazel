@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -215,7 +214,7 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public ActionLookupKeyOrProxy getOwner() {
+    public ActionLookupKey getOwner() {
       return original.getOwner();
     }
 

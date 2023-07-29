@@ -107,11 +107,8 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
             .addExecutionInfo(spawn.getExecutionInfo())
             .setTimeout(timeout);
 
-    Path statisticsPath = null;
-    if (getSandboxOptions().collectLocalSandboxExecutionStatistics) {
-      statisticsPath = sandboxPath.getRelative("stats.out");
-      commandLineBuilder.setStatisticsPath(statisticsPath);
-    }
+    Path statisticsPath = sandboxPath.getRelative("stats.out");
+    commandLineBuilder.setStatisticsPath(statisticsPath);
 
     SandboxInputs inputs =
         helpers.processInputFiles(
@@ -135,6 +132,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
           sandboxfsMapSymlinkTargets,
           treeDeleter,
           spawn.getMnemonic(),
+          /* sandboxDebugPath= */ null,
           statisticsPath);
     } else {
       return new SymlinkedSandboxedSpawn(
@@ -146,6 +144,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
           outputs,
           getWritableDirs(sandboxExecRoot, sandboxExecRoot, environment),
           treeDeleter,
+          /* sandboxDebugPath= */ null,
           statisticsPath,
           spawn.getMnemonic());
     }

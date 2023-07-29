@@ -104,7 +104,7 @@ import org.mockito.stubbing.Answer;
 public class RemoteSpawnCacheTest {
   private static final RemoteOutputChecker DUMMY_REMOTE_OUTPUT_CHECKER =
       new RemoteOutputChecker(
-          new JavaClock(), "build", /* downloadToplevel= */ false, ImmutableList.of());
+          new JavaClock(), "build", RemoteOutputsMode.MINIMAL, ImmutableList.of());
   private static final ArtifactExpander SIMPLE_ARTIFACT_EXPANDER =
       (artifact, output) -> output.add(artifact);
 
@@ -244,7 +244,7 @@ public class RemoteSpawnCacheTest {
                 tempPathGenerator,
                 /* captureCorruptedOutputsDir= */ null,
                 DUMMY_REMOTE_OUTPUT_CHECKER));
-    return new RemoteSpawnCache(execRoot, options, /* verboseFailures=*/ true, service);
+    return new RemoteSpawnCache(execRoot, options, /* verboseFailures= */ true, service);
   }
 
   @Before

@@ -16,8 +16,7 @@ package com.google.devtools.build.lib.analysis.configuredtargets;
 
 import static net.starlark.java.eval.Module.ofInnermostEnclosingStarlarkFunction;
 
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
-import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
@@ -29,7 +28,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
@@ -53,14 +51,11 @@ import net.starlark.java.eval.StarlarkThread;
 @Immutable
 public class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
     implements PackageSpecificationProvider, Info {
-  private static final FileProvider NO_FILES = new FileProvider(
-      NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
 
   private final NestedSet<PackageGroupContents> packageSpecifications;
 
   public static final BuiltinProvider<PackageGroupConfiguredTarget> PROVIDER =
-      new BuiltinProvider<PackageGroupConfiguredTarget>(
-          "PackageSpecificationInfo", PackageGroupConfiguredTarget.class) {};
+      new BuiltinProvider<>("PackageSpecificationInfo", PackageGroupConfiguredTarget.class) {};
 
   // TODO(b/200065655): Only builtins should depend on a PackageGroupConfiguredTarget.
   //  Allowlists should be migrated to a new rule type that isn't package_group. Do not expose this
@@ -73,14 +68,14 @@ public class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
   @Override
   public <P extends TransitiveInfoProvider> P getProvider(Class<P> provider) {
     if (provider == FileProvider.class) {
-      return provider.cast(NO_FILES); // can't fail
+      return provider.cast(FileProvider.EMPTY); // can't fail
     } else {
       return super.getProvider(provider);
     }
   }
 
   public PackageGroupConfiguredTarget(
-      ActionLookupKeyOrProxy actionLookupKey,
+      ActionLookupKey actionLookupKey,
       NestedSet<PackageGroupContents> visibility,
       NestedSet<PackageGroupContents> packageSpecifications) {
     super(actionLookupKey, visibility);
@@ -88,9 +83,7 @@ public class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
   }
 
   public PackageGroupConfiguredTarget(
-      ActionLookupKeyOrProxy actionLookupKey,
-      TargetContext targetContext,
-      PackageGroup packageGroup) {
+      ActionLookupKey actionLookupKey, TargetContext targetContext, PackageGroup packageGroup) {
     this(
         actionLookupKey,
         targetContext.getVisibility(),
@@ -113,7 +106,7 @@ public class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
             .handle(
                 Event.error(
                     targetContext.getTarget().getLocation(),
-                    String.format("label '%s' does not refer to a package group", label)));
+                    String.format("Label '%s' does not refer to a package group", label)));
         continue;
       }
 
@@ -139,6 +132,7 @@ public class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
   }
 
   @Override
+  @Nullable
   protected Object rawGetStarlarkProvider(String providerKey) {
     return null;
   }

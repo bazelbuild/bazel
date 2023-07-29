@@ -149,7 +149,7 @@ EOF
   assert_not_contains "echo unused" output
 }
 
-function test_basic_aquery_textproto() {
+function test_basic_aquery_proto() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
@@ -161,6 +161,9 @@ genrule(
 )
 EOF
   bazel aquery --output=proto "//$pkg:bar" \
+    || fail "Expected success"
+
+  bazel aquery --output=streamed_proto "//$pkg:bar" \
     || fail "Expected success"
 
   bazel aquery --output=textproto "//$pkg:bar" > output 2> "$TEST_log" \
@@ -1402,38 +1405,6 @@ EOF
   expect_log "--skyframe_state must be used with --output=proto\|textproto\|jsonproto. Invalid aquery output format: text"
 }
 
-function test_aquery_skyframe_state_parallel_output() {
-  local pkg="${FUNCNAME[0]}"
-  mkdir -p "$pkg" || fail "mkdir -p $pkg"
-  cat > "$pkg/BUILD" <<'EOF'
-genrule(
-    name = "foo",
-    srcs = ["foo_matching_in.java"],
-    outs = ["foo_matching_out"],
-    cmd = "echo unused > $(OUTS)",
-)
-EOF
-
-  bazel clean
-
-  bazel aquery --output=textproto --skyframe_state --experimental_parallel_aquery_output > output 2> "$TEST_log" \
-    || fail "Expected success"
-  cat output >> "$TEST_log"
-  assert_not_contains "actions" output
-
-  bazel build --nobuild "//$pkg:foo"
-
-  bazel aquery --output=textproto --skyframe_state --experimental_parallel_aquery_output > output 2> "$TEST_log" \
-    || fail "Expected success"
-  cat output >> "$TEST_log"
-
-  expect_log_once "actions {"
-  assert_contains "input_dep_set_ids: 1" output
-  assert_contains "output_ids: 3" output
-  assert_contains "mnemonic: \"Genrule\"" output
-}
-
-
 function test_summary_output() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
@@ -1763,6 +1734,46 @@ EOF
     sed -nr 's/^ *FileWriteContents: \[(.*)\]/echo \1 | base64 -d/p' output | \
        sh | tee -a "$TEST_log"  | assert_contains "$pkg/foo\.sh" -
   fi
+}
+
+function test_unresolved_symlinks() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  touch "$pkg/foo.sh"
+  cat > "$pkg/unresolved_symlink.bzl" <<'EOF'
+def _impl(ctx):
+    out = ctx.actions.declare_symlink(ctx.label.name)
+    ctx.actions.symlink(
+        output = out,
+        target_path = ctx.attr.path
+    )
+    return [
+        DefaultInfo(files = depset([out]))
+    ]
+unresolved_symlink = rule(
+    implementation = _impl,
+    attrs = {
+        "path": attr.string(),
+    },
+)
+EOF
+  cat > "$pkg/BUILD" <<'EOF'
+load(":unresolved_symlink.bzl", "unresolved_symlink")
+unresolved_symlink(
+  name = "foo",
+  path = "bar/baz.txt",
+)
+EOF
+  bazel aquery --output=textproto \
+     "//$pkg:foo" >output 2> "$TEST_log" || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_contains "^unresolved_symlink_target:.*bar/baz.txt" output
+
+  bazel aquery --output=text "//$pkg:foo" | \
+    sed -nr '/Mnemonic: UnresolvedSymlink/,/^ *$/p' >output \
+      2> "$TEST_log" || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_contains "^ *UnresolvedSymlinkTarget:.*bar/baz.txt" output
 }
 
 function test_does_not_fail_horribly_with_file() {

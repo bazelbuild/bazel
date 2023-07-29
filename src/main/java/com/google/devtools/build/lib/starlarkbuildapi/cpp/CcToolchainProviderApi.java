@@ -306,5 +306,5 @@ public interface CcToolchainProviderApi<
       StarlarkRuleContextT starlarkRuleContext,
       CppConfigurationT cppConfiguration,
       StarlarkThread thread)
-      throws EvalException;
+      throws EvalException, InterruptedException;
 }

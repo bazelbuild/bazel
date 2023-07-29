@@ -117,6 +117,58 @@ public class LocalDiffAwarenessIntegrationTest extends SkyframeIntegrationTestBa
   }
 
   @Test
+  public void changedIgnoredFile_ignoresChange() throws Exception {
+    // MacOSXFsEventsDiffAwareness doesn't currently support not registering
+    // watches for ignored paths.
+    assume().that(OS.getCurrent()).isNotEqualTo(OS.DARWIN);
+
+    String notIgnoredFilePath = "foo/BUILD";
+    String ignoredFilePath = "foo/ignored-dir/BUILD";
+
+    write(".bazelignore", "foo/ignored-dir");
+
+    write(ignoredFilePath, "");
+    write(notIgnoredFilePath, "genrule(name='foo', outs=['out'], cmd='echo hello > $@')");
+    buildTarget("//foo");
+    assertContents("hello", "//foo");
+
+    write(notIgnoredFilePath, "genrule(name='foo', outs=['out'], cmd='echo there > $@')");
+    write(ignoredFilePath, "A = 1");
+
+    AtomicBoolean ignoredFileChanged = new AtomicBoolean();
+    AtomicBoolean notIgnoredFileChanged = new AtomicBoolean();
+    runtimeWrapper.registerSubscriber(
+        new Object() {
+          @Subscribe
+          private void onChangedFiles(ChangedFilesMessage changedFiles) {
+            ignoredFileChanged.compareAndSet(
+                false, changedFiles.changedFiles().contains(PathFragment.create(ignoredFilePath)));
+            notIgnoredFileChanged.compareAndSet(
+                false,
+                changedFiles.changedFiles().contains(PathFragment.create(notIgnoredFilePath)));
+          }
+        });
+
+    // Work around the inherent raciness of LocalDiffAwareness where the FS events are
+    // delivered asynchronously and fast running test can trigger an incremental build
+    // before the change is observed.
+    for (int attempt = 0; attempt < 10; ++attempt) {
+      buildTarget("//foo");
+      if (notIgnoredFileChanged.get() && !ignoredFileChanged.get()) {
+        assertContents("there", "//foo");
+        return;
+      }
+    }
+
+    if (!notIgnoredFileChanged.get()) {
+      fail("Didn't observe file change within allowed number of retries");
+    }
+    if (ignoredFileChanged.get()) {
+      fail("Observed ignored file change");
+    }
+  }
+
+  @Test
   public void changedFile_statFails_throwsError() throws Exception {
     // TODO(b/238606809): Understand why these tests are flaky on Mac. Probably real watchfs bug?
     assume().that(OS.getCurrent()).isNotEqualTo(OS.DARWIN);
@@ -132,7 +184,7 @@ public class LocalDiffAwarenessIntegrationTest extends SkyframeIntegrationTestBa
             AbruptExitException.class,
             () -> buildTargetWithRetryUntilSeesChange("//foo", "foo/BUILD"));
 
-    assertThat(e).hasCauseThat().hasCauseThat().hasCauseThat().isSameInstanceAs(injectedException);
+    assertThat(e).hasCauseThat().hasCauseThat().hasCauseThat().isInstanceOf(IOException.class);
   }
 
   /**

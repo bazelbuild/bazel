@@ -14,27 +14,18 @@
 
 package com.google.devtools.build.lib.analysis.configuredtargets;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
-import com.google.devtools.build.lib.analysis.OutputGroupInfo;
-import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
+import com.google.devtools.build.lib.analysis.TargetContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.analysis.VisibilityProvider;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
-import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.util.FileType;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -47,89 +38,75 @@ import net.starlark.java.eval.Dict;
 public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
     implements FileType.HasFileType, LicensesProvider {
 
-  private final TransitiveInfoProviderMap providers;
+  private final NestedSet<Artifact> singleFile;
 
-  FileConfiguredTarget(
-      ActionLookupKeyOrProxy actionLookupKey,
-      NestedSet<PackageGroupContents> visibility,
-      Artifact artifact,
-      @Nullable InstrumentedFilesInfo instrumentedFilesInfo,
-      @Nullable RequiredConfigFragmentsProvider configFragmentsProvider,
-      @Nullable OutputGroupInfo generatingRuleOutputGroupInfo) {
-
-    super(actionLookupKey, visibility);
-
-    NestedSet<Artifact> filesToBuild = NestedSetBuilder.create(Order.STABLE_ORDER, artifact);
-    FileProvider fileProvider = new FileProvider(filesToBuild);
-    FilesToRunProvider filesToRunProvider =
-        FilesToRunProvider.fromSingleExecutableArtifact(artifact);
-    TransitiveInfoProviderMapBuilder providerBuilder =
-        new TransitiveInfoProviderMapBuilder()
-            .put(VisibilityProvider.class, this)
-            .put(LicensesProvider.class, this)
-            .add(fileProvider)
-            .add(filesToRunProvider);
-
-    if (instrumentedFilesInfo != null) {
-      providerBuilder.put(instrumentedFilesInfo);
-    }
-
-    if (generatingRuleOutputGroupInfo != null) {
-      NestedSet<Artifact> validationOutputs =
-          generatingRuleOutputGroupInfo.getOutputGroup(OutputGroupInfo.VALIDATION);
-      if (!validationOutputs.isEmpty()) {
-        OutputGroupInfo validationOutputGroup =
-            new OutputGroupInfo(ImmutableMap.of(OutputGroupInfo.VALIDATION, validationOutputs));
-        providerBuilder.put(validationOutputGroup);
-      }
-    }
-
-    if (configFragmentsProvider != null) {
-      providerBuilder.add(configFragmentsProvider);
-    }
-
-    this.providers = providerBuilder.build();
+  FileConfiguredTarget(TargetContext targetContext, Artifact artifact) {
+    super(targetContext.getAnalysisEnvironment().getOwner(), targetContext.getVisibility());
+    this.singleFile = NestedSetBuilder.create(Order.STABLE_ORDER, artifact);
   }
 
-  public abstract Artifact getArtifact();
+  public Artifact getArtifact() {
+    return singleFile.getSingleton();
+  }
 
-  /**
-   *  Returns the file name of this file target.
-   */
-  public String getFilename() {
+  /** Returns the file name of this file target. */
+  public final String getFilename() {
     return getLabel().getName();
   }
 
   @Override
-  public String filePathForFileTypeMatcher() {
+  public final String filePathForFileTypeMatcher() {
     return getFilename();
   }
 
   @Override
+  @Nullable
   public <P extends TransitiveInfoProvider> P getProvider(Class<P> providerClass) {
     AnalysisUtils.checkProvider(providerClass);
-    final P provider = providers.getProvider(providerClass);
-    if (provider != null) {
-      return provider;
-    } else if (providerClass.isAssignableFrom(getClass())) {
-      return providerClass.cast(this);
-    } else {
-      return null;
+    return providerClass.cast(getProviderInternal(providerClass));
+  }
+
+  @Nullable
+  private TransitiveInfoProvider getProviderInternal(
+      Class<? extends TransitiveInfoProvider> providerClass) {
+    // The set of possible providers is small and predictable, so to save memory, this method does
+    // simple identity checks so that we don't need to store a TransitiveInfoProviderMap.
+    // Additionally, file providers are created on-demand when requested. These optimizations
+    // combine to save over 1% of analysis heap.
+    if (providerClass == VisibilityProvider.class) {
+      return this;
     }
+    if (providerClass == FileProvider.class) {
+      return createFileProvider();
+    }
+    if (providerClass == FilesToRunProvider.class) {
+      return createFilesToRunProvider();
+    }
+    return null;
+  }
+
+  private FileProvider createFileProvider() {
+    return FileProvider.of(singleFile);
+  }
+
+  private FilesToRunProvider createFilesToRunProvider() {
+    return FilesToRunProvider.create(
+        singleFile, /* runfilesSupport= */ null, /* executable= */ getArtifact());
   }
 
   @Override
-  protected Info rawGetStarlarkProvider(Provider.Key providerKey) {
-    return providers.get(providerKey);
+  @Nullable
+  protected final Object rawGetStarlarkProvider(String providerKey) {
+    return null;
   }
 
   @Override
-  protected Object rawGetStarlarkProvider(String providerKey) {
-    return providers.get(providerKey);
-  }
-
-  @Override
-  public Dict<String, Object> getProvidersDict() {
-    return ConfiguredTargetsUtil.getProvidersDict(this, providers);
+  public Dict<String, Object> getProvidersDictForQuery() {
+    Dict.Builder<String, Object> dict = Dict.builder();
+    tryAddProviderForQuery(dict, VisibilityProvider.class, this);
+    tryAddProviderForQuery(dict, LicensesProvider.class, this);
+    tryAddProviderForQuery(dict, FileProvider.class, createFileProvider());
+    tryAddProviderForQuery(dict, FilesToRunProvider.class, createFilesToRunProvider());
+    return dict.buildImmutable();
   }
 }

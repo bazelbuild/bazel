@@ -47,25 +47,6 @@ def _check_proto_libraries_in_deps(deps):
         if ProtoInfo in dep and CcInfo not in dep:
             fail("proto_library '{}' does not produce output for C++".format(dep.label), "deps")
 
-def _create_proto_compile_action(ctx, outputs, proto_info):
-    proto_root = proto_info.proto_source_root
-    if proto_root.startswith(ctx.genfiles_dir.path):
-        genfiles_path = proto_root
-    else:
-        genfiles_path = ctx.genfiles_dir.path + "/" + proto_root
-
-    if proto_root == ".":
-        genfiles_path = ctx.genfiles_dir.path
-
-    if len(outputs) != 0:
-        proto_common.compile(
-            actions = ctx.actions,
-            proto_info = proto_info,
-            proto_lang_toolchain_info = ctx.attr._aspect_cc_proto_toolchain[ProtoLangToolchainInfo],
-            generated_files = outputs,
-            plugin_output = genfiles_path,
-        )
-
 def _get_output_files(ctx, target, suffixes):
     result = []
     for suffix in suffixes:
@@ -170,7 +151,13 @@ def _aspect_impl(target, ctx):
         header_provider = ProtoCcHeaderInfo(headers = depset(transitive = transitive_headers))
 
     files_to_build = list(outputs)
-    _create_proto_compile_action(ctx, outputs, proto_info)
+    proto_common.compile(
+        actions = ctx.actions,
+        proto_info = proto_info,
+        proto_lang_toolchain_info = ctx.attr._aspect_cc_proto_toolchain[ProtoLangToolchainInfo],
+        generated_files = outputs,
+        experimental_output_files = "multiple",
+    )
 
     (cc_compilation_context, cc_compilation_outputs) = cc_common.compile(
         name = ctx.label.name,
@@ -281,6 +268,7 @@ def _impl(ctx):
             attr = "deps",
         )
     dep = ctx.attr.deps[0]
+    proto_common.check_collocated(ctx.label, dep[ProtoInfo], ctx.attr._aspect_cc_proto_toolchain[ProtoLangToolchainInfo])
     cc_info = dep[CcInfo]
     output_groups = dep[OutputGroupInfo]
     return [cc_info, DefaultInfo(files = dep[ProtoCcFilesInfo].files), output_groups]
@@ -292,6 +280,9 @@ cc_proto_library = rule(
             aspects = [cc_proto_aspect],
             allow_rules = ["proto_library"],
             allow_files = False,
+        ),
+        "_aspect_cc_proto_toolchain": attr.label(
+            default = configuration_field(fragment = "proto", name = "proto_toolchain_for_cc"),
         ),
     },
     provides = [CcInfo],

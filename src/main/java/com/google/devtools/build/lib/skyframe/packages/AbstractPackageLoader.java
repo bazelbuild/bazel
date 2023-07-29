@@ -70,6 +70,7 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossReposit
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.RepoFileFunction;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction;
@@ -476,6 +477,10 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             WorkspaceFileValue.WORKSPACE_FILE,
             new WorkspaceFileFunction(
                 ruleClassProvider, pkgFactory, directories, /* bzlLoadFunctionForInlining= */ null))
+        .put(
+            SkyFunctions.REPO_FILE,
+            new RepoFileFunction(
+                ruleClassProvider.getBazelStarlarkEnvironment(), directories.getWorkspace()))
         .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction(getExternalPackageHelper()))
         .put(
             BzlmodRepoRuleValue.BZLMOD_REPO_RULE,

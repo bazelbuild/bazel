@@ -14,16 +14,16 @@
 
 package com.google.devtools.build.lib.analysis.configuredtargets;
 
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.VisibilityProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -31,9 +31,11 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
@@ -50,7 +52,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   //    PackageSpecificationProvider.
   // TODO(b/281522692): The existence of these cases suggest that there should be some additional
   // abstraction that does not have a key.
-  private final ActionLookupKeyOrProxy actionLookupKey;
+  private final ActionLookupKey actionLookupKey;
 
   private final NestedSet<PackageGroupContents> visibility;
 
@@ -64,7 +66,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
    * <p>If you respond to this key you are expected to return a list of actions belonging to this
    * configured target.
    */
-  public static final String ACTIONS_FIELD_NAME = "actions";
+  static final String ACTIONS_FIELD_NAME = "actions";
 
   // A set containing all field names which may be specially handled (and thus may not be
   // attributed to normal user-specified providers).
@@ -78,18 +80,18 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
           OutputGroupInfo.STARLARK_NAME,
           ACTIONS_FIELD_NAME);
 
-  public AbstractConfiguredTarget(ActionLookupKeyOrProxy actionLookupKey) {
+  AbstractConfiguredTarget(ActionLookupKey actionLookupKey) {
     this(actionLookupKey, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
   protected AbstractConfiguredTarget(
-      ActionLookupKeyOrProxy actionLookupKey, NestedSet<PackageGroupContents> visibility) {
+      ActionLookupKey actionLookupKey, NestedSet<PackageGroupContents> visibility) {
     this.actionLookupKey = actionLookupKey;
     this.visibility = visibility;
   }
 
   @Override
-  public ActionLookupKeyOrProxy getKeyOrProxy() {
+  public ActionLookupKey getLookupKey() {
     return actionLookupKey;
   }
 
@@ -109,6 +111,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   }
 
   @Override
+  @Nullable
   public <P extends TransitiveInfoProvider> P getProvider(Class<P> provider) {
     AnalysisUtils.checkProvider(provider);
     if (provider.isAssignableFrom(getClass())) {
@@ -182,7 +185,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   }
 
   @Override
-  public final ImmutableCollection<String> getFieldNames() {
+  public final ImmutableList<String> getFieldNames() {
     ImmutableList.Builder<String> result = ImmutableList.builder();
     result.addAll(
         ImmutableList.of(
@@ -238,6 +241,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   protected abstract Info rawGetStarlarkProvider(Provider.Key providerKey);
 
   /** Implement in subclasses to get a Starlark provider for a given {@code providerKey}. */
+  @Nullable
   protected abstract Object rawGetStarlarkProvider(String providerKey);
 
   public String getRuleClassString() {
@@ -249,5 +253,55 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   @Override
   public void repr(Printer printer) {
     printer.append("<unknown target " + getLabel() + ">");
+  }
+
+  /**
+   * Returns a {@link Dict} of provider names to their values for a configured target, intended to
+   * be called from {@link #getProvidersDictForQuery}.
+   *
+   * <p>{@link #getProvidersDictForQuery} is intended to be used from Starlark query output methods,
+   * so all values must be accessible in Starlark. If the value of a provider is not convertible to
+   * a Starlark value, that name/value pair is left out of the {@link Dict}.
+   */
+  static Dict<String, Object> toProvidersDictForQuery(TransitiveInfoProviderMap providers) {
+    Dict.Builder<String, Object> dict = Dict.builder();
+    for (int i = 0; i < providers.getProviderCount(); i++) {
+      tryAddProviderForQuery(
+          dict, providers.getProviderKeyAt(i), providers.getProviderInstanceAt(i));
+    }
+    return dict.buildImmutable();
+  }
+
+  /**
+   * Attempts to add a provider instance to {@code dict} under an unspecified stringification of the
+   * given key. Takes no action if the provider instance is not a valid Starlark value or if the key
+   * is of an unknown type.
+   *
+   * <p>Intended to be called from {@link #getProvidersDictForQuery}.
+   */
+  static void tryAddProviderForQuery(
+      Dict.Builder<String, Object> dict, Object key, Object providerInstance) {
+    // The key may be of many types, but we need a string for the intended use.
+    String keyAsString;
+    if (key instanceof String) {
+      keyAsString = (String) key;
+    } else if (key instanceof Provider.Key) {
+      if (key instanceof StarlarkProvider.Key) {
+        StarlarkProvider.Key k = (StarlarkProvider.Key) key;
+        keyAsString = k.getExtensionLabel() + "%" + k.getExportedName();
+      } else {
+        keyAsString = key.toString();
+      }
+    } else if (key instanceof Class) {
+      keyAsString = ((Class<?>) key).getSimpleName();
+    } else {
+      // ???
+      return;
+    }
+    try {
+      dict.put(keyAsString, Starlark.fromJava(providerInstance, /* mutability= */ null));
+    } catch (Starlark.InvalidStarlarkValueException e) {
+      // This is OK. If this is not a valid StarlarkValue, we just leave it out of the map.
+    }
   }
 }

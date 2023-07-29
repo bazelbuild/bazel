@@ -17,7 +17,7 @@
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
 
-cc_common_internal = _builtins.internal.cc_common_internal_do_not_use
+cc_common_internal = _builtins.internal.cc_common
 CcNativeLibraryInfo = _builtins.internal.CcNativeLibraryInfo
 
 # buildifier: disable=name-conventions
@@ -406,7 +406,7 @@ def _merge_cc_infos(*, direct_cc_infos = [], cc_infos = []):
         compilation_context = cc_common_internal.merge_compilation_contexts(compilation_contexts = direct_cc_compilation_contexts, non_exported_compilation_contexts = cc_compilation_contexts),
         linking_context = cc_common_internal.merge_linking_contexts(linking_contexts = cc_linking_contexts),
         debug_context = cc_common_internal.merge_debug_context(cc_debug_info_contexts),
-        cc_native_library_info = CcNativeLibraryInfo(libraries_to_link = depset(transitive = transitive_native_cc_libraries)),
+        cc_native_library_info = CcNativeLibraryInfo(libraries_to_link = depset(order = "topological", transitive = transitive_native_cc_libraries)),
     )
 
 def _create_compilation_context(
@@ -589,13 +589,13 @@ def _register_linkstamp_compile_action(
         actions,
         cc_toolchain,
         feature_configuration,
-        grep_includes,
         source_file,
         output_file,
         compilation_inputs,
         inputs_for_validation,
         label_replacement,
-        output_replacement):
+        output_replacement,
+        grep_includes = None):
     cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return cc_common_internal.register_linkstamp_compile_action(
         actions = actions,
@@ -741,6 +741,7 @@ def _create_lto_backend_artifacts(
         *,
         ctx,
         lto_output_root_prefix,
+        lto_obj_root_prefix,
         bitcode_file,
         feature_configuration,
         cc_toolchain,
@@ -753,6 +754,7 @@ def _create_lto_backend_artifacts(
         ctx = ctx,
         bitcode_file = bitcode_file,
         lto_output_root_prefix = lto_output_root_prefix,
+        lto_obj_root_prefix = lto_obj_root_prefix,
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
         fdo_context = fdo_context,
@@ -784,13 +786,13 @@ def _create_compile_action(
         actions,
         cc_toolchain,
         feature_configuration,
-        grep_includes,
         source_file,
         output_file,
         variables,
         action_name,
         compilation_context,
         additional_inputs = None,
+        grep_includes = None,
         additional_outputs = []):
     cc_common_internal.check_private_api(allowlist = _CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES)
     return cc_common_internal.create_compile_action(

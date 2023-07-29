@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.configurationIdMessage;
 import static com.google.devtools.build.lib.skyframe.ActionArtifactCycleReporter.ACTION_OR_ARTIFACT_OR_TRANSITIVE_RDEP;
 
 import com.google.auto.value.AutoValue;
@@ -37,11 +38,9 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSemantics.TargetCompatibilityCheckException;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
@@ -54,6 +53,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
@@ -78,7 +78,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** A utility class that provides methods to parse errors from Skyframe EvaluationResults. */
@@ -183,7 +182,6 @@ public final class SkyframeErrorProcessor {
    */
   static ErrorProcessingResult processAnalysisErrors(
       EvaluationResult<? extends SkyValue> result,
-      Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier,
       CyclesReporter cyclesReporter,
       ExtendedEventHandler eventHandler,
       boolean keepGoing,
@@ -193,7 +191,6 @@ public final class SkyframeErrorProcessor {
     try {
       return processErrors(
           result,
-          configurationLookupSupplier,
           cyclesReporter,
           eventHandler,
           keepGoing,
@@ -232,7 +229,6 @@ public final class SkyframeErrorProcessor {
    */
   static ErrorProcessingResult processErrors(
       EvaluationResult<? extends SkyValue> result,
-      Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier,
       CyclesReporter cyclesReporter,
       ExtendedEventHandler eventHandler,
       boolean keepGoing,
@@ -287,8 +283,7 @@ public final class SkyframeErrorProcessor {
 
       Label label = getLabel(errorKey);
       IndividualErrorProcessingResult individualErrorProcessingResult =
-          processIndividualError(
-              result, eventHandler, bugReporter, configurationLookupSupplier, errorKey, errorInfo);
+          processIndividualError(result, eventHandler, bugReporter, errorKey, errorInfo);
 
       // For action conflicts, more downstream operations are required to have all the
       // information. We intentionally don't send out any failure event, throw any exception (even
@@ -300,7 +295,6 @@ public final class SkyframeErrorProcessor {
       }
 
       maybePostFailureEventsForNonConflictError(
-          configurationLookupSupplier,
           eventHandler,
           eventBus,
           inBuildViewTest,
@@ -339,7 +333,6 @@ public final class SkyframeErrorProcessor {
    * event handler, so we do nothing here.
    */
   private static void maybePostFailureEventsForNonConflictError(
-      Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier,
       ExtendedEventHandler eventHandler,
       @Nullable EventBus eventBus,
       boolean inBuildViewTest,
@@ -370,13 +363,9 @@ public final class SkyframeErrorProcessor {
     }
 
     if (individualErrorProcessingResult.isAnalysisError()) {
-      BuildConfigurationValue configuration =
-          configurationLookupSupplier.get().get(ctKey.getConfigurationKey());
       eventBus.post(
-          new AnalysisFailureEvent(
-              ctKey,
-              configuration == null ? null : configuration.getEventId(),
-              individualErrorProcessingResult.analysisRootCauses()));
+          AnalysisFailureEvent.whileAnalyzingTarget(
+              ctKey, individualErrorProcessingResult.analysisRootCauses()));
     }
   }
 
@@ -437,7 +426,6 @@ public final class SkyframeErrorProcessor {
       EvaluationResult<? extends SkyValue> result,
       ExtendedEventHandler eventHandler,
       BugReporter bugReporter,
-      Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier,
       SkyKey errorKey,
       ErrorInfo errorInfo) {
     Exception exception = errorInfo.getException();
@@ -522,15 +510,14 @@ public final class SkyframeErrorProcessor {
     } else if (exception instanceof ActionConflictException) {
       ((ActionConflictException) exception).reportTo(eventHandler);
       analysisRootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    } else if (exception instanceof NoSuchPackageException) {
+    } else if (exception instanceof NoSuchThingException) {
       // This branch is only taken in --nokeep_going builds. In a --keep_going build, the
       // AnalysisFailedCause is properly reported through the ConfiguredValueCreationException.
-      BuildConfigurationValue configuration =
-          configurationLookupSupplier.get().get(ctKey.getConfigurationKey());
-      ConfigurationId configId = configuration.getEventId().getConfiguration();
       AnalysisFailedCause analysisFailedCause =
           new AnalysisFailedCause(
-              topLevelLabel, configId, ((NoSuchPackageException) exception).getDetailedExitCode());
+              topLevelLabel,
+              configurationIdMessage(ctKey.getConfigurationKey()),
+              ((NoSuchThingException) exception).getDetailedExitCode());
       analysisRootCauses = NestedSetBuilder.create(Order.STABLE_ORDER, analysisFailedCause);
     } else if (exception instanceof TargetCompatibilityCheckException) {
       analysisRootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
@@ -607,11 +594,11 @@ public final class SkyframeErrorProcessor {
   /** Peel away the wrapper layers to get to the ActionLookupKey of the top level target. */
   private static SkyKey getEffectiveErrorKey(Entry<SkyKey, ErrorInfo> errorEntry) {
     if (errorEntry.getKey().argument() instanceof BuildDriverKey) {
-      return ((BuildDriverKey) errorEntry.getKey().argument()).getActionLookupKey().toKey();
+      return ((BuildDriverKey) errorEntry.getKey().argument()).getActionLookupKey();
     }
     // For exclusive tests.
     if (errorEntry.getKey().argument() instanceof TestCompletionKey) {
-      return ((TestCompletionKey) errorEntry.getKey().argument()).configuredTargetKey().toKey();
+      return ((TestCompletionKey) errorEntry.getKey().argument()).configuredTargetKey();
     }
     return errorEntry.getKey();
   }

@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -43,6 +42,7 @@ import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcModule;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
+import com.google.devtools.build.lib.rules.cpp.UserVariablesExtension;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag;
 import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.objc.AppleCommonApi;
@@ -178,8 +178,7 @@ public class AppleStarlarkCommon
   // This method is registered statically for Starlark, and never called directly.
   public ObjcProvider newObjcProvider(Dict<String, Object> kwargs, StarlarkThread thread)
       throws EvalException {
-    ObjcProvider.StarlarkBuilder resultBuilder =
-        new ObjcProvider.StarlarkBuilder(thread.getSemantics());
+    ObjcProvider.StarlarkBuilder resultBuilder = new ObjcProvider.StarlarkBuilder();
     for (Map.Entry<String, Object> entry : kwargs.entrySet()) {
       ObjcProvider.Key<?> key = ObjcProvider.getStarlarkKeyForString(entry.getKey());
       if (key != null) {
@@ -230,7 +229,7 @@ public class AppleStarlarkCommon
     if (depsObjcProvider != Starlark.NONE) {
       objcProvider = (ObjcProvider) depsObjcProvider;
     } else {
-      objcProvider = new ObjcProvider.StarlarkBuilder(thread.getSemantics()).build();
+      objcProvider = new ObjcProvider.StarlarkBuilder().build();
     }
     return new AppleDynamicFrameworkInfo(
         binary, ccInfo, objcProvider, frameworkDirs, frameworkFiles);
@@ -247,9 +246,13 @@ public class AppleStarlarkCommon
     if (depsObjcProvider != Starlark.NONE) {
       objcProvider = (ObjcProvider) depsObjcProvider;
     } else {
-      objcProvider = new ObjcProvider.StarlarkBuilder(thread.getSemantics()).build();
+      objcProvider = new ObjcProvider.StarlarkBuilder().build();
     }
     return new AppleExecutableBinaryInfo(binary, ccInfo, objcProvider);
+  }
+
+  private Dict<?, ?> asDict(Object o) {
+    return o == Starlark.UNBOUND ? Dict.empty() : (Dict<?, ?>) o;
   }
 
   @Override
@@ -258,7 +261,10 @@ public class AppleStarlarkCommon
       Object avoidDeps,
       Sequence<?> extraLinkopts,
       Sequence<?> extraLinkInputs,
+      Sequence<?> extraRequestedFeatures,
+      Sequence<?> extraDisabledFeatures,
       StarlarkInt stamp,
+      Object variablesExtension,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     try {
@@ -277,9 +283,12 @@ public class AppleStarlarkCommon
               avoidDepsList,
               ImmutableList.copyOf(Sequence.cast(extraLinkopts, String.class, "extra_linkopts")),
               Sequence.cast(extraLinkInputs, Artifact.class, "extra_link_inputs"),
-              isStampingEnabled);
+              Sequence.cast(extraRequestedFeatures, String.class, "extra_requested_features"),
+              Sequence.cast(extraDisabledFeatures, String.class, "extra_disabled_features"),
+              isStampingEnabled,
+              new UserVariablesExtension(asDict(variablesExtension)));
       return createStarlarkLinkingOutputs(linkingOutputs, thread);
-    } catch (RuleErrorException | ActionConflictException exception) {
+    } catch (RuleErrorException exception) {
       throw new EvalException(exception);
     }
   }

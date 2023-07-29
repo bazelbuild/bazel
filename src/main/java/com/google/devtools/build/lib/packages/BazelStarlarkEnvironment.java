@@ -93,8 +93,6 @@ public final class BazelStarlarkEnvironment {
   private final ImmutableMap<String, Object> uninjectedWorkspaceBzlEnv;
   /** The top-level predeclared symbols for a bzl module in the {@code @_builtins} pseudo-repo. */
   private final ImmutableMap<String, Object> builtinsBzlEnv;
-  /** The top-level predeclared symbols for a bzl module in the Bzlmod system. */
-  private final ImmutableMap<String, Object> bzlmodBzlEnv;
 
   /**
    * Constructs a new {@code BazelStarlarkEnvironment} that will have complete knowledge of the
@@ -134,11 +132,6 @@ public final class BazelStarlarkEnvironment {
     this.uninjectedBuildBzlEnv =
         createUninjectedBuildBzlEnv(bzlToplevelsWithoutNative, uninjectedBuildBzlNativeBindings);
     this.uninjectedWorkspaceBzlEnv =
-        createWorkspaceBzlEnv(bzlToplevelsWithoutNative, workspaceBzlNativeBindings);
-    // TODO(#11954): We should converge all .bzl dialects regardless of whether they're loaded by
-    // BUILD, WORKSPACE, or MODULE. At the moment, WORKSPACE-loaded and MODULE-loaded .bzl files are
-    // already converged, hence why bzlmodBzlEnv is populated with a "Workspace" helper function.
-    this.bzlmodBzlEnv =
         createWorkspaceBzlEnv(bzlToplevelsWithoutNative, workspaceBzlNativeBindings);
     this.builtinsBzlEnv =
         createBuiltinsBzlEnv(
@@ -211,14 +204,6 @@ public final class BazelStarlarkEnvironment {
    */
   public ImmutableMap<String, Object> getBuiltinsBzlEnv() {
     return builtinsBzlEnv;
-  }
-
-  /**
-   * Returns the environment for Bzlmod-loaded bzl files. Excludes symbols in {@link
-   * Starlark#UNIVERSE}.
-   */
-  public ImmutableMap<String, Object> getBzlmodBzlEnv() {
-    return bzlmodBzlEnv;
   }
 
   private static ImmutableMap<String, Object> createBzlToplevelsWithoutNative(

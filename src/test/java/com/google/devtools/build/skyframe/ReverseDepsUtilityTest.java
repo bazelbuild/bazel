@@ -18,6 +18,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.Test;
@@ -136,10 +137,15 @@ public final class ReverseDepsUtilityTest {
     ReverseDepsUtility.addReverseDep(example, key);
     // Should only fail when we reach the limit.
     ReverseDepsUtility.addReverseDep(example, key);
-    ReverseDepsUtility.removeReverseDep(example, key);
-    ReverseDepsUtility.checkReverseDep(example, fixedKey);
-    assertThrows(
-        IllegalStateException.class, () -> ReverseDepsUtility.checkReverseDep(example, fixedKey));
+    example.addReverseDepAndCheckIfDone(null);
+    assertThat(example.checkIfDoneForDirtyReverseDep(fixedKey))
+        .isEqualTo(DependencyState.ALREADY_EVALUATING);
+    assertThat(example.checkIfDoneForDirtyReverseDep(key))
+        .isEqualTo(DependencyState.ALREADY_EVALUATING);
+    var e =
+        assertThrows(
+            IllegalStateException.class, () -> ReverseDepsUtility.removeReverseDep(example, key));
+    assertThat(e).hasMessageThat().contains("1 duplicate");
   }
 
   @Test

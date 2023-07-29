@@ -27,13 +27,12 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.packages.RuleTransitionData;
+import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -50,6 +49,7 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil.ThreadSafeMutableKe
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -59,6 +59,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -191,7 +192,7 @@ public class ConfiguredTargetQueryEnvironment
           ExtendedEventHandler eventHandler,
           OutputStream out,
           SkyframeExecutor skyframeExecutor,
-          @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory,
+          RuleClassProvider ruleClassProvider,
           PackageManager packageManager)
           throws QueryException, InterruptedException {
     AspectResolver aspectResolver =
@@ -219,7 +220,7 @@ public class ConfiguredTargetQueryEnvironment
             out,
             skyframeExecutor,
             accessor,
-            trimmingTransitionFactory,
+            ruleClassProvider,
             getMainRepoMapping()),
         new ProtoOutputFormatterCallback(
             eventHandler,
@@ -229,7 +230,16 @@ public class ConfiguredTargetQueryEnvironment
             accessor,
             aspectResolver,
             OutputType.BINARY,
-            trimmingTransitionFactory),
+            ruleClassProvider),
+        new ProtoOutputFormatterCallback(
+            eventHandler,
+            cqueryOptions,
+            out,
+            skyframeExecutor,
+            accessor,
+            aspectResolver,
+            OutputType.DELIMITED_BINARY,
+            ruleClassProvider),
         new ProtoOutputFormatterCallback(
             eventHandler,
             cqueryOptions,
@@ -238,7 +248,7 @@ public class ConfiguredTargetQueryEnvironment
             accessor,
             aspectResolver,
             OutputType.TEXT,
-            trimmingTransitionFactory),
+            ruleClassProvider),
         new ProtoOutputFormatterCallback(
             eventHandler,
             cqueryOptions,
@@ -247,7 +257,7 @@ public class ConfiguredTargetQueryEnvironment
             accessor,
             aspectResolver,
             OutputType.JSON,
-            trimmingTransitionFactory),
+            ruleClassProvider),
         new BuildOutputFormatterCallback(
             eventHandler, cqueryOptions, out, skyframeExecutor, accessor),
         new GraphOutputFormatterCallback(
@@ -320,14 +330,21 @@ public class ConfiguredTargetQueryEnvironment
    * null.
    */
   @Nullable
-  private ConfiguredTarget getConfiguredTarget(Label label, BuildConfigurationValue configuration)
-      throws InterruptedException {
-    return getValueFromKey(
-        ConfiguredTargetKey.builder()
-            .setLabel(label)
-            .setConfiguration(configuration)
-            .build()
-            .toKey());
+  private ConfiguredTarget getConfiguredTarget(
+      Label label, @Nullable BuildConfigurationValue configuration) throws InterruptedException {
+    BuildConfigurationKey configurationKey = configuration == null ? null : configuration.getKey();
+    ConfiguredTarget target =
+        getValueFromKey(
+            ConfiguredTargetKey.builder()
+                .setLabel(label)
+                .setConfigurationKey(configurationKey)
+                .build());
+    // The configurations might not match if the target's configuration changed due to a transition
+    // or trimming. Filters such targets.
+    if (target == null || !Objects.equals(configurationKey, target.getConfigurationKey())) {
+      return null;
+    }
+    return target;
   }
 
   @Override

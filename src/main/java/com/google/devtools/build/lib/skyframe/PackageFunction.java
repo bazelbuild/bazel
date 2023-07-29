@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NonSkyframeGlobber;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
+import com.google.devtools.build.lib.packages.PackageArgs;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.RuleVisibility;
@@ -62,6 +63,7 @@ import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
+import com.google.devtools.build.lib.skyframe.RepoFileFunction.BadRepoFileException;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction.BuiltinsFailedException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Pair;
@@ -1239,6 +1241,24 @@ public class PackageFunction implements SkyFunction {
     IgnoredPackagePrefixesValue repositoryIgnoredPackagePrefixes =
         (IgnoredPackagePrefixesValue)
             env.getValue(IgnoredPackagePrefixesValue.key(packageId.getRepository()));
+    RepoFileValue repoFileValue;
+    try {
+      repoFileValue =
+          (RepoFileValue)
+              env.getValueOrThrow(
+                  RepoFileValue.key(packageId.getRepository()),
+                  IOException.class,
+                  BadRepoFileException.class);
+    } catch (IOException | BadRepoFileException e) {
+      throw PackageFunctionException.builder()
+          .setType(PackageFunctionException.Type.BUILD_FILE_CONTAINS_ERRORS)
+          .setPackageIdentifier(packageId)
+          .setTransience(Transience.PERSISTENT)
+          .setException(e)
+          .setMessage("bad REPO.bazel file")
+          .setPackageLoadingCode(PackageLoading.Code.BAD_REPO_FILE)
+          .build();
+    }
     if (env.valuesMissing()) {
       return null;
     }
@@ -1372,12 +1392,11 @@ public class PackageFunction implements SkyFunction {
                   repositoryMapping,
                   mainRepositoryMappingValue.getRepositoryMapping())
               .setFilename(buildFileRootedPath)
-              .setDefaultVisibility(defaultVisibility)
-              // "defaultVisibility" comes from the command line.
-              // Let's give the BUILD file a chance to set default_visibility once,
-              // by resetting the PackageBuilder.defaultVisibilitySet flag.
-              .setDefaultVisibilitySet(false)
               .setConfigSettingVisibilityPolicy(configSettingVisibilityPolicy);
+
+      pkgBuilder
+          .mergePackageArgsFrom(PackageArgs.builder().setDefaultVisibility(defaultVisibility))
+          .mergePackageArgsFrom(repoFileValue.packageArgs());
 
       Set<SkyKey> globDepKeys = ImmutableSet.of();
 
@@ -1501,10 +1520,10 @@ public class PackageFunction implements SkyFunction {
     Set<String> globsWithDirs = new HashSet<>();
     Set<String> subpackages = new HashSet<>();
     Map<Location, String> generatorMap = new HashMap<>();
-    ImmutableList.Builder<SyntaxError> errors = ImmutableList.builder();
-    if (!PackageFactory.checkBuildSyntax(
-        file, globs, globsWithDirs, subpackages, generatorMap, errors::add)) {
-      return new CompiledBuildFile(errors.build());
+    try {
+      PackageFactory.checkBuildSyntax(file, globs, globsWithDirs, subpackages, generatorMap);
+    } catch (SyntaxError.Exception ex) {
+      return new CompiledBuildFile(ex.errors());
     }
 
     // Load (optional) prelude, which determines environment.

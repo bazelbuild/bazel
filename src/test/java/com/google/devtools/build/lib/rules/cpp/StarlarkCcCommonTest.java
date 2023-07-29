@@ -1968,7 +1968,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     EnvEntry entry = CcModule.envEntryFromStarlark(entryProvider);
     assertThat(entry).isNotNull();
     StringValueParser parser = new StringValueParser("def");
-    assertThat(entry).isEqualTo(new EnvEntry("abc", parser.getChunks()));
+    assertThat(entry).isEqualTo(new EnvEntry("abc", parser.getChunks(), ImmutableSet.of()));
   }
 
   @Test
@@ -7251,7 +7251,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "  fdo_context = toolchain.fdo_context()",
         "  branch_fdo_profile = fdo_context.branch_fdo_profile()",
         "  lto_backend_artifacts = cc_common.create_lto_backend_artifacts(ctx=ctx,",
-        "        lto_output_root_prefix=ctx.label.package, bitcode_file=ctx.file.file,",
+        "        lto_output_root_prefix=ctx.label.package, lto_obj_root_prefix=ctx.label.package,",
+        "        bitcode_file=ctx.file.file,",
         "        feature_configuration=feature_configuration, cc_toolchain=toolchain,",
         "        fdo_context=fdo_context, use_pic=True,",
         "        should_create_per_object_debug_info=False, argv=[])",
@@ -8135,7 +8136,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "foo/custom_rule.bzl",
         "def _impl(ctx):",
-        "  cc_common_internal_do_not_use.check_private_api(allowlist = [])",
+        "  cc_common.check_private_api(allowlist = [])",
         "  return []",
         "custom_rule = rule(",
         "  implementation = _impl,",
@@ -8144,7 +8145,9 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     AssertionError e =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
 
-    assertThat(e).hasMessageThat().contains("name 'cc_common_internal_do_not_use' is not defined");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("'struct' value has no field or method 'check_private_api'");
   }
 
   @Test

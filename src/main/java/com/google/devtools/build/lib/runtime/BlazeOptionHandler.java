@@ -17,6 +17,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.In
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Command.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -385,15 +387,20 @@ public final class BlazeOptionHandler {
     @Override
     public Target loadBuildSetting(String targetLabel)
         throws InterruptedException, TargetParsingException {
-      TargetPatternPhaseValue result =
+      TargetPatternPhaseValue tpv =
           skyframeExecutor.loadTargetPatternsWithoutFilters(
               reporter,
               Collections.singletonList(targetLabel),
               relativeWorkingDirectory,
               SkyframeExecutor.DEFAULT_THREAD_COUNT,
               /* keepGoing= */ false);
-      return Iterables.getOnlyElement(
-          result.getTargets(reporter, skyframeExecutor.getPackageManager()));
+      ImmutableSet<Target> result = tpv.getTargets(reporter, skyframeExecutor.getPackageManager());
+      if (result.size() != 1) {
+        throw new TargetParsingException(
+            "user-defined flags must reference exactly one target",
+            TargetPatterns.Code.TARGET_FORMAT_INVALID);
+      }
+      return Iterables.getOnlyElement(result);
     }
   }
 
@@ -412,9 +419,10 @@ public final class BlazeOptionHandler {
       return DetailedExitCode.success();
     }
     try {
-      StarlarkOptionsParser.newStarlarkOptionsParser(
-              new SkyframeExecutorTargetLoader(env), optionsParser)
-          .parse();
+      Preconditions.checkState(
+          StarlarkOptionsParser.newStarlarkOptionsParser(
+                  new SkyframeExecutorTargetLoader(env), optionsParser)
+              .parse());
     } catch (OptionsParsingException e) {
       String logMessage = "Error parsing Starlark options";
       logger.atInfo().withCause(e).log("%s", logMessage);

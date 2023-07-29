@@ -13,21 +13,23 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
-import java.io.Serializable;
+import com.google.devtools.build.lib.rules.apple.XcodeConfig;
+import com.google.devtools.build.lib.rules.apple.XcodeConfigInfo;
+import com.google.devtools.build.lib.rules.apple.XcodeConfigRule;
 import java.util.HashMap;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Starlark;
@@ -67,9 +69,29 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     validateToolchain(ruleContext);
+    XcodeConfigInfo xcodeConfig = null;
+    if (ruleContext.isAttrDefined(XcodeConfigRule.XCODE_CONFIG_ATTR_NAME, LABEL)) {
+      xcodeConfig = XcodeConfig.getXcodeConfigInfo(ruleContext);
+    }
+
+    StarlarkFunction buildVarsFunc =
+        isAppleToolchain()
+            ? (StarlarkFunction)
+                ruleContext.getStarlarkDefinedBuiltin("apple_cc_toolchain_build_variables")
+            : (StarlarkFunction)
+                ruleContext.getStarlarkDefinedBuiltin("cc_toolchain_build_variables");
+
+    // We are storing xcodeConfig in Starlark function closure.
+    buildVarsFunc =
+        (StarlarkFunction)
+            ruleContext.callStarlarkOrThrowRuleError(
+                buildVarsFunc,
+                ImmutableList.of(
+                    /* xcode_config */ xcodeConfig != null ? xcodeConfig : Starlark.NONE),
+                ImmutableMap.of());
+
     CcToolchainAttributesProvider attributes =
-        new CcToolchainAttributesProvider(
-            ruleContext, isAppleToolchain(), getAdditionalBuildVariablesComputer(ruleContext));
+        new CcToolchainAttributesProvider(ruleContext, isAppleToolchain(), buildVarsFunc);
 
     RuleConfiguredTargetBuilder ruleConfiguredTargetBuilder =
         new RuleConfiguredTargetBuilder(ruleContext)
@@ -77,7 +99,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             .addProvider(RunfilesProvider.simple(Runfiles.EMPTY));
 
     if (attributes.getLicensesProvider() != null) {
-      ruleConfiguredTargetBuilder.add(LicensesProvider.class, attributes.getLicensesProvider());
+      ruleConfiguredTargetBuilder.addNativeDeclaredProvider(attributes.getLicensesProvider());
     }
 
     if (!CppHelper.useToolchainResolution(ruleContext)) {
@@ -96,7 +118,9 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
         ruleContext.callStarlarkOrThrowRuleError(
             getCcToolchainProvider,
             ImmutableList.of(
-                /* ctx */ ruleContext.getStarlarkRuleContext(), /* attributes */ attributes),
+                /* ctx */ ruleContext.getStarlarkRuleContext(),
+                /* attributes */ attributes,
+                /* has_apple_fragment */ isAppleToolchain()),
             ImmutableMap.of());
 
     // This is a platforms-backed build, we will not analyze cc_toolchain_suite at all, and we are
@@ -153,21 +177,6 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
   protected boolean isAppleToolchain() {
     // To be overridden in subclass.
     return false;
-  }
-
-  /** Computes additional {@link CcToolchainVariables} based on {@link BuildOptions}. */
-  @FunctionalInterface
-  protected interface AdditionalBuildVariablesComputer extends Serializable {
-    CcToolchainVariables apply(BuildOptions buildOptions);
-
-    /** Computes no additional variables. */
-    AdditionalBuildVariablesComputer NONE = options -> CcToolchainVariables.EMPTY;
-  }
-
-  /** Returns a function that will be called to retrieve root {@link CcToolchainVariables}. */
-  protected AdditionalBuildVariablesComputer getAdditionalBuildVariablesComputer(
-      RuleContext ruleContextPossiblyInExecConfiguration) {
-    return AdditionalBuildVariablesComputer.NONE;
   }
 
   /** Will be called during analysis to ensure target attributes are set correctly. */

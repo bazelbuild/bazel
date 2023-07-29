@@ -237,7 +237,7 @@ public abstract class PyBuiltins implements StarlarkValue {
       })
   public Object expandLocationAndMakeVariables(
       StarlarkRuleContext ruleContext, String attributeName, String expression, Sequence<?> targets)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     ImmutableMap.Builder<Label, ImmutableCollection<Artifact>> builder = ImmutableMap.builder();
 
     for (TransitiveInfoCollection current :
@@ -292,7 +292,7 @@ public abstract class PyBuiltins implements StarlarkValue {
       })
   public Object newEmptyRunfilesWithMiddleman(
       StarlarkRuleContext starlarkCtx, Runfiles runfiles, Artifact executable)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     // NOTE: The RunfilesSupport created here must exactly match the one done as part of Starlark
     // rule processing, otherwise action output conflicts occur. See
     // https://github.com/bazelbuild/bazel/blob/1940c5d68136ce2079efa8ff74d4e5fdf63ee3e6/src/main/java/com/google/devtools/build/lib/analysis/starlark/StarlarkRuleConfiguredTargetUtil.java#L642-L651
@@ -322,7 +322,9 @@ public abstract class PyBuiltins implements StarlarkValue {
                 ruleContext.getActionOwner(),
                 repoMappingManifest,
                 ruleContext.getTransitivePackagesForRunfileRepoMappingManifest(),
-                runfiles.getAllArtifacts(),
+                runfiles.getArtifacts(),
+                runfiles.getSymlinks(),
+                runfiles.getRootSymlinks(),
                 ruleContext.getWorkspaceName()));
   }
 

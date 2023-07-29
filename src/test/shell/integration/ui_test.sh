@@ -309,7 +309,7 @@ function test_timestamp() {
 }
 
 function test_skymeld_ui() {
-  bazel build --experimental_skymeld_ui pkg:true &> "$TEST_log" \
+  bazel build --experimental_merged_skyframe_analysis_execution pkg:true &> "$TEST_log" \
     || fail "${PRODUCT_NAME} test failed."
   expect_log 'Build completed successfully'
 }
@@ -339,7 +339,7 @@ string_flag(
 )
 EOF
 
-  bazel build --experimental_skymeld_ui \
+  bazel build --experimental_merged_skyframe_analysis_execution \
       --//$pkg/flags:flag=a \
       $pkg:true &> "$TEST_log" || fail "${PRODUCT_NAME} test failed."
   expect_log 'Build completed successfully'
@@ -347,7 +347,7 @@ EOF
 
 # Regression test for b/244163231.
 function test_skymeld_ui_works_with_timestamps() {
-  bazel build --experimental_skymeld_ui --show_timestamps \
+  bazel build --experimental_merged_skyframe_analysis_execution --show_timestamps \
     pkg:true &> "$TEST_log" \
     || fail "${PRODUCT_NAME} test failed."
   expect_log 'Build completed successfully'
@@ -493,7 +493,7 @@ function test_experimental_ui_attempt_to_print_relative_paths_failing_action() {
   # unconditionally uses an uppercase drive letter (see
   # WindowsOsPathPolicy#normalize). I want these tests to check for exact
   # string contents (that's the entire goal of the flag being tested), but I
-  # don't want them to be brittle across different Windows enviromments, so
+  # don't want them to be brittle across different Windows environments, so
   # I've disabled them for now.
   # TODO(nharmata): Fix this.
   [[ "$is_windows" == "true" ]] && return 0
@@ -724,7 +724,7 @@ EOF
   expect_log "ERROR: 'run' only works with tests with one shard"
   # If we would print this again after the run failed, we would overwrite the
   # error message above.
-  expect_log_n "INFO: Build completed successfully, [45] total actions" 1
+  expect_log_n "INFO: Build completed successfully, [456] total actions" 1
 }
 
 run_suite "Integration tests for ${PRODUCT_NAME}'s UI"

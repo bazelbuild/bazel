@@ -19,6 +19,10 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -206,6 +210,39 @@ public final class AspectCollection {
         AspectDescriptor aspect, ImmutableList<AspectDeps> usedAspects) {
       return new AutoValue_AspectCollection_AspectDeps(aspect, usedAspects);
     }
+  }
+
+  /**
+   * Creates an {@link AspectKey} for the given root aspect, {@code aspectDeps}.
+   *
+   * <p>Converts the DAG of {@link AspectDescriptor}s rooted at {@code aspectDeps} into an
+   * isomorphic DAG of {@link AspectKey} with corresponding {@link AspectKey#getAspectDescriptor}
+   * values. All resulting {@link AspectKey}s have {@link AspectKey#getBaseConfiguredTargetKey}
+   * equal to {@code baseKey}.
+   *
+   * <p>As a side effect, {@code visited} is populated with all the DAG nodes with each map entry
+   * value's descriptor matching the map entry key.
+   */
+  @CanIgnoreReturnValue
+  public static AspectKey buildAspectKey(
+      AspectDeps aspectDeps,
+      Map<AspectDescriptor, AspectKey> visited,
+      ConfiguredTargetKey baseKey) {
+    AspectDescriptor aspect = aspectDeps.getAspect();
+    AspectKey aspectKey = visited.get(aspect);
+    if (aspectKey != null) {
+      return aspectKey;
+    }
+
+    ImmutableList<AspectDeps> usedAspects = aspectDeps.getUsedAspects();
+    var usedAspectKeys = ImmutableList.<AspectKey>builderWithExpectedSize(usedAspects.size());
+    for (AspectCollection.AspectDeps usedAspect : usedAspects) {
+      usedAspectKeys.add(buildAspectKey(usedAspect, visited, baseKey));
+    }
+
+    aspectKey = AspectKeyCreator.createAspectKey(aspect, usedAspectKeys.build(), baseKey);
+    visited.put(aspect, aspectKey);
+    return aspectKey;
   }
 
   public static AspectCollection createForTests(AspectDescriptor... descriptors) {

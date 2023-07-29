@@ -20,6 +20,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.repository.ExternalPackageException;
+import com.google.devtools.build.lib.repository.RepositoryFetchProgress;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.AlreadyReportedException;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
@@ -50,6 +52,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -133,6 +136,23 @@ public abstract class RepositoryFunction {
     }
   }
 
+  public static void setupRepoRoot(Path repoRoot) throws RepositoryFunctionException {
+    try {
+      repoRoot.deleteTree();
+      Preconditions.checkNotNull(repoRoot.getParentDirectory()).createDirectoryAndParents();
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
+  }
+
+  protected void setupRepoRootBeforeFetching(Path repoRoot) throws RepositoryFunctionException {
+    setupRepoRoot(repoRoot);
+  }
+
+  public void reportSkyframeRestart(Environment env, RepositoryName repoName) {
+    env.getListener().post(RepositoryFetchProgress.ongoing(repoName, "Restarting."));
+  }
+
   /**
    * Fetch the remote repository represented by the given rule.
    *
@@ -170,9 +190,9 @@ public abstract class RepositoryFunction {
       throws InterruptedException, RepositoryFunctionException;
 
   @SuppressWarnings("unchecked")
-  private static Iterable<String> getEnviron(Rule rule) {
+  private static Collection<String> getEnviron(Rule rule) {
     if (rule.isAttrDefined("$environ", Type.STRING_LIST)) {
-      return (Iterable<String>) rule.getAttr("$environ");
+      return (Collection<String>) rule.getAttr("$environ");
     }
     return ImmutableList.of();
   }
@@ -183,7 +203,7 @@ public abstract class RepositoryFunction {
    * is needed.
    */
   public boolean verifyMarkerData(Rule rule, Map<String, String> markerData, Environment env)
-      throws InterruptedException, RepositoryFunctionException {
+      throws InterruptedException {
     return verifyEnvironMarkerData(markerData, env, getEnviron(rule))
         && verifyMarkerDataForFiles(rule, markerData, env)
         && verifySemanticsMarkerData(markerData, env);
@@ -288,33 +308,37 @@ public abstract class RepositoryFunction {
   protected Map<String, String> declareEnvironmentDependencies(
       Map<String, String> markerData, Environment env, Iterable<String> keys)
       throws InterruptedException {
-    Map<String, String> environ = ActionEnvironmentFunction.getEnvironmentView(env, keys);
+    ImmutableMap<String, String> envDep = getEnvVarValues(env, keys);
+    if (envDep == null) {
+      return null;
+    }
+    // Add the dependencies to the marker file
+    keys.forEach(key -> markerData.put("ENV:" + key, envDep.get(key)));
+    return envDep;
+  }
 
-    // Returns true if there is a null value and we need to wait for some dependencies.
+  @Nullable
+  public static ImmutableMap<String, String> getEnvVarValues(Environment env, Iterable<String> keys)
+      throws InterruptedException {
+    ImmutableMap<String, String> environ = ActionEnvironmentFunction.getEnvironmentView(env, keys);
     if (environ == null) {
       return null;
     }
-
     Map<String, String> repoEnvOverride = PrecomputedValue.REPO_ENV.get(env);
     if (repoEnvOverride == null) {
       return null;
     }
 
     // Only depend on --repo_env values that are specified in the "environ" attribute.
-    Map<String, String> repoEnv = new LinkedHashMap<String, String>(environ);
+    ImmutableMap.Builder<String, String> repoEnv = ImmutableMap.builder();
+    repoEnv.putAll(environ);
     for (String key : keys) {
       String value = repoEnvOverride.get(key);
       if (value != null) {
         repoEnv.put(key, value);
       }
     }
-
-    // Add the dependencies to the marker file
-    for (Map.Entry<String, String> value : repoEnv.entrySet()) {
-      markerData.put("ENV:" + value.getKey(), value.getValue());
-    }
-
-    return repoEnv;
+    return repoEnv.buildKeepingLast();
   }
 
   /**
@@ -323,9 +347,9 @@ public abstract class RepositoryFunction {
    * Environment)} function to verify the values for environment variables.
    */
   protected boolean verifyEnvironMarkerData(
-      Map<String, String> markerData, Environment env, Iterable<String> keys)
+      Map<String, String> markerData, Environment env, Collection<String> keys)
       throws InterruptedException {
-    Map<String, String> environ = ActionEnvironmentFunction.getEnvironmentView(env, keys);
+    ImmutableMap<String, String> environ = ActionEnvironmentFunction.getEnvironmentView(env, keys);
     if (env.valuesMissing()) {
       return false; // Returns false so caller knows to return immediately
     }
@@ -346,17 +370,18 @@ public abstract class RepositoryFunction {
 
     // Verify that all environment variable in the marker file are also in keys
     for (String key : markerData.keySet()) {
-      if (key.startsWith("ENV:") && !repoEnv.containsKey(key.substring(4))) {
+      if (key.startsWith("ENV:") && !keys.contains(key.substring(4))) {
         return false;
       }
     }
+
     // Now verify the values of the marker data
-    for (Map.Entry<String, String> value : repoEnv.entrySet()) {
-      if (!markerData.containsKey("ENV:" + value.getKey())) {
+    for (String key : keys) {
+      if (!markerData.containsKey("ENV:" + key)) {
         return false;
       }
-      String markerValue = markerData.get("ENV:" + value.getKey());
-      if (!Objects.equals(markerValue, value.getValue())) {
+      String markerValue = markerData.get("ENV:" + key);
+      if (!Objects.equals(markerValue, repoEnv.get(key))) {
         return false;
       }
     }
@@ -439,8 +464,7 @@ public abstract class RepositoryFunction {
   }
 
   @VisibleForTesting
-  protected static PathFragment getTargetPath(String userDefinedPath, Path workspace)
-      throws RepositoryFunctionException {
+  protected static PathFragment getTargetPath(String userDefinedPath, Path workspace) {
     PathFragment pathFragment = PathFragment.create(userDefinedPath);
     return workspace.getRelative(pathFragment).asFragment();
   }

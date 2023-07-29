@@ -34,16 +34,15 @@ import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.BashCommandConstructor;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
-import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.LocationExpander;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.Runfiles.SymlinkEntry;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.ShToolchain;
+import com.google.devtools.build.lib.analysis.SymlinkEntry;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -68,7 +67,6 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -525,11 +523,6 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   }
 
   @Override
-  public Provider getDefaultProvider() {
-    return DefaultInfo.PROVIDER;
-  }
-
-  @Override
   public StarlarkActionFactory actions() {
     return actionFactory;
   }
@@ -700,7 +693,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   }
 
   @Override
-  public Dict<String, String> var() throws EvalException {
+  public Dict<String, String> var() throws EvalException, InterruptedException {
     checkMutable("var");
     if (cachedMakeVariables == null) {
       Dict.Builder<String, String> vars;
@@ -874,7 +867,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   @Override
   public String expandMakeVariables(
       String attributeName, String command, Dict<?, ?> additionalSubstitutions) // <String, String>
-      throws EvalException {
+      throws EvalException, InterruptedException {
     checkMutable("expand_make_variables");
     final Map<String, String> additionalSubstitutionsMap =
         Dict.cast(additionalSubstitutions, String.class, String.class, "additional_substitutions");
@@ -882,7 +875,8 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   }
 
   private String expandMakeVariables(
-      String attributeName, String command, Map<String, String> additionalSubstitutionsMap) {
+      String attributeName, String command, Map<String, String> additionalSubstitutionsMap)
+      throws InterruptedException {
     ConfigurationMakeVariableContext makeVariableContext =
         new ConfigurationMakeVariableContext(
             ruleContext,
@@ -890,7 +884,8 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
             ruleContext.getConfiguration(),
             ImmutableList.of()) {
           @Override
-          public String lookupVariable(String variableName) throws ExpansionException {
+          public String lookupVariable(String variableName)
+              throws ExpansionException, InterruptedException {
             if (additionalSubstitutionsMap.containsKey(variableName)) {
               return additionalSubstitutionsMap.get(variableName);
             } else {
@@ -1058,7 +1053,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       Dict<?, ?> labelDictUnchecked,
       Dict<?, ?> executionRequirementsUnchecked,
       StarlarkThread thread)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     checkMutable("resolve_command");
     Map<Label, Iterable<Artifact>> labelDict = checkLabelDict(labelDictUnchecked);
     // The best way to fix this probably is to convert CommandHelper to Starlark.

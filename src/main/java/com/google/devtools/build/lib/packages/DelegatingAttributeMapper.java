@@ -88,23 +88,8 @@ public class DelegatingAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public String getPackageDefaultHdrsCheck() {
-    return delegate.getPackageDefaultHdrsCheck();
-  }
-
-  @Override
-  public boolean isPackageDefaultHdrsCheckSet() {
-    return delegate.isPackageDefaultHdrsCheckSet();
-  }
-
-  @Override
-  public Boolean getPackageDefaultTestOnly() {
-    return delegate.getPackageDefaultTestOnly();
-  }
-
-  @Override
-  public String getPackageDefaultDeprecation() {
-    return delegate.getPackageDefaultDeprecation();
+  public PackageArgs getPackageArgs() {
+    return delegate.getPackageArgs();
   }
 
   @Override

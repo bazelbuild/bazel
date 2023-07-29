@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.skyframe.CPUHeavySkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -25,7 +24,7 @@ import java.util.Objects;
  * the {@link ActionLookupKey} and executing the associated actions.
  */
 public final class BuildDriverKey implements CPUHeavySkyKey {
-  private final ActionLookupKeyOrProxy actionLookupKey;
+  private final ActionLookupKey actionLookupKey;
   private final TopLevelArtifactContext topLevelArtifactContext;
   private final boolean strictActionConflictCheck;
   private final boolean explicitlyRequested;
@@ -35,7 +34,7 @@ public final class BuildDriverKey implements CPUHeavySkyKey {
   private final boolean extraActionTopLevelOnly;
 
   private BuildDriverKey(
-      ActionLookupKeyOrProxy actionLookupKey,
+      ActionLookupKey actionLookupKey,
       TopLevelArtifactContext topLevelArtifactContext,
       boolean strictActionConflictCheck,
       boolean explicitlyRequested,
@@ -69,7 +68,7 @@ public final class BuildDriverKey implements CPUHeavySkyKey {
   }
 
   public static BuildDriverKey ofConfiguredTarget(
-      ActionLookupKeyOrProxy actionLookupKey,
+      ActionLookupKey actionLookupKey,
       TopLevelArtifactContext topLevelArtifactContext,
       boolean strictActionConflictCheck,
       boolean explicitlyRequested,
@@ -89,7 +88,7 @@ public final class BuildDriverKey implements CPUHeavySkyKey {
     return topLevelArtifactContext;
   }
 
-  public ActionLookupKeyOrProxy getActionLookupKey() {
+  public ActionLookupKey getActionLookupKey() {
     return actionLookupKey;
   }
 
@@ -141,7 +140,7 @@ public final class BuildDriverKey implements CPUHeavySkyKey {
 
   @Override
   public String toString() {
-    return String.format("ActionLookupKey: %s", actionLookupKey);
+    return String.format("BuildDriverKey of ActionLookupKey: %s", actionLookupKey);
   }
 
   @Override

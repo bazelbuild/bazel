@@ -42,8 +42,9 @@ import java.util.Optional;
 /**
  * Represents a Bazel module registry that serves a list of module metadata from a static HTTP
  * server or a local file path.
+ *
+ * <p>For details, see <a href="https://bazel.build/external/registry">the docs</a>
  */
-// TODO(wyv): Insert "For details, see ..." when we have public documentation.
 public class IndexRegistry implements Registry {
   private final URI uri;
   private final DownloadManager downloadManager;
@@ -88,12 +89,12 @@ public class IndexRegistry implements Registry {
   }
 
   @Override
-  public Optional<byte[]> getModuleFile(ModuleKey key, ExtendedEventHandler eventHandler)
+  public Optional<ModuleFile> getModuleFile(ModuleKey key, ExtendedEventHandler eventHandler)
       throws IOException, InterruptedException {
-    return grabFile(
+    String url =
         constructUrl(
-            getUrl(), "modules", key.getName(), key.getVersion().toString(), "MODULE.bazel"),
-        eventHandler);
+            getUrl(), "modules", key.getName(), key.getVersion().toString(), "MODULE.bazel");
+    return grabFile(url, eventHandler).map(content -> ModuleFile.create(content, url));
   }
 
   /** Represents fields available in {@code bazel_registry.json} for the registry. */

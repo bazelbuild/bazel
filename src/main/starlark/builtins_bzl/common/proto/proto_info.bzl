@@ -44,7 +44,7 @@ def _from_root(root, repo, relpath):
         #   - with sibling layout: `{root}/package/path`
         return _join(root, "" if repo.startswith("../") else repo, relpath)
 
-def _create_proto_info(*, srcs, deps, descriptor_set, proto_path = "", workspace_root = "", genfiles_dir = None):
+def _create_proto_info(*, srcs, deps, descriptor_set, proto_path = "", workspace_root = "", bin_dir = None, allow_exports = None):
     """Constructs ProtoInfo.
 
     Args:
@@ -55,7 +55,7 @@ def _create_proto_info(*, srcs, deps, descriptor_set, proto_path = "", workspace
         stripping is needed, the files should be symlinked into `_virtual_imports/target_name`
         directory. Only such paths are accepted.
       workspace_root: (str) Set to ctx.workspace_root if this is not the main repository.
-      genfiles_dir: (str) Set to ctx.genfiles_dir if _virtual_imports are used.
+      bin_dir: (str) Set to ctx.bin_dir if _virtual_imports are used.
 
     Returns:
       (ProtoInfo)
@@ -77,8 +77,8 @@ def _create_proto_info(*, srcs, deps, descriptor_set, proto_path = "", workspace
             fail("proto_path needs to contain '_virtual_imports' directory")
         if proto_path.split("/")[-2] != "_virtual_imports":
             fail("proto_path needs to be formed like '_virtual_imports/target_name'")
-        if not genfiles_dir:
-            fail("genfiles_dir parameter should be set when _virtual_imports are used")
+        if not bin_dir:
+            fail("bin_dir parameter should be set when _virtual_imports are used")
 
     direct_proto_sources = srcs
     transitive_proto_sources = depset(
@@ -117,14 +117,14 @@ def _create_proto_info(*, srcs, deps, descriptor_set, proto_path = "", workspace
         exported_sources = depset(transitive = [dep._exported_sources for dep in deps])
 
     if "_virtual_imports/" in proto_path:
-        #TODO(b/281812523): remove genfiles_dir from proto_source_root (when users assuming it's there are migrated)
-        proto_source_root = _empty_to_dot(_from_root(genfiles_dir, workspace_root, proto_path))
+        #TODO(b/281812523): remove bin_dir from proto_source_root (when users assuming it's there are migrated)
+        proto_source_root = _empty_to_dot(_from_root(bin_dir, workspace_root, proto_path))
     elif workspace_root.startswith("../"):
         proto_source_root = proto_path
     else:
         proto_source_root = _empty_to_dot(_join(workspace_root, proto_path))
 
-    return dict(
+    proto_info = dict(
         direct_sources = srcs,
         transitive_sources = transitive_sources,
         direct_descriptor_set = descriptor_set,
@@ -137,6 +137,9 @@ def _create_proto_info(*, srcs, deps, descriptor_set, proto_path = "", workspace
         _transitive_proto_sources = transitive_proto_sources,
         _exported_sources = exported_sources,
     )
+    if allow_exports:
+        proto_info["allow_exports"] = allow_exports
+    return proto_info
 
 ProtoInfo, _ = provider(
     doc = "Encapsulates information provided by a `proto_library.`",
@@ -155,7 +158,7 @@ ProtoInfo, _ = provider(
             `import c/d.proto`
 
             In principle, the `proto_source_root` directory itself should always
-            be relative to the output directory (`ctx.bin_dir` or `ctx.genfiles_dir`).
+            be relative to the output directory (`ctx.bin_dir`).
 
             This is at the moment not true for `proto_libraries` using (additional and/or strip)
             import prefixes. `proto_source_root` is in this case prefixed with the output
@@ -172,6 +175,7 @@ ProtoInfo, _ = provider(
         "check_deps_sources": """(depset[File]) The `.proto` sources from the 'srcs' attribute.
             If the library is a proxy library that has no sources, it contains the
             `check_deps_sources` from this library's direct deps.""",
+        "allow_exports": """(Target) The packages where this proto_library can be exported.""",
 
         # Deprecated fields:
         "transitive_imports": """(depset[File]) Deprecated: use `transitive_sources` instead.""",

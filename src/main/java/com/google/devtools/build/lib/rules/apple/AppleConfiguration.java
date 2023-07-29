@@ -87,6 +87,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   private final AppleCommandLineOptions options;
   private final AppleCpus appleCpus;
   private final boolean mandatoryMinimumVersion;
+  private final String cpu;
 
   public AppleConfiguration(BuildOptions buildOptions) {
     AppleCommandLineOptions options = buildOptions.get(AppleCommandLineOptions.class);
@@ -98,6 +99,9 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     this.xcodeConfigLabel =
         Preconditions.checkNotNull(options.xcodeVersionConfig, "xcodeConfigLabel");
     this.mandatoryMinimumVersion = options.mandatoryMinimumVersion;
+    // AppleConfiguration should not have this knowledge. This is a temporary workaround
+    // for Starlarkification, until apple rules are toolchainized.
+    this.cpu = buildOptions.get(CoreOptions.class).cpu;
   }
 
   /** A class that contains information pertaining to Apple CPUs. */
@@ -141,6 +145,16 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     abstract ImmutableList<String> macosCpus();
 
     abstract ImmutableList<String> catalystCpus();
+  }
+
+  private static void checkPrivateAccess(StarlarkThread thread) throws EvalException {
+    RepositoryName repository =
+        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread))
+            .label()
+            .getRepository();
+    if (!"@_builtins".equals(repository.getNameWithAt())) {
+      throw Starlark.errorf("private API only for use by builtins");
+    }
   }
 
   /** Determines iOS cpu value from apple-specific toolchain identifier. */
@@ -400,14 +414,14 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   /** Returns true if the minimum_os_version attribute should be mandatory on rules with linking. */
   @Override
   public boolean isMandatoryMinimumVersionForStarlark(StarlarkThread thread) throws EvalException {
-    RepositoryName repository =
-        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread))
-            .label()
-            .getRepository();
-    if (!"@_builtins".equals(repository.getNameWithAt())) {
-      throw Starlark.errorf("private API only for use by builtins");
-    }
+    checkPrivateAccess(thread);
     return isMandatoryMinimumVersion();
+  }
+
+  @Override
+  public String getCpuForStarlark(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return cpu;
   }
 
   public boolean isMandatoryMinimumVersion() {

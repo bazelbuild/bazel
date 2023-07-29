@@ -42,46 +42,61 @@ public class DexLimitTrackerTest {
   public void testUnderLimit() {
     DexLimitTracker tracker =
         new DexLimitTracker(Math.max(dex.methodIds().size(), dex.fieldIds().size()));
-    assertThat(tracker.track(dex)).isFalse();
+    tracker.track(dex);
+    assertThat(tracker.outsideLimits()).isFalse();
   }
 
   @Test
   public void testOverLimit() throws Exception {
     DexLimitTracker tracker =
         new DexLimitTracker(Math.max(dex.methodIds().size(), dex.fieldIds().size()) - 1);
-    assertThat(tracker.track(dex)).isTrue();
-    assertThat(tracker.track(dex)).isTrue();
-    assertThat(tracker.track(DexFiles.toDex(convertClass(DexLimitTracker.class)))).isTrue();
+    tracker.track(dex);
+    assertThat(tracker.outsideLimits()).isTrue();
+    tracker.track(dex);
+    assertThat(tracker.outsideLimits()).isTrue();
+    tracker.track(DexFiles.toDex(convertClass(DexLimitTracker.class)));
+    assertThat(tracker.outsideLimits()).isTrue();
   }
 
   @Test
   public void testRepeatedReferencesDeduped() throws Exception {
     DexLimitTracker tracker =
         new DexLimitTracker(Math.max(dex.methodIds().size(), dex.fieldIds().size()));
-    assertThat(tracker.track(dex)).isFalse();
-    assertThat(tracker.track(dex)).isFalse();
-    assertThat(tracker.track(dex)).isFalse();
-    assertThat(tracker.track(dex)).isFalse();
-    assertThat(tracker.track(DexFiles.toDex(convertClass(DexLimitTracker.class)))).isTrue();
-    assertThat(tracker.track(dex)).isTrue();
+    tracker.track(dex);
+    assertThat(tracker.outsideLimits()).isFalse();
+    tracker.track(dex);
+    assertThat(tracker.outsideLimits()).isFalse();
+    tracker.track(dex);
+    assertThat(tracker.outsideLimits()).isFalse();
+    tracker.track(dex);
+    assertThat(tracker.outsideLimits()).isFalse();
+    tracker.track(DexFiles.toDex(convertClass(DexLimitTracker.class)));
+    assertThat(tracker.outsideLimits()).isTrue();
+    tracker.track(dex);
+    assertThat(tracker.outsideLimits()).isTrue();
   }
 
   @Test
   public void testGoOverLimit() throws Exception {
     DexLimitTracker tracker =
         new DexLimitTracker(Math.max(dex.methodIds().size(), dex.fieldIds().size()));
-    assertThat(tracker.track(dex)).isFalse();
-    assertThat(tracker.track(DexFiles.toDex(convertClass(DexLimitTracker.class)))).isTrue();
+    tracker.track(dex);
+    assertThat(tracker.outsideLimits()).isFalse();
+    tracker.track(DexFiles.toDex(convertClass(DexLimitTracker.class)));
+    assertThat(tracker.outsideLimits()).isTrue();
   }
 
   @Test
   public void testClear() throws Exception {
     DexLimitTracker tracker =
         new DexLimitTracker(Math.max(dex.methodIds().size(), dex.fieldIds().size()));
-    assertThat(tracker.track(dex)).isFalse();
-    assertThat(tracker.track(DexFiles.toDex(convertClass(DexLimitTracker.class)))).isTrue();
+    tracker.track(dex);
+    assertThat(tracker.outsideLimits()).isFalse();
+    tracker.track(DexFiles.toDex(convertClass(DexLimitTracker.class)));
+    assertThat(tracker.outsideLimits()).isTrue();
     tracker.clear();
-    assertThat(tracker.track(dex)).isFalse();
+    tracker.track(dex);
+    assertThat(tracker.outsideLimits()).isFalse();
   }
 
   private static DexFile convertClass(Class<?> clazz) throws Exception {

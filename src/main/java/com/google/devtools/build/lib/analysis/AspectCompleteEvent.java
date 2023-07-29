@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.configurationId;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -45,15 +47,13 @@ public final class AspectCompleteEvent
   private final Collection<BuildEventId> postedAfter;
   private final CompletionContext completionContext;
   private final ImmutableMap<String, ArtifactsInOutputGroup> artifactOutputGroups;
-  private final BuildEventId configurationEventId;
 
   private AspectCompleteEvent(
       AspectKey aspectKey,
       AspectDescriptor descriptor,
       NestedSet<Cause> rootCauses,
       CompletionContext completionContext,
-      ImmutableMap<String, ArtifactsInOutputGroup> artifactOutputGroups,
-      BuildEventId configurationEventId) {
+      ImmutableMap<String, ArtifactsInOutputGroup> artifactOutputGroups) {
     this.aspectKey = aspectKey;
     this.descriptor = descriptor;
     this.rootCauses =
@@ -65,22 +65,15 @@ public final class AspectCompleteEvent
     this.postedAfter = postedAfterBuilder.build();
     this.completionContext = completionContext;
     this.artifactOutputGroups = artifactOutputGroups;
-    this.configurationEventId = configurationEventId;
   }
 
   /** Construct a successful target completion event. */
   public static AspectCompleteEvent createSuccessful(
       AspectValue value,
       CompletionContext completionContext,
-      ImmutableMap<String, ArtifactsInOutputGroup> artifacts,
-      BuildEventId configurationEventId) {
+      ImmutableMap<String, ArtifactsInOutputGroup> artifacts) {
     return new AspectCompleteEvent(
-        value.getKey(),
-        value.getAspect().getDescriptor(),
-        null,
-        completionContext,
-        artifacts,
-        configurationEventId);
+        value.getKey(), value.getAspect().getDescriptor(), null, completionContext, artifacts);
   }
 
   /**
@@ -90,16 +83,10 @@ public final class AspectCompleteEvent
       AspectValue value,
       CompletionContext ctx,
       NestedSet<Cause> rootCauses,
-      BuildEventId configurationEventId,
       ImmutableMap<String, ArtifactsInOutputGroup> outputs) {
     Preconditions.checkArgument(!rootCauses.isEmpty());
     return new AspectCompleteEvent(
-        value.getKey(),
-        value.getAspect().getDescriptor(),
-        rootCauses,
-        ctx,
-        outputs,
-        configurationEventId);
+        value.getKey(), value.getAspect().getDescriptor(), rootCauses, ctx, outputs);
   }
 
   /** Returns the key of the completed aspect. */
@@ -139,7 +126,9 @@ public final class AspectCompleteEvent
   @Override
   public BuildEventId getEventId() {
     return BuildEventIdUtil.aspectCompleted(
-        aspectKey.getLabel(), configurationEventId, descriptor.getDescription());
+        aspectKey.getLabel(),
+        configurationId(aspectKey.getConfigurationKey()),
+        descriptor.getDescription());
   }
 
   @Override

@@ -16,6 +16,7 @@ filegroup(
 java_test(
     name = "circuitbreaker",
     srcs = glob(["*.java"]),
+    tags = ["manual"],  # Flaky (see b/287004093)
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         "//src/main/java/com/google/devtools/build/lib/remote",

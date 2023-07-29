@@ -223,6 +223,13 @@ public final class AndroidRuleClasses {
           null,
           (rule, attributes, androidConfig) -> androidConfig.getLegacyMainDexListGenerator());
 
+  @SerializationConstant
+  static final LabelLateBoundDefault<AndroidConfiguration> OPTIMIZING_DEXER =
+      LabelLateBoundDefault.fromTargetConfiguration(
+          AndroidConfiguration.class,
+          null,
+          (rule, attributes, androidConfig) -> androidConfig.getOptimizingDexer());
+
   public static final FileType ANDROID_IDL = FileType.of(".aidl");
 
   public static final String[] ALLOWED_DEPENDENCIES = {
@@ -901,6 +908,12 @@ public final class AndroidRuleClasses {
               attr(":legacy_main_dex_list_generator", LABEL)
                   .cfg(ExecutionTransitionFactory.createFactory())
                   .value(LEGACY_MAIN_DEX_LIST_GENERATOR)
+                  .exec())
+          // This comes from the --optimizing_dexer flag.
+          .add(
+              attr(":optimizing_dexer", LABEL)
+                  .cfg(ExecutionTransitionFactory.createFactory())
+                  .value(OPTIMIZING_DEXER)
                   .exec())
           .removeAttribute("data")
           .advertiseStarlarkProvider(StarlarkProviderIdentifier.forKey(ApkInfo.PROVIDER.getKey()))

@@ -69,7 +69,7 @@ public final class MissingInputActionTest extends BuildIntegrationTestCase {
     write(
         "dummy/BUILD",
         "genrule(name = 'dummy', srcs = ['in'], outs = ['out'], cmd = '/bin/false')");
-    Path sleepPath = write("sleep.sh", "sleep infinity");
+    Path sleepPath = write("sleep.sh", "sleep 300");
     sleepPath.setExecutable(true);
     addOptions("--workspace_status_command=" + sleepPath.getPathString());
     for (int i = 0; i < 2; i++) {
@@ -100,7 +100,7 @@ public final class MissingInputActionTest extends BuildIntegrationTestCase {
         "foo/BUILD",
         "load('missing.bzl', 'missing')",
         "missing(name = 'foo', srcs = ['missing.sh'])");
-    Path sleepPath = write("sleep.sh", "sleep infinity");
+    Path sleepPath = write("sleep.sh", "sleep 300");
     sleepPath.setExecutable(true);
     addOptions("--workspace_status_command=" + sleepPath.getPathString());
     for (int i = 0; i < 2; i++) {

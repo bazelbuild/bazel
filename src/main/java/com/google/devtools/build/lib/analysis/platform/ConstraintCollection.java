@@ -66,11 +66,6 @@ public abstract class ConstraintCollection
     }
 
     /** Adds the given constraints to the current collection. */
-    public Builder addConstraints(Map<ConstraintSettingInfo, ConstraintValueInfo> constraints) {
-      return addConstraints(constraints.values());
-    }
-
-    /** Adds the given constraints to the current collection. */
     public Builder addConstraints(ConstraintValueInfo... constraints) {
       return addConstraints(ImmutableList.copyOf(constraints));
     }

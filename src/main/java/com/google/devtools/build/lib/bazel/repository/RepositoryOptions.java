@@ -236,6 +236,31 @@ public class RepositoryOptions extends OptionsBase {
               + "give, and in this case multiple URLs will be returned.")
   public String downloaderConfig;
 
+  /** See {@link #workerForRepoFetching}. */
+  public enum WorkerForRepoFetching {
+    OFF,
+    PLATFORM,
+    VIRTUAL;
+
+    static class Converter extends EnumConverter<WorkerForRepoFetching> {
+      public Converter() {
+        super(WorkerForRepoFetching.class, "worker for repo fetching");
+      }
+    }
+  }
+
+  @Option(
+      name = "experimental_worker_for_repo_fetching",
+      defaultValue = "off",
+      converter = WorkerForRepoFetching.Converter.class,
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The threading mode to use for repo fetching. If set to 'off', no worker thread is used,"
+              + " and the repo fetching is subject to restarts. Otherwise, uses a platform thread"
+              + " (i.e. OS thread) if set to 'platform' or a virtual thread if set to 'virtual'.")
+  public WorkerForRepoFetching workerForRepoFetching;
+
   @Option(
       name = "ignore_dev_dependency",
       defaultValue = "false",
@@ -300,8 +325,8 @@ public class RepositoryOptions extends OptionsBase {
 
   @Option(
       name = "lockfile_mode",
-      defaultValue = "off", // TODO(salmasamy) later will be changed to 'update'
       converter = LockfileMode.Converter.class,
+      defaultValue = "update",
       documentationCategory = OptionDocumentationCategory.BZLMOD,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =

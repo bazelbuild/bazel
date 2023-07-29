@@ -32,7 +32,7 @@ public class OptionFilterDescriptions {
     OptionDocumentationCategory.STARLARK_SEMANTICS,
     OptionDocumentationCategory.TESTING,
     OptionDocumentationCategory.QUERY,
-    OptionDocumentationCategory.MODQUERY,
+    OptionDocumentationCategory.MOD_COMMAND,
     OptionDocumentationCategory.BZLMOD,
     OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
     OptionDocumentationCategory.LOGGING,
@@ -88,8 +88,8 @@ public class OptionFilterDescriptions {
             "Options that configure the toolchain used for action execution")
         .put(OptionDocumentationCategory.QUERY, "Options relating to query output and semantics")
         .put(
-            OptionDocumentationCategory.MODQUERY,
-            "Options relating to modquery output and semantics")
+            OptionDocumentationCategory.MOD_COMMAND,
+            "Options relating to the output and semantics of the `mod` subcommand")
         .put(OptionDocumentationCategory.BZLMOD, "Options relating to Bzlmod output and semantics")
         .put(
             OptionDocumentationCategory.GENERIC_INPUTS,

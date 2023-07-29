@@ -55,8 +55,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.AllowlistChecker;
 import com.google.devtools.build.lib.packages.AspectsListBuilder.AspectDetails;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -65,6 +63,7 @@ import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
@@ -99,7 +98,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.Debug;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -294,7 +292,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       Object buildSetting,
       Object cfg,
       Object execGroups,
-      Object name,
       StarlarkThread thread)
       throws EvalException {
     return createRule(
@@ -314,7 +311,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         buildSetting,
         cfg,
         execGroups,
-        name,
         thread);
   }
 
@@ -335,7 +331,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       Object buildSetting,
       Object cfg,
       Object execGroups,
-      Object name,
       StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext bazelContext = BazelStarlarkContext.from(thread);
@@ -398,20 +393,28 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     builder.requiresConfigurationFragmentsByStarlarkModuleName(
         Sequence.cast(fragments, String.class, "fragments"));
     builder.setConfiguredTargetFunction(implementation);
-    // Obtain the rule definition environment (RDE) from the .bzl module being initialized by the
-    // calling thread -- the label and transitive source digest of the .bzl module of the outermost
-    // function in the call stack.
+
+    // Obtain the rule definition's label and transitive digest from the context of the .bzl file
+    // being initialized.
     //
-    // If this thread is initializing a BUILD file, then the toplevel function's Module has
-    // no BazelModuleContext. Such rules cannot be instantiated, so it's ok to use a
-    // dummy label and RDE in that case (but not to crash).
-    BazelModuleContext bzlModule =
-        BazelModuleContext.of(getModuleOfOutermostStarlarkFunction(thread));
-    builder.setRuleDefinitionEnvironmentLabelAndDigest(
-        bzlModule != null
-            ? bzlModule.label()
-            : Label.createUnvalidated(PackageIdentifier.EMPTY_PACKAGE_ID, "dummy_label"),
-        bzlModule != null ? bzlModule.bzlTransitiveDigest() : new byte[0]);
+    // Note that if rule() was called via a helper function (a meta-macro), the label and digest of
+    // the .bzl file of the innermost stack frame might not be the same as that of the outermost
+    // frame. In this case we really do want the outermost, in order to ensure that the digest
+    // includes the code that determines the helper function's argument values.
+    //
+    // If we are not currently initializing a .bzl file, we use dummy values for both the label and
+    // digest. In most cases this is ok because such rules cannot be instantiated, since they are
+    // not exported. The one exception is rule classes created by analysis_test, which occurs inside
+    // a BUILD thread. The digest of all such rule classes will be the same (b/291752414).
+    if (bazelContext instanceof BzlInitThreadContext) {
+      BzlInitThreadContext initContext = (BzlInitThreadContext) bazelContext;
+      builder.setRuleDefinitionEnvironmentLabelAndDigest(
+          initContext.getBzlFile(), initContext.getTransitiveDigest());
+    } else {
+      builder.setRuleDefinitionEnvironmentLabelAndDigest(
+          /* label= */ Label.createUnvalidated(PackageIdentifier.EMPTY_PACKAGE_ID, "dummy_label"),
+          /* digest= */ new byte[0]);
+    }
 
     builder.addToolchainTypes(parseToolchainTypes(toolchains, thread));
 
@@ -487,55 +490,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       builder.addExecutionPlatformConstraints(parseExecCompatibleWith(execCompatibleWith, thread));
     }
 
-    StarlarkRuleFunction starlarkRuleFunction =
-        new StarlarkRuleFunction(
-            builder,
-            type,
-            attributes,
-            thread.getCallerLocation(),
-            Starlark.toJavaOptional(doc, String.class));
-    // If a name= parameter is supplied (and we're currently initializing a .bzl module), export the
-    // rule immediately under that name; otherwise the rule will be exported by the postAssignHook
-    // set up in BzlLoadFunction.
-    //
-    // Because exporting can raise multiple errors, we need to accumulate them here into a single
-    // EvalException. This is a code smell because any non-ERROR events will be lost, and any
-    // location
-    // information in the events will be overwritten by the location of this rule's definition.
-    // However, this is currently fine because StarlarkRuleFunction#export only creates events that
-    // are ERRORs and that have the rule definition as their location.
-    // TODO(brandjon): Instead of accumulating events here, consider registering the rule in the
-    // BazelStarlarkContext, and exporting such rules after module evaluation in
-    // BzlLoadFunction#execAndExport.
-    if (name != Starlark.NONE && bzlModule != null) {
-      StoredEventHandler handler = new StoredEventHandler();
-      starlarkRuleFunction.export(handler, bzlModule.label(), (String) name);
-      if (handler.hasErrors()) {
-        StringBuilder errors =
-            handler.getEvents().stream()
-                .filter(e -> e.getKind() == EventKind.ERROR)
-                .reduce(
-                    new StringBuilder(),
-                    (sb, ev) -> sb.append("\n").append(ev.getMessage()),
-                    StringBuilder::append);
-        throw Starlark.errorf("Errors in exporting %s: %s", name, errors.toString());
-      }
-    }
-    return starlarkRuleFunction;
-  }
-
-  /**
-   * Returns the module (file) of the outermost enclosing Starlark function on the call stack or
-   * null if none of the active calls are functions defined in Starlark.
-   */
-  @Nullable
-  private static Module getModuleOfOutermostStarlarkFunction(StarlarkThread thread) {
-    for (Debug.Frame fr : Debug.getCallStack(thread)) {
-      if (fr.getFunction() instanceof StarlarkFunction) {
-        return ((StarlarkFunction) fr.getFunction()).getModule();
-      }
-    }
-    return null;
+    return new StarlarkRuleFunction(
+        builder,
+        type,
+        attributes,
+        thread.getCallerLocation(),
+        Starlark.toJavaOptional(doc, String.class));
   }
 
   private static void checkAttributeName(String name) throws EvalException {
@@ -779,13 +739,28 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       return Optional.ofNullable(documentation);
     }
 
+    /**
+     * Returns the label of the .bzl module where rule() was called, or null if the rule has not
+     * been exported yet.
+     */
+    @Nullable
+    public Label getExtensionLabel() {
+      return starlarkLabel;
+    }
+
     @Override
     public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
         throws EvalException, InterruptedException {
       if (!args.isEmpty()) {
-        throw new EvalException("unexpected positional arguments");
+        throw new EvalException("Unexpected positional arguments");
       }
-      BazelStarlarkContext.from(thread).checkLoadingPhase(getName());
+      try {
+        BazelStarlarkContext.from(thread).checkLoadingPhase(getName());
+      } catch (IllegalStateException e) {
+        throw new EvalException(
+            "A rule can only be instantiated in a BUILD file, or a macro "
+                + "invoked from a BUILD file");
+      }
       if (ruleClass == null) {
         throw new EvalException("Invalid rule class hasn't been exported by a bzl file");
       }
@@ -846,9 +821,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     }
 
     /** Export a RuleFunction from a Starlark file with a given name. */
-    // To avoid losing event information in the case where the rule was defined with an explicit
-    // name= arg, all events should be created using errorf(). See the comment in rule() above for
-    // details.
     @Override
     public void export(EventHandler handler, Label starlarkLabel, String ruleClassName) {
       checkState(ruleClass == null && builder != null);
@@ -982,7 +954,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
     @Override
     public void repr(Printer printer) {
-      printer.append("<rule>");
+      if (isExported()) {
+        printer.append("<rule ").append(getRuleClass().getName()).append(">");
+      } else {
+        printer.append("<rule>");
+      }
     }
 
     @Override

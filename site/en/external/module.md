@@ -29,7 +29,7 @@ To perform module resolution, Bazel starts by reading the root module's
 `MODULE.bazel` file from a [Bazel registry](/external/registry) until it
 discovers the entire dependency graph.
 
-By default, Bazel then [selects](#version_selection) one version of each module
+By default, Bazel then [selects](#version-selection) one version of each module
 to use. Bazel represents each module with a repo, and consults the registry
 again to learn how to define each of the repos.
 
@@ -58,7 +58,7 @@ Any valid SemVer version is a valid Bazel module version. Additionally, two
 SemVer versions `a` and `b` compare `a < b` if and only if the same holds when
 they're compared as Bazel module versions.
 
-## Version selection
+## Version selection {:#version-selection}
 
 Consider the diamond dependency problem, a staple in the versioned dependency
 management space. Suppose you have the dependency graph:
@@ -175,16 +175,16 @@ Bazel supports the following non-registry overrides:
 
 ## Repository names and strict deps
 
-The [canonical name](/external/overview#canonical_repository_name) of a repo
-backing a module is `{{ "<var>" }}module_name{{ "</var>" }}~{{ "<var>"
-}}version{{ "</var>" }}` (for example, `bazel_skylib~1.0.3`). For modules with a
+The [canonical name](/external/overview#canonical-repo-name) of a repo backing a
+module is `{{ "<var>" }}module_name{{ "</var>" }}~{{ "<var>" }}version{{
+"</var>" }}` (for example, `bazel_skylib~1.0.3`). For modules with a
 non-registry override, replace the `{{ "<var>" }}version{{ "</var>" }}` part
 with the string `override`. Note that the canonical name format is not an API
 you should depend on and is subject to change at any time.
 
-The [apparent name](/external/overview#apparent_repository_name) of a repo
-backing a module to its direct dependents defaults to its module name, unless
-the `repo_name` attribute of the [`bazel_dep`](/rules/lib/globals/module#bazel_dep)
+The [apparent name](/external/overview#apparent-repo-name) of a repo backing a
+module to its direct dependents defaults to its module name, unless the
+`repo_name` attribute of the [`bazel_dep`](/rules/lib/globals/module#bazel_dep)
 directive says otherwise. Note that this means a module can only find its direct
 dependencies. This helps prevent accidental breakages due to changes in
 transitive dependencies.

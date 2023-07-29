@@ -134,7 +134,8 @@ public class JavaPluginConfiguredTargetTest extends BuildViewTestCase {
             .get(ProguardSpecProvider.PROVIDER)
             .getTransitiveProguardSpecs();
     assertThat(ActionsTestUtil.baseArtifactNames(providedSpecs))
-        .containsAtLeast("top.pro_valid", "dep.pro_valid", "plugin.pro_valid");
+        .containsAtLeast("top.pro_valid", "dep.pro_valid");
+    assertThat(ActionsTestUtil.baseArtifactNames(providedSpecs)).doesNotContain("plugin.pro_valid");
   }
 
   @Test
