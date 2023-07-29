@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Configurations
 
+<devsite-mathjax config="TeX-AMS-MML_SVG"></devsite-mathjax>
+
 {% include "_buttons.html" %}
 
 This page covers the benefits and basic usage of Starlark configurations,
