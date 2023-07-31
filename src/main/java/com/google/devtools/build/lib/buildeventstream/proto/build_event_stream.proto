@@ -965,6 +965,9 @@ message BuildMetrics {
   PackageMetrics package_metrics = 4;
 
   message TimingMetrics {
+    // For Skymeld,
+    // analysis_phase_time_in_ms + execution_phase_time_in_ms >= wall_time_in_ms
+    //
     // The CPU time in milliseconds consumed during this build.
     int64 cpu_time_in_ms = 1;
     // The elapsed wall time in milliseconds during this build.
@@ -973,6 +976,10 @@ message BuildMetrics {
     // When analysis and execution phases are interleaved, this measures the
     // elapsed time from the first analysis work to the last.
     int64 analysis_phase_time_in_ms = 3;
+    // The elapsed wall time in milliseconds during the execution phase.
+    // When analysis and execution phases are interleaved, this measures the
+    // elapsed time from the first action execution to the last.
+    int64 execution_phase_time_in_ms = 4;
   }
   TimingMetrics timing_metrics = 5;
 
