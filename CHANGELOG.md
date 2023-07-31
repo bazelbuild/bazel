@@ -1,3 +1,23 @@
+## Release 6.3.1 (2023-07-31)
+
+```
+Baseline:  0f231ac8acabcd8aa309da041c98ab90a1552418
+
+Release Notes:
+
++ Mark isolated extension usages as experimental (#19050)
++ Fix a bug where frozen targets list was mutated while expanding env attribute (#19052)
++ Add documentation for --experimental_isolated_extension_usage (#19071)
++ Advertise CcInfo from cc_import (#19086)
++ Create .bazelversion to address postsubmit issues (#19089)
++ Update java_tools version to 12.6 (#19091)
++ Disable lockfiles by default (#19106)
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as Brentley Jones, Fabian Meumertzheim, oquenchil, Xùdōng Yáng.
+```
+
 ## Release 7.0.0-pre.20230710.5 (2023-07-28)
 
 ```
