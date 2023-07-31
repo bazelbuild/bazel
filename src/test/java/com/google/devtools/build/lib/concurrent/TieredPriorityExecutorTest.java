@@ -36,7 +36,6 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -494,94 +493,6 @@ public final class TieredPriorityExecutorTest {
   }
 
   @Test
-  public void workDonation_processesAllTasks() throws InterruptedException {
-    var holdAllThreads = new CountDownLatch(1);
-    for (int i = 0; i < POOL_SIZE - 1; ++i) {
-      executor.execute(() -> awaitUninterruptibly(holdAllThreads));
-    }
-
-    var donor = new AtomicReference<Thread>();
-    var donorSet = new CountDownLatch(1);
-    var gate = new CountDownLatch(1);
-    var donationDone = new CountDownLatch(1);
-    executor.execute(
-        () -> {
-          donor.set(Thread.currentThread());
-          donorSet.countDown();
-          awaitUninterruptibly(gate);
-          for (int i = 0; i < 100; ++i) {
-            assertThat(TieredPriorityExecutor.tryDoQueuedWork()).isTrue();
-          }
-          donationDone.countDown();
-          awaitUninterruptibly(holdAllThreads);
-        });
-
-    var receiver = new AtomicInteger();
-    for (int i = 0; i < 100; ++i) {
-      executor.execute(
-          () -> {
-            // This task is running from the donor's thread.
-            assertThat(Thread.currentThread()).isEqualTo(donor.get());
-            receiver.getAndIncrement();
-          });
-    }
-
-    donorSet.await();
-    gate.countDown();
-    donationDone.await();
-    assertThat(receiver.get()).isEqualTo(100);
-    holdAllThreads.countDown();
-    executor.awaitQuiescence(/* interruptWorkers= */ true);
-  }
-
-  @Test
-  public void workDonation_handlesErrorsInDonatedWork() throws InterruptedException {
-    var interruptedCount = new AtomicInteger();
-    var holdAllThreads = new CountDownLatch(1);
-    for (int i = 0; i < POOL_SIZE - 1; ++i) {
-      executor.execute(
-          () -> {
-            try {
-              while (!holdAllThreads.await(INTERRUPT_POLL_MS, MILLISECONDS)) {}
-            } catch (InterruptedException e) {
-              interruptedCount.getAndIncrement();
-            }
-          });
-    }
-
-    var donor = new AtomicReference<Thread>();
-    var donorSet = new CountDownLatch(1);
-    var gate = new CountDownLatch(1);
-    executor.execute(
-        () -> {
-          donor.set(Thread.currentThread());
-          donorSet.countDown();
-          awaitUninterruptibly(gate);
-          assertThat(TieredPriorityExecutor.tryDoQueuedWork()).isTrue();
-          try {
-            while (!holdAllThreads.await(INTERRUPT_POLL_MS, MILLISECONDS)) {}
-          } catch (InterruptedException e) {
-            interruptedCount.getAndIncrement();
-          }
-        });
-
-    executor.execute(
-        () -> {
-          assertThat(Thread.currentThread()).isEqualTo(donor.get());
-          throw new AssertionError("critical error");
-        });
-
-    donorSet.await();
-    gate.countDown();
-
-    var error =
-        assertThrows(
-            AssertionError.class, () -> executor.awaitQuiescence(/* interruptWorkers= */ true));
-    assertThat(error).hasMessageThat().contains("critical error");
-    assertThat(interruptedCount.get()).isEqualTo(POOL_SIZE);
-  }
-
-  @Test
   public void settableFuture_respondsToInterrupt() throws InterruptedException {
     var interruptedCount = new AtomicInteger();
     var allStarted = new CountDownLatch(POOL_SIZE);
@@ -682,31 +593,22 @@ public final class TieredPriorityExecutorTest {
     // Waits for holders to start, otherwise they might race against the filling of the queue below.
     allHoldersStarted.await();
 
-    // Fills up the queue.
-    var executed = new ArrayList<Integer>();
+    // Over-fills the queue.
+    var executed = Sets.<Integer>newConcurrentHashSet();
     var expected = new ArrayList<Integer>();
-    for (int i = 0; i < PriorityWorkerPool.TASKS_MAX_VALUE; ++i) {
+    for (int i = 0; i < 2 * PriorityWorkerPool.TASKS_MAX_VALUE; ++i) {
       expected.add(i);
 
       final int index = i;
       executor.execute(() -> executed.add(index));
     }
 
-    // Adds tasks that would overflow the queue. Since overflows consume tasks from the queue, this
-    // causes all the tasks above to be executed.
-    var donorValues = Sets.<Integer>newConcurrentHashSet();
-    for (int i = 0; i < PriorityWorkerPool.TASKS_MAX_VALUE; ++i) {
-      final int index = i;
-      executor.execute(() -> donorValues.add(index));
-    }
-
-    assertThat(executed).isEqualTo(expected);
-    assertThat(donorValues).isEmpty();
+    assertThat(executed).isEmpty();
 
     holdAllThreads.countDown();
     executor.awaitQuiescence(/* interruptWorkers= */ true);
 
-    assertThat(donorValues).containsExactlyElementsIn(expected);
+    assertThat(executed).containsExactlyElementsIn(expected);
   }
 
   @Test
