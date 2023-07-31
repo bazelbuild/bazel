@@ -289,6 +289,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
   protected CommandHelper.Builder commandHelperBuilder(RuleContext ruleContext) {
     return CommandHelper.builder(ruleContext)
         .addToolDependencies("tools")
+        .addToolDependencies("exec_tools")
         .addToolDependencies("toolchains");
   }
 
