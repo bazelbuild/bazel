@@ -420,8 +420,11 @@ public interface AppleCommonApi<
             positional = false,
             named = true,
             documented = false,
-            allowedTypes = {@ParamType(type = Dict.class)},
-            defaultValue = "unbound"),
+            allowedTypes = {
+              @ParamType(type = Dict.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None"),
       },
       useStarlarkThread = true)
   // TODO(b/70937317): Iterate on, improve, and solidify this API.
