@@ -228,8 +228,16 @@ public class BuildViewForTesting {
   /** Sets the configurations. Not thread-safe. */
   public void setConfigurationsForTesting(
       EventHandler eventHandler, BuildConfigurationCollection configurations) {
-    skyframeBuildView.setConfigurations(
-        eventHandler, configurations, /* maxDifferencesToShow */ -1);
+    try {
+      skyframeBuildView.setConfigurations(
+          eventHandler, configurations, /* maxDifferencesToShow */ -1,
+          /* allowAnalysisCacheDiscards */ true);
+    } catch (InvalidConfigurationException e) {
+      throw new UnsupportedOperationException(
+          "InvalidConfigurationException was thrown and caught during a test, "
+              + "this case is not yet handled",
+          e);
+    }
   }
 
   public ArtifactFactory getArtifactFactory() {
