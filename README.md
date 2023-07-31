@@ -1,4 +1,4 @@
-# [Bazel](https://bazel.build)
+# [Bazel](https://bazel.build)a
 
 *{Fast, Correct} - Choose two*
 
