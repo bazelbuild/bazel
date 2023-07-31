@@ -87,8 +87,8 @@ class NotifyingInMemoryGraph extends NotifyingHelper.NotifyingProcessableGraph
   }
 
   @Override
-  public void cleanupInterningPool() {
-    ((InMemoryGraph) delegate).cleanupInterningPool();
+  public void cleanupInterningPools() {
+    ((InMemoryGraph) delegate).cleanupInterningPools();
   }
 
   @Override
