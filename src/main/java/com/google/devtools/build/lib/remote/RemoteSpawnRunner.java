@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.devtools.build.lib.profiler.ProfilerTask.PROCESS_TIME;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_DOWNLOAD;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_EXECUTION;
+import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_PROCESS_TIME;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_QUEUE;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_SETUP;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.UPLOAD_TIME;
@@ -342,7 +342,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
         converter,
         executedActionMetadata.getExecutionStartTimestamp(),
         executedActionMetadata.getExecutionCompletedTimestamp(),
-        PROCESS_TIME,
+        REMOTE_PROCESS_TIME,
         "execute");
     logProfileTask(
         converter,
