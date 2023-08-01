@@ -23,7 +23,7 @@ body:
     id: subteam
     attributes:
       label: >
-        What category does this issue belong to?
+        Which category does this issue belong to?
       description: >
         Answering this will help us triage this issue faster and more accurately to the
         relevant team(s).
