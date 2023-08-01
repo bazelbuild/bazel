@@ -30,7 +30,9 @@ import javax.annotation.Nullable;
 public class SkymeldInconsistencyReceiver implements GraphInconsistencyReceiver {
   private static final ImmutableMap<SkyFunctionName, SkyFunctionName>
       SKYMELD_EXPECTED_MISSING_CHILDREN =
-          ImmutableMap.of(SkyFunctions.ACTION_EXECUTION, SkyFunctions.GLOB);
+          ImmutableMap.of(
+              SkyFunctions.ACTION_EXECUTION, SkyFunctions.GLOB,
+              SkyFunctions.GLOB, SkyFunctions.GLOB);
 
   private final boolean heuristicallyDropNodes;
 
