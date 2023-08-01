@@ -31,14 +31,4 @@ public class BazelGenRule extends GenRuleBase {
     }
     return ruleContext.attributes().get("stamp", Type.BOOLEAN);
   }
-
-  // TODO(https://github.com/bazelbuild/bazel/issues/19132): Remove this override once downstream
-  // projects are migrated.
-  @Override
-  protected CommandHelper.Builder commandHelperBuilder(RuleContext ruleContext) {
-    return CommandHelper.builder(ruleContext)
-        .addToolDependencies("tools")
-        .addToolDependencies("exec_tools")
-        .addToolDependencies("toolchains");
-  }
 }
