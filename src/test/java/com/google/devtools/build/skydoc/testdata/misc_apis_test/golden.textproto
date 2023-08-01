@@ -9,7 +9,7 @@ rule_info {
   }
   attribute {
     name: "deps"
-    doc_string: "\nA list of dependencies.\n"
+    doc_string: "A list of dependencies."
     type: LABEL_LIST
     provider_name_group {
       provider_name: "MyInfo"

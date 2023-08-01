@@ -15,7 +15,7 @@ provider_info {
 }
 provider_info {
   provider_name: "MyVeryDocumentedInfo"
-  doc_string: "\nA provider with some really neat documentation.\nLook on my works, ye mighty, and despair!\n"
+  doc_string: "A provider with some really neat documentation.\nLook on my works, ye mighty, and despair!"
   field_info {
     name: "favorite_food"
     doc_string: "A string representing my favorite food"

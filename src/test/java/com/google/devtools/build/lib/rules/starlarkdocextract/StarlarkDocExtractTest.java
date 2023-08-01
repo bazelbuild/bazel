@@ -824,7 +824,10 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         "",
         "my_repo_rule = repository_rule(",
         "    implementation = _impl,",
-        "    doc = 'My repository rule',",
+        "    doc = '''My repository rule",
+        "",
+        "    With details",
+        "    ''',",
         "    attrs = {",
         "        'a': attr.string(doc = 'My doc', default = 'foo'),",
         "        'b': attr.string(mandatory = True),",
@@ -855,7 +858,7 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
                 .setRuleName("foo.repo_rule")
                 .setOriginKey(
                     OriginKey.newBuilder().setName("my_repo_rule").setFile("//:dep.bzl").build())
-                .setDocString("My repository rule")
+                .setDocString("My repository rule\n\nWith details")
                 .addAllAttribute(ModuleInfoExtractor.IMPLICIT_REPOSITORY_RULE_ATTRIBUTES)
                 .addAttribute(
                     AttributeInfo.newBuilder()
@@ -878,7 +881,9 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
     scratch.file(
         "dep.bzl",
         "_install = tag_class(",
-        "    doc = 'Install',",
+        "    doc = '''Install",
+        "    ",
+        "    With details''',",
         "    attrs = {",
         "        'artifacts': attr.string_list(doc = 'Artifacts'),",
         "        '_hidden': attr.bool(),",
@@ -896,7 +901,9 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         "    pass",
         "",
         "my_ext = module_extension(",
-        "    doc = 'My extension',",
+        "    doc = '''My extension",
+        "",
+        "    With details''',",
         "    tag_classes = {",
         "        'install': _install,",
         "        'artifact': _artifact,",
@@ -925,12 +932,12 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         .containsExactly(
             ModuleExtensionInfo.newBuilder()
                 .setExtensionName("foo.ext")
-                .setDocString("My extension")
+                .setDocString("My extension\n\nWith details")
                 .setOriginKey(OriginKey.newBuilder().setFile("//:dep.bzl").build())
                 .addTagClass(
                     ModuleExtensionTagClassInfo.newBuilder()
                         .setTagName("install")
-                        .setDocString("Install")
+                        .setDocString("Install\n\nWith details")
                         .addAttribute(
                             AttributeInfo.newBuilder()
                                 .setName("artifacts")
