@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 
@@ -31,15 +32,18 @@ public abstract class LockFileModuleExtension implements Postable {
   @SuppressWarnings("mutable")
   public abstract byte[] getBzlTransitiveDigest();
 
+  public abstract ImmutableMap<Label, String> getAccumulatedFileDigests();
+
   public abstract ImmutableMap<String, String> getEnvVariables();
 
   public abstract ImmutableMap<String, RepoSpec> getGeneratedRepoSpecs();
 
   public static LockFileModuleExtension create(
       byte[] transitiveDigest,
+      ImmutableMap<Label, String> accumulatedFileDigests,
       ImmutableMap<String, String> envVariables,
       ImmutableMap<String, RepoSpec> generatedRepoSpecs) {
     return new AutoValue_LockFileModuleExtension(
-        transitiveDigest, envVariables, generatedRepoSpecs);
+        transitiveDigest, accumulatedFileDigests, envVariables, generatedRepoSpecs);
   }
 }
