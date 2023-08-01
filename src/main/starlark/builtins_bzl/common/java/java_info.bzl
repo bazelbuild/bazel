@@ -817,6 +817,16 @@ _EMPTY_PLUGIN_DATA = _JavaPluginDataInfo(
     processor_data = depset(),
 )
 
+def _create_plugin_data_info(*, processor_classes, processor_jars, processor_data):
+    if processor_classes or processor_jars or processor_data:
+        return _JavaPluginDataInfo(
+            processor_classes = processor_classes,
+            processor_jars = processor_jars,
+            processor_data = processor_data,
+        )
+    else:
+        return _EMPTY_PLUGIN_DATA
+
 def disable_plugin_info_annotation_processing(plugin_info):
     """Returns a copy of the provided JavaPluginInfo without annotation processing info
 
@@ -827,7 +837,7 @@ def disable_plugin_info_annotation_processing(plugin_info):
         (JavaPluginInfo) a new, transformed instance.
      """
     return _new_javaplugininfo(
-        plugins = _JavaPluginDataInfo(
+        plugins = _create_plugin_data_info(
             processor_classes = depset(order = "preorder"),
             # Preserve the processor path, since it may contain Error Prone plugins
             # which will be service-loaded by JavaBuilder.
@@ -869,7 +879,7 @@ def _has_plugin_data(plugin_data):
     )
 
 def _merge_plugin_data(datas):
-    return _JavaPluginDataInfo(
+    return _create_plugin_data_info(
         processor_classes = depset(transitive = [p.processor_classes for p in datas]),
         processor_jars = depset(transitive = [p.processor_jars for p in datas]),
         processor_data = depset(transitive = [p.processor_data for p in datas]),
@@ -903,7 +913,7 @@ def _javaplugininfo_init(
 
     java_infos = merge(runtime_deps)
     processor_data = data if type(data) == "depset" else depset(data)
-    plugins = _JavaPluginDataInfo(
+    plugins = _create_plugin_data_info(
         processor_classes = depset([processor_class]) if processor_class else depset(),
         processor_jars = java_infos.transitive_runtime_jars,
         processor_data = processor_data,
