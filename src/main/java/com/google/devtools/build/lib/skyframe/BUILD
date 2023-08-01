@@ -3018,6 +3018,7 @@ java_library(
     deps = [
         ":node_dropping_inconsistency_receiver",
         ":sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:graph_inconsistency_java_proto",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
