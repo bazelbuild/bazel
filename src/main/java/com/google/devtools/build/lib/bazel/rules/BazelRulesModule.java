@@ -365,14 +365,6 @@ public final class BazelRulesModule extends BlazeModule {
     public List<String> availabilityInfoExempt;
 
     @Option(
-        name = "experimental_skymeld_ui",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        help = "No-op. To be removed.")
-    public boolean skymeldUi;
-
-    @Option(
         name = "experimental_collect_local_action_metrics",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
