@@ -109,24 +109,25 @@ public abstract class BazelLockFileValue implements SkyValue, Postable {
     return moduleDiff.build();
   }
 
+  /** Returns the differences between an extension and its locked data */
   public ImmutableList<String> getModuleExtensionDiff(
-      LockFileModuleExtension lockedExtension,
-      ImmutableMap<ModuleKey, ModuleExtensionUsage> lockedExtensionUsages,
       ModuleExtensionId extensionId,
       byte[] transitiveDigest,
+      boolean filesChanged,
       ImmutableMap<String, String> envVariables,
-      ImmutableMap<ModuleKey, ModuleExtensionUsage> extensionUsages) {
+      ImmutableMap<ModuleKey, ModuleExtensionUsage> extensionUsages,
+      ImmutableMap<ModuleKey, ModuleExtensionUsage> lockedExtensionUsages) {
+    LockFileModuleExtension lockedExtension = getModuleExtensions().get(extensionId);
+
     ImmutableList.Builder<String> extDiff = new ImmutableList.Builder<>();
-    if (lockedExtension == null) {
-      return extDiff
-          .add("The module extension '" + extensionId + "' does not exist in the lockfile")
-          .build();
-    }
     if (!Arrays.equals(transitiveDigest, lockedExtension.getBzlTransitiveDigest())) {
         extDiff.add(
             "The implementation of the extension '"
                 + extensionId
                 + "' or one of its transitive .bzl files has changed");
+    }
+    if (filesChanged) {
+      extDiff.add("One or more files the extension '" + extensionId + "' is using have changed");
     }
     if (!extensionUsages.equals(lockedExtensionUsages)) {
       extDiff.add("The usages of the extension '" + extensionId + "' has changed");
