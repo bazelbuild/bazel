@@ -40,20 +40,10 @@ public class BazelConfiguration extends Fragment {
         help = "If enabled, visibility checking also applies to toolchain implementations.")
     public boolean checkVisibilityForToolchains;
 
-    @Option(
-        name = "incompatible_remove_exec_tools",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help = "If enabled, use of genrule's exec_tools attribute will cause an error..")
-    public boolean removeExecTools;
-
     @Override
     public FragmentOptions getExec() {
       Options exec = (Options) getDefault();
       exec.checkVisibilityForToolchains = checkVisibilityForToolchains;
-      exec.removeExecTools = removeExecTools;
 
       return exec;
     }
