@@ -42,7 +42,10 @@ sh_library(
         "unittest.bash",
         "unittest_utils.sh",
     ],
-    data = [":testenv.sh"],
+    data = [
+        ":testenv.sh",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
     visibility = ["//visibility:public"],
 )
 
