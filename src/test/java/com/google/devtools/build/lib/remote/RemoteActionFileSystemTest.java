@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -66,18 +67,19 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
 
 /** Tests for {@link RemoteActionFileSystem} */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTestBase {
   private static final RemoteOutputChecker DUMMY_REMOTE_OUTPUT_CHECKER =
       new RemoteOutputChecker(
@@ -94,6 +96,21 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   private final ArtifactRoot sourceRoot = ArtifactRoot.asSourceRoot(Root.fromPath(execRoot));
   private final ArtifactRoot outputRoot =
       ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, RELATIVE_OUTPUT_PATH);
+
+  enum FilesystemTestParam {
+    LOCAL,
+    REMOTE;
+
+    FileSystem getFilesystem(RemoteActionFileSystem actionFs) {
+      switch (this) {
+        case LOCAL:
+          return actionFs.getLocalFileSystem();
+        case REMOTE:
+          return actionFs.getRemoteOutputTree();
+      }
+      throw new IllegalStateException();
+    }
+  };
 
   @Before
   public void setUp() throws IOException {
@@ -355,7 +372,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     FileArtifactValue metadata = checkNotNull(inputs.getInputMetadata(artifact));
     RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
 
-    assertThat(actionFs.exists(path)).isTrue();
+    assertThat(actionFs.exists(path, /* followSymlinks= */ true)).isTrue();
 
     FileStatus st = actionFs.stat(path, /* followSymlinks= */ true);
     assertThat(st.isFile()).isTrue();
@@ -371,7 +388,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     FileArtifactValue metadata =
         injectRemoteFile(actionFs, artifact.getPath().asFragment(), "remote contents");
 
-    assertThat(actionFs.exists(path)).isTrue();
+    assertThat(actionFs.exists(path, /* followSymlinks= */ true)).isTrue();
 
     FileStatus st = actionFs.stat(path, /* followSymlinks= */ true);
     assertThat(st.isFile()).isTrue();
@@ -391,6 +408,36 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     FileStatus st = actionFs.stat(path, /* followSymlinks= */ true);
     assertThat(st.isFile()).isTrue();
     assertThat(st.getSize()).isEqualTo("local contents".getBytes(UTF_8).length);
+  }
+
+  @Test
+  public void statAndExists_followSymlinks(
+      @TestParameter FilesystemTestParam from, @TestParameter FilesystemTestParam to)
+      throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    FileSystem fromFs = from.getFilesystem(actionFs);
+    FileSystem toFs = to.getFilesystem(actionFs);
+
+    PathFragment linkPath = getOutputPath("sym");
+    PathFragment targetPath = getOutputPath("target");
+    fromFs.getPath(linkPath).createSymbolicLink(execRoot.getRelative(targetPath).asFragment());
+
+    assertThat(actionFs.exists(linkPath, /* followSymlinks= */ false)).isTrue();
+    assertThat(actionFs.exists(linkPath, /* followSymlinks= */ true)).isFalse();
+    assertThat(actionFs.stat(linkPath, /* followSymlinks= */ false).isSymbolicLink()).isTrue();
+    assertThrows(
+        FileNotFoundException.class, () -> actionFs.stat(linkPath, /* followSymlinks= */ true));
+
+    if (toFs.equals(actionFs.getLocalFileSystem())) {
+      writeLocalFile(actionFs, targetPath, "content");
+    } else {
+      injectRemoteFile(actionFs, targetPath, "content");
+    }
+
+    assertThat(actionFs.exists(linkPath, /* followSymlinks= */ false)).isTrue();
+    assertThat(actionFs.stat(linkPath, /* followSymlinks= */ false).isSymbolicLink()).isTrue();
+    assertThat(actionFs.exists(linkPath, /* followSymlinks= */ true)).isTrue();
+    assertThat(actionFs.stat(linkPath, /* followSymlinks= */ true).isFile()).isTrue();
   }
 
   @Test
@@ -419,6 +466,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     assertReaddir(
         actionFs,
         dirPath,
+        /* followSymlinks= */ true,
         new Dirent("out1", Dirent.Type.FILE),
         new Dirent("out2", Dirent.Type.FILE),
         new Dirent("subdir", Dirent.Type.DIRECTORY));
@@ -438,6 +486,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     assertReaddir(
         actionFs,
         dirPath,
+        /* followSymlinks= */ true,
         new Dirent("out1", Dirent.Type.FILE),
         new Dirent("out2", Dirent.Type.FILE),
         new Dirent("subdir", Dirent.Type.DIRECTORY));
@@ -460,9 +509,42 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     assertReaddir(
         actionFs,
         dirPath,
+        /* followSymlinks= */ true,
         new Dirent("out1", Dirent.Type.FILE),
         new Dirent("out2", Dirent.Type.FILE),
         new Dirent("subdir", Dirent.Type.DIRECTORY));
+  }
+
+  @Test
+  public void readdir_followSymlinks(
+      @TestParameter FilesystemTestParam from, @TestParameter FilesystemTestParam to)
+      throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    FileSystem fromFs = from.getFilesystem(actionFs);
+    FileSystem toFs = to.getFilesystem(actionFs);
+
+    PathFragment dirPath = getOutputPath("dir");
+    PathFragment linkPath = getOutputPath("dir/sym");
+    PathFragment targetPath = getOutputPath("target");
+
+    fromFs.getPath(dirPath).createDirectory();
+    fromFs.getPath(linkPath).createSymbolicLink(execRoot.getRelative(targetPath).asFragment());
+
+    assertReaddir(
+        actionFs, dirPath, /* followSymlinks= */ false, new Dirent("sym", Dirent.Type.SYMLINK));
+    assertReaddir(
+        actionFs, dirPath, /* followSymlinks= */ true, new Dirent("sym", Dirent.Type.UNKNOWN));
+
+    if (toFs.equals(actionFs.getLocalFileSystem())) {
+      writeLocalFile(actionFs, targetPath, "content");
+    } else {
+      injectRemoteFile(actionFs, targetPath, "content");
+    }
+
+    assertReaddir(
+        actionFs, dirPath, /* followSymlinks= */ false, new Dirent("sym", Dirent.Type.SYMLINK));
+    assertReaddir(
+        actionFs, dirPath, /* followSymlinks= */ true, new Dirent("sym", Dirent.Type.FILE));
   }
 
   @Test
@@ -477,13 +559,53 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   }
 
   private void assertReaddir(
-      RemoteActionFileSystem actionFs, PathFragment dirPath, Dirent... expected) throws Exception {
-    assertThat(actionFs.readdir(dirPath, /* followSymlinks= */ true))
+      RemoteActionFileSystem actionFs,
+      PathFragment dirPath,
+      boolean followSymlinks,
+      Dirent... expected)
+      throws Exception {
+    assertThat(actionFs.readdir(dirPath, followSymlinks))
         .containsExactlyElementsIn(expected)
         .inOrder();
     assertThat(actionFs.getDirectoryEntries(dirPath))
         .containsExactlyElementsIn(stream(expected).map(Dirent::getName).collect(toImmutableList()))
         .inOrder();
+  }
+
+  @Test
+  public void readSymbolicLink_fromLocalFilesystem() throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    PathFragment filePath = getOutputPath("file");
+    PathFragment linkPath = getOutputPath("sym");
+    PathFragment targetPath = PathFragment.create("/some/path");
+    actionFs.getLocalFileSystem().getPath(linkPath).createSymbolicLink(targetPath);
+    writeLocalFile(actionFs, filePath, "contents");
+
+    assertThat(actionFs.readSymbolicLink(linkPath)).isEqualTo(targetPath);
+
+    assertThrows(NotASymlinkException.class, () -> actionFs.readSymbolicLink(filePath));
+  }
+
+  @Test
+  public void readSymbolicLink_fromRemoteFilesystem() throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    PathFragment filePath = getOutputPath("file");
+    PathFragment linkPath = getOutputPath("sym");
+    PathFragment targetPath = PathFragment.create("/some/path");
+    actionFs.getRemoteOutputTree().getPath(linkPath).createSymbolicLink(targetPath);
+    injectRemoteFile(actionFs, filePath, "contents");
+
+    assertThat(actionFs.readSymbolicLink(linkPath)).isEqualTo(targetPath);
+
+    assertThrows(NotASymlinkException.class, () -> actionFs.readSymbolicLink(filePath));
+  }
+
+  @Test
+  public void readSymbolicLink_notFound() throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    PathFragment linkPath = getOutputPath("sym");
+
+    assertThrows(FileNotFoundException.class, () -> actionFs.readSymbolicLink(linkPath));
   }
 
   @Test
@@ -652,6 +774,53 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
 
     // assert
     verifyNoInteractions(metadataInjector);
+  }
+
+  @Test
+  public void resolveSymbolicLinks(
+      @TestParameter FilesystemTestParam a, @TestParameter FilesystemTestParam b) throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    FileSystem aFs = a.getFilesystem(actionFs);
+    FileSystem bFs = b.getFilesystem(actionFs);
+
+    // /a
+    //  |- asub
+    //  |  `- afile
+    //  `- abssym -> /b/bsub
+    //  `- relsym -> asub
+    // /b
+    //  `- bsub
+    //     `- bfile
+
+    aFs.getPath(getOutputPath("a/asub")).createDirectoryAndParents();
+    aFs.getPath(getOutputPath("a/abssym")).createSymbolicLink(getOutputPath("b/bsub"));
+    aFs.getPath(getOutputPath("a/relsym")).createSymbolicLink(PathFragment.create("asub"));
+    if (aFs.equals(actionFs.getLocalFileSystem())) {
+      writeLocalFile(actionFs, getOutputPath("a/asub/afile"), "content");
+    } else {
+      injectRemoteFile(actionFs, getOutputPath("a/asub/afile"), "content");
+    }
+
+    bFs.getPath(getOutputPath("b/bsub")).createDirectoryAndParents();
+    if (bFs.equals(actionFs.getLocalFileSystem())) {
+      writeLocalFile(actionFs, getOutputPath("b/bsub/bfile"), "content");
+    } else {
+      injectRemoteFile(actionFs, getOutputPath("b/bsub/bfile"), "content");
+    }
+
+    assertThat(actionFs.getPath(getOutputPath("a/relsym/afile")).resolveSymbolicLinks())
+        .isEqualTo(actionFs.getPath(getOutputPath("a/asub/afile")));
+
+    assertThrows(
+        FileNotFoundException.class,
+        () -> actionFs.getPath(getOutputPath("a/bsub/nofile")).resolveSymbolicLinks());
+
+    assertThat(actionFs.getPath(getOutputPath("a/abssym/bfile")).resolveSymbolicLinks())
+        .isEqualTo(actionFs.getPath(getOutputPath("b/bsub/bfile")));
+
+    assertThrows(
+        FileNotFoundException.class,
+        () -> actionFs.getPath(getOutputPath("b/bsub/nofile")).resolveSymbolicLinks());
   }
 
   @Test
