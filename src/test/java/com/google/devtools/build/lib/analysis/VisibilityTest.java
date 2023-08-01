@@ -99,8 +99,9 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file("tool/BUILD", "exports_files(['tool.sh'], visibility=['//use:__pkg__'])");
     useConfiguration("--incompatible_visibility_private_attributes_at_definition");
 
-    reporter.removeHandler(failFastHandler);
-    assertThrows(ViewCreationFailedException.class, () -> update("//use:world"));
+    update("//use:world");
+
+    assertThat(hasErrors(getConfiguredTarget("//use:world"))).isFalse();
   }
 
   @Test
@@ -402,7 +403,6 @@ public class VisibilityTest extends AnalysisTestCase {
         "  visibility = [",
         "    '//inner_aspect:__pkg__',",
         "    '//rule:__pkg__',",
-        "    '//foo:__pkg__',",
         "  ],",
         ")",
         "sh_binary(",
@@ -485,7 +485,6 @@ public class VisibilityTest extends AnalysisTestCase {
         "  visibility = [",
         "    '//outer_aspect:__pkg__',",
         "    '//rule:__pkg__',",
-        "    '//foo:__pkg__',",
         "  ],",
         ")",
         "sh_binary(",
@@ -568,7 +567,6 @@ public class VisibilityTest extends AnalysisTestCase {
         "  visibility = [",
         "    '//outer_aspect:__pkg__',",
         "    '//inner_aspect:__pkg__',",
-        "    '//foo:__pkg__',",
         "  ],",
         ")");
     useConfiguration("--incompatible_visibility_private_attributes_at_definition");

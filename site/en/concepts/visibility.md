@@ -234,18 +234,22 @@ every instance of that rule. For example, a `cc_library` rule might create an
 implicit dependency from each of its rule targets to an executable target
 representing a C++ compiler.
 
-Currently, for visibility purposes these implicit dependencies are treated like
-any other dependency. This means that the target being depended on (such as our
-C++ compiler) must be visible to every instance of the rule. In practice this
-usually means the target must have public visibility.
+The visibility of such an implicit dependency is checked with respect to the
+package containing the `.bzl` file in which the rule (or aspect) is defined. In
+our example, the C++ compiler could be private so long as it lives in the same
+package as the definition of the `cc_library` rule. As a fallback, if the
+implicit dependency is not visible from the definition, it is checked with
+respect to the `cc_library` target.
 
-You can change this behavior by setting
-[`--incompatible_visibility_private_attributes_at_definition`](https://github.com/bazelbuild/proposals/blob/master/designs/2019-10-15-tool-visibility.md){: .external}. When enabled, the
-target in question need only be visible to the rule declaring it an implicit
-dependency. That is, it must be visible to the package containing the `.bzl`
-file in which the rule is defined. In our example, the C++ compiler could be
-private so long as it lives in the same package as the definition of the
-`cc_library` rule.
+You can change this behavior by disabling
+[`--incompatible_visibility_private_attributes_at_definition`](https://github.com/bazelbuild/proposals/blob/master/designs/2019-10-15-tool-visibility.md){: .external}.
+When disabled, implicit dependencies are treated like any other dependency.
+This means that the target being depended on (such as our C++ compiler) must be
+visible to every instance of the rule. In practice this usually means the target
+must have public visibility.
+
+If you want to restrict the usage of a rule to certain packages, use
+[load visibility](#load-visibility) instead.
 
 ## Load visibility {:#load-visibility}
 
