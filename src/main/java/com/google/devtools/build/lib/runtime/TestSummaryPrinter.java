@@ -118,13 +118,13 @@ public class TestSummaryPrinter {
       AnsiTerminalPrinter terminalPrinter,
       TestLogPathFormatter testLogPathFormatter,
       boolean verboseSummary,
-      boolean printFailedTestCases) {
+      boolean printTestCases) {
     print(
         summary,
         terminalPrinter,
         testLogPathFormatter,
         verboseSummary,
-        printFailedTestCases,
+        printTestCases,
         false);
   }
 
@@ -137,7 +137,7 @@ public class TestSummaryPrinter {
       AnsiTerminalPrinter terminalPrinter,
       TestLogPathFormatter testLogPathFormatter,
       boolean verboseSummary,
-      boolean printFailedTestCases,
+      boolean printTestCases,
       boolean withConfigurationName) {
     BlazeTestStatus status = summary.getStatus();
     // Skip output for tests that failed to build.
@@ -159,33 +159,34 @@ public class TestSummaryPrinter {
             + (verboseSummary ? getAttemptSummary(summary) + getTimeSummary(summary) : "")
             + "\n");
 
-    for (TestCase testCase : summary.getPassedTestCases()) {
-      TestSummaryPrinter.printTestCase(terminalPrinter, testCase);
-    }
+    if (printTestCases) {
+      for (TestCase testCase : summary.getPassedTestCases()) {
+        TestSummaryPrinter.printTestCase(terminalPrinter, testCase);
+      }
 
-    if (printFailedTestCases && summary.getStatus() == BlazeTestStatus.FAILED) {
-      if (summary.getFailedTestCasesStatus() == FailedTestCasesStatus.NOT_AVAILABLE) {
-        terminalPrinter.print(
-            Mode.WARNING + "    (individual test case information not available) "
-            + Mode.DEFAULT + "\n");
-      } else {
-        for (TestCase testCase : summary.getFailedTestCases()) {
-          if (testCase.getStatus() != TestCase.Status.PASSED) {
-            TestSummaryPrinter.printTestCase(terminalPrinter, testCase);
-          }
-        }
-
-        if (summary.getFailedTestCasesStatus() != FailedTestCasesStatus.FULL) {
+      if (summary.getStatus() == BlazeTestStatus.FAILED) {
+        if (summary.getFailedTestCasesStatus() == FailedTestCasesStatus.NOT_AVAILABLE) {
           terminalPrinter.print(
-              Mode.WARNING
-              + "    (some shards did not report details, list of failed test"
-              + " cases incomplete)\n"
-              + Mode.DEFAULT);
+              Mode.WARNING + "    (individual test case information not available) "
+                  + Mode.DEFAULT + "\n");
+        } else {
+          for (TestCase testCase : summary.getFailedTestCases()) {
+            if (testCase.getStatus() != TestCase.Status.PASSED) {
+              TestSummaryPrinter.printTestCase(terminalPrinter, testCase);
+            }
+          }
+
+          if (summary.getFailedTestCasesStatus() != FailedTestCasesStatus.FULL) {
+            terminalPrinter.print(
+                Mode.WARNING
+                    + "    (some shards did not report details, list of failed test"
+                    + " cases incomplete)\n"
+                    + Mode.DEFAULT);
+          }
         }
       }
     }
-
-    if (!printFailedTestCases) {
+    else {
       for (String warning : summary.getWarnings()) {
         terminalPrinter.print("  " + AnsiTerminalPrinter.Mode.WARNING + "WARNING: "
             + AnsiTerminalPrinter.Mode.DEFAULT + warning + "\n");
@@ -211,8 +212,7 @@ public class TestSummaryPrinter {
   }
 
   /**
-   * Prints the result of an individual test case. It is assumed not to have
-   * passed, since passed test cases are not reported.
+   * Prints the result of an individual test case.
    */
   static void printTestCase(
       AnsiTerminalPrinter terminalPrinter, TestCase testCase) {

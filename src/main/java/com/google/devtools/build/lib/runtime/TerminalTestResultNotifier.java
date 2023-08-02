@@ -148,7 +148,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
       Set<TestSummary> summaries,
       boolean showAllTests,
       boolean showNoStatusTests,
-      boolean printFailedTestCases) {
+      boolean printTestCases) {
     boolean withConfig = duplicateLabels(summaries);
     int numFailedToBuildReported = 0;
     for (TestSummary summary : summaries) {
@@ -171,7 +171,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
           printer,
           testLogPathFormatter,
           summaryOptions.verboseSummary,
-          printFailedTestCases,
+          printTestCases,
           withConfig);
     }
   }
@@ -245,7 +245,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
             summaries,
             /* showAllTests= */ true,
             /* showNoStatusTests= */ true,
-            /* printFailedTestCases= */ true);
+            /* printTestCases= */ true);
         break;
 
       case SHORT:
@@ -253,7 +253,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
             summaries,
             /* showAllTests= */ true,
             /* showNoStatusTests= */ false,
-            /* printFailedTestCases= */ false);
+            /* printTestCases= */ false);
         break;
 
       case TERSE:
@@ -261,7 +261,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
             summaries,
             /* showAllTests= */ false,
             /* showNoStatusTests= */ false,
-            /* printFailedTestCases= */ false);
+            /* printTestCases= */ false);
         break;
 
       case TESTCASE:

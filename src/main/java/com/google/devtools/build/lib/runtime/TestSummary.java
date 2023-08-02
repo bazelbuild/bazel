@@ -227,6 +227,12 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
       return 1;
     }
 
+    public Builder addPassedTestCases(List<TestCase> testCases) {
+      checkMutation(testCases);
+      summary.passedTestCases.addAll(testCases);
+      return this;
+    }
+
     @CanIgnoreReturnValue
     public Builder addFailedTestCases(List<TestCase> testCases, FailedTestCasesStatus status) {
       checkMutation(status);
@@ -402,7 +408,7 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
   private boolean ranRemotely;
   private boolean wasUnreportedWrongSize;
   private List<TestCase> failedTestCases = new ArrayList<>();
-  private List<TestCase> passedTestCases = new ArrayList<>();
+  private final List<TestCase> passedTestCases = new ArrayList<>();
   private List<Path> passedLogs = new ArrayList<>();
   private List<Path> failedLogs = new ArrayList<>();
   private List<String> warnings = new ArrayList<>();
