@@ -95,4 +95,12 @@ public class BuildEventProtocolOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Whether to publish TargetSummary events.")
   public boolean publishTargetSummary;
+
+  @Option(
+      name = "experimental_bep_exec_request_include_residue",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Whether to include the residue in ExecRequest events.")
+  public boolean includeResidueInExecRequest;
 }

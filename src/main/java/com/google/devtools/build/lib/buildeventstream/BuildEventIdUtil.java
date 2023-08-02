@@ -122,6 +122,12 @@ public final class BuildEventIdUtil {
     return ConfigurationId.newBuilder().setId(checksum).build();
   }
 
+  public static BuildEventId execRequestId() {
+    return BuildEventId.newBuilder()
+        .setExecRequest(BuildEventId.ExecRequestId.getDefaultInstance())
+        .build();
+  }
+
   public static BuildEventId nullConfigurationId() {
     return NULL_CONFIGURATION_ID;
   }

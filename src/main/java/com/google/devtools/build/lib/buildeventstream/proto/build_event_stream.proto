@@ -230,6 +230,9 @@ message BuildEventId {
   // Identifier of an event signalling that the coverage actions are finished.
   message CoverageActionsFinishedId {}
 
+  // Identifier of an event providing the ExecRequest of a run command.
+  message ExecRequestId {}
+
   oneof id {
     UnknownBuildEventId unknown = 1;
     ProgressId progress = 2;
@@ -258,6 +261,7 @@ message BuildEventId {
     BuildMetadataId build_metadata = 24;
     ConvenienceSymlinksIdentifiedId convenience_symlinks_identified = 25;
     CoverageActionsFinishedId coverage_actions_finished = 27;
+    ExecRequestId exec_request = 28;
   }
 }
 
@@ -1205,6 +1209,21 @@ message ConvenienceSymlink {
   string target = 3;
 }
 
+// Event that contains the ExecRequest of a run command announced only after a
+// successful build and before trying to execute the requested command-line.
+message ExecRequestConstructed {
+  bytes working_directory = 1;
+  repeated bytes argv = 2;
+  repeated EnvironmentVariable environment_variable = 3;
+  repeated bytes environment_variable_to_clear = 4;
+}
+
+// An environment variable provided by a run command after a successful build.
+message EnvironmentVariable {
+  bytes name = 1;
+  bytes value = 2;
+}
+
 // Message describing a build event. Events will have an identifier that
 // is unique within a given build invocation; they also announce follow-up
 // events as children. More details, which are specific to the kind of event
@@ -1239,5 +1258,6 @@ message BuildEvent {
     WorkspaceConfig workspace_info = 25;
     BuildMetadata build_metadata = 26;
     ConvenienceSymlinksIdentified convenience_symlinks_identified = 27;
+    ExecRequestConstructed exec_request = 29;
   }
 }
