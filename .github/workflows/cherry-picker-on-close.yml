@@ -1,0 +1,22 @@
+name: cherry-picker-on-close
+
+on:
+  pull_request:
+    types: [closed]
+
+env:
+  GH_TOKEN: ${{ secrets.BAZEL_IO_TOKEN }}
+
+jobs:
+  cherry-picker-on-close:
+    # if: github.event.pull_request.user.login == 'copybara'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Logging github event
+        run: echo '${{ toJSON(github.event) }}' | jq
+      - name: Run cherrypicker on close
+        uses: iancha1992/continuous-integration/actions/cherry-picker@feature-cherrypick
+        with:
+          triggered-on: closed
+          pr-number: ${{ github.event.number }}
+          is-prod: True
