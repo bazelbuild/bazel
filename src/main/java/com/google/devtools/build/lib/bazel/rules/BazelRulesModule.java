@@ -45,6 +45,14 @@ public final class BazelRulesModule extends BlazeModule {
   @SuppressWarnings("deprecation") // These fields have no JavaDoc by design
   public static class BuildGraveyardOptions extends OptionsBase {
     @Option(
+        name = "use_top_level_targets_for_symlinks",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help = "Deprecated. No-op.")
+    public boolean useTopLevelTargetsForSymlinks;
+
+    @Option(
         name = "experimental_skyframe_prepare_analysis",
         deprecationWarning = "This flag is a no-op and will be deleted in a future release.",
         defaultValue = "false",
@@ -363,14 +371,6 @@ public final class BazelRulesModule extends BlazeModule {
         converter = Converters.CommaSeparatedOptionListConverter.class,
         help = "Deprecated no-op.")
     public List<String> availabilityInfoExempt;
-
-    @Option(
-        name = "experimental_skymeld_ui",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        help = "No-op. To be removed.")
-    public boolean skymeldUi;
 
     @Option(
         name = "experimental_collect_local_action_metrics",

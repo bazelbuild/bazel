@@ -252,7 +252,7 @@ public class AppleStarlarkCommon
   }
 
   private Dict<?, ?> asDict(Object o) {
-    return o == Starlark.UNBOUND ? Dict.empty() : (Dict<?, ?>) o;
+    return o == Starlark.NONE ? Dict.empty() : (Dict<?, ?>) o;
   }
 
   @Override

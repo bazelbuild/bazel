@@ -13,8 +13,12 @@
 // limitations under the License.
 package net.starlark.java.eval;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.Math.min;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -540,6 +544,113 @@ public final class Starlark {
     return pr.toString();
   }
 
+  /**
+   * Returns a Starlark doc string with each line trimmed and dedented to the minimal common
+   * indentation level (except for the first line, which is always fully trimmed), and with leading
+   * and trailing empty lines removed, following the PEP-257 algorithm. See
+   * https://peps.python.org/pep-0257/#handling-docstring-indentation
+   *
+   * <p>For whitespace trimming, we use the same definition of whitespace as the Starlark {@code
+   * string.strip} method.
+   *
+   * <p>Following PEP-257, we expand tabs in the doc string with tab size 8 before dedenting.
+   * Starlark does not use tabs for indentation, but Starlark string values may contain tabs, so we
+   * choose to expand them for consistency with Python.
+   *
+   * <p>The intent is to turn documentation strings like
+   *
+   * <pre>
+   *     """Heading
+   *
+   *     Details paragraph
+   *     """
+   * </pre>
+   *
+   * and
+   *
+   * <pre>
+   *     """
+   *     Heading
+   *
+   *     Details paragraph
+   *     """
+   * </pre>
+   *
+   * into the desired "Heading\n\nDetails paragraph" form, and avoid the risk of documentation
+   * processors interpreting indented parts of the original string as special formatting (e.g. code
+   * blocks in the case of Markdown).
+   */
+  public static String trimDocString(String docString) {
+    ImmutableList<String> lines = expandTabs(docString, 8).lines().collect(toImmutableList());
+    if (lines.isEmpty()) {
+      return "";
+    }
+    // First line is special: we fully strip it and ignore it for leading spaces calculation
+    String firstLineTrimmed = StringModule.INSTANCE.strip(lines.get(0), NONE);
+    Iterable<String> subsequentLines = Iterables.skip(lines, 1);
+    int minLeadingSpaces = Integer.MAX_VALUE;
+    for (String line : subsequentLines) {
+      String strippedLeading = StringModule.INSTANCE.lstrip(line, NONE);
+      if (!strippedLeading.isEmpty()) {
+        int leadingSpaces = line.length() - strippedLeading.length();
+        minLeadingSpaces = min(leadingSpaces, minLeadingSpaces);
+      }
+    }
+    if (minLeadingSpaces == Integer.MAX_VALUE) {
+      minLeadingSpaces = 0;
+    }
+
+    StringBuilder result = new StringBuilder();
+    result.append(firstLineTrimmed);
+    for (String line : subsequentLines) {
+      // Length check ensures we ignore leading empty lines
+      if (result.length() > 0) {
+        result.append("\n");
+      }
+      if (line.length() > minLeadingSpaces) {
+        result.append(StringModule.INSTANCE.rstrip(line.substring(minLeadingSpaces), NONE));
+      }
+    }
+    // Remove trailing empty lines
+    return StringModule.INSTANCE.rstrip(result.toString(), NONE);
+  }
+
+  /**
+   * Expands tab characters to one or more spaces, producing the same indentation level at any given
+   * point on any given line as would be expected when rendering the string with a given tab size; a
+   * Java port of Python's {@code str.expandtabs}.
+   */
+  static String expandTabs(String line, int tabSize) {
+    if (!line.contains("\t")) {
+      // Don't alloc in the fast case.
+      return line;
+    }
+    checkArgument(tabSize > 0);
+    StringBuilder result = new StringBuilder();
+    int col = 0;
+    for (int i = 0; i < line.length(); i++) {
+      char c = line.charAt(i);
+      switch (c) {
+        case '\n':
+        case '\r':
+          result.append(c);
+          col = 0;
+          break;
+        case '\t':
+          int spaces = tabSize - col % tabSize;
+          for (int j = 0; j < spaces; j++) {
+            result.append(' ');
+          }
+          col += spaces;
+          break;
+        default:
+          result.append(c);
+          col++;
+      }
+    }
+    return result.toString();
+  }
+
   /** Returns a slice of a sequence as if by the Starlark operation {@code x[start:stop:step]}. */
   public static Object slice(
       Mutability mu, Object x, Object startObj, Object stopObj, Object stepObj)
@@ -972,7 +1083,10 @@ public final class Starlark {
     int[] globalIndex = module.getIndicesOfGlobals(rfn.getGlobals());
 
     if (module.getDocumentation() == null) {
-      module.setDocumentation(rfn.getDocumentation());
+      String documentation = rfn.getDocumentation();
+      if (documentation != null) {
+        module.setDocumentation(Starlark.trimDocString(documentation));
+      }
     }
 
     StarlarkFunction toplevel =

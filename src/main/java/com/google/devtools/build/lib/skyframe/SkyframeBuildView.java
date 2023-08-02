@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailurePropagationException;
 import com.google.devtools.build.lib.analysis.test.CoverageActionFinishedEvent;
@@ -89,6 +90,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
@@ -279,7 +281,11 @@ public final class SkyframeBuildView {
   /** Sets the configuration. Not thread-safe. DO NOT CALL except from tests! */
   @VisibleForTesting
   public void setConfiguration(
-      EventHandler eventHandler, BuildConfigurationValue configuration, int maxDifferencesToShow) {
+      EventHandler eventHandler,
+      BuildConfigurationValue configuration,
+      int maxDifferencesToShow,
+      boolean allowAnalysisCacheDiscards)
+      throws InvalidConfigurationException {
     if (skyframeAnalysisWasDiscarded) {
       eventHandler.handle(
           Event.warn(
@@ -290,6 +296,12 @@ public final class SkyframeBuildView {
     } else {
       String diff = describeConfigurationDifference(configuration, maxDifferencesToShow);
       if (diff != null) {
+        if (!allowAnalysisCacheDiscards) {
+          String message = String.format("%s, analysis cache would have been discarded.", diff);
+          throw new InvalidConfigurationException(
+              message,
+              FailureDetails.BuildConfiguration.Code.CONFIGURATION_DISCARDED_ANALYSIS_CACHE);
+        }
         eventHandler.handle(
             Event.warn(
                 diff

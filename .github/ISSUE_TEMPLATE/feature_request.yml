@@ -19,6 +19,33 @@ body:
     attributes:
       label: >
         Description of the feature request:
+  - type: dropdown
+    id: subteam
+    attributes:
+      label: >
+        Which category does this issue belong to?
+      description: >
+        Answering this will help us triage this issue faster and more accurately to the
+        relevant team(s).
+      multiple: true
+      options:
+        - Android
+        - C++ Rules
+        - CLI
+        - Configurability
+        - Core
+        - Documentation
+        - External Dependency
+        - Java Rules
+        - Loading API
+        - Local Execution
+        - Performance
+        - Python Rules
+        - Remote Execution
+        - Rules API
+        - Server-Side Rules
+        - Starlark Integration
+        - Starlark Interpreter
   - type: textarea
     id: problem
     attributes:

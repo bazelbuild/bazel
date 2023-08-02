@@ -38,4 +38,4 @@ func_info {
     mandatory: true
   }
 }
-module_docstring: "\nTests that the documentation is generated even when unknown modules, calls, or providers are used.\n"
+module_docstring: "Tests that the documentation is generated even when unknown modules, calls, or providers are used."

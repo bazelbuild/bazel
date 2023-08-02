@@ -743,15 +743,18 @@ public class ExecutionTool {
   /**
    * Creates convenience symlinks based on the target configurations.
    *
-   * <p>Exactly what target configurations we consider depends on the value of {@code
-   * --use_top_level_targets_for_symlinks}. If this flag is false, we use the top-level target
-   * configuration as represented by the command line prior to processing any target. If the flag is
-   * true, we instead use the configurations OF the top-level targets -- meaning that we account for
-   * the effects of any rule transitions these targets may have.
+   * <p>Top-level targets may have different configurations than the top-level configuration. This
+   * is because targets may apply configuration transitions.
    *
-   * <p>For each type of convenience symlink, if all the considered configurations agree on what
-   * path the symlink should point to, it gets created; otherwise, the symlink is not created, and
-   * in fact gets removed if it was already present from a previous invocation.
+   * <p>If all top-level targets have the same configuration - even if that isn't the top-level
+   * configuration - symlinks point to that configuration.
+   *
+   * <p>If top-level targets have mixed configurations and at least one of them has the top-level
+   * configuration, symliks point to the top-level configuration.
+   *
+   * <p>If top-level targets have mixed configurations and none has the top-level configuration,
+   * symlinks aren't created. Furthermore, lingering symlinks from the last build are deleted. This
+   * is to prevent confusion by pointing to an outdated directory the current build never used.
    */
   private ImmutableList<ConvenienceSymlink> createConvenienceSymlinks(
       BuildRequestOptions buildRequestOptions,
@@ -762,7 +765,9 @@ public class ExecutionTool {
 
     // Gather configurations to consider.
     ImmutableSet<BuildConfigurationValue> targetConfigs;
-    if (buildRequestOptions.useTopLevelTargetsForSymlinks() && !targetsToBuild.isEmpty()) {
+    if (targetsToBuild.isEmpty()) {
+      targetConfigs = ImmutableSet.of(configuration);
+    } else {
       // Collect the configuration of each top-level requested target. These may be different than
       // the build's top-level configuration because of self-transitions.
       ImmutableSet<BuildConfigurationValue> requestedTargetConfigs =
@@ -791,8 +796,6 @@ public class ExecutionTool {
         // createOutputDirectorySymlinks call below.
         targetConfigs = requestedTargetConfigs;
       }
-    } else {
-      targetConfigs = ImmutableSet.of(configuration);
     }
 
     String productName = runtime.getProductName();

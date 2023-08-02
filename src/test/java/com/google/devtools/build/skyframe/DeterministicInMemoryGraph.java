@@ -80,8 +80,8 @@ class DeterministicInMemoryGraph extends DeterministicHelper.DeterministicProces
   }
 
   @Override
-  public void cleanupInterningPool() {
-    ((InMemoryGraph) delegate).cleanupInterningPool();
+  public void cleanupInterningPools() {
+    ((InMemoryGraph) delegate).cleanupInterningPools();
   }
 
   @Override

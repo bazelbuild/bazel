@@ -870,6 +870,11 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     Attribute documented =
         buildAttribute("documented", String.format("attr.%s(doc='foo')", attrType));
     assertThat(documented.getDoc()).isEqualTo("foo");
+    Attribute documentedNeedingDedent =
+        buildAttribute(
+            "documented",
+            String.format("attr.%s(doc='''foo\n\n    More details.\n    ''')", attrType));
+    assertThat(documentedNeedingDedent.getDoc()).isEqualTo("foo\n\nMore details.");
     Attribute undocumented = buildAttribute("undocumented", String.format("attr.%s()", attrType));
     assertThat(undocumented.getDoc()).isNull();
   }
@@ -899,11 +904,21 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         ev,
         "def impl(ctx):",
         "    return None",
-        "documented_rule = rule(impl, doc='My doc string')",
+        "documented_rule = rule(impl, doc = 'My doc string')",
+        "long_documented_rule = rule(",
+        "    impl,",
+        "    doc = '''Long doc",
+        "",
+        "             With details",
+        "''',",
+        ")",
         "undocumented_rule = rule(impl)");
     StarlarkRuleFunction documentedRule = (StarlarkRuleFunction) ev.lookup("documented_rule");
+    StarlarkRuleFunction longDocumentedRule =
+        (StarlarkRuleFunction) ev.lookup("long_documented_rule");
     StarlarkRuleFunction undocumentedRule = (StarlarkRuleFunction) ev.lookup("undocumented_rule");
     assertThat(documentedRule.getDocumentation()).hasValue("My doc string");
+    assertThat(longDocumentedRule.getDocumentation()).hasValue("Long doc\n\nWith details");
     assertThat(undocumentedRule.getDocumentation()).isEmpty();
   }
 
@@ -1720,10 +1735,13 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     evalAndExport(
         ev,
         "UndocumentedInfo = provider()",
-        "DocumentedInfo = provider(doc = 'My documented provider')",
+        "DocumentedInfo = provider(doc = '''",
+        "    My documented provider",
+        "",
+        "    Details''')",
         // Note fields below are not alphabetized
         "SchemafulWithoutDocsInfo = provider(fields = ['b', 'a'])",
-        "SchemafulWithDocsInfo = provider(fields = {'b': 'Field b', 'a': 'Field a'})");
+        "SchemafulWithDocsInfo = provider(fields = {'b': 'Field b', 'a': 'Field\\n    a'})");
 
     StarlarkProvider undocumentedInfo = (StarlarkProvider) ev.lookup("UndocumentedInfo");
     StarlarkProvider documentedInfo = (StarlarkProvider) ev.lookup("DocumentedInfo");
@@ -1732,11 +1750,11 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     StarlarkProvider schemafulWithDocsInfo = (StarlarkProvider) ev.lookup("SchemafulWithDocsInfo");
 
     assertThat(undocumentedInfo.getDocumentation()).isEmpty();
-    assertThat(documentedInfo.getDocumentation()).hasValue("My documented provider");
+    assertThat(documentedInfo.getDocumentation()).hasValue("My documented provider\n\nDetails");
     assertThat(schemafulWithoutDocsInfo.getSchema())
         .containsExactly("b", Optional.empty(), "a", Optional.empty());
     assertThat(schemafulWithDocsInfo.getSchema())
-        .containsExactly("b", Optional.of("Field b"), "a", Optional.of("Field a"));
+        .containsExactly("b", Optional.of("Field b"), "a", Optional.of("Field\na"));
   }
 
   @Test
@@ -2199,10 +2217,20 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "def _impl(target, ctx):", //
         "   pass",
         "documented_aspect = aspect(_impl, doc='My doc string')",
+        "long_documented_aspect = aspect(",
+        "    _impl,",
+        "    doc='''",
+        "           My doc string",
+        "           ",
+        "           With details''',",
+        ")",
         "undocumented_aspect = aspect(_impl)");
 
     StarlarkDefinedAspect documentedAspect = (StarlarkDefinedAspect) ev.lookup("documented_aspect");
     assertThat(documentedAspect.getDocumentation()).hasValue("My doc string");
+    StarlarkDefinedAspect longDocumentedAspect =
+        (StarlarkDefinedAspect) ev.lookup("long_documented_aspect");
+    assertThat(longDocumentedAspect.getDocumentation()).hasValue("My doc string\n\nWith details");
     StarlarkDefinedAspect undocumentedAspect =
         (StarlarkDefinedAspect) ev.lookup("undocumented_aspect");
     assertThat(undocumentedAspect.getDocumentation()).isEmpty();

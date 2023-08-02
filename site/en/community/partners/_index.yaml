@@ -21,16 +21,10 @@ landing_page:
     items_across: 2
     items:
     # Item 1
-    - image_path: /community/images/aspect-build-logo.png
+    - image_path: /community/images/AspectBuildlogohorizontal-black.png
       heading: Aspect Build
       description: >
-        Aspect Build is the ultimate build, test, and CI/CD platform designed exclusively for Bazel users. Harness the
-        power of Aspect Workflows, a seamless, turn-key Bazel CI/CD system, fully compatible with your existing CI
-        provider. Elevate your development experience with Aspect CLI, a convenient drop-in replacement for the native
-        Bazel CLI. Unleash the full potential of Bazel for front-end development with Aspect's JavaScript Bazel rules.
-        Enjoy accelerated build times and reduced compute costs with Aspect Workflows, thanks to fast warming,
-        auto-scaling CI workers, horizontally scaling remote cache, and auto-scaling remote build executors - delivering
-        a remarkable 10x performance boost to your Bazel projects. Say goodbye to waiting and hello to rapid iteration!
+        Introducing Aspect Build - the ultimate build, test, and CI/CD platform designed exclusively for Bazel users. Harness the power of Aspect Workflows, a seamless, turn-key Bazel CI/CD system, fully compatible with your existing CI provider. Elevate your development experience with Aspect CLI, a convenient drop-in replacement for the native Bazel CLI. Unleash the full potential of Bazel for front-end development with Aspect's JavaScript Bazel rules. Enjoy accelerated build times and reduced compute costs with Aspect Workflows, thanks to fast warming, auto-scaling CI workers, horizontally scaling remote cache, and auto-scaling remote build executors - delivering a remarkable 10x performance boost to your Bazel projects. Say goodbye to waiting and hello to rapid iteration!
       buttons:
       - label: Learn more
         path: https://www.aspect.build/
@@ -73,11 +67,11 @@ landing_page:
         path: https://www.engflow.com/product/demo
         classname: button
     # Item 5
-    - image_path: /community/images/Gradle.png
-      heading: Gradle
+    - image_path: /community/images/gradle-enterprise-gradient-secondary.png
+      heading: Gradle Inc.
       description: >
-        Gradle Enterprise is a multi-build-system platform for improving developer productivity and happiness.It does this by providing a comprehensive and end-to-end solution for build & test observability,acceleration, and failure analytics, and currently supports the Bazel, Apache Maven, Gradle, and SBT build systems.Specifically, Gradle Enterprise for Bazel supports Build Cache to speed up build and test feedback cycles;Build Scan® that is like an X-ray for your build to make troubleshooting more efficient; and Failure Analytics to improve toolchain reliability.
+        Gradle Enterprise is a multi-build-system platform for improving developer productivity and happiness. It does this by providing a comprehensive and end-to-end solution for build & test observability, acceleration, and failure analytics, and currently supports the Bazel, Apache Maven, Gradle, and SBT build systems. Specifically, Gradle Enterprise for Bazel supports Build Cache to speed up build and test feedback cycles; Build Scan® that is like an X-ray for your build to make troubleshooting more efficient; and Failure Analytics to improve toolchain reliability.
       buttons:
       - label: Learn more
-        path: https://gradle.com/
+        path: https://gradle.com/gradle-enterprise-solutions/bazel-build-system/
         classname: button

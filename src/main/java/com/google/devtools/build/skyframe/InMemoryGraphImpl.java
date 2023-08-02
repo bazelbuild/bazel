@@ -233,17 +233,9 @@ public class InMemoryGraphImpl implements InMemoryGraph {
     nodeMap.forEachValue(PARALLELISM_THRESHOLD, consumer);
   }
 
-  /**
-   * Re-interns {@link SkyKey} instances that use {@link SkyKeyInterner} in node map back to the
-   * {@link SkyKeyInterner}'s weak interner.
-   *
-   * <p>Also uninstalls current {@link SkyKeyPool} instance from being {@link SkyKeyInterner}'s
-   * static global pool.
-   */
   @Override
-  public void cleanupInterningPool() {
+  public void cleanupInterningPools() {
     if (!usePooledInterning) {
-      // No clean up is needed when `usePooledInterning` is false for shell integration tests.
       return;
     }
     try (AutoProfiler ignored =
@@ -252,11 +244,13 @@ public class InMemoryGraphImpl implements InMemoryGraph {
           e -> {
             weakInternSkyKey(e.getKey());
 
-            if (!e.isDone() || !e.getKey().functionName().equals(SkyFunctions.PACKAGE)) {
-              return;
+            if (e.isDone() && e.getKey().functionName().equals(SkyFunctions.PACKAGE)) {
+              weakInternPackageTargetsLabels((PackageValue) e.toValue());
             }
 
-            weakInternPackageTargetsLabels((PackageValue) e.toValue());
+            // The graph is about to be thrown away. Remove as we go to avoid temporarily storing
+            // everything in both the weak interner and the graph.
+            nodeMap.remove(e.getKey());
           });
     }
 

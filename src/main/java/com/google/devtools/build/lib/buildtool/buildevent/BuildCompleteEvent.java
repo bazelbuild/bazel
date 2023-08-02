@@ -32,7 +32,7 @@ public final class BuildCompleteEvent extends BuildCompletingEvent {
 
   /** Construct the BuildCompleteEvent. */
   public BuildCompleteEvent(BuildResult result, Collection<BuildEventId> children) {
-    super(result.getDetailedExitCode().getExitCode(), result.getStopTime(), children);
+    super(result.getDetailedExitCode(), result.getStopTime(), children);
     this.result = checkNotNull(result);
   }
 

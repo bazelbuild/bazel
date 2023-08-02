@@ -47,6 +47,13 @@ _ModuleFlagsInfo = provider(
         "add_opens": "(depset[str]) Add-Opens configuration.",
     },
 )
+_EMPTY_MODULE_FLAGS_INFO = _ModuleFlagsInfo(add_exports = depset(), add_opens = depset())
+
+def _create_module_flags_info(*, add_exports, add_opens):
+    if add_exports or add_opens:
+        return _ModuleFlagsInfo(add_exports = add_exports, add_opens = add_opens)
+    return _EMPTY_MODULE_FLAGS_INFO
+
 _JavaRuleOutputJarsInfo = provider(
     doc = "Deprecated: use java_info.java_outputs. Information about outputs of a Java rule.",
     fields = {
@@ -159,7 +166,7 @@ def merge(
         "transitive_source_jars": depset(transitive = transitive_source_jars),
         "java_outputs": java_outputs,
         "outputs": _JavaRuleOutputJarsInfo(jars = java_outputs, jdeps = None, native_headers = None),
-        "module_flags_info": _ModuleFlagsInfo(
+        "module_flags_info": _create_module_flags_info(
             add_exports = depset(transitive = add_exports),
             add_opens = depset(transitive = add_opens),
         ),
@@ -207,7 +214,7 @@ def to_java_binary_info(java_info):
         "runtime_output_jars": [],
         "plugins": _EMPTY_PLUGIN_DATA,
         "api_generating_plugins": _EMPTY_PLUGIN_DATA,
-        "module_flags_info": _ModuleFlagsInfo(add_exports = depset(), add_opens = depset()),
+        "module_flags_info": _EMPTY_MODULE_FLAGS_INFO,
         "_neverlink": False,
         "_constraints": [],
         "annotation_processing": java_info.annotation_processing,
@@ -450,7 +457,7 @@ def java_info_for_compilation(
         ),
         # the JavaInfo constructor does not add flags from runtime_deps nor support
         # adding this target's exports/opens
-        module_flags_info = _ModuleFlagsInfo(
+        module_flags_info = _create_module_flags_info(
             add_exports = depset(add_exports, transitive = [
                 dep.module_flags_info.add_exports
                 for dep in concatenated_deps.runtimedeps_exports_deps
@@ -726,7 +733,7 @@ def _javainfo_init(
                 for dep in deps + runtime_deps + exports
             ],
         ),
-        module_flags_info = _ModuleFlagsInfo(
+        module_flags_info = _create_module_flags_info(
             add_exports = depset(transitive = [
                 dep.module_flags_info.add_exports
                 for dep in concatenated_deps.deps_exports
@@ -810,6 +817,16 @@ _EMPTY_PLUGIN_DATA = _JavaPluginDataInfo(
     processor_data = depset(),
 )
 
+def _create_plugin_data_info(*, processor_classes, processor_jars, processor_data):
+    if processor_classes or processor_jars or processor_data:
+        return _JavaPluginDataInfo(
+            processor_classes = processor_classes,
+            processor_jars = processor_jars,
+            processor_data = processor_data,
+        )
+    else:
+        return _EMPTY_PLUGIN_DATA
+
 def disable_plugin_info_annotation_processing(plugin_info):
     """Returns a copy of the provided JavaPluginInfo without annotation processing info
 
@@ -820,7 +837,7 @@ def disable_plugin_info_annotation_processing(plugin_info):
         (JavaPluginInfo) a new, transformed instance.
      """
     return _new_javaplugininfo(
-        plugins = _JavaPluginDataInfo(
+        plugins = _create_plugin_data_info(
             processor_classes = depset(order = "preorder"),
             # Preserve the processor path, since it may contain Error Prone plugins
             # which will be service-loaded by JavaBuilder.
@@ -862,7 +879,7 @@ def _has_plugin_data(plugin_data):
     )
 
 def _merge_plugin_data(datas):
-    return _JavaPluginDataInfo(
+    return _create_plugin_data_info(
         processor_classes = depset(transitive = [p.processor_classes for p in datas]),
         processor_jars = depset(transitive = [p.processor_jars for p in datas]),
         processor_data = depset(transitive = [p.processor_data for p in datas]),
@@ -896,7 +913,7 @@ def _javaplugininfo_init(
 
     java_infos = merge(runtime_deps)
     processor_data = data if type(data) == "depset" else depset(data)
-    plugins = _JavaPluginDataInfo(
+    plugins = _create_plugin_data_info(
         processor_classes = depset([processor_class]) if processor_class else depset(),
         processor_jars = java_infos.transitive_runtime_jars,
         processor_data = processor_data,

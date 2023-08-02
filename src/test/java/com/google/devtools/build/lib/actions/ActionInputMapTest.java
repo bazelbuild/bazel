@@ -413,6 +413,90 @@ public final class ActionInputMapTest {
   }
 
   @Test
+  public void getTreeMetadataForPrefix_nonTree() {
+    ActionInput file = ActionInputHelper.fromPath("some/file");
+    map.put(file, TestMetadata.create(1), /* depOwner= */ null);
+
+    assertThat(map.getTreeMetadataForPrefix(file.getExecPath())).isNull();
+    assertThat(map.getTreeMetadataForPrefix(file.getExecPath().getParentDirectory())).isNull();
+    assertThat(map.getTreeMetadataForPrefix(file.getExecPath().getChild("under"))).isNull();
+  }
+
+  @Test
+  public void getTreeMetadataForPrefix_emptyTree() {
+    SpecialArtifact tree = createTreeArtifact("a/tree");
+    TreeArtifactValue treeValue = TreeArtifactValue.newBuilder(tree).build();
+    map.putTreeArtifact(tree, treeValue, /* depOwner= */ null);
+
+    assertThat(map.getTreeMetadataForPrefix(tree.getExecPath().getParentDirectory())).isNull();
+    assertThat(map.getTreeMetadataForPrefix(tree.getExecPath())).isEqualTo(treeValue);
+    assertThat(map.getTreeMetadataForPrefix(tree.getExecPath().getChild("under")))
+        .isEqualTo(treeValue);
+  }
+
+  @Test
+  public void getTreeMetadataForPrefix_nonEmptyTree() {
+    SpecialArtifact tree = createTreeArtifact("a/tree");
+    TreeFileArtifact child = TreeFileArtifact.createTreeOutput(tree, "some/child");
+    TreeArtifactValue treeValue =
+        TreeArtifactValue.newBuilder(tree).putChild(child, TestMetadata.create(1)).build();
+    map.putTreeArtifact(tree, treeValue, /* depOwner= */ null);
+
+    assertThat(map.getTreeMetadataForPrefix(tree.getExecPath().getParentDirectory())).isNull();
+    assertThat(map.getTreeMetadataForPrefix(tree.getExecPath())).isEqualTo(treeValue);
+    assertThat(map.getTreeMetadataForPrefix(child.getExecPath())).isEqualTo(treeValue);
+    assertThat(map.getTreeMetadataForPrefix(child.getExecPath().getParentDirectory()))
+        .isEqualTo(treeValue);
+    assertThat(map.getTreeMetadataForPrefix(child.getExecPath().getChild("under")))
+        .isEqualTo(treeValue);
+  }
+
+  @Test
+  public void getTreeMetadataForPrefix_treeWithNestedFile() {
+    SpecialArtifact tree = createTreeArtifact("a/tree");
+    TreeFileArtifact child = TreeFileArtifact.createTreeOutput(tree, "some/dir/child");
+    TreeArtifactValue treeValue =
+        TreeArtifactValue.newBuilder(tree).putChild(child, TestMetadata.create(1)).build();
+    map.putTreeArtifact(tree, treeValue, /* depOwner= */ null);
+    map.put(
+        ActionInputHelper.fromPath(child.getExecPath()),
+        TestMetadata.create(1),
+        /* depOwner= */ null);
+
+    assertThat(map.getTreeMetadataForPrefix(tree.getExecPath().getParentDirectory())).isNull();
+    assertThat(map.getTreeMetadataForPrefix(tree.getExecPath())).isEqualTo(treeValue);
+    assertThat(map.getTreeMetadataForPrefix(child.getExecPath())).isEqualTo(treeValue);
+    assertThat(map.getTreeMetadataForPrefix(child.getExecPath().getParentDirectory()))
+        .isEqualTo(treeValue);
+    assertThat(map.getTreeMetadataForPrefix(child.getExecPath().getChild("under")))
+        .isEqualTo(treeValue);
+  }
+
+  @Test
+  public void getTreeMetadataForPrefix_treeWithNestedTree() {
+    SpecialArtifact tree = createTreeArtifact("a/tree");
+    TreeFileArtifact child = TreeFileArtifact.createTreeOutput(tree, "some/dir/child");
+    TreeArtifactValue treeValue =
+        TreeArtifactValue.newBuilder(tree).putChild(child, TestMetadata.create(1)).build();
+    map.putTreeArtifact(tree, treeValue, /* depOwner= */ null);
+    SpecialArtifact nestedTree = createTreeArtifact("a/tree/some/dir");
+    TreeFileArtifact nestedChild = TreeFileArtifact.createTreeOutput(nestedTree, "child");
+    TreeArtifactValue nestedTreeValue =
+        TreeArtifactValue.newBuilder(nestedTree)
+            .putChild(nestedChild, TestMetadata.create(1))
+            .build();
+    map.putTreeArtifact(nestedTree, nestedTreeValue, /* depOwner= */ null);
+
+    assertThat(map.getTreeMetadataForPrefix(tree.getExecPath().getParentDirectory())).isNull();
+    assertThat(map.getTreeMetadataForPrefix(tree.getExecPath())).isEqualTo(treeValue);
+    assertThat(map.getTreeMetadataForPrefix(child.getExecPath())).isEqualTo(treeValue);
+    assertThat(map.getTreeMetadataForPrefix(child.getExecPath().getParentDirectory()))
+        .isEqualTo(treeValue);
+    assertThat(map.getTreeMetadataForPrefix(child.getExecPath().getChild("under")))
+        .isEqualTo(treeValue);
+  }
+
+  @Test
   public void getters_missingTree_returnNull() {
     map.putTreeArtifact(createTreeArtifact("tree"), TreeArtifactValue.empty(), /*depOwner=*/ null);
     SpecialArtifact otherTree = createTreeArtifact("other");

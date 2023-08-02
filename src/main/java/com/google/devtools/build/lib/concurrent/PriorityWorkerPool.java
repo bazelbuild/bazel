@@ -21,9 +21,7 @@ import static com.google.devtools.build.lib.concurrent.PaddedAddresses.getAligne
 import static com.google.devtools.build.lib.concurrent.PriorityWorkerPool.NextWorkerActivity.DO_CPU_HEAVY_TASK;
 import static com.google.devtools.build.lib.concurrent.PriorityWorkerPool.NextWorkerActivity.DO_TASK;
 import static com.google.devtools.build.lib.concurrent.PriorityWorkerPool.NextWorkerActivity.IDLE;
-import static com.google.devtools.build.lib.concurrent.PriorityWorkerPool.NextWorkerActivity.QUIESCENT;
 import static java.lang.Thread.currentThread;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -131,14 +129,17 @@ final class PriorityWorkerPool {
     this.pool = newForkJoinPool();
     this.errorClassifier = errorClassifier;
 
-    long baseAddress = createPaddedBaseAddress(4);
+    long baseAddress = createPaddedBaseAddress(5);
     cleaner.register(this, new AddressFreer(baseAddress));
     this.countersAddress = getAlignedAddress(baseAddress, /* offset= */ 0);
+
     this.queue =
         new TaskFifo(
             /* sizeAddress= */ getAlignedAddress(baseAddress, /* offset= */ 1),
             /* appendIndexAddress= */ getAlignedAddress(baseAddress, /* offset= */ 2),
             /* takeIndexAddress= */ getAlignedAddress(baseAddress, /* offset= */ 3));
+
+    this.activeWorkerCountAddress = getAlignedAddress(baseAddress, /* offset= */ 4);
 
     resetExecutionCounters();
   }
@@ -157,29 +158,34 @@ final class PriorityWorkerPool {
       if (task.isCpuHeavy()) {
         cpuHeavyQueue.add(task);
         if (acquireThreadAndCpuPermitElseReleaseCpuHeavyTask()) {
+          UNSAFE.getAndAddInt(null, activeWorkerCountAddress, 1);
           pool.execute(RUN_CPU_HEAVY_TASK);
         }
         return;
       }
     }
 
-    while (!queue.tryAppend(rawTask)) {
-      // If the queue is full, this thread donates some work to reduce the queue.
-      if (!tryAcquireTask()) {
-        // This should be very hard to reach if the queue is full except under cancellation. It's
-        // possible to perform the cancellation check in advance, but we can save doing the check in
-        // most cases by deferring it to this branch.
-        if (isCancelled()) {
-          return;
-        }
-        logger.atWarning().atMostEvery(5, SECONDS).log(
-            "Queue is full but no tasks could be acquired: %s", this);
-        continue;
+    if (!queue.tryAppend(rawTask)) {
+      if (!isCancelled()) {
+        // The task queue is full (and the pool is not cancelled). Enqueues the task directly in the
+        // ForkJoinPool. This should be rare in practice.
+        UNSAFE.getAndAddInt(null, activeWorkerCountAddress, 1);
+        pool.execute(
+            () -> {
+              try {
+                rawTask.run();
+              } catch (Throwable uncaught) {
+                handleUncaughtError(uncaught);
+              } finally {
+                workerBecomingIdle();
+              }
+            });
       }
-      dequeueTaskAndRun();
+      return;
     }
 
     if (acquireThreadElseReleaseTask()) {
+      UNSAFE.getAndAddInt(null, activeWorkerCountAddress, 1);
       pool.execute(RUN_TASK);
     }
   }
@@ -328,12 +334,9 @@ final class PriorityWorkerPool {
    *
    * <p>After completing a task, the worker checks if there are any available tasks that it may
    * execute, subject to CPU permit constraints. On finding and reserving an appropriate task, the
-   * worker returns its next planned activity, {@link #IDLE} or {@link #QUIESCENT} if it finds
-   * nothing to do.
+   * worker returns its next planned activity, {@link #IDLE} if it finds nothing to do.
    */
   enum NextWorkerActivity {
-    /** The worker will stop and is the last worker working. */
-    QUIESCENT,
     /** The worker will stop. */
     IDLE,
     /** The worker will perform a non-CPU heavy task. */
@@ -386,12 +389,8 @@ final class PriorityWorkerPool {
     private void runLoop(NextWorkerActivity nextActivity) {
       while (true) {
         switch (nextActivity) {
-          case QUIESCENT:
-            synchronized (quiescenceMonitor) {
-              quiescenceMonitor.notifyAll();
-            }
-            return;
           case IDLE:
+            workerBecomingIdle();
             return;
           case DO_TASK:
             dequeueTaskAndRun();
@@ -403,14 +402,6 @@ final class PriorityWorkerPool {
             break;
         }
       }
-    }
-
-    boolean tryDoQueuedWork() {
-      if (!tryAcquireTask()) {
-        return false;
-      }
-      dequeueTaskAndRun();
-      return true;
     }
   }
 
@@ -428,6 +419,14 @@ final class PriorityWorkerPool {
       cpuHeavyQueue.pollFirst().run();
     } catch (Throwable uncaught) {
       handleUncaughtError(uncaught);
+    }
+  }
+
+  private void workerBecomingIdle() {
+    if (UNSAFE.getAndAddInt(null, activeWorkerCountAddress, -1) == 1) {
+      synchronized (quiescenceMonitor) {
+        quiescenceMonitor.notifyAll();
+      }
     }
   }
 
@@ -479,10 +478,10 @@ final class PriorityWorkerPool {
    */
   private final long countersAddress;
 
+  private final long activeWorkerCountAddress;
+
   boolean isQuiescent() {
-    long snapshot = getExecutionCounters();
-    int threadsSnapshot = (int) ((snapshot & THREADS_MASK) >> THREADS_BIT_OFFSET);
-    return threadsSnapshot == poolSize;
+    return UNSAFE.getInt(null, activeWorkerCountAddress) == 0;
   }
 
   boolean isCancelled() {
@@ -505,6 +504,7 @@ final class PriorityWorkerPool {
         countersAddress,
         (((long) poolSize) << THREADS_BIT_OFFSET)
             | (((long) cpuPermits) << CPU_PERMITS_BIT_OFFSET));
+    UNSAFE.putInt(null, activeWorkerCountAddress, 0);
   }
 
   private boolean acquireThreadElseReleaseTask() {
@@ -532,17 +532,6 @@ final class PriorityWorkerPool {
     } while (true);
   }
 
-  private boolean tryAcquireTask() {
-    long snapshot;
-    do {
-      snapshot = getExecutionCounters();
-      if ((snapshot & TASKS_MASK) == 0 || snapshot < 0) {
-        return false;
-      }
-    } while (!tryUpdateExecutionCounters(snapshot, snapshot - ONE_TASK));
-    return true;
-  }
-
   /**
    * Worker threads determine their next action after completing a task using this method.
    *
@@ -564,7 +553,7 @@ final class PriorityWorkerPool {
       } else {
         long target = snapshot + ONE_THREAD;
         if (UNSAFE.compareAndSwapLong(null, countersAddress, snapshot, target)) {
-          return quiescentOrIdle(target);
+          return IDLE;
         }
       }
       snapshot = UNSAFE.getLong(null, countersAddress);
@@ -574,8 +563,8 @@ final class PriorityWorkerPool {
   /**
    * Worker threads call this to determine their next action after completing a CPU heavy task.
    *
-   * <p>This releases a CPU permit when returning {@link NextWorkerActivity#QUIESCENT}, {@link
-   * NextWorkerActivity#IDLE} or {@link NextWorkerActivity#DO_TASK}.
+   * <p>This releases a CPU permit when returning {@link NextWorkerActivity#IDLE} or {@link
+   * NextWorkerActivity#DO_TASK}.
    */
   private NextWorkerActivity getActivityFollowingCpuHeavyTask() {
     long snapshot = UNSAFE.getLongVolatile(null, countersAddress);
@@ -593,16 +582,11 @@ final class PriorityWorkerPool {
       } else {
         long target = snapshot + CPU_HEAVY_RESOURCES;
         if (UNSAFE.compareAndSwapLong(null, countersAddress, snapshot, target)) {
-          return quiescentOrIdle(target);
+          return IDLE;
         }
       }
       snapshot = UNSAFE.getLong(null, countersAddress);
     } while (true);
-  }
-
-  private NextWorkerActivity quiescentOrIdle(long snapshot) {
-    int snapshotThreads = (int) ((snapshot & THREADS_MASK) >> THREADS_BIT_OFFSET);
-    return snapshotThreads == poolSize ? QUIESCENT : IDLE;
   }
 
   // Throughout this class, the following wrappers are used where possible, but they are often not

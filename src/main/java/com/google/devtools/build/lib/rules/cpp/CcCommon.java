@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -39,7 +38,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.CollidingProvidesException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -53,7 +51,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
-import java.util.regex.PatternSyntaxException;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
@@ -366,34 +363,6 @@ public final class CcCommon implements StarlarkValue {
       } else {
         return !noCoptsPattern.matcher(flag).matches();
       }
-    }
-  }
-
-  @Nullable
-  private static Pattern getNoCoptsPattern(RuleContext ruleContext) throws InterruptedException {
-    if (!ruleContext.getRule().isAttrDefined(NO_COPTS_ATTRIBUTE, Type.STRING)) {
-      return null;
-    }
-    String nocoptsValue = ruleContext.attributes().get(NO_COPTS_ATTRIBUTE, Type.STRING);
-    if (Strings.isNullOrEmpty(nocoptsValue)) {
-      return null;
-    }
-
-    if (ruleContext.getConfiguration().getFragment(CppConfiguration.class).disableNoCopts()) {
-      ruleContext.attributeError(
-          NO_COPTS_ATTRIBUTE,
-          "This attribute was removed. See https://github.com/bazelbuild/bazel/issues/8706 for"
-              + " details.");
-    }
-
-    String nocoptsAttr = ruleContext.getExpander().expand(NO_COPTS_ATTRIBUTE, nocoptsValue);
-    try {
-      return Pattern.compile(nocoptsAttr);
-    } catch (PatternSyntaxException e) {
-      ruleContext.attributeError(
-          NO_COPTS_ATTRIBUTE,
-          "invalid regular expression '" + nocoptsAttr + "': " + e.getMessage());
-      return null;
     }
   }
 
@@ -753,6 +722,11 @@ public final class CcCommon implements StarlarkValue {
         // Support implicit enabling of FSAFDO for AFDO unless it has been disabled.
         if (!allUnsupportedFeatures.contains(CppRuleClasses.FSAFDO)) {
           allFeatures.add(CppRuleClasses.ENABLE_FSAFDO);
+          // Support implicit enabling of MFS for FSAFDO unless it has been disabled.
+          // We are reusing the "ENABLE_FDO_SPLIT_FUNCTIONS" feature here.
+          if (!allUnsupportedFeatures.contains(CppRuleClasses.SPLIT_FUNCTIONS)) {
+            allFeatures.add(CppRuleClasses.ENABLE_FDO_SPLIT_FUNCTIONS);
+          }
         }
       }
       if (branchFdoProvider.isAutoXBinaryFdo()) {

@@ -41,6 +41,9 @@ build --incompatible_disallow_empty_glob
 # Manually enable cc toolchain resolution before it is flipped. https://github.com/bazelbuild/bazel/issues/7260
 build --incompatible_enable_cc_toolchain_resolution
 
+# Fix non-deterministic Java compilation failures (https://github.com/bazelbuild/bazel/issues/3236)
+build --incompatible_sandbox_hermetic_tmp
+
 # User-specific .bazelrc
 try-import %workspace%/user.bazelrc
 

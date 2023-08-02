@@ -34,6 +34,7 @@ import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -252,11 +253,15 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   public Object provider(Object doc, Object fields, Object init, StarlarkThread thread)
       throws EvalException {
     StarlarkProvider.Builder builder = StarlarkProvider.builder(thread.getCallerLocation());
-    Starlark.toJavaOptional(doc, String.class).ifPresent(builder::setDocumentation);
+    Starlark.toJavaOptional(doc, String.class)
+        .map(Starlark::trimDocString)
+        .ifPresent(builder::setDocumentation);
     if (fields instanceof Sequence) {
       builder.setSchema(Sequence.cast(fields, String.class, "fields"));
     } else if (fields instanceof Dict) {
-      builder.setSchema(Dict.cast(fields, String.class, String.class, "fields"));
+      builder.setSchema(
+          Maps.transformValues(
+              Dict.cast(fields, String.class, String.class, "fields"), Starlark::trimDocString));
     }
     if (init == Starlark.NONE) {
       return builder.build();
@@ -495,7 +500,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         type,
         attributes,
         thread.getCallerLocation(),
-        Starlark.toJavaOptional(doc, String.class));
+        Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString));
   }
 
   private static void checkAttributeName(String name) throws EvalException {
@@ -673,7 +678,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
     return new StarlarkDefinedAspect(
         implementation,
-        Starlark.toJavaOptional(doc, String.class),
+        Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString),
         attrAspects.build(),
         attributes.build(),
         StarlarkAttrModule.buildProviderPredicate(requiredProvidersArg, "required_providers"),

@@ -375,8 +375,8 @@ public final class StarlarkRepositoryContextTest {
           .hasCauseThat()
           .hasMessageThat()
           .isEqualTo(
-              "Error applying patch /outputDir/my.patch: Incorrect Chunk: the chunk content "
-                  + "doesn't match the target\n"
+              "Error applying patch /outputDir/my.patch: in patch applied to "
+                  + "/outputDir/foo: Incorrect Chunk: the chunk content doesn't match the target\n"
                   + "**Original Position**: 1\n"
                   + "\n"
                   + "**Original Content**:\n"

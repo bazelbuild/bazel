@@ -123,7 +123,7 @@ rule_info {
   }
   attribute {
     name: "deps"
-    doc_string: "\nThe dependencies to use. Defaults to the most recent ANTLR 3 release,\nbut if you need to use a different version, you can specify the\ndependencies here.\n"
+    doc_string: "The dependencies to use. Defaults to the most recent ANTLR 3 release,\nbut if you need to use a different version, you can specify the\ndependencies here."
     type: LABEL_LIST
     default_value: "[Label(\"@antlr3_runtimes//:tool\")]"
   }
