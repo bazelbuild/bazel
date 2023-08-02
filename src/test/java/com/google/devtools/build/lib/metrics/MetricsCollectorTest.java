@@ -520,6 +520,13 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void testExecutionTimeInMs() throws Exception {
+    buildTarget("//foo:foo");
+    BuildMetrics buildMetrics = buildMetricsEventListener.event.getBuildMetrics();
+    assertThat(buildMetrics.getTimingMetrics().getExecutionPhaseTimeInMs()).isGreaterThan(0);
+  }
+
+  @Test
   public void testUsedHeapSizePostBuild() throws Exception {
     // TODO(bazel-team): Fix recording used heap size on Windows.
     Assume.assumeTrue(OS.getCurrent() != OS.WINDOWS);

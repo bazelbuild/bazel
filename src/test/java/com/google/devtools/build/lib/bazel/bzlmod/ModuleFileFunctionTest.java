@@ -1048,7 +1048,30 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
   }
 
   @Test
+  public void restrictedSyntax() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "if 3+5>7: module(name='aaa',version='0.1',repo_name='bbb')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+
+    reporter.removeHandler(failFastHandler); // expect failures
+    evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+
+    assertContainsEvent(
+        "`if` statements are not allowed in MODULE.bazel files. You may use an `if` expression for"
+            + " simple cases");
+  }
+
+  @Test
   public void isolatedUsageWithoutImports() throws Exception {
+    PrecomputedValue.STARLARK_SEMANTICS.set(
+        differencer,
+        StarlarkSemantics.builder()
+            .setBool(BuildLanguageOptions.ENABLE_BZLMOD, true)
+            .setBool(BuildLanguageOptions.EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, true)
+            .build());
+
     scratch.file(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "isolated_ext = use_extension('//:extensions.bzl', 'my_ext', isolate = True)");
@@ -1069,6 +1092,13 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
   @Test
   public void isolatedUsageNotExported() throws Exception {
+    PrecomputedValue.STARLARK_SEMANTICS.set(
+        differencer,
+        StarlarkSemantics.builder()
+            .setBool(BuildLanguageOptions.ENABLE_BZLMOD, true)
+            .setBool(BuildLanguageOptions.EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, true)
+            .build());
+
     scratch.file(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "use_extension('//:extensions.bzl', 'my_ext', isolate = True)");
@@ -1080,5 +1110,21 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     assertContainsEvent(
         "Isolated extension usage at /workspace/MODULE.bazel:1:14 must be assigned to a "
             + "top-level variable");
+  }
+
+  @Test
+  public void isolatedUsage_notEnabled() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "use_extension('//:extensions.bzl', 'my_ext', isolate = True)");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+
+    reporter.removeHandler(failFastHandler); // expect failures
+    evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertContainsEvent(
+        "Error in use_extension: in call to use_extension(), parameter 'isolate' is experimental "
+            + "and thus unavailable with the current flags. It may be enabled by setting "
+            + "--experimental_isolated_extension_usages");
   }
 }

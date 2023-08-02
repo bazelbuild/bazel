@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.util.Optional;
@@ -44,6 +45,8 @@ public abstract class ModuleExtension implements StarlarkValue {
 
   public abstract Location getLocation();
 
+  public abstract ImmutableList<String> getEnvVariables();
+
   public static Builder builder() {
     return new AutoValue_ModuleExtension.Builder();
   }
@@ -60,6 +63,8 @@ public abstract class ModuleExtension implements StarlarkValue {
     public abstract Builder setImplementation(StarlarkCallable value);
 
     public abstract Builder setTagClasses(ImmutableMap<String, TagClass> value);
+
+    public abstract Builder setEnvVariables(ImmutableList<String> value);
 
     public abstract ModuleExtension build();
   }

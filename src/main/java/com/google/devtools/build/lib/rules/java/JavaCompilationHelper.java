@@ -68,6 +68,8 @@ public final class JavaCompilationHelper {
 
   private static final Interner<ImmutableList<String>> javacOptsInterner =
       BlazeInterners.newWeakInterner();
+  private static final Interner<ImmutableMap<String, String>> executionInfoInterner =
+      BlazeInterners.newWeakInterner();
 
   private final RuleContext ruleContext;
   private final JavaToolchainProvider javaToolchain;
@@ -130,6 +132,14 @@ public final class JavaCompilationHelper {
         attributes,
         JavaToolchainProvider.from(ruleContext),
         additionalInputsForDatabinding);
+  }
+
+  @Nullable
+  static ImmutableList<String> internJavacOpts(@Nullable ImmutableList<String> javacOpts) {
+    if (javacOpts == null) {
+      return null;
+    }
+    return javacOptsInterner.intern(javacOpts);
   }
 
   public void enableJspecify(boolean enableJspecify) {
@@ -360,7 +370,7 @@ public final class JavaCompilationHelper {
     builder.setSourceFiles(sourceFiles);
     builder.setSourceJars(sourceJars);
     builder.setJavacOpts(javacopts);
-    builder.setJavacExecutionInfo(getExecutionInfo());
+    builder.setJavacExecutionInfo(executionInfoInterner.intern(getExecutionInfo()));
     builder.setCompressJar(true);
     builder.setBuiltinProcessorNames(javaToolchain.getHeaderCompilerBuiltinProcessors());
     builder.setExtraData(JavaCommon.computePerPackageData(ruleContext, javaToolchain));
@@ -529,14 +539,10 @@ public final class JavaCompilationHelper {
   /**
    * Creates the Action that compiles ijars from source.
    *
-   * @param runtimeJar the jar output of this java compilation, used to create output-relative paths
-   *     for new artifacts.
+   * @param headerJar the jar output of this java compilation
+   * @param headerDeps the .jdeps output of this java compilation
    */
-  private Artifact createHeaderCompilationAction(
-      Artifact runtimeJar, JavaCompilationArtifacts.Builder artifactBuilder) {
-
-    Artifact headerJar = turbineOutput(runtimeJar, "-hjar.jar");
-    Artifact headerDeps = turbineOutput(runtimeJar, "-hjar.jdeps");
+  public void createHeaderCompilationAction(Artifact headerJar, Artifact headerDeps) {
 
     JavaTargetAttributes attributes = getAttributes();
 
@@ -556,9 +562,6 @@ public final class JavaCompilationHelper {
     }
     builder.enableDirectClasspath(enableDirectClasspath);
     builder.build(javaToolchain);
-
-    artifactBuilder.setCompileTimeDependencies(headerDeps);
-    return headerJar;
   }
 
   private JavaHeaderCompileAction.Builder getJavaHeaderCompileActionBuilder() {
@@ -717,7 +720,10 @@ public final class JavaCompilationHelper {
     Artifact jar;
     boolean isFullJar = false;
     if (shouldUseHeaderCompilation()) {
-      jar = createHeaderCompilationAction(runtimeJar, builder);
+      jar = turbineOutput(runtimeJar, "-hjar.jar");
+      Artifact headerDeps = turbineOutput(runtimeJar, "-hjar.jdeps");
+      createHeaderCompilationAction(jar, headerDeps);
+      builder.setCompileTimeDependencies(headerDeps);
     } else if (getJavaConfiguration().getUseIjars()) {
       JavaTargetAttributes attributes = getAttributes();
       jar =

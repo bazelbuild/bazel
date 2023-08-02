@@ -2106,6 +2106,8 @@ public class RewindingTestsHelper {
             "Extracting include lines from genheader/consumes.cc",
             "Extracting include lines from tools/cpp/malloc.cc",
             "Compiling tools/cpp/malloc.cc",
+            "Extracting include lines from tools/cpp/linkextra.cc",
+            "Compiling tools/cpp/linkextra.cc",
             String.format(
                 "Extracting include lines from %s-out/k8-fastbuild/bin/genheader/gen.h",
                 TestConstants.PRODUCT_NAME),
@@ -2170,6 +2172,8 @@ public class RewindingTestsHelper {
             "Extracting include lines from genheader/consumes.cc",
             "Extracting include lines from tools/cpp/malloc.cc",
             "Compiling tools/cpp/malloc.cc",
+            "Extracting include lines from tools/cpp/linkextra.cc",
+            "Compiling tools/cpp/linkextra.cc",
             String.format(
                 "Extracting include lines from %s-out/k8-fastbuild/bin/genheader/gen.h",
                 TestConstants.PRODUCT_NAME),
@@ -2263,6 +2267,8 @@ public class RewindingTestsHelper {
             "Extracting include lines from genheader/consumes.cc",
             "Extracting include lines from tools/cpp/malloc.cc",
             "Compiling tools/cpp/malloc.cc",
+            "Extracting include lines from tools/cpp/linkextra.cc",
+            "Compiling tools/cpp/linkextra.cc",
             "Compiling genheader/intermediate.cc",
             String.format(
                 "Extracting include lines from %s-out/k8-fastbuild/bin/genheader/gen.h",
@@ -2332,6 +2338,8 @@ public class RewindingTestsHelper {
             "Extracting include lines from genheader/intermediate.cc",
             "Extracting include lines from tools/cpp/malloc.cc",
             "Compiling tools/cpp/malloc.cc",
+            "Extracting include lines from tools/cpp/linkextra.cc",
+            "Compiling tools/cpp/linkextra.cc",
             "Extracting include lines from genheader/consumes.cc",
             "Compiling genheader/intermediate.cc",
             String.format(

@@ -124,6 +124,7 @@ java_test(
         "@googleapis//:google_rpc_code_java_proto",
         "@googleapis//:google_rpc_error_details_java_proto",
         "@googleapis//:google_rpc_status_java_proto",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
         "@remoteapis//:build_bazel_semver_semver_java_proto",

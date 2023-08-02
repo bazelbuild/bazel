@@ -535,6 +535,23 @@ public class BazelCppRuleClasses {
                   .allowedFileTypes()
                   .allowedRuleClasses("cc_library"))
           .add(attr(":default_malloc", LABEL).value(CppRuleClasses.DEFAULT_MALLOC))
+          /*<!-- #BLAZE_RULE($cc_binary_base).ATTRIBUTE(link_extra_lib) -->
+          Control linking of extra libraries.
+          <p>
+            By default, C++ binaries are linked against <code>//tools/cpp:link_extra_lib</code>,
+            which by default depends on the label flag <code>//tools/cpp:link_extra_libs</code>.
+            Without setting the flag, this library is empty by default. Setting the label flag
+            allows linking optional dependencies, such as overrides for weak symbols, interceptors
+            for shared library functions, or special runtime libraries (for malloc replacements,
+            prefer <code>malloc</code> or <code>--custom_malloc</code>). Setting this attribute to
+            <code>None</code> disables this behaviour.
+          </p>
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(
+              attr("link_extra_lib", LABEL)
+                  .value(env.getToolsLabel("//tools/cpp:link_extra_lib"))
+                  .allowedFileTypes()
+                  .allowedRuleClasses("cc_library"))
           /*<!-- #BLAZE_RULE($cc_binary_base).ATTRIBUTE(stamp) -->
           Whether to encode build information into the binary. Possible values:
           <ul>

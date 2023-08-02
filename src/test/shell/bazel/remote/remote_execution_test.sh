@@ -1263,6 +1263,36 @@ EOF
   expect_not_log "1 local"
 }
 
+function test_require_cached() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = ["foo.in"],
+  outs = ["foo.out"],
+  cmd = "cp \"$<\" \"$@\"",
+)
+EOF
+
+  echo "input 1" >a/foo.in
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
+
+  expect_log "1 remote"
+
+  echo "input 2" >a/foo.in
+  if bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_remote_require_cached \
+    //a:foo >& $TEST_log; then
+    fail "Build of //a:foo succeeded but it should have failed"
+  fi
+
+  expect_log "Action must be cached due to --experimental_remote_require_cached but it is not"
+  expect_not_log "remote cache hit"
+}
+
 function test_nobuild_runfile_links() {
   mkdir data && echo "hello" > data/hello && echo "world" > data/world
     cat > WORKSPACE <<EOF
@@ -2014,8 +2044,7 @@ EOF
   expect_log "2 remote cache hit"
 }
 
-function test_exclusive_tag() {
-  # Test that the exclusive tag works with the remote cache.
+function setup_exclusive_test_case() {
   mkdir -p a
   cat > a/success.sh <<'EOF'
 #!/bin/sh
@@ -2029,17 +2058,60 @@ sh_test(
   tags = ["exclusive"],
 )
 EOF
+}
 
+function test_exclusive_test_hit_remote_cache() {
+  # Test that the exclusive test works with the remote cache.
+  setup_exclusive_test_case
+
+  # Warm up the cache
   bazel test \
     --remote_cache=grpc://localhost:${worker_port} \
     //a:success_test || fail "Failed to test //a:success_test"
+
+  bazel clean
+
+  bazel test \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //a:success_test >& $TEST_log || fail "Failed to test //a:success_test"
+
+  # test action + test xml generation
+  expect_log "2 remote cache hit"
+}
+
+function test_exclusive_test_and_no_cache_test_results() {
+  # Test that the exclusive test won't hit the remote cache if
+  # --nocache_test_results is set.
+  setup_exclusive_test_case
+
+  # Warm up the cache
+  bazel test \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //a:success_test || fail "Failed to test //a:success_test"
+
+  bazel clean
 
   bazel test \
     --remote_cache=grpc://localhost:${worker_port} \
     --nocache_test_results \
     //a:success_test >& $TEST_log || fail "Failed to test //a:success_test"
 
-  expect_log "remote cache hit"
+  # test action
+  expect_log "1.*-sandbox"
+  # test xml generation
+  expect_log "1 remote cache hit"
+}
+
+function test_exclusive_test_wont_remote_exec() {
+  # Test that the exclusive test won't execute remotely.
+  setup_exclusive_test_case
+
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:success_test >& $TEST_log || fail "Failed to test //a:success_test"
+
+  # test action + test xml generation
+  expect_log "2.*-sandbox"
 }
 
 # TODO(alpha): Add a test that fails remote execution when remote worker

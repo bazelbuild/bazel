@@ -1,0 +1,27 @@
+provider_info {
+  provider_name: "MyFooInfo"
+  doc_string: "Stores information about a foo."
+  field_info {
+    name: "bar"
+    doc_string: "(Undocumented)"
+  }
+  field_info {
+    name: "baz"
+    doc_string: "(Undocumented)"
+  }
+}
+provider_info {
+  provider_name: "MyPoorlyDocumentedInfo"
+}
+provider_info {
+  provider_name: "MyVeryDocumentedInfo"
+  doc_string: "A provider with some really neat documentation.\nLook on my works, ye mighty, and despair!"
+  field_info {
+    name: "favorite_food"
+    doc_string: "A string representing my favorite food"
+  }
+  field_info {
+    name: "favorite_color"
+    doc_string: "A string representing my favorite color"
+  }
+}

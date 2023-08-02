@@ -230,6 +230,18 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public boolean remoteAcceptCached;
 
   @Option(
+      name = "experimental_remote_require_cached",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If set to true, enforce that all actions that can run remotely are cached, or else "
+              + "fail the build. This is useful to troubleshoot non-determinism issues as it "
+              + "allows checking whether actions that should be cached are actually cached "
+              + "without spuriously injecting new results into the cache.")
+  public boolean remoteRequireCached;
+
+  @Option(
       name = "remote_local_fallback",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.REMOTE,

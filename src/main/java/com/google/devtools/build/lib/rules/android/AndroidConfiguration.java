@@ -1330,7 +1330,8 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     return dexoptsSupportedInDexMerger;
   }
 
-  /** dx flags supported in dexmerger actions. */
+  /** dx flags supported in dexsharder actions. */
+  @Override
   public ImmutableList<String> getDexoptsSupportedInDexSharder() {
     return dexoptsSupportedInDexSharder;
   }

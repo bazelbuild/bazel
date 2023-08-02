@@ -44,7 +44,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.ConcurrentHashMap;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -54,7 +53,7 @@ public final class TransitiveDependencyStateTest {
   private static final Random rng = new Random(0);
 
   @Test
-  public void singlyAdddedPackages_areSorted() {
+  public void singlyAddedPackages_areSorted() {
     var orderedPackages =
         ImmutableList.<Package>of(
             createMockPackage(PackageIdentifier.createInMainRepo("package1")),
@@ -134,7 +133,7 @@ public final class TransitiveDependencyStateTest {
 
   private static TransitiveDependencyState newTransitiveState() {
     return new TransitiveDependencyState(
-        /* storeTransitivePackages= */ true, /* prerequisitePackages= */ new ConcurrentHashMap<>());
+        /* storeTransitivePackages= */ true, /* prerequisitePackages= */ p -> null);
   }
 
   private static Package createMockPackage(PackageIdentifier id) {
@@ -222,18 +221,18 @@ public final class TransitiveDependencyStateTest {
 
   private static ImmutableList<AspectDescriptor> getOrderedAspectDescriptors() {
     return ImmutableList.of(
-        new AspectDescriptor(ASPECT_CLASS1),
-        new AspectDescriptor(
+        AspectDescriptor.of(ASPECT_CLASS1, AspectParameters.EMPTY),
+        AspectDescriptor.of(
             ASPECT_CLASS1, new AspectParameters.Builder().addAttribute("foo", "bar").build()),
-        new AspectDescriptor(ASPECT_CLASS2));
+        AspectDescriptor.of(ASPECT_CLASS2, AspectParameters.EMPTY));
   }
 
-  public static ImmutableList<AspectKey> getOrderedAspectKeys() {
+  private static ImmutableList<AspectKey> getOrderedAspectKeys() {
     var descriptors = getOrderedAspectDescriptors();
     var builder = ImmutableList.<AspectKey>builder();
 
-    var baseDescriptor1 = new AspectDescriptor(ASPECT_CLASS3);
-    var baseDescriptor2 = new AspectDescriptor(ASPECT_CLASS4);
+    var baseDescriptor1 = AspectDescriptor.of(ASPECT_CLASS3, AspectParameters.EMPTY);
+    var baseDescriptor2 = AspectDescriptor.of(ASPECT_CLASS4, AspectParameters.EMPTY);
 
     for (var baseConfiguredTargetKey : getOrderedConfiguredTargetKeys()) {
       for (var descriptor : descriptors) {

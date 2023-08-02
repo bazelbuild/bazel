@@ -99,6 +99,7 @@ class MetricsCollector {
   // TopLevelTargetExecutionStartedEvent. This AtomicBoolean is so that we only account for the
   // build once.
   private final AtomicBoolean buildAccountedFor;
+  private long executionStartMillis;
 
   @CanIgnoreReturnValue
   private MetricsCollector(
@@ -157,6 +158,10 @@ class MetricsCollector {
     }
   }
 
+  private void markExecutionPhaseStarted() {
+    executionStartMillis = BlazeClock.instance().currentTimeMillis();
+  }
+
   @SuppressWarnings("unused")
   @Subscribe
   public synchronized void logAnalysisGraphStats(AnalysisGraphStatsEvent event) {
@@ -175,13 +180,17 @@ class MetricsCollector {
   @SuppressWarnings("unused")
   @Subscribe
   public synchronized void logExecutionStartingEvent(ExecutionStartingEvent event) {
+    markExecutionPhaseStarted();
     numBuilds.getAndIncrement();
   }
 
+  // Skymeld-specific: we don't have an ExecutionStartingEvent for skymeld, so we have to use
+  // TopLevelTargetExecutionStartedEvent
   @Subscribe
-  public synchronized void accountForBuild(
+  public synchronized void handleExecutionPhaseStart(
       @SuppressWarnings("unused") TopLevelTargetPendingExecutionEvent event) {
     if (buildAccountedFor.compareAndSet(/*expectedValue=*/ false, /*newValue=*/ true)) {
+      markExecutionPhaseStarted();
       numBuilds.getAndIncrement();
     }
   }
@@ -255,6 +264,8 @@ class MetricsCollector {
   @SuppressWarnings("unused")
   @Subscribe
   public void onExecutionComplete(ExecutionFinishedEvent event) {
+    timingMetrics.setExecutionPhaseTimeInMs(
+        BlazeClock.instance().currentTimeMillis() - executionStartMillis);
     artifactMetrics
         .setSourceArtifactsRead(event.sourceArtifactsRead())
         .setOutputArtifactsSeen(event.outputArtifactsSeen())

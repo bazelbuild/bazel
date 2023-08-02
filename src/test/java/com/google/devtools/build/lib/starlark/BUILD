@@ -29,6 +29,7 @@ java_test(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
@@ -88,7 +89,7 @@ java_test(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
-        "@com_google_testparameterinjector//:testparameterinjector",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )
 

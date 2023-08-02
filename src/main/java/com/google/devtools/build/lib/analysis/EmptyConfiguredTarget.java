@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -26,7 +26,7 @@ import javax.annotation.Nullable;
 /** A configured target that is empty. */
 @Immutable
 public class EmptyConfiguredTarget extends AbstractConfiguredTarget {
-  public EmptyConfiguredTarget(ActionLookupKeyOrProxy actionLookupKey) {
+  public EmptyConfiguredTarget(ActionLookupKey actionLookupKey) {
     super(actionLookupKey, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 

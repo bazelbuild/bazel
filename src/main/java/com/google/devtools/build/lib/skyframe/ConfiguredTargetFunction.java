@@ -29,31 +29,29 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.DependencyKind;
-import com.google.devtools.build.lib.analysis.DependencyResolver;
+import com.google.devtools.build.lib.analysis.DependencyResolutionHelpers;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
+import com.google.devtools.build.lib.analysis.TransitiveDependencyState.PrerequisitePackageFunction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker;
 import com.google.devtools.build.lib.analysis.producers.TargetAndConfigurationProducer;
-import com.google.devtools.build.lib.analysis.producers.TargetAndConfigurationProducer.NoSuchTargetExceptionWithLocation;
 import com.google.devtools.build.lib.analysis.producers.TargetAndConfigurationProducer.TargetAndConfigurationError;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailurePropagationException;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
@@ -67,7 +65,6 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
@@ -76,7 +73,6 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.Driver;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -98,12 +94,12 @@ import javax.annotation.Nullable;
  * <p>Multiple helper classes support this work, all called directly or indirectly from here:
  *
  * <ol>
- *   <li>{@link PrerequisiteProducer}: Analysis consists of two important steps: computing the
+ *   <li>{@link DependencyResolver}: Analysis consists of two important steps: computing the
  *       target's prerequisite dependencies and executing its rule logic. This class performs the
  *       first step. It also performs supporting computations like {@code config_setting} and
  *       toolchain resolution.
- *   <li>{@link DependencyResolver}: Helper for {@link PrerequisiteProducer}: figures out what this
- *       target's dependencies are and what their configurations should be.
+ *   <li>{@link DependencyResolutionHelpers}: Helper for {@link DependencyResolver}: figures out
+ *       what this target's dependencies are and what their configurations should be.
  *   <li>{@link DependencyKind}: Structured representation of a dependency's type (e.g. rule
  *       attribute vs. toolchain dependency).
  *   <li>{@link AspectFunction}: Evaluates aspects attached to this target's dependencies.
@@ -138,15 +134,14 @@ public final class ConfiguredTargetFunction implements SkyFunction {
    * Packages of prerequisites.
    *
    * <p>These packages are needed by {@link ConfiguredTarget}s that depend on them. Instead of
-   * looking them up in {@code Skyframe}, they can be looked up in this map to avoid creating
-   * unnecessary dependency edges. The package dependency is already implied by configured target
-   * dependency edge.
+   * declaring dependency edges on them in {@code Skyframe}, they can be looked up directly. The
+   * package dependency edge is already implied by configured target dependency edge.
    *
    * <p>It is only valid to use this to lookup packages of prerequisites. Using this to lookup the
    * package of the primary configured target would cause incrementality errors because an essential
    * dependency edge would not be registered.
    */
-  private final ConcurrentHashMap<PackageIdentifier, Package> prerequisitePackages;
+  private final PrerequisitePackageFunction prerequisitePackages;
 
   ConfiguredTargetFunction(
       BuildViewProvider buildViewProvider,
@@ -155,7 +150,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       boolean storeTransitivePackages,
       boolean shouldUnblockCpuWorkWhenFetchingDeps,
       @Nullable ConfiguredTargetProgressReceiver configuredTargetProgress,
-      ConcurrentHashMap<PackageIdentifier, Package> prerequisitePackages) {
+      PrerequisitePackageFunction prerequisitePackages) {
     this.buildViewProvider = buildViewProvider;
     this.ruleClassProvider = ruleClassProvider;
     this.cpuBoundSemaphore = cpuBoundSemaphore;
@@ -198,7 +193,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
      *
      * <ul>
      *   <li>{@link ConfiguredTargetKey}: if the result was a {@link TargetAndConfiguration}, set in
-     *       {@link PrerequisiteProducer.State#targetAndConfiguration}.
+     *       {@link DependencyResolver.State#targetAndConfiguration}.
      *   <li>{@link ConfiguredTargetValue}: an immediate value. This occurs when applying the rule
      *       transition to the {@link ConfiguredTargetKey} results in a previously computed key.
      *   <li>{@link TargetAndConfigurationError}: if an error occurred.
@@ -206,13 +201,11 @@ public final class ConfiguredTargetFunction implements SkyFunction {
      */
     private Object targetAndConfigurationResult;
 
-    final PrerequisiteProducer.State computeDependenciesState;
+    final DependencyResolver.State computeDependenciesState;
 
-    State(
-        boolean storeTransitivePackages,
-        ConcurrentHashMap<PackageIdentifier, Package> prerequisitePackages) {
+    State(boolean storeTransitivePackages, PrerequisitePackageFunction prerequisitePackages) {
       this.computeDependenciesState =
-          new PrerequisiteProducer.State(storeTransitivePackages, prerequisitePackages);
+          new DependencyResolver.State(storeTransitivePackages, prerequisitePackages);
     }
 
     @Override
@@ -243,7 +236,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     if (shouldUnblockCpuWorkWhenFetchingDeps) {
       // Fetching blocks on other resources, so we don't want to hold on to the semaphore meanwhile.
-      // TODO(b/194319860): remove this and PrerequisiteProducer.SemaphoreAcquirer when we no need
+      // TODO(b/194319860): remove this and DependencyResolver.SemaphoreAcquirer when we no need
       // semaphore locking.
       env =
           new StateInformingSkyFunctionEnvironment(
@@ -265,8 +258,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     }
 
     configuredTargetKey = (ConfiguredTargetKey) state.targetAndConfigurationResult;
-    PrerequisiteProducer prereqs =
-        new PrerequisiteProducer(computeDependenciesState.targetAndConfiguration);
+    DependencyResolver prereqs =
+        new DependencyResolver(computeDependenciesState.targetAndConfiguration);
     try {
       // Perform all analysis through dependency evaluation.
       if (!prereqs.evaluate(
@@ -356,10 +349,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
   @Override
   public String extractTag(SkyKey skyKey) {
     return Label.print(((ConfiguredTargetKey) skyKey.argument()).getLabel());
-  }
-
-  void clearPrerequisitePackages() {
-    prerequisitePackages.clear();
   }
 
   @SuppressWarnings("LenientFormatStringValidation")
@@ -475,9 +464,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                         .getTrimmingTransitionFactory(),
                     buildViewProvider.getSkyframeBuildView().getStarlarkTransitionCache(),
                     state.computeDependenciesState.transitiveState,
-                    (TargetAndConfigurationProducer.ResultSink) state));
+                    (TargetAndConfigurationProducer.ResultSink) state,
+                    storedEvents));
       }
-      if (state.targetAndConfigurationProducer.drive(env, storedEvents)) {
+      if (state.targetAndConfigurationProducer.drive(env)) {
         state.targetAndConfigurationProducer = null;
       }
       result = state.targetAndConfigurationResult;
@@ -500,15 +490,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               storedEvents.handle(Event.error(e.getLocation(), e.getMessage()));
             }
             throw new ReportedException(e);
-          case NO_SUCH_PACKAGE:
-            NoSuchPackageException noSuchPackage = error.noSuchPackage();
-            storedEvents.handle(Event.error(noSuchPackage.getMessage()));
-            throw new DependencyException(noSuchPackage);
-          case NO_SUCH_TARGET:
-            NoSuchTargetExceptionWithLocation noSuchTarget = error.noSuchTarget();
-            storedEvents.handle(
-                Event.error(noSuchTarget.location(), noSuchTarget.exception().getMessage()));
-            throw new DependencyException(noSuchTarget.exception());
+          case NO_SUCH_THING:
+            throw new DependencyException(error.noSuchThing());
           case INCONSISTENT_NULL_CONFIG:
             throw new DependencyException(error.inconsistentNullConfig());
         }
@@ -523,7 +506,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       // Otherwise either:
       // 1. the result is null for a restart, so replayed events would not be used anyway; or
       // 2. the result is a `TargetAndConfiguration` value and
-      //    `PrerequisiteProducer.computeDependencies` takes ownership of stored events.
+      //    `DependencyResolver.computeDependencies` takes ownership of stored events.
     }
   }
 
@@ -533,15 +516,5 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             .setMessage(message)
             .setAnalysis(Analysis.newBuilder().setCode(Code.CONFIGURED_VALUE_CREATION_FAILED))
             .build());
-  }
-
-  static DetailedExitCode getPrioritizedDetailedExitCode(NestedSet<Cause> causes) {
-    DetailedExitCode prioritizedDetailedExitCode = null;
-    for (Cause c : causes.toList()) {
-      prioritizedDetailedExitCode =
-          DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
-              prioritizedDetailedExitCode, c.getDetailedExitCode());
-    }
-    return prioritizedDetailedExitCode;
   }
 }

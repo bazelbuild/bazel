@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Aspect;
@@ -24,47 +25,55 @@ import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
 /** An aspect in the context of the Skyframe graph. */
-public final class AspectValue extends BasicActionLookupValue implements RuleConfiguredObjectValue {
-  // These variables are only non-final because they may be clear()ed to save memory. They are null
-  // only after they are cleared except for transitivePackagesForPackageRootResolution.
-  @Nullable private Aspect aspect;
-  @Nullable private Location location;
-  // Normally the key used to evaluate this value in AspectFunction#compute. But in the case of a
-  // top-level StarlarkAspectKey, the AspectValue will be this value but the key will be the
-  // associated aspect key from StarlarkAspectKey#toAspectkey.
-  @Nullable private AspectKey key;
-  @Nullable private ConfiguredAspect configuredAspect;
-  // May be null either after clearing or because transitive packages are not tracked.
-  @Nullable private transient NestedSet<Package> transitivePackages;
+public class AspectValue extends BasicActionLookupValue
+    implements ConfiguredAspect, RuleConfiguredObjectValue {
 
-  public AspectValue(
+  public static AspectValue create(
       AspectKey key,
       Aspect aspect,
       Location location,
       ConfiguredAspect configuredAspect,
-      NestedSet<Package> transitivePackages) {
+      @Nullable NestedSet<Package> transitivePackages) {
+    return transitivePackages == null
+        ? new AspectValue(key, aspect, location, configuredAspect)
+        : new AspectValueWithTransitivePackages(
+            key, aspect, location, configuredAspect, transitivePackages);
+  }
+
+  // These variables are only non-final because they may be clear()ed to save memory. They are null
+  // only after they are cleared except for transitivePackagesForPackageRootResolution.
+  @Nullable private Aspect aspect;
+  @Nullable private Location location;
+  @Nullable private TransitiveInfoProviderMap providers;
+  // Normally the key used to evaluate this value in AspectFunction#compute. But in the case of a
+  // top-level StarlarkAspectKey, the AspectValue will be this value but the key will be the
+  // associated aspect key from StarlarkAspectKey#toAspectkey.
+  @Nullable private AspectKey key;
+
+  private AspectValue(
+      AspectKey key, Aspect aspect, Location location, ConfiguredAspect configuredAspect) {
     super(configuredAspect.getActions());
-    this.key = key;
-    this.aspect = Preconditions.checkNotNull(aspect, location);
-    this.location = Preconditions.checkNotNull(location, aspect);
-    this.configuredAspect = Preconditions.checkNotNull(configuredAspect, location);
-    this.transitivePackages = transitivePackages;
+    this.key = checkNotNull(key);
+    this.aspect = checkNotNull(aspect);
+    this.location = checkNotNull(location);
+    this.providers = configuredAspect.getProviders();
   }
 
-  public ConfiguredAspect getConfiguredAspect() {
-    return Preconditions.checkNotNull(configuredAspect);
+  public final Location getLocation() {
+    return checkNotNull(location);
   }
 
-  public Location getLocation() {
-    return Preconditions.checkNotNull(location);
+  public final AspectKey getKey() {
+    return checkNotNull(key);
   }
 
-  public AspectKey getKey() {
-    return Preconditions.checkNotNull(key);
+  public final Aspect getAspect() {
+    return checkNotNull(aspect);
   }
 
-  public Aspect getAspect() {
-    return Preconditions.checkNotNull(aspect);
+  @Override
+  public TransitiveInfoProviderMap getProviders() {
+    return checkNotNull(providers);
   }
 
   @Override
@@ -72,30 +81,54 @@ public final class AspectValue extends BasicActionLookupValue implements RuleCon
     if (clearEverything) {
       aspect = null;
       location = null;
+      providers = null;
       key = null;
-      configuredAspect = null;
     }
-    transitivePackages = null;
   }
 
   @Nullable
   @Override
   public NestedSet<Package> getTransitivePackages() {
-    return transitivePackages;
+    return null;
   }
 
   @Override
-  public ProviderCollection getConfiguredObject() {
-    return getConfiguredAspect();
+  public final ProviderCollection getConfiguredObject() {
+    return this;
   }
 
   @Override
-  public String toString() {
+  public final String toString() {
     return getStringHelper()
         .add("key", key)
         .add("location", location)
         .add("aspect", aspect)
-        .add("configuredAspect", configuredAspect)
+        .add("providers", providers)
         .toString();
+  }
+
+  private static final class AspectValueWithTransitivePackages extends AspectValue {
+    @Nullable private transient NestedSet<Package> transitivePackages; // Null after clear().
+
+    private AspectValueWithTransitivePackages(
+        AspectKey key,
+        Aspect aspect,
+        Location location,
+        ConfiguredAspect configuredAspect,
+        NestedSet<Package> transitivePackages) {
+      super(key, aspect, location, configuredAspect);
+      this.transitivePackages = checkNotNull(transitivePackages);
+    }
+
+    @Override
+    public NestedSet<Package> getTransitivePackages() {
+      return transitivePackages;
+    }
+
+    @Override
+    public void clear(boolean clearEverything) {
+      super.clear(clearEverything);
+      transitivePackages = null;
+    }
   }
 }

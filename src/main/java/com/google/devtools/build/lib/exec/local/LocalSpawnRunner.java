@@ -425,7 +425,8 @@ public class LocalSpawnRunner implements SpawnRunner {
         TerminationStatus terminationStatus;
         try (SilentCloseable c =
             Profiler.instance()
-                .profile(ProfilerTask.PROCESS_TIME, spawn.getResourceOwner().getMnemonic())) {
+                .profile(
+                    ProfilerTask.REMOTE_PROCESS_TIME, spawn.getResourceOwner().getMnemonic())) {
           needCleanup = true;
           Subprocess subprocess = subprocessBuilder.start();
           try {

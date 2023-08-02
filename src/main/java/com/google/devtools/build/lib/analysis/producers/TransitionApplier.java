@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.producers;
 
+import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition.PATCH_TRANSITION_KEY;
+
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -63,6 +65,7 @@ final class TransitionApplier
 
   // -------------------- Output --------------------
   private final ResultSink sink;
+  private final ExtendedEventHandler eventHandler;
 
   // -------------------- Sequencing --------------------
   private final StateMachine runAfter;
@@ -75,16 +78,18 @@ final class TransitionApplier
       ConfigurationTransition transition,
       StarlarkTransitionCache transitionCache,
       ResultSink sink,
+      ExtendedEventHandler eventHandler,
       StateMachine runAfter) {
     this.fromConfiguration = fromConfiguration;
     this.transition = transition;
     this.transitionCache = transitionCache;
     this.sink = sink;
+    this.eventHandler = eventHandler;
     this.runAfter = runAfter;
   }
 
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) throws InterruptedException {
+  public StateMachine step(Tasks tasks) throws InterruptedException {
     boolean doesStarlarkTransition;
     try {
       doesStarlarkTransition = StarlarkTransition.doesStarlarkTransition(transition);
@@ -95,7 +100,7 @@ final class TransitionApplier
     if (!doesStarlarkTransition) {
       return convertOptionsToKeys(
           transition.apply(
-              TransitionUtil.restrict(transition, fromConfiguration.getOptions()), listener));
+              TransitionUtil.restrict(transition, fromConfiguration.getOptions()), eventHandler));
     }
 
     ImmutableSet<Label> starlarkBuildSettings =
@@ -103,7 +108,7 @@ final class TransitionApplier
     if (starlarkBuildSettings.isEmpty()) {
       // Quick escape if transition doesn't use any Starlark build settings.
       buildSettingsDetailsValue = StarlarkBuildSettingsDetailsValue.EMPTY;
-      return applyStarlarkTransition(tasks, listener);
+      return applyStarlarkTransition(tasks);
     }
     tasks.lookUp(
         StarlarkBuildSettingsDetailsValue.key(starlarkBuildSettings),
@@ -125,8 +130,7 @@ final class TransitionApplier
     throw new IllegalArgumentException("No result received.");
   }
 
-  private StateMachine applyStarlarkTransition(Tasks tasks, ExtendedEventHandler listener)
-      throws InterruptedException {
+  private StateMachine applyStarlarkTransition(Tasks tasks) throws InterruptedException {
     if (buildSettingsDetailsValue == null) {
       return runAfter; // There was an error.
     }
@@ -135,7 +139,7 @@ final class TransitionApplier
     try {
       transitionedOptions =
           transitionCache.computeIfAbsent(
-              fromConfiguration.getOptions(), transition, buildSettingsDetailsValue, listener);
+              fromConfiguration.getOptions(), transition, buildSettingsDetailsValue, eventHandler);
     } catch (TransitionException e) {
       sink.acceptTransitionError(e);
       return runAfter;
@@ -144,12 +148,13 @@ final class TransitionApplier
   }
 
   private StateMachine convertOptionsToKeys(Map<String, BuildOptions> transitionedOptions) {
-    // If there is a single, unchanged value, just outputs the original key.
+    // If there is a single, unchanged value, just outputs the original configuration, stripping any
+    // transition key.
     if (transitionedOptions.size() == 1) {
-      Map.Entry<String, BuildOptions> entry = transitionedOptions.entrySet().iterator().next();
-      BuildOptions options = entry.getValue();
+      BuildOptions options = transitionedOptions.values().iterator().next();
       if (options.checksum().equals(fromConfiguration.getOptionsChecksum())) {
-        sink.acceptTransitionedConfigurations(ImmutableMap.of(entry.getKey(), fromConfiguration));
+        sink.acceptTransitionedConfigurations(
+            ImmutableMap.of(PATCH_TRANSITION_KEY, fromConfiguration));
         return runAfter;
       }
     }
@@ -175,7 +180,7 @@ final class TransitionApplier
     }
 
     @Override
-    public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+    public StateMachine step(Tasks tasks) {
       // Deduplicates the platform mapping paths and collates the transition keys.
       ImmutableListMultimap<Optional<PathFragment>, String> index =
           Multimaps.index(
@@ -197,7 +202,7 @@ final class TransitionApplier
       return this::applyMappings;
     }
 
-    private StateMachine applyMappings(Tasks tasks, ExtendedEventHandler listener) {
+    private StateMachine applyMappings(Tasks tasks) {
       var result =
           ImmutableMap.<String, BuildConfigurationKey>builderWithExpectedSize(options.size());
       for (Map.Entry<String, BuildOptions> entry : options.entrySet()) {

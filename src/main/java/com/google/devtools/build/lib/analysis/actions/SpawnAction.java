@@ -683,7 +683,12 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         ActionEnvironment env) {
       NestedSet<Artifact> tools = toolsBuilder.build();
 
-      NestedSet<Artifact> inputsAndTools = getInputsAndTools();
+      // Don't call getInputsAndTools - it wouldn't reuse the built set of tools.
+      NestedSet<Artifact> inputsAndTools =
+          NestedSetBuilder.<Artifact>stableOrder()
+              .addTransitive(inputsBuilder.build())
+              .addTransitive(tools)
+              .build();
 
       return createSpawnAction(
           owner,
@@ -786,7 +791,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     /**
      * Returns the inputs that the spawn action will depend on. Tools are by definition a subset of
      * the inputs, so they are also present.
+     *
+     * <p>Warning: this calls {@link NestedSetBuilder#build} on both inputs and tools.
      */
+    // TODO(antunesi): Refactor so this method isn't needed. Building new NestedSets on every call
+    // is a memory vulnerability, see b/291063247.
     public NestedSet<Artifact> getInputsAndTools() {
       return NestedSetBuilder.<Artifact>stableOrder()
           .addTransitive(inputsBuilder.build())

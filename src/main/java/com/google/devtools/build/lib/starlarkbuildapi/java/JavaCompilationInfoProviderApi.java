@@ -48,5 +48,5 @@ public interface JavaCompilationInfoProviderApi<FileT extends FileApi> extends S
       name = "boot_classpath",
       structField = true,
       doc = "Boot classpath for this Java target.")
-  ImmutableList<FileT> getBootClasspath();
+  ImmutableList<FileT> getBootClasspathList();
 }

@@ -29,11 +29,9 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AspectConfiguredEvent;
 import com.google.devtools.build.lib.analysis.AspectValue;
-import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
@@ -155,7 +153,7 @@ public class BuildDriverFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
     BuildDriverKey buildDriverKey = (BuildDriverKey) skyKey;
-    ActionLookupKeyOrProxy actionLookupKey = buildDriverKey.getActionLookupKey();
+    ActionLookupKey actionLookupKey = buildDriverKey.getActionLookupKey();
     TopLevelArtifactContext topLevelArtifactContext = buildDriverKey.getTopLevelArtifactContext();
     State state = env.getState(State::new);
 
@@ -166,7 +164,7 @@ public class BuildDriverFunction implements SkyFunction {
     // Why SkyValue and not ActionLookupValue? The evaluation of some ActionLookupKey can result in
     // classes that don't implement ActionLookupValue
     // (e.g. ConfiguredTargetKey -> NonRuleConfiguredTargetValue).
-    SkyValue topLevelSkyValue = env.getValue(actionLookupKey.toKey());
+    SkyValue topLevelSkyValue = env.getValue(actionLookupKey);
 
     if (env.valuesMissing()) {
       return null;
@@ -380,8 +378,7 @@ public class BuildDriverFunction implements SkyFunction {
                   /* aspectClassName= */ aspectKey.getAspectClass().getName(),
                   aspectKey.getAspectDescriptor().getDescription(),
                   getConfigurationValue(env, aspectKey.getConfigurationKey())));
-      ConfiguredAspect configuredAspect = aspectValue.getConfiguredAspect();
-      env.getListener().post(AspectAnalyzedEvent.create(aspectKey, configuredAspect));
+      env.getListener().post(AspectAnalyzedEvent.create(aspectKey, aspectValue));
     }
   }
 
@@ -561,9 +558,8 @@ public class BuildDriverFunction implements SkyFunction {
             TopLevelStatusEvents.Type.TOP_LEVEL_TARGET_READY_FOR_SYMLINK_PLANTING);
     for (AspectValue aspectValue : topLevelAspectsValue.getTopLevelAspectsValues()) {
       AspectKey aspectKey = aspectValue.getKey();
-      ConfiguredAspect configuredAspect = aspectValue.getConfiguredAspect();
       addExtraActionsIfRequested(
-          configuredAspect.getProvider(ExtraActionArtifactsProvider.class),
+          aspectValue.getProvider(ExtraActionArtifactsProvider.class),
           artifactsToBuild,
           buildDriverKey.isExtraActionTopLevelOnly());
 
@@ -609,8 +605,7 @@ public class BuildDriverFunction implements SkyFunction {
 
   @VisibleForTesting
   ImmutableMap<ActionAnalysisMetadata, ConflictException> checkActionConflicts(
-      ActionLookupKeyOrProxy actionLookupKey, boolean strictConflictCheck)
-      throws InterruptedException {
+      ActionLookupKey actionLookupKey, boolean strictConflictCheck) throws InterruptedException {
     IncrementalArtifactConflictFinder localRef = incrementalArtifactConflictFinder.get();
     // a null value means that the conflict checker is shut down.
     if (localRef == null) {
@@ -675,8 +670,7 @@ public class BuildDriverFunction implements SkyFunction {
      * Perform the traversal of the transitive closure of the {@code key} and collect the
      * corresponding ActionLookupValues.
      */
-    ActionLookupValuesCollectionResult collect(ActionLookupKeyOrProxy key)
-        throws InterruptedException;
+    ActionLookupValuesCollectionResult collect(ActionLookupKey key) throws InterruptedException;
 
     /** Register with the helper that the {@code keys} are conflict-free. */
     void registerConflictFreeKeys(ImmutableSet<ActionLookupKey> keys);

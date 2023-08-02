@@ -15,7 +15,8 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.analysis.AspectResolutionHelpers.aspectMatchesConfiguredTarget;
-import static com.google.devtools.build.lib.skyframe.PrerequisiteProducer.createDefaultToolchainContextKey;
+import static com.google.devtools.build.lib.skyframe.DependencyResolver.createDefaultToolchainContextKey;
+import static com.google.devtools.build.lib.skyframe.DependencyResolver.getPrioritizedDetailedExitCode;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -42,16 +43,15 @@ import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
+import com.google.devtools.build.lib.analysis.TransitiveDependencyState.PrerequisitePackageFunction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.producers.DependencyContext;
 import com.google.devtools.build.lib.analysis.producers.DependencyContextProducer;
 import com.google.devtools.build.lib.analysis.producers.UnloadedToolchainContextsInputs;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
@@ -95,7 +95,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -131,12 +130,12 @@ final class AspectFunction implements SkyFunction {
    *
    * <p>See {@link ConfiguredTargetFunction#prerequisitePackages} for more details.
    */
-  private final ConcurrentHashMap<PackageIdentifier, Package> prerequisitePackages;
+  private final PrerequisitePackageFunction prerequisitePackages;
 
   AspectFunction(
       BuildViewProvider buildViewProvider,
       boolean storeTransitivePackages,
-      ConcurrentHashMap<PackageIdentifier, Package> prerequisitePackages) {
+      PrerequisitePackageFunction prerequisitePackages) {
     this.buildViewProvider = buildViewProvider;
     this.storeTransitivePackages = storeTransitivePackages;
     this.prerequisitePackages = prerequisitePackages;
@@ -145,13 +144,12 @@ final class AspectFunction implements SkyFunction {
   static class State implements SkyKeyComputeState {
     @Nullable InitialValues initialValues;
 
-    final PrerequisiteProducer.State computeDependenciesState;
+    final DependencyResolver.State computeDependenciesState;
 
     private State(
-        boolean storeTransitivePackages,
-        ConcurrentHashMap<PackageIdentifier, Package> prerequisitePackages) {
+        boolean storeTransitivePackages, PrerequisitePackageFunction prerequisitePackages) {
       this.computeDependenciesState =
-          new PrerequisiteProducer.State(storeTransitivePackages, prerequisitePackages);
+          new DependencyResolver.State(storeTransitivePackages, prerequisitePackages);
     }
   }
 
@@ -177,7 +175,7 @@ final class AspectFunction implements SkyFunction {
     AspectKey key = (AspectKey) skyKey.argument();
     State state = env.getState(() -> new State(storeTransitivePackages, prerequisitePackages));
 
-    PrerequisiteProducer.State computeDependenciesState = state.computeDependenciesState;
+    DependencyResolver.State computeDependenciesState = state.computeDependenciesState;
     if (state.initialValues == null) {
       InitialValues initialValues = getInitialValues(computeDependenciesState, key, env);
       if (initialValues == null) {
@@ -201,7 +199,7 @@ final class AspectFunction implements SkyFunction {
         // most flags or dependencies and are likely to be unsound. So make aspects propagating to
         // these configurations no-ops.
         (configuration != null && configuration.getOptions().hasNoConfig())) {
-      return new AspectValue(
+      return AspectValue.create(
           key,
           aspect,
           target.getLocation(),
@@ -242,7 +240,7 @@ final class AspectFunction implements SkyFunction {
             .getDefinition()
             .getRequiredProviders()
             .isSatisfiedBy(((Rule) target).getRuleClassObject().getAdvertisedProviders())) {
-          return new AspectValue(
+          return AspectValue.create(
               key,
               aspect,
               target.getLocation(),
@@ -276,8 +274,7 @@ final class AspectFunction implements SkyFunction {
       topologicalAspectPath = topologicalAspectPathBuilder.add(aspect).build();
 
       List<ConfiguredAspect> directlyRequiredAspects =
-          Lists.transform(
-              key.getBaseKeys(), k -> ((AspectValue) aspectValues.get(k)).getConfiguredAspect());
+          Lists.transform(key.getBaseKeys(), k -> ((AspectValue) aspectValues.get(k)));
       try {
         associatedTarget = MergedConfiguredTarget.of(associatedTarget, directlyRequiredAspects);
       } catch (DuplicateException e) {
@@ -296,7 +293,7 @@ final class AspectFunction implements SkyFunction {
       Optional<StarlarkAttributeTransitionProvider> starlarkExecTransition;
       try {
         starlarkExecTransition =
-            PrerequisiteProducer.loadStarlarkExecTransition(targetAndConfiguration, env);
+            DependencyResolver.loadStarlarkExecTransition(targetAndConfiguration, env);
         if (starlarkExecTransition == null) {
           return null; // Need Skyframe deps.
         }
@@ -305,7 +302,7 @@ final class AspectFunction implements SkyFunction {
       }
 
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap =
-          PrerequisiteProducer.computeDependencies(
+          DependencyResolver.computeDependencies(
               computeDependenciesState,
               ConfiguredTargetKey.fromConfiguredTarget(associatedTarget),
               topologicalAspectPath,
@@ -313,16 +310,14 @@ final class AspectFunction implements SkyFunction {
               starlarkExecTransition.orElse(null),
               env,
               env.getListener());
-      if (depValueMap == null) {
-        return null;
-      }
       if (!computeDependenciesState.transitiveRootCauses().isEmpty()) {
         NestedSet<Cause> causes = computeDependenciesState.transitiveRootCauses().build();
         throw new AspectFunctionException(
             new AspectCreationException(
-                "Loading failed",
-                causes,
-                ConfiguredTargetFunction.getPrioritizedDetailedExitCode(causes)));
+                "Loading failed", causes, getPrioritizedDetailedExitCode(causes)));
+      }
+      if (depValueMap == null) {
+        return null;
       }
 
       // Load the requested toolchains into the ToolchainContext, now that we have dependencies.
@@ -373,23 +368,13 @@ final class AspectFunction implements SkyFunction {
         throw new AspectFunctionException(
             new AspectCreationException(
                 cause.getMessage(), cause.getRootCauses(), cause.getDetailedExitCode()));
-      } else if (e.getCause() instanceof InconsistentAspectOrderException) {
-        InconsistentAspectOrderException cause = (InconsistentAspectOrderException) e.getCause();
-        env.getListener().handle(Event.error(cause.getLocation(), cause.getMessage()));
-        throw new AspectFunctionException(
-            new AspectCreationException(cause.getMessage(), key.getLabel(), configuration));
-      } else if (e.getCause() instanceof TransitionException) {
-        TransitionException cause = (TransitionException) e.getCause();
-        throw new AspectFunctionException(
-            new AspectCreationException(cause.getMessage(), key.getLabel(), configuration));
-      } else {
-        // Cast to InvalidConfigurationException as a consistency check. If you add any
-        // DependencyEvaluationException constructors, you may need to change this code, too.
-        InvalidConfigurationException cause = (InvalidConfigurationException) e.getCause();
-        throw new AspectFunctionException(
-            new AspectCreationException(
-                cause.getMessage(), key.getLabel(), configuration, cause.getDetailedExitCode()));
       }
+      // Cast to InconsistentAspectOrderException as a consistency check. If you add any
+      // DependencyEvaluationException constructors, you may need to change this code, too.
+      InconsistentAspectOrderException cause = (InconsistentAspectOrderException) e.getCause();
+      env.getListener().handle(Event.error(cause.getLocation(), cause.getMessage()));
+      throw new AspectFunctionException(
+          new AspectCreationException(cause.getMessage(), key.getLabel(), configuration));
     } catch (AspectCreationException e) {
       throw new AspectFunctionException(e);
     } catch (ConfiguredValueCreationException e) {
@@ -404,7 +389,7 @@ final class AspectFunction implements SkyFunction {
   /** Populates {@code state.execGroupCollection} as a side effect. */
   @Nullable // Null if a Skyframe restart is needed.
   private DependencyContext getDependencyContext(
-      PrerequisiteProducer.State state, AspectKey key, Aspect aspect, Environment env)
+      DependencyResolver.State state, AspectKey key, Aspect aspect, Environment env)
       throws InterruptedException, ConfiguredValueCreationException, ToolchainException {
     if (state.dependencyContext != null) {
       return state.dependencyContext;
@@ -425,7 +410,7 @@ final class AspectFunction implements SkyFunction {
                   state.transitiveState,
                   (DependencyContextProducer.ResultSink) state));
     }
-    if (state.dependencyContextProducer.drive(env, env.getListener())) {
+    if (state.dependencyContextProducer.drive(env)) {
       state.dependencyContextProducer = null;
     }
 
@@ -457,9 +442,9 @@ final class AspectFunction implements SkyFunction {
 
   @Nullable
   private static InitialValues getInitialValues(
-      PrerequisiteProducer.State state, AspectKey key, Environment env)
+      DependencyResolver.State state, AspectKey key, Environment env)
       throws AspectFunctionException, InterruptedException {
-    ActionLookupKey configuredTargetLookupKey = key.getBaseConfiguredTargetKey().toKey();
+    ActionLookupKey configuredTargetLookupKey = key.getBaseConfiguredTargetKey();
     PackageIdentifier basePackageKey =
         key.getBaseConfiguredTargetKey().getLabel().getPackageIdentifier();
     var initialKeys =
@@ -705,11 +690,11 @@ final class AspectFunction implements SkyFunction {
                 .addTransitive(real.getTransitivePackages())
                 .build()
             : null;
-    return new AspectValue(
+    return AspectValue.create(
         originalKey,
         aspect,
         originalTarget.getLocation(),
-        ConfiguredAspect.forAlias(real.getConfiguredAspect()),
+        ConfiguredAspect.forAlias(real),
         transitivePackages);
   }
 
@@ -814,7 +799,7 @@ final class AspectFunction implements SkyFunction {
     analysisEnvironment.disable(associatedTarget);
     Preconditions.checkNotNull(configuredAspect);
 
-    return new AspectValue(
+    return AspectValue.create(
         key,
         aspect,
         associatedTarget.getLocation(),

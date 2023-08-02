@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 
@@ -28,13 +29,36 @@ import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 @GenerateTypeAdapter
 public abstract class LockFileModuleExtension implements Postable {
 
+  public static Builder builder() {
+    return new AutoValue_LockFileModuleExtension.Builder()
+        // TODO(salmasamy) can be removed when updating lockfile version
+        .setEnvVariables(ImmutableMap.of())
+        .setAccumulatedFileDigests(ImmutableMap.of());
+  }
+
   @SuppressWarnings("mutable")
   public abstract byte[] getBzlTransitiveDigest();
 
+  public abstract ImmutableMap<Label, String> getAccumulatedFileDigests();
+
+  public abstract ImmutableMap<String, String> getEnvVariables();
+
   public abstract ImmutableMap<String, RepoSpec> getGeneratedRepoSpecs();
 
-  public static LockFileModuleExtension create(
-      byte[] transitiveDigest, ImmutableMap<String, RepoSpec> generatedRepoSpecs) {
-    return new AutoValue_LockFileModuleExtension(transitiveDigest, generatedRepoSpecs);
+  public abstract Builder toBuilder();
+
+  /** Builder type for {@link LockFileModuleExtension}. */
+  @AutoValue.Builder
+  public abstract static class Builder {
+
+    public abstract Builder setBzlTransitiveDigest(byte[] digest);
+
+    public abstract Builder setAccumulatedFileDigests(ImmutableMap<Label, String> value);
+
+    public abstract Builder setEnvVariables(ImmutableMap<String, String> value);
+
+    public abstract Builder setGeneratedRepoSpecs(ImmutableMap<String, RepoSpec> value);
+
+    public abstract LockFileModuleExtension build();
   }
 }

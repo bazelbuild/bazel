@@ -193,8 +193,7 @@ public class RegisteredToolchainsFunction implements SkyFunction {
                     ConfiguredTargetKey.builder()
                         .setLabel(label)
                         .setConfiguration(configuration)
-                        .build()
-                        .toKey())
+                        .build())
             .collect(toImmutableList());
 
     SkyframeLookupResult values = env.getValuesAndExceptions(keys);

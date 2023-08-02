@@ -75,7 +75,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   private final boolean debugWithGlibcxx;
   private final boolean deviceDebugEntitlements;
   private final boolean avoidHardcodedCompilationFlags;
-  private final boolean linkingInfoMigration;
   private final boolean disallowSdkFrameworksAttributes;
   private final boolean alwayslinkByDefault;
 
@@ -101,7 +100,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
     this.deviceDebugEntitlements = objcOptions.deviceDebugEntitlements;
     this.avoidHardcodedCompilationFlags =
         objcOptions.incompatibleAvoidHardcodedObjcCompilationFlags;
-    this.linkingInfoMigration = objcOptions.incompatibleObjcLinkingInfoMigration;
     this.disallowSdkFrameworksAttributes = objcOptions.incompatibleDisallowSdkFrameworksAttributes;
     this.alwayslinkByDefault = objcOptions.incompatibleObjcAlwayslinkByDefault;
   }
@@ -231,15 +229,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   @Override
   public boolean useDeviceDebugEntitlements() {
     return deviceDebugEntitlements && compilationMode != CompilationMode.OPT;
-  }
-
-  /**
-   * Returns whether Objective-C builtin rules should get their linking info from CcInfo instead of
-   * ObjcProvider.
-   */
-  @Override
-  public boolean linkingInfoMigration() {
-    return linkingInfoMigration;
   }
 
   /** Returns whether sdk_frameworks and weak_sdk_frameworks attributes are disallowed. */

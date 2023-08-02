@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.MissingExpansionException;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -56,6 +57,7 @@ public class SpawnInputExpander {
   private final Path execRoot;
   private final boolean strict;
   private final RelativeSymlinkBehavior relSymlinkBehavior;
+  private final boolean expandArchivedTreeArtifacts;
 
   /**
    * Creates a new instance. If strict is true, then the expander checks for directories in runfiles
@@ -93,9 +95,18 @@ public class SpawnInputExpander {
    */
   public SpawnInputExpander(
       Path execRoot, boolean strict, RelativeSymlinkBehavior relSymlinkBehavior) {
+    this(execRoot, strict, relSymlinkBehavior, true);
+  }
+
+  public SpawnInputExpander(
+      Path execRoot,
+      boolean strict,
+      RelativeSymlinkBehavior relSymlinkBehavior,
+      boolean expandArchivedTreeArtifacts) {
     this.execRoot = execRoot;
     this.strict = strict;
     this.relSymlinkBehavior = relSymlinkBehavior;
+    this.expandArchivedTreeArtifacts = expandArchivedTreeArtifacts;
   }
 
   private static void addMapping(
@@ -129,17 +140,25 @@ public class SpawnInputExpander {
         if (localArtifact != null) {
           Preconditions.checkState(!localArtifact.isMiddlemanArtifact());
           if (localArtifact.isTreeArtifact()) {
-            List<ActionInput> expandedInputs =
-                ActionInputHelper.expandArtifacts(
-                    NestedSetBuilder.create(Order.STABLE_ORDER, localArtifact),
-                    artifactExpander,
-                    /* keepEmptyTreeArtifacts= */ false);
+            ArchivedTreeArtifact archivedTreeArtifact =
+                expandArchivedTreeArtifacts
+                    ? null
+                    : artifactExpander.getArchivedTreeArtifact((SpecialArtifact) localArtifact);
+            if (archivedTreeArtifact != null) {
+              addMapping(inputMap, location, localArtifact, baseDirectory);
+            } else {
+              List<ActionInput> expandedInputs =
+                  ActionInputHelper.expandArtifacts(
+                      NestedSetBuilder.create(Order.STABLE_ORDER, localArtifact),
+                      artifactExpander,
+                      /* keepEmptyTreeArtifacts= */ false);
             for (ActionInput input : expandedInputs) {
               addMapping(
                   inputMap,
                   location.getRelative(((TreeFileArtifact) input).getParentRelativePath()),
                   input,
                   baseDirectory);
+              }
             }
           } else if (localArtifact.isFileset()) {
             ImmutableList<FilesetOutputSymlink> filesetLinks;

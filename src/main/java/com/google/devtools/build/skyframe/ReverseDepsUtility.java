@@ -33,11 +33,11 @@ import java.util.Set;
  * A utility class that allows us to store reverse dependencies in a memory-efficient way. At the
  * same time it allows us to group the removals and uniqueness checks so that it also performs well.
  *
- * <p>The operations {@link #addReverseDep}, {@link #checkReverseDep}, and {@link #removeReverseDep}
- * here are optimized for a done entry. Done entries rarely have rdeps added and removed, but do
- * have {@link Op#CHECK} operations performed frequently. As well, done node entries may never have
- * their data forcibly consolidated, since their reverse deps will only be retrieved as a whole if
- * they are marked dirty. Thus, we consolidate periodically.
+ * <p>The operations {@link #addReverseDep} and {@link #removeReverseDep} here are optimized for a
+ * done entry. Done entries rarely have rdeps added and removed, but do have {@link Op#CHECK}
+ * operations performed frequently. As well, done node entries may never have their data forcibly
+ * consolidated, since their reverse deps will only be retrieved as a whole if they are marked
+ * dirty. Thus, we consolidate periodically.
  *
  * <p>{@link InMemoryNodeEntry} manages pending reverse dep operations on a marked-dirty or
  * initially evaluating node itself, using similar logic tuned to those cases, and calls into {@link
@@ -60,9 +60,12 @@ abstract class ReverseDepsUtility {
   /**
    * Returns the {@link Op} to store bare instead of wrapping in {@link KeyToConsolidate}.
    *
-   * <p>We can store one type of operation bare in order to save memory. For done nodes, most
-   * operations are {@link Op#CHECK}. For nodes on their initial build and nodes not keeping reverse
-   * deps, most are {@link Op#ADD}.
+   * <p>We can store one type of operation bare in order to save memory. For nodes on their initial
+   * build and nodes not keeping reverse deps, most operations are {@link Op#ADD}.
+   *
+   * <p>Done nodes have very few delayed ops - {@link Op#CHECK} is never stored on a done node and
+   * {@link Op#ADD} is only delayed if there are already pending delayed ops. Returning {@link
+   * Op#CHECK} in this case just makes it easy to distinguish from nodes on their initial build.
    */
   static Op getOpToStoreBare(InMemoryNodeEntry entry) {
     DirtyBuildingState dirtyBuildingState = entry.dirtyBuildingState;
@@ -130,10 +133,6 @@ abstract class ReverseDepsUtility {
     } else {
       ((List<SkyKey>) raw).add(newReverseDep);
     }
-  }
-
-  static void checkReverseDep(InMemoryNodeEntry entry, SkyKey reverseDep) {
-    maybeDelayReverseDepOp(entry, reverseDep, Op.CHECK);
   }
 
   /** See {@link #addReverseDep} method. */

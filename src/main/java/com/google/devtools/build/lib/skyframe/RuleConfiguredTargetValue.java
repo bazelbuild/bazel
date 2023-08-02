@@ -17,7 +17,6 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.RuleConfiguredObjectValue;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
@@ -59,7 +58,7 @@ public final class RuleConfiguredTargetValue
 
   @Nullable // May be null after clearing.
   @Override
-  public ConfiguredTarget getConfiguredTarget() {
+  public RuleConfiguredTarget getConfiguredTarget() {
     return configuredTarget;
   }
 

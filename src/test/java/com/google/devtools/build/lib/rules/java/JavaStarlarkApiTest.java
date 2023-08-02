@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getProcessorNames;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getProcessorPath;
+import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
@@ -36,6 +37,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -43,25 +45,25 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.OS;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import com.google.testing.junit.testparameterinjector.TestParameters;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkList;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests Starlark API for Java rules. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class JavaStarlarkApiTest extends BuildViewTestCase {
   @Before
   public void setupMyInfo() throws Exception {
@@ -256,7 +258,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     Depset fullCompileJars = ((Depset) info.getValue("full_compile_jars"));
     @SuppressWarnings("unchecked")
     Sequence<Artifact> sourceJars = ((Sequence<Artifact>) info.getValue("source_jars"));
-    JavaRuleOutputJarsProvider outputs = ((JavaRuleOutputJarsProvider) info.getValue("outputs"));
+    JavaRuleOutputJarsProvider outputs =
+        JavaRuleOutputJarsProvider.fromStarlark(info.getValue("outputs"));
 
     assertThat(artifactFilesNames(transitiveRuntimeJars.toList(Artifact.class)))
         .containsExactly("libdep.jar");
@@ -271,7 +274,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaOutput javaOutput = outputs.getJavaOutputs().get(0);
     assertThat(javaOutput.getClassJar().getFilename()).isEqualTo("libdep.jar");
     assertThat(javaOutput.getCompileJar().getFilename()).isEqualTo("libdep-hjar.jar");
-    assertThat(artifactFilesNames(javaOutput.getSourceJars())).containsExactly("libdep-src.jar");
+    assertThat(artifactFilesNames(javaOutput.getSourceJarsAsList()))
+        .containsExactly("libdep-src.jar");
     assertThat(javaOutput.getJdeps().getFilename()).isEqualTo("libdep.jdeps");
     assertThat(javaOutput.getCompileJdeps().getFilename()).isEqualTo("libdep-hjar.jdeps");
   }
@@ -318,7 +322,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaOutput javaOutput = javaOutputs.get(0);
     assertThat(javaOutput.getClassJar().getFilename()).isEqualTo("libdep.jar");
     assertThat(javaOutput.getCompileJar().getFilename()).isEqualTo("libdep-hjar.jar");
-    assertThat(artifactFilesNames(javaOutput.getSourceJars())).containsExactly("libdep-src.jar");
+    assertThat(artifactFilesNames(javaOutput.getSourceJarsAsList()))
+        .containsExactly("libdep-src.jar");
     assertThat(javaOutput.getJdeps().getFilename()).isEqualTo("libdep.jdeps");
     assertThat(javaOutput.getCompileJdeps().getFilename()).isEqualTo("libdep-hjar.jdeps");
   }
@@ -425,13 +430,14 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
                 new StarlarkProvider.Key(
                     Label.parseCanonical("//java/test:extension.bzl"), "result"));
 
-    JavaRuleOutputJarsProvider outputs = ((JavaRuleOutputJarsProvider) info.getValue("outputs"));
+    JavaRuleOutputJarsProvider outputs =
+        JavaRuleOutputJarsProvider.fromStarlark(info.getValue("outputs"));
     assertThat(outputs.getJavaOutputs()).hasSize(1);
 
     JavaOutput javaOutput = outputs.getJavaOutputs().get(0);
     assertThat(javaOutput.getClassJar().getFilename()).isEqualTo("libdep.jar");
     assertThat(javaOutput.getCompileJar().getFilename()).isEqualTo("libdep-hjar.jar");
-    assertThat(prettyArtifactNames(javaOutput.getSourceJars()))
+    assertThat(prettyArtifactNames(javaOutput.getSourceJarsAsList()))
         .containsExactly("java/test/libdep-src.jar");
     assertThat(javaOutput.getJdeps().getFilename()).isEqualTo("libdep.jdeps");
     assertThat(javaOutput.getNativeHeadersJar().getFilename())
@@ -1004,16 +1010,16 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     assertThat(artifactFilesNames(javaAction.getOutputs())).contains("custom_additional_output");
   }
 
-  private static Collection<String> artifactFilesNames(NestedSet<Artifact> artifacts) {
+  private static ImmutableList<String> artifactFilesNames(NestedSet<Artifact> artifacts) {
     return artifactFilesNames(artifacts.toList());
   }
 
-  private static Collection<String> artifactFilesNames(Iterable<Artifact> artifacts) {
-    List<String> result = new ArrayList<>();
+  private static ImmutableList<String> artifactFilesNames(Iterable<Artifact> artifacts) {
+    ImmutableList.Builder<String> result = ImmutableList.builder();
     for (Artifact artifact : artifacts) {
       result.add(artifact.getFilename());
     }
-    return result;
+    return result.build();
   }
 
   /**
@@ -1508,8 +1514,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         jlJavaCompilationArgsProvider.getTransitiveCompileTimeJars();
 
     // Using reference equality since should be precisely identical
-    assertThat(myCompileJars == jlCompileJars).isTrue();
-    assertThat(myTransitiveRuntimeJars == jlTransitiveRuntimeJars).isTrue();
+    assertThat(myCompileJars).isSameInstanceAs(jlCompileJars);
+    assertThat(myTransitiveRuntimeJars).isSameInstanceAs(jlTransitiveRuntimeJars);
     assertThat(myTransitiveCompileTimeJars).isEqualTo(jlTransitiveCompileTimeJars);
   }
 
@@ -1533,8 +1539,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     StarlarkProvider.Key myProviderKey =
         new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "my_provider");
     StructImpl declaredProvider = (StructImpl) myRuleTarget.get(myProviderKey);
-    Object javaProvider = declaredProvider.getValue("p");
-    assertThat(javaProvider).isInstanceOf(JavaInfo.class);
+    // attempting to wrap will error out if not a JavaInfo
+    Object javaProvider = JavaInfo.PROVIDER.wrap(declaredProvider.getValue("p", Info.class));
     assertThat(javaLibraryTarget.get(JavaInfo.PROVIDER)).isEqualTo(javaProvider);
   }
 
@@ -1562,7 +1568,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     JavaInfo jlJavaInfo = javaLibraryTarget.get(JavaInfo.PROVIDER);
 
-    assertThat(jlJavaInfo == javaProvider).isTrue();
+    assertThat(jlJavaInfo).isEqualTo(javaProvider);
 
     JavaInfo jlTopJavaInfo = topJavaLibraryTarget.get(JavaInfo.PROVIDER);
 
@@ -2140,7 +2146,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
             myRuleTarget.get(
                 new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "result"));
 
-    JavaGenJarsProvider javaGenJarsProvider = (JavaGenJarsProvider) info.getValue("property");
+    JavaGenJarsProvider javaGenJarsProvider = JavaGenJarsProvider.from(info.getValue("property"));
 
     assertThat(javaGenJarsProvider.getGenClassJar().getFilename())
         .isEqualTo("libmy_java_lib_a-gen.jar");
@@ -2170,7 +2176,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
                 new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "result"));
 
     JavaCompilationInfoProvider javaCompilationInfoProvider =
-        (JavaCompilationInfoProvider) info.getValue("property");
+        JavaCompilationInfoProvider.fromStarlarkCompilationInfo(info.getValue("property"));
 
     assertThat(
             prettyArtifactNames(
@@ -2572,48 +2578,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
             configuredTarget.get(
                 new StarlarkProvider.Key(Label.parseCanonical("//foo:rule.bzl"), "result"));
     assertThat(((String) info.getValue("strict_java_deps"))).isEqualTo("error");
-  }
-
-  @Test
-  public void useIjars_fails() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=+java_import");
-    scratch.file(
-        "foo/rule.bzl",
-        "result = provider()",
-        "def _impl(ctx):",
-        "  ctx.fragments.java.use_ijars()",
-        "  return []",
-        "myrule = rule(",
-        "  implementation=_impl,",
-        "  fragments = ['java']",
-        ")");
-    scratch.file("foo/BUILD", "load(':rule.bzl', 'myrule')", "myrule(name='myrule')");
-    reporter.removeHandler(failFastHandler);
-
-    getConfiguredTarget("//foo:myrule");
-
-    assertContainsEvent("Rule in 'foo' cannot use private API");
-  }
-
-  @Test
-  public void disallowJavaImportExports_fails() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=+java_import");
-    scratch.file(
-        "foo/rule.bzl",
-        "result = provider()",
-        "def _impl(ctx):",
-        "  ctx.fragments.java.disallow_java_import_exports()",
-        "  return []",
-        "myrule = rule(",
-        "  implementation=_impl,",
-        "  fragments = ['java']",
-        ")");
-    scratch.file("foo/BUILD", "load(':rule.bzl', 'myrule')", "myrule(name='myrule')");
-    reporter.removeHandler(failFastHandler);
-
-    getConfiguredTarget("//foo:myrule");
-
-    assertContainsEvent("Rule in 'foo' cannot use private API");
   }
 
   @Test
@@ -3051,7 +3015,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testJavaLibaryCollectsCoverageDependenciesFromResources() throws Exception {
+  public void testJavaLibraryCollectsCoverageDependenciesFromResources() throws Exception {
     useConfiguration("--collect_code_coverage");
 
     scratch.file(
@@ -3147,7 +3111,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaCompileAction turbineAction =
         (JavaCompileAction) getGeneratingAction(getBinArtifact("libcustom-hjar.jar", custom));
     assertThat(turbineAction.getMnemonic()).isEqualTo("JavacTurbine");
-    List<String> args = turbineAction.getArguments();
+    ImmutableList<String> args = turbineAction.getArguments();
     assertThat(args).doesNotContain("--processors");
 
     // enable_annotation_processing=False shouldn't disable direct classpaths if there are no
@@ -3225,86 +3189,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     getConfiguredTarget("//foo:custom");
 
     assertContainsEvent("got unexpected keyword argument: classpath_resources");
-  }
-
-  @Test
-  public void testGetBuildInfoArtifactsIsPrivateApi() throws Exception {
-    scratch.file(
-        "foo/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  artifacts = java_common.get_build_info(ctx, True)",
-        "  return [DefaultInfo(files = depset(artifacts))]",
-        "custom_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {},",
-        ")");
-    scratch.file(
-        "foo/BUILD", "load(':custom_rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
-    reporter.removeHandler(failFastHandler);
-
-    getConfiguredTarget("//foo:custom");
-
-    assertContainsEvent("no field or method 'get_build_info'");
-  }
-
-  @Test
-  public void testIsGoogleLegacyApiEnabledIsPrivateAPI() throws Exception {
-    scratch.file(
-        "foo/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  java_common._google_legacy_api_enabled()",
-        "  return []",
-        "custom_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {},",
-        ")");
-    scratch.file(
-        "foo/BUILD", "load(':custom_rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
-    reporter.removeHandler(failFastHandler);
-
-    getConfiguredTarget("//foo:custom");
-
-    assertContainsEvent("no field or method '_google_legacy_api_enabled'");
-  }
-
-  @Test
-  public void testCheckJavaToolchainIsDeclaredOnRuleIsPrivateAPI() throws Exception {
-    scratch.file(
-        "foo/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  java_common._check_java_toolchain_is_declared_on_rule()",
-        "  return []",
-        "custom_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {},",
-        ")");
-    scratch.file(
-        "foo/BUILD", "load(':custom_rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
-    reporter.removeHandler(failFastHandler);
-
-    getConfiguredTarget("//foo:custom");
-
-    assertContainsEvent("no field or method '_check_java_toolchain_is_declared_on_rule'");
-  }
-
-  @Test
-  public void testInstanceOfProviderIsPrivateApi() throws Exception {
-    scratch.file(
-        "foo/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  java_common.check_provider_instances([], 'what', DefaultInfo)",
-        "  return []",
-        "custom_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {},",
-        ")");
-    scratch.file(
-        "foo/BUILD", "load(':custom_rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
-    reporter.removeHandler(failFastHandler);
-
-    getConfiguredTarget("//foo:custom");
-
-    assertContainsEvent("no field or method 'check_provider_instances'");
   }
 
   @Test
@@ -3459,7 +3343,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCompileWithResorceJarsIsPrivateApi() throws Exception {
+  public void testCompileWithResourceJarsIsPrivateApi() throws Exception {
     JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "foo/custom_rule.bzl",
@@ -3621,63 +3505,117 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCollectNativeLibsDirsIsPrivateApi() throws Exception {
+  @TestParameters({
+    "{module: java_config, api: use_ijars}",
+    "{module: java_config, api: disallow_java_import_exports}",
+    "{module: java_config, api: enforce_explicit_java_test_deps}",
+    "{module: java_config, api: use_header_compilation}",
+    "{module: java_config, api: generate_java_deps}",
+    "{module: java_config, api: reduce_java_classpath}",
+    "{module: java_toolchain, api: forcibly_disable_header_compilation}",
+    "{module: java_toolchain, api: has_header_compiler}",
+    "{module: java_toolchain, api: has_header_compiler_direct}",
+    "{module: java_toolchain, api: package_configuration}",
+  })
+  public void testNoArgsPrivateAPIsAreIndeedPrivate(String module, String api) throws Exception {
+    setBuildLanguageOptions("--experimental_builtins_injection_override=+java_import");
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "foo/custom_rule.bzl",
         "def _impl(ctx):",
-        "  artifacts = java_common.collect_native_deps_dirs([])",
+        "  java_config = ctx.fragments.java",
+        "  java_toolchain = ctx.toolchains['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'].java",
+        "  " + module + "." + api + "()",
         "  return []",
-        "custom_rule = rule(",
+        "java_custom_library = rule(",
         "  implementation = _impl,",
-        "  attrs = {},",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
+        "  fragments = ['java']",
         ")");
     scratch.file(
-        "foo/BUILD", "load(':custom_rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
+        "foo/BUILD",
+        "load(':custom_rule.bzl', 'java_custom_library')",
+        "java_custom_library(name = 'custom')");
     reporter.removeHandler(failFastHandler);
 
     getConfiguredTarget("//foo:custom");
 
-    assertContainsEvent("no field or method 'collect_native_deps_dirs'");
+    assertContainsEvent("Error in " + api + ": Rule in 'foo' cannot use private API");
   }
 
   @Test
-  public void testGetRuntimeClasspathForArchiveIsPrivateApi() throws Exception {
+  @TestParameters({
+    "{api: create_header_compilation_action}",
+    "{api: create_compilation_action}",
+    "{api: target_kind}",
+    "{api: get_build_info}",
+    "{api: collect_native_deps_dirs}",
+    "{api: get_runtime_classpath_for_archive}",
+    "{api: check_provider_instances}",
+    "{api: _google_legacy_api_enabled}",
+    "{api: _check_java_toolchain_is_declared_on_rule}",
+    "{api: _incompatible_depset_for_java_output_source_jars}",
+    "{api: wrap_java_info}",
+  })
+  public void testJavaCommonPrivateApis_areNotVisibleToPublicStarlark(String api) throws Exception {
+    // validate that this api is present on the module, so this test fails when the API is deleted
+    var unused =
+        stream(JavaCommonApi.class.getDeclaredMethods())
+            .filter(method -> method.isAnnotationPresent(StarlarkMethod.class))
+            .filter(method -> method.getAnnotation(StarlarkMethod.class).name().equals(api))
+            .findAny()
+            .orElseThrow(
+                () -> new IllegalArgumentException("API not declared on java_common: " + api));
     scratch.file(
         "foo/custom_rule.bzl",
         "def _impl(ctx):",
-        "  d = depset()",
-        "  artifact = java_common.get_runtime_classpath_for_archive(d, d)",
+        "  java_common." + api + "()",
         "  return []",
-        "custom_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {},",
-        ")");
+        "custom_rule = rule(implementation = _impl)");
     scratch.file(
-        "foo/BUILD", "load(':custom_rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
+        "foo/BUILD",
+        //
+        "load(':custom_rule.bzl', 'custom_rule')",
+        "custom_rule(name = 'custom')");
     reporter.removeHandler(failFastHandler);
 
     getConfiguredTarget("//foo:custom");
 
-    assertContainsEvent("no field or method 'get_runtime_classpath_for_archive'");
+    assertContainsEvent("no field or method '" + api + "'");
   }
 
   @Test
-  public void testEnforceExplicitJavaTestDepsIsPrivateApi() throws Exception {
+  public void testProviderValidationPrintsProviderName() throws Exception {
     scratch.file(
         "foo/rule.bzl",
         "def _impl(ctx):",
-        "  ctx.fragments.java.enforce_explicit_java_test_deps()",
+        "  cc_info = ctx.attr.dep[CcInfo]",
+        "  JavaInfo(output_jar = None, compile_jar = None, deps = [cc_info])",
         "  return []",
         "myrule = rule(",
         "  implementation=_impl,",
-        "  fragments = ['java']",
+        "  attrs = {'dep' : attr.label()},",
+        "  fragments = []",
         ")");
-    scratch.file("foo/BUILD", "load(':rule.bzl', 'myrule')", "myrule(name='myrule')");
+    scratch.file(
+        "foo/BUILD",
+        "load(':rule.bzl', 'myrule')",
+        "cc_library(name = 'cc_lib')",
+        "myrule(name='myrule',",
+        "    dep = ':cc_lib',",
+        ")");
     reporter.removeHandler(failFastHandler);
 
     getConfiguredTarget("//foo:myrule");
 
-    assertContainsEvent("Rule in 'foo' cannot use private API");
+    assertContainsEvent("got element of type CcInfo, want JavaInfo");
+  }
+
+  @Test
+  public void testNativeJavaInfoPrintableType_isJavaInfo() {
+    String type = JavaStarlarkCommon.printableType(JavaInfo.EMPTY);
+
+    assertThat(type).isEqualTo("JavaInfo");
   }
 
   private String getJvmFlags(Artifact executable)
@@ -3685,7 +3623,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     if (OS.getCurrent() == OS.WINDOWS) {
       return getGeneratingSpawnActionArgs(executable).stream()
           .filter(a -> a.startsWith("jvm_flags="))
-          .flatMap(a -> Arrays.stream(a.substring("jvm_flags=".length()).split("\t")))
+          .flatMap(a -> stream(a.substring("jvm_flags=".length()).split("\t")))
           .collect(joining(" "));
     } else {
       return ((TemplateExpansionAction) getGeneratingAction(executable))

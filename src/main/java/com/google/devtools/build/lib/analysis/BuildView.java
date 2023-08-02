@@ -26,7 +26,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionLookupData;
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
@@ -255,7 +255,10 @@ public class BuildView {
     }
 
     skyframeBuildView.setConfiguration(
-        eventHandler, topLevelConfig, viewOptions.maxConfigChangesToShow);
+        eventHandler,
+        topLevelConfig,
+        viewOptions.maxConfigChangesToShow,
+        viewOptions.allowAnalysisCacheDiscards);
 
     eventBus.post(new MakeEnvironmentEvent(topLevelConfig.getMakeEnvironment()));
     eventBus.post(topLevelConfig.toBuildEvent());
@@ -329,7 +332,6 @@ public class BuildView {
       }
     } finally {
       skyframeBuildView.clearInvalidatedActionLookupKeys();
-      skyframeExecutor.clearPrerequisitePackages();
     }
 
     int numTargetsToAnalyze = labelToTargetMap.size();
@@ -511,7 +513,7 @@ public class BuildView {
       ImmutableMap<Label, Target> labelToTargetMap,
       boolean includeExecutionPhase)
       throws InterruptedException {
-    Set<Label> testsToRun = loadingResult.getTestsToRunLabels();
+    ImmutableSet<Label> testsToRun = loadingResult.getTestsToRunLabels();
     Set<ConfiguredTarget> configuredTargets =
         Sets.newLinkedHashSet(skyframeAnalysisResult.getConfiguredTargets());
     ImmutableMap<AspectKey, ConfiguredAspect> aspects = skyframeAnalysisResult.getAspects();
@@ -604,9 +606,7 @@ public class BuildView {
                 ((Artifact.DerivedArtifact) artifact).getGeneratingActionKey();
             ActionLookupValue val;
             try {
-              val =
-                  (ActionLookupValue)
-                      graph.getValue(generatingActionKey.getActionLookupKey().toKey());
+              val = (ActionLookupValue) graph.getValue(generatingActionKey.getActionLookupKey());
             } catch (InterruptedException e) {
               throw new IllegalStateException(
                   "Interruption not expected from this graph: " + generatingActionKey, e);
@@ -760,7 +760,7 @@ public class BuildView {
     // might have injected.
     for (Artifact.DerivedArtifact artifact :
         provider.getTransitiveExtraActionArtifacts().toList()) {
-      ActionLookupKeyOrProxy owner = artifact.getArtifactOwner();
+      ActionLookupKey owner = artifact.getArtifactOwner();
       if (owner instanceof AspectKey) {
         if (aspectClasses.contains(((AspectKey) owner).getAspectClass())) {
           artifacts.add(artifact);

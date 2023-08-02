@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.devtools.build.lib.profiler.ProfilerTask.PROCESS_TIME;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_DOWNLOAD;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_EXECUTION;
+import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_PROCESS_TIME;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_QUEUE;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_SETUP;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.UPLOAD_TIME;
@@ -236,6 +236,22 @@ public class RemoteSpawnRunner implements SpawnRunner {
       return execLocallyAndUploadOrFail(action, spawn, context, uploadLocalResults, e);
     }
 
+    if (remoteOptions.remoteRequireCached) {
+      return new SpawnResult.Builder()
+          .setStatus(SpawnResult.Status.EXECUTION_DENIED)
+          .setExitCode(1)
+          .setFailureMessage(
+              "Action must be cached due to --experimental_remote_require_cached but it is not")
+          .setFailureDetail(
+              FailureDetail.newBuilder()
+                  .setSpawn(
+                      FailureDetails.Spawn.newBuilder()
+                          .setCode(FailureDetails.Spawn.Code.EXECUTION_DENIED))
+                  .build())
+          .setRunnerName("remote")
+          .build();
+    }
+
     AtomicBoolean useCachedResult = new AtomicBoolean(acceptCachedResult);
     AtomicBoolean forceUploadInput = new AtomicBoolean(false);
     try {
@@ -326,7 +342,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
         converter,
         executedActionMetadata.getExecutionStartTimestamp(),
         executedActionMetadata.getExecutionCompletedTimestamp(),
-        PROCESS_TIME,
+        REMOTE_PROCESS_TIME,
         "execute");
     logProfileTask(
         converter,

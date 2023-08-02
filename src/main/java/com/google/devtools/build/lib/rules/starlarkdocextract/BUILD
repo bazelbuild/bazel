@@ -32,7 +32,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
-        "//src/main/java/com/google/devtools/build/skydoc/rendering:function_util",
+        "//src/main/java/com/google/devtools/build/skydoc/rendering:rendering_util",
         "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:stardoc_output_java_proto",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/net/starlark/java/eval",

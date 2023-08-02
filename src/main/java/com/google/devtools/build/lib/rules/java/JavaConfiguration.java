@@ -154,10 +154,10 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.disallowJavaImportEmptyJars = javaOptions.disallowJavaImportEmptyJars;
 
     Map<String, Label> optimizers = javaOptions.bytecodeOptimizers;
-    if (optimizers.size() > 1) {
+    if (optimizers.size() != 1) {
       throw new InvalidConfigurationException(
           String.format(
-              "--experimental_bytecode_optimizers can only accept up to one mapping, but %d"
+              "--experimental_bytecode_optimizers can only accept exactly one mapping, but %d"
                   + " mappings were provided.",
               optimizers.size()));
     }
@@ -248,13 +248,31 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return useHeaderCompilation;
   }
 
+  @Override
+  public boolean useHeaderCompilationStarlark(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return useHeaderCompilation();
+  }
+
   /** Returns true iff dependency information is generated after compilation. */
   public boolean getGenerateJavaDeps() {
     return generateJavaDeps;
   }
 
+  @Override
+  public boolean getGenerateJavaDepsStarlark(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return getGenerateJavaDeps();
+  }
+
   public JavaClasspathMode getReduceJavaClasspath() {
     return javaClasspath;
+  }
+
+  @Override
+  public String getReduceJavaClasspathStarlark(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return getReduceJavaClasspath().name();
   }
 
   public boolean inmemoryJdepsFiles() {

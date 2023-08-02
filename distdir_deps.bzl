@@ -53,25 +53,23 @@ DIST_DEPS = {
     # Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
     # Used in src/test/java/com/google/devtools/build/lib/blackbox/framework/blackbox.WORKSAPCE
     "rules_cc": {
-        "archive": "rules_cc-0.0.6.tar.gz",
-        "sha256": "3d9e271e2876ba42e114c9b9bc51454e379cbf0ec9ef9d40e2ae4cec61a31b40",
-        "urls": ["https://github.com/bazelbuild/rules_cc/releases/download/0.0.6/rules_cc-0.0.6.tar.gz"],
+        "archive": "rules_cc-0.0.8.tar.gz",
+        "sha256": "ae46b722a8b8e9b62170f83bfb040cbf12adb732144e689985a66b26410a7d6f",
+        "urls": ["https://github.com/bazelbuild/rules_cc/releases/download/0.0.8/rules_cc-0.0.8.tar.gz"],
         "used_in": [
             "additional_distfiles",
         ],
-        "package_version": "0.0.6",
-        "strip_prefix": "rules_cc-0.0.6",
+        "package_version": "0.0.8",
+        "strip_prefix": "rules_cc-0.0.8",
     },
     "rules_java": {
         "aliases": [
             "rules_java_builtin",
             "rules_java_builtin_for_testing",
         ],
-        "archive": "rules_java-6.1.1.tar.gz",
-        "sha256": "76402a50ae6859d50bd7aed8c1b8ef09dae5c1035bb3ca7d276f7f3ce659818a",
-        "urls": ["https://github.com/bazelbuild/rules_java/releases/download/6.1.1/rules_java-6.1.1.tar.gz"],
-        "patches": ["//third_party:rules_java_6.1.0.patch"],
-        "patch_args": ["-p1"],
+        "archive": "rules_java-6.3.0.tar.gz",
+        "sha256": "29ba147c583aaf5d211686029842c5278e12aaea86f66bd4a9eb5e525b7f2701",
+        "urls": ["https://github.com/bazelbuild/rules_java/releases/download/6.3.0/rules_java-6.3.0.tar.gz"],
         "workspace_file_content": "",
         "used_in": [
             "additional_distfiles",
@@ -274,7 +272,7 @@ DIST_DEPS = {
         "package_version": "1.5.2-3",
     },
     "blake3": {
-        "archive": "v1.3.3.zip",
+        "archive": "1.3.3.zip",
         "sha256": "bb529ba133c0256df49139bd403c17835edbf60d2ecd6463549c6a5fe279364d",
         "urls": [
             "https://github.com/BLAKE3-team/BLAKE3/archive/refs/tags/1.3.3.zip",

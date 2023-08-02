@@ -131,14 +131,6 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
   boolean useDeviceDebugEntitlements();
 
   @StarlarkMethod(
-      name = "linking_info_migration",
-      structField = true,
-      doc =
-          "Returns whether Objective C builtin rules should get their linking info from CcInfo "
-              + "instead of ObjcProvider.")
-  boolean linkingInfoMigration();
-
-  @StarlarkMethod(
       name = "disallow_sdk_frameworks_attributes",
       structField = true,
       doc = "Returns whether sdk_frameworks and weak_sdk_frameworks are disallowed attributes.")

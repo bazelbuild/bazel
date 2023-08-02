@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.analysis.configuredtargets;
 
 import static net.starlark.java.eval.Module.ofInnermostEnclosingStarlarkFunction;
 
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
@@ -75,7 +75,7 @@ public class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
   }
 
   public PackageGroupConfiguredTarget(
-      ActionLookupKeyOrProxy actionLookupKey,
+      ActionLookupKey actionLookupKey,
       NestedSet<PackageGroupContents> visibility,
       NestedSet<PackageGroupContents> packageSpecifications) {
     super(actionLookupKey, visibility);
@@ -83,9 +83,7 @@ public class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
   }
 
   public PackageGroupConfiguredTarget(
-      ActionLookupKeyOrProxy actionLookupKey,
-      TargetContext targetContext,
-      PackageGroup packageGroup) {
+      ActionLookupKey actionLookupKey, TargetContext targetContext, PackageGroup packageGroup) {
     this(
         actionLookupKey,
         targetContext.getVisibility(),

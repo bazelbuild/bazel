@@ -72,4 +72,25 @@ function test_unicode_action_write_content {
     >>"${TEST_log}" 2>&1 || fail "Output not as expected"
 }
 
+function test_unicode_action_run_param_file {
+  local test_name="action_run_param_file"
+  bazel build --genrule_strategy=local --spawn_strategy=local \
+      "//:${test_name}" >& "$TEST_log" \
+      || fail "expected build to succeed"
+
+  quoted_unicode_test_expected="'$(cat unicode_test_expected.txt)'"
+
+  echo "Expected: ${quoted_unicode_test_expected}"
+
+  cat_output=$(cat "${PRODUCT_NAME}-bin/${test_name}.out")
+  assert_equals "${cat_output}" \
+      "${quoted_unicode_test_expected}" \
+      || fail "Output not as expected"
+
+  param_file_output=$(cat "${PRODUCT_NAME}-bin/${test_name}.out-0.params")
+  assert_equals "${param_file_output}" \
+        "${quoted_unicode_test_expected}" \
+        || fail "Output not as expected"
+}
+
 run_suite "Integration tests for ${PRODUCT_NAME}'s unicode i/o in actions"

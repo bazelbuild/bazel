@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.analysis.configuredtargets;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
@@ -52,7 +52,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   //    PackageSpecificationProvider.
   // TODO(b/281522692): The existence of these cases suggest that there should be some additional
   // abstraction that does not have a key.
-  private final ActionLookupKeyOrProxy actionLookupKey;
+  private final ActionLookupKey actionLookupKey;
 
   private final NestedSet<PackageGroupContents> visibility;
 
@@ -80,18 +80,18 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
           OutputGroupInfo.STARLARK_NAME,
           ACTIONS_FIELD_NAME);
 
-  AbstractConfiguredTarget(ActionLookupKeyOrProxy actionLookupKey) {
+  AbstractConfiguredTarget(ActionLookupKey actionLookupKey) {
     this(actionLookupKey, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
   protected AbstractConfiguredTarget(
-      ActionLookupKeyOrProxy actionLookupKey, NestedSet<PackageGroupContents> visibility) {
+      ActionLookupKey actionLookupKey, NestedSet<PackageGroupContents> visibility) {
     this.actionLookupKey = actionLookupKey;
     this.visibility = visibility;
   }
 
   @Override
-  public ActionLookupKeyOrProxy getKeyOrProxy() {
+  public ActionLookupKey getLookupKey() {
     return actionLookupKey;
   }
 

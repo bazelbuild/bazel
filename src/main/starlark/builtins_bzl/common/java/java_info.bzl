@@ -16,7 +16,7 @@
 Definition of JavaInfo and JavaPluginInfo provider.
 """
 
-load(":common/cc/cc_common.bzl", "cc_common")
+load(":common/cc/cc_common.bzl", "CcNativeLibraryInfo", "cc_common")
 load(":common/cc/cc_info.bzl", "CcInfo")
 
 # TODO(hvd): remove this when:
@@ -36,7 +36,7 @@ _JavaOutputInfo = provider(
         "native_headers_jar": "(File) A jar of CC header files supporting native method implementation.",
         "manifest_proto": "(File) The manifest protobuf file of the manifest generated from JavaBuilder.",
         "jdeps": "(File) The jdeps protobuf file of the manifest generated from JavaBuilder.",
-        "source_jars": "([File]) A list of sources archive files.",
+        "source_jars": "(depset[File]) A depset of sources archive files.",
         "source_jar": "Deprecated: Please use source_jars instead.",
     },
 )
@@ -47,6 +47,13 @@ _ModuleFlagsInfo = provider(
         "add_opens": "(depset[str]) Add-Opens configuration.",
     },
 )
+_EMPTY_MODULE_FLAGS_INFO = _ModuleFlagsInfo(add_exports = depset(), add_opens = depset())
+
+def _create_module_flags_info(*, add_exports, add_opens):
+    if add_exports or add_opens:
+        return _ModuleFlagsInfo(add_exports = add_exports, add_opens = add_opens)
+    return _EMPTY_MODULE_FLAGS_INFO
+
 _JavaRuleOutputJarsInfo = provider(
     doc = "Deprecated: use java_info.java_outputs. Information about outputs of a Java rule.",
     fields = {
@@ -102,11 +109,89 @@ def merge(
     Returns:
         (JavaInfo) The merged JavaInfo
     """
-    return _java_common_internal.merge(
-        providers,
-        merge_java_outputs = merge_java_outputs,
-        merge_source_jars = merge_source_jars,
-    )
+    _validate_provider_list(providers, "providers", JavaInfo)
+
+    plugin_info = merge_plugin_info_without_outputs(providers)
+
+    source_jars = []  # [File]
+    transitive_source_jars = []  # [depset[File]]
+    java_outputs = []  # [_JavaOutputInfo]
+    runtime_output_jars = []  # [File]
+    transitive_runtime_jars = []  # [depset[File]]
+    transitive_compile_time_jars = []  # [depset[File]]
+    compile_jars = []  # [depset[File]]
+    full_compile_jars = []  # [depset[File]]
+    _transitive_full_compile_time_jars = []  # [depset[File]]
+    _compile_time_java_dependencies = []  # [depset[File]]
+    add_exports = []  # [depset[str]]
+    add_opens = []  # [depset[str]]
+    _neverlink = False
+    _constraints = []  # [str]
+    for p in providers:
+        if merge_source_jars:
+            source_jars.extend(p.source_jars)
+            transitive_source_jars.append(p.transitive_source_jars)
+        if merge_java_outputs:
+            java_outputs.extend(p.java_outputs)
+            runtime_output_jars.extend(p.runtime_output_jars)
+        transitive_runtime_jars.append(p.transitive_runtime_jars)
+        transitive_compile_time_jars.append(p.transitive_compile_time_jars)
+        compile_jars.append(p.compile_jars)
+        full_compile_jars.append(p.full_compile_jars)
+        _transitive_full_compile_time_jars.append(p._transitive_full_compile_time_jars)
+        _compile_time_java_dependencies.append(p._compile_time_java_dependencies)
+        add_exports.append(p.module_flags_info.add_exports)
+        add_opens.append(p.module_flags_info.add_opens)
+        _neverlink = _neverlink or p._neverlink
+        _constraints.extend(p._constraints)
+
+    transitive_runtime_jars = depset(order = "preorder", transitive = transitive_runtime_jars)
+    transitive_compile_time_jars = depset(order = "preorder", transitive = transitive_compile_time_jars)
+
+    # java_outputs is a list so we uniquify to avoid https://github.com/bazelbuild/bazel/issues/17170
+    java_outputs = depset(java_outputs).to_list()
+    result = {
+        "transitive_runtime_jars": transitive_runtime_jars,
+        "transitive_runtime_deps": transitive_runtime_jars,  # deprecated
+        "transitive_compile_time_jars": transitive_compile_time_jars,
+        "transitive_deps": transitive_compile_time_jars,  # deprecated
+        "compile_jars": depset(order = "preorder", transitive = compile_jars),
+        "full_compile_jars": depset(order = "preorder", transitive = full_compile_jars),
+        "_transitive_full_compile_time_jars": depset(order = "preorder", transitive = _transitive_full_compile_time_jars),
+        "_compile_time_java_dependencies": depset(order = "preorder", transitive = _compile_time_java_dependencies),
+        # runtime_output_jars is a list so we uniquify to avoid https://github.com/bazelbuild/bazel/issues/17170
+        "runtime_output_jars": depset(runtime_output_jars).to_list(),
+        # source_jars is a list so we uniquify to avoid https://github.com/bazelbuild/bazel/issues/17170
+        "source_jars": depset(source_jars).to_list(),
+        "transitive_source_jars": depset(transitive = transitive_source_jars),
+        "java_outputs": java_outputs,
+        "outputs": _JavaRuleOutputJarsInfo(jars = java_outputs, jdeps = None, native_headers = None),
+        "module_flags_info": _create_module_flags_info(
+            add_exports = depset(transitive = add_exports),
+            add_opens = depset(transitive = add_opens),
+        ),
+        "plugins": plugin_info.plugins,
+        "api_generating_plugins": plugin_info.api_generating_plugins,
+        "_neverlink": _neverlink,
+        "_constraints": depset(_constraints).to_list(),
+        "annotation_processing": None,
+        "compilation_info": None,
+    }
+
+    if _java_common_internal._google_legacy_api_enabled():
+        cc_info = _minimize_cc_info(cc_common.merge_cc_infos(cc_infos = [p.cc_link_params_info for p in providers]))
+        result.update(
+            cc_link_params_info = cc_info,
+            transitive_native_libraries = cc_info.transitive_native_libraries(),
+        )
+    else:
+        result.update(
+            transitive_native_libraries = depset(
+                order = "topological",
+                transitive = [p.transitive_native_libraries for p in providers],
+            ),
+        )
+    return _java_common_internal.wrap_java_info(_new_javainfo(**result))
 
 def to_java_binary_info(java_info):
     """Get a copy of the given JavaInfo with minimal info returned by a java_binary
@@ -129,7 +214,7 @@ def to_java_binary_info(java_info):
         "runtime_output_jars": [],
         "plugins": _EMPTY_PLUGIN_DATA,
         "api_generating_plugins": _EMPTY_PLUGIN_DATA,
-        "module_flags_info": _ModuleFlagsInfo(add_exports = depset(), add_opens = depset()),
+        "module_flags_info": _EMPTY_MODULE_FLAGS_INFO,
         "_neverlink": False,
         "_constraints": [],
         "annotation_processing": java_info.annotation_processing,
@@ -155,9 +240,9 @@ def to_java_binary_info(java_info):
     java_outputs = [
         _JavaOutputInfo(
             compile_jar = None,
+            ijar = None,  # deprecated
             compile_jdeps = None,
             class_jar = output.class_jar,
-            ijar = output.compile_jar,  # deprecated
             generated_class_jar = output.generated_class_jar,
             generated_source_jar = output.generated_source_jar,
             native_headers_jar = output.native_headers_jar,
@@ -277,8 +362,290 @@ def set_annotation_processing(
     )
     return _new_javainfo(**result)
 
+def java_info_for_compilation(
+        output_jar,
+        compile_jar,
+        source_jar,
+        generated_class_jar,
+        generated_source_jar,
+        plugin_info,
+        deps,
+        runtime_deps,
+        exports,
+        exported_plugins,
+        compile_jdeps,
+        jdeps,
+        native_headers_jar,
+        manifest_proto,
+        native_libraries,
+        neverlink,
+        add_exports,
+        add_opens,
+        direct_runtime_jars,
+        compilation_info):
+    """Creates a JavaInfo instance represiting the result of java compilation.
+
+    Args:
+        output_jar: (File) The jar that was created as a result of a compilation.
+        compile_jar: (File) A jar that is the compile-time dependency in lieu of `output_jar`.
+        source_jar: (File) The source jar that was used to create the output jar.
+        generated_class_jar: (File) A jar file containing class files compiled from sources
+            generated during annotation processing.
+        generated_source_jar: (File) The source jar that was created as a result of annotation
+            processing.
+        plugin_info: (JavaPluginInfo) Information about annotation processing.
+        deps: ([JavaInfo]) Compile time dependencies that were used to create the output jar.
+        runtime_deps: ([JavaInfo]) Runtime dependencies that are needed for this library.
+        exports: ([JavaInfo]) Libraries to make available for users of this library.
+        exported_plugins: ([JavaPluginInfo]) A list of exported plugins.
+        compile_jdeps: (File) jdeps information about compile time dependencies to be consumed by
+            JavaCompileAction. This should be a binary proto encoded using the deps.proto protobuf
+            included with Bazel. If available this file is typically produced by a header compiler.
+        jdeps: (File) jdeps information for the rule output (if available). This should be a binary
+            proto encoded using the deps.proto protobuf included with Bazel. If available this file
+            is typically produced by a compiler. IDEs and other tools can use this information for
+            more efficient processing.
+        native_headers_jar: (File) A jar containing CC header files supporting native method
+            implementation (typically output of javac -h).
+        manifest_proto: (File) Manifest information for the rule output (if available). This should
+            be a binary proto encoded using the manifest.proto protobuf included with Bazel. IDEs
+            and other tools can use this information for more efficient processing.
+        native_libraries: ([CcInfo]) Native library dependencies that are needed for this library.
+        neverlink: (bool) If true, only use this library for compilation and not at runtime.
+        add_exports: ([str]) The <module>/<package>s this library was given access to.
+        add_opens: ([str]) The <module>/<package>s this library was given reflective access to.
+        direct_runtime_jars: ([File]) The class jars needed directly by this library at runtime.
+            This is usually just the output_jar or empty if there were no sources/resources.
+        compilation_info: (struct) Information for IDE/tools
+
+    Returns:
+        (JavaInfo) the JavaInfo instance
+    """
+    result, concatenated_deps = _javainfo_init_base(
+        output_jar,
+        compile_jar,
+        source_jar,
+        deps,
+        runtime_deps,
+        exports,
+        exported_plugins,
+        jdeps,
+        compile_jdeps,
+        native_headers_jar,
+        manifest_proto,
+        generated_class_jar,
+        generated_source_jar,
+        native_libraries,
+        neverlink,
+    )
+
+    # this differs ever so slightly from the usual JavaInfo in that direct_runtime_jars
+    # does not contain the output_jar is there were no sources/resources
+    transitive_runtime_jars = depset() if neverlink else depset(
+        order = "preorder",
+        direct = direct_runtime_jars,
+        transitive = [dep.transitive_runtime_jars for dep in concatenated_deps.exports_deps + runtime_deps],
+    )
+    result.update(
+        runtime_output_jars = direct_runtime_jars,
+        transitive_runtime_jars = transitive_runtime_jars,
+        transitive_runtime_deps = transitive_runtime_jars,
+        transitive_source_jars = depset(
+            direct = [source_jar],
+            # only differs from the usual java_info.transitive_source_jars in the order of deps
+            transitive = [dep.transitive_source_jars for dep in concatenated_deps.runtimedeps_exports_deps],
+        ),
+        # the JavaInfo constructor does not add flags from runtime_deps nor support
+        # adding this target's exports/opens
+        module_flags_info = _create_module_flags_info(
+            add_exports = depset(add_exports, transitive = [
+                dep.module_flags_info.add_exports
+                for dep in concatenated_deps.runtimedeps_exports_deps
+            ]),
+            add_opens = depset(add_opens, transitive = [
+                dep.module_flags_info.add_opens
+                for dep in concatenated_deps.runtimedeps_exports_deps
+            ]),
+        ),
+    )
+    if compilation_info:
+        result.update(
+            compilation_info = _JavaCompilationInfo(
+                javac_options = compilation_info.javac_options,
+                boot_classpath = compilation_info.boot_classpath,
+                compilation_classpath = compilation_info.compilation_classpath,
+                runtime_classpath = compilation_info.runtime_classpath,
+            ),
+            annotation_processing = _JavaGenJarsInfo(
+                enabled = compilation_info.uses_annotation_processing,
+                class_jar = result["annotation_processing"].class_jar,
+                source_jar = result["annotation_processing"].source_jar,
+                processor_classnames = plugin_info.plugins.processor_classes.to_list(),
+                processor_classpath = plugin_info.plugins.processor_jars,
+                transitive_class_jars = result["annotation_processing"].transitive_class_jars,
+                transitive_source_jars = result["annotation_processing"].transitive_source_jars,
+            ),
+        )
+    else:
+        result.update(
+            compilation_info = None,
+            annotation_processing = None,
+        )
+    return _java_common_internal.wrap_java_info(_new_javainfo(**result))
+
 def _validate_provider_list(provider_list, what, expected_provider_type):
     _java_common_internal.check_provider_instances(provider_list, what, expected_provider_type)
+
+def _minimize_cc_info(cc_info):
+    return CcInfo(
+        linking_context = cc_info.linking_context,
+        cc_native_library_info = CcNativeLibraryInfo(libraries_to_link = cc_info.transitive_native_libraries()),
+    )
+
+def _compute_concatenated_deps(deps, runtime_deps, exports):
+    deps_exports = []
+    deps_exports.extend(deps)
+    deps_exports.extend(exports)
+
+    exports_deps = []
+    exports_deps.extend(exports)
+    exports_deps.extend(deps)
+
+    runtimedeps_exports_deps = []
+    runtimedeps_exports_deps.extend(runtime_deps)
+    runtimedeps_exports_deps.extend(exports_deps)
+
+    return struct(
+        deps_exports = deps_exports,
+        exports_deps = exports_deps,
+        runtimedeps_exports_deps = runtimedeps_exports_deps,
+    )
+
+def _javainfo_init_base(
+        output_jar,
+        compile_jar,
+        source_jar,
+        deps,
+        runtime_deps,
+        exports,
+        exported_plugins,
+        jdeps,
+        compile_jdeps,
+        native_headers_jar,
+        manifest_proto,
+        generated_class_jar,
+        generated_source_jar,
+        native_libraries,
+        neverlink):
+    _validate_provider_list(deps, "deps", JavaInfo)
+    _validate_provider_list(runtime_deps, "runtime_deps", JavaInfo)
+    _validate_provider_list(exports, "exports", JavaInfo)
+    _validate_provider_list(native_libraries, "native_libraries", CcInfo)
+
+    concatenated_deps = _compute_concatenated_deps(deps, runtime_deps, exports)
+
+    source_jars = [source_jar] if source_jar else []
+    plugin_info = merge_plugin_info_without_outputs(exported_plugins + exports)
+    transitive_compile_time_jars = depset(
+        order = "preorder",
+        direct = [compile_jar] if compile_jar else [],
+        transitive = [dep.transitive_compile_time_jars for dep in concatenated_deps.exports_deps],
+    )
+    java_outputs = [_JavaOutputInfo(
+        class_jar = output_jar,
+        compile_jar = compile_jar,
+        ijar = compile_jar,  # deprecated
+        compile_jdeps = compile_jdeps,
+        generated_class_jar = generated_class_jar,
+        generated_source_jar = generated_source_jar,
+        native_headers_jar = native_headers_jar,
+        manifest_proto = manifest_proto,
+        jdeps = jdeps,
+        source_jars = depset(source_jars) if _java_common_internal._incompatible_depset_for_java_output_source_jars() else source_jars,
+        source_jar = source_jar,  # deprecated
+    )]
+    result = {
+        "transitive_compile_time_jars": transitive_compile_time_jars,
+        "transitive_deps": transitive_compile_time_jars,  # deprecated
+        "compile_jars": depset(
+            order = "preorder",
+            direct = [compile_jar] if compile_jar else [],
+            transitive = [dep.compile_jars for dep in exports],
+        ),
+        "full_compile_jars": depset(
+            order = "preorder",
+            direct = [output_jar],
+            transitive = [
+                dep.full_compile_jars
+                for dep in exports
+            ],
+        ),
+        "source_jars": source_jars,
+        "runtime_output_jars": [output_jar],
+        "plugins": plugin_info.plugins,
+        "api_generating_plugins": plugin_info.api_generating_plugins,
+        "java_outputs": java_outputs,
+        # deprecated
+        "outputs": _JavaRuleOutputJarsInfo(
+            jars = java_outputs,
+            jdeps = jdeps,
+            native_headers = native_headers_jar,
+        ),
+        "annotation_processing": _JavaGenJarsInfo(
+            enabled = False,
+            class_jar = generated_class_jar,
+            source_jar = generated_source_jar,
+            transitive_class_jars = depset(
+                direct = [generated_class_jar] if generated_class_jar else [],
+                transitive = [
+                    dep.annotation_processing.transitive_class_jars
+                    for dep in concatenated_deps.deps_exports
+                    if dep.annotation_processing
+                ],
+            ),
+            transitive_source_jars = depset(
+                direct = [generated_source_jar] if generated_source_jar else [],
+                transitive = [
+                    dep.annotation_processing.transitive_source_jars
+                    for dep in concatenated_deps.deps_exports
+                    if dep.annotation_processing
+                ],
+            ),
+            processor_classnames = [],
+            processor_classpath = depset(),
+        ),
+        "_transitive_full_compile_time_jars": depset(
+            order = "preorder",
+            direct = [output_jar],
+            transitive = [dep._transitive_full_compile_time_jars for dep in concatenated_deps.exports_deps],
+        ),
+        "_compile_time_java_dependencies": depset(
+            order = "preorder",
+            transitive = [dep._compile_time_java_dependencies for dep in exports] +
+                         ([depset([compile_jdeps])] if compile_jdeps else []),
+        ),
+        "_neverlink": neverlink,
+        "compilation_info": None,
+        "_constraints": [],
+    }
+
+    if _java_common_internal._google_legacy_api_enabled():
+        transitive_cc_infos = [dep.cc_link_params_info for dep in concatenated_deps.runtimedeps_exports_deps]
+        transitive_cc_infos.extend(native_libraries)
+        cc_info = _minimize_cc_info(cc_common.merge_cc_infos(cc_infos = transitive_cc_infos))
+        result.update(
+            cc_link_params_info = cc_info,
+            transitive_native_libraries = cc_info.transitive_native_libraries(),
+        )
+    else:
+        result.update(
+            transitive_native_libraries = depset(
+                order = "topological",
+                transitive = [dep.transitive_native_libraries for dep in concatenated_deps.runtimedeps_exports_deps] +
+                             ([cc_common.merge_cc_infos(cc_infos = native_libraries).transitive_native_libraries()] if native_libraries else []),
+            ),
+        )
+    return result, concatenated_deps
 
 def _javainfo_init(
         output_jar,
@@ -329,140 +696,54 @@ def _javainfo_init(
     Returns:
         (dict) arguments to the JavaInfo provider constructor
     """
-    _validate_provider_list(deps, "deps", JavaInfo)
-    _validate_provider_list(runtime_deps, "runtime_deps", JavaInfo)
-    _validate_provider_list(exports, "exports", JavaInfo)
-    _validate_provider_list(native_libraries, "native_libraries", CcInfo)
+    result, concatenated_deps = _javainfo_init_base(
+        output_jar,
+        compile_jar,
+        source_jar,
+        deps,
+        runtime_deps,
+        exports,
+        exported_plugins,
+        jdeps,
+        compile_jdeps,
+        native_headers_jar,
+        manifest_proto,
+        generated_class_jar,
+        generated_source_jar,
+        native_libraries,
+        neverlink,
+    )
 
-    source_jars = [source_jar] if source_jar else []
-    plugin_info = _merge_plugin_info_without_outputs(exported_plugins + exports)
     if neverlink:
         transitive_runtime_jars = depset()
     else:
         transitive_runtime_jars = depset(
             order = "preorder",
             direct = [output_jar],
-            transitive = [dep.transitive_runtime_jars for dep in exports + deps + runtime_deps],
+            transitive = [dep.transitive_runtime_jars for dep in concatenated_deps.exports_deps + runtime_deps],
         )
-    transitive_compile_time_jars = depset(
-        order = "preorder",
-        direct = [compile_jar] if compile_jar else [],
-        transitive = [dep.transitive_compile_time_jars for dep in exports + deps],
-    )
-    java_outputs = [_JavaOutputInfo(
-        class_jar = output_jar,
-        compile_jar = compile_jar,
-        ijar = compile_jar,  # deprecated
-        compile_jdeps = compile_jdeps,
-        generated_class_jar = generated_class_jar,
-        generated_source_jar = generated_source_jar,
-        native_headers_jar = native_headers_jar,
-        manifest_proto = manifest_proto,
-        jdeps = jdeps,
-        source_jars = source_jars,
-        source_jar = source_jar,  # deprecated
-    )]
-
-    result = {
-        "transitive_runtime_jars": transitive_runtime_jars,
-        "transitive_runtime_deps": transitive_runtime_jars,  # deprecated
-        "transitive_compile_time_jars": transitive_compile_time_jars,
-        "transitive_deps": transitive_compile_time_jars,  # deprecated
-        "compile_jars": depset(
-            order = "preorder",
-            direct = [compile_jar] if compile_jar else [],
-            transitive = [dep.compile_jars for dep in exports],
-        ),
-        "full_compile_jars": depset(
-            order = "preorder",
-            direct = [output_jar],
-            transitive = [
-                dep.full_compile_jars
-                for dep in exports
-            ],
-        ),
-        "source_jars": source_jars,
-        "runtime_output_jars": [output_jar],
-        "transitive_source_jars": depset(
-            direct = source_jars,
+    result.update(
+        transitive_runtime_jars = transitive_runtime_jars,
+        transitive_runtime_deps = transitive_runtime_jars,  # deprecated
+        transitive_source_jars = depset(
+            direct = [source_jar] if source_jar else [],
             # TODO(hvd): native also adds source jars from deps, but this should be unnecessary
             transitive = [
                 dep.transitive_source_jars
                 for dep in deps + runtime_deps + exports
             ],
         ),
-        "module_flags_info": _ModuleFlagsInfo(
+        module_flags_info = _create_module_flags_info(
             add_exports = depset(transitive = [
                 dep.module_flags_info.add_exports
-                for dep in deps + exports
+                for dep in concatenated_deps.deps_exports
             ]),
             add_opens = depset(transitive = [
                 dep.module_flags_info.add_opens
-                for dep in deps + exports
+                for dep in concatenated_deps.deps_exports
             ]),
         ),
-        "plugins": plugin_info.plugins,
-        "api_generating_plugins": plugin_info.api_generating_plugins,
-        "java_outputs": java_outputs,
-        # deprecated
-        "outputs": _JavaRuleOutputJarsInfo(
-            jars = java_outputs,
-            jdeps = jdeps,
-            native_headers = native_headers_jar,
-        ),
-        "annotation_processing": _JavaGenJarsInfo(
-            enabled = False,
-            class_jar = generated_class_jar,
-            source_jar = generated_source_jar,
-            transitive_class_jars = depset(
-                direct = [generated_class_jar] if generated_class_jar else [],
-                transitive = [
-                    dep.annotation_processing.transitive_class_jars
-                    for dep in deps + exports
-                    if dep.annotation_processing
-                ],
-            ),
-            transitive_source_jars = depset(
-                direct = [generated_source_jar] if generated_source_jar else [],
-                transitive = [
-                    dep.annotation_processing.transitive_source_jars
-                    for dep in deps + exports
-                    if dep.annotation_processing
-                ],
-            ),
-            processor_classnames = [],
-            processor_classpath = depset(),
-        ),
-        "compilation_info": None,
-        "_neverlink": neverlink,
-        "_transitive_full_compile_time_jars": depset(
-            order = "preorder",
-            direct = [output_jar],
-            transitive = [dep._transitive_full_compile_time_jars for dep in exports + deps],
-        ),
-        "_compile_time_java_dependencies": depset(
-            order = "preorder",
-            transitive = [dep._compile_time_java_dependencies for dep in exports] +
-                         ([depset([compile_jdeps])] if compile_jdeps else []),
-        ),
-        "_constraints": [],
-    }
-    if _java_common_internal._google_legacy_api_enabled():
-        cc_info = cc_common.merge_cc_infos(
-            cc_infos = [dep.cc_link_params_info for dep in runtime_deps + exports + deps] +
-                       [cc_common.merge_cc_infos(cc_infos = native_libraries)],
-        )
-        result.update(
-            cc_link_params_info = cc_info,
-            transitive_native_libraries = cc_info.transitive_native_libraries(),
-        )
-    else:
-        result.update(
-            transitive_native_libraries = depset(
-                transitive = [dep.transitive_native_libraries for dep in runtime_deps + exports + deps] +
-                             [cc_common.merge_cc_infos(cc_infos = native_libraries).transitive_native_libraries()],
-            ),
-        )
+    )
     return result
 
 JavaInfo, _new_javainfo = provider(
@@ -536,7 +817,39 @@ _EMPTY_PLUGIN_DATA = _JavaPluginDataInfo(
     processor_data = depset(),
 )
 
-def _merge_plugin_info_without_outputs(infos):
+def _create_plugin_data_info(*, processor_classes, processor_jars, processor_data):
+    if processor_classes or processor_jars or processor_data:
+        return _JavaPluginDataInfo(
+            processor_classes = processor_classes,
+            processor_jars = processor_jars,
+            processor_data = processor_data,
+        )
+    else:
+        return _EMPTY_PLUGIN_DATA
+
+def disable_plugin_info_annotation_processing(plugin_info):
+    """Returns a copy of the provided JavaPluginInfo without annotation processing info
+
+    Args:
+        plugin_info: (JavaPluginInfo) the instance to transform
+
+    Returns:
+        (JavaPluginInfo) a new, transformed instance.
+     """
+    return _new_javaplugininfo(
+        plugins = _create_plugin_data_info(
+            processor_classes = depset(order = "preorder"),
+            # Preserve the processor path, since it may contain Error Prone plugins
+            # which will be service-loaded by JavaBuilder.
+            processor_jars = plugin_info.plugins.processor_jars,
+            # Preserve data, which may be used by Error Prone plugins.
+            processor_data = plugin_info.plugins.processor_data,
+        ),
+        api_generating_plugins = _EMPTY_PLUGIN_DATA,
+        java_outputs = plugin_info.java_outputs,
+    )
+
+def merge_plugin_info_without_outputs(infos):
     """ Merge plugin information from a list of JavaPluginInfo or JavaInfo
 
     Args:
@@ -566,7 +879,7 @@ def _has_plugin_data(plugin_data):
     )
 
 def _merge_plugin_data(datas):
-    return _JavaPluginDataInfo(
+    return _create_plugin_data_info(
         processor_classes = depset(transitive = [p.processor_classes for p in datas]),
         processor_jars = depset(transitive = [p.processor_jars for p in datas]),
         processor_data = depset(transitive = [p.processor_data for p in datas]),
@@ -600,7 +913,7 @@ def _javaplugininfo_init(
 
     java_infos = merge(runtime_deps)
     processor_data = data if type(data) == "depset" else depset(data)
-    plugins = _JavaPluginDataInfo(
+    plugins = _create_plugin_data_info(
         processor_classes = depset([processor_class]) if processor_class else depset(),
         processor_jars = java_infos.transitive_runtime_jars,
         processor_data = processor_data,

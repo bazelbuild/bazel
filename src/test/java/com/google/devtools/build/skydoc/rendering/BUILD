@@ -13,11 +13,14 @@ filegroup(
 )
 
 java_test(
-    name = "MarkdownUtilTest",
+    name = "LabelRendererTest",
     size = "small",
-    srcs = ["MarkdownUtilTest.java"],
+    srcs = ["LabelRendererTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/skydoc/rendering",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/skydoc/rendering:rendering_util",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
     ],

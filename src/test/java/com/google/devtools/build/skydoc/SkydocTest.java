@@ -28,8 +28,9 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.runfiles.Runfiles;
 import com.google.devtools.build.skydoc.SkydocMain.StarlarkEvaluationException;
 import com.google.devtools.build.skydoc.rendering.DocstringParseException;
-import com.google.devtools.build.skydoc.rendering.FunctionUtil;
+import com.google.devtools.build.skydoc.rendering.LabelRenderer;
 import com.google.devtools.build.skydoc.rendering.ProtoRenderer;
+import com.google.devtools.build.skydoc.rendering.StarlarkFunctionInfoExtractor;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleInfo;
@@ -481,11 +482,11 @@ public final class SkydocTest {
         assertThrows(
             DocstringParseException.class,
             () ->
-                FunctionUtil.fromNameAndFunction(
+                StarlarkFunctionInfoExtractor.fromNameAndFunction(
                     "check_sources",
                     checkSourcesFn,
                     /* withOriginKey= */ false,
-                    /* repositoryMapping= */ null));
+                    LabelRenderer.DEFAULT));
     assertThat(expected)
         .hasMessageThat()
         .contains(

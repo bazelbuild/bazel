@@ -257,6 +257,16 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
                 .cfg(ExecutionTransitionFactory.createFactory())
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .exec())
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(oneversion_allowlist_for_tests) -->
+        Label of the one-version allowlist for tests.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("oneversion_allowlist_for_tests", LABEL)
+                .singleArtifact()
+                // This needs to be in the execution configuration.
+                .cfg(ExecutionTransitionFactory.createFactory())
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .exec())
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(forcibly_disable_header_compilation) -->
         Overrides --java_header_compilation to disable header compilation on platforms that do not
         support it, e.g. JDK 7 Bazel.

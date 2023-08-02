@@ -82,7 +82,9 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   @Before
   public void createBasePkg() throws IOException {
     scratch.overwriteFile(
-        "base/BUILD", "cc_library(name = 'system_malloc', visibility = ['//visibility:public'])");
+        "base/BUILD",
+        "cc_library(name = 'system_malloc', visibility = ['//visibility:public'])",
+        "cc_library(name = 'empty_lib', visibility = ['//visibility:public'])");
   }
   
   public void createBuildFiles(String... extraCcBinaryParameters) throws Exception {
@@ -104,6 +106,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
         "          srcs = ['binfile.cc', ],",
         "          deps = [ ':lib', ':tree', ':tree_2', 'tree_empty'], ",
         String.join("", extraCcBinaryParameters),
+        "          link_extra_lib = '//base:empty_lib', ",
         "          malloc = '//base:system_malloc')",
         "cc_library(name = 'lib',",
         "        srcs = ['libfile.cc'],",
@@ -200,6 +203,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
         "    srcs = ['bin_test.cc', ],",
         "    deps = [ ':lib', ':tree', ], ",
         extraTestParameters,
+        "    link_extra_lib = '//base:empty_lib', ",
         "    malloc = '//base:system_malloc'",
         ")",
         "cc_test(",
@@ -207,6 +211,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
         "    srcs = ['bin_test2.cc', ],",
         "    deps = [ ':lib', ':tree', ], ",
         extraTestParameters,
+        "    link_extra_lib = '//base:empty_lib', ",
         "    malloc = '//base:system_malloc'",
         ")",
         "cc_library(",
@@ -329,8 +334,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
                     ConfiguredTargetKey.builder()
                         .setLabel(pkg.getLabel())
                         .setConfiguration(getConfiguration(pkg))
-                        .build()
-                        .toKey())
+                        .build())
                 .getValue();
     ImmutableList<ActionAnalysisMetadata> linkstampCompileActions =
         configuredTargetValue.getActions().stream()

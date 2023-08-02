@@ -10,6 +10,7 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/lib/vfs/bazel:srcs",
         "//src/test/java/com/google/devtools/build/lib/vfs/util:srcs",
     ],
     visibility = ["//src:__subpackages__"],
@@ -74,7 +75,7 @@ java_library(
         "//third_party:mockito",
         "//third_party:truth",
         "//third_party/protobuf:protobuf_java",
-        "@com_google_testparameterinjector//:testparameterinjector",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )
 
@@ -90,7 +91,7 @@ java_library(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-        "@com_google_testparameterinjector//:testparameterinjector",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )
 
@@ -149,6 +150,6 @@ java_library(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-        "@com_google_testparameterinjector//:testparameterinjector",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )

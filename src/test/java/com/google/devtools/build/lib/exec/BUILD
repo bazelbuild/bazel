@@ -61,6 +61,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:test_log_helper",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/testing/vfs:spied_filesystem",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
@@ -87,7 +88,7 @@ java_library(
         "//third_party:mockito",
         "//third_party:truth",
         "//third_party/protobuf:protobuf_java",
-        "@com_google_testparameterinjector//:testparameterinjector",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )
 

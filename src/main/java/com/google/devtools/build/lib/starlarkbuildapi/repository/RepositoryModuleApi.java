@@ -160,13 +160,26 @@ public interface RepositoryModuleApi {
                 "A description of the module extension that can be extracted by documentation"
                     + " generating tools.",
             named = true,
-            positional = false)
+            positional = false),
+        @Param(
+            name = "environ",
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = String.class),
+            },
+            defaultValue = "[]",
+            doc =
+                "Provides a list of environment variable that this module extension depends on. If "
+                    + "an environment variable in that list changes, the extension will be "
+                    + "re-evaluated.",
+            named = true,
+            positional = false),
       },
       useStarlarkThread = true)
   Object moduleExtension(
       StarlarkCallable implementation,
       Dict<?, ?> tagClasses, // Dict<String, TagClassApi>
-      Object doc,
+      Object doc, // <String> or Starlark.NONE
+      Sequence<?> environ, // <String>
       StarlarkThread thread)
       throws EvalException;
 

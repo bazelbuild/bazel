@@ -26,11 +26,9 @@ import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.InconsistentNullConfigException;
 import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyException;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.skyframe.AspectCreationException;
@@ -109,7 +107,7 @@ final class PrerequisitesProducer
   }
 
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     switch (configuration.kind()) {
       case VISIBILITY:
         tasks.enqueue(
@@ -187,7 +185,7 @@ final class PrerequisitesProducer
     sink.acceptPrerequisitesCreationError(error);
   }
 
-  private StateMachine computeConfiguredAspects(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine computeConfiguredAspects(Tasks tasks) {
     if (hasError) {
       return DONE;
     }
@@ -259,7 +257,7 @@ final class PrerequisitesProducer
     sink.acceptPrerequisitesAspectError(error);
   }
 
-  private StateMachine emitMergedTargets(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine emitMergedTargets(Tasks tasks) {
     if (!hasError) {
       sink.acceptPrerequisitesValue(configuredTargets);
     }
@@ -276,22 +274,12 @@ final class PrerequisitesProducer
 
   private void cleanupValues() {
     if (configuredTargets.length == 1) {
-      // Clears the transition keys if there was no effective transition.
-      BuildConfigurationKey fromConfigurationKey = parameters.configurationKey();
-      BuildConfigurationValue transitionedConfiguration = configuredTargets[0].getConfiguration();
-      // `fromConfigurationKey` == null implies `transitionedConfiguration` == null.
-      if (fromConfigurationKey == null
-          || (transitionedConfiguration != null
-              && fromConfigurationKey
-                  .getOptions()
-                  .equals(transitionedConfiguration.getOptions()))) {
-        configuredTargets[0] = configuredTargets[0].copyWithClearedTransitionKeys();
-      }
       return;
     }
-    // Otherwise, there was a split transition. Aggregates the transition keys if the resulting
-    // configurations are null.
+    // Otherwise, there was a split transition.
+
     if (configuredTargets[0].getConfiguration() == null) {
+      // The resulting configurations are null. Aggregates the transition keys.
       var keys = new ImmutableList.Builder<String>();
       keys.addAll(configuredTargets[0].getTransitionKeys());
       for (int i = 1; i < configuredTargets.length; ++i) {

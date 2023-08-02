@@ -34,6 +34,7 @@ import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -63,6 +64,7 @@ import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
@@ -97,7 +99,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.Debug;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -252,11 +253,15 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   public Object provider(Object doc, Object fields, Object init, StarlarkThread thread)
       throws EvalException {
     StarlarkProvider.Builder builder = StarlarkProvider.builder(thread.getCallerLocation());
-    Starlark.toJavaOptional(doc, String.class).ifPresent(builder::setDocumentation);
+    Starlark.toJavaOptional(doc, String.class)
+        .map(Starlark::trimDocString)
+        .ifPresent(builder::setDocumentation);
     if (fields instanceof Sequence) {
       builder.setSchema(Sequence.cast(fields, String.class, "fields"));
     } else if (fields instanceof Dict) {
-      builder.setSchema(Dict.cast(fields, String.class, String.class, "fields"));
+      builder.setSchema(
+          Maps.transformValues(
+              Dict.cast(fields, String.class, String.class, "fields"), Starlark::trimDocString));
     }
     if (init == Starlark.NONE) {
       return builder.build();
@@ -393,20 +398,28 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     builder.requiresConfigurationFragmentsByStarlarkModuleName(
         Sequence.cast(fragments, String.class, "fragments"));
     builder.setConfiguredTargetFunction(implementation);
-    // Obtain the rule definition environment (RDE) from the .bzl module being initialized by the
-    // calling thread -- the label and transitive source digest of the .bzl module of the outermost
-    // function in the call stack.
+
+    // Obtain the rule definition's label and transitive digest from the context of the .bzl file
+    // being initialized.
     //
-    // If this thread is initializing a BUILD file, then the toplevel function's Module has
-    // no BazelModuleContext. Such rules cannot be instantiated, so it's ok to use a
-    // dummy label and RDE in that case (but not to crash).
-    BazelModuleContext bzlModule =
-        BazelModuleContext.of(getModuleOfOutermostStarlarkFunction(thread));
-    builder.setRuleDefinitionEnvironmentLabelAndDigest(
-        bzlModule != null
-            ? bzlModule.label()
-            : Label.createUnvalidated(PackageIdentifier.EMPTY_PACKAGE_ID, "dummy_label"),
-        bzlModule != null ? bzlModule.bzlTransitiveDigest() : new byte[0]);
+    // Note that if rule() was called via a helper function (a meta-macro), the label and digest of
+    // the .bzl file of the innermost stack frame might not be the same as that of the outermost
+    // frame. In this case we really do want the outermost, in order to ensure that the digest
+    // includes the code that determines the helper function's argument values.
+    //
+    // If we are not currently initializing a .bzl file, we use dummy values for both the label and
+    // digest. In most cases this is ok because such rules cannot be instantiated, since they are
+    // not exported. The one exception is rule classes created by analysis_test, which occurs inside
+    // a BUILD thread. The digest of all such rule classes will be the same (b/291752414).
+    if (bazelContext instanceof BzlInitThreadContext) {
+      BzlInitThreadContext initContext = (BzlInitThreadContext) bazelContext;
+      builder.setRuleDefinitionEnvironmentLabelAndDigest(
+          initContext.getBzlFile(), initContext.getTransitiveDigest());
+    } else {
+      builder.setRuleDefinitionEnvironmentLabelAndDigest(
+          /* label= */ Label.createUnvalidated(PackageIdentifier.EMPTY_PACKAGE_ID, "dummy_label"),
+          /* digest= */ new byte[0]);
+    }
 
     builder.addToolchainTypes(parseToolchainTypes(toolchains, thread));
 
@@ -487,21 +500,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         type,
         attributes,
         thread.getCallerLocation(),
-        Starlark.toJavaOptional(doc, String.class));
-  }
-
-  /**
-   * Returns the module (file) of the outermost enclosing Starlark function on the call stack or
-   * null if none of the active calls are functions defined in Starlark.
-   */
-  @Nullable
-  private static Module getModuleOfOutermostStarlarkFunction(StarlarkThread thread) {
-    for (Debug.Frame fr : Debug.getCallStack(thread)) {
-      if (fr.getFunction() instanceof StarlarkFunction) {
-        return ((StarlarkFunction) fr.getFunction()).getModule();
-      }
-    }
-    return null;
+        Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString));
   }
 
   private static void checkAttributeName(String name) throws EvalException {
@@ -679,7 +678,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
     return new StarlarkDefinedAspect(
         implementation,
-        Starlark.toJavaOptional(doc, String.class),
+        Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString),
         attrAspects.build(),
         attributes.build(),
         StarlarkAttrModule.buildProviderPredicate(requiredProvidersArg, "required_providers"),

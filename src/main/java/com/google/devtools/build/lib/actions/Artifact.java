@@ -330,9 +330,9 @@ public abstract class Artifact
   public static class DerivedArtifact extends Artifact implements PathStrippable {
 
     /**
-     * An {@link ActionLookupKeyOrProxy} until {@link #setGeneratingActionKey} is set, at which
-     * point it is an {@link ActionLookupData}, whose {@link ActionLookupData#getActionLookupKey}
-     * will be the same as the original value of owner.
+     * An {@link ActionLookupKey} until {@link #setGeneratingActionKey} is set, at which point it is
+     * an {@link ActionLookupData}, whose {@link ActionLookupData#getActionLookupKey} will be the
+     * same as the original value of owner.
      *
      * <p>We overload this field in order to save memory.
      */
@@ -348,7 +348,7 @@ public abstract class Artifact
 
     /** Standard factory method for derived artifacts. */
     public static DerivedArtifact create(
-        ArtifactRoot root, PathFragment execPath, ActionLookupKeyOrProxy owner) {
+        ArtifactRoot root, PathFragment execPath, ActionLookupKey owner) {
       return create(root, execPath, owner, /*contentBasedPath=*/ false);
     }
 
@@ -358,10 +358,7 @@ public abstract class Artifact
      * com.google.devtools.build.lib.analysis.config.BuildConfigurationValue#useContentBasedOutputPaths}).
      */
     public static DerivedArtifact create(
-        ArtifactRoot root,
-        PathFragment execPath,
-        ActionLookupKeyOrProxy owner,
-        boolean contentBasedPath) {
+        ArtifactRoot root, PathFragment execPath, ActionLookupKey owner, boolean contentBasedPath) {
       return new DerivedArtifact(root, execPath, owner, contentBasedPath);
     }
 
@@ -387,7 +384,7 @@ public abstract class Artifact
       Preconditions.checkState(
           this.owner != OMITTED_FOR_SERIALIZATION, "Owner was omitted for serialization: %s", this);
       Preconditions.checkState(
-          this.owner instanceof ActionLookupKeyOrProxy,
+          this.owner instanceof ActionLookupKey,
           "Already set generating action key: %s (%s %s)",
           this,
           this.owner,
@@ -413,12 +410,12 @@ public abstract class Artifact
     }
 
     @Override
-    public final ActionLookupKeyOrProxy getArtifactOwner() {
+    public final ActionLookupKey getArtifactOwner() {
       Preconditions.checkState(
           this.owner != OMITTED_FOR_SERIALIZATION, "Owner was omitted for serialization: %s", this);
       return owner instanceof ActionLookupData
           ? getGeneratingActionKey().getActionLookupKey()
-          : (ActionLookupKeyOrProxy) owner;
+          : (ActionLookupKey) owner;
     }
 
     /**
@@ -1053,10 +1050,7 @@ public abstract class Artifact
 
     @VisibleForTesting
     public static SpecialArtifact create(
-        ArtifactRoot root,
-        PathFragment execPath,
-        ActionLookupKeyOrProxy owner,
-        SpecialArtifactType type) {
+        ArtifactRoot root, PathFragment execPath, ActionLookupKey owner, SpecialArtifactType type) {
       return new SpecialArtifact(root, execPath, owner, type);
     }
 
@@ -1419,8 +1413,8 @@ public abstract class Artifact
       return !isActionTemplateExpansionKey(getArtifactOwner());
     }
 
-    private static boolean isActionTemplateExpansionKey(ActionLookupKeyOrProxy key) {
-      return SkyFunctions.ACTION_TEMPLATE_EXPANSION.equals(key.toKey().functionName());
+    private static boolean isActionTemplateExpansionKey(ActionLookupKey key) {
+      return SkyFunctions.ACTION_TEMPLATE_EXPANSION.equals(key.functionName());
     }
   }
 

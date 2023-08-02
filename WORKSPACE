@@ -202,48 +202,6 @@ dist_http_archive(
     strip_prefix = "BLAKE3-1.3.3",
 )
 
-http_archive(
-    name = "org_snakeyaml",
-    build_file_content = """
-java_library(
-    name = "snakeyaml",
-    srcs = glob(["src/main/**/*.java"]),
-    visibility = [
-        "@io_bazel//src/main/java/com/google/devtools/build/docgen/release:__pkg__",
-        "@com_google_testparameterinjector//:__pkg__",
-    ],
-)
-""",
-    sha256 = "fd0e0cc6c5974fc8f08be3a15fb4a59954c7dd958b5b68186a803de6420b6e40",
-    strip_prefix = "asomov-snakeyaml-b28f0b4d87c6",
-    urls = ["https://mirror.bazel.build/bitbucket.org/asomov/snakeyaml/get/snakeyaml-1.28.tar.gz"],
-)
-
-http_archive(
-    name = "com_google_testparameterinjector",
-    build_file_content = """
-java_library(
-    name = "testparameterinjector",
-    testonly = True,
-    srcs = glob(["src/main/**/*.java"]),
-    deps = [
-      "@org_snakeyaml//:snakeyaml",
-      "@//third_party:auto_value",
-      "@//third_party:guava",
-      "@//third_party:junit4",
-      "@//third_party/protobuf:protobuf_java",
-    ],
-    visibility = ["//visibility:public"],
-)
-""",
-    sha256 = "562a0e87eb413a7dcad29ebc8d578f6f97503473943585b051c1398a58189b06",
-    strip_prefix = "TestParameterInjector-1.0",
-    urls = [
-        "https://mirror.bazel.build/github.com/google/TestParameterInjector/archive/v1.0.tar.gz",
-        "https://github.com/google/TestParameterInjector/archive/v1.0.tar.gz",
-    ],
-)
-
 dist_http_archive(
     name = "rules_cc",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
@@ -419,11 +377,11 @@ maven_install(
         "com.google.code.findbugs:jsr305:3.0.2",
         "com.google.code.gson:gson:2.9.0",
         "com.google.code.java-allocation-instrumenter:java-allocation-instrumenter:3.3.0",
-        "com.google.errorprone:error_prone_annotation:2.19.1",
-        "com.google.errorprone:error_prone_annotations:2.19.1",
-        "com.google.errorprone:error_prone_check_api:2.19.1",
-        "com.google.errorprone:error_prone_core:2.19.1",
-        "com.google.errorprone:error_prone_type_annotations:2.19.1",
+        "com.google.errorprone:error_prone_annotation:2.20.0",
+        "com.google.errorprone:error_prone_annotations:2.20.0",
+        "com.google.errorprone:error_prone_check_api:2.20.0",
+        "com.google.errorprone:error_prone_core:2.20.0",
+        "com.google.errorprone:error_prone_type_annotations:2.20.0",
         "com.google.flogger:flogger-system-backend:0.5.1",
         "com.google.flogger:flogger:0.5.1",
         "com.google.flogger:google-extensions:0.5.1",
@@ -493,6 +451,7 @@ maven_install(
         "org.pcollections:pcollections:3.1.4",
         "org.threeten:threeten-extra:1.5.0",
         "org.tukaani:xz:1.9",
+        "org.yaml:snakeyaml:1.28",
         "tools.profiler:async-profiler:2.9",
         # The following jars are for testing.
         # junit is not test only due to //src/java_tools/junitrunner/java/com/google/testing/junit/junit4:runner,
@@ -515,6 +474,12 @@ maven_install(
             "com.google.testing.compile",
             "compile-testing",
             "0.18",
+            testonly = True,
+        ),
+        maven.artifact(
+            "com.google.testparameterinjector",
+            "test-parameter-injector",
+            "1.0",
             testonly = True,
         ),
         maven.artifact(

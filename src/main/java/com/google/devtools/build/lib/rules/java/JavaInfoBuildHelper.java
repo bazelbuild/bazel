@@ -237,7 +237,7 @@ final class JavaInfoBuildHelper {
                 streamProviders(runtimeDeps, JavaCcInfoProvider.class),
                 streamProviders(exports, JavaCcInfoProvider.class),
                 streamProviders(deps, JavaCcInfoProvider.class),
-                Stream.of(new JavaCcInfoProvider(CcInfo.merge(nativeLibraries))))
+                Stream.of(JavaCcInfoProvider.create(CcInfo.merge(nativeLibraries))))
             .collect(toImmutableList());
 
     return javaInfoBuilder
@@ -265,7 +265,12 @@ final class JavaInfoBuildHelper {
     return output;
   }
 
-  private static StrictDepsMode getStrictDepsMode(String strictDepsMode) {
+  /**
+   * Converts the supplied string to the appropriate {@link StrictDepsMode} enum instance.
+   *
+   * @param strictDepsMode the value to convert
+   */
+  static StrictDepsMode getStrictDepsMode(String strictDepsMode) {
     switch (strictDepsMode) {
       case "OFF":
         return StrictDepsMode.OFF;

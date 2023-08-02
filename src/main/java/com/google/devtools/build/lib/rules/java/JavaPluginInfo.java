@@ -102,8 +102,8 @@ public abstract class JavaPluginInfo extends NativeInfo
         try {
           StructImpl info = (StructImpl) value;
           return new AutoValue_JavaPluginInfo(
-              Sequence.cast(info.getValue("java_outputs"), JavaOutput.class, "java_outputs")
-                  .getImmutableList(),
+              JavaOutput.wrapSequence(
+                  Sequence.cast(info.getValue("java_outputs"), Object.class, "java_outputs")),
               JavaPluginData.wrap(info.getValue("plugins")),
               JavaPluginData.wrap(info.getValue("api_generating_plugins")));
         } catch (EvalException e) {

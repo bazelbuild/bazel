@@ -8606,6 +8606,39 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
             "aspect a on @//test:t4 sees b_provider = aspect b cannot see c_provider");
   }
 
+  @Test
+  public void testAspectWithSameExplicitAttributeNameAsUnderlyingTarget() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _a_impl(target, ctx):",
+        "  value = 'x from aspect = {}, x from target = {}'.format(ctx.attr.x, ctx.rule.attr.x)",
+        "  return struct(aspect_result = value)",
+        "a = aspect(",
+        "  implementation = _a_impl,",
+        "  attrs = {",
+        "    'x': attr.string(default = 'xyz')",
+        "  },",
+        ")",
+        "",
+        "def _rule_impl(ctx):",
+        "  pass",
+        "r1 = rule(",
+        "  implementation = _rule_impl,",
+        "  attrs = {",
+        "    'x': attr.int(default = 4)",
+        "  },",
+        ")");
+    scratch.file("test/BUILD", "load('//test:defs.bzl', 'r1')", "r1(name = 't1')");
+
+    AnalysisResult analysisResult = update(ImmutableList.of("//test:defs.bzl%a"), "//test:t1");
+
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "a");
+    assertThat(aspectA).isNotNull();
+    String aspectAResult = (String) aspectA.get("aspect_result");
+    assertThat(aspectAResult).isEqualTo("x from aspect = xyz, x from target = 4");
+  }
+
   private ImmutableList<AspectKey> getAspectKeys(String targetLabel, String aspectLabel) {
     return skyframeExecutor.getEvaluator().getDoneValues().entrySet().stream()
         .filter(

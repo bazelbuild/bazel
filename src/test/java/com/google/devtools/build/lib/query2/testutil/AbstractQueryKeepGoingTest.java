@@ -499,7 +499,12 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
     writeFile("a/BUILD", "filegroup(name = 'a')");
     writeFile("a/b/BUILD", "filegroup(name = 'a_b')");
     writeFile("a/b/c/BUILD", "filegroup(name = 'a_b_c')");
-    ;
+
+    // Ensure that modified files are invalidated in the skyframe. If a file has
+    // already been read prior to the test's writes, this forces the query to
+    // pick up the modified versions.
+    helper.maybeHandleDiffs();
+
     ResultAndTargets<Target> resultAndTargets = helper.evaluateQuery("//a/b/...");
     assertContainsEvent("Pattern '//a/b/...' was filtered out by ignored directory 'a/b'");
     assertThat(resultAndTargets.getQueryEvalResult().getSuccess()).isTrue();

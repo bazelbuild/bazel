@@ -128,7 +128,7 @@ def _get_cc_runtimes(ctx, is_library):
     if is_library:
         return []
 
-    runtimes = [ctx.attr._link_extra_lib]
+    runtimes = [ctx.attr.link_extra_lib]
 
     if ctx.fragments.cpp.custom_malloc != None:
         runtimes.append(ctx.attr._default_malloc)

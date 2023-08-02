@@ -219,6 +219,6 @@ public final class LabelInternerIntegrationTest extends SkyframeIntegrationTestB
 
   @After
   public void cleanup() {
-    skyframeExecutor().getEvaluator().getInMemoryGraph().cleanupInterningPool();
+    skyframeExecutor().getEvaluator().getInMemoryGraph().cleanupInterningPools();
   }
 }

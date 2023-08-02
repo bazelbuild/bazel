@@ -88,9 +88,10 @@ public class SkyframeExecutorTestUtils {
   public static ConfiguredTargetValue getExistingConfiguredTargetValue(
       SkyframeExecutor skyframeExecutor, Label label, BuildConfigurationValue config)
       throws InterruptedException {
-    SkyKey key =
-        ConfiguredTargetKey.builder().setLabel(label).setConfiguration(config).build().toKey();
-    return (ConfiguredTargetValue) getExistingValue(skyframeExecutor, key);
+    return (ConfiguredTargetValue)
+        getExistingValue(
+            skyframeExecutor,
+            ConfiguredTargetKey.builder().setLabel(label).setConfiguration(config).build());
   }
 
   /**

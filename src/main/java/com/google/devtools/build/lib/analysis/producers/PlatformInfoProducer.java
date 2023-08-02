@@ -17,7 +17,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
@@ -64,7 +63,7 @@ final class PlatformInfoProducer
   }
 
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     // Loads the Package first to verify the Target. The ConfiguredTarget should not be loaded
     // until after verification. See https://github.com/bazelbuild/bazel/pull/10307.
     //
@@ -102,15 +101,13 @@ final class PlatformInfoProducer
     throw new IllegalArgumentException("both value and error were null");
   }
 
-  private StateMachine lookupPlatform(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine lookupPlatform(Tasks tasks) {
     if (!passedValidation) {
       return runAfter;
     }
 
     tasks.lookUp(
-        platformKey.toKey(),
-        ConfiguredValueCreationException.class,
-        this::acceptPlatformValueOrError);
+        platformKey, ConfiguredValueCreationException.class, this::acceptPlatformValueOrError);
     return this::retrievePlatformInfo;
   }
 
@@ -128,7 +125,7 @@ final class PlatformInfoProducer
     throw new IllegalArgumentException("both value and error were null");
   }
 
-  private StateMachine retrievePlatformInfo(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine retrievePlatformInfo(Tasks tasks) {
     if (platform == null) {
       return runAfter; // An error occurred and was reported.
     }

@@ -184,9 +184,11 @@ final class StringModule implements StarlarkValue {
    * <p>Note that this differs from Python 2.7, which uses ctype.h#isspace(), and from
    * java.lang.Character#isWhitespace(), which does not recognize U+00A0.
    */
+  // TODO(https://github.com/bazelbuild/starlark/issues/112): use the Unicode definition of
+  // whitespace, matching Python 3.
   private static final String LATIN1_WHITESPACE =
       ("\u0009" + "\n" + "\u000B" + "\u000C" + "\r" + "\u001C" + "\u001D" + "\u001E" + "\u001F"
-          + "\u0020" + "\u0085" + "\u00A0");
+          + " " + "\u0085" + "\u00A0");
 
   private static String stringLStrip(String self, String chars) {
     CharMatcher matcher = CharMatcher.anyOf(chars);

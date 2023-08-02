@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction.DigestFunctionConver
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.bazel.BazelHashFunctions;
 import com.google.devtools.build.lib.windows.WindowsFileSystem;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -44,6 +45,10 @@ import com.google.devtools.common.options.OptionsParsingResult;
  * com.google.devtools.build.lib.vfs.FileSystem} class use {@code SHA256} by default.
  */
 public class BazelFileSystemModule extends BlazeModule {
+  static {
+    BazelHashFunctions.ensureRegistered();
+  }
+
   @Override
   public ModuleFileSystem getFileSystem(
       OptionsParsingResult startupOptions, PathFragment realExecRootBase)

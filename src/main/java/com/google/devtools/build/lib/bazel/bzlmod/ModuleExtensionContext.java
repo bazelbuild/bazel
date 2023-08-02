@@ -130,8 +130,11 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
       name = "is_isolated",
       doc =
           "Whether this particular usage of the extension had <code>isolate = True</code> "
-              + "specified and is thus isolated from all other usages.",
-      structField = true)
+              + "specified and is thus isolated from all other usages."
+              + "<p>This field is currently experimental and only available with the flag "
+              + "<code>--experimental_isolated_extension_usages</code>.",
+      structField = true,
+      enableOnlyWithFlag = "-experimental_isolated_extension_usages")
   public boolean isIsolated() {
     return extensionId.getIsolationKey().isPresent();
   }

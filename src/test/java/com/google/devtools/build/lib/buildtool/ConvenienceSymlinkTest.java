@@ -238,10 +238,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
   protected void setupOptions() throws Exception {
     super.setupOptions();
 
-    addOptions(
-        // Turn on the new symlink behavior
-        "--use_top_level_targets_for_symlinks",
-        "--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
+    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
   }
 
   @Override
