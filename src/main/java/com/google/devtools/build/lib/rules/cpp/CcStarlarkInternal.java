@@ -469,36 +469,6 @@ public class CcStarlarkInternal implements StarlarkValue {
     return new DefaultHdrsCheckBuiltinComputedDefault();
   }
 
-  static class DefParserComputedDefault extends ComputedDefault
-      implements NativeComputedDefaultApi {
-    @Override
-    @Nullable
-    public Object getDefault(AttributeMap rule) {
-      // Every cc_rule depends implicitly on the def_parser tool.
-      // The only exceptions are the rules for building def_parser itself.
-      // To avoid cycles in the dependency graph, return null for rules under
-      // @bazel_tools//third_party/def_parser and @bazel_tools//tools/cpp
-      String label = rule.getLabel().toString();
-      return label.startsWith("@bazel_tools//third_party/def_parser")
-              // @bazel_tools//tools/cpp:malloc and @bazel_tools//tools/cpp:stl
-              // are implicit dependencies of all cc rules,
-              // thus a dependency of the def_parser.
-              || label.startsWith("@bazel_tools//tools/cpp")
-          ? null
-          : Label.parseCanonicalUnchecked("@bazel_tools//tools/def_parser:def_parser");
-    }
-
-    @Override
-    public boolean resolvableWithRawAttributes() {
-      return true;
-    }
-  }
-
-  @StarlarkMethod(name = "def_parser_computed_default", documented = false)
-  public ComputedDefault getDefParserComputedDefault() {
-    return new DefParserComputedDefault();
-  }
-
   /**
    * TODO(bazel-team): This can be re-written directly to Starlark but it will cause a memory
    * regression due to the way StarlarkComputedDefault is stored for each rule.
