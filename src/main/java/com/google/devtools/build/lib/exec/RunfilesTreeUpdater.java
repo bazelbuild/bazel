@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -28,6 +29,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -91,7 +93,18 @@ public class RunfilesTreeUpdater {
         }
       } else {
         // There was a previous attempt; wait for it to complete.
-        priorFuture.join();
+        try {
+          priorFuture.join();
+        } catch (CompletionException e) {
+          Throwable cause = e.getCause();
+          if (cause != null) {
+            Throwables.throwIfInstanceOf(cause, ExecException.class);
+            Throwables.throwIfInstanceOf(cause, IOException.class);
+            Throwables.throwIfInstanceOf(cause, InterruptedException.class);
+            Throwables.throwIfUnchecked(cause);
+          }
+          throw new AssertionError("Unexpected exception", e);
+        }
       }
     }
   }
