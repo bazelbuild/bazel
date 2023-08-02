@@ -59,4 +59,12 @@ def _bazel_deploy_jars_impl(ctx):
 
     return []
 
-deploy_jars = make_deploy_jars_rule(implementation = _bazel_deploy_jars_impl)
+executable_deploy_jars = make_deploy_jars_rule(
+    implementation = _bazel_deploy_jars_impl,
+    create_executable = True,
+)
+
+nonexecutable_deploy_jars = make_deploy_jars_rule(
+    implementation = _bazel_deploy_jars_impl,
+    create_executable = False,
+)
