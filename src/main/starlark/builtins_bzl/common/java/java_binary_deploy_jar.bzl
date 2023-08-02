@@ -172,6 +172,13 @@ def create_deploy_archive(
     input_files = []
     input_files.extend(build_info_files)
 
+    transitive_input_files = [
+        resources,
+        classpath_resources,
+        runtime_classpath,
+        runfiles,
+    ]
+
     single_jar = semantics.find_java_toolchain(ctx).single_jar
 
     manifest_lines = list(manifest_lines)
@@ -209,14 +216,15 @@ def create_deploy_archive(
     if multi_release:
         args.add("--multi_release")
 
-    hermetic_files = runtime.hermetic_files
-    if hermetic and runtime.lib_modules != None and hermetic_files != None:
+    if hermetic and runtime.lib_modules != None and runtime.hermetic_files != None:
         java_home = runtime.java_home
         lib_modules = runtime.lib_modules
+        hermetic_files = runtime.hermetic_files
         args.add("--hermetic_java_home", java_home)
         args.add("--jdk_lib_modules", lib_modules)
         args.add_all("--resources", hermetic_files)
         input_files.append(lib_modules)
+        transitive_input_files.append(hermetic_files)
 
         if shared_archive == None:
             shared_archive = runtime.default_cds
@@ -228,13 +236,7 @@ def create_deploy_archive(
     args.add_all("--add_exports", add_exports)
     args.add_all("--add_opens", add_opens)
 
-    inputs = depset(input_files, transitive = [
-        resources,
-        classpath_resources,
-        runtime_classpath,
-        runfiles,
-        hermetic_files,
-    ])
+    inputs = depset(input_files, transitive = transitive_input_files)
 
     ctx.actions.run(
         mnemonic = "JavaDeployJar",
