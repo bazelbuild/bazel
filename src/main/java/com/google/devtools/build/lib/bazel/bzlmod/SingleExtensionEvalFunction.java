@@ -198,11 +198,12 @@ public class SingleExtensionEvalFunction implements SkyFunction {
           .post(
               ModuleExtensionResolutionEvent.create(
                   extensionId,
-                  LockFileModuleExtension.create(
-                      bzlTransitiveDigest,
-                      moduleExtensionResult.getAccumulatedFileDigests(),
-                      extensionEnvVars,
-                      generatedRepoSpecs)));
+                  LockFileModuleExtension.builder()
+                      .setBzlTransitiveDigest(bzlTransitiveDigest)
+                      .setAccumulatedFileDigests(moduleExtensionResult.getAccumulatedFileDigests())
+                      .setEnvVariables(extensionEnvVars)
+                      .setGeneratedRepoSpecs(generatedRepoSpecs)
+                      .build()));
     }
     return createSingleExtentionValue(generatedRepoSpecs, usagesValue);
   }
