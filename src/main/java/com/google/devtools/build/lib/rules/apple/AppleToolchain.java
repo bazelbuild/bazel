@@ -114,6 +114,8 @@ public class AppleToolchain implements AppleToolchainApi<AppleConfiguration> {
         }
         break;
       case MACOS:
+      case VISIONOS_DEVICE:
+      case VISIONOS_SIMULATOR:
       case WATCHOS_DEVICE:
       case WATCHOS_SIMULATOR:
       case TVOS_DEVICE:
