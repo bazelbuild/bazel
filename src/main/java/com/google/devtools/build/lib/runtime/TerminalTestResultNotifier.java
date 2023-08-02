@@ -142,7 +142,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
    * @param summaries summaries of tests {@link TestSummary}
    * @param showAllTests if true, print information about each test regardless of its status
    * @param showNoStatusTests if true, print information about not executed tests (no status tests)
-   * @param printFailedTestCases if true, print details about which test cases in a test failed
+   * @param printTestCases if true, print all test cases status and detailed information
    */
   private void printSummary(
       Set<TestSummary> summaries,
