@@ -18,7 +18,7 @@ Here is a selection of recommended rules:
 
 * [Android](/docs/bazel-and-android)
 * [C / C++](/docs/bazel-and-cpp)
-* [Docker](https://github.com/bazel-contrib/rules_oci){: .external}
+* [Docker/OCI](https://github.com/bazel-contrib/rules_oci){: .external}
 * [Go](https://github.com/bazelbuild/rules_go){: .external}
 * [Haskell](https://github.com/tweag/rules_haskell){: .external}
 * [Java](/docs/bazel-and-java)
