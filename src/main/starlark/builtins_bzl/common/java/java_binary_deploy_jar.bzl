@@ -258,7 +258,7 @@ def _implicit_outputs(binary):
         "unstrippeddeployjar": "%s_deploy.jar.unstripped" % binary_name,
     }
 
-def make_deploy_jars_rule(implementation, *, create_executable):
+def make_deploy_jars_rule(implementation, *, create_executable = True):
     """Creates the deploy jar auxiliary rule for java_binary
 
     Args:
@@ -268,6 +268,9 @@ def make_deploy_jars_rule(implementation, *, create_executable):
     Returns:
         The deploy jar rule class
     """
+    toolchains = [semantics.JAVA_TOOLCHAIN] + cc_helper.use_cpp_toolchain()
+    if create_executable:
+        toolchains.append(semantics.JAVA_RUNTIME_TOOLCHAIN)
     return rule(
         implementation = implementation,
         attrs = {
@@ -282,16 +285,8 @@ def make_deploy_jars_rule(implementation, *, create_executable):
             "_build_info_translator": attr.label(
                 default = semantics.BUILD_INFO_TRANSLATOR_LABEL,
             ),
-        } | (
-            {
-                "_java_runtime_toolchain_type": attr.label(
-                    default = semantics.JAVA_RUNTIME_TOOLCHAIN_TYPE,
-                ),
-            } if create_executable else {}
-        ),
+        },
         outputs = _implicit_outputs,
         fragments = ["java"],
-        toolchains = [semantics.JAVA_TOOLCHAIN] + cc_helper.use_cpp_toolchain() + (
-            [semantics.JAVA_RUNTIME_TOOLCHAIN] if create_executable else []
-        ),
+        toolchains = toolchains,
     )
