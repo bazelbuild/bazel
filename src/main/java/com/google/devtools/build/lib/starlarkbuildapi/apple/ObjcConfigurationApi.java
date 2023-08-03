@@ -50,34 +50,6 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
   DottedVersionApi<?> getIosSimulatorVersion();
 
   @StarlarkMethod(
-      name = "simulator_device_for_platform_type",
-      allowReturnNones = true,
-      doc = "The type of device (e.g., 'iPhone 6' to simulate when running on the simulator.",
-      parameters = {
-        @Param(
-            name = "platform_type",
-            positional = true,
-            named = false,
-            doc = "The apple platform type."),
-      })
-  @Nullable
-  String getSimulatorDeviceForPlatformType(ApplePlatformTypeApiT platformType);
-
-  @StarlarkMethod(
-      name = "simulator_version_for_platform_type",
-      allowReturnNones = true,
-      doc = "The SDK version of the simulator to use when running on the simulator.",
-      parameters = {
-        @Param(
-            name = "platform_type",
-            positional = true,
-            named = false,
-            doc = "The apple platform type."),
-      })
-  @Nullable
-  DottedVersionApi<?> getSimulatorVersionForPlatformType(ApplePlatformTypeApiT platformType);
-
-  @StarlarkMethod(
       name = "generate_linkmap",
       doc = "Whether to generate linkmap artifacts.",
       structField = true)
