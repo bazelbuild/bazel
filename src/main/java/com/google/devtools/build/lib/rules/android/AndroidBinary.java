@@ -185,7 +185,12 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       ruleContext.attributeError(
           "min_sdk_version", "Target is not permitted to set min_sdk_version");
     }
-
+    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("startup_profiles")
+        && Allowlist.hasAllowlist(ruleContext, "allow_baseline_profiles_optimizer_integration")
+        && !Allowlist.isAvailable(ruleContext, "allow_baseline_profiles_optimizer_integration")) {
+      ruleContext.attributeError(
+          "startup_profiles", "Target is not permitted to use startup_profiles.");
+    }
     if (ruleContext.getFragment(JavaConfiguration.class).enforceProguardFileExtension()
         && ruleContext.attributes().has(ProguardHelper.PROGUARD_SPECS)) {
       List<PathFragment> pathsWithUnexpectedExtension =
@@ -534,14 +539,24 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     BaselineProfileProvider baselineprofileProvider =
         ruleContext.getPrerequisite("application_resources", BaselineProfileProvider.PROVIDER);
 
+    Artifact startupProfile = null;
     Artifact baselineProfile = null;
     String baselineProfileDir = ruleContext.getLabel().getName() + "-baseline-profile/";
     if (baselineprofileProvider == null
         && Allowlist.hasAllowlist(ruleContext, "allow_baseline_profiles_optimizer_integration")
         && Allowlist.isAvailable(ruleContext, "allow_baseline_profiles_optimizer_integration")) {
-      baselineProfile = androidSemantics.mergeBaselineProfiles(ruleContext, baselineProfileDir);
+      if (!proguardSpecs.isEmpty()) {
+        // This is only needed for optimized builds since otherwise the dexer doesn't process this.
+        startupProfile = androidSemantics.mergeStartupProfiles(ruleContext, baselineProfileDir);
+      }
+      baselineProfile =
+          androidSemantics.mergeBaselineProfiles(
+              ruleContext,
+              baselineProfileDir,
+              // Include startup profiles if the optimizer is disabled since profiles won't be
+              // merged in the optimizer.
+              proguardSpecs.isEmpty());
     }
-
     ProguardOutput proguardOutput =
         applyProguard(
             ruleContext,
@@ -551,6 +566,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             proguardSpecs,
             proguardMapping,
             proguardOutputMap,
+            startupProfile,
             baselineProfile,
             baselineProfileDir);
 
@@ -611,6 +627,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             proguardOutputMap,
             postProcessingOutputMap,
             proguardOutput.getLibraryJar(),
+            proguardOutput.getStartupProfileRewritten(),
             !proguardSpecs.isEmpty());
 
     DexPostprocessingOutput dexPostprocessingOutput =
@@ -627,7 +644,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     // Compute the final DEX files by appending Java 8 legacy .dex if used.
     final Artifact finalClassesDex;
-    Java8LegacyDexOutput java8LegacyDexOutput;
+    Java8LegacyDexOutput java8LegacyDexOutput = null;
     ImmutableList<Artifact> finalShardDexZips = dexingOutput.shardDexZips;
     if (androidDexInfo != null) {
       finalClassesDex = androidDexInfo.getFinalClassesDexZip();
@@ -699,7 +716,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     if (baselineprofileProvider != null) {
       // This happens when baseline profiles are provided via starlark.
       artProfileZip = baselineprofileProvider.getArtProfileZip();
-    } else if (baselineProfile == null) {
+    } else if (baselineProfile == null && startupProfile == null) {
       // This happens when optimizer profile rewriting isn't enabled.
       artProfileZip =
           androidSemantics.getArtProfileForApk(
@@ -710,11 +727,13 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           androidSemantics.compileBaselineProfile(
               ruleContext,
               finalClassesDex,
-              // Minified symbols are emitted when rewriting, so map isn't needed.
-              /* proguardOutputMap= */ null,
-              proguardOutput.getBaselineProfileOut() == null
+              // Minified symbols are emitted when rewriting, so only use map for symbols which
+              // weren't passed to bytecode optimizer (if it exists).
+              java8LegacyDexOutput == null ? null : java8LegacyDexOutput.getMap(),
+              // At this point, either baseline profile here also contains startup-profiles, if any.
+              proguardOutput.getMergedBaselineProfileRewritten() == null
                   ? baselineProfile
-                  : proguardOutput.getBaselineProfileOut(),
+                  : proguardOutput.getMergedBaselineProfileRewritten(),
               baselineProfileDir);
     }
 
@@ -1083,6 +1102,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       ImmutableList<Artifact> proguardSpecs,
       Artifact proguardMapping,
       @Nullable Artifact proguardOutputMap,
+      @Nullable Artifact startupProfile,
       @Nullable Artifact baselineProfile,
       String baselineProfileDir)
       throws InterruptedException {
@@ -1132,6 +1152,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         javaSemantics,
         getProguardOptimizationPasses(ruleContext),
         proguardOutputMap,
+        startupProfile,
         baselineProfile,
         baselineProfileDir);
   }
@@ -1164,7 +1185,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             semantics,
             proguardOutputMap,
             /* libraryJar= */ null,
-            /* baselineProfileOutput= */ null);
+            /* startupProfileRewritten= */ null,
+            /* mergedBaselineProfileRewritten= */ null);
     outputs.addAllToSet(failures);
     ruleContext.registerAction(
         new FailAction(
@@ -1361,6 +1383,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       @Nullable Artifact proguardOutputMap,
       @Nullable Artifact postProcessingOutputMap,
       @Nullable Artifact libraryJar,
+      @Nullable Artifact startupProfile,
       boolean isOptimizedBuild)
       throws InterruptedException, RuleErrorException {
     FilesToRunProvider optimizingDexer = ruleContext.getExecutablePrerequisite(":optimizing_dexer");
@@ -1439,7 +1462,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             .addExecPath("--pg-map", proguardOutputMap)
             .addExecPath("--pg-map-output", postProcessingOutputMap);
       }
-
+      if (startupProfile != null && nativeMultidex) {
+        dexAction.addInput(startupProfile);
+        dexCommand.addExecPath("--startup-profile", startupProfile);
+      }
       // TODO(b/261110876): Pass min SDK through here based on the value in the merged manifest. The
       // current value is statically defined for the entire depot.
       // We currently set the minimum SDK version to 21 if you are doing native multidex as that is

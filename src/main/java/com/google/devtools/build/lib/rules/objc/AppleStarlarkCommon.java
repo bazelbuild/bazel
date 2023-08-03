@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.rules.cpp.CcModule;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.UserVariablesExtension;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag;
-import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.objc.AppleCommonApi;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -167,11 +166,6 @@ public class AppleStarlarkCommon
     ApplePlatform platform = (ApplePlatform) platformApi;
     return AppleConfiguration.appleTargetPlatformEnv(
         platform, xcodeConfig.getSdkVersionForPlatform(platform));
-  }
-
-  @Override
-  public SplitTransitionProviderApi getMultiArchSplitProvider() {
-    return new MultiArchSplitTransitionProvider();
   }
 
   @Override

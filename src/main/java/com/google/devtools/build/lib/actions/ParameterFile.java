@@ -18,7 +18,6 @@ import static com.google.common.collect.Streams.stream;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.FileType;
@@ -75,7 +74,6 @@ public class ParameterFile {
     GCC_QUOTED
   }
 
-  @VisibleForTesting
   public static final FileType PARAMETER_FILE = FileType.of(".params");
 
   /**

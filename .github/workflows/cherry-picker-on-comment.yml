@@ -1,0 +1,24 @@
+name: cherry-picker-on-comment
+
+on:
+  issues:
+    types: [milestoned]
+
+env:
+  GH_TOKEN: ${{ secrets.BAZEL_IO_TOKEN }}
+
+jobs:
+  cherry-picker-on-comment:
+    if: startsWith(github.event.issue.body, 'Forked from')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Logging github event
+        run: echo '${{ toJSON(github.event) }}' | jq
+      - name: Run cherrypicker on comment
+        uses: iancha1992/continuous-integration/actions/cherry-picker@feature-cherrypick
+        with:
+          triggered-on: commented
+          pr-number: ${{ github.event.issue.body }}
+          milestone-title: ${{ github.event.milestone.title }}
+          milestoned-issue-number: ${{ github.event.issue.number }}
+          is-prod: True

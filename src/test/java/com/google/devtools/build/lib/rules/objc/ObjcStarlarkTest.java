@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.ObjectArrays;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -26,7 +25,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
@@ -44,47 +42,6 @@ import org.junit.runners.JUnit4;
 /** Tests for Starlark interaction with the objc_* rules. */
 @RunWith(JUnit4.class)
 public class ObjcStarlarkTest extends ObjcRuleTestCase {
-  private void writeObjcSplitTransitionTestFiles() throws Exception {
-    scratch.file(
-        "examples/rule/apple_rules.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def my_rule_impl(ctx):",
-        "   return_kwargs = {}",
-        "   for cpu_value in ctx.split_attr.deps:",
-        "     for child_target in ctx.split_attr.deps[cpu_value]:",
-        "       return_kwargs[cpu_value] = struct(",
-        "         cc=child_target[CcInfo],",
-        "         objc=child_target[apple_common.Objc],",
-        "       )",
-        "   return MyInfo(**return_kwargs)",
-        "my_rule = rule(implementation = my_rule_impl,",
-        "   attrs = {",
-        "     'deps': attr.label_list(",
-        "       cfg=apple_common.multi_arch_split,",
-        "       providers=[apple_common.Objc, CcInfo],",
-        "     ),",
-        "     'platform_type': attr.string(mandatory=True),",
-        "     'minimum_os_version': attr.string(mandatory=True)},",
-        "   fragments = ['apple'],",
-        ")");
-    scratch.file("examples/apple_starlark/a.cc");
-    scratch.file(
-        "examples/apple_starlark/BUILD",
-        "package(default_visibility = ['//visibility:public'])",
-        "load('//examples/rule:apple_rules.bzl', 'my_rule')",
-        "my_rule(",
-        "    name = 'my_target',",
-        "    deps = [':lib'],",
-        "    platform_type = 'ios',",
-        "    minimum_os_version='2.2'",
-        ")",
-        "objc_library(",
-        "    name = 'lib',",
-        "    srcs = ['a.m'],",
-        "    hdrs = ['a.h']",
-        ")");
-  }
-
   @Before
   public void setupMyInfo() throws Exception {
     scratch.file("myinfo/myinfo.bzl", "MyInfo = provider()");
@@ -224,7 +181,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testStarlarkProviderCanCheckForExistanceOfObjcProvider() throws Exception {
+  public void testStarlarkProviderCanCheckForExistenceOfObjcProvider() throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
@@ -1322,61 +1279,6 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
 
     ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
     assertThat(starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR)).isNotNull();
-  }
-
-  private String getOnlyLibraryExecPath(CcInfo ccInfo) {
-    return Iterables.getOnlyElement(
-            ccInfo.getCcLinkingContext().getStaticModeParamsForDynamicLibraryLibraries())
-        .getExecPathString();
-  }
-
-  @Test
-  public void testMultiArchSplitTransition() throws Exception {
-    scratch.file("examples/rule/BUILD");
-    writeObjcSplitTransitionTestFiles();
-
-    useConfiguration("--ios_multi_cpus=armv7,arm64");
-    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
-    StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
-    CcInfo armv7CcInfo = ((StarlarkInfo) myInfo.getValue("ios_armv7")).getValue("cc", CcInfo.class);
-    CcInfo arm64CcInfo = ((StarlarkInfo) myInfo.getValue("ios_arm64")).getValue("cc", CcInfo.class);
-
-    assertThat(armv7CcInfo).isNotNull();
-    assertThat(arm64CcInfo).isNotNull();
-    assertThat(getOnlyLibraryExecPath(armv7CcInfo)).contains("ios_armv7");
-    assertThat(getOnlyLibraryExecPath(arm64CcInfo)).contains("ios_arm64");
-  }
-
-  @Test
-  public void testMultiArchSplitTransitionWithDuplicateFlagValues() throws Exception {
-    scratch.file("examples/rule/BUILD");
-    writeObjcSplitTransitionTestFiles();
-
-    useConfiguration("--ios_multi_cpus=armv7,arm64,armv7");
-    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
-    StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
-
-    CcInfo armv7CcInfo = ((StarlarkInfo) myInfo.getValue("ios_armv7")).getValue("cc", CcInfo.class);
-    CcInfo arm64CcInfo = ((StarlarkInfo) myInfo.getValue("ios_arm64")).getValue("cc", CcInfo.class);
-
-    assertThat(armv7CcInfo).isNotNull();
-    assertThat(arm64CcInfo).isNotNull();
-    assertThat(getOnlyLibraryExecPath(armv7CcInfo)).contains("ios_armv7");
-    assertThat(getOnlyLibraryExecPath(arm64CcInfo)).contains("ios_arm64");
-  }
-
-  @Test
-  public void testNoSplitTransitionUsesCpuFlagValue() throws Exception {
-    scratch.file("examples/rule/BUILD");
-    writeObjcSplitTransitionTestFiles();
-
-    useConfiguration("--cpu=ios_arm64");
-    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
-    StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
-    CcInfo arm64CcInfo = ((StarlarkInfo) myInfo.getValue("ios_arm64")).getValue("cc", CcInfo.class);
-
-    assertThat(arm64CcInfo).isNotNull();
-    assertThat(getOnlyLibraryExecPath(arm64CcInfo)).contains("ios_arm64");
   }
 
   private void checkStarlarkRunMemleaksWithExpectedValue(boolean expectedValue) throws Exception {
