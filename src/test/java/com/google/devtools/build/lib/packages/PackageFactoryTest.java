@@ -1151,7 +1151,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testGlobPatternExtractor() throws Exception {
+  public void testGlobPatternExtractor() {
     StarlarkFile file =
         StarlarkFile.parse(
             ParserInput.fromLines(
@@ -1166,7 +1166,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     List<String> globs = new ArrayList<>();
     List<String> globsWithDirs = new ArrayList<>();
     List<String> subpackages = new ArrayList<>();
-    PackageFactory.checkBuildSyntax(file, globs, globsWithDirs, subpackages, new HashMap<>());
+    PackageFactory.checkBuildSyntax(
+        file, globs, globsWithDirs, subpackages, new HashMap<>(), /* errors= */ null);
     assertThat(globs).containsExactly("ab", "a", "**/*");
     assertThat(globsWithDirs).containsExactly("c");
     assertThat(subpackages).isEmpty();
@@ -1192,14 +1193,14 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   public void testForStatementForbiddenInBuild() throws Exception {
     checkBuildDialectError(
         "for _ in []: pass", //
-        "`for` statements are not allowed in BUILD files");
+        "for statements are not allowed in BUILD files");
   }
 
   @Test
   public void testIfStatementForbiddenInBuild() throws Exception {
     checkBuildDialectError(
         "if False: pass", //
-        "`if` statements are not allowed in BUILD files");
+        "if statements are not allowed in BUILD files");
   }
 
   @Test

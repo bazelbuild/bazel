@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
-import com.google.devtools.build.lib.packages.DotBazelFileSyntaxChecker;
 import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.PackageArgs;
 import com.google.devtools.build.lib.packages.RepoThreadContext;
@@ -148,12 +147,11 @@ public class RepoFileFunction implements SkyFunction {
       ExtendedEventHandler handler)
       throws RepoFileFunctionException, InterruptedException {
     try (Mutability mu = Mutability.create("repo file", repoName)) {
-      new DotBazelFileSyntaxChecker("REPO.bazel files", /* canLoadBzl= */ false)
-          .check(starlarkFile);
       Module predeclared =
           Module.withPredeclared(
               starlarkSemantics, starlarkEnv.getStarlarkGlobals().getRepoToplevels());
       Program program = Program.compileFile(starlarkFile, predeclared);
+      // TODO(wyv): check that `program` has no `def`, `if`, etc
       StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
       thread.setPrintHandler(Event.makeDebugPrintHandler(handler));
       RepoThreadContext context =

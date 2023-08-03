@@ -122,16 +122,4 @@ public class RepoFileFunctionTest extends BuildViewTestCase {
     assertThat(ruleContext.getFeatures()).containsExactly("b", "c", "d");
     assertThat(ruleContext.getDisabledFeatures()).containsExactly("a");
   }
-
-  @Test
-  public void restrictedSyntax() throws Exception {
-    scratch.overwriteFile(
-        "REPO.bazel", "if 3+5>7: repo(default_deprecation='EVERYTHING IS DEPRECATED')");
-    scratch.overwriteFile("abc/def/BUILD", "filegroup(name='what')");
-    reporter.removeHandler(failFastHandler);
-    assertTargetError(
-        "//abc/def:what",
-        "`if` statements are not allowed in REPO.bazel files. You may use an `if` expression for"
-            + " simple cases.");
-  }
 }

@@ -1520,10 +1520,10 @@ public class PackageFunction implements SkyFunction {
     Set<String> globsWithDirs = new HashSet<>();
     Set<String> subpackages = new HashSet<>();
     Map<Location, String> generatorMap = new HashMap<>();
-    try {
-      PackageFactory.checkBuildSyntax(file, globs, globsWithDirs, subpackages, generatorMap);
-    } catch (SyntaxError.Exception ex) {
-      return new CompiledBuildFile(ex.errors());
+    ImmutableList.Builder<SyntaxError> errors = ImmutableList.builder();
+    if (!PackageFactory.checkBuildSyntax(
+        file, globs, globsWithDirs, subpackages, generatorMap, errors::add)) {
+      return new CompiledBuildFile(errors.build());
     }
 
     // Load (optional) prelude, which determines environment.
