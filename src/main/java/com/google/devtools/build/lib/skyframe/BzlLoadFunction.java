@@ -1325,7 +1325,15 @@ public class BzlLoadFunction implements SkyFunction {
         if (injectionDisabled || isFileSafeForUninjectedEvaluation(key)) {
           return starlarkEnv.getUninjectedWorkspaceBzlEnv();
         }
-        fp.addBytes(builtins.transitiveDigest);
+        // Note that we don't actually fingerprint the injected builtins here. The actual builtins
+        // values should not be used in WORKSPACE-loaded or MODULE-loaded .bzl files; they're only
+        // injected to avoid certain type errors at loading time (e.g. #17713). If we included their
+        // digest, we'd be causing widespread repo refetches when _any_ builtin bzl file changes
+        // (when Bazel upgrades, for example), and potentially even thrashing if the user is using
+        // Bazelisk. Thus we make the explicit choice to not fingerprint the injected builtins, and
+        // thereby prohibit any meaningful use of injected builtins in WORKSPACE/MODULE-loaded .bzl
+        // files. This additionally means that native repo rules should not be migrated to
+        // @_builtins; they should just live in @bazel_tools instead.
         return builtins.predeclaredForWorkspaceBzl;
       } else if (key instanceof BzlLoadValue.KeyForBuiltins) {
         return starlarkEnv.getBuiltinsBzlEnv();
