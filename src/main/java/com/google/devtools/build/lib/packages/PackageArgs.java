@@ -37,8 +37,6 @@ import net.starlark.java.eval.Starlark;
  */
 @AutoValue
 public abstract class PackageArgs {
-  public static final PackageArgs EMPTY = PackageArgs.builder().build();
-
   public static final PackageArgs DEFAULT =
       PackageArgs.builder()
           .setDefaultVisibility(RuleVisibility.PRIVATE)

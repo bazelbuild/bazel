@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.RunEnvironmentInfo;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.BuildGlobals;
 import com.google.devtools.build.lib.packages.Proto;
-import com.google.devtools.build.lib.packages.RepoCallable;
 import com.google.devtools.build.lib.packages.SelectorList;
 import com.google.devtools.build.lib.packages.StarlarkGlobals;
 import com.google.devtools.build.lib.packages.StarlarkNativeModule;
@@ -119,13 +118,6 @@ public final class StarlarkGlobalsImpl implements StarlarkGlobals {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     env.put("visibility", visibilitySymbol);
     env.put("struct", StructProvider.STRUCT);
-    return env.buildOrThrow();
-  }
-
-  @Override
-  public ImmutableMap<String, Object> getRepoToplevels() {
-    ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
-    Starlark.addMethods(env, RepoCallable.INSTANCE);
     return env.buildOrThrow();
   }
 }
