@@ -420,6 +420,55 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
   }
 
   @Test
+  public void multipleExtensions_sameName() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "bazel_dep(name='data_repo', version='1.0')",
+        "first_ext = use_extension('//first_ext:defs.bzl', 'ext')",
+        "first_ext.tag(name='foo', data='first_fu')",
+        "first_ext.tag(name='bar', data='first_ba')",
+        "use_repo(first_ext, first_foo='foo', first_bar='bar')",
+        "second_ext = use_extension('//second_ext:defs.bzl', 'ext')",
+        "second_ext.tag(name='foo', data='second_fu')",
+        "second_ext.tag(name='bar', data='second_ba')",
+        "use_repo(second_ext, second_foo='foo', second_bar='bar')");
+    scratch.file(workspaceRoot.getRelative("first_ext/BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("first_ext/defs.bzl").getPathString(),
+        "load('@data_repo//:defs.bzl','data_repo')",
+        "tag = tag_class(attrs = {'name':attr.string(),'data':attr.string()})",
+        "def _ext_impl(ctx):",
+        "  for mod in ctx.modules:",
+        "    for tag in mod.tags.tag:",
+        "      data_repo(name=tag.name,data=tag.data)",
+        "ext = module_extension(implementation=_ext_impl, tag_classes={'tag':tag})");
+    scratch.file(workspaceRoot.getRelative("second_ext/BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("second_ext/defs.bzl").getPathString(),
+        "load('//first_ext:defs.bzl', _ext = 'ext')",
+        "ext = _ext");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@first_foo//:data.bzl', first_foo_data='data')",
+        "load('@first_bar//:data.bzl', first_bar_data='data')",
+        "load('@second_foo//:data.bzl', second_foo_data='data')",
+        "load('@second_bar//:data.bzl', second_bar_data='data')",
+        "data = 'first_foo:'+first_foo_data+' first_bar:'+first_bar_data"
+            + "+' second_foo:'+second_foo_data+' second_bar:'+second_bar_data");
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    EvaluationResult<BzlLoadValue> result =
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    assertThat(result.get(skyKey).getModule().getGlobal("data"))
+        .isEqualTo(
+            "first_foo:first_fu first_bar:first_ba second_foo:second_fu " + "second_bar:second_ba");
+  }
+
+  @Test
   public void multipleModules() throws Exception {
     scratch.file(
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),
