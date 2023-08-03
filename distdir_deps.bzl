@@ -388,6 +388,8 @@ DIST_DEPS = {
         "archive": "5847d6a06302136d95a14b4cbd4b55a9c9f1436e.zip",
         "sha256": "299452e6f4a4981b2e6d22357f7332713382a63e4c137f5fd6b89579f6d610cb",
         "strip_prefix": "desugar_jdk_libs-5847d6a06302136d95a14b4cbd4b55a9c9f1436e",
+        "patch_args": ["-p1"],
+        "patches": ["//third_party:desugar_jdk_libs-exec_tools.patch"],
         "urls": [
             "https://mirror.bazel.build/github.com/google/desugar_jdk_libs/archive/5847d6a06302136d95a14b4cbd4b55a9c9f1436e.zip",
             "https://github.com/google/desugar_jdk_libs/archive/5847d6a06302136d95a14b4cbd4b55a9c9f1436e.zip",
