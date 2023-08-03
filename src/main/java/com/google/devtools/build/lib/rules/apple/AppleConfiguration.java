@@ -86,7 +86,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   private final Label xcodeConfigLabel;
   private final AppleCommandLineOptions options;
   private final AppleCpus appleCpus;
-  private final boolean mandatoryMinimumVersion;
   private final String cpu;
 
   public AppleConfiguration(BuildOptions buildOptions) {
@@ -98,7 +97,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     this.configurationDistinguisher = options.configurationDistinguisher;
     this.xcodeConfigLabel =
         Preconditions.checkNotNull(options.xcodeVersionConfig, "xcodeConfigLabel");
-    this.mandatoryMinimumVersion = options.mandatoryMinimumVersion;
     // AppleConfiguration should not have this knowledge. This is a temporary workaround
     // for Starlarkification, until apple rules are toolchainized.
     this.cpu = buildOptions.get(CoreOptions.class).cpu;
@@ -411,21 +409,10 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     return Joiner.on('-').join(components);
   }
 
-  /** Returns true if the minimum_os_version attribute should be mandatory on rules with linking. */
-  @Override
-  public boolean isMandatoryMinimumVersionForStarlark(StarlarkThread thread) throws EvalException {
-    checkPrivateAccess(thread);
-    return isMandatoryMinimumVersion();
-  }
-
   @Override
   public String getCpuForStarlark(StarlarkThread thread) throws EvalException {
     checkPrivateAccess(thread);
     return cpu;
-  }
-
-  public boolean isMandatoryMinimumVersion() {
-    return mandatoryMinimumVersion;
   }
 
   @Override
