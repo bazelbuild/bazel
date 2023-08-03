@@ -678,7 +678,9 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   public void deleteOldNodes(long versionWindowForDirtyGc) {
     // TODO(bazel-team): perhaps we should come up with a separate GC class dedicated to maintaining
     // value garbage. If we ever do so, this logic should be moved there.
-    memoizingEvaluator.deleteDirty(versionWindowForDirtyGc);
+    if (trackIncrementalState) {
+      memoizingEvaluator.deleteDirty(versionWindowForDirtyGc);
+    }
   }
 
   @Override
