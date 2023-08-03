@@ -316,7 +316,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       StarlarkThread thread)
       throws EvalException {
     ModuleExtension.InStarlark inStarlark = new ModuleExtension.InStarlark();
-    return inStarlark
+    inStarlark
         .getBuilder()
         .setImplementation(implementation)
         .setTagClasses(
@@ -326,6 +326,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
             BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread)).label())
         .setEnvVariables(ImmutableList.copyOf(Sequence.cast(environ, String.class, "environ")))
         .setLocation(thread.getCallerLocation());
+    return inStarlark;
   }
 
   @StarlarkMethod(

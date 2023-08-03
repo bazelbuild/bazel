@@ -18,7 +18,6 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
@@ -32,10 +31,6 @@ import net.starlark.java.syntax.Location;
  * A module extension object, which can be used to perform arbitrary logic in order to create repos
  * or register toolchains and execution platforms.
  */
-@StarlarkBuiltin(
-    name = "module_extension",
-    category = DocCategory.BUILTIN,
-    doc = "A module extension declared using the <code>module_extension</code> function.")
 @AutoValue
 public abstract class ModuleExtension implements StarlarkValue {
   public abstract String getName();
