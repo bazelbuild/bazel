@@ -668,26 +668,4 @@ public class InMemoryNodeEntry implements NodeEntry {
   public final synchronized String toString() {
     return toStringHelper().toString();
   }
-
-  // Only used for testing hooks.
-  protected synchronized InMemoryNodeEntry cloneNodeEntry(InMemoryNodeEntry newEntry) {
-    checkState(isDone(), "Only done nodes can be copied: %s", this);
-    newEntry.value = value;
-    newEntry.version = version;
-    for (SkyKey reverseDep : ReverseDepsUtility.getReverseDeps(this, /*checkConsistency=*/ true)) {
-      ReverseDepsUtility.addReverseDep(newEntry, reverseDep);
-    }
-    newEntry.directDeps = directDeps;
-    newEntry.dirtyBuildingState = null;
-    return newEntry;
-  }
-
-  /**
-   * Do not use except in custom evaluator implementations! Added only temporarily.
-   *
-   * <p>Clones a InMemoryMutableNodeEntry iff it is a done node. Otherwise it fails.
-   */
-  public synchronized InMemoryNodeEntry cloneNodeEntry() {
-    return cloneNodeEntry(new InMemoryNodeEntry(key));
-  }
 }
