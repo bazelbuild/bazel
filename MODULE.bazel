@@ -120,3 +120,11 @@ bazel_dep(name = "googletest", version = "1.12.1", repo_name = "com_google_googl
 
 bazel_dev_deps = use_extension("//:extensions.bzl", "bazel_dev_deps")
 use_repo(bazel_dev_deps, "local_bazel_source_list")
+
+pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
+pip.parse(
+    hub_name = "bazel_pip_dev_deps",
+    python_version = "3.8",
+    requirements_lock = "//:requirements.txt",
+)
+use_repo(pip, "bazel_pip_dev_deps")

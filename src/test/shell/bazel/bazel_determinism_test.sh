@@ -61,10 +61,18 @@ function test_determinism()  {
     # Set up the maven repository properly.
     cp maven/BUILD.vendor maven/BUILD
 
+    # Remove lines containing 'install_deps' to avoid loading @bazel_pip_dev_deps,
+    # which requires fetching the python toolchain.
+    sed -i.bak '/install_deps/d' WORKSPACE && rm WORKSPACE.bak
+
+    # Use @bazel_tools//tools/python:autodetecting_toolchain to avoid
+    # downloading python toolchain.
+
     # Build Bazel once.
     bazel \
       --output_base="${TEST_TMPDIR}/out1" \
       build \
+      --extra_toolchains=@bazel_tools//tools/python:autodetecting_toolchain \
       --distdir=$distdir \
       --override_repository=maven=$maven \
       --nostamp \
@@ -77,6 +85,7 @@ function test_determinism()  {
       --install_base="${TEST_TMPDIR}/install_base2" \
       --output_base="${TEST_TMPDIR}/out2" \
       build \
+      --extra_toolchains=@bazel_tools//tools/python:autodetecting_toolchain \
       --distdir=$distdir \
       --override_repository=maven=$maven \
       --nostamp \

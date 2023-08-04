@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Bazel Python integration test framework."""
+
 import locale
 import os
 import shutil
@@ -23,6 +25,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import runfiles
 
 
 class Error(Exception):
@@ -43,6 +46,7 @@ class EnvVarUndefinedError(Error):
 
 
 class TestBase(unittest.TestCase):
+  """Bazel Python integration test base."""
 
   _runfiles = None
   _temp = None
@@ -103,7 +107,7 @@ class TestBase(unittest.TestCase):
   def setUp(self):
     unittest.TestCase.setUp(self)
     if self._runfiles is None:
-      self._runfiles = TestBase._LoadRunfiles()
+      self._runfiles = runfiles.Create()
     test_tmpdir = TestBase._CreateDirs(TestBase.GetEnv('TEST_TMPDIR'))
     self._tests_root = TestBase._CreateDirs(
         os.path.join(test_tmpdir, 'tests_root'))
@@ -258,10 +262,7 @@ class TestBase(unittest.TestCase):
 
   def Rlocation(self, runfile):
     """Returns the absolute path to a runfile."""
-    if TestBase.IsWindows():
-      return self._runfiles.get(runfile)
-    else:
-      return os.path.join(self._runfiles, runfile)
+    return self._runfiles.Rlocation(runfile)
 
   def ScratchDir(self, path):
     """Creates directories under the test's scratch directory.
@@ -568,30 +569,6 @@ class TestBase(unittest.TestCase):
       for e in env_add:
         env[e] = env_add[e]
     return env
-
-  @staticmethod
-  def _LoadRunfiles():
-    """Loads the runfiles manifest from ${TEST_SRCDIR}/MANIFEST.
-
-    Only necessary to use on Windows, where runfiles are not symlinked in to the
-    runfiles directory, but are written to a MANIFEST file instead.
-
-    Returns:
-      on Windows: {string: string} dictionary, keys are runfiles-relative paths,
-        values are absolute paths that the runfiles entry is mapped to;
-      on other platforms: string; value of $TEST_SRCDIR
-    """
-    test_srcdir = TestBase.GetEnv('TEST_SRCDIR')
-    if not TestBase.IsWindows():
-      return test_srcdir
-
-    result = {}
-    with open(os.path.join(test_srcdir, 'MANIFEST'), 'r') as f:
-      for l in f:
-        tokens = l.strip().split(' ')
-        if len(tokens) == 2:
-          result[tokens[0]] = tokens[1]
-    return result
 
   @staticmethod
   def _CreateDirs(path):
