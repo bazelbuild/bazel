@@ -450,7 +450,7 @@ public class IncrementalInMemoryNodeEntry implements InMemoryNodeEntry {
       dirtyBuildingState = createDirtyBuildingStateForDoneNode(dirtyType, directDeps, value);
       value = null;
       this.directDeps = null;
-      return new MarkedDirtyResult(
+      return MarkedDirtyResult.withReverseDeps(
           keepsEdges()
               ? ReverseDepsUtility.getReverseDeps(this, /* checkConsistency= */ true)
               : ImmutableList.of());

@@ -114,7 +114,7 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public Iterable<SkyKey> getAllReverseDepsForNodeBeingDeleted() {
+  public Collection<SkyKey> getAllReverseDepsForNodeBeingDeleted() {
     return getDelegate().getAllReverseDepsForNodeBeingDeleted();
   }
 
