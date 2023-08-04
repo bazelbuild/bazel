@@ -91,6 +91,19 @@ public final class GsonTypeAdapterUtil {
         }
       };
 
+  public static final TypeAdapter<Label> LABEL_TYPE_ADAPTER =
+      new TypeAdapter<Label>() {
+        @Override
+        public void write(JsonWriter jsonWriter, Label label) throws IOException {
+          jsonWriter.value(label.getUnambiguousCanonicalForm());
+        }
+
+        @Override
+        public Label read(JsonReader jsonReader) throws IOException {
+          return Label.parseCanonicalUnchecked(jsonReader.nextString());
+        }
+      };
+
   public static final TypeAdapter<ModuleExtensionId> MODULE_EXTENSION_ID_TYPE_ADAPTER =
       new TypeAdapter<>() {
         @Override
@@ -308,6 +321,7 @@ public final class GsonTypeAdapterUtil {
         .registerTypeAdapterFactory(IMMUTABLE_SET)
         .registerTypeAdapterFactory(OPTIONAL)
         .registerTypeAdapterFactory(new LocationTypeAdapterFactory(moduleFilePath))
+        .registerTypeAdapter(Label.class, LABEL_TYPE_ADAPTER)
         .registerTypeAdapter(Version.class, VERSION_TYPE_ADAPTER)
         .registerTypeAdapter(ModuleKey.class, MODULE_KEY_TYPE_ADAPTER)
         .registerTypeAdapter(ModuleExtensionId.class, MODULE_EXTENSION_ID_TYPE_ADAPTER)
