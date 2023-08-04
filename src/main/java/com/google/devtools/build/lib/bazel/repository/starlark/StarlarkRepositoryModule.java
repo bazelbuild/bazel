@@ -116,7 +116,9 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
         bzlModule.label(), bzlModule.bzlTransitiveDigest());
     builder.setWorkspaceOnly();
     return new RepositoryRuleFunction(
-        builder, implementation, Starlark.toJavaOptional(doc, String.class));
+        builder,
+        implementation,
+        Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString));
   }
 
   /**
@@ -298,7 +300,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
         .setImplementation(implementation)
         .setTagClasses(
             ImmutableMap.copyOf(Dict.cast(tagClasses, String.class, TagClass.class, "tag_classes")))
-        .setDoc(Starlark.toJavaOptional(doc, String.class))
+        .setDoc(Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString))
         .setDefiningBzlFileLabel(
             BzlInitThreadContext.fromOrFailFunction(thread, "module_extension").getBzlFile())
         .setEnvVariables(ImmutableList.copyOf(Sequence.cast(environ, String.class, "environ")))
@@ -324,7 +326,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
     }
     return TagClass.create(
         attrBuilder.build(),
-        Starlark.toJavaOptional(doc, String.class),
+        Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString),
         thread.getCallerLocation());
   }
 }

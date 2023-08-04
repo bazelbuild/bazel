@@ -403,6 +403,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:configuration_phase_started_event",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_progress_receiver",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:coverage_report_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:default_syscall_cache",
         "//src/main/java/com/google/devtools/build/lib/skyframe:diff_awareness",
         "//src/main/java/com/google/devtools/build/lib/skyframe:execution_finished_event",

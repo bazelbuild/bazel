@@ -68,6 +68,8 @@ public final class JavaCompilationHelper {
 
   private static final Interner<ImmutableList<String>> javacOptsInterner =
       BlazeInterners.newWeakInterner();
+  private static final Interner<ImmutableMap<String, String>> executionInfoInterner =
+      BlazeInterners.newWeakInterner();
 
   private final RuleContext ruleContext;
   private final JavaToolchainProvider javaToolchain;
@@ -130,6 +132,14 @@ public final class JavaCompilationHelper {
         attributes,
         JavaToolchainProvider.from(ruleContext),
         additionalInputsForDatabinding);
+  }
+
+  @Nullable
+  static ImmutableList<String> internJavacOpts(@Nullable ImmutableList<String> javacOpts) {
+    if (javacOpts == null) {
+      return null;
+    }
+    return javacOptsInterner.intern(javacOpts);
   }
 
   public void enableJspecify(boolean enableJspecify) {
@@ -360,7 +370,7 @@ public final class JavaCompilationHelper {
     builder.setSourceFiles(sourceFiles);
     builder.setSourceJars(sourceJars);
     builder.setJavacOpts(javacopts);
-    builder.setJavacExecutionInfo(getExecutionInfo());
+    builder.setJavacExecutionInfo(executionInfoInterner.intern(getExecutionInfo()));
     builder.setCompressJar(true);
     builder.setBuiltinProcessorNames(javaToolchain.getHeaderCompilerBuiltinProcessors());
     builder.setExtraData(JavaCommon.computePerPackageData(ruleContext, javaToolchain));

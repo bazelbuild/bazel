@@ -1,2 +1,54 @@
 # This file will replace the content of the WORKSPACE file when Bzlmod is enabled
 # No WORKSPACE prefix or suffix are added.
+
+bind(
+    name = "android/sdk",
+    actual = "@bazel_tools//tools/android:poison_pill_android_sdk",
+)
+
+bind(
+    name = "android/dx_jar_import",
+    actual = "@bazel_tools//tools/android:no_android_sdk_repository_error",
+)
+
+bind(
+    name = "android/d8_jar_import",
+    actual = "@bazel_tools//tools/android:no_android_sdk_repository_error",
+)
+
+bind(
+    name = "android/crosstool",
+    actual = "@bazel_tools//tools/cpp:toolchain",
+)
+
+bind(
+    name = "android_sdk_for_testing",
+    actual = "@bazel_tools//tools/android:empty",
+)
+
+bind(
+    name = "android_ndk_for_testing",
+    actual = "@bazel_tools//tools/android:empty",
+)
+
+bind(
+    name = "databinding_annotation_processor",
+    actual = "@bazel_tools//tools/android:empty",
+)
+
+# This value is overridden by android_sdk_repository function to allow targets
+# to select on whether or not android_sdk_repository has run.
+bind(
+    name = "has_androidsdk",
+    actual = "@bazel_tools//tools/android:always_false",
+)
+
+# To run the Android integration tests in //src/test/shell/bazel/android:all or
+# build the Android sample app in //examples/android/java/bazel:hello_world
+#
+#   1. Install an Android SDK and NDK from https://developer.android.com
+#   2. Set the $ANDROID_HOME and $ANDROID_NDK_HOME environment variables
+#   3. Uncomment the two lines below
+#
+# android_sdk_repository(name = "androidsdk")
+# android_ndk_repository(name = "androidndk")

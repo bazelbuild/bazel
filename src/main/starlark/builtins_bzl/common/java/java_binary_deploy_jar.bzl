@@ -144,6 +144,8 @@ def create_deploy_archive(
         extra_args = []):
     """ Creates a deploy jar
 
+    Requires a Java runtime toolchain if and only if hermetic is True.
+
     Args:
         ctx: (RuleContext) The rule context
         launcher: (File) the launcher artifact
@@ -167,10 +169,15 @@ def create_deploy_archive(
         add_opens: (depset)
         extra_args: (list[Args]) Optional arguments for the deploy jar action
     """
-    runtime = semantics.find_java_runtime_toolchain(ctx)
-
     input_files = []
     input_files.extend(build_info_files)
+
+    transitive_input_files = [
+        resources,
+        classpath_resources,
+        runtime_classpath,
+        runfiles,
+    ]
 
     single_jar = semantics.find_java_toolchain(ctx).single_jar
 
@@ -209,17 +216,20 @@ def create_deploy_archive(
     if multi_release:
         args.add("--multi_release")
 
-    hermetic_files = runtime.hermetic_files
-    if hermetic and runtime.lib_modules != None and hermetic_files != None:
-        java_home = runtime.java_home
-        lib_modules = runtime.lib_modules
-        args.add("--hermetic_java_home", java_home)
-        args.add("--jdk_lib_modules", lib_modules)
-        args.add_all("--resources", hermetic_files)
-        input_files.append(lib_modules)
+    if hermetic:
+        runtime = semantics.find_java_runtime_toolchain(ctx)
+        if runtime.lib_modules != None:
+            java_home = runtime.java_home
+            lib_modules = runtime.lib_modules
+            hermetic_files = runtime.hermetic_files
+            args.add("--hermetic_java_home", java_home)
+            args.add("--jdk_lib_modules", lib_modules)
+            args.add_all("--resources", hermetic_files)
+            input_files.append(lib_modules)
+            transitive_input_files.append(hermetic_files)
 
-        if shared_archive == None:
-            shared_archive = runtime.default_cds
+            if shared_archive == None:
+                shared_archive = runtime.default_cds
 
     if shared_archive:
         input_files.append(shared_archive)
@@ -228,13 +238,7 @@ def create_deploy_archive(
     args.add_all("--add_exports", add_exports)
     args.add_all("--add_opens", add_opens)
 
-    inputs = depset(input_files, transitive = [
-        resources,
-        classpath_resources,
-        runtime_classpath,
-        runfiles,
-        hermetic_files,
-    ])
+    inputs = depset(input_files, transitive = transitive_input_files)
 
     ctx.actions.run(
         mnemonic = "JavaDeployJar",
@@ -254,15 +258,19 @@ def _implicit_outputs(binary):
         "unstrippeddeployjar": "%s_deploy.jar.unstripped" % binary_name,
     }
 
-def make_deploy_jars_rule(implementation):
+def make_deploy_jars_rule(implementation, *, create_executable = True):
     """Creates the deploy jar auxiliary rule for java_binary
 
     Args:
         implementation: (Function) The rule implementation function
+        create_executable: (bool) The value of the create_executable attribute of java_binary
 
     Returns:
         The deploy jar rule class
     """
+    toolchains = [semantics.JAVA_TOOLCHAIN] + cc_helper.use_cpp_toolchain()
+    if create_executable:
+        toolchains.append(semantics.JAVA_RUNTIME_TOOLCHAIN)
     return rule(
         implementation = implementation,
         attrs = {
@@ -274,12 +282,11 @@ def make_deploy_jars_rule(implementation):
             ),
             "_cc_toolchain": attr.label(default = "@" + cc_semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
             "_java_toolchain_type": attr.label(default = semantics.JAVA_TOOLCHAIN_TYPE),
-            "_java_runtime_toolchain_type": attr.label(default = semantics.JAVA_RUNTIME_TOOLCHAIN_TYPE),
             "_build_info_translator": attr.label(
                 default = semantics.BUILD_INFO_TRANSLATOR_LABEL,
             ),
         },
         outputs = _implicit_outputs,
         fragments = ["java"],
-        toolchains = [semantics.JAVA_TOOLCHAIN, semantics.JAVA_RUNTIME_TOOLCHAIN] + cc_helper.use_cpp_toolchain(),
+        toolchains = toolchains,
     )

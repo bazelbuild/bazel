@@ -608,6 +608,7 @@ message BuildConfiguration {
     // possibilities in Bazel, so we go with the more straightforward
     // command-line error exit code 2.
     INVALID_OUTPUT_DIRECTORY_MNEMONIC = 11 [(metadata) = { exit_code: 2 }];
+    CONFIGURATION_DISCARDED_ANALYSIS_CACHE = 12 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
@@ -1197,6 +1198,7 @@ message Analysis {
     CONFIGURED_VALUE_CREATION_FAILED = 18 [(metadata) = { exit_code: 1 }];
     INCOMPATIBLE_TARGET_REQUESTED = 19 [(metadata) = { exit_code: 1 }];
     ANALYSIS_FAILURE_PROPAGATION_FAILED = 20 [(metadata) = { exit_code: 1 }];
+    ANALYSIS_CACHE_DISCARDED = 21 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;

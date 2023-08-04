@@ -23,7 +23,7 @@ established. Before joining, review the group's work, and then get in touch
 with the SIG leader. Membership policies vary on a per-SIG basis.
 
 See the complete list of
-[Bazel SIGs](https://github.com/bazelbuild/community/tree/master/sigs){: .external}.
+[Bazel SIGs](https://github.com/bazelbuild/community/tree/main/sigs){: .external}.
 
 ### Non-goals: What a SIG is not
 

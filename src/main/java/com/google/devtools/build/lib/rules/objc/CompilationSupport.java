@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -752,9 +753,7 @@ public class CompilationSupport implements StarlarkValue {
               .build();
 
       ruleContext.registerAction(
-          ObjcRuleClasses.spawnAppleEnvActionBuilder(
-                  XcodeConfigInfo.fromRuleContext(ruleContext),
-                  appleConfiguration.getSingleArchPlatform())
+          new SpawnAction.Builder()
               .setMnemonic("DummyPruner")
               .setExecutable(ruleContext.getExecutablePrerequisite("$j2objc_dead_code_pruner"))
               .addInput(dummyArchive)
@@ -769,6 +768,7 @@ public class CompilationSupport implements StarlarkValue {
                       .setUseAlways(true)
                       .build())
               .addOutput(prunedJ2ObjcArchive)
+              .setExecGroup("j2objc")
               .build(ruleContext));
     }
   }

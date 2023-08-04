@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
@@ -1162,5 +1163,17 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     assertContainsEvent("--discard_analysis_cache");
     assertDoesNotContainEvent("Build option");
     assertContainsEvent("discarding analysis cache");
+  }
+
+  @Test
+  public void throwsIfAnalysisCacheIsDiscardedWhenOptionSet() throws Exception {
+    setupDiffResetTesting();
+    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
+    useConfiguration("--definitely_relevant=old");
+    update("//test:top");
+    useConfiguration("--noallow_analysis_cache_discard", "--definitely_relevant=new");
+
+    Throwable t = assertThrows(InvalidConfigurationException.class, () -> update("//test:top"));
+    assertThat(t.getMessage().contains("analysis cache would have been discarded")).isTrue();
   }
 }

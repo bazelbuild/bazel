@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailurePropagationException;
 import com.google.devtools.build.lib.analysis.test.CoverageActionFinishedEvent;
@@ -89,6 +90,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
@@ -279,7 +281,11 @@ public final class SkyframeBuildView {
   /** Sets the configuration. Not thread-safe. DO NOT CALL except from tests! */
   @VisibleForTesting
   public void setConfiguration(
-      EventHandler eventHandler, BuildConfigurationValue configuration, int maxDifferencesToShow) {
+      EventHandler eventHandler,
+      BuildConfigurationValue configuration,
+      int maxDifferencesToShow,
+      boolean allowAnalysisCacheDiscards)
+      throws InvalidConfigurationException {
     if (skyframeAnalysisWasDiscarded) {
       eventHandler.handle(
           Event.warn(
@@ -290,6 +296,12 @@ public final class SkyframeBuildView {
     } else {
       String diff = describeConfigurationDifference(configuration, maxDifferencesToShow);
       if (diff != null) {
+        if (!allowAnalysisCacheDiscards) {
+          String message = String.format("%s, analysis cache would have been discarded.", diff);
+          throw new InvalidConfigurationException(
+              message,
+              FailureDetails.BuildConfiguration.Code.CONFIGURATION_DISCARDED_ANALYSIS_CACHE);
+        }
         eventHandler.handle(
             Event.warn(
                 diff
@@ -668,27 +680,6 @@ public final class SkyframeBuildView {
           skyframeExecutor.resetBuildDriverFunction();
           skyframeExecutor.setTestTypeResolver(null);
 
-          // Coverage needs to be done after the list of analyzed targets/tests is known.
-          ImmutableSet<Artifact> coverageArtifacts =
-              coverageReportActionsWrapperSupplier.getCoverageArtifacts(
-                  buildResultListener.getAnalyzedTargets(), buildResultListener.getAnalyzedTests());
-          eventBus.post(CoverageArtifactsKnownEvent.create(coverageArtifacts));
-          additionalArtifactsResult =
-              skyframeExecutor.evaluateSkyKeys(
-                  eventHandler, Artifact.keys(coverageArtifacts), keepGoing);
-          eventBus.post(new CoverageActionFinishedEvent());
-          if (additionalArtifactsResult.hasError()) {
-            detailedExitCodes.add(
-                SkyframeErrorProcessor.processErrors(
-                        additionalArtifactsResult,
-                        skyframeExecutor.getCyclesReporter(),
-                        eventHandler,
-                        keepGoing,
-                        eventBus,
-                        bugReporter,
-                        /* includeExecutionPhase= */ true)
-                    .executionDetailedExitCode());
-          }
           // These attributes affect whether conflict checking will be done during the next build.
           if (shouldCheckForConflicts(checkForActionConflicts, newKeys)) {
             largestTopLevelKeySetCheckedForConflicts = newKeys;
@@ -698,8 +689,7 @@ public final class SkyframeBuildView {
 
         // The exclusive tests whose analysis succeeded i.e. those that can be run.
         ImmutableSet<ConfiguredTarget> exclusiveTestsToRun = getExclusiveTests(evaluationResult);
-        boolean continueWithExclusiveTests =
-            (!evaluationResult.hasError() && !additionalArtifactsResult.hasError()) || keepGoing;
+        boolean continueWithExclusiveTests = !evaluationResult.hasError() || keepGoing;
 
         if (continueWithExclusiveTests && !exclusiveTestsToRun.isEmpty()) {
           skyframeExecutor.getIsBuildingExclusiveArtifacts().set(true);
@@ -728,6 +718,29 @@ public final class SkyframeBuildView {
                       .executionDetailedExitCode());
             }
           }
+        }
+        // Coverage report generation should only be requested after all tests have executed.
+        // We could generate baseline coverage artifacts earlier; it is only the timing of the
+        // combined report that matters.
+        ImmutableSet<Artifact> coverageArtifacts =
+            coverageReportActionsWrapperSupplier.getCoverageArtifacts(
+                buildResultListener.getAnalyzedTargets(), buildResultListener.getAnalyzedTests());
+        eventBus.post(CoverageArtifactsKnownEvent.create(coverageArtifacts));
+        additionalArtifactsResult =
+            skyframeExecutor.evaluateSkyKeys(
+                eventHandler, Artifact.keys(coverageArtifacts), keepGoing);
+        eventBus.post(new CoverageActionFinishedEvent());
+        if (additionalArtifactsResult.hasError()) {
+          detailedExitCodes.add(
+              SkyframeErrorProcessor.processErrors(
+                      additionalArtifactsResult,
+                      skyframeExecutor.getCyclesReporter(),
+                      eventHandler,
+                      keepGoing,
+                      eventBus,
+                      bugReporter,
+                      /* includeExecutionPhase= */ true)
+                  .executionDetailedExitCode());
         }
       } finally {
         // No more action execution beyond this point.

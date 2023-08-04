@@ -22,7 +22,7 @@ load(":bazel/java/bazel_java_binary.bzl", _java_test = "java_test", java_bin_exe
 load(":bazel/java/bazel_java_binary_nolauncher.bzl", java_bin_exec_no_launcher_flag = "java_binary", java_test_no_launcher = "java_test")
 load(":bazel/java/bazel_java_binary_custom_launcher.bzl", java_bin_exec_custom_launcher = "java_binary", java_test_custom_launcher = "java_test")
 load(":bazel/java/bazel_java_binary_nonexec.bzl", java_bin_nonexec = "java_binary")
-load(":bazel/java/bazel_java_binary_deploy_jar.bzl", "deploy_jars")
+load(":bazel/java/bazel_java_binary_deploy_jar.bzl", "deploy_jars", "deploy_jars_nonexec")
 load(":common/java/java_binary_wrapper.bzl", "register_java_binary_rules")
 
 def java_binary(**kwargs):
@@ -32,6 +32,7 @@ def java_binary(**kwargs):
         java_bin_exec_no_launcher_flag,
         java_bin_exec_custom_launcher,
         rule_deploy_jars = deploy_jars,
+        rule_deploy_jars_nonexec = deploy_jars_nonexec,
         **kwargs
     )
 
@@ -42,6 +43,7 @@ def java_test(**kwargs):
         java_test_no_launcher,
         java_test_custom_launcher,
         rule_deploy_jars = deploy_jars,
+        rule_deploy_jars_nonexec = deploy_jars_nonexec,
         is_test_rule_class = True,
         **kwargs
     )

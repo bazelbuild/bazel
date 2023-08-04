@@ -92,7 +92,21 @@ public interface JavaGenJarsProvider
     } else if (obj instanceof JavaGenJarsProvider) {
       return (JavaGenJarsProvider) obj;
     } else if (obj instanceof StructImpl) {
-      return new AutoValue_JavaGenJarsProvider_StarlarkJavaGenJarsProvider((StructImpl) obj);
+      StructImpl struct = (StructImpl) obj;
+      return new AutoValue_JavaGenJarsProvider_NativeJavaGenJarsProvider(
+          struct.getValue("enabled", Boolean.class),
+          nullIfNone(struct.getValue("class_jar"), Artifact.class),
+          nullIfNone(struct.getValue("source_jar"), Artifact.class),
+          Depset.cast(
+              struct.getValue("processor_classpath"), Artifact.class, "processor_classpath"),
+          NestedSetBuilder.wrap(
+              Order.NAIVE_LINK_ORDER,
+              Sequence.cast(
+                  struct.getValue("processor_classnames"), String.class, "processor_classnames")),
+          Depset.cast(
+              struct.getValue("transitive_class_jars"), Artifact.class, "transitive_class_jars"),
+          Depset.cast(
+              struct.getValue("transitive_source_jars"), Artifact.class, "transitive_source_jars"));
     }
     throw Starlark.errorf("wanted JavaGenJarsProvider, got %s", Starlark.type(obj));
   }
@@ -156,78 +170,6 @@ public interface JavaGenJarsProvider
     @Override
     public ImmutableList<String> getProcessorClassNamesList() {
       return getProcessorClassnames().toList();
-    }
-  }
-
-  /** Wrapper for Starlark constructed JavaGenJarsProvider */
-  @AutoValue
-  abstract class StarlarkJavaGenJarsProvider implements JavaGenJarsProvider {
-
-    abstract StructImpl struct();
-
-    @Override
-    public NestedSet<Artifact> getTransitiveGenClassJars() throws RuleErrorException {
-      try {
-        return Depset.cast(
-            struct().getValue("transitive_class_jars"), Artifact.class, "transitive_class_jars");
-      } catch (EvalException e) {
-        throw new RuleErrorException(e);
-      }
-    }
-
-    @Override
-    public NestedSet<Artifact> getTransitiveGenSourceJars() throws RuleErrorException {
-      try {
-        return Depset.cast(
-            struct().getValue("transitive_source_jars"), Artifact.class, "transitive_source_jars");
-      } catch (EvalException e) {
-        throw new RuleErrorException(e);
-      }
-    }
-
-    @Override
-    public NestedSet<Artifact> getProcessorClasspath() throws EvalException {
-      return Depset.cast(
-          struct().getValue("processor_classpath"), Artifact.class, "processor_classpath");
-    }
-
-    @Override
-    public boolean usesAnnotationProcessing() throws EvalException {
-      return struct().getValue("enabled", Boolean.class);
-    }
-
-    @Nullable
-    @Override
-    public Artifact getGenClassJar() throws EvalException {
-      return nullIfNone(struct().getValue("class_jar"), Artifact.class);
-    }
-
-    @Nullable
-    @Override
-    public Artifact getGenSourceJar() throws EvalException {
-      return nullIfNone(struct().getValue("source_jar"), Artifact.class);
-    }
-
-    @Override
-    public Depset getTransitiveGenClassJarsForStarlark() throws EvalException {
-      return struct().getValue("transitive_class_jars", Depset.class);
-    }
-
-    @Override
-    public Depset getTransitiveGenSourceJarsForStarlark() throws EvalException {
-      return struct().getValue("transitive_source_jars", Depset.class);
-    }
-
-    @Override
-    public Depset getProcessorClasspathForStarlark() throws EvalException {
-      return struct().getValue("processor_classpath", Depset.class);
-    }
-
-    @Override
-    public ImmutableList<String> getProcessorClassNamesList() throws EvalException {
-      return Sequence.cast(
-              struct().getValue("processor_classnames"), String.class, "processor_classname")
-          .getImmutableList();
     }
   }
 }

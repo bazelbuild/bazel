@@ -21,7 +21,7 @@ load(":common/paths.bzl", "paths")
 load(":common/java/java_info.bzl", "JavaInfo")
 
 def _bazel_java_binary_impl(ctx):
-    return _bazel_base_binary_impl(ctx, is_test_rule_class = False)
+    return _bazel_base_binary_impl(ctx, is_test_rule_class = False) + helper.executable_providers(ctx)
 
 def _bazel_java_test_impl(ctx):
     return _bazel_base_binary_impl(ctx, is_test_rule_class = True) + helper.test_providers(ctx)

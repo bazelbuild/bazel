@@ -158,10 +158,6 @@ public final class GeneratedExtensionRegistryProvider extends NativeInfo
       super(NAME, GeneratedExtensionRegistryProvider.class);
     }
 
-    public String getName() {
-      return NAME;
-    }
-
     @Override
     public GeneratedExtensionRegistryProvider create(
         Label generatingRuleLabel,

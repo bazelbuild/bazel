@@ -119,7 +119,11 @@ public interface AndroidSemantics {
       String baselineProfileDir);
 
   /** The merged baseline profiles from the {@code baseline_profiles} attribute. */
-  Artifact mergeBaselineProfiles(RuleContext ruleContext, String baselineProfileDir);
+  Artifact mergeBaselineProfiles(
+      RuleContext ruleContext, String baselineProfileDir, boolean includeStartupProfiles);
+
+  /** The merged startup profiles from the {@code startup_profiles} attribute. */
+  Artifact mergeStartupProfiles(RuleContext ruleContext, String baselineProfileDir);
 
   /** The artifact for ART profile information, given a particular merged profile. */
   Artifact compileBaselineProfile(

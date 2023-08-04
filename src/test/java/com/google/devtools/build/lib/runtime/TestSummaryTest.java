@@ -446,6 +446,30 @@ public class TestSummaryTest {
   }
 
   @Test
+  public void testShowTestCaseNames() throws Exception {
+    TestCase detailPassed = newDetail("strawberry", TestCase.Status.PASSED, 1000L);
+    TestCase detailFailed = newDetail("orange", TestCase.Status.FAILED, 1500L);
+
+    TestSummary summaryPassed =
+        createPassedTestSummary(BlazeTestStatus.PASSED, Arrays.asList(detailPassed));
+
+    TestSummary summaryFailed =
+        createTestSummaryWithDetails(
+            BlazeTestStatus.FAILED, Arrays.asList(detailPassed, detailFailed));
+    assertThat(summaryFailed.getStatus()).isEqualTo(BlazeTestStatus.FAILED);
+
+    AnsiTerminalPrinter printerPassed = Mockito.mock(AnsiTerminalPrinter.class);
+    TestSummaryPrinter.print(summaryPassed, printerPassed, Path::getPathString, true, true);
+    verify(printerPassed).print(contains("//package:name"));
+    verify(printerPassed).print(find("PASSED.*strawberry *\\(1\\.0"));
+
+    AnsiTerminalPrinter printerFailed = Mockito.mock(AnsiTerminalPrinter.class);
+    TestSummaryPrinter.print(summaryFailed, printerFailed, Path::getPathString, true, true);
+    verify(printerFailed).print(contains("//package:name"));
+    verify(printerFailed).print(find("FAILED.*orange *\\(1\\.5"));
+  }
+
+  @Test
   public void testTestCaseNamesOrdered() throws Exception {
     TestCase[] details = {
       newDetail("apple", TestCase.Status.FAILED, 1000L),
@@ -500,13 +524,13 @@ public class TestSummaryTest {
 
   @Test
   public void testCollectingFailedDetails() throws Exception {
-    TestCase rootCase = TestCase.newBuilder()
-        .setName("tests")
-        .setRunDurationMillis(5000L)
-        .addChild(newDetail("apple", TestCase.Status.FAILED, 1000L))
-        .addChild(newDetail("banana", TestCase.Status.PASSED, 1000L))
-        .addChild(newDetail("cherry", TestCase.Status.ERROR, 1000L))
-        .build();
+    TestCase rootCase =
+        TestCase.newBuilder()
+            .setName("tests")
+            .setRunDurationMillis(5000L)
+            .addChild(newDetail("apple", TestCase.Status.FAILED, 1000L))
+            .addChild(newDetail("cherry", TestCase.Status.ERROR, 1000L))
+            .build();
 
     TestSummary summary =
         getTemplateBuilder().collectTestCases(rootCase).setStatus(BlazeTestStatus.FAILED).build();
@@ -516,6 +540,46 @@ public class TestSummaryTest {
     verify(printer).print(contains("//package:name"));
     verify(printer).print(find("FAILED.*apple"));
     verify(printer).print(find("ERROR.*cherry"));
+  }
+
+  @Test
+  public void testCollectingAllDetails() throws Exception {
+    TestCase rootCase =
+        TestCase.newBuilder()
+            .setName("tests")
+            .setRunDurationMillis(5000L)
+            .addChild(newDetail("apple", TestCase.Status.FAILED, 1000L))
+            .addChild(newDetail("banana", TestCase.Status.PASSED, 1000L))
+            .addChild(newDetail("cherry", TestCase.Status.ERROR, 1000L))
+            .build();
+
+    TestSummary summary =
+        getTemplateBuilder().collectTestCases(rootCase).setStatus(BlazeTestStatus.FAILED).build();
+
+    AnsiTerminalPrinter printer = Mockito.mock(AnsiTerminalPrinter.class);
+    TestSummaryPrinter.print(summary, printer, Path::getPathString, true, true);
+    verify(printer).print(contains("//package:name"));
+    verify(printer).print(find("FAILED.*apple"));
+    verify(printer).print(find("PASSED.*banana"));
+    verify(printer).print(find("ERROR.*cherry"));
+  }
+
+  @Test
+  public void testCollectingPassedDetails() throws Exception {
+    TestCase rootCase =
+        TestCase.newBuilder()
+            .setName("tests")
+            .setRunDurationMillis(5000L)
+            .addChild(newDetail("apple", TestCase.Status.PASSED, 1000L))
+            .build();
+
+    TestSummary summary =
+        getTemplateBuilder().collectTestCases(rootCase).setStatus(BlazeTestStatus.PASSED).build();
+
+    AnsiTerminalPrinter printer = Mockito.mock(AnsiTerminalPrinter.class);
+    TestSummaryPrinter.print(summary, printer, Path::getPathString, true, true);
+    verify(printer).print(contains("//package:name"));
+    verify(printer).print(find("PASSED.*apple"));
   }
 
   @Test
@@ -603,6 +667,10 @@ public class TestSummaryTest {
 
   private ConfiguredTarget stubTarget() throws Exception {
     return target(PATH, TARGET_NAME);
+  }
+
+  private TestSummary createPassedTestSummary(BlazeTestStatus status, List<TestCase> details) {
+    return getTemplateBuilder().setStatus(status).addPassedTestCases(details).build();
   }
 
   private TestSummary createTestSummaryWithDetails(BlazeTestStatus status,

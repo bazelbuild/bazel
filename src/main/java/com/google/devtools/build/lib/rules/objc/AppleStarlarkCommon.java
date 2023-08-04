@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.rules.cpp.CcModule;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.UserVariablesExtension;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag;
-import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.objc.AppleCommonApi;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -170,11 +169,6 @@ public class AppleStarlarkCommon
   }
 
   @Override
-  public SplitTransitionProviderApi getMultiArchSplitProvider() {
-    return new MultiArchSplitTransitionProvider();
-  }
-
-  @Override
   // This method is registered statically for Starlark, and never called directly.
   public ObjcProvider newObjcProvider(Dict<String, Object> kwargs, StarlarkThread thread)
       throws EvalException {
@@ -252,7 +246,7 @@ public class AppleStarlarkCommon
   }
 
   private Dict<?, ?> asDict(Object o) {
-    return o == Starlark.UNBOUND ? Dict.empty() : (Dict<?, ?>) o;
+    return o == Starlark.NONE ? Dict.empty() : (Dict<?, ?>) o;
   }
 
   @Override

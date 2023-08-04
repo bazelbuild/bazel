@@ -220,7 +220,10 @@ public final class BuildLanguageOptions extends OptionsBase {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
-      help = "foo")
+      help =
+          "If true, enables the <code>isolate</code> parameter in the <a"
+              + " href=\"https://bazel.build/rules/lib/globals/module#use_extension\"><code>use_extension</code></a>"
+              + " function.")
   public boolean experimentalIsolatedExtensionUsages;
 
   @Option(

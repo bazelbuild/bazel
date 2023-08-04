@@ -288,6 +288,11 @@ def _test_providers(ctx):
 
     return test_providers
 
+def _executable_providers(ctx):
+    if ctx.attr.create_executable:
+        return [_builtins.toplevel.RunEnvironmentInfo(cc_helper.get_expanded_env(ctx, {}))]
+    return []
+
 def _resource_mapper(file):
     return "%s:%s" % (
         file.path,
@@ -366,6 +371,7 @@ helper = struct(
     runfiles_enabled = _runfiles_enabled,
     get_test_support = _get_test_support,
     test_providers = _test_providers,
+    executable_providers = _executable_providers,
     create_single_jar = _create_single_jar,
     shell_quote = _shell_quote,
 )

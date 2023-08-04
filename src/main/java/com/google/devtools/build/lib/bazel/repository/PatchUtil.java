@@ -300,7 +300,13 @@ public class PatchUtil {
       }
     }
 
-    List<String> newContent = applyOffsetPatchTo(patch, oldContent);
+    List<String> newContent;
+    try {
+      newContent = applyOffsetPatchTo(patch, oldContent);
+    } catch (PatchFailedException e) {
+      throw new PatchFailedException(
+          String.format("in patch applied to %s: %s", oldFile, e.getMessage()));
+    }
 
     // The file we should write newContent to.
     Path outputFile;

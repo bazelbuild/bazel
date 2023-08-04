@@ -83,8 +83,6 @@ import javax.annotation.Nullable;
 public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   private static final Correspondence<String, String> MATCHES_REGEX =
       Correspondence.from((a, b) -> Pattern.matches(b, a), "matches");
-  protected static final String MOCK_XCRUNWRAPPER_EXECUTABLE_PATH =
-      toolExecutable("tools/objc/xcrunwrapper");
   protected static final ImmutableList<String> FASTBUILD_COPTS = ImmutableList.of("-O0", "-DDEBUG");
 
   protected static final DottedVersion DEFAULT_IOS_SDK_VERSION =
@@ -165,12 +163,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
             .getGenfilesDirectory(RepositoryName.MAIN)
             .getExecPath()
             .getBaseName();
-  }
-
-  private static String toolExecutable(String toolSrcPath) {
-    return String.format(
-        "%s-out/[^/]*-exec-[^/]*/bin/%s",
-        TestConstants.PRODUCT_NAME, TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + toolSrcPath);
   }
 
   @SuppressWarnings("MissingCasesInEnumSwitch")
@@ -539,6 +531,70 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
     scratch.file(
         "test_starlark/apple_binary_starlark.bzl",
+        "_apple_platform_transition_inputs = [",
+        "    '//command_line_option:apple_compiler',",
+        "    '//command_line_option:apple_crosstool_top',",
+        "    '//command_line_option:cpu',",
+        "    '//command_line_option:ios_multi_cpus',",
+        "    '//command_line_option:macos_cpus',",
+        "    '//command_line_option:tvos_cpus',",
+        "    '//command_line_option:watchos_cpus',",
+        "]",
+        "_apple_rule_base_transition_outputs = [",
+        "    '//command_line_option:apple configuration distinguisher',",
+        "    '//command_line_option:apple_platform_type',",
+        "    '//command_line_option:apple_platforms',",
+        "    '//command_line_option:apple_split_cpu',",
+        "    '//command_line_option:compiler',",
+        "    '//command_line_option:cpu',",
+        "    '//command_line_option:crosstool_top',",
+        "    '//command_line_option:fission',",
+        "    '//command_line_option:grte_top',",
+        "]",
+        "def _command_line_options(*, environment_arch = None, platform_type, settings):",
+        "    output_dictionary = {",
+        "        '//command_line_option:apple configuration distinguisher':",
+        "            'applebin_' + platform_type,",
+        "        '//command_line_option:apple_platform_type': platform_type,",
+        "        '//command_line_option:apple_platforms': [],",
+        "        '//command_line_option:apple_split_cpu': environment_arch,",
+        "        '//command_line_option:compiler': ",
+        "            settings['//command_line_option:apple_compiler'],",
+        "        '//command_line_option:cpu': ",
+        "            'darwin_' + environment_arch if platform_type == 'macos'",
+        "            else platform_type + '_' +  environment_arch,",
+        "        '//command_line_option:crosstool_top': ",
+        "            settings['//command_line_option:apple_crosstool_top'],",
+        "        '//command_line_option:fission': [],",
+        "        '//command_line_option:grte_top': None,",
+        "    }",
+        "    return output_dictionary",
+        "def _apple_platform_split_transition_impl(settings, attr):",
+        "    output_dictionary = {}",
+        "    platform_type = attr.platform_type",
+        "    if platform_type == 'ios':",
+        "       environment_archs = settings['//command_line_option:ios_multi_cpus']",
+        "    else:",
+        "       environment_archs = settings['//command_line_option:%s_cpus' % platform_type]",
+        "    if not environment_archs and platform_type == 'ios':",
+        "       cpu_value = settings['//command_line_option:cpu']",
+        "       if cpu_value.startswith('ios_'):",
+        "           environment_archs = [cpu_value[4:]]",
+        "    if not environment_archs:",
+        "        environment_archs = ['x86_64']",
+        "    for environment_arch in environment_archs:",
+        "        found_cpu = 'ios_{}'.format(environment_arch)",
+        "        output_dictionary[found_cpu] = _command_line_options(",
+        "            environment_arch = environment_arch,",
+        "            platform_type = platform_type,",
+        "            settings = settings,",
+        "        )",
+        "    return output_dictionary",
+        "apple_platform_split_transition = transition(",
+        "    implementation = _apple_platform_split_transition_impl,",
+        "    inputs = _apple_platform_transition_inputs,",
+        "    outputs = _apple_rule_base_transition_outputs,",
+        ")",
         "def apple_binary_starlark_impl(ctx):",
         "    all_avoid_deps = list(ctx.attr.avoid_deps)",
         "    binary_type = ctx.attr.binary_type",
@@ -611,7 +667,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    apple_binary_starlark_impl,",
         "    attrs = {",
         "        '_child_configuration_dummy': attr.label(",
-        "            cfg=apple_common.multi_arch_split,",
+        "            cfg=apple_platform_split_transition,",
         "            default=Label('" + toolsRepo + "//tools/cpp:current_cc_toolchain'),),",
         "        '_dummy_lib': attr.label(",
         "            default = Label('" + toolsLoc + "/dummy:dummy_lib'),),",
@@ -624,15 +680,11 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "        '_j2objc_dead_code_pruner': attr.label(",
         "            executable = True,",
         "            allow_files=True,",
-        "            cfg = 'exec',",
+        "            cfg = config.exec('j2objc'),",
         "            default = Label('" + toolsLoc + ":j2objc_dead_code_pruner_binary'),),",
         "        '_xcode_config': attr.label(",
         "            default=configuration_field(",
         "                fragment='apple', name='xcode_config_label'),),",
-        "        '_xcrunwrapper': attr.label(",
-        "            executable=True,",
-        "            cfg='exec',",
-        "            default=Label('" + toolsLoc + ":xcrunwrapper')),",
         "        'additional_linker_inputs': attr.label_list(",
         "            allow_files = True,",
         "        ),",
@@ -643,7 +695,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "        ),",
         "        'bundle_loader': attr.label(),",
         "        'deps': attr.label_list(",
-        "             cfg=apple_common.multi_arch_split,",
+        "             cfg=apple_platform_split_transition,",
         "        ),",
         "        'linkopts': attr.string_list(),",
         "        'extra_requested_features': attr.string_list(),",
@@ -653,8 +705,22 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "        'stamp': attr.int(values=[-1,0,1],default=-1),",
         "        'string_variables_extension': attr.string_dict(),",
         "        'string_list_variables_extension': attr.string_list_dict(),",
+        "        '_allowlist_function_transition': attr.label(",
+        "            default = '//tools/allowlists/function_transition_allowlist',",
+        "        ),",
+        "    },",
+        "    exec_groups = {",
+        "        'j2objc': exec_group()",
         "    },",
         "    fragments = ['apple', 'objc', 'cpp',],",
+        ")");
+    scratch.overwriteFile(
+        "tools/allowlists/function_transition_allowlist/BUILD",
+        "package_group(",
+        "    name = 'function_transition_allowlist',",
+        "    packages = [",
+        "        '//...',",
+        "    ],",
         ")");
   }
 

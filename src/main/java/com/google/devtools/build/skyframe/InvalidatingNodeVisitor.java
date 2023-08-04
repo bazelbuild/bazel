@@ -18,6 +18,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -39,6 +40,7 @@ import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.errorprone.annotations.ForOverride;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
@@ -165,7 +167,7 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
 
   /** Enqueues nodes for invalidation. Elements of {@code keys} may not exist in the graph. */
   @ThreadSafe
-  abstract void visit(Iterable<SkyKey> keys, InvalidationType invalidationType);
+  abstract void visit(Collection<SkyKey> keys, InvalidationType invalidationType);
 
   @VisibleForTesting
   enum InvalidationType {
@@ -277,7 +279,7 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
           executor.execute(
               () ->
                   visit(
-                      Iterables.transform(
+                      Collections2.transform(
                           pendingList.subList(
                               (index * listSize) / numThreads,
                               ((index + 1) * listSize) / numThreads),
@@ -313,7 +315,7 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
     }
 
     @Override
-    public void visit(Iterable<SkyKey> keys, InvalidationType invalidationType) {
+    public void visit(Collection<SkyKey> keys, InvalidationType invalidationType) {
       Preconditions.checkState(invalidationType == InvalidationType.DELETED, keys);
       ImmutableList.Builder<SkyKey> unvisitedKeysBuilder = ImmutableList.builder();
       for (SkyKey key : keys) {
@@ -446,9 +448,9 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
     }
 
     @Override
-    void visit(Iterable<SkyKey> keys, InvalidationType invalidationType) {
+    void visit(Collection<SkyKey> keys, InvalidationType invalidationType) {
       Preconditions.checkState(invalidationType != InvalidationType.DELETED, keys);
-      visit(keys, invalidationType, /*depthForOverflowCheck=*/ 0, null);
+      visit(keys, invalidationType, /* depthForOverflowCheck= */ 0, null);
     }
 
     /**
@@ -479,15 +481,14 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
      */
     @ThreadSafe
     private void visit(
-        Iterable<SkyKey> keys,
-        final InvalidationType invalidationType,
+        Collection<SkyKey> keys,
+        InvalidationType invalidationType,
         int depthForOverflowCheck,
         @Nullable SkyKey enqueueingKeyForExistenceCheck) {
       // Code from here until pendingVisitations#add is called below must be uninterruptible.
       boolean isChanged = (invalidationType == InvalidationType.CHANGED);
       Set<SkyKey> setToCheck = isChanged ? changed : dirtied;
-      int size = Iterables.size(keys);
-      ArrayList<SkyKey> keysToGet = new ArrayList<>(size);
+      ArrayList<SkyKey> keysToGet = new ArrayList<>(keys.size());
       for (SkyKey key : keys) {
         if (setToCheck.add(key)) {
           Preconditions.checkState(

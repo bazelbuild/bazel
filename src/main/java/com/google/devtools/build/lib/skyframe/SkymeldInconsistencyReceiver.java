@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -30,7 +30,9 @@ import javax.annotation.Nullable;
 public class SkymeldInconsistencyReceiver implements GraphInconsistencyReceiver {
   private static final ImmutableMap<SkyFunctionName, SkyFunctionName>
       SKYMELD_EXPECTED_MISSING_CHILDREN =
-          ImmutableMap.of(SkyFunctions.ACTION_EXECUTION, SkyFunctions.GLOB);
+          ImmutableMap.of(
+              SkyFunctions.ACTION_EXECUTION, SkyFunctions.GLOB,
+              SkyFunctions.GLOB, SkyFunctions.GLOB);
 
   private final boolean heuristicallyDropNodes;
 
@@ -49,12 +51,12 @@ public class SkymeldInconsistencyReceiver implements GraphInconsistencyReceiver 
       return;
     }
 
-    checkState(
-        NodeDroppingInconsistencyReceiver.isExpectedInconsistency(
-            key, otherKeys, inconsistency, SKYMELD_EXPECTED_MISSING_CHILDREN),
-        "Unexpected inconsistency: %s, %s, %s",
-        key,
-        otherKeys,
-        inconsistency);
+    if (!NodeDroppingInconsistencyReceiver.isExpectedInconsistency(
+        key, otherKeys, inconsistency, SKYMELD_EXPECTED_MISSING_CHILDREN)) {
+      // Instead of crashing, simply send a bug report here so we can evaluate whether this is an
+      // actual bug or just something else to be added to the expected list.
+      BugReport.logUnexpected(
+          "Unexpected inconsistency: %s, %s, %s", key, otherKeys, inconsistency);
+    }
   }
 }

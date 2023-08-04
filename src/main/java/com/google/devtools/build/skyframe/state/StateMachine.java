@@ -48,6 +48,8 @@ import javax.annotation.Nullable;
  * can be grouped together, reducing it to 1 restart.
  *
  * <p>The {@link Driver} class and {@link Driver#drive} are used to run a state machine.
+ *
+ * <p>A guide is available at <a href="https://bazel.build/contribute/statemachine-guide"/>.
  */
 @FunctionalInterface
 public interface StateMachine {

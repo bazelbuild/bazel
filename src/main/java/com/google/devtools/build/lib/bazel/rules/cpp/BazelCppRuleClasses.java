@@ -42,10 +42,6 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -58,7 +54,6 @@ import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CcIncludeScanningRule;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import javax.annotation.Nullable;
 
 /**
  * Rule class definitions for C++ rules.
@@ -363,30 +358,6 @@ public class BazelCppRuleClasses {
            </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("linkstatic", BOOLEAN).value(true))
-          .add(
-              attr("$def_parser", LABEL)
-                  .cfg(ExecutionTransitionFactory.createFactory())
-                  .singleArtifact()
-                  .value(
-                      new Attribute.ComputedDefault() {
-                        @Override
-                        @Nullable
-                        public Object getDefault(AttributeMap rule) {
-                          // Every cc_rule depends implicitly on the def_parser tool.
-                          // The only exceptions are the rules for building def_parser itself.
-                          // To avoid cycles in the dependency graph, return null for rules under
-                          // @bazel_tools//third_party/def_parser and @bazel_tools//tools/cpp
-                          String label = rule.getLabel().toString();
-                          RepositoryName toolsRepository = env.getToolsRepository();
-                          return label.startsWith(toolsRepository + "//third_party/def_parser")
-                                  // @bazel_tools//tools/cpp:malloc and @bazel_tools//tools/cpp:stl
-                                  // are implicit dependencies of all cc rules,
-                                  // thus a dependency of the def_parser.
-                                  || label.startsWith(toolsRepository + "//tools/cpp")
-                              ? null
-                              : env.getToolsLabel("//tools/def_parser:def_parser");
-                        }
-                      }))
           .build();
     }
     @Override
@@ -534,7 +505,6 @@ public class BazelCppRuleClasses {
                   .value(env.getToolsLabel("//tools/cpp:malloc"))
                   .allowedFileTypes()
                   .allowedRuleClasses("cc_library"))
-          .add(attr(":default_malloc", LABEL).value(CppRuleClasses.DEFAULT_MALLOC))
           /*<!-- #BLAZE_RULE($cc_binary_base).ATTRIBUTE(link_extra_lib) -->
           Control linking of extra libraries.
           <p>

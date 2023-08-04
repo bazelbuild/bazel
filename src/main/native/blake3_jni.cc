@@ -46,12 +46,12 @@ Java_com_google_devtools_build_lib_vfs_bazel_Blake3MessageDigest_initialize_1has
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_google_devtools_build_lib_vfs_bazel_Blake3MessageDigest_blake3_1hasher_1update(
-    JNIEnv *env, jobject obj, jbyteArray jhasher, jbyteArray input,
+    JNIEnv *env, jobject obj, jbyteArray jhasher, jbyteArray input, jint offset,
     jint input_len) {
   blake3_hasher *hasher = (blake3_hasher *)get_byte_array(env, jhasher);
   if (hasher) {
     jbyte *input_addr = get_byte_array(env, input);
-    blake3_hasher_update(hasher, input_addr, input_len);
+    blake3_hasher_update(hasher, input_addr + offset, input_len);
     release_byte_array(env, input, input_addr);
     release_byte_array(env, jhasher, (jbyte *)hasher);
   }

@@ -173,9 +173,7 @@ public final class MockObjcSupport {
         "  ],",
         ")");
 
-    for (String tool :
-        ImmutableSet.of(
-            "objc_dummy.mm", "gcov", "testrunner", "xcrunwrapper.sh", "mcov", "libtool")) {
+    for (String tool : ImmutableSet.of("objc_dummy.mm", "gcov", "testrunner", "mcov", "libtool")) {
       config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/" + tool);
     }
     config.create(
@@ -183,7 +181,6 @@ public final class MockObjcSupport {
         "package(default_visibility=['//visibility:public'])",
         "exports_files(glob(['**']))",
         "filegroup(name = 'default_provisioning_profile', srcs = ['foo.mobileprovision'])",
-        "sh_binary(name = 'xcrunwrapper', srcs = ['xcrunwrapper.sh'])",
         "filegroup(name = 'xctest_infoplist', srcs = ['xctest.plist'])",
         "py_binary(",
         "  name = 'j2objc_dead_code_pruner_binary',",

@@ -763,6 +763,48 @@ class BazelLockfileTest(test_base.TestBase):
         stderr,
     )
 
+  def testModuleExtensionWithFile(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'lockfile_ext = use_extension("extension.bzl", "lockfile_ext")',
+            'use_repo(lockfile_ext, "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("WORKSPACE")',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            '',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            '',
+            'def _module_ext_impl(ctx):',
+            '    print(ctx.read(Label("//:hello.txt")))',
+            '    repo_rule(name="hello")',
+            '',
+            'lockfile_ext = module_extension(',
+            '    implementation=_module_ext_impl',
+            ')',
+        ],
+    )
+
+    self.ScratchFile('hello.txt', ['I will not stay the same.'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    self.assertIn('I will not stay the same.', ''.join(stderr))
+
+    # Shutdown bazel to empty cache and run with no changes
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    self.assertNotIn('I will not stay the same.', ''.join(stderr))
+
+    # Update file and rerun
+    self.ScratchFile('hello.txt', ['I have changed now!'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    self.assertIn('I have changed now!', ''.join(stderr))
+
 
 if __name__ == '__main__':
   unittest.main()

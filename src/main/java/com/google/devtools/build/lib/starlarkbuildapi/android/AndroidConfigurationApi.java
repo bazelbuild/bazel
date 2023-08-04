@@ -95,6 +95,13 @@ public interface AndroidConfigurationApi extends StarlarkValue {
   ImmutableList<String> getDexoptsSupportedInDexMerger();
 
   @StarlarkMethod(
+      name = "get_dexopts_supported_in_dex_sharder",
+      structField = true,
+      doc = "",
+      documented = false)
+  ImmutableList<String> getDexoptsSupportedInDexSharder();
+
+  @StarlarkMethod(
       name = "get_target_dexopts_that_prevent_incremental_dexing",
       structField = true,
       doc = "",

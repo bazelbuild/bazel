@@ -48,8 +48,6 @@ function write_workspace() {
     mkdir -p "$workspace"
   fi
 
-  cat $(rlocation io_bazel/src/tests/shell/bazel/rules_proto_stanza.txt) >> "$workspace"WORKSPACE
-
   cat >> "$workspace"WORKSPACE << EOF
 load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
 rules_proto_dependencies()

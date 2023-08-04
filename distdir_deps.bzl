@@ -25,16 +25,16 @@ DIST_DEPS = {
     #
     ########################################
     "platforms": {
-        "archive": "platforms-0.0.6.tar.gz",
-        "sha256": "5308fc1d8865406a49427ba24a9ab53087f17f5266a7aabbfc28823f3916e1ca",
+        "archive": "platforms-0.0.7.tar.gz",
+        "sha256": "3a561c99e7bdbe9173aa653fd579fe849f1d8d67395780ab4770b1f381431d51",
         "urls": [
-            "https://mirror.bazel.build/github.com/bazelbuild/platforms/releases/download/0.0.6/platforms-0.0.6.tar.gz",
-            "https://github.com/bazelbuild/platforms/releases/download/0.0.6/platforms-0.0.6.tar.gz",
+            "https://mirror.bazel.build/github.com/bazelbuild/platforms/releases/download/0.0.7/platforms-0.0.7.tar.gz",
+            "https://github.com/bazelbuild/platforms/releases/download/0.0.7/platforms-0.0.7.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
         ],
-        "package_version": "0.0.6",
+        "package_version": "0.0.7",
     },
     "bazelci_rules": {
         "archive": "bazelci_rules-1.0.0.tar.gz",
@@ -67,9 +67,9 @@ DIST_DEPS = {
             "rules_java_builtin",
             "rules_java_builtin_for_testing",
         ],
-        "archive": "rules_java-6.2.2.tar.gz",
-        "sha256": "847527aa7f74712e0a63af2670ba3ddc04e8ea3d8930a7947c17aebfb29d5294",
-        "urls": ["https://github.com/bazelbuild/rules_java/releases/download/6.2.2/rules_java-6.2.2.tar.gz"],
+        "archive": "rules_java-6.3.0.tar.gz",
+        "sha256": "29ba147c583aaf5d211686029842c5278e12aaea86f66bd4a9eb5e525b7f2701",
+        "urls": ["https://github.com/bazelbuild/rules_java/releases/download/6.3.0/rules_java-6.3.0.tar.gz"],
         "workspace_file_content": "",
         "used_in": [
             "additional_distfiles",
@@ -388,6 +388,8 @@ DIST_DEPS = {
         "archive": "5847d6a06302136d95a14b4cbd4b55a9c9f1436e.zip",
         "sha256": "299452e6f4a4981b2e6d22357f7332713382a63e4c137f5fd6b89579f6d610cb",
         "strip_prefix": "desugar_jdk_libs-5847d6a06302136d95a14b4cbd4b55a9c9f1436e",
+        "patch_args": ["-p1"],
+        "patches": ["//third_party:desugar_jdk_libs-exec_tools.patch"],
         "urls": [
             "https://mirror.bazel.build/github.com/google/desugar_jdk_libs/archive/5847d6a06302136d95a14b4cbd4b55a9c9f1436e.zip",
             "https://github.com/google/desugar_jdk_libs/archive/5847d6a06302136d95a14b4cbd4b55a9c9f1436e.zip",

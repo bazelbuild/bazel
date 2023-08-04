@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
+import com.google.devtools.build.skydoc.rendering.LabelRenderer;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
@@ -39,6 +40,7 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.Prov
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderNameGroup;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.StarlarkFunctionInfo;
+import java.util.Optional;
 import java.util.function.Predicate;
 import net.starlark.java.eval.Module;
 import net.starlark.java.syntax.FileOptions;
@@ -73,15 +75,21 @@ public final class ModuleInfoExtractorTest {
   }
 
   private static ModuleInfoExtractor getExtractor() {
-    return new ModuleInfoExtractor(name -> true, RepositoryMapping.ALWAYS_FALLBACK);
+    RepositoryMapping repositoryMapping = RepositoryMapping.ALWAYS_FALLBACK;
+    return new ModuleInfoExtractor(
+        name -> true, new LabelRenderer(repositoryMapping, Optional.empty()));
   }
 
   private static ModuleInfoExtractor getExtractor(Predicate<String> isWantedQualifiedName) {
-    return new ModuleInfoExtractor(isWantedQualifiedName, RepositoryMapping.ALWAYS_FALLBACK);
+    RepositoryMapping repositoryMapping = RepositoryMapping.ALWAYS_FALLBACK;
+    return new ModuleInfoExtractor(
+        isWantedQualifiedName, new LabelRenderer(repositoryMapping, Optional.empty()));
   }
 
-  private static ModuleInfoExtractor getExtractor(RepositoryMapping repositoryMapping) {
-    return new ModuleInfoExtractor(name -> true, repositoryMapping);
+  private static ModuleInfoExtractor getExtractor(
+      RepositoryMapping repositoryMapping, String mainRepoName) {
+    return new ModuleInfoExtractor(
+        name -> true, new LabelRenderer(repositoryMapping, Optional.of(mainRepoName)));
   }
 
   @Test
@@ -681,15 +689,15 @@ public final class ModuleInfoExtractorTest {
     RepositoryName canonicalName = RepositoryName.create("canonical");
     RepositoryMapping repositoryMapping =
         RepositoryMapping.create(ImmutableMap.of("local", canonicalName), RepositoryName.MAIN);
-    ModuleInfo moduleInfo = getExtractor(repositoryMapping).extractFrom(module);
+    ModuleInfo moduleInfo = getExtractor(repositoryMapping, "my_repo").extractFrom(module);
     assertThat(
             moduleInfo.getRuleInfoList().get(0).getAttributeList().stream()
                 .filter(attr -> !attr.equals(ModuleInfoExtractor.IMPLICIT_NAME_ATTRIBUTE_INFO))
                 .map(AttributeInfo::getDefaultValue))
         .containsExactly(
-            "\"//test:foo\"",
-            "[\"//x\", \"@local//y\", \"@local//y:z\"]",
-            "{\"//x\": \"label_in_main\", \"@local//y\": \"label_in_dep\"}");
+            "\"@my_repo//test:foo\"",
+            "[\"@my_repo//x\", \"@local//y\", \"@local//y:z\"]",
+            "{\"@my_repo//x\": \"label_in_main\", \"@local//y\": \"label_in_dep\"}");
   }
 
   @Test

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.concurrent;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static java.lang.Thread.currentThread;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -41,11 +40,6 @@ import javax.annotation.Nullable;
  *
  * <p>The queue for non-CPUHeavy tasks has a fixed capacity. When full, callers of execute assist
  * with enqueued work.
- *
- * <p>Threads may voluntarily assist with queued work by calling {@link
- * TieredPriorityExecutor#tryDoQueuedWork} when a thread is about to block. If tasks are available,
- * the current thread may perform a task inside {@link TieredPriorityExecutor#tryDoQueuedWork}
- * before it returns. This may add latency to the donating thread but can reduce overhead.
  */
 public final class TieredPriorityExecutor implements QuiescingExecutor {
   /** A common cleaner shared by all executors. */
@@ -161,23 +155,6 @@ public final class TieredPriorityExecutor implements QuiescingExecutor {
   @VisibleForTesting
   public CountDownLatch getInterruptionLatchForTestingOnly() {
     throw new UnsupportedOperationException();
-  }
-
-  /**
-   * Attempts to donate work on the current thread.
-   *
-   * <p>Calling this method may be useful if the current thread is about to block. Subject to
-   * scheduling constraints, attempts to poll work from the queue and execute it on the current
-   * thread.
-   *
-   * @return true if work was donated, false otherwise.
-   */
-  public static boolean tryDoQueuedWork() {
-    var thread = currentThread();
-    if (!(thread instanceof PriorityWorkerPool.WorkerThread)) {
-      return false;
-    }
-    return ((PriorityWorkerPool.WorkerThread) thread).tryDoQueuedWork();
   }
 
   /**

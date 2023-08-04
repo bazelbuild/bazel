@@ -71,11 +71,11 @@ public abstract class DirtyBuildingState implements PriorityTracker {
    * needs to be re-scheduled, and ensures that only one thread gets a true return value.
    *
    * <p>The second problem is solved by first adding the newly discovered deps to a node's {@link
-   * InMemoryNodeEntry#directDeps}, and then looping through the direct deps and registering this
-   * node as a reverse dependency. This ensures that the signaledDeps counter can only reach {@link
-   * GroupedDeps#numElements} on the very last iteration of the loop, i.e., the thread is not
-   * working on the node anymore. Note that this requires that there is no code after the loop in
-   * {@link ParallelEvaluator.Evaluate#run}.
+   * IncrementalInMemoryNodeEntry#directDeps}, and then looping through the direct deps and
+   * registering this node as a reverse dependency. This ensures that the signaledDeps counter can
+   * only reach {@link GroupedDeps#numElements} on the very last iteration of the loop, i.e., the
+   * thread is not working on the node anymore. Note that this requires that there is no code after
+   * the loop in {@link ParallelEvaluator.Evaluate#run}.
    */
   private int signaledDeps = NOT_EVALUATING_SENTINEL;
 
@@ -114,7 +114,7 @@ public abstract class DirtyBuildingState implements PriorityTracker {
    * value last time the node was built). They will be compared to dependencies requested on this
    * build to check whether this node has changed in {@link NodeEntry#setValue}. If they are null,
    * it means that this node is being built for the first time. See {@link
-   * InMemoryNodeEntry#directDeps} for more on dependency group storage.
+   * IncrementalInMemoryNodeEntry#directDeps} for more on dependency group storage.
    *
    * <p>Public only for the use of alternative graph implementations.
    */
@@ -216,7 +216,9 @@ public abstract class DirtyBuildingState implements PriorityTracker {
    * DirtyBuildingState#getNumOfGroupsInLastBuildDirectDeps()}.
    */
   final void signalDep(
-      InMemoryNodeEntry entry, Version childVersion, @Nullable SkyKey childForDebugging) {
+      IncrementalInMemoryNodeEntry entry,
+      Version childVersion,
+      @Nullable SkyKey childForDebugging) {
     // Synchronization isn't needed here because the only caller is InMemoryNodeEntry, which does it
     // through the synchronized method signalDep.
     checkState(isEvaluating(), "%s %s", entry, childForDebugging);

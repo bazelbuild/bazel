@@ -18,9 +18,9 @@ landing_page:
     items:
     # Item 1
     - image_path: /community/images/aspect-dev-logo.png
-      heading: Aspect
+      heading: Aspect Development
       description: >
-        Aspect is a Bazel consulting company. For years our experts have contributed to Bazel at
+        Aspect Development is a Bazel consulting company. For years our experts have contributed to Bazel at
         Google and maintained official Bazel rules. We offer clients this firsthand, comprehensive
         technical experience both with Bazel itself and with the ways it integrates with the
         surrounding toolchain, developer workflow, and business processes. With decades of combined

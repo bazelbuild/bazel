@@ -1,3 +1,43 @@
+## Release 6.3.1 (2023-07-31)
+
+```
+Baseline:  0f231ac8acabcd8aa309da041c98ab90a1552418
+
+Release Notes:
+
++ Mark isolated extension usages as experimental (#19050)
++ Fix a bug where frozen targets list was mutated while expanding env attribute (#19052)
++ Add documentation for --experimental_isolated_extension_usage (#19071)
++ Advertise CcInfo from cc_import (#19086)
++ Create .bazelversion to address postsubmit issues (#19089)
++ Update java_tools version to 12.6 (#19091)
++ Disable lockfiles by default (#19106)
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as Brentley Jones, Fabian Meumertzheim, oquenchil, Xùdōng Yáng.
+```
+
+## Release 7.0.0-pre.20230710.5 (2023-07-28)
+
+```
+Baseline: 7845acae9769a72dc507dc2f57c4e032ebf429d3
+
+Cherry picks:
+
+   + d9e2f9181f8fa283e3986ee3b261e610c41cf61b:
+     Avoid overcounting in ActionLookupValueProgressReceiver.
+   + da23370dcdf6ea19545002fb86bd5d3e6519cdf6:
+     Fix crash for top level aspects on targets with non-idempotent
+     rule transitions.
+   + 4714cd70c83de43ba7ab10c29e63af716216770a:
+     Reuse the built set of tools in `SpawnAction.Builder`.
+   + 0a1d50533078283fab93024681c917303a91c46c:
+     Correctly handle symlinks when prefetching.
+```
+
+Initial release.
+
 ## Release 6.3.0 (2023-07-24)
 
 ```

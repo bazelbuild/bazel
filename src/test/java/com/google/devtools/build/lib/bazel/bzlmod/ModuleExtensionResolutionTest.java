@@ -428,6 +428,55 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
   }
 
   @Test
+  public void multipleExtensions_sameName() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "bazel_dep(name='data_repo', version='1.0')",
+        "first_ext = use_extension('//first_ext:defs.bzl', 'ext')",
+        "first_ext.tag(name='foo', data='first_fu')",
+        "first_ext.tag(name='bar', data='first_ba')",
+        "use_repo(first_ext, first_foo='foo', first_bar='bar')",
+        "second_ext = use_extension('//second_ext:defs.bzl', 'ext')",
+        "second_ext.tag(name='foo', data='second_fu')",
+        "second_ext.tag(name='bar', data='second_ba')",
+        "use_repo(second_ext, second_foo='foo', second_bar='bar')");
+    scratch.file(workspaceRoot.getRelative("first_ext/BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("first_ext/defs.bzl").getPathString(),
+        "load('@data_repo//:defs.bzl','data_repo')",
+        "tag = tag_class(attrs = {'name':attr.string(),'data':attr.string()})",
+        "def _ext_impl(ctx):",
+        "  for mod in ctx.modules:",
+        "    for tag in mod.tags.tag:",
+        "      data_repo(name=tag.name,data=tag.data)",
+        "ext = module_extension(implementation=_ext_impl, tag_classes={'tag':tag})");
+    scratch.file(workspaceRoot.getRelative("second_ext/BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("second_ext/defs.bzl").getPathString(),
+        "load('//first_ext:defs.bzl', _ext = 'ext')",
+        "ext = _ext");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@first_foo//:data.bzl', first_foo_data='data')",
+        "load('@first_bar//:data.bzl', first_bar_data='data')",
+        "load('@second_foo//:data.bzl', second_foo_data='data')",
+        "load('@second_bar//:data.bzl', second_bar_data='data')",
+        "data = 'first_foo:'+first_foo_data+' first_bar:'+first_bar_data"
+            + "+' second_foo:'+second_foo_data+' second_bar:'+second_bar_data");
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    EvaluationResult<BzlLoadValue> result =
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    assertThat(result.get(skyKey).getModule().getGlobal("data"))
+        .isEqualTo(
+            "first_foo:first_fu first_bar:first_ba second_foo:second_fu " + "second_bar:second_ba");
+  }
+
+  @Test
   public void multipleModules() throws Exception {
     scratch.file(
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),
@@ -1845,16 +1894,13 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + "Imported, but reported as indirect dependencies by the extension:\n"
             + "    indirect_dep, indirect_dev_dep\n"
             + "\n"
-            + "\033[35m\033[1m ** You can use the following buildozer command(s) to fix these"
+            + "\033[35m\033[1m ** You can use the following buildozer command to fix these"
             + " issues:\033[0m\n"
             + "\n"
             + "buildozer 'use_repo_add @ext//:defs.bzl ext missing_direct_dep non_dev_as_dev_dep'"
-            + " //MODULE.bazel:all\n"
-            + "buildozer 'use_repo_remove @ext//:defs.bzl ext dev_as_non_dev_dep"
-            + " indirect_dep invalid_dep' //MODULE.bazel:all\n"
-            + "buildozer 'use_repo_add dev @ext//:defs.bzl ext dev_as_non_dev_dep"
-            + " missing_direct_dev_dep' //MODULE.bazel:all\n"
-            + "buildozer 'use_repo_remove dev @ext//:defs.bzl ext indirect_dev_dep invalid_dev_dep"
+            + " 'use_repo_remove @ext//:defs.bzl ext dev_as_non_dev_dep indirect_dep invalid_dep'"
+            + " 'use_repo_add dev @ext//:defs.bzl ext dev_as_non_dev_dep missing_direct_dev_dep'"
+            + " 'use_repo_remove dev @ext//:defs.bzl ext indirect_dev_dep invalid_dev_dep"
             + " non_dev_as_dev_dep' //MODULE.bazel:all",
         ImmutableSet.of(EventKind.WARNING));
   }
@@ -1929,14 +1975,13 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + " extension (may cause the build to fail when used by other modules):\n"
             + "    direct_dev_dep, indirect_dev_dep\n"
             + "\n"
-            + "\033[35m\033[1m ** You can use the following buildozer command(s) to fix these"
+            + "\033[35m\033[1m ** You can use the following buildozer command to fix these"
             + " issues:\033[0m\n"
             + "\n"
             + "buildozer 'use_repo_add @ext//:defs.bzl ext direct_dev_dep indirect_dev_dep"
-            + " missing_direct_dep missing_direct_dev_dep' //MODULE.bazel:all\n"
-            + "buildozer 'use_repo_remove @ext//:defs.bzl ext invalid_dep' //MODULE.bazel:all\n"
-            + "buildozer 'use_repo_remove dev @ext//:defs.bzl ext direct_dev_dep indirect_dev_dep"
-            + " invalid_dev_dep' //MODULE.bazel:all",
+            + " missing_direct_dep missing_direct_dev_dep' 'use_repo_remove @ext//:defs.bzl ext"
+            + " invalid_dep' 'use_repo_remove dev @ext//:defs.bzl ext direct_dev_dep"
+            + " indirect_dev_dep invalid_dev_dep' //MODULE.bazel:all",
         ImmutableSet.of(EventKind.WARNING));
   }
 
@@ -2012,14 +2057,12 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + " extension (may cause the build to fail when used by other modules):\n"
             + "    direct_dep, indirect_dep\n"
             + "\n"
-            + "\033[35m\033[1m ** You can use the following buildozer command(s) to fix these"
+            + "\033[35m\033[1m ** You can use the following buildozer command to fix these"
             + " issues:\033[0m\n"
             + "\n"
             + "buildozer 'use_repo_remove @ext//:defs.bzl ext direct_dep indirect_dep invalid_dep'"
-            + " //MODULE.bazel:all\n"
-            + "buildozer 'use_repo_add dev @ext//:defs.bzl ext direct_dep indirect_dep"
-            + " missing_direct_dep missing_direct_dev_dep' //MODULE.bazel:all\n"
-            + "buildozer 'use_repo_remove dev @ext//:defs.bzl ext invalid_dev_dep'"
+            + " 'use_repo_add dev @ext//:defs.bzl ext direct_dep indirect_dep missing_direct_dep"
+            + " missing_direct_dev_dep' 'use_repo_remove dev @ext//:defs.bzl ext invalid_dev_dep'"
             + " //MODULE.bazel:all",
         ImmutableSet.of(EventKind.WARNING));
   }
@@ -2133,11 +2176,11 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + "Imported, but reported as indirect dependencies by the extension:\n"
             + "    indirect_dep\n"
             + "\n"
-            + "\033[35m\033[1m ** You can use the following buildozer command(s) to fix these"
+            + "\033[35m\033[1m ** You can use the following buildozer command to fix these"
             + " issues:\033[0m\n"
             + "\n"
-            + "buildozer 'use_repo_add ext1 direct_dep missing_direct_dep' //MODULE.bazel:all\n"
-            + "buildozer 'use_repo_remove ext1 indirect_dep' //MODULE.bazel:all",
+            + "buildozer 'use_repo_add ext1 direct_dep missing_direct_dep' 'use_repo_remove ext1"
+            + " indirect_dep' //MODULE.bazel:all",
         ImmutableSet.of(EventKind.WARNING));
     assertContainsEvent(
         "WARNING /ws/MODULE.bazel:8:21: The module extension ext defined in @ext//:defs.bzl"
@@ -2147,7 +2190,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + " build to fail):\n"
             + "    missing_direct_dep\n"
             + "\n"
-            + "\033[35m\033[1m ** You can use the following buildozer command(s) to fix these"
+            + "\033[35m\033[1m ** You can use the following buildozer command to fix these"
             + " issues:\033[0m\n"
             + "\n"
             + "buildozer 'use_repo_add ext2 missing_direct_dep' //MODULE.bazel:all",
@@ -2217,11 +2260,11 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + "Imported, but reported as indirect dependencies by the extension:\n"
             + "    indirect_dep\n"
             + "\n"
-            + "\033[35m\033[1m ** You can use the following buildozer command(s) to fix these"
+            + "\033[35m\033[1m ** You can use the following buildozer command to fix these"
             + " issues:\033[0m\n"
             + "\n"
-            + "buildozer 'use_repo_add ext1 direct_dep missing_direct_dep' //MODULE.bazel:all\n"
-            + "buildozer 'use_repo_remove ext1 indirect_dep' //MODULE.bazel:all",
+            + "buildozer 'use_repo_add ext1 direct_dep missing_direct_dep' 'use_repo_remove ext1"
+            + " indirect_dep' //MODULE.bazel:all",
         ImmutableSet.of(EventKind.WARNING));
     assertContainsEvent(
         "WARNING /ws/MODULE.bazel:8:21: The module extension ext defined in @ext//:defs.bzl"
@@ -2231,7 +2274,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + " build to fail):\n"
             + "    missing_direct_dep\n"
             + "\n"
-            + "\033[35m\033[1m ** You can use the following buildozer command(s) to fix these"
+            + "\033[35m\033[1m ** You can use the following buildozer command to fix these"
             + " issues:\033[0m\n"
             + "\n"
             + "buildozer 'use_repo_add ext2 missing_direct_dep' //MODULE.bazel:all",

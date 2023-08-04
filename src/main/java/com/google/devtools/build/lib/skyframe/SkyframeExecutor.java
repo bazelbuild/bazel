@@ -1828,6 +1828,23 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return evaluateSkyKeys(eventHandler, skyKeys, false);
   }
 
+  /** Evaluates sky keys that require action execution and returns their evaluation results. */
+  public EvaluationResult<SkyValue> evaluateSkyKeysWithExecution(
+      final Reporter reporter,
+      final Executor executor,
+      final Iterable<? extends SkyKey> skyKeys,
+      final OptionsProvider options,
+      final ActionCacheChecker actionCacheChecker) {
+
+    prepareSkyframeActionExecutorForExecution(reporter, executor, options, actionCacheChecker);
+    try {
+      return evaluateSkyKeys(
+          reporter, skyKeys, options.getOptions(KeepGoingOption.class).keepGoing);
+    } finally {
+      cleanUpAfterSingleEvaluationWithActionExecution(reporter);
+    }
+  }
+
   /**
    * Evaluates the given sky keys, blocks, and returns their evaluation results. Enables/disables
    * "keep going" on evaluation errors as specified.

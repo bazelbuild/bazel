@@ -27,9 +27,6 @@ if [ "${PLATFORM}" != "darwin" ]; then
   exit 0
 fi
 
-source "${CURRENT_DIR}/apple_common.sh" \
-  || { echo "apple_common.sh not found!" >&2; exit 1; }
-
 function set_up() {
   copy_examples
   setup_objc_test_support

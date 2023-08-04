@@ -1466,4 +1466,30 @@ EOF
   expect_log "Attr '\$tool' declares a transition for non-existent exec group 'exec_gp'"
 }
 
+function test_aspect_with_missing_attr() {
+  local package="test"
+  mkdir -p "${package}"
+
+  cat > "${package}/BUILD" <<EOF
+sh_library(name = "foo")
+EOF
+
+  cat > "${package}/a.bzl" <<EOF
+def _a_impl(t, ctx):
+    return [DefaultInfo()]
+
+a = aspect(
+    implementation = _a_impl,
+    attrs = {"_missing": attr.label(default = "//missing")},
+    attr_aspects = ["*"],
+)
+EOF
+
+  bazel build -k "//${package}:foo" --aspects="//${package}:a.bzl%a" \
+      &> $TEST_log && fail "Build succeeded, expected to fail"
+
+  expect_not_log "IllegalStateException"
+  expect_log "no such package 'missing'"
+}
+
 run_suite "Tests for aspects"

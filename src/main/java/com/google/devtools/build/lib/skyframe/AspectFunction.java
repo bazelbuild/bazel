@@ -310,14 +310,14 @@ final class AspectFunction implements SkyFunction {
               starlarkExecTransition.orElse(null),
               env,
               env.getListener());
-      if (depValueMap == null) {
-        return null;
-      }
       if (!computeDependenciesState.transitiveRootCauses().isEmpty()) {
         NestedSet<Cause> causes = computeDependenciesState.transitiveRootCauses().build();
         throw new AspectFunctionException(
             new AspectCreationException(
                 "Loading failed", causes, getPrioritizedDetailedExitCode(causes)));
+      }
+      if (depValueMap == null) {
+        return null;
       }
 
       // Load the requested toolchains into the ToolchainContext, now that we have dependencies.

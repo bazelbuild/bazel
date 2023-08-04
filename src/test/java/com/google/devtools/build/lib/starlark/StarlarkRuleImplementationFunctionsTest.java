@@ -2620,7 +2620,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "  implementation = _foo_impl,",
         "  attrs = {",
         "    '_attr': attr.label(",
-        "        cfg = apple_common.multi_arch_split,",
+        "        cfg = android_common.multi_cpu_configuration,",
         "        default = configuration_field(fragment='cpp', name = 'cc_toolchain'))})");
 
     scratch.file("test/BUILD", "load('//test:rule.bzl', 'foo')", "foo(name='foo')");

@@ -310,36 +310,6 @@ public class BuildRequestOptions extends OptionsBase {
     return symlinkPrefix == null ? productName + "-" : symlinkPrefix;
   }
 
-  // Transitional flag for safely rolling out new convenience symlink behavior.
-  // To be made a no-op and deleted once new symlink behavior is battle-tested.
-  @Option(
-      name = "use_top_level_targets_for_symlinks",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "If enabled, the symlinks are based on the configurations of the top-level targets "
-              + " rather than the top-level target configuration. If this would be ambiguous, "
-              + " the symlinks will be deleted to avoid confusion.")
-  public boolean useTopLevelTargetsForSymlinks;
-
-  /**
-   * Returns whether to use the output directories used by the top-level targets for convenience
-   * symlinks.
-   *
-   * <p>If true, then symlinks use the actual output directories of the top-level targets. The
-   * symlinks will be created iff all top-level targets share the same output directory. Otherwise,
-   * any stale symlinks from previous invocations will be deleted to avoid ambiguity.
-   *
-   * <p>If false, then symlinks use the output directory implied by command-line flags, regardless
-   * of whether top-level targets have transitions which change them (or even have any output
-   * directories at all, as in the case of a build with no targets or one which only builds source
-   * files).
-   */
-  public boolean useTopLevelTargetsForSymlinks() {
-    return useTopLevelTargetsForSymlinks;
-  }
-
   @Option(
       name = "experimental_create_py_symlinks",
       defaultValue = "false",

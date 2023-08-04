@@ -120,7 +120,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       String name)
       throws EvalException {
     Attribute.Builder<?> builder = Attribute.attr(name, type).starlarkDefined();
-    doc.ifPresent(builder::setDoc);
+    doc.map(Starlark::trimDocString).ifPresent(builder::setDoc);
 
     Object defaultValue = arguments.get(DEFAULT_ARG);
     if (!Starlark.isNullOrNone(defaultValue)) {

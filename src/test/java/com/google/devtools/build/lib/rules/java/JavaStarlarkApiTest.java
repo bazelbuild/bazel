@@ -3611,6 +3611,13 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     assertContainsEvent("got element of type CcInfo, want JavaInfo");
   }
 
+  @Test
+  public void testNativeJavaInfoPrintableType_isJavaInfo() {
+    String type = JavaStarlarkCommon.printableType(JavaInfo.EMPTY);
+
+    assertThat(type).isEqualTo("JavaInfo");
+  }
+
   private String getJvmFlags(Artifact executable)
       throws CommandLineExpansionException, InterruptedException, EvalException {
     if (OS.getCurrent() == OS.WINDOWS) {

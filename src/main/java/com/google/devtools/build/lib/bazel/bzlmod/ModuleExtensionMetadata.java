@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
@@ -31,7 +32,6 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -285,7 +285,7 @@ public class ModuleExtensionMetadata implements StarlarkValue {
               String.join(", ", indirectDepImports));
     }
 
-    var fixupCommands =
+    var fixupCommand =
         Stream.of(
                 makeUseRepoCommand(
                     "use_repo_add",
@@ -315,19 +315,18 @@ public class ModuleExtensionMetadata implements StarlarkValue {
                     extensionBzlFile,
                     extensionName,
                     rootUsage.getIsolationKey()))
-            .flatMap(Optional::stream);
+            .flatMap(Optional::stream)
+            .collect(joining(" ", "buildozer ", " //MODULE.bazel:all"));
 
     return Optional.of(
         Event.warn(
             location,
             message
                 + String.format(
-                    "%s ** You can use the following buildozer command(s) to fix these"
+                    "%s ** You can use the following buildozer command to fix these"
                         + " issues:%s\n\n"
                         + "%s",
-                    "\033[35m\033[1m",
-                    "\033[0m",
-                    fixupCommands.collect(Collectors.joining("\n")))));
+                    "\033[35m\033[1m", "\033[0m", fixupCommand)));
   }
 
   private static Optional<String> makeUseRepoCommand(
@@ -354,8 +353,7 @@ public class ModuleExtensionMetadata implements StarlarkValue {
       commandParts.add(extensionName);
     }
     commandParts.addAll(repos);
-    return Optional.of(
-        String.format("buildozer '%s' //MODULE.bazel:all", String.join(" ", commandParts)));
+    return Optional.of(commandParts.stream().collect(joining(" ", "'", "'")));
   }
 
   private Optional<ImmutableSet<String>> getRootModuleDirectDeps(Set<String> allRepos)
