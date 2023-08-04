@@ -112,6 +112,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       // false is the safe thing to do.
       return false;
     }
+
     return describeSemantics(starlarkSemantics).equals(markerData.get(SEMANTICS));
   }
 
@@ -158,7 +159,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
               () -> {
                 try {
                   return fetchInternal(
-                      rule, outputDirectory, directories, workerEnv, markerData, key);
+                      rule, outputDirectory, directories, workerEnv, state.markerData, key);
                 } finally {
                   state.signalQueue.put(Signal.DONE);
                 }
@@ -174,7 +175,9 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
         return null;
       case DONE:
         try {
-          return workerFuture.get();
+          RepositoryDirectoryValue.Builder result = workerFuture.get();
+          markerData.putAll(state.markerData);
+          return result;
         } catch (ExecutionException e) {
           Throwables.throwIfInstanceOf(e.getCause(), RepositoryFunctionException.class);
           Throwables.throwIfUnchecked(e.getCause());
