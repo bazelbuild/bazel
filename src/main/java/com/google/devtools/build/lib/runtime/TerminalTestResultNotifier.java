@@ -142,13 +142,13 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
    * @param summaries summaries of tests {@link TestSummary}
    * @param showAllTests if true, print information about each test regardless of its status
    * @param showNoStatusTests if true, print information about not executed tests (no status tests)
-   * @param printTestCases if true, print all test cases status and detailed information
+   * @param showAllTestCases if true, print all test cases status and detailed information
    */
   private void printSummary(
       Set<TestSummary> summaries,
       boolean showAllTests,
       boolean showNoStatusTests,
-      boolean printTestCases) {
+      boolean showAllTestCases) {
     boolean withConfig = duplicateLabels(summaries);
     int numFailedToBuildReported = 0;
     for (TestSummary summary : summaries) {
@@ -171,7 +171,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
           printer,
           testLogPathFormatter,
           summaryOptions.verboseSummary,
-          printTestCases,
+          showAllTestCases,
           withConfig);
     }
   }
@@ -245,7 +245,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
             summaries,
             /* showAllTests= */ true,
             /* showNoStatusTests= */ true,
-            /* printTestCases= */ true);
+            /* showAllTestCases= */ true);
         break;
 
       case SHORT:
@@ -253,7 +253,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
             summaries,
             /* showAllTests= */ true,
             /* showNoStatusTests= */ false,
-            /* printTestCases= */ false);
+            /* showAllTestCases= */ false);
         break;
 
       case TERSE:
@@ -261,7 +261,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
             summaries,
             /* showAllTests= */ false,
             /* showNoStatusTests= */ false,
-            /* printTestCases= */ false);
+            /* showAllTestCases= */ false);
         break;
 
       case TESTCASE:

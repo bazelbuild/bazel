@@ -118,14 +118,8 @@ public class TestSummaryPrinter {
       AnsiTerminalPrinter terminalPrinter,
       TestLogPathFormatter testLogPathFormatter,
       boolean verboseSummary,
-      boolean printTestCases) {
-    print(
-        summary,
-        terminalPrinter,
-        testLogPathFormatter,
-        verboseSummary,
-        printTestCases,
-        false);
+      boolean showAllTestCases) {
+    print(summary, terminalPrinter, testLogPathFormatter, verboseSummary, showAllTestCases, false);
   }
 
   /**
@@ -137,7 +131,7 @@ public class TestSummaryPrinter {
       AnsiTerminalPrinter terminalPrinter,
       TestLogPathFormatter testLogPathFormatter,
       boolean verboseSummary,
-      boolean printTestCases,
+      boolean showAllTestCases,
       boolean withConfigurationName) {
     BlazeTestStatus status = summary.getStatus();
     // Skip output for tests that failed to build.
@@ -159,7 +153,7 @@ public class TestSummaryPrinter {
             + (verboseSummary ? getAttemptSummary(summary) + getTimeSummary(summary) : "")
             + "\n");
 
-    if (printTestCases) {
+    if (showAllTestCases) {
       for (TestCase testCase : summary.getPassedTestCases()) {
         TestSummaryPrinter.printTestCase(terminalPrinter, testCase);
       }
