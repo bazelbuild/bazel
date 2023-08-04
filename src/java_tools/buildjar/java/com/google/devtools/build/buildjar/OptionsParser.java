@@ -83,7 +83,6 @@ public final class OptionsParser {
 
   private final List<String> processorPath = new ArrayList<>();
   private final List<String> processorNames = new ArrayList<>();
-  private final List<String> builtinProcessorNames = new ArrayList<>();
 
   private String outputJar;
   @Nullable private String nativeHeaderOutput;
@@ -192,7 +191,8 @@ public final class OptionsParser {
           collectProcessorArguments(processorNames, argQueue, "-");
           break;
         case "--builtin_processors":
-          collectProcessorArguments(builtinProcessorNames, argQueue, "-");
+          // TODO(b/294594306): remove once Blaze no longer passes this flag
+          collectProcessorArguments(new ArrayList<>(), argQueue, "-");
           break;
         case "--output":
           outputJar = getArgument(argQueue, arg);
@@ -419,10 +419,6 @@ public final class OptionsParser {
 
   public List<String> getProcessorNames() {
     return processorNames;
-  }
-
-  public List<String> getBuiltinProcessorNames() {
-    return builtinProcessorNames;
   }
 
   public String getOutputJar() {
