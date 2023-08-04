@@ -427,5 +427,54 @@ EOF
   expect_log_once "Runfiles must not contain middleman artifacts"
 }
 
+function test_manifest_action_reruns_on_output_base_change() {
+  CURRENT_DIRECTORY=$(pwd)
+
+  OUTPUT_BASE="${CURRENT_DIRECTORY}/test/outputs/__main__"
+  TEST_FOLDER_1="${CURRENT_DIRECTORY}/test/test1"
+  TEST_FOLDER_2="${CURRENT_DIRECTORY}/test/test2"
+
+  mkdir -p "${OUTPUT_BASE}"
+  mkdir -p "${TEST_FOLDER_1}"
+  mkdir -p "${TEST_FOLDER_2}"
+
+  cd "${TEST_FOLDER_1}"
+  touch WORKSPACE
+  cat > BUILD <<EOF
+sh_binary(
+    name = "hello_world",
+    srcs = ["hello_world.sh"],
+)
+EOF
+  cat > hello_world.sh <<EOF
+echo "Hello World"
+EOF
+  chmod +x hello_world.sh
+
+  cd "${TEST_FOLDER_2}"
+  touch WORKSPACE
+  cat > BUILD <<EOF
+sh_binary(
+    name = "hello_world",
+    srcs = ["hello_world.sh"],
+)
+EOF
+  cat > hello_world.sh <<EOF
+echo "Hello World"
+EOF
+  chmod +x hello_world.sh
+
+  cd "${TEST_FOLDER_1}"
+  bazel --output_base="${OUTPUT_BASE}" build //...
+
+  assert_contains "${TEST_FOLDER_1}" bazel-bin/hello_world.runfiles_manifest
+  assert_not_contains "${TEST_FOLDER_2}" bazel-bin/hello_world.runfiles_manifest
+
+  cd "${TEST_FOLDER_2}"
+  bazel --output_base="${OUTPUT_BASE}" build //...
+
+  assert_not_contains "${TEST_FOLDER_1}" bazel-bin/hello_world.runfiles_manifest
+  assert_contains "${TEST_FOLDER_2}" bazel-bin/hello_world.runfiles_manifest
+}
 
 run_suite "runfiles"

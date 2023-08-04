@@ -155,6 +155,11 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
     public boolean isRemotable() {
       return false;
     }
+
+    @Override
+    public boolean emitsAbsolutePaths() {
+      return false;
+    }
   }
 
   /**
