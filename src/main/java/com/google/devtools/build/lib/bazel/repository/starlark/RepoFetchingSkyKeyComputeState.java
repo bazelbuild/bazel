@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.bazel.repository.starlark;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Future;
 import java.util.concurrent.SynchronousQueue;
@@ -51,11 +53,13 @@ class RepoFetchingSkyKeyComputeState implements SkyKeyComputeState {
 
   /** The channel for the worker thread to send a signal to the host Skyframe thread. */
   final BlockingQueue<Signal> signalQueue = new SynchronousQueue<>();
+
   /**
    * The channel for the host Skyframe thread to send fresh {@link SkyFunction.Environment} objects
    * back to the worker thread.
    */
   final BlockingQueue<SkyFunction.Environment> delegateEnvQueue = new SynchronousQueue<>();
+
   /**
    * This future holds on to the worker thread in order to cancel it when necessary; it also serves
    * to tell whether a worker thread is already running.
@@ -65,6 +69,14 @@ class RepoFetchingSkyKeyComputeState implements SkyKeyComputeState {
   // only need to worry about nullness. Using a mutex/synchronization is an alternative but it means
   // we might block in `close()`, which is potentially bad (see its javadoc).
   @Nullable volatile Future<RepositoryDirectoryValue.Builder> workerFuture = null;
+
+  /**
+   * This is where the {@code markerData} for the whole invocation is collected.
+   *
+   * <p>{@link com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction} creates a
+   * new map on each restart, so we can't simply plumb that in.
+   */
+  final Map<String, String> markerData = new TreeMap<>();
 
   SkyFunction.Environment signalForFreshEnv() throws InterruptedException {
     signalQueue.put(Signal.RESTART);
