@@ -669,11 +669,7 @@ public class TestSummaryTest {
 
   private TestSummary createPassedTestSummary(BlazeTestStatus status,
       List<TestCase> details) {
-    TestSummary summary = getTemplateBuilder()
-        .setStatus(status)
-        .addPassedTestCases(details)
-        .build();
-    return summary;
+    return getTemplateBuilder().setStatus(status).addPassedTestCases(details).build();
   }
 
   private TestSummary createTestSummaryWithDetails(BlazeTestStatus status,
