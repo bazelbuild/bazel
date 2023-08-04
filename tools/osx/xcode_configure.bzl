@@ -293,7 +293,7 @@ def _impl(repository_ctx):
 
 xcode_autoconf = repository_rule(
     implementation = _impl,
-    local = True,
+    configure = True,
     attrs = {
         "xcode_locator": attr.string(),
         "remote_xcode": attr.string(),
