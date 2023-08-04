@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -103,6 +104,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
 
     if (!toolCheckAtDefinition
         || !attribute.isImplicit()
+        || attribute.getName().equals(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE)
         || rule.getRuleClassObject().getRuleDefinitionEnvironmentLabel() == null) {
       // Default check: The attribute must be visible from the target.
       if (!context.isVisible(prerequisite.getConfiguredTarget())) {
