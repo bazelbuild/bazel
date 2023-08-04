@@ -42,7 +42,7 @@ import org.junit.runner.RunWith;
 @RunWith(TestParameterInjector.class)
 public final class InMemoryNodeEntryTest {
 
-  @TestParameter public boolean isPartialReevaluation;
+  @TestParameter private boolean isPartialReevaluation;
 
   private static final SkyKey REGULAR_KEY = GraphTester.toSkyKey("regular");
   private static final SkyKey PARTIAL_REEVALUATION_KEY =
@@ -788,51 +788,6 @@ public final class InMemoryNodeEntryTest {
     assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.REBUILDING);
     assertThat(setValue(entry, new SkyValue() {}, /* errorInfo= */ null, /* graphVersion= */ 1L))
         .containsExactly(newParent);
-  }
-
-  @Test
-  public void testClone() throws InterruptedException {
-    InMemoryNodeEntry entry = createEntry();
-    IntVersion version = IntVersion.of(0);
-    IntegerValue originalValue = new IntegerValue(42);
-    SkyKey originalChild = key("child");
-    assertThatNodeEntry(entry)
-        .addReverseDepAndCheckIfDone(null)
-        .isEqualTo(DependencyState.NEEDS_SCHEDULING);
-    entry.markRebuilding();
-    entry.addSingletonTemporaryDirectDep(originalChild);
-    entry.signalDep(ZERO_VERSION, originalChild);
-    entry.setValue(originalValue, version, null);
-    entry.addReverseDepAndCheckIfDone(key("parent1"));
-    InMemoryNodeEntry clone1 = entry.cloneNodeEntry();
-    entry.addReverseDepAndCheckIfDone(key("parent2"));
-    InMemoryNodeEntry clone2 = entry.cloneNodeEntry();
-    entry.removeReverseDep(key("parent1"));
-    entry.removeReverseDep(key("parent2"));
-    IntegerValue updatedValue = new IntegerValue(52);
-    clone2.markDirty(DirtyType.CHANGE);
-    clone2.addReverseDepAndCheckIfDone(null);
-    SkyKey newChild = key("newchild");
-    clone2.addSingletonTemporaryDirectDep(newChild);
-    clone2.signalDep(ONE_VERSION, newChild);
-    clone2.markRebuilding();
-    clone2.setValue(updatedValue, version.next(), null);
-
-    assertThat(entry.getVersion()).isEqualTo(version);
-    assertThat(clone1.getVersion()).isEqualTo(version);
-    assertThat(clone2.getVersion()).isEqualTo(version.next());
-
-    assertThat(entry.getValue()).isEqualTo(originalValue);
-    assertThat(clone1.getValue()).isEqualTo(originalValue);
-    assertThat(clone2.getValue()).isEqualTo(updatedValue);
-
-    assertThat(entry.getDirectDeps()).containsExactly(originalChild);
-    assertThat(clone1.getDirectDeps()).containsExactly(originalChild);
-    assertThat(clone2.getDirectDeps()).containsExactly(newChild);
-
-    assertThat(entry.getReverseDepsForDoneEntry()).isEmpty();
-    assertThat(clone1.getReverseDepsForDoneEntry()).containsExactly(key("parent1"));
-    assertThat(clone2.getReverseDepsForDoneEntry()).containsExactly(key("parent1"), key("parent2"));
   }
 
   @Test
