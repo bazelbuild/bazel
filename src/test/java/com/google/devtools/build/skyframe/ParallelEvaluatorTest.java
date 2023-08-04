@@ -387,7 +387,7 @@ public class ParallelEvaluatorTest {
     // thread, aka the main Skyframe evaluation thread),
     CountDownLatch keyAStartedComputingLatch = new CountDownLatch(1);
     CountDownLatch keyBAddReverseDepAndCheckIfDoneLatch = new CountDownLatch(1);
-    InMemoryNodeEntry nodeEntryB = spy(new InMemoryNodeEntry(keyB));
+    InMemoryNodeEntry nodeEntryB = spy(new IncrementalInMemoryNodeEntry(keyB));
     AtomicBoolean keyBAddReverseDepAndCheckIfDoneInterrupted = new AtomicBoolean(false);
     doAnswer(
             invocation -> {

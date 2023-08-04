@@ -16,6 +16,7 @@ package com.google.devtools.build.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -235,7 +236,7 @@ public interface NodeEntry extends PriorityTracker {
    * <p>May only be called on a done node entry.
    */
   @ThreadSafe
-  Iterable<SkyKey> getReverseDepsForDoneEntry() throws InterruptedException;
+  Collection<SkyKey> getReverseDepsForDoneEntry() throws InterruptedException;
 
   /**
    * Returns raw {@link SkyValue} stored in this entry, which may include metadata associated with

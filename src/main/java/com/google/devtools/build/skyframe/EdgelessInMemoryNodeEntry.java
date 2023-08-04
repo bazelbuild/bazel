@@ -23,7 +23,8 @@ package com.google.devtools.build.skyframe;
  * while the node is being built, but will not be stored once the node is done and written to the
  * graph. Any attempt to access the edges once the node is done will fail the build fast.
  */
-public class EdgelessInMemoryNodeEntry extends InMemoryNodeEntry {
+// TODO(b/262871730): Do not extend IncrementalInMemoryNodeEntry.
+public class EdgelessInMemoryNodeEntry extends IncrementalInMemoryNodeEntry {
 
   public EdgelessInMemoryNodeEntry(SkyKey key) {
     super(key);
