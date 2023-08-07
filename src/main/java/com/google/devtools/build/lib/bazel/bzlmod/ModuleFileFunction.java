@@ -351,6 +351,15 @@ public class ModuleFileFunction implements SkyFunction {
     }
 
     // Otherwise, we should get the module file from a registry.
+    if (key.getVersion().isEmpty()) {
+      // Print a friendlier error message if the user forgets to specify a version *and* doesn't
+      // have a non-registry override.
+      throw errorf(
+          Code.MODULE_NOT_FOUND,
+          "bad bazel_dep on module '%s' with no version. Did you forget to specify a version, or a"
+              + " non-registry override?",
+          key.getName());
+    }
     // TODO(wyv): Move registry object creation to BazelRepositoryModule so we don't repeatedly
     //   create them, and we can better report the error (is it a flag error or override error?).
     List<String> registries = Objects.requireNonNull(REGISTRIES.get(env));
@@ -361,6 +370,7 @@ public class ModuleFileFunction implements SkyFunction {
       }
     } else if (override != null) {
       // This should never happen.
+      // TODO(wyv): make ModuleOverride a sealed interface so this is checked at compile time.
       throw new IllegalStateException(
           String.format(
               "unrecognized override type %s for module %s",
