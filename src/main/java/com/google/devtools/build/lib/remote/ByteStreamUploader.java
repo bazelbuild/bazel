@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.devtools.build.lib.remote.util.DigestUtil.isOldStyleDigestFunction;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
 import static java.lang.String.format;
@@ -179,20 +180,12 @@ final class ByteStreamUploader {
         MoreExecutors.directExecutor());
   }
 
-  private boolean isOldStyleDigestFunction() {
-    // Old-style digest functions (SHA256, etc) are distinguishable by the length
-    // of their hash alone and do not require extra specification, but newer
-    // digest functions (which may have the same length hashes as the older
-    // functions!) must be explicitly specified in the upload resource name.
-    return digestFunction.getNumber() <= 7;
-  }
-
   private String buildUploadResourceName(
       String instanceName, UUID uuid, Digest digest, boolean compressed) {
 
     String resourceName;
 
-    if (isOldStyleDigestFunction()) {
+    if (isOldStyleDigestFunction(digestFunction)) {
       String template =
           compressed ? "uploads/%s/compressed-blobs/zstd/%s/%d" : "uploads/%s/blobs/%s/%d";
       resourceName = format(template, uuid, digest.getHash(), digest.getSizeBytes());
