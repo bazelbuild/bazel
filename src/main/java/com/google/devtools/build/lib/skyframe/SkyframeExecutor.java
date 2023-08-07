@@ -278,14 +278,13 @@ import net.starlark.java.eval.StarlarkSemantics;
  */
 public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-
   protected MemoizingEvaluator memoizingEvaluator;
   protected final EmittedEventState emittedEventState = new EmittedEventState();
   protected final PackageFactory pkgFactory;
   private final WorkspaceStatusAction.Factory workspaceStatusActionFactory;
   protected final FileSystem fileSystem;
   protected final BlazeDirectories directories;
-  protected final ExternalFilesHelper externalFilesHelper;
+  final ExternalFilesHelper externalFilesHelper;
   protected final BugReporter bugReporter;
 
   /**
@@ -298,7 +297,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private final FilesMetricConsumer outputArtifactsFromActionCache = new FilesMetricConsumer();
   private final FilesMetricConsumer topLevelArtifactsMetric = new FilesMetricConsumer();
 
-  @Nullable protected OutputService outputService;
+  @Nullable OutputService outputService;
 
   // TODO(bazel-team): Figure out how to handle value builders that block internally. Blocking
   // operations may need to be handled in another (bigger?) thread pool. Also, we should detect
@@ -332,17 +331,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   // AtomicReferences are used here as mutable boxes shared with value builders.
   private final AtomicBoolean showLoadingProgress = new AtomicBoolean();
-  protected final AtomicReference<PathPackageLocator> pkgLocator = new AtomicReference<>();
-  protected final AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages =
+  private final AtomicReference<PathPackageLocator> pkgLocator = new AtomicReference<>();
+  final AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages =
       new AtomicReference<>(ImmutableSet.of());
   private final AtomicReference<EventBus> eventBus = new AtomicReference<>();
-  protected final AtomicReference<TimestampGranularityMonitor> tsgm = new AtomicReference<>();
-  protected final AtomicReference<Map<String, String>> clientEnv = new AtomicReference<>();
+  final AtomicReference<TimestampGranularityMonitor> tsgm = new AtomicReference<>();
+  private final AtomicReference<Map<String, String>> clientEnv = new AtomicReference<>();
 
   private final ArtifactFactory artifactFactory;
   private final ActionKeyContext actionKeyContext;
 
-  protected boolean active = true;
+  boolean active = true;
   private final SkyframePackageManager packageManager;
   private final QueryTransitivePackagePreloader queryTransitivePackagePreloader;
 
@@ -355,7 +354,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private ActionExecutionFunction actionExecutionFunction;
   private BuildDriverFunction buildDriverFunction;
   private GlobFunction globFunction;
-  protected SkyframeProgressReceiver progressReceiver;
+  SkyframeProgressReceiver progressReceiver;
   private CyclesReporter cyclesReporter = null;
 
   @VisibleForTesting boolean lastAnalysisDiscarded = false;
@@ -371,8 +370,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   private final ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions;
 
-  protected SkyframeIncrementalBuildMonitor incrementalBuildMonitor =
-      new SkyframeIncrementalBuildMonitor();
+  SkyframeIncrementalBuildMonitor incrementalBuildMonitor = new SkyframeIncrementalBuildMonitor();
 
   private final SkyFunction ignoredPackagePrefixesFunction;
 
@@ -447,7 +445,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected Duration sourceDiffCheckingDuration = Duration.ofSeconds(-1L);
 
-  class PathResolverFactoryImpl implements PathResolverFactory {
+  final class PathResolverFactoryImpl implements PathResolverFactory {
     @Override
     public boolean shouldCreatePathResolverForArtifactValues() {
       return outputService != null && outputService.supportsPathResolverForArtifactValues();
@@ -1325,8 +1323,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public AtomicReference<PathPackageLocator> getPackageLocator() {
     return pkgLocator;
   }
-
-  protected abstract void invalidate(Predicate<SkyKey> pred);
 
   protected Differencer.Diff getDiff(
       TimestampGranularityMonitor tsgm,
@@ -2239,11 +2235,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return Optional.empty();
   }
 
-  @ForOverride
-  protected SkyKey getUniverseKey(Collection<String> patterns, PathFragment offset) {
-    return PrepareDepsOfPatternsValue.key(ImmutableList.copyOf(patterns), offset);
-  }
-
   /** Returns the generating action of a given artifact ({@code null} if it's a source artifact). */
   @Nullable
   private ActionAnalysisMetadata getGeneratingAction(
@@ -2802,9 +2793,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
      * cache because of --discard_analysis_cache flag. For that case we want to keep the legacy data
      * but get rid of the Skyframe data.
      */
-    protected boolean ignoreInvalidations = false;
+    boolean ignoreInvalidations = false;
+
     /** This receiver is only needed for execution, so it is null otherwise. */
-    @Nullable EvaluationProgressReceiver executionProgressReceiver = null;
+    @Nullable private EvaluationProgressReceiver executionProgressReceiver = null;
 
     /**
      * As the ActionLookupValues are marked done in the graph, put it in the map. This map will be
@@ -3687,11 +3679,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @VisibleForTesting
   public ConfiguredRuleClassProvider getRuleClassProviderForTesting() {
     return ruleClassProvider;
-  }
-
-  @VisibleForTesting
-  public PackageFactory getPackageFactoryForTesting() {
-    return pkgFactory;
   }
 
   @VisibleForTesting
