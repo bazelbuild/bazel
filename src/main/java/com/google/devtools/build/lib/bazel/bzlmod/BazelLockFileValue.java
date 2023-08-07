@@ -92,6 +92,13 @@ public abstract class BazelLockFileValue implements SkyValue, Postable {
       ImmutableMap<String, String> localOverrideHashes,
       BzlmodFlagsAndEnvVars flags) {
     ImmutableList.Builder<String> moduleDiff = new ImmutableList.Builder<>();
+    if (getLockFileVersion() != BazelLockFileValue.LOCK_FILE_VERSION) {
+      return moduleDiff
+          .add(
+              "the version of the lockfile is not compatible with the current Bazel, please run"
+                  + " with '--lockfile_mode=update'")
+          .build();
+    }
     if (!moduleFileHash.equals(getModuleFileHash())) {
       moduleDiff.add("the root MODULE.bazel has been modified");
     }
