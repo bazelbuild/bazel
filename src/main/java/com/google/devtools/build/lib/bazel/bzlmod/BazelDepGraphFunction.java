@@ -129,6 +129,7 @@ public class BazelDepGraphFunction implements SkyFunction {
     if (!lockfileMode.equals(LockfileMode.OFF)) {
       BazelLockFileValue updateLockfile =
           lockfile.toBuilder()
+              .setLockFileVersion(BazelLockFileValue.LOCK_FILE_VERSION)
               .setModuleFileHash(root.getModuleFileHash())
               .setFlags(flags)
               .setLocalOverrideHashes(localOverrideHashes)
@@ -183,7 +184,7 @@ public class BazelDepGraphFunction implements SkyFunction {
     ImmutableMap<String, String> moduleOverrides =
         ModuleFileFunction.MODULE_OVERRIDES.get(env).entrySet().stream()
             .collect(
-                toImmutableMap(e -> e.getKey(), e -> ((LocalPathOverride) e.getValue()).getPath()));
+                toImmutableMap(Entry::getKey, e -> ((LocalPathOverride) e.getValue()).getPath()));
 
     ImmutableList<String> yankedVersions =
         ImmutableList.copyOf(YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.get(env));
