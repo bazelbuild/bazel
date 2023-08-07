@@ -279,6 +279,19 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
   }
 
   @Test
+  public void forgotVersion() throws Exception {
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+
+    SkyKey skyKey = ModuleFileValue.key(createModuleKey("bbb", ""), null);
+    EvaluationResult<ModuleFileValue> result =
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().toString())
+        .contains("bad bazel_dep on module 'bbb' with no version");
+  }
+
+  @Test
   public void testRegistriesCascade() throws Exception {
     // Registry1 has no module B@1.0; registry2 and registry3 both have it. We should be using the
     // B@1.0 from registry2.
