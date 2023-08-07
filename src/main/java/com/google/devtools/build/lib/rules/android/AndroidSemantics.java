@@ -25,8 +25,6 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.android.ProguardHelper.ProguardOutput;
 import com.google.devtools.build.lib.rules.java.BootClassPathInfo;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
-import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import java.util.Map;
 import java.util.Optional;
@@ -89,12 +87,7 @@ public interface AndroidSemantics {
    * @throws InterruptedException
    */
   void addCoverageSupport(
-      RuleContext ruleContext,
-      AndroidCommon common,
-      JavaSemantics javaSemantics,
-      boolean forAndroidTest,
-      JavaTargetAttributes.Builder attributes,
-      JavaCompilationArtifacts.Builder artifactsBuilder)
+      RuleContext ruleContext, boolean forAndroidTest, JavaTargetAttributes.Builder attributes)
       throws InterruptedException;
 
   /** Returns the list of attributes that may contribute Java runtime dependencies. */
