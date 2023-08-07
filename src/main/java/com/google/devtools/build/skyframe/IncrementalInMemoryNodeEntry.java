@@ -306,7 +306,7 @@ public class IncrementalInMemoryNodeEntry implements InMemoryNodeEntry {
     synchronized (this) {
       boolean done = isDone();
       if (!done && dirtyBuildingState == null) {
-        dirtyBuildingState = DirtyBuildingState.createNew(key.hasLowFanout());
+        dirtyBuildingState = new InitialBuildingState(key.hasLowFanout());
       }
       if (reverseDep != null) {
         if (done) {
@@ -432,7 +432,7 @@ public class IncrementalInMemoryNodeEntry implements InMemoryNodeEntry {
   @ForOverride
   protected DirtyBuildingState createDirtyBuildingStateForDoneNode(
       DirtyType dirtyType, GroupedDeps directDeps, SkyValue value) {
-    return DirtyBuildingState.create(dirtyType, directDeps, value, key.hasLowFanout());
+    return new IncrementalDirtyBuildingState(dirtyType, key, directDeps, value);
   }
 
   private static final GroupedDeps EMPTY_LIST = new GroupedDeps();
@@ -667,5 +667,49 @@ public class IncrementalInMemoryNodeEntry implements InMemoryNodeEntry {
   @Override
   public final synchronized String toString() {
     return toStringHelper().toString();
+  }
+
+  /** {@link DirtyBuildingState} for a node on an incremental build. */
+  private static final class IncrementalDirtyBuildingState extends DirtyBuildingState {
+    private final GroupedDeps lastBuildDirectDeps;
+    private final SkyValue lastBuildValue;
+
+    private IncrementalDirtyBuildingState(
+        DirtyType dirtyType, SkyKey key, GroupedDeps lastBuildDirectDeps, SkyValue lastBuildValue) {
+      super(dirtyType, key.hasLowFanout());
+      this.lastBuildDirectDeps = lastBuildDirectDeps;
+      this.lastBuildValue = lastBuildValue;
+      checkState(
+          !dirtyType.equals(DirtyType.DIRTY) || getNumOfGroupsInLastBuildDirectDeps() > 0,
+          "%s is being marked dirty but has no children that could have dirtied it",
+          key);
+    }
+
+    @Override
+    protected boolean isIncremental() {
+      return true;
+    }
+
+    @Override
+    public SkyValue getLastBuildValue() {
+      return lastBuildValue;
+    }
+
+    @Override
+    public GroupedDeps getLastBuildDirectDeps() {
+      return lastBuildDirectDeps;
+    }
+
+    @Override
+    protected int getNumOfGroupsInLastBuildDirectDeps() {
+      return lastBuildDirectDeps.numGroups();
+    }
+
+    @Override
+    protected MoreObjects.ToStringHelper getStringHelper() {
+      return super.getStringHelper()
+          .add("lastBuildDirectDeps", lastBuildDirectDeps)
+          .add("lastBuildValue", lastBuildValue);
+    }
   }
 }

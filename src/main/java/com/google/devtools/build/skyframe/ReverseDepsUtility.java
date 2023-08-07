@@ -73,7 +73,7 @@ abstract class ReverseDepsUtility {
     if (dirtyBuildingState == null) {
       return Op.CHECK;
     }
-    return entry.keepsEdges() && dirtyBuildingState.isDirty() ? Op.CHECK : Op.ADD;
+    return entry.keepsEdges() && dirtyBuildingState.isIncremental() ? Op.CHECK : Op.ADD;
   }
 
   private static void maybeDelayReverseDepOp(
