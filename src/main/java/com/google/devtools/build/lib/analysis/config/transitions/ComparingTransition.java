@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
-import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
@@ -40,7 +39,6 @@ import java.util.function.Predicate;
  * results. For Bazel developer debugging.
  */
 public class ComparingTransition implements PatchTransition {
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final ConfigurationTransition activeTransition;
   private final String activeTransitionDesc;
@@ -86,8 +84,10 @@ public class ComparingTransition implements PatchTransition {
       eventHandler.handle(Event.error(activeTransitionDesc + " transition failed"));
     } else if (runBoth.test(buildOptions.underlying())) {
       compare(
+          buildOptions.underlying(),
           activeOptions.getValue(),
-          Iterables.getOnlyElement(altTransition.apply(buildOptions, eventHandler).values()));
+          Iterables.getOnlyElement(altTransition.apply(buildOptions, eventHandler).values()),
+          eventHandler);
     }
     return activeOptions.getValue();
   }
@@ -99,22 +99,41 @@ public class ComparingTransition implements PatchTransition {
   }
 
   /** Shows differences between two {@link BuildOptions} as debugging terminal output. */
-  private void compare(BuildOptions activeOptions, BuildOptions altOptions) {
+  private void compare(
+      BuildOptions fromOptions,
+      BuildOptions activeOptions,
+      BuildOptions altOptions,
+      EventHandler eventHandler) {
     // Log fragments that only exist in one output.
     SetView<Class<? extends FragmentOptions>> onlyInActive =
         Sets.difference(activeOptions.getFragmentClasses(), altOptions.getFragmentClasses());
     SetView<Class<? extends FragmentOptions>> onlyInAlt =
         Sets.difference(altOptions.getFragmentClasses(), activeOptions.getFragmentClasses());
     StringJoiner s = new StringJoiner("\n");
+    s.add("------------------------------------------");
+    s.add(String.format("ComparingTransition(%s, %s):", activeTransitionDesc, altTransitionDesc));
     s.add(
         String.format(
-            "Unique fragments in %s mode: %s",
+            "- from: %s, %s to: %s, %s to: %s",
+            fromOptions.shortId(),
             activeTransitionDesc,
-            onlyInActive.stream().map(c -> prettyClassName(c)).collect(joining())));
+            activeOptions.shortId(),
+            altTransitionDesc,
+            altOptions.shortId()));
     s.add(
         String.format(
-            "Unique fragments in %s mode: %s",
-            altTransitionDesc, onlyInAlt.stream().map(c -> prettyClassName(c)).collect(joining())));
+            "- unique fragments in %s mode: %s",
+            activeTransitionDesc,
+            onlyInActive.isEmpty()
+                ? "none"
+                : onlyInActive.stream().map(c -> prettyClassName(c)).collect(joining())));
+    s.add(
+        String.format(
+            "- unique fragments in %s mode: %s",
+            altTransitionDesc,
+            onlyInAlt.isEmpty()
+                ? "none"
+                : onlyInAlt.stream().map(c -> prettyClassName(c)).collect(joining())));
 
     ImmutableMap<String, String> activeMap = serialize(activeOptions);
     ImmutableMap<String, String> altMap = serialize(altOptions);
@@ -141,27 +160,27 @@ public class ComparingTransition implements PatchTransition {
       String activeVal = combined.getValue().getFirst();
       String altVal = combined.getValue().getSecond();
       if (activeVal.equals("DOES NOT EXIST")) {
-        s2.add(String.format(" (only in %s mode): --%s=%s", activeTransitionDesc, option, altVal));
+        s2.add(String.format("   only in %s mode: --%s=%s", activeTransitionDesc, option, altVal));
         diffs++;
       } else if (altVal.equals("DOES NOT EXIST")) {
-        s2.add(String.format(" (only in %s mode): --%s=%s", altTransitionDesc, option, activeVal));
+        s2.add(String.format("   only in %s mode: --%s=%s", altTransitionDesc, option, activeVal));
         diffs++;
       } else if (!activeVal.equals(altVal)) {
         s2.add(
             String.format(
-                " --%s %s mode=%s  %s mode=%s",
+                "   --%s: %s mode=%s, %s mode=%s",
                 option, activeTransitionDesc, activeVal, altTransitionDesc, altVal));
         diffs++;
       }
     }
 
     // Summarize diff count both before and after the full diff for easy reading.
-    s.add(String.format("Total option differences: %d", diffs));
+    s.add(String.format("- total option differences: %d", diffs));
     s.add(s2.toString());
     if (diffs > 1) {
-      s.add(String.format("Total option differences: %d", diffs));
+      s.add(String.format("- total option differences: %d", diffs));
     }
-    logger.atInfo().log("ComparingTransition: %s", s);
+    eventHandler.handle(Event.info(s.toString()));
   }
 
   /**
