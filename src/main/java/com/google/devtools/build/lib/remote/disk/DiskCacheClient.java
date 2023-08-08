@@ -55,7 +55,7 @@ public class DiskCacheClient implements RemoteCacheClient {
    * @param verifyDownloads whether verify the digest of downloaded content are the same as the
    *     digest used to index that file.
    */
-  public DiskCacheClient(Path root, boolean verifyDownloads, DigestUtil digestUtil) {
+  public DiskCacheClient(Path root, boolean verifyDownloads, DigestUtil digestUtil) throws IOException {
     this.verifyDownloads = verifyDownloads;
     this.digestUtil = digestUtil;
 
@@ -65,6 +65,10 @@ public class DiskCacheClient implements RemoteCacheClient {
       this.root =
           root.getChild(
               Ascii.toLowerCase(digestUtil.getDigestFunction().getValueDescriptor().getName()));
+    }
+
+    if (!this.root.exists()) {
+      this.root.createDirectoryAndParents();
     }
   }
 
