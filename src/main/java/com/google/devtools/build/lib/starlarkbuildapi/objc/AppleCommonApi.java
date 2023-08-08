@@ -68,6 +68,7 @@ public interface AppleCommonApi<
               + "<li><code>ios</code></li>" //
               + "<li><code>macos</code></li>" //
               + "<li><code>tvos</code></li>" //
+              + "<li><code>visionos</code></li>" //
               + "<li><code>watchos</code></li>" //
               + "</ul><p>" //
               + "These values can be passed to methods that expect a platform type, like the"
@@ -89,6 +90,8 @@ public interface AppleCommonApi<
               + "<li><code>macos</code></li>" //
               + "<li><code>tvos_device</code></li>" //
               + "<li><code>tvos_simulator</code></li>" //
+              + "<li><code>visionos_device</code></li>" //
+              + "<li><code>visionos_simulator</code></li>" //
               + "<li><code>watchos_device</code></li>" //
               + "<li><code>watchos_simulator</code></li>" //
               + "</ul><p>" //
