@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.starlarkbuildapi.objc;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
@@ -69,6 +68,7 @@ public interface AppleCommonApi<
               + "<li><code>ios</code></li>" //
               + "<li><code>macos</code></li>" //
               + "<li><code>tvos</code></li>" //
+              + "<li><code>visionos</code></li>" //
               + "<li><code>watchos</code></li>" //
               + "</ul><p>" //
               + "These values can be passed to methods that expect a platform type, like the"
@@ -81,13 +81,6 @@ public interface AppleCommonApi<
   StructApi getPlatformTypeStruct();
 
   @StarlarkMethod(
-      name = "apple_crosstool_transition",
-      doc = "Testing the Apple crosstool transition",
-      documented = false,
-      structField = true)
-  StarlarkExposedRuleTransitionFactory getAppleCrosstoolTransition();
-
-  @StarlarkMethod(
       name = "platform",
       doc =
           "An enum-like struct that contains the following fields corresponding to Apple "
@@ -97,6 +90,8 @@ public interface AppleCommonApi<
               + "<li><code>macos</code></li>" //
               + "<li><code>tvos_device</code></li>" //
               + "<li><code>tvos_simulator</code></li>" //
+              + "<li><code>visionos_device</code></li>" //
+              + "<li><code>visionos_simulator</code></li>" //
               + "<li><code>watchos_device</code></li>" //
               + "<li><code>watchos_simulator</code></li>" //
               + "</ul><p>" //

@@ -153,9 +153,7 @@ abstract class AbstractParallelEvaluator {
    * If the entry is dirty and not already rebuilding, puts it in a state so that it can rebuild.
    */
   static void maybeMarkRebuilding(NodeEntry entry) {
-    if (entry.isDirty()
-        && entry.getDirtyState() != DirtyState.REBUILDING
-        && entry.getDirtyState() != DirtyState.FORCED_REBUILDING) {
+    if (entry.isDirty() && entry.getDirtyState() != DirtyState.REBUILDING) {
       entry.markRebuilding();
     }
   }
@@ -414,7 +412,6 @@ abstract class AbstractParallelEvaluator {
           nodeEntry.forceRebuild();
           return DirtyOutcome.NEEDS_EVALUATION;
         case REBUILDING:
-        case FORCED_REBUILDING:
           return DirtyOutcome.NEEDS_EVALUATION;
         default:
           throw new IllegalStateException("key: " + skyKey + ", entry: " + nodeEntry);

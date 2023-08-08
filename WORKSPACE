@@ -182,10 +182,6 @@ dist_http_archive(
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
 )
 
-load("@rules_python//python:repositories.bzl", "py_repositories")
-
-py_repositories()
-
 dist_http_archive(
     name = "zstd-jni",
     build_file = "//third_party:zstd-jni/zstd-jni.BUILD",
@@ -560,3 +556,23 @@ maven_install(
 load("@maven_android//:defs.bzl", pinned_maven_install_android = "pinned_maven_install")
 
 pinned_maven_install_android()
+
+load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_toolchains")
+
+py_repositories()
+
+python_register_toolchains(
+    name = "python_3_8",
+    python_version = "3.8",
+)
+
+load("@python_3_8//:defs.bzl", "interpreter")
+
+load("@rules_python//python:pip.bzl", "pip_parse")
+pip_parse(
+   name = "bazel_pip_dev_deps",
+   requirements_lock = "//:requirements.txt",
+   python_interpreter_target = interpreter,
+)
+load("@bazel_pip_dev_deps//:requirements.bzl", "install_deps")
+install_deps()

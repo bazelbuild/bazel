@@ -429,7 +429,9 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
       fail(result.getError().toString());
     }
 
-    scratch.overwriteFile(rootDirectory.getRelative("MODULE.bazel.lock").getPathString(), "{}");
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel.lock").getPathString(),
+        "{\"lockFileVersion\": " + BazelLockFileValue.LOCK_FILE_VERSION + "}");
 
     result = evaluator.evaluate(ImmutableList.of(BazelLockFileValue.KEY), evaluationContext);
     if (!result.hasError()) {

@@ -64,13 +64,13 @@ _java_grpc_gensource = rule(
         "_protoc": attr.label(
             default = Label("@com_google_protobuf//:protoc"),
             executable = True,
-            cfg = "host",
+            cfg = "exec",
             allow_single_file = True,
         ),
         "_java_plugin": attr.label(
             default = Label("//third_party/grpc-java:grpc-java-plugin"),
             executable = True,
-            cfg = "host",
+            cfg = "exec",
         ),
     },
     outputs = {

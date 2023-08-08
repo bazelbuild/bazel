@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.bazel.rules.genrule;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -23,7 +22,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.genrule.GenRuleBaseRule;
-import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
  * Rule definition for genrule for Bazel.
@@ -45,23 +43,6 @@ public final class BazelGenRuleRule implements RuleDefinition {
             attr("$genrule_setup", LABEL)
                 .cfg(ExecutionTransitionFactory.createFactory())
                 .value(env.getToolsLabel(GENRULE_SETUP_LABEL)))
-
-        // TODO(https://github.com/bazelbuild/bazel/issues/19132): Remove this once downstream
-        // projects are migrated.
-        /* <!-- #BLAZE_RULE(genrule).ATTRIBUTE(exec_tools) -->
-        <b>Deprecated. Use <a href="#genrule.tools"><code>tools</code></a> instead.</b>
-
-        <p>
-          There was a period of time when <code>exec_tools</code> and <code>tools</code> behaved
-          differently, but they are now equivalent and the Blaze team will be migrating all uses of
-          <code>exec_tools</code> to <code>tools</code>.
-        </p>
-        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(
-            attr("exec_tools", LABEL_LIST)
-                .cfg(ExecutionTransitionFactory.createFactory())
-                .allowedFileTypes(FileTypeSet.ANY_FILE)
-                .dontCheckConstraints())
 
         // TODO(bazel-team): stamping doesn't seem to work. Fix it or remove attribute.
         .add(attr("stamp", BOOLEAN).value(false))

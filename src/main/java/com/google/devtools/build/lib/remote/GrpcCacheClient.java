@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.devtools.build.lib.remote.util.DigestUtil.isOldStyleDigestFunction;
 
 import build.bazel.remote.execution.v2.ActionCacheGrpc;
 import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheFutureStub;
@@ -352,14 +353,6 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
         StatusRuntimeException.class,
         (e) -> Futures.immediateFailedFuture(new IOException(e)),
         MoreExecutors.directExecutor());
-  }
-
-  private static boolean isOldStyleDigestFunction(DigestFunction.Value digestFunction) {
-    // Old-style digest functions (SHA256, etc) are distinguishable by the length
-    // of their hash alone and do not require extra specification, but newer
-    // digest functions (which may have the same length hashes as the older
-    // functions!) must be explicitly specified in the upload resource name.
-    return digestFunction.getNumber() <= 7;
   }
 
   public static String getResourceName(

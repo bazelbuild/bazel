@@ -125,7 +125,7 @@ function test_android_binary_fat_apk_contains_all_shared_libraries() {
   add_to_bazelrc "build --noincompatible_enable_android_toolchain_resolution"
 
   # sample.aar contains native shared libraries for x86 and armeabi-v7a
-  cp "${TEST_SRCDIR}/io_bazel/src/test/shell/bazel/android/sample.aar" .
+  cp "$(rlocation io_bazel/src/test/shell/bazel/android/sample.aar)" .
   cat > AndroidManifest.xml <<EOF
 <manifest package="com.example"/>
 EOF

@@ -20,6 +20,7 @@ load("//:repositories.bzl", "embedded_jdk_repositories")
 load("//:distdir.bzl", "dist_http_archive", "dist_http_jar")
 load("//tools/distributions/debian:deps.bzl", "debian_deps")
 load("//src/test/shell/bazel:list_source_repository.bzl", "list_source_repository")
+load("//src/main/res:winsdk_configure.bzl", "winsdk_configure")
 
 ### Extra dependencies for building Bazel
 
@@ -33,6 +34,8 @@ bazel_internal_deps = module_extension(implementation = _bazel_internal_deps)
 
 def _bazel_dev_deps(_ctx):
     list_source_repository(name = "local_bazel_source_list")
+    dist_http_archive(name = "bazelci_rules")
+    winsdk_configure(name = "local_config_winsdk")
 
 bazel_dev_deps = module_extension(implementation = _bazel_dev_deps)
 

@@ -20,8 +20,6 @@ sh_test(
         "$(location :zip_count)",
     ],
     data = [
-        "testenv.sh",
-        "//src/test/shell:bashunit",
         "//third_party/ijar",
         "A.java",
         "B.java",
@@ -54,6 +52,7 @@ sh_test(
     toolchains = [
         "@bazel_tools//tools/jdk:current_java_runtime",
     ],
+    deps = [":testenv"],
 )
 
 sh_test(
@@ -66,12 +65,18 @@ sh_test(
         "unzip",
         "zip",
     ],
-    data = [
-        "testenv.sh",
-        "//src/test/shell:bashunit",
-        "//third_party/ijar:zipper",
-    ],
+    data = ["//third_party/ijar:zipper"],
     tags = ["zip"],
+    deps = [":testenv"],
+)
+
+sh_library(
+    name = "testenv",
+    srcs = ["testenv.sh"],
+    deps = [
+        "//src/test/shell:bashunit",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 java_library(

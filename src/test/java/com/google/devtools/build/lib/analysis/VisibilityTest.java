@@ -166,6 +166,42 @@ public class VisibilityTest extends AnalysisTestCase {
     assertThrows(ViewCreationFailedException.class, () -> update("//use:world"));
   }
 
+  @Test
+  public void testConfigSettingVisibilityAlwaysCheckedAtUse() throws Exception {
+    scratch.file(
+        "BUILD",
+        "load('//build_defs:defs.bzl', 'my_rule')",
+        "my_rule(",
+        "    name = 'my_target',",
+        "    value = select({",
+        "        '//config_setting:my_setting': 'foo',",
+        "        '//conditions:default': 'bar',",
+        "    }),",
+        ")");
+    scratch.file("build_defs/BUILD");
+    scratch.file(
+        "build_defs/defs.bzl",
+        "def _my_rule_impl(ctx):",
+        "    pass",
+        "my_rule = rule(",
+        "    implementation = _my_rule_impl,",
+        "    attrs = {",
+        "        'value': attr.string(mandatory = True),",
+        "    },",
+        ")");
+    scratch.file(
+        "config_setting/BUILD",
+        "config_setting(",
+        "    name = 'my_setting',",
+        "    values = {'cpu': 'does_not_matter'},",
+        "    visibility = ['//:__pkg__'],",
+        ")");
+    useConfiguration("--incompatible_visibility_private_attributes_at_definition");
+
+    update("//:my_target");
+    assertThat(hasErrors(getConfiguredTarget("//:my_target"))).isFalse();
+  }
+
   void setupFilesScenario(String wantRead) throws Exception {
     scratch.file("src/source.txt", "source");
     scratch.file("src/BUILD", "exports_files(['source.txt'], visibility=['//pkg:__pkg__'])");

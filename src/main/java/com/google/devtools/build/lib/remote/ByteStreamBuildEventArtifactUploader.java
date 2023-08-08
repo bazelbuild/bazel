@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.devtools.build.lib.remote.util.DigestUtil.isOldStyleDigestFunction;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toListenableFuture;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toSingle;
@@ -471,14 +472,6 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       }
       this.skippedPaths = skippedPaths.build();
       this.localPaths = localPaths.build();
-    }
-
-    private static boolean isOldStyleDigestFunction(DigestFunction.Value digestFunction) {
-      // Old-style digest functions (SHA256, etc) are distinguishable by the length
-      // of their hash alone and do not require extra specification, but newer
-      // digest functions (which may have the same length hashes as the older
-      // functions!) must be explicitly specified in the upload resource name.
-      return digestFunction.getNumber() <= 7;
     }
 
     @Override

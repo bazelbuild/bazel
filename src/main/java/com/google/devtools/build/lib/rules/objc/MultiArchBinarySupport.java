@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkerInput;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
+import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.cpp.UserVariablesExtension;
@@ -336,6 +337,8 @@ public class MultiArchBinarySupport {
         return ConfigurationDistinguisher.APPLEBIN_IOS;
       case CATALYST:
         return ConfigurationDistinguisher.APPLEBIN_CATALYST;
+      case VISIONOS:
+        return ConfigurationDistinguisher.APPLEBIN_VISIONOS;
       case WATCHOS:
         return ConfigurationDistinguisher.APPLEBIN_WATCHOS;
       case TVOS:
@@ -370,6 +373,10 @@ public class MultiArchBinarySupport {
       case IOS:
       case CATALYST:
         option = buildOptions.get(AppleCommandLineOptions.class).iosMinimumOs;
+        break;
+      case VISIONOS:
+        // TODO: Replace with CppOptions.minimumOsVersion
+        option = DottedVersion.option(DottedVersion.fromStringUnchecked("1.0"));
         break;
       case WATCHOS:
         option = buildOptions.get(AppleCommandLineOptions.class).watchosMinimumOs;
@@ -418,6 +425,9 @@ public class MultiArchBinarySupport {
       case MACOS:
         appleCommandLineOptions.macosMinimumOs = minimumOsVersionOption;
         break;
+      case VISIONOS:
+        // TODO: use CppOptions.minimumOsVersion
+        break;
     }
     return splitOptions;
   }
@@ -461,8 +471,7 @@ public class MultiArchBinarySupport {
         // This helps users of the iOS rules who do not depend on CC rules as these config values
         // require additional flags to work (e.g. a custom crosstool) which now only need to be
         // set if this feature is explicitly requested.
-        AppleCrosstoolTransition.setAppleCrosstoolTransitionPlatformConfiguration(
-            buildOptions, splitOptions, platform);
+        setAppleCrosstoolTransitionPlatformConfiguration(buildOptions, splitOptions, platform);
       }
       AppleCommandLineOptions appleCommandLineOptions =
           splitOptions.get(AppleCommandLineOptions.class);
@@ -546,6 +555,13 @@ public class MultiArchBinarySupport {
         }
         cpus = supportedAppleCpusFromMinimumOs(minimumOsVersionOption, cpus, platformType);
         break;
+      case VISIONOS:
+        cpus = buildOptions.get(AppleCommandLineOptions.class).visionosCpus;
+        if (cpus.isEmpty()) {
+          cpus = ImmutableList.of(AppleCommandLineOptions.DEFAULT_VISIONOS_CPU);
+        }
+        cpus = supportedAppleCpusFromMinimumOs(minimumOsVersionOption, cpus, platformType);
+        break;
       case WATCHOS:
         cpus = buildOptions.get(AppleCommandLineOptions.class).watchosCpus;
         if (cpus.isEmpty()) {
@@ -593,8 +609,7 @@ public class MultiArchBinarySupport {
         // This helps users of the iOS rules who do not depend on CC rules as these CPU values
         // require additional flags to work (e.g. a custom crosstool) which now only need to be
         // set if this feature is explicitly requested.
-        AppleCrosstoolTransition.setAppleCrosstoolTransitionCpuConfiguration(
-            buildOptions, splitOptions, platformCpu);
+        setAppleCrosstoolTransitionCpuConfiguration(buildOptions, splitOptions, platformCpu);
       }
       // Set the configuration distinguisher last, as setAppleCrosstoolTransitionCpuConfiguration
       // will set this value to the Apple CROSSTOOL configuration distinguisher, and we want to make
@@ -715,5 +730,94 @@ public class MultiArchBinarySupport {
       result.put(splitTransitionKey.get(), targetTriplet.toStarlarkStruct());
     }
     return result.buildImmutable();
+  }
+
+  /**
+   * Sets configuration fields required for a transition that uses apple_crosstool_top in place of
+   * the default CROSSTOOL.
+   *
+   * @param from options from the originating configuration
+   * @param to options for the destination configuration. This instance will be modified to so the
+   *     destination configuration uses the apple crosstool
+   * @param cpu {@code --cpu} value for toolchain selection in the destination configuration
+   */
+  private static void setAppleCrosstoolTransitionCpuConfiguration(
+      BuildOptionsView from, BuildOptionsView to, String cpu) {
+    AppleCommandLineOptions appleOptions = from.get(AppleCommandLineOptions.class);
+
+    CoreOptions toOptions = to.get(CoreOptions.class);
+    CppOptions toCppOptions = to.get(CppOptions.class);
+
+    if (toOptions.cpu.equals(cpu)
+        && toCppOptions.crosstoolTop.equals(appleOptions.appleCrosstoolTop)) {
+      // If neither the CPU nor the Crosstool changes, do nothing. This is so that C++ to
+      // Objective-C dependencies work if the top-level configuration is already an Apple one.
+      // Removing the configuration distinguisher (which can't be set from the command line) and
+      // putting the platform type in the output directory name, which would obviate the need for
+      // this hack.
+      // TODO(b/112834725): Remove this branch by unifying the distinguisher and the platform type.
+      return;
+    }
+
+    toOptions.cpu = cpu;
+    toCppOptions.crosstoolTop = appleOptions.appleCrosstoolTop;
+
+    setAppleCrosstoolTransitionSharedConfiguration(from, to);
+
+    // Ensure platforms aren't set so that platform mapping can take place.
+    to.get(PlatformOptions.class).platforms = ImmutableList.of();
+  }
+
+  /**
+   * Sets configuration fields required for a transition that uses apple_platforms in place of the
+   * default platforms to find the appropriate CROSSTOOL and C++ configuration options.
+   *
+   * @param from options from the originating configuration
+   * @param to options for the destination configuration. This instance will be modified to so the
+   *     destination configuration uses the apple crosstool
+   * @param platform {@code --platforms} value for toolchain selection in the destination
+   *     configuration
+   */
+  private static void setAppleCrosstoolTransitionPlatformConfiguration(
+      BuildOptionsView from, BuildOptionsView to, Label platform) {
+    PlatformOptions toPlatformOptions = to.get(PlatformOptions.class);
+    ImmutableList<Label> incomingPlatform = ImmutableList.of(platform);
+
+    if (toPlatformOptions.platforms.equals(incomingPlatform)) {
+      // If the incoming platform doesn't change, do nothing. This is so that C++ to Objective-C
+      // dependencies work if the top-level configuration is already an Apple one.
+      // Removing the configuration distinguisher (which can't be set from the command line) and
+      // putting the platform type in the output directory name, which would obviate the need for
+      // this hack.
+      // TODO(b/112834725): Remove this branch by unifying the distinguisher and the platform type.
+      return;
+    }
+
+    // The cpu flag will be set by platform mapping if a mapping exists.
+    to.get(PlatformOptions.class).platforms = incomingPlatform;
+
+    setAppleCrosstoolTransitionSharedConfiguration(from, to);
+  }
+
+  /**
+   * Sets a common set of configuration fields required for a transition that needs to find the
+   * appropriate CROSSTOOL and C++ configuration options.
+   *
+   * @param from options from the originating configuration
+   * @param to options for the destination configuration. This instance will be modified to so the
+   *     destination configuration uses the apple crosstool
+   */
+  private static void setAppleCrosstoolTransitionSharedConfiguration(
+      BuildOptionsView from, BuildOptionsView to) {
+    to.get(AppleCommandLineOptions.class).configurationDistinguisher =
+        ConfigurationDistinguisher.APPLE_CROSSTOOL;
+
+    AppleCommandLineOptions appleOptions = from.get(AppleCommandLineOptions.class);
+    CppOptions toCppOptions = to.get(CppOptions.class);
+    toCppOptions.cppCompiler = appleOptions.cppCompiler;
+    toCppOptions.libcTopLabel = appleOptions.appleLibcTop;
+
+    // OSX toolchains do not support fission.
+    toCppOptions.fissionModes = ImmutableList.of();
   }
 }

@@ -13,10 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.disk;
 
+import static com.google.devtools.build.lib.remote.util.DigestUtil.isOldStyleDigestFunction;
+
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.Tree;
+import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.Futures;
@@ -53,9 +56,16 @@ public class DiskCacheClient implements RemoteCacheClient {
    *     digest used to index that file.
    */
   public DiskCacheClient(Path root, boolean verifyDownloads, DigestUtil digestUtil) {
-    this.root = root;
     this.verifyDownloads = verifyDownloads;
     this.digestUtil = digestUtil;
+
+    if (isOldStyleDigestFunction(digestUtil.getDigestFunction())) {
+      this.root = root;
+    } else {
+      this.root =
+          root.getChild(
+              Ascii.toLowerCase(digestUtil.getDigestFunction().getValueDescriptor().getName()));
+    }
   }
 
   /** Returns {@code true} if the provided {@code key} is stored in the CAS. */

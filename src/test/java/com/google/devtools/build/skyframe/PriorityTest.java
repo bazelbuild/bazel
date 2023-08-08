@@ -279,7 +279,7 @@ public final class PriorityTest {
   @Test
   public void basicPriorityCalculation(@TestParameter boolean hasLowFanout)
       throws InterruptedException {
-    var state = DirtyBuildingState.createNew(hasLowFanout);
+    var state = new InitialBuildingState(hasLowFanout);
     state.updateDepthIfGreater(5);
     state.incrementEvaluationCount();
     state.incrementEvaluationCount();
@@ -322,7 +322,7 @@ public final class PriorityTest {
 
   @Test
   public void updateDepth(@TestParameter DepthTestCases testCase) {
-    var state = DirtyBuildingState.createNew(/* hasLowFanout= */ false);
+    var state = new InitialBuildingState(/* hasLowFanout= */ false);
 
     state.updateDepthIfGreater(testCase.proposedDepth());
     assertThat(state.depth()).isEqualTo(testCase.resultingDepth());
@@ -363,7 +363,7 @@ public final class PriorityTest {
 
   @Test
   public void updateEvaluationCount(@TestParameter EvaluationCountTestCases testCase) {
-    var state = DirtyBuildingState.createNew(/* hasLowFanout= */ false);
+    var state = new InitialBuildingState(/* hasLowFanout= */ false);
 
     for (int i = 0; i < testCase.evaluationCount(); ++i) {
       state.incrementEvaluationCount();

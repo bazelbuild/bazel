@@ -1666,7 +1666,11 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     } else {
       SpecialArtifact shardsToMerge =
           createSharderAction(ruleContext, dexArchives, mainDexList, dexopts, inclusionFilterJar);
-      Artifact multidexShards = createTemplatedMergerActions(ruleContext, shardsToMerge, dexopts);
+      SpecialArtifact multidexShards =
+          ruleContext.getTreeArtifact(
+              ruleContext.getUniqueDirectory("dexfiles"), ruleContext.getBinOrGenfilesDirectory());
+      FilesToRunProvider dexMerger = ruleContext.getExecutablePrerequisite("$dexmerger");
+      createTemplatedMergerActions(ruleContext, multidexShards, shardsToMerge, dexopts, dexMerger);
       // TODO(b/69431301): avoid this action and give the files to apk build action directly
       createZipMergeAction(ruleContext, multidexShards, classesDex);
     }
@@ -1790,18 +1794,17 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
   /**
    * Sets up a monodex {@code $dexmerger} actions for each dex archive in the given tree artifact
-   * and returns the output tree artifact.
-   *
-   * @return Tree artifact containing zips with final dex files named for inclusion in an APK.
+   * and puts the outputs in a tree artifact.
    */
-  private static Artifact createTemplatedMergerActions(
-      RuleContext ruleContext, SpecialArtifact inputTree, Collection<String> dexopts) {
-    SpecialArtifact outputTree =
-        ruleContext.getTreeArtifact(
-            ruleContext.getUniqueDirectory("dexfiles"), ruleContext.getBinOrGenfilesDirectory());
+  public static void createTemplatedMergerActions(
+      RuleContext ruleContext,
+      SpecialArtifact outputTree,
+      SpecialArtifact inputTree,
+      List<String> dexopts,
+      FilesToRunProvider executable) {
     SpawnActionTemplate.Builder dexmerger =
         new SpawnActionTemplate.Builder(inputTree, outputTree)
-            .setExecutable(ruleContext.getExecutablePrerequisite("$dexmerger"))
+            .setExecutable(executable)
             .setMnemonics("DexShardsToMerge", "DexMerger")
             .setOutputPathMapper(
                 (OutputPathMapper & Serializable) TreeFileArtifact::getParentRelativePath);
@@ -1817,8 +1820,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                         dexopts, Predicates.not(Predicates.equalTo(DX_MINIMAL_MAIN_DEX_OPTION)))));
     dexmerger.setCommandLineTemplate(commandLine.build());
     ruleContext.registerAction(dexmerger.build(ruleContext.getActionOwner()));
-
-    return outputTree;
   }
 
   private static void createZipMergeAction(
