@@ -172,7 +172,7 @@ public abstract class DirtyBuildingState implements PriorityTracker {
                 && getNumOfGroupsInLastBuildDirectDeps() == dirtyDirectDepIndex)
             || dirtyState == DirtyState.NEEDS_FORCED_REBUILDING,
         this);
-    dirtyState = DirtyState.FORCED_REBUILDING;
+    dirtyState = DirtyState.REBUILDING;
   }
 
   final boolean isEvaluating() {
@@ -182,15 +182,12 @@ public abstract class DirtyBuildingState implements PriorityTracker {
   final boolean isChanged() {
     return dirtyState == DirtyState.NEEDS_REBUILDING
         || dirtyState == DirtyState.NEEDS_FORCED_REBUILDING
-        || dirtyState == DirtyState.REBUILDING
-        || dirtyState == DirtyState.FORCED_REBUILDING;
+        || dirtyState == DirtyState.REBUILDING;
   }
 
   private void checkFinishedBuildingWhenAboutToSetValue() {
     checkState(
-        dirtyState == DirtyState.VERIFIED_CLEAN
-            || dirtyState == DirtyState.REBUILDING
-            || dirtyState == DirtyState.FORCED_REBUILDING,
+        dirtyState == DirtyState.VERIFIED_CLEAN || dirtyState == DirtyState.REBUILDING,
         "not done building %s",
         this);
   }
@@ -304,8 +301,7 @@ public abstract class DirtyBuildingState implements PriorityTracker {
    * race.
    */
   final void resetForRestartFromScratch() {
-    checkState(
-        dirtyState == DirtyState.REBUILDING || dirtyState == DirtyState.FORCED_REBUILDING, this);
+    checkState(dirtyState == DirtyState.REBUILDING, this);
     signaledDeps = 0;
     externalDeps = 0;
     dirtyDirectDepIndex = 0;

@@ -186,8 +186,7 @@ abstract class AbstractInMemoryNodeEntry implements InMemoryNodeEntry {
     checkState(dirtyBuildingState.isEvaluating(), "Not evaluating for remaining dirty? %s", this);
     if (isDirty()) {
       DirtyState dirtyState = dirtyBuildingState.getDirtyState();
-      checkState(
-          dirtyState == DirtyState.REBUILDING || dirtyState == DirtyState.FORCED_REBUILDING, this);
+      checkState(dirtyState == DirtyState.REBUILDING, this);
       return dirtyBuildingState.getAllRemainingDirtyDirectDeps(/* preservePosition= */ true);
     } else {
       return ImmutableSet.of();

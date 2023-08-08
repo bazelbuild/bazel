@@ -78,12 +78,6 @@ public interface NodeEntry extends PriorityTracker {
     NEEDS_FORCED_REBUILDING,
     /** A rebuilding is in progress. */
     REBUILDING,
-    /**
-     * A forced rebuilding is in progress, likely because of a transient error on the previous build
-     * or a recoverable inconsistency in the current one. The distinction between this and {@link
-     * #REBUILDING} is only needed for internal checks.
-     */
-    FORCED_REBUILDING
   }
 
   /** Ways that a node may be dirtied. */
