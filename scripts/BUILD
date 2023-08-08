@@ -33,6 +33,7 @@ sh_test(
         "bazel-complete.bash",
         "testenv.sh",
         "//src/test/shell:bashunit",
+        "@bazel_tools//tools/bash/runfiles",
     ],
 )
 

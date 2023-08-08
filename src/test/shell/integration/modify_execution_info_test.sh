@@ -160,7 +160,7 @@ rules_proto_toolchains()
 # @com_google_protobuf//:protoc depends on @io_bazel//third_party/zlib.
 new_local_repository(
     name = "io_bazel",
-    path = "$(dirname $(rlocation io_bazel/third_party/zlib))/..",
+    path = "$(dirname $(dirname $(dirname $(rlocation io_bazel/third_party/zlib/BUILD))))",
     build_file_content = "# Intentionally left empty.",
     workspace_file_content = "workspace(name = 'io_bazel')",
 )
