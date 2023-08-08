@@ -113,7 +113,7 @@ public abstract class KeyToConsolidate {
    * object wrapper. Whatever {@code opToStoreBare} is set to here, the same value must be passed in
    * to {@link #op} when decoding an operation emitted by this method.
    */
-  static Object create(SkyKey key, Op op, InMemoryNodeEntry entry) {
+  static Object create(SkyKey key, Op op, IncrementalInMemoryNodeEntry entry) {
     if (op == ReverseDepsUtility.getOpToStoreBare(entry)) {
       return key;
     }

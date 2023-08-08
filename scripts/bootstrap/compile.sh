@@ -450,6 +450,7 @@ function run_bazel_jar() {
       -XX:+HeapDumpOnOutOfMemoryError -Xverify:none -Dfile.encoding=ISO-8859-1 \
       -XX:HeapDumpPath=${OUTPUT_DIR} \
       -Djava.util.logging.config.file=${OUTPUT_DIR}/javalog.properties \
+      --add-opens java.base/java.lang=ALL-UNNAMED \
       ${JNI_FLAGS} \
       -jar ${ARCHIVE_DIR}/libblaze.jar \
       --batch \
@@ -468,7 +469,6 @@ function run_bazel_jar() {
       --startup_time=329 --extract_data_time=523 \
       --rc_source=/dev/null --isatty=1 \
       --build_python_zip \
-      --override_repository=maven="$(get_cwd)/maven" \
       "${client_env[@]}" \
       --client_cwd="$(get_cwd)" \
       "${@}"

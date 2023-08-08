@@ -403,7 +403,6 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
             parentEntry.forceRebuild();
             break;
           case REBUILDING:
-          case FORCED_REBUILDING:
             break;
           default:
             throw new AssertionError(parent + " not in valid dirty state: " + parentEntry);

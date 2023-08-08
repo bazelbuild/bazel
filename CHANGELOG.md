@@ -1,3 +1,27 @@
+## Release 6.3.2 (2023-08-08)
+
+```
+Baseline:  283ed362e6ccceb047553c2517a0331afd02db90
+
+Release Notes:
+
++ Ensure that extension unique names followed by `~` are prefix-free (#19167)
++ Lockfile updates & fixes (#19153) (#19175)
++ Empty commit to try to fix CI issue (#19177)
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as bazel.build machine account, Fabian Meumertzheim.
+```
+
+## Release 7.0.0-pre.20230724.1 (2023-08-07)
+
+```
+Baseline: f6344ffcacdea6c4a61e112d0f60beda8068eac5
+```
+
+Initial release.
+
 ## Release 6.3.1 (2023-07-31)
 
 ```

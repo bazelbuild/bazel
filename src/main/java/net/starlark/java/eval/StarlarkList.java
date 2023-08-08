@@ -16,9 +16,15 @@ package net.starlark.java.eval;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import java.util.AbstractList;
+import java.util.AbstractCollection;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.List;
+import java.util.ListIterator;
+import java.util.NoSuchElementException;
 import java.util.function.Supplier;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -70,7 +76,7 @@ import net.starlark.java.annot.StarlarkMethod;
             + "['a', 'b', 'c', 'd'][::2]  # ['a', 'c']\n"
             + "['a', 'b', 'c', 'd'][3:0:-1]  # ['d', 'c', 'b']</pre>"
             + "Lists are mutable, as in Python.")
-public abstract class StarlarkList<E> extends AbstractList<E>
+public abstract class StarlarkList<E> extends AbstractCollection<E>
     implements Sequence<E>, StarlarkValue, Mutability.Freezable, Comparable<StarlarkList<?>> {
 
   // It's always possible to overeat in small bites but we'll
@@ -203,6 +209,12 @@ public abstract class StarlarkList<E> extends AbstractList<E>
     System.arraycopy(x.elems(), 0, res, 0, xsize);
     System.arraycopy(y.elems(), 0, res, xsize, ysize);
     return wrap(mutability, res);
+  }
+
+  @Nonnull
+  @Override
+  public Iterator<E> iterator() {
+    return new Itr();
   }
 
   @Override
@@ -445,5 +457,77 @@ public abstract class StarlarkList<E> extends AbstractList<E>
    */
   public StarlarkList<E> unsafeOptimizeMemoryLayout() {
     return this;
+  }
+
+  private class Itr implements Iterator<E> {
+    private int cursor = 0;
+
+    @Override
+    public boolean hasNext() {
+      return cursor != size();
+    }
+
+    @Override
+    public E next() {
+      try {
+        int i = cursor;
+        E next = get(i);
+        cursor = i + 1;
+        return next;
+      } catch (IndexOutOfBoundsException e) {
+        throw new NoSuchElementException();
+      }
+    }
+  }
+
+  // the following List methods are deliberately left unsupported for now, but could be implemented
+  // if the need ever arises
+
+  @Override
+  @Nonnull
+  public List<E> subList(int fromIndex, int toIndex) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  @Nonnull
+  public ListIterator<E> listIterator() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  @Nonnull
+  public ListIterator<E> listIterator(int index) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public int lastIndexOf(Object o) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public int indexOf(Object o) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public E set(int index, E element) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void add(int index, E element) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public E remove(int index) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public boolean addAll(int index, @Nonnull Collection<? extends E> c) {
+    throw new UnsupportedOperationException();
   }
 }

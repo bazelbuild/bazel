@@ -88,13 +88,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   protected static final DottedVersion DEFAULT_IOS_SDK_VERSION =
       DottedVersion.fromStringUnchecked(AppleCommandLineOptions.DEFAULT_IOS_SDK_VERSION);
 
-  /**
-   * Returns the configuration obtained by applying the apple crosstool configuration transition to
-   * this {@code BuildViewTestCase}'s target configuration.
-   */
-  protected BuildConfigurationValue getAppleCrosstoolConfiguration() throws InterruptedException {
-    return getConfiguration(targetConfig, AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION);
-  }
+  protected static final String OUTPUTDIR = TestConstants.PRODUCT_NAME + "-out//bin";
 
   /** Specification of code coverage behavior. */
   public enum CodeCoverageMode {
@@ -754,9 +748,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     scratch.file("x/a.h");
     ruleType.scratchTarget(scratch, "hdrs", "['a.h']", "includes", "['incdir']");
     CcCompilationContext ccCompilationContext =
-        getConfiguredTarget("//x:x", getAppleCrosstoolConfiguration())
-            .get(CcInfo.PROVIDER)
-            .getCcCompilationContext();
+        getConfiguredTarget("//x:x").get(CcInfo.PROVIDER).getCcCompilationContext();
     ImmutableList<String> declaredIncludeSrcs =
         ccCompilationContext.getDeclaredIncludeSrcs().toList().stream()
             .map(x -> removeConfigFragment(x.getExecPathString()))
@@ -773,13 +765,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(
             ccCompilationContext.getIncludeDirs().stream()
                 .map(x -> removeConfigFragment(x.toString())))
-        .containsExactly(
-            PathFragment.create("x/incdir").toString(),
-            removeConfigFragment(
-                getAppleCrosstoolConfiguration()
-                    .getGenfilesFragment(RepositoryName.MAIN)
-                    .getRelative("x/incdir")
-                    .toString()));
+        .containsExactly(PathFragment.create("x/incdir").toString(), OUTPUTDIR + "/x/incdir");
   }
 
   protected void checkCompilesWithHdrs(RuleType ruleType) throws Exception {
@@ -953,16 +939,14 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     return getGeneratingAction(linkedLibrary);
   }
 
-  protected List<String> rootedIncludePaths(
-      BuildConfigurationValue configuration, String... unrootedPaths) {
+  protected List<String> rootedIncludePaths(String... unrootedPaths) {
     ImmutableList.Builder<String> rootedPaths = new ImmutableList.Builder<>();
     for (String unrootedPath : unrootedPaths) {
       rootedPaths
           .add(unrootedPath)
           .add(
               removeConfigFragment(
-                  configuration
-                      .getGenfilesFragment(RepositoryName.MAIN)
+                  PathFragment.create(TestConstants.PRODUCT_NAME + "-out/any-config-fragment/bin")
                       .getRelative(unrootedPath)
                       .getSafePathString()));
     }
@@ -1152,13 +1136,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
    */
   protected List<String> normalizeBashArgs(List<String> args) {
     return Splitter.on(' ').splitToList(Joiner.on(' ').join(args));
-  }
-
-  /** Returns the directory where objc modules will be cached. */
-  protected String getModulesCachePath() throws InterruptedException {
-    return getAppleCrosstoolConfiguration().getGenfilesFragment(RepositoryName.MAIN)
-        + "/"
-        + CompilationSupport.OBJC_MODULE_CACHE_DIR_NAME;
   }
 
   /**

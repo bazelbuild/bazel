@@ -37,11 +37,11 @@ public class AndroidBootstrap implements Bootstrap {
           PackageIdentifier.createUnchecked("rules_android", ""),
           PackageIdentifier.createUnchecked("", "tools/build_defs/android"));
 
-  private final AndroidStarlarkCommonApi<?, ?> androidCommon;
+  private final AndroidStarlarkCommonApi<?, ?, ?, ?, ?> androidCommon;
   private final ImmutableMap<String, Object> providers;
 
   public AndroidBootstrap(
-      AndroidStarlarkCommonApi<?, ?> androidCommon,
+      AndroidStarlarkCommonApi<?, ?, ?, ?, ?> androidCommon,
       ApkInfoApiProvider apkInfoProvider,
       AndroidInstrumentationInfoApiProvider<?> androidInstrumentationInfoProvider,
       AndroidDeviceBrokerInfoApiProvider androidDeviceBrokerInfoProvider,

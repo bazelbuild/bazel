@@ -45,6 +45,14 @@ def ExtractEmbeddedJars(aar,
                         singlejar_param_file,
                         output_dir,
                         output_dir_orig=None):
+  """Extracts all embedded jars from an AAR.
+
+  Args:
+    aar: The aar to extract from
+    singlejar_param_file: The param file to pass to singlejar
+    output_dir: Where to extract do
+    output_dir_orig: The original unshortened path to the params file
+  """
   if not output_dir_orig:
     output_dir_orig = output_dir
   jar_pattern = re.compile("^(classes|libs/.+)\\.jar$")

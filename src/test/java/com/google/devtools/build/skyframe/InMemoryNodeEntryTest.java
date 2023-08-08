@@ -38,7 +38,8 @@ import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Tests for {@link InMemoryNodeEntry}. */
+/** Tests for {@link InMemoryNodeEntry} implementations. */
+// TODO(b/262871730): Test both incremental and edgeless node entries.
 @RunWith(TestParameterInjector.class)
 public final class InMemoryNodeEntryTest {
 
@@ -66,7 +67,7 @@ public final class InMemoryNodeEntryTest {
   }
 
   private InMemoryNodeEntry createEntry() {
-    return new InMemoryNodeEntry(getEntryKey());
+    return new IncrementalInMemoryNodeEntry(getEntryKey());
   }
 
   private SkyKey getEntryKey() {

@@ -368,6 +368,7 @@ sh_test(
     data = [
         ":rules_proto_stanza.txt",
         ":test-deps",
+        "//third_party/zlib",
         "@bazel_tools//tools/bash/runfiles",
     ],
 )

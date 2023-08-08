@@ -122,6 +122,9 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
         (appleOptions.iosMinimumOs != null)
             ? DottedVersion.maybeUnwrap(appleOptions.iosMinimumOs)
             : iosSdkVersion;
+    DottedVersion visionosSdkVersion = xcodeVersionProperties.getDefaultVisionosSdkVersion();
+    // TODO: Replace with CppOptions.minimumOsVersion
+    DottedVersion visionosMinimumOsVersion = DottedVersion.fromStringUnchecked("1.0");
     DottedVersion watchosSdkVersion =
         (appleOptions.watchOsSdkVersion != null)
             ? DottedVersion.maybeUnwrap(appleOptions.watchOsSdkVersion)
@@ -151,6 +154,8 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
         new XcodeConfigInfo(
             iosSdkVersion,
             iosMinimumOsVersion,
+            visionosSdkVersion,
+            visionosMinimumOsVersion,
             watchosSdkVersion,
             watchosMinimumOsVersion,
             tvosSdkVersion,

@@ -37,6 +37,8 @@ public enum ApplePlatform implements ApplePlatformApi {
   MACOS("macos", "MacOSX", PlatformType.MACOS, true),
   TVOS_DEVICE("tvos_device", "AppleTVOS", PlatformType.TVOS, true),
   TVOS_SIMULATOR("tvos_simulator", "AppleTVSimulator", PlatformType.TVOS, false),
+  VISIONOS_DEVICE("visionos_device", "XROS", PlatformType.VISIONOS, true),
+  VISIONOS_SIMULATOR("visionos_simulator", "XRSimulator", PlatformType.VISIONOS, false),
   WATCHOS_DEVICE("watchos_device", "WatchOS", PlatformType.WATCHOS, true),
   WATCHOS_SIMULATOR("watchos_simulator", "WatchSimulator", PlatformType.WATCHOS, false),
   CATALYST("catalyst", "MacOSX", PlatformType.CATALYST, true);
@@ -45,6 +47,10 @@ public enum ApplePlatform implements ApplePlatformApi {
       ImmutableSet.of("ios_x86_64", "ios_i386", "ios_sim_arm64");
   private static final ImmutableSet<String> IOS_DEVICE_TARGET_CPUS =
       ImmutableSet.of("ios_armv6", "ios_arm64", "ios_armv7", "ios_armv7s", "ios_arm64e");
+  private static final ImmutableSet<String> VISIONOS_SIMULATOR_TARGET_CPUS =
+      ImmutableSet.of("visionos_x86_64", "visionos_sim_arm64");
+  private static final ImmutableSet<String> VISIONOS_DEVICE_TARGET_CPUS =
+      ImmutableSet.of("visionos_arm64");
   private static final ImmutableSet<String> WATCHOS_SIMULATOR_TARGET_CPUS =
       ImmutableSet.of("watchos_i386", "watchos_x86_64", "watchos_arm64");
   private static final ImmutableSet<String> WATCHOS_DEVICE_TARGET_CPUS =
@@ -135,6 +141,10 @@ public enum ApplePlatform implements ApplePlatformApi {
       return IOS_SIMULATOR;
     } else if (IOS_DEVICE_TARGET_CPUS.contains(targetCpu)) {
       return IOS_DEVICE;
+    } else if (VISIONOS_SIMULATOR_TARGET_CPUS.contains(targetCpu)) {
+      return VISIONOS_SIMULATOR;
+    } else if (VISIONOS_DEVICE_TARGET_CPUS.contains(targetCpu)) {
+      return VISIONOS_DEVICE;
     } else if (WATCHOS_SIMULATOR_TARGET_CPUS.contains(targetCpu)) {
       return WATCHOS_SIMULATOR;
     } else if (WATCHOS_DEVICE_TARGET_CPUS.contains(targetCpu)) {
@@ -242,6 +252,7 @@ public enum ApplePlatform implements ApplePlatformApi {
   @Immutable
   public enum PlatformType implements ApplePlatformTypeApi {
     IOS("ios"),
+    VISIONOS("visionos"),
     WATCHOS("watchos"),
     TVOS("tvos"),
     MACOS("macos"),

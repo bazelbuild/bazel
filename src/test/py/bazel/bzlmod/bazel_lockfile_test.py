@@ -805,6 +805,40 @@ class BazelLockfileTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', '@hello//:all'])
     self.assertIn('I have changed now!', ''.join(stderr))
 
+  def testOldVersion(self):
+    self.ScratchFile('MODULE.bazel')
+    self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
+    self.RunBazel(['build', '--nobuild', '//:all'])
+
+    # Set version to old
+    with open('MODULE.bazel.lock', 'r') as json_file:
+      data = json.load(json_file)
+    data['lockFileVersion'] = 0
+    with open('MODULE.bazel.lock', 'w') as json_file:
+      json.dump(data, json_file, indent=4)
+
+    # Run in error mode
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--nobuild', '--lockfile_mode=error', '//:all'],
+        allow_failure=True,
+    )
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertIn(
+        (
+            'ERROR: Error computing the main repository mapping: Lock file is'
+            ' no longer up-to-date because: the version of the lockfile is not'
+            ' compatible with the current Bazel, please run with'
+            " '--lockfile_mode=update'"
+        ),
+        stderr,
+    )
+
+    # Run again with update
+    self.RunBazel(['build', '--nobuild', '//:all'])
+    with open('MODULE.bazel.lock', 'r') as json_file:
+      data = json.load(json_file)
+    self.assertEqual(data['lockFileVersion'], 1)
+
 
 if __name__ == '__main__':
   unittest.main()

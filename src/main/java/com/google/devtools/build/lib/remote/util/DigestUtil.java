@@ -131,4 +131,12 @@ public class DigestUtil {
   public static byte[] toBinaryDigest(Digest digest) {
     return HashCode.fromString(digest.getHash()).asBytes();
   }
+
+  public static boolean isOldStyleDigestFunction(DigestFunction.Value digestFunction) {
+    // Old-style digest functions (SHA256, etc) are distinguishable by the length
+    // of their hash alone and do not require extra specification, but newer
+    // digest functions (which may have the same length hashes as the older
+    // functions!) must be explicitly specified in the upload resource name.
+    return digestFunction.getNumber() <= 7;
+  }
 }

@@ -1,3 +1,5 @@
+"""Bazel build and test dependencies."""
+
 module(
     name = "bazel",
     version = "7.0.0-pre",
@@ -11,7 +13,7 @@ bazel_dep(name = "grpc", version = "1.48.1.bcr.1", repo_name = "com_github_grpc_
 bazel_dep(name = "platforms", version = "0.0.7")
 bazel_dep(name = "rules_pkg", version = "0.7.0")
 bazel_dep(name = "stardoc", version = "0.5.3", repo_name = "io_bazel_skydoc")
-bazel_dep(name = "zstd-jni", version = "1.5.2-3")
+bazel_dep(name = "zstd-jni", version = "1.5.2-3.bcr.1")
 bazel_dep(name = "blake3", version = "1.3.3")
 bazel_dep(name = "zlib", version = "1.2.13")
 bazel_dep(name = "rules_cc", version = "0.0.8")
@@ -42,7 +44,7 @@ local_path_override(
 )
 
 # =========================================
-# Bazel Java dependencies
+# Java dependencies
 # =========================================
 
 maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
@@ -56,6 +58,9 @@ maven.install(
     ],
 )
 use_repo(maven, "maven")
+
+java_toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains")
+use_repo(java_toolchains, "local_jdk")
 
 # =========================================
 # Other Bazel internal dependencies
@@ -85,10 +90,44 @@ register_execution_platforms("//:default_host_platform")
 
 register_toolchains("@bazel_tools//tools/python:autodetecting_toolchain")
 
+register_toolchains("@local_config_winsdk//:all")
+
 register_toolchains("//src/main/res:empty_rc_toolchain")
 
 # =========================================
-# Android tools dependencies
+# Python dependencies
+# =========================================
+
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(python_version = "3.8")
+
+pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
+pip.parse(
+    hub_name = "bazel_pip_dev_deps",
+    python_version = "3.8",
+    requirements_lock = "//:requirements.txt",
+)
+use_repo(pip, "bazel_pip_dev_deps")
+
+# =========================================
+# Other dev dependencies
+# =========================================
+
+bazel_dep(name = "googletest", version = "1.12.1", repo_name = "com_google_googletest")
+
+bazel_dev_deps = use_extension("//:extensions.bzl", "bazel_dev_deps")
+use_repo(
+    bazel_dev_deps,
+    "local_bazel_source_list",
+    "local_config_winsdk",
+    "bazelci_rules",
+)
+
+bazel_rbe_deps = use_extension("//:rbe_extension.bzl", "bazel_rbe_deps")
+use_repo(bazel_rbe_deps, "rbe_ubuntu1804_java11")
+
+# =========================================
+# Android tools Java dependencies
 # =========================================
 
 maven_android = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
@@ -111,12 +150,3 @@ use_repo(
     "android_gmaven_r8",
     "desugar_jdk_libs",
 )
-
-# =========================================
-# Bazel dev dependencies
-# =========================================
-
-bazel_dep(name = "googletest", version = "1.12.1", repo_name = "com_google_googletest")
-
-bazel_dev_deps = use_extension("//:extensions.bzl", "bazel_dev_deps")
-use_repo(bazel_dev_deps, "local_bazel_source_list")

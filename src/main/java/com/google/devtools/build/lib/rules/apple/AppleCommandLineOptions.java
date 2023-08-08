@@ -187,6 +187,10 @@ public class AppleCommandLineOptions extends FragmentOptions {
   @VisibleForTesting public static final String DEFAULT_TVOS_SDK_VERSION = "9.0";
   @VisibleForTesting static final String DEFAULT_IOS_CPU = "x86_64";
 
+  /** The default visionOS CPU value. */
+  public static final String DEFAULT_VISIONOS_CPU =
+      CPU.getCurrent() == CPU.AARCH64 ? "sim_arm64" : "x86_64";
+
   /** The default watchos CPU value. */
   public static final String DEFAULT_WATCHOS_CPU =
       CPU.getCurrent() == CPU.AARCH64 ? "arm64" : "x86_64";
@@ -291,6 +295,16 @@ public class AppleCommandLineOptions extends FragmentOptions {
           "Comma-separated list of architectures to build an ios_application with. The result "
               + "is a universal binary containing all specified architectures.")
   public List<String> iosMultiCpus;
+
+  @Option(
+      name = "visionos_cpus",
+      allowMultiple = true,
+      converter = CommaSeparatedOptionListConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS},
+      help = "Comma-separated list of architectures for which to build Apple visionOS binaries.")
+  public List<String> visionosCpus;
 
   @Option(
       name = "watchos_cpus",
@@ -398,6 +412,10 @@ public class AppleCommandLineOptions extends FragmentOptions {
         break;
       case TVOS:
         option = tvosMinimumOs;
+        break;
+      case VISIONOS:
+        // TODO: Replace with CppOptions.minimumOsVersion
+        option = DottedVersion.option(DottedVersion.fromStringUnchecked("1.0"));
         break;
       case WATCHOS:
         option = watchosMinimumOs;

@@ -13,9 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -77,12 +78,6 @@ public interface NodeEntry extends PriorityTracker {
     NEEDS_FORCED_REBUILDING,
     /** A rebuilding is in progress. */
     REBUILDING,
-    /**
-     * A forced rebuilding is in progress, likely because of a transient error on the previous build
-     * or a recoverable inconsistency in the current one. The distinction between this and {@link
-     * #REBUILDING} is only needed for internal checks.
-     */
-    FORCED_REBUILDING
   }
 
   /** Ways that a node may be dirtied. */
@@ -155,10 +150,11 @@ public interface NodeEntry extends PriorityTracker {
   MarkedDirtyResult markDirty(DirtyType dirtyType) throws InterruptedException;
 
   /**
-   * Returned by {@link #markDirty} if that call changed the node from done to dirty. Contains an
-   * iterable of the node's reverse deps for efficiency, because an important use case for {@link
-   * #markDirty} is during invalidation, and the invalidator must immediately afterwards schedule
-   * the invalidation of a node's reverse deps if the invalidator successfully dirties that node.
+   * Returned by {@link #markDirty} if that call changed the node from done to dirty. Contains a
+   * {@link Collection} of the node's reverse deps for efficiency, because an important use case for
+   * {@link #markDirty} is during invalidation, and the invalidator must immediately afterwards
+   * schedule the invalidation of a node's reverse deps if the invalidator successfully dirties that
+   * node.
    *
    * <p>Warning: {@link #getReverseDepsUnsafe()} may return a live view of the reverse deps
    * collection of the marked-dirty node. The consumer of this data must be careful only to iterate
@@ -166,13 +162,20 @@ public interface NodeEntry extends PriorityTracker {
    * during invalidation, because reverse deps don't change during invalidation.
    */
   final class MarkedDirtyResult {
-    private final Iterable<SkyKey> reverseDepsUnsafe;
 
-    public MarkedDirtyResult(Iterable<SkyKey> reverseDepsUnsafe) {
-      this.reverseDepsUnsafe = Preconditions.checkNotNull(reverseDepsUnsafe);
+    private static final MarkedDirtyResult NO_RDEPS = new MarkedDirtyResult(ImmutableList.of());
+
+    public static MarkedDirtyResult withReverseDeps(Collection<SkyKey> reverseDepsUnsafe) {
+      return reverseDepsUnsafe.isEmpty() ? NO_RDEPS : new MarkedDirtyResult(reverseDepsUnsafe);
     }
 
-    public Iterable<SkyKey> getReverseDepsUnsafe() {
+    private final Collection<SkyKey> reverseDepsUnsafe;
+
+    private MarkedDirtyResult(Collection<SkyKey> reverseDepsUnsafe) {
+      this.reverseDepsUnsafe = reverseDepsUnsafe;
+    }
+
+    public Collection<SkyKey> getReverseDepsUnsafe() {
       return reverseDepsUnsafe;
     }
   }
@@ -221,7 +224,7 @@ public interface NodeEntry extends PriorityTracker {
   /**
    * Removes a reverse dependency.
    *
-   * <p>May only be called if this entry is not done (i.e. {@link #isDone} is false) and {@param
+   * <p>May only be called if this entry is not done (i.e. {@link #isDone} is false) and {@code
    * reverseDep} was added/confirmed during this evaluation (by {@link #addReverseDepAndCheckIfDone}
    * or {@link #checkIfDoneForDirtyReverseDep}).
    */
@@ -235,7 +238,7 @@ public interface NodeEntry extends PriorityTracker {
    * <p>May only be called on a done node entry.
    */
   @ThreadSafe
-  Iterable<SkyKey> getReverseDepsForDoneEntry() throws InterruptedException;
+  Collection<SkyKey> getReverseDepsForDoneEntry() throws InterruptedException;
 
   /**
    * Returns raw {@link SkyValue} stored in this entry, which may include metadata associated with
@@ -335,7 +338,7 @@ public interface NodeEntry extends PriorityTracker {
   @ThreadSafe
   DependencyState checkIfDoneForDirtyReverseDep(SkyKey reverseDep) throws InterruptedException;
 
-  Iterable<SkyKey> getAllReverseDepsForNodeBeingDeleted();
+  Collection<SkyKey> getAllReverseDepsForNodeBeingDeleted();
 
   /**
    * Tell this entry that one of its dependencies is now done. Callers must check the return value,

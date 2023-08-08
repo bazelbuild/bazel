@@ -319,8 +319,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     invalidate(SkyFunctionName.functionIsIn(PACKAGE_LOCATOR_DEPENDENT_VALUES));
   }
 
-  @Override
-  protected void invalidate(Predicate<SkyKey> pred) {
+  void invalidate(Predicate<SkyKey> pred) {
     recordingDiffer.invalidate(Iterables.filter(memoizingEvaluator.getValues().keySet(), pred));
   }
 

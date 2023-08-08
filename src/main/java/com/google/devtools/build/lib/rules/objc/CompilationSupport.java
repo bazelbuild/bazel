@@ -117,7 +117,8 @@ public class CompilationSupport implements StarlarkValue {
           "-fexceptions", "-fasm-blocks", "-fobjc-abi-version=2", "-fobjc-legacy-dispatch");
 
   /**
-   * Frameworks implicitly linked to iOS, watchOS, and tvOS binaries when using legacy compilation.
+   * Frameworks implicitly linked to iOS, visionOS, watchOS, and tvOS binaries when using legacy
+   * compilation.
    */
   @VisibleForTesting
   static final NestedSet<String> AUTOMATIC_SDK_FRAMEWORKS =
