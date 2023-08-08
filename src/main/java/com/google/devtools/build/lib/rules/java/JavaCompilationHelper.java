@@ -603,7 +603,7 @@ public final class JavaCompilationHelper {
     return getJavacOpts().contains("-processor") || attributes.plugins().hasProcessors();
   }
 
-  public void createGenJarAction(
+  private void createGenJarAction(
       Artifact classJar,
       Artifact manifestProto,
       Artifact genClassJar,
@@ -663,36 +663,6 @@ public final class JavaCompilationHelper {
         .build(semantics, ruleContext, execGroup);
   }
 
-  /**
-   * Creates an Action that packages the Java source files into a Jar. If {@code gensrcJar} is
-   * non-null, includes the contents of the {@code gensrcJar} with the output source jar.
-   *
-   * @param outputJar the Artifact to create with the Action
-   * @param gensrcJar the generated sources jar Artifact that should be included with the sources in
-   *     the output Artifact. May be null.
-   * @param javaToolchainProvider is used by SingleJarActionBuilder to retrieve jvm options
-   */
-  public void createSourceJarAction(
-      Artifact outputJar,
-      @Nullable Artifact gensrcJar,
-      JavaToolchainProvider javaToolchainProvider) {
-    JavaTargetAttributes attributes = getAttributes();
-    NestedSetBuilder<Artifact> resourceJars = NestedSetBuilder.stableOrder();
-    resourceJars.addAll(attributes.getSourceJars());
-    if (gensrcJar != null) {
-      resourceJars.add(gensrcJar);
-    }
-    SingleJarActionBuilder.createSourceJarAction(
-        ruleContext,
-        ruleContext,
-        semantics,
-        NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, attributes.getSourceFiles()),
-        resourceJars.build(),
-        outputJar,
-        javaToolchainProvider,
-        execGroup);
-  }
-
   public void createSourceJarAction(Artifact outputJar, @Nullable Artifact gensrcJar) {
     JavaTargetAttributes attributes = getAttributes();
     NestedSetBuilder<Artifact> resourceJars = NestedSetBuilder.stableOrder();
@@ -746,7 +716,7 @@ public final class JavaCompilationHelper {
     return jar;
   }
 
-  public void createLocalOptimizationAction(
+  private void createLocalOptimizationAction(
       Artifact unoptimizedOutputJar,
       Artifact optimizedOutputJar,
       NestedSet<Artifact> classpath,
@@ -847,7 +817,7 @@ public final class JavaCompilationHelper {
    *
    * @return filtered command line flag value, defaulting to ERROR
    */
-  public StrictDepsMode getStrictJavaDeps() {
+  private StrictDepsMode getStrictJavaDeps() {
     return strictJavaDeps;
   }
 
