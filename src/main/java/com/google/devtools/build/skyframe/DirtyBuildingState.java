@@ -205,7 +205,8 @@ public abstract class DirtyBuildingState implements PriorityTracker {
    * DirtyBuildingState#getNumOfGroupsInLastBuildDirectDeps()}.
    */
   final void signalDep(
-      IncrementalInMemoryNodeEntry entry,
+      AbstractInMemoryNodeEntry entry,
+      NodeVersion version,
       Version childVersion,
       @Nullable SkyKey childForDebugging) {
     // Synchronization isn't needed here because the only caller is InMemoryNodeEntry, which does it
@@ -217,7 +218,7 @@ public abstract class DirtyBuildingState implements PriorityTracker {
     }
 
     // childVersion > version.lastEvaluated() means the child has changed since the last evaluation.
-    boolean childChanged = !childVersion.atMost(entry.version.lastEvaluated());
+    boolean childChanged = !childVersion.atMost(version.lastEvaluated());
     if (childChanged) {
       dirtyState = DirtyState.NEEDS_REBUILDING;
     } else if (dirtyState == DirtyState.CHECK_DEPENDENCIES

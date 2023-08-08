@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.skyframe.KeyToConsolidate.Op;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.ForOverride;
@@ -28,50 +27,8 @@ import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
 
-/**
- * In-memory implementation of {@link NodeEntry}. All operations on this class are thread-safe.
- *
- * <p>Care was taken to provide certain compound operations to avoid certain check-then-act races.
- * That means this class is somewhat closely tied to the exact Evaluator implementation.
- *
- * <p>Consider the example with two threads working on two nodes, where one depends on the other,
- * say b depends on a. If a completes first, it's done. If it completes second, it needs to signal
- * b, and potentially re-schedule it. If b completes first, it must exit, because it will be
- * signaled (and re-scheduled) by a. If it completes second, it must signal (and re-schedule)
- * itself. However, if the Evaluator supported re-entrancy for a node, then this wouldn't have to be
- * so strict, because duplicate scheduling would be less problematic.
- *
- * <p>During its life, a node can go through states as follows:
- *
- * <ol>
- *   <li>Non-existent
- *   <li>Just created or marked as affected ({@link #isDone} is false; {@link #isDirty} is false)
- *   <li>Evaluating ({@link #isDone} is false; {@link #isDirty} is true)
- *   <li>Done ({@link #isDone} is true; {@link #isDirty} is false)
- * </ol>
- *
- * <p>The "just created" state is there to allow the {@link ProcessableGraph#createIfAbsentBatch}
- * and {@link NodeEntry#addReverseDepAndCheckIfDone} methods to be separate. All callers have to
- * call both methods in that order if they want to create a node. The second method returns the
- * NEEDS_SCHEDULING state only on the first time it was called. A caller that gets NEEDS_SCHEDULING
- * back from that call must start the evaluation of this node, while any subsequent callers must
- * not.
- *
- * <p>An entry is set to ALREADY_EVALUATING as soon as it is scheduled for evaluation. Thus, even a
- * node that is never actually built (for instance, a dirty node that is verified as clean) is in
- * the ALREADY_EVALUATING state until it is DONE.
- *
- * <p>From the DONE state, the node can go back to the "marked as affected" state.
- *
- * <p>This class is public only for the benefit of alternative graph implementations outside of the
- * package.
- */
-public class IncrementalInMemoryNodeEntry implements InMemoryNodeEntry {
-
-  private final SkyKey key;
-
-  /** Actual data stored in this entry when it is done. */
-  protected volatile SkyValue value = null;
+/** An {@link InMemoryNodeEntry} that {@link #keepsEdges} for use in incremental evaluations. */
+public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry {
 
   protected volatile NodeVersion version = Version.minimal();
 
@@ -121,70 +78,13 @@ public class IncrementalInMemoryNodeEntry implements InMemoryNodeEntry {
    */
   private List<Object> reverseDepsDataToConsolidate = null;
 
-  /**
-   * Object encapsulating dirty state of the object between when it is marked dirty and
-   * re-evaluated.
-   */
-  @Nullable protected volatile DirtyBuildingState dirtyBuildingState = null;
-
   public IncrementalInMemoryNodeEntry(SkyKey key) {
-    this.key = checkNotNull(key);
-  }
-
-  @Override
-  public final SkyKey getKey() {
-    return key;
+    super(key);
   }
 
   @Override
   public boolean keepsEdges() {
     return true;
-  }
-
-  private boolean isEvaluating() {
-    return dirtyBuildingState != null;
-  }
-
-  @Override
-  public boolean isDone() {
-    return value != null && dirtyBuildingState == null;
-  }
-
-  @Override
-  public synchronized boolean isReadyToEvaluate() {
-    return !isDone()
-        && isEvaluating()
-        && (dirtyBuildingState.isReady(getNumTemporaryDirectDeps())
-            || key.supportsPartialReevaluation());
-  }
-
-  @Override
-  public synchronized boolean hasUnsignaledDeps() {
-    checkState(!isDone(), this);
-    checkState(isEvaluating(), this);
-    return !dirtyBuildingState.isReady(getNumTemporaryDirectDeps());
-  }
-
-  @Override
-  public synchronized boolean isDirty() {
-    return !isDone() && dirtyBuildingState != null;
-  }
-
-  @Override
-  public synchronized boolean isChanged() {
-    return !isDone() && dirtyBuildingState != null && dirtyBuildingState.isChanged();
-  }
-
-  @Override
-  public synchronized SkyValue getValue() {
-    checkState(isDone(), "no value until done. ValueEntry: %s", this);
-    return ValueWithMetadata.justValue(value);
-  }
-
-  @Override
-  @Nullable
-  public SkyValue getValueMaybeWithMetadata() {
-    return value;
   }
 
   @Nullable
@@ -228,25 +128,13 @@ public class IncrementalInMemoryNodeEntry implements InMemoryNodeEntry {
     return GroupedDeps.castAsCompressed(directDeps);
   }
 
-  @Override
-  @Nullable
-  public synchronized ErrorInfo getErrorInfo() {
-    checkState(isDone(), "no errors until done. NodeEntry: %s", this);
-    return ValueWithMetadata.getMaybeErrorInfo(value);
-  }
-
   /**
    * Puts entry in "done" state, as checked by {@link #isDone}. Subclasses that override one may
    * need to override the other.
    */
+  @ForOverride
   protected void markDone() {
     dirtyBuildingState = null;
-  }
-
-  @Override
-  public synchronized void addExternalDep() {
-    checkNotNull(dirtyBuildingState, this);
-    dirtyBuildingState.addExternalDep();
   }
 
   protected final synchronized Set<SkyKey> setStateFinishedAndReturnReverseDepsToSignal() {
@@ -306,7 +194,7 @@ public class IncrementalInMemoryNodeEntry implements InMemoryNodeEntry {
     synchronized (this) {
       boolean done = isDone();
       if (!done && dirtyBuildingState == null) {
-        dirtyBuildingState = new InitialBuildingState(key.hasLowFanout());
+        dirtyBuildingState = new InitialBuildingState(getKey().hasLowFanout());
       }
       if (reverseDep != null) {
         if (done) {
@@ -416,7 +304,7 @@ public class IncrementalInMemoryNodeEntry implements InMemoryNodeEntry {
     checkState(
         !isDone(), "Value must not be done in signalDep %s child=%s", this, childForDebugging);
     checkNotNull(dirtyBuildingState, "%s %s", this, childForDebugging);
-    dirtyBuildingState.signalDep(this, childVersion, childForDebugging);
+    dirtyBuildingState.signalDep(this, version, childVersion, childForDebugging);
     return !hasUnsignaledDeps();
   }
 
@@ -432,7 +320,7 @@ public class IncrementalInMemoryNodeEntry implements InMemoryNodeEntry {
   @ForOverride
   protected DirtyBuildingState createDirtyBuildingStateForDoneNode(
       DirtyType dirtyType, GroupedDeps directDeps, SkyValue value) {
-    return new IncrementalDirtyBuildingState(dirtyType, key, directDeps, value);
+    return new IncrementalDirtyBuildingState(dirtyType, getKey(), directDeps, value);
   }
 
   private static final GroupedDeps EMPTY_LIST = new GroupedDeps();
@@ -495,70 +383,8 @@ public class IncrementalInMemoryNodeEntry implements InMemoryNodeEntry {
   }
 
   @Override
-  public synchronized void forceRebuild() {
-    checkNotNull(dirtyBuildingState, this);
-    checkState(isEvaluating(), this);
-    dirtyBuildingState.forceRebuild(getNumTemporaryDirectDeps());
-  }
-
-  @Override
   public Version getVersion() {
     return version.lastChanged();
-  }
-
-  @Override
-  public synchronized NodeEntry.DirtyState getDirtyState() {
-    checkNotNull(dirtyBuildingState, this);
-    return dirtyBuildingState.getDirtyState();
-  }
-
-  /**
-   * @see DirtyBuildingState#getNextDirtyDirectDeps()
-   */
-  @Override
-  public synchronized List<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
-    checkState(!hasUnsignaledDeps(), this);
-    checkNotNull(dirtyBuildingState, this);
-    checkState(dirtyBuildingState.isEvaluating(), "Not evaluating during getNextDirty? %s", this);
-    return dirtyBuildingState.getNextDirtyDirectDeps();
-  }
-
-  @Override
-  public synchronized Iterable<SkyKey> getAllDirectDepsForIncompleteNode()
-      throws InterruptedException {
-    checkState(!isDone(), this);
-    if (!isDirty()) {
-      return getTemporaryDirectDeps().getAllElementsAsIterable();
-    } else {
-      // There may be duplicates here. Make sure everything is unique.
-      ImmutableSet.Builder<SkyKey> result = ImmutableSet.builder();
-      for (List<SkyKey> group : getTemporaryDirectDeps()) {
-        result.addAll(group);
-      }
-      result.addAll(
-          dirtyBuildingState.getAllRemainingDirtyDirectDeps(/* preservePosition= */ false));
-      return result.build();
-    }
-  }
-
-  @Override
-  public synchronized ImmutableSet<SkyKey> getAllRemainingDirtyDirectDeps()
-      throws InterruptedException {
-    checkNotNull(dirtyBuildingState, this);
-    checkState(dirtyBuildingState.isEvaluating(), "Not evaluating for remaining dirty? %s", this);
-    if (isDirty()) {
-      DirtyState dirtyState = dirtyBuildingState.getDirtyState();
-      checkState(
-          dirtyState == DirtyState.REBUILDING || dirtyState == DirtyState.FORCED_REBUILDING, this);
-      return dirtyBuildingState.getAllRemainingDirtyDirectDeps(/* preservePosition= */ true);
-    } else {
-      return ImmutableSet.of();
-    }
-  }
-
-  @Override
-  public synchronized void markRebuilding() {
-    checkNotNull(dirtyBuildingState, this).markRebuilding();
   }
 
   @Override
@@ -566,28 +392,14 @@ public class IncrementalInMemoryNodeEntry implements InMemoryNodeEntry {
     checkState(!isDone(), "temporary shouldn't be done: %s", this);
     if (directDeps == null) {
       // Initialize lazily, to save a little memory.
-      //
-      // If the key opts into partial reevaluation, tracking deps with a HashSet is worth the extra
-      // memory cost -- see SkyFunctionEnvironment.PartialReevaluation.
-      directDeps =
-          key.supportsPartialReevaluation() ? new GroupedDeps.WithHashSet() : new GroupedDeps();
+      directDeps = newGroupedDeps();
     }
     return (GroupedDeps) directDeps;
   }
 
+  @Override
   final synchronized int getNumTemporaryDirectDeps() {
     return directDeps == null ? 0 : getTemporaryDirectDeps().numElements();
-  }
-
-  @Override
-  public synchronized boolean noDepsLastBuild() {
-    checkState(isEvaluating(), this);
-    return dirtyBuildingState.noDepsLastBuild();
-  }
-
-  @Override
-  public synchronized void removeUnfinishedDeps(Set<SkyKey> unfinishedDeps) {
-    getTemporaryDirectDeps().remove(unfinishedDeps);
   }
 
   @Override
@@ -598,75 +410,15 @@ public class IncrementalInMemoryNodeEntry implements InMemoryNodeEntry {
   }
 
   @Override
-  public synchronized void addSingletonTemporaryDirectDep(SkyKey dep) {
-    getTemporaryDirectDeps().appendSingleton(dep);
-  }
-
-  @Override
-  public synchronized void addTemporaryDirectDepGroup(List<SkyKey> group) {
-    getTemporaryDirectDeps().appendGroup(group);
-  }
-
-  @Override
-  public synchronized void addTemporaryDirectDepsInGroups(
-      Set<SkyKey> deps, List<Integer> groupSizes) {
-    getTemporaryDirectDeps().appendGroups(deps, groupSizes);
-  }
-
-  @Override
-  public int getPriority() {
-    var snapshot = dirtyBuildingState;
-    if (snapshot == null) {
-      return Integer.MAX_VALUE;
-    }
-    return snapshot.getPriority();
-  }
-
-  @Override
-  public int depth() {
-    var snapshot = dirtyBuildingState;
-    if (snapshot == null) {
-      return 0;
-    }
-    return snapshot.depth();
-  }
-
-  @Override
-  public void updateDepthIfGreater(int proposedDepth) {
-    var snapshot = dirtyBuildingState;
-    if (snapshot == null) {
-      return;
-    }
-    snapshot.updateDepthIfGreater(proposedDepth);
-  }
-
-  @Override
-  public void incrementEvaluationCount() {
-    var snapshot = dirtyBuildingState;
-    if (snapshot == null) {
-      return;
-    }
-    snapshot.incrementEvaluationCount();
-  }
-
   protected synchronized MoreObjects.ToStringHelper toStringHelper() {
-    return MoreObjects.toStringHelper(this)
-        .add("key", key)
-        .add("identity", System.identityHashCode(this))
-        .add("value", value)
+    return super.toStringHelper()
         .add("version", version)
         .add(
             "directDeps",
             isDone() && keepsEdges()
                 ? GroupedDeps.decompress(getCompressedDirectDepsForDoneEntry())
                 : directDeps)
-        .add("reverseDeps", ReverseDepsUtility.toString(this))
-        .add("dirtyBuildingState", dirtyBuildingState);
-  }
-
-  @Override
-  public final synchronized String toString() {
-    return toStringHelper().toString();
+        .add("reverseDeps", ReverseDepsUtility.toString(this));
   }
 
   /** {@link DirtyBuildingState} for a node on an incremental build. */
