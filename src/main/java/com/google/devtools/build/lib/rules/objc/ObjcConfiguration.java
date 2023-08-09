@@ -55,10 +55,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
 
   private final DottedVersion iosSimulatorVersion;
   private final String iosSimulatorDevice;
-  private final DottedVersion watchosSimulatorVersion;
-  private final String watchosSimulatorDevice;
-  private final DottedVersion tvosSimulatorVersion;
-  private final String tvosSimulatorDevice;
   // TODO(b/236152224): Delete after Starlark uses are migrated to CppConfiguration.
   private final boolean generateLinkmap;
   private final boolean runMemleaks;
@@ -82,10 +78,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
 
     this.iosSimulatorDevice = objcOptions.iosSimulatorDevice;
     this.iosSimulatorVersion = DottedVersion.maybeUnwrap(objcOptions.iosSimulatorVersion);
-    this.watchosSimulatorDevice = objcOptions.watchosSimulatorDevice;
-    this.watchosSimulatorVersion = DottedVersion.maybeUnwrap(objcOptions.watchosSimulatorVersion);
-    this.tvosSimulatorDevice = objcOptions.tvosSimulatorDevice;
-    this.tvosSimulatorVersion = DottedVersion.maybeUnwrap(objcOptions.tvosSimulatorVersion);
     this.generateLinkmap = cppOptions.objcGenerateLinkmap;
     this.runMemleaks = objcOptions.runMemleaks;
     this.copts = ImmutableList.copyOf(cppOptions.objcoptList);
@@ -114,36 +106,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   public DottedVersion getIosSimulatorVersion() {
     // TODO(bazel-team): Deprecate in favor of getSimulatorVersionForPlatformType(IOS).
     return iosSimulatorVersion;
-  }
-
-  @Override
-  public String getSimulatorDeviceForPlatformType(PlatformType platformType) {
-    switch (platformType) {
-      case IOS:
-        return iosSimulatorDevice;
-      case TVOS:
-        return tvosSimulatorDevice;
-      case WATCHOS:
-        return watchosSimulatorDevice;
-      default:
-        throw new IllegalArgumentException(
-            "ApplePlatform type " + platformType + " does not support " + "simulators.");
-    }
-  }
-
-  @Override
-  public DottedVersion getSimulatorVersionForPlatformType(PlatformType platformType) {
-    switch (platformType) {
-      case IOS:
-        return iosSimulatorVersion;
-      case TVOS:
-        return tvosSimulatorVersion;
-      case WATCHOS:
-        return watchosSimulatorVersion;
-      default:
-        throw new IllegalArgumentException(
-            "ApplePlatform type " + platformType + " does not support " + "simulators.");
-    }
   }
 
   /**
