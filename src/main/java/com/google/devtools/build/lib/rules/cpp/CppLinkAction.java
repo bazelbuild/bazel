@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.SimpleSpawn.LocalResourcesSupplier;
@@ -335,6 +336,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
       throws ActionExecutionException, InterruptedException {
     LocalResourcesEstimator localResourcesEstimator =
         new LocalResourcesEstimator(
+            actionExecutionContext,
             OS.getCurrent(),
             linkCommandLine.getLinkerInputArtifacts());
 
@@ -491,6 +493,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
    */
   @VisibleForTesting
   static class LocalResourcesEstimator implements LocalResourcesSupplier {
+    private final ActionExecutionContext actionExecutionContext;
     private final OS os;
     private final NestedSet<Artifact> inputs;
 
@@ -509,7 +512,9 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
 
     private LazyData lazyData = null;
 
-    public LocalResourcesEstimator(OS os, NestedSet<Artifact> inputs) {
+    public LocalResourcesEstimator(
+        ActionExecutionContext actionExecutionContext, OS os, NestedSet<Artifact> inputs) {
+      this.actionExecutionContext = actionExecutionContext;
       this.os = os;
       this.inputs = inputs;
     }
@@ -521,7 +526,14 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
       for (Artifact input : inputs.toList()) {
         inputsCount += 1;
         try {
-          inputsBytes += input.getPath().getFileSize();
+          FileArtifactValue value =
+              actionExecutionContext.getInputMetadataProvider().getInputMetadata(input);
+          if (value != null) {
+            inputsBytes += value.getSize();
+          } else {
+            logger.atWarning().log(
+                "Linker metrics: failed to get size of %s: no metadata", input.getExecPath());
+          }
         } catch (Exception e) {
           logger.atWarning().log(
               "Linker metrics: failed to get size of %s: %s (ignored)", input.getExecPath(), e);

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.Mockito.mock;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -25,6 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -785,9 +787,12 @@ public final class CppLinkActionTest extends BuildViewTestCase {
 
   private ResourceSet estimateResourceConsumptionLocal(
       RuleContext ruleContext, OS os, int inputsCount) throws Exception {
+    ActionExecutionContext actionExecutionContext = mock(ActionExecutionContext.class);
+
     NestedSet<Artifact> inputs = createInputs(ruleContext, inputsCount);
     try {
-      LocalResourcesEstimator estimator = new LocalResourcesEstimator(os, inputs);
+      LocalResourcesEstimator estimator =
+          new LocalResourcesEstimator(actionExecutionContext, os, inputs);
       return estimator.get();
     } finally {
       for (Artifact input : inputs.toList()) {
