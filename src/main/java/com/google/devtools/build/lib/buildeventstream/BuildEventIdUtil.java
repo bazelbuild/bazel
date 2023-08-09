@@ -239,7 +239,7 @@ public final class BuildEventIdUtil {
   }
 
   public static BuildEventId testResult(
-      Label target, Integer run, Integer shard, Integer attempt, BuildEventId configuration) {
+      Label target, int run, int shard, int attempt, BuildEventId configuration) {
     BuildEventId.ConfigurationId configId = configuration.getConfiguration();
     BuildEventId.TestResultId resultId =
         BuildEventId.TestResultId.newBuilder()
@@ -253,7 +253,7 @@ public final class BuildEventIdUtil {
   }
 
   public static BuildEventId testResult(
-      Label target, Integer run, Integer shard, BuildEventId configuration) {
+      Label target, int run, int shard, BuildEventId configuration) {
     return testResult(target, run, shard, 1, configuration);
   }
 

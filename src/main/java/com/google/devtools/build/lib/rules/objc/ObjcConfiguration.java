@@ -23,10 +23,9 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
-import com.google.devtools.build.lib.cmdline.BazelModuleContext;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
@@ -34,8 +33,6 @@ import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.ObjcConfigurationApi;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Module;
-import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 
 /** A compiler configuration containing flags required for Objective-C compilation. */
@@ -243,13 +240,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
     return alwayslinkByDefault;
   }
 
-  private static boolean isBuiltIn(StarlarkThread thread) {
-    Label label =
-        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
-            .label();
-    return label.getPackageIdentifier().getRepository().getName().equals("_builtins");
-  }
-
   /**
    * Looks at any explicit value for alwayslink on ctx and then falls back to the value of
    * alwayslink_by_default.
@@ -257,9 +247,7 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   @Override
   public boolean targetShouldAlwayslink(StarlarkRuleContext ruleContext, StarlarkThread thread)
       throws EvalException {
-    if (!isBuiltIn(thread)) {
-      throw Starlark.errorf("Cannot use targetShouldAlwayslink API outside of builtins");
-    }
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
 
     AttributeMap attributes = ruleContext.getRuleContext().attributes();
     if (attributes.isAttributeValueExplicitlySpecified("alwayslink")) {

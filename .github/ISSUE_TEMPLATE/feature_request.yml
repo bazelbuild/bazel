@@ -30,7 +30,7 @@ body:
       multiple: true
       options:
         - Android
-        - C++ Rules
+        - C++/Objective-C Rules
         - CLI
         - Configurability
         - Core

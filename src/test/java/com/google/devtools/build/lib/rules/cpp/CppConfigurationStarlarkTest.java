@@ -95,6 +95,13 @@ public final class CppConfigurationStarlarkTest extends BuildViewTestCase {
     assertThat(result).containsExactly("-wololoo");
   }
 
+  private static void assertBlockedFeature(AssertionError e, String feature) {
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            String.format("cannot use private API (feature '%s' in CppConfiguration)", feature));
+  }
+
   @Test
   public void testExpandedApiBlocked() throws Exception {
     writeRuleReturning("foo", "pic.bzl", "pic", "ctx.fragments.cpp.force_pic()");
@@ -110,19 +117,17 @@ public final class CppConfigurationStarlarkTest extends BuildViewTestCase {
         "ctx.fragments.cpp.fission_active_for_current_compilation_mode()");
     AssertionError e;
     e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:pic"));
-    assertThat(e).hasMessageThat().contains("cannot use 'force_pic'");
+    assertBlockedFeature(e, "force_pic");
     e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:lcov"));
-    assertThat(e).hasMessageThat().contains("cannot use 'generate_llvm_lcov'");
+    assertBlockedFeature(e, "generate_llvm_lcov");
     e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:fdo"));
-    assertThat(e).hasMessageThat().contains("cannot use 'fdo_instrument'");
+    assertBlockedFeature(e, "fdo_instrument");
     e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:hdr_deps"));
     assertThat(e).hasMessageThat().contains("cannot use private API");
     e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:save"));
     assertThat(e).hasMessageThat().contains("cannot use private API");
     e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:fission"));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Rule in 'foo' cannot use 'fission_active_for_current_compilation_mode'");
+    assertBlockedFeature(e, "fission_active_for_current_compilation_mode");
   }
 
   private void writeRuleReturning(String returns) throws IOException {

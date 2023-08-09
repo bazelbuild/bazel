@@ -1183,7 +1183,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     getConfiguredTarget("//test/starlark:foo");
 
     // Assert
-    assertContainsEvent("private API only for use in builtins");
+    assertContainsEvent("file '//test/starlark:extension.bzl' cannot use private @_builtins API");
   }
 
   @Test
@@ -3991,5 +3991,25 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     AspectKey aspectKey = getOnlyElement(analysisResult.getAspectsMap().keySet());
     assertThat(aspectKey.getAspectClass().getName()).isEqualTo("//test:aspect.bzl%MyAspect");
     assertThat(aspectKey.getLabel().toString()).isEqualTo("//test:test");
+  }
+
+  // Regression test for b/295156684.
+  @Test
+  public void testLabelConstructorFailsInBuildFile() throws Exception {
+    // The Label() constructor is not a predeclared symbol for BUILD files, but it can still be
+    // called if it's loaded from a .bzl that re-exports it. Test that this doesn't crash.
+    scratch.file(
+        "test/foo.bzl", //
+        "label_builtin = Label");
+    scratch.file(
+        "test/BUILD", //
+        "load(':foo.bzl', 'label_builtin')",
+        "label_builtin(':something')");
+
+    reporter.removeHandler(failFastHandler);
+    getTarget("//test:BUILD");
+    assertContainsEvent(
+        "Label() can only be used during .bzl initialization (top-level evaluation)",
+        ImmutableSet.of(EventKind.ERROR));
   }
 }

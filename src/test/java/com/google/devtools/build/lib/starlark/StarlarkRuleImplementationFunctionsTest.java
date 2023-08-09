@@ -644,9 +644,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     AssertionError error =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//abc:foo"));
 
-    assertThat(error)
-        .hasMessageThat()
-        .contains("Error in expand_location: Rule in 'abc' cannot use private API");
+    assertThat(error).hasMessageThat().contains("file '//abc:rule.bzl' cannot use private API");
   }
 
   @Test
@@ -3334,9 +3332,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     AssertionError error =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//abc:foo"));
 
-    assertThat(error)
-        .hasMessageThat()
-        .contains("Error in declare_shareable_artifact: Rule in 'abc' cannot use private API");
+    assertThat(error).hasMessageThat().contains("file '//abc:rule.bzl' cannot use private API");
   }
 
   @Test
@@ -3353,9 +3349,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     AssertionError error =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//abc:foo"));
 
-    assertThat(error)
-        .hasMessageThat()
-        .contains("Error in runfiles: Rule in 'abc' cannot use private API");
+    assertThat(error).hasMessageThat().contains("file '//abc:rule.bzl' cannot use private API");
   }
 
   @Test

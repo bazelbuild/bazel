@@ -15,9 +15,14 @@
 package com.google.devtools.build.lib.cmdline;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * BazelModuleContext records Bazel-specific information associated with a .bzl {@link
@@ -101,9 +106,55 @@ public abstract class BazelModuleContext {
     return label().toString();
   }
 
-  /** Returns the BazelModuleContext associated with the specified Starlark module. */
+  /**
+   * Returns the {@code BazelModuleContext} associated with the specified Starlark module, or null
+   * if there isn't any.
+   */
+  @Nullable
   public static BazelModuleContext of(Module m) {
-    return (BazelModuleContext) m.getClientData();
+    @Nullable Object data = m.getClientData();
+    if (data instanceof BazelModuleContext) {
+      return (BazelModuleContext) data;
+    } else {
+      return null;
+    }
+  }
+
+  /**
+   * Returns the {@code BazelModuleContext} associated with the innermost Starlark function on the
+   * call stack of the given thread.
+   *
+   * <p>Usage note: Following the example of {@link Module#ofInnermostEnclosingStarlarkFunction},
+   * the name of this method is intentionally clumsy to remind the reader that introspecting the
+   * current module is a dubious practice. We went with a different name here because the null
+   * tolerance of the two methods differs.
+   *
+   * @throws NullPointerException if there is no currently executing Starlark function, or the
+   *     innermost Starlark function's module has no {@code BazelModuleContext}.
+   */
+  public static BazelModuleContext ofInnermostBzlOrThrow(StarlarkThread thread) {
+    Module m = Preconditions.checkNotNull(Module.ofInnermostEnclosingStarlarkFunction(thread));
+    return Preconditions.checkNotNull(of(m));
+  }
+
+  /**
+   * Returns the {@code BazelModuleContext} associated with the innermost Starlark function on the
+   * call stack of the given thread. If not present, throws {@code EvalException} with an error
+   * message indicating that {@code what} can't be used in this Starlark environment.
+   */
+  @CanIgnoreReturnValue
+  public static BazelModuleContext ofInnermostBzlOrFail(StarlarkThread thread, String what)
+      throws EvalException {
+    BazelModuleContext ctx = null;
+    Module m = Module.ofInnermostEnclosingStarlarkFunction(thread);
+    if (m != null) {
+      ctx = of(m);
+    }
+    if (ctx == null) {
+      throw Starlark.errorf(
+          "%s can only be used during .bzl initialization (top-level evaluation)", what);
+    }
+    return ctx;
   }
 
   public static BazelModuleContext create(

@@ -53,7 +53,6 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -110,10 +109,11 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       }
     }
     builder.setConfiguredTargetFunction(implementation);
-    BazelModuleContext bzlModule =
-        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
+    // TODO(b/291752414): If we care about the digest of repository rules, we should be using the
+    // transitive bzl digest of the module of the outermost stack frame, not the innermost.
+    BazelModuleContext moduleContext = BazelModuleContext.ofInnermostBzlOrThrow(thread);
     builder.setRuleDefinitionEnvironmentLabelAndDigest(
-        bzlModule.label(), bzlModule.bzlTransitiveDigest());
+        moduleContext.label(), moduleContext.bzlTransitiveDigest());
     builder.setWorkspaceOnly();
     return new RepositoryRuleFunction(
         builder,

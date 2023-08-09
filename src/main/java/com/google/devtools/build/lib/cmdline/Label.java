@@ -41,7 +41,6 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -511,9 +510,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
     return parseWithPackageContext(
         relName,
         PackageContext.of(
-            packageIdentifier,
-            BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread))
-                .repoMapping()));
+            packageIdentifier, BazelModuleContext.ofInnermostBzlOrThrow(thread).repoMapping()));
   }
 
   @Override

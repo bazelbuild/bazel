@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
-import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -64,6 +63,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
@@ -92,7 +92,6 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Dict.ImmutableKeyTrackingDict;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -114,9 +113,8 @@ import net.starlark.java.eval.Tuple;
  */
 public final class StarlarkRuleContext implements StarlarkRuleContextApi<ConstraintValueInfo> {
 
-  private static final ImmutableSet<PackageIdentifier> PRIVATE_STARLARKIFICATION_ALLOWLIST =
+  static final ImmutableSet<PackageIdentifier> PRIVATE_STARLARKIFICATION_ALLOWLIST =
       ImmutableSet.of(
-          PackageIdentifier.createUnchecked("_builtins", ""),
           PackageIdentifier.createInMainRepo("test"), // for tests
           PackageIdentifier.createInMainRepo("third_party/bazel_rules/rules_android"),
           PackageIdentifier.createUnchecked("build_bazel_rules_android", ""),
@@ -944,22 +942,8 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     }
   }
 
-  static void checkPrivateAccess(ImmutableSet<PackageIdentifier> allowlist, StarlarkThread thread)
-      throws EvalException {
-    Label label =
-        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
-            .label();
-    if (allowlist.stream()
-        .noneMatch(
-            allowedPrefix ->
-                label.getRepository().equals(allowedPrefix.getRepository())
-                    && label.getPackageFragment().startsWith(allowedPrefix.getPackageFragment()))) {
-      throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
-    }
-  }
-
-  static void checkPrivateAccess(StarlarkThread thread) throws EvalException {
-    checkPrivateAccess(PRIVATE_STARLARKIFICATION_ALLOWLIST, thread);
+  private static void checkPrivateAccess(StarlarkThread thread) throws EvalException {
+    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, PRIVATE_STARLARKIFICATION_ALLOWLIST);
   }
 
   @Override
