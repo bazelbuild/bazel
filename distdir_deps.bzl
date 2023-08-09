@@ -295,7 +295,7 @@ DIST_DEPS = {
         "archive": "r8-8.1.56.jar",
         "sha256": "57a696749695a09381a87bc2f08c3a8ed06a717a5caa3ef878a3077e0d3af19d",
         "urls": [
-            "https://maven.google.com/com/android/tools/r8/8.0.40/r8-8.1.56.jar",
+            "https://maven.google.com/com/android/tools/r8/8.1.56/r8-8.1.56.jar",
         ],
         "used_in": [
         ],

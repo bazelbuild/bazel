@@ -140,7 +140,7 @@ distdir_tar(
             "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.29.0.tar",
         ],
         "r8-8.1.56.jar": [
-            "https://maven.google.com/com/android/tools/r8/8.0.40/r8-8.1.56.jar",
+            "https://maven.google.com/com/android/tools/r8/8.1.56/r8-8.1.56.jar",
         ],
     },
 )
