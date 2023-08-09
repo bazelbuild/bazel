@@ -39,7 +39,7 @@ def java_binary(**kwargs):
 def java_test(**kwargs):
     register_java_binary_rules(
         _java_test,
-        java_test_no_launcher,
+        _java_test,
         java_test_no_launcher,
         java_test_custom_launcher,
         rule_deploy_jars = deploy_jars,
