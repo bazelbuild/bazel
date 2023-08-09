@@ -127,20 +127,20 @@ distdir_tar(
     archives = [
         "android_tools_pkg-0.29.0.tar",
         # for android_gmaven_r8
-        "r8-8.0.40.jar",
+        "r8-8.1.56.jar",
     ],
     dirname = "derived/distdir",
     dist_deps = {dep: attrs for dep, attrs in DIST_DEPS.items() if "additional_distfiles" in attrs["used_in"]},
     sha256 = {
         "android_tools_pkg-0.29.0.tar": "d7223664ca5b0de490f2a918c31f35cdf4f23a1446fe261d7470b8a22bd7bcf1",
-        "r8-8.0.40.jar": "ab1379835c7d3e5f21f80347c3c81e2f762e0b9b02748ae5232c3afa14adf702",
+        "r8-8.1.56.jar": "57a696749695a09381a87bc2f08c3a8ed06a717a5caa3ef878a3077e0d3af19d",
     },
     urls = {
         "android_tools_pkg-0.29.0.tar": [
             "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.29.0.tar",
         ],
-        "r8-8.0.40.jar": [
-            "https://maven.google.com/com/android/tools/r8/8.0.40/r8-8.0.40.jar",
+        "r8-8.1.56.jar": [
+            "https://maven.google.com/com/android/tools/r8/8.0.40/r8-8.1.56.jar",
         ],
     },
 )
@@ -567,12 +567,14 @@ python_register_toolchains(
 )
 
 load("@python_3_8//:defs.bzl", "interpreter")
-
 load("@rules_python//python:pip.bzl", "pip_parse")
+
 pip_parse(
-   name = "bazel_pip_dev_deps",
-   requirements_lock = "//:requirements.txt",
-   python_interpreter_target = interpreter,
+    name = "bazel_pip_dev_deps",
+    python_interpreter_target = interpreter,
+    requirements_lock = "//:requirements.txt",
 )
+
 load("@bazel_pip_dev_deps//:requirements.bzl", "install_deps")
+
 install_deps()
