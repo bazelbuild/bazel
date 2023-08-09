@@ -318,7 +318,7 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         /* doAnalysis= */ true,
         new EventBus());
     // Implicitly check that `update()` above didn't throw an exception. This implicitly checks that
-    // ctx.attr.dep.java.{transitive_deps, outputs}, above, is defined.
+    // ctx.attr.dep.java.{transitive_compile_time_jars, outputs}, above, is defined.
   }
 
   @Test

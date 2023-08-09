@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.devtools.build.lib.rules.java.JavaInfoBuildHelper.getStrictDepsMode;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
@@ -25,6 +24,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.StarlarkInfoNoSchema;
 import com.google.devtools.build.lib.packages.StarlarkInfoWithSchema;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
@@ -73,6 +72,24 @@ public class JavaStarlarkCommon
       ImmutableSet.of("bazel_internal/test");
   private final JavaSemantics javaSemantics;
 
+  private static StrictDepsMode getStrictDepsMode(String strictDepsMode) {
+    switch (strictDepsMode) {
+      case "OFF":
+        return StrictDepsMode.OFF;
+      case "ERROR":
+      case "DEFAULT":
+        return StrictDepsMode.ERROR;
+      case "WARN":
+        return StrictDepsMode.WARN;
+      default:
+        throw new IllegalArgumentException(
+            "StrictDepsMode "
+                + strictDepsMode
+                + " not allowed."
+                + " Only OFF and ERROR values are accepted.");
+    }
+  }
+
   private void checkJavaToolchainIsDeclaredOnRule(RuleContext ruleContext)
       throws EvalException, LabelSyntaxException {
     ToolchainInfo toolchainInfo =
@@ -97,106 +114,6 @@ public class JavaStarlarkCommon
 
   public JavaStarlarkCommon(JavaSemantics javaSemantics) {
     this.javaSemantics = javaSemantics;
-  }
-
-  @Override
-  public JavaInfo createJavaCompileAction(
-      StarlarkRuleContext starlarkRuleContext,
-      Sequence<?> sourceJars, // <Artifact> expected
-      Sequence<?> sourceFiles, // <Artifact> expected
-      Artifact outputJar,
-      Object outputSourceJar,
-      Sequence<?> javacOpts, // <String> expected
-      Sequence<?> deps, // <JavaInfo> expected
-      Sequence<?> runtimeDeps, // <JavaInfo> expected
-      Sequence<?> exports, // <JavaInfo> expected
-      Sequence<?> plugins, // <JavaPluginInfo> expected
-      Sequence<?> exportedPlugins, // <JavaPluginInfo> expected
-      Sequence<?> nativeLibraries, // <CcInfo> expected.
-      Sequence<?> annotationProcessorAdditionalInputs, // <Artifact> expected
-      Sequence<?> annotationProcessorAdditionalOutputs, // <Artifact> expected
-      String strictDepsMode,
-      JavaToolchainProvider javaToolchain,
-      Object bootClassPath,
-      Object hostJavabase,
-      Sequence<?> sourcepathEntries, // <Artifact> expected
-      Sequence<?> resources, // <Artifact> expected
-      Sequence<?> resourceJars, // <Artifact> expected
-      Sequence<?> classpathResources, // <Artifact> expected
-      Boolean neverlink,
-      Boolean enableAnnotationProcessing,
-      Boolean enableCompileJarAction,
-      Boolean enableJSpecify,
-      boolean includeCompilationInfo,
-      Object injectingRuleKind,
-      Sequence<?> addExports, // <String> expected
-      Sequence<?> addOpens, // <String> expected
-      StarlarkThread thread)
-      throws EvalException, InterruptedException, RuleErrorException, LabelSyntaxException {
-    checkJavaToolchainIsDeclaredOnRule(starlarkRuleContext.getRuleContext());
-
-    final ImmutableList<JavaPluginInfo> pluginsParam =
-        JavaPluginInfo.wrapSequence(plugins, "plugins");
-    final ImmutableList<JavaPluginInfo> exportedPluginsParam =
-        JavaPluginInfo.wrapSequence(exportedPlugins, "exported_plugins");
-
-    // checks for private API access
-    if (!enableCompileJarAction
-        || !enableJSpecify
-        || !includeCompilationInfo
-        || !classpathResources.isEmpty()
-        || !resourceJars.isEmpty()
-        || injectingRuleKind != Starlark.NONE) {
-      checkPrivateAccess(thread);
-    }
-
-    if (starlarkRuleContext.getRuleContext().useAutoExecGroups()) {
-      String javaToolchainType = javaSemantics.getJavaToolchainType();
-      if (!starlarkRuleContext.getRuleContext().hasToolchainContext(javaToolchainType)) {
-        throw Starlark.errorf(
-            "Action declared for non-existent toolchain '%s'.", javaToolchainType);
-      }
-    }
-
-    return JavaInfoBuildHelper.getInstance()
-        .createJavaCompileAction(
-            starlarkRuleContext,
-            Sequence.cast(sourceJars, Artifact.class, "source_jars"),
-            Sequence.cast(sourceFiles, Artifact.class, "source_files"),
-            outputJar,
-            outputSourceJar == Starlark.NONE ? null : (Artifact) outputSourceJar,
-            Sequence.cast(javacOpts, String.class, "javac_opts"),
-            JavaInfo.wrapSequence(deps, "deps"),
-            JavaInfo.wrapSequence(runtimeDeps, "runtime_deps"),
-            JavaInfo.wrapSequence(exports, "exports"),
-            pluginsParam,
-            exportedPluginsParam,
-            Sequence.cast(nativeLibraries, CcInfo.class, "native_libraries"),
-            Sequence.cast(
-                annotationProcessorAdditionalInputs,
-                Artifact.class,
-                "annotation_processor_additional_inputs"),
-            Sequence.cast(
-                annotationProcessorAdditionalOutputs,
-                Artifact.class,
-                "annotation_processor_additional_outputs"),
-            strictDepsMode,
-            javaToolchain,
-            bootClassPath == Starlark.NONE ? null : (BootClassPathInfo) bootClassPath,
-            ImmutableList.copyOf(Sequence.cast(sourcepathEntries, Artifact.class, "sourcepath")),
-            Sequence.cast(resources, Artifact.class, "resources"),
-            Sequence.cast(resourceJars, Artifact.class, "resource_jars"),
-            Sequence.cast(classpathResources, Artifact.class, "classpath_resources"),
-            neverlink,
-            enableAnnotationProcessing,
-            enableCompileJarAction,
-            enableJSpecify,
-            includeCompilationInfo,
-            javaSemantics,
-            injectingRuleKind,
-            Sequence.cast(addExports, String.class, "add_exports"),
-            Sequence.cast(addOpens, String.class, "add_opens"),
-            thread);
   }
 
   @Override

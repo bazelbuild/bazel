@@ -362,12 +362,19 @@ public final class JavaInfo extends NativeInfo
 
   @Override
   public Depset /*<Artifact>*/ getTransitiveRuntimeJars() {
-    return getTransitiveRuntimeDeps();
+    return Depset.of(
+        Artifact.class,
+        getProviderAsNestedSet(
+            JavaCompilationArgsProvider.class, JavaCompilationArgsProvider::getRuntimeJars));
   }
 
   @Override
   public Depset /*<Artifact>*/ getTransitiveCompileTimeJars() {
-    return getTransitiveDeps();
+    return Depset.of(
+        Artifact.class,
+        getProviderAsNestedSet(
+            JavaCompilationArgsProvider.class,
+            JavaCompilationArgsProvider::getTransitiveCompileTimeJars));
   }
 
   @Override
@@ -430,22 +437,9 @@ public final class JavaInfo extends NativeInfo
     return directRuntimeJars;
   }
 
-  @Override
-  public Depset /*<Artifact>*/ getTransitiveDeps() {
-    return Depset.of(
-        Artifact.class,
-        getProviderAsNestedSet(
-            JavaCompilationArgsProvider.class,
-            JavaCompilationArgsProvider::getTransitiveCompileTimeJars));
-  }
+  /*<Artifact>*/
 
-  @Override
-  public Depset /*<Artifact>*/ getTransitiveRuntimeDeps() {
-    return Depset.of(
-        Artifact.class,
-        getProviderAsNestedSet(
-            JavaCompilationArgsProvider.class, JavaCompilationArgsProvider::getRuntimeJars));
-  }
+  /*<Artifact>*/
 
   @Override
   public Depset /*<Artifact>*/ getTransitiveSourceJars() {
