@@ -196,7 +196,7 @@ issues.
     * Contact: [coeuvre](https://github.com/coeuvre){: .external}
 *   [`team-Rules-API`](https://github.com/bazelbuild/bazel/labels/team-Rules-API){: .external}: API for writing rules/aspects: providers, runfiles, actions, artifacts
     * Contact: [comius](https://github.com/comius){: .external}
-*   [`team-Rules-CPP`](https://github.com/bazelbuild/bazel/labels/team-Rules-CPP){: .external}: Issues for C++ rules, including native Apple rule logic
+*   [`team-Rules-CPP`](https://github.com/bazelbuild/bazel/labels/team-Rules-CPP){: .external} / [`team-Rules-ObjC`](https://github.com/bazelbuild/bazel/labels/team-Rules-ObjC){: .external}: Issues for C++/Objective-C rules, including native Apple rule logic
     * Contact: [oquenchil](https://github.com/oquenchil){: .external}
 *   [`team-Rules-Java`](https://github.com/bazelbuild/bazel/labels/team-Rules-Java){: .external}: Issues for Java rules
     * Contact: [hvadehra](https://github.com/hvadehra){: .external}
