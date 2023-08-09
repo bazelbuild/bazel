@@ -187,6 +187,6 @@ For fish shell completion, link this file into your
 ${HOME}/.config/fish/completions/ directory:
   ln -s ${base}/bin/bazel.fish ${HOME}/.config/fish/completions/bazel.fish
 
-See http://bazel.build/docs/getting-started.html to start a new project!
+See http://bazel.build/start to start a new project!
 EOF
 exit 0
