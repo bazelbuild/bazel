@@ -569,15 +569,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
                 + "<p> The order of the created depset should be <i>compatible</i> with the order"
                 + " of its <code>transitive</code> depsets. <code>\"default\"</code> order is"
                 + " compatible with any other order, all other orders are only compatible with"
-                + " themselves.\n" //
-                + "<p> Note on backward/forward compatibility. This function currently accepts a"
-                + " positional <code>items</code> parameter. It is deprecated and will be removed"
-                + " in the future, and after its removal <code>direct</code> will become a sole"
-                + " positional parameter of the <code>depset</code> function. Thus, both of the"
-                + " following calls are equivalent and future-proof:<br>\n" //
-                + "<pre class=language-python>depset(['a', 'b'], transitive = [...])\n" //
-                + "depset(direct = ['a', 'b'], transitive = [...])\n" //
-                + "</pre>",
+                + " themselves.",
         parameters = {
           // TODO(cparsons): Make 'order' keyword-only.
           @Param(
