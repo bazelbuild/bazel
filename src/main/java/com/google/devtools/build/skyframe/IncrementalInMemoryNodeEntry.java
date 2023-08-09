@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -161,6 +162,10 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry {
   public synchronized Set<SkyKey> setValue(
       SkyValue value, Version graphVersion, @Nullable Version maxTransitiveSourceVersion)
       throws InterruptedException {
+    checkArgument(
+        keepsEdges() || graphVersion.equals(ConstantVersion.INSTANCE),
+        "Non-incremental evaluations must use a constant graph version, got %s",
+        graphVersion);
     checkState(!hasUnsignaledDeps(), "Has unsignaled deps (this=%s, value=%s)", this, value);
     checkState(
         version.lastChanged().atMost(graphVersion) && version.lastEvaluated().atMost(graphVersion),
