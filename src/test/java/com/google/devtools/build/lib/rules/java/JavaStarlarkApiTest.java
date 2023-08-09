@@ -1843,7 +1843,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "foo/extension.bzl",
         "result = provider()",
         "def _impl(ctx):",
-        "  return [result(property = ctx.attr.dep[JavaInfo].transitive_deps)]",
+        "  return [result(property = ctx.attr.dep[JavaInfo].transitive_compile_time_jars)]",
         "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
 
     scratch.file(
@@ -1875,7 +1875,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "foo/extension.bzl",
         "result = provider()",
         "def _impl(ctx):",
-        "  return [result(property = ctx.attr.dep[JavaInfo].transitive_runtime_deps)]",
+        "  return [result(property = ctx.attr.dep[JavaInfo].transitive_runtime_jars)]",
         "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
 
     scratch.file(

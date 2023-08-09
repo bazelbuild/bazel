@@ -123,24 +123,6 @@ public interface JavaInfoApi<
   Sequence<FileT> getRuntimeOutputJars();
 
   @StarlarkMethod(
-      name = "transitive_deps",
-      doc =
-          "Deprecated: Please use <code><a class=\"anchor\" "
-              + "href=\"#transitive_compile_time_jars\">JavaInfo.transitive_compile_time_jars</a></code>"
-              + " instead. It returns the same value.",
-      structField = true)
-  Depset /*<FileT>*/ getTransitiveDeps();
-
-  @StarlarkMethod(
-      name = "transitive_runtime_deps",
-      doc =
-          "Deprecated: please use <code><a class=\"anchor\""
-              + " href=\"#transitive_runtime_jars\">JavaInfo.transitive_runtime_jars"
-              + "</a></code> instead. It returns the same value",
-      structField = true)
-  Depset /*<FileT>*/ getTransitiveRuntimeDeps();
-
-  @StarlarkMethod(
       name = "transitive_source_jars",
       doc =
           "Returns the Jars containing source files of the current target and all of its"
