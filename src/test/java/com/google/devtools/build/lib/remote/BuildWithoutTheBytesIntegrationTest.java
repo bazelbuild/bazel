@@ -540,4 +540,66 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     // We should be able to observe more than 1 mtime if the server extends the lease.
     assertThat(mtimes.size()).isGreaterThan(1);
   }
+
+  @Test
+  public void downloadTopLevel_deepSymlinkToFile() throws Exception {
+    setDownloadToplevel();
+    write(
+        "defs.bzl",
+        "def _impl(ctx):",
+        "  file = ctx.actions.declare_file(ctx.label.name + '.file')",
+        "  ctx.actions.run_shell(",
+        "    outputs = [file],",
+        "    command = 'echo -n hello > $1',",
+        "    arguments = [file.path],",
+        "  )",
+        "",
+        "  shallow = ctx.actions.declare_file(ctx.label.name + '.shallow')",
+        "  ctx.actions.symlink(output = shallow, target_file = file)",
+        "",
+        "  deep = ctx.actions.declare_file(ctx.label.name + '.deep')",
+        "  ctx.actions.symlink(output = deep, target_file = shallow)",
+        "",
+        "  return DefaultInfo(files = depset([deep]))",
+        "",
+        "symlink = rule(_impl)");
+    write("BUILD", "load(':defs.bzl', 'symlink')", "symlink(name = 'foo')");
+
+    buildTarget("//:foo");
+
+    // Materialization skips the intermediate symlink.
+    assertSymlink("foo.deep", getOutputPath("foo.file").asFragment());
+    assertValidOutputFile("foo.deep", "hello");
+  }
+
+  @Test
+  public void downloadTopLevel_deepSymlinkToDirectory() throws Exception {
+    setDownloadToplevel();
+    write(
+        "defs.bzl",
+        "def _impl(ctx):",
+        "  dir = ctx.actions.declare_directory(ctx.label.name + '.dir')",
+        "  ctx.actions.run_shell(",
+        "    outputs = [dir],",
+        "    command = 'echo -n hello > $1/file.txt',",
+        "    arguments = [dir.path],",
+        "  )",
+        "",
+        "  shallow = ctx.actions.declare_directory(ctx.label.name + '.shallow')",
+        "  ctx.actions.symlink(output = shallow, target_file = dir)",
+        "",
+        "  deep = ctx.actions.declare_directory(ctx.label.name + '.deep')",
+        "  ctx.actions.symlink(output = deep, target_file = shallow)",
+        "",
+        "  return DefaultInfo(files = depset([deep]))",
+        "",
+        "symlink = rule(_impl)");
+    write("BUILD", "load(':defs.bzl', 'symlink')", "symlink(name = 'foo')");
+
+    buildTarget("//:foo");
+
+    // Materialization skips the intermediate symlink.
+    assertSymlink("foo.deep", getOutputPath("foo.dir").asFragment());
+    assertValidOutputFile("foo.deep/file.txt", "hello");
+  }
 }

@@ -257,14 +257,14 @@ function test_packages_cleared() {
        'RuleConfiguredTarget$')"
   [[ "$ct_count" -ge 18 ]] \
       || fail "RuleConfiguredTarget count $ct_count too low: did you move/rename the class?"
-  local edgeless_entry_count="$(extract_histogram_count "$histo_file" \
-       'EdgelessInMemoryNodeEntry')"
-  [[ "$edgeless_entry_count" -eq 0 ]] \
-      || fail "$edgeless_entry_count EdgelessInMemoryNodeEntry instances found in build keeping edges"
-  local node_entry_count="$(extract_histogram_count "$histo_file" \
+  local non_incremental_entry_count="$(extract_histogram_count "$histo_file" \
+       'NonIncrementalInMemoryNodeEntry')"
+  [[ "$non_incremental_entry_count" -eq 0 ]] \
+      || fail "$non_incremental_entry_count NonIncrementalInMemoryNodeEntry instances found in build keeping edges"
+  local incremental_entry_count="$(extract_histogram_count "$histo_file" \
        '\.IncrementalInMemoryNodeEntry')"
-  [[ "$node_entry_count" -ge 100 ]] \
-      || fail "Only $node_entry_count IncrementalInMemoryNodeEntry instances found in build keeping edges"
+  [[ "$incremental_entry_count" -ge 100 ]] \
+      || fail "Only $incremental_entry_count IncrementalInMemoryNodeEntry instances found in build keeping edges"
   local histo_file="$(prepare_histogram "$BUILD_FLAGS")"
   package_count="$(extract_histogram_count "$histo_file" \
       'devtools\.build\.lib\..*\.Package$')"
@@ -281,14 +281,14 @@ function test_packages_cleared() {
        'RuleConfiguredTarget$')"
   [[ "$ct_count" -le 1 ]] \
       || fail "too many RuleConfiguredTarget: expected at most 1, got $ct_count"
-  edgeless_entry_count="$(extract_histogram_count "$histo_file" \
-       'EdgelessInMemoryNodeEntry')"
-  [[ "$edgeless_entry_count" -ge 100 ]] \
-      || fail "Not enough ($edgless_entry_count) EdgelessInMemoryNodeEntry instances found in build discarding edges"
-  node_entry_count="$(extract_histogram_count "$histo_file" \
+  non_incremental_entry_count="$(extract_histogram_count "$histo_file" \
+       'NonIncrementalInMemoryNodeEntry')"
+  [[ "$non_incremental_entry_count" -ge 100 ]] \
+      || fail "Not enough ($non_incremental_entry_count) NonIncrementalInMemoryNodeEntry instances found in build discarding edges"
+  incremental_entry_count="$(extract_histogram_count "$histo_file" \
        '\.IncrementalInMemoryNodeEntry')"
-  [[ "$node_entry_count" -le 10 ]] \
-      || fail "Too many ($node_entry_count) IncrementalInMemoryNodeEntry instances found in build discarding edges"
+  [[ "$incremental_entry_count" -le 10 ]] \
+      || fail "Too many ($incremental_entry_count) IncrementalInMemoryNodeEntry instances found in build discarding edges"
 }
 
 # Action conflicts can cause deletion of nodes, and deletion is tricky with no edges.

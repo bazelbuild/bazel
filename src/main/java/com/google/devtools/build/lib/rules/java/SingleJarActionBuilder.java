@@ -79,7 +79,7 @@ public final class SingleJarActionBuilder {
    * @param outputJar the Jar to create
    * @param toolchainProvider is used to retrieve jvm options
    */
-  public static void createSourceJarAction(
+  private static void createSourceJarAction(
       ActionRegistry actionRegistry,
       ActionConstructionContext actionConstructionContext,
       JavaSemantics semantics,

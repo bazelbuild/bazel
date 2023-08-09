@@ -24,8 +24,8 @@ import javax.annotation.Nullable;
 
 /**
  * Partial implementation of {@link InMemoryNodeEntry} containing behavior common to both {@link
- * IncrementalInMemoryNodeEntry} and {@link EdgelessInMemoryNodeEntry}. All operations on this class
- * are thread-safe.
+ * IncrementalInMemoryNodeEntry} and {@link NonIncrementalInMemoryNodeEntry}. All operations on this
+ * class are thread-safe.
  *
  * <p>Care was taken to provide certain compound operations to avoid certain check-then-act races.
  * That means this class is somewhat closely tied to the exact Evaluator implementation.
