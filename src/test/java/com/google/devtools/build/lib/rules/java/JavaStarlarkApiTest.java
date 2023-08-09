@@ -3373,7 +3373,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     getConfiguredTarget("//foo:custom");
 
-    assertContainsEvent("Rule in 'foo' cannot use private API");
+    assertContainsEvent("file '//foo:custom_rule.bzl' cannot use private API");
   }
 
   @Test
@@ -3393,7 +3393,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     getConfiguredTarget("//foo:myrule");
 
-    assertContainsEvent("Rule in 'foo' cannot use private API");
+    assertContainsEvent("file '//foo:rule.bzl' cannot use private API");
   }
 
   @Test
@@ -3540,7 +3540,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     getConfiguredTarget("//foo:custom");
 
-    assertContainsEvent("Error in " + api + ": Rule in 'foo' cannot use private API");
+    assertContainsEvent(
+        "Error in " + api + ": file '//foo:custom_rule.bzl' cannot use private API");
   }
 
   @Test

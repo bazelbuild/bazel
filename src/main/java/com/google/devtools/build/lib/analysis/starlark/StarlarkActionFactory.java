@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.starlark;
 
-import static com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext.checkPrivateAccess;
+import static com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext.PRIVATE_STARLARKIFICATION_ALLOWLIST;
 import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT;
 
 import com.google.common.base.Joiner;
@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -448,7 +449,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       String outputFileName,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
-    checkPrivateAccess(PRIVATE_BUILDINFO_API_ALLOWLIST, thread);
+    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, PRIVATE_BUILDINFO_API_ALLOWLIST);
     return transformBuildInfoFile(
         transformFuncObject, templateObject, outputFileName, true, thread);
   }
@@ -460,7 +461,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       String outputFileName,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
-    checkPrivateAccess(PRIVATE_BUILDINFO_API_ALLOWLIST, thread);
+    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, PRIVATE_BUILDINFO_API_ALLOWLIST);
     return transformBuildInfoFile(
         transformFuncObject, templateObject, outputFileName, false, thread);
   }
@@ -1044,7 +1045,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   @Override
   public FileApi createShareableArtifact(String path, Object artifactRoot, StarlarkThread thread)
       throws EvalException {
-    checkPrivateAccess(thread);
+    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, PRIVATE_STARLARKIFICATION_ALLOWLIST);
     ArtifactRoot root =
         artifactRoot == Starlark.UNBOUND
             ? getRuleContext().getBinDirectory()

@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import java.util.HashMap;
 import java.util.Map;
-import net.starlark.java.eval.Module;
 import net.starlark.java.eval.StarlarkThread;
 
 /**
@@ -36,8 +35,7 @@ public class LabelConverter {
    * containing the .bzl file.
    */
   public static LabelConverter forBzlEvaluatingThread(StarlarkThread thread) {
-    BazelModuleContext moduleContext =
-        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
+    BazelModuleContext moduleContext = BazelModuleContext.ofInnermostBzlOrThrow(thread);
     return new LabelConverter(moduleContext.packageContext());
   }
 

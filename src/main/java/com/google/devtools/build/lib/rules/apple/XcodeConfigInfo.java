@@ -16,10 +16,9 @@ package com.google.devtools.build.lib.rules.apple;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.cmdline.BazelModuleContext;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.XcodeConfigInfoApi;
@@ -27,8 +26,6 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Module;
-import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 
 /**
@@ -278,43 +275,34 @@ public class XcodeConfigInfo extends NativeInfo
         XcodeConfigRule.XCODE_CONFIG_ATTR_NAME, XcodeConfigInfo.PROVIDER);
   }
 
-  private void checkAccess(StarlarkThread thread) throws EvalException {
-    Label label =
-        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
-            .label();
-    if (!label.getPackageIdentifier().getRepository().getName().equals("_builtins")) {
-      throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
-    }
-  }
-
   @StarlarkMethod(name = "ios_sdk_version", documented = false, useStarlarkThread = true)
   public DottedVersion getIosSdkVersionForStarlark(StarlarkThread thread) throws EvalException {
-    checkAccess(thread);
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
     return iosSdkVersion;
   }
 
   @StarlarkMethod(name = "tvos_sdk_version", documented = false, useStarlarkThread = true)
   public DottedVersion getTvosSdkVersionForStarlark(StarlarkThread thread) throws EvalException {
-    checkAccess(thread);
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
     return tvosSdkVersion;
   }
 
   @StarlarkMethod(name = "visionos_sdk_version", documented = false, useStarlarkThread = true)
   public DottedVersion getVisionosSdkVersionForStarlark(StarlarkThread thread)
       throws EvalException {
-    checkAccess(thread);
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
     return visionosSdkVersion;
   }
 
   @StarlarkMethod(name = "watchos_sdk_version", documented = false, useStarlarkThread = true)
   public DottedVersion getWatchosSdkVersionForStarlark(StarlarkThread thread) throws EvalException {
-    checkAccess(thread);
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
     return watchosSdkVersion;
   }
 
   @StarlarkMethod(name = "macos_sdk_version", documented = false, useStarlarkThread = true)
   public DottedVersion getMacosSdkVersionForStarlark(StarlarkThread thread) throws EvalException {
-    checkAccess(thread);
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
     return macosSdkVersion;
   }
 }

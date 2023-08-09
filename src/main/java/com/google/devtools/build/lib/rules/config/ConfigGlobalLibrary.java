@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.Map;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
@@ -60,8 +59,7 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
     boolean isExecTransition = implementation.getLocation().file().endsWith("_exec_platforms.bzl");
     validateBuildSettingKeys(inputsList, Settings.INPUTS, isExecTransition);
     validateBuildSettingKeys(outputsList, Settings.OUTPUTS, isExecTransition);
-    BazelModuleContext moduleContext =
-        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
+    BazelModuleContext moduleContext = BazelModuleContext.ofInnermostBzlOrThrow(thread);
     Location location = thread.getCallerLocation();
     return StarlarkDefinedConfigTransition.newRegularTransition(
         implementation,
@@ -83,8 +81,7 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
         Dict.cast(changedSettings, String.class, Object.class, "changed_settings dict");
     validateBuildSettingKeys(
         changedSettingsMap.keySet(), Settings.OUTPUTS, /* isExecTransition= */ false);
-    BazelModuleContext moduleContext =
-        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
+    BazelModuleContext moduleContext = BazelModuleContext.ofInnermostBzlOrThrow(thread);
     Location location = thread.getCallerLocation();
     return StarlarkDefinedConfigTransition.newAnalysisTestTransition(
         changedSettingsMap, moduleContext.repoMapping(), moduleContext.label(), location);

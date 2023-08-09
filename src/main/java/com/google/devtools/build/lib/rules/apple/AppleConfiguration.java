@@ -26,10 +26,9 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
-import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleConfigurationApi;
 import com.google.devtools.build.lib.util.CPU;
@@ -37,8 +36,6 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Module;
-import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -157,16 +154,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     abstract ImmutableList<String> macosCpus();
 
     abstract ImmutableList<String> catalystCpus();
-  }
-
-  private static void checkPrivateAccess(StarlarkThread thread) throws EvalException {
-    RepositoryName repository =
-        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread))
-            .label()
-            .getRepository();
-    if (!"@_builtins".equals(repository.getNameWithAt())) {
-      throw Starlark.errorf("private API only for use by builtins");
-    }
   }
 
   /** Determines iOS cpu value from apple-specific toolchain identifier. */
@@ -438,13 +425,13 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   /** Returns true if the minimum_os_version attribute should be mandatory on rules with linking. */
   @Override
   public boolean isMandatoryMinimumVersionForStarlark(StarlarkThread thread) throws EvalException {
-    checkPrivateAccess(thread);
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
     return isMandatoryMinimumVersion();
   }
 
   @Override
   public String getCpuForStarlark(StarlarkThread thread) throws EvalException {
-    checkPrivateAccess(thread);
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
     return cpu;
   }
 

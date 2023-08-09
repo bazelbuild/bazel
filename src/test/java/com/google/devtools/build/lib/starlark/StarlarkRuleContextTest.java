@@ -4140,7 +4140,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     checkError(
         "some_dir",
         "generating_target",
-        "Rule in 'some_dir' cannot use private API",
+        "file '//some_dir:rules.bzl' cannot use private API",
         "load(':rules.bzl', 'buildinfo_rule')",
         "buildinfo_rule(",
         "    name = 'generating_target',",

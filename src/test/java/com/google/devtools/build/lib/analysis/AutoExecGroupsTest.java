@@ -1421,7 +1421,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
       javaCommonCompile_automaticExecGroupsEnabled_javaResourceActionsExecuteOnFirstPlatform()
           throws Exception {
     scratch.file(
-        "bazel_internal/test/defs.bzl",
+        "bazel_internal/test_rules/defs.bzl",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
         "  java_info = java_common.compile(",
@@ -1441,13 +1441,13 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "  fragments = ['java']",
         ")");
     scratch.file(
-        "bazel_internal/test/BUILD",
-        "load('//bazel_internal/test:defs.bzl', 'custom_rule')",
+        "bazel_internal/test_rules/BUILD",
+        "load('//bazel_internal/test_rules:defs.bzl', 'custom_rule')",
         "custom_rule(name = 'custom_rule_name', resources = ['Resources.java'])");
     useConfiguration(
         "--incompatible_auto_exec_groups", "--experimental_turbine_annotation_processing");
 
-    ImmutableList<Action> actions = getActions("//bazel_internal/test:custom_rule_name");
+    ImmutableList<Action> actions = getActions("//bazel_internal/test_rules:custom_rule_name");
     ImmutableList<Action> javaResourceActions =
         actions.stream()
             .filter(action -> action.getMnemonic().equals("JavaResourceJar"))
@@ -1463,7 +1463,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
       javaCommonCompile_automaticExecGroupsDisabled_javaResourceActionsExecuteOnSecondPlatform()
           throws Exception {
     scratch.file(
-        "bazel_internal/test/defs.bzl",
+        "bazel_internal/test_rules/defs.bzl",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
         "  java_info = java_common.compile(",
@@ -1483,12 +1483,12 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "  fragments = ['java']",
         ")");
     scratch.file(
-        "bazel_internal/test/BUILD",
-        "load('//bazel_internal/test:defs.bzl', 'custom_rule')",
+        "bazel_internal/test_rules/BUILD",
+        "load('//bazel_internal/test_rules:defs.bzl', 'custom_rule')",
         "custom_rule(name = 'custom_rule_name', resources = ['Resources.java'])");
     useConfiguration("--experimental_turbine_annotation_processing");
 
-    ImmutableList<Action> actions = getActions("//bazel_internal/test:custom_rule_name");
+    ImmutableList<Action> actions = getActions("//bazel_internal/test_rules:custom_rule_name");
     ImmutableList<Action> javaResourceActions =
         actions.stream()
             .filter(action -> action.getMnemonic().equals("JavaResourceJar"))

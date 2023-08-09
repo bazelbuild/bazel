@@ -20,9 +20,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap.UmbrellaHeaderStrategy;
@@ -30,8 +30,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Module;
-import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -221,18 +219,9 @@ public final class IntermediateArtifacts implements StarlarkValue {
             String.format("lib%s%s%s", basename, archiveFileNameSuffix, extension)));
   }
 
-  static void checkPrivateAccess(StarlarkThread thread) throws EvalException {
-    Label label =
-        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
-            .label();
-    if (!label.getPackageIdentifier().getRepository().getName().equals("_builtins")) {
-      throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
-    }
-  }
-
   @StarlarkMethod(name = "archive", documented = false, useStarlarkThread = true)
   public Artifact archiveForStarlark(StarlarkThread thread) throws EvalException {
-    checkPrivateAccess(thread);
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
     return archive();
   }
 

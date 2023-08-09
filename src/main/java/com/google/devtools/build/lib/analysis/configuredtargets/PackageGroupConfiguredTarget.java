@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.configuredtargets;
 
-import static net.starlark.java.eval.Module.ofInnermostEnclosingStarlarkFunction;
-
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -23,14 +21,13 @@ import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.TargetContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
@@ -41,7 +38,6 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 
 /**
@@ -146,14 +142,8 @@ public class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
             allowedTypes = {@ParamType(type = Label.class)})
       },
       useStarlarkThread = true)
-  public boolean starlarkMatches(Label label, StarlarkThread starlarkThread) throws EvalException {
-    RepositoryName repository =
-        BazelModuleContext.of(ofInnermostEnclosingStarlarkFunction(starlarkThread))
-            .label()
-            .getRepository();
-    if (!"@_builtins".equals(repository.getNameWithAt())) {
-      throw Starlark.errorf("private API only for use by builtins");
-    }
+  public boolean starlarkMatches(Label label, StarlarkThread thread) throws EvalException {
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
     return Allowlist.isAvailableFor(getPackageSpecifications(), label);
   }
 }

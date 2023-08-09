@@ -1425,7 +1425,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
 
     getConfiguredTarget("//foo:myrule");
 
-    assertContainsEvent("Rule in 'foo' cannot use private API");
+    assertContainsEvent("file '//foo:rule.bzl' cannot use private @_builtins API");
   }
 
   @Test
@@ -1444,7 +1444,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
 
     getConfiguredTarget("//foo:myrule");
 
-    assertContainsEvent("Rule in 'foo' cannot use private API");
+    assertContainsEvent("file '//foo:rule.bzl' cannot use private @_builtins API");
   }
 
   @Test
@@ -1464,7 +1464,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
 
     getConfiguredTarget("//foo:myrule");
 
-    assertContainsEvent("Rule in 'foo' cannot use private API");
+    assertContainsEvent("file '//foo:rule.bzl' cannot use private @_builtins API");
   }
 
   @Test
@@ -1483,6 +1483,6 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
 
     getConfiguredTarget("//foo:myrule");
 
-    assertContainsEvent("Rule in '//foo:rule.bzl' cannot use private API");
+    assertContainsEvent("file \'//foo:rule.bzl\' cannot use private API");
   }
 }

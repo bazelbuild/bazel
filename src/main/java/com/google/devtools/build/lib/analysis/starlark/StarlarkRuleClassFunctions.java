@@ -101,7 +101,6 @@ import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -996,8 +995,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     // would lead to peculiarities like foo.bzl being able to call bar.bzl's `Label()` symbol to
     // resolve strings as if it were bar.bzl. It also would prevent sharing the same builtins
     // environment across .bzl files. Hence, we opt for stack inspection.
-    BazelModuleContext moduleContext =
-        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
+    BazelModuleContext moduleContext = BazelModuleContext.ofInnermostBzlOrFail(thread, "Label()");
     try {
       return Label.parseWithPackageContext((String) input, moduleContext.packageContext());
     } catch (LabelSyntaxException e) {

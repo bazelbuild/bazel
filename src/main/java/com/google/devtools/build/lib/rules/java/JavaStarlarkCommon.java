@@ -31,13 +31,14 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
-import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.Provider;
@@ -50,7 +51,6 @@ import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCommonApi;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
@@ -68,8 +68,8 @@ public class JavaStarlarkCommon
         StarlarkRuleContext,
         StarlarkActionFactory> {
 
-  private static final ImmutableSet<String> PRIVATE_STARLARKIFACTION_ALLOWLIST =
-      ImmutableSet.of("bazel_internal/test");
+  private static final ImmutableSet<PackageIdentifier> PRIVATE_STARLARKIFACTION_ALLOWLIST =
+      ImmutableSet.of(PackageIdentifier.createInMainRepo("bazel_internal/test_rules"));
   private final JavaSemantics javaSemantics;
 
   private static StrictDepsMode getStrictDepsMode(String strictDepsMode) {
@@ -288,13 +288,7 @@ public class JavaStarlarkCommon
   }
 
   protected static void checkPrivateAccess(StarlarkThread thread) throws EvalException {
-    Label label =
-        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
-            .label();
-    if (!PRIVATE_STARLARKIFACTION_ALLOWLIST.contains(label.getPackageName())
-        && !label.getPackageIdentifier().getRepository().getName().equals("_builtins")) {
-      throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
-    }
+    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, PRIVATE_STARLARKIFACTION_ALLOWLIST);
   }
 
   @Override

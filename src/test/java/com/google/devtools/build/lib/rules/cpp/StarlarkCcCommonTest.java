@@ -7671,7 +7671,9 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     AssertionError e =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
 
-    assertThat(e).hasMessageThat().contains("private API only for use in builtins");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("file '//foo:custom_rule.bzl' cannot use private @_builtins API");
   }
 
   @Test
@@ -7847,7 +7849,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGetCompileBuildVariablesStripOptsNotAcessibleFromOutsideBuiltins()
+  public void testGetCompileBuildVariablesStripOptsNotAccessibleFromOutsideBuiltins()
       throws Exception {
     scratch.file(
         "foo/BUILD",
@@ -7877,7 +7879,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGetCompileBuildVariablesInputFileNotAcessibleFromOutsideBuiltins()
+  public void testGetCompileBuildVariablesInputFileNotAccessibleFromOutsideBuiltins()
       throws Exception {
     scratch.file(
         "foo/BUILD",
@@ -7907,7 +7909,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCreateLinkingContextFromCompilationOutputsStampNotAcessibleFromOutsideBuiltins()
+  public void testCreateLinkingContextFromCompilationOutputsStampNotAccessibleFromOutsideBuiltins()
       throws Exception {
     scratch.file(
         "foo/BUILD",
@@ -7939,7 +7941,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLinkUseTestOnlyFlagNotAcessibleFromOutsideBuiltins() throws Exception {
+  public void testLinkUseTestOnlyFlagNotAccessibleFromOutsideBuiltins() throws Exception {
     scratch.file(
         "foo/BUILD",
         "load(':custom_rule.bzl', 'custom_rule')",
@@ -7968,7 +7970,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLinkUsePdbFileNotAcessibleFromOutsideBuiltins() throws Exception {
+  public void testLinkUsePdbFileNotAccessibleFromOutsideBuiltins() throws Exception {
     scratch.file(
         "foo/BUILD",
         "load(':custom_rule.bzl', 'custom_rule')",
@@ -7997,7 +7999,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLinkUseWinDefFileNotAcessibleFromOutsideBuiltins() throws Exception {
+  public void testLinkUseWinDefFileNotAccessibleFromOutsideBuiltins() throws Exception {
     scratch.file(
         "foo/BUILD",
         "load(':custom_rule.bzl', 'custom_rule')",
