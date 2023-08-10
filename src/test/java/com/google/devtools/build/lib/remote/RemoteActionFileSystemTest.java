@@ -573,6 +573,46 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   }
 
   @Test
+  public void permissions_followSymlinks(
+      @TestParameter FilesystemTestParam from, @TestParameter FilesystemTestParam to)
+      throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    FileSystem fromFs = from.getFilesystem(actionFs);
+    FileSystem toFs = to.getFilesystem(actionFs);
+
+    PathFragment linkPath = getOutputPath("sym");
+    PathFragment targetPath = getOutputPath("target");
+    fromFs.getPath(linkPath).createSymbolicLink(execRoot.getRelative(targetPath).asFragment());
+
+    assertThrows(FileNotFoundException.class, () -> actionFs.chmod(linkPath, 0777));
+
+    if (toFs.equals(actionFs.getLocalFileSystem())) {
+      writeLocalFile(actionFs, targetPath, "content");
+    } else {
+      injectRemoteFile(actionFs, targetPath, "content");
+    }
+
+    // For a remote file, permissions are always 0777.
+    boolean isRemote = toFs.equals(actionFs.getRemoteOutputTree());
+
+    assertThat(actionFs.getPath(linkPath).isReadable()).isTrue();
+    assertThat(actionFs.getPath(linkPath).isWritable()).isTrue();
+    assertThat(actionFs.getPath(linkPath).isExecutable()).isEqualTo(isRemote);
+
+    actionFs.getPath(linkPath).chmod(0111);
+    assertThat(actionFs.getPath(linkPath).isReadable()).isEqualTo(isRemote);
+    assertThat(actionFs.getPath(linkPath).isWritable()).isEqualTo(isRemote);
+    assertThat(actionFs.getPath(linkPath).isExecutable()).isTrue();
+
+    actionFs.getPath(linkPath).setReadable(true);
+    actionFs.getPath(linkPath).setWritable(true);
+    actionFs.getPath(linkPath).setExecutable(false);
+    assertThat(actionFs.getPath(linkPath).isReadable()).isTrue();
+    assertThat(actionFs.getPath(linkPath).isWritable()).isTrue();
+    assertThat(actionFs.getPath(linkPath).isExecutable()).isEqualTo(isRemote);
+  }
+
+  @Test
   public void readSymbolicLink_fromLocalFilesystem() throws Exception {
     RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
     PathFragment filePath = getOutputPath("file");

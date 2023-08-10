@@ -370,82 +370,73 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
   // Remote files are always readable, writable and executable since we can't control their
   // permissions.
 
-  private boolean existsInMemory(PathFragment path) {
-    return statInMemory(path, FollowMode.FOLLOW_ALL) != null;
-  }
-
   @Override
   protected boolean isReadable(PathFragment path) throws IOException {
-    return existsInMemory(path) || localFs.getPath(path).isReadable();
+    path = resolveSymbolicLinks(path).asFragment();
+    try {
+      return localFs.getPath(path).isReadable();
+    } catch (FileNotFoundException e) {
+      return true;
+    }
   }
 
   @Override
   protected boolean isWritable(PathFragment path) throws IOException {
-    if (existsInMemory(path)) {
-      // If path exists locally, also check whether it's writable. We need this check for the case
-      // where the action need to delete their local outputs but the parent directory is not
-      // writable.
-      try {
-        return localFs.getPath(path).isWritable();
-      } catch (FileNotFoundException e) {
-        // Intentionally ignored
-        return true;
-      }
+    path = resolveSymbolicLinks(path).asFragment();
+    try {
+      return localFs.getPath(path).isWritable();
+    } catch (FileNotFoundException e) {
+      return true;
     }
-
-    return localFs.getPath(path).isWritable();
   }
 
   @Override
   protected boolean isExecutable(PathFragment path) throws IOException {
-    return existsInMemory(path) || localFs.getPath(path).isExecutable();
+    path = resolveSymbolicLinks(path).asFragment();
+    try {
+      return localFs.getPath(path).isExecutable();
+    } catch (FileNotFoundException e) {
+      return true;
+    }
   }
 
   @Override
   protected void setReadable(PathFragment path, boolean readable) throws IOException {
+    path = resolveSymbolicLinks(path).asFragment();
     try {
       localFs.getPath(path).setReadable(readable);
     } catch (FileNotFoundException e) {
-      // in case of missing in-memory path, re-throw the error.
-      if (!existsInMemory(path)) {
-        throw e;
-      }
+      // Intentionally ignored.
     }
   }
 
   @Override
   public void setWritable(PathFragment path, boolean writable) throws IOException {
+    path = resolveSymbolicLinks(path).asFragment();
     try {
       localFs.getPath(path).setWritable(writable);
     } catch (FileNotFoundException e) {
-      // in case of missing in-memory path, re-throw the error.
-      if (!existsInMemory(path)) {
-        throw e;
-      }
+      // Intentionally ignored.
     }
   }
 
   @Override
   protected void setExecutable(PathFragment path, boolean executable) throws IOException {
+    path = resolveSymbolicLinks(path).asFragment();
     try {
       localFs.getPath(path).setExecutable(executable);
     } catch (FileNotFoundException e) {
-      // in case of missing in-memory path, re-throw the error.
-      if (!existsInMemory(path)) {
-        throw e;
-      }
+      // Intentionally ignored.
     }
   }
 
   @Override
   protected void chmod(PathFragment path, int mode) throws IOException {
+    path = resolveSymbolicLinks(path).asFragment();
     try {
       localFs.getPath(path).chmod(mode);
     } catch (FileNotFoundException e) {
-      // in case of missing in-memory path, re-throw the error.
-      if (!existsInMemory(path)) {
-        throw e;
-      }
+      // Intentionally ignored.
     }
   }
 
