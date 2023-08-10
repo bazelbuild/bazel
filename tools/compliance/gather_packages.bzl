@@ -153,9 +153,9 @@ def gather_package_common(target, ctx, provider_factory, metadata_providers, fil
 
     # Record all the external repos anyway.
     target_name = str(target.label)
-    packages = None
+    packages = []
     if target_name.startswith("@") and target_name[1] != "/":
-        packages = [target.label]
+        packages.append(target.label)
         # DBG print(str(target.label))
 
     elif hasattr(ctx.rule.attr, "tags"):
