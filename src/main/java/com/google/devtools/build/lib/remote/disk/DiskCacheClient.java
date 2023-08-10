@@ -55,7 +55,8 @@ public class DiskCacheClient implements RemoteCacheClient {
    * @param verifyDownloads whether verify the digest of downloaded content are the same as the
    *     digest used to index that file.
    */
-  public DiskCacheClient(Path root, boolean verifyDownloads, DigestUtil digestUtil) {
+  public DiskCacheClient(Path root, boolean verifyDownloads, DigestUtil digestUtil)
+      throws IOException {
     this.verifyDownloads = verifyDownloads;
     this.digestUtil = digestUtil;
 
@@ -66,6 +67,8 @@ public class DiskCacheClient implements RemoteCacheClient {
           root.getChild(
               Ascii.toLowerCase(digestUtil.getDigestFunction().getValueDescriptor().getName()));
     }
+
+    this.root.createDirectoryAndParents();
   }
 
   /** Returns {@code true} if the provided {@code key} is stored in the CAS. */
