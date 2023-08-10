@@ -58,18 +58,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public boolean runMemleaks;
 
   @Option(
-    name = "experimental_enable_objc_cc_deps",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-    effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-    help =
-        "Allows objc_* rules to depend on cc_library and causes any objc dependencies to be "
-            + "built with --cpu set to \"ios_<--ios_cpu>\" for any values in --ios_multi_cpu."
-  )
-  public boolean enableCcDeps;
-
-  @Option(
     name = "experimental_objc_fastbuild_options",
     defaultValue = "-O0,-DDEBUG=1",
     converter = CommaSeparatedOptionListConverter.class,
@@ -167,7 +155,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   @Override
   public FragmentOptions getExec() {
     ObjcCommandLineOptions exec = (ObjcCommandLineOptions) getDefault();
-    exec.enableCcDeps = enableCcDeps;
     exec.incompatibleAvoidHardcodedObjcCompilationFlags =
         incompatibleAvoidHardcodedObjcCompilationFlags;
     exec.incompatibleDisallowSdkFrameworksAttributes = incompatibleDisallowSdkFrameworksAttributes;

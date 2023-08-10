@@ -465,14 +465,7 @@ public class MultiArchBinarySupport {
 
       // The cpu flag will be set by platform mapping if a mapping exists.
       splitOptions.get(PlatformOptions.class).platforms = ImmutableList.of(platform);
-      if (splitOptions.get(ObjcCommandLineOptions.class).enableCcDeps) {
-        // Only set the (CC-compilation) configs for dependencies if explicitly required by the
-        // user.
-        // This helps users of the iOS rules who do not depend on CC rules as these config values
-        // require additional flags to work (e.g. a custom crosstool) which now only need to be
-        // set if this feature is explicitly requested.
-        setAppleCrosstoolTransitionPlatformConfiguration(buildOptions, splitOptions, platform);
-      }
+      setAppleCrosstoolTransitionPlatformConfiguration(buildOptions, splitOptions, platform);
       AppleCommandLineOptions appleCommandLineOptions =
           splitOptions.get(AppleCommandLineOptions.class);
       // Set the configuration distinguisher last, as the method
@@ -604,13 +597,7 @@ public class MultiArchBinarySupport {
       appleCommandLineOptions.appleSplitCpu = cpu;
 
       String platformCpu = ApplePlatform.cpuStringForTarget(platformType, cpu);
-      if (splitOptions.get(ObjcCommandLineOptions.class).enableCcDeps) {
-        // Only set the (CC-compilation) CPU for dependencies if explicitly required by the user.
-        // This helps users of the iOS rules who do not depend on CC rules as these CPU values
-        // require additional flags to work (e.g. a custom crosstool) which now only need to be
-        // set if this feature is explicitly requested.
-        setAppleCrosstoolTransitionCpuConfiguration(buildOptions, splitOptions, platformCpu);
-      }
+      setAppleCrosstoolTransitionCpuConfiguration(buildOptions, splitOptions, platformCpu);
       // Set the configuration distinguisher last, as setAppleCrosstoolTransitionCpuConfiguration
       // will set this value to the Apple CROSSTOOL configuration distinguisher, and we want to make
       // sure it's set for the right platform instead in this split transition.
