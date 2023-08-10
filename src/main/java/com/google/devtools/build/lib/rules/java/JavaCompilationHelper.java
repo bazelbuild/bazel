@@ -372,7 +372,6 @@ public final class JavaCompilationHelper {
     builder.setJavacOpts(javacopts);
     builder.setJavacExecutionInfo(executionInfoInterner.intern(getExecutionInfo()));
     builder.setCompressJar(true);
-    builder.setBuiltinProcessorNames(javaToolchain.getHeaderCompilerBuiltinProcessors());
     builder.setExtraData(JavaCommon.computePerPackageData(ruleContext, javaToolchain));
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
     builder.setFixDepsTool(getJavaConfiguration().getFixDepsTool());
