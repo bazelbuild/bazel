@@ -139,9 +139,6 @@ public final class RemoteCacheClientFactory {
       throws IOException {
     Path cacheDir =
         workingDirectory.getRelative(Preconditions.checkNotNull(diskCachePath, "diskCachePath"));
-    if (!cacheDir.exists()) {
-      cacheDir.createDirectoryAndParents();
-    }
     return new DiskCacheClient(cacheDir, verifyDownloads, checkActionResult, digestUtil);
   }
 
@@ -153,12 +150,6 @@ public final class RemoteCacheClientFactory {
       AuthAndTLSOptions authAndTlsOptions,
       DigestUtil digestUtil)
       throws IOException {
-    Path cacheDir =
-        workingDirectory.getRelative(Preconditions.checkNotNull(diskCachePath, "diskCachePath"));
-    if (!cacheDir.exists()) {
-      cacheDir.createDirectoryAndParents();
-    }
-
     RemoteCacheClient httpCache = createHttp(options, cred, authAndTlsOptions, digestUtil);
     return createDiskAndRemoteClient(
         workingDirectory,
