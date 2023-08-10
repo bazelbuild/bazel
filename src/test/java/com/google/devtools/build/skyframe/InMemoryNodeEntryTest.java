@@ -41,9 +41,11 @@ import org.junit.Test;
  *
  * <p>Contains test cases that are relevant to both {@link IncrementalInMemoryNodeEntry} and {@link
  * NonIncrementalInMemoryNodeEntry}. Test cases that are only partially relevant to one or the other
- * may branch on {@link #keepEdges} and return early.
+ * may branch on {@link InMemoryNodeEntry#keepsEdges} and return early.
+ *
+ * @param <V> The type of {@link Version} used by the {@link InMemoryNodeEntry} class under test
  */
-abstract class InMemoryNodeEntryTest {
+abstract class InMemoryNodeEntryTest<V extends Version> {
 
   private static final SkyKey REGULAR_KEY = GraphTester.toSkyKey("regular");
   private static final SkyKey PARTIAL_REEVALUATION_KEY =
@@ -64,21 +66,21 @@ abstract class InMemoryNodeEntryTest {
 
   @TestParameter boolean isPartialReevaluation;
 
-  final Version initialVersion = keepEdges() ? IntVersion.of(0) : ConstantVersion.INSTANCE;
+  protected final V initialVersion = getInitialVersion();
 
   static SkyKey key(String name) {
     return GraphTester.skyKey(name);
   }
 
   final InMemoryNodeEntry createEntry() {
-    SkyKey key = isPartialReevaluation ? PARTIAL_REEVALUATION_KEY : REGULAR_KEY;
-    return keepEdges()
-        ? new IncrementalInMemoryNodeEntry(key)
-        : new NonIncrementalInMemoryNodeEntry(key);
+    return createEntry(isPartialReevaluation ? PARTIAL_REEVALUATION_KEY : REGULAR_KEY);
   }
 
   @ForOverride
-  abstract boolean keepEdges();
+  protected abstract InMemoryNodeEntry createEntry(SkyKey key);
+
+  @ForOverride
+  abstract V getInitialVersion();
 
   @Test
   public void entryAtStartOfEvaluation() {
@@ -96,7 +98,7 @@ abstract class InMemoryNodeEntryTest {
 
   @Test
   public void signalEntry() throws InterruptedException {
-    NodeEntry entry = createEntry();
+    InMemoryNodeEntry entry = createEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
     SkyKey dep1 = key("dep1");
@@ -123,7 +125,7 @@ abstract class InMemoryNodeEntryTest {
     assertThat(entry.isDone()).isTrue();
     assertThat(entry.getVersion()).isEqualTo(initialVersion);
 
-    if (!keepEdges()) {
+    if (!entry.keepsEdges()) {
       return;
     }
 
@@ -131,8 +133,8 @@ abstract class InMemoryNodeEntryTest {
   }
 
   @Test
-  public void signalExternalDep() throws InterruptedException {
-    NodeEntry entry = createEntry();
+  public void signalExternalDep() {
+    InMemoryNodeEntry entry = createEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
     entry.addExternalDep();
@@ -152,7 +154,7 @@ abstract class InMemoryNodeEntryTest {
 
   @Test
   public void reverseDeps() throws InterruptedException {
-    NodeEntry entry = createEntry();
+    InMemoryNodeEntry entry = createEntry();
     SkyKey mother = key("mother");
     SkyKey father = key("father");
     assertThat(entry.addReverseDepAndCheckIfDone(mother))
@@ -165,7 +167,7 @@ abstract class InMemoryNodeEntryTest {
     assertThat(setValue(entry, new SkyValue() {}, /* errorInfo= */ null, initialVersion))
         .containsExactly(mother, father);
 
-    if (!keepEdges()) {
+    if (!entry.keepsEdges()) {
       return;
     }
 
@@ -177,7 +179,7 @@ abstract class InMemoryNodeEntryTest {
 
   @Test
   public void errorValue() throws InterruptedException {
-    NodeEntry entry = createEntry();
+    InMemoryNodeEntry entry = createEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
     ReifiedSkyFunctionException exception =
@@ -192,7 +194,7 @@ abstract class InMemoryNodeEntryTest {
 
   @Test
   public void errorAndValue() throws InterruptedException {
-    NodeEntry entry = createEntry();
+    InMemoryNodeEntry entry = createEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
     ReifiedSkyFunctionException exception =
@@ -205,8 +207,8 @@ abstract class InMemoryNodeEntryTest {
   }
 
   @Test
-  public void crashOnNullErrorAndValue() throws InterruptedException {
-    NodeEntry entry = createEntry();
+  public void crashOnNullErrorAndValue() {
+    InMemoryNodeEntry entry = createEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
     assertThrows(
@@ -224,7 +226,7 @@ abstract class InMemoryNodeEntryTest {
 
   @Test
   public void crashOnSetValueWhenDone() throws InterruptedException {
-    NodeEntry entry = createEntry();
+    InMemoryNodeEntry entry = createEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
     setValue(entry, new SkyValue() {}, /* errorInfo= */ null, initialVersion);
@@ -236,7 +238,7 @@ abstract class InMemoryNodeEntryTest {
 
   @Test
   public void forceRebuildLifecycle() throws InterruptedException {
-    NodeEntry entry = createEntry();
+    InMemoryNodeEntry entry = createEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
     SkyKey dep = key("dep");
@@ -268,6 +270,7 @@ abstract class InMemoryNodeEntryTest {
 
     // A force-rebuilt node tolerates evaluating to different values within the same version.
     entry.forceRebuild();
+    assertThat(entry.getDirtyState()).isEqualTo(DirtyState.REBUILDING);
     assertThat(setValue(entry, new SkyValue() {}, /* errorInfo= */ null, initialVersion))
         .containsExactly(parent);
 
@@ -276,7 +279,7 @@ abstract class InMemoryNodeEntryTest {
 
   @Test
   public void allowTwiceMarkedForceRebuild() throws InterruptedException {
-    NodeEntry entry = createEntry();
+    InMemoryNodeEntry entry = createEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
     setValue(entry, new SkyValue() {}, /* errorInfo= */ null, initialVersion);
@@ -290,8 +293,8 @@ abstract class InMemoryNodeEntryTest {
   }
 
   @Test
-  public void crashOnAddReverseDepTwice() throws InterruptedException {
-    NodeEntry entry = createEntry();
+  public void crashOnAddReverseDepTwice() {
+    InMemoryNodeEntry entry = createEntry();
     SkyKey parent = key("parent");
     assertThat(entry.addReverseDepAndCheckIfDone(parent))
         .isEqualTo(DependencyState.NEEDS_SCHEDULING);

@@ -18,10 +18,15 @@ import org.junit.runner.RunWith;
 
 /** Tests for {@link NonIncrementalInMemoryNodeEntry}. */
 @RunWith(TestParameterInjector.class)
-public final class NonIncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest {
+public class NonIncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<ConstantVersion> {
 
   @Override
-  boolean keepEdges() {
-    return false;
+  protected NonIncrementalInMemoryNodeEntry createEntry(SkyKey key) {
+    return new NonIncrementalInMemoryNodeEntry(key);
+  }
+
+  @Override
+  final ConstantVersion getInitialVersion() {
+    return ConstantVersion.INSTANCE;
   }
 }
