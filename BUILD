@@ -248,6 +248,14 @@ platform(
     parents = ["@local_config_platform//:host"],
 )
 
+platform(
+    name = "windows_arm64",
+    constraint_values = [
+        "@platforms//os:windows",
+        "@platforms//cpu:arm64",
+    ],
+)
+
 REMOTE_PLATFORMS = ("rbe_ubuntu1804_java11",)
 
 [
