@@ -407,6 +407,14 @@ public class JavaStarlarkCommon
     return JavaInfo.PROVIDER.wrap(javaInfo);
   }
 
+  @Override
+  public Sequence<String> internJavacOpts(Object javacOpts) throws EvalException {
+    ImmutableList<String> interned =
+        JavaCompilationHelper.internJavacOpts(
+            Sequence.cast(javacOpts, String.class, "javac_opts").getImmutableList());
+    return StarlarkList.lazyImmutable(() -> interned);
+  }
+
   static boolean isInstanceOfProvider(Object obj, Provider provider) {
     if (obj instanceof NativeInfo) {
       return ((NativeInfo) obj).getProvider().getKey().equals(provider.getKey());

@@ -466,7 +466,7 @@ def java_info_for_compilation(
     if compilation_info:
         result.update(
             compilation_info = _JavaCompilationInfo(
-                javac_options = compilation_info.javac_options,
+                javac_options = _java_common_internal.intern_javac_opts(compilation_info.javac_options),
                 boot_classpath = compilation_info.boot_classpath,
                 compilation_classpath = compilation_info.compilation_classpath,
                 runtime_classpath = compilation_info.runtime_classpath,

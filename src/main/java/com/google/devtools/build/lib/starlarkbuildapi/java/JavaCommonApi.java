@@ -286,4 +286,10 @@ public interface JavaCommonApi<
       useStarlarkThread = true)
   JavaInfoT wrapJavaInfo(Info javaInfo, StarlarkThread thread)
       throws EvalException, RuleErrorException;
+
+  @StarlarkMethod(
+      name = "intern_javac_opts",
+      parameters = {@Param(name = "javac_opts")},
+      documented = false)
+  Sequence<String> internJavacOpts(Object javacOpts) throws EvalException, RuleErrorException;
 }
