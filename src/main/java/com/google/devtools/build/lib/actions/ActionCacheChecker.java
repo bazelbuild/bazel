@@ -352,23 +352,25 @@ public class ActionCacheChecker {
                     fileArtifactValue ->
                         ArchivedRepresentation.create(
                             ArchivedTreeArtifact.createForTree(parent), fileArtifactValue));
+
+        TreeArtifactValue localTreeMetadata;
         try {
-          TreeArtifactValue localTreeMetadata = outputMetadataStore.getTreeArtifactValue(parent);
-          boolean localTreeMetadataExists =
-              localTreeMetadata != null
-                  && !localTreeMetadata.equals(TreeArtifactValue.MISSING_TREE_ARTIFACT);
-          if (localTreeMetadataExists) {
-            // Override remote tree using local one.
-            childValues.putAll(localTreeMetadata.getChildValues());
-            if (localTreeMetadata.getArchivedRepresentation().isPresent()) {
-              archivedRepresentation = localTreeMetadata.getArchivedRepresentation();
-            }
-          }
+          localTreeMetadata = outputMetadataStore.getTreeArtifactValue(parent);
+        } catch (FileNotFoundException ignored) {
+          localTreeMetadata = null;
         } catch (IOException e) {
           // Ignore the cached metadata if we encountered an error when loading corresponding
           // local one.
           logger.atWarning().withCause(e).log("Failed to load metadata for %s", parent);
           continue;
+        }
+
+        if (localTreeMetadata != null) {
+          // Override remote tree using local one.
+          childValues.putAll(localTreeMetadata.getChildValues());
+          if (localTreeMetadata.getArchivedRepresentation().isPresent()) {
+            archivedRepresentation = localTreeMetadata.getArchivedRepresentation();
+          }
         }
 
         TreeArtifactValue.Builder merged = TreeArtifactValue.newBuilder(parent);
