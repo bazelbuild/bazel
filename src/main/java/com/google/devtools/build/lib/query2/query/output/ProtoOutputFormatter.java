@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.hash.HashFunction;
@@ -170,12 +171,12 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   }
 
   /** Converts a logical {@link Target} object into a {@link Build.Target} protobuffer. */
-  public Build.Target toTargetProtoBuffer(Target target) throws InterruptedException {
-    return toTargetProtoBuffer(target, /*extraDataForAttrHash=*/ "");
+  public Build.Target toTargetProtoBuffer(Target target, ImmutableSortedSet<Label> extraImplicitDeps) throws InterruptedException {
+    return toTargetProtoBuffer(target, extraImplicitDeps, /*extraDataForAttrHash=*/ "");
   }
 
   /** Converts a logical {@link Target} object into a {@link Build.Target} protobuffer. */
-  public Build.Target toTargetProtoBuffer(Target target, Object extraDataForAttrHash)
+  private Build.Target toTargetProtoBuffer(Target target, ImmutableSortedSet<Label> extraImplicitDeps, Object extraDataForAttrHash)
       throws InterruptedException {
     Build.Target.Builder targetPb = Build.Target.newBuilder();
 
@@ -243,7 +244,11 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
         // Include explicit elements for all direct inputs and outputs of a rule; this goes beyond
         // what is available from the attributes above, since it may also (depending on options)
         // include implicit outputs, exec-configuration outputs, and default values.
-        rule.getSortedLabels(dependencyFilter)
+        ImmutableSortedSet<Label> ruleInputs = ImmutableSortedSet.<Label>naturalOrder()
+            .addAll(rule.getSortedLabels(dependencyFilter))
+            .addAll(extraImplicitDeps)
+            .build();
+        ruleInputs
             .forEach(input -> rulePb.addRuleInput(input.toString()));
         rule.getOutputFiles().stream()
             .distinct()
@@ -565,7 +570,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       // constructing and serializing a QueryResult proto are protected by test coverage and proto
       // best practices.
       for (Target target : partialResult) {
-        codedOut.writeMessage(QueryResult.TARGET_FIELD_NUMBER, toTargetProtoBuffer(target));
+        codedOut.writeMessage(QueryResult.TARGET_FIELD_NUMBER, toTargetProtoBuffer(target, ImmutableSortedSet.of()));
       }
     }
 

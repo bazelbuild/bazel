@@ -1521,4 +1521,85 @@ EOF
   assert_contains "$pkg/single_file" output
 }
 
+function test_toolchain_rule_inputs() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+
+  cat >$pkg/BUILD <<EOF
+load("//$pkg:rules.bzl", "my_toolchain", "rule_using_toolchain")
+
+toolchain_type(
+    name = "toolchain_type",
+    visibility = ["//visibility:public"],
+)
+
+my_toolchain(
+    name = "my_toolchain",
+    bin = "echo_hello_to_argv0.sh",
+)
+
+toolchain(
+    name = "toolchain",
+    toolchain = ":my_toolchain",
+    toolchain_type = ":toolchain_type",
+)
+
+rule_using_toolchain(
+    name = "rule",
+)
+EOF
+
+  cat >$pkg/rules.bzl <<EOF
+def _rule_using_toolchain_impl(ctx):
+    output_file = ctx.actions.declare_file("output_file")
+
+    bin = ctx.toolchains["//$pkg:toolchain_type"].bin
+
+    args = ctx.actions.args()
+    args.add(output_file.path)
+
+    ctx.actions.run(
+        outputs = [output_file],
+        executable = bin.path,
+        arguments = [output_file.path],
+        tools = [bin],
+        use_default_shell_env = True,
+    )
+
+    return [
+        DefaultInfo(
+            files = depset([output_file]),
+        ),
+    ]
+
+rule_using_toolchain = rule(
+    implementation = _rule_using_toolchain_impl,
+    toolchains = ["//$pkg:toolchain_type"],
+)
+
+def _toolchain_impl(ctx):
+    return [
+        platform_common.ToolchainInfo(
+            bin = ctx.file.bin,
+        ),
+    ]
+
+my_toolchain = rule(
+    implementation = _toolchain_impl,
+    attrs = {
+        "bin": attr.label(
+            allow_single_file = True,
+            executable = True,
+            cfg = "exec",
+        ),
+    },
+)
+EOF
+  touch $pkg/echo_hello_to_argv0.sh
+  chmod 0755 $pkg/echo_hello_to_argv0.sh
+
+  bazel cquery --output=textproto --extra_toolchains=//$pkg:toolchain //$pkg:rule > output 2>"$TEST_log" || fail "Unexpected failure"
+  assert_contains "rule_input: \"//$pkg:my_toolchain\"" output
+}
+
 run_suite "${PRODUCT_NAME} configured query tests"

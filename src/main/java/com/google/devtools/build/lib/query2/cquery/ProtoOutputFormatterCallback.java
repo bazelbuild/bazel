@@ -17,6 +17,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.analysis.AnalysisProtosV2.CqueryResultOrBui
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -243,7 +245,20 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       // we will want to add relevant tests.
       currentTarget = keyedConfiguredTarget;
       Target target = accessor.getTarget(keyedConfiguredTarget);
-      Build.Target.Builder targetBuilder = formatter.toTargetProtoBuffer(target).toBuilder();
+
+      // Toolchain dependencies appear as implicit dependencies, but don't appear on any attribute,
+      // which means they won't get detected by ruleInputs discovery which traverses attributes to get inputs.
+      // But we know here from our ConfiguredTarget that they are dependencies.
+      // Artificially provide these implicit dependencies as inputs.
+      ImmutableSortedSet.Builder<Label> implicitDeps = ImmutableSortedSet.naturalOrder();
+      if (keyedConfiguredTarget instanceof RuleConfiguredTarget) {
+        RuleConfiguredTarget ruleConfiguredTarget = (RuleConfiguredTarget) keyedConfiguredTarget;
+        for (ConfiguredTargetKey implicitDep : ruleConfiguredTarget.getImplicitDeps()) {
+          implicitDeps.add(implicitDep.getLabel());
+        }
+      }
+
+      Build.Target.Builder targetBuilder = formatter.toTargetProtoBuffer(target, implicitDeps.build()).toBuilder();
       if (target instanceof Rule && !Transitions.NONE.equals(options.transitions)) {
         try {
           for (CqueryTransitionResolver.ResolvedTransition resolvedTransition :
