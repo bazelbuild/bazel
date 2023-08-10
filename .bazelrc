@@ -27,6 +27,9 @@ build:remote --config=ubuntu1804_java11
 
 build:macos --macos_minimum_os=10.11
 
+build:windows_arm64 --platforms=//:windows_arm64
+build:windows_arm64 --extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows
+
 # Enable Bzlmod
 build:bzlmod --experimental_enable_bzlmod
 
