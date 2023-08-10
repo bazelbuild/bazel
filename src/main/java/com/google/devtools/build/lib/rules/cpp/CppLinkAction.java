@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -531,10 +532,11 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
           if (value != null) {
             inputsBytes += value.getSize();
           } else {
-            logger.atWarning().log(
-                "Linker metrics: failed to get size of %s: no metadata", input.getExecPath());
+            throw new IOException("no metadata");
           }
-        } catch (Exception e) {
+        } catch (IOException e) {
+          // TODO(https://github.com/bazelbuild/bazel/issues/17368): Propagate as ExecException when
+          // input sizes are used in the model.
           logger.atWarning().log(
               "Linker metrics: failed to get size of %s: %s (ignored)", input.getExecPath(), e);
         }
