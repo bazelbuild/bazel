@@ -40,8 +40,8 @@ public class QueryOptions extends CommonQueryOptions {
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
           "The format in which the query results should be printed. Allowed values for query are:"
-              + " build, graph, jsonproto, label, label_kind, location, maxrank, minrank, package,"
-              + " proto, xml.")
+              + " build, graph, streamed_jsonproto, label, label_kind, location, maxrank, minrank,"
+              + " package, proto, xml.")
   public String outputFormat;
 
   @Option(
