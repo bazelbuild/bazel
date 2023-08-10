@@ -32,6 +32,9 @@ build:macos --macos_minimum_os=10.11
 # Therefore, use the local detected Python toolchain on Windows.
 build:windows --extra_toolchains=@bazel_tools//tools/python:autodetecting_toolchain
 
+build:windows_arm64 --platforms=//:windows_arm64
+build:windows_arm64 --extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows
+
 # Enable Bzlmod
 build:bzlmod --enable_bzlmod
 build:bzlmod --check_direct_dependencies=error
