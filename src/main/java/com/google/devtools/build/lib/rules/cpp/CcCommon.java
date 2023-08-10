@@ -76,8 +76,6 @@ public final class CcCommon implements StarlarkValue {
       "PIC compilation is requested but the toolchain does not support it "
           + "(feature named 'supports_pic' is not enabled)";
 
-  private static final String NO_COPTS_ATTRIBUTE = "nocopts";
-
   public static final ImmutableSet<String> ALL_COMPILE_ACTIONS =
       ImmutableSet.of(
           CppActionNames.C_COMPILE,
@@ -309,12 +307,13 @@ public final class CcCommon implements StarlarkValue {
       }
 
       TransitiveInfoCollection toolchain;
-      if (ruleContext.attributes().has(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME)) {
-        toolchain = ruleContext.getPrerequisite(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
+      if (ruleContext.attributes().has(CcToolchainRule.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME)) {
+        toolchain =
+            ruleContext.getPrerequisite(CcToolchainRule.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
       } else {
         toolchain =
             ruleContext.getPrerequisite(
-                CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME_FOR_STARLARK);
+                CcToolchainRule.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME_FOR_STARLARK);
       }
 
       try {
@@ -383,7 +382,7 @@ public final class CcCommon implements StarlarkValue {
   private List<String> getDefinesFromAttribute(String attr) throws InterruptedException {
     List<String> defines = new ArrayList<>();
 
-    // collect labels that can be subsituted in defines
+    // collect labels that can be substituted in defines
     Map<Label, ImmutableCollection<Artifact>> map = Maps.newLinkedHashMap();
 
     if (ruleContext.attributes().has("deps", LABEL_LIST)) {

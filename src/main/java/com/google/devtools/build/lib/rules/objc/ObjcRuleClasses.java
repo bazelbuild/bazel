@@ -40,8 +40,8 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigInfo;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
-import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainRule;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -257,11 +257,11 @@ public class ObjcRuleClasses {
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .add(
-              attr(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)
+              attr(CcToolchainRule.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)
                   .mandatoryProviders(CcToolchainProvider.PROVIDER.id())
                   .value(CppRuleClasses.ccToolchainAttribute(env)))
           .add(
-              attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
+              attr(CcToolchainRule.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
                   .value(CppRuleClasses.ccToolchainTypeAttribute(env)))
           .addToolchainTypes(CppRuleClasses.ccToolchainTypeRequirement(env))
           .build();

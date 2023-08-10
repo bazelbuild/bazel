@@ -48,8 +48,8 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
-import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainRule;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CcIncludeScanningRule;
@@ -90,11 +90,11 @@ public class BazelCppRuleClasses {
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .add(
-              attr(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)
+              attr(CcToolchainRule.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)
                   .mandatoryProviders(CcToolchainProvider.PROVIDER.id())
                   .value(CppRuleClasses.ccToolchainAttribute(env)))
           .add(
-              attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
+              attr(CcToolchainRule.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
                   .value(CppRuleClasses.ccToolchainTypeAttribute(env)))
           .requiresConfigurationFragments(PlatformConfiguration.class)
           .addToolchainTypes(CppRuleClasses.ccToolchainTypeRequirement(env))

@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
-import com.google.devtools.build.lib.rules.apple.cpp.AppleCcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.Link;
@@ -90,20 +89,13 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//x:bin");
     CcToolchainVariables variables = getLinkBuildVariables(target, Link.LinkTargetType.EXECUTABLE);
-    assertThat(
-            getVariableValue(
-                getRuleContext(), variables, AppleCcToolchain.XCODE_VERSION_OVERRIDE_VALUE_KEY))
+    assertThat(getVariableValue(getRuleContext(), variables, "xcode_version_override_value"))
         .contains("5.8");
-    assertThat(
-            getVariableValue(
-                getRuleContext(), variables, AppleCcToolchain.APPLE_SDK_VERSION_OVERRIDE_VALUE_KEY))
+    assertThat(getVariableValue(getRuleContext(), variables, "apple_sdk_version_override_value"))
         .contains("8.4");
-    assertThat(
-            getVariableValue(
-                getRuleContext(), variables, AppleCcToolchain.APPLE_SDK_PLATFORM_VALUE_KEY))
+    assertThat(getVariableValue(getRuleContext(), variables, "apple_sdk_platform_value"))
         .contains("iPhoneSimulator");
-    assertThat(getVariableValue(getRuleContext(), variables, AppleCcToolchain.VERSION_MIN_KEY))
-        .contains("12.345");
+    assertThat(getVariableValue(getRuleContext(), variables, "version_min")).contains("12.345");
   }
 
   @Test
@@ -143,17 +135,11 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
 
     CcToolchainVariables variables =
         ccArchiveAction.getLinkCommandLineForTesting().getBuildVariables();
-    assertThat(
-            getVariableValue(
-                getRuleContext(), variables, AppleCcToolchain.XCODE_VERSION_OVERRIDE_VALUE_KEY))
+    assertThat(getVariableValue(getRuleContext(), variables, "xcode_version_override_value"))
         .contains("5.8");
-    assertThat(
-            getVariableValue(
-                getRuleContext(), variables, AppleCcToolchain.APPLE_SDK_VERSION_OVERRIDE_VALUE_KEY))
+    assertThat(getVariableValue(getRuleContext(), variables, "apple_sdk_version_override_value"))
         .contains("2.0");
-    assertThat(
-            getVariableValue(
-                getRuleContext(), variables, AppleCcToolchain.APPLE_SDK_PLATFORM_VALUE_KEY))
+    assertThat(getVariableValue(getRuleContext(), variables, "apple_sdk_platform_value"))
         .contains("WatchOS");
   }
 
@@ -172,15 +158,11 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//x:bin");
     CcToolchainVariables variables = getLinkBuildVariables(target, Link.LinkTargetType.EXECUTABLE);
-    assertThat(
-            getVariableValue(
-                getRuleContext(), variables, AppleCcToolchain.XCODE_VERSION_OVERRIDE_VALUE_KEY))
+    assertThat(getVariableValue(getRuleContext(), variables, "xcode_version_override_value"))
         .contains(MockObjcSupport.DEFAULT_XCODE_VERSION);
-    assertThat(
-            getVariableValue(
-                getRuleContext(), variables, AppleCcToolchain.APPLE_SDK_VERSION_OVERRIDE_VALUE_KEY))
+    assertThat(getVariableValue(getRuleContext(), variables, "apple_sdk_version_override_value"))
         .contains(MockObjcSupport.DEFAULT_IOS_SDK_VERSION);
-    assertThat(getVariableValue(getRuleContext(), variables, AppleCcToolchain.VERSION_MIN_KEY))
+    assertThat(getVariableValue(getRuleContext(), variables, "version_min"))
         .contains(AppleCommandLineOptions.DEFAULT_IOS_SDK_VERSION);
   }
 }

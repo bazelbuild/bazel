@@ -149,13 +149,13 @@ public class CppHelper {
   @Nullable
   public static CcToolchainProvider getToolchainUsingDefaultCcToolchainAttribute(
       RuleContext ruleContext) throws RuleErrorException {
-    if (ruleContext.attributes().has(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME)) {
-      return getToolchain(ruleContext, CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
+    if (ruleContext.attributes().has(CcToolchainRule.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME)) {
+      return getToolchain(ruleContext, CcToolchainRule.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
     } else if (ruleContext
         .attributes()
-        .has(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME_FOR_STARLARK)) {
+        .has(CcToolchainRule.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME_FOR_STARLARK)) {
       return getToolchain(
-          ruleContext, CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME_FOR_STARLARK);
+          ruleContext, CcToolchainRule.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME_FOR_STARLARK);
     }
     return null;
   }
@@ -201,12 +201,18 @@ public class CppHelper {
   public static Label getToolchainTypeFromRuleClass(RuleContext ruleContext) {
     Label toolchainType;
     // TODO(b/65835260): Remove this conditional once j2objc can learn the toolchain type.
-    if (ruleContext.attributes().has(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)) {
+    if (ruleContext
+        .attributes()
+        .has(CcToolchainRule.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)) {
       toolchainType =
-          ruleContext.attributes().get(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL);
-    } else if (ruleContext.attributes().has(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, LABEL)) {
+          ruleContext
+              .attributes()
+              .get(CcToolchainRule.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL);
+    } else if (ruleContext
+        .attributes()
+        .has(CcToolchainRule.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, LABEL)) {
       toolchainType =
-          ruleContext.getPrerequisite(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME).getLabel();
+          ruleContext.getPrerequisite(CcToolchainRule.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME).getLabel();
     } else {
       toolchainType = null;
     }
