@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupC
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -224,11 +223,7 @@ public final class TestActionBuilder {
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
     ArtifactRoot root = ruleContext.getTestLogsDirectory();
 
-    // TODO(laszlocsomor), TODO(ulfjack): `isExecutedOnWindows` should use the execution platform,
-    // not the host platform. Once Bazel can tell apart these platforms, fix the right side of this
-    // initialization.
-    final boolean isExecutedOnWindows = OS.getCurrent() == OS.WINDOWS;
-    final boolean isUsingTestWrapperInsteadOfTestSetupScript = isExecutedOnWindows;
+    final boolean isUsingTestWrapperInsteadOfTestSetupScript = ruleContext.isExecutedOnWindows();
 
     NestedSetBuilder<Artifact> inputsBuilder = NestedSetBuilder.stableOrder();
     inputsBuilder.addTransitive(
@@ -468,7 +463,7 @@ public final class TestActionBuilder {
                 config,
                 ruleContext.getWorkspaceName(),
                 (!isUsingTestWrapperInsteadOfTestSetupScript
-                        || executionSettings.needsShell(isExecutedOnWindows))
+                        || executionSettings.needsShell(ruleContext.isExecutedOnWindows()))
                     ? ShToolchain.getPathForPlatform(
                         ruleContext.getConfiguration(), ruleContext.getExecutionPlatform())
                     : null,
@@ -481,7 +476,8 @@ public final class TestActionBuilder {
                 MoreObjects.firstNonNull(
                     Allowlist.fetchPackageSpecificationProviderOrNull(
                         ruleContext, "external_network"),
-                    EMPTY_PACKAGES_PROVIDER));
+                    EMPTY_PACKAGES_PROVIDER),
+                ruleContext.isExecutedOnWindows());
 
         testOutputs.addAll(testRunnerAction.getSpawnOutputs());
         testOutputs.addAll(testRunnerAction.getOutputs());

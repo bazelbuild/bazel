@@ -144,6 +144,8 @@ public class TestRunnerAction extends AbstractAction
   private final int runNumber;
   private final String workspaceName;
 
+  private final boolean isExecutedOnWindows;
+
   /**
    * Cached test result status used to minimize disk accesses. This field is set when test status is
    * retrieved from disk or saved to disk. This field is null if it has not been set yet. This field
@@ -211,7 +213,8 @@ public class TestRunnerAction extends AbstractAction
       boolean splitCoveragePostProcessing,
       NestedSetBuilder<Artifact> lcovMergerFilesToRun,
       RunfilesSupplier lcovMergerRunfilesSupplier,
-      PackageSpecificationProvider networkAllowlist) {
+      PackageSpecificationProvider networkAllowlist,
+      boolean isExecutedOnWindows) {
     super(
         owner,
         inputs,
@@ -302,6 +305,12 @@ public class TestRunnerAction extends AbstractAction
             getUndeclaredOutputsDir(),
             undeclaredOutputsAnnotationsDir,
             baseDir.getRelative("test_attempts"));
+
+    this.isExecutedOnWindows = isExecutedOnWindows;
+  }
+
+  public boolean isExecutedOnWindows() {
+    return isExecutedOnWindows;
   }
 
   @Override
