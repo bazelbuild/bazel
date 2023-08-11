@@ -994,7 +994,8 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     assertValidOutputFile("foo-link", "foo\n");
 
     // Delete target, re-download it
-    getOutputPath("foo").delete();
+    getOutputPath("out/foo.txt").delete();
+    buildTarget("//:foo-link");
 
     assertSymlink("foo-link", getOutputPath("out/foo.txt").asFragment());
     assertValidOutputFile("foo-link", "foo\n");
