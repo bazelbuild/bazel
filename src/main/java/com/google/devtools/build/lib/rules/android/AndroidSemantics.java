@@ -118,6 +118,13 @@ public interface AndroidSemantics {
   /** The merged startup profiles from the {@code startup_profiles} attribute. */
   Artifact mergeStartupProfiles(RuleContext ruleContext, String baselineProfileDir);
 
+  /** Expands any wildcards present in a baseline profile, and returns the new expanded artifact. */
+  public Artifact expandBaselineProfileWildcards(
+      RuleContext ruleContext,
+      Artifact deployJar,
+      Artifact mergedStaticProfile,
+      String baselineProfileDir);
+
   /** The artifact for ART profile information, given a particular merged profile. */
   Artifact compileBaselineProfile(
       RuleContext ruleContext,

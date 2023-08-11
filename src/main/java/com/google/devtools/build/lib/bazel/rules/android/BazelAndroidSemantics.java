@@ -145,4 +145,14 @@ public class BazelAndroidSemantics implements AndroidSemantics {
   public Artifact mergeStartupProfiles(RuleContext ruleContext, String baselineProfileDir) {
     return null;
   }
+
+  /* Bazel does not currently support baseline profiles in the final apk.  */
+  @Override
+  public Artifact expandBaselineProfileWildcards(
+      RuleContext ruleContext,
+      Artifact deployJar,
+      Artifact mergedStaticProfile,
+      String baselineProfileDir) {
+    return null;
+  }
 }
