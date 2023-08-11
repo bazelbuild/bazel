@@ -446,6 +446,51 @@ public final class ModuleInfoExtractorTest {
   }
 
   @Test
+  public void ruleTest() throws Exception {
+    Module module =
+        exec(
+            "MyInfo = provider()",
+            "def _my_impl(ctx):",
+            "    pass",
+            "my_test = rule(",
+            "    implementation = _my_impl,",
+            "    test = True",
+            ")");
+    ModuleInfo moduleInfo = getExtractor().extractFrom(module);
+    assertThat(moduleInfo.getRuleInfoList())
+        .ignoringFields(RuleInfo.ATTRIBUTE_FIELD_NUMBER) // ignore implicit attributes
+        .containsExactly(
+            RuleInfo.newBuilder()
+                .setRuleName("my_test")
+                .setOriginKey(OriginKey.newBuilder().setName("my_test").setFile(fakeLabelString))
+                .setTest(true)
+                .setExecutable(true)
+                .build());
+  }
+
+  @Test
+  public void ruleExecutable() throws Exception {
+    Module module =
+        exec(
+            "MyInfo = provider()",
+            "def _my_impl(ctx):",
+            "    pass",
+            "my_binary = rule(",
+            "    implementation = _my_impl,",
+            "    executable = True",
+            ")");
+    ModuleInfo moduleInfo = getExtractor().extractFrom(module);
+    assertThat(moduleInfo.getRuleInfoList())
+        .ignoringFields(RuleInfo.ATTRIBUTE_FIELD_NUMBER) // ignore implicit attributes
+        .containsExactly(
+            RuleInfo.newBuilder()
+                .setRuleName("my_binary")
+                .setOriginKey(OriginKey.newBuilder().setName("my_binary").setFile(fakeLabelString))
+                .setExecutable(true)
+                .build());
+  }
+
+  @Test
   public void ruleAttributes() throws Exception {
     Module module =
         execWithOptions(
@@ -518,6 +563,7 @@ public final class ModuleInfoExtractorTest {
                 .setName("deprecated_license")
                 .setType(AttributeType.STRING_LIST)
                 .setDefaultValue("[\"none\"]")
+                .setNonconfigurable(true)
                 .build());
   }
 
@@ -624,11 +670,13 @@ public final class ModuleInfoExtractorTest {
                 .setName("k")
                 .setType(AttributeType.OUTPUT)
                 .setDefaultValue("None")
+                .setNonconfigurable(true)
                 .build(),
             AttributeInfo.newBuilder()
                 .setName("l")
                 .setType(AttributeType.OUTPUT_LIST)
                 .setDefaultValue("[]")
+                .setNonconfigurable(true)
                 .build());
   }
 

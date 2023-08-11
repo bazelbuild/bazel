@@ -82,16 +82,23 @@ message RuleInfo {
   // The attributes of the rule.
   repeated AttributeInfo attribute = 3;
 
+  // Note: legacy Stardoc (0.5.x and earlier) does not set any fields below.
+
   // The module where and the name under which the rule was originally declared.
-  //
-  // Note: legacy Stardoc (0.5.x and earlier) does not set this field.
   OriginKey origin_key = 4;
 
   // The list of providers that the rule's implementation must return. Unset if
   // the rule lists no advertised providers.
-  //
-  // Note: legacy Stardoc (0.5.x and earlier) does not set this field.
   ProviderNameGroup advertised_providers = 5;
+
+  // True if this is a test rule.
+  bool test = 6;
+
+  // True if this is an executable rule.
+  //
+  // Note: if test is true, executable is also true (test rules are implicitly
+  // executable).
+  bool executable = 7;
 }
 
 // Representation of a Starlark rule, repository rule, or module extension tag
@@ -124,6 +131,9 @@ message AttributeInfo {
 
   // The string representation of the default value of this attribute.
   string default_value = 6;
+
+  // If true, the attribute is non-configurable.
+  bool nonconfigurable = 7;
 }
 
 // Representation of a set of providers.

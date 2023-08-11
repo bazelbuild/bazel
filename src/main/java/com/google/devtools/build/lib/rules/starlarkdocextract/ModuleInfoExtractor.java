@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
@@ -354,7 +355,15 @@ final class ModuleInfoExtractor {
               .setName(ruleFunction.getName())
               .setFile(labelRenderer.render(ruleFunction.getExtensionLabel())));
       ruleFunction.getDocumentation().ifPresent(ruleInfoBuilder::setDocString);
+
       RuleClass ruleClass = ruleFunction.getRuleClass();
+      if (ruleClass.getRuleClassType() == RuleClassType.TEST) {
+        ruleInfoBuilder.setTest(true);
+      }
+      if (ruleClass.hasAttr("$is_executable", Type.BOOLEAN)) {
+        ruleInfoBuilder.setExecutable(true);
+      }
+
       ruleInfoBuilder.addAttribute(IMPLICIT_NAME_ATTRIBUTE_INFO); // name comes first
       addDocumentableAttributes(
           ruleClass.getAttributes(), ruleInfoBuilder::addAttribute, "rule " + qualifiedName);
@@ -531,6 +540,9 @@ final class ModuleInfoExtractor {
       Optional.ofNullable(attribute.getDoc()).ifPresent(builder::setDocString);
       builder.setType(getAttributeType(attribute, where));
       builder.setMandatory(attribute.isMandatory());
+      if (!attribute.isConfigurable()) {
+        builder.setNonconfigurable(true);
+      }
       for (ImmutableSet<StarlarkProviderIdentifier> providerGroup :
           attribute.getRequiredProviders().getStarlarkProviders()) {
         // TODO(b/290788853): it is meaningless to require a provider on an attribute of a
