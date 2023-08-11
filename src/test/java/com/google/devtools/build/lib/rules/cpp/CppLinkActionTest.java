@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -787,7 +789,10 @@ public final class CppLinkActionTest extends BuildViewTestCase {
 
   private ResourceSet estimateResourceConsumptionLocal(
       RuleContext ruleContext, OS os, int inputsCount) throws Exception {
+    InputMetadataProvider inputMetadataProvider = mock(InputMetadataProvider.class);
+
     ActionExecutionContext actionExecutionContext = mock(ActionExecutionContext.class);
+    when(actionExecutionContext.getInputMetadataProvider()).thenReturn(inputMetadataProvider);
 
     NestedSet<Artifact> inputs = createInputs(ruleContext, inputsCount);
     try {
