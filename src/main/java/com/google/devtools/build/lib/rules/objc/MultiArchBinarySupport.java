@@ -801,7 +801,7 @@ public class MultiArchBinarySupport {
 
     AppleCommandLineOptions appleOptions = from.get(AppleCommandLineOptions.class);
     CppOptions toCppOptions = to.get(CppOptions.class);
-    toCppOptions.cppCompiler = appleOptions.cppCompiler;
+    toCppOptions.cppCompiler = null;
     toCppOptions.libcTopLabel = appleOptions.appleLibcTop;
 
     // OSX toolchains do not support fission.

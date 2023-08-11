@@ -196,20 +196,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
   public static final String DEFAULT_CATALYST_CPU = "x86_64";
 
   @Option(
-    name = "apple_compiler",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {
-      OptionEffectTag.AFFECTS_OUTPUTS,
-      OptionEffectTag.LOADING_AND_ANALYSIS,
-      OptionEffectTag.LOSES_INCREMENTAL_STATE,
-    },
-    help = "The Apple target compiler. Useful for selecting variants of a toolchain "
-               + "(e.g. xcode-beta)."
-  )
-  public String cppCompiler;
-
-  @Option(
     name = "apple_grte_top",
     defaultValue = "null",
     converter = LabelConverter.class,

@@ -526,7 +526,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     scratch.file(
         "test_starlark/apple_binary_starlark.bzl",
         "_apple_platform_transition_inputs = [",
-        "    '//command_line_option:apple_compiler',",
         "    '//command_line_option:apple_crosstool_top',",
         "    '//command_line_option:cpu',",
         "    '//command_line_option:ios_multi_cpus',",
@@ -552,8 +551,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "        '//command_line_option:apple_platform_type': platform_type,",
         "        '//command_line_option:apple_platforms': [],",
         "        '//command_line_option:apple_split_cpu': environment_arch,",
-        "        '//command_line_option:compiler': ",
-        "            settings['//command_line_option:apple_compiler'],",
+        "        '//command_line_option:compiler': None,",
         "        '//command_line_option:cpu': ",
         "            'darwin_' + environment_arch if platform_type == 'macos'",
         "            else platform_type + '_' +  environment_arch,",

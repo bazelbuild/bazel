@@ -90,7 +90,7 @@ DEFAULT_CATALYST_CPU = "x86_64"
 def _output_dictionary(settings, cpu, platform_type, platforms):
     return {
         "//command_line_option:apple configuration distinguisher": "applebin_" + platform_type,
-        "//command_line_option:compiler": settings["//command_line_option:apple_compiler"],
+        "//command_line_option:compiler": None,
         "//command_line_option:cpu": cpu,
         "//command_line_option:crosstool_top": (
             settings["//command_line_option:apple_crosstool_top"]
@@ -122,7 +122,6 @@ def _apple_crosstool_transition_impl(settings, attr):
 
 _apple_rule_base_transition_inputs = [
     "//command_line_option:apple configuration distinguisher",
-    "//command_line_option:apple_compiler",
     "//command_line_option:apple_platform_type",
     "//command_line_option:apple_platforms",
     "//command_line_option:apple_crosstool_top",
