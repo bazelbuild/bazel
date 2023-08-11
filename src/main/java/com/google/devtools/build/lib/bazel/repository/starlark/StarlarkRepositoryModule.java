@@ -302,7 +302,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
             ImmutableMap.copyOf(Dict.cast(tagClasses, String.class, TagClass.class, "tag_classes")))
         .setDoc(Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString))
         .setDefiningBzlFileLabel(
-            BzlInitThreadContext.fromOrFailFunction(thread, "module_extension").getBzlFile())
+            BzlInitThreadContext.fromOrFail(thread, "module_extension()").getBzlFile())
         .setEnvVariables(ImmutableList.copyOf(Sequence.cast(environ, String.class, "environ")))
         .setLocation(thread.getCallerLocation())
         .build();

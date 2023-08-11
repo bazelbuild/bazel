@@ -253,15 +253,10 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
       thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
 
-      // The fetch phase does not need the tools repository
-      // or the fragment map because it happens before analysis.
       new BazelStarlarkContext(
               BazelStarlarkContext.Phase.LOADING, // ("fetch")
-              /*toolsRepository=*/ null,
-              /*fragmentNameToClass=*/ null,
               new SymbolGenerator<>(key),
-              /*analysisRuleLabel=*/ null,
-              /*networkAllowlistForTests=*/ null)
+              /* analysisRuleLabel= */ null)
           .storeInThread(thread);
 
       StarlarkRepositoryContext starlarkRepositoryContext =

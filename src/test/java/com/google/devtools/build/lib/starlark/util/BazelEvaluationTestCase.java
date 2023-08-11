@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
-import com.google.devtools.build.lib.packages.BazelStarlarkContext;
+import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.config.ConfigStarlarkCommon;
@@ -38,6 +38,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
@@ -117,13 +118,13 @@ public final class BazelEvaluationTestCase {
     // for testing rule implementation functions. It has phase LOADING, for example.
     // TODO(adonovan): stop creating threads in tests. This is the responsibility of the
     // production code. Tests should provide only files and commands.
-    new BazelStarlarkContext(
-            BazelStarlarkContext.Phase.LOADING,
+    new BzlInitThreadContext(
+            Label.parseCanonicalUnchecked("//:dummy.bzl"),
+            /* transitiveDigest= */ new byte[0], // dummy value for tests
             TestConstants.TOOLS_REPOSITORY,
-            /*fragmentNameToClass=*/ null,
-            new SymbolGenerator<>(new Object()),
-            /*analysisRuleLabel=*/ null,
-            /*networkAllowlistForTests=*/ null) // dummy value for tests
+            /* networkAllowlistForTests= */ Optional.empty(),
+            /* fragmentNameToClass= */ ImmutableMap.of(),
+            new SymbolGenerator<>(new Object()))
         .storeInThread(thread);
   }
 

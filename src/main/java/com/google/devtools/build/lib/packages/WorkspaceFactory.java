@@ -131,11 +131,8 @@ public class WorkspaceFactory {
       // are, by definition, not in an external repository and so they don't need the mapping
       new BazelStarlarkContext(
               BazelStarlarkContext.Phase.WORKSPACE,
-              /*toolsRepository=*/ null,
-              /*fragmentNameToClass=*/ null,
               new SymbolGenerator<>(workspaceFileKey),
-              /*analysisRuleLabel=*/ null,
-              /*networkAllowlistForTests=*/ null)
+              /* analysisRuleLabel= */ null)
           .storeInThread(thread);
 
       List<String> globs = new ArrayList<>(); // unused

@@ -30,9 +30,10 @@ import net.starlark.java.eval.StarlarkThread;
 public class LabelConverter {
 
   /**
-   * Returns a label converter for the given thread, which MUST be evaluating a .bzl file. It uses
-   * the package containing the .bzl file as the base package, and the repo mapping of the repo
-   * containing the .bzl file.
+   * Returns a label converter for the given thread, which MUST be currently evaluating Starlark
+   * code in a .bzl file (top-level, macro, rule implementation function, etc.). It uses the package
+   * containing the .bzl file as the base package, and the repo mapping of the repo containing the
+   * .bzl file.
    */
   public static LabelConverter forBzlEvaluatingThread(StarlarkThread thread) {
     BazelModuleContext moduleContext = BazelModuleContext.ofInnermostBzlOrThrow(thread);

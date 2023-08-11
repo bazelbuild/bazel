@@ -868,9 +868,9 @@ public class BzlLoadFunction implements SkyFunction {
             label,
             transitiveDigest,
             ruleClassProvider.getToolsRepository(),
+            ruleClassProvider.getNetworkAllowlistForTests(),
             ruleClassProvider.getConfigurationFragmentMap(),
-            new SymbolGenerator<>(label),
-            ruleClassProvider.getNetworkAllowlistForTests().orElse(null));
+            new SymbolGenerator<>(label));
 
     // executeBzlFile may post events to the Environment's handler, but events do not matter when
     // caching BzlLoadValues. Note that executing the code mutates the Module and

@@ -2677,7 +2677,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     getConfiguredTarget("//r:r");
 
     ev.assertContainsError(
-        "Error in unexported rule: Invalid rule class hasn't been exported by a bzl file");
+        "rule() can only be used during .bzl initialization (top-level evaluation)");
   }
 
   @Test

@@ -859,7 +859,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         /* keepGoing= */ false,
         reporter);
     assertContainsEvent(
-        "'visibility' can only be called during .bzl initialization (top-level evaluation)");
+        "visibility() can only be used during .bzl initialization (top-level evaluation)");
   }
 
   @Test

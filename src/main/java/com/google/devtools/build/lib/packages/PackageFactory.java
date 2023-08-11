@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
+import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -446,16 +447,21 @@ public final class PackageFactory {
 
       new BazelStarlarkContext(
               BazelStarlarkContext.Phase.LOADING,
-              ruleClassProvider.getToolsRepository(),
-              /* fragmentNameToClass= */ null,
               new SymbolGenerator<>(pkgBuilder.getPackageIdentifier()),
-              /* analysisRuleLabel= */ null,
-              ruleClassProvider.getNetworkAllowlistForTests().orElse(null))
+              /* analysisRuleLabel= */ null)
           .storeInThread(thread);
 
       // TODO(adonovan): save this as a field in BazelStarlarkContext.
       // It needn't be a second thread-local.
       thread.setThreadLocal(PackageContext.class, pkgContext);
+
+      // TODO(b/291752414): The rule definition environment shouldn't be needed at BUILD evaluation
+      // time EXCEPT for analysis_test, which needs the tools repository for use in
+      // StarlarkRuleClassFunctions#createRule. So we set it here as a thread-local to be retrieved
+      // by StarlarkTestingModule#analysisTest.
+      // TODO(b/236456122): Though instead of being a separate thread-local, we should stick it and
+      // PackageContext on a new PackageThreadContext object.
+      thread.setThreadLocal(RuleDefinitionEnvironment.class, ruleClassProvider);
 
       try {
         Starlark.execFileProgram(buildFileProgram, module, thread);

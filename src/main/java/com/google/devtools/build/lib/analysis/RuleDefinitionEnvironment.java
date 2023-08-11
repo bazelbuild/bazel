@@ -31,7 +31,7 @@ import java.util.Optional;
  */
 public interface RuleDefinitionEnvironment {
 
-  /** Returns the name of the tools repository. */
+  /** Returns the name of the tools repository, such as "@bazel_tools". */
   RepositoryName getToolsRepository();
 
   /**
@@ -45,11 +45,8 @@ public interface RuleDefinitionEnvironment {
     return Label.parseCanonicalUnchecked(getToolsRepository() + labelValue);
   }
 
-  /**
-   * Returns a label for network allowlist for tests if one should be added.
-   *
-   * <p>TODO(b/192694287): Remove once we migrate all tests from the allowlist.
-   */
+  /** Returns a label for network allowlist for tests if one should be added. */
+  // TODO(b/192694287): Remove once we migrate all tests from the allowlist.
   default Optional<Label> getNetworkAllowlistForTests() {
     return Optional.empty();
   }
