@@ -54,7 +54,7 @@ public class NonIncrementalInMemoryNodeEntry
   public synchronized ImmutableSet<SkyKey> setValue(
       SkyValue value, Version graphVersion, @Nullable Version maxTransitiveSourceVersion) {
     checkArgument(
-        graphVersion.equals(ConstantVersion.INSTANCE),
+        graphVersion.equals(Version.constant()),
         "Non-incremental evaluations must be at a constant version: %s",
         graphVersion);
     checkState(!hasUnsignaledDeps(), "Has unsignaled deps (this=%s, value=%s)", this, value);
@@ -102,15 +102,14 @@ public class NonIncrementalInMemoryNodeEntry
    * {@inheritDoc}
    *
    * <p>A {@link NonIncrementalInMemoryNodeEntry} can only ever be at one of two versions: either
-   * {@link ConstantVersion#INSTANCE} when a value is available, or {@link Version#minimal}
-   * otherwise.
+   * {@link Version#constant} when a value is available, or {@link Version#minimal} otherwise.
    *
-   * <p>All non-incremental evaluations must use {@link ConstantVersion#INSTANCE} as the graph
-   * version. This is enforced in {@link #setValue}.
+   * <p>All non-incremental evaluations must use {@link Version#constant} as the graph version. This
+   * is enforced in {@link #setValue}.
    */
   @Override
   public final Version getVersion() {
-    return value != null ? ConstantVersion.INSTANCE : Version.minimal();
+    return value != null ? Version.constant() : Version.minimal();
   }
 
   @Override

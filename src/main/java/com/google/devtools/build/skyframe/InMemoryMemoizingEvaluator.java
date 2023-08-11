@@ -38,7 +38,7 @@ import javax.annotation.Nullable;
  * that does not happen in parallel with an {@link #evaluate} call.
  *
  * <p>This memoizing evaluator uses a monotonically increasing {@link IntVersion} for incremental
- * evaluations and {@link ConstantVersion#INSTANCE} for non-incremental evaluations.
+ * evaluations and {@link Version#constant} for non-incremental evaluations.
  */
 public final class InMemoryMemoizingEvaluator
     extends AbstractIncrementalInMemoryMemoizingEvaluator {
@@ -129,7 +129,7 @@ public final class InMemoryMemoizingEvaluator
     // NOTE: Performance critical code. See bug "Null build performance parity".
     Version graphVersion;
     if (!keepEdges) {
-      graphVersion = ConstantVersion.INSTANCE;
+      graphVersion = Version.constant();
     } else if (lastGraphVersion == null) {
       graphVersion = IntVersion.of(0);
     } else {

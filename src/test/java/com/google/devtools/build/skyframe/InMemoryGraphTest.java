@@ -59,7 +59,7 @@ public class InMemoryGraphTest extends GraphTest {
 
     @Override
     protected Version getStartingVersion() {
-      return ConstantVersion.INSTANCE;
+      return Version.constant();
     }
 
     @Override

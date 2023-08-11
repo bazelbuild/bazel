@@ -1011,7 +1011,7 @@ public class ParallelEvaluatorTest {
             tester.getSkyFunctionMap(),
             keepGoing,
             EventFilter.FULL_STORAGE,
-            keepEdges ? graphVersion : ConstantVersion.INSTANCE);
+            keepEdges ? graphVersion : Version.constant());
 
     EvaluationResult<StringValue> result = evaluator.eval(ImmutableList.of(topKey, otherKey));
     assertThatEvaluationResult(result).hasErrorEntryForKeyThat(topKey);

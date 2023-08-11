@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.devtools.build.skyframe.Version.ConstantVersion;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import org.junit.runner.RunWith;
 
@@ -27,6 +28,6 @@ public class NonIncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<C
 
   @Override
   final ConstantVersion getInitialVersion() {
-    return ConstantVersion.INSTANCE;
+    return Version.constant();
   }
 }

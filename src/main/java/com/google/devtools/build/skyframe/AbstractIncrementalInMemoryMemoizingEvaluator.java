@@ -52,7 +52,7 @@ public abstract class AbstractIncrementalInMemoryMemoizingEvaluator
 
   /**
    * Whether to store edges in the graph. Can be false to save memory, in which case incremental
-   * builds are not possible, and all evaluations will be at {@link ConstantVersion#INSTANCE}.
+   * builds are not possible, and all evaluations will be at {@link Version#constant}.
    */
   final boolean keepEdges;
 
