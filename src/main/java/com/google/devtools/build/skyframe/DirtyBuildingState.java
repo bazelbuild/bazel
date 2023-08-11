@@ -32,6 +32,9 @@ import sun.misc.Unsafe;
  * <p>If the node has previously been built, {@link #isIncremental} returns true. Deps are checked
  * to see if re-evaluation is needed, and the node will either marked clean or re-evaluated.
  *
+ * <p>This class does not attempt to synchronize operations. It is assumed that the calling {@link
+ * InMemoryNodeEntry} performs the appropriate synchronization when necessary.
+ *
  * <p>This class is public only for the benefit of alternative graph implementations outside of the
  * package.
  */
@@ -165,14 +168,21 @@ public abstract class DirtyBuildingState implements PriorityTracker {
     }
   }
 
+  // TODO(b/228090759): Tighten up state checks for the force rebuild lifecycle.
   final void forceRebuild(int numTemporaryDirectDeps) {
     checkState(numTemporaryDirectDeps + externalDeps == signaledDeps, this);
-    checkState(
-        (dirtyState == DirtyState.CHECK_DEPENDENCIES
-                && getNumOfGroupsInLastBuildDirectDeps() == dirtyDirectDepIndex)
-            || dirtyState == DirtyState.NEEDS_FORCED_REBUILDING,
-        this);
-    dirtyState = DirtyState.REBUILDING;
+    switch (dirtyState) {
+      case CHECK_DEPENDENCIES:
+        checkState(getNumOfGroupsInLastBuildDirectDeps() == dirtyDirectDepIndex, this);
+        dirtyState = DirtyState.REBUILDING;
+        break;
+      case NEEDS_REBUILDING: // Valid for NonIncrementalInMemoryNodeEntry.
+      case NEEDS_FORCED_REBUILDING: // Valid for IncrementalInMemoryNodeEntry.
+        dirtyState = DirtyState.REBUILDING;
+        break;
+      default:
+        throw new IllegalStateException("Unexpected dirty state " + dirtyState + ": " + this);
+    }
   }
 
   final boolean isEvaluating() {
@@ -202,12 +212,10 @@ public abstract class DirtyBuildingState implements PriorityTracker {
    * DirtyBuildingState#getNumOfGroupsInLastBuildDirectDeps()}.
    */
   final void signalDep(
-      AbstractInMemoryNodeEntry entry,
+      AbstractInMemoryNodeEntry<?> entry,
       NodeVersion version,
       Version childVersion,
       @Nullable SkyKey childForDebugging) {
-    // Synchronization isn't needed here because the only caller is InMemoryNodeEntry, which does it
-    // through the synchronized method signalDep.
     checkState(isEvaluating(), "%s %s", entry, childForDebugging);
     signaledDeps++;
     if (isChanged()) {

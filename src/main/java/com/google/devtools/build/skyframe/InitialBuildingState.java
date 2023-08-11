@@ -16,8 +16,11 @@ package com.google.devtools.build.skyframe;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import javax.annotation.Nullable;
 
-/** {@link DirtyBuildingState} for a node on its initial build. */
-final class InitialBuildingState extends DirtyBuildingState {
+/**
+ * {@link DirtyBuildingState} for a node on its initial build or a {@link
+ * NonIncrementalInMemoryNodeEntry} being {@linkplain NodeEntry#forceRebuild force rebuilt}.
+ */
+class InitialBuildingState extends DirtyBuildingState {
 
   InitialBuildingState(boolean hasLowFanout) {
     super(DirtyType.CHANGE, hasLowFanout);
@@ -25,23 +28,23 @@ final class InitialBuildingState extends DirtyBuildingState {
 
   @Nullable
   @Override
-  public GroupedDeps getLastBuildDirectDeps() {
+  public final GroupedDeps getLastBuildDirectDeps() {
     return null;
   }
 
   @Override
-  protected int getNumOfGroupsInLastBuildDirectDeps() {
+  protected final int getNumOfGroupsInLastBuildDirectDeps() {
     return 0;
   }
 
   @Nullable
   @Override
-  public SkyValue getLastBuildValue() {
+  public final SkyValue getLastBuildValue() {
     return null;
   }
 
   @Override
-  protected boolean isIncremental() {
+  protected final boolean isIncremental() {
     return false;
   }
 }

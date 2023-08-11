@@ -68,7 +68,7 @@ abstract class ReverseDepsUtility {
    * {@link Op#ADD} is only delayed if there are already pending delayed ops. Returning {@link
    * Op#CHECK} in this case just makes it easy to distinguish from nodes on their initial build.
    */
-  static Op getOpToStoreBare(IncrementalInMemoryNodeEntry entry) {
+  static Op getOpToStoreBare(AbstractInMemoryNodeEntry<?> entry) {
     DirtyBuildingState dirtyBuildingState = entry.dirtyBuildingState;
     if (dirtyBuildingState == null) {
       return Op.CHECK;
@@ -404,24 +404,29 @@ abstract class ReverseDepsUtility {
   private static Set<SkyKey> getReverseDepsSet(
       IncrementalInMemoryNodeEntry entry, List<SkyKey> reverseDepsAsList) {
     Set<SkyKey> reverseDepsAsSet = CompactHashSet.create(reverseDepsAsList);
-
-    if (reverseDepsAsSet.size() != reverseDepsAsList.size()) {
-      // We're about to crash. Try to print an informative error message.
-      Set<SkyKey> seen = new HashSet<>();
-      List<SkyKey> duplicates = new ArrayList<>();
-      for (SkyKey key : reverseDepsAsList) {
-        if (!seen.add(key)) {
-          duplicates.add(key);
-        }
-      }
-      throw new IllegalStateException(
-          (reverseDepsAsList.size() - reverseDepsAsSet.size())
-              + " duplicates: "
-              + duplicates
-              + " for "
-              + entry);
-    }
+    checkForDuplicates(reverseDepsAsSet, reverseDepsAsList, entry);
     return reverseDepsAsSet;
+  }
+
+  static void checkForDuplicates(
+      Set<SkyKey> reverseDepsAsSet, List<SkyKey> reverseDepsAsList, InMemoryNodeEntry entry) {
+    if (reverseDepsAsSet.size() == reverseDepsAsList.size()) {
+      return;
+    }
+    // We're about to crash. Try to print an informative error message.
+    Set<SkyKey> seen = new HashSet<>();
+    List<SkyKey> duplicates = new ArrayList<>();
+    for (SkyKey key : reverseDepsAsList) {
+      if (!seen.add(key)) {
+        duplicates.add(key);
+      }
+    }
+    throw new IllegalStateException(
+        (reverseDepsAsList.size() - reverseDepsAsSet.size())
+            + " duplicate reverse deps: "
+            + duplicates
+            + " for "
+            + entry);
   }
 
   static String toString(IncrementalInMemoryNodeEntry entry) {

@@ -263,7 +263,11 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
 
     SkyKey parent = key("parent");
     entry.addReverseDepAndCheckIfDone(parent);
-    assertThat(entry.getDirtyState()).isEqualTo(DirtyState.NEEDS_FORCED_REBUILDING);
+    // A non-incremental node that is force rebuilt acts as if it was never built.
+    // TODO(b/228090759): Better distinguish the force rebuild lifecycles.
+    assertThat(entry.getDirtyState())
+        .isEqualTo(
+            entry.keepsEdges() ? DirtyState.NEEDS_FORCED_REBUILDING : DirtyState.NEEDS_REBUILDING);
     assertThat(entry.isReadyToEvaluate()).isTrue();
     assertThat(entry.hasUnsignaledDeps()).isFalse();
     assertThat(entry.getTemporaryDirectDeps()).isEmpty();

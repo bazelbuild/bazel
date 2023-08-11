@@ -258,11 +258,11 @@ function test_packages_cleared() {
   [[ "$ct_count" -ge 18 ]] \
       || fail "RuleConfiguredTarget count $ct_count too low: did you move/rename the class?"
   local non_incremental_entry_count="$(extract_histogram_count "$histo_file" \
-       'NonIncrementalInMemoryNodeEntry')"
+       '\.NonIncrementalInMemoryNodeEntry$')"
   [[ "$non_incremental_entry_count" -eq 0 ]] \
       || fail "$non_incremental_entry_count NonIncrementalInMemoryNodeEntry instances found in build keeping edges"
   local incremental_entry_count="$(extract_histogram_count "$histo_file" \
-       '\.IncrementalInMemoryNodeEntry')"
+       '\.IncrementalInMemoryNodeEntry$')"
   [[ "$incremental_entry_count" -ge 100 ]] \
       || fail "Only $incremental_entry_count IncrementalInMemoryNodeEntry instances found in build keeping edges"
   local histo_file="$(prepare_histogram "$BUILD_FLAGS")"
@@ -282,11 +282,11 @@ function test_packages_cleared() {
   [[ "$ct_count" -le 1 ]] \
       || fail "too many RuleConfiguredTarget: expected at most 1, got $ct_count"
   non_incremental_entry_count="$(extract_histogram_count "$histo_file" \
-       'NonIncrementalInMemoryNodeEntry')"
+       '\.NonIncrementalInMemoryNodeEntry$')"
   [[ "$non_incremental_entry_count" -ge 100 ]] \
       || fail "Not enough ($non_incremental_entry_count) NonIncrementalInMemoryNodeEntry instances found in build discarding edges"
   incremental_entry_count="$(extract_histogram_count "$histo_file" \
-       '\.IncrementalInMemoryNodeEntry')"
+       '\.IncrementalInMemoryNodeEntry$')"
   [[ "$incremental_entry_count" -le 10 ]] \
       || fail "Too many ($incremental_entry_count) IncrementalInMemoryNodeEntry instances found in build discarding edges"
 }

@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -29,7 +28,7 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /** An {@link InMemoryNodeEntry} that {@link #keepsEdges} for use in incremental evaluations. */
-public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry {
+public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<DirtyBuildingState> {
 
   protected volatile NodeVersion version = Version.minimal();
 
@@ -38,8 +37,8 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry {
    * requested them that way. It contains either the in-progress direct deps, stored as a {@link
    * GroupedDeps} (constructed via {@link GroupedDeps.WithHashSet} if {@code
    * key.supportsPartialReevaluation()}) before the node is finished building, or the full direct
-   * deps, compressed in a memory-efficient way (via {@link GroupedDeps#compress}, after the node is
-   * done.
+   * deps, compressed in a memory-efficient way (via {@link GroupedDeps#compress}), after the node
+   * is done.
    *
    * <p>It is initialized lazily in getTemporaryDirectDeps() to save a little memory.
    */
@@ -84,7 +83,7 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry {
   }
 
   @Override
-  public boolean keepsEdges() {
+  public final boolean keepsEdges() {
     return true;
   }
 
@@ -123,7 +122,6 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry {
 
   @Override
   public final synchronized @GroupedDeps.Compressed Object getCompressedDirectDepsForDoneEntry() {
-    assertKeepEdges();
     checkState(isDone(), "no deps until done. NodeEntry: %s", this);
     checkNotNull(directDeps, "deps can't be null: %s", this);
     return GroupedDeps.castAsCompressed(directDeps);
@@ -140,7 +138,7 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry {
 
   protected final synchronized Set<SkyKey> setStateFinishedAndReturnReverseDepsToSignal() {
     Set<SkyKey> reverseDepsToSignal = ReverseDepsUtility.consolidateDataAndReturnNewElements(this);
-    directDeps = keepsEdges() ? getTemporaryDirectDeps().compress() : null;
+    directDeps = getTemporaryDirectDeps().compress();
     markDone();
     return reverseDepsToSignal;
   }
@@ -162,10 +160,6 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry {
   public synchronized Set<SkyKey> setValue(
       SkyValue value, Version graphVersion, @Nullable Version maxTransitiveSourceVersion)
       throws InterruptedException {
-    checkArgument(
-        keepsEdges() || graphVersion.equals(ConstantVersion.INSTANCE),
-        "Non-incremental evaluations must use a constant graph version, got %s",
-        graphVersion);
     checkState(!hasUnsignaledDeps(), "Has unsignaled deps (this=%s, value=%s)", this, value);
     checkState(
         version.lastChanged().atMost(graphVersion) && version.lastEvaluated().atMost(graphVersion),
@@ -192,7 +186,7 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry {
   @Override
   @CanIgnoreReturnValue
   public DependencyState addReverseDepAndCheckIfDone(SkyKey reverseDep) {
-    if ((reverseDep == null || !keepsEdges()) && isDone()) {
+    if (reverseDep == null && isDone()) {
       return DependencyState.DONE;
     }
 
@@ -203,9 +197,7 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry {
       }
       if (reverseDep != null) {
         if (done) {
-          if (keepsEdges()) {
-            ReverseDepsUtility.addReverseDep(this, reverseDep);
-          }
+          ReverseDepsUtility.addReverseDep(this, reverseDep);
         } else {
           appendToReverseDepOperations(reverseDep, Op.ADD);
         }
@@ -213,11 +205,11 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry {
       if (done) {
         return DependencyState.DONE;
       }
-      boolean wasEvaluating = dirtyBuildingState.isEvaluating();
-      if (!wasEvaluating) {
-        dirtyBuildingState.startEvaluating();
+      if (dirtyBuildingState.isEvaluating()) {
+        return DependencyState.ALREADY_EVALUATING;
       }
-      return wasEvaluating ? DependencyState.ALREADY_EVALUATING : DependencyState.NEEDS_SCHEDULING;
+      dirtyBuildingState.startEvaluating();
+      return DependencyState.NEEDS_SCHEDULING;
     }
   }
 
@@ -252,7 +244,6 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry {
   @Override
   public synchronized DependencyState checkIfDoneForDirtyReverseDep(SkyKey reverseDep) {
     checkNotNull(reverseDep, this);
-    checkState(keepsEdges(), "Incremental means keeping edges %s %s", reverseDep, this);
     if (isDone()) {
       return DependencyState.DONE;
     }
@@ -262,9 +253,6 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry {
 
   @Override
   public synchronized void removeReverseDep(SkyKey reverseDep) {
-    if (!keepsEdges()) {
-      return;
-    }
     if (isDone()) {
       ReverseDepsUtility.removeReverseDep(this, reverseDep);
     } else {
@@ -276,7 +264,6 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry {
 
   @Override
   public synchronized void removeReverseDepsFromDoneEntryDueToDeletion(Set<SkyKey> deletedKeys) {
-    assertKeepEdges();
     checkState(isDone(), this);
     ReverseDepsUtility.removeReverseDepsMatching(this, deletedKeys);
   }
@@ -288,14 +275,12 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry {
 
   @Override
   public synchronized Collection<SkyKey> getReverseDepsForDoneEntry() {
-    assertKeepEdges();
     checkState(isDone(), "Called on not done %s", this);
     return ReverseDepsUtility.getReverseDeps(this, /* checkConsistency= */ true);
   }
 
   @Override
   public synchronized Collection<SkyKey> getAllReverseDepsForNodeBeingDeleted() {
-    assertKeepEdges();
     if (!isDone()) {
       // This consolidation loses information about pending reverse deps to signal, but that is
       // unimportant since this node is being deleted.
@@ -313,11 +298,6 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry {
     return !hasUnsignaledDeps();
   }
 
-  /** Checks that a caller is not trying to access not-stored graph edges. */
-  private void assertKeepEdges() {
-    checkState(keepsEdges(), "Not keeping edges: %s", this);
-  }
-
   /**
    * Creates a {@link DirtyBuildingState} for the case where this node is done and is being marked
    * dirty.
@@ -328,25 +308,16 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry {
     return new IncrementalDirtyBuildingState(dirtyType, getKey(), directDeps, value);
   }
 
-  private static final GroupedDeps EMPTY_LIST = new GroupedDeps();
-
   @Nullable
   @Override
   public synchronized MarkedDirtyResult markDirty(DirtyType dirtyType) {
-    if (!DirtyType.FORCE_REBUILD.equals(dirtyType)) {
-      // A node can't be found to be dirty without deps unless it's force-rebuilt.
-      assertKeepEdges();
-    }
     if (isDone()) {
-      GroupedDeps directDeps =
-          keepsEdges() ? GroupedDeps.decompress(getCompressedDirectDepsForDoneEntry()) : EMPTY_LIST;
+      GroupedDeps directDeps = GroupedDeps.decompress(getCompressedDirectDepsForDoneEntry());
       dirtyBuildingState = createDirtyBuildingStateForDoneNode(dirtyType, directDeps, value);
       value = null;
       this.directDeps = null;
       return MarkedDirtyResult.withReverseDeps(
-          keepsEdges()
-              ? ReverseDepsUtility.getReverseDeps(this, /* checkConsistency= */ true)
-              : ImmutableList.of());
+          ReverseDepsUtility.getReverseDeps(this, /* checkConsistency= */ true));
     }
     if (dirtyType.equals(DirtyType.FORCE_REBUILD)) {
       if (dirtyBuildingState != null) {
@@ -420,9 +391,7 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry {
         .add("version", version)
         .add(
             "directDeps",
-            isDone() && keepsEdges()
-                ? GroupedDeps.decompress(getCompressedDirectDepsForDoneEntry())
-                : directDeps)
+            isDone() ? GroupedDeps.decompress(getCompressedDirectDepsForDoneEntry()) : directDeps)
         .add("reverseDeps", ReverseDepsUtility.toString(this));
   }
 

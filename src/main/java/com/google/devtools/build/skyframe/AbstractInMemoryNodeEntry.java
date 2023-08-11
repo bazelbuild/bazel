@@ -58,8 +58,12 @@ import javax.annotation.Nullable;
  * the ALREADY_EVALUATING state until it is DONE.
  *
  * <p>From the DONE state, the node can go back to the "marked as affected" state.
+ *
+ * @param <D> the type of {@link DirtyBuildingState} used by the {@link AbstractInMemoryNodeEntry}
+ *     subclass
  */
-abstract class AbstractInMemoryNodeEntry implements InMemoryNodeEntry {
+abstract class AbstractInMemoryNodeEntry<D extends DirtyBuildingState>
+    implements InMemoryNodeEntry {
 
   private final SkyKey key;
 
@@ -70,7 +74,7 @@ abstract class AbstractInMemoryNodeEntry implements InMemoryNodeEntry {
    * Tracks state of this entry while it is evaluating (either on its initial build or after being
    * marked dirty).
    */
-  @Nullable protected volatile DirtyBuildingState dirtyBuildingState;
+  @Nullable protected volatile D dirtyBuildingState;
 
   AbstractInMemoryNodeEntry(SkyKey key) {
     this.key = checkNotNull(key);
