@@ -384,6 +384,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   private final ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile;
 
+  private final boolean shouldUseRepoDotBazel;
+
   private final boolean shouldUnblockCpuWorkWhenFetchingDeps;
 
   private final SkyKeyStateReceiver skyKeyStateReceiver;
@@ -484,6 +486,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ImmutableList<BuildFileName> buildFilesByPriority,
       ExternalPackageHelper externalPackageHelper,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
+      boolean shouldUseRepoDotBazel,
       boolean shouldUnblockCpuWorkWhenFetchingDeps,
       @Nullable PackageProgressReceiver packageProgress,
       @Nullable ConfiguredTargetProgressReceiver configuredTargetProgress,
@@ -539,6 +542,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.buildFilesByPriority = buildFilesByPriority;
     this.externalPackageHelper = externalPackageHelper;
     this.actionOnIOExceptionReadingBuildFile = actionOnIOExceptionReadingBuildFile;
+    this.shouldUseRepoDotBazel = shouldUseRepoDotBazel;
     this.packageProgress = packageProgress;
     this.configuredTargetProgress = configuredTargetProgress;
     this.diffAwarenessManager =
@@ -619,6 +623,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             bzlLoadFunctionForInliningPackageAndWorkspaceNodes,
             packageProgress,
             actionOnIOExceptionReadingBuildFile,
+            shouldUseRepoDotBazel,
             getGlobbingStrategy(),
             skyKeyStateReceiver::makeThreadStateReceiver));
     map.put(SkyFunctions.PACKAGE_ERROR, new PackageErrorFunction());
@@ -666,6 +671,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             pkgFactory,
             directories,
             bzlLoadFunctionForInliningPackageAndWorkspaceNodes));
+    map.put(
+        SkyFunctions.REPO_FILE,
+        shouldUseRepoDotBazel
+            ? new RepoFileFunction(
+            ruleClassProvider.getBazelStarlarkEnvironment(), directories.getWorkspace())
+            : (k, env) -> {
+              throw new IllegalStateException("supposed to be unused");
+            });
     map.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction(externalPackageHelper));
     map.put(
         BzlmodRepoRuleValue.BZLMOD_REPO_RULE,

@@ -58,10 +58,13 @@ public class BazelSkyframeExecutorConstants {
       ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE =
           ActionOnIOExceptionReadingBuildFile.UseOriginalIOException.INSTANCE;
 
+  public static final boolean USE_REPO_DOT_BAZEL = true;
+
   public static SequencedSkyframeExecutor.Builder newBazelSkyframeExecutorBuilder() {
     return SequencedSkyframeExecutor.builder()
         .setIgnoredPackagePrefixesFunction(IGNORED_PACKAGE_PREFIXES_FUNCTION)
         .setActionOnIOExceptionReadingBuildFile(ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE)
+        .setShouldUseRepoDotBazel(USE_REPO_DOT_BAZEL)
         .setCrossRepositoryLabelViolationStrategy(CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY)
         .setBuildFilesByPriority(BUILD_FILES_BY_PRIORITY)
         .setExternalPackageHelper(EXTERNAL_PACKAGE_HELPER);

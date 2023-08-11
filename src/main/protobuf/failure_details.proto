@@ -1245,6 +1245,7 @@ message PackageLoading {
     BUILTINS_INJECTION_FAILURE = 29 [(metadata) = { exit_code: 1 }];
     SYMLINK_CYCLE_OR_INFINITE_EXPANSION = 30 [(metadata) = { exit_code: 1 }];
     OTHER_IO_EXCEPTION = 31 [(metadata) = { exit_code: 36 }];
+    BAD_REPO_FILE = 32 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;

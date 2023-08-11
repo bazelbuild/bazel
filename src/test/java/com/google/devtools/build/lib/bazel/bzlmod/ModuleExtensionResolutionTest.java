@@ -215,6 +215,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                         /* packageProgress= */ null,
                         PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException
                             .INSTANCE,
+                        /* shouldUseRepoDotBazel= */ true,
                         GlobbingStrategy.SKYFRAME_HYBRID,
                         ignored -> ThreadStateReceiver.NULL_INSTANCE))
                 .put(
