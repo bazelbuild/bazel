@@ -2233,7 +2233,7 @@ public class RuleClass {
       // EventHandler, any errors that might occur during the function's evaluation can
       // be discovered and propagated here.
       Object valueToSet;
-      Object defaultValue = attr.getDefaultValue();
+      Object defaultValue = attr.getDefaultValue(null);
       if (defaultValue instanceof StarlarkComputedDefaultTemplate) {
         StarlarkComputedDefaultTemplate template = (StarlarkComputedDefaultTemplate) defaultValue;
         valueToSet = template.computePossibleValues(attr, rule, eventHandler);
@@ -2428,7 +2428,7 @@ public class RuleClass {
             // By this point the AspectDefinition has been created and values assigned.
             if (attrOfAspect.checkAllowedValues()) {
               PredicateWithMessage<Object> allowedValues = attrOfAspect.getAllowedValues();
-              Object value = attrOfAspect.getDefaultValue();
+              Object value = attrOfAspect.getDefaultValue(null);
               if (!allowedValues.apply(value)) {
                 if (RawAttributeMapper.of(rule).isConfigurable(attrOfAspect.getName())) {
                   rule.reportError(

@@ -595,7 +595,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     StarlarkDefinedAspect aspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
     Attribute attribute = Iterables.getOnlyElement(aspect.getAttributes());
     assertThat(attribute.getName()).isEqualTo("$extra_deps");
-    assertThat(attribute.getDefaultValue())
+    assertThat(attribute.getDefaultValue(null))
         .isEqualTo(Label.parseCanonicalUnchecked("//foo/bar:baz"));
   }
 

@@ -369,7 +369,7 @@ public final class DependencyResolutionHelpers {
       if (dependencyKind.getOwningAspect() == null) {
         attributeValue = attributeMap.get(attribute.getName(), type);
       } else {
-        Object defaultValue = attribute.getDefaultValue();
+        Object defaultValue = attribute.getDefaultValue(rule);
         attributeValue =
             type.cast(
                 defaultValue instanceof ComputedDefault

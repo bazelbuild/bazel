@@ -322,7 +322,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
 
       String parameterValue =
           parametersValues.getOrDefault(
-              parameterName, parameterType.cast(aspectParameter.getDefaultValue()).toString());
+              parameterName, parameterType.cast(aspectParameter.getDefaultValue(null)).toString());
 
       Object castedParameterValue = parameterValue;
       // Validate integer and boolean parameters values

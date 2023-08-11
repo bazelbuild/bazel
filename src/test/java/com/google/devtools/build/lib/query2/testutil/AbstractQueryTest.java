@@ -2299,6 +2299,27 @@ public abstract class AbstractQueryTest<T> {
     assertThat(evalToString("@my_repo//a/b/...")).isEqualTo(REPO_AB_RULES);
   }
 
+  @Test
+  public void testLabelFlagDefaultAppearsInDepsQuery() throws Exception {
+    writeFile(
+        "donut/BUILD",
+        "sh_binary(name = 'thief', srcs = ['thief.sh'])",
+        "label_flag(name = 'myflag', build_setting_default = ':thief')");
+
+    assertThat(evalToString("deps(//donut:myflag, 1)")).isEqualTo("//donut:myflag //donut:thief");
+  }
+
+  @Test
+  public void testLabelSettingDefaultAppearsInDepsQuery() throws Exception {
+    writeFile(
+        "donut/BUILD",
+        "sh_binary(name = 'thief', srcs = ['thief.sh'])",
+        "label_setting(name = 'mysetting', build_setting_default = ':thief')");
+
+    assertThat(evalToString("deps(//donut:mysetting, 1)"))
+        .isEqualTo("//donut:mysetting //donut:thief");
+  }
+
   /**
    * A helper interface that allows creating a bunch of BUILD files and running queries against
    * them. We use this rather than the existing FoundationTestCase / BuildTestCase infrastructure to

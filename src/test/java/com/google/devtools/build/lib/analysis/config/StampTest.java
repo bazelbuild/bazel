@@ -37,7 +37,8 @@ public final class StampTest extends BuildViewTestCase {
       String name = e.getKey();
       RuleClass ruleClass = e.getValue();
       if (TargetUtils.isTestRuleName(name) && ruleClass.hasAttr("stamp", BuildType.TRISTATE)) {
-        assertThat(ruleClass.getAttributeByName("stamp").getDefaultValue()).isEqualTo(TriState.NO);
+        assertThat(ruleClass.getAttributeByName("stamp").getDefaultValue(null))
+            .isEqualTo(TriState.NO);
       }
     }
   }

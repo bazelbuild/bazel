@@ -483,7 +483,7 @@ final class ModuleInfoExtractor {
           "repository rule " + qualifiedName);
       if (ruleClass.hasAttr("$environ", Type.STRING_LIST)) {
         repositoryRuleInfoBuilder.addAllEnviron(
-            Type.STRING_LIST.cast(ruleClass.getAttributeByName("$environ").getDefaultValue()));
+            Type.STRING_LIST.cast(ruleClass.getAttributeByName("$environ").getDefaultValue(null)));
       }
       moduleInfoBuilder.addRepositoryRuleInfo(repositoryRuleInfoBuilder);
     }

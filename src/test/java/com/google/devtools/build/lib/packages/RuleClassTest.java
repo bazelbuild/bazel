@@ -184,16 +184,16 @@ public final class RuleClassTest extends PackageLoadingTestCase {
         .isEqualTo(ruleClassA.getAttribute(7));
 
     // default based on type
-    assertThat(ruleClassA.getAttribute(0).getDefaultValue()).isEqualTo("");
-    assertThat(ruleClassA.getAttribute(1).getDefaultValue()).isEqualTo("");
-    assertThat(ruleClassA.getAttribute(2).getDefaultValue())
+    assertThat(ruleClassA.getAttribute(0).getDefaultValue(null)).isEqualTo("");
+    assertThat(ruleClassA.getAttribute(1).getDefaultValue(null)).isEqualTo("");
+    assertThat(ruleClassA.getAttribute(2).getDefaultValue(null))
         .isEqualTo(Label.parseCanonical("//default:label"));
-    assertThat(ruleClassA.getAttribute(3).getDefaultValue()).isEqualTo(ImmutableList.of());
-    assertThat(ruleClassA.getAttribute(4).getDefaultValue()).isEqualTo(StarlarkInt.of(42));
+    assertThat(ruleClassA.getAttribute(3).getDefaultValue(null)).isEqualTo(ImmutableList.of());
+    assertThat(ruleClassA.getAttribute(4).getDefaultValue(null)).isEqualTo(StarlarkInt.of(42));
     // default explicitly specified
-    assertThat(ruleClassA.getAttribute(5).getDefaultValue()).isNull();
-    assertThat(ruleClassA.getAttribute(6).getDefaultValue()).isEqualTo(ImmutableList.of());
-    assertThat(ruleClassA.getAttribute(7).getDefaultValue()).isEqualTo(ImmutableList.of());
+    assertThat(ruleClassA.getAttribute(5).getDefaultValue(null)).isNull();
+    assertThat(ruleClassA.getAttribute(6).getDefaultValue(null)).isEqualTo(ImmutableList.of());
+    assertThat(ruleClassA.getAttribute(7).getDefaultValue(null)).isEqualTo(ImmutableList.of());
   }
 
   @Test

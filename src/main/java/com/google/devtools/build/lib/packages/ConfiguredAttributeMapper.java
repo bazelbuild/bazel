@@ -149,7 +149,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
                   attributeName));
         }
         @SuppressWarnings("unchecked")
-        T defaultValue = (T) attr.getDefaultValue();
+        T defaultValue = (T) attr.getDefaultValue(rule);
         resolvedList.add(defaultValue);
       } else {
         resolvedList.add(resolvedPath.value);

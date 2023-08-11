@@ -421,7 +421,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    * must exist (an exception is thrown otherwise).
    */
   public Object getAttrDefaultValue(String attrName) {
-    Object defaultValue = ruleClass.getAttributeByName(attrName).getDefaultValue();
+    Object defaultValue = ruleClass.getAttributeByName(attrName).getDefaultValue(this);
     // Computed defaults not expected here.
     Preconditions.checkState(!(defaultValue instanceof Attribute.ComputedDefault));
     return defaultValue;
@@ -543,7 +543,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
       // which have not yet been populated. Note that in this situation returning null does not
       // result in a correctness issue, since the value for the attribute is actually a function to
       // compute the value.
-      return isFrozen() ? attr.getDefaultValue() : null;
+      return isFrozen() ? attr.getDefaultValue(this) : null;
     }
     if (attr.isLateBound()) {
       // Frozen rules don't store late bound defaults.
@@ -560,7 +560,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
             ? getName().substring(0, generatorNamePrefixLength)
             : "";
       default:
-        return attr.getDefaultValue();
+        return attr.getDefaultValue(this);
     }
   }
 
