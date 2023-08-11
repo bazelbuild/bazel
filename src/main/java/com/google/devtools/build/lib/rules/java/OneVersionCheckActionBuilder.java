@@ -77,12 +77,7 @@ public final class OneVersionCheckActionBuilder {
     Preconditions.checkNotNull(jarsToCheck);
 
     FilesToRunProvider oneVersionTool = javaToolchain.getOneVersionBinary();
-    Artifact oneVersionAllowlist;
-    if (ruleContext.isTestTarget()) {
-      oneVersionAllowlist = javaToolchain.oneVersionAllowlistForTests();
-    } else {
-      oneVersionAllowlist = javaToolchain.getOneVersionAllowlist();
-    }
+    Artifact oneVersionAllowlist = javaToolchain.getOneVersionAllowlist();
     if (oneVersionTool == null || oneVersionAllowlist == null) {
       return null;
     }
