@@ -251,8 +251,9 @@ public class ProcessedAndroidData {
         // Output
         .setProguardOut(
             ProguardHelper.getProguardConfigArtifact(
-                dataContext.getLabel(), dataContext.getActionConstructionContext(), proguardPrefix))
-        .setIncludeProguardLocationReferences(dataContext.includeProguardLocationReferences());
+                dataContext.getLabel(),
+                dataContext.getActionConstructionContext(),
+                proguardPrefix));
   }
 
   static ProcessedAndroidData of(
