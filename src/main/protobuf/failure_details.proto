@@ -278,7 +278,7 @@ message BuildProgress {
         [(metadata) = { exit_code: 45 }];
     BES_UPLOAD_RETRY_LIMIT_EXCEEDED_FAILURE = 17
         [(metadata) = { exit_code: 38 }];
-    reserved 1, 2, 18; // For internal use
+    reserved 1, 2, 18, 20; // For internal use
   }
   Code code = 1;
   // Additional data could include the build progress upload endpoint.

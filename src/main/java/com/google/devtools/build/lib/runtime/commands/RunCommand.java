@@ -300,7 +300,7 @@ public class RunCommand implements BlazeCommand {
               builtTargets.configuration,
               builtTargets.stopTime);
       boolean includeResidueInExecRequest =
-          options.getOptions(BuildEventProtocolOptions.class).includeResidueInExecRequest;
+          options.getOptions(BuildEventProtocolOptions.class).includeResidueInRunBepEvent;
       env.getReporter().post(new ExecRequestEvent(execRequest, includeResidueInExecRequest));
       return BlazeCommandResult.execute(execRequest);
     } catch (RunCommandException e) {

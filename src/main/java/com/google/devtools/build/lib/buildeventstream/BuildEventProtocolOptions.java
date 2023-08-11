@@ -97,10 +97,13 @@ public class BuildEventProtocolOptions extends OptionsBase {
   public boolean publishTargetSummary;
 
   @Option(
-      name = "experimental_bep_exec_request_include_residue",
+      name = "experimental_run_bep_event_include_residue",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Whether to include the residue in ExecRequest events.")
-  public boolean includeResidueInExecRequest;
+      help =
+          "Whether to include the command-line residue in run build events which could contain the"
+              + " residue. By default, the residue is not included in run command build events that"
+              + " could contain the residue.")
+  public boolean includeResidueInRunBepEvent;
 }

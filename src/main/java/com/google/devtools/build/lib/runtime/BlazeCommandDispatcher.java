@@ -154,8 +154,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
       List<Any> commandExtensions)
       throws InterruptedException {
-    OriginalUnstructuredCommandLineEvent originalCommandLine =
-        new OriginalUnstructuredCommandLineEvent(args);
     Preconditions.checkNotNull(clientDescription);
     if (args.isEmpty()) { // Default to help command if no arguments specified.
       args = HELP_COMMAND;
@@ -243,7 +241,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         try {
           result =
               execExclusively(
-                  originalCommandLine,
                   invocationPolicy,
                   args,
                   outErr,
@@ -299,7 +296,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
   }
 
   private BlazeCommandResult execExclusively(
-      OriginalUnstructuredCommandLineEvent unstructuredServerCommandLineEvent,
       InvocationPolicy invocationPolicy,
       List<String> args,
       OutErr outErr,
@@ -641,6 +637,15 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
               runtime, commandName, options, startupOptionsTaggedWithBazelRc);
       CommandLineEvent canonicalCommandLineEvent =
           new CommandLineEvent.CanonicalCommandLineEvent(runtime, commandName, options);
+      BuildEventProtocolOptions bepOptions =
+          env.getOptions().getOptions(BuildEventProtocolOptions.class);
+      OriginalUnstructuredCommandLineEvent unstructuredServerCommandLineEvent;
+      if (commandName.equals("run") && !bepOptions.includeResidueInRunBepEvent) {
+        unstructuredServerCommandLineEvent =
+            OriginalUnstructuredCommandLineEvent.REDACTED_UNSTRUCTURED_COMMAND_LINE_EVENT;
+      } else {
+        unstructuredServerCommandLineEvent = new OriginalUnstructuredCommandLineEvent(args);
+      }
       env.getEventBus().post(unstructuredServerCommandLineEvent);
       env.getEventBus().post(originalCommandLineEvent);
       env.getEventBus().post(canonicalCommandLineEvent);
