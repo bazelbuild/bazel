@@ -16,7 +16,12 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.NativeInfo;
+import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Provider that contains the profile used for FDO. */
@@ -36,6 +41,17 @@ public final class FdoProfileProvider extends NativeInfo implements StarlarkValu
   @Override
   public BuiltinProvider<FdoProfileProvider> getProvider() {
     return PROVIDER;
+  }
+
+  @StarlarkMethod(
+      name = "get_fdo_artifact",
+      documented = false,
+      allowReturnNones = true,
+      useStarlarkThread = true)
+  @Nullable
+  public Artifact getFdoArtifact(StarlarkThread thread) throws EvalException {
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    return fdoInputFile.getArtifact();
   }
 
   public FdoInputFile getInputFile() {
