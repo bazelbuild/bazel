@@ -760,7 +760,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       }
       try {
         BazelStarlarkContext.from(thread).checkLoadingPhase(getName());
-      } catch (IllegalStateException e) {
+      } catch (IllegalStateException unused) {
         throw new EvalException(
             "A rule can only be instantiated in a BUILD file, or a macro "
                 + "invoked from a BUILD file");
