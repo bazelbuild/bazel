@@ -1564,8 +1564,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testDefaultEnabledFeatureIsUsed() throws Exception {
-    // Although using --cpu=ios_x86_64, it transitions to darwin_x86_64, so the actual
-    // cc_toolchain in use will be the darwin_x86_64 one.
     MockObjcSupport.setupCcToolchainConfig(
         mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures("default_feature"));
     useConfiguration("--cpu=ios_x86_64");
