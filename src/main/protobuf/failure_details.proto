@@ -1299,6 +1299,7 @@ message ExternalDeps {
     VERSION_RESOLUTION_ERROR = 3 [(metadata) = { exit_code: 48 }];
     INVALID_REGISTRY_URL = 4 [(metadata) = { exit_code: 48 }];
     ERROR_ACCESSING_REGISTRY = 5 [(metadata) = { exit_code: 32 }];
+    INVALID_EXTENSION_IMPORT = 6 [(metadata) = { exit_code: 48 }];
   }
 
   Code code = 1;
@@ -1319,6 +1320,7 @@ message ModCommand {
     MISSING_ARGUMENTS = 1 [(metadata) = { exit_code: 2 }];
     TOO_MANY_ARGUMENTS = 2 [(metadata) = { exit_code: 2 }];
     INVALID_ARGUMENTS = 3 [(metadata) = { exit_code: 2 }];
+    BUILDOZER_FAILED = 4 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;

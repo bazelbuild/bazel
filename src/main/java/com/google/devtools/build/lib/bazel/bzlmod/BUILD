@@ -197,8 +197,10 @@ java_library(
     deps = [
         ":common",
         ":exception",
+        ":inspection",
         ":module_extension",
         ":module_extension_metadata",
+        ":module_file_fixup_event",
         ":registry",
         ":repo_rule_creator",
         ":resolution",
@@ -274,6 +276,51 @@ java_library(
 )
 
 java_library(
+    name = "tidy",
+    srcs = [
+        "BazelModTidyValue.java",
+    ],
+    deps = [
+        ":common",
+        ":resolution",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository:repository_options",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party:auto_value",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "tidy_impl",
+    srcs = [
+        "BazelModTidyFunction.java",
+    ],
+    deps = [
+        ":common",
+        ":exception",
+        ":module_extension",
+        ":resolution",
+        ":resolution_impl",
+        ":tidy",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "inspection",
     srcs = [
         "BazelModuleInspectorValue.java",
@@ -314,6 +361,7 @@ java_library(
     deps = [
         ":common",
         ":module_extension",
+        ":module_file_fixup_event",
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -324,5 +372,19 @@ java_library(
         "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "module_file_fixup_event",
+    srcs = [
+        "RootModuleFileFixupEvent.java",
+    ],
+    deps = [
+        ":module_extension",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/net/starlark/java/syntax",
+        "//third_party:auto_value",
+        "//third_party:guava",
     ],
 )

@@ -466,7 +466,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         if (!generatedRepoSpecs.containsKey(repoImport.getValue())) {
           throw new SingleExtensionEvalFunctionException(
               ExternalDepsException.withMessage(
-                  Code.BAD_MODULE,
+                  Code.INVALID_EXTENSION_IMPORT,
                   "module extension \"%s\" from \"%s\" does not generate repository \"%s\", yet it"
                       + " is imported as \"%s\" in the usage at %s%s",
                   extensionId.getExtensionName(),

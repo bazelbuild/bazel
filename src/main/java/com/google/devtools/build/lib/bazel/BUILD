@@ -35,6 +35,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:registry",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution_impl",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:tidy_impl",
         "//src/main/java/com/google/devtools/build/lib/bazel/commands",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repository_options",

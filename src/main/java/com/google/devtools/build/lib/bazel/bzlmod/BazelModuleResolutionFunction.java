@@ -20,10 +20,8 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.bazel.BazelVersion;
@@ -266,49 +264,6 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     }
   }
 
-  private static RepoSpec maybeAppendAdditionalPatches(
-      @Nullable RepoSpec repoSpec, @Nullable ModuleOverride override) {
-    if (!(override instanceof SingleVersionOverride)) {
-      return repoSpec;
-    }
-    SingleVersionOverride singleVersion = (SingleVersionOverride) override;
-    if (singleVersion.getPatches().isEmpty()) {
-      return repoSpec;
-    }
-    ImmutableMap.Builder<String, Object> attrBuilder = ImmutableMap.builder();
-    attrBuilder.putAll(repoSpec.attributes().attributes());
-    attrBuilder.put("patches", singleVersion.getPatches());
-    attrBuilder.put("patch_cmds", singleVersion.getPatchCmds());
-    attrBuilder.put("patch_args", ImmutableList.of("-p" + singleVersion.getPatchStrip()));
-    return RepoSpec.builder()
-        .setBzlFile(repoSpec.bzlFile())
-        .setRuleClassName(repoSpec.ruleClassName())
-        .setAttributes(AttributeValues.create(attrBuilder.buildOrThrow()))
-        .build();
-  }
-
-  /**
-   * Builds a {@link Module} from an {@link InterimModule}, discarding unnecessary fields and adding
-   * extra necessary ones (such as the repo spec).
-   *
-   * @param remoteRepoSpec the {@link RepoSpec} for the module obtained from a registry or null if
-   *     the module has a non-registry override
-   */
-  static Module moduleFromInterimModule(
-      InterimModule interim, @Nullable ModuleOverride override, @Nullable RepoSpec remoteRepoSpec) {
-    return Module.builder()
-        .setName(interim.getName())
-        .setVersion(interim.getVersion())
-        .setKey(interim.getKey())
-        .setRepoName(interim.getRepoName())
-        .setExecutionPlatformsToRegister(interim.getExecutionPlatformsToRegister())
-        .setToolchainsToRegister(interim.getToolchainsToRegister())
-        .setDeps(ImmutableMap.copyOf(Maps.transformValues(interim.getDeps(), DepSpec::toModuleKey)))
-        .setRepoSpec(maybeAppendAdditionalPatches(remoteRepoSpec, override))
-        .setExtensionUsages(interim.getExtensionUsages())
-        .build();
-  }
-
   private static ImmutableMap<ModuleKey, Module> computeFinalDepGraph(
       ImmutableMap<ModuleKey, InterimModule> resolvedDepGraph,
       ImmutableMap<String, ModuleOverride> overrides,
@@ -317,7 +272,7 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     for (Map.Entry<ModuleKey, InterimModule> entry : resolvedDepGraph.entrySet()) {
       finalDepGraph.put(
           entry.getKey(),
-          moduleFromInterimModule(
+          InterimModule.toModule(
               entry.getValue(),
               overrides.get(entry.getKey().getName()),
               remoteRepoSpecs.get(entry.getKey())));

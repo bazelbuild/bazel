@@ -234,7 +234,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.of(
             ModuleKey.ROOT,
-            BazelModuleResolutionFunction.moduleFromInterimModule(
+            InterimModule.toModule(
                 rootValue.getModule(), null, null));
 
     UpdateLockFileKey key =
@@ -273,7 +273,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.of(
             ModuleKey.ROOT,
-            BazelModuleResolutionFunction.moduleFromInterimModule(
+            InterimModule.toModule(
                 rootValue.getModule(), null, null));
 
     ImmutableList<String> yankedVersions = ImmutableList.of("2.4", "2.3");
@@ -337,7 +337,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.of(
             ModuleKey.ROOT,
-            BazelModuleResolutionFunction.moduleFromInterimModule(
+            InterimModule.toModule(
                 rootValue.getModule(), null, null));
 
     UpdateLockFileKey key =
@@ -382,7 +382,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.of(
             ModuleKey.ROOT,
-            BazelModuleResolutionFunction.moduleFromInterimModule(
+            InterimModule.toModule(
                 rootValue.getModule(), null, null));
 
     UpdateLockFileKey key =
@@ -419,7 +419,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.of(
             ModuleKey.ROOT,
-            BazelModuleResolutionFunction.moduleFromInterimModule(
+            InterimModule.toModule(
                 rootValue.getModule(), null, null));
 
     UpdateLockFileKey key =
@@ -462,7 +462,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.of(
             ModuleKey.ROOT,
-            BazelModuleResolutionFunction.moduleFromInterimModule(
+            InterimModule.toModule(
                 rootValue.getModule(), null, null));
 
     UpdateLockFileKey key =
@@ -506,7 +506,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.of(
             ModuleKey.ROOT,
-            BazelModuleResolutionFunction.moduleFromInterimModule(
+            InterimModule.toModule(
                 rootValue.getModule(), null, null));
 
     UpdateLockFileKey key =
