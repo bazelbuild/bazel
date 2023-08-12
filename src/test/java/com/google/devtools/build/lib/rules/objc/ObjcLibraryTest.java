@@ -927,6 +927,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testClangCoptsForDebugModeWithoutHardcoding() throws Exception {
     useConfiguration(
         "--apple_platform_type=ios",
+        "--cpu=ios_x86_64",
         "--compilation_mode=dbg",
         "--incompatible_avoid_hardcoded_objc_compilation_flags");
     scratch.file("x/a.m");
@@ -939,6 +940,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testClangCoptsForDebugModeWithoutGlibOrHardcoding() throws Exception {
     useConfiguration(
         "--apple_platform_type=ios",
+        "--cpu=ios_x86_64",
         "--compilation_mode=dbg",
         "--objc_debug_with_GLIBCXX=false",
         "--incompatible_avoid_hardcoded_objc_compilation_flags");
@@ -958,6 +960,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testClangCoptsForOptimizedWithoutHardcoding() throws Exception {
     useConfiguration(
         "--apple_platform_type=ios",
+        "--cpu=ios_x86_64",
         "--compilation_mode=opt",
         "--incompatible_avoid_hardcoded_objc_compilation_flags");
     scratch.file("x/a.m");
@@ -993,7 +996,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testAppleSdkVersionEnv() throws Exception {
-    useConfiguration("--apple_platform_type=ios");
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_x86_64");
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setAndCreateFiles("hdrs", "c.h")
@@ -1005,7 +1008,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testNonDefaultAppleSdkVersionEnv() throws Exception {
-    useConfiguration("--apple_platform_type=ios", "--ios_sdk_version=8.1");
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_x86_64", "--ios_sdk_version=8.1");
 
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
@@ -1086,7 +1089,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCompilationActionsWithPch() throws Exception {
-    useConfiguration("--apple_platform_type=ios");
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_x86_64");
     scratch.file("objc/foo.pch");
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
@@ -1388,7 +1391,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testAppleSdkDefaultPlatformEnv() throws Exception {
-    useConfiguration("--apple_platform_type=ios");
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_x86_64");
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setAndCreateFiles("hdrs", "c.h")
