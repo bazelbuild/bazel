@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -446,36 +445,6 @@ public final class RunfilesSupport implements RunfilesSupplier {
         executable,
         runfiles,
         computeArgs(ruleContext, CommandLine.EMPTY),
-        computeActionEnvironment(ruleContext));
-  }
-
-  /**
-   * Creates and returns a {@link RunfilesSupport} object for the given rule and executable. Note
-   * that this method calls back into the passed in rule to obtain the runfiles.
-   */
-  public static RunfilesSupport withExecutable(
-      RuleContext ruleContext, Runfiles runfiles, Artifact executable, List<String> appendingArgs)
-      throws InterruptedException {
-    return RunfilesSupport.create(
-        ruleContext,
-        executable,
-        runfiles,
-        computeArgs(ruleContext, CommandLine.of(appendingArgs)),
-        computeActionEnvironment(ruleContext));
-  }
-
-  /**
-   * Creates and returns a {@link RunfilesSupport} object for the given rule, executable, runfiles
-   * and args.
-   */
-  public static RunfilesSupport withExecutable(
-      RuleContext ruleContext, Runfiles runfiles, Artifact executable, CommandLine appendingArgs)
-      throws InterruptedException {
-    return RunfilesSupport.create(
-        ruleContext,
-        executable,
-        runfiles,
-        computeArgs(ruleContext, appendingArgs),
         computeActionEnvironment(ruleContext));
   }
 

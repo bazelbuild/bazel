@@ -971,22 +971,6 @@ public final class Runfiles implements RunfilesApi {
       return addTargetExceptFileTargets(target, mapping);
     }
 
-    /** Adds symlinks to given artifacts at their exec paths. */
-    public Builder addSymlinksToArtifacts(NestedSet<Artifact> artifacts) {
-      // These are symlinks using the exec path, not the output-dir-relative path, which currently
-      // requires flattening.
-      return addSymlinksToArtifacts(artifacts.toList());
-    }
-
-    /** Adds symlinks to given artifacts at their exec paths. */
-    @CanIgnoreReturnValue
-    public Builder addSymlinksToArtifacts(Iterable<Artifact> artifacts) {
-      for (Artifact artifact : artifacts) {
-        addSymlink(artifact.getExecPath(), artifact);
-      }
-      return this;
-    }
-
     /**
      * Add extra middlemen artifacts that should be built by reverse dependency binaries. This
      * method exists solely to support the unfortunate legacy behavior of some rules; new uses
@@ -997,11 +981,6 @@ public final class Runfiles implements RunfilesApi {
       Preconditions.checkArgument(middleman.isMiddlemanArtifact(), middleman);
       extraMiddlemenBuilder.add(middleman);
       return this;
-    }
-
-    /** Add the other {@link Runfiles} object transitively, but don't merge artifacts. */
-    public Builder mergeExceptArtifacts(Runfiles runfiles) {
-      return merge(runfiles, false);
     }
 
     private static Iterable<TransitiveInfoCollection> getNonDataDeps(RuleContext ruleContext) {
