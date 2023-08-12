@@ -86,14 +86,4 @@ public interface KeyedLocker<K> {
    * </pre>
    */
   AutoUnlocker writeLock(K key);
-
-  /**
-   * Blocks the current thread until it has access to read things that have to do with {@code k}.
-   * Multiple threads may acquire simultaneous read locks, so long as there is no thread with a
-   * write lock.
-   *
-   * <p>As with {@link #writeLock}, the same thread can call {@code readLock(k)} multiple times for
-   * the same k before closing the lock.
-   */
-  AutoUnlocker readLock(K key);
 }
