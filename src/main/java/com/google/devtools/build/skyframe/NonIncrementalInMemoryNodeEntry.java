@@ -51,6 +51,7 @@ public class NonIncrementalInMemoryNodeEntry
   }
 
   @Override
+  @CanIgnoreReturnValue
   public synchronized ImmutableSet<SkyKey> setValue(
       SkyValue value, Version graphVersion, @Nullable Version maxTransitiveSourceVersion) {
     checkArgument(
