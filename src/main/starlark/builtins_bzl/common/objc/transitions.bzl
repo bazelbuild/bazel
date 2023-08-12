@@ -17,75 +17,12 @@
 transition = _builtins.toplevel.transition
 
 def _cpu_string(platform_type, settings):
-    arch = _determine_single_architecture(platform_type, settings)
-    if platform_type == MACOS:
-        return "darwin_{}".format(arch)
-
-    return "{}_{}".format(platform_type, arch)
-
-def _determine_single_architecture(platform_type, settings):
     apple_split_cpu = settings["//command_line_option:apple_split_cpu"]
-    if apple_split_cpu != None and len(apple_split_cpu) > 0:
-        return apple_split_cpu
-    if platform_type == IOS:
-        ios_cpus = settings["//command_line_option:ios_multi_cpus"]
-        if len(ios_cpus) > 0:
-            return ios_cpus[0]
-        cpu_value = settings["//command_line_option:cpu"]
-        if cpu_value.startswith(IOS_CPU_PREFIX):
-            return cpu_value[len(IOS_CPU_PREFIX):]
-        if cpu_value == "darwin_arm64":
-            return "sim_arm64"
-        return DEFAULT_IOS_CPU
-    if platform_type == VISIONOS:
-        cpus = settings["//command_line_option:visionos_cpus"]
-        if len(cpus) > 0:
-            return cpus[0]
-        cpu_value = settings["//command_line_option:cpu"]
-        if cpu_value == "darwin_arm64":
-            return "sim_arm64"
-        return DEFAULT_VISIONOS_CPU
-    if platform_type == WATCHOS:
-        watchos_cpus = settings["//command_line_option:watchos_cpus"]
-        if len(watchos_cpus) == 0:
-            return DEFAULT_WATCHOS_CPU
-        return watchos_cpus[0]
-    if platform_type == TVOS:
-        tvos_cpus = settings["//command_line_option:tvos_cpus"]
-        if len(tvos_cpus) == 0:
-            return DEFAULT_TVOS_CPU
-        return tvos_cpus[0]
-    if platform_type == MACOS:
-        macos_cpus = settings["//command_line_option:macos_cpus"]
-        if macos_cpus:
-            return macos_cpus[0]
-        cpu_value = settings["//command_line_option:cpu"]
-        if cpu_value.startswith(DARWIN_CPU_PREFIX):
-            return cpu_value[len(DARWIN_CPU_PREFIX):]
-        return DEFAULT_MACOS_CPU
-    if platform_type == CATALYST:
-        catalyst_cpus = settings["//command_line_option:catalyst_cpus"]
-        if len(catalyst_cpus) == 0:
-            return DEFAULT_CATALYST_CPU
-        return catalyst_cpus[0]
-
-    fail("ERROR: Unhandled platform type {}".format(platform_type))
-
-IOS = "ios"
-VISIONOS = "visionos"
-WATCHOS = "watchos"
-TVOS = "tvos"
-MACOS = "macos"
-CATALYST = "catalyst"
-IOS_CPU_PREFIX = "ios_"
-VISIONOS_CPU_PREFIX = "visionos_"
-DARWIN_CPU_PREFIX = "darwin_"
-DEFAULT_IOS_CPU = "x86_64"
-DEFAULT_VISIONOS_CPU = "x86_64"
-DEFAULT_WATCHOS_CPU = "i386"
-DEFAULT_TVOS_CPU = "x86_64"
-DEFAULT_MACOS_CPU = "x86_64"
-DEFAULT_CATALYST_CPU = "x86_64"
+    if apple_split_cpu:
+        if platform_type == "macos":
+            return "darwin_{}".format(apple_split_cpu)
+        return "{}_{}".format(platform_type, apple_split_cpu)
+    return settings["//command_line_option:cpu"]
 
 def _output_dictionary(settings, cpu, platform_type, platforms):
     return {
