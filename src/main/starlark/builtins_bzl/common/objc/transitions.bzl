@@ -56,12 +56,12 @@ def _determine_single_architecture(platform_type, settings):
             return DEFAULT_TVOS_CPU
         return tvos_cpus[0]
     if platform_type == MACOS:
-        macos_cpus = settings["//command_line_option:macos_cpus"]
-        if macos_cpus:
-            return macos_cpus[0]
         cpu_value = settings["//command_line_option:cpu"]
         if cpu_value.startswith(DARWIN_CPU_PREFIX):
             return cpu_value[len(DARWIN_CPU_PREFIX):]
+        macos_cpus = settings["//command_line_option:macos_cpus"]
+        if macos_cpus:
+            return macos_cpus[0]
         return DEFAULT_MACOS_CPU
     if platform_type == CATALYST:
         catalyst_cpus = settings["//command_line_option:catalyst_cpus"]
