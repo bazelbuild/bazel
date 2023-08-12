@@ -1566,7 +1566,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testDefaultEnabledFeatureIsUsed() throws Exception {
     MockObjcSupport.setupCcToolchainConfig(
         mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures("default_feature"));
-    useConfiguration("--cpu=ios_x86_64");
     scratch.file("x/BUILD", "objc_library(", "   name = 'objc',", "   srcs = ['source.m'],", ")");
     CommandAction compileAction = compileAction("//x:objc", "source.o");
     assertThat(compileAction.getArguments()).contains("-dummy");
