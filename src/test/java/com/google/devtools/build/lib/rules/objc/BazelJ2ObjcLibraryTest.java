@@ -289,8 +289,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         getArtifacts(j2ObjcMappingFileInfo, "class_mapping_files");
 
     assertThat(classMappingFilesList.get(0).getExecPathString())
-        .containsMatch(
-            "/applebin_macos-darwin_x86_64-fastbuild-ST-[^/]*/bin/java/com/google/dummy/test/proto/test.clsmap.properties");
+        .containsMatch("/bin/java/com/google/dummy/test/proto/test.clsmap.properties");
   }
 
   @Test
@@ -317,16 +316,15 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     ImmutableList<Artifact> classMappingFilesList =
         getArtifacts(j2ObjcMappingFileInfo, "class_mapping_files");
     assertThat(classMappingFilesList.get(0).getExecPathString())
-        .containsMatch(
-            "/applebin_macos-darwin_x86_64-fastbuild-ST-[^/]*/bin/x/test.clsmap.properties");
+        .containsMatch("/bin/x/test.clsmap.properties");
 
     ObjcProvider objcProvider = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     CcCompilationContext ccCompilationContext =
         target.get(CcInfo.PROVIDER).getCcCompilationContext();
     assertThat(ccCompilationContext.getDeclaredIncludeSrcs().toList().toString())
-        .containsMatch("/applebin_macos-darwin_x86_64-fastbuild-ST-[^/]*/bin]x/test.j2objc.pb.h");
+        .containsMatch("/bin]x/test.j2objc.pb.h");
     assertThat(objcProvider.get(ObjcProvider.SOURCE).toList().toString())
-        .containsMatch("/applebin_macos-darwin_x86_64-fastbuild-ST-[^/]*/bin]x/test.j2objc.pb.m,");
+        .containsMatch("/bin]x/test.j2objc.pb.m,");
   }
 
   @Test
@@ -367,19 +365,16 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         getArtifacts(j2ObjcMappingFileInfo, "class_mapping_files");
 
     assertThat(classMappingFilesList.get(0).getExecPathString())
-        .containsMatch(
-            "/applebin_macos-darwin_x86_64-fastbuild-ST-[^/]*/bin/external/bla/foo/test.clsmap.properties");
+        .containsMatch("/bin/external/bla/foo/test.clsmap.properties");
 
     ObjcProvider objcProvider = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     CcCompilationContext ccCompilationContext =
         target.get(CcInfo.PROVIDER).getCcCompilationContext();
 
     assertThat(ccCompilationContext.getDeclaredIncludeSrcs().toList().toString())
-        .containsMatch(
-            "/applebin_macos-darwin_x86_64-fastbuild-ST-[^/]*/bin]external/bla/foo/test.j2objc.pb.h");
+        .containsMatch("/bin]external/bla/foo/test.j2objc.pb.h");
     assertThat(objcProvider.get(ObjcProvider.SOURCE).toList().toString())
-        .containsMatch(
-            "/applebin_macos-darwin_x86_64-fastbuild-ST-[^/]*/bin]external/bla/foo/test.j2objc.pb.m");
+        .containsMatch("/bin]external/bla/foo/test.j2objc.pb.m");
     assertThat(ccCompilationContext.getIncludeDirs())
         .contains(
             getConfiguration(target)
