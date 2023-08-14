@@ -444,19 +444,18 @@ public final class RunfilesSupport implements RunfilesSupplier {
         ruleContext,
         executable,
         runfiles,
-        computeArgs(ruleContext, CommandLine.EMPTY),
+        computeArgs(ruleContext),
         computeActionEnvironment(ruleContext));
   }
 
-  private static CommandLine computeArgs(RuleContext ruleContext, CommandLine additionalArgs)
-      throws InterruptedException {
+  private static CommandLine computeArgs(RuleContext ruleContext) throws InterruptedException {
     if (!ruleContext.getRule().isAttrDefined("args", Type.STRING_LIST)) {
       // Some non-_binary rules create RunfilesSupport instances; it is fine to not have an args
       // attribute here.
-      return additionalArgs;
+      return CommandLine.EMPTY;
     }
-    return CommandLine.concat(
-        ruleContext.getExpander().withDataLocations().tokenized("args"), additionalArgs);
+    ImmutableList<String> args = ruleContext.getExpander().withDataLocations().tokenized("args");
+    return args.isEmpty() ? CommandLine.EMPTY : CommandLine.of(args);
   }
 
   private static ActionEnvironment computeActionEnvironment(RuleContext ruleContext)

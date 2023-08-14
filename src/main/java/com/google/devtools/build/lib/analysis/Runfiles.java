@@ -271,7 +271,7 @@ public final class Runfiles implements RunfilesApi {
    *
    * @param checker If not null, check for conflicts using this checker.
    */
-  public Map<PathFragment, Artifact> getSymlinksAsMap(@Nullable ConflictChecker checker) {
+  Map<PathFragment, Artifact> getSymlinksAsMap(@Nullable ConflictChecker checker) {
     return entriesToMap(symlinks, checker);
   }
 
@@ -394,8 +394,7 @@ public final class Runfiles implements RunfilesApi {
     // workspace.
     private boolean sawWorkspaceName;
 
-    public ManifestBuilder(
-        PathFragment workspaceName, boolean legacyExternalRunfiles) {
+    ManifestBuilder(PathFragment workspaceName, boolean legacyExternalRunfiles) {
       this.manifest = new HashMap<>();
       this.workspaceName = workspaceName;
       this.legacyExternalRunfiles = legacyExternalRunfiles;
@@ -550,7 +549,7 @@ public final class Runfiles implements RunfilesApi {
   }
 
   /** Returns currently policy for conflicting symlink entries. */
-  public ConflictPolicy getConflictPolicy() {
+  ConflictPolicy getConflictPolicy() {
     return this.conflictPolicy;
   }
 
@@ -566,7 +565,7 @@ public final class Runfiles implements RunfilesApi {
    */
   public static final class ConflictChecker {
     /** Prebuilt ConflictChecker with policy set to IGNORE */
-    public static final ConflictChecker IGNORE_CHECKER =
+    static final ConflictChecker IGNORE_CHECKER =
         new ConflictChecker(ConflictPolicy.IGNORE, null, null);
 
     /** Behavior when a conflict is found. */
@@ -762,7 +761,7 @@ public final class Runfiles implements RunfilesApi {
 
     /** Adds several symlinks. Neither keys nor values may be null. */
     @CanIgnoreReturnValue
-    public Builder addSymlinks(Map<PathFragment, Artifact> symlinks) {
+    Builder addSymlinks(Map<PathFragment, Artifact> symlinks) {
       for (Map.Entry<PathFragment, Artifact> symlink : symlinks.entrySet()) {
         symlinksBuilder.add(new SymlinkEntry(symlink.getKey(), symlink.getValue()));
       }
@@ -822,14 +821,9 @@ public final class Runfiles implements RunfilesApi {
       return this;
     }
 
-    /** Add the other {@link Runfiles} object transitively. */
-    public Builder merge(Runfiles runfiles) {
-      return merge(runfiles, true);
-    }
-
-    /** Add the other {@link Runfiles} object transitively. */
+    /** Adds the other {@link Runfiles} object transitively. */
     @CanIgnoreReturnValue
-    private Builder merge(Runfiles runfiles, boolean includeArtifacts) {
+    public Builder merge(Runfiles runfiles) {
       // Propagate the most strict conflict checking from merged-in runfiles
       if (runfiles.conflictPolicy.compareTo(conflictPolicy) > 0) {
         conflictPolicy = runfiles.conflictPolicy;
@@ -841,9 +835,7 @@ public final class Runfiles implements RunfilesApi {
       // may have an empty suffix, but that is covered above.
       Preconditions.checkArgument(
           suffix.equals(runfiles.suffix), "%s != %s", suffix, runfiles.suffix);
-      if (includeArtifacts) {
-        artifactsBuilder.addTransitive(runfiles.getArtifacts());
-      }
+      artifactsBuilder.addTransitive(runfiles.getArtifacts());
       symlinksBuilder.addTransitive(runfiles.getSymlinks());
       rootSymlinksBuilder.addTransitive(runfiles.getRootSymlinks());
       extraMiddlemenBuilder.addTransitive(runfiles.getExtraMiddlemen());
@@ -904,7 +896,7 @@ public final class Runfiles implements RunfilesApi {
 
     /** Collects runfiles from "srcs" and "deps" of a target. */
     @CanIgnoreReturnValue
-    public Builder addNonDataDeps(
+    Builder addNonDataDeps(
         RuleContext ruleContext, Function<TransitiveInfoCollection, Runfiles> mapping) {
       for (TransitiveInfoCollection target : getNonDataDeps(ruleContext)) {
         addTargetExceptFileTargets(target, mapping);
@@ -1108,7 +1100,7 @@ public final class Runfiles implements RunfilesApi {
   }
 
   /** Describes the inputs {@link #fingerprint} uses to aid describeKey() descriptions. */
-  public String describeFingerprint() {
+  String describeFingerprint() {
     return String.format("conflictPolicy: %s\n", conflictPolicy)
         + String.format("legacyExternalRunfiles: %s\n", legacyExternalRunfiles)
         + String.format("suffix: %s\n", suffix)

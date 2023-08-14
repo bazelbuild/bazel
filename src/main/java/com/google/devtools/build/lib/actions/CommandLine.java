@@ -76,7 +76,7 @@ public abstract class CommandLine {
   }
 
   private static class SimpleCommandLine extends CommandLine {
-    private Iterable<String> args;
+    private final Iterable<String> args;
 
     SimpleCommandLine(Iterable<String> args) {
       this.args = args;
@@ -90,34 +90,13 @@ public abstract class CommandLine {
 
   /** Returns a {@link CommandLine} backed by a copy of the given list of arguments. */
   public static CommandLine of(Iterable<String> arguments) {
-    final Iterable<String> immutableArguments = CollectionUtils.makeImmutable(arguments);
+    Iterable<String> immutableArguments = CollectionUtils.makeImmutable(arguments);
     return new SimpleCommandLine(immutableArguments);
   }
 
-  private static class PrefixedCommandLine extends CommandLine {
-    private ImmutableList<String> executableArgs;
-    private CommandLine commandLine;
-
-    PrefixedCommandLine(ImmutableList<String> executableArgs, CommandLine commandLine) {
-      this.executableArgs = executableArgs;
-      this.commandLine = commandLine;
-    }
-
-    @Override
-    public Iterable<String> arguments() throws CommandLineExpansionException, InterruptedException {
-      return IterablesChain.concat(executableArgs, commandLine.arguments());
-    }
-
-    @Override
-    public Iterable<String> arguments(ArtifactExpander artifactExpander)
-        throws CommandLineExpansionException, InterruptedException {
-      return IterablesChain.concat(executableArgs, commandLine.arguments(artifactExpander));
-    }
-  }
-
-  private static class SuffixedCommandLine extends CommandLine {
-    private ImmutableList<String> executableArgs;
-    private CommandLine commandLine;
+  private static final class SuffixedCommandLine extends CommandLine {
+    private final ImmutableList<String> executableArgs;
+    private final CommandLine commandLine;
 
     SuffixedCommandLine(ImmutableList<String> executableArgs, CommandLine commandLine) {
       this.executableArgs = executableArgs;
@@ -134,21 +113,6 @@ public abstract class CommandLine {
         throws CommandLineExpansionException, InterruptedException {
       return IterablesChain.concat(commandLine.arguments(artifactExpander), executableArgs);
     }
-  }
-
-  /**
-   * Returns a {@link CommandLine} that is constructed by prepending the {@code executableArgs} to
-   * {@code commandLine}.
-   */
-  public static CommandLine concat(
-      final ImmutableList<String> executableArgs, final CommandLine commandLine) {
-    if (executableArgs.isEmpty()) {
-      return commandLine;
-    }
-    if (commandLine == EMPTY) {
-      return CommandLine.of(executableArgs);
-    }
-    return new PrefixedCommandLine(executableArgs, commandLine);
   }
 
   /**
