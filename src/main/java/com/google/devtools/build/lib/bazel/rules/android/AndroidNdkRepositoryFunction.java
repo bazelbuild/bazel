@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -71,7 +72,7 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
   private static final String PATH_ENV_VAR = "ANDROID_NDK_HOME";
   private static final PathFragment PLATFORMS_DIR = PathFragment.create("platforms");
 
-  private static final ImmutableList<String> PATH_ENV_VAR_AS_LIST = ImmutableList.of(PATH_ENV_VAR);
+  private static final ImmutableSet<String> PATH_ENV_VAR_AS_LIST = ImmutableSet.of(PATH_ENV_VAR);
 
   private static String getDefaultCrosstool(Integer majorRevision) {
     // From NDK 17, libc++ replaces gnu-libstdc++ as the default STL.
