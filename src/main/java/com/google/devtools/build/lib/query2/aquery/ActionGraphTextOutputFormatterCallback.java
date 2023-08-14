@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.util.StringUtil.decodeBytestringUtf8
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -52,7 +51,6 @@ import java.io.PrintStream;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import net.starlark.java.eval.EvalException;
@@ -245,23 +243,6 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
                     .sorted()
                     .collect(Collectors.joining(", ")))
             .append("]\n");
-      }
-      ImmutableSet<Entry<String, String>> executionInfoSpecifiers =
-          abstractAction.getExecutionInfo().entrySet();
-      if (!executionInfoSpecifiers.isEmpty()) {
-        stringBuilder
-            .append("  ExecutionInfo: {")
-            .append(
-                executionInfoSpecifiers.stream()
-                    .sorted(Map.Entry.comparingByKey())
-                    .map(
-                        e ->
-                            String.format(
-                                "%s: %s",
-                                ShellEscaper.escapeString(e.getKey()),
-                                ShellEscaper.escapeString(e.getValue())))
-                    .collect(Collectors.joining(", ")))
-            .append("}\n");
       }
     }
     if (options.includeCommandline && action instanceof CommandAction) {
