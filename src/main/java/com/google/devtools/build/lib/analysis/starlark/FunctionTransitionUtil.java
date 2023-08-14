@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.OptionInfo;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.ValidationException;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Event;
@@ -156,6 +157,15 @@ public final class FunctionTransitionUtil {
     // Propagate Starlark options from the source config:
     // TODO(b/288258583) don't automatically propagate Starlark options.
     defaultBuilder.addStarlarkOptions(fromOptions.getStarlarkOptions());
+    // Hard-code TestConfiguration.getExec() for now, which clones the source options.
+    // TODO(b/295936652): handle this directly in Starlark. This has two complications:
+    //  1: --trim_test_configuration means the flags may not exist. Starlark logic needs to handle
+    //     that possibility.
+    //  2: --runs_per_test has a non-Starlark readable type.
+    if (fromOptions.contains(TestOptions.class)) {
+      defaultBuilder.removeFragmentOptions(TestOptions.class);
+      defaultBuilder.addFragmentOptions(fromOptions.get(TestOptions.class));
+    }
     // Propagate --define values from the source config:
     // TODO(b/288258583) don't automatically propagate --defines.
     BuildOptions ans = defaultBuilder.build();

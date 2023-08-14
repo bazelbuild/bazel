@@ -2442,6 +2442,7 @@ java_library(
         ":config/optioninfo",
         ":config/starlark_defined_config_transition",
         ":config/transitions/configuration_transition",
+        ":test/test_configuration",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
