@@ -201,6 +201,24 @@ message BuildEventId {
     int32 attempt = 4;
   }
 
+  // Identifier of an event reporting progress of an individual test run.
+  message TestProgressId {
+    // The label of the target for the action.
+    string label = 1;
+    // The configuration under which the action is running.
+    ConfigurationId configuration = 2;
+    // The run number of the test action (e.g. for runs_per_test > 1).
+    int32 run = 3;
+    // For sharded tests, the shard number of the test action.
+    int32 shard = 4;
+    // The execution attempt number which may increase due to retries (e.g. for
+    // flaky tests).
+    int32 attempt = 5;
+    // An incrementing count used to differentiate TestProgressIds for the same
+    // test attempt.
+    int32 opaque_count = 6;
+  }
+
   // Identifier of an event reporting the summary of a test.
   message TestSummaryId {
     string label = 1;
@@ -252,6 +270,7 @@ message BuildEventId {
     UnconfiguredLabelId unconfigured_label = 19;
     ConfiguredLabelId configured_label = 21;
     TestResultId test_result = 8;
+    TestProgressId test_progress = 29;
     TestSummaryId test_summary = 7;
     TargetSummaryId target_summary = 26;
     BuildFinishedId build_finished = 9;
@@ -723,6 +742,15 @@ message TestResult {
     repeated ResourceUsage resource_usage = 5;
   }
   ExecutionInfo execution_info = 8;
+}
+
+// Event payload providing information about an active, individual test run.
+message TestProgress {
+  // Identifies a resource that may provide information about an active test
+  // run. The resource is not necessarily a file and may need to be queried
+  // for information. The URI is not guaranteed to be available after the test
+  // completes. The string is encoded according to RFC2396.
+  string uri = 1;
 }
 
 // Payload of the event summarizing a test.
@@ -1250,6 +1278,7 @@ message BuildEvent {
     NamedSetOfFiles named_set_of_files = 15;
     TargetComplete completed = 8;
     TestResult test_result = 10;
+    TestProgress test_progress = 30;
     TestSummary test_summary = 9;
     TargetSummary target_summary = 28;
     BuildFinished finished = 14;

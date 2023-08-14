@@ -2778,6 +2778,18 @@ java_library(
 )
 
 java_library(
+    name = "test/test_progress",
+    srcs = ["test/TestProgress.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "transitive_dependency_state",
     srcs = ["TransitiveDependencyState.java"],
     deps = [

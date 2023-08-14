@@ -257,6 +257,25 @@ public final class BuildEventIdUtil {
     return testResult(target, run, shard, 1, configuration);
   }
 
+  public static BuildEventId testProgressId(
+      String label,
+      BuildEventId.ConfigurationId configId,
+      int run,
+      int shard,
+      int attempt,
+      int opaqueCount) {
+    return BuildEventId.newBuilder()
+        .setTestProgress(
+            BuildEventId.TestProgressId.newBuilder()
+                .setLabel(label)
+                .setConfiguration(configId)
+                .setRun(run)
+                .setShard(shard)
+                .setAttempt(attempt)
+                .setOpaqueCount(opaqueCount))
+        .build();
+  }
+
   public static BuildEventId testSummary(Label target, BuildEventId configuration) {
     BuildEventId.ConfigurationId configId = configuration.getConfiguration();
     BuildEventId.TestSummaryId summaryId =
