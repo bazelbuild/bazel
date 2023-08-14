@@ -22,10 +22,6 @@ empty.xml file that defines no resources.
 In the future, this script may be extended to also extract assets.
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import os
 import sys
 import zipfile
@@ -33,7 +29,6 @@ import zipfile
 # Do not edit this line. Copybara replaces it with PY2 migration helper.
 from absl import app
 from absl import flags
-import six
 
 from tools.android import junction
 
@@ -59,8 +54,7 @@ def ExtractResources(aar, output_res_dir):
       ExtractOneFile(aar, name, output_res_dir_abs)
       aar_contains_no_resources = False
   if aar_contains_no_resources:
-    empty_xml_filename = six.ensure_str(
-        output_res_dir) + "/res/values/empty.xml"
+    empty_xml_filename = output_res_dir + "/res/values/empty.xml"
     WriteFileWithJunctions(empty_xml_filename, b"<resources/>")
 
 
@@ -77,7 +71,7 @@ def ExtractAssets(aar, output_assets_dir):
     # thinks that it is a swap file. We need to create at least one file so that
     # Bazel does not complain that the output tree artifact was not created.
     empty_asset_filename = (
-        six.ensure_str(output_assets_dir) +
+        output_assets_dir +
         "/assets/empty_asset_generated_by_bazel~")
     WriteFileWithJunctions(empty_asset_filename, b"")
 

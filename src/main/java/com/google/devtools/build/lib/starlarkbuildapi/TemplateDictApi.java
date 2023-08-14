@@ -20,6 +20,7 @@ import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
@@ -27,7 +28,7 @@ import net.starlark.java.eval.StarlarkValue;
 /** Template expansion dict module. */
 @StarlarkBuiltin(
     name = "TemplateDict",
-    category = DocCategory.TOP_LEVEL_TYPE,
+    category = DocCategory.BUILTIN,
     doc =
         "An Args-like structure for use in ctx.actions.expand_template(), which allows for"
             + " deferring evaluation of values till the execution phase.")
@@ -61,7 +62,7 @@ public interface TemplateDictApi extends StarlarkValue {
             doc =
                 "A delimiter string used to join together the strings obtained from applying "
                     + "<code>map_each</code>, in the same manner as "
-                    + "<a href='string.html#join'><code>string.join()</code></a>."),
+                    + "<a href='../core/string.html#join'><code>string.join()</code></a>."),
         @Param(
             name = "map_each",
             allowedTypes = {
@@ -70,12 +71,50 @@ public interface TemplateDictApi extends StarlarkValue {
             named = true,
             positional = false,
             doc =
-                "A Starlark function accepting a single argument and returning a String. This"
-                    + " function is applied to each item of the depset specified in the"
-                    + " <code>values</code> parameter"),
+                "A Starlark function accepting a single argument and returning either a string, "
+                    + "<code>None</code>, or a list of strings. This function is applied to each "
+                    + "item of the depset specified in the <code>values</code> parameter"),
+        @Param(
+            name = "uniquify",
+            named = true,
+            positional = false,
+            defaultValue = "False",
+            doc =
+                "If true, duplicate strings derived from <code>values</code> will be omitted. Only "
+                    + "the first occurrence of each string will remain. Usually this feature is "
+                    + "not needed because depsets already omit duplicates, but it can be useful "
+                    + "if <code>map_each</code> emits the same string for multiple items."),
+        @Param(
+            name = "format_joined",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            named = true,
+            positional = false,
+            defaultValue = "None",
+            doc =
+                "An optional format string pattern applied to the joined string. "
+                    + "The format string must have exactly one '%s' placeholder."),
+        @Param(
+            name = "allow_closure",
+            named = true,
+            positional = false,
+            defaultValue = "False",
+            doc =
+                "If true, allows the use of closures in function parameters like "
+                    + "<code>map_each</code>. Usually this isn't necessary and it risks retaining "
+                    + "large analysis-phase data structures into the execution phase."),
       },
       useStarlarkThread = true)
   TemplateDictApi addJoined(
-      String key, Depset values, String joinWith, StarlarkCallable mapEach, StarlarkThread thread)
+      String key,
+      Depset values,
+      String joinWith,
+      StarlarkCallable mapEach,
+      Boolean uniquify,
+      Object formatJoined,
+      Boolean allowClosure,
+      StarlarkThread thread)
       throws EvalException;
 }

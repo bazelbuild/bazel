@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -43,7 +42,7 @@ public class ObjcProviderStarlarkConverters {
           .buildOrThrow();
 
   /** Returns a value for a Starlark attribute given a java ObjcProvider key and value. */
-  public static Object convertToStarlark(Key<?> javaKey, NestedSet<?> javaValue) {
+  public static <T> Object convertToStarlark(Key<T> javaKey, NestedSet<T> javaValue) {
     return CONVERTERS.get(javaKey.getType()).valueForStarlark(javaKey, javaValue);
   }
 
@@ -52,8 +51,6 @@ public class ObjcProviderStarlarkConverters {
       throws EvalException {
     if (javaKey.getType().equals(LibraryToLink.class)) {
       return Depset.noneableCast(starlarkValue, LibraryToLink.class, "cc_library");
-    } else if (javaKey.getType().equals(Linkstamp.class)) {
-      return Depset.noneableCast(starlarkValue, Linkstamp.class, "linkstamp");
     }
     return CONVERTERS.get(javaKey.getType()).valueForJava(javaKey, starlarkValue);
   }
@@ -64,13 +61,13 @@ public class ObjcProviderStarlarkConverters {
     for (PathFragment path : pathFragments.toList()) {
       result.add(path.getSafePathString());
     }
-    return Depset.of(Depset.ElementType.STRING, result.build());
+    return Depset.of(String.class, result.build());
   }
 
   /** A converter for ObjcProvider values. */
   private interface Converter {
     /** Translates a java ObjcProvider value to a Starlark ObjcProvider value. */
-    Object valueForStarlark(Key<?> javaKey, NestedSet<?> javaValue);
+    <T> Object valueForStarlark(Key<T> javaKey, NestedSet<T> javaValue);
 
     /** Translates a Starlark ObjcProvider value to a java ObjcProvider value. */
     NestedSet<?> valueForJava(Key<?> javaKey, Object starlarkValue) throws EvalException;
@@ -80,9 +77,8 @@ public class ObjcProviderStarlarkConverters {
   private static class DirectConverter implements Converter {
 
     @Override
-    public Object valueForStarlark(Key<?> javaKey, NestedSet<?> javaValue) {
-      Depset.ElementType type = Depset.ElementType.of(javaKey.getType());
-      return Depset.of(type, javaValue);
+    public <T> Object valueForStarlark(Key<T> javaKey, NestedSet<T> javaValue) {
+      return Depset.of(javaKey.getType(), javaValue);
     }
 
     @Override
@@ -96,7 +92,7 @@ public class ObjcProviderStarlarkConverters {
 
     @SuppressWarnings("unchecked")
     @Override
-    public Object valueForStarlark(Key<?> javaKey, NestedSet<?> javaValue) {
+    public <T> Object valueForStarlark(Key<T> javaKey, NestedSet<T> javaValue) {
       return convertPathFragmentsToStarlark((NestedSet<PathFragment>) javaValue);
     }
 

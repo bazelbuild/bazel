@@ -23,14 +23,16 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
-import com.google.devtools.build.lib.actions.FutureSpawn;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
-import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -158,14 +160,16 @@ public interface SpawnRunner {
      * @see #prefetchInputs()
      */
     default void prefetchInputsAndWait()
-        throws IOException, InterruptedException, ForbiddenActionInputException {
+        throws IOException, ExecException, InterruptedException, ForbiddenActionInputException {
       ListenableFuture<Void> future = prefetchInputs();
-      try {
+      try (SilentCloseable s =
+          Profiler.instance().profile(ProfilerTask.REMOTE_DOWNLOAD, "stage remote inputs")) {
         future.get();
       } catch (ExecutionException e) {
         Throwable cause = e.getCause();
         if (cause != null) {
           throwIfInstanceOf(cause, IOException.class);
+          throwIfInstanceOf(cause, ExecException.class);
           throwIfInstanceOf(cause, ForbiddenActionInputException.class);
           throwIfInstanceOf(cause, RuntimeException.class);
         }
@@ -180,7 +184,7 @@ public interface SpawnRunner {
      * The input file metadata cache for this specific spawn, which can be used to efficiently
      * obtain file digests and sizes.
      */
-    MetadataProvider getMetadataProvider();
+    InputMetadataProvider getInputMetadataProvider();
 
     /** An artifact expander. */
     // TODO(ulfjack): This is only used for the sandbox runners to compute a set of empty
@@ -212,10 +216,11 @@ public interface SpawnRunner {
      *
      * @param exitCode The exit code from running the command. This and the other parameters are
      *     used only to determine whether to ignore failures, so pass 0 if you know the command was
-     *     successful or you don't yet have success information.
+     *     successful or you don't yet have success information. The exit code may be from a single
+     *     action process or from a worker that died.
      * @param errorMessage The error messages returned from the command, possibly in other ways than
      *     through stdout/err.
-     * @param outErr The location of the stdout and stderr files from the command.
+     * @param outErr The location of the stdout and stderr files from the command. May be null.
      * @throws InterruptedException if the error info indicates an error we can ignore or if we got
      *     interrupted before we finished.
      */
@@ -245,17 +250,12 @@ public interface SpawnRunner {
      * mapping is used in a context where the directory relative to which the keys are interpreted
      * is not the same as the execroot.
      */
-    SortedMap<PathFragment, ActionInput> getInputMapping(PathFragment baseDirectory)
+    SortedMap<PathFragment, ActionInput> getInputMapping(
+        PathFragment baseDirectory, boolean willAccessRepeatedly)
         throws IOException, ForbiddenActionInputException;
 
     /** Reports a progress update to the Spawn strategy. */
     void report(ProgressStatus progress);
-
-    /**
-     * Returns a {@link MetadataInjector} that allows a caller to inject metadata about spawn
-     * outputs that are stored remotely.
-     */
-    MetadataInjector getMetadataInjector();
 
     /**
      * Returns the context registered for the given identifying type or {@code null} if none was
@@ -269,24 +269,10 @@ public interface SpawnRunner {
 
     /** Throws if rewinding is enabled and lost inputs have been detected. */
     void checkForLostInputs() throws LostInputsExecException;
-  }
 
-  /**
-   * Run the given spawn asynchronously. The default implementation is synchronous for migration.
-   *
-   * @param spawn the spawn to run
-   * @param context the spawn execution context
-   * @return the result from running the spawn
-   * @throws InterruptedException if the calling thread was interrupted, or if the runner could not
-   *     lock the output files (see {@link SpawnExecutionContext#lockOutputFiles(int, String,
-   *     FileOutErr)})
-   * @throws IOException if something went wrong reading or writing to the local file system
-   * @throws ExecException if the request is malformed
-   */
-  default FutureSpawn execAsync(Spawn spawn, SpawnExecutionContext context)
-      throws InterruptedException, IOException, ExecException, ForbiddenActionInputException {
-    // TODO(ulfjack): Remove this default implementation. [exec-async]
-    return FutureSpawn.immediate(exec(spawn, context));
+    /** Returns action-scoped file system or {@code null} if it doesn't exist. */
+    @Nullable
+    FileSystem getActionFileSystem();
   }
 
   /**

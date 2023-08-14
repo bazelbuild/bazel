@@ -41,7 +41,8 @@ public final class InjectedActionLookupKey implements ActionLookupKey {
 
   @Override
   public Label getLabel() {
-    return Label.parseAbsoluteUnchecked("//foo:" + name); // Makes actions shareable.
+    // Makes actions shareable.
+    return Label.parseCanonicalUnchecked("//foo:" + name);
   }
 
   @Nullable

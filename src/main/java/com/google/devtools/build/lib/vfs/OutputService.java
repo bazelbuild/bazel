@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
@@ -26,8 +27,9 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
-import com.google.devtools.build.lib.actions.cache.MetadataHandler;
+import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
+import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -48,35 +50,42 @@ public interface OutputService {
   /** Properties of the action file system implementation provided by this output service. */
   enum ActionFileSystemType {
 
-    /** Action file system is disabled */
+    /** The action file system is disabled. */
     DISABLED,
 
     /**
-     * The action file system implementation does not take over the output base but complements the
-     * file system by being able to stage remote outputs accessed as inputs by local actions, as
-     * used by Bazel.
+     * The action file system implementation is purely in-memory, taking full control of the output
+     * base. It's not able to stage remote outputs accessed as inputs by local actions, but is able
+     * to do input discovery. Used by Blaze.
      */
-    STAGE_REMOTE_FILES,
+    IN_MEMORY_ONLY_FILE_SYSTEM,
 
     /**
-     * The action file system implementation is fully featured in-memory file system implementation
-     * and takes full control of the output base, as used by Blaze.
+     * The action file system implementation mixes an in-memory and a local file system. It uses the
+     * in-memory filesystem for in-process and remote actions, but is also aware of outputs from
+     * local actions. It's able to stage remote outputs accessed as inputs by local actions and to
+     * do input discovery. Used by Blaze.
      */
-    IN_MEMORY_FILE_SYSTEM,
+    STAGE_REMOTE_FILES_FILE_SYSTEM,
 
     /**
-     * The action file system implementation mixes in-memory and local file system. It uses
-     * in-memory filesystem for in-process and remote actions but is also aware of outputs from
-     * local actions. It's able to stage remote outputs accessed as inputs by local actions.
+     * The action file system implementation mixes an in-memory and a local file system. It uses the
+     * in-memory filesystem for in-process and remote actions, but is also aware of outputs from
+     * local actions. It's able to stage remote outputs accessed as inputs by local actions, but
+     * unable to do input discovery. Used by Bazel.
      */
-    IN_MEMORY_FILE_SYSTEM_AND_STAGE_REMOTE_FILES;
+    REMOTE_FILE_SYSTEM;
 
     public boolean inMemoryFileSystem() {
-      return this == IN_MEMORY_FILE_SYSTEM || this == IN_MEMORY_FILE_SYSTEM_AND_STAGE_REMOTE_FILES;
+      return this != DISABLED;
     }
 
-    public boolean supportLocalActions() {
-      return this != IN_MEMORY_FILE_SYSTEM;
+    public boolean supportsLocalActions() {
+      return this != IN_MEMORY_ONLY_FILE_SYSTEM;
+    }
+
+    public boolean supportsInputDiscovery() {
+      return this != REMOTE_FILE_SYSTEM;
     }
 
     public boolean isEnabled() {
@@ -89,12 +98,13 @@ public interface OutputService {
    */
   String getFilesSystemName();
 
-  /**
-   * Returns true if Bazel should trust (and not verify) build artifacts that were last seen
-   * remotely and do not exist locally.
-   */
-  public default boolean shouldTrustRemoteArtifacts() {
-    return true;
+  /** Returns true if remote output metadata should be stored in action cache. */
+  default boolean shouldStoreRemoteOutputMetadataInActionCache() {
+    return false;
+  }
+
+  default RemoteArtifactChecker getRemoteArtifactChecker() {
+    return RemoteArtifactChecker.TRUST_ALL;
   }
 
   /**
@@ -110,6 +120,9 @@ public interface OutputService {
   ModifiedFileSet startBuild(EventHandler eventHandler, UUID buildId, boolean finalizeActions)
       throws BuildFailedException, AbruptExitException, InterruptedException;
 
+  /** Flush and wait for in-progress downloads. */
+  default void flushOutputTree() throws InterruptedException {}
+
   /**
    * Finish the build.
    *
@@ -120,7 +133,7 @@ public interface OutputService {
       throws BuildFailedException, AbruptExitException, InterruptedException;
 
   /** Notify the output service of a completed action. */
-  void finalizeAction(Action action, MetadataHandler metadataHandler)
+  void finalizeAction(Action action, OutputMetadataStore outputMetadataStore)
       throws IOException, EnvironmentalExecException, InterruptedException;
 
   /**
@@ -189,6 +202,7 @@ public interface OutputService {
    * @param filesets The Fileset symlinks known for this action.
    */
   default void updateActionFileSystemContext(
+      ActionExecutionMetadata action,
       FileSystem actionFileSystem,
       Environment env,
       MetadataInjector injector,
@@ -200,6 +214,13 @@ public interface OutputService {
    */
   default void checkActionFileSystemForLostInputs(FileSystem actionFileSystem, Action action)
       throws LostInputsActionExecutionException {}
+
+  /**
+   * Flush the internal state of filesystem returned by {@link #createActionFileSystem} after action
+   * execution, before skyframe checking the action outputs.
+   */
+  default void flushActionFileSystem(FileSystem actionFileSystem)
+      throws IOException, InterruptedException {}
 
   default boolean supportsPathResolverForArtifactValues() {
     return false;

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileStateValue;
+import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -46,9 +47,10 @@ import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
+import com.google.devtools.build.skyframe.GroupedDeps;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -181,7 +183,8 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         @Nullable SkyValue value,
         @Nullable ErrorInfo error,
         Supplier<EvaluationSuccessState> evaluationSuccessState,
-        EvaluationState state) {
+        EvaluationState state,
+        @Nullable GroupedDeps directDeps) {
       evaluated.add(new EvaluatedEntry(skyKey, evaluationSuccessState.get(), state));
     }
   }
@@ -259,8 +262,8 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
   }
 
   /** A mock skyframe-aware action that counts how many times it was executed. */
-  private static class SkyframeAwareExecutionCountingAction
-      extends ExecutionCountingCacheBypassingAction implements SkyframeAwareAction<IOException> {
+  private static final class SkyframeAwareExecutionCountingAction
+      extends ExecutionCountingCacheBypassingAction implements SkyframeAwareAction {
     private final SkyKey actionDepKey;
 
     SkyframeAwareExecutionCountingAction(
@@ -271,9 +274,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
 
     @Override
     public Object processSkyframeValues(
-        ImmutableList<? extends SkyKey> keys,
-        SkyframeIterableResult values,
-        boolean valuesMissing) {
+        ImmutableList<? extends SkyKey> keys, SkyframeLookupResult values, boolean valuesMissing) {
       assertThat(keys).containsExactly(actionDepKey);
       return null;
     }
@@ -281,11 +282,6 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     @Override
     public ImmutableList<SkyKey> getDirectSkyframeDependencies() {
       return ImmutableList.of(actionDepKey);
-    }
-
-    @Override
-    public Class<IOException> getExceptionType() {
-      return IOException.class;
     }
 
     @Override
@@ -448,7 +444,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         options,
         null,
         null,
-        /* trustRemoteArtifacts= */ false);
+        RemoteArtifactChecker.IGNORE_ALL);
 
     // Check that our invalidation receiver is working correctly. We'll rely on it again.
     SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
@@ -476,7 +472,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         options,
         null,
         null,
-        /* trustRemoteArtifacts= */ false);
+        RemoteArtifactChecker.IGNORE_ALL);
 
     if (expectActionIs.dirtied()) {
       assertThat(progressReceiver.wasInvalidated(actionKey)).isTrue();
@@ -736,7 +732,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
   }
 
   private abstract static class SingleOutputSkyframeAwareAction extends SingleOutputAction
-      implements SkyframeAwareAction<IOException> {
+      implements SkyframeAwareAction {
     SingleOutputSkyframeAwareAction(@Nullable Artifact input, Artifact output) {
       super(input, output);
     }
@@ -749,11 +745,6 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     @Override
     public boolean isVolatile() {
       return true;
-    }
-
-    @Override
-    public Class<IOException> getExceptionType() {
-      return IOException.class;
     }
   }
 
@@ -860,7 +851,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
           @Override
           public Object processSkyframeValues(
               ImmutableList<? extends SkyKey> keys,
-              SkyframeIterableResult values,
+              SkyframeLookupResult values,
               boolean valuesMissing) {
             assertThat(keys).isEmpty();
             assertThat(valuesMissing).isFalse();
@@ -892,6 +883,6 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         options,
         null,
         null,
-        /* trustRemoteArtifacts= */ false);
+        RemoteArtifactChecker.IGNORE_ALL);
   }
 }

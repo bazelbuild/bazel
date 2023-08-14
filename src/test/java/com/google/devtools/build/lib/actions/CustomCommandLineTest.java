@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.util.OnDemandString;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -48,13 +47,13 @@ import org.junit.runner.RunWith;
 
 /** Tests for {@link CustomCommandLine}. */
 @RunWith(TestParameterInjector.class)
-public class CustomCommandLineTest {
+public final class CustomCommandLineTest {
   private ArtifactRoot rootDir;
   private Artifact artifact1;
   private Artifact artifact2;
 
   @Before
-  public void createArtifacts() throws Exception  {
+  public void createArtifacts() throws Exception {
     Scratch scratch = new Scratch();
     rootDir = ArtifactRoot.asDerivedRoot(scratch.dir("/exec/root"), RootType.Output, "dir");
     artifact1 = ActionsTestUtil.createArtifact(rootDir, scratch.file("/exec/root/dir/file1.txt"));
@@ -70,8 +69,7 @@ public class CustomCommandLineTest {
     assertThat(builder().addPath(PathFragment.create("path")).build().arguments())
         .containsExactly("path");
     assertThat(builder().addExecPath(artifact1).build().arguments())
-        .containsExactly("dir/file1.txt")
-        .inOrder();
+        .containsExactly("dir/file1.txt");
     assertThat(
             builder()
                 .addLazyString(
@@ -83,8 +81,7 @@ public class CustomCommandLineTest {
                     })
                 .build()
                 .arguments())
-        .containsExactly("foo")
-        .inOrder();
+        .containsExactly("foo");
   }
 
   @Test
@@ -120,29 +117,24 @@ public class CustomCommandLineTest {
   @Test
   public void addFormatted_addsCorrectlyFormattedArgument() throws Exception {
     assertThat(builder().addFormatted("%s%s", "hello", "world").build().arguments())
-        .containsExactly("helloworld")
-        .inOrder();
+        .containsExactly("helloworld");
   }
 
   @Test
   public void addPrefixed_addsPrefixForArguments() throws Exception {
     assertThat(builder().addPrefixed("prefix-", "foo").build().arguments())
-        .containsExactly("prefix-foo")
-        .inOrder();
+        .containsExactly("prefix-foo");
     assertThat(
             builder()
                 .addPrefixedLabel("prefix-", Label.parseCanonical("//a:b"))
                 .build()
                 .arguments())
-        .containsExactly("prefix-//a:b")
-        .inOrder();
+        .containsExactly("prefix-//a:b");
     assertThat(
             builder().addPrefixedPath("prefix-", PathFragment.create("path")).build().arguments())
-        .containsExactly("prefix-path")
-        .inOrder();
+        .containsExactly("prefix-path");
     assertThat(builder().addPrefixedExecPath("prefix-", artifact1).build().arguments())
-        .containsExactly("prefix-dir/file1.txt")
-        .inOrder();
+        .containsExactly("prefix-dir/file1.txt");
   }
 
   @Test
@@ -589,8 +581,9 @@ public class CustomCommandLineTest {
     TreeFileArtifact treeFileArtifactTwo =
         TreeFileArtifact.createTreeOutput(treeArtifactTwo, "children/child2");
 
-    CustomCommandLine commandLine = commandLineTemplate.evaluateTreeFileArtifacts(
-        ImmutableList.of(treeFileArtifactOne, treeFileArtifactTwo));
+    CustomCommandLine commandLine =
+        commandLineTemplate.evaluateTreeFileArtifacts(
+            ImmutableList.of(treeFileArtifactOne, treeFileArtifactTwo));
 
     assertThat(commandLine.arguments())
         .containsExactly(
@@ -644,7 +637,7 @@ public class CustomCommandLineTest {
             .addPlaceholderTreeArtifactExecPath("--argTwo", treeArtifactTwo)
             .build();
 
-    assertThrows(NullPointerException.class, commandLineTemplate::arguments);
+    assertThrows(RuntimeException.class, commandLineTemplate::arguments);
   }
 
   @Test
@@ -670,7 +663,11 @@ public class CustomCommandLineTest {
     Map<String, CustomCommandLine> digests = new HashMap<>();
     for (CustomCommandLine commandLine : commandLines) {
       Fingerprint fingerprint = new Fingerprint();
-      commandLine.addToFingerprint(actionKeyContext, /*artifactExpander=*/ null, fingerprint);
+      commandLine.addToFingerprint(
+          actionKeyContext,
+          /* artifactExpander= */ null,
+          fingerprint,
+          PathStripper.PathMapper.NOOP);
       String digest = fingerprint.hexDigestAndReset();
       CustomCommandLine previous = digests.putIfAbsent(digest, commandLine);
       if (previous != null) {
@@ -690,11 +687,11 @@ public class CustomCommandLineTest {
   }
 
   private static <T> ImmutableList<T> list(T... objects) {
-    return ImmutableList.<T>builder().addAll(Arrays.asList(objects)).build();
+    return ImmutableList.copyOf(objects);
   }
 
   private static <T> NestedSet<T> nestedSet(T... objects) {
-    return NestedSetBuilder.<T>stableOrder().addAll(Arrays.asList(objects)).build();
+    return NestedSetBuilder.create(Order.STABLE_ORDER, objects);
   }
 
   private static Foo foo(String str) {

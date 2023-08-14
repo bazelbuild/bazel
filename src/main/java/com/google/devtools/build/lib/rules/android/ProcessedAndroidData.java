@@ -101,7 +101,7 @@ public class ProcessedAndroidData {
       Artifact mergedResourcesOut,
       String proguardPrefix,
       Map<String, String> manifestValues)
-      throws RuleErrorException {
+      throws RuleErrorException, InterruptedException {
 
     AndroidResourcesProcessorBuilder builder =
         builderForTopLevelTarget(dataContext, manifest, proguardPrefix, manifestValues)
@@ -251,8 +251,9 @@ public class ProcessedAndroidData {
         // Output
         .setProguardOut(
             ProguardHelper.getProguardConfigArtifact(
-                dataContext.getLabel(), dataContext.getActionConstructionContext(), proguardPrefix))
-        .setIncludeProguardLocationReferences(dataContext.includeProguardLocationReferences());
+                dataContext.getLabel(),
+                dataContext.getActionConstructionContext(),
+                proguardPrefix));
   }
 
   static ProcessedAndroidData of(

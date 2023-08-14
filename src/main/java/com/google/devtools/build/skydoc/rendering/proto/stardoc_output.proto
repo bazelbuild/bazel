@@ -23,9 +23,9 @@ package stardoc_output;
 option java_package = "com.google.devtools.build.skydoc.rendering.proto";
 option java_outer_classname = "StardocOutputProtos";
 
-// The root output proto of Stardoc. A single invocation of Stardoc will output
-// exactly one instance of this proto, representing all documentation for
-// the input Starlark file.
+// The root output proto of Stardoc. An invocation of Stardoc on a single file
+// will output exactly one instance of this proto, representing all
+// documentation for the input Starlark file.
 message ModuleInfo {
   repeated RuleInfo rule_info = 1;
 
@@ -37,6 +37,15 @@ message ModuleInfo {
 
   // The docstring present at the top of the input Starlark file.
   string module_docstring = 5;
+
+  // The display form of the label of the module file (as seen from the
+  // starlark_doc_extract or Stardoc target's repo). Unset when there is no
+  // module file (e.g. when the module is a REPL, or in Bazel's internal tests).
+  string file = 6;
+
+  repeated ModuleExtensionInfo module_extension_info = 7;
+
+  repeated RepositoryRuleInfo repository_rule_info = 8;
 }
 
 // Representation of a Starlark rule attribute type. These generally
@@ -63,7 +72,8 @@ enum AttributeType {
 
 // Representation of a Starlark rule definition.
 message RuleInfo {
-  // The name of the rule.
+  // The name under which the rule is made accessible to a user of this module,
+  // including any structs it is nested in, for example "foo.foo_library".
   string rule_name = 1;
 
   // The documentation string of the rule.
@@ -71,11 +81,29 @@ message RuleInfo {
 
   // The attributes of the rule.
   repeated AttributeInfo attribute = 3;
+
+  // Note: legacy Stardoc (0.5.x and earlier) does not set any fields below.
+
+  // The module where and the name under which the rule was originally declared.
+  OriginKey origin_key = 4;
+
+  // The list of providers that the rule's implementation must return. Unset if
+  // the rule lists no advertised providers.
+  ProviderNameGroup advertised_providers = 5;
+
+  // True if this is a test rule.
+  bool test = 6;
+
+  // True if this is an executable rule.
+  //
+  // Note: if test is true, executable is also true (test rules are implicitly
+  // executable).
+  bool executable = 7;
 }
 
-// Representation of a Starlark rule attribute definition, comprised of an
-// attribute name, and a schema defined by a call to one of the 'attr' module
-// methods enumerated at
+// Representation of a Starlark rule, repository rule, or module extension tag
+// attribute definition, comprised of an attribute name, and a schema defined by
+// a call to one of the 'attr' module methods enumerated at
 // https://bazel.build/rules/lib/attr
 message AttributeInfo {
   // The name of the attribute.
@@ -95,26 +123,49 @@ message AttributeInfo {
   // The target(s) in this attribute must define all the providers of at least
   // one of the ProviderNameGroups in this list. If the Attribute Type is not a
   // label, a label list, or a label-keyed string dictionary, the field will be
-  // left empty.
+  // left empty. For attributes of a repository rule or a module extension tag,
+  // this attribute is meaningless and may be ignored.
+  // TODO(b/290788853): ensure this field is always empty for attributes of a
+  // repository rule or a module extension tag.
   repeated ProviderNameGroup provider_name_group = 5;
 
   // The string representation of the default value of this attribute.
   string default_value = 6;
+
+  // If true, the attribute is non-configurable.
+  bool nonconfigurable = 7;
 }
 
-// Representation of a set of providers that a rule attribute may be required to
-// have.
+// Representation of a set of providers.
 message ProviderNameGroup {
-  // The names of the providers that must be given by any dependency appearing
-  // in this attribute. The name will be "Unknown Provider" if the name is
-  // unidentifiable, for example, if the provider is part of a namespace.
-  // TODO(kendalllane): Fix documentation of providers from namespaces.
+  // The names of the providers.
+  //
+  // This field is only intended for rendering human-readable output.
+  // Please use origin_key (a list of the same length and in the same order as
+  // this field) for cross-references and tooling.
+  //
+  // Note: legacy Stardoc (0.5.x and earlier) is unable to extract the name in
+  // some circumstances (for example, if the provider is nested in a struct),
+  // and in that case, the provider name will be "Unknown Provider".
   repeated string provider_name = 1;
+
+  // A list of unambiguous references to providers, of the same length and in
+  // the same order as the provider_name list.
+  //
+  // For provider symbols, this means modules where and the names under which
+  // the providers were originally declared.
+  //
+  // For legacy struct providers, origin_key.file is unset.
+  //
+  // Note: legacy Stardoc (0.5.x and earlier) does not set this field.
+  repeated OriginKey origin_key = 2;
 }
 
 // Representation of Starlark function definition.
 message StarlarkFunctionInfo {
-  // The name of the function.
+  // The name under which the function is made accessible to a user of this
+  // module, including any structs it is nested in, for example
+  // "foo.frobnicate".
   string function_name = 1;
 
   // The parameters for the function.
@@ -129,6 +180,12 @@ message StarlarkFunctionInfo {
 
   // The deprecation for the function.
   FunctionDeprecationInfo deprecated = 5;
+
+  // The module where and the name under which the function was originally
+  // declared.
+  //
+  // Note: legacy Stardoc (0.5.x and earlier) does not set this field.
+  OriginKey origin_key = 6;
 }
 
 // Representation of a Starlark function parameter definition.
@@ -174,7 +231,8 @@ message ProviderFieldInfo {
 
 // Representation of a Starlark provider definition.
 message ProviderInfo {
-  // The name of the provider.
+  // The name under which the provider is made accessible to a user of this
+  // module, including any structs it is nested in, for example "foo.FooInfo".
   string provider_name = 1;
 
   // The description of the provider.
@@ -182,11 +240,19 @@ message ProviderInfo {
 
   // The fields of the provider.
   repeated ProviderFieldInfo field_info = 3;
+
+  // The module where and the name under which the provider was originally
+  // declared.
+  //
+  // Note: legacy Stardoc (0.5.x and earlier) does not set this field.
+  OriginKey origin_key = 4;
 }
 
 // Representation of a Starlark aspect definition.
 message AspectInfo {
-  // The name of the aspect.
+  // The name under which the aspect is made accessible to a user of this
+  // module, including any structs it is nested in, for example
+  // "foo.foo_aspect".
   string aspect_name = 1;
 
   // The documentation string of the aspect.
@@ -197,4 +263,85 @@ message AspectInfo {
 
   // The attributes of the aspect.
   repeated AttributeInfo attribute = 4;
+
+  // The module where and the name under which the aspect was originally
+  // declared.
+  //
+  // Note: legacy Stardoc (0.5.x and earlier) does not set this field.
+  OriginKey origin_key = 5;
+}
+
+// Representation of a Bazel module extension, i.e. the object returned by
+// calling `module_extension(...)`.
+//
+// Note: legacy Stardoc (0.5.x and earlier) does not emit this message.
+message ModuleExtensionInfo {
+  // The name under which the extension is made accessible to a user of this
+  // Starlark module.
+  string extension_name = 1;
+
+  // The documentation string of the extension.
+  string doc_string = 2;
+
+  // The tag classes of the extension.
+  repeated ModuleExtensionTagClassInfo tag_class = 3;
+
+  // The Starlark module where the Bazel module extension was originally
+  // declared; origin_key.name is currently never set.
+  // TODO(arostovtsev): attempt to retrieve the name under which the module
+  // extension was originally declared if it was declared as a global.
+  OriginKey origin_key = 4;
+}
+
+// Representation of a Bazel module extension tag class.
+message ModuleExtensionTagClassInfo {
+  // The name of the tag for this tag class.
+  string tag_name = 1;
+
+  // The documentation string of the tag class.
+  string doc_string = 2;
+
+  // The tag class's attributes.
+  repeated AttributeInfo attribute = 3;
+}
+
+// Representation of a Bazel repository rule, i.e. the object returned by
+// calling `repository_rule(...)`.
+//
+// Note: legacy Stardoc (0.5.x and earlier) does not emit this message, instead
+// using RuleInfo.
+message RepositoryRuleInfo {
+  // The name under which the repository rule is made accessible to a user of
+  // this Starlark module.
+  string rule_name = 1;
+
+  // The documentation string of the repository rule.
+  string doc_string = 2;
+
+  // The attributes of the repository rule.
+  repeated AttributeInfo attribute = 3;
+
+  // Environment variables that this repository rule depends on.
+  repeated string environ = 4;
+
+  // The Starlark module where and the name under which the repository rule was
+  // originally declared.
+  OriginKey origin_key = 5;
+}
+
+// Representation of the origin of a rule, provider, aspect, or function.
+// Intended to be used for building unambiguous cross-references: for example,
+// between an element of a ProviderNameGroup required by a rule attribute and
+// its corresponding ProviderInfo.
+message OriginKey {
+  // The name under which the entity was originally exported. Unset when the
+  // entity was not exported in its module.
+  string name = 1;
+
+  // The display form of the label of the module file in which the entity was
+  // originally declared (as seen from the starlark_doc_extract or Stardoc
+  // target's repo), or "<native>" for Bazel's built-in entities implemented in
+  // Java. Unset when there is no module file (such as for legacy struct
+  // providers, when the module is a REPL, or in Bazel's internal tests).
+  string file = 2;
 }

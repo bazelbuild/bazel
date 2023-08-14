@@ -80,6 +80,31 @@ function test_incompatible_use_platforms_repo_for_constraints() {
   expect_log "Constraints from @bazel_tools//platforms have been removed."
 }
 
+function test_incompatible_use_platforms_repo_for_constraints_exec() {
+  # We test that a built-in @platforms repository is buildable.
+  cat > BUILD << 'EOF'
+genrule(
+    name = "hello",
+    outs = ["hello.txt"],
+    cmd = "echo 'Hello' > $@",
+    tools = ["tool"],
+)
+
+genrule(
+    name = "tool",
+    outs = ["tool.sh"],
+    cmd = "touch $@",
+    target_compatible_with = select({
+        "@bazel_tools//platforms:linux": [],
+        "//conditions:default": [],
+    })
+)
+EOF
+
+  bazel build //:all &> \
+    $TEST_log && fail "Build passed when we expected an error."
+  expect_log "Constraints from @bazel_tools//platforms have been removed."
+}
 
 function test_platform_accessor() {
   cat > rules.bzl <<'EOF'

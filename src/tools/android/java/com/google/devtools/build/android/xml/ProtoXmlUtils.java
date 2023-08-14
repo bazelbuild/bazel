@@ -18,9 +18,9 @@ import static com.google.common.base.Verify.verify;
 import com.android.aapt.Resources.Reference;
 import com.android.aapt.Resources.XmlAttribute;
 import com.android.aapt.Resources.XmlNode;
-import com.android.resources.ResourceType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.android.resources.ResourceTypeEnum;
 import java.util.Optional;
 
 /** Utilities for manipulating XML (as represented by aapt2's protobuf definitions). */
@@ -117,7 +117,7 @@ public final class ProtoXmlUtils {
 
       int colonIndex = value.lastIndexOf(':', slashIndex);
       int typeBegin = colonIndex == -1 ? startIndex : colonIndex + 1;
-      if (ResourceType.getEnum(value.substring(typeBegin, slashIndex)) == null) {
+      if (ResourceTypeEnum.get(value.substring(typeBegin, slashIndex)) == null) {
         // aapt2 will treat something like "@x/foo" as a string instead of throwing an error.
         return Optional.empty();
       }

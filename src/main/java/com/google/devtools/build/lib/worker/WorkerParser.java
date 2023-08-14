@@ -41,7 +41,7 @@ import java.util.regex.Pattern;
  * persistent worker process (actions with equal keys are allowed to use the same worker process),
  * and a separate list of flag files. The result is encapsulated as a {@link WorkerConfig}.
  */
-class WorkerParser {
+public class WorkerParser {
   private static final String ERROR_MESSAGE_PREFIX =
       "Worker strategy cannot execute this %s action, ";
   private static final String REASON_NO_FLAGFILE =
@@ -98,7 +98,7 @@ class WorkerParser {
 
     SortedMap<PathFragment, byte[]> workerFiles =
         WorkerFilesHash.getWorkerFilesWithDigests(
-            spawn, context.getArtifactExpander(), context.getMetadataProvider());
+            spawn, context.getArtifactExpander(), context.getInputMetadataProvider());
 
     HashCode workerFilesCombinedHash = WorkerFilesHash.getCombinedHash(workerFiles);
 
@@ -241,4 +241,3 @@ class WorkerParser {
     }
   }
 }
-

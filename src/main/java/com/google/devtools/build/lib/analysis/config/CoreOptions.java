@@ -34,9 +34,12 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
 import java.util.AbstractMap.SimpleEntry;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeSet;
 
 /**
  * Core options affecting a {@link BuildConfigurationValue} that don't belong in domain-specific
@@ -49,7 +52,7 @@ import java.util.Map;
  * BuildConfigurationValue instances.)
  *
  * <p>IMPORTANT: when adding new options, be sure to consider whether those values should be
- * propagated to the host configuration or not.
+ * propagated to the exec configuration or not.
  *
  * <p>ALSO IMPORTANT: all option types MUST define a toString method that gives identical results
  * for semantically identical option values. The simplest way to ensure that is to return the input
@@ -69,6 +72,31 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean mergeGenfilesDirectory;
 
   @Option(
+      name = "experimental_exec_config",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If set to '//some:label:my.bzl%my_transition', uses my_transition for 'cfg = \"exec\"' "
+              + "semantics instead of Bazel's internal exec transition logic.  Else uses Bazel's "
+              + "internal logic.")
+  public String starlarkExecConfig;
+
+  @Option(
+      name = "experimental_exec_config_diff",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "For debugging --experimental_exec_config only: if set and  --experimental_exec_config is"
+              + " set, Bazel also runs internal logic on `cfg =  \"exec\"` transitions and prints "
+              + "the diff between that and the Starlark transition to the screen.  "
+              + "`cfg =  \"exec\"` semantics still use the Starlark transition.")
+  public boolean execConfigDiff;
+
+  @Option(
       name = "experimental_platform_in_output_dir",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -77,16 +105,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help =
           "If true, the target platform is used in the output directory name instead of the CPU.")
   public boolean platformInOutputDir;
-
-  // TODO(b/231200175): @aranguyen flip this flag
-  @Option(
-      name = "incompatible_use_platforms_repo_for_constraints",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "If true, constraint settings from @bazel_tools are removed.")
-  public boolean usePlatformsRepoForConstraints;
 
   // Note: This value may contain conflicting duplicate values for the same define.
   // Use `getNormalizedCommandLineBuildVariables` if you wish for these to be deduplicated
@@ -100,20 +118,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
       help = "Each --define option specifies an assignment for a build variable.")
   public List<Map.Entry<String, String>> commandLineBuildVariables;
-
-  @Option(
-      name = "collapse_duplicate_defines",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.LOSES_INCREMENTAL_STATE,
-      },
-      help =
-          "When enabled, redundant --defines will be removed early in the build. This avoids"
-              + " unnecessary loss of the analysis cache for certain types of equivalent"
-              + " builds.")
-  public boolean collapseDuplicateDefines;
 
   @Option(
       name = "cpu",
@@ -138,18 +142,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public int minParamFileSize;
 
   @Option(
-      name = "defer_param_files",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.EXECUTION,
-        OptionEffectTag.ACTION_COMMAND_LINES
-      },
-      help = "This option is deprecated and has no effect and will be removed in the future.")
-  public boolean deferParamFiles;
-
-  @Option(
       name = "experimental_extended_sanity_checks",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -167,9 +159,41 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
       help =
           "If this option is enabled, filesets crossing package boundaries are reported "
-              + "as errors. It does not work when check_fileset_dependencies_recursively is "
-              + "disabled.")
+              + "as errors.")
   public boolean strictFilesets;
+
+  @Option(
+      name = "incompatible_strict_conflict_checks",
+      oldName = "experimental_strict_conflict_checks",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "Check for action prefix file path conflicts, regardless of action-specific overrides.")
+  public boolean strictConflictChecks;
+
+  @Option(
+      name = "incompatible_disallow_unsound_directory_outputs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "If set, it is an error for an action to materialize an output file as a directory. Does"
+              + " not affect source directories.")
+  public boolean disallowUnsoundDirectoryOutputs;
+
+  // This option is only used during execution. However, it is a required input to the analysis
+  // phase, as otherwise flipping this flag would not invalidate already-executed actions.
+  @Option(
+      name = "experimental_writable_outputs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If true, the file permissions of action outputs are set to 0755 instead of 0555")
+  public boolean experimentalWritableOutputs;
 
   @Option(
       name = "experimental_strict_fileset_output",
@@ -247,12 +271,16 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public CompilationMode hostCompilationMode;
 
   @Option(
-      name = "experimental_enable_aspect_hints",
+      name = "incompatible_auto_exec_groups",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL})
-  public boolean enableAspectHints;
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "When enabled, an exec groups is automatically created for each toolchain used by a rule."
+              + " For this to work rule needs to specify `toolchain` parameter on its actions. For"
+              + " more information, see https://github.com/bazelbuild/bazel/issues/17134.")
+  public boolean useAutoExecGroups;
 
   /** Regardless of input, converts to an empty list. For use with affectedByStarlarkTransition */
   public static class EmptyListConverter extends Converter.Contextless<List<String>> {
@@ -312,7 +340,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "experimental_exec_configuration_distinguisher",
-      defaultValue = "legacy",
+      defaultValue = "off",
       converter = ExecConfigurationDistinguisherSchemeConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
@@ -384,7 +412,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
       help =
-          "Specifies the set of environment variables available to actions with host or execution"
+          "Specifies the set of environment variables available to actions with execution"
               + " configurations. Variables can be either specified by name, in which case the"
               + " value will be taken from the invocation environment, or by the name=value pair"
               + " which sets the value independent of the invocation environment. This option can"
@@ -403,6 +431,16 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " match --instrumentation_filter will be affected. Usually this option should "
               + " not be specified directly - 'bazel coverage' command should be used instead.")
   public boolean collectCodeCoverage;
+
+  @Option(
+      name = "experimental_collect_code_coverage_for_generated_files",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "If specified, Bazel will also generate collect coverage information for generated"
+              + " files.")
+  public boolean collectCodeCoverageForGeneratedFiles;
 
   @Option(
       name = "build_runfile_manifests",
@@ -435,22 +473,16 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean legacyExternalRunfiles;
 
   @Option(
-      name = "check_fileset_dependencies_recursively",
+      name = "incompatible_always_include_files_in_data",
       defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      deprecationWarning =
-          "This flag is a no-op and fileset dependencies are always checked "
-              + "to ensure correctness of builds.",
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS})
-  public boolean checkFilesetDependenciesRecursively;
-
-  @Option(
-      name = "experimental_skyframe_native_filesets",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      deprecationWarning = "This flag is a no-op and skyframe-native-filesets is always true.")
-  public boolean skyframeNativeFileset;
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If true, native rules add <code>DefaultInfo.files</code> of data dependencies to "
+              + "their runfiles, which matches the recommended behavior for Starlark rules ("
+              + "https://bazel.build/extending/rules#runfiles_features_to_avoid).")
+  public boolean alwaysIncludeFilesToBuildInData;
 
   @Option(
       name = "run_under",
@@ -468,13 +500,26 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " '//package:target --options'.")
   public RunUnder runUnder;
 
+  // TODO(b/248763226): Consider moving this to a non-FragmentOptions.
   @Option(
       name = "check_visibility",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      help = "If disabled, visibility errors are demoted to warnings.")
+      help = "If disabled, visibility errors in target dependencies are demoted to warnings.")
   public boolean checkVisibility;
+
+  @Option(
+      name = "incompatible_check_testonly_for_output_files",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If enabled, check testonly for prerequisite targets that are output files by"
+              + " looking up the testonly of the generating rule. This matches visibility"
+              + " checking.")
+  public boolean checkTestonlyForOutputFiles;
 
   // Moved from viewOptions to here because license information is very expensive to serialize.
   // Having it here allows us to skip computation of transitive license information completely
@@ -519,7 +564,9 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     /** Use `affected by starlark transition` to track configuration changes */
     LEGACY,
     /** Produce name based on diff from some baseline BuildOptions (usually top-level) */
-    DIFF_AGAINST_BASELINE
+    DIFF_AGAINST_BASELINE,
+    /** Like DIFF_AGAINST_BASELINE, but compare against post-exec baseline if isExec is set. */
+    DIFF_AGAINST_DYNAMIC_BASELINE
   }
 
   /** Converter for the {@code --experimental_output_directory_naming_scheme} options. */
@@ -532,7 +579,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "experimental_output_directory_naming_scheme",
-      defaultValue = "legacy",
+      defaultValue = "diff_against_baseline",
       converter = OutputDirectoryNamingSchemeConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
@@ -545,14 +592,16 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " for all configuration, by diffing against the top-level configuration.")
   public OutputDirectoryNamingScheme outputDirectoryNamingScheme;
 
-  @Option(
-      name = "is host configuration",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      metadataTags = {OptionMetadataTag.INTERNAL},
-      help = "Shows whether these options are set for host configuration.")
-  public boolean isHost;
+  public boolean useBaselineForOutputDirectoryNamingScheme() {
+    switch (outputDirectoryNamingScheme) {
+      case DIFF_AGAINST_BASELINE:
+      case DIFF_AGAINST_DYNAMIC_BASELINE:
+        return true;
+      case LEGACY:
+        return false;
+    }
+    throw new IllegalStateException("unreachable");
+  }
 
   @Option(
       name = "is exec configuration",
@@ -605,12 +654,36 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "The given features will be enabled or disabled by default for all packages. "
-              + "Specifying -<feature> will disable the feature globally. "
+          "The given features will be enabled or disabled by default for targets "
+              + "built in the target configuration. "
+              + "Specifying -<feature> will disable the feature. "
               + "Negative features always override positive ones. "
-              + "This flag is used to enable rolling out default feature changes without a "
-              + "Bazel release.")
+              + "See also --host_features")
   public List<String> defaultFeatures;
+
+  @Option(
+      name = "host_features",
+      allowMultiple = true,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "The given features will be enabled or disabled by default for targets "
+              + "built in the exec configuration. "
+              + "Specifying -<feature> will disable the feature. "
+              + "Negative features always override positive ones.")
+  public List<String> hostFeatures;
+
+  @Option(
+      name = "incompatible_use_host_features",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If true, use --features only for the target configuration and --host_features for the"
+              + " exec configuration.")
+  public boolean incompatibleUseHostFeatures;
 
   @Option(
       name = "target_environment",
@@ -638,8 +711,9 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public Label autoCpuEnvironmentGroup;
 
   @Option(
-      name = "experimental_allow_unresolved_symlinks",
-      defaultValue = "false",
+      name = "allow_unresolved_symlinks",
+      oldName = "experimental_allow_unresolved_symlinks",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
         OptionEffectTag.LOSES_INCREMENTAL_STATE,
@@ -648,7 +722,8 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help =
           "If enabled, Bazel allows the use of ctx.action.declare_symlink() and the use of "
               + "ctx.actions.symlink() without a target file, thus allowing the creation of "
-              + "unresolved symlinks")
+              + "unresolved symlinks. Unresolved symlinks inside tree artifacts are not currently "
+              + "supported.")
   public boolean allowUnresolvedSymlinks;
 
   /** Values for --experimental_output_paths. */
@@ -809,23 +884,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean inprocessSymlinkCreation;
 
   @Option(
-      name = "experimental_skip_runfiles_manifests",
-      defaultValue = "false",
-      converter = BooleanConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = OptionMetadataTag.HIDDEN,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.EXECUTION,
-        OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        OptionEffectTag.AFFECTS_OUTPUTS
-      },
-      help =
-          "If enabled, Bazel does not create runfiles symlink manifests. This flag is ignored "
-              + "if --experimental_enable_runfiles is set to false.")
-  public boolean skipRunfilesManifests;
-
-  @Option(
       name = "experimental_remotable_source_manifests",
       defaultValue = "false",
       converter = BooleanConverter.class,
@@ -891,66 +949,77 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   }
 
   @Override
-  public FragmentOptions getHost() {
-    CoreOptions host = (CoreOptions) getDefault();
+  public FragmentOptions getExec() {
+    CoreOptions exec = (CoreOptions) getDefault();
 
-    host.affectedByStarlarkTransition = affectedByStarlarkTransition;
-    host.outputDirectoryNamingScheme = outputDirectoryNamingScheme;
-    host.compilationMode = hostCompilationMode;
-    host.isHost = true;
-    host.isExec = false;
-    host.execConfigurationDistinguisherScheme = execConfigurationDistinguisherScheme;
-    host.outputPathsMode = outputPathsMode;
-    host.enableRunfiles = enableRunfiles;
-    host.executionInfoModifier = executionInfoModifier;
-    host.commandLineBuildVariables = commandLineBuildVariables;
-    host.enforceConstraints = enforceConstraints;
-    host.mergeGenfilesDirectory = mergeGenfilesDirectory;
-    host.platformInOutputDir = platformInOutputDir;
-    host.cpu = hostCpu;
-    host.includeRequiredConfigFragmentsProvider = includeRequiredConfigFragmentsProvider;
-    host.debugSelectsAlwaysSucceed = debugSelectsAlwaysSucceed;
+    exec.affectedByStarlarkTransition = affectedByStarlarkTransition;
+    exec.outputDirectoryNamingScheme = outputDirectoryNamingScheme;
+    exec.compilationMode = hostCompilationMode;
+    exec.isExec = false;
+    exec.execConfigurationDistinguisherScheme = execConfigurationDistinguisherScheme;
+    exec.outputPathsMode = outputPathsMode;
+    exec.enableRunfiles = enableRunfiles;
+    exec.executionInfoModifier = executionInfoModifier;
+    exec.commandLineBuildVariables = commandLineBuildVariables;
+    exec.enforceConstraints = enforceConstraints;
+    exec.mergeGenfilesDirectory = mergeGenfilesDirectory;
+    exec.platformInOutputDir = platformInOutputDir;
+    exec.cpu = hostCpu;
+    exec.includeRequiredConfigFragmentsProvider = includeRequiredConfigFragmentsProvider;
+    exec.debugSelectsAlwaysSucceed = debugSelectsAlwaysSucceed;
+    exec.checkTestonlyForOutputFiles = checkTestonlyForOutputFiles;
+    exec.useAutoExecGroups = useAutoExecGroups;
+    exec.experimentalWritableOutputs = experimentalWritableOutputs;
+    exec.strictConflictChecks = strictConflictChecks;
+    exec.disallowUnsoundDirectoryOutputs = disallowUnsoundDirectoryOutputs;
 
     // === Runfiles ===
-    host.buildRunfilesManifests = buildRunfilesManifests;
-    host.buildRunfiles = buildRunfiles;
-    host.legacyExternalRunfiles = legacyExternalRunfiles;
-    host.remotableSourceManifestActions = remotableSourceManifestActions;
-    host.skipRunfilesManifests = skipRunfilesManifests;
+    exec.buildRunfilesManifests = buildRunfilesManifests;
+    exec.buildRunfiles = buildRunfiles;
+    exec.legacyExternalRunfiles = legacyExternalRunfiles;
+    exec.remotableSourceManifestActions = remotableSourceManifestActions;
+    exec.alwaysIncludeFilesToBuildInData = alwaysIncludeFilesToBuildInData;
 
     // === Filesets ===
-    host.strictFilesetOutput = strictFilesetOutput;
-    host.strictFilesets = strictFilesets;
+    exec.strictFilesetOutput = strictFilesetOutput;
+    exec.strictFilesets = strictFilesets;
 
     // === Linkstamping ===
-    // Disable all link stamping for the host configuration, to improve action
+    // Disable all link stamping for the exec configuration, to improve action
     // cache hit rates for tools.
-    host.stampBinaries = false;
+    exec.stampBinaries = false;
 
     // === Visibility ===
-    host.checkVisibility = checkVisibility;
+    exec.checkVisibility = checkVisibility;
 
     // === Licenses ===
-    host.checkLicenses = checkLicenses;
+    exec.checkLicenses = checkLicenses;
 
     // === Pass on C++ compiler features.
-    host.defaultFeatures = ImmutableList.copyOf(defaultFeatures);
+    exec.incompatibleUseHostFeatures = incompatibleUseHostFeatures;
+    exec.hostFeatures = ImmutableList.copyOf(hostFeatures);
+    if (incompatibleUseHostFeatures) {
+      exec.defaultFeatures = ImmutableList.copyOf(hostFeatures);
+    } else {
+      exec.defaultFeatures = ImmutableList.copyOf(defaultFeatures);
+    }
 
     // Save host options in case of a further exec->host transition.
-    host.hostCpu = hostCpu;
-    host.hostCompilationMode = hostCompilationMode;
+    exec.hostCpu = hostCpu;
+    exec.hostCompilationMode = hostCompilationMode;
 
-    // Pass host action environment variables
-    host.actionEnvironment = hostActionEnvironment;
-    host.hostActionEnvironment = hostActionEnvironment;
+    // Pass exec action environment variables
+    exec.actionEnvironment = hostActionEnvironment;
+    exec.hostActionEnvironment = hostActionEnvironment;
 
     // Pass archived tree artifacts filter.
-    host.archivedArtifactsMnemonicsFilter = archivedArtifactsMnemonicsFilter;
+    exec.archivedArtifactsMnemonicsFilter = archivedArtifactsMnemonicsFilter;
 
-    host.enableAspectHints = enableAspectHints;
-    host.allowUnresolvedSymlinks = allowUnresolvedSymlinks;
+    exec.allowUnresolvedSymlinks = allowUnresolvedSymlinks;
 
-    return host;
+    exec.starlarkExecConfig = starlarkExecConfig;
+    exec.execConfigDiff = execConfigDiff;
+    return exec;
   }
 
   /// Normalizes --define flags, preserving the last one to appear in the event of conflicts.
@@ -963,23 +1032,75 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     return flagValueByName;
   }
 
+  // Normalizes list of map entries by keeping only the last entry for each key.
+  private static List<Map.Entry<String, String>> normalizeEntries(
+      List<Map.Entry<String, String>> entries) {
+    LinkedHashMap<String, String> normalizedEntries = new LinkedHashMap<>();
+    for (Map.Entry<String, String> entry : entries) {
+      normalizedEntries.put(entry.getKey(), entry.getValue());
+    }
+    if (normalizedEntries.size() == entries.size()) {
+      return entries;
+    }
+    return normalizedEntries.entrySet().stream().map(SimpleEntry::new).collect(toImmutableList());
+  }
+
+  /// Normalizes --features flags by sorting the values and having disables win over enables.
+  private static List<String> getNormalizedFeatures(List<String> features) {
+    // Parse out the features into a Map<String, boolean>, where the boolean represents whether
+    // the feature is enabled or disabled.
+    Map<String, Boolean> featureToState = new HashMap<>();
+    for (String feature : features) {
+      if (feature.startsWith("-")) {
+        // disable always wins.
+        featureToState.put(feature.substring(1), false);
+      } else if (!featureToState.containsKey(feature)) {
+        // enable feature only if it does not already have a state.
+        // If existing state is enabled, no need to do extra work.
+        // If existing state is disabled, it wins.
+        featureToState.put(feature, true);
+      }
+    }
+    // Partition into enabled/disabled features.
+    TreeSet<String> enabled = new TreeSet<>();
+    TreeSet<String> disabled = new TreeSet<>();
+    for (Map.Entry<String, Boolean> entry : featureToState.entrySet()) {
+      if (entry.getValue()) {
+        enabled.add(entry.getKey());
+      } else {
+        disabled.add(entry.getKey());
+      }
+    }
+    // Rebuild the set of features.
+    // Since we used TreeSet the features come out in a deterministic order.
+    List<String> result = new ArrayList<>(enabled);
+    disabled.stream().map(x -> "-" + x).forEach(result::add);
+    // If we made no changes, return the same instance we got to reduce churn.
+    return result.equals(features) ? features : result;
+  }
+
   @Override
   public CoreOptions getNormalized() {
     CoreOptions result = (CoreOptions) clone();
+    LinkedHashMap<String, String> flagValueByName = getNormalizedCommandLineBuildVariables();
 
-    if (collapseDuplicateDefines) {
-      LinkedHashMap<String, String> flagValueByName = getNormalizedCommandLineBuildVariables();
-
-      // This check is an optimization to avoid creating a new list if the normalization was a
-      // no-op.
-      if (flagValueByName.size() != result.commandLineBuildVariables.size()) {
-        result.commandLineBuildVariables =
-            flagValueByName.entrySet().stream()
-                // The entries in the transformed list must be serializable.
-                .map(SimpleEntry::new)
-                .collect(toImmutableList());
-      }
+    // This check is an optimization to avoid creating a new list if the normalization was a
+    // no-op.
+    if (flagValueByName.size() != result.commandLineBuildVariables.size()) {
+      result.commandLineBuildVariables =
+          flagValueByName.entrySet().stream()
+              // The entries in the transformed list must be serializable.
+              .map(SimpleEntry::new)
+              .collect(toImmutableList());
     }
+
+    // Normalize features.
+    result.defaultFeatures = getNormalizedFeatures(defaultFeatures);
+
+    result.actionEnvironment = normalizeEntries(actionEnvironment);
+    result.hostActionEnvironment = normalizeEntries(hostActionEnvironment);
+    result.testEnvironment = normalizeEntries(testEnvironment);
+    result.commandLineFlagAliases = normalizeEntries(commandLineFlagAliases);
 
     return result;
   }

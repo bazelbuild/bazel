@@ -13,11 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.starlark;
 
+import static com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext.PRIVATE_STARLARKIFICATION_ALLOWLIST;
 import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -41,6 +43,7 @@ import com.google.devtools.build.lib.analysis.PseudoAction;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
+import com.google.devtools.build.lib.analysis.actions.BuildInfoFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -48,12 +51,17 @@ import com.google.devtools.build.lib.analysis.actions.StarlarkAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -100,6 +108,14 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   private static final Set<String> validResources =
       new HashSet<>(Arrays.asList("cpu", "memory", "local_test"));
 
+  // TODO(gnish): This is a temporary allowlist while new BuildInfo API becomes stable enough to
+  // become public.
+  // After at least some of the builtin rules have been switched to the new API delete this.
+  private static final ImmutableSet<PackageIdentifier> PRIVATE_BUILDINFO_API_ALLOWLIST =
+      ImmutableSet.of(
+          PackageIdentifier.createInMainRepo("test"), // for tests
+          PackageIdentifier.createInMainRepo("tools/build_defs/build_info"));
+
   public StarlarkActionFactory(StarlarkRuleContext context) {
     this.context = context;
   }
@@ -133,6 +149,14 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
             .getOwner();
       }
     };
+  }
+
+  private void checkToolchainParameterIsSet(Object toolchainUnchecked) throws EvalException {
+    if (toolchainUnchecked == Starlark.UNBOUND) {
+      throw Starlark.errorf(
+          "Couldn't identify if tools are from implicit dependencies or a toolchain. Please"
+              + " set the toolchain parameter. If you're not using a toolchain, set it to 'None'.");
+    }
   }
 
   @Override
@@ -197,7 +221,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     if (!ruleContext.getConfiguration().allowUnresolvedSymlinks()) {
       throw Starlark.errorf(
           "actions.declare_symlink() is not allowed; "
-              + "use the --experimental_allow_unresolved_symlinks command line option");
+              + "use the --allow_unresolved_symlinks command line option");
     }
 
     Artifact result;
@@ -271,9 +295,9 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     String progressMessage =
         (progressMessageUnchecked != Starlark.NONE)
             ? (String) progressMessageUnchecked
-            : "Creating symlink " + outputArtifact.getExecPathString();
+            : "Creating symlink %{output}";
 
-    SymlinkAction action;
+    Action action;
     if (targetFile != Starlark.NONE) {
       Artifact inputArtifact = (Artifact) targetFile;
       if (outputArtifact.isSymlink()) {
@@ -282,11 +306,10 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
                 + "file or directory, not a symlink (did you mean to use declare_file() or "
                 + "declare_directory() instead of declare_symlink()?)");
       }
-      // TODO(tjgq): Enforce that input and output are either both files or both directories.
-      // This requires fixing callers passing a directory as the input and a file as the output.
-      if (!inputArtifact.isTreeArtifact() && outputArtifact.isTreeArtifact()) {
-        String inputType = inputArtifact.isTreeArtifact() ? "directory" : "file";
-        String outputType = outputArtifact.isTreeArtifact() ? "directory" : "file";
+
+      if (inputArtifact.isDirectory() != outputArtifact.isDirectory()) {
+        String inputType = inputArtifact.isDirectory() ? "directory" : "file";
+        String outputType = outputArtifact.isDirectory() ? "directory" : "file";
         throw Starlark.errorf(
             "symlink() with \"target_file\" %s param requires that \"output\" be declared as a %s "
                 + "(did you mean to use declare_%s() instead of declare_%s()?)",
@@ -306,12 +329,6 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
                 ruleContext.getActionOwner(), inputArtifact, outputArtifact, progressMessage);
       }
     } else {
-      if (!ruleContext.getConfiguration().allowUnresolvedSymlinks()) {
-        throw Starlark.errorf(
-            "actions.symlink() to unresolved symlink is not allowed; "
-                + "use the --experimental_allow_unresolved_symlinks command line option");
-      }
-
       if (!outputArtifact.isSymlink()) {
         throw Starlark.errorf(
             "symlink() with \"target_path\" param requires that \"output\" be declared as a "
@@ -324,11 +341,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       }
 
       action =
-          SymlinkAction.createUnresolved(
-              ruleContext.getActionOwner(),
-              outputArtifact,
-              PathFragment.create((String) targetPath),
-              progressMessage);
+          UnresolvedSymlinkAction.create(
+              ruleContext.getActionOwner(), outputArtifact, (String) targetPath, progressMessage);
     }
     registerAction(action);
   }
@@ -373,9 +387,13 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Object inputManifestsUnchecked,
       Object execGroupUnchecked,
       Object shadowedActionUnchecked,
-      Object resourceSetUnchecked)
+      Object resourceSetUnchecked,
+      Object toolchainUnchecked)
       throws EvalException {
     context.checkMutable("actions.run");
+
+    RuleContext ruleContext = getRuleContext();
+    boolean useAutoExecGroups = ruleContext.useAutoExecGroups();
 
     StarlarkAction.Builder builder = new StarlarkAction.Builder();
     buildCommandLine(builder, arguments);
@@ -383,6 +401,9 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Artifact executable = (Artifact) executableUnchecked;
       FilesToRunProvider provider = context.getExecutableRunfiles(executable);
       if (provider == null) {
+        if (useAutoExecGroups && execGroupUnchecked == Starlark.NONE) {
+          checkToolchainParameterIsSet(toolchainUnchecked);
+        }
         builder.setExecutable(executable);
       } else {
         builder.setExecutable(provider);
@@ -393,6 +414,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       builder.setExecutableAsString(
           PathFragment.create((String) executableUnchecked).getPathString());
     } else if (executableUnchecked instanceof FilesToRunProvider) {
+      if (useAutoExecGroups
+          && !context.areRunfilesFromDeps((FilesToRunProvider) executableUnchecked)
+          && execGroupUnchecked == Starlark.NONE) {
+        checkToolchainParameterIsSet(toolchainUnchecked);
+      }
       builder.setExecutable((FilesToRunProvider) executableUnchecked);
     } else {
       // Should have been verified by Starlark before this function is called
@@ -412,7 +438,65 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         execGroupUnchecked,
         shadowedActionUnchecked,
         resourceSetUnchecked,
+        toolchainUnchecked,
         builder);
+  }
+
+  @Override
+  public Artifact transformVersionFile(
+      Object transformFuncObject,
+      Object templateObject,
+      String outputFileName,
+      StarlarkThread thread)
+      throws InterruptedException, EvalException {
+    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, PRIVATE_BUILDINFO_API_ALLOWLIST);
+    return transformBuildInfoFile(
+        transformFuncObject, templateObject, outputFileName, true, thread);
+  }
+
+  @Override
+  public Artifact transformInfoFile(
+      Object transformFuncObject,
+      Object templateObject,
+      String outputFileName,
+      StarlarkThread thread)
+      throws InterruptedException, EvalException {
+    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, PRIVATE_BUILDINFO_API_ALLOWLIST);
+    return transformBuildInfoFile(
+        transformFuncObject, templateObject, outputFileName, false, thread);
+  }
+
+  private Artifact transformBuildInfoFile(
+      Object transformFuncObject,
+      Object templateObject,
+      String outputFileName,
+      boolean isVolatile,
+      StarlarkThread thread)
+      throws InterruptedException, EvalException {
+    RuleContext ruleContext = getRuleContext();
+    Artifact templateFile = (Artifact) templateObject;
+    PathFragment fragment =
+        ruleContext.getPackageDirectory().getRelative(PathFragment.create(outputFileName));
+    Artifact buildInfoFile =
+        isVolatile
+            ? ruleContext
+                .getAnalysisEnvironment()
+                .getConstantMetadataArtifact(fragment, newFileRoot())
+            : ruleContext.getDerivedArtifact(fragment, newFileRoot());
+    StarlarkFunction translationFunc = (StarlarkFunction) transformFuncObject;
+    BuildInfoFileWriteAction action =
+        new BuildInfoFileWriteAction(
+            ruleContext.getActionOwner(),
+            isVolatile
+                ? ruleContext.getAnalysisEnvironment().getVolatileWorkspaceStatusArtifact()
+                : ruleContext.getAnalysisEnvironment().getStableWorkspaceStatusArtifact(),
+            buildInfoFile,
+            translationFunc,
+            templateFile,
+            isVolatile,
+            thread.getSemantics());
+    registerAction(action);
+    return buildInfoFile;
   }
 
   private void validateActionCreation() throws EvalException {
@@ -451,11 +535,22 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     return context.getStarlarkSemantics();
   }
 
-  private void verifyExecGroup(Object execGroupUnchecked, RuleContext ctx) throws EvalException {
-    String execGroup = (String) execGroupUnchecked;
-    if (!StarlarkExecGroupCollection.isValidGroupName(execGroup)
-        || !ctx.hasToolchainContext(execGroup)) {
+  private void verifyExecGroupExists(String execGroup, RuleContext ctx) throws EvalException {
+    if (!ctx.hasToolchainContext(execGroup)) {
       throw Starlark.errorf("Action declared for non-existent exec group '%s'.", execGroup);
+    }
+  }
+
+  private void verifyAutomaticExecGroupExists(String execGroup, RuleContext ruleContext)
+      throws EvalException {
+    if (!ruleContext.hasToolchainContext(execGroup)) {
+      throw Starlark.errorf("Action declared for non-existent toolchain '%s'.", execGroup);
+    }
+  }
+
+  private void checkValidGroupName(String execGroup) throws EvalException {
+    if (!StarlarkExecGroupCollection.isValidGroupName(execGroup)) {
+      throw Starlark.errorf("Invalid name for exec group '%s'.", execGroup);
     }
   }
 
@@ -464,7 +559,9 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     if (execGroupUnchecked == Starlark.NONE) {
       return ctx.getExecutionPlatform(ExecGroup.DEFAULT_EXEC_GROUP_NAME);
     } else {
-      verifyExecGroup(execGroupUnchecked, ctx);
+      String execGroup = (String) execGroupUnchecked;
+      verifyExecGroupExists(execGroup, ctx);
+      checkValidGroupName(execGroup);
       return ctx.getExecutionPlatform((String) execGroupUnchecked);
     }
   }
@@ -484,7 +581,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Object inputManifestsUnchecked,
       Object execGroupUnchecked,
       Object shadowedActionUnchecked,
-      Object resourceSetUnchecked)
+      Object resourceSetUnchecked,
+      Object toolchainUnchecked)
       throws EvalException {
     context.checkMutable("actions.run_shell");
     RuleContext ruleContext = getRuleContext();
@@ -492,27 +590,31 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     StarlarkAction.Builder builder = new StarlarkAction.Builder();
     buildCommandLine(builder, arguments);
 
+    // When we use a shell command, add an empty argument before other arguments.
+    //   e.g.  bash -c "cmd" '' 'arg1' 'arg2'
+    // bash will use the empty argument as the value of $0 (which we don't care about).
+    // arg1 and arg2 will be $1 and $2, as a user expects.
+    boolean pad = !arguments.isEmpty();
+
     if (commandUnchecked instanceof String) {
       ImmutableMap<String, String> executionInfo =
           ImmutableMap.copyOf(TargetUtils.getExecutionInfo(ruleContext.getRule()));
       String helperScriptSuffix = String.format(".run_shell_%d.sh", runShellOutputCounter++);
       String command = (String) commandUnchecked;
       PathFragment shExecutable =
-          ShToolchain.getPathOrError(getExecutionPlatform(execGroupUnchecked, ruleContext));
+          ShToolchain.getPathForPlatform(
+              ruleContext.getConfiguration(),
+              getExecutionPlatform(execGroupUnchecked, ruleContext));
       BashCommandConstructor constructor =
           CommandHelper.buildBashCommandConstructor(
               executionInfo, shExecutable, helperScriptSuffix);
       Artifact helperScript =
           CommandHelper.commandHelperScriptMaybe(ruleContext, command, constructor);
       if (helperScript == null) {
-        builder.setShellCommand(shExecutable, command);
+        builder.setShellCommand(shExecutable, command, pad);
       } else {
-        builder.setShellCommand(shExecutable, helperScript.getExecPathString());
+        builder.setShellCommand(shExecutable, helperScript.getExecPathString(), pad);
         builder.addInput(helperScript);
-        FilesToRunProvider provider = context.getExecutableRunfiles(helperScript);
-        if (provider != null) {
-          builder.addTool(provider);
-        }
       }
     } else if (commandUnchecked instanceof Sequence) {
       if (getSemantics().getBool(BuildLanguageOptions.INCOMPATIBLE_RUN_SHELL_COMMAND_STRING)) {
@@ -526,23 +628,16 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         throw Starlark.errorf("'arguments' must be empty if 'command' is a sequence of strings");
       }
       List<String> command = Sequence.cast(commandList, String.class, "command");
-      builder.setShellCommand(command);
+      builder.setShellCommand(command, pad);
     } else {
       throw Starlark.errorf(
           "expected string or list of strings for command instead of %s",
           Starlark.type(commandUnchecked));
     }
-    if (!arguments.isEmpty()) {
-      // When we use a shell command, add an empty argument before other arguments.
-      //   e.g.  bash -c "cmd" '' 'arg1' 'arg2'
-      // bash will use the empty argument as the value of $0 (which we don't care about).
-      // arg1 and arg2 will be $1 and $2, as a user expects.
-      builder.addExecutableArguments("");
-    }
     registerStarlarkAction(
         outputs,
         inputs,
-        /*unusedInputsList=*/ Starlark.NONE,
+        /* unusedInputsList= */ Starlark.NONE,
         toolsUnchecked,
         mnemonicUnchecked,
         progressMessage,
@@ -553,6 +648,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         execGroupUnchecked,
         shadowedActionUnchecked,
         resourceSetUnchecked,
+        toolchainUnchecked,
         builder);
   }
 
@@ -600,6 +696,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Object execGroupUnchecked,
       Object shadowedActionUnchecked,
       Object resourceSetUnchecked,
+      Object toolchainUnchecked,
       StarlarkAction.Builder builder)
       throws EvalException {
     if (inputs instanceof Sequence) {
@@ -625,6 +722,9 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       }
     }
 
+    RuleContext ruleContext = getRuleContext();
+    boolean useAutoExecGroups = ruleContext.useAutoExecGroups();
+
     if (toolsUnchecked != Starlark.UNBOUND) {
       List<?> tools =
           toolsUnchecked instanceof Sequence
@@ -638,11 +738,23 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
           FilesToRunProvider provider = context.getExecutableRunfiles(artifact);
           if (provider != null) {
             builder.addTool(provider);
+          } else {
+            if (useAutoExecGroups && execGroupUnchecked == Starlark.NONE) {
+              checkToolchainParameterIsSet(toolchainUnchecked);
+            }
           }
         } else if (toolUnchecked instanceof FilesToRunProvider) {
+          if (useAutoExecGroups
+              && !context.areRunfilesFromDeps((FilesToRunProvider) toolUnchecked)
+              && execGroupUnchecked == Starlark.NONE) {
+            checkToolchainParameterIsSet(toolchainUnchecked);
+          }
           builder.addTool((FilesToRunProvider) toolUnchecked);
         } else if (toolUnchecked instanceof Depset) {
           try {
+            if (useAutoExecGroups && execGroupUnchecked == Starlark.NONE) {
+              checkToolchainParameterIsSet(toolchainUnchecked);
+            }
             builder.addTransitiveTools(((Depset) toolUnchecked).getSet(Artifact.class));
           } catch (TypeException e) {
             throw Starlark.errorf(
@@ -676,13 +788,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       builder.useDefaultShellEnvironment();
     }
 
-    RuleContext ruleContext = getRuleContext();
-
     ImmutableMap<String, String> executionInfo =
         TargetUtils.getFilteredExecutionInfo(
             executionRequirementsUnchecked,
             ruleContext.getRule(),
-            getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_ALLOW_TAGS_PROPAGATION));
+            getSemantics().getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION));
     builder.setExecutionInfo(executionInfo);
 
     if (inputManifestsUnchecked != Starlark.NONE) {
@@ -692,11 +802,42 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       }
     }
 
-    if (execGroupUnchecked == Starlark.NONE) {
-      builder.setExecGroup(ExecGroup.DEFAULT_EXEC_GROUP_NAME);
+    Label toolchainLabel = null;
+    if (toolchainUnchecked instanceof Label) {
+      toolchainLabel = (Label) toolchainUnchecked;
+    } else if (toolchainUnchecked instanceof String) {
+      try {
+        toolchainLabel =
+            Label.parseWithPackageContext(
+                (String) toolchainUnchecked, ruleContext.getPackageContext());
+      } catch (LabelSyntaxException e) {
+        throw Starlark.errorf("%s", e.getMessage());
+      }
+    }
+
+    if (execGroupUnchecked != Starlark.NONE) {
+      String execGroup = (String) execGroupUnchecked;
+      verifyExecGroupExists(execGroup, ruleContext);
+      checkValidGroupName(execGroup);
+
+      // If toolchain and exec_groups are both defined, verify they are compatible.
+      if (useAutoExecGroups && toolchainLabel != null) {
+        if (ruleContext.getExecGroups().getExecGroup(execGroup).toolchainTypes().stream()
+            .map(ToolchainTypeRequirement::toolchainType)
+            .noneMatch(toolchainLabel::equals)) {
+          throw Starlark.errorf(
+              "`toolchain` and `exec_group` parameters inside actions.{run, run_shell} are not"
+                  + " compatible; use one of them or define `toolchain` which is compatible with"
+                  + " the exec_group (already exists inside the `exec_group`)");
+        }
+      }
+
+      builder.setExecGroup(execGroup);
+    } else if (useAutoExecGroups && toolchainLabel != null) {
+      verifyAutomaticExecGroupExists(toolchainLabel.toString(), ruleContext);
+      builder.setExecGroup(toolchainLabel.toString());
     } else {
-      verifyExecGroup(execGroupUnchecked, ruleContext);
-      builder.setExecGroup((String) execGroupUnchecked);
+      builder.setExecGroup(ExecGroup.DEFAULT_EXEC_GROUP_NAME);
     }
 
     if (shadowedActionUnchecked != Starlark.NONE) {
@@ -899,6 +1040,17 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   @Override
   public TemplateDictApi templateDict() {
     return TemplateDict.newDict();
+  }
+
+  @Override
+  public FileApi createShareableArtifact(String path, Object artifactRoot, StarlarkThread thread)
+      throws EvalException {
+    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, PRIVATE_STARLARKIFICATION_ALLOWLIST);
+    ArtifactRoot root =
+        artifactRoot == Starlark.UNBOUND
+            ? getRuleContext().getBinDirectory()
+            : (ArtifactRoot) artifactRoot;
+    return getRuleContext().getShareableArtifact(PathFragment.create(path), root);
   }
 
   @Override

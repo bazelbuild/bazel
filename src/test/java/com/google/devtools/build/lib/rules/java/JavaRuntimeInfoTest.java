@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -35,7 +36,10 @@ public class JavaRuntimeInfoTest {
             PathFragment.create(""),
             PathFragment.create(""),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-            null);
+            null,
+            null,
+            ImmutableList.of(),
+            17);
     JavaRuntimeInfo b =
         JavaRuntimeInfo.create(
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
@@ -44,7 +48,10 @@ public class JavaRuntimeInfoTest {
             PathFragment.create(""),
             PathFragment.create(""),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-            null);
+            null,
+            null,
+            ImmutableList.of(),
+            17);
 
     new EqualsTester().addEqualityGroup(a).addEqualityGroup(b).testEquals();
   }

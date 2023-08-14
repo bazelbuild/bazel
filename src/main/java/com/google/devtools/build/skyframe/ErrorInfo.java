@@ -83,6 +83,7 @@ public final class ErrorInfo {
   private final boolean isTransitivelyTransient;
   private final boolean isCatastrophic;
 
+  @SuppressWarnings("LenientFormatStringValidation")
   public ErrorInfo(
       @Nullable Exception exception,
       ImmutableList<CycleInfo> cycles,
@@ -94,10 +95,12 @@ public final class ErrorInfo {
     this.isDirectlyTransient = isDirectlyTransient;
     this.isTransitivelyTransient = isTransitivelyTransient;
     this.isCatastrophic = isCatastrophic;
+    // Expected 0 args, but got 1.
     Preconditions.checkArgument(
         exception != null || !cycles.isEmpty(),
         "At least one of exception and cycles must be present",
         this);
+    // Expected 0 args, but got 1.
     Preconditions.checkArgument(
         !isDirectlyTransient || isTransitivelyTransient,
         "Cannot be directly transient but not transitively transient",

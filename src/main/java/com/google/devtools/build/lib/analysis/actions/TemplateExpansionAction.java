@@ -18,9 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.AbstractAction;
-import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -30,7 +28,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.SpawnContinuation;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -130,27 +128,18 @@ public final class TemplateExpansionAction extends AbstractAction {
         makeExecutable);
   }
 
-  @VisibleForTesting
-  public String getFileContents() throws IOException, EvalException {
-    return LocalTemplateExpansionStrategy.INSTANCE.getExpandedTemplateUnsafe(this,
-        ArtifactPathResolver.IDENTITY);
-  }
-
-  @Override
-  public String getStarlarkContent() throws IOException, EvalException {
-    return getFileContents();
-  }
-
-  @Override
-  public final ActionContinuationOrResult beginExecution(
-      ActionExecutionContext actionExecutionContext)
-      throws InterruptedException, ActionExecutionException {
-    SpawnContinuation first;
+  static ActionResult execute(
+      ActionExecutionContext actionExecutionContext,
+      AbstractAction action,
+      TemplateExpansionContext.TemplateMetadata templateMetadata)
+      throws ActionExecutionException, InterruptedException {
     try {
-      first =
+      ImmutableList<SpawnResult> result =
           actionExecutionContext
               .getContext(TemplateExpansionContext.class)
-              .expandTemplate(TemplateExpansionAction.this, actionExecutionContext);
+              .expandTemplate(action, actionExecutionContext, templateMetadata);
+
+      return ActionResult.create(result);
     } catch (EvalException e) {
       DetailedExitCode exitCode =
           DetailedExitCode.of(
@@ -159,33 +148,35 @@ public final class TemplateExpansionAction extends AbstractAction {
                       Execution.newBuilder()
                           .setCode(Execution.Code.LOCAL_TEMPLATE_EXPANSION_FAILURE))
                   .build());
-      throw new ActionExecutionException(e, /* action= */ this, /* catastrophe= */ false, exitCode);
+      throw new ActionExecutionException(e, action, /* catastrophe= */ false, exitCode);
+    } catch (ExecException e) {
+      throw ActionExecutionException.fromExecException(e, action);
     }
-    return new ActionContinuationOrResult() {
-      private SpawnContinuation spawnContinuation = first;
+  }
 
-      @Nullable
-      @Override
-      public ListenableFuture<?> getFuture() {
-        return spawnContinuation.getFuture();
-      }
+  @Override
+  public ActionResult execute(ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException, InterruptedException {
+    return TemplateExpansionAction.execute(
+        actionExecutionContext,
+        this,
+        TemplateExpansionContext.TemplateMetadata.builder()
+            .setTemplate(template)
+            .setPrimaryOutput(getPrimaryOutput())
+            .setSubstitutions(substitutions)
+            .setMakeExecutable(makeExecutable)
+            .build());
+  }
 
-      @Override
-      public ActionContinuationOrResult execute()
-          throws ActionExecutionException, InterruptedException {
-        SpawnContinuation nextContinuation;
-        try {
-          nextContinuation = spawnContinuation.execute();
-          if (!nextContinuation.isDone()) {
-            spawnContinuation = nextContinuation;
-            return this;
-          }
-        } catch (ExecException e) {
-          throw ActionExecutionException.fromExecException(e, TemplateExpansionAction.this);
-        }
-        return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
-      }
-    };
+  @VisibleForTesting
+  public String getFileContents() throws IOException, EvalException {
+    return LocalTemplateExpansionStrategy.INSTANCE.getExpandedTemplateUnsafe(
+        template, substitutions, ArtifactPathResolver.IDENTITY);
+  }
+
+  @Override
+  public String getStarlarkContent() throws IOException, EvalException {
+    return getFileContents();
   }
 
   @Override

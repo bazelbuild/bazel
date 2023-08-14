@@ -70,7 +70,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -272,7 +271,9 @@ final class ExecutionServer extends ExecutionImplBase {
     Path workingDirectory = execRoot.getRelative(command.getWorkingDirectory());
     workingDirectory.createDirectoryAndParents();
 
-    List<Path> outputs = new ArrayList<>(command.getOutputFilesList().size());
+    List<Path> outputs =
+        new ArrayList<>(command.getOutputDirectoriesCount() + command.getOutputFilesCount());
+
     for (String output : command.getOutputFilesList()) {
       Path file = workingDirectory.getRelative(output);
       if (file.exists()) {
@@ -287,9 +288,6 @@ final class ExecutionServer extends ExecutionImplBase {
         if (!file.isDirectory()) {
           throw new FileAlreadyExistsException(
               "Non-directory exists at output directory path: " + file);
-        } else if (!file.getDirectoryEntries().isEmpty()) {
-          throw new FileAlreadyExistsException(
-              "Non-empty directory exists at output directory path: " + file);
         }
       }
       file.getParentDirectory().createDirectoryAndParents();
@@ -357,6 +355,7 @@ final class ExecutionServer extends ExecutionImplBase {
         UploadManifest manifest =
             UploadManifest.create(
                 cache.getRemoteOptions(),
+                cache.getCacheCapabilities(),
                 digestUtil,
                 RemotePathResolver.createDefault(workingDirectory),
                 actionKey,
@@ -365,8 +364,8 @@ final class ExecutionServer extends ExecutionImplBase {
                 outputs,
                 outErr,
                 exitCode,
-                Optional.of(startTime),
-                Optional.of(wallTime));
+                startTime,
+                (int) wallTime.toMillis());
         result = manifest.upload(context, cache, NullEventHandler.INSTANCE);
       } catch (ExecException e) {
         if (errStatus == null) {

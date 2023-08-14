@@ -17,7 +17,9 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -49,6 +51,38 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
     ImmutableSet<String> features = getRuleContext(configure("//a")).getFeatures();
     assertThat(features).contains("feature");
     assertThat(features).doesNotContain("other");
+  }
+
+  @Test
+  public void testTargetIgnoresHostFeatures() throws Exception {
+    useConfiguration("--features=feature", "--host_features=host_feature");
+    scratch.file("a/BUILD", "cc_library(name = 'a')");
+    ImmutableSet<String> features = getRuleContext(configure("//a")).getFeatures();
+    assertThat(features).contains("feature");
+    assertThat(features).doesNotContain("host_feature");
+  }
+
+  @Test
+  public void testHostFeatures() throws Exception {
+    useConfiguration("--features=feature", "--host_features=host_feature");
+    scratch.file("a/BUILD", "cc_library(name = 'a')");
+    ImmutableSet<String> features =
+        getRuleContext(getConfiguredTarget("//a", getExecConfiguration())).getFeatures();
+    assertThat(features).contains("host_feature");
+    assertThat(features).doesNotContain("feature");
+  }
+
+  @Test
+  public void testHostFeaturesIncompatibleDisabled() throws Exception {
+    useConfiguration(
+        "--features=feature",
+        "--host_features=host_feature",
+        "--incompatible_use_host_features=false");
+    scratch.file("a/BUILD", "cc_library(name = 'a')");
+    ImmutableSet<String> features =
+        getRuleContext(getConfiguredTarget("//a", getExecConfiguration())).getFeatures();
+    assertThat(features).contains("feature");
+    assertThat(features).doesNotContain("host_feature");
   }
 
   @Test
@@ -220,6 +254,29 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testDependsOnTestOnlyOutputFileDisallowed() throws Exception {
+    useConfiguration("--incompatible_check_testonly_for_output_files");
+    scratch.file(
+        "testonly/BUILD",
+        "genrule(name = 'testutil',",
+        "        outs = ['testutil.cc'],",
+        "        cmd = 'touch testutil.cc',",
+        "        srcs = [],",
+        "        testonly = 1)");
+    checkError(
+        "cc/error",
+        "cclib",
+        // error:
+        "non-test target '//cc/error:cclib' depends on the output file target"
+            + " '//testonly:testutil.cc' of a testonly rule //testonly:testutil and doesn't have"
+            + " testonly attribute set",
+        // build file: testonly=0 -> testonly=1
+        "cc_library(name = 'cclib',",
+        "           srcs  = ['//testonly:testutil.cc'],",
+        "           testonly = 0)");
+  }
+
+  @Test
   public void testDependenceOnDeprecatedRule() throws Exception {
     scratch.file("p/BUILD",
                 "cc_library(name='p', deps=['//q'])");
@@ -379,5 +436,22 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
         .isNull();
     assertThat(getConfiguredTarget("//a:config").getProvider(RequiredConfigFragmentsProvider.class))
         .isNull();
+  }
+
+  @Test
+  public void findArtifactByOutputLabel_twoOutputsWithSameBasename() throws Exception {
+    scratch.file(
+        "foo/BUILD", "genrule(name = 'gen', outs = ['sub/out', 'out'], cmd = 'touch $(OUTS)')");
+    RuleConfiguredTarget foo = (RuleConfiguredTarget) getConfiguredTarget("//foo:gen");
+    assertThat(
+            foo.findArtifactByOutputLabel(Label.parseCanonical("//foo:sub/out"))
+                .getRepositoryRelativePath()
+                .getPathString())
+        .isEqualTo("foo/sub/out");
+    assertThat(
+            foo.findArtifactByOutputLabel(Label.parseCanonical("//foo:out"))
+                .getRepositoryRelativePath()
+                .getPathString())
+        .isEqualTo("foo/out");
   }
 }

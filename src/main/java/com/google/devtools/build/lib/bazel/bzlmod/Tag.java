@@ -16,7 +16,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
-import net.starlark.java.eval.Dict;
+import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -26,12 +26,16 @@ import net.starlark.java.syntax.Location;
  * <em>not</em> when the tag is created, which is during module discovery).
  */
 @AutoValue
+@GenerateTypeAdapter
 public abstract class Tag {
 
   public abstract String getTagName();
 
   /** All keyword arguments supplied to the tag instance. */
-  public abstract Dict<String, Object> getAttributeValues();
+  public abstract AttributeValues getAttributeValues();
+
+  /** Whether this tag was created using a proxy created with dev_dependency = True. */
+  public abstract boolean isDevDependency();
 
   /** The source location in the module file where this tag was created. */
   public abstract Location getLocation();
@@ -46,7 +50,9 @@ public abstract class Tag {
 
     public abstract Builder setTagName(String value);
 
-    public abstract Builder setAttributeValues(Dict<String, Object> value);
+    public abstract Builder setAttributeValues(AttributeValues value);
+
+    public abstract Builder setDevDependency(boolean value);
 
     public abstract Builder setLocation(Location value);
 

@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
-import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -41,7 +40,7 @@ import org.junit.runners.JUnit4;
 public class ObjcProviderTest {
 
   private static ObjcProvider.StarlarkBuilder objcProviderBuilder() {
-    return new ObjcProvider.StarlarkBuilder(StarlarkSemantics.DEFAULT);
+    return new ObjcProvider.StarlarkBuilder();
   }
 
   private static ImmutableList<ObjcProvider.Key<?>> getAllKeys() throws Exception {
@@ -64,7 +63,7 @@ public class ObjcProviderTest {
   @Test
   public void emptyProvider() {
     ObjcProvider empty = objcProviderBuilder().build();
-    assertThat(empty.get(ObjcProvider.SDK_DYLIB).toList()).isEmpty();
+    assertThat(empty.get(ObjcProvider.SOURCE).toList()).isEmpty();
   }
 
   @Test
@@ -111,7 +110,7 @@ public class ObjcProviderTest {
   public void directFieldsAddFromStarlark() throws Exception {
     ImmutableList<Artifact> artifacts =
         ImmutableList.of(createArtifact("/foo"), createArtifact("/bar"));
-    Depset set = Depset.of(Artifact.TYPE, NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts));
+    Depset set = Depset.of(Artifact.class, NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts));
     ObjcProvider.StarlarkBuilder builder = objcProviderBuilder();
     builder.addElementsFromStarlark(ObjcProvider.SOURCE, set);
     builder.addElementsFromStarlark(ObjcProvider.MODULE_MAP, set);
@@ -122,10 +121,10 @@ public class ObjcProviderTest {
 
   @Test
   public void onlyPropagatesProvider() {
-    ObjcProvider onlyPropagates = objcProviderBuilder()
-        .add(ObjcProvider.SDK_DYLIB, "foo")
-        .build();
-    assertThat(onlyPropagates.get(ObjcProvider.SDK_DYLIB).toList()).containsExactly("foo");
+    Artifact artifact = createArtifact("/lib.a");
+    ObjcProvider onlyPropagates =
+        objcProviderBuilder().add(ObjcProvider.J2OBJC_LIBRARY, artifact).build();
+    assertThat(onlyPropagates.get(ObjcProvider.J2OBJC_LIBRARY).toList()).containsExactly(artifact);
   }
 
   @Test

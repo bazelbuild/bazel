@@ -66,8 +66,8 @@ import net.starlark.java.annot.StarlarkMethod;
             + " dictionaries are mutable, and may be updated by assigning to <code>d[k]</code> or"
             + " by calling certain methods. Dictionaries are iterable; iteration yields the"
             + " sequence of keys in insertion order. Iteration order is unaffected by updating the"
-            + " value associated with an existing key, but is affected by removing then"
-            + " reinserting a key.\n"
+            + " value associated with an existing key, but is affected by removing then reinserting"
+            + " a key.\n"
             + "<pre>d = {0: 0, 2: 2, 1: 1}\n"
             + "[k for k in d]  # [0, 2, 1]\n"
             + "d.pop(2)\n"
@@ -79,8 +79,7 @@ import net.starlark.java.annot.StarlarkMethod;
             + "<ol>\n"
             + "<li>A dictionary expression <code>{k: v, ...}</code> yields a new dictionary with"
             + " the specified key/value entries, inserted in the order they appear in the"
-            + " expression. Evaluation fails if any two key expressions yield the same"
-            + " value.\n"
+            + " expression. Evaluation fails if any two key expressions yield the same value.\n"
             + "<li>A dictionary comprehension <code>{k: v for vars in seq}</code> yields a new"
             + " dictionary into which each key/value pair is inserted in loop iteration order."
             + " Duplicates are permitted: the first insertion of a given key determines its"
@@ -89,22 +88,20 @@ import net.starlark.java.annot.StarlarkMethod;
             + "{k: v for k, v in ((\"a\", 0), (\"b\", 1), (\"a\", 2))}  # {\"a\": 2, \"b\": 1}\n"
             + "{i: 2*i for i in range(3)}  # {0: 0, 1: 2, 2: 4}\n"
             + "</pre>\n"
-            + "<li>A call to the built-in <a href=\"globals.html#dict\">dict</a> function returns"
-            + " a dictionary containing the specified entries, which are inserted in argument"
-            + " order, positional arguments before named. As with comprehensions, duplicate keys"
-            + " are permitted.\n"
+            + "<li>A call to the built-in <a href=\"../globals/all.html#dict\">dict</a> function"
+            + " returns a dictionary containing the specified entries, which are inserted in"
+            + " argument order, positional arguments before named. As with comprehensions,"
+            + " duplicate keys are permitted.\n"
             + "<li>The union expression <code>x | y</code> yields a new dictionary by combining two"
             + " existing dictionaries. If the two dictionaries have a key <code>k</code> in common,"
             + " the right hand side dictionary's value of the key (in other words,"
             + " <code>y[k]</code>) wins. The <code>|=</code> variant of the union operator modifies"
-            + " a dictionary in-place. Example:<br>"
-            + "<pre class=language-python>"
-            + "d = {\"foo\": \"FOO\", \"bar\": \"BAR\"} | {\"foo\": \"FOO2\", \"baz\": \"BAZ\"}\n"
+            + " a dictionary in-place. Example:<br><pre class=language-python>d = {\"foo\":"
+            + " \"FOO\", \"bar\": \"BAR\"} | {\"foo\": \"FOO2\", \"baz\": \"BAZ\"}\n"
             + "# d == {\"foo\": \"FOO2\", \"bar\": \"BAR\", \"baz\": \"BAZ\"}\n"
             + "d = {\"a\": 1, \"b\": 2}\n"
             + "d |= {\"b\": 3, \"c\": 4}\n"
-            + "# d == {\"a\": 1, \"b\": 3, \"c\": 4}</pre>"
-            + "</ol>")
+            + "# d == {\"a\": 1, \"b\": 3, \"c\": 4}</pre></ol>")
 public class Dict<K, V>
     implements Map<K, V>,
         StarlarkValue,
@@ -339,10 +336,10 @@ public class Dict<K, V>
 
   // Common implementation of dict(pairs, **kwargs) and dict.update(pairs, **kwargs).
   static void update(
-      String funcname, Dict<Object, Object> dict, Object pairs, Dict<String, Object> kwargs)
+      String funcname, Dict<Object, Object> dict, Object pairs, Map<String, Object> kwargs)
       throws EvalException {
-    if (pairs instanceof Dict) { // common case
-      dict.putEntries((Dict<?, ?>) pairs);
+    if (pairs instanceof Map) { // common case
+      dict.putEntries((Map<?, ?>) pairs);
     } else {
       Iterable<?> iterable;
       try {
@@ -434,7 +431,7 @@ public class Dict<K, V>
     if (mu == Mutability.IMMUTABLE) {
       return empty();
     } else {
-      return new Dict<>(mu, new LinkedHashMap<>());
+      return new Dict<>(mu, Maps.newLinkedHashMapWithExpectedSize(1));
     }
   }
 
@@ -444,31 +441,35 @@ public class Dict<K, V>
       mu = Mutability.IMMUTABLE;
     }
 
-    if (mu == Mutability.IMMUTABLE && m instanceof Dict && ((Dict) m).isImmutable()) {
-      @SuppressWarnings("unchecked")
-      Dict<K, V> dict = (Dict<K, V>) m; // safe
-      return dict;
-    }
-
     if (mu == Mutability.IMMUTABLE) {
       if (m.isEmpty()) {
         return empty();
       }
+
+      if (m instanceof ImmutableMap) {
+        m.forEach(
+            (k, v) -> {
+              Starlark.checkValid(k);
+              Starlark.checkValid(v);
+            });
+        @SuppressWarnings("unchecked")
+        var immutableMap = (ImmutableMap<K, V>) m;
+        return new Dict<>(immutableMap);
+      }
+
+      if (m instanceof Dict && ((Dict<?, ?>) m).isImmutable()) {
+        @SuppressWarnings("unchecked")
+        var dict = (Dict<K, V>) m;
+        return dict;
+      }
+
       ImmutableMap.Builder<K, V> immutableMapBuilder =
           ImmutableMap.builderWithExpectedSize(m.size());
-      for (Map.Entry<? extends K, ? extends V> e : m.entrySet()) {
-        immutableMapBuilder.put(
-            Starlark.checkValid(e.getKey()), //
-            Starlark.checkValid(e.getValue()));
-      }
+      m.forEach((k, v) -> immutableMapBuilder.put(Starlark.checkValid(k), Starlark.checkValid(v)));
       return new Dict<>(immutableMapBuilder.buildOrThrow());
     } else {
-      LinkedHashMap<K, V> linkedHashMap = new LinkedHashMap<>();
-      for (Map.Entry<? extends K, ? extends V> e : m.entrySet()) {
-        linkedHashMap.put(
-            Starlark.checkValid(e.getKey()), //
-            Starlark.checkValid(e.getValue()));
-      }
+      LinkedHashMap<K, V> linkedHashMap = Maps.newLinkedHashMapWithExpectedSize(m.size());
+      m.forEach((k, v) -> linkedHashMap.put(Starlark.checkValid(k), Starlark.checkValid(v)));
       return new Dict<>(mu, linkedHashMap);
     }
   }

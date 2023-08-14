@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Maintaining Bazel Scoop package on Windows
 
+{% include "_buttons.html" %}
+
 Note: The Scoop package is experimental. To provide feedback, go to
 `@excitoon` in issue tracker.
 

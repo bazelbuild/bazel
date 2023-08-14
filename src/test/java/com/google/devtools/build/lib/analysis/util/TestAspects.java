@@ -17,7 +17,6 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING;
-import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
@@ -48,7 +47,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
-import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -59,7 +57,6 @@ import com.google.devtools.build.lib.packages.StarlarkNativeAspect;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.io.Serializable;
 import java.util.List;
@@ -239,7 +236,8 @@ public class TestAspects {
     implements ConfiguredAspectFactory {
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase,
+        Label targetLabel,
+        ConfiguredTarget ct,
         RuleContext ruleContext,
         AspectParameters parameters,
         RepositoryName toolsRepository)
@@ -284,7 +282,8 @@ public class TestAspects {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase,
+        Label targetLabel,
+        ConfiguredTarget ct,
         RuleContext ruleContext,
         AspectParameters parameters,
         RepositoryName toolsRepository)
@@ -315,7 +314,8 @@ public class TestAspects {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase,
+        Label targetLabel,
+        ConfiguredTarget ct,
         RuleContext ruleContext,
         AspectParameters parameters,
         RepositoryName toolsRepository)
@@ -334,7 +334,8 @@ public class TestAspects {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase,
+        Label targetLabel,
+        ConfiguredTarget ct,
         RuleContext ruleContext,
         AspectParameters parameters,
         RepositoryName toolsRepository)
@@ -350,7 +351,7 @@ public class TestAspects {
     EXTRA_ATTRIBUTE_ASPECT_REQUIRING_PROVIDER = new ExtraAttributeAspectRequiringProvider();
   private static final AspectDefinition EXTRA_ATTRIBUTE_ASPECT_REQUIRING_PROVIDER_DEFINITION =
       new AspectDefinition.Builder(EXTRA_ATTRIBUTE_ASPECT_REQUIRING_PROVIDER)
-          .add(attr("$dep", LABEL).value(Label.parseAbsoluteUnchecked("//extra:extra")))
+          .add(attr("$dep", LABEL).value(Label.parseCanonicalUnchecked("//extra:extra")))
           .requireProviders(RequiredProvider.class)
           .build();
 
@@ -375,14 +376,15 @@ public class TestAspects {
         String depLabel,
         boolean applyToFiles,
         Class<? extends TransitiveInfoProvider>... requiredAspectProviders) {
-      this.depLabel = Label.parseAbsoluteUnchecked(depLabel);
+      this.depLabel = Label.parseCanonicalUnchecked(depLabel);
       this.applyToFiles = applyToFiles;
       this.requiredAspectProviders = requiredAspectProviders;
     }
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase,
+        Label targetLabel,
+        ConfiguredTarget ct,
         RuleContext ruleContext,
         AspectParameters parameters,
         RepositoryName toolsRepository)
@@ -393,7 +395,7 @@ public class TestAspects {
         return ConfiguredAspect.builder(ruleContext).build();
       }
       return ConfiguredAspect.builder(ruleContext)
-          .addProvider(Provider.create(dep.getLabel().getCanonicalForm()))
+          .addProvider(ExtraAttributeAspect.Provider.create(dep.getLabel().getCanonicalForm()))
           .build();
     }
 
@@ -408,7 +410,7 @@ public class TestAspects {
           new AspectDefinition.Builder(this)
               .add(attr("$dep", LABEL).value(depLabel))
               .applyToFiles(applyToFiles)
-              .advertiseProvider(Provider.class);
+              .advertiseProvider(ExtraAttributeAspect.Provider.class);
 
       if (requiredAspectProviders.length > 0) {
         aspectDefinition.requireAspectsWithBuiltinProviders(requiredAspectProviders);
@@ -432,24 +434,14 @@ public class TestAspects {
       new AspectDefinition.Builder(PACKAGE_GROUP_ATTRIBUTE_ASPECT)
           .add(
               attr("$dep", LABEL)
-                  .value(Label.parseAbsoluteUnchecked("//extra:extra"))
+                  .value(Label.parseCanonicalUnchecked("//extra:extra"))
                   .mandatoryProviders(ImmutableList.of(PackageGroupConfiguredTarget.PROVIDER.id())))
           .build();
 
   public static final ComputedAttributeAspect COMPUTED_ATTRIBUTE_ASPECT =
       new ComputedAttributeAspect();
   private static final AspectDefinition COMPUTED_ATTRIBUTE_ASPECT_DEFINITION =
-      new AspectDefinition.Builder(COMPUTED_ATTRIBUTE_ASPECT)
-          .add(
-              attr("$default_copts", STRING_LIST)
-                  .value(
-                      new ComputedDefault() {
-                        @Override
-                        public Object getDefault(AttributeMap rule) {
-                          return rule.getPackageDefaultCopts();
-                        }
-                      }))
-          .build();
+      new AspectDefinition.Builder(COMPUTED_ATTRIBUTE_ASPECT).build();
 
   /** An aspect that defines its own computed default attribute. */
   public static class ComputedAttributeAspect extends BaseAspect {
@@ -498,7 +490,7 @@ public class TestAspects {
           .add(
               attr("$tool", BuildType.LABEL)
                   .allowedFileTypes(FileTypeSet.ANY_FILE)
-                  .value(Label.parseAbsoluteUnchecked("//a:tool")))
+                  .value(Label.parseCanonicalUnchecked("//a:tool")))
           .build();
 
   /**
@@ -553,7 +545,8 @@ public class TestAspects {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase,
+        Label targetLabel,
+        ConfiguredTarget ct,
         RuleContext ruleContext,
         AspectParameters parameters,
         RepositoryName toolsRepository)
@@ -587,7 +580,8 @@ public class TestAspects {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase,
+        Label targetLabel,
+        ConfiguredTarget ct,
         RuleContext ruleContext,
         AspectParameters parameters,
         RepositoryName toolsRepository)
@@ -636,7 +630,8 @@ public class TestAspects {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase,
+        Label targetLabel,
+        ConfiguredTarget ct,
         RuleContext ruleContext,
         AspectParameters parameters,
         RepositoryName toolsRepository)
@@ -686,12 +681,13 @@ public class TestAspects {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase,
+        Label targetLabel,
+        ConfiguredTarget ct,
         RuleContext ruleContext,
         AspectParameters parameters,
         RepositoryName toolsRepository)
         throws ActionConflictException, InterruptedException {
-      ruleContext.ruleWarning("Aspect warning on " + ctadBase.getTarget().getLabel());
+      ruleContext.ruleWarning("Aspect warning on " + targetLabel);
       return new ConfiguredAspect.Builder(ruleContext).build();
     }
 
@@ -715,7 +711,8 @@ public class TestAspects {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase,
+        Label targetLabel,
+        ConfiguredTarget ct,
         RuleContext ruleContext,
         AspectParameters parameters,
         RepositoryName toolsRepository) {
@@ -748,7 +745,8 @@ public class TestAspects {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase,
+        Label targetLabel,
+        ConfiguredTarget ct,
         RuleContext context,
         AspectParameters parameters,
         RepositoryName toolsRepository)
@@ -968,13 +966,14 @@ public class TestAspects {
                   .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
                   .advertiseProvider(RequiredProvider2.class));
 
-  /**
-   * Rule with an implcit dependency.
-   */
-  public static final MockRule IMPLICIT_DEP_RULE = () ->
-      MockRule.ancestor(BASE_RULE.getClass()).factory(DummyRuleFactory.class).define(
-          "implicit_dep",
-          attr("$dep", LABEL).value(Label.parseAbsoluteUnchecked("//extra:extra")));
+  /** Rule with an implicit dependency. */
+  public static final MockRule IMPLICIT_DEP_RULE =
+      () ->
+          MockRule.ancestor(BASE_RULE.getClass())
+              .factory(DummyRuleFactory.class)
+              .define(
+                  "implicit_dep",
+                  attr("$dep", LABEL).value(Label.parseCanonicalUnchecked("//extra:extra")));
 
   // TODO(b/65746853): provide a way to do this without passing the entire configuration
   private static final LabelListLateBoundDefault<?> PLUGINS_LABEL_LIST =
@@ -1019,13 +1018,14 @@ public class TestAspects {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase,
+        Label targetLabel,
+        ConfiguredTarget ct,
         RuleContext context,
         AspectParameters parameters,
         RepositoryName toolsRepository)
         throws InterruptedException, ActionConflictException {
       return ConfiguredAspect.builder(context)
-          .addProvider(Provider.class, new Provider(ctadBase.getConfiguredTarget().getLabel()))
+          .addProvider(Provider.class, new Provider(ct.getLabel()))
           .build();
     }
   }

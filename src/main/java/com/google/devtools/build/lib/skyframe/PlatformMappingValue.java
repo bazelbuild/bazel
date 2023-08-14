@@ -19,18 +19,17 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.google.auto.value.AutoValue;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -61,7 +60,7 @@ public final class PlatformMappingValue implements SkyValue {
   @ThreadSafety.Immutable
   @AutoCodec
   public static final class Key implements SkyKey {
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     /**
      * Creates a new platform mappings key with the given, main workspace-relative path to the
@@ -134,12 +133,17 @@ public final class PlatformMappingValue implements SkyValue {
           + wasExplicitlySetByUser
           + "}";
     }
+
+    @Override
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
+      return interner;
+    }
   }
 
-  private final ImmutableMap<Label, ImmutableSet<String>> platformsToFlags;
+  private final ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags;
   private final ImmutableMap<ImmutableSet<String>, Label> flagsToPlatforms;
   private final ImmutableSet<Class<? extends FragmentOptions>> optionsClasses;
-  private final LoadingCache<ImmutableSet<String>, OptionsParsingResult> parserCache;
+  private final LoadingCache<NativeAndStarlarkFlags, OptionsParsingResult> parserCache;
   private final LoadingCache<BuildConfigurationKey, BuildConfigurationKey> mappingCache;
 
   /**
@@ -153,7 +157,7 @@ public final class PlatformMappingValue implements SkyValue {
    * @param optionsClasses default options classes that should be used for options parsing
    */
   PlatformMappingValue(
-      ImmutableMap<Label, ImmutableSet<String>> platformsToFlags,
+      ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags,
       ImmutableMap<ImmutableSet<String>, Label> flagsToPlatforms,
       ImmutableSet<Class<? extends FragmentOptions>> optionsClasses) {
     this.platformsToFlags = checkNotNull(platformsToFlags);
@@ -199,6 +203,11 @@ public final class PlatformMappingValue implements SkyValue {
       throws OptionsParsingException {
     BuildOptions originalOptions = original.getOptions();
 
+    if (originalOptions.hasNoConfig()) {
+      // The empty configuration (produced by NoConfigTransition) is terminal: it'll never change.
+      return original;
+    }
+
     checkArgument(
         originalOptions.contains(PlatformOptions.class),
         "When using platform mappings, all configurations must contain platform options");
@@ -221,7 +230,9 @@ public final class PlatformMappingValue implements SkyValue {
     } else {
       boolean mappingFound = false;
       for (Map.Entry<ImmutableSet<String>, Label> flagsToPlatform : flagsToPlatforms.entrySet()) {
-        if (originalOptions.matches(parseWithCache(flagsToPlatform.getKey()))) {
+        if (originalOptions.matches(
+            parseWithCache(
+                NativeAndStarlarkFlags.create(flagsToPlatform.getKey(), ImmutableMap.of())))) {
           modifiedOptions = originalOptions.clone();
           modifiedOptions.get(PlatformOptions.class).platforms =
               ImmutableList.of(flagsToPlatform.getValue());
@@ -240,7 +251,7 @@ public final class PlatformMappingValue implements SkyValue {
     return BuildConfigurationKey.withoutPlatformMapping(modifiedOptions);
   }
 
-  private OptionsParsingResult parseWithCache(ImmutableSet<String> args)
+  private OptionsParsingResult parseWithCache(NativeAndStarlarkFlags args)
       throws OptionsParsingException {
     try {
       return parserCache.get(args);
@@ -250,15 +261,15 @@ public final class PlatformMappingValue implements SkyValue {
     }
   }
 
-  private OptionsParsingResult parse(Iterable<String> args) throws OptionsParsingException {
+  private OptionsParsingResult parse(NativeAndStarlarkFlags args) throws OptionsParsingException {
     OptionsParser parser =
         OptionsParser.builder()
             .optionsClasses(optionsClasses)
             // We need the ability to re-map internal options in the mappings file.
             .ignoreInternalOptions(false)
             .build();
-    parser.parse(ImmutableList.copyOf(args));
-    // TODO(schmitt): Parse starlark options as well.
+    parser.parse(args.nativeFlags().asList());
+    parser.setStarlarkOptions(args.starlarkFlags());
     return parser;
   }
 
@@ -288,5 +299,23 @@ public final class PlatformMappingValue implements SkyValue {
         .add("platformsToFlags", platformsToFlags)
         .add("optionsClasses", optionsClasses)
         .toString();
+  }
+
+  /**
+   * Container for storing a {@code platform -> flags} native and Starlark flag settings in separate
+   * buckets.
+   *
+   * <p>This is necessary because native and Starlark flags are parsed with different logic.
+   */
+  @AutoValue
+  abstract static class NativeAndStarlarkFlags {
+    abstract ImmutableSet<String> nativeFlags();
+
+    abstract ImmutableMap<String, Object> starlarkFlags();
+
+    static NativeAndStarlarkFlags create(
+        ImmutableSet<String> nativeFlags, ImmutableMap<String, Object> starlarkFlags) {
+      return new AutoValue_PlatformMappingValue_NativeAndStarlarkFlags(nativeFlags, starlarkFlags);
+    }
   }
 }

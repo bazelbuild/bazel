@@ -221,6 +221,22 @@ EOF
   assert_contains "test content" "${base_external_path}/test_dir/test_file"
 }
 
+function test_http_archive_upper_case_sha() {
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = 'test_zstd_repo',
+    url = 'file://$(rlocation io_bazel/src/test/shell/bazel/testdata/zstd_test_archive.tar.zst)',
+    sha256 = '12B0116F2A3C804859438E102A8A1D5F494C108D1B026DA9F6CA55FB5107C7E9',
+    build_file_content = 'filegroup(name="x", srcs=glob(["*"]))',
+)
+EOF
+  bazel build @test_zstd_repo//...
+
+  base_external_path=bazel-out/../external/test_zstd_repo
+  assert_contains "test content" "${base_external_path}/test_dir/test_file"
+}
+
 function test_http_archive_no_server() {
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
@@ -750,6 +766,69 @@ EOF
 
   bazel build @x//:catter &> $TEST_log || fail "Build failed"
   assert_contains "abc" bazel-genfiles/external/x/catter.out
+}
+
+function test_adding_prefix_zip() {
+  mkdir -p z
+  echo "abc" > z/w
+  zip -r z z
+  local sha256=$(sha256sum z.zip | cut -f 1 -d ' ')
+  serve_file z.zip
+
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "ws",
+    url = "http://127.0.0.1:$nc_port/z.zip",
+    sha256 = "$sha256",
+    add_prefix = "x/y",
+    build_file = "@//:ws.BUILD",
+)
+EOF
+  cat > ws.BUILD <<EOF
+genrule(
+    name = "catter",
+    cmd = "cat \$< > \$@",
+    outs = ["catter.out"],
+    srcs = ["x/y/z/w"],
+)
+EOF
+  touch BUILD
+
+  bazel build @ws//:catter &> $TEST_log || fail "Build failed"
+  assert_contains "abc" bazel-genfiles/external/ws/catter.out
+}
+
+function test_adding_and_stripping_prefix_zip() {
+  mkdir -p z
+  echo "abc" > z/w
+  zip -r z z
+  local sha256=$(sha256sum z.zip | cut -f 1 -d ' ')
+  serve_file z.zip
+
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "ws",
+    url = "http://127.0.0.1:$nc_port/z.zip",
+    sha256 = "$sha256",
+    strip_prefix = "z",
+    add_prefix = "x",
+    build_file = "@//:ws.BUILD",
+)
+EOF
+  cat > ws.BUILD <<EOF
+genrule(
+    name = "catter",
+    cmd = "cat \$< > \$@",
+    outs = ["catter.out"],
+    srcs = ["x/w"],
+)
+EOF
+  touch BUILD
+
+  bazel build @ws//:catter &> $TEST_log || fail "Build failed"
+  assert_contains "abc" bazel-genfiles/external/ws/catter.out
 }
 
 function test_moving_build_file() {
@@ -1661,7 +1740,7 @@ EOF
 }
 
 function test_cache_hit_reported() {
-  # Verify that information about a chache hit is reported
+  # Verify that information about a cache hit is reported
   # if an error happend in that repository. This information
   # is useful as users sometimes change the URL but do not
   # update the hash.
@@ -2110,7 +2189,7 @@ genrule(
 )
 EOF
   bazel build --curses=yes //:local > "${TEST_log}" 2>&1 \
-      || fail "exepected succes"
+      || fail "expected success"
   expect_log "foo.*First action"
   expect_log "foo.*Second action"
 }
@@ -2470,7 +2549,7 @@ EOF
 
   expect_log "you have to add.*this_repo_is_missing.*WORKSPACE"
   # Also verify that the repository class and its definition is reported, to
-  # help finding out where the implict dependency comes from.
+  # help finding out where the implicit dependency comes from.
   expect_log "Repository data instantiated at:"
   expect_log ".../WORKSPACE:[0-9]*"
   expect_log "Repository rule data_repo defined at:"
@@ -2680,6 +2759,43 @@ EOF
   expect_log "//not-external:B"
   expect_log "//external/nested:a"
   expect_log "//external/nested:A"
+}
+
+function test_external_deps_skymeld() {
+  # A minimal build to make sure bazel in Skymeld mode can build with external
+  # dependencies.
+  mkdir ext
+  echo content > ext/ext
+  EXTREPODIR=`pwd`
+  zip ext.zip ext/*
+  rm -rf ext
+
+  rm -rf main
+  mkdir main
+  cd main
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  strip_prefix="ext",
+  url="file://${EXTREPODIR}/ext.zip",
+  build_file_content="exports_files([\"ext\"])",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = ["@ext//:ext"],
+  outs = ["foo"],
+  cmd = "cp $< $@",
+)
+EOF
+  execroot="$(bazel info execution_root)"
+
+  bazel build --experimental_merged_skyframe_analysis_execution //:foo \
+    || fail 'Expected build to succeed with Skymeld'
+
+  test -h "$execroot/external/ext" || fail "Expected symlink to external repo."
 }
 
 run_suite "external tests"

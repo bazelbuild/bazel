@@ -114,6 +114,7 @@ class Main {
   /** Provide a REPL evaluating Starlark code. */
   @SuppressWarnings("CatchAndPrintStackTrace")
   private static void readEvalPrintLoop() {
+    module.setDocumentation("<REPL>"); // Do not retrieve a module docstring from REPL input.
     System.err.println("Welcome to Starlark (java.starlark.net)");
     String line;
 

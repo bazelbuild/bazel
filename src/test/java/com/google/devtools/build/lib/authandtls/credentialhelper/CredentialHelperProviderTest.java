@@ -105,6 +105,15 @@ public class CredentialHelperProviderTest {
   }
 
   @Test
+  public void uriWithoutHostComponent() throws Exception {
+    Path helper = fileSystem.getPath(EXAMPLE_COM_HELPER_PATH);
+    CredentialHelperProvider provider =
+        CredentialHelperProvider.builder().add("example.com", helper).build();
+
+    assertThat(provider.findCredentialHelper(URI.create("unix:///path/to/socket"))).isEmpty();
+  }
+
+  @Test
   public void addNonExecutableDefaultHelper() throws Exception {
     Path helper = fileSystem.getPath("/path/to/non/executable");
     setUpHelper(helper);
@@ -128,6 +137,8 @@ public class CredentialHelperProviderTest {
     assertThat(provider.findCredentialHelper(URI.create("grpc://example.com/foo")).get().getPath())
         .isEqualTo(helper);
     assertThat(provider.findCredentialHelper(URI.create("grpcs://example.com/foo")).get().getPath())
+        .isEqualTo(helper);
+    assertThat(provider.findCredentialHelper(URI.create("unix:///tmp/grpc.sock")).get().getPath())
         .isEqualTo(helper);
     assertThat(
             provider.findCredentialHelper(URI.create("custom://example.com/foo")).get().getPath())
@@ -174,6 +185,8 @@ public class CredentialHelperProviderTest {
         .isEqualTo(defaultHelper);
     assertThat(
             provider.findCredentialHelper(URI.create("https://other-domain.com")).get().getPath())
+        .isEqualTo(defaultHelper);
+    assertThat(provider.findCredentialHelper(URI.create("unix:///tmp/grpc.sock")).get().getPath())
         .isEqualTo(defaultHelper);
   }
 
@@ -226,6 +239,9 @@ public class CredentialHelperProviderTest {
 
     assertThat(
             provider.findCredentialHelper(URI.create("https://other-domain.com")).get().getPath())
+        .isEqualTo(defaultHelper);
+
+    assertThat(provider.findCredentialHelper(URI.create("unix:///tmp/grpc.sock")).get().getPath())
         .isEqualTo(defaultHelper);
   }
 

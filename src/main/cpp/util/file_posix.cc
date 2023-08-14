@@ -265,16 +265,27 @@ int ReadFromHandle(file_handle_type fd, void *data, size_t size, int *error) {
   return result;
 }
 
-bool ReadFile(const string &filename, string *content, int max_size) {
+bool ReadFile(const string &filename, string *content, string *error_message,
+              int max_size) {
   int fd = open(filename.c_str(), O_RDONLY);
-  if (fd == -1) return false;
+  if (fd == -1) {
+    if (error_message != nullptr) {
+      *error_message = blaze_util::GetLastErrorString();
+    }
+    return false;
+  }
   bool result = ReadFrom(fd, content, max_size);
   close(fd);
   return result;
 }
 
+bool ReadFile(const string &filename, string *content, int max_size) {
+  return ReadFile(filename, content, /* error_message= */nullptr, max_size);
+}
+
 bool ReadFile(const Path &path, std::string *content, int max_size) {
-  return ReadFile(path.AsNativePath(), content, max_size);
+  return ReadFile(
+    path.AsNativePath(), content, /* error_message= */nullptr, max_size);
 }
 
 bool ReadFile(const string &filename, void *data, size_t size) {

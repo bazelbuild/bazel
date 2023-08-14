@@ -289,6 +289,17 @@ public interface AndroidDataProcessingApi<
                 "Targets containing raw resources from dependencies. These resources will be merged"
                     + " together with each other and this target's resources."),
         @Param(
+            name = "validation_resource_apks",
+            positional = false,
+            defaultValue = "[]",
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = FileProviderApi.class),
+            },
+            named = true,
+            doc =
+                "List of resource only APK files to be used for validation only. Not fully"
+                    + " supported in the native resource pipeline."),
+        @Param(
             name = "neverlink",
             positional = false,
             defaultValue = "False",
@@ -321,6 +332,7 @@ public interface AndroidDataProcessingApi<
       AndroidManifestInfoT manifest,
       Sequence<?> resources, // <TransitiveInfoCollectionT>
       Sequence<?> deps, // <AndroidResourcesInfoT>
+      Sequence<?> resApkDeps, // <FileT>
       boolean neverlink,
       boolean enableDataBinding)
       throws EvalException, InterruptedException;
@@ -886,17 +898,6 @@ public interface AndroidDataProcessingApi<
             doc =
                 "Files to be used as Proguard specification for this target, which will be"
                     + " inherited in the top-level target."),
-        @Param(
-            name = "extra_proguard_specs,",
-            allowedTypes = {
-              @ParamType(type = Sequence.class, generic1 = TransitiveInfoCollectionApi.class)
-            },
-            defaultValue = "[]",
-            positional = false,
-            named = true,
-            doc =
-                "Additional proguard specs that should be added for top-level targets. This  value"
-                    + " is controlled by Java configuration.")
       },
       doc =
           "Possibly shrinks the data APK by removing resources that were marked as unused during"
@@ -909,8 +910,7 @@ public interface AndroidDataProcessingApi<
       FileT proguardMapping,
       Object maybeSettings,
       Sequence<?> deps, // <TransitiveInfoCollectionT>
-      Sequence<?> localProguardSpecs, // <TransitiveInfoCollectionT>
-      Sequence<?> extraProguardSpecs) // <TransitiveInfoCollectionT>
+      Sequence<?> localProguardSpecs) // <TransitiveInfoCollectionT>
       throws EvalException, InterruptedException;
 
   @StarlarkMethod(

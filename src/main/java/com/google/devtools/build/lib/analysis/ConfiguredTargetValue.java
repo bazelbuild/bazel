@@ -14,10 +14,13 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import javax.annotation.Nullable;
+
 /** A {@link com.google.devtools.build.skyframe.SkyValue} for a {@link ConfiguredTarget}. */
 public interface ConfiguredTargetValue extends ConfiguredObjectValue {
 
   /** Returns the configured target for this value. */
+  @Nullable // May be null after clearing.
   ConfiguredTarget getConfiguredTarget();
 
   @Override

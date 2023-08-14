@@ -13,35 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
-import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import javax.annotation.Nullable;
 
 /**
- * An Map-like result of getting Skyframe dependencies via {@link
- * SkyFunction.Environment#getValuesAndExceptions}. Callers can use the {@link #get} and {@link
- * #getOrThrow} methods to obtain elements by key.
+ * A map-like result of getting Skyframe dependencies via {@link
+ * SkyFunction.Environment#getValuesAndExceptions}. Callers can use the {@link #get}, {@link
+ * #getOrThrow} and {@link #queryDep} methods to obtain elements by key.
  *
  * <p>Note that a {@link SkyFunction} cannot guarantee that {@link
  * SkyFunction.Environment#valuesMissing} will be true upon receipt of a {@code
  * SkyframeLookupResult}. The elements must all be fetched. If {@link #get} or {@link #getOrThrow}
- * returns {@code null}, only then will {@link SkyFunction.Environment#valuesMissing} be guaranteed
- * to return true.
+ * returns {@code null}, or {@link #queryDep} returns false, only then will {@link
+ * SkyFunction.Environment#valuesMissing} be guaranteed to return true.
  */
-public class SkyframeLookupResult {
-  private final Runnable valuesMissingCallback;
-  private final Function<SkyKey, ValueOrUntypedException> valuesOrExceptions;
-
-  @VisibleForTesting
-  public SkyframeLookupResult(
-      Runnable valuesMissingCallback,
-      Function<SkyKey, ValueOrUntypedException> valuesOrExceptions) {
-    this.valuesMissingCallback = checkNotNull(valuesMissingCallback);
-    this.valuesOrExceptions = checkNotNull(valuesOrExceptions);
-  }
+public interface SkyframeLookupResult {
 
   /**
    * Returns a direct dependency. If the dependency is not in the set of already evaluated direct
@@ -50,7 +36,7 @@ public class SkyframeLookupResult {
    * SkyFunction.Environment#valuesMissing} will subsequently return true.
    */
   @Nullable
-  public SkyValue get(SkyKey skyKey) {
+  default SkyValue get(SkyKey skyKey) {
     return getOrThrow(skyKey, null, null, null);
   }
 
@@ -68,57 +54,67 @@ public class SkyframeLookupResult {
    * a subtype of {@link InterruptedException}. See {@link
    * SkyFunctionException#validateExceptionType} for details.
    */
+  @CanIgnoreReturnValue
   @Nullable
-  public <E1 extends Exception> SkyValue getOrThrow(SkyKey skyKey, Class<E1> exceptionClass)
-      throws E1 {
+  default <E extends Exception> SkyValue getOrThrow(SkyKey skyKey, Class<E> exceptionClass)
+      throws E {
     return getOrThrow(skyKey, exceptionClass, null, null);
   }
 
-  /**
-   * Similar to {@link getOrThrow} one exceptionClass version, but take two exceptionClass
-   * parameters.
-   */
+  /** Similar to {@link #getOrThrow(SkyKey, Class)}, but takes two exception class parameters. */
+  @CanIgnoreReturnValue
   @Nullable
-  public <E1 extends Exception, E2 extends Exception> SkyValue getOrThrow(
+  default <E1 extends Exception, E2 extends Exception> SkyValue getOrThrow(
       SkyKey skyKey, Class<E1> exceptionClass1, Class<E2> exceptionClass2) throws E1, E2 {
     return getOrThrow(skyKey, exceptionClass1, exceptionClass2, null);
   }
 
-  /**
-   * Similar to {@link getOrThrow} one exceptionClass version, but take three exceptionClass
-   * parameters.
-   */
+  /** Similar to {@link #getOrThrow(SkyKey, Class)}, but takes three exception class parameters. */
+  @CanIgnoreReturnValue
   @Nullable
-  public <E1 extends Exception, E2 extends Exception, E3 extends Exception> SkyValue getOrThrow(
+  <E1 extends Exception, E2 extends Exception, E3 extends Exception> SkyValue getOrThrow(
       SkyKey skyKey,
       @Nullable Class<E1> exceptionClass1,
       @Nullable Class<E2> exceptionClass2,
       @Nullable Class<E3> exceptionClass3)
-      throws E1, E2, E3 {
-    ValueOrUntypedException voe = valuesOrExceptions.apply(skyKey);
-    if (voe == null) {
-      BugReport.sendBugReport(
-          new IllegalStateException(
-              "ValueOrUntypedException " + skyKey + " was missing, this should never happen"));
-      return null;
+      throws E1, E2, E3;
+
+  /**
+   * Similar to {@link #getOrThrow}, but supports more flexible control flows.
+   *
+   * <p>This method provides a more generic exception handling interface than {@link #getOrThrow},
+   * for cases where the caller cannot pass specific exception types.
+   *
+   * @return true if either a value was passed to {@link QueryDepCallback#acceptValue} or an
+   *     exception was successfully handled by {@link QueryDepCallback#tryHandleException}. False
+   *     indicates that either the key is unavailable or an exception was unhandled by {@link
+   *     QueryDepCallback#tryHandleException}.
+   */
+  boolean queryDep(SkyKey key, QueryDepCallback resultCallback);
+
+  /**
+   * An interface specifying a dependency query.
+   *
+   * <p>{@link #queryDep} calls one of {@link QueryDepCallback#acceptValue} or {@link
+   * QueryDepCallback#tryHandleException} if a result is available.
+   */
+  @FunctionalInterface
+  interface QueryDepCallback {
+    /**
+     * Accepts a value.
+     *
+     * @param key the key associated with the value.
+     */
+    void acceptValue(SkyKey key, SkyValue value);
+
+    /**
+     * Offers an exception to this query.
+     *
+     * @param key the key associated with the exception.
+     * @return true if the exception was handled.
+     */
+    default boolean tryHandleException(SkyKey key, Exception e) {
+      return false; // Default implementation that handles no exceptions.
     }
-    SkyValue value = voe.getValue();
-    if (value != null) {
-      return value;
-    }
-    Exception e = voe.getException();
-    if (e != null) {
-      if (exceptionClass1 != null && exceptionClass1.isInstance(e)) {
-        throw exceptionClass1.cast(e);
-      }
-      if (exceptionClass2 != null && exceptionClass2.isInstance(e)) {
-        throw exceptionClass2.cast(e);
-      }
-      if (exceptionClass3 != null && exceptionClass3.isInstance(e)) {
-        throw exceptionClass3.cast(e);
-      }
-    }
-    valuesMissingCallback.run();
-    return null;
   }
 }

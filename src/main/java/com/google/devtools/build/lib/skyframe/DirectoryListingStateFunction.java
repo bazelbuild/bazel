@@ -34,7 +34,7 @@ public class DirectoryListingStateFunction implements SkyFunction {
   private final ExternalFilesHelper externalFilesHelper;
 
   /**
-   * A file-system abstraction to use. This can e.g. be a {@link PerBuildSyscallCache} which helps
+   * A file-system abstraction to use. This can e.g. be a {@link DefaultSyscallCache} which helps
    * re-use the results of expensive readdir() operations, that are likely already executed for
    * evaluating globs.
    */

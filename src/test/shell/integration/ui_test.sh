@@ -308,6 +308,51 @@ function test_timestamp() {
   expect_log '[0-2][0-9]:[0-5][0-9]:[0-6][0-9]'
 }
 
+function test_skymeld_ui() {
+  bazel build --experimental_merged_skyframe_analysis_execution pkg:true &> "$TEST_log" \
+    || fail "${PRODUCT_NAME} test failed."
+  expect_log 'Build completed successfully'
+}
+
+# Regression test for b/244163231.
+function test_skymeld_ui_with_starlark_flags() {
+  local -r pkg=$FUNCNAME
+  create_pkg $pkg
+  mkdir -p "${pkg}/flags"
+
+  cat > "${pkg}/flags/flags.bzl" <<EOF
+def _impl(ctx):
+  pass
+
+string_flag = rule(
+    implementation = _impl,
+    build_setting = config.string(flag = True),
+)
+EOF
+
+  cat > "${pkg}/flags/BUILD" <<EOF
+load('//${pkg}/flags:flags.bzl', 'string_flag')
+
+string_flag(
+    name = "flag",
+    build_setting_default = "a",
+)
+EOF
+
+  bazel build --experimental_merged_skyframe_analysis_execution \
+      --//$pkg/flags:flag=a \
+      $pkg:true &> "$TEST_log" || fail "${PRODUCT_NAME} test failed."
+  expect_log 'Build completed successfully'
+}
+
+# Regression test for b/244163231.
+function test_skymeld_ui_works_with_timestamps() {
+  bazel build --experimental_merged_skyframe_analysis_execution --show_timestamps \
+    pkg:true &> "$TEST_log" \
+    || fail "${PRODUCT_NAME} test failed."
+  expect_log 'Build completed successfully'
+}
+
 function test_info_spacing() {
   # Verify that the output of "bazel info" is suitable for backtick escapes,
   # in particular free carriage-return characters.
@@ -448,7 +493,7 @@ function test_experimental_ui_attempt_to_print_relative_paths_failing_action() {
   # unconditionally uses an uppercase drive letter (see
   # WindowsOsPathPolicy#normalize). I want these tests to check for exact
   # string contents (that's the entire goal of the flag being tested), but I
-  # don't want them to be brittle across different Windows enviromments, so
+  # don't want them to be brittle across different Windows environments, so
   # I've disabled them for now.
   # TODO(nharmata): Fix this.
   [[ "$is_windows" == "true" ]] && return 0
@@ -506,10 +551,27 @@ function test_ui_events_filters() {
   expect_not_log "^WARNING: Target pattern parsing failed."
   expect_log "^INFO: Elapsed time"
 
-  bazel build  --ui_event_filters= pkgloadingerror:all > "${TEST_log}" 2>&1 && fail "expected failure"
+  bazel build --ui_event_filters= pkgloadingerror:all > "${TEST_log}" 2>&1 && fail "expected failure"
   expect_not_log "^ERROR: .*/bzl/bzl.bzl:1:5: name 'invalidsyntax' is not defined"
   expect_not_log "^WARNING: Target pattern parsing failed."
   expect_not_log "^INFO: Elapsed time"
+
+  bazel build --ui_event_filters=-error --ui_event_filters=+error \
+      pkgloadingerror:all > "${TEST_log}" 2>&1 && fail "expected failure"
+  expect_log "^ERROR: .*bzl/bzl.bzl:1:5: name 'invalidsyntax' is not defined"
+  expect_log "^WARNING: Target pattern parsing failed."
+  expect_log "^INFO: Elapsed time"
+
+  bazel build --ui_event_filters= --ui_event_filters=+info pkgloadingerror:all > "${TEST_log}" 2>&1 && fail "expected failure"
+  expect_not_log "^ERROR: .*/bzl/bzl.bzl:1:5: name 'invalidsyntax' is not defined"
+  expect_not_log "^WARNING: Target pattern parsing failed."
+  expect_log "^INFO: Elapsed time"
+
+  bazel build --ui_event_filters=warning --ui_event_filters=info --ui_event_filters=+error \
+      pkgloadingerror:all > "${TEST_log}" 2>&1 && fail "expected failure"
+  expect_log "^ERROR: .*/bzl/bzl.bzl:1:5: name 'invalidsyntax' is not defined"
+  expect_not_log "^WARNING: Target pattern parsing failed."
+  expect_log "^INFO: Elapsed time"
 }
 
 function test_max_stdouterr_bytes_capping_behavior() {
@@ -619,14 +681,14 @@ EOF
   while ! grep -q "multiline error message" "$TEST_log" ; do
     sleep 1
   done
-  while ! grep -q '\[2 / 3\] Executing genrule //foo:sleep' "$TEST_log" ; do
+  while ! grep -q 'Executing genrule //foo:sleep' "$TEST_log" ; do
     sleep 1
   done
   kill -SIGINT "$pid"
   wait "$pid" || exit_code="$?"
   [[ "$exit_code" == 8 ]] || fail "Should have been interrupted: $exit_code"
   tr -s <"$TEST_log" '\n' '@' |
-      grep -q 'Executing genrule //foo:fail failed:[^@]*@This@is@a@multiline error message@before@failure@\[2 / 3\] Executing genrule //foo:sleep;' \
+      grep -q 'Executing genrule //foo:fail failed:[^@]*@This@is@a@multiline error message@before@failure@.*Executing genrule //foo:sleep;' \
       || fail "Unified genrule error message not found"
   # Make sure server is still usable.
   bazel info server_pid >& "$TEST_log" || fail "Couldn't use server"
@@ -643,11 +705,26 @@ EOF
   # Build event file needed so UI considers build to continue after failure.
   ! bazel test --build_event_json_file=bep.json --curses=yes --color=yes \
       //foo:foo &> "$TEST_log" || fail "Expected failure"
-  # Expect to see a failure message with an "erase line" control code prepended.
-  expect_log $'\e'"\[K"$'\e'"\[31m"$'\e'"\[1mFAILED:"$'\e'"\[0m Build did NOT complete successfully"
-  # We should not see a build failure message without an "erase line" to start.
-  # TODO(janakr): Fix the excessive printing of this failure message.
-  expect_log_n "^"$'\e'"\[31m"$'\e'"\[1mFAILED:"$'\e'"\[0m Build did NOT complete successfully" 4
+  # Expect to see exactly one failure message.
+  expect_log_n '\[31m\[1mERROR: \[0mBuild did NOT complete successfully' 1
+}
+
+function test_bazel_run_error_visible() {
+  mkdir -p foo
+  cat > foo/BUILD <<'EOF'
+sh_test(
+  name = 'foo',
+  srcs = ['foo.sh'],
+  shard_count = 2,
+)
+EOF
+  touch foo/foo.sh
+  chmod +x foo/foo.sh
+  bazel run --curses=yes //foo &> "$TEST_log" && "Expected failure"
+  expect_log "ERROR: 'run' only works with tests with one shard"
+  # If we would print this again after the run failed, we would overwrite the
+  # error message above.
+  expect_log_n "INFO: Build completed successfully, [456] total actions" 1
 }
 
 run_suite "Integration tests for ${PRODUCT_NAME}'s UI"

@@ -1,0 +1,197 @@
+rule_info {
+  rule_name: "antlr"
+  doc_string: "Runs [ANTLR 3](https://www.antlr3.org//) on a set of grammars."
+  attribute {
+    name: "name"
+    doc_string: "A unique name for this target."
+    type: NAME
+    mandatory: true
+  }
+  attribute {
+    name: "Xconversiontimeout"
+    doc_string: "Set NFA conversion timeout for each decision."
+    type: INT
+    default_value: "0"
+  }
+  attribute {
+    name: "Xdbgconversion"
+    doc_string: "Dump lots of info during NFA conversion."
+    type: BOOLEAN
+    default_value: "False"
+  }
+  attribute {
+    name: "Xdbgst"
+    doc_string: "Put tags at start/stop of all templates in output."
+    type: BOOLEAN
+    default_value: "False"
+  }
+  attribute {
+    name: "Xdfa"
+    doc_string: "Print DFA as text."
+    type: BOOLEAN
+    default_value: "False"
+  }
+  attribute {
+    name: "Xdfaverbose"
+    doc_string: "Generate DFA states in DOT with NFA configs."
+    type: BOOLEAN
+    default_value: "False"
+  }
+  attribute {
+    name: "Xgrtree"
+    doc_string: "Print the grammar AST."
+    type: BOOLEAN
+    default_value: "False"
+  }
+  attribute {
+    name: "Xm"
+    doc_string: "Max number of rule invocations during conversion."
+    type: INT
+    default_value: "0"
+  }
+  attribute {
+    name: "Xmaxdfaedges"
+    doc_string: "Max &quot;comfortable&quot; number of edges for single DFA state."
+    type: INT
+    default_value: "0"
+  }
+  attribute {
+    name: "Xmaxinlinedfastates"
+    doc_string: "Max DFA states before table used rather than inlining."
+    type: INT
+    default_value: "0"
+  }
+  attribute {
+    name: "Xminswitchalts"
+    doc_string: "Don\'t generate switch() statements for dfas smaller than given number."
+    type: INT
+    default_value: "0"
+  }
+  attribute {
+    name: "Xmultithreaded"
+    doc_string: "Run the analysis in 2 threads."
+    type: BOOLEAN
+    default_value: "False"
+  }
+  attribute {
+    name: "Xnfastates"
+    doc_string: "For nondeterminisms, list NFA states for each path."
+    type: BOOLEAN
+    default_value: "False"
+  }
+  attribute {
+    name: "Xnocollapse"
+    doc_string: "Collapse incident edges into DFA states."
+    type: BOOLEAN
+    default_value: "False"
+  }
+  attribute {
+    name: "Xnomergestopstates"
+    doc_string: "Max DFA states before table used rather than inlining."
+    type: BOOLEAN
+    default_value: "False"
+  }
+  attribute {
+    name: "Xnoprune"
+    doc_string: "Do not test EBNF block exit branches."
+    type: BOOLEAN
+    default_value: "False"
+  }
+  attribute {
+    name: "XsaveLexer"
+    doc_string: "For nondeterminisms, list NFA states for each path."
+    type: BOOLEAN
+    default_value: "False"
+  }
+  attribute {
+    name: "Xwatchconversion"
+    doc_string: "Don\'t delete temporary lexers generated from combined grammars."
+    type: BOOLEAN
+    default_value: "False"
+  }
+  attribute {
+    name: "debug"
+    doc_string: "Generate a parser that emits debugging events."
+    type: BOOLEAN
+    default_value: "False"
+  }
+  attribute {
+    name: "depend"
+    doc_string: "Generate file dependencies; don\'t actually run antlr."
+    type: BOOLEAN
+    default_value: "False"
+  }
+  attribute {
+    name: "deps"
+    doc_string: "The dependencies to use. Defaults to the most recent ANTLR 3 release,\nbut if you need to use a different version, you can specify the\ndependencies here."
+    type: LABEL_LIST
+    default_value: "[Label(\"@antlr3_runtimes//:tool\")]"
+  }
+  attribute {
+    name: "dfa"
+    doc_string: "Generate a DFA for each decision point."
+    type: BOOLEAN
+    default_value: "False"
+  }
+  attribute {
+    name: "dump"
+    doc_string: "Print out the grammar without actions."
+    type: BOOLEAN
+    default_value: "False"
+  }
+  attribute {
+    name: "imports"
+    doc_string: "The grammar and .tokens files to import. Must be all in the same directory."
+    type: LABEL_LIST
+    default_value: "[]"
+  }
+  attribute {
+    name: "language"
+    doc_string: "The code generation target language. Either C, Cpp, CSharp2, CSharp3, JavaScript, Java, ObjC, Python, Python3 or Ruby (case-sensitive)."
+    type: STRING
+    default_value: "\"\""
+  }
+  attribute {
+    name: "message_format"
+    doc_string: "Specify output style for messages."
+    type: STRING
+    default_value: "\"\""
+  }
+  attribute {
+    name: "nfa"
+    doc_string: "Generate an NFA for each rule."
+    type: BOOLEAN
+    default_value: "False"
+  }
+  attribute {
+    name: "package"
+    doc_string: "The package/namespace for the generated code."
+    type: STRING
+    default_value: "\"\""
+  }
+  attribute {
+    name: "profile"
+    doc_string: "Generate a parser that computes profiling information."
+    type: BOOLEAN
+    default_value: "False"
+  }
+  attribute {
+    name: "report"
+    doc_string: "Print out a report about the grammar(s) processed."
+    type: BOOLEAN
+    default_value: "False"
+  }
+  attribute {
+    name: "srcs"
+    doc_string: "The grammar files to process."
+    type: LABEL_LIST
+    mandatory: true
+  }
+  attribute {
+    name: "trace"
+    doc_string: "Generate a parser with trace output. If the default output is not enough, you can override the traceIn and traceOut methods."
+    type: BOOLEAN
+    default_value: "False"
+  }
+}
+module_docstring: "Rules for ANTLR 3."

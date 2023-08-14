@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.cmdline;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import net.starlark.java.eval.EvalException;
 import org.junit.Test;
@@ -44,8 +45,7 @@ public class RepositoryNameTest {
     assertThat(RepositoryName.create("..foo").getNameWithAt()).isEqualTo("@..foo");
     assertThat(RepositoryName.create("foo..").getNameWithAt()).isEqualTo("@foo..");
     assertThat(RepositoryName.create(".foo").getNameWithAt()).isEqualTo("@.foo");
-    assertThat(RepositoryName.create("@foo").getNameWithAt()).isEqualTo("@@foo");
-    assertThat(RepositoryName.create("@foo~bar").getNameWithAt()).isEqualTo("@@foo~bar");
+    assertThat(RepositoryName.create("foo~bar").getNameWithAt()).isEqualTo("@foo~bar");
 
     assertNotValid(".", "repo names are not allowed to be '@.'");
     assertNotValid("..", "repo names are not allowed to be '@..'");
@@ -80,5 +80,29 @@ public class RepositoryNameTest {
   public void testGetDefaultCanonicalForm() throws Exception {
     assertThat(RepositoryName.create("").getCanonicalForm()).isEqualTo("");
     assertThat(RepositoryName.create("foo").getCanonicalForm()).isEqualTo("@foo");
+  }
+
+  @Test
+  public void testGetDisplayForm() throws Exception {
+    RepositoryMapping repositoryMapping =
+        RepositoryMapping.create(
+            ImmutableMap.of("local", RepositoryName.create("canonical")), RepositoryName.MAIN);
+
+    assertThat(RepositoryName.create("").getDisplayForm(repositoryMapping)).isEmpty();
+    assertThat(RepositoryName.create("canonical").getDisplayForm(repositoryMapping))
+        .isEqualTo("@local");
+    assertThat(RepositoryName.create("other").getDisplayForm(repositoryMapping))
+        .isEqualTo("@@other");
+
+    assertThat(
+            RepositoryName.create("")
+                .toNonVisible(RepositoryName.create("owner"))
+                .getDisplayForm(repositoryMapping))
+        .isEqualTo("@@[unknown repo '' requested from @owner]");
+    assertThat(
+            RepositoryName.create("local")
+                .toNonVisible(RepositoryName.create("owner"))
+                .getDisplayForm(repositoryMapping))
+        .isEqualTo("@@[unknown repo 'local' requested from @owner]");
   }
 }

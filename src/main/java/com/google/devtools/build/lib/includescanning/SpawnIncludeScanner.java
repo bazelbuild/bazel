@@ -182,7 +182,7 @@ public class SpawnIncludeScanner {
     }
 
     @Override
-    public boolean inputsDiscovered() {
+    public boolean inputsKnown() {
       throw new UnsupportedOperationException();
     }
 
@@ -198,6 +198,11 @@ public class SpawnIncludeScanner {
 
     @Override
     public NestedSet<Artifact> getInputs() {
+      return actionExecutionMetadata.getInputs();
+    }
+
+    @Override
+    public NestedSet<Artifact> getSchedulingDependencies() {
       throw new UnsupportedOperationException();
     }
 

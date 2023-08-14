@@ -1,32 +1,54 @@
 # This file will replace the content of the WORKSPACE file when Bzlmod is enabled
 # No WORKSPACE prefix or suffix are added.
-# Eventually this file should be empty after fully migrating to Bzlmod.
-workspace(name = "io_bazel")
 
-# Required by @com_google_protobuf//java/util:util in protobuf 3.19.0
-# TODO(pcloudy): Remove those bind rules, when com_google_protobuf can
-# fetch jar dependencies via rules_jvm_external with module extension.
 bind(
-    name = "error_prone_annotations",
-    actual = "//third_party:error_prone_annotations",
+    name = "android/sdk",
+    actual = "@bazel_tools//tools/android:poison_pill_android_sdk",
 )
 
 bind(
-    name = "j2objc_annotations",
-    actual = "//third_party/java/j2objc-annotations:j2objc-annotations",
+    name = "android/dx_jar_import",
+    actual = "@bazel_tools//tools/android:no_android_sdk_repository_error",
 )
 
 bind(
-    name = "gson",
-    actual = "//third_party:gson",
+    name = "android/d8_jar_import",
+    actual = "@bazel_tools//tools/android:no_android_sdk_repository_error",
 )
 
 bind(
-    name = "jsr305",
-    actual = "//third_party:jsr305",
+    name = "android/crosstool",
+    actual = "@bazel_tools//tools/cpp:toolchain",
 )
 
 bind(
-    name = "guava",
-    actual = "//third_party:guava",
+    name = "android_sdk_for_testing",
+    actual = "@bazel_tools//tools/android:empty",
 )
+
+bind(
+    name = "android_ndk_for_testing",
+    actual = "@bazel_tools//tools/android:empty",
+)
+
+bind(
+    name = "databinding_annotation_processor",
+    actual = "@bazel_tools//tools/android:empty",
+)
+
+# This value is overridden by android_sdk_repository function to allow targets
+# to select on whether or not android_sdk_repository has run.
+bind(
+    name = "has_androidsdk",
+    actual = "@bazel_tools//tools/android:always_false",
+)
+
+# To run the Android integration tests in //src/test/shell/bazel/android:all or
+# build the Android sample app in //examples/android/java/bazel:hello_world
+#
+#   1. Install an Android SDK and NDK from https://developer.android.com
+#   2. Set the $ANDROID_HOME and $ANDROID_NDK_HOME environment variables
+#   3. Uncomment the two lines below
+#
+# android_sdk_repository(name = "androidsdk")
+# android_ndk_repository(name = "androidndk")

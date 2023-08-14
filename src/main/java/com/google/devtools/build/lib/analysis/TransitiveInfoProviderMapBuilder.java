@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.Arrays;
 import java.util.LinkedHashMap;
 import javax.annotation.Nullable;
 
@@ -88,22 +87,10 @@ public class TransitiveInfoProviderMapBuilder {
     return put(TransitiveInfoProviderEffectiveClassHelper.get(provider), provider);
   }
 
-  public TransitiveInfoProviderMapBuilder add(TransitiveInfoProvider... providers) {
-    return addAll(Arrays.asList(providers));
-  }
-
   @CanIgnoreReturnValue
   public TransitiveInfoProviderMapBuilder addAll(TransitiveInfoProviderMap other) {
     for (int i = 0; i < other.getProviderCount(); ++i) {
       providers.put(other.getProviderKeyAt(i), other.getProviderInstanceAt(i));
-    }
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public TransitiveInfoProviderMapBuilder addAll(Iterable<TransitiveInfoProvider> providers) {
-    for (TransitiveInfoProvider provider : providers) {
-      add(provider);
     }
     return this;
   }

@@ -16,14 +16,18 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
-import com.google.devtools.build.lib.actions.SpawnContinuation;
+import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.StringUtilities;
 import java.io.IOException;
+import java.util.List;
 import net.starlark.java.eval.EvalException;
 
 /** Strategy to perform template expansion locally. */
@@ -34,23 +38,30 @@ public class LocalTemplateExpansionStrategy implements TemplateExpansionContext 
   public static LocalTemplateExpansionStrategy INSTANCE = new LocalTemplateExpansionStrategy();
 
   @Override
-  public SpawnContinuation expandTemplate(
-      TemplateExpansionAction action, ActionExecutionContext ctx) throws InterruptedException {
+  public ImmutableList<SpawnResult> expandTemplate(
+      AbstractAction action,
+      ActionExecutionContext ctx,
+      TemplateExpansionContext.TemplateMetadata templateMetadata)
+      throws InterruptedException, ExecException {
     try {
-      final String expandedTemplate = getExpandedTemplateUnsafe(action, ctx.getPathResolver());
+      final String expandedTemplate =
+          getExpandedTemplateUnsafe(
+              templateMetadata.template(), templateMetadata.substitutions(), ctx.getPathResolver());
       DeterministicWriter deterministicWriter = out -> out.write(expandedTemplate.getBytes(UTF_8));
       return ctx.getContext(FileWriteActionContext.class)
-          .beginWriteOutputToFile(
-              action, ctx, deterministicWriter, action.makeExecutable(), /*isRemotable=*/ true);
+          .writeOutputToFile(
+              action,
+              ctx,
+              deterministicWriter,
+              templateMetadata.makeExecutable(),
+              /* isRemotable= */ true);
     } catch (IOException | EvalException e) {
-      return SpawnContinuation.failedWithExecException(
-          new EnvironmentalExecException(
-              e,
-              FailureDetail.newBuilder()
-                  .setExecution(
-                      Execution.newBuilder()
-                          .setCode(Execution.Code.LOCAL_TEMPLATE_EXPANSION_FAILURE))
-                  .build()));
+      throw new EnvironmentalExecException(
+          e,
+          FailureDetail.newBuilder()
+              .setExecution(
+                  Execution.newBuilder().setCode(Execution.Code.LOCAL_TEMPLATE_EXPANSION_FAILURE))
+              .build());
     }
   }
 
@@ -60,11 +71,11 @@ public class LocalTemplateExpansionStrategy implements TemplateExpansionContext 
    * being executed.
    */
   public String getExpandedTemplateUnsafe(
-      TemplateExpansionAction action, ArtifactPathResolver resolver)
+      Template template, List<Substitution> substitutions, ArtifactPathResolver resolver)
       throws EvalException, IOException {
     String templateString;
-    templateString = action.getTemplate().getContent(resolver);
-    for (Substitution entry : action.getSubstitutions()) {
+    templateString = template.getContent(resolver);
+    for (Substitution entry : substitutions) {
       templateString =
           StringUtilities.replaceAllLiteral(templateString, entry.getKey(), entry.getValue());
     }

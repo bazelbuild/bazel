@@ -1,4 +1,9 @@
-licenses(["notice"])
+# Description:
+#   Part of the Bazel DocGen pipeline that updates the table-of-contents of the release documentation
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src:__subpackages__"],
+)
 
 filegroup(
     name = "srcs",
@@ -17,6 +22,6 @@ java_binary(
     deps = [
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:flogger",
-        "@org_snakeyaml//:snakeyaml",
+        "@maven//:org_yaml_snakeyaml",
     ],
 )

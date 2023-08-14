@@ -21,6 +21,7 @@ import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.List;
 
 /**
@@ -38,15 +39,18 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
       help = "Additional options to pass to the J2ObjC tool.")
   public List<String> translationFlags;
 
+  /*
+   *@deprecated Use J2ObjC tree shaker instead.
+   */
+  @Deprecated
   @Option(
-    name = "j2objc_dead_code_removal",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Whether to perform J2ObjC dead code removal to strip unused code from the final app "
-            + "bundle."
-  )
+      name = "j2objc_dead_code_removal",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Whether to perform J2ObjC dead code removal to strip unused code from the final app "
+              + "bundle.")
   public boolean removeDeadCode;
 
   @Option(
@@ -78,4 +82,23 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
     help = "Whether to generate with shorter header path (uses \"_ios\" instead of \"_j2objc\")."
   )
   public boolean experimentalShorterHeaderPath;
+
+  @Option(
+      name = "incompatible_j2objc_library_migration",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If enabled, direct usage of the native j2objc_library rules is disabled. Please use the"
+              + " Starlark rule instead.")
+  public boolean j2objcLibraryMigration;
+
+  @Override
+  public FragmentOptions getExec() {
+    J2ObjcCommandLineOptions exec = (J2ObjcCommandLineOptions) super.getExec();
+    exec.translationFlags = this.translationFlags;
+    exec.j2objcLibraryMigration = j2objcLibraryMigration;
+    return exec;
+  }
 }

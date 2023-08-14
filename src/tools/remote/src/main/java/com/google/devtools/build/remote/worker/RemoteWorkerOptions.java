@@ -176,6 +176,16 @@ public class RemoteWorkerOptions extends OptionsBase {
               + "requires client authentication (aka mTLS).")
   public String tlsCaCertificate;
 
+  @Option(
+      name = "expected_authorization_token",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The authorization token expected to be present in every request. This is useful for"
+              + " testing only.")
+  public String expectedAuthorizationToken;
+
   private static final int MAX_JOBS = 16384;
 
   /**

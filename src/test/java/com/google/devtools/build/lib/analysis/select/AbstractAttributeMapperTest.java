@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.AbstractAttributeMapper;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
 import java.util.ArrayList;
@@ -62,10 +61,7 @@ public class AbstractAttributeMapperTest extends BuildViewTestCase {
     rule = scratchRule("a", "myrule",
         "cc_binary(name = 'myrule',",
         "          srcs = ['a', 'b', 'c'])");
-    Package pkg = rule.getPackage();
-    assertThat(mapper.getPackageDefaultHdrsCheck()).isEqualTo(pkg.getDefaultHdrsCheck());
-    assertThat(mapper.getPackageDefaultTestOnly()).isEqualTo(pkg.getDefaultTestOnly());
-    assertThat(mapper.getPackageDefaultDeprecation()).isEqualTo(pkg.getDefaultDeprecation());
+    assertThat(mapper.getPackageArgs()).isEqualTo(rule.getPackage().getPackageArgs());
   }
 
   @Test
@@ -113,8 +109,7 @@ public class AbstractAttributeMapperTest extends BuildViewTestCase {
   protected static List<String> getLabelsForAttribute(
       AttributeMap attributeMap, String attributeName) throws InterruptedException {
     List<String> labels = new ArrayList<>();
-    attributeMap.visitLabels(
-        attributeMap.getAttributeDefinition(attributeName), label -> labels.add(label.toString()));
+    attributeMap.visitLabels(attributeName, label -> labels.add(label.toString()));
     return labels;
   }
 }

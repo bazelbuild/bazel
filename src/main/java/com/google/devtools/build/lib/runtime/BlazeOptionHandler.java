@@ -13,33 +13,46 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Command.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
+import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -66,6 +79,14 @@ public final class BlazeOptionHandler {
           "client_env",
           "client_cwd");
 
+  // All options set on this pseudo command are inherited by all commands, with unrecognized options
+  // resulting in an error.
+  private static final String ALWAYS_PSEUDO_COMMAND = "always";
+
+  // All options set on this pseudo command are inherited by all commands, with unrecognized options
+  // being ignored as long as they are recognized by at least one (other) command.
+  private static final String COMMON_PSEUDO_COMMAND = "common";
+
   // Marks an event to indicate a parsing error.
   static final String BAD_OPTION_TAG = "invalidOption";
   // Separates the invalid tag from the full error message for easier parsing.
@@ -78,6 +99,7 @@ public final class BlazeOptionHandler {
   private final Command commandAnnotation;
   private final InvocationPolicy invocationPolicy;
   private final List<String> rcfileNotes = new ArrayList<>();
+  private final ImmutableList<Class<? extends OptionsBase>> allOptionsClasses;
 
   BlazeOptionHandler(
       BlazeRuntime runtime,
@@ -92,6 +114,16 @@ public final class BlazeOptionHandler {
     this.commandAnnotation = commandAnnotation;
     this.optionsParser = optionsParser;
     this.invocationPolicy = invocationPolicy;
+    this.allOptionsClasses =
+        runtime.getCommandMap().values().stream()
+            .map(BlazeCommand::getClass)
+            .flatMap(
+                cmd ->
+                    BlazeCommandUtils.getOptions(
+                        cmd, runtime.getBlazeModules(), runtime.getRuleClassProvider())
+                        .stream())
+            .distinct()
+            .collect(toImmutableList());
   }
 
   /**
@@ -191,7 +223,36 @@ public final class BlazeOptionHandler {
                   "%s:\n  %s'%s' options: %s",
                   source, inherited, commandToParse, Joiner.on(' ').join(rcArgs.getArgs())));
         }
-        optionsParser.parse(PriorityCategory.RC_FILE, rcArgs.getRcFile(), rcArgs.getArgs());
+        if (commandToParse.equals(COMMON_PSEUDO_COMMAND)) {
+          // Pass in options data for all commands supported by the runtime so that options that
+          // apply to some but not the current command can be ignored.
+          //
+          // Important note: The consistency checks performed by
+          // OptionsParser#getFallbackOptionsData ensure that there aren't any two options across
+          // all commands that have the same name but parse differently (e.g. because one accepts
+          // a value and the other doesn't). This means that the options available on a command
+          // limit the options available on other commands even without command inheritance. This
+          // restriction is necessary to ensure that the options specified on the "common"
+          // pseudo command can be parsed unambiguously.
+          ImmutableList<String> ignoredArgs =
+              optionsParser.parseWithSourceFunction(
+                  PriorityCategory.RC_FILE,
+                  o -> rcArgs.getRcFile(),
+                  rcArgs.getArgs(),
+                  OptionsParser.getFallbackOptionsData(allOptionsClasses));
+          if (!ignoredArgs.isEmpty()) {
+            // Append richer information to the note.
+            int index = rcfileNotes.size() - 1;
+            String note = rcfileNotes.get(index);
+            note +=
+                String.format(
+                    "\n  Ignored as unsupported by '%s': %s",
+                    commandAnnotation.name(), Joiner.on(' ').join(ignoredArgs));
+            rcfileNotes.set(index, note);
+          }
+        } else {
+          optionsParser.parse(PriorityCategory.RC_FILE, rcArgs.getRcFile(), rcArgs.getArgs());
+        }
       }
     }
   }
@@ -227,7 +288,8 @@ public final class BlazeOptionHandler {
     optionsParser.parseWithSourceFunction(
         PriorityCategory.COMMAND_LINE,
         commandOptionSourceFunction,
-        defaultOverridesAndRcSources.build());
+        defaultOverridesAndRcSources.build(),
+        /* fallbackData= */ null);
 
     // Command-specific options from .blazerc passed in via --default_override and --rc_source.
     ClientOptions rcFileOptions = optionsParser.getOptions(ClientOptions.class);
@@ -241,7 +303,10 @@ public final class BlazeOptionHandler {
 
     // Parses the remaining command-line options.
     optionsParser.parseWithSourceFunction(
-        PriorityCategory.COMMAND_LINE, commandOptionSourceFunction, remainingCmdLine.build());
+        PriorityCategory.COMMAND_LINE,
+        commandOptionSourceFunction,
+        remainingCmdLine.build(),
+        /* fallbackData= */ null);
 
     if (commandAnnotation.builds()) {
       // splits project files from targets in the traditional sense
@@ -258,10 +323,92 @@ public final class BlazeOptionHandler {
   }
 
   /**
+   * {@link ExtendedEventHandler} override that passes through "normal" events but not events that
+   * would go to the build event proto.
+   *
+   * <p>Starlark flags are conceptually options but still need target pattern evaluation. If we pass
+   * {@link #post}able events from that evaluation, that would produce "target loaded" and "target
+   * configured" events in the build event proto output that consumers can confuse with actual
+   * targets requested by the build.
+   *
+   * <p>This is important because downstream services (like a continuous integration tool or build
+   * results dashboard) read these messages to reconcile which requested targets were built. If they
+   * determine Blaze tried to build {@code //foo //bar} then see a "target configured" message for
+   * some other target {@code //my_starlark_flag}, they might show misleading messages like "Built 3
+   * of 2 requested targets.".
+   *
+   * <p>Hence this class. By dropping those events, we restrict all info and error reporting logic
+   * to the options parsing pipeline.
+   */
+  private static class NonPostingEventHandler implements ExtendedEventHandler {
+    private final ExtendedEventHandler delegate;
+
+    NonPostingEventHandler(ExtendedEventHandler delegate) {
+      this.delegate = delegate;
+    }
+
+    @Override
+    public void handle(Event e) {
+      delegate.handle(e);
+    }
+
+    @Override
+    public void post(ExtendedEventHandler.Postable e) {}
+  }
+
+  /**
+   * Lets {@link StarlarkOptionsParser} convert flag names to {@link Target}s through {@link
+   * TargetPatternPhaseValue}.
+   *
+   * <p>This is used for top-level flag parsing, outside any {@link SkyFunction}.
+   */
+  public static class SkyframeExecutorTargetLoader
+      implements StarlarkOptionsParser.BuildSettingLoader {
+    private final SkyframeExecutor skyframeExecutor;
+    private final PathFragment relativeWorkingDirectory;
+    private final ExtendedEventHandler reporter;
+
+    public SkyframeExecutorTargetLoader(CommandEnvironment env) {
+      this.skyframeExecutor = env.getSkyframeExecutor();
+      this.relativeWorkingDirectory = env.getRelativeWorkingDirectory();
+      this.reporter = new NonPostingEventHandler(env.getReporter());
+    }
+
+    @VisibleForTesting
+    public SkyframeExecutorTargetLoader(
+        SkyframeExecutor skyframeExecutor,
+        PathFragment relativeWorkingDirectory,
+        ExtendedEventHandler reporter) {
+      this.skyframeExecutor = skyframeExecutor;
+      this.relativeWorkingDirectory = relativeWorkingDirectory;
+      this.reporter = new NonPostingEventHandler(reporter);
+    }
+
+    @Override
+    public Target loadBuildSetting(String targetLabel)
+        throws InterruptedException, TargetParsingException {
+      TargetPatternPhaseValue tpv =
+          skyframeExecutor.loadTargetPatternsWithoutFilters(
+              reporter,
+              Collections.singletonList(targetLabel),
+              relativeWorkingDirectory,
+              SkyframeExecutor.DEFAULT_THREAD_COUNT,
+              /* keepGoing= */ false);
+      ImmutableSet<Target> result = tpv.getTargets(reporter, skyframeExecutor.getPackageManager());
+      if (result.size() != 1) {
+        throw new TargetParsingException(
+            "user-defined flags must reference exactly one target",
+            TargetPatterns.Code.TARGET_FORMAT_INVALID);
+      }
+      return Iterables.getOnlyElement(result);
+    }
+  }
+
+  /**
    * TODO(bazel-team): When we move CoreOptions options to be defined in starlark, make sure they're
    * not passed in here during {@link #getOptionsResult}.
    */
-  DetailedExitCode parseStarlarkOptions(CommandEnvironment env, ExtendedEventHandler eventHandler) {
+  DetailedExitCode parseStarlarkOptions(CommandEnvironment env) {
     // For now, restrict starlark options to commands that already build to ensure that loading
     // will work. We may want to open this up to other commands in the future. The "info"
     // and "clean" commands have builds=true set in their annotation but don't actually do any
@@ -272,12 +419,15 @@ public final class BlazeOptionHandler {
       return DetailedExitCode.success();
     }
     try {
-      StarlarkOptionsParser.newStarlarkOptionsParser(env, optionsParser).parse(eventHandler);
+      Preconditions.checkState(
+          StarlarkOptionsParser.newStarlarkOptionsParser(
+                  new SkyframeExecutorTargetLoader(env), optionsParser)
+              .parse());
     } catch (OptionsParsingException e) {
       String logMessage = "Error parsing Starlark options";
       logger.atInfo().withCause(e).log("%s", logMessage);
       return processOptionsParsingException(
-          eventHandler, e, logMessage, Code.STARLARK_OPTIONS_PARSE_FAILURE);
+          env.getReporter(), e, logMessage, Code.STARLARK_OPTIONS_PARSE_FAILURE);
     }
     return DetailedExitCode.success();
   }
@@ -372,14 +522,17 @@ public final class BlazeOptionHandler {
     ConfigExpander.expandConfigOptions(
         eventHandler,
         commandToRcArgs,
+        commandAnnotation.name(),
         getCommandNamesToParse(commandAnnotation),
         rcfileNotes::add,
-        optionsParser);
+        optionsParser,
+        OptionsParser.getFallbackOptionsData(allOptionsClasses));
   }
 
   private static List<String> getCommandNamesToParse(Command commandAnnotation) {
     List<String> result = new ArrayList<>();
-    result.add("common");
+    result.add(ALWAYS_PSEUDO_COMMAND);
+    result.add(COMMON_PSEUDO_COMMAND);
     getCommandNamesToParseHelper(commandAnnotation, result);
     return result;
   }
@@ -470,7 +623,9 @@ public final class BlazeOptionHandler {
       if (index > 0) {
         command = command.substring(0, index);
       }
-      if (!validCommands.contains(command) && !command.equals("common")) {
+      if (!validCommands.contains(command)
+          && !command.equals(ALWAYS_PSEUDO_COMMAND)
+          && !command.equals(COMMON_PSEUDO_COMMAND)) {
         eventHandler.handle(
             Event.warn(
                 "while reading option defaults file '"

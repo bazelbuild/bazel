@@ -17,7 +17,11 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertNoEvents;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -27,7 +31,13 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.common.options.OptionDefinition;
+import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.Options;
+import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
+import java.lang.reflect.Field;
+import java.util.Arrays;
 import java.util.concurrent.ForkJoinPool;
 import org.junit.Before;
 import org.junit.Test;
@@ -45,6 +55,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
 
   private Path installBase;
   private Path outputBase;
+  private Path rulesJavaWorkspace;
 
   @Before
   public void setUp() throws Exception {
@@ -57,6 +68,17 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
 
     mockEmbeddedTools(embeddedBinaries);
     fetchExternalRepo(RepositoryName.create("bazel_tools"));
+
+    createWorkspaceFile("");
+  }
+
+  private String getDefaultWorkspaceContent() {
+    // Skip the WORKSPACE suffix to avoid loading rules_java
+    return "# __SKIP_WORKSPACE_SUFFIX__";
+  }
+
+  private void createWorkspaceFile(String content) throws Exception {
+    file("WORKSPACE", getDefaultWorkspaceContent(), content);
   }
 
   private static void mockEmbeddedTools(Path embeddedBinaries) throws IOException {
@@ -97,6 +119,8 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
         "    repo_rule(name = name, **kwargs)");
     FileSystemUtils.writeIsoLatin1(tools.getRelative("tools/jdk/BUILD"));
     FileSystemUtils.writeIsoLatin1(
+        tools.getRelative("tools/jdk/jdk_build_file.bzl"), "JDK_BUILD_TEMPLATE = ''");
+    FileSystemUtils.writeIsoLatin1(
         tools.getRelative("tools/jdk/local_java_repository.bzl"),
         "def local_java_repository(**kwargs):",
         "  pass");
@@ -132,7 +156,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
 
   @Test
   public void simpleLocalRepositoryPackage() throws Exception {
-    file("WORKSPACE", "local_repository(name = 'r', path='r')");
+    createWorkspaceFile("local_repository(name = 'r', path='r')");
     file("r/WORKSPACE", "workspace(name = 'r')");
     file("r/good/BUILD", "sh_library(name = 'good')");
     RepositoryName rRepoName = RepositoryName.create("r");
@@ -151,8 +175,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
 
   @Test
   public void newLocalRepository() throws Exception {
-    file(
-        "WORKSPACE",
+    createWorkspaceFile(
         "new_local_repository(name = 'r', path = '/r', "
             + "build_file_content = 'sh_library(name = \"good\")')");
     fs.getPath("/r").createDirectoryAndParents();
@@ -173,7 +196,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
 
   @Test
   public void buildDotBazelForSubpackageCheckDuringGlobbing() throws Exception {
-    file("a/BUILD", "filegroup(name = 'fg', srcs = glob(['sub/a.txt']))");
+    file("a/BUILD", "filegroup(name = 'fg', srcs = glob(['sub/a.txt'], allow_empty = True))");
     file("a/sub/a.txt");
     file("a/sub/BUILD.bazel");
 
@@ -185,5 +208,54 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
     assertThat(aPkg.containsErrors()).isFalse();
     assertThrows(NoSuchTargetException.class, () -> aPkg.getTarget("sub/a.txt"));
     assertNoEvents(handler.getEvents());
+  }
+
+  @Test
+  public void incompatibleOptionsPreservedInExec() throws IllegalAccessException {
+    ImmutableMultimap.Builder<Class<? extends FragmentOptions>, OptionDefinition>
+        missingMetadataTagOptions = new ImmutableMultimap.Builder<>();
+    ImmutableMultimap.Builder<Class<? extends FragmentOptions>, OptionDefinition>
+        unpreservedOptions = new ImmutableMultimap.Builder<>();
+    ImmutableSortedSet<Class<? extends FragmentOptions>> allFragmentOptions =
+        newPackageLoaderBuilder().ruleClassProvider.getFragmentRegistry().getOptionsClasses();
+    for (Class<? extends FragmentOptions> optionsClass : allFragmentOptions) {
+      ImmutableList<OptionDefinition> incompatibleOptions =
+          OptionsParser.getOptionDefinitions(optionsClass).stream()
+              .filter(
+                  option ->
+                      Arrays.asList(option.getOptionMetadataTags())
+                              .contains(OptionMetadataTag.INCOMPATIBLE_CHANGE)
+                          || option.getOptionName().startsWith("incompatible_"))
+              .filter(option -> option.getField().getType().isAssignableFrom(boolean.class))
+              .filter(option -> option.getField().getAnnotation(Deprecated.class) == null)
+              .collect(ImmutableList.toImmutableList());
+
+      // Verify that all --incompatible_* options have the INCOMPATIBLE_CHANGE metadata tag.
+      incompatibleOptions.stream()
+          .filter(
+              option ->
+                  !Arrays.asList(option.getOptionMetadataTags())
+                      .contains(OptionMetadataTag.INCOMPATIBLE_CHANGE))
+          .forEach(option -> missingMetadataTagOptions.put(optionsClass, option));
+
+      // Flip all incompatible (boolean) options to their non-default value.
+      FragmentOptions flipped = Options.getDefaults(optionsClass);
+      for (OptionDefinition incompatibleOption : incompatibleOptions) {
+        Field field = incompatibleOption.getField();
+        field.setBoolean(flipped, !field.getBoolean(flipped));
+      }
+
+      // Verify that the flipped value is preserved under an exec transition.
+      FragmentOptions flippedAfterExec = flipped.getExec();
+      for (OptionDefinition incompatibleOption : incompatibleOptions) {
+        Field field = incompatibleOption.getField();
+        if (field.getBoolean(flippedAfterExec) != field.getBoolean(flipped)) {
+          unpreservedOptions.put(optionsClass, incompatibleOption);
+        }
+      }
+    }
+
+    assertThat(missingMetadataTagOptions.build()).isEmpty();
+    assertThat(unpreservedOptions.build()).isEmpty();
   }
 }

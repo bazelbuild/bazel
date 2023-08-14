@@ -52,7 +52,7 @@ final class StarlarkOS implements StarlarkValue {
       structField = true,
       doc =
           "A string identifying the operating system Bazel is running on (the value of the"
-              + " \"os.name\" Java property).")
+              + " \"os.name\" Java property converted to lower case).")
   public String getName() {
     return System.getProperty("os.name").toLowerCase(Locale.ROOT);
   }
@@ -62,7 +62,7 @@ final class StarlarkOS implements StarlarkValue {
       structField = true,
       doc =
           "A string identifying the architecture Bazel is running on (the value of the \"os.arch\""
-              + " Java property).")
+              + " Java property converted to lower case).")
   public String getArch() {
     return System.getProperty("os.arch").toLowerCase(Locale.ROOT);
   }

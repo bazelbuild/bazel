@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -44,7 +43,7 @@ public interface CoverageReportActionFactory {
    */
   final class CoverageReportActionsWrapper {
     private final ActionAnalysisMetadata coverageReportAction;
-    private final Actions.GeneratingActions processedActions;
+    private final ImmutableList<ActionAnalysisMetadata> actions;
 
     public CoverageReportActionsWrapper(
         ActionAnalysisMetadata lcovWriteAction,
@@ -52,12 +51,10 @@ public interface CoverageReportActionFactory {
         ActionKeyContext actionKeyContext)
         throws InterruptedException {
       this.coverageReportAction = coverageReportAction;
+      this.actions = ImmutableList.of(lcovWriteAction, coverageReportAction);
       try {
-        this.processedActions =
-            Actions.assignOwnersAndFindAndThrowActionConflict(
-                actionKeyContext,
-                ImmutableList.of(lcovWriteAction, coverageReportAction),
-                CoverageReportValue.COVERAGE_REPORT_KEY);
+        Actions.assignOwnersAndThrowIfConflict(
+            actionKeyContext, actions, CoverageReportValue.COVERAGE_REPORT_KEY);
       } catch (MutableActionGraph.ActionConflictException
           | Actions.ArtifactGeneratedByOtherRuleException e) {
         throw new IllegalStateException(e);
@@ -68,11 +65,11 @@ public interface CoverageReportActionFactory {
       return coverageReportAction;
     }
 
-    public Actions.GeneratingActions getActions() {
-      return processedActions;
+    public ImmutableList<ActionAnalysisMetadata> getActions() {
+      return actions;
     }
 
-    public ImmutableSet<Artifact> getCoverageOutputs() {
+    public Collection<Artifact> getCoverageOutputs() {
       return coverageReportAction.getOutputs();
     }
   }

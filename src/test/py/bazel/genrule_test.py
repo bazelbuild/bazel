@@ -19,15 +19,6 @@ from src.test.py.bazel import test_base
 
 class GenRuleTest(test_base.TestBase):
 
-  def RunBazel(self, args, env_remove=None, env_add=None):
-    extra_flags = []
-    if self.IsWindows():
-      # This ensures we don't run Bash on Windows,
-      # otherwise an error will be thrown.
-      extra_flags.append('--shell_executable=')
-    return super(GenRuleTest, self).RunBazel(args + extra_flags, env_remove,
-                                             env_add)
-
   def testCopyWithBashAndBatch(self):
     self.ScratchFile('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
@@ -41,12 +32,10 @@ class GenRuleTest(test_base.TestBase):
     ])
     self.ScratchFile('foo/hello', ['hello world'])
 
-    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(['info', 'bazel-bin'])
     bazel_bin = stdout[0]
 
-    exit_code, _, stderr = self.RunBazel(['build', '//foo:x'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(['build', '//foo:x'])
 
     copied = os.path.join(bazel_bin, 'foo', 'hello_copied')
     self.assertTrue(os.path.exists(copied))
@@ -65,16 +54,33 @@ class GenRuleTest(test_base.TestBase):
     ])
     self.ScratchFile('foo/hello', ['hello world'])
 
-    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(['info', 'bazel-bin'])
     bazel_bin = stdout[0]
 
-    exit_code, _, stderr = self.RunBazel(['build', '//foo:x'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(['build', '//foo:x'])
 
     copied = os.path.join(bazel_bin, 'foo', 'hello_copied')
     self.assertTrue(os.path.exists(copied))
     self.AssertFileContentContains(copied, 'hello world')
+
+  def testShOptionOverridesDefault(self):
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('foo/BUILD', [
+        'genrule(',
+        '  name = "x",',
+        '  outs = ["hello"],',
+        '  cmd = "echo hello > $@"',
+        ')',
+    ])
+    # Build this target and make sure it passes with the default sh config
+    self.RunBazel(['build', '//foo:x'])
+    # Pass a bad --sh_executable and ensure this causes the build to fail
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '//foo:x', '--shell_executable=fake_executable_should_fail'],
+        allow_failure=True,
+    )
+    self.assertNotEqual(exit_code, 0)
+    self.assertIn('fake_executable_should_fail', ''.join(stderr))
 
   def testScriptFileIsUsedWithBatch(self):
     if not self.IsWindows():
@@ -88,12 +94,10 @@ class GenRuleTest(test_base.TestBase):
         ')',
     ])
 
-    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(['info', 'bazel-bin'])
     bazel_bin = stdout[0]
 
-    exit_code, _, stderr = self.RunBazel(['build', '//foo:x'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(['build', '//foo:x'])
 
     script = os.path.join(bazel_bin, 'foo', 'x.genrule_script.bat')
     hello = os.path.join(bazel_bin, 'foo', 'hello_world')
@@ -115,12 +119,10 @@ class GenRuleTest(test_base.TestBase):
         ')',
     ])
 
-    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(['info', 'bazel-bin'])
     bazel_bin = stdout[0]
 
-    exit_code, _, stderr = self.RunBazel(['build', '//foo:x'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(['build', '//foo:x'])
 
     script = os.path.join(bazel_bin, 'foo', 'x.genrule_script.ps1')
     hello = os.path.join(bazel_bin, 'foo', 'hello_world')
@@ -142,7 +144,9 @@ class GenRuleTest(test_base.TestBase):
         ')',
     ])
 
-    exit_code, _, stderr = self.RunBazel(['build', '//foo:x'])
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '//foo:x'], allow_failure=True
+    )
     self.AssertExitCode(exit_code, 1, stderr)
     self.assertIn(
         'The term \'command_not_exist\' is not recognized as the name of a cmdlet',
@@ -162,12 +166,10 @@ class GenRuleTest(test_base.TestBase):
     ])
     self.ScratchFile('foo/hello source', ['hello world'])
 
-    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(['info', 'bazel-bin'])
     bazel_bin = stdout[0]
 
-    exit_code, _, stderr = self.RunBazel(['build', '//foo:x'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(['build', '//foo:x'])
 
     copied = os.path.join(bazel_bin, 'foo', 'hello copied')
     self.assertTrue(os.path.exists(copied))
@@ -187,12 +189,10 @@ class GenRuleTest(test_base.TestBase):
     ])
     self.ScratchFile('foo/hello source', ['hello world'])
 
-    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(['info', 'bazel-bin'])
     bazel_bin = stdout[0]
 
-    exit_code, _, stderr = self.RunBazel(['build', '//foo:x'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(['build', '//foo:x'])
 
     copied = os.path.join(bazel_bin, 'foo', 'hello copied')
     self.assertTrue(os.path.exists(copied))

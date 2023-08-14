@@ -56,6 +56,7 @@ public final class SingleRunfilesSupplierTest {
             PathFragment.create("notimportant"),
             mkRunfiles(artifacts),
             /*manifest=*/ null,
+            /*repoMappingManifest=*/ null,
             /*buildRunfileLinks=*/ false,
             /*runfileLinksEnabled=*/ false);
 
@@ -69,6 +70,7 @@ public final class SingleRunfilesSupplierTest {
             PathFragment.create("ignored"),
             Runfiles.EMPTY,
             /*manifest=*/ null,
+            /*repoMappingManifest=*/ null,
             /*buildRunfileLinks=*/ false,
             /*runfileLinksEnabled=*/ false);
     assertThat(underTest.getManifests()).isEmpty();
@@ -82,6 +84,7 @@ public final class SingleRunfilesSupplierTest {
             PathFragment.create("ignored"),
             Runfiles.EMPTY,
             manifest,
+            /*repoMappingManifest=*/ null,
             /*buildRunfileLinks=*/ false,
             /*runfileLinksEnabled=*/ false);
     assertThat(underTest.getManifests()).containsExactly(manifest);
@@ -94,6 +97,7 @@ public final class SingleRunfilesSupplierTest {
             PathFragment.create("old"),
             Runfiles.EMPTY,
             ActionsTestUtil.createArtifact(rootDir, "manifest"),
+            /*repoMappingManifest=*/ null,
             /*buildRunfileLinks=*/ false,
             /*runfileLinksEnabled=*/ false);
     PathFragment newDir = PathFragment.create("new");
@@ -115,6 +119,7 @@ public final class SingleRunfilesSupplierTest {
             dir,
             Runfiles.EMPTY,
             ActionsTestUtil.createArtifact(rootDir, "manifest"),
+            /*repoMappingManifest=*/ null,
             /*buildRunfileLinks=*/ false,
             /*runfileLinksEnabled=*/ false);
     assertThat(original.withOverriddenRunfilesDir(dir)).isSameInstanceAs(original);
@@ -126,12 +131,16 @@ public final class SingleRunfilesSupplierTest {
     Runfiles runfiles = mkRunfiles(mkArtifacts("a", "b", "c"));
     SingleRunfilesSupplier underTest =
         SingleRunfilesSupplier.createCaching(
-            dir, runfiles, /*buildRunfileLinks=*/ false, /*runfileLinksEnabled=*/ false);
+            dir,
+            runfiles,
+            /*repoMappingManifest=*/ null,
+            /*buildRunfileLinks=*/ false,
+            /*runfileLinksEnabled=*/ false);
 
     Map<PathFragment, Map<PathFragment, Artifact>> mappings1 = underTest.getMappings();
     Map<PathFragment, Map<PathFragment, Artifact>> mappings2 = underTest.getMappings();
 
-    assertThat(mappings1).containsExactly(dir, runfiles.getRunfilesInputs(null, null));
+    assertThat(mappings1).containsExactly(dir, runfiles.getRunfilesInputs(null, null, null));
     assertThat(mappings1).isEqualTo(mappings2);
     assertThat(mappings1.get(dir)).isSameInstanceAs(mappings2.get(dir));
   }
@@ -143,14 +152,18 @@ public final class SingleRunfilesSupplierTest {
     Runfiles runfiles = mkRunfiles(mkArtifacts("a", "b", "c"));
     SingleRunfilesSupplier original =
         SingleRunfilesSupplier.createCaching(
-            oldDir, runfiles, /*buildRunfileLinks=*/ false, /*runfileLinksEnabled=*/ false);
-    SingleRunfilesSupplier overriden = original.withOverriddenRunfilesDir(newDir);
+            oldDir,
+            runfiles,
+            /*repoMappingManifest=*/ null,
+            /*buildRunfileLinks=*/ false,
+            /*runfileLinksEnabled=*/ false);
+    SingleRunfilesSupplier overridden = original.withOverriddenRunfilesDir(newDir);
 
     Map<PathFragment, Map<PathFragment, Artifact>> mappingsOld = original.getMappings();
-    Map<PathFragment, Map<PathFragment, Artifact>> mappingsNew = overriden.getMappings();
+    Map<PathFragment, Map<PathFragment, Artifact>> mappingsNew = overridden.getMappings();
 
-    assertThat(mappingsOld).containsExactly(oldDir, runfiles.getRunfilesInputs(null, null));
-    assertThat(mappingsNew).containsExactly(newDir, runfiles.getRunfilesInputs(null, null));
+    assertThat(mappingsOld).containsExactly(oldDir, runfiles.getRunfilesInputs(null, null, null));
+    assertThat(mappingsNew).containsExactly(newDir, runfiles.getRunfilesInputs(null, null, null));
     assertThat(mappingsOld.get(newDir)).isSameInstanceAs(mappingsNew.get(oldDir));
   }
 

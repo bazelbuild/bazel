@@ -114,6 +114,8 @@ public class AppleToolchain implements AppleToolchainApi<AppleConfiguration> {
         }
         break;
       case MACOS:
+      case VISIONOS_DEVICE:
+      case VISIONOS_SIMULATOR:
       case WATCHOS_DEVICE:
       case WATCHOS_SIMULATOR:
       case TVOS_DEVICE:
@@ -132,7 +134,7 @@ public class AppleToolchain implements AppleToolchainApi<AppleConfiguration> {
       RepositoryName toolsRepository) {
     return LabelLateBoundDefault.fromTargetConfiguration(
         AppleConfiguration.class,
-        Label.parseAbsoluteUnchecked(
+        Label.parseCanonicalUnchecked(
             toolsRepository + AppleCommandLineOptions.DEFAULT_XCODE_VERSION_CONFIG_LABEL),
         (Attribute.LateBoundDefault.Resolver<AppleConfiguration, Label> & Serializable)
             (rule, attributes, appleConfig) -> appleConfig.getXcodeConfigLabel());
@@ -184,7 +186,6 @@ public class AppleToolchain implements AppleToolchainApi<AppleConfiguration> {
               attr(XcodeConfigRule.XCODE_CONFIG_ATTR_NAME, LABEL)
                   .allowedRuleClasses("xcode_config")
                   .checkConstraints()
-                  .direct_compile_time_input()
                   .value(getXcodeConfigLabel(toolsRepository)))
           .build();
     }

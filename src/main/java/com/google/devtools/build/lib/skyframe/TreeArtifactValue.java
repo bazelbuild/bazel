@@ -24,19 +24,26 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.actions.cache.MetadataDigestUtils;
+import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
+import com.google.devtools.build.lib.concurrent.ErrorClassifier;
+import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.IORuntimeException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -47,7 +54,9 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.ForkJoinPool;
 import javax.annotation.Nullable;
 
 /**
@@ -55,7 +64,9 @@ import javax.annotation.Nullable;
  * {@link TreeFileArtifact}s.
  */
 public class TreeArtifactValue implements HasDigest, SkyValue {
-
+  private static final ForkJoinPool VISITOR_POOL =
+      NamedForkJoinPool.newNamedPool(
+          "tree-artifact-visitor", Runtime.getRuntime().availableProcessors());
   /**
    * Comparator based on exec path which works on {@link ActionInput} as opposed to {@link
    * com.google.devtools.build.lib.actions.Artifact}. This way, we can use an {@link ActionInput} to
@@ -68,7 +79,6 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
   private static final ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> EMPTY_MAP =
       childDataBuilder().buildOrThrow();
 
-  @SuppressWarnings("unchecked")
   private static ImmutableSortedMap.Builder<TreeFileArtifact, FileArtifactValue>
       childDataBuilder() {
     return new ImmutableSortedMap.Builder<>(EXEC_PATH_COMPARATOR);
@@ -178,6 +188,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
           EMPTY_MAP,
           0L,
           /*archivedRepresentation=*/ null,
+          /*materializationExecPath=*/ null,
           /*entirelyRemote=*/ false);
 
   private final byte[] digest;
@@ -190,23 +201,123 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
    */
   @Nullable private final ArchivedRepresentation archivedRepresentation;
 
+  /**
+   * Optional materialization path.
+   *
+   * <p>If present, this artifact is a copy of another artifact. It is still tracked as a
+   * non-symlink by Bazel, but materialized in the local filesystem as a symlink to the original
+   * artifact, whose contents live at this location. This is used by {@link
+   * com.google.devtools.build.lib.remote.AbstractActionInputPrefetcher} to implement zero-cost
+   * copies of remotely stored artifacts.
+   */
+  @Nullable private final PathFragment materializationExecPath;
+
   private final boolean entirelyRemote;
+
+  /** A FileArtifactValue used to stand in for a TreeArtifactValue. */
+  private static final class TreeArtifactCompositeFileArtifactValue extends FileArtifactValue {
+    private final byte[] digest;
+    private final boolean isRemote;
+    @Nullable private final PathFragment materializationExecPath;
+
+    TreeArtifactCompositeFileArtifactValue(
+        byte[] digest, boolean isRemote, @Nullable PathFragment materializationExecPath) {
+      this.digest = digest;
+      this.isRemote = isRemote;
+      this.materializationExecPath = materializationExecPath;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof TreeArtifactCompositeFileArtifactValue)) {
+        return false;
+      }
+      TreeArtifactCompositeFileArtifactValue that = (TreeArtifactCompositeFileArtifactValue) o;
+      return Arrays.equals(digest, that.digest)
+          && Objects.equals(materializationExecPath, that.materializationExecPath);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(Arrays.hashCode(digest), materializationExecPath);
+    }
+
+    @Override
+    public FileStateType getType() {
+      return FileStateType.DIRECTORY;
+    }
+
+    @Override
+    public byte[] getDigest() {
+      return digest;
+    }
+
+    @Override
+    @Nullable
+    public FileContentsProxy getContentsProxy() {
+      return null;
+    }
+
+    @Override
+    public long getSize() {
+      return 0;
+    }
+
+    @Override
+    public boolean wasModifiedSinceDigest(Path path) {
+      return false;
+    }
+
+    @Override
+    public long getModifiedTime() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("digest", BaseEncoding.base16().lowerCase().encode(digest))
+          .add("materializationExecPath", materializationExecPath)
+          .toString();
+    }
+
+    @Override
+    protected boolean couldBeModifiedByMetadata(FileArtifactValue o) {
+      return false;
+    }
+
+    @Override
+    public boolean isRemote() {
+      return isRemote;
+    }
+
+    @Override
+    public Optional<PathFragment> getMaterializationExecPath() {
+      return Optional.ofNullable(materializationExecPath);
+    }
+  }
 
   private TreeArtifactValue(
       byte[] digest,
       ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> childData,
       long totalChildSize,
       @Nullable ArchivedRepresentation archivedRepresentation,
+      @Nullable PathFragment materializationExecPath,
       boolean entirelyRemote) {
     this.digest = digest;
     this.childData = childData;
     this.totalChildSize = totalChildSize;
     this.archivedRepresentation = archivedRepresentation;
+    this.materializationExecPath = materializationExecPath;
     this.entirelyRemote = entirelyRemote;
   }
 
   public FileArtifactValue getMetadata() {
-    return FileArtifactValue.createProxy(digest);
+    return new TreeArtifactCompositeFileArtifactValue(
+        digest, entirelyRemote, materializationExecPath);
   }
 
   ImmutableSet<PathFragment> getChildPaths() {
@@ -231,6 +342,11 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
   /** Return archived representation of the tree artifact (if present). */
   public Optional<ArchivedRepresentation> getArchivedRepresentation() {
     return Optional.ofNullable(archivedRepresentation);
+  }
+
+  /** Return materialization path (if present). */
+  public Optional<PathFragment> getMaterializationExecPath() {
+    return Optional.ofNullable(materializationExecPath);
   }
 
   @VisibleForTesting
@@ -294,6 +410,8 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     return MoreObjects.toStringHelper(this)
         .add("digest", digest)
         .add("childData", childData)
+        .add("archivedRepresentation", archivedRepresentation)
+        .add("materializationExecPath", materializationExecPath)
         .toString();
   }
 
@@ -313,7 +431,12 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
 
   private static TreeArtifactValue createMarker(String toStringRepresentation) {
     return new TreeArtifactValue(
-        null, EMPTY_MAP, 0L, /*archivedRepresentation=*/ null, /*entirelyRemote=*/ false) {
+        null,
+        EMPTY_MAP,
+        0L,
+        /*archivedRepresentation=*/ null,
+        /*materializationExecPath=*/ null,
+        /*entirelyRemote=*/ false) {
       @Override
       public ImmutableSet<TreeFileArtifact> getChildren() {
         throw new UnsupportedOperationException(toString());
@@ -371,8 +494,69 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
      *
      * <p>If the implementation throws {@link IOException}, traversal is immediately halted and the
      * exception is propagated.
+     *
+     * <p>This method can be called from multiple threads in parallel during a single call of {@link
+     * TreeArtifactVisitor#visitTree(Path, TreeArtifactVisitor)}.
      */
+    @ThreadSafe
     void visit(PathFragment parentRelativePath, Dirent.Type type) throws IOException;
+  }
+
+  /** An {@link AbstractQueueVisitor} that visits every file in the tree artifact. */
+  static class Visitor extends AbstractQueueVisitor {
+    private final Path parentDir;
+    private final TreeArtifactVisitor visitor;
+
+    Visitor(Path parentDir, TreeArtifactVisitor visitor) {
+      super(
+          VISITOR_POOL,
+          ExecutorOwnership.SHARED,
+          ExceptionHandlingMode.FAIL_FAST,
+          ErrorClassifier.DEFAULT);
+      this.parentDir = checkNotNull(parentDir);
+      this.visitor = checkNotNull(visitor);
+    }
+
+    void run() throws IOException, InterruptedException {
+      execute(() -> visitTree(PathFragment.EMPTY_FRAGMENT));
+      try {
+        awaitQuiescence(true);
+      } catch (IORuntimeException e) {
+        throw e.getCauseIOException();
+      }
+    }
+
+    // IOExceptions are wrapped in IORuntimeException so that it can be propagated to the main
+    // thread
+    private void visitTree(PathFragment subdir) {
+      try {
+        for (Dirent dirent : parentDir.getRelative(subdir).readdir(Symlinks.NOFOLLOW)) {
+          PathFragment parentRelativePath = subdir.getChild(dirent.getName());
+          Dirent.Type type = dirent.getType();
+
+          if (type == Dirent.Type.UNKNOWN) {
+            throw new IOException(
+                "Could not determine type of file for "
+                    + parentRelativePath
+                    + " under "
+                    + parentDir);
+          }
+
+          if (type == Dirent.Type.SYMLINK) {
+            checkSymlink(subdir, parentDir.getRelative(parentRelativePath));
+          }
+
+          visitor.visit(parentRelativePath, type);
+
+          if (type == Dirent.Type.DIRECTORY) {
+            execute(() -> visitTree(parentRelativePath));
+          }
+        }
+      } catch (IOException e) {
+        // We can't throw checked exceptions here since AQV expects Runnables
+        throw new IORuntimeException(e);
+      }
+    }
   }
 
   /**
@@ -386,34 +570,16 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
    * symlink that traverses outside of the tree artifact and any entry of {@link
    * Dirent.Type#UNKNOWN}, such as a named pipe.
    *
+   * <p>The visitor will be called on multiple threads in parallel. Accordingly, it must be
+   * thread-safe.
+   *
    * @throws IOException if there is any problem reading or validating outputs under the given tree
    *     artifact directory, or if {@link TreeArtifactVisitor#visit} throws {@link IOException}
    */
-  public static void visitTree(Path parentDir, TreeArtifactVisitor visitor) throws IOException {
-    visitTree(parentDir, PathFragment.EMPTY_FRAGMENT, checkNotNull(visitor));
-  }
-
-  private static void visitTree(Path parentDir, PathFragment subdir, TreeArtifactVisitor visitor)
-      throws IOException {
-    for (Dirent dirent : parentDir.getRelative(subdir).readdir(Symlinks.NOFOLLOW)) {
-      PathFragment parentRelativePath = subdir.getChild(dirent.getName());
-      Dirent.Type type = dirent.getType();
-
-      if (type == Dirent.Type.UNKNOWN) {
-        throw new IOException(
-            "Could not determine type of file for " + parentRelativePath + " under " + parentDir);
-      }
-
-      if (type == Dirent.Type.SYMLINK) {
-        checkSymlink(subdir, parentDir.getRelative(parentRelativePath));
-      }
-
-      visitor.visit(parentRelativePath, type);
-
-      if (type == Dirent.Type.DIRECTORY) {
-        visitTree(parentDir, parentRelativePath, visitor);
-      }
-    }
+  public static void visitTree(Path parentDir, TreeArtifactVisitor treeArtifactVisitor)
+      throws IOException, InterruptedException {
+    Visitor visitor = new Visitor(parentDir, treeArtifactVisitor);
+    visitor.run();
   }
 
   private static void checkSymlink(PathFragment subDir, Path path) throws IOException {
@@ -448,6 +614,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     private final ImmutableSortedMap.Builder<TreeFileArtifact, FileArtifactValue> childData =
         childDataBuilder();
     private ArchivedRepresentation archivedRepresentation;
+    private PathFragment materializationExecPath;
     private final SpecialArtifact parent;
 
     Builder(SpecialArtifact parent) {
@@ -514,11 +681,23 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder setMaterializationExecPath(PathFragment materializationExecPath) {
+      checkState(
+          this.materializationExecPath == null,
+          "Tried to set materialization exec path multiple times for: %s",
+          parent);
+      this.materializationExecPath = materializationExecPath;
+      return this;
+    }
+
     /** Builds the final {@link TreeArtifactValue}. */
     public TreeArtifactValue build() {
       ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> finalChildData =
           childData.buildOrThrow();
-      if (finalChildData.isEmpty() && archivedRepresentation == null) {
+      if (finalChildData.isEmpty()
+          && archivedRepresentation == null
+          && materializationExecPath == null) {
         return EMPTY;
       }
 
@@ -550,6 +729,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
           finalChildData,
           totalChildSize,
           archivedRepresentation,
+          materializationExecPath,
           entirelyRemote);
     }
   }

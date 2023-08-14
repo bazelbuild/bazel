@@ -51,7 +51,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -63,26 +63,13 @@ import net.starlark.java.syntax.Location;
 public final class CompletionFunction<
         ValueT extends ConfiguredObjectValue,
         ResultT extends SkyValue,
-        KeyT extends TopLevelActionLookupKey,
+        KeyT extends TopLevelActionLookupKeyWrapper,
         FailureT>
     implements SkyFunction {
 
   /** A strategy for completing the build. */
   interface Completor<
-      ValueT, ResultT extends SkyValue, KeyT extends TopLevelActionLookupKey, FailureT> {
-
-    /**
-     * Returns the options which determine the artifacts to build for the top-level targets.
-     *
-     * <p>For the Top level targets we made a conscious decision to include the
-     * TopLevelArtifactContext within the SkyKey as an argument to the CompletionFunction rather
-     * than a separate SkyKey. As a result we do have <num top level targets> extra SkyKeys for
-     * every unique TopLevelArtifactContexts used over the lifetime of Blaze. This is a minor
-     * tradeoff, since it significantly improves null build times when we're switching the
-     * TopLevelArtifactContexts frequently (common for IDEs), by reusing existing SkyKeys from
-     * earlier runs, instead of causing an eager invalidation were the TopLevelArtifactContext
-     * modeled as a separate SkyKey.
-     */
+      ValueT, ResultT extends SkyValue, KeyT extends TopLevelActionLookupKeyWrapper, FailureT> {
 
     /** Creates an event reporting an absent input artifact. */
     Event getRootCauseError(ValueT value, KeyT key, LabelCause rootCause, Environment env)
@@ -161,8 +148,7 @@ public final class CompletionFunction<
     ArtifactsToBuild artifactsToBuild = valueAndArtifactsToBuild.second;
 
     ImmutableList<Artifact> allArtifacts = artifactsToBuild.getAllArtifacts().toList();
-    SkyframeIterableResult inputDeps =
-        env.getOrderedValuesAndExceptions(Artifact.keys(allArtifacts));
+    SkyframeLookupResult inputDeps = env.getValuesAndExceptions(Artifact.keys(allArtifacts));
 
     boolean allArtifactsAreImportant = artifactsToBuild.areAllOutputGroupsImportant();
 
@@ -197,7 +183,8 @@ public final class CompletionFunction<
     for (Artifact input : allArtifacts) {
       try {
         SkyValue artifactValue =
-            inputDeps.nextOrThrow(ActionExecutionException.class, SourceArtifactException.class);
+            inputDeps.getOrThrow(
+                Artifact.key(input), ActionExecutionException.class, SourceArtifactException.class);
         if (artifactValue != null) {
           if (artifactValue instanceof MissingArtifactValue) {
             handleSourceFileError(
@@ -218,7 +205,8 @@ public final class CompletionFunction<
                 input,
                 artifactValue,
                 env,
-                currentConsumer);
+                currentConsumer,
+                skyframeActionExecutor.requiresTreeMetadataWhenTreeFileIsInput());
             if (!allArtifactsAreImportant && importantArtifactSet.contains(input)) {
               // Calling #addToMap a second time with `input` and `artifactValue` will perform no-op
               // updates to the secondary collections passed in (eg. expandedArtifacts,
@@ -233,7 +221,7 @@ public final class CompletionFunction<
                   input,
                   artifactValue,
                   env,
-                  MetadataConsumerForMetrics.NO_OP);
+                  skyframeActionExecutor.requiresTreeMetadataWhenTreeFileIsInput());
             }
           }
         }
@@ -338,7 +326,7 @@ public final class CompletionFunction<
   @Nullable
   static <ValueT extends ConfiguredObjectValue>
       Pair<ValueT, ArtifactsToBuild> getValueAndArtifactsToBuild(
-          TopLevelActionLookupKey key, Environment env) throws InterruptedException {
+          TopLevelActionLookupKeyWrapper key, Environment env) throws InterruptedException {
     @SuppressWarnings("unchecked")
     ValueT value = (ValueT) env.getValue(key.actionLookupKey());
     if (env.valuesMissing()) {
@@ -353,7 +341,7 @@ public final class CompletionFunction<
 
   @Override
   public String extractTag(SkyKey skyKey) {
-    return Label.print(((TopLevelActionLookupKey) skyKey).actionLookupKey().getLabel());
+    return Label.print(((TopLevelActionLookupKeyWrapper) skyKey).actionLookupKey().getLabel());
   }
 
   private static final class CompletionFunctionException extends SkyFunctionException {

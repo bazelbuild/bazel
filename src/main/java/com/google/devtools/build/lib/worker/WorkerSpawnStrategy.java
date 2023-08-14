@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.devtools.build.lib.exec.AbstractSpawnStrategy;
+import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.vfs.Path;
 
 /**
@@ -23,8 +24,8 @@ import com.google.devtools.build.lib.vfs.Path;
 public final class WorkerSpawnStrategy extends AbstractSpawnStrategy {
 
   public WorkerSpawnStrategy(
-      Path execRoot, WorkerSpawnRunner spawnRunner, boolean verboseFailures) {
-    super(execRoot, spawnRunner, verboseFailures);
+      Path execRoot, WorkerSpawnRunner spawnRunner, ExecutionOptions executionOptions) {
+    super(execRoot, spawnRunner, executionOptions);
   }
 
   @Override

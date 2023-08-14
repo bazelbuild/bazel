@@ -34,9 +34,9 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 public abstract class KeyToConsolidate {
   enum Op {
     /**
-     * Assert that the reverse dep is already present in the set of reverse deps. If the entry is
-     * re-evaluating, add this reverse dep to the set of reverse deps to signal when this entry is
-     * done.
+     * If the entry is re-evaluating, assert that the reverse dep is already present in the set of
+     * reverse deps and add this reverse dep to the set of reverse deps to signal when this entry is
+     * done. If the entry is already done, do nothing.
      */
     CHECK,
     /**
@@ -113,7 +113,7 @@ public abstract class KeyToConsolidate {
    * object wrapper. Whatever {@code opToStoreBare} is set to here, the same value must be passed in
    * to {@link #op} when decoding an operation emitted by this method.
    */
-  static Object create(SkyKey key, Op op, InMemoryNodeEntry entry) {
+  static Object create(SkyKey key, Op op, IncrementalInMemoryNodeEntry entry) {
     if (op == ReverseDepsUtility.getOpToStoreBare(entry)) {
       return key;
     }

@@ -34,8 +34,10 @@ import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
+import com.google.devtools.build.lib.actions.PathStripper;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -87,7 +89,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for Starlark functions relating to rule implementation. */
 @RunWith(JUnit4.class)
-public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
+public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
 
   private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase();
 
@@ -482,7 +484,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
         "my_rule = rule(",
         "  _main_rule_impl,",
         "  attrs = { ",
-        "    'exe' : attr.label(executable = True, allow_files = True, cfg='host'),",
+        "    'exe' : attr.label(executable = True, allow_files = True, cfg='exec'),",
         "  },",
         ")");
     scratch.file("bar/bar.bzl", lines.build().toArray(new String[] {}));
@@ -628,6 +630,33 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
         "ruleContext.expand_location('$(locations :abc)')");
   }
 
+  @Test
+  public void testExpandLocationWithShortPathsIsPrivateAPI() throws Exception {
+    scratch.file(
+        "abc/rule.bzl",
+        "def _impl(ctx):",
+        " ctx.expand_location('', short_paths = True)",
+        " return []",
+        "",
+        "r = rule(implementation = _impl)");
+    scratch.file("abc/BUILD", "load(':rule.bzl', 'r')", "", "r(name = 'foo')");
+
+    AssertionError error =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//abc:foo"));
+
+    assertThat(error).hasMessageThat().contains("file '//abc:rule.bzl' cannot use private API");
+  }
+
+  @Test
+  public void testExpandLocationWithShortPaths() throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:bar");
+    setRuleContext(ruleContext);
+
+    Object loc = ev.eval("ruleContext.expand_location('$(location :jl)', short_paths = True)");
+
+    assertThat(loc).isEqualTo("foo/libjl.jar");
+  }
+
   /** Regression test to check that expand_location allows ${var} and $$. */
   @Test
   public void testExpandLocationWithDollarSignsAndCurlys() throws Exception {
@@ -684,12 +713,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
         "   tools=ruleContext.attr.tools)");
     @SuppressWarnings("unchecked")
     List<Artifact> inputs = (List<Artifact>) (List<?>) (StarlarkList) ev.lookup("inputs");
-    assertArtifactFilenames(
-        inputs,
-        "mytool.sh",
-        "mytool",
-        "foo_Smytool" + OsUtils.executableExtension() + "-runfiles",
-        "t.exe");
+    assertArtifactFilenames(inputs, "mytool.sh", "mytool", "foo_Smytool-runfiles", "t.exe");
     @SuppressWarnings("unchecked")
     RunfilesSupplier runfilesSupplier =
         CompositeRunfilesSupplier.fromSuppliers(
@@ -732,20 +756,70 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testResolveCommandScript() throws Exception {
+  public void resolveCommandScript() throws Exception {
     setRuleContext(createRuleContext("//foo:resolve_me"));
     ev.exec(
-        "def foo():", // no for loops at top-level
-        "  s = 'a'",
-        "  for i in range(1,17): s = s + s", // 2**17 > CommandHelper.maxCommandLength (=64000)
-        "  return ruleContext.resolve_command(",
-        "    command=s)",
-        "argv = foo()[1]");
+        "s = 'a' * " + CommandHelper.maxCommandLength + 1,
+        "inputs, argv, _ = ruleContext.resolve_command(command = s)");
+
     @SuppressWarnings("unchecked")
-    List<String> argv = (List<String>) (List<?>) (StarlarkList) ev.lookup("argv");
+    List<Artifact> inputs = (List<Artifact>) ev.lookup("inputs");
+    @SuppressWarnings("unchecked")
+    List<String> argv = (List<String>) ev.lookup("argv");
+
+    assertThat(inputs).hasSize(1);
     assertThat(argv).hasSize(2);
-    assertMatches("argv[0]", "^.*/bash" + OsUtils.executableExtension() + "$", argv.get(0));
-    assertMatches("argv[1]", "^.*/resolve_me[.][a-z0-9]+[.]script[.]sh$", argv.get(1));
+    assertThat(argv.get(0)).endsWith("/bash" + OsUtils.executableExtension());
+    assertThat(argv.get(1)).isEqualTo(inputs.get(0).getExecPathString());
+    assertThat(inputs.get(0).getExecPathString()).endsWith(".script.sh");
+  }
+
+  @Test
+  public void multipleResolveCommandScripts_noConflict() throws Exception {
+    setRuleContext(createRuleContext("//foo:resolve_me"));
+    ev.exec(
+        "s1 = '1' * " + CommandHelper.maxCommandLength + 1,
+        "s2 = '2' * " + CommandHelper.maxCommandLength + 1,
+        "inputs1, argv1, _ = ruleContext.resolve_command(command = s1)",
+        "inputs2, argv2, __ = ruleContext.resolve_command(command = s2)");
+
+    @SuppressWarnings("unchecked")
+    List<Artifact> inputs1 = (List<Artifact>) ev.lookup("inputs1");
+    @SuppressWarnings("unchecked")
+    List<String> argv1 = (List<String>) ev.lookup("argv1");
+    @SuppressWarnings("unchecked")
+    List<Artifact> inputs2 = (List<Artifact>) ev.lookup("inputs2");
+    @SuppressWarnings("unchecked")
+    List<String> argv2 = (List<String>) ev.lookup("argv2");
+
+    assertThat(inputs1).hasSize(1);
+    assertThat(inputs2).hasSize(1);
+    assertThat(inputs1.get(0).getExecPathString()).isNotEqualTo(inputs2.get(0).getExecPathString());
+    assertThat(argv1).hasSize(2);
+    assertThat(argv2).hasSize(2);
+    assertThat(argv1.get(0)).endsWith("/bash" + OsUtils.executableExtension());
+    assertThat(argv2.get(0)).endsWith("/bash" + OsUtils.executableExtension());
+    assertThat(argv1.get(1)).isEqualTo(inputs1.get(0).getExecPathString());
+    assertThat(argv2.get(1)).isEqualTo(inputs2.get(0).getExecPathString());
+  }
+
+  @Test
+  public void resolveCommandScript_namingNotDependantOnCommand() throws Exception {
+    setRuleContext(createRuleContext("//foo:resolve_me"));
+    ev.exec(
+        "s = '1' * " + CommandHelper.maxCommandLength + 1,
+        "result1 = ruleContext.resolve_command(command = s)");
+    var result1 = ev.lookup("result1");
+
+    // Reset the rule context to simulate a build in a different configuration that results in a
+    // different command.
+    setRuleContext(createRuleContext("//foo:resolve_me"));
+    ev.exec(
+        "s = '2' * " + CommandHelper.maxCommandLength + 1,
+        "result2 = ruleContext.resolve_command(command = s)");
+    var result2 = ev.lookup("result2");
+
+    assertThat(result1).isEqualTo(result2);
   }
 
   @Test
@@ -764,7 +838,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
         ((Depset) ev.lookup("inputs")).getSet(Artifact.class).toList(),
         "mytool.sh",
         "mytool",
-        "foo_Smytool" + OsUtils.executableExtension() + "-runfiles",
+        "foo_Smytool-runfiles",
         "t.exe");
     @SuppressWarnings("unchecked")
     RunfilesSupplier runfilesSupplier =
@@ -777,11 +851,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
     assertThat(ActionsTestUtil.baseArtifactNames(action.getInputs()))
-        .containsAtLeast(
-            "mytool.sh",
-            "mytool",
-            "foo_Smytool" + OsUtils.executableExtension() + "-runfiles",
-            "t.exe");
+        .containsAtLeast("mytool.sh", "mytool", "foo_Smytool-runfiles", "t.exe");
   }
 
   @Test
@@ -823,7 +893,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
    * encoded string which has been ingested as Latin 1. The hack converts the string to its
    * "correct" UTF-8 value. Once Blaze starts calling {@link
    * net.starlark.java.syntax.ParserInput#fromUTF8} instead of {@code fromLatin1} and the hack for
-   * the substituations parameter is removed, this test will fail.
+   * the substitutions parameter is removed, this test will fail.
    */
   @Test
   public void testCreateTemplateActionWithWrongEncoding() throws Exception {
@@ -953,7 +1023,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
             "  symlinks = {'sym1': ruleContext.files.srcs[1]})");
     Runfiles runfiles = (Runfiles) result;
     reporter.removeHandler(failFastHandler); // So it doesn't throw an exception.
-    runfiles.getRunfilesInputs(reporter, null);
+    var unused = runfiles.getRunfilesInputs(reporter, null, null);
     assertContainsEvent("ERROR <no location>: overwrote runfile");
   }
 
@@ -2307,11 +2377,12 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   public void testLazyArgsWithParamFileInvalidFormatString() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     ev.checkEvalErrorContains(
-        "Invalid value for parameter \"param_file_arg\": Expected string with a single \"--file=\"",
+        "Invalid value for parameter \"param_file_arg\": "
+            + "Expected string with a single \"%s\", got \"--file=\"",
         "args = ruleContext.actions.args()\n" + "args.use_param_file('--file=')");
     ev.checkEvalErrorContains(
         "Invalid value for parameter \"param_file_arg\": "
-            + "Expected string with a single \"--file=%s%s\"",
+            + "Expected string with a single \"%s\", got \"--file=%s%s\"",
         "args = ruleContext.actions.args()\n" + "args.use_param_file('--file=%s%s')");
   }
 
@@ -2538,7 +2609,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
         "  implementation = _foo_impl,",
         "  attrs = {",
         "    '_attr': attr.label(",
-        "        cfg = apple_common.multi_arch_split,",
+        "        cfg = android_common.multi_cpu_configuration,",
         "        default = configuration_field(fragment='cpp', name = 'cc_toolchain'))})");
 
     scratch.file("test/BUILD", "load('//test:rule.bzl', 'foo')", "foo(name='foo')");
@@ -2615,8 +2686,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
     AssertionError expected =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:main"));
 
-    assertThat(expected).hasMessageThat()
-        .contains("has to declare 'apple' as a required fragment in target configuration");
+    assertThat(expected).hasMessageThat().contains("has to declare 'apple' as a required fragment");
   }
 
   @Test
@@ -2844,7 +2914,10 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
         CommandLineExpansionException.class,
         () ->
             commandLine.addToFingerprint(
-                actionKeyContext, /*artifactExpander=*/ null, new Fingerprint()));
+                actionKeyContext,
+                /* artifactExpander= */ null,
+                new Fingerprint(),
+                PathStripper.PathMapper.NOOP));
   }
 
   @Test
@@ -3105,7 +3178,8 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   private String getDigest(CommandLine commandLine, ArtifactExpander artifactExpander)
       throws CommandLineExpansionException, InterruptedException {
     Fingerprint fingerprint = new Fingerprint();
-    commandLine.addToFingerprint(actionKeyContext, artifactExpander, fingerprint);
+    commandLine.addToFingerprint(
+        actionKeyContext, artifactExpander, fingerprint, PathStripper.PathMapper.NOOP);
     return fingerprint.hexDigestAndReset();
   }
 
@@ -3233,5 +3307,88 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
     Args args = (Args) ev.eval("args");
     CommandLine commandLine = args.build();
     assertThrows(CommandLineExpansionException.class, commandLine::arguments);
+  }
+
+  @Test
+  public void testDeclareSharedArtifactIsPrivateAPI() throws Exception {
+    scratch.file(
+        "abc/rule.bzl",
+        "def _impl(ctx):",
+        " ctx.actions.declare_shareable_artifact('foo')",
+        " return []",
+        "",
+        "r = rule(implementation = _impl)");
+    scratch.file("abc/BUILD", "load(':rule.bzl', 'r')", "", "r(name = 'foo')");
+
+    AssertionError error =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//abc:foo"));
+
+    assertThat(error).hasMessageThat().contains("file '//abc:rule.bzl' cannot use private API");
+  }
+
+  @Test
+  public void testDisablingRunfilesSymlinkChecksIsPrivateAPI() throws Exception {
+    scratch.file(
+        "abc/rule.bzl",
+        "def _impl(ctx):",
+        " ctx.runfiles(skip_conflict_checking = True)",
+        " return []",
+        "",
+        "r = rule(implementation = _impl)");
+    scratch.file("abc/BUILD", "load(':rule.bzl', 'r')", "", "r(name = 'foo')");
+
+    AssertionError error =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//abc:foo"));
+
+    assertThat(error).hasMessageThat().contains("file '//abc:rule.bzl' cannot use private API");
+  }
+
+  @Test
+  public void testDeclareSharedArtifact_differentFileRoot() throws Exception {
+    scratch.file(
+        "test/rule.bzl",
+        "RootProvider = provider(fields = ['root'])",
+        "def _impl(ctx):",
+        "  if not ctx.attr.dep:",
+        "      return [RootProvider(root = ctx.configuration.bin_dir)]", // This is the child.
+        "  exec_config_root = ctx.attr.dep[RootProvider].root",
+        "  a1 = ctx.actions.declare_shareable_artifact(ctx.label.name + '1.so')",
+        "  ctx.actions.write(a1, '')",
+        "  a2 = ctx.actions.declare_shareable_artifact(",
+        "           ctx.label.name + '2.so',",
+        "           exec_config_root",
+        "       )",
+        "  ctx.actions.write(a2, '')",
+        "  return [DefaultInfo(files = depset([a1, a2]))]",
+        "",
+        "r = rule(",
+        "    implementation = _impl,",
+        "    attrs = {'dep': attr.label(cfg = 'exec')},",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load(':rule.bzl', 'r')",
+        "r(name = 'foo', dep = ':exec_configured_child')",
+        "r(name = 'exec_configured_child')");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:foo");
+
+    assertThat(target).isNotNull();
+    Artifact a1 =
+        getFilesToBuild(target).toSet().stream()
+            .filter(artifactNamed("foo1.so"))
+            .findFirst()
+            .orElse(null);
+    assertThat(a1).isNotNull();
+    assertThat(a1.getRoot().getExecPathString())
+        .isEqualTo(getRelativeOutputPath() + "/k8-fastbuild/bin");
+    Artifact a2 =
+        getFilesToBuild(target).toSet().stream()
+            .filter(artifactNamed("foo2.so"))
+            .findFirst()
+            .orElse(null);
+    assertThat(a2).isNotNull();
+    assertThat(a2.getRoot().getExecPathString())
+        .matches(getRelativeOutputPath() + "/[\\w\\-]+\\-exec\\-[\\w\\-]+/bin");
   }
 }

@@ -21,11 +21,13 @@ import build.bazel.remote.asset.v1.FetchGrpc.FetchBlockingStub;
 import build.bazel.remote.asset.v1.Qualifier;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
+import com.google.auth.Credentials;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.HashOutputStream;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.remote.ReferenceCountedChannel;
 import com.google.devtools.build.lib.remote.RemoteRetrier;
@@ -35,21 +37,18 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
 import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import io.grpc.StatusRuntimeException;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.net.URI;
 import java.net.URL;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.annotation.Nullable;
 
 /**
  * A Downloader implementation that uses Bazel's Remote Execution APIs to delegate downloads of
@@ -67,6 +66,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   private final RemoteRetrier retrier;
   private final RemoteCacheClient cacheClient;
   private final RemoteOptions options;
+  private final boolean verboseFailures;
+  @Nullable private final Downloader fallbackDownloader;
 
   private final AtomicBoolean closed = new AtomicBoolean();
 
@@ -75,7 +76,6 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   // supported by Bazel.
   private static final String QUALIFIER_CHECKSUM_SRI = "checksum.sri";
   private static final String QUALIFIER_CANONICAL_ID = "bazel.canonical_id";
-  private static final String QUALIFIER_AUTH_HEADERS = "bazel.auth_headers";
 
   public GrpcRemoteDownloader(
       String buildRequestId,
@@ -84,7 +84,9 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       Optional<CallCredentials> credentials,
       RemoteRetrier retrier,
       RemoteCacheClient cacheClient,
-      RemoteOptions options) {
+      RemoteOptions options,
+      boolean verboseFailures,
+      @Nullable Downloader fallbackDownloader) {
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
     this.channel = channel;
@@ -92,6 +94,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     this.retrier = retrier;
     this.cacheClient = cacheClient;
     this.options = options;
+    this.verboseFailures = verboseFailures;
+    this.fallbackDownloader = fallbackDownloader;
   }
 
   @Override
@@ -106,7 +110,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   @Override
   public void download(
       List<URL> urls,
-      Map<URI, Map<String, String>> authHeaders,
+      Credentials credentials,
       com.google.common.base.Optional<Checksum> checksum,
       String canonicalId,
       Path destination,
@@ -120,7 +124,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
         RemoteActionExecutionContext.create(metadata);
 
     final FetchBlobRequest request =
-        newFetchBlobRequest(options.remoteInstanceName, urls, authHeaders, checksum, canonicalId);
+        newFetchBlobRequest(options.remoteInstanceName, urls, checksum, canonicalId);
     try {
       FetchBlobResponse response =
           retrier.execute(
@@ -139,8 +143,18 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
             }
             return null;
           });
-    } catch (StatusRuntimeException e) {
-      throw new IOException(e);
+
+    } catch (StatusRuntimeException | IOException e) {
+      if (fallbackDownloader == null) {
+        if (e instanceof StatusRuntimeException) {
+          throw new IOException(e);
+        }
+        throw e;
+      }
+      eventHandler.handle(
+          Event.warn("Remote Cache: " + Utils.grpcAwareErrorMessage(e, verboseFailures)));
+      fallbackDownloader.download(
+          urls, credentials, checksum, canonicalId, destination, eventHandler, clientEnv, type);
     }
   }
 
@@ -148,7 +162,6 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   static FetchBlobRequest newFetchBlobRequest(
       String instanceName,
       List<URL> urls,
-      Map<URI, Map<String, String>> authHeaders,
       com.google.common.base.Optional<Checksum> checksum,
       String canonicalId) {
     FetchBlobRequest.Builder requestBuilder =
@@ -166,13 +179,6 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     if (!Strings.isNullOrEmpty(canonicalId)) {
       requestBuilder.addQualifiers(
           Qualifier.newBuilder().setName(QUALIFIER_CANONICAL_ID).setValue(canonicalId).build());
-    }
-    if (!authHeaders.isEmpty()) {
-      requestBuilder.addQualifiers(
-          Qualifier.newBuilder()
-              .setName(QUALIFIER_AUTH_HEADERS)
-              .setValue(authHeadersJson(authHeaders))
-              .build());
     }
 
     return requestBuilder.build();
@@ -195,24 +201,5 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       out = new HashOutputStream(out, checksum.get());
     }
     return out;
-  }
-
-  private static String authHeadersJson(Map<URI, Map<String, String>> authHeaders) {
-    Map<String, JsonObject> subObjects = new TreeMap<>();
-    for (Map.Entry<URI, Map<String, String>> entry : authHeaders.entrySet()) {
-      JsonObject subObject = new JsonObject();
-      Map<String, String> orderedHeaders = new TreeMap<>(entry.getValue());
-      for (Map.Entry<String, String> subEntry : orderedHeaders.entrySet()) {
-        subObject.addProperty(subEntry.getKey(), subEntry.getValue());
-      }
-      subObjects.put(entry.getKey().toString(), subObject);
-    }
-
-    JsonObject authHeadersJson = new JsonObject();
-    for (Map.Entry<String, JsonObject> entry : subObjects.entrySet()) {
-      authHeadersJson.add(entry.getKey(), entry.getValue());
-    }
-
-    return new Gson().toJson(authHeadersJson);
   }
 }

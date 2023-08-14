@@ -20,6 +20,8 @@
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
+source "${CURRENT_DIR}/coverage_helpers.sh" \
+  || { echo "coverage_helpers.sh not found!" >&2; exit 1; }
 
 # Check if all the tools required by CC coverage are installed.
 [[ -z $( which gcov ) ]] && fail "gcov not installed. Skipping test" && exit 0
@@ -70,6 +72,7 @@ function set_up() {
 
   # Create the CC sources.
   mkdir -p "$ROOT_VAR/coverage_srcs/"
+  mkdir -p "$ROOT_VAR/coverage_srcs/different"
   cat << EOF > "$ROOT_VAR/coverage_srcs/a.h"
 int a(bool what);
 EOF
@@ -87,6 +90,20 @@ int a(bool what) {
 }
 EOF
 
+  cat << EOF > "$ROOT_VAR/coverage_srcs/different/a.h"
+int different_a(bool what);
+EOF
+
+  cat << EOF > "$ROOT_VAR/coverage_srcs/different/a.cc"
+int different_a(bool what) {
+  if (what) {
+    return 1;
+  } else {
+    return 2;
+  }
+}
+EOF
+
   cat << EOF > "$ROOT_VAR/coverage_srcs/b.h"
 int b(int what) {
   if (what > 0) {
@@ -100,62 +117,68 @@ EOF
   cat << EOF > "$ROOT_VAR/coverage_srcs/t.cc"
 #include <stdio.h>
 #include "a.h"
+#include "different/a.h"
 
 int main(void) {
   a(true);
+  different_a(false);
 }
 EOF
 
   generate_and_execute_instrumented_binary coverage_srcs/test \
-      "$COVERAGE_DIR_VAR/coverage_srcs" \
-      coverage_srcs/a.h coverage_srcs/a.cc \
-      coverage_srcs/b.h \
-      coverage_srcs/t.cc
+      coverage_srcs/a.cc coverage_srcs/a.o \
+      coverage_srcs/different/a.cc coverage_srcs/different/a.o \
+      coverage_srcs/t.cc coverage_srcs/t.o
 
-  # g++ generates the notes files in the current directory. The documentation
-  # (https://gcc.gnu.org/onlinedocs/gcc/Gcov-Data-Files.html#Gcov-Data-Files)
-  # says they are placed in the same directory as the object file, but they
-  # are not. Therefore we move them in the same directory.
-  agcno=$(ls *a.gcno)
-  tgcno=$(ls *t.gcno)
-  mv $agcno coverage_srcs/$agcno
-  mv $tgcno coverage_srcs/$tgcno
+  agcno=$(ls coverage_srcs/*a.gcno)
+  dagcno=$(ls coverage_srcs/different/*a.gcno)
+  tgcno=$(ls coverage_srcs/*t.gcno)
+  agcda=$(ls coverage_srcs/*a.gcda)
+  dagcda=$(ls coverage_srcs/different/*a.gcda)
+  tgcda=$(ls coverage_srcs/*t.gcda)
+  # Even though gcov expects the gcda files to be next to the gcno files,
+  # during Bazel execution this will not be the case. collect_cc_coverage.sh
+  # expects them to be in the COVERAGE_DIR and will move the gcno files itself.
+  # We cannot use -fprofile-dir during compilation because this causes the
+  # filenames to undergo mangling; see
+  # https://github.com/bazelbuild/bazel/issues/16229
+  mv $agcda "$COVERAGE_DIR_VAR/$agcda"
+  mv $tgcda "$COVERAGE_DIR_VAR/$tgcda"
+  mkdir "$COVERAGE_DIR_VAR/$(dirname ${dagcda})"
+  mv $dagcda "$COVERAGE_DIR_VAR/$dagcda"
 
   # All generated .gcno files need to be in the manifest otherwise
   # the coverage report will be incomplete.
-  echo "coverage_srcs/$tgcno" >> "$COVERAGE_MANIFEST_VAR"
-  echo "coverage_srcs/$agcno" >> "$COVERAGE_MANIFEST_VAR"
+  echo "$tgcno" >> "$COVERAGE_MANIFEST_VAR"
+  echo "$agcno" >> "$COVERAGE_MANIFEST_VAR"
+  echo "$dagcno" >> "$COVERAGE_MANIFEST_VAR"
 }
 
 # Generates and executes an instrumented binary:
 #
-# Reads the list of arguments provided by the caller (using $@) and uses them
-# to produce an instrumented binary using g++. This step also generates
-# the notes (.gcno) files.
+# Reads the list of source files along with object files paths. Uses them
+# to produce object files and link them to an instrumented binary using g++.
+# This step also generates the notes (.gcno) files.
 #
 # Executes the instrumented binary. This step also generates the
 # profile data (.gcda) files.
+#
+# - [(source_file, object_file),...] - source files and object file paths
 # - path_to_binary destination of the binary produced by g++
 function generate_and_execute_instrumented_binary() {
   local path_to_binary="${1}"; shift
-  local gcda_directory="${1}"; shift
-  # -fprofile-arcs   Instruments $path_to_binary. During execution the binary
-  #                  records code coverage information.
-  # -ftest-coverage  Produces a notes (.gcno) file that coverage utilities
-  #                  (e.g. gcov, lcov) can use to show a coverage report.
-  # -fprofile-dir    Sets the directory where the profile data (gcda) appears.
-  #
-  # The profile data files need to be at a specific location where the C++
-  # coverage scripts expects them to be ($COVERAGE_DIR/path/to/sources/).
-  g++ -fprofile-arcs -ftest-coverage \
-      -fprofile-dir="$gcda_directory" \
-      "$@" -o "$path_to_binary"  \
-       || fail "Couldn't produce the instrumented binary for $@ \
-            with path_to_binary $path_to_binary"
+  local src_file=""
+  local obj_file=""
+  local obj_files=""
+  while [[ $# -ge 2 ]]; do
+    src_file=$1; shift
+    obj_file=$1; shift
+    obj_files="${obj_files} $obj_file"
+    g++ -coverage -fprofile-arcs -ftest-coverage -lgcov -c \
+      "$src_file" -o "$obj_file"
+  done
 
-   # Execute the instrumented binary and generates the profile data (.gcda)
-   # file.
-   # The profile data file is placed in $gcda_directory.
+  g++ -coverage -fprofile-arcs -ftest-coverage -lgcov -o "$path_to_binary" $obj_files
   "$path_to_binary" || fail "Couldn't execute the instrumented binary \
       $path_to_binary"
 }
@@ -165,26 +188,6 @@ function tear_down() {
   rm -f "$COVERAGE_GCOV_PATH_VAR"
   rm -rf "$COVERAGE_DIR_VAR"
   rm -rf coverage_srcs/
-}
-
-# Asserts if the given expected coverage result is included in the given output
-# file.
-#
-# - expected_coverage The expected result that must be included in the output.
-# - output_file       The location of the coverage output file.
-function assert_coverage_entry_in_file() {
-    local expected_coverage="${1}"; shift
-    local output_file="${1}"; shift
-
-    # Replace newlines with commas to facilitate the assertion.
-    local expected_coverage_no_newlines="$( echo -n "$expected_coverage" | tr '\n' ',' | tr -d "\"")"
-    local output_file_no_newlines="$( cat "$output_file" | tr '\n' ',' | tr -d "\"")"
-
-    (echo "$output_file_no_newlines" | fgrep  "$expected_coverage_no_newlines")\
-        || fail "Expected coverage result
-<$expected_coverage>
-was not found in actual coverage report:
-<$( cat $output_file )>"
 }
 
 # Asserts if coverage result in gcov format for coverage_srcs/a.cc is included
@@ -201,7 +204,7 @@ lcount:4,1
 lcount:5,1
 lcount:6,1
 lcount:8,0"
-    assert_coverage_entry_in_file "$expected_gcov_result_a_cc" "$output_file"
+    assert_coverage_result "$expected_gcov_result_a_cc" "$output_file"
 }
 
 
@@ -213,12 +216,13 @@ function assert_gcov_coverage_srcs_t_cc() {
     local output_file="${1}"; shift
 
     # The expected coverage result for coverage_srcs/t.cc in gcov format.
-    local expected_gcov_result_t_cc="file:coverage_srcs/t.cc
-function:4,1,main
-lcount:4,1
+    local expected_gcov_result_t_cc="coverage_srcs/t.cc
+function:5,1,main
 lcount:5,1
-lcount:6,1"
-    assert_coverage_entry_in_file "$expected_gcov_result_t_cc" "$output_file"
+lcount:6,1
+lcount:7,1
+lcount:8,1"
+    assert_coverage_result "$expected_gcov_result_t_cc" "$output_file"
 }
 
 function assert_gcov_coverage_srcs_b_h() {
@@ -231,7 +235,20 @@ lcount:1,1
 lcount:2,1
 lcount:3,1
 lcount:5,0"
-    assert_coverage_entry_in_file "$expected_gcov_result" "$output_file"
+    assert_coverage_result "$expected_gcov_result" "$output_file"
+}
+
+function assert_gcov_coverage_srcs_d_a_cc() {
+    local output_file="${1}"; shift
+
+    # The expected coverage result for coverage_srcs/different/a.cc in gcov format.
+    local expected_gcov_result_d_a_cc="file:coverage_srcs/different/a.cc
+function:1,1,_Z11different_ab
+lcount:1,1
+lcount:2,1
+lcount:3,0
+lcount:5,1"
+    assert_coverage_result "$expected_gcov_result_d_a_cc" "$output_file"
 }
 
 function assert_gcov_coverage_srcs_a_cc_json() {
@@ -242,7 +259,7 @@ function assert_gcov_coverage_srcs_a_cc_json() {
 {"lines": [{"branches": [], "count": 1, "line_number": 4, "unexecuted_block": false, "function_name": "_Z1ab"}, {"branches": [], "count": 1, "line_number": 5, "unexecuted_block": false, "function_name": "_Z1ab"}, {"branches": [], "count": 1, "line_number": 6, "unexecuted_block": false, "function_name": "_Z1ab"}, {"branches": [], "count": 0, "line_number": 8, "unexecuted_block": true, "function_name": "_Z1ab"}], "functions": [{"blocks": 4, "end_column": 1, "start_line": 4, "name": "_Z1ab", "blocks_executed": 3, "execution_count": 1, "demangled_name": "a(bool)", "start_column": 5, "end_line": 10}], "file": "coverage_srcs/a.cc"}
 EOF
 local expected_gcov_result_a_cc=$(cat expected_gcov_result_a_cc | tr -d '\n')
-    assert_coverage_entry_in_file "$expected_gcov_result_a_cc" "$output_file"
+    assert_coverage_result "$expected_gcov_result_a_cc" "$output_file"
 }
 
 
@@ -255,25 +272,36 @@ function assert_gcov_coverage_srcs_t_cc_json() {
 
     # The expected coverage result for coverage_srcs/t.cc in gcov format.
     cat > expected_gcov_result_t_cc <<EOF
-{"lines": [{"branches": [], "count": 1, "line_number": 4, "unexecuted_block": false, "function_name": "main"}, {"branches": [], "count": 1, "line_number": 5, "unexecuted_block": false, "function_name": "main"}, {"branches": [], "count": 1, "line_number": 6, "unexecuted_block": false, "function_name": "main"}], "functions": [{"blocks": 3, "end_column": 1, "start_line": 4, "name": "main", "blocks_executed": 3, "execution_count": 1, "demangled_name": "main", "start_column": 5, "end_line": 6}], "file": "coverage_srcs/t.cc"}
+{"lines": [{"branches": [], "count": 1, "line_number": 5, "unexecuted_block": false, "function_name": "main"}, {"branches": [], "count": 1, "line_number": 6, "unexecuted_block": false, "function_name": "main"}, {"branches": [], "count": 1, "line_number": 7, "unexecuted_block": false, "function_name": "main"}, {"branches": [], "count": 1, "line_number": 8, "unexecuted_block": false, "function_name": "main"}], "functions": [{"blocks": 4, "end_column": 1, "start_line": 5, "name": "main", "blocks_executed": 4, "execution_count": 1, "demangled_name": "main", "start_column": 5, "end_line": 8}], "file": "coverage_srcs/t.cc"}
 EOF
     local expected_gcov_result_t_cc=$(cat expected_gcov_result_t_cc | tr -d '\n')
-    assert_coverage_entry_in_file "$expected_gcov_result_t_cc" "$output_file"
+    assert_coverage_result "$expected_gcov_result_t_cc" "$output_file"
 }
 
 function assert_gcov_coverage_srcs_b_h_json() {
     local output_file="${1}"; shift
 
-    # The expected coverage result for coverage_srcs/t.cc in gcov format.
+    # The expected coverage result for coverage_srcs/b.h in gcov format.
     cat > expected_gcov_result_b_h <<EOF
 {"lines": [{"branches": [], "count": 1, "line_number": 1, "unexecuted_block": false, "function_name": "_Z1bi"}, {"branches": [], "count": 1, "line_number": 2, "unexecuted_block": false, "function_name": "_Z1bi"}, {"branches": [], "count": 1, "line_number": 3, "unexecuted_block": false, "function_name": "_Z1bi"}, {"branches": [], "count": 0, "line_number": 5, "unexecuted_block": true, "function_name": "_Z1bi"}], "functions": [{"blocks": 4, "end_column": 1, "start_line": 1, "name": "_Z1bi", "blocks_executed": 3, "execution_count": 1, "demangled_name": "b(int)", "start_column": 5, "end_line": 7}], "file": "coverage_srcs/b.h"}
 EOF
     local expected_gcov_result_b_h=$(cat expected_gcov_result_b_h | tr -d '\n')
-    assert_coverage_entry_in_file "$expected_gcov_result_b_h" "$output_file"
+    assert_coverage_result "$expected_gcov_result_b_h" "$output_file"
 }
 
+function assert_gcov_coverage_srcs_d_a_cc_json() {
+    local output_file="${1}"; shift
+
+    # The expected coverage result for coverage_srcs/different/a.cc in gcov format.
+    cat > expected_gcov_result_d_a_cc <<EOF
+{"lines": [{"branches": [], "count": 1, "line_number": 1, "unexecuted_block": false, "function_name": "_Z11different_ab"}, {"branches": [], "count": 1, "line_number": 2, "unexecuted_block": false, "function_name": "_Z11different_ab"}, {"branches": [], "count": 0, "line_number": 3, "unexecuted_block": true, "function_name": "_Z11different_ab"}, {"branches": [], "count": 1, "line_number": 5, "unexecuted_block": false, "function_name": "_Z11different_ab"}], "functions": [{"blocks": 4, "end_column": 1, "start_line": 1, "name": "_Z11different_ab", "blocks_executed": 3, "execution_count": 1, "demangled_name": "different_a(bool)", "start_column": 5, "end_line": 7}], "file": "coverage_srcs/different/a.cc"}
+EOF
+local expected_gcov_result_d_a_cc=$(cat expected_gcov_result_d_a_cc | tr -d '\n')
+    assert_coverage_result "$expected_gcov_result_d_a_cc" "$output_file"
+}
 
 function test_cc_test_coverage_gcov() {
+    local -r gcov_location=$(which gcov)
     "$gcov_location" -version | grep "LLVM" && \
       echo "gcov LLVM version not supported. Skipping test." && return
     # gcov -v | grep "gcov" outputs a line that looks like this:
@@ -292,9 +320,6 @@ function test_cc_test_coverage_gcov() {
     # Location of the output file of the C++ coverage script when gcov is used.
     local output_file="$COVERAGE_DIR_VAR/_cc_coverage.gcov"
 
-    # Location of the output file of the C++ coverage script when gcov is used.
-    local output_file="$COVERAGE_DIR_VAR/_cc_coverage.gcov"
-
     # If the file _cc_coverge.gcov does not exist, it means we are using gcc 9
     # or higher which uses json.gz files as intermediate format. We will keep
     # testing gcc 7 and 8 until most users have migrated.
@@ -308,27 +333,45 @@ function test_cc_test_coverage_gcov() {
       assert_gcov_coverage_srcs_a_cc "$output_file"
       assert_gcov_coverage_srcs_t_cc "$output_file"
       assert_gcov_coverage_srcs_b_h "$output_file"
+      assert_gcov_coverage_srcs_d_a_cc "$output_file"
 
       # This assertion is needed to make sure no other source files are included
       # in the output file.
       local nr_lines="$(wc -l < "$output_file")"
-      [[ "$nr_lines" == 17 ]] || \
+      [[ "$nr_lines" == 24 ]] || \
         fail "Number of lines in C++ gcov coverage output file is "\
-        "$nr_lines and different than 17"
+        "$nr_lines and different than 24"
     else
-      agcda=$(ls $COVERAGE_DIR_VAR/*a.gcda.gcov.json.gz)
-      tgcda=$(ls $COVERAGE_DIR_VAR/*t.gcda.gcov.json.gz)
-      output_file_json="output_file.json"
-      zcat $agcda $tgcda > $output_file_json
 
+      # There may or may not be "gcda" in the extension.
+      local not_found=0
+      ls $COVERAGE_DIR_VAR/coverage_srcs/*.gcda.gcov.json.gz > /dev/null 2>&1 || not_found=$?
+      if [[ $not_found -ne 0 ]]; then
+        agcda=$(ls $COVERAGE_DIR_VAR/coverage_srcs/*a.gcov.json.gz)
+        tgcda=$(ls $COVERAGE_DIR_VAR/coverage_srcs/*t.gcov.json.gz)
+        dagcda=$(ls $COVERAGE_DIR_VAR/coverage_srcs/different/*a.gcov.json.gz)
+      else
+        agcda=$(ls $COVERAGE_DIR_VAR/coverage_srcs/*a.gcda.gcov.json.gz)
+        tgcda=$(ls $COVERAGE_DIR_VAR/coverage_srcs/*t.gcda.gcov.json.gz)
+        dagcda=$(ls $COVERAGE_DIR_VAR/coverage_srcs/different/*a.gcda.gcov.json.gz)
+      fi
+      output_file_json="output_file.json"
+      zcat $agcda $tgcda $dagcda > $output_file_json
+
+      # Remove all branch information from the json.
+      # We disable branch coverage for gcov 7 and it is easier to remove it
+      # than it is to put it back.
+      # Replace "branches": [..] with "branches": [] - (non-empty [..])
+      sed -E -i 's/"branches": \[[^]]+]/"branches": \[\]/g' "$output_file_json"
       assert_gcov_coverage_srcs_a_cc_json "$output_file_json"
       assert_gcov_coverage_srcs_t_cc_json "$output_file_json"
       assert_gcov_coverage_srcs_b_h_json "$output_file_json"
+      assert_gcov_coverage_srcs_d_a_cc_json "$output_file_json"
 
       local nr_files="$(grep -o -i "\"file\":" "$output_file_json" | wc -l)"
-      [[ "$nr_files" == 3 ]] || \
+      [[ "$nr_files" == 4 ]] || \
         fail "Number of files in C++ gcov coverage output file is "\
-        "$nr_files and different than 3"
+        "$nr_files and different than 4"
     fi
 }
 

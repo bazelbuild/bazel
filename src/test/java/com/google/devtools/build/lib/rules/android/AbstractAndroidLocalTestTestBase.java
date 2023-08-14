@@ -318,7 +318,9 @@ public abstract class AbstractAndroidLocalTestTestBase extends AndroidBuildViewT
             "/FooFlags.java");
     FileWriteAction action = (FileWriteAction) getGeneratingAction(flagList);
     assertThat(action.getFileContents())
-        .isEqualTo("//java/com/foo:flag1: on\n//java/com/foo:flag2: off");
+        .isAnyOf(
+            "//java/com/foo:flag1: on\n//java/com/foo:flag2: off",
+            "@//java/com/foo:flag1: on\n@//java/com/foo:flag2: off");
   }
 
   @Test

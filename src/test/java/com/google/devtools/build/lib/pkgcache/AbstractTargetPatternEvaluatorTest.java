@@ -20,9 +20,10 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.DelegatingEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
+import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.util.Pair;
@@ -54,11 +55,7 @@ public abstract class AbstractTargetPatternEvaluatorTest extends PackageLoadingT
       boolean keepGoing)
       throws TargetParsingException, InterruptedException {
     return parseTargetPatternList(
-        PathFragment.EMPTY_FRAGMENT,
-        parser,
-        eventHandler,
-        targetPatterns,
-        keepGoing);
+        PathFragment.EMPTY_FRAGMENT, parser, eventHandler, targetPatterns, keepGoing);
   }
 
   protected static ResolvedTargets<Target> parseTargetPatternList(
@@ -74,7 +71,10 @@ public abstract class AbstractTargetPatternEvaluatorTest extends PackageLoadingT
             .collect(Collectors.toList());
     Map<String, Collection<Target>> resolvedTargetsMap =
         parser.preloadTargetPatterns(
-            eventHandler, relativeWorkingDirectory, positivePatterns, keepGoing);
+            eventHandler,
+            TargetPattern.mainRepoParser(relativeWorkingDirectory),
+            positivePatterns,
+            keepGoing);
     ResolvedTargets.Builder<Target> result = ResolvedTargets.builder();
     for (String pattern : targetPatterns) {
       if (pattern.startsWith("-")) {
@@ -90,8 +90,8 @@ public abstract class AbstractTargetPatternEvaluatorTest extends PackageLoadingT
   }
 
   /**
-   * Method converts collection of targets to the new, mutable,
-   * lexicographically-ordered set of corresponding labels.
+   * Method converts collection of targets to the new, mutable, lexicographically-ordered set of
+   * corresponding labels.
    */
   protected static Set<Label> targetsToLabels(Iterable<Target> targets) {
     Set<Label> labels = new TreeSet<>();
@@ -103,7 +103,7 @@ public abstract class AbstractTargetPatternEvaluatorTest extends PackageLoadingT
 
   @Before
   public final void initializeParser() throws Exception {
-    setUpSkyframe(ConstantRuleVisibility.PRIVATE);
+    setUpSkyframe(RuleVisibility.PRIVATE);
     parser = skyframeExecutor.newTargetPatternPreloader();
     parsingListener = new RecordingParsingListener(reporter);
   }

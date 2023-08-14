@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -35,7 +36,7 @@ public abstract class Template {
   private Template() {}
 
   /** Returns the text content of the template. */
-  protected abstract String getContent(ArtifactPathResolver resolver) throws IOException;
+  public abstract String getContent(ArtifactPathResolver resolver) throws IOException;
 
   @Nullable
   public Artifact getTemplateArtifact() {
@@ -63,7 +64,7 @@ public abstract class Template {
     }
 
     @Override
-    protected String getContent(ArtifactPathResolver resolver) throws IOException {
+    public String getContent(ArtifactPathResolver resolver) throws IOException {
       throw new IOException(
           "failed to load resource file '" + templateName + "' due to I/O error: " + e.getMessage(),
           e);
@@ -83,7 +84,7 @@ public abstract class Template {
     }
 
     @Override
-    protected String getContent(ArtifactPathResolver resolver) {
+    public String getContent(ArtifactPathResolver resolver) {
       return templateText;
     }
 
@@ -101,7 +102,7 @@ public abstract class Template {
     }
 
     @Override
-    protected String getContent(ArtifactPathResolver resolver) throws IOException {
+    public String getContent(ArtifactPathResolver resolver) throws IOException {
       Path templatePath = resolver.toPath(templateArtifact);
       try {
         return FileSystemUtils.readContent(templatePath, DEFAULT_CHARSET);
@@ -151,7 +152,8 @@ public abstract class Template {
    * input for the action, or this won't work. Therefore this method is private, and you should use
    * the corresponding {@link TemplateExpansionAction} constructor.
    */
-  static Template forArtifact(final Artifact templateArtifact) {
+  @VisibleForTesting
+  public static Template forArtifact(final Artifact templateArtifact) {
     return new ArtifactTemplate(templateArtifact);
   }
 }

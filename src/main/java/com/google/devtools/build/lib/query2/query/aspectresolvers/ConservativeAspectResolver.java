@@ -13,10 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.query.aspectresolvers;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.LinkedHashMultimap;
-import com.google.common.collect.Multimap;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDefinition;
@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import java.util.Set;
+import java.util.LinkedHashMap;
 
 /**
  * An aspect resolver that overestimates the required aspect dependencies.
@@ -34,30 +34,37 @@ import java.util.Set;
  */
 public class ConservativeAspectResolver implements AspectResolver {
   @Override
-  public ImmutableMultimap<Attribute, Label> computeAspectDependencies(
+  public ImmutableMap<Aspect, ImmutableMultimap<Attribute, Label>> computeAspectDependencies(
       Target target, DependencyFilter dependencyFilter) {
     if (!(target instanceof Rule)) {
-      return ImmutableMultimap.of();
+      return ImmutableMap.of();
     }
     Rule rule = (Rule) target;
     if (!rule.hasAspects()) {
-      return ImmutableMultimap.of();
+      return ImmutableMap.of();
     }
 
-    Multimap<Attribute, Label> result = LinkedHashMultimap.create();
+    LinkedHashMap<Aspect, ImmutableMultimap<Attribute, Label>> results = new LinkedHashMap<>();
+
     for (Attribute attribute : rule.getAttributes()) {
       for (Aspect aspect : attribute.getAspects(rule)) {
-        AspectDefinition.addAllAttributesOfAspect(
-            rule, result, aspect, dependencyFilter);
+        ImmutableSetMultimap.Builder<Attribute, Label> attributeLabelsBuilder =
+            ImmutableSetMultimap.builder();
+        AspectDefinition.forEachLabelDepFromAllAttributesOfAspect(
+            aspect, dependencyFilter, attributeLabelsBuilder::put);
+        ImmutableSetMultimap<Attribute, Label> attributeLabels = attributeLabelsBuilder.build();
+        if (!attributeLabels.isEmpty()) {
+          results.put(aspect, attributeLabels);
+        }
       }
     }
 
-    return ImmutableMultimap.copyOf(result);
+    return ImmutableMap.copyOf(results);
   }
 
   @Override
-  public Set<Label> computeBuildFileDependencies(Package pkg) {
+  public ImmutableList<Label> computeBuildFileDependencies(Package pkg) {
     // We do a conservative estimate precisely so that we don't depend on any other BUILD files.
-    return ImmutableSet.copyOf(pkg.getStarlarkFileDependencies());
+    return pkg.getOrComputeTransitivelyLoadedStarlarkFiles();
   }
 }

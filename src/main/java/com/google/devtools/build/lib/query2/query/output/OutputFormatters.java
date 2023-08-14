@@ -39,6 +39,7 @@ public class OutputFormatters {
         new GraphOutputFormatter(),
         new XmlOutputFormatter(),
         new ProtoOutputFormatter(),
+        new StreamedJSONProtoOutputFormatter(),
         new StreamedProtoOutputFormatter());
   }
 

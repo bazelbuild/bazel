@@ -37,8 +37,7 @@ public abstract class ComposingTransitionFactory<T extends TransitionFactory.Dat
    * {@code fromOptions -> transition1 -> transition2 -> toOptions }.
    *
    * <p>Note that this method checks for transition factories that cannot be composed, such as if
-   * one of the transitions is {@link NoTransition} or the host transition, and returns an
-   * efficiently composed transition.
+   * one of the transitions is {@link NoTransition}, and returns an efficiently composed transition.
    */
   public static <T extends TransitionFactory.Data> TransitionFactory<T> of(
       TransitionFactory<T> transitionFactory1, TransitionFactory<T> transitionFactory2) {
@@ -64,11 +63,7 @@ public abstract class ComposingTransitionFactory<T extends TransitionFactory.Dat
       // Since transitionFactory2 causes no changes, use transitionFactory1 directly.
       return transitionFactory1;
     } else if (isFinal(transitionFactory2)) {
-      // When the second transition is null or a HOST transition, there's no need to compose. But
-      // this also
-      // improves performance: host transitions are common, and ConfiguredTargetFunction has special
-      // optimized logic to handle them. If they were buried in the last segment of a
-      // ComposingTransition, those optimizations wouldn't trigger.
+      // When the second transition is null there's no need to compose.
       return transitionFactory2;
     }
 
@@ -77,7 +72,7 @@ public abstract class ComposingTransitionFactory<T extends TransitionFactory.Dat
 
   private static <T extends TransitionFactory.Data> boolean isFinal(
       TransitionFactory<T> transitionFactory) {
-    return NullTransition.isInstance(transitionFactory) || transitionFactory.isHost();
+    return NullTransition.isInstance(transitionFactory);
   }
 
   private static <T extends TransitionFactory.Data> TransitionFactory<T> create(
@@ -95,11 +90,6 @@ public abstract class ComposingTransitionFactory<T extends TransitionFactory.Dat
   abstract TransitionFactory<T> transitionFactory1();
 
   abstract TransitionFactory<T> transitionFactory2();
-
-  @Override
-  public boolean isHost() {
-    return transitionFactory1().isHost() || transitionFactory2().isHost();
-  }
 
   @Override
   public boolean isTool() {

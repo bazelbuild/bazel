@@ -15,40 +15,48 @@
 package com.google.devtools.build.lib.sandbox;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.vfs.Dirent.Type.DIRECTORY;
 import static com.google.devtools.build.lib.vfs.Dirent.Type.SYMLINK;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
-import com.google.common.hash.HashingOutputStream;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput.EmptyActionInput;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Sandbox;
+import com.google.devtools.build.lib.server.FailureDetails.Sandbox.Code;
 import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils.MoveResult;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -62,66 +70,8 @@ public final class SandboxHelpers {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final AtomicBoolean warnedAboutMovesBeingCopies = new AtomicBoolean(false);
-  /**
-   * If true, materialize virtual inputs only inside the sandbox, not the output tree. This flag
-   * exists purely to support rolling this out as the defaut in a controlled manner.
-   */
-  private final boolean delayVirtualInputMaterialization;
 
-  /**
-   * Constructs a new collection of helpers.
-   *
-   * @param delayVirtualInputMaterialization whether to materialize virtual inputs only inside the
-   *     sandbox
-   */
-  public SandboxHelpers(boolean delayVirtualInputMaterialization) {
-    this.delayVirtualInputMaterialization = delayVirtualInputMaterialization;
-  }
-
-  /**
-   * Writes a virtual input file so that the final file is always consistent to all readers.
-   *
-   * <p>This function exists to aid dynamic scheduling. Param files are inputs, so they need to be
-   * written without holding the output lock. When we have competing unsandboxed spawn runners (like
-   * persistent workers), it's possible for them to clash in these writes, either encountering
-   * missing file errors or encountering incomplete data. But given that we can assume both spawn
-   * runners will write the same contents, we can write those as temporary files and then perform a
-   * rename, which has atomic semantics on Unix, and thus keep all readers always seeing consistent
-   * contents.
-   *
-   * @param input the virtual input file to write
-   * @param outputPath final path where the virtual input file ought to live
-   * @param uniqueSuffix a filename extension that is different between the local spawn runners and
-   *     the remote ones
-   * @return digest of written virtual input
-   * @throws IOException if we fail to write the virtual input file
-   */
-  // TODO(b/150963503): We are using atomic file system moves for synchronization... but Bazel
-  // should not be able to reach this state. Which means we should probably be doing some other
-  // form of synchronization in-process before touching the file system.
-  public static byte[] atomicallyWriteVirtualInput(
-      VirtualActionInput input, Path outputPath, String uniqueSuffix) throws IOException {
-    Path tmpPath = outputPath.getFileSystem().getPath(outputPath.getPathString() + uniqueSuffix);
-    tmpPath.getParentDirectory().createDirectoryAndParents();
-    try {
-      byte[] digest = writeVirtualInputTo(input, tmpPath);
-      // We expect the following to replace the params file atomically in case we are using
-      // the dynamic scheduler and we are racing the remote strategy writing this same file.
-      tmpPath.renameTo(outputPath);
-      tmpPath = null; // Avoid unnecessary deletion attempt.
-      return digest;
-    } finally {
-      try {
-        if (tmpPath != null) {
-          // Make sure we don't leave temp files behind if we are interrupted.
-          tmpPath.delete();
-        }
-      } catch (IOException e) {
-        // Ignore.
-      }
-    }
-  }
-
+  private static final AtomicInteger tempFileUniquifierForVirtualInputWrites = new AtomicInteger();
   /**
    * Moves all given outputs from a root to another.
    *
@@ -182,18 +132,20 @@ public final class SandboxHelpers {
       Set<PathFragment> inputsToCreate,
       Set<PathFragment> dirsToCreate,
       Path workDir)
-      throws IOException {
+      throws IOException, InterruptedException {
     // To avoid excessive scanning of dirsToCreate for prefix dirs, we prepopulate this set of
     // prefixes.
     Set<PathFragment> prefixDirs = new HashSet<>();
     for (PathFragment dir : dirsToCreate) {
+      if (Thread.interrupted()) {
+        throw new InterruptedException();
+      }
       PathFragment parent = dir.getParentDirectory();
       while (parent != null && !prefixDirs.contains(parent)) {
         prefixDirs.add(parent);
         parent = parent.getParentDirectory();
       }
     }
-
     cleanRecursively(root, inputs, inputsToCreate, dirsToCreate, workDir, prefixDirs);
   }
 
@@ -208,9 +160,12 @@ public final class SandboxHelpers {
       Set<PathFragment> dirsToCreate,
       Path workDir,
       Set<PathFragment> prefixDirs)
-      throws IOException {
+      throws IOException, InterruptedException {
     Path execroot = workDir.getParentDirectory();
     for (Dirent dirent : root.readdir(Symlinks.NOFOLLOW)) {
+      if (Thread.interrupted()) {
+        throw new InterruptedException();
+      }
       Path absPath = root.getChild(dirent.getName());
       PathFragment pathRelativeToWorkDir;
       if (absPath.startsWith(workDir)) {
@@ -253,9 +208,9 @@ public final class SandboxHelpers {
    */
   static Optional<PathFragment> getExpectedSymlinkDestination(
       PathFragment fragment, SandboxInputs inputs) {
-    Path file = inputs.getFiles().get(fragment);
+    RootedPath file = inputs.getFiles().get(fragment);
     if (file != null) {
-      return Optional.of(file.asFragment());
+      return Optional.of(file.asPath().asFragment());
     }
     return Optional.ofNullable(inputs.getSymlinks().get(fragment));
   }
@@ -331,7 +286,8 @@ public final class SandboxHelpers {
    *     are disallowed, for stricter sandboxing.
    */
   public static void createDirectories(
-      Iterable<PathFragment> dirsToCreate, Path dir, boolean strict) throws IOException {
+      Iterable<PathFragment> dirsToCreate, Path dir, boolean strict)
+      throws IOException, InterruptedException {
     Set<Path> knownDirectories = new HashSet<>();
     // Add sandboxExecRoot and it's parent -- all paths must fall under the parent of
     // sandboxExecRoot and we know that sandboxExecRoot exists. This stops the recursion in
@@ -340,6 +296,9 @@ public final class SandboxHelpers {
     knownDirectories.add(dir.getParentDirectory());
 
     for (PathFragment path : dirsToCreate) {
+      if (Thread.interrupted()) {
+        throw new InterruptedException();
+      }
       if (strict) {
         Preconditions.checkArgument(!path.isAbsolute(), path);
         if (path.containsUplevelReferences() && path.isMultiSegment()) {
@@ -358,50 +317,61 @@ public final class SandboxHelpers {
     }
   }
 
+  static FailureDetail createFailureDetail(String message, Code detailedCode) {
+    return FailureDetail.newBuilder()
+        .setMessage(message)
+        .setSandbox(Sandbox.newBuilder().setCode(detailedCode))
+        .build();
+  }
+
+  /** Adds additional bind mounts entries from {@code paths} to {@code bindMounts}. */
+  public static void mountAdditionalPaths(
+      List<Entry<String, String>> paths, Path sandboxExecRoot, SortedMap<Path, Path> bindMounts)
+      throws UserExecException {
+    FileSystem fs = sandboxExecRoot.getFileSystem();
+    for (Map.Entry<String, String> additionalMountPath : paths) {
+      try {
+        final Path mountTarget = fs.getPath(additionalMountPath.getValue());
+        // If source path is relative, treat it as a relative path inside the execution root
+        final Path mountSource = sandboxExecRoot.getRelative(additionalMountPath.getKey());
+        // If a target has more than one source path, the latter one will take effect.
+        bindMounts.put(mountTarget, mountSource);
+      } catch (IllegalArgumentException e) {
+        throw new UserExecException(
+            createFailureDetail(
+                String.format("Error occurred when analyzing bind mount pairs. %s", e.getMessage()),
+                Code.BIND_MOUNT_ANALYSIS_FAILURE));
+      }
+    }
+  }
+
   /** Wrapper class for the inputs of a sandbox. */
   public static final class SandboxInputs {
-
-    private static final AtomicInteger tempFileUniquifierForVirtualInputWrites =
-        new AtomicInteger();
-
-    private final Map<PathFragment, Path> files;
-    // Virtual inputs that are not materialized during {@link #processInputFiles}
-    private final Set<VirtualActionInput> virtualInputsWithDelayedMaterialization;
-    // Virtual inputs that are materialized during {@link #processInputFiles}.
-    private final Map<VirtualActionInput, byte[]> materializedVirtualInputs;
+    private final Map<PathFragment, RootedPath> files;
+    private final Map<VirtualActionInput, byte[]> virtualInputs;
     private final Map<PathFragment, PathFragment> symlinks;
+    private final Map<Root, Path> sourceRootBindMounts;
 
     private static final SandboxInputs EMPTY_INPUTS =
         new SandboxInputs(
-            ImmutableMap.of(), ImmutableSet.of(), ImmutableMap.of(), ImmutableMap.of());
+            ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of());
 
     public SandboxInputs(
-        Map<PathFragment, Path> files,
-        Set<VirtualActionInput> virtualInputsWithDelayedMaterialization,
-        Map<VirtualActionInput, byte[]> materializedVirtualInputs,
-        Map<PathFragment, PathFragment> symlinks) {
-      checkState(
-          virtualInputsWithDelayedMaterialization.isEmpty() || materializedVirtualInputs.isEmpty(),
-          "Either virtualInputsWithDelayedMaterialization or materializedVirtualInputs should be"
-              + " empty.");
+        Map<PathFragment, RootedPath> files,
+        Map<VirtualActionInput, byte[]> virtualInputs,
+        Map<PathFragment, PathFragment> symlinks,
+        Map<Root, Path> sourceRootBindMounts) {
       this.files = files;
-      this.virtualInputsWithDelayedMaterialization = virtualInputsWithDelayedMaterialization;
-      this.materializedVirtualInputs = materializedVirtualInputs;
+      this.virtualInputs = virtualInputs;
       this.symlinks = symlinks;
-    }
-
-    public SandboxInputs(
-        Map<PathFragment, Path> files,
-        Set<VirtualActionInput> virtualInputsWithDelayedMaterialization,
-        Map<PathFragment, PathFragment> symlinks) {
-      this(files, virtualInputsWithDelayedMaterialization, ImmutableMap.of(), symlinks);
+      this.sourceRootBindMounts = sourceRootBindMounts;
     }
 
     public static SandboxInputs getEmptyInputs() {
       return EMPTY_INPUTS;
     }
 
-    public Map<PathFragment, Path> getFiles() {
+    public Map<PathFragment, RootedPath> getFiles() {
       return files;
     }
 
@@ -409,69 +379,12 @@ public final class SandboxHelpers {
       return symlinks;
     }
 
-    /**
-     * Materializes a single virtual input inside the given execroot.
-     *
-     * <p>When materializing inputs under a new sandbox exec root, we can expect the input to not
-     * exist, but we cannot make the same assumption for the non-sandboxed exec root therefore, we
-     * may need to delete existing files.
-     *
-     * @param input virtual input to materialize
-     * @param execroot path to the execroot under which to materialize the virtual input
-     * @param isExecRootSandboxed whether the execroot is sandboxed.
-     * @return digest of written virtual input
-     * @throws IOException if the virtual input cannot be materialized
-     */
-    private static byte[] materializeVirtualInput(
-        VirtualActionInput input, Path execroot, boolean isExecRootSandboxed) throws IOException {
-      if (input instanceof EmptyActionInput) {
-        // TODO(b/150963503): We can turn this into an unreachable code path when the old
-        //  !delayVirtualInputMaterialization code path is deleted.
-        return new byte[0];
-      }
-
-      Path outputPath = execroot.getRelative(input.getExecPath());
-      if (isExecRootSandboxed) {
-        return atomicallyWriteVirtualInput(
-            input,
-            outputPath,
-            // When 2 actions try to atomically create the same virtual input, they need to have a
-            // different suffix for the temporary file in order to avoid racy write to the same one.
-            ".sandbox" + tempFileUniquifierForVirtualInputWrites.incrementAndGet());
-      }
-
-      if (outputPath.exists()) {
-        outputPath.delete();
-      }
-      outputPath.getParentDirectory().createDirectoryAndParents();
-      return writeVirtualInputTo(input, outputPath);
+    public Map<Root, Path> getSourceRootBindMounts() {
+      return sourceRootBindMounts;
     }
 
-    /**
-     * Materializes virtual files inside the sandboxed execroot once it is known.
-     *
-     * <p>These are files that do not have to exist in the execroot: we can materialize them only
-     * inside the sandbox, which means we can create them <i>before</i> we grab the output tree lock
-     * (but assuming we do so inside the sandbox only).
-     *
-     * @param sandboxExecRoot the path to the <i>sandboxed</i> execroot
-     * @return digests of written virtual inputs
-     * @throws IOException if any virtual input cannot be materialized
-     */
-    public ImmutableMap<VirtualActionInput, byte[]> materializeVirtualInputs(Path sandboxExecRoot)
-        throws IOException {
-      if (!materializedVirtualInputs.isEmpty()) {
-        return ImmutableMap.copyOf(materializedVirtualInputs);
-      }
-
-      ImmutableMap.Builder<VirtualActionInput, byte[]> digests =
-          ImmutableMap.builderWithExpectedSize(virtualInputsWithDelayedMaterialization.size());
-      for (VirtualActionInput input : virtualInputsWithDelayedMaterialization) {
-        byte[] digest =
-            materializeVirtualInput(input, sandboxExecRoot, /*isExecRootSandboxed=*/ false);
-        digests.put(input, digest);
-      }
-      return digests.buildOrThrow();
+    public ImmutableMap<VirtualActionInput, byte[]> getVirtualInputDigests() {
+      return ImmutableMap.copyOf(virtualInputs);
     }
 
     /**
@@ -479,106 +392,156 @@ public final class SandboxHelpers {
      * included.
      */
     public SandboxInputs limitedCopy(Set<PathFragment> allowed) {
+      Map<PathFragment, RootedPath> limitedFiles = Maps.filterKeys(files, allowed::contains);
+      Map<PathFragment, PathFragment> limitedSymlinks =
+          Maps.filterKeys(symlinks, allowed::contains);
+      Set<Root> usedRoots =
+          new HashSet<>(Maps.transformValues(limitedFiles, RootedPath::getRoot).values());
+      Map<Root, Path> limitedSourceRoots =
+          Maps.filterKeys(sourceRootBindMounts, usedRoots::contains);
+
       return new SandboxInputs(
-          Maps.filterKeys(files, allowed::contains),
-          ImmutableSet.of(),
-          ImmutableMap.of(),
-          Maps.filterKeys(symlinks, allowed::contains));
+          limitedFiles, ImmutableMap.of(), limitedSymlinks, limitedSourceRoots);
     }
 
     @Override
     public String toString() {
-      return "Files: "
-          + files
-          + "\nVirtualInputs: "
-          + virtualInputsWithDelayedMaterialization
-          + "\nSymlinks: "
-          + symlinks;
+      return "Files: " + files + "\nVirtualInputs: " + virtualInputs + "\nSymlinks: " + symlinks;
     }
   }
 
-  private static byte[] writeVirtualInputTo(VirtualActionInput input, Path target)
-      throws IOException {
-    byte[] digest;
-    try (OutputStream out = target.getOutputStream();
-        HashingOutputStream hashingOut =
-            new HashingOutputStream(
-                target.getFileSystem().getDigestFunction().getHashFunction(), out)) {
-      input.writeTo(hashingOut);
-      digest = hashingOut.hash().asBytes();
+  /**
+   * Returns the appropriate {@link RootedPath} for a Fileset symlink.
+   *
+   * <p>Filesets are weird because sometimes exec paths of the {@link ActionInput}s in them are not
+   * relative, as exec paths should be, but absolute and point to under one of the package roots or
+   * the execroot. In order to handle this, if we find such an absolute exec path, we iterate over
+   * possible base directories.
+   *
+   * <p>The inputs to this function should be symlinks that are contained within Filesets; in
+   * particular, this is different from "unresolved symlinks" in that Fileset contents are regular
+   * files (but implemented by symlinks in the output tree) whose contents matter and unresolved
+   * symlinks are symlinks for which the important content is the result of {@code readlink()}
+   */
+  private static RootedPath processFilesetSymlink(
+      PathFragment symlink,
+      Root execRootWithinSandbox,
+      PathFragment execRootFragment,
+      ImmutableList<Root> packageRoots) {
+    for (Root packageRoot : packageRoots) {
+      if (packageRoot.contains(symlink)) {
+        return RootedPath.toRootedPath(packageRoot, packageRoot.relativize(symlink));
+      }
     }
-    // Some of the virtual inputs can be executed, e.g. embedded tools. Setting executable flag for
-    // other is fine since that is only more permissive. Please note that for action outputs (e.g.
-    // file write, where the user can specify executable flag), we will have artifacts which do not
-    // go through this code path.
-    target.setExecutable(true);
-    return digest;
+
+    if (symlink.startsWith(execRootFragment)) {
+      return RootedPath.toRootedPath(execRootWithinSandbox, symlink.relativeTo(execRootFragment));
+    }
+
+    throw new IllegalStateException(
+        String.format(
+            "absolute action input path '%s' not found under package roots",
+            symlink.getPathString()));
   }
 
   /**
    * Returns the inputs of a Spawn as a map of PathFragments relative to an execRoot to paths in the
    * host filesystem where the input files can be found.
    *
-   * <p>This does not (and must not) write any {@link VirtualActionInput}s found because we do not
-   * yet know where they should be written to. We have a path to an {@code execRoot}, but this path
-   * should be treated as read-only because we may not be holding its lock. The caller should use
-   * {@link SandboxInputs#materializeVirtualInputs(Path)} to later write these inputs when it knows
-   * where they should be written to.
-   *
+   * @param inputMap the map of action inputs and where they should be visible in the action
+   * @param execRootPath the exec root from the point of view of the Bazel server
+   * @param withinSandboxExecRootPath the exec root from within the sandbox (different from {@code
+   *     execRootPath} because the sandbox does magic with fiile system namespaces)
+   * @param packageRoots the package path entries during this build
+   * @param sandboxSourceRoots the directory where source roots are mapped within the sandbox
    * @throws IOException if processing symlinks fails
    */
-  public SandboxInputs processInputFiles(Map<PathFragment, ActionInput> inputMap, Path execRoot)
-      throws IOException {
-    Map<PathFragment, Path> inputFiles = new TreeMap<>();
-    Set<VirtualActionInput> virtualInputsWithDelayedMaterialization = new HashSet<>();
+  public SandboxInputs processInputFiles(
+      Map<PathFragment, ActionInput> inputMap,
+      Path execRootPath,
+      Path withinSandboxExecRootPath,
+      ImmutableList<Root> packageRoots,
+      Path sandboxSourceRoots)
+      throws IOException, InterruptedException {
+    Root withinSandboxExecRoot = Root.fromPath(withinSandboxExecRootPath);
+    Root execRoot =
+        withinSandboxExecRootPath.equals(execRootPath)
+            ? withinSandboxExecRoot
+            : Root.fromPath(execRootPath);
+
+    Map<PathFragment, RootedPath> inputFiles = new TreeMap<>();
     Map<PathFragment, PathFragment> inputSymlinks = new TreeMap<>();
-    Map<VirtualActionInput, byte[]> materializedVirtualInputs = new HashMap<>();
+    Map<VirtualActionInput, byte[]> virtualInputs = new HashMap<>();
+    Map<Root, Root> sourceRootToSandboxSourceRoot = new TreeMap<>();
 
     for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
+      if (Thread.interrupted()) {
+        throw new InterruptedException();
+      }
       PathFragment pathFragment = e.getKey();
       ActionInput actionInput = e.getValue();
+      if (actionInput instanceof VirtualActionInput) {
+        // TODO(larsrc): Figure out which VAIs actually require atomicity, maybe avoid it.
+        VirtualActionInput input = (VirtualActionInput) actionInput;
+        byte[] digest =
+            input.atomicallyWriteRelativeTo(
+                execRootPath,
+                // When 2 actions try to atomically create the same virtual input, they need to have
+                // a different suffix for the temporary file in order to avoid racy write to the
+                // same one.
+                "_sandbox"
+                    + tempFileUniquifierForVirtualInputWrites.incrementAndGet()
+                    + ".virtualinputlock");
+        virtualInputs.put(input, digest);
+      }
 
-      // TODO(b/150963503): Make delayVirtualInputMaterialization the default and remove the
-      // alternate code path.
-      if (delayVirtualInputMaterialization) {
-        if (actionInput instanceof VirtualActionInput) {
-          if (actionInput instanceof EmptyActionInput) {
-            inputFiles.put(pathFragment, null);
-          } else {
-            virtualInputsWithDelayedMaterialization.add((VirtualActionInput) actionInput);
-          }
-        } else if (actionInput.isSymlink()) {
-          Path inputPath = execRoot.getRelative(actionInput.getExecPath());
-          inputSymlinks.put(pathFragment, inputPath.readSymbolicLink());
-        } else {
-          Path inputPath = execRoot.getRelative(actionInput.getExecPath());
-          inputFiles.put(pathFragment, inputPath);
-        }
+      if (actionInput.isSymlink()) {
+        Path inputPath = execRoot.getRelative(actionInput.getExecPath());
+        inputSymlinks.put(pathFragment, inputPath.readSymbolicLink());
       } else {
-        if (actionInput instanceof VirtualActionInput) {
-          byte[] digest =
-              SandboxInputs.materializeVirtualInput(
-                  (VirtualActionInput) actionInput, execRoot, /* isExecRootSandboxed=*/ true);
-          materializedVirtualInputs.put((VirtualActionInput) actionInput, digest);
+        RootedPath inputPath;
+
+        if (actionInput instanceof EmptyActionInput) {
+          inputPath = null;
+        } else if (actionInput instanceof Artifact) {
+          Artifact inputArtifact = (Artifact) actionInput;
+          if (inputArtifact.isSourceArtifact() && sandboxSourceRoots != null) {
+            Root sourceRoot = inputArtifact.getRoot().getRoot();
+            if (!sourceRootToSandboxSourceRoot.containsKey(sourceRoot)) {
+              int next = sourceRootToSandboxSourceRoot.size();
+              sourceRootToSandboxSourceRoot.put(
+                  sourceRoot,
+                  Root.fromPath(sandboxSourceRoots.getRelative(Integer.toString(next))));
+            }
+
+            inputPath =
+                RootedPath.toRootedPath(
+                    sourceRootToSandboxSourceRoot.get(sourceRoot),
+                    inputArtifact.getRootRelativePath());
+          } else {
+            inputPath = RootedPath.toRootedPath(withinSandboxExecRoot, inputArtifact.getExecPath());
+          }
+        } else {
+          PathFragment execPath = actionInput.getExecPath();
+          if (execPath.isAbsolute()) {
+            // This happens for ActionInputs that are part of Filesets (see the Javadoc on
+            // processFilesetSymlink())
+            inputPath =
+                processFilesetSymlink(
+                    actionInput.getExecPath(), execRoot, execRootPath.asFragment(), packageRoots);
+          } else {
+            inputPath = RootedPath.toRootedPath(execRoot, actionInput.getExecPath());
+          }
         }
 
-        if (actionInput.isSymlink()) {
-          Path inputPath = execRoot.getRelative(actionInput.getExecPath());
-          inputSymlinks.put(pathFragment, inputPath.readSymbolicLink());
-        } else {
-          Path inputPath =
-              actionInput instanceof EmptyActionInput
-                  ? null
-                  : execRoot.getRelative(actionInput.getExecPath());
-          inputFiles.put(pathFragment, inputPath);
-        }
+        inputFiles.put(pathFragment, inputPath);
       }
     }
-    return new SandboxInputs(
-        inputFiles,
-        virtualInputsWithDelayedMaterialization,
-        materializedVirtualInputs,
-        inputSymlinks);
+
+    Map<Root, Path> sandboxRootToSourceRoot = new TreeMap<>();
+    sourceRootToSandboxSourceRoot.forEach((k, v) -> sandboxRootToSourceRoot.put(v, k.asPath()));
+
+    return new SandboxInputs(inputFiles, virtualInputs, inputSymlinks, sandboxRootToSourceRoot);
   }
 
   /** The file and directory outputs of a sandboxed spawn. */

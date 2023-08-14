@@ -134,7 +134,7 @@ public final class StarlarkFile extends Node {
    * </pre>
    */
   public static StarlarkFile parse(ParserInput input, FileOptions options) {
-    Parser.ParseResult result = Parser.parseFile(input);
+    Parser.ParseResult result = Parser.parseFile(input, options);
     return new StarlarkFile(
         result.locs, result.statements, options, result.comments, result.errors);
   }

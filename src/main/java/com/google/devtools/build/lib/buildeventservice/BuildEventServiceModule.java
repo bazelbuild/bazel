@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildeventservice;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
@@ -45,7 +47,6 @@ import com.google.devtools.build.lib.buildeventstream.transports.BinaryFormatFil
 import com.google.devtools.build.lib.buildeventstream.transports.BuildEventStreamOptions;
 import com.google.devtools.build.lib.buildeventstream.transports.JsonFormatFileTransport;
 import com.google.devtools.build.lib.buildeventstream.transports.TextFormatFileTransport;
-import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
@@ -78,6 +79,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -237,7 +239,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
       Uninterruptibles.getUninterruptibly(
           Futures.allAsList(waitingFutureMap.values()),
           getMaxWaitForPreviousInvocation().toMillis(),
-          TimeUnit.MILLISECONDS);
+          MILLISECONDS);
       long waitedMillis = stopwatch.elapsed().toMillis();
       if (waitedMillis > 100) {
         reporter.handle(
@@ -288,7 +290,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
   }
 
   @Override
-  public void beforeCommand(CommandEnvironment cmdEnv) {
+  public void beforeCommand(CommandEnvironment cmdEnv) throws AbruptExitException {
     this.invocationId = cmdEnv.getCommandId().toString();
     this.buildRequestId = cmdEnv.getBuildRequestId();
     this.reporter = cmdEnv.getReporter();
@@ -368,10 +370,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
           .getEventBus()
           .register(
               new TargetSummaryPublisher(
-                  cmdEnv.getEventBus(),
-                  parsingResult
-                      .getOptions(BuildRequestOptions.class)
-                      .shouldMergeSkyframeAnalysisExecution()));
+                  cmdEnv.getEventBus(), cmdEnv::withMergedAnalysisAndExecutionSourceOfTruth));
     }
 
     streamer =
@@ -426,8 +425,18 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
         constructCloseFuturesMapWithTimeouts(streamer.getCloseFuturesMap());
     try {
       logger.atInfo().log("Closing pending build event transports");
-      Uninterruptibles.getUninterruptibly(Futures.allAsList(closeFuturesWithTimeoutsMap.values()));
-    } catch (ExecutionException e) {
+      ListenableFuture<List<Void>> besClosedFuture =
+          Futures.allAsList(closeFuturesWithTimeoutsMap.values());
+      if (reason == AbortReason.OUT_OF_MEMORY) {
+        // GC thrashing during severe OOMs may prevent future completion, so don't wait forever.
+        // We do want to wait in case this is a "benign" OOM - a brief high-water-mark - because
+        // then we can preserve that information in the BEP being uploaded to BES.
+        besClosedFuture.get(besOptions.besOomFinishUploadTimeout.toMillis(), MILLISECONDS);
+      } else {
+        Uninterruptibles.getUninterruptibly(besClosedFuture);
+      }
+    } catch (ExecutionException | TimeoutException | InterruptedException e) {
+      // TimeoutException and InterruptedException only thrown while crashing with OUT_OF_MEMORY.
       logger.atSevere().withCause(e).log("Failed to close a build event transport");
     } finally {
       cancelAndResetPendingUploads();
@@ -548,7 +557,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
                 Futures.withTimeout(
                     enclosingFuture,
                     bepTransport.getTimeout().toMillis(),
-                    TimeUnit.MILLISECONDS,
+                    MILLISECONDS,
                     timeoutExecutor);
             timeoutFuture.addListener(timeoutExecutor::shutdown, MoreExecutors.directExecutor());
 
@@ -853,11 +862,17 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
 
   protected abstract Set<String> allowedCommands(OptionsT besOptions);
 
-  protected Set<String> getBesKeywords(
+  protected ImmutableSet<String> getBesKeywords(
       OptionsT besOptions, @Nullable OptionsParsingResult startupOptionsProvider) {
-    return besOptions.besKeywords.stream()
-        .map(keyword -> "user_keyword=" + keyword)
-        .collect(ImmutableSet.toImmutableSet());
+    List<String> userKeywords = besOptions.besKeywords;
+    List<String> systemKeywords = besOptions.besSystemKeywords;
+    ImmutableSet.Builder<String> keywords =
+        ImmutableSet.builderWithExpectedSize(userKeywords.size() + systemKeywords.size());
+    for (String userKeyword : userKeywords) {
+      keywords.add("user_keyword=" + userKeyword);
+    }
+    keywords.addAll(systemKeywords);
+    return keywords.build();
   }
 
   /** A prefix used when printing the invocation ID in the command line */

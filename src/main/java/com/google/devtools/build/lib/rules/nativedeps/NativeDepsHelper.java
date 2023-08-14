@@ -27,10 +27,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -71,26 +69,6 @@ import javax.annotation.Nullable;
  * that some rules are implicitly neverlink.
  */
 public abstract class NativeDepsHelper {
-  /**
-   * An implementation of {@link
-   * com.google.devtools.build.lib.rules.cpp.CppLinkAction.LinkArtifactFactory} that can create
-   * artifacts anywhere.
-   *
-   * <p>Necessary because the actions of nativedeps libraries should be shareable, and thus cannot
-   * be under the package directory.
-   */
-  private static final CppLinkAction.LinkArtifactFactory SHAREABLE_LINK_ARTIFACT_FACTORY =
-      new CppLinkAction.LinkArtifactFactory() {
-        @Override
-        public Artifact create(
-            ActionConstructionContext actionConstructionContext,
-            RepositoryName repositoryName,
-            BuildConfigurationValue configuration,
-            PathFragment rootRelativePath) {
-          return actionConstructionContext.getShareableArtifact(
-              rootRelativePath, configuration.getBinDirectory(repositoryName));
-        }
-      };
 
   private NativeDepsHelper() {}
 
@@ -164,14 +142,20 @@ public abstract class NativeDepsHelper {
       return false;
     }
     Iterable<Artifact> objectFiles;
-    if (library.getObjectFiles() != null) {
+    if (library.getObjectFiles() != null && !library.getObjectFiles().isEmpty()) {
       objectFiles = library.getObjectFiles();
-    } else if (library.getPicObjectFiles() != null) {
+    } else if (library.getPicObjectFiles() != null && !library.getPicObjectFiles().isEmpty()) {
       objectFiles = library.getPicObjectFiles();
-    } else {
+    } else if (isAnySourceArtifact(library.getStaticLibrary(), library.getPicStaticLibrary())) {
       // this is an opaque library so we're going to have to link it
       return true;
+    } else {
+      // if we reach here, this is a cc_library without sources generating an empty archive which
+      // does not need to be linked
+      // TODO(hvd): replace all such usages of cc_library with a exporting_cc_library
+      return false;
     }
+
     for (Artifact object : objectFiles) {
       if (!Link.SHARED_LIBRARY_FILETYPES.matches(object.getFilename())) {
         // this library was built with a non-shared-library object so we should link it
@@ -273,7 +257,6 @@ public abstract class NativeDepsHelper {
             ruleContext.getSymbolGenerator(),
             TargetUtils.getExecutionInfo(
                 ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
-        .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
         .setIsStampingEnabled(AnalysisUtils.isStampingEnabled(ruleContext))
         .setTestOrTestOnlyTarget(ruleContext.isTestTarget() || ruleContext.isTestOnlyTarget())
         .setLinkerOutputArtifact(sharedLibrary)
@@ -283,7 +266,7 @@ public abstract class NativeDepsHelper {
         .setNeverLink(true)
         .setShouldCreateStaticLibraries(false)
         .addCcLinkingContexts(ImmutableList.of(ccLinkingContext))
-        .setLinkArtifactFactory(SHAREABLE_LINK_ARTIFACT_FACTORY)
+        .setLinkArtifactFactory(CppLinkAction.SHAREABLE_LINK_ARTIFACT_FACTORY)
         .setDynamicLinkType(LinkTargetType.DYNAMIC_LIBRARY)
         .link(CcCompilationOutputs.EMPTY);
 
@@ -386,5 +369,14 @@ public abstract class NativeDepsHelper {
             + features.size()
             + "_"
             + fp.hexDigestAndReset());
+  }
+
+  private static boolean isAnySourceArtifact(Artifact... files) {
+    for (Artifact file : files) {
+      if (file != null && file.isSourceArtifact()) {
+        return true;
+      }
+    }
+    return false;
   }
 }

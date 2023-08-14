@@ -13,11 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.skyframe.SkyKey;
 
@@ -26,34 +29,68 @@ import com.google.devtools.build.skyframe.SkyKey;
  * aspects.
  *
  * <p>These events are used to generate the final results summary.
- *
- * <p>IMPORTANT: since these events can be fired from within a SkyFunction, there exists a risk of
- * duplication (e.g. a rerun of the SkyFunction due to missing values or error bubbling). Receivers
- * of these events should be robust enough to receive and de-duplicate events if necessary.
  */
 public final class TopLevelStatusEvents {
   private TopLevelStatusEvents() {}
+
+  interface TopLevelStatusEventWithType extends Postable {
+    Type getType();
+  }
 
   /**
    * An event that marks the successful analysis of a top-level target, including tests. A skipped
    * target is still considered analyzed and a TopLevelTargetAnalyzedEvent is expected for it.
    */
   @AutoValue
-  public abstract static class TopLevelTargetAnalyzedEvent implements Postable {
+  public abstract static class TopLevelTargetAnalyzedEvent implements TopLevelStatusEventWithType {
     public abstract ConfiguredTarget configuredTarget();
 
     public static TopLevelTargetAnalyzedEvent create(ConfiguredTarget configuredTarget) {
       return new AutoValue_TopLevelStatusEvents_TopLevelTargetAnalyzedEvent(configuredTarget);
     }
+
+    @Override
+    public Type getType() {
+      return Type.TOP_LEVEL_TARGET_ANALYZED;
+    }
+  }
+
+  /**
+   * An event that signals that we can start planting the symlinks for the transitive packages under
+   * a top level target.
+   *
+   * <p>Should always be sent out before {@link TopLevelEntityAnalysisConcludedEvent} to ensure
+   * consistency.
+   */
+  @AutoValue
+  public abstract static class TopLevelTargetReadyForSymlinkPlanting
+      implements TopLevelStatusEventWithType {
+    public abstract NestedSet<Package> transitivePackagesForSymlinkPlanting();
+
+    public static TopLevelTargetReadyForSymlinkPlanting create(
+        NestedSet<Package> transitivePackagesForSymlinkPlanting) {
+      return new AutoValue_TopLevelStatusEvents_TopLevelTargetReadyForSymlinkPlanting(
+          transitivePackagesForSymlinkPlanting);
+    }
+
+    @Override
+    public Type getType() {
+      return Type.TOP_LEVEL_TARGET_READY_FOR_SYMLINK_PLANTING;
+    }
   }
 
   /** An event that marks the skipping of a top-level target, including skipped tests. */
   @AutoValue
-  public abstract static class TopLevelTargetSkippedEvent implements Postable {
-    abstract ConfiguredTarget configuredTarget();
+  public abstract static class TopLevelTargetSkippedEvent implements TopLevelStatusEventWithType {
+    public abstract ConfiguredTarget configuredTarget();
 
     public static TopLevelTargetSkippedEvent create(ConfiguredTarget configuredTarget) {
       return new AutoValue_TopLevelStatusEvents_TopLevelTargetSkippedEvent(configuredTarget);
+    }
+
+    @Override
+    public Type getType() {
+      return Type.TOP_LEVEL_TARGET_SKIPPED;
     }
   }
 
@@ -62,12 +99,25 @@ public final class TopLevelStatusEvents {
    * otherwise.
    */
   @AutoValue
-  public abstract static class TopLevelEntityAnalysisConcludedEvent implements Postable {
+  public abstract static class TopLevelEntityAnalysisConcludedEvent
+      implements TopLevelStatusEventWithType {
     public abstract SkyKey getAnalyzedTopLevelKey();
 
-    public static TopLevelEntityAnalysisConcludedEvent create(SkyKey analyzedTopLevelKey) {
+    public abstract boolean succeeded();
+
+    public static TopLevelEntityAnalysisConcludedEvent success(SkyKey analyzedTopLevelKey) {
       return new AutoValue_TopLevelStatusEvents_TopLevelEntityAnalysisConcludedEvent(
-          analyzedTopLevelKey);
+          analyzedTopLevelKey, /*succeeded=*/ true);
+    }
+
+    public static TopLevelEntityAnalysisConcludedEvent failure(SkyKey analyzedTopLevelKey) {
+      return new AutoValue_TopLevelStatusEvents_TopLevelEntityAnalysisConcludedEvent(
+          analyzedTopLevelKey, /*succeeded=*/ false);
+    }
+
+    @Override
+    public Type getType() {
+      return Type.TOP_LEVEL_ENTITY_ANALYSIS_CONCLUDED;
     }
   }
 
@@ -76,7 +126,8 @@ public final class TopLevelStatusEvents {
    * including test targets.
    */
   @AutoValue
-  public abstract static class TopLevelTargetPendingExecutionEvent implements Postable {
+  public abstract static class TopLevelTargetPendingExecutionEvent
+      implements TopLevelStatusEventWithType {
     public abstract ConfiguredTarget configuredTarget();
 
     public abstract boolean isTest();
@@ -86,29 +137,44 @@ public final class TopLevelStatusEvents {
       return new AutoValue_TopLevelStatusEvents_TopLevelTargetPendingExecutionEvent(
           configuredTarget, isTest);
     }
+
+    @Override
+    public Type getType() {
+      return Type.TOP_LEVEL_TARGET_PENDING_EXECUTION;
+    }
   }
 
   /** An event that denotes that some execution has started in this build. */
   @AutoValue
-  public abstract static class SomeExecutionStartedEvent implements Postable {
+  public abstract static class SomeExecutionStartedEvent implements TopLevelStatusEventWithType {
 
     public static SomeExecutionStartedEvent create() {
       return new AutoValue_TopLevelStatusEvents_SomeExecutionStartedEvent();
     }
+
+    @Override
+    public Type getType() {
+      return Type.SOME_EXECUTION_STARTED;
+    }
   }
   /** An event that marks the successful build of a top-level target, including tests. */
   @AutoValue
-  public abstract static class TopLevelTargetBuiltEvent implements Postable {
+  public abstract static class TopLevelTargetBuiltEvent implements TopLevelStatusEventWithType {
     abstract ConfiguredTargetKey configuredTargetKey();
 
     public static TopLevelTargetBuiltEvent create(ConfiguredTargetKey configuredTargetKey) {
       return new AutoValue_TopLevelStatusEvents_TopLevelTargetBuiltEvent(configuredTargetKey);
     }
+
+    @Override
+    public Type getType() {
+      return Type.TOP_LEVEL_TARGET_BUILT;
+    }
   }
 
   /** An event that marks the successful analysis of a test target. */
   @AutoValue
-  public abstract static class TestAnalyzedEvent implements Postable {
+  public abstract static class TestAnalyzedEvent implements TopLevelStatusEventWithType {
     public abstract ConfiguredTarget configuredTarget();
 
     public abstract BuildConfigurationValue buildConfigurationValue();
@@ -122,28 +188,57 @@ public final class TopLevelStatusEvents {
       return new AutoValue_TopLevelStatusEvents_TestAnalyzedEvent(
           configuredTarget, buildConfigurationValue, isSkipped);
     }
+
+    @Override
+    public Type getType() {
+      return Type.TEST_ANALYZED;
+    }
   }
 
   /** An event that marks the successful analysis of an aspect. */
   @AutoValue
-  public abstract static class AspectAnalyzedEvent implements Postable {
+  public abstract static class AspectAnalyzedEvent implements TopLevelStatusEventWithType {
     abstract AspectKey aspectKey();
 
-    abstract ConfiguredAspect configuredAspect();
+    public abstract ConfiguredAspect configuredAspect();
 
     public static AspectAnalyzedEvent create(
         AspectKey aspectKey, ConfiguredAspect configuredAspect) {
       return new AutoValue_TopLevelStatusEvents_AspectAnalyzedEvent(aspectKey, configuredAspect);
     }
+
+    @Override
+    public Type getType() {
+      return Type.ASPECT_ANALYZED;
+    }
   }
 
   /** An event that marks the successful building of an aspect. */
   @AutoValue
-  public abstract static class AspectBuiltEvent implements Postable {
+  public abstract static class AspectBuiltEvent implements TopLevelStatusEventWithType {
     abstract AspectKey aspectKey();
 
     public static AspectBuiltEvent create(AspectKey aspectKey) {
       return new AutoValue_TopLevelStatusEvents_AspectBuiltEvent(aspectKey);
     }
+
+    @Override
+    public Type getType() {
+      return Type.ASPECT_BUILT;
+    }
+  }
+
+  enum Type {
+    TOP_LEVEL_TARGET_CONFIGURED,
+    TOP_LEVEL_TARGET_ANALYZED,
+    TOP_LEVEL_TARGET_READY_FOR_SYMLINK_PLANTING,
+    TOP_LEVEL_TARGET_SKIPPED,
+    TOP_LEVEL_ENTITY_ANALYSIS_CONCLUDED,
+    TOP_LEVEL_TARGET_PENDING_EXECUTION,
+    SOME_EXECUTION_STARTED,
+    TOP_LEVEL_TARGET_BUILT,
+    TEST_ANALYZED,
+    ASPECT_ANALYZED,
+    ASPECT_BUILT
   }
 }

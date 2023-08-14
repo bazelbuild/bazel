@@ -276,6 +276,21 @@ public final class IntArrayFieldInitializer implements FieldInitializer {
   }
 
   @Override
+  public int getMaxBytecodeSize() {
+    // LDC_W(3)
+    // NEWARRAY(2)
+    //
+    // 1..n
+    // DUP(1)
+    // LDC_W(3)
+    // LDC_W|GETSTATIC(3)
+    // IASTORE(1)
+    //
+    // PUTSTATIC(3)
+    return 5 + values.size() * 8 + 3;
+  }
+
+  @Override
   public String toString() {
     return MoreObjects.toStringHelper(getClass()).add("values", values).toString();
   }

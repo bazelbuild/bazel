@@ -58,7 +58,6 @@
 
 namespace blaze {
 
-using blaze_exit_code::INTERNAL_ERROR;
 using blaze_util::GetLastErrorString;
 
 using std::set;
@@ -141,7 +140,9 @@ static void handler(int signum) {
     case SIGINT:
       if (++sigint_count >= 3) {
         SigPrintf(
-            "\n%s caught third interrupt signal; killed.\n\n",
+            "\n%s caught third interrupt signal; server killed. (This may be "
+            "expensive, see https://bazel.build/advanced/performance/"
+            "iteration-speed#avoid-ctrl-c.)\n\n",
             SignalHandler::Get().GetProductName().c_str());
         if (SignalHandler::Get().GetServerProcessInfo()->server_pid_ != -1) {
           KillServerProcess(
@@ -151,13 +152,13 @@ static void handler(int signum) {
         _exit(1);
       }
       SigPrintf(
-          "\n%s caught interrupt signal; shutting down.\n\n",
+          "\n%s caught interrupt signal; cancelling pending invocation.\n\n",
           SignalHandler::Get().GetProductName().c_str());
       SignalHandler::Get().CancelServer();
       break;
     case SIGTERM:
       SigPrintf(
-          "\n%s caught terminate signal; shutting down.\n\n",
+          "\n%s caught terminate signal; cancelling pending invocation.\n\n",
           SignalHandler::Get().GetProductName().c_str());
       SignalHandler::Get().CancelServer();
       break;
@@ -192,6 +193,9 @@ void SignalHandler::Install(const string& product_name,
   sigemptyset(&sigset);
   sigprocmask(SIG_SETMASK, &sigset, nullptr);
 
+  // SIGWINCH is reserved for Bazel server internal use and cannot be passed to
+  // it. The JVM is not attached to a terminal, making a signal insufficient to
+  // react to window size change event anyway.
   signal(SIGINT, handler);
   signal(SIGTERM, handler);
   signal(SIGPIPE, handler);
@@ -724,7 +728,12 @@ void ReleaseLock(BlazeLock* blaze_lock) {
 
 bool KillServerProcess(int pid, const blaze_util::Path& output_base) {
   // Kill the process and make sure it's dead before proceeding.
-  killpg(pid, SIGKILL);
+  errno = 0;
+  if (killpg(pid, SIGKILL) == -1) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "Attempted to kill stale server process (pid=" << pid
+        << ") using SIGKILL: " << GetLastErrorString();
+  }
   if (!AwaitServerProcessTermination(pid, output_base,
                                      kPostKillGracePeriodSeconds)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)

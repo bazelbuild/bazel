@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -22,13 +21,10 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
-import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.vfs.Path;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -55,10 +51,9 @@ public class WorkspaceFactory {
   private final Path defaultSystemJavabaseDir;
   private final Mutability mutability;
 
-  private final WorkspaceGlobals workspaceGlobals;
   private final StarlarkSemantics starlarkSemantics;
+  private final StarlarkGlobals starlarkGlobals;
   private final ImmutableMap<String, Object> workspaceFunctions;
-  private final ImmutableList<EnvironmentExtension> environmentExtensions;
 
   // Values accumulated from all previous WORKSPACE file parts.
   private final Map<String, Module> loadedModules = new HashMap<>();
@@ -68,7 +63,6 @@ public class WorkspaceFactory {
   /**
    * @param builder a builder for the Workspace
    * @param ruleClassProvider a provider for known rule classes
-   * @param environmentExtensions the Starlark environment extensions
    * @param mutability the Mutability for the current evaluation context
    * @param installDir the install directory
    * @param workspaceDir the workspace directory
@@ -77,9 +71,9 @@ public class WorkspaceFactory {
   public WorkspaceFactory(
       Package.Builder builder,
       RuleClassProvider ruleClassProvider,
-      ImmutableList<EnvironmentExtension> environmentExtensions,
       Mutability mutability,
       boolean allowOverride,
+      boolean allowWorkspaceFunction,
       @Nullable Path installDir,
       @Nullable Path workspaceDir,
       @Nullable Path defaultSystemJavabaseDir,
@@ -89,13 +83,14 @@ public class WorkspaceFactory {
     this.installDir = installDir;
     this.workspaceDir = workspaceDir;
     this.defaultSystemJavabaseDir = defaultSystemJavabaseDir;
-    this.environmentExtensions = environmentExtensions;
-    RuleFactory ruleFactory = new RuleFactory(ruleClassProvider);
-    this.workspaceGlobals = new WorkspaceGlobals(allowOverride, ruleFactory);
     this.starlarkSemantics = starlarkSemantics;
+    this.starlarkGlobals = ruleClassProvider.getBazelStarlarkEnvironment().getStarlarkGlobals();
     this.workspaceFunctions =
         createWorkspaceFunctions(
-            allowOverride, ruleFactory, this.workspaceGlobals, starlarkSemantics);
+            allowOverride,
+            ruleClassProvider.getRuleClassMap(),
+            new WorkspaceGlobals(allowWorkspaceFunction, ruleClassProvider.getRuleClassMap()),
+            starlarkSemantics);
   }
 
   /**
@@ -118,6 +113,7 @@ public class WorkspaceFactory {
     StoredEventHandler localReporter = new StoredEventHandler();
     try {
       // compile
+      new DotBazelFileSyntaxChecker("WORKSPACE files", /* canLoadBzl= */ true).check(file);
       Program prog = Program.compileFile(file, module);
 
       // create thread
@@ -134,31 +130,15 @@ public class WorkspaceFactory {
       // are, by definition, not in an external repository and so they don't need the mapping
       new BazelStarlarkContext(
               BazelStarlarkContext.Phase.WORKSPACE,
-              /*toolsRepository=*/ null,
-              /*fragmentNameToClass=*/ null,
               new SymbolGenerator<>(workspaceFileKey),
-              /*analysisRuleLabel=*/ null,
-              /*networkAllowlistForTests=*/ null)
+              /* analysisRuleLabel= */ null)
           .storeInThread(thread);
 
-      List<String> globs = new ArrayList<>(); // unused
-      if (PackageFactory.checkBuildSyntax(
-          file,
-          /*globs=*/ globs,
-          /*globsWithDirs=*/ globs,
-          /*subpackages=*/ globs,
-          new HashMap<>(),
-          error ->
-              localReporter.handle(
-                  Package.error(
-                      error.location(), error.message(), PackageLoading.Code.SYNTAX_ERROR)))) {
-        try {
-          Starlark.execFileProgram(prog, module, thread);
-        } catch (EvalException ex) {
-          localReporter.handle(
-              Package.error(
-                  null, ex.getMessageWithStack(), PackageLoading.Code.STARLARK_EVAL_ERROR));
-        }
+      try {
+        Starlark.execFileProgram(prog, module, thread);
+      } catch (EvalException ex) {
+        localReporter.handle(
+            Package.error(null, ex.getMessageWithStack(), PackageLoading.Code.STARLARK_EVAL_ERROR));
       }
 
       // Accumulate the global bindings created by this chunk of the WORKSPACE file,
@@ -211,15 +191,15 @@ public class WorkspaceFactory {
     builder.addRepositoryMappings(aPackage);
     for (Rule rule : aPackage.getTargets(Rule.class)) {
       try {
-        // The old rule references another Package instance and we wan't to keep the invariant that
-        // every Rule references the Package it is contained within
+        // The old rule references another Package instance, and we want to keep the invariant that
+        // every Rule references the Package it is contained within.
         Rule newRule =
             builder.createRule(
                 rule.getLabel(),
                 rule.getRuleClassObject(),
                 rule.getLocation(),
-                rule.getCallStack().toList(),
-                rule.getAttributeContainer());
+                rule.getInteriorCallStack());
+        newRule.copyAttributesFrom(rule);
         newRule.populateOutputFiles(NullEventHandler.INSTANCE, builder);
         if (rule.containsErrors()) {
           newRule.setContainsErrors();
@@ -237,7 +217,9 @@ public class WorkspaceFactory {
    * cc_library) in the specified package context.
    */
   private static StarlarkCallable newRuleFunction(
-      final RuleFactory ruleFactory, final String ruleClassName, final boolean allowOverride) {
+      final ImmutableMap<String, RuleClass> ruleClassMap,
+      final String ruleClassName,
+      final boolean allowOverride) {
     return new StarlarkCallable() {
       @Override
       public String getName() {
@@ -280,17 +262,16 @@ public class WorkspaceFactory {
           // Add an entry in every repository from @<mainRepoName> to "@" to avoid treating
           // @<mainRepoName> as a separate repository. This will be overridden if the main
           // repository has a repo_mapping entry from <mainRepoName> to something.
-          WorkspaceFactoryHelper.addMainRepoEntry(builder, externalRepoName, thread.getSemantics());
+          WorkspaceFactoryHelper.addMainRepoEntry(builder, externalRepoName);
           WorkspaceFactoryHelper.addRepoMappings(builder, kwargs, externalRepoName);
-          RuleClass ruleClass = ruleFactory.getRuleClass(ruleClassName);
-          RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
+          RuleClass ruleClass = ruleClassMap.get(ruleClassName);
+          RuleClass bindRuleClass = ruleClassMap.get("bind");
           Rule rule =
               WorkspaceFactoryHelper.createAndAddRepositoryRule(
                   builder,
                   ruleClass,
                   bindRuleClass,
                   WorkspaceFactoryHelper.getFinalKwargs(kwargs),
-                  thread.getSemantics(),
                   thread.getCallStack());
           RepositoryName.validateUserProvidedRepoName(rule.getName());
         } catch (RuleFactory.InvalidRuleException
@@ -305,18 +286,18 @@ public class WorkspaceFactory {
 
   private static ImmutableMap<String, Object> createWorkspaceFunctions(
       boolean allowOverride,
-      RuleFactory ruleFactory,
+      ImmutableMap<String, RuleClass> ruleClassMap,
       WorkspaceGlobals workspaceGlobals,
       StarlarkSemantics starlarkSemantics) {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     Starlark.addMethods(env, workspaceGlobals, starlarkSemantics);
 
-    for (String ruleClass : ruleFactory.getRuleClassNames()) {
+    for (String ruleClass : ruleClassMap.keySet()) {
       // There is both a "bind" WORKSPACE function and a "bind" rule. In workspace files,
       // the non-rule function takes precedence.
       // TODO(cparsons): Rule functions should not be added to WORKSPACE files.
       if (!ruleClass.equals("bind")) {
-        StarlarkCallable ruleFunction = newRuleFunction(ruleFactory, ruleClass, allowOverride);
+        StarlarkCallable ruleFunction = newRuleFunction(ruleClassMap, ruleClass, allowOverride);
         env.put(ruleClass, ruleFunction);
       }
     }
@@ -324,9 +305,13 @@ public class WorkspaceFactory {
     return env.buildOrThrow();
   }
 
+  // TODO(b/280446865): Ideally the WORKSPACE environment would be determined by a method in
+  // BazelStarlarkEnvironment. The method would accept the values of `__embedded_dir__`, etc., as
+  // arguments, and defer to StarlarkGlobals to get the fixed environment (COMMON, select(), etc.).
+  // But WORKSPACE logic won't live forever so it's probably not worth migrating.
   private ImmutableMap<String, Object> getDefaultEnvironment() {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
-    env.putAll(StarlarkLibrary.COMMON); // e.g. select, depset
+    env.putAll(starlarkGlobals.getUtilToplevels());
     env.putAll(workspaceFunctions);
     if (installDir != null) {
       env.put("__embedded_dir__", installDir.getPathString());
@@ -335,9 +320,6 @@ public class WorkspaceFactory {
       env.put("__workspace_dir__", workspaceDir.getPathString());
     }
     env.put("DEFAULT_SYSTEM_JAVABASE", getDefaultSystemJavabase());
-    for (EnvironmentExtension ext : environmentExtensions) {
-      ext.updateWorkspace(env);
-    }
     return env.buildOrThrow();
   }
 
@@ -349,11 +331,11 @@ public class WorkspaceFactory {
   }
 
   /** Returns the entries to populate the "native" module with, for WORKSPACE-loaded .bzl files. */
-  static ImmutableMap<String, Object> createNativeModuleBindings(
-      RuleClassProvider ruleClassProvider, String version) {
+  public static ImmutableMap<String, Object> createNativeModuleBindings(
+      ImmutableMap<String, RuleClass> ruleClassMap, String bazelVersion) {
     // Machinery to build the collection of workspace functions.
-    RuleFactory ruleFactory = new RuleFactory(ruleClassProvider);
-    WorkspaceGlobals workspaceGlobals = new WorkspaceGlobals(/*allowOverride=*/ false, ruleFactory);
+    WorkspaceGlobals workspaceGlobals =
+        new WorkspaceGlobals(/* allowWorkspaceFunction= */ false, ruleClassMap);
     // TODO(bazel-team): StarlarkSemantics should be a parameter here, as native module can be
     // configured by flags. [brandjon: This should be possible now that we create the native module
     // in StarlarkBuiltinsFunction. We could defer creation until the StarlarkSemantics are known.
@@ -361,7 +343,7 @@ public class WorkspaceFactory {
     // of the particular semantics.]
     ImmutableMap<String, Object> workspaceFunctions =
         createWorkspaceFunctions(
-            /*allowOverride=*/ false, ruleFactory, workspaceGlobals, StarlarkSemantics.DEFAULT);
+            /* allowOverride= */ false, ruleClassMap, workspaceGlobals, StarlarkSemantics.DEFAULT);
 
     // Determine the contents for native.
     ImmutableMap.Builder<String, Object> bindings = new ImmutableMap.Builder<>();
@@ -380,7 +362,7 @@ public class WorkspaceFactory {
       }
       bindings.put(entry);
     }
-    bindings.put("bazel_version", version);
+    bindings.put("bazel_version", bazelVersion);
 
     return bindings.buildOrThrow();
   }

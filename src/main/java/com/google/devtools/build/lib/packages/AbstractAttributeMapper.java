@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import java.util.List;
@@ -30,9 +31,9 @@ import javax.annotation.Nullable;
  * data before exposing it to consumers.
  */
 public abstract class AbstractAttributeMapper implements AttributeMap {
-  private final RuleClass ruleClass;
-  private final Label ruleLabel;
+  final RuleClass ruleClass;
   final Rule rule;
+  private final Label ruleLabel;
 
   protected AbstractAttributeMapper(Rule rule) {
     this.ruleClass = rule.getRuleClassObject();
@@ -50,11 +51,6 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
     return ruleLabel;
   }
 
-  @Override
-  public String getRuleClassName() {
-    return ruleClass.getName();
-  }
-
   @Nullable
   @Override
   public <T> T get(String attributeName, Type<T> type) {
@@ -66,7 +62,7 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
     if (value instanceof Attribute.ComputedDefault) {
       value = ((Attribute.ComputedDefault) value).getDefault(this);
     } else if (value instanceof Attribute.LateBoundDefault) {
-      value = ((Attribute.LateBoundDefault<?, ?>) value).getDefault();
+      value = ((Attribute.LateBoundDefault<?, ?>) value).getDefault(rule);
     } else if (value instanceof SelectorList) {
       throw new IllegalArgumentException(
           String.format(
@@ -75,7 +71,7 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
     }
 
     // Hot code path - avoid the overhead of calling type.cast(value). The rule would have already
-    // failed on construction if one of its attributes was of the wrong type (inluding computed
+    // failed on construction if one of its attributes was of the wrong type (including computed
     // defaults).
     return (T) value;
   }
@@ -117,11 +113,7 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
 
   @Override
   public Iterable<String> getAttributeNames() {
-    ImmutableList.Builder<String> names = ImmutableList.builder();
-    for (Attribute a : ruleClass.getAttributes()) {
-      names.add(a.getName());
-    }
-    return names.build();
+    return Lists.transform(ruleClass.getAttributes(), Attribute::getName);
   }
 
   @Nullable
@@ -143,28 +135,8 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public String getPackageDefaultHdrsCheck() {
-    return rule.getPackage().getDefaultHdrsCheck();
-  }
-
-  @Override
-  public boolean isPackageDefaultHdrsCheckSet() {
-    return rule.getPackage().isDefaultHdrsCheckSet();
-  }
-
-  @Override
-  public Boolean getPackageDefaultTestOnly() {
-    return rule.getPackage().getDefaultTestOnly();
-  }
-
-  @Override
-  public String getPackageDefaultDeprecation() {
-    return rule.getPackage().getDefaultDeprecation();
-  }
-
-  @Override
-  public ImmutableList<String> getPackageDefaultCopts() {
-    return rule.getPackage().getDefaultCopts();
+  public PackageArgs getPackageArgs() {
+    return rule.getPackage().getPackageArgs();
   }
 
   @Override
@@ -173,15 +145,15 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public final void visitLabels(Attribute attribute, Consumer<Label> consumer) {
+  public final void visitLabels(String attributeName, Consumer<Label> consumer) {
     visitLabels(
-        ImmutableList.of(attribute),
+        ImmutableList.of(ruleClass.getAttributeByName(attributeName)),
         DependencyFilter.ALL_DEPS,
         (attr, label) -> consumer.accept(label));
   }
 
   @Override
-  public final void visitLabels(DependencyFilter filter, BiConsumer<Attribute, Label> consumer) {
+  public void visitLabels(DependencyFilter filter, BiConsumer<Attribute, Label> consumer) {
     visitLabels(ruleClass.getAttributes(), filter, consumer);
   }
 

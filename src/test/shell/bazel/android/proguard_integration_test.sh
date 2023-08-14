@@ -38,9 +38,7 @@ fail_if_no_android_sdk
 source "$(rlocation io_bazel/src/test/shell/integration_test_setup.sh)" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-if [[ "$1" = '--with_platforms' ]]; then
-  resolve_android_toolchains_with_platforms
-fi
+resolve_android_toolchains "$1"
 
 function test_proguard() {
   create_new_workspace

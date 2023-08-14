@@ -30,8 +30,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.actions.FutureSpawn;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -81,7 +80,7 @@ public class AbstractSpawnStrategyTest {
 
   private static class TestedSpawnStrategy extends AbstractSpawnStrategy {
     public TestedSpawnStrategy(Path execRoot, SpawnRunner spawnRunner) {
-      super(execRoot, spawnRunner, /*verboseFailures=*/ true);
+      super(execRoot, spawnRunner, new ExecutionOptions());
     }
   }
 
@@ -114,8 +113,8 @@ public class AbstractSpawnStrategyTest {
     when(actionExecutionContext.getExecRoot()).thenReturn(execRoot);
     SpawnResult spawnResult =
         new SpawnResult.Builder().setStatus(Status.SUCCESS).setRunnerName("test").build();
-    when(spawnRunner.execAsync(any(Spawn.class), any(SpawnExecutionContext.class)))
-        .thenReturn(FutureSpawn.immediate(spawnResult));
+    when(spawnRunner.exec(any(Spawn.class), any(SpawnExecutionContext.class)))
+        .thenReturn(spawnResult);
 
     List<SpawnResult> spawnResults =
         new TestedSpawnStrategy(execRoot, spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
@@ -123,7 +122,7 @@ public class AbstractSpawnStrategyTest {
     assertThat(spawnResults).containsExactly(spawnResult);
 
     // Must only be called exactly once.
-    verify(spawnRunner).execAsync(any(Spawn.class), any(SpawnExecutionContext.class));
+    verify(spawnRunner).exec(any(Spawn.class), any(SpawnExecutionContext.class));
   }
 
   @Test
@@ -136,17 +135,17 @@ public class AbstractSpawnStrategyTest {
     doAnswer(
             invocation -> {
               clock.advanceMillis(1);
-              return FutureSpawn.immediate(spawnResult);
+              return spawnResult;
             })
         .when(spawnRunner)
-        .execAsync(any(Spawn.class), any(SpawnExecutionContext.class));
+        .exec(any(Spawn.class), any(SpawnExecutionContext.class));
 
     ImmutableList<SpawnResult> spawnResults =
         new TestedSpawnStrategy(execRoot, spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
 
     assertThat(spawnResults).containsExactly(spawnResult);
     // Must only be called exactly once.
-    verify(spawnRunner).execAsync(any(Spawn.class), any(SpawnExecutionContext.class));
+    verify(spawnRunner).exec(any(Spawn.class), any(SpawnExecutionContext.class));
     assertThat(eventHandler.getPosts()).hasSize(1);
     SpawnExecutedEvent event = (SpawnExecutedEvent) eventHandler.getPosts().get(0);
     assertThat(event.getStartTimeInstant()).isEqualTo(beforeTime);
@@ -165,8 +164,7 @@ public class AbstractSpawnStrategyTest {
             .setFailureDetail(NON_ZERO_EXIT_DETAILS)
             .setRunnerName("test")
             .build();
-    when(spawnRunner.execAsync(any(Spawn.class), any(SpawnExecutionContext.class)))
-        .thenReturn(FutureSpawn.immediate(result));
+    when(spawnRunner.exec(any(Spawn.class), any(SpawnExecutionContext.class))).thenReturn(result);
 
     SpawnExecException e =
         assertThrows(
@@ -177,7 +175,7 @@ public class AbstractSpawnStrategyTest {
                     .exec(SIMPLE_SPAWN, actionExecutionContext));
     assertThat(e.getSpawnResult()).isSameInstanceAs(result);
     // Must only be called exactly once.
-    verify(spawnRunner).execAsync(any(Spawn.class), any(SpawnExecutionContext.class));
+    verify(spawnRunner).exec(any(Spawn.class), any(SpawnExecutionContext.class));
   }
 
   @Test
@@ -193,7 +191,7 @@ public class AbstractSpawnStrategyTest {
     List<SpawnResult> spawnResults =
         new TestedSpawnStrategy(execRoot, spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
     assertThat(spawnResults).containsExactly(spawnResult);
-    verify(spawnRunner, never()).execAsync(any(Spawn.class), any(SpawnExecutionContext.class));
+    verify(spawnRunner, never()).exec(any(Spawn.class), any(SpawnExecutionContext.class));
   }
 
   @Test
@@ -208,8 +206,8 @@ public class AbstractSpawnStrategyTest {
     when(actionExecutionContext.getExecRoot()).thenReturn(execRoot);
     SpawnResult spawnResult =
         new SpawnResult.Builder().setStatus(Status.SUCCESS).setRunnerName("test").build();
-    when(spawnRunner.execAsync(any(Spawn.class), any(SpawnExecutionContext.class)))
-        .thenReturn(FutureSpawn.immediate(spawnResult));
+    when(spawnRunner.exec(any(Spawn.class), any(SpawnExecutionContext.class)))
+        .thenReturn(spawnResult);
 
     List<SpawnResult> spawnResults =
         new TestedSpawnStrategy(execRoot, spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
@@ -217,7 +215,7 @@ public class AbstractSpawnStrategyTest {
     assertThat(spawnResults).containsExactly(spawnResult);
 
     // Must only be called exactly once.
-    verify(spawnRunner).execAsync(any(Spawn.class), any(SpawnExecutionContext.class));
+    verify(spawnRunner).exec(any(Spawn.class), any(SpawnExecutionContext.class));
     verify(entry).store(eq(spawnResult));
   }
 
@@ -231,8 +229,8 @@ public class AbstractSpawnStrategyTest {
     when(actionExecutionContext.getExecRoot()).thenReturn(execRoot);
     SpawnResult spawnResult =
         new SpawnResult.Builder().setStatus(Status.SUCCESS).setRunnerName("test").build();
-    when(spawnRunner.execAsync(any(Spawn.class), any(SpawnExecutionContext.class)))
-        .thenReturn(FutureSpawn.immediate(spawnResult));
+    when(spawnRunner.exec(any(Spawn.class), any(SpawnExecutionContext.class)))
+        .thenReturn(spawnResult);
 
     List<SpawnResult> spawnResults =
         new TestedSpawnStrategy(execRoot, spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
@@ -240,7 +238,7 @@ public class AbstractSpawnStrategyTest {
     assertThat(spawnResults).containsExactly(spawnResult);
 
     // Must only be called exactly once.
-    verify(spawnRunner).execAsync(any(Spawn.class), any(SpawnExecutionContext.class));
+    verify(spawnRunner).exec(any(Spawn.class), any(SpawnExecutionContext.class));
     verifyNoInteractions(cache);
   }
 
@@ -259,8 +257,8 @@ public class AbstractSpawnStrategyTest {
     when(actionExecutionContext.getExecRoot()).thenReturn(execRoot);
     SpawnResult spawnResult =
         new SpawnResult.Builder().setStatus(Status.SUCCESS).setRunnerName("test").build();
-    when(spawnRunner.execAsync(any(Spawn.class), any(SpawnExecutionContext.class)))
-        .thenReturn(FutureSpawn.immediate(spawnResult));
+    when(spawnRunner.exec(any(Spawn.class), any(SpawnExecutionContext.class)))
+        .thenReturn(spawnResult);
 
     List<SpawnResult> spawnResults =
         new TestedSpawnStrategy(execRoot, spawnRunner)
@@ -269,7 +267,7 @@ public class AbstractSpawnStrategyTest {
     assertThat(spawnResults).containsExactly(spawnResult);
 
     // Must only be called exactly once.
-    verify(spawnRunner).execAsync(any(Spawn.class), any(SpawnExecutionContext.class));
+    verify(spawnRunner).exec(any(Spawn.class), any(SpawnExecutionContext.class));
     verify(entry).store(eq(spawnResult));
   }
 
@@ -284,8 +282,8 @@ public class AbstractSpawnStrategyTest {
     when(actionExecutionContext.getExecRoot()).thenReturn(execRoot);
     SpawnResult spawnResult =
         new SpawnResult.Builder().setStatus(Status.SUCCESS).setRunnerName("test").build();
-    when(spawnRunner.execAsync(any(Spawn.class), any(SpawnExecutionContext.class)))
-        .thenReturn(FutureSpawn.immediate(spawnResult));
+    when(spawnRunner.exec(any(Spawn.class), any(SpawnExecutionContext.class)))
+        .thenReturn(spawnResult);
 
     List<SpawnResult> spawnResults =
         new TestedSpawnStrategy(execRoot, spawnRunner)
@@ -294,7 +292,7 @@ public class AbstractSpawnStrategyTest {
     assertThat(spawnResults).containsExactly(spawnResult);
 
     // Must only be called exactly once.
-    verify(spawnRunner).execAsync(any(Spawn.class), any(SpawnExecutionContext.class));
+    verify(spawnRunner).exec(any(Spawn.class), any(SpawnExecutionContext.class));
     verify(cache).usefulInDynamicExecution();
     verifyNoMoreInteractions(cache);
   }
@@ -316,8 +314,7 @@ public class AbstractSpawnStrategyTest {
             .setFailureDetail(NON_ZERO_EXIT_DETAILS)
             .setRunnerName("test")
             .build();
-    when(spawnRunner.execAsync(any(Spawn.class), any(SpawnExecutionContext.class)))
-        .thenReturn(FutureSpawn.immediate(result));
+    when(spawnRunner.exec(any(Spawn.class), any(SpawnExecutionContext.class))).thenReturn(result);
 
     SpawnExecException e =
         assertThrows(
@@ -328,7 +325,7 @@ public class AbstractSpawnStrategyTest {
                     .exec(SIMPLE_SPAWN, actionExecutionContext));
     assertThat(e.getSpawnResult()).isSameInstanceAs(result);
     // Must only be called exactly once.
-    verify(spawnRunner).execAsync(any(Spawn.class), any(SpawnExecutionContext.class));
+    verify(spawnRunner).exec(any(Spawn.class), any(SpawnExecutionContext.class));
     verify(entry).store(eq(result));
   }
 
@@ -525,16 +522,16 @@ public class AbstractSpawnStrategyTest {
         .thenReturn(
             new SpawnLogContext(
                 execRoot, messageOutput, executionOptions, remoteOptions, SyscallCache.NO_CACHE));
-    when(spawnRunner.execAsync(any(Spawn.class), any(SpawnExecutionContext.class)))
+    when(spawnRunner.exec(any(Spawn.class), any(SpawnExecutionContext.class)))
         .thenReturn(
-            FutureSpawn.immediate(
-                new SpawnResult.Builder()
-                    .setStatus(Status.NON_ZERO_EXIT)
-                    .setExitCode(23)
-                    .setFailureDetail(NON_ZERO_EXIT_DETAILS)
-                    .setRunnerName("runner")
-                    .build()));
-    when(actionExecutionContext.getMetadataProvider()).thenReturn(mock(MetadataProvider.class));
+            new SpawnResult.Builder()
+                .setStatus(Status.NON_ZERO_EXIT)
+                .setExitCode(23)
+                .setFailureDetail(NON_ZERO_EXIT_DETAILS)
+                .setRunnerName("runner")
+                .build());
+    when(actionExecutionContext.getInputMetadataProvider())
+        .thenReturn(mock(InputMetadataProvider.class));
   }
 
   /** Returns a SpawnExec pre-populated with values for a default spawn */

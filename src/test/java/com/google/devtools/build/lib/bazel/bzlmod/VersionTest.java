@@ -50,6 +50,16 @@ public class VersionTest {
   }
 
   @Test
+  public void testReleaseVersionWithLetters() throws Exception {
+    assertThat(Version.parse("1.0.patch.3")).isGreaterThan(Version.parse("1.0"));
+    assertThat(Version.parse("1.0.patch.3")).isGreaterThan(Version.parse("1.0.patch.2"));
+    assertThat(Version.parse("1.0.patch.3")).isLessThan(Version.parse("1.0.patch.10"));
+    assertThat(Version.parse("1.0.patch3")).isGreaterThan(Version.parse("1.0.patch10"));
+    assertThat(Version.parse("4")).isLessThan(Version.parse("a"));
+    assertThat(Version.parse("abc")).isLessThan(Version.parse("abd"));
+  }
+
+  @Test
   public void testPrereleaseVersion() throws Exception {
     assertThat(Version.parse("1.0-pre")).isGreaterThan(Version.parse("1.0-are"));
     assertThat(Version.parse("1.0-3")).isGreaterThan(Version.parse("1.0-2"));
@@ -58,11 +68,15 @@ public class VersionTest {
     assertThat(Version.parse("1.0-pre.10")).isGreaterThan(Version.parse("1.0-pre.2"));
     assertThat(Version.parse("1.0-pre.10a")).isLessThan(Version.parse("1.0-pre.2a"));
     assertThat(Version.parse("1.0-pre.99")).isLessThan(Version.parse("1.0-pre.2a"));
+    assertThat(Version.parse("1.0-pre.patch.3")).isLessThan(Version.parse("1.0-pre.patch.4"));
+    assertThat(Version.parse("1.0--")).isLessThan(Version.parse("1.0----"));
   }
 
   @Test
   public void testParseException() throws Exception {
-    assertThrows(ParseException.class, () -> Version.parse("abc"));
+    assertThrows(ParseException.class, () -> Version.parse("-abc"));
+    assertThrows(ParseException.class, () -> Version.parse("1_2"));
+    assertThrows(ParseException.class, () -> Version.parse("ßážëł"));
     assertThrows(ParseException.class, () -> Version.parse("1.0-pre?"));
     assertThrows(ParseException.class, () -> Version.parse("1.0-pre///"));
     assertThrows(ParseException.class, () -> Version.parse("1..0"));

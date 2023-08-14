@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth8.assertThat;
+import static com.google.devtools.build.lib.rules.cpp.SolibSymlinkAction.MAX_FILENAME_LENGTH;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -28,6 +30,7 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
@@ -51,12 +54,10 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * "White-box" unit test of cc_library rule.
- */
+/** "White-box" unit test of cc_library rule. */
 @RunWith(JUnit4.class)
 public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
-  private static final PathFragment STL_CPPMAP = PathFragment.create("stl.cppmap");
+  private static final PathFragment STL_CPPMAP = PathFragment.create("stl_cc_library.cppmap");
   private static final PathFragment CROSSTOOL_CPPMAP = PathFragment.create("crosstool.cppmap");
 
   @Override
@@ -105,9 +106,10 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   private CppCompileAction getCppCompileAction(ConfiguredTarget target) throws Exception {
     List<CppCompileAction> compilationSteps =
-        actionsTestUtil().findTransitivePrerequisitesOf(
-            ActionsTestUtil.getFirstArtifactEndingWith(getFilesToBuild(target), ".a"),
-            CppCompileAction.class);
+        actionsTestUtil()
+            .findTransitivePrerequisitesOf(
+                ActionsTestUtil.getFirstArtifactEndingWith(getFilesToBuild(target), ".a"),
+                CppCompileAction.class);
     return compilationSteps.get(0);
   }
 
@@ -147,9 +149,12 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testDefinesAndMakeVariables() throws Exception {
-    ConfiguredTarget l = scratchConfiguredTarget("a", "l",
-        "cc_library(name='l', srcs=['l.cc'], defines=['V=$(FOO)'], toolchains=[':v'])",
-        "make_variable_tester(name='v', variables={'FOO': 'BAR'})");
+    ConfiguredTarget l =
+        scratchConfiguredTarget(
+            "a",
+            "l",
+            "cc_library(name='l', srcs=['l.cc'], defines=['V=$(FOO)'], toolchains=[':v'])",
+            "make_variable_tester(name='v', variables={'FOO': 'BAR'})");
     assertThat(l.get(CcInfo.PROVIDER).getCcCompilationContext().getDefines()).contains("V=BAR");
   }
 
@@ -287,7 +292,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void testFilesToBuildWithSaveFeatureState() throws Exception {
     useConfiguration("--experimental_save_feature_state");
-    setBuildLanguageOptions("--experimental_builtins_injection_override=+cc_library");
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
     Artifact archive = getBinArtifact("libhello.a", hello);
     assertThat(getFilesToBuild(hello).toList()).containsExactly(archive);
@@ -319,7 +323,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         getOnlyElement(
             FileType.filter(getFilesToBuild(hello).toList(), CppFileTypes.SHARED_LIBRARY));
     CppLinkAction action = (CppLinkAction) getGeneratingAction(sharedObject);
-    for (String option : MockCcSupport.getLinkopts(action.getLinkCommandLine())) {
+    for (String option : MockCcSupport.getLinkopts(action.getLinkCommandLineForTesting())) {
       assertThat(option).doesNotContain("-Wl,-soname");
     }
 
@@ -332,7 +336,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             .iterator()
             .next();
     action = (CppLinkAction) getGeneratingAction(sharedObject);
-    assertThat(MockCcSupport.getLinkopts(action.getLinkCommandLine()))
+    assertThat(MockCcSupport.getLinkopts(action.getLinkCommandLineForTesting()))
         .contains("-Wl,-soname=libhello_Slibhello.so");
   }
 
@@ -361,15 +365,15 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     CppLinkInfo cppLinkInfo = info.getExtension(CppLinkInfo.cppLinkInfo);
 
     Iterable<String> inputs =
-        Artifact.asExecPaths(action.getLinkCommandLine().getLinkerInputArtifacts());
+        Artifact.asExecPaths(action.getLinkCommandLineForTesting().getLinkerInputArtifacts());
     assertThat(cppLinkInfo.getInputFileList()).containsExactlyElementsIn(inputs);
     assertThat(cppLinkInfo.getOutputFile())
         .isEqualTo(action.getPrimaryOutput().getExecPathString());
     assertThat(cppLinkInfo.hasInterfaceOutputFile()).isFalse();
     assertThat(cppLinkInfo.getLinkTargetType())
-        .isEqualTo(action.getLinkCommandLine().getLinkTargetType().name());
+        .isEqualTo(action.getLinkCommandLineForTesting().getLinkTargetType().name());
     assertThat(cppLinkInfo.getLinkStaticness())
-        .isEqualTo(action.getLinkCommandLine().getLinkingMode().name());
+        .isEqualTo(action.getLinkCommandLineForTesting().getLinkingMode().name());
     Iterable<String> linkstamps = Artifact.asExecPaths(action.getLinkstampObjects());
     assertThat(cppLinkInfo.getLinkStampList()).containsExactlyElementsIn(linkstamps);
     Iterable<String> buildInfoHeaderArtifacts =
@@ -401,14 +405,14 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     CppLinkInfo cppLinkInfo = info.getExtension(CppLinkInfo.cppLinkInfo);
 
     Iterable<String> inputs =
-        Artifact.asExecPaths(action.getLinkCommandLine().getLinkerInputArtifacts());
+        Artifact.asExecPaths(action.getLinkCommandLineForTesting().getLinkerInputArtifacts());
     assertThat(cppLinkInfo.getInputFileList()).containsExactlyElementsIn(inputs);
     assertThat(cppLinkInfo.getOutputFile())
         .isEqualTo(action.getPrimaryOutput().getExecPathString());
     assertThat(cppLinkInfo.getLinkTargetType())
-        .isEqualTo(action.getLinkCommandLine().getLinkTargetType().name());
+        .isEqualTo(action.getLinkCommandLineForTesting().getLinkTargetType().name());
     assertThat(cppLinkInfo.getLinkStaticness())
-        .isEqualTo(action.getLinkCommandLine().getLinkingMode().name());
+        .isEqualTo(action.getLinkCommandLineForTesting().getLinkingMode().name());
     Iterable<String> linkstamps = Artifact.asExecPaths(action.getLinkstampObjects());
     assertThat(cppLinkInfo.getLinkStampList()).containsExactlyElementsIn(linkstamps);
     Iterable<String> buildInfoHeaderArtifacts =
@@ -495,23 +499,20 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     Artifact helloBinExe = getFilesToBuild(helloBin).toList().get(0);
     assertThat(helloBinExe.getExecPathString()).endsWith("hello_bin.exe");
 
-    assertThat(
-            artifactsToStrings(getOutputGroup(hello, CcLibrary.DYNAMIC_LIBRARY_OUTPUT_GROUP_NAME)))
+    assertThat(artifactsToStrings(getOutputGroup(hello, "dynamic_library")))
         .containsExactly("bin hello/hello_5e918d2.dll", "bin hello/hello.if.lib");
   }
 
   @Test
   public void testWrongObjectFileArtifactNamePattern() throws Exception {
     checkWrongExtensionInArtifactNamePattern(
-        "object_file",
-        ArtifactCategory.OBJECT_FILE.getAllowedExtensions());
+        "object_file", ArtifactCategory.OBJECT_FILE.getAllowedExtensions());
   }
 
   @Test
   public void testWrongStaticLibraryArtifactNamePattern() throws Exception {
     checkWrongExtensionInArtifactNamePattern(
-        "static_library",
-        ArtifactCategory.STATIC_LIBRARY.getAllowedExtensions());
+        "static_library", ArtifactCategory.STATIC_LIBRARY.getAllowedExtensions());
   }
 
   @Test
@@ -524,22 +525,19 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void testWrongExecutableArtifactNamePattern() throws Exception {
     checkWrongExtensionInArtifactNamePattern(
-        "executable",
-        ArtifactCategory.EXECUTABLE.getAllowedExtensions());
+        "executable", ArtifactCategory.EXECUTABLE.getAllowedExtensions());
   }
 
   @Test
   public void testWrongDynamicLibraryArtifactNamePattern() throws Exception {
     checkWrongExtensionInArtifactNamePattern(
-        "dynamic_library",
-        ArtifactCategory.DYNAMIC_LIBRARY.getAllowedExtensions());
+        "dynamic_library", ArtifactCategory.DYNAMIC_LIBRARY.getAllowedExtensions());
   }
 
   @Test
   public void testWrongInterfaceLibraryArtifactNamePattern() throws Exception {
     checkWrongExtensionInArtifactNamePattern(
-        "interface_library",
-        ArtifactCategory.INTERFACE_LIBRARY.getAllowedExtensions());
+        "interface_library", ArtifactCategory.INTERFACE_LIBRARY.getAllowedExtensions());
   }
 
   @Test
@@ -590,11 +588,13 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             mockToolsConfig, CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_PIC));
 
     useConfiguration("--cpu=k8");
-    ConfiguredTarget x = scratchConfiguredTarget(
-        "foo", "x",
-        "cc_library(name = 'x', srcs = ['x.cc'], deps = [':y'], linkstatic = 1)",
-        "cc_library(name = 'y', srcs = ['y.cc'], deps = [':z'])",
-        "cc_library(name = 'z', srcs = ['z.cc'])");
+    ConfiguredTarget x =
+        scratchConfiguredTarget(
+            "foo",
+            "x",
+            "cc_library(name = 'x', srcs = ['x.cc'], deps = [':y'], linkstatic = 1)",
+            "cc_library(name = 'y', srcs = ['y.cc'], deps = [':z'])",
+            "cc_library(name = 'z', srcs = ['z.cc'])");
     assertThat(artifactsToStrings(getOutputGroup(x, OutputGroupInfo.HIDDEN_TOP_LEVEL)))
         .containsExactly(
             "bin foo/_objs/x/x.pic.o", "bin foo/_objs/y/y.pic.o", "bin foo/_objs/z/z.pic.o");
@@ -652,13 +652,15 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             mockToolsConfig,
             CcToolchainConfig.builder().withFeatures(MockCcSupport.HEADER_MODULES_FEATURES));
     useConfiguration();
-    scratch.file("module/BUILD",
+    scratch.file(
+        "module/BUILD",
         "package(features = ['header_modules'])",
         "cc_library(",
         "    name = 'module',",
         "    srcs = ['a.cc', 'a.h'],",
         ")");
-    scratch.file("nomodule/BUILD",
+    scratch.file(
+        "nomodule/BUILD",
         "package(features = ['-header_modules'])",
         "cc_library(",
         "    name = 'nomodule',",
@@ -689,9 +691,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         input.toList(), (artifact) -> CppFileTypes.CPP_MODULE.matches(artifact.getExecPath()));
   }
 
-  /**
-   * Returns the flags in {@code input} that reference a header module.
-   */
+  /** Returns the flags in {@code input} that reference a header module. */
   private Iterable<String> getHeaderModuleFlags(Iterable<String> input) {
     List<String> names = new ArrayList<>();
     for (String flag : input) {
@@ -725,16 +725,16 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     ConfiguredTarget moduleB = getConfiguredTarget("//module:b");
     Artifact bModuleArtifact = getBinArtifact("_objs/b/b.pic.pcm", moduleB);
     CppCompileAction bModuleAction = (CppCompileAction) getGeneratingAction(bModuleArtifact);
-    assertThat(bModuleAction.getIncludeScannerSources()).containsExactly(
-        getSourceArtifact("module/b.h"), getSourceArtifact("module/t.h"));
+    assertThat(bModuleAction.getIncludeScannerSources())
+        .containsExactly(getSourceArtifact("module/b.h"), getSourceArtifact("module/t.h"));
     assertThat(bModuleAction.getInputs().toList())
         .contains(getGenfilesArtifact("b.cppmap", moduleB));
 
     ConfiguredTarget moduleA = getConfiguredTarget("//module:a");
     Artifact aObjectArtifact = getBinArtifact("_objs/a/a.pic.o", moduleA);
     CppCompileAction aObjectAction = (CppCompileAction) getGeneratingAction(aObjectArtifact);
-    assertThat(aObjectAction.getIncludeScannerSources()).containsExactly(
-        getSourceArtifact("module/a.cc"));
+    assertThat(aObjectAction.getIncludeScannerSources())
+        .containsExactly(getSourceArtifact("module/a.cc"));
     assertThat(aObjectAction.getCcCompilationContext().getTransitiveModules(true).toList())
         .contains(getBinArtifact("_objs/b/b.pic.pcm", moduleB));
     assertThat(aObjectAction.getInputs().toList())
@@ -787,7 +787,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   private void setupPackagesForModuleTests(boolean useHeaderModules) throws Exception {
-    scratch.file("module/BUILD",
+    scratch.file(
+        "module/BUILD",
         "package(features = ['header_modules'])",
         "cc_library(",
         "    name = 'b',",
@@ -804,9 +805,11 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "    srcs = ['j.h', 'j.cc'],",
         "    deps = ['//nomodule:c', '//nomodule:i'],",
         ")");
-    scratch.file("nomodule/BUILD",
+    scratch.file(
+        "nomodule/BUILD",
         "package(features = ['-header_modules'"
-            + (useHeaderModules ? ", 'use_header_modules'" : "") + "])",
+            + (useHeaderModules ? ", 'use_header_modules'" : "")
+            + "])",
         "cc_library(",
         "    name = 'y',",
         "    srcs = ['y.h'],",
@@ -851,7 +854,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "    srcs = ['i.h', 'i.cc'],",
         "    deps = [':h'],",
         ")");
-    }
+  }
 
   @Test
   public void testCompileHeaderModulesTransitively() throws Exception {
@@ -875,8 +878,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .containsExactly(
             getGenfilesArtifact("f.cppmap", nomoduleF), getGenfilesArtifact("e.cppmap", nomoduleE));
     assertThat(getHeaderModules(fObjectAction.getInputs())).isEmpty();
-    assertThat(fObjectAction.getIncludeScannerSources()).containsExactly(
-        getSourceArtifact("nomodule/f.cc"));
+    assertThat(fObjectAction.getIncludeScannerSources())
+        .containsExactly(getSourceArtifact("nomodule/f.cc"));
     assertThat(getHeaderModuleFlags(fObjectAction.getCompilerOptions())).isEmpty();
 
     // The //nomodule:c target will get the header module for //module:b, which is a direct
@@ -892,10 +895,10 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(getHeaderModules(cObjectAction.getInputs())).isEmpty();
     // All headers of transitive dependencies that are built as modules are needed as entry points
     // for include scanning.
-    assertThat(cObjectAction.getIncludeScannerSources()).containsExactly(
-        getSourceArtifact("nomodule/c.cc"));
-    assertThat(cObjectAction.getMainIncludeScannerSource()).isEqualTo(
-        getSourceArtifact("nomodule/c.cc"));
+    assertThat(cObjectAction.getIncludeScannerSources())
+        .containsExactly(getSourceArtifact("nomodule/c.cc"));
+    assertThat(cObjectAction.getMainIncludeScannerSource())
+        .isEqualTo(getSourceArtifact("nomodule/c.cc"));
     assertThat(getHeaderModuleFlags(cObjectAction.getCompilerOptions())).isEmpty();
 
     // The //nomodule:d target depends on //module:b via one indirection (//nomodule:c).
@@ -908,12 +911,13 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         getBinArtifact("_objs/d/d.pic.o", getConfiguredTarget("//nomodule:d"));
     CppCompileAction dObjectAction = (CppCompileAction) getGeneratingAction(dObjectArtifact);
     // Module map 'c.cppmap' is needed because it is a direct dependency.
-    assertThat(getNonSystemModuleMaps(dObjectAction.getInputs())).containsExactly(
-        getGenfilesArtifact("c.cppmap", "//nomodule:c"),
-        getGenfilesArtifact("d.cppmap", "//nomodule:d"));
+    assertThat(getNonSystemModuleMaps(dObjectAction.getInputs()))
+        .containsExactly(
+            getGenfilesArtifact("c.cppmap", "//nomodule:c"),
+            getGenfilesArtifact("d.cppmap", "//nomodule:d"));
     assertThat(getHeaderModules(dObjectAction.getInputs())).isEmpty();
-    assertThat(dObjectAction.getIncludeScannerSources()).containsExactly(
-        getSourceArtifact("nomodule/d.cc"));
+    assertThat(dObjectAction.getIncludeScannerSources())
+        .containsExactly(getSourceArtifact("nomodule/d.cc"));
     assertThat(getHeaderModuleFlags(dObjectAction.getCompilerOptions())).isEmpty();
 
     // The //module:j target depends on //module:g via //nomodule:h and on //module:b via
@@ -925,10 +929,10 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .containsExactly(
             getBinArtifact("_objs/b/b.pic.pcm", getConfiguredTarget("//module:b")),
             getBinArtifact("_objs/g/g.pic.pcm", getConfiguredTarget("//module:g")));
-    assertThat(jObjectAction.getIncludeScannerSources()).containsExactly(
-        getSourceArtifact("module/j.cc"));
-    assertThat(jObjectAction.getMainIncludeScannerSource()).isEqualTo(
-        getSourceArtifact("module/j.cc"));
+    assertThat(jObjectAction.getIncludeScannerSources())
+        .containsExactly(getSourceArtifact("module/j.cc"));
+    assertThat(jObjectAction.getMainIncludeScannerSource())
+        .isEqualTo(getSourceArtifact("module/j.cc"));
     assertThat(getHeaderModules(jObjectAction.getCcCompilationContext().getTransitiveModules(true)))
         .containsExactly(
             getBinArtifact("_objs/b/b.pic.pcm", getConfiguredTarget("//module:b")),
@@ -981,11 +985,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   private void writeSimpleCcLibrary() throws Exception {
-    scratch.file("module/BUILD",
-        "cc_library(",
-        "    name = 'map',",
-        "    srcs = ['a.cc', 'a.h'],",
-        ")");
+    scratch.file(
+        "module/BUILD", "cc_library(", "    name = 'map',", "    srcs = ['a.cc', 'a.h'],", ")");
   }
 
   @Test
@@ -1004,7 +1005,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                     CppActionNames.CPP_LINK_STATIC_LIBRARY,
                     CppActionNames.STRIP));
     useConfiguration("--features=-supports_pic");
-    scratchConfiguredTarget("a", "a",
+    scratchConfiguredTarget(
+        "a",
+        "a",
         "cc_binary(name='a', srcs=['a.cc'], deps=[':b'])",
         "cc_library(name='b', srcs=['b.cc'])");
   }
@@ -1039,8 +1042,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     CppModuleMapAction action = getCppModuleMapAction("//module:map");
     assertThat(ActionsTestUtil.baseArtifactNames(action.getDependencyArtifacts()))
         .contains("crosstool.cppmap");
-    assertThat(artifactsToStrings(action.getPrivateHeaders()))
-        .containsExactly("src module/a.h");
+    assertThat(artifactsToStrings(action.getPrivateHeaders())).containsExactly("src module/a.h");
     assertThat(action.getPublicHeaders()).isEmpty();
   }
 
@@ -1050,9 +1052,12 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
    */
   @Test
   public void testFilesToBuildWithPrecompiledStaticLibrary() throws Exception {
-    ConfiguredTarget hello = scratchConfiguredTarget("precompiled", "library",
-        "cc_library(name = 'library', ",
-        "           srcs = ['missing.a'])");
+    ConfiguredTarget hello =
+        scratchConfiguredTarget(
+            "precompiled",
+            "library",
+            "cc_library(name = 'library', ",
+            "           srcs = ['missing.a'])");
     assertThat(artifactsToStrings(getFilesToBuild(hello)))
         .doesNotContain("src precompiled/missing.a");
   }
@@ -1223,7 +1228,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void testIncludePathOrder() throws Exception {
     useConfiguration("--incompatible_merge_genfiles_directory=false");
-    scratch.file("foo/BUILD",
+    scratch.file(
+        "foo/BUILD",
         "cc_library(",
         "    name = 'bar',",
         "    includes = ['bar'],",
@@ -1259,7 +1265,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testDefinesOrder() throws Exception {
-    scratch.file("foo/BUILD",
+    scratch.file(
+        "foo/BUILD",
         "cc_library(",
         "    name = 'bar',",
         "    defines = ['BAR'],",
@@ -1302,7 +1309,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   // Regression test - setting "-shared" caused an exception when computing the link command.
   @Test
   public void testLinkOptsNotPassedToStaticLink() throws Exception {
-    scratchConfiguredTarget("foo", "foo",
+    scratchConfiguredTarget(
+        "foo",
+        "foo",
         "cc_library(",
         "    name = 'foo',",
         "    srcs = ['foo.cc'],",
@@ -1351,10 +1360,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testIncludePathsOutsideExecutionRoot() throws Exception {
-    scratchRule(
-        "root",
-        "a",
-        "cc_library(name='a', srcs=['a.cc'], copts=['-Id/../../somewhere'])");
+    scratchRule("root", "a", "cc_library(name='a', srcs=['a.cc'], copts=['-Id/../../somewhere'])");
     CppCompileAction compileAction = getCppCompileAction("//root:a");
     try {
       compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs(), false);
@@ -1368,10 +1374,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testAbsoluteIncludePathsOutsideExecutionRoot() throws Exception {
-    scratchRule(
-        "root",
-        "a",
-        "cc_library(name='a', srcs=['a.cc'], copts=['-I/somewhere'])");
+    scratchRule("root", "a", "cc_library(name='a', srcs=['a.cc'], copts=['-I/somewhere'])");
     CppCompileAction compileAction = getCppCompileAction("//root:a");
     try {
       compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs(), false);
@@ -1385,10 +1388,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testSystemIncludePathsOutsideExecutionRoot() throws Exception {
-    scratchRule(
-        "root",
-        "a",
-        "cc_library(name='a', srcs=['a.cc'], copts=['-isystem../system'])");
+    scratchRule("root", "a", "cc_library(name='a', srcs=['a.cc'], copts=['-isystem../system'])");
     CppCompileAction compileAction = getCppCompileAction("//root:a");
     try {
       compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs(), false);
@@ -1402,10 +1402,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testAbsoluteSystemIncludePathsOutsideExecutionRoot() throws Exception {
-    scratchRule(
-        "root",
-        "a",
-        "cc_library(name='a', srcs=['a.cc'], copts=['-isystem/system'])");
+    scratchRule("root", "a", "cc_library(name='a', srcs=['a.cc'], copts=['-isystem/system'])");
     CppCompileAction compileAction = getCppCompileAction("//root:a");
     try {
       compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs(), false);
@@ -1555,7 +1552,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             + "also contains other code or objects to link",
         "cc_library(name = 'foo', srcs = ['foo.cc', 'libfoo.lo'])");
   }
-
 
   @Test
   public void testProcessedHeadersWithPicSharedLibsAndNoPicBinaries() throws Exception {
@@ -1894,8 +1890,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testImplementationDepsCompilationContextIsNotPropagated() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=+cc_library");
-    useConfiguration("--experimental_cc_interface_deps");
+    useConfiguration("--experimental_cc_implementation_deps");
     scratch.file(
         "foo/BUILD",
         "cc_binary(",
@@ -1913,9 +1908,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "    srcs = ['public_dep.cc'],",
         "    includes = ['public_dep'],",
         "    hdrs = ['public_dep.h'],",
-        "    tags = ['__INTERFACE_DEPS__'],",
-        "    interface_deps = ['interface_dep'],",
-        "    deps = ['implementation_dep'],",
+        "    implementation_deps = ['implementation_dep'],",
+        "    deps = ['interface_dep'],",
         ")",
         "cc_library(",
         "    name = 'interface_dep',",
@@ -1960,8 +1954,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testImplementationDepsLinkingContextIsPropagated() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=+cc_library");
-    useConfiguration("--experimental_cc_interface_deps");
+    useConfiguration("--experimental_cc_implementation_deps");
     scratch.file(
         "foo/BUILD",
         "cc_binary(",
@@ -1978,9 +1971,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "    name = 'public_dep',",
         "    srcs = ['public_dep.cc'],",
         "    hdrs = ['public_dep.h'],",
-        "    tags = ['__INTERFACE_DEPS__'],",
-        "    interface_deps = ['interface_dep'],",
-        "    deps = ['implementation_dep'],",
+        "    implementation_deps = ['implementation_dep'],",
+        "    deps = ['interface_dep'],",
         ")",
         "cc_library(",
         "    name = 'interface_dep',",
@@ -2009,64 +2001,97 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testImplementationDepsRunfilesArePropagated() throws Exception {
+    useConfiguration("--experimental_cc_implementation_deps");
+    scratch.file(
+        "foo/BUILD",
+        "cc_binary(",
+        "    name = 'bin',",
+        "    srcs = ['bin.cc'],",
+        "    deps = ['lib'],",
+        ")",
+        "cc_library(",
+        "    name = 'lib',",
+        "    srcs = ['lib.cc'],",
+        "    deps = ['public_dep'],",
+        ")",
+        "cc_library(",
+        "    name = 'public_dep',",
+        "    srcs = ['public_dep.cc'],",
+        "    hdrs = ['public_dep.h'],",
+        "    implementation_deps = ['implementation_dep'],",
+        "    deps = ['interface_dep'],",
+        ")",
+        "cc_library(",
+        "    name = 'interface_dep',",
+        "    data = ['data/interface.txt'],",
+        ")",
+        "cc_library(",
+        "    name = 'implementation_dep',",
+        "    data = ['data/implementation.txt'],",
+        ")");
+
+    ConfiguredTarget lib = getConfiguredTarget("//foo:bin");
+    assertThat(
+            artifactsToStrings(
+                lib.get(DefaultInfo.PROVIDER).getDefaultRunfiles().getAllArtifacts()))
+        .containsAtLeast("src foo/data/interface.txt", "src foo/data/implementation.txt");
+  }
+
+  @Test
   public void testImplementationDepsConfigurationHostSucceeds() throws Exception {
-    useConfiguration("--experimental_cc_interface_deps");
+    useConfiguration("--experimental_cc_implementation_deps");
     scratch.file(
         "foo/BUILD",
         "cc_library(",
         "    name = 'public_dep',",
         "    srcs = ['public_dep.cc'],",
         "    hdrs = ['public_dep.h'],",
-        "    tags = ['__INTERFACE_DEPS__'],",
-        "    interface_deps = ['interface_dep'],",
+        "    implementation_deps = ['implementation_dep'],",
         ")",
         "cc_library(",
-        "    name = 'interface_dep',",
-        "    srcs = ['interface_dep.cc'],",
-        "    hdrs = ['interface_dep.h'],",
+        "    name = 'implementation_dep',",
+        "    srcs = ['implementation_dep.cc'],",
+        "    hdrs = ['implementation_dep.h'],",
         ")");
 
-    getHostConfiguredTarget("//foo:public_dep");
-    assertDoesNotContainEvent("requires --experimental_cc_interface_deps");
+    assertThat(getExecConfiguredTarget("//foo:public_dep")).isNotNull();
+    ;
+    assertDoesNotContainEvent("requires --experimental_cc_implementation_deps");
   }
 
   @Test
-  public void testInterfaceDepsFailsWithoutFlagOrTag() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=+cc_library");
+  public void testImplementationDepsFailsWithoutFlag() throws Exception {
+    if (!analysisMock.isThisBazel()) {
+      return;
+    }
     scratch.file(
         "foo/BUILD",
         "cc_library(",
         "    name = 'lib',",
         "    srcs = ['lib.cc'],",
-        "    interface_deps = ['interface_dep'],",
+        "    implementation_deps = ['implementation_dep'],",
         ")",
         "cc_library(",
-        "    name = 'interface_dep',",
-        "    srcs = ['interface_dep.cc'],",
-        "    hdrs = ['interface_dep.h'],",
+        "    name = 'implementation_dep',",
+        "    srcs = ['implementation_dep.cc'],",
+        "    hdrs = ['implementation_dep.h'],",
         ")");
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//foo:lib");
-    if (analysisMock.isThisBazel()) {
-      assertContainsEvent("requires --experimental_cc_interface_deps");
-    } else {
-      assertContainsEvent(
-          "Please include the tag '__INTERFACE_DEPS__' in tags when using the 'interface_deps'"
-              + " attribute");
-    }
+    assertContainsEvent("requires --experimental_cc_implementation_deps");
   }
 
   @Test
-  public void testInterfaceDepsNotInAllowlistThrowsError() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=+cc_library");
+  public void testImplementationDepsNotInAllowlistThrowsError() throws Exception {
     if (analysisMock.isThisBazel()) {
       // In OSS usage is controlled only by a flag and not an allowlist.
       return;
     }
     scratch.overwriteFile(
-        "tools/build_defs/cc/whitelists/interface_deps/BUILD",
+        "tools/build_defs/cc/whitelists/implementation_deps/BUILD",
         "package_group(",
-        "    name = 'cc_library_interface_deps_attr_allowed',",
+        "    name = 'cc_library_implementation_deps_attr_allowed',",
         "    packages = []",
         ")");
     scratch.file(
@@ -2074,12 +2099,12 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "cc_library(",
         "    name = 'lib',",
         "    srcs = ['lib.cc'],",
-        "    interface_deps = ['interface_dep'],",
+        "    implementation_deps = ['implementation_dep'],",
         ")",
         "cc_library(",
-        "    name = 'interface_dep',",
-        "    srcs = ['interface_dep.cc'],",
-        "    hdrs = ['interface_dep.h'],",
+        "    name = 'implementation_dep',",
+        "    srcs = ['implementation_dep.cc'],",
+        "    hdrs = ['implementation_dep.h'],",
         ")");
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//foo:lib");
@@ -2117,18 +2142,20 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "    srcs = ['malloc.cc'],",
         "    linkstatic = 1,",
         ")",
+        "cc_library(name = 'empty_lib')",
         "cc_binary(",
         "    name = 'main',",
         "    srcs = ['main.cc'],",
         "    malloc = ':malloc',",
+        "    link_extra_lib = ':empty_lib',",
         "    linkstatic = 0,",
         ")");
 
     ConfiguredTarget main = getConfiguredTarget("//:main");
     Artifact mainBin = getBinArtifact("main", main);
     CppLinkAction action = (CppLinkAction) getGeneratingAction(mainBin);
-    assertThat(Joiner.on(" ").join(action.getLinkCommandLine().arguments()))
-        .doesNotContain("-Wl,-rpath");
+    assertThat(Joiner.on(" ").join(action.getLinkCommandLineForTesting().arguments()))
+        .doesNotContain("-Xlinker -rpath");
   }
 
   @Test
@@ -2160,13 +2187,22 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     ConfiguredTarget main = getConfiguredTarget("//no-transition:main");
     Artifact mainBin = getBinArtifact("main", main);
     CppLinkAction action = (CppLinkAction) getGeneratingAction(mainBin);
-    List<String> linkArgv = action.getLinkCommandLine().arguments();
-    assertThat(linkArgv).contains("-Wl,-rpath,$ORIGIN/../_solib_k8/");
+    List<String> linkArgv = action.getLinkCommandLineForTesting().arguments();
+    assertThat(linkArgv)
+        .containsAtLeast("-Xlinker", "-rpath", "-Xlinker", "$ORIGIN/../_solib_k8/")
+        .inOrder();
+    assertThat(linkArgv)
+        .containsAtLeast(
+            "-Xlinker",
+            "-rpath",
+            "-Xlinker",
+            "$ORIGIN/main.runfiles/" + TestConstants.WORKSPACE_NAME + "/_solib_k8/")
+        .inOrder();
     assertThat(linkArgv)
         .contains("-L" + TestConstants.PRODUCT_NAME + "-out/k8-fastbuild/bin/_solib_k8");
     assertThat(linkArgv).contains("-lno-transition_Slibdep1");
     assertThat(Joiner.on(" ").join(linkArgv))
-        .doesNotContain("-Wl,-rpath,$ORIGIN/../_solib_k8/../../../k8-fastbuild-ST-");
+        .doesNotContain("-Xlinker -rpath -Xlinker $ORIGIN/../_solib_k8/../../../k8-fastbuild-ST-");
     assertThat(Joiner.on(" ").join(linkArgv))
         .doesNotContain("-L" + TestConstants.PRODUCT_NAME + "-out/k8-fastbuild-ST-");
     assertThat(Joiner.on(" ").join(linkArgv)).doesNotContain("-lST-");
@@ -2191,11 +2227,13 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "    srcs = ['malloc.cc'],",
         "    linkstatic = 1,",
         ")",
+        "cc_library(name = 'empty_lib')",
         "cc_binary(",
         "    name = 'main',",
         "    srcs = ['main.cc'],",
         "    linkstatic = 0,",
         "    malloc = ':malloc',",
+        "    link_extra_lib = ':empty_lib',",
         "    deps = ['dep1'],",
         ")",
         "",
@@ -2220,10 +2258,19 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     ConfiguredTarget main = getConfiguredTarget("//transition:main");
     Artifact mainBin = getBinArtifact("main", main);
     CppLinkAction action = (CppLinkAction) getGeneratingAction(mainBin);
-    List<String> linkArgv = action.getLinkCommandLine().arguments();
-    assertThat(linkArgv).contains("-Wl,-rpath,$ORIGIN/../_solib_k8/");
+    List<String> linkArgv = action.getLinkCommandLineForTesting().arguments();
+    assertThat(linkArgv)
+        .containsAtLeast("-Xlinker", "-rpath", "-Xlinker", "$ORIGIN/../_solib_k8/")
+        .inOrder();
+    assertThat(linkArgv)
+        .containsAtLeast(
+            "-Xlinker",
+            "-rpath",
+            "-Xlinker",
+            "$ORIGIN/main.runfiles/" + TestConstants.WORKSPACE_NAME + "/_solib_k8/")
+        .inOrder();
     assertThat(Joiner.on(" ").join(linkArgv))
-        .contains("-Wl,-rpath,$ORIGIN/../../../k8-fastbuild-ST-");
+        .contains("-Xlinker -rpath -Xlinker $ORIGIN/../../../k8-fastbuild-ST-");
     assertThat(Joiner.on(" ").join(linkArgv))
         .contains("-L" + TestConstants.PRODUCT_NAME + "-out/k8-fastbuild-ST-");
     assertThat(Joiner.on(" ").join(linkArgv)).containsMatch("-lST-[0-9a-f]+_transition_Slibdep2");
@@ -2272,5 +2319,112 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             .getDynamicLibrary();
     CppLinkAction action = (CppLinkAction) getGeneratingAction(sharedObject);
     assertThat(action.getLinkstampObjects()).isEmpty();
+  }
+
+  @Test
+  public void testReallyLongSolibLink() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
+
+    String longpath =
+        "this/is/a/really/really/really/really/really/really/really/really/really/really/"
+            + "really/really/really/really/really/really/really/really/really/really/really/"
+            + "really/really/long/path/that/generates/really/long/solib/link/file";
+    scratch.file(
+        longpath + "/BUILD",
+        "cc_library(",
+        "    name = 'lib',",
+        "    srcs = ['lib.cc'],",
+        "    linkstatic = 0,",
+        ")");
+
+    ConfiguredTarget lib = getConfiguredTarget("//" + longpath + ":lib");
+    List<Artifact> libraries =
+        lib.get(CcInfo.PROVIDER)
+            .getCcLinkingContext()
+            .getDynamicLibrariesForRuntime(/* linkingStatically= */ false);
+    List<String> libraryBaseNames = ActionsTestUtil.baseArtifactNames(libraries);
+    for (String baseName : libraryBaseNames) {
+      assertThat(baseName.length()).isLessThan(MAX_FILENAME_LENGTH + 1);
+    }
+  }
+
+  @Test
+  public void testLinkerInputAlwaysAddedEvenIfEmpty() throws Exception {
+    AnalysisMock.get().ccSupport().setupCcToolchainConfig(mockToolsConfig);
+    scratch.file("foo/BUILD", "cc_library(", "    name = 'lib',", ")");
+    assertThat(
+            getConfiguredTarget("//foo:lib")
+                .get(CcInfo.PROVIDER)
+                .getCcLinkingContext()
+                .getLinkerInputs()
+                .toList()
+                .stream()
+                .map(x -> x.getOwner().toString()))
+        .containsExactly("//foo:lib")
+        .inOrder();
+  }
+
+  @Test
+  public void testDataDepRunfilesArePropagated() throws Exception {
+    AnalysisMock.get().ccSupport().setupCcToolchainConfig(mockToolsConfig);
+    scratch.file(
+        "foo/data_dep.bzl",
+        "def _my_data_dep_impl(ctx):",
+        "    return [",
+        "       DefaultInfo(",
+        "        runfiles = ctx.runfiles(",
+        "             root_symlinks = { ctx.attr.dst: ctx.files.src[0] },",
+        "       ),",
+        "     )",
+        "   ]",
+        "my_data_dep = rule(",
+        "   implementation = _my_data_dep_impl,",
+        "   attrs = {",
+        "     'src': attr.label(mandatory = True, allow_single_file = True),",
+        "     'dst': attr.string(mandatory = True),",
+        "   },",
+        " )");
+    scratch.file(
+        "foo/BUILD",
+        "load(':data_dep.bzl', 'my_data_dep')",
+        "my_data_dep(",
+        "    name = 'data_dep',",
+        "    src = ':file.txt',",
+        "    dst = 'data/file.txt',",
+        ")",
+        "cc_library(",
+        "    name = 'lib',",
+        "    data = [':data_dep'],",
+        ")");
+
+    ConfiguredTarget lib = getConfiguredTarget("//foo:lib");
+    assertThat(
+            artifactsToStrings(
+                lib.get(DefaultInfo.PROVIDER).getDefaultRunfiles().getAllArtifacts()))
+        .containsExactly("src foo/file.txt");
+  }
+
+  @Test
+  public void testAdditionalCompilerInputsArePassedToCompile() throws Exception {
+    AnalysisMock.get().ccSupport().setupCcToolchainConfig(mockToolsConfig);
+    scratch.file(
+        "foo/BUILD",
+        "cc_library(",
+        "    name = 'foo',",
+        "    srcs = ['hello.cc'],",
+        "    copts = ['$(location compiler_input.txt)'],",
+        "    additional_compiler_inputs = ['compiler_input.txt'],",
+        ")");
+    scratch.file("foo/compiler_input.txt", "hello world!");
+
+    ConfiguredTarget lib = getConfiguredTarget("//foo:foo");
+    Artifact artifact = getBinArtifact("_objs/foo/hello.o", lib);
+    CppCompileAction action = (CppCompileAction) getGeneratingAction(artifact);
+    assertThat(action.getInputs().toList()).contains(getSourceArtifact("foo/compiler_input.txt"));
+    assertThat(action.getArguments()).contains("foo/compiler_input.txt");
   }
 }

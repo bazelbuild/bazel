@@ -60,7 +60,7 @@ public abstract class AndroidBinaryMultidexTest extends AndroidMultidexBaseTest 
         "    name = 'nomultidex',",
         "    srcs = ['a.java'],",
         "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = glob(['res/**']),",
+        "    resource_files = glob(['res/**'], allow_empty = True),",
         ")");
     internalTestNonMultidexBuildStructure("//java/foo:nomultidex");
   }
@@ -74,7 +74,7 @@ public abstract class AndroidBinaryMultidexTest extends AndroidMultidexBaseTest 
         "    name = 'default',",
         "    srcs = ['a.java'],",
         "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = glob(['res/**']))");
+        "    resource_files = glob(['res/**'], allow_empty = True))");
     internalTestNonMultidexBuildStructure("//java/foo:default");
   }
 
@@ -87,7 +87,7 @@ public abstract class AndroidBinaryMultidexTest extends AndroidMultidexBaseTest 
         "    name = 'manual_main_dex',",
         "    srcs = ['a.java'],",
         "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = glob(['res/**']),",
+        "    resource_files = glob(['res/**'], allow_empty = True),",
         "    multidex = 'manual_main_dex',",
         "    main_dex_list = 'main_dex_list.txt')");
     internalTestMultidexBuildStructure("//java/foo:manual_main_dex", MultidexMode.MANUAL_MAIN_DEX);
@@ -107,7 +107,7 @@ public abstract class AndroidBinaryMultidexTest extends AndroidMultidexBaseTest 
         "    name = 'legacy',",
         "    srcs = ['a.java'],",
         "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = glob(['res/**']),",
+        "    resource_files = glob(['res/**'], allow_empty = True),",
         "    multidex = 'legacy')");
     internalTestMultidexBuildStructure("//java/foo:legacy", MultidexMode.LEGACY);
   }
@@ -126,7 +126,7 @@ public abstract class AndroidBinaryMultidexTest extends AndroidMultidexBaseTest 
         "    name = 'native',",
         "    srcs = ['a.java'],",
         "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = glob(['res/**']),",
+        "    resource_files = glob(['res/**'], allow_empty = True),",
         "    multidex = 'native')");
     internalTestMultidexBuildStructure("//java/foo:native", MultidexMode.NATIVE);
   }

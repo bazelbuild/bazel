@@ -95,19 +95,38 @@ public abstract class Util {
         }
       }
     }
-    // Consider toolchain dependencies.
-    ToolchainContext toolchainContext = ruleContext.getToolchainContext();
-    if (toolchainContext != null) {
-      // This logic should stay up to date with the dep creation logic in
-      // DependencyResolver#partiallyResolveDependencies.
-      BuildConfigurationValue targetConfiguration = ruleContext.getConfiguration();
-      for (Label toolchain : toolchainContext.resolvedToolchainLabels()) {
+
+    if (ruleContext.getRule().useToolchainResolution()) {
+      // Rules that participate in toolchain resolution implicitly depend on the target platform to
+      // check whether it matches the constraints in the target_compatible_with attribute.
+      if (ruleContext.getConfiguration().hasFragment(PlatformConfiguration.class)) {
+        PlatformConfiguration platformConfiguration =
+            ruleContext.getConfiguration().getFragment(PlatformConfiguration.class);
         maybeImplicitDeps.add(
             ConfiguredTargetKey.builder()
-                .setLabel(toolchain)
-                .setConfiguration(targetConfiguration)
-                .setExecutionPlatformLabel(toolchainContext.executionPlatform().label())
+                .setLabel(platformConfiguration.getTargetPlatform())
+                .setConfiguration(ruleContext.getConfiguration())
                 .build());
+      }
+    }
+
+    ToolchainCollection<ResolvedToolchainContext> toolchainContexts =
+        ruleContext.getToolchainContexts();
+    if (toolchainContexts != null) {
+      for (ResolvedToolchainContext toolchainContext : toolchainContexts.getContextMap().values()) {
+        if (toolchainContext != null) {
+          // This logic should stay up to date with the dep creation logic in
+          // DependencyResolver#partiallyResolveDependencies.
+          BuildConfigurationValue targetConfiguration = ruleContext.getConfiguration();
+          for (Label toolchain : toolchainContext.resolvedToolchainLabels()) {
+            maybeImplicitDeps.add(
+                ConfiguredTargetKey.builder()
+                    .setLabel(toolchain)
+                    .setConfiguration(targetConfiguration)
+                    .setExecutionPlatformLabel(toolchainContext.executionPlatform().label())
+                    .build());
+          }
+        }
       }
     }
     return ImmutableSet.copyOf(Sets.difference(maybeImplicitDeps, explicitDeps));

@@ -134,6 +134,7 @@ public class TestUtils {
         return SyscallCache.NO_CACHE.readdir(path);
       }
 
+      @Nullable
       @Override
       public FileStatus statIfFound(Path path, Symlinks symlinks) throws IOException {
         return path.asFragment().endsWith(badPath)
@@ -141,7 +142,6 @@ public class TestUtils {
             : SyscallCache.NO_CACHE.statIfFound(path, symlinks);
       }
 
-      @Nullable
       @Override
       public DirentTypeWithSkip getType(Path path, Symlinks symlinks) {
         return path.asFragment().endsWith(badPath)

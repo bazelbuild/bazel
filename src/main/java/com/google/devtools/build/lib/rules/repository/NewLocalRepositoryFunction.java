@@ -34,7 +34,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.io.IOException;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -137,14 +137,14 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
             e ->
                 FileValue.key(
                     RootedPath.toRootedPath(root, rootRelativePath.getRelative(e.getName()))));
-    SkyframeIterableResult fileValuesResult = env.getOrderedValuesAndExceptions(skyKeys);
+    SkyframeLookupResult fileValuesResult = env.getValuesAndExceptions(skyKeys);
     if (env.valuesMissing()) {
       return null;
     }
     ImmutableMap.Builder<SkyKey, SkyValue> fileValues =
         ImmutableMap.builderWithExpectedSize(directoryValue.getDirents().size());
     for (SkyKey skyKey : skyKeys) {
-      SkyValue value = fileValuesResult.next();
+      SkyValue value = fileValuesResult.get(skyKey);
       if (value == null) {
         BugReport.sendBugReport(
             new IllegalStateException(
@@ -187,9 +187,9 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
             .append(Starlark.repr(pathObj));
 
     Object buildFileObj = rule.getAttr("build_file");
-    if ((buildFileObj instanceof String) && ((String) buildFileObj).length() > 0) {
-      // Build fiels might refer to an embedded file (as they to for "local_jdk"),
-      // so we have to describe the argument in a portable way.
+    if ((buildFileObj instanceof String) && !((String) buildFileObj).isEmpty()) {
+      // Build files might refer to an embedded file (as they to for "local_jdk"), so we have to
+      // describe the argument in a portable way.
       origAttr.put("build_file", buildFileObj);
       String buildFileArg;
       PathFragment pathFragment = PathFragment.create((String) buildFileObj);
@@ -199,7 +199,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
             "__embedded_dir__ + \"/\" + "
                 + Starlark.repr(pathFragment.relativeTo(embeddedDir).toString());
       } else {
-        buildFileArg = Starlark.repr(buildFileObj.toString()).toString();
+        buildFileArg = Starlark.repr(buildFileObj.toString());
       }
       repr.append(", build_file = ").append(buildFileArg);
     } else {
@@ -211,7 +211,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
     }
 
     String nativeCommand = repr.append(")").toString();
-    ImmutableMap<String, Object> orig = origAttr.build();
+    ImmutableMap<String, Object> orig = origAttr.buildOrThrow();
 
     return new ResolvedEvent() {
       @Override
@@ -225,7 +225,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
             .put(ResolvedHashesFunction.ORIGINAL_RULE_CLASS, "new_local_repository")
             .put(ResolvedHashesFunction.ORIGINAL_ATTRIBUTES, orig)
             .put(ResolvedHashesFunction.NATIVE, nativeCommand)
-            .build();
+            .buildOrThrow();
       }
     };
   }

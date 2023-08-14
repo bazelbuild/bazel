@@ -165,7 +165,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
 
   @Test
   public void testCcImportWithSharedLibrary() throws Exception {
-    useConfiguration("--cpu=k8");
+    useConfiguration("--cpu=k8", "--noincompatible_enable_cc_toolchain_resolution");
     ConfiguredTarget target =
         scratchConfiguredTarget(
             "a",
@@ -192,7 +192,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
 
   @Test
   public void testCcImportWithVersionedSharedLibrary() throws Exception {
-    useConfiguration("--cpu=k8");
+    useConfiguration("--cpu=k8", "--noincompatible_enable_cc_toolchain_resolution");
     ConfiguredTarget target =
         scratchConfiguredTarget(
             "a",
@@ -219,7 +219,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
 
   @Test
   public void testCcImportWithVersionedSharedLibraryWithDotInTheName() throws Exception {
-    useConfiguration("--cpu=k8");
+    useConfiguration("--cpu=k8", "--noincompatible_enable_cc_toolchain_resolution");
 
     ConfiguredTarget target =
         scratchConfiguredTarget(
@@ -274,7 +274,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
 
   @Test
   public void testCcImportWithInterfaceSharedLibrary() throws Exception {
-    useConfiguration("--cpu=k8");
+    useConfiguration("--cpu=k8", "--noincompatible_enable_cc_toolchain_resolution");
     ConfiguredTarget target =
         scratchConfiguredTarget(
             "b",
@@ -302,7 +302,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
 
   @Test
   public void testCcImportWithBothStaticAndSharedLibraries() throws Exception {
-    useConfiguration("--cpu=k8");
+    useConfiguration("--cpu=k8", "--noincompatible_enable_cc_toolchain_resolution");
     ConfiguredTarget target =
         scratchConfiguredTarget(
             "a",
@@ -443,8 +443,10 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
     ConfiguredTarget main = getConfiguredTarget("//bin:bin");
     Artifact mainBin = getBinArtifact("bin", main);
     CppLinkAction action = (CppLinkAction) getGeneratingAction(mainBin);
-    List<String> linkArgv = action.getLinkCommandLine().arguments();
-    assertThat(linkArgv).contains("-Wl,-rpath,$ORIGIN/../_solib_k8/_U_S_Sa_Cfoo___Ua");
+    List<String> linkArgv = action.getLinkCommandLineForTesting().arguments();
+    assertThat(linkArgv)
+        .containsAtLeast("-Xlinker", "-rpath", "-Xlinker", "$ORIGIN/../_solib_k8/_U_S_Sa_Cfoo___Ua")
+        .inOrder();
   }
 
   @Test
@@ -524,7 +526,9 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
     ConfiguredTarget main = getConfiguredTarget("//bin:bin");
     Artifact mainBin = getBinArtifact("bin", main);
     CppLinkAction action = (CppLinkAction) getGeneratingAction(mainBin);
-    List<String> linkArgv = action.getLinkCommandLine().arguments();
-    assertThat(linkArgv).contains("-Wl,-rpath,$ORIGIN/../_solib_k8/_U_S_Sa_Cfoo___Ua");
+    List<String> linkArgv = action.getLinkCommandLineForTesting().arguments();
+    assertThat(linkArgv)
+        .containsAtLeast("-Xlinker", "-rpath", "-Xlinker", "$ORIGIN/../_solib_k8/_U_S_Sa_Cfoo___Ua")
+        .inOrder();
   }
 }

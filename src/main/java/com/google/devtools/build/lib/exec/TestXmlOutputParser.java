@@ -40,7 +40,7 @@ public final class TestXmlOutputParser {
   }
 
   /**
-   * Parses the a test result XML file into the corresponding protocol buffer.
+   * Parses the test result XML file into the corresponding protocol buffer.
    *
    * @param xmlStream the XML data stream
    * @return the protocol buffer with the parsed data, or null if there was an error while parsing

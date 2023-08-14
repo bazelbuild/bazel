@@ -137,6 +137,7 @@ def generate_cc_impl(ctx):
         outputs = out_files,
         executable = ctx.executable.protoc,
         arguments = arguments,
+        mnemonic = "CppGrpcGenSource",
         use_default_shell_env = True,
     )
 
@@ -152,7 +153,7 @@ generate_cc = rule(
         "plugin": attr.label(
             executable = True,
             providers = ["files_to_run"],
-            cfg = "host",
+            cfg = "exec",
         ),
         "flags": attr.string_list(
             mandatory = False,
@@ -165,7 +166,7 @@ generate_cc = rule(
         "protoc": attr.label(
             mandatory = True,
             executable = True,
-            cfg = "host",
+            cfg = "exec",
         ),
     },
     # We generate .h files, so we need to output to genfiles.

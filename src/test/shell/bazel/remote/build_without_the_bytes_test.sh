@@ -70,14 +70,7 @@ else
   declare -r EXE_EXT=""
 fi
 
-function test_cc_tree() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
-    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
-    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
-    # action executors in order to select the appropriate Xcode toolchain.
-    return 0
-  fi
-
+function setup_cc_tree() {
   mkdir -p a
   cat > a/BUILD <<EOF
 load(":tree.bzl", "mytree")
@@ -93,11 +86,58 @@ def _tree_impl(ctx):
 
 mytree = rule(implementation = _tree_impl)
 EOF
+}
+
+function test_cc_tree_remote_executor() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
+  setup_cc_tree
+
   bazel build \
       --remote_executor=grpc://localhost:${worker_port} \
       --remote_download_minimal \
       //a:tree_cc >& "$TEST_log" \
-      || fail "Failed to build //a:tree_cc with minimal downloads"
+      || fail "Failed to build //a:tree_cc with remote executor and minimal downloads"
+}
+
+function test_cc_tree_remote_cache() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
+  setup_cc_tree
+
+  bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      //a:tree_cc >& "$TEST_log" \
+      || fail "Failed to build //a:tree_cc with remote cache and minimal downloads"
+}
+
+function test_cc_tree_prefetching() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
+  setup_cc_tree
+
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --modify_execution_info=CppCompile=+no-remote-exec \
+      --remote_download_minimal \
+      //a:tree_cc >& "$TEST_log" \
+      || fail "Failed to build //a:tree_cc with prefetching and minimal downloads"
 }
 
 function test_cc_include_scanning_and_minimal_downloads() {
@@ -133,197 +173,6 @@ EOF
       || fail "Failed to build with --remote_download_minimal"
 }
 
-function test_downloads_minimal() {
-  # Test that genrule outputs are not downloaded when using
-  # --remote_download_minimal
-  mkdir -p a
-  cat > a/BUILD <<'EOF'
-genrule(
-  name = "foo",
-  srcs = [],
-  outs = ["foo.txt"],
-  cmd = "echo \"foo\" > \"$@\"",
-)
-
-genrule(
-  name = "foobar",
-  srcs = [":foo"],
-  outs = ["foobar.txt"],
-  cmd = "cat $(location :foo) > \"$@\" && echo \"bar\" >> \"$@\"",
-)
-EOF
-
-  bazel build \
-    --genrule_strategy=remote \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --remote_download_minimal \
-    //a:foobar || fail "Failed to build //a:foobar"
-
-  (! [[ -f bazel-bin/a/foo.txt ]] && ! [[ -f bazel-bin/a/foobar.txt ]]) \
-  || fail "Expected no files to have been downloaded"
-}
-
-function test_downloads_minimal_failure() {
-  # Test that outputs of failing actions are downloaded when using
-  # --remote_download_minimal
-  mkdir -p a
-  cat > a/BUILD <<'EOF'
-genrule(
-  name = "fail",
-  srcs = [],
-  outs = ["fail.txt"],
-  cmd = "echo \"foo\" > \"$@\" && exit 1",
-)
-EOF
-
-  bazel build \
-    --spawn_strategy=remote \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --remote_download_minimal \
-    //a:fail && fail "Expected test failure" || true
-
-  [[ -f bazel-bin/a/fail.txt ]] \
-  || fail "Expected fail.txt of failing target //a:fail to be downloaded"
-}
-
-function test_downloads_minimal_prefetch() {
-  # Test that when using --remote_download_minimal a remote-only output that's
-  # an input to a local action is downloaded lazily before executing the local action.
-  mkdir -p a
-  cat > a/BUILD <<'EOF'
-genrule(
-  name = "remote",
-  srcs = [],
-  outs = ["remote.txt"],
-  cmd = "echo -n \"remote\" > \"$@\"",
-)
-
-genrule(
-  name = "local",
-  srcs = [":remote"],
-  outs = ["local.txt"],
-  cmd = "cat $(location :remote) > \"$@\" && echo -n \"local\" >> \"$@\"",
-  tags = ["no-remote"],
-)
-EOF
-
-  bazel build \
-    --genrule_strategy=remote \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --remote_download_minimal \
-    //a:remote || fail "Failed to build //a:remote"
-
-  (! [[ -f bazel-bin/a/remote.txt ]]) \
-  || fail "Expected bazel-bin/a/remote.txt to have not been downloaded"
-
-  bazel build \
-    --genrule_strategy=remote,local \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --remote_download_minimal \
-    //a:local || fail "Failed to build //a:local"
-
-  localtxt="bazel-bin/a/local.txt"
-  [[ $(< ${localtxt}) == "remotelocal" ]] \
-  || fail "Unexpected contents in " ${localtxt} ": " $(< ${localtxt})
-
-  [[ -f bazel-bin/a/remote.txt ]] \
-  || fail "Expected bazel-bin/a/remote.txt to be downloaded"
-}
-
-function test_download_outputs_invalidation() {
-  # Test that when changing values of --remote_download_minimal all actions are
-  # invalidated.
-  mkdir -p a
-  cat > a/BUILD <<'EOF'
-genrule(
-  name = "remote",
-  srcs = [],
-  outs = ["remote.txt"],
-  cmd = "echo -n \"remote\" > \"$@\"",
-)
-EOF
-
-  bazel build \
-    --genrule_strategy=remote \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --remote_download_minimal \
-    //a:remote >& $TEST_log || fail "Failed to build //a:remote"
-
-  expect_log "2 processes: 1 internal, 1 remote"
-
-  bazel build \
-    --genrule_strategy=remote \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --remote_download_outputs=all \
-    //a:remote >& $TEST_log || fail "Failed to build //a:remote"
-
-  # Changing --remote_download_outputs to "all" should invalidate SkyFrames in-memory
-  # caching and make it re-run the action.
-  expect_log "2 processes: 1 remote cache hit, 1 internal"
-}
-
-function test_downloads_minimal_native_prefetch() {
-  # Test that when using --remote_download_outputs=minimal a remotely stored output
-  # that's an input to a native action (ctx.actions.expand_template) is staged lazily for action
-  # execution.
-  mkdir -p a
-  cat > a/substitute_username.bzl <<'EOF'
-def _substitute_username_impl(ctx):
-    ctx.actions.expand_template(
-        template = ctx.file.template,
-        output = ctx.outputs.out,
-        substitutions = {
-            "{USERNAME}": ctx.attr.username,
-        },
-    )
-
-substitute_username = rule(
-    implementation = _substitute_username_impl,
-    attrs = {
-        "username": attr.string(mandatory = True),
-        "template": attr.label(
-            allow_single_file = True,
-            mandatory = True,
-        ),
-    },
-    outputs = {"out": "%{name}.txt"},
-)
-EOF
-
-  cat > a/BUILD <<'EOF'
-load(":substitute_username.bzl", "substitute_username")
-genrule(
-    name = "generate-template",
-    cmd = "echo -n \"Hello {USERNAME}!\" > $@",
-    outs = ["template.txt"],
-    srcs = [],
-)
-
-substitute_username(
-    name = "substitute-buchgr",
-    username = "buchgr",
-    template = ":generate-template",
-)
-EOF
-
-  bazel build \
-    --genrule_strategy=remote \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --remote_download_minimal \
-    //a:substitute-buchgr >& $TEST_log || fail "Failed to build //a:substitute-buchgr"
-
-  # The genrule //a:generate-template should run remotely and //a:substitute-buchgr
-  # should be a native action running locally.
-  expect_log "3 processes: 2 internal, 1 remote"
-
-  outtxt="bazel-bin/a/substitute-buchgr.txt"
-  [[ $(< ${outtxt}) == "Hello buchgr!" ]] \
-  || fail "Unexpected contents in "${outtxt}":" $(< ${outtxt})
-
-  [[ -f bazel-bin/a/template.txt ]] \
-  || fail "Expected bazel-bin/a/template.txt to be downloaded"
-}
-
 function test_downloads_minimal_hit_action_cache() {
   # Test that remote metadata is saved and action cache is hit across server restarts when using
   # --remote_download_minimal
@@ -346,7 +195,6 @@ EOF
 
   bazel build \
     --experimental_ui_debug_all_events \
-    --experimental_action_cache_store_output_metadata \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_download_minimal \
     //a:foobar >& $TEST_log || fail "Failed to build //a:foobar"
@@ -362,7 +210,6 @@ EOF
 
   bazel build \
     --experimental_ui_debug_all_events \
-    --experimental_action_cache_store_output_metadata \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_download_minimal \
     //a:foobar >& $TEST_log || fail "Failed to build //a:foobar"
@@ -370,9 +217,112 @@ EOF
   expect_not_log "START.*: \[.*\] Executing genrule //a:foobar"
 }
 
+function setup_genrule_with_dep() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo.txt"],
+  cmd = "echo \"foo\" > \"$@\"",
+)
+
+genrule(
+  name = "foobar",
+  srcs = [":foo"],
+  outs = ["foobar.txt"],
+  cmd = "cat $(location :foo) > \"$@\" && echo \"bar\" >> \"$@\"",
+)
+EOF
+}
+
+function test_downloads_all() {
+  # Tests that when using --remote_download_outputs=all both toplevel and
+  # intermediate outputs are downloaded.
+  setup_genrule_with_dep
+
+  bazel build \
+    --genrule_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_outputs=all \
+    //a:foobar >& $TEST_log || fail "Failed to build //a:foobar"
+
+  if ! [[ -f bazel-bin/a/foo.txt ]]; then
+    fail "Expected intermediate output bazel-bin/a/foo.txt to be downloaded"
+  fi
+
+  if ! [[ -f bazel-bin/a/foobar.txt ]]; then
+    fail "Expected toplevel output bazel-bin/a/foobar.txt to be downloaded"
+  fi
+
+  # Delete the files to test that the outputs can be re-downloaded
+  rm -f bazel-bin/a/foo.txt bazel-bin/a/foobar.txt
+
+  bazel build \
+    --genrule_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_outputs=all \
+    //a:foobar >& $TEST_log || fail "Failed to build //a:foobar"
+
+  expect_log "3 processes: 2 remote cache hit, 1 internal."
+
+  if ! [[ -f bazel-bin/a/foo.txt ]]; then
+    fail "Expected intermediate output bazel-bin/a/foobar.txt to be re-downloaded"
+  fi
+
+  if ! [[ -f bazel-bin/a/foobar.txt ]]; then
+    fail "Expected toplevel output bazel-bin/a/foobar.txt to be re-downloaded"
+  fi
+}
+
 function test_downloads_toplevel() {
-  # Test that when using --remote_download_outputs=toplevel only the output of the
-  # toplevel target is being downloaded.
+  # Test that when using --remote_download_outputs=toplevel only toplevel
+  # outputs are downloaded.
+  setup_genrule_with_dep
+
+  bazel build \
+    --genrule_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    //a:foobar >& $TEST_log || fail "Failed to build //a:foobar"
+
+  if [[ -f bazel-bin/a/foo.txt ]]; then
+    fail "Expected intermediate output bazel-bin/a/foo.txt to not be downloaded"
+  fi
+
+  if ! [[ -f bazel-bin/a/foobar.txt ]]; then
+    fail "Expected toplevel output bazel-bin/a/foobar.txt to be downloaded"
+  fi
+
+  bazel build \
+    --genrule_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    //a:foobar >& $TEST_log || fail "Failed to build //a:foobar"
+
+  # Nothing changed, no action is re-executed.
+  expect_log "1 process: 1 internal."
+
+  # Delete the file to test that the toplevel output can be re-downloaded
+  rm -f bazel-bin/a/foobar.txt
+
+  bazel build \
+    --genrule_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    //a:foobar >& $TEST_log || fail "Failed to build //a:foobar"
+
+  # Output of foobar is missing, the generating action is re-executed
+  expect_log "2 processes: 1 remote cache hit, 1 internal."
+
+  if ! [[ -f bazel-bin/a/foobar.txt ]]; then
+    fail "Expected toplevel output bazel-bin/a/foobar.txt to be re-downloaded"
+  fi
+}
+
+function test_downloads_toplevel_change_toplevel_targets() {
+  # Test that if a second invocation changes toplevel targets, the outputs of
+  # new target will be downloaded.
   mkdir -p a
   cat > a/BUILD <<'EOF'
 genrule(
@@ -391,31 +341,26 @@ genrule(
 EOF
 
   bazel build \
-    --genrule_strategy=remote \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --remote_download_toplevel \
-    //a:foobar || fail "Failed to build //a:foobar"
-
-  (! [[ -f bazel-bin/a/foo.txt ]]) \
-  || fail "Expected intermediate output bazel-bin/a/foo.txt to not be downloaded"
-
-  [[ -f bazel-bin/a/foobar.txt ]] \
-  || fail "Expected toplevel output bazel-bin/a/foobar.txt to be downloaded"
-
-
-  # Delete the file to test that the action is re-run
-  rm -f bazel-bin/a/foobar.txt
-
-  bazel build \
-    --genrule_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_download_toplevel \
     //a:foobar >& $TEST_log || fail "Failed to build //a:foobar"
 
-  expect_log "2 processes: 1 remote cache hit, 1 internal"
+  (! [[ -f bazel-bin/a/foo.txt ]]) \
+    || fail "Expected intermediate output bazel-bin/a/foo.txt to not be downloaded"
 
   [[ -f bazel-bin/a/foobar.txt ]] \
-  || fail "Expected toplevel output bazel-bin/a/foobar.txt to be re-downloaded"
+    || fail "Expected toplevel output bazel-bin/a/foobar.txt to be downloaded"
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    //a:foo >& $TEST_log || fail "Failed to build //a:foobar"
+
+  # Output of foo is missing, the generating action is re-executed
+  expect_log "2 processes: 1 remote cache hit, 1 internal."
+
+  [[ -f bazel-bin/a/foo.txt ]] \
+    || fail "Expected toplevel output bazel-bin/a/foo.txt to be downloaded"
 }
 
 function test_downloads_toplevel_runfiles() {
@@ -471,7 +416,7 @@ EOF
 # Test that --remote_download_toplevel fetches inputs to symlink actions. In
 # particular, cc_binary links against a symlinked imported .so file, and only
 # the symlink is in the runfiles.
-function test_downloads_toplevel_symlinks() {
+function test_downloads_toplevel_symlink_action() {
   if [[ "$PLATFORM" == "darwin" ]]; then
     # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
     # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
@@ -520,30 +465,93 @@ EOF
   ./bazel-bin/a/foo${EXE_EXT} || fail "bazel-bin/a/foo${EXE_EXT} failed to run"
 }
 
-function test_symlink_outputs_not_allowed_with_minimial() {
-  mkdir -p a
-  cat > a/input.txt <<'EOF'
-Input file
-EOF
-  cat > a/BUILD <<'EOF'
-genrule(
-  name = "foo",
-  srcs = ["input.txt"],
-  outs = ["output.txt", "output_symlink"],
-  cmd = "cp $< $(location :output.txt) && ln -s output.txt $(location output_symlink)",
+function setup_symlink_output() {
+  mkdir -p pkg
+
+  cat > pkg/defs.bzl <<EOF
+def _impl(ctx):
+  sym = ctx.actions.declare_symlink(ctx.label.name)
+  ctx.actions.run_shell(
+    outputs = [sym],
+    command = "ln -s {} {}".format(ctx.attr.target, sym.path),
+  )
+  return DefaultInfo(files = depset([sym]))
+
+symlink = rule(
+  implementation = _impl,
+  attrs = {
+    "target": attr.string(),
+  },
 )
 EOF
+
+  cat > pkg/BUILD <<EOF
+load(":defs.bzl", "symlink")
+symlink(
+  name = "sym",
+  target = "target.txt",
+)
+EOF
+}
+
+function test_downloads_toplevel_non_dangling_symlink_output() {
+  setup_symlink_output
+  touch pkg/target.txt
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    //pkg:sym >& $TEST_log || fail "Expected build of //pkg:sym to succeed"
+
+  if [[ "$(readlink bazel-bin/pkg/sym)" != "target.txt" ]]; then
+    fail "Expected bazel-bin/pkg/sym to be a symlink pointing to target.txt"
+  fi
+}
+
+function test_downloads_toplevel_dangling_symlink_output() {
+  setup_symlink_output
 
   bazel build \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_download_minimal \
-    //a:foo >& $TEST_log && fail "Expected failure to build //a:foo"
-  expect_log "Symlinks in action outputs are not yet supported"
+    //pkg:sym >& $TEST_log || fail "Expected build of //pkg:sym to succeed"
+
+  if [[ "$(readlink bazel-bin/pkg/sym)" != "target.txt" ]]; then
+    fail "Expected bazel-bin/pkg/sym to be a symlink pointing to target.txt"
+  fi
 }
 
-# Regression test that --remote_download_toplevel does not crash when the
-# top-level output is a tree artifact.
-function test_downloads_toplevel_tree_artifact() {
+function test_download_toplevel_tree_artifact() {
+  mkdir -p a
+
+  cat > a/defs.bzl <<'EOF'
+def _impl(ctx):
+  out = ctx.actions.declare_directory(ctx.label.name)
+  ctx.actions.run_shell(
+    outputs = [out],
+    command = "touch %s/file.txt" % out.path,
+  )
+  return DefaultInfo(files = depset([out]))
+
+tree = rule(implementation = _impl)
+EOF
+
+  cat > a/BUILD <<'EOF'
+load(":defs.bzl", "tree")
+tree(name = "tree")
+EOF
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    //a:tree || fail "Failed to build //a:tree"
+
+  if ! [[ -f bazel-bin/a/tree/file.txt ]]; then
+    fail "Expected toplevel output bazel-out/a/tree/file.txt to be downloaded"
+  fi
+}
+
+function test_download_toplevel_templated_tree_artifact() {
   if [[ "$PLATFORM" == "darwin" ]]; then
     # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
     # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
@@ -566,8 +574,7 @@ def _gentree(ctx):
     out = ctx.actions.declare_directory("dir.cc")
     ctx.actions.run_shell(
         outputs = [out],
-        command = "mkdir -p %s && echo 'int main(int c, char** v){return 1;}' > %s/foo.cc" %
-            (out.path, out.path),
+        command = "echo 'int main(){return 0;}' > %s/foo.cc" % out.path,
     )
     return DefaultInfo(files = depset([out]))
 
@@ -585,6 +592,10 @@ EOF
     --remote_download_toplevel \
     --output_groups=compilation_outputs \
     //a:main || fail "Failed to build //a:main"
+
+  if ! [[ -f bazel-bin/a/_pic_objs/main/dir/foo.pic.o ]]; then
+    fail "Expected toplevel output bazel-out/a/_pic_objs/main/dir/foo.pic.o to be downloaded"
+  fi
 }
 
 function test_downloads_toplevel_src_runfiles() {
@@ -656,8 +667,6 @@ EOF
   [[ -f bazel-testlogs/a/test/test.xml ]] \
   || fail "Expected toplevel output bazel-testlogs/a/test/test.log to be downloaded"
 
-  bazel clean
-
   # When invoking bazel build the test binary should be downloaded.
   bazel build \
     --remote_executor=grpc://localhost:${worker_port} \
@@ -666,6 +675,64 @@ EOF
 
   ([[ -f bazel-bin/a/test ]]) \
   || fail "Expected test binary bazel-bin/a/test to be downloaded"
+}
+
+function do_test_non_test_toplevel_targets() {
+  # Regression test for https://github.com/bazelbuild/bazel/issues/17190.
+  #
+  # Test that when using --remote_download_toplevel with bazel test, outputs of
+  # non-test targets are downloaded. When using --remote_download_minimal with
+  # bazel test, outputs of non-test targets are not downloaded.
+
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo.txt"],
+  cmd = "echo \"foo\" > \"$@\"",
+)
+
+cc_test(
+  name = 'test',
+  srcs = [ 'test.cc' ],
+)
+EOF
+  cat > a/test.cc <<EOF
+#include <iostream>
+int main() { std::cout << "Hello test!" << std::endl; return 0; }
+EOF
+
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    $@ \
+    //a/... || fail "failed to test"
+}
+
+function test_non_test_toplevel_targets_toplevel() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
+  do_test_non_test_toplevel_targets --remote_download_toplevel
+
+  [[ -f bazel-bin/a/foo.txt ]] || fail "Expected a/foo.txt to be downloaded"
+}
+
+function test_non_test_toplevel_targets_minimal() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
+  do_test_non_test_toplevel_targets --remote_download_minimal
+
+  [[ ! -f bazel-bin/a/foo.txt ]] || fail "Expected a/foo.txt to not be downloaded"
 }
 
 function test_downloads_minimal_bep() {
@@ -734,6 +801,90 @@ EOF
 
   expect_not_log 'uri:.*file://'
   expect_log "uri:.*bytestream://example.com/my-instance-name/blobs"
+}
+
+function test_undeclared_test_outputs_bep() {
+  # Test that when using --remote_download_minimal, undeclared outputs in a test
+  # are reported by BEP
+  mkdir -p a
+  cat > a/BUILD <<EOF
+sh_test(
+  name = "foo",
+  srcs = ["foo.sh"],
+)
+EOF
+  cat > a/foo.sh <<'EOF'
+touch $TEST_UNDECLARED_OUTPUTS_DIR/bar.txt
+EOF
+  chmod a+x a/foo.sh
+
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_minimal \
+    --build_event_text_file=$TEST_log \
+    //a:foo || fail "Failed to test //a:foo"
+
+  expect_log "test.log"
+  expect_log "test.xml"
+  expect_log "test.outputs__outputs.zip"
+  expect_log "test.outputs_manifest__MANIFEST"
+}
+
+function test_nozip_undeclared_test_outputs() {
+  mkdir -p a
+  cat > a/test.sh << 'EOF'
+#!/bin/sh
+echo foo > "$TEST_UNDECLARED_OUTPUTS_DIR/text.txt"
+EOF
+  chmod +x a/test.sh
+
+  cat > a/BUILD <<'EOF'
+sh_test(
+  name = "foo",
+  srcs = ["test.sh"],
+)
+EOF
+
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    --nozip_undeclared_test_outputs \
+    //a:foo || fail "Failed to test //a:foo"
+
+  [[ -e "bazel-testlogs/a/foo/test.outputs/text.txt" ]] || fail "bazel-testlogs/a/foo/test.outputs/text.txt does not exist"
+  assert_contains "foo" "bazel-testlogs/a/foo/test.outputs/text.txt"
+}
+
+function test_multiple_test_attempts() {
+  # Test that test logs of multiple test attempts can be renamed and reported by
+  # BEP.
+  mkdir -p a
+  cat > a/BUILD <<EOF
+sh_test(
+  name = "foo",
+  srcs = ["foo.sh"],
+)
+EOF
+  cat > a/foo.sh <<'EOF'
+exit 1
+EOF
+  chmod a+x a/foo.sh
+  rm -rf $TEST_TMPDIR/bep.json
+
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_minimal \
+    --build_event_json_file=$TEST_TMPDIR/bep.json \
+    --flaky_test_attempts=2 \
+    //a:foo >& $TEST_log && fail "Test //a:foo should fail"
+
+  expect_log "FAILED in 2 out of 2"
+  expect_log "a/foo/test.log"
+  expect_log "a/foo/test_attempts/attempt_1.log"
+  cat $TEST_TMPDIR/bep.json > $TEST_log
+  rm -rf $TEST_TMPDIR/bep.json
+  expect_log "attempt\":1.*test.log.*bytestream.*test.xml.*bytestream"
+  expect_log "attempt\":2.*test.log.*bytestream.*test.xml.*bytestream"
 }
 
 # This test is derivative of test_bep_output_groups in
@@ -876,7 +1027,7 @@ chmod +x status.sh
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_download_minimal \
     --workspace_status_command=status.sh \
-    //a:foo || "Failed to build //a:foo"
+    //a:foo || fail "Failed to build //a:foo"
 
 cat > status.sh << 'EOF'
 #!/bin/sh
@@ -887,7 +1038,7 @@ EOF
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_download_minimal \
     --workspace_status_command=status.sh \
-    //a:foo || "Failed to build //a:foo"
+    //a:foo || fail "Failed to build //a:foo"
 }
 
 function test_testxml_download_toplevel() {
@@ -1009,6 +1160,97 @@ EOF
       --remote_download_minimal \
       //:test >& $TEST_log \
       || fail "Failed to build"
+
+  ls -l bazel-bin/file >& $TEST_log
+  expect_log "-r-xr-xr-x"
+
+  ls -ld bazel-bin/tree >& $TEST_log
+  expect_log "dr-xr-xr-x"
+
+  ls -ld bazel-bin/tree/sub >& $TEST_log
+  expect_log "dr-xr-xr-x"
+
+  ls -l bazel-bin/tree/sub/bar >& $TEST_log
+  expect_log "-r-xr-xr-x"
+}
+
+function test_prefetcher_change_permission_writable_outputs() {
+  # test that prefetcher change permission for downloaded files and directories to 0755 if
+  # --experimental_writable_outputs is set.
+  touch WORKSPACE
+
+  cat > rules.bzl <<'EOF'
+def _gen_output_dir_impl(ctx):
+    output_dir = ctx.actions.declare_directory(ctx.attr.outdir)
+    ctx.actions.run_shell(
+        outputs = [output_dir],
+        inputs = [],
+        command = """
+          mkdir -p $1/sub
+          echo "Shuffle, duffle, muzzle, muff" > $1/sub/bar
+        """,
+        arguments = [output_dir.path],
+    )
+    return DefaultInfo(files = depset(direct = [output_dir]))
+
+gen_output_dir = rule(
+    implementation = _gen_output_dir_impl,
+    attrs = {
+        "outdir": attr.string(mandatory = True),
+    },
+)
+EOF
+
+  cat > BUILD <<'EOF'
+load("rules.bzl", "gen_output_dir")
+
+genrule(
+  name = "input-file",
+  srcs = [],
+  outs = ["file"],
+  cmd = "echo 'input' > $@",
+)
+
+gen_output_dir(
+  name = "input-tree",
+  outdir = "tree",
+)
+
+genrule(
+  name = "test",
+  srcs = [":input-file", ":input-tree"],
+  outs = ["out"],
+  cmd = "touch $@",
+  tags = ["no-remote"],
+)
+EOF
+
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      --experimental_writable_outputs \
+      //:test >& $TEST_log \
+      || fail "Failed to build"
+
+  ls -l bazel-bin/file >& $TEST_log
+  expect_log "-rwxr-xr-x"
+
+  ls -ld bazel-bin/tree >& $TEST_log
+  expect_log "drwxr-xr-x"
+
+  ls -ld bazel-bin/tree/sub >& $TEST_log
+  expect_log "drwxr-xr-x"
+
+  ls -l bazel-bin/tree/sub/bar >& $TEST_log
+  expect_log "-rwxr-xr-x"
+
+  # Rebuild without the flag and verify that permissions in the
+  # outputs have changed. (Verifies that outputs aren't cached)
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_minimal \
+    //:test >& $TEST_log \
+    || fail "Failed to build"
 
   ls -l bazel-bin/file >& $TEST_log
   expect_log "-r-xr-xr-x"
@@ -1264,15 +1506,78 @@ EOF
   expect_log "-r-xr-xr-x"
 }
 
+function test_output_file_permission() {
+  # Test that permission of output files are always 0755 if --experimental_writable_outputs is set.
+
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo"],
+  cmd = "echo 'foo' > \$@",
+)
+
+genrule(
+  name = "bar",
+  srcs = [":foo"],
+  outs = ["bar"],
+  cmd = "ls -lL \$(SRCS) > \$@",
+  tags = ["no-remote"],
+)
+EOF
+
+  # no remote execution
+  bazel build \
+      --experimental_writable_outputs \
+      //a:bar >& $TEST_log || fail "Failed to build"
+
+  ls -l bazel-bin/a/bar >& $TEST_log
+  expect_log "-rwxr-xr-x"
+
+  ls -l bazel-bin/a/foo >& $TEST_log
+  expect_log "-rwxr-xr-x"
+
+  cat bazel-bin/a/bar >& $TEST_log
+  expect_log "-rwxr-xr-x"
+
+  bazel clean >& $TEST_log || fail "Failed to clean"
+
+  # normal remote execution
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --experimental_writable_outputs \
+      //a:bar >& $TEST_log || fail "Failed to build"
+
+  ls -l bazel-bin/a/bar >& $TEST_log
+  expect_log "-rwxr-xr-x"
+
+  ls -l bazel-bin/a/foo >& $TEST_log
+  expect_log "-rwxr-xr-x"
+
+  cat bazel-bin/a/bar >& $TEST_log
+  expect_log "-rwxr-xr-x"
+
+  bazel clean >& $TEST_log || fail "Failed to clean"
+
+  # build without bytes
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      --experimental_writable_outputs \
+      //a:bar >& $TEST_log || fail "Failed to build"
+
+  ls -l bazel-bin/a/bar >& $TEST_log
+  expect_log "-rwxr-xr-x"
+
+  ls -l bazel-bin/a/foo >& $TEST_log
+  expect_log "-rwxr-xr-x"
+
+  cat bazel-bin/a/bar >& $TEST_log
+  expect_log "-rwxr-xr-x"
+}
+
 function test_download_toplevel_when_turn_remote_cache_off() {
-  download_toplevel_when_turn_remote_cache_off
-}
-
-function test_download_toplevel_when_turn_remote_cache_off_with_metadata() {
-  download_toplevel_when_turn_remote_cache_off --experimental_action_cache_store_output_metadata
-}
-
-function download_toplevel_when_turn_remote_cache_off() {
   # Test that BwtB doesn't cause build failure if remote cache is disabled in a following build.
   # See https://github.com/bazelbuild/bazel/issues/13882.
 
@@ -1307,7 +1612,6 @@ EOF
   bazel build \
     --remote_cache=grpc://localhost:${worker_port} \
     --remote_download_toplevel \
-    "$@" \
     //a:consumer >& $TEST_log || fail "Failed to download outputs"
   [[ -f bazel-bin/a/a.txt ]] || [[ -f bazel-bin/a/b.txt ]] \
     && fail "Expected outputs of producer are not downloaded"
@@ -1316,7 +1620,6 @@ EOF
   echo 'bar' > a/in.txt
   bazel build \
     --remote_download_toplevel \
-    "$@" \
     //a:consumer >& $TEST_log || fail "Failed to build without remote cache"
 }
 
@@ -1392,6 +1695,18 @@ EOF
   [[ ! -e "bazel-bin/a/liblib.jar" ]] || fail "bazel-bin/a/liblib.jar shouldn't exist"
   [[ ! -e "bazel-bin/a/liblib.jdeps" ]] || fail "bazel-bin/a/liblib.jdeps shouldn't exist"
 
+  # io_bazel is the name of the Bazel workspace and thus contained in the full
+  # path of any output artifact, but not in the exec root relative part that we
+  # want the regex to match against.
+  bazel clean && bazel test \
+        --remote_executor=grpc://localhost:${worker_port} \
+        --remote_download_minimal \
+        --experimental_remote_download_regex="/io_bazel/" \
+        //a:test >& $TEST_log || fail "Failed to build"
+
+  [[ ! -e "bazel-bin/a/liblib.jar" ]] || fail "bazel-bin/a/liblib.jar file shouldn't exist!"
+  [[ ! -e "bazel-bin/a/liblib.jdeps" ]] || fail "bazel-bin/a/liblib.jdeps file shouldn't exist!"
+
   bazel clean && bazel test \
         --remote_executor=grpc://localhost:${worker_port} \
         --remote_download_minimal \
@@ -1409,6 +1724,329 @@ EOF
 
   [[ -e "bazel-bin/a/liblib.jar" ]] || fail "bazel-bin/a/liblib.jar file does not exist!"
   [[ ! -e "bazel-bin/a/liblib.jdeps" ]] || fail "bazel-bin/a/liblib.jdeps shouldn't exist"
+}
+
+function test_bazel_run_with_minimal() {
+  # Test that `bazel run` works in minimal mode.
+  mkdir -p a
+
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = 'bin',
+  srcs = [],
+  outs = ['bin.out'],
+  cmd = "echo 'echo bin-message' > $@",
+  executable = True,
+)
+EOF
+
+  bazel run \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_minimal \
+    //a:bin >& $TEST_log || fail "Failed to run //a:bin"
+
+  expect_log "bin-message"
+}
+
+function test_java_rbe_coverage_produces_report() {
+  mkdir -p java/factorial
+
+  JAVA_TOOLS_ZIP="released"
+  COVERAGE_GENERATOR_DIR="released"
+
+  cd java/factorial
+
+  cat > BUILD <<'EOF'
+java_library(
+    name = "fact",
+    srcs = ["Factorial.java"],
+)
+java_test(
+    name = "fact-test",
+    size = "small",
+    srcs = ["FactorialTest.java"],
+    test_class = "factorial.FactorialTest",
+    deps = [
+        ":fact",
+    ],
+)
+EOF
+
+  cat > Factorial.java <<'EOF'
+package factorial;
+public class Factorial {
+  public static int factorial(int x) {
+    return x <= 0 ? 1 : x * factorial(x-1);
+  }
+}
+EOF
+
+  cat > FactorialTest.java <<'EOF'
+package factorial;
+import static org.junit.Assert.*;
+import org.junit.Test;
+public class FactorialTest {
+  @Test
+  public void testFactorialOfZeroIsOne() throws Exception {
+    assertEquals(Factorial.factorial(3),6);
+  }
+}
+EOF
+  cd ../..
+
+  bazel coverage \
+    --test_output=all \
+    --experimental_fetch_all_coverage_outputs \
+    --experimental_split_coverage_postprocessing \
+    --remote_download_minimal \
+    --combined_report=lcov \
+    --spawn_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --instrumentation_filter=//java/factorial \
+    //java/factorial:fact-test &> $TEST_log || fail "Shouldn't fail"
+
+  # Test binary shouldn't be downloaded
+  [[ ! -e "bazel-bin/java/factorial/libfact.jar" ]] || fail "bazel-bin/java/factorial/libfact.jar shouldn't exist!"
+
+  local expected_result="SF:java/factorial/Factorial.java
+FN:2,factorial/Factorial::<init> ()V
+FN:4,factorial/Factorial::factorial (I)I
+FNDA:0,factorial/Factorial::<init> ()V
+FNDA:1,factorial/Factorial::factorial (I)I
+FNF:2
+FNH:1
+BRDA:4,0,0,1
+BRDA:4,0,1,1
+BRF:2
+BRH:2
+DA:2,0
+DA:4,1
+LH:1
+LF:2
+end_of_record"
+  cat bazel-testlogs/java/factorial/fact-test/coverage.dat > $TEST_log
+  expect_log "$expected_result"
+  cat bazel-out/_coverage/_coverage_report.dat > $TEST_log
+  expect_log "$expected_result"
+}
+
+function test_remote_cache_eviction_retries() {
+  mkdir -p a
+
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = 'foo',
+  srcs = ['foo.in'],
+  outs = ['foo.out'],
+  cmd = 'cat $(SRCS) > $@',
+)
+
+genrule(
+  name = 'bar',
+  srcs = ['foo.out', 'bar.in'],
+  outs = ['bar.out'],
+  cmd = 'cat $(SRCS) > $@',
+  tags = ['no-remote-exec'],
+)
+EOF
+
+  echo foo > a/foo.in
+  echo bar > a/bar.in
+
+  # Populate remote cache
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      //a:bar >& $TEST_log || fail "Failed to build"
+
+  bazel clean
+
+  # Clean build, foo.out isn't downloaded
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      //a:bar >& $TEST_log || fail "Failed to build"
+
+  if [[ -f bazel-bin/a/foo.out ]]; then
+    fail "Expected intermediate output bazel-bin/a/foo.out to not be downloaded"
+  fi
+
+  # Evict blobs from remote cache
+  stop_worker
+  start_worker
+
+  echo "updated bar" > a/bar.in
+
+  # Incremental build triggers remote cache eviction error but Bazel
+  # automatically retries the build and reruns the generating actions for
+  # missing blobs
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      --experimental_remote_cache_eviction_retries=1 \
+      //a:bar >& $TEST_log || fail "Failed to build"
+
+  expect_log 'Failed to fetch blobs because they do not exist remotely.'
+  expect_log "Found remote cache eviction error, retrying the build..."
+
+  local invocation_ids=$(grep "Invocation ID:" $TEST_log)
+  local first_id=$(echo "$invocation_ids" | head -n 1)
+  local second_id=$(echo "$invocation_ids" | tail -n 1)
+  if [ "$first_id" == "$second_id" ]; then
+    fail "Invocation IDs are the same"
+  fi
+}
+
+function test_remote_cache_eviction_retries_with_fixed_invocation_id() {
+  mkdir -p a
+
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = 'foo',
+  srcs = ['foo.in'],
+  outs = ['foo.out'],
+  cmd = 'cat $(SRCS) > $@',
+)
+
+genrule(
+  name = 'bar',
+  srcs = ['foo.out', 'bar.in'],
+  outs = ['bar.out'],
+  cmd = 'cat $(SRCS) > $@',
+  tags = ['no-remote-exec'],
+)
+EOF
+
+  echo foo > a/foo.in
+  echo bar > a/bar.in
+
+  # Populate remote cache
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      //a:bar >& $TEST_log || fail "Failed to build"
+
+  bazel clean
+
+  # Clean build, foo.out isn't downloaded
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      //a:bar >& $TEST_log || fail "Failed to build"
+
+  if [[ -f bazel-bin/a/foo.out ]]; then
+    fail "Expected intermediate output bazel-bin/a/foo.out to not be downloaded"
+  fi
+
+  # Evict blobs from remote cache
+  stop_worker
+  start_worker
+
+  echo "updated bar" > a/bar.in
+
+  # Incremental build triggers remote cache eviction error and Bazel tries to
+  # retry the build but failed because the invocation id is the same.
+  bazel build \
+      --invocation_id=91648f28-6081-4af7-9374-cdfd3cd36ef2 \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      --experimental_remote_cache_eviction_retries=1 \
+      //a:bar >& $TEST_log && fail "Expected build to fail"
+
+  expect_log 'Failed to fetch blobs because they do not exist remotely.'
+  expect_log 'Failed to retry the build: invocation id `91648f28-6081-4af7-9374-cdfd3cd36ef2` has already been used.'
+}
+
+function test_download_toplevel_symlinks_runfiles() {
+    cat > rules.bzl <<EOF
+def _symlink_rule_impl(ctx):
+    file = ctx.actions.declare_file("file.txt")
+    executable = ctx.actions.declare_file("executable")
+
+    ctx.actions.run_shell(
+        outputs = [file],
+        command = "echo 'Hello World!' > " + file.path,
+    )
+    ctx.actions.write(executable, "[[ -L symlink.txt ]] && cat symlink.txt")
+    return [DefaultInfo(
+        runfiles = ctx.runfiles(
+            symlinks = {"symlink.txt": file},
+        ),
+        executable = executable,
+    )]
+
+symlink_rule = rule(
+    implementation = _symlink_rule_impl,
+    executable = True,
+    attrs = {},
+)
+EOF
+  cat > BUILD <<EOF
+load(":rules.bzl", "symlink_rule")
+symlink_rule(name = "symlink")
+EOF
+
+  bazel run \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    //:symlink >& $TEST_log || fail "Failed to run //:symlink"
+
+  expect_log "Hello World"
+
+  rm bazel-bin/file.txt
+
+  bazel run \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    //:symlink >& $TEST_log || fail "Failed to run //:symlink"
+
+  expect_log "Hello World"
+}
+
+function test_download_toplevel_root_symlinks_runfiles() {
+    cat > rules.bzl <<EOF
+def _symlink_rule_impl(ctx):
+    file = ctx.actions.declare_file("file.txt")
+    executable = ctx.actions.declare_file("executable")
+
+    ctx.actions.run_shell(
+        outputs = [file],
+        command = "echo 'Hello World!' > " + file.path,
+    )
+    ctx.actions.write(executable, "[[ -L ../symlink.txt ]] && cat ../symlink.txt")
+    return [DefaultInfo(
+        runfiles = ctx.runfiles(
+            root_symlinks = {"symlink.txt": file},
+        ),
+        executable = executable,
+    )]
+
+symlink_rule = rule(
+    implementation = _symlink_rule_impl,
+    executable = True,
+    attrs = {},
+)
+EOF
+  cat > BUILD <<EOF
+load(":rules.bzl", "symlink_rule")
+symlink_rule(name = "symlink")
+EOF
+
+  bazel run \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    //:symlink >& $TEST_log || fail "Failed to run //:symlink"
+
+  expect_log "Hello World"
+
+  rm bazel-bin/file.txt
+
+  bazel run \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    //:symlink >& $TEST_log || fail "Failed to run //:symlink"
+
+  expect_log "Hello World"
 }
 
 run_suite "Build without the Bytes tests"

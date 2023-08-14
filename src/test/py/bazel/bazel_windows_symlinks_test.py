@@ -20,21 +20,24 @@ class BazelWindowsSymlinksTest(test_base.TestBase):
 
   def createProjectFiles(self):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
-    self.ScratchFile('foo/BUILD', [
-        'genrule(',
-        '    name = "x",',
-        '    srcs = ["sample"],',
-        '    outs = ["link"],',
-        '    exec_tools = ["sym.bat"],',
-        '    cmd = "$(location sym.bat) $< $@",',
-        ')',
-        'genrule(',
-        '    name = "y",',
-        '    outs = ["dangling-link"],',
-        '    exec_tools = ["sym.bat"],',
-        '    cmd = "$(location sym.bat) does-not-exist $@",',
-        ')',
-    ])
+    self.ScratchFile(
+        'foo/BUILD',
+        [
+            'genrule(',
+            '    name = "x",',
+            '    srcs = ["sample"],',
+            '    outs = ["link"],',
+            '    tools = ["sym.bat"],',
+            '    cmd = "$(location sym.bat) $< $@",',
+            ')',
+            'genrule(',
+            '    name = "y",',
+            '    outs = ["dangling-link"],',
+            '    tools = ["sym.bat"],',
+            '    cmd = "$(location sym.bat) does-not-exist $@",',
+            ')',
+        ],
+    )
     self.ScratchFile(
         'foo/sym.bat', [
             '@set IN=%1',
@@ -48,11 +51,10 @@ class BazelWindowsSymlinksTest(test_base.TestBase):
 
   def testWindowsSymlinkedOutput(self):
     self.createProjectFiles()
-
-    exit_code, _, stderr = self.RunBazel(['build', '//foo:x'])
-    self.AssertExitCode(exit_code, 0, stderr)
-
-    exit_code, _, stderr = self.RunBazel(['build', '//foo:y'])
+    self.RunBazel(['build', '//foo:x'])
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '//foo:y'], allow_failure=True
+    )
     self.AssertNotExitCode(exit_code, 0, stderr)
 
     if not any(['is a dangling symbolic link' in l for l in stderr]):

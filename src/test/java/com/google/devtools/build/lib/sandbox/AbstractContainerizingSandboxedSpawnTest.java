@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
@@ -347,13 +348,15 @@ public class AbstractContainerizingSandboxedSpawnTest {
     return new AbstractContainerizingSandboxedSpawn(
         sandboxPath,
         sandboxExecRoot,
-        /*arguments=*/ ImmutableList.of(),
-        /*environment=*/ ImmutableMap.of(),
+        /* arguments= */ ImmutableList.of(),
+        /* environment= */ ImmutableMap.of(),
         sandboxInputs,
         sandboxOutputs,
-        /*writableDirs=*/ ImmutableSet.of(),
+        /* writableDirs= */ ImmutableSet.of(),
         mock(TreeDeleter.class),
-        /*statisticsPath=*/ null) {
+        /* sandboxDebugPath= */ null,
+        /* statisticsPath= */ null,
+        "Mnemonic") {
 
       @Override
       protected void copyFile(Path source, Path target) {
@@ -371,17 +374,18 @@ public class AbstractContainerizingSandboxedSpawnTest {
 
   private static SandboxInputs createSandboxInputs(
       ImmutableList<String> files, ImmutableMap<String, String> symlinks) {
-    Map<PathFragment, Path> filesMap = Maps.newHashMapWithExpectedSize(files.size());
+    Map<PathFragment, RootedPath> filesMap = Maps.newHashMapWithExpectedSize(files.size());
     for (String file : files) {
       filesMap.put(PathFragment.create(file), null);
     }
     return new SandboxInputs(
         filesMap,
-        /*virtualInputs=*/ ImmutableSet.of(),
+        /* virtualInputs= */ ImmutableMap.of(),
         symlinks.entrySet().stream()
             .collect(
                 toImmutableMap(
-                    e -> PathFragment.create(e.getKey()), e -> PathFragment.create(e.getValue()))));
+                    e -> PathFragment.create(e.getKey()), e -> PathFragment.create(e.getValue()))),
+        ImmutableMap.of());
   }
 
   /** Return a list of all entries under the provided directory recursively. */

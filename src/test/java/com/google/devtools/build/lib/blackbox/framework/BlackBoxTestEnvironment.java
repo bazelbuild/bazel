@@ -14,10 +14,11 @@
 
 package com.google.devtools.build.lib.blackbox.framework;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.lib.util.ResourceFileLoader;
+import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -75,31 +76,7 @@ public abstract class BlackBoxTestEnvironment {
     executorService = null;
   }
 
-  public static String getWorkspaceWithDefaultRepos() {
-    return Joiner.on("\n")
-        .join(
-            "load('@bazel_tools//tools/build_defs/repo:http.bzl', 'http_archive')",
-            "http_archive(",
-            "    name = 'rules_cc',",
-            "    sha256 = '1d4dbbd1e1e9b57d40bb0ade51c9e882da7658d5bfbf22bbd15b68e7879d761f',",
-            "    strip_prefix = 'rules_cc-8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0',",
-            "    urls = [",
-            "        'https://mirror.bazel.build/github.com/bazelbuild/rules_cc/archive/"
-                + "8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip',",
-            "        'https://github.com/bazelbuild/rules_cc/archive/"
-                + "8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip',",
-            "    ],",
-            ")",
-            "http_archive(",
-            "    name = 'rules_proto',",
-            "    sha256 = '8e7d59a5b12b233be5652e3d29f42fba01c7cbab09f6b3a8d0a57ed6d1e9a0da',",
-            "    strip_prefix = 'rules_proto-7e4afce6fe62dbff0a4a03450143146f9f2d7488',",
-            "    urls = [",
-            "        'https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/"
-                + "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz',",
-            "        'https://github.com/bazelbuild/rules_proto/archive/"
-                + "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz',",
-            "    ],",
-            ")");
+  public static String getWorkspaceWithDefaultRepos() throws IOException {
+    return ResourceFileLoader.loadResource(BlackBoxTestEnvironment.class, "blackbox.WORKSPACE");
   }
 }

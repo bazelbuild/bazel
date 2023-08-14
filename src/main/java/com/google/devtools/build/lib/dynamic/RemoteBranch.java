@@ -143,7 +143,9 @@ class RemoteBranch extends Branch {
           spawn,
           context,
           (exitCode, errorMessage, outErr) -> {
-            maybeIgnoreFailure(exitCode, errorMessage, outErr);
+            if (!future.isCancelled()) {
+              maybeIgnoreFailure(exitCode, errorMessage, outErr);
+            }
             DynamicSpawnStrategy.stopBranch(
                 localBranch, this, strategyThatCancelled, options, this.context);
           },

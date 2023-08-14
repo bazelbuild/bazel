@@ -14,24 +14,20 @@
 
 package com.google.devtools.build.lib.analysis.configuredtargets;
 
-import static net.starlark.java.eval.Module.ofInnermostEnclosingStarlarkFunction;
-
-import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.TargetContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
@@ -42,7 +38,6 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 
 /**
@@ -52,14 +47,11 @@ import net.starlark.java.eval.StarlarkThread;
 @Immutable
 public class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
     implements PackageSpecificationProvider, Info {
-  private static final FileProvider NO_FILES = new FileProvider(
-      NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
 
   private final NestedSet<PackageGroupContents> packageSpecifications;
 
   public static final BuiltinProvider<PackageGroupConfiguredTarget> PROVIDER =
-      new BuiltinProvider<PackageGroupConfiguredTarget>(
-          "PackageSpecificationInfo", PackageGroupConfiguredTarget.class) {};
+      new BuiltinProvider<>("PackageSpecificationInfo", PackageGroupConfiguredTarget.class) {};
 
   // TODO(b/200065655): Only builtins should depend on a PackageGroupConfiguredTarget.
   //  Allowlists should be migrated to a new rule type that isn't package_group. Do not expose this
@@ -72,23 +64,24 @@ public class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
   @Override
   public <P extends TransitiveInfoProvider> P getProvider(Class<P> provider) {
     if (provider == FileProvider.class) {
-      return provider.cast(NO_FILES); // can't fail
+      return provider.cast(FileProvider.EMPTY); // can't fail
     } else {
       return super.getProvider(provider);
     }
   }
 
   public PackageGroupConfiguredTarget(
-      Label label,
+      ActionLookupKey actionLookupKey,
       NestedSet<PackageGroupContents> visibility,
       NestedSet<PackageGroupContents> packageSpecifications) {
-    super(label, null, visibility);
+    super(actionLookupKey, visibility);
     this.packageSpecifications = packageSpecifications;
   }
 
-  public PackageGroupConfiguredTarget(TargetContext targetContext, PackageGroup packageGroup) {
+  public PackageGroupConfiguredTarget(
+      ActionLookupKey actionLookupKey, TargetContext targetContext, PackageGroup packageGroup) {
     this(
-        targetContext.getLabel(),
+        actionLookupKey,
         targetContext.getVisibility(),
         getPackageSpecifications(targetContext, packageGroup));
   }
@@ -109,7 +102,7 @@ public class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
             .handle(
                 Event.error(
                     targetContext.getTarget().getLocation(),
-                    String.format("label '%s' does not refer to a package group", label)));
+                    String.format("Label '%s' does not refer to a package group", label)));
         continue;
       }
 
@@ -135,6 +128,7 @@ public class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
   }
 
   @Override
+  @Nullable
   protected Object rawGetStarlarkProvider(String providerKey) {
     return null;
   }
@@ -148,14 +142,8 @@ public class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
             allowedTypes = {@ParamType(type = Label.class)})
       },
       useStarlarkThread = true)
-  public boolean starlarkMatches(Label label, StarlarkThread starlarkThread) throws EvalException {
-    RepositoryName repository =
-        BazelModuleContext.of(ofInnermostEnclosingStarlarkFunction(starlarkThread))
-            .label()
-            .getRepository();
-    if (!"@_builtins".equals(repository.getNameWithAt())) {
-      throw Starlark.errorf("private API only for use by builtins");
-    }
+  public boolean starlarkMatches(Label label, StarlarkThread thread) throws EvalException {
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
     return Allowlist.isAvailableFor(getPackageSpecifications(), label);
   }
 }

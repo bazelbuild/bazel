@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode.CROSS;
@@ -26,7 +27,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -40,7 +40,8 @@ import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.FileStateValue;
-import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValue;
+import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValueWithContentsProxy;
+import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValueWithDigest;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversalRoot;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
@@ -64,6 +65,7 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossReposit
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.DanglingSymlinkException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.RecursiveFilesystemTraversalException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
+import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFileFactory;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TimestampGranularityUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -80,6 +82,7 @@ import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.GroupedDeps;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
@@ -179,6 +182,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
             null,
             /*packageProgress=*/ null,
             PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException.INSTANCE,
+            /* shouldUseRepoDotBazel= */ true,
             GlobbingStrategy.SKYFRAME_HYBRID,
             k -> ThreadStateReceiver.NULL_INSTANCE));
     skyFunctions.put(
@@ -271,18 +275,16 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   }
 
   private static RootedPath parentOf(RootedPath path) {
-    return Preconditions.checkNotNull(path.getParentDirectory());
+    return checkNotNull(path.getParentDirectory());
   }
 
   private static RootedPath siblingOf(RootedPath path, String relative) {
-    PathFragment parent =
-        Preconditions.checkNotNull(path.getRootRelativePath().getParentDirectory());
+    PathFragment parent = checkNotNull(path.getRootRelativePath().getParentDirectory());
     return RootedPath.toRootedPath(path.getRoot(), parent.getRelative(relative));
   }
 
   private static RootedPath siblingOf(Artifact artifact, String relative) {
-    PathFragment parent =
-        Preconditions.checkNotNull(artifact.getRootRelativePath().getParentDirectory());
+    PathFragment parent = checkNotNull(artifact.getRootRelativePath().getParentDirectory());
     return RootedPath.toRootedPath(artifact.getRoot().getRoot(), parent.getRelative(relative));
   }
 
@@ -304,13 +306,22 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   }
 
   private static TraversalRequest fileLikeRoot(
-      Artifact file, PackageBoundaryMode pkgBoundaryMode, boolean strictOutput) {
+      Artifact file,
+      PackageBoundaryMode pkgBoundaryMode,
+      boolean strictOutput,
+      boolean emitEmptyDirectoryNodes) {
     return new AutoValue_RecursiveFilesystemTraversalFunctionTest_BasicTraversalRequest(
         DirectTraversalRoot.forFileOrDirectory(file),
         /*isRootGenerated=*/ !file.isSourceArtifact(),
         pkgBoundaryMode,
         strictOutput,
-        /*skipTestingForSubpackage=*/ false);
+        /*skipTestingForSubpackage=*/ false,
+        emitEmptyDirectoryNodes);
+  }
+
+  private static TraversalRequest fileLikeRoot(
+      Artifact file, PackageBoundaryMode pkgBoundaryMode, boolean strictOutput) {
+    return fileLikeRoot(file, pkgBoundaryMode, strictOutput, /*emitEmptyDirectoryNodes=*/ false);
   }
 
   private static TraversalRequest fileLikeRoot(Artifact file, PackageBoundaryMode pkgBoundaryMode) {
@@ -324,7 +335,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         /*isRootGenerated=*/ false,
         pkgBoundaryMode,
         /*strictOutputFiles=*/ false,
-        /*skipTestingForSubpackage=*/ true);
+        /*skipTestingForSubpackage=*/ true,
+        /*emitEmptyDirectoryNodes=*/ false);
   }
 
   @AutoValue
@@ -343,7 +355,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
           isRootGenerated(),
           crossPkgBoundaries(),
           strictOutputFiles(),
-          skipTestingForSubpackage);
+          skipTestingForSubpackage,
+          emitEmptyDirectoryNodes());
     }
   }
 
@@ -351,7 +364,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
-            .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
+            .setParallelism(SkyframeExecutor.DEFAULT_THREAD_COUNT)
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
     return evaluator.evaluate(ImmutableList.of(key), evaluationContext);
@@ -475,7 +488,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         @Nullable SkyValue newValue,
         @Nullable ErrorInfo newError,
         Supplier<EvaluationSuccessState> evaluationSuccessState,
-        EvaluationState state) {
+        EvaluationState state,
+        @Nullable GroupedDeps directDeps) {
       if (evaluationSuccessState.get().succeeded()) {
         evaluations.add(skyKey);
       }
@@ -671,9 +685,29 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     appendToFile(someFile, "not all changes are treated equal");
     RecursiveFilesystemTraversalValue v4 =
         traverseAndAssertFiles(traversalRoot, expected1, expected2, expected3);
-    assertThat(v4).isEqualTo(v3);
+    assertThat(v4).isSameInstanceAs(v3);
     assertTraversalRootHashesAreEqual(v3, v4);
     assertThat(progressReceiver.invalidations).doesNotContain(traversalRoot);
+
+    // Add a new empty subdirectory to the directory and see that the value is rebuilt, but results
+    // in the collection of files.
+    // TODO(#15901): Empty directories currently aren't representable as tree artifact contents and
+    //  thus aren't tested here.
+    if (!directoryArtifact.isTreeArtifact()) {
+      childOf(directoryArtifact, "empty_dir").asPath().createDirectory();
+      if (directoryArtifact.isSourceArtifact()) {
+        invalidateDirectory(directoryArtifact);
+      } else {
+        invalidateOutputArtifact(directoryArtifact);
+      }
+
+      RecursiveFilesystemTraversalValue v5 =
+          traverseAndAssertFiles(traversalRoot, expected1, expected2, expected3);
+      assertThat(v5.getResolvedRoot()).isEqualTo(v4.getResolvedRoot());
+      assertThat(v5.getTransitiveFiles().toList())
+          .containsExactlyElementsIn(v4.getTransitiveFiles().toList());
+      assertThat(progressReceiver.invalidations).contains(traversalRoot);
+    }
   }
 
   @Test
@@ -691,6 +725,43 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   @Test
   public void testTraversalOfGeneratedDirectory() throws Exception {
     assertTraversalOfDirectory(derivedArtifact("dir"));
+  }
+
+  @Test
+  public void testTraversalOfSourceDirectoryWithEmptyDirectoryNodes() throws Exception {
+    Artifact directoryArtifact = sourceArtifact("dir");
+    directoryArtifact.getPath().createDirectoryAndParents();
+
+    TraversalRequest traversalRoot =
+        fileLikeRoot(
+            directoryArtifact,
+            DONT_CROSS,
+            /*strictOutput=*/ false,
+            /*emitEmptyDirectoryNodes=*/ true);
+
+    // Assert that the SkyValue is built and looks right.
+    ResolvedFile rootNode =
+        ResolvedFileFactory.directory(
+            RootedPath.toRootedPath(
+                directoryArtifact.getRoot().getRoot(), directoryArtifact.getRootRelativePath()));
+    RecursiveFilesystemTraversalValue v1 = traverseAndAssertFiles(traversalRoot, rootNode);
+    assertThat(progressReceiver.invalidations).isEmpty();
+    assertThat(progressReceiver.evaluations).contains(traversalRoot);
+    progressReceiver.clear();
+
+    // Add a new file to the directory and see that the value is rebuilt.
+    RootedPath emptyDir = childOf(directoryArtifact, "empty_dir");
+    emptyDir.asPath().createDirectory();
+    ResolvedFile emptyDirNode = ResolvedFileFactory.directory(emptyDir);
+    invalidateDirectory(directoryArtifact);
+
+    // The value only contains nodes for empty directories - the root dir is no longer empty at this
+    // point and thus not represented as a node.
+    RecursiveFilesystemTraversalValue v2 = traverseAndAssertFiles(traversalRoot, emptyDirNode);
+    assertThat(v2).isNotEqualTo(v1);
+    assertTraversalRootHashesAreEqual(v1, v2);
+    assertThat(progressReceiver.invalidations).contains(traversalRoot);
+    assertThat(progressReceiver.evaluations).contains(traversalRoot);
   }
 
   @Test
@@ -1081,8 +1152,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
       return env.getValue(
           new NonHermeticArtifactSkyKey(
-              Preconditions.checkNotNull(
-                  artifacts.get(((ActionLookupData) skyKey).getActionIndex()), skyKey)));
+              checkNotNull(artifacts.get(((ActionLookupData) skyKey).getActionIndex()), skyKey)));
     }
   }
 
@@ -1132,8 +1202,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   public void testWithDigestFileStateValue() throws Exception {
     // RegularFileStateValue with actual digest will be transformed with the same digest
     byte[] expectedBytes = new byte[] {1, 2, 3};
-    RegularFileStateValue withDigest =
-        new RegularFileStateValue(10L, expectedBytes, /* contentsProxy */ null);
+    RegularFileStateValueWithDigest withDigest =
+        new RegularFileStateValueWithDigest(/* size= */ 10L, /* digest= */ expectedBytes);
     HasDigest result =
         RecursiveFilesystemTraversalFunction.withDigest(withDigest, null, SyscallCache.NO_CACHE);
     assertThat(result).isInstanceOf(FileArtifactValue.class);
@@ -1155,11 +1225,9 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     createFile(rootedPath, "fooy-content");
     FileStatus status = rootedPath.asPath().stat();
 
-    RegularFileStateValue withoutDigest =
-        new RegularFileStateValue(
-            status.getSize(), /* digest */
-            null, /* contentsProxy */
-            FileContentsProxy.create(status));
+    RegularFileStateValueWithContentsProxy withoutDigest =
+        new RegularFileStateValueWithContentsProxy(
+            status.getSize(), /* contentsProxy= */ FileContentsProxy.create(status));
     HasDigest withoutDigestResult =
         RecursiveFilesystemTraversalFunction.withDigest(
             withoutDigest, rootedPath.asPath(), SyscallCache.NO_CACHE);

@@ -1,4 +1,5 @@
-load("//tools/python:private/defs.bzl", "py_library", "py_test")
+load("//tools/python:gen_runfiles_constants.bzl", "gen_runfiles_constants")
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -20,7 +21,14 @@ filegroup(
 py_library(
     name = "runfiles",
     testonly = 1,
-    srcs = ["runfiles.py"],
+    srcs = [
+        "runfiles.py",
+        ":_runfiles_constants",
+    ],
+)
+
+gen_runfiles_constants(
+    name = "_runfiles_constants",
 )
 
 py_test(

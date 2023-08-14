@@ -21,6 +21,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import com.android.dex.Dex;
+import com.android.dex.DexFormat;
 import com.android.dx.command.dexer.DxContext;
 import com.android.dx.dex.DexOptions;
 import com.android.dx.dex.cf.CfOptions;
@@ -185,7 +186,9 @@ public class DexFileAggregatorTest {
     String path = clazz.getName().replace('.', '/') + ".class";
     try (InputStream in =
         Thread.currentThread().getContextClassLoader().getResourceAsStream(path)) {
-      return new DexConverter(new Dexing(new DxContext(), new DexOptions(), new CfOptions()))
+      DexOptions options = new DexOptions();
+      options.minSdkVersion = DexFormat.API_METHOD_HANDLES;
+      return new DexConverter(new Dexing(new DxContext(), options, new CfOptions()))
           .toDexFile(ByteStreams.toByteArray(in), path);
     }
   }

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.worker;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.shell.Subprocess;
@@ -25,8 +26,6 @@ import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -64,37 +63,25 @@ class SingleplexWorker extends Worker {
    * zombie processes. Unfortunately, shutdown hooks are not guaranteed to be called, but this is
    * the best we can do. This must be set when a process is created.
    */
-  private Thread shutdownHook;
+  protected Thread shutdownHook;
 
   SingleplexWorker(WorkerKey workerKey, int workerId, final Path workDir, Path logFile) {
     super(workerKey, workerId, logFile);
     this.workDir = workDir;
   }
 
-  Subprocess createProcess() throws IOException {
-    this.shutdownHook =
-        new Thread(
-            () -> {
-              this.shutdownHook = null;
-              this.destroy();
-            });
-    Runtime.getRuntime().addShutdownHook(shutdownHook);
+  protected Subprocess createProcess() throws IOException, InterruptedException, UserExecException {
+    ImmutableList<String> args = makeExecPathAbsolute(workerKey.getArgs());
+    return createProcessBuilder(args).start();
+  }
 
-    ImmutableList<String> args = workerKey.getArgs();
-    File executable = new File(args.get(0));
-    if (!executable.isAbsolute() && executable.getParent() != null) {
-      List<String> newArgs = new ArrayList<>(args);
-      newArgs.set(0, new File(workDir.getPathFile(), newArgs.get(0)).getAbsolutePath());
-      args = ImmutableList.copyOf(newArgs);
-    }
-
+  protected SubprocessBuilder createProcessBuilder(ImmutableList<String> argv) {
     SubprocessBuilder processBuilder = new SubprocessBuilder();
-    processBuilder.setArgv(args);
+    processBuilder.setArgv(argv);
     processBuilder.setWorkingDirectory(workDir.getPathFile());
     processBuilder.setStderr(logFile.getPathFile());
     processBuilder.setEnv(workerKey.getEnv());
-
-    return processBuilder.start();
+    return processBuilder;
   }
 
   @Override
@@ -105,8 +92,9 @@ class SingleplexWorker extends Worker {
   @Override
   public void prepareExecution(
       SandboxInputs inputFiles, SandboxOutputs outputs, Set<PathFragment> workerFiles)
-      throws IOException {
+      throws IOException, InterruptedException, UserExecException {
     if (process == null) {
+      addShutdownHook();
       process = createProcess();
       recordingInputStream = new RecordingInputStream(process.getInputStream());
     }
@@ -119,6 +107,32 @@ class SingleplexWorker extends Worker {
           workerProtocol = new ProtoWorkerProtocol(process.getOutputStream(), recordingInputStream);
           break;
       }
+    }
+  }
+
+  void addShutdownHook() {
+    this.shutdownHook =
+        new Thread(
+            () -> {
+              this.shutdownHook = null;
+              this.destroy();
+            });
+    Runtime.getRuntime().addShutdownHook(shutdownHook);
+  }
+
+  /**
+   * Makes sure that the executable (first element of argument list) is an absolute path. Necessary
+   * on Windows (https://github.com/bazelbuild/bazel/commit/8efc3ef0)
+   */
+  protected ImmutableList<String> makeExecPathAbsolute(ImmutableList<String> args) {
+    File executable = new File(args.get(0));
+    if (!executable.isAbsolute() && executable.getParent() != null) {
+      return ImmutableList.<String>builderWithExpectedSize(args.size())
+          .add(new File(workDir.getPathFile(), args.get(0)).getAbsolutePath())
+          .addAll(args.subList(1, args.size()))
+          .build();
+    } else {
+      return args;
     }
   }
 

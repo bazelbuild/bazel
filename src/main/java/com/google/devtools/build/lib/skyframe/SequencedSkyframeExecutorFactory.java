@@ -27,6 +27,7 @@ import javax.annotation.Nullable;
 
 /** A factory of SkyframeExecutors that returns SequencedSkyframeExecutor. */
 public final class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory {
+
   @Override
   public SkyframeExecutor create(
       PackageFactory pkgFactory,
@@ -36,7 +37,7 @@ public final class SequencedSkyframeExecutorFactory implements SkyframeExecutorF
       Factory workspaceStatusActionFactory,
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
-      SyscallCache perCommandSyscallCache,
+      SyscallCache syscallCache,
       @Nullable SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder,
       SkyframeExecutor.SkyKeyStateReceiver skyKeyStateReceiver,
       BugReporter bugReporter) {
@@ -48,7 +49,7 @@ public final class SequencedSkyframeExecutorFactory implements SkyframeExecutorF
         .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
         .setDiffAwarenessFactories(diffAwarenessFactories)
         .setExtraSkyFunctions(extraSkyFunctions)
-        .setPerCommandSyscallCache(perCommandSyscallCache)
+        .setSyscallCache(syscallCache)
         .setRepositoryHelpersHolder(repositoryHelpersHolder)
         .setSkyKeyStateReceiver(skyKeyStateReceiver)
         .setBugReporter(bugReporter)

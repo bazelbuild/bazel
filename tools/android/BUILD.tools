@@ -1,4 +1,4 @@
-load("//tools/python:private/defs.bzl", "py_binary", "py_library")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 load(":defs.bzl", "run_ijar", "run_singlejar")
 
 package(default_visibility = ["//visibility:public"])
@@ -47,8 +47,6 @@ java_binary(
     runtime_deps = ["//src/tools/android/java/com/google/devtools/build/android/r8"],
 )
 
-# NOTE: d8 dex builder doesn't support the persistent worker mode at the moment. To use this config,
-# without a build error, --nouse_workers_with_dexbuilder flag must also be specified.
 config_setting(
     name = "d8_incremental_dexing",
     values = {
@@ -143,12 +141,13 @@ sh_binary(
     srcs = select({
         "legacy_desugaring": ["desugar.sh"],
         "d8_desugaring": ["d8_desugar.sh"],
-        "//conditions:default": ["desugar.sh"],
+        "//conditions:default": ["d8_desugar.sh"],
     }),
+    deps = ["@bazel_tools//tools/bash/runfiles"],
     data = select({
         "legacy_desugaring": ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
         "d8_desugaring": ["@bazel_tools//src/tools/android/java/com/google/devtools/build/android/r8:desugar", "chm_only_desugar_jdk_libs.json"],
-        "//conditions:default": ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
+        "//conditions:default": ["@bazel_tools//src/tools/android/java/com/google/devtools/build/android/r8:desugar", "chm_only_desugar_jdk_libs.json"],
     })
 )
 
@@ -444,9 +443,14 @@ java_binary(
     ],
 )
 
-alias(
+java_plugin(
     name = "databinding_annotation_processor",
-    actual = "//external:databinding_annotation_processor",
+    generates_api = True,
+    processor_class = "android.databinding.annotationprocessor.ProcessDataBinding",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@bazel_tools//src/tools/android/java/com/google/devtools/build/android:all_android_tools",
+    ],
 )
 
 # This is the default value of databinding_annotation_processor if the user does
@@ -522,17 +526,17 @@ config_setting(
 
 package_group(
     name = "android_device_allowlist",
-    packages = ["//..."],
+    packages = ["public"],
 )
 
 package_group(
     name = "export_deps_allowlist",
-    packages = ["//..."],
+    packages = ["public"],
 )
 
 package_group(
     name = "allow_android_library_deps_without_srcs_allowlist",
-    packages = ["//..."],
+    packages = ["public"],
 )
 
 sh_binary(

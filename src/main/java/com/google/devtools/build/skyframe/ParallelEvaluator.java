@@ -20,13 +20,14 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
+import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reportable;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.EvaluationContext.UnnecessaryTemporaryStateDropperReceiver;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationSuccessState;
@@ -40,8 +41,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -63,16 +62,15 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       Version minimalVersion,
       ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
       ExtendedEventHandler reporter,
-      NestedSetVisitor.VisitedState emittedEventState,
+      EmittedEventState emittedEventState,
       EventFilter storedEventFilter,
       ErrorInfoManager errorInfoManager,
       boolean keepGoing,
       DirtyTrackingProgressReceiver progressReceiver,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
-      Supplier<ExecutorService> executorService,
+      QuiescingExecutor executor,
       CycleDetector cycleDetector,
-      int cpuHeavySkyKeysThreadPoolSize,
-      int executionJobsThreadPoolSize,
+      boolean mergingSkyframeAnalysisExecutionPhases,
       UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver) {
     super(
         graph,
@@ -86,10 +84,9 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
         keepGoing,
         progressReceiver,
         graphInconsistencyReceiver,
-        executorService,
+        executor,
         cycleDetector,
-        cpuHeavySkyKeysThreadPoolSize,
-        executionJobsThreadPoolSize);
+        mergingSkyframeAnalysisExecutionPhases);
     this.unnecessaryTemporaryStateDropperReceiver = unnecessaryTemporaryStateDropperReceiver;
   }
 
@@ -131,7 +128,8 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
             value != null
                 ? EvaluationSuccessState.SUCCESS.supplier()
                 : EvaluationSuccessState.FAILURE.supplier(),
-            evaluationState);
+            evaluationState,
+            /* directDeps= */ null);
   }
 
   @ThreadCompatible
@@ -139,17 +137,14 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       ImmutableSet<SkyKey> skyKeys) throws InterruptedException {
     injectErrorTransienceValue();
     try {
-      for (Map.Entry<SkyKey, ? extends NodeEntry> e :
-          graph.createIfAbsentBatch(null, Reason.PRE_OR_POST_EVALUATION, skyKeys).entrySet()) {
-        SkyKey skyKey = e.getKey();
-        NodeEntry entry = e.getValue();
+      NodeBatch batch = graph.createIfAbsentBatch(null, Reason.PRE_OR_POST_EVALUATION, skyKeys);
+      for (SkyKey skyKey : skyKeys) {
+        NodeEntry entry = batch.get(skyKey);
         // This must be equivalent to the code in AbstractParallelEvaluator.Evaluate#enqueueChild,
         // in order to be thread-safe.
         switch (entry.addReverseDepAndCheckIfDone(null)) {
           case NEEDS_SCHEDULING:
-            // Low priority because this node is not needed by any other currently evaluating node.
-            // So keep it at the back of the queue as long as there's other useful work to be done.
-            evaluatorContext.getVisitor().enqueueEvaluation(skyKey, Integer.MIN_VALUE);
+            evaluatorContext.getVisitor().enqueueEvaluation(skyKey, entry.getPriority(), null);
             break;
           case DONE:
             informProgressReceiverThatValueIsDone(skyKey, entry);
@@ -188,14 +183,13 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
     // in the graph, by the time that it is needed. Creating it on demand in a parallel context sets
     // up a race condition, because there is no way to atomically create a node and set its value.
     NodeEntry errorTransienceEntry =
-        Iterables.getOnlyElement(
-            graph
-                .createIfAbsentBatch(
-                    null, Reason.PRE_OR_POST_EVALUATION, ImmutableList.of(ErrorTransienceValue.KEY))
-                .values());
+        graph
+            .createIfAbsentBatch(
+                null, Reason.PRE_OR_POST_EVALUATION, ImmutableList.of(ErrorTransienceValue.KEY))
+            .get(ErrorTransienceValue.KEY);
     if (!errorTransienceEntry.isDone()) {
       injectValues(
-          ImmutableMap.of(ErrorTransienceValue.KEY, ErrorTransienceValue.INSTANCE),
+          ImmutableMap.of(ErrorTransienceValue.KEY, Delta.justNew(ErrorTransienceValue.INSTANCE)),
           evaluatorContext.getGraphVersion(),
           graph,
           evaluatorContext.getProgressReceiver());
@@ -222,6 +216,9 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
             "Scheduler exception only thrown for catastrophe in keep_going evaluation: %s",
             e);
         catastrophe = true;
+        // For b/287183296
+        logger.atInfo().withCause(e).log(
+            "Catastrophic exception in --keep_going mode while evaluating SkyKey: %s", errorKey);
       }
     }
     Preconditions.checkState(
@@ -282,6 +279,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
    * registered during this build (via {@link NodeEntry#getInProgressReverseDeps}. Since we don't
    * allow a node to build with unfinished deps, those parents cannot have built.
    */
+  @SuppressWarnings("LenientFormatStringValidation")
   @Nullable
   private Map<SkyKey, ValueWithMetadata> bubbleErrorUp(
       final ErrorInfo leafFailure,
@@ -364,6 +362,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
           roots,
           rdepsToBubbleUpTo,
           bubbleErrorInfo);
+      // Expected 6 args, but got 8.
       Preconditions.checkState(
           evaluatorContext.getProgressReceiver().isInflight(parent),
           "In-progress reverse deps can only include in-flight nodes: " + "%s %s %s %s %s %s",
@@ -375,8 +374,9 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
           roots,
           rdepsToBubbleUpTo,
           bubbleErrorInfo);
+      // Expected 6 args, but got 8.
       Preconditions.checkState(
-          parentEntry.getTemporaryDirectDeps().expensiveContains(errorKey),
+          parentEntry.getTemporaryDirectDeps().contains(errorKey),
           "In-progress reverse deps can only include nodes that have declared a dep: "
               + "%s %s %s %s %s %s",
           errorKey,
@@ -403,7 +403,6 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
             parentEntry.forceRebuild();
             break;
           case REBUILDING:
-          case FORCED_REBUILDING:
             break;
           default:
             throw new AssertionError(parent + " not in valid dirty state: " + parentEntry);
@@ -552,6 +551,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       }
     }
     if (!cycleRoots.isEmpty()) {
+      logger.atInfo().log("Detecting cycles with roots: %s", cycleRoots);
       cycleDetector.checkForCycles(cycleRoots, result, evaluatorContext);
     }
     Preconditions.checkState(
@@ -585,16 +585,16 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
   }
 
   static void injectValues(
-      Map<SkyKey, SkyValue> injectionMap,
+      Map<SkyKey, Delta> injectionMap,
       Version version,
       ProcessableGraph graph,
       DirtyTrackingProgressReceiver progressReceiver)
       throws InterruptedException {
-    Map<SkyKey, ? extends NodeEntry> prevNodeEntries =
+    NodeBatch prevNodeEntries =
         graph.createIfAbsentBatch(null, Reason.OTHER, injectionMap.keySet());
-    for (Map.Entry<SkyKey, SkyValue> injectionEntry : injectionMap.entrySet()) {
+    for (Map.Entry<SkyKey, Delta> injectionEntry : injectionMap.entrySet()) {
       SkyKey key = injectionEntry.getKey();
-      SkyValue value = injectionEntry.getValue();
+      SkyValue value = injectionEntry.getValue().newValue();
       NodeEntry prevEntry = prevNodeEntries.get(key);
       DependencyState newState = prevEntry.addReverseDepAndCheckIfDone(null);
       Preconditions.checkState(
@@ -612,7 +612,10 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
             prevEntry.noDepsLastBuild(), "existing entry for %s has deps: %s", key, prevEntry);
       }
       prevEntry.markRebuilding();
-      prevEntry.setValue(value, version, /*maxTransitiveSourceVersion=*/ null);
+      @Nullable
+      Version maxTransitiveSourceVersion =
+          injectionEntry.getValue().newMaxTransitiveSourceVersion();
+      prevEntry.setValue(value, version, maxTransitiveSourceVersion);
       // Now that this key's injected value is set, it is no longer dirty.
       progressReceiver.injected(key);
     }
@@ -631,8 +634,8 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
     // directly without launching the heavy machinery, spawning threads, etc.
     // Inform progressReceiver that these nodes are done to be consistent with the main code path.
     boolean allAreDone = true;
-    Map<SkyKey, ? extends NodeEntry> batch =
-        evaluatorContext.getBatchValues(null, Reason.PRE_OR_POST_EVALUATION, skyKeySet);
+    NodeBatch batch =
+        evaluatorContext.getGraph().getBatch(null, Reason.PRE_OR_POST_EVALUATION, skyKeySet);
     for (SkyKey key : skyKeySet) {
       if (!isDoneForBuild(batch.get(key))) {
         allAreDone = false;

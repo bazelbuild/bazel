@@ -339,7 +339,7 @@ public final class ArtifactTest {
                 .build());
 
     PathFragment pathFragment = PathFragment.create("src/foo.cc");
-    ArtifactOwner owner = new LabelArtifactOwner(Label.parseAbsoluteUnchecked("//foo:bar"));
+    ArtifactOwner owner = new LabelArtifactOwner(Label.parseCanonicalUnchecked("//foo:bar"));
     SourceArtifact sourceArtifact = new SourceArtifact(artifactRoot, pathFragment, owner);
     SourceArtifact deserialized1 =
         (SourceArtifact) objectCodecs.deserialize(objectCodecs.serialize(sourceArtifact));
@@ -456,7 +456,7 @@ public final class ArtifactTest {
         .addEqualityGroup(derived2)
         .addEqualityGroup(source1, source2)
         .testEquals();
-    assertThat(derived1.hashCode()).isEqualTo(derived2.hashCode());
+    assertThat(derived1.hashCode()).isNotEqualTo(derived2.hashCode());
     assertThat(derived1.hashCode()).isNotEqualTo(source1.hashCode());
     assertThat(source1.hashCode()).isEqualTo(source2.hashCode());
     Artifact.OwnerlessArtifactWrapper wrapper1 = new Artifact.OwnerlessArtifactWrapper(derived1);

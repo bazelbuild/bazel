@@ -21,6 +21,7 @@ genrule(
     cmd = "$(location //src:zip_builtins)" +
           " ''" +  # system zip
           " $@ src/main/starlark/builtins_bzl $(SRCS)",
+    message = "Building builtins_bzl.zip",
     output_to_bindir = 1,
     tools = ["//src:zip_builtins"],
     visibility = [

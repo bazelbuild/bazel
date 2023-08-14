@@ -15,7 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
+import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Map;
@@ -23,12 +23,12 @@ import java.util.function.Supplier;
 
 /** Prod implementation of {@link RegistryFactory}. */
 public class RegistryFactoryImpl implements RegistryFactory {
-  private final HttpDownloader httpDownloader;
+  private final DownloadManager downloadManager;
   private final Supplier<Map<String, String>> clientEnvironmentSupplier;
 
   public RegistryFactoryImpl(
-      HttpDownloader httpDownloader, Supplier<Map<String, String>> clientEnvironmentSupplier) {
-    this.httpDownloader = httpDownloader;
+      DownloadManager downloadManager, Supplier<Map<String, String>> clientEnvironmentSupplier) {
+    this.downloadManager = downloadManager;
     this.clientEnvironmentSupplier = clientEnvironmentSupplier;
   }
 
@@ -43,7 +43,7 @@ public class RegistryFactoryImpl implements RegistryFactory {
       case "http":
       case "https":
       case "file":
-        return new IndexRegistry(uri, httpDownloader, clientEnvironmentSupplier.get());
+        return new IndexRegistry(uri, downloadManager, clientEnvironmentSupplier.get());
       default:
         throw new URISyntaxException(uri.toString(), "Unrecognized registry URL protocol");
     }

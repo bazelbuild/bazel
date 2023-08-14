@@ -300,7 +300,13 @@ public class PatchUtil {
       }
     }
 
-    List<String> newContent = applyOffsetPatchTo(patch, oldContent);
+    List<String> newContent;
+    try {
+      newContent = applyOffsetPatchTo(patch, oldContent);
+    } catch (PatchFailedException e) {
+      throw new PatchFailedException(
+          String.format("in patch applied to %s: %s", oldFile, e.getMessage()));
+    }
 
     // The file we should write newContent to.
     Path outputFile;
@@ -395,6 +401,13 @@ public class PatchUtil {
       throws PatchFailedException {
     // If the patchContent is not empty, it should have correct format.
     if (!patchContent.isEmpty()) {
+      if (patchContent.size() < 2
+          || !patchContent.get(0).startsWith("---")
+          || !patchContent.get(1).startsWith("+++")) {
+        throw new PatchFailedException(
+            String.format(
+                "The patch content must start with ---/+++ prelude lines at line %d.", loc));
+      }
       if (header == null) {
         throw new PatchFailedException(
             String.format(

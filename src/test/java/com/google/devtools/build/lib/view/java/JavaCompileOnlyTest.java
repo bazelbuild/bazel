@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.CompileOnlyTestCase;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -24,6 +25,11 @@ import org.junit.runners.JUnit4;
 /** Unit tests that validate --compile_only behavior. */
 @RunWith(JUnit4.class)
 public class JavaCompileOnlyTest extends CompileOnlyTestCase {
+
+  @Before
+  public void setupStarlarkJavaBinary() throws Exception {
+    setBuildLanguageOptions("--experimental_google_legacy_api");
+  }
 
   @Test
   public void testJavaCompileOnly() throws Exception {

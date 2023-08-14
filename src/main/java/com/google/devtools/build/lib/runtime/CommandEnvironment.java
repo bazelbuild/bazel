@@ -20,14 +20,18 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.eventbus.EventBus;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
@@ -101,6 +105,7 @@ public class CommandEnvironment {
   private final Path workingDirectory;
   private final PathFragment relativeWorkingDirectory;
   private final SyscallCache syscallCache;
+  private final QuiescingExecutors quiescingExecutors;
   private final Duration waitTime;
   private final long commandStartTime;
   private final ImmutableList<Any> commandExtensions;
@@ -109,9 +114,12 @@ public class CommandEnvironment {
   private final BuildResultListener buildResultListener;
   private final CommandLinePathFactory commandLinePathFactory;
 
+  private boolean mergedAnalysisAndExecution;
+
   private OutputService outputService;
   private String workspaceName;
   private boolean hasSyncedPackageLoading = false;
+  private boolean buildInfoPosted = false;
   @Nullable private WorkspaceInfoFromDiff workspaceInfoFromDiff;
 
   // This AtomicReference is set to:
@@ -125,7 +133,7 @@ public class CommandEnvironment {
   private final Object fileCacheLock = new Object();
 
   @GuardedBy("fileCacheLock")
-  private MetadataProvider fileCache;
+  private InputMetadataProvider fileCache;
 
   private class BlazeModuleEnvironment implements BlazeModule.ModuleEnvironment {
     @Nullable
@@ -166,6 +174,7 @@ public class CommandEnvironment {
       Command command,
       OptionsParsingResult options,
       SyscallCache syscallCache,
+      QuiescingExecutors quiescingExecutors,
       List<String> warnings,
       long waitTimeInMs,
       long commandStartTime,
@@ -181,6 +190,7 @@ public class CommandEnvironment {
     this.options = options;
     this.shutdownReasonConsumer = shutdownReasonConsumer;
     this.syscallCache = syscallCache;
+    this.quiescingExecutors = quiescingExecutors;
     this.blazeModuleEnvironment = new BlazeModuleEnvironment();
     this.timestampGranularityMonitor = new TimestampGranularityMonitor(runtime.getClock());
     // Record the command's starting time again, for use by
@@ -227,6 +237,7 @@ public class CommandEnvironment {
       this.packageLocator = null;
     }
     workspace.getSkyframeExecutor().setEventBus(eventBus);
+    eventBus.register(this);
 
     ClientOptions clientOptions =
         Preconditions.checkNotNull(
@@ -423,6 +434,21 @@ public class CommandEnvironment {
     return filterClientEnv(visibleTestEnv);
   }
 
+  /**
+   * This should be the source of truth for whether this build should be run with merged analysis
+   * and execution phases.
+   */
+  public boolean withMergedAnalysisAndExecutionSourceOfTruth() {
+    return mergedAnalysisAndExecution;
+  }
+
+  public void setMergedAnalysisAndExecution(boolean value) {
+    mergedAnalysisAndExecution = value;
+    getSkyframeExecutor()
+        .setMergedSkyframeAnalysisExecutionSupplier(
+            this::withMergedAnalysisAndExecutionSourceOfTruth);
+  }
+
   private Map<String, String> filterClientEnv(Set<String> vars) {
     Map<String, String> result = new TreeMap<>();
     for (String var : vars) {
@@ -522,9 +548,11 @@ public class CommandEnvironment {
   /**
    * Returns the working directory of the server.
    *
-   * <p>This is often the first entry on the {@code --package_path}, but not always.
-   * Callers should certainly not make this assumption. The Path returned may be null.
+   * <p>This is often the first entry on the {@code --package_path}, but not always. Callers should
+   * certainly not make this assumption. The Path returned may be null; for example, when the
+   * command is invoked outside a workspace.
    */
+  @Nullable
   public Path getWorkspace() {
     return getDirectories().getWorkingDirectory();
   }
@@ -571,10 +599,6 @@ public class CommandEnvironment {
    */
   public Path getActionTempsDirectory() {
     return getDirectories().getActionTempsDirectory(getExecRoot());
-  }
-
-  public Path getPersistentActionOutsDirectory() {
-    return getDirectories().getPersistentActionOutsDirectory(getExecRoot());
   }
 
   /**
@@ -710,6 +734,7 @@ public class CommandEnvironment {
                 clientEnv,
                 repoEnvFromOptions,
                 timestampGranularityMonitor,
+                quiescingExecutors,
                 options);
   }
 
@@ -762,7 +787,9 @@ public class CommandEnvironment {
     AnalysisOptions viewOptions = options.getOptions(AnalysisOptions.class);
     skyframeExecutor.decideKeepIncrementalState(
         runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).batch,
-        commonOptions.keepStateAfterBuild, commonOptions.trackIncrementalState,
+        commonOptions.keepStateAfterBuild,
+        commonOptions.trackIncrementalState,
+        commonOptions.heuristicallyDropNodes,
         viewOptions != null && viewOptions.discardAnalysisCache,
         reporter);
 
@@ -795,7 +822,7 @@ public class CommandEnvironment {
   }
 
   /** Returns the file cache to use during this build. */
-  public MetadataProvider getFileCache() {
+  public InputMetadataProvider getFileCache() {
     synchronized (fileCacheLock) {
       if (fileCache == null) {
         fileCache =
@@ -813,6 +840,10 @@ public class CommandEnvironment {
 
   public XattrProvider getXattrProvider() {
     return getSyscallCache();
+  }
+
+  public QuiescingExecutors getQuiescingExecutors() {
+    return quiescingExecutors;
   }
 
   /**
@@ -847,5 +878,22 @@ public class CommandEnvironment {
 
   public CommandLinePathFactory getCommandLinePathFactory() {
     return commandLinePathFactory;
+  }
+
+  public void ensureBuildInfoPosted() {
+    if (buildInfoPosted) {
+      return;
+    }
+    ImmutableSortedMap<String, String> workspaceStatus =
+        workspace
+            .getWorkspaceStatusActionFactory()
+            .createDummyWorkspaceStatus(workspaceInfoFromDiff);
+    eventBus.post(new BuildInfoEvent(workspaceStatus));
+  }
+
+  @Subscribe
+  @SuppressWarnings("unused")
+  void gotBuildInfo(BuildInfoEvent event) {
+    buildInfoPosted = true;
   }
 }

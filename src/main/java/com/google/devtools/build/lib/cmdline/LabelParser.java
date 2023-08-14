@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.cmdline;
 
+import com.google.auto.value.AutoValue;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.errorprone.annotations.FormatMethod;
 import javax.annotation.Nullable;
@@ -26,67 +28,104 @@ final class LabelParser {
    * Contains the parsed elements of a label string. The parts are validated (they don't contain
    * invalid characters). See {@link #parse} for valid label patterns.
    */
-  static final class Parts {
+  @AutoValue
+  abstract static class Parts {
     /**
-     * The {@code @repo} part of the string (sans the {@literal @}); can be null if it doesn't have
-     * such a part.
+     * The {@code @repo} or {@code @@canonical_repo} part of the string (sans any leading
+     * {@literal @}s); can be null if it doesn't have such a part (i.e. if it doesn't start with a
+     * {@literal @}).
      */
-    @Nullable final String repo;
-    /** Whether the package part of the string is prefixed by double-slash. */
-    final boolean pkgIsAbsolute;
-    /** The package part of the string (sans double-slash, if any). */
-    final String pkg;
+    @Nullable
+    abstract String repo();
+    /**
+     * Whether the repo part is using the canonical repo syntax (two {@literal @}s) or not (one
+     * {@literal @}). If there is no repo part, this is false.
+     */
+    abstract boolean repoIsCanonical();
+    /**
+     * Whether the package part of the string is prefixed by double-slash. This can only be false if
+     * the repo part is missing.
+     */
+    abstract boolean pkgIsAbsolute();
+    /**
+     * The package part of the string (sans the leading double-slash, if present; also sans the
+     * final '...' segment, if present).
+     */
+    abstract String pkg();
+    /** Whether the package part of the string ends with a '...' segment. */
+    abstract boolean pkgEndsWithTripleDots();
     /** The target part of the string (sans colon). */
-    final String target;
+    abstract String target();
     /** The original unparsed raw string. */
-    final String raw;
+    abstract String raw();
 
-    private Parts(
-        @Nullable String repo, boolean pkgIsAbsolute, String pkg, String target, String raw) {
-      this.repo = repo;
-      this.pkgIsAbsolute = pkgIsAbsolute;
-      this.pkg = pkg;
-      this.target = target;
-      this.raw = raw;
-    }
-
-    private static Parts validateAndCreate(
-        @Nullable String repo, boolean pkgIsAbsolute, String pkg, String target, String raw)
+    @VisibleForTesting
+    static Parts validateAndCreate(
+        @Nullable String repo,
+        boolean repoIsCanonical,
+        boolean pkgIsAbsolute,
+        String pkg,
+        boolean pkgEndsWithTripleDots,
+        String target,
+        String raw)
         throws LabelSyntaxException {
       validateRepoName(repo);
       validatePackageName(pkg, target);
-      return new Parts(repo, pkgIsAbsolute, pkg, validateAndProcessTargetName(pkg, target), raw);
+      return new AutoValue_LabelParser_Parts(
+          repo,
+          repoIsCanonical,
+          pkgIsAbsolute,
+          pkg,
+          pkgEndsWithTripleDots,
+          validateAndProcessTargetName(pkg, target, pkgEndsWithTripleDots),
+          raw);
     }
 
     /**
      * Parses a raw label string into parts. The logic can be summarized by the following table:
      *
-     * {@code
-     *  raw                 | repo   | pkgIsAbsolute | pkg       | target
-     * ---------------------+--------+---------------+-----------+-----------
-     *  foo/bar             | null   | false         | ""        | "foo/bar"
-     *  //foo/bar           | null   | true          | "foo/bar" | "bar"
-     *  @repo               | "repo" | true          | ""        | "repo"
-     *  @repo//foo/bar      | "repo" | true          | "foo/bar" | "bar"
-     *  :quux               | null   | false         | ""        | "quux"
-     *  foo/bar:quux        | null   | false         | "foo/bar" | "quux"
-     *  //foo/bar:quux      | null   | true          | "foo/bar" | "quux"
-     *  @repo//foo/bar:quux | "repo" | true          | "foo/bar" | "quux"
-     * }
+     * <pre>{@code
+     *  raw                  | repo   | repoIs-   | pkgIs-   | pkg       | pkgEndsWith- | target
+     *                       |        | Canonical | Absolute |           | TripleDots   |
+     * ----------------------+--------+-----------+----------+-----------+--------------+-----------
+     * "foo/bar"             | null   | false     | false    | ""        | false        | "foo/bar"
+     * "..."                 | null   | false     | false    | ""        | true         | ""
+     * "...:all"             | null   | false     | false    | ""        | true         | "all"
+     * "foo/..."             | null   | false     | false    | "foo"     | true         | ""
+     * "//foo/bar"           | null   | false     | true     | "foo/bar" | false        | "bar"
+     * "//foo/..."           | null   | false     | true     | "foo"     | true         | ""
+     * "//foo/...:all"       | null   | false     | true     | "foo"     | true         | "all"
+     * "//foo/all"           | null   | false     | true     | "foo/all" | false        | "all"
+     * "@repo"               | "repo" | false     | true     | ""        | false        | "repo"
+     * "@@repo"              | "repo" | true      | true     | ""        | false        | "repo"
+     * "@repo//foo/bar"      | "repo" | false     | true     | "foo/bar" | false        | "bar"
+     * "@@repo//foo/bar"     | "repo" | true      | true     | "foo/bar" | false        | "bar"
+     * ":quux"               | null   | false     | false    | ""        | false        | "quux"
+     * "foo/bar:quux"        | null   | false     | false    | "foo/bar" | false        | "quux"
+     * "//foo/bar:quux"      | null   | false     | true     | "foo/bar" | false        | "quux"
+     * "@repo//foo/bar:quux" | "repo" | false     | true     | "foo/bar" | false        | "quux"
+     * }</pre>
      */
     static Parts parse(String rawLabel) throws LabelSyntaxException {
       @Nullable final String repo;
+      final boolean repoIsCanonical = rawLabel.startsWith("@@");
       final int startOfPackage;
       final int doubleSlashIndex = rawLabel.indexOf("//");
       final boolean pkgIsAbsolute;
       if (rawLabel.startsWith("@")) {
         if (doubleSlashIndex < 0) {
           // Special case: the label "@foo" is synonymous with "@foo//:foo".
-          repo = rawLabel.substring(1);
+          repo = rawLabel.substring(repoIsCanonical ? 2 : 1);
           return validateAndCreate(
-              repo, /*pkgIsAbsolute=*/ true, /*pkg=*/ "", /*target=*/ repo, rawLabel);
+              repo,
+              repoIsCanonical,
+              /* pkgIsAbsolute= */ true,
+              /* pkg= */ "",
+              /* pkgEndsWithTripleDots= */ false,
+              /* target= */ repo,
+              rawLabel);
         } else {
-          repo = rawLabel.substring(1, doubleSlashIndex);
+          repo = rawLabel.substring(repoIsCanonical ? 2 : 1, doubleSlashIndex);
           startOfPackage = doubleSlashIndex + 2;
           pkgIsAbsolute = true;
         }
@@ -101,20 +140,39 @@ final class LabelParser {
       final String pkg;
       final String target;
       final int colonIndex = rawLabel.indexOf(':', startOfPackage);
-      if (colonIndex >= 0) {
-        pkg = rawLabel.substring(startOfPackage, colonIndex);
-        target = rawLabel.substring(colonIndex + 1);
-      } else if (pkgIsAbsolute) {
-        // Special case: the label "[@repo]//foo/bar" is synonymous with "[@repo]//foo/bar:bar".
-        pkg = rawLabel.substring(startOfPackage);
-        // The target name is the last package segment (works even if `pkg` contains no slash)
-        target = pkg.substring(pkg.lastIndexOf('/') + 1);
-      } else {
+      final String rawPkg =
+          rawLabel.substring(startOfPackage, colonIndex >= 0 ? colonIndex : rawLabel.length());
+      final boolean pkgEndsWithTripleDots = rawPkg.endsWith("/...") || rawPkg.equals("...");
+      if (colonIndex < 0 && pkgEndsWithTripleDots) {
+        // Special case: if the entire label ends in '...', the target name is empty.
+        pkg = stripTrailingTripleDots(rawPkg);
+        target = "";
+      } else if (colonIndex < 0 && !pkgIsAbsolute) {
         // Special case: the label "foo/bar" is synonymous with ":foo/bar".
         pkg = "";
         target = rawLabel.substring(startOfPackage);
+      } else {
+        pkg = stripTrailingTripleDots(rawPkg);
+        if (colonIndex >= 0) {
+          target = rawLabel.substring(colonIndex + 1);
+        } else {
+          // Special case: the label "[@repo]//foo/bar" is synonymous with "[@repo]//foo/bar:bar".
+          // The target name is the last package segment (works even if `pkg` contains no slash)
+          target = pkg.substring(pkg.lastIndexOf('/') + 1);
+        }
       }
-      return validateAndCreate(repo, pkgIsAbsolute, pkg, target, rawLabel);
+      return validateAndCreate(
+          repo, repoIsCanonical, pkgIsAbsolute, pkg, pkgEndsWithTripleDots, target, rawLabel);
+    }
+
+    private static String stripTrailingTripleDots(String pkg) {
+      if (pkg.endsWith("/...")) {
+        return pkg.substring(0, pkg.length() - 4);
+      }
+      if (pkg.equals("...")) {
+        return "";
+      }
+      return pkg;
     }
 
     private static void validateRepoName(@Nullable String repo) throws LabelSyntaxException {
@@ -132,8 +190,14 @@ final class LabelParser {
     }
 
     void checkPkgIsAbsolute() throws LabelSyntaxException {
-      if (!pkgIsAbsolute) {
-        throw syntaxErrorf("invalid label '%s': absolute label must begin with '@' or '//'", raw);
+      if (!pkgIsAbsolute()) {
+        throw syntaxErrorf("invalid label '%s': absolute label must begin with '@' or '//'", raw());
+      }
+    }
+
+    void checkPkgDoesNotEndWithTripleDots() throws LabelSyntaxException {
+      if (pkgEndsWithTripleDots()) {
+        throw syntaxErrorf("invalid label '%s': package name cannot contain '...'", raw());
       }
     }
   }
@@ -148,8 +212,12 @@ final class LabelParser {
     return pkg.endsWith('/' + target) ? " (perhaps you meant \":" + target + "\"?)" : "";
   }
 
-  static String validateAndProcessTargetName(String pkg, String target)
-      throws LabelSyntaxException {
+  static String validateAndProcessTargetName(
+      String pkg, String target, boolean pkgEndsWithTripleDots) throws LabelSyntaxException {
+    if (pkgEndsWithTripleDots && target.isEmpty()) {
+      // Allow empty target name if the package part ends in '...'.
+      return target;
+    }
     String targetError = LabelValidator.validateTargetName(target);
     if (targetError != null) {
       throw syntaxErrorf(

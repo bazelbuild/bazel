@@ -29,7 +29,7 @@ import net.starlark.java.annot.StarlarkMethod;
 /**
  * Starlark String module.
  *
- * <p>This module has special treatment in Starlark, as its methods represent methods represent for
+ * <p>This module has special treatment in Starlark, as its methods represent methods present for
  * any 'string' objects in the language.
  *
  * <p>Methods of this class annotated with {@link StarlarkMethod} must have a positional-only
@@ -55,7 +55,7 @@ import net.starlark.java.annot.StarlarkMethod;
             + "Strings are not directly iterable, use the <code>.elems()</code> "
             + "method to iterate over their characters. Examples:<br>"
             + "<pre class=\"language-python\">\"bc\" in \"abcd\"   # evaluates to True\n"
-            + "x = [s for s.elems() in \"abc\"]  # x == [\"a\", \"b\", \"c\"]</pre>\n"
+            + "x = [c for c in \"abc\".elems()]  # x == [\"a\", \"b\", \"c\"]</pre>\n"
             + "Implicit concatenation of strings is not allowed; use the <code>+</code> "
             + "operator instead. Comparison operators perform a lexicographical comparison; "
             + "use <code>==</code> to test for equality.")
@@ -184,9 +184,11 @@ final class StringModule implements StarlarkValue {
    * <p>Note that this differs from Python 2.7, which uses ctype.h#isspace(), and from
    * java.lang.Character#isWhitespace(), which does not recognize U+00A0.
    */
+  // TODO(https://github.com/bazelbuild/starlark/issues/112): use the Unicode definition of
+  // whitespace, matching Python 3.
   private static final String LATIN1_WHITESPACE =
       ("\u0009" + "\n" + "\u000B" + "\u000C" + "\r" + "\u001C" + "\u001D" + "\u001E" + "\u001F"
-          + "\u0020" + "\u0085" + "\u00A0");
+          + " " + "\u0085" + "\u00A0");
 
   private static String stringLStrip(String self, String chars) {
     CharMatcher matcher = CharMatcher.anyOf(chars);
@@ -293,7 +295,7 @@ final class StringModule implements StarlarkValue {
       doc =
           "Returns a copy of the string in which the occurrences "
               + "of <code>old</code> have been replaced with <code>new</code>, optionally "
-              + "restricting the number of replacements to <code>maxsplit</code>.",
+              + "restricting the number of replacements to <code>count</code>.",
       parameters = {
         @Param(name = "self", doc = "This string."),
         @Param(name = "old", doc = "The string to be replaced."),
@@ -526,14 +528,20 @@ final class StringModule implements StarlarkValue {
   private static int stringFind(boolean forward, String self, String sub, Object start, Object end)
       throws EvalException {
     long indices = substringIndices(self, start, end);
-    // Unfortunately Java forces us to allocate here, even though
-    // String has a private indexOf method that accepts indices.
-    // Fortunately the common case is self[0:n].
-    String substr = self.substring(lo(indices), hi(indices));
+    int startpos = lo(indices);
+    int endpos = hi(indices);
+    // Unfortunately Java forces us to allocate here in the general case, even
+    // though String has a private indexOf method that accepts indices.
+    // The common cases of a search of the full string or a forward search with
+    // a custom start position do not require allocations.
+    if (forward && endpos == self.length()) {
+      return self.indexOf(sub, startpos);
+    }
+    String substr = self.substring(startpos, endpos);
     int subpos = forward ? substr.indexOf(sub) : substr.lastIndexOf(sub);
     return subpos < 0
         ? subpos //
-        : subpos + lo(indices);
+        : subpos + startpos;
   }
 
   private static final Pattern SPLIT_LINES_PATTERN =
@@ -956,8 +964,8 @@ final class StringModule implements StarlarkValue {
               + " to include a brace character in the literal text, it can be escaped by doubling:"
               + " <code>&#123;&#123;</code> and <code>&#125;&#125;</code>A replacement field can be"
               + " either a name, a number, or empty. Values are converted to strings using the <a"
-              + " href=\"globals.html#str\">str</a> function.<pre class=\"language-python\">#"
-              + " Access in order:\n"
+              + " href=\"../globals/all.html#str\">str</a> function.<pre"
+              + " class=\"language-python\"># Access in order:\n"
               + "\"&#123;&#125; < &#123;&#125;\".format(4, 5) == \"4 < 5\"\n"
               + "# Access by position:\n"
               + "\"{1}, {0}\".format(2, 1) == \"1, 2\"\n"

@@ -14,9 +14,11 @@
 
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -39,7 +41,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import org.junit.Before;
 import org.junit.Test;
@@ -160,7 +161,8 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
             .collect(Collectors.toList());
     if (ans.size() > 1) {
       throw new NoSuchElementException(
-          String.format("Multple matches for fragment=%s, option=%s", fragmentOptions, optionName));
+          String.format(
+              "Multiple matches for fragment=%s, option=%s", fragmentOptions, optionName));
     } else if (ans.isEmpty()) {
       throw new NoSuchElementException(
           String.format("No matches for fragment=%s, option=%s", fragmentOptions, optionName));
@@ -169,16 +171,18 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
   }
 
   private static boolean isTargetConfig(ConfigurationForOutput config) {
-    return !Boolean.parseBoolean(getOptionValue(config, "CoreOptions", "is host configuration"))
-        && !Boolean.parseBoolean(getOptionValue(config, "CoreOptions", "is exec configuration"));
+    if (config.mnemonic.endsWith("-noconfig")) {
+      return false;
+    }
+    return !Boolean.parseBoolean(getOptionValue(config, "CoreOptions", "is exec configuration"));
   }
 
-  /** Converts {@code a.b.d} to {@code d}. * */
+  /** Converts {@code a.b.d} to {@code d}. */
   private static String getBaseName(String str) {
     return str.substring(str.lastIndexOf(".") + 1);
   }
 
-  /** Converts a list of {@code a.b.d} strings to {@code d} form. * */
+  /** Converts a list of {@code a.b.d} strings to {@code d} form. */
   private static List<String> getBaseNames(List<String> list) {
     return list.stream().map(ConfigCommandTest::getBaseName).collect(Collectors.toList());
   }
@@ -188,29 +192,60 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     analyzeTarget();
     JsonObject fullJson =
         JsonParser.parseString(callConfigCommand().outAsLatin1()).getAsJsonObject();
-    // Should be: target configuration, target configuration without test, host configuration
+    // Should be: target configuration, target configuration without test.
     assertThat(fullJson).isNotNull();
     assertThat(fullJson.has("configuration-IDs")).isTrue();
     assertThat(fullJson.get("configuration-IDs").getAsJsonArray().size()).isEqualTo(3);
   }
 
+  private boolean skipNoConfig(JsonElement configHash) {
+    try {
+      return !new Gson()
+          .fromJson(
+              callConfigCommand(configHash.getAsString()).outAsLatin1(),
+              ConfigurationForOutput.class)
+          .mnemonic
+          .contains("-noconfig");
+    } catch (Exception e) {
+      assertWithMessage("Failed to retrieve %s: %s", configHash.getAsString(), e.getMessage())
+          .fail();
+      return false;
+    }
+  }
+
+  /**
+   * Calls the config command to return all config hashes currently available.
+   *
+   * @param includeNoConfig if true, include the "noconfig" configuration (see {@link
+   *     com.google.devtools.build.lib.analysis.config.transitions.NoConfigTransition}. Else filter
+   *     it out.
+   */
+  private ImmutableList<String> getConfigHashes(boolean includeNoConfig) throws Exception {
+    return JsonParser.parseString(callConfigCommand().outAsLatin1())
+        .getAsJsonObject()
+        .get("configuration-IDs")
+        .getAsJsonArray()
+        .asList()
+        .stream()
+        .filter(includeNoConfig ? Predicates.alwaysTrue() : this::skipNoConfig)
+        .map(c -> c.getAsString())
+        .collect(toImmutableList());
+  }
+
   @Test
   public void showSingleConfig() throws Exception {
     analyzeTarget();
-    String configHash1 =
-        JsonParser.parseString(callConfigCommand().outAsLatin1())
-            .getAsJsonObject()
-            .get("configuration-IDs")
-            .getAsJsonArray()
-            .get(0)
-            .getAsString();
+    // Find the first non-noconfig configuration (see NoConfigTransition). noconfig is a special
+    // configuration that strips away most of its structure, so not a good candidate for this test.
+    String configHash = getConfigHashes(/* includeNoConfig= */ false).get(0);
     ConfigurationForOutput config =
         new Gson()
-            .fromJson(callConfigCommand(configHash1).outAsLatin1(), ConfigurationForOutput.class);
+            .fromJson(callConfigCommand(configHash).outAsLatin1(), ConfigurationForOutput.class);
+
     assertThat(config).isNotNull();
     // Verify config metadata:
-    assertThat(config.configHash).isEqualTo(configHash1);
-    assertThat(config.skyKey).isEqualTo(String.format("BuildConfigurationKey[%s]", configHash1));
+    assertThat(config.configHash).isEqualTo(configHash);
+    assertThat(config.skyKey).isEqualTo(String.format("BuildConfigurationKey[%s]", configHash));
     // Verify the existence of a couple of expected fragments:
     assertThat(
             config.fragments.stream()
@@ -255,15 +290,6 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void showSingleConfig_hostConfig() throws Exception {
-    analyzeTarget();
-    ConfigurationForOutput config =
-        new Gson().fromJson(callConfigCommand("host").outAsLatin1(), ConfigurationForOutput.class);
-    assertThat(config).isNotNull();
-    assertThat(config.isHost).isTrue();
-  }
-
-  @Test
   public void unknownHashPrefix() throws Exception {
     analyzeTarget();
     String configHash =
@@ -290,7 +316,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
       assertThat(config).isNotNull();
       numConfigs++;
     }
-    assertThat(numConfigs).isEqualTo(3); // Host + target + target w/o test.
+    assertThat(numConfigs).isEqualTo(3); // Target + target w/o test + nonConfig.
   }
 
   @Test
@@ -341,33 +367,6 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     assertThat(diff).isNotNull();
     assertThat(diff.configHash1).startsWith(hashPrefix1);
     assertThat(diff.configHash2).startsWith(hashPrefix2);
-  }
-
-  @Test
-  public void compareConfigs_hostConfig() throws Exception {
-    // Do not trim test configuration for now to make 'finding' the configurations easier.
-    analyzeTarget("--platform_suffix=pure", "--notrim_test_configuration");
-    String targetConfigHash = getTargetConfig().configHash;
-
-    ConfigurationDiffForOutput diff =
-        new Gson()
-            .fromJson(
-                callConfigCommand(targetConfigHash, "host").outAsLatin1(),
-                ConfigurationDiffForOutput.class);
-    assertThat(diff).isNotNull();
-    assertThat(diff.configHash1).isEqualTo(targetConfigHash);
-    assertThat(diff.fragmentsDiff).isNotEmpty();
-
-    // Find the "is host config" option, check that it is different.
-    Optional<Pair<String, String>> isHostDiff =
-        diff.fragmentsDiff.stream()
-            .flatMap(fragmentDiff -> fragmentDiff.optionsDiff.entrySet().stream())
-            .filter(od -> od.getKey().equals("is host configuration"))
-            .map(Map.Entry::getValue)
-            .findAny();
-    assertThat(isHostDiff).isPresent();
-    assertThat(isHostDiff.get().getFirst()).isEqualTo("false");
-    assertThat(isHostDiff.get().getSecond()).isEqualTo("true");
   }
 
   private ConfigurationForOutput getTargetConfig() throws Exception {

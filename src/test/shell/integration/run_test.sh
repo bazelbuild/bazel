@@ -102,7 +102,7 @@ EOF
   cat > cc/BUILD <<EOF
 cc_binary(name='kitty',
           srcs=['kitty.cc'],
-          data=glob(['*.txt']))
+          data=glob(['*.txt'], allow_empty = True))
 EOF
 }
 

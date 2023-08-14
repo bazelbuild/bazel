@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.actions;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -36,7 +38,10 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
-/** Action to create a symbolic link. */
+/**
+ * Action to create a symlink to a known-to-exist target with alias semantics similar to a true copy
+ * of the input (if any).
+ */
 public final class SymlinkAction extends AbstractAction {
   private static final String GUID = "7f4fab4d-d0a7-4f0f-8649-1d0337a21fee";
 
@@ -150,13 +155,6 @@ public final class SymlinkAction extends AbstractAction {
     Preconditions.checkState(!execPath.isAbsolute());
     return new SymlinkAction(
         owner, execPath, primaryInput, primaryOutput, progressMessage, TargetType.FILESET);
-  }
-
-  public static SymlinkAction createUnresolved(
-      ActionOwner owner, Artifact primaryOutput, PathFragment targetPath, String progressMessage) {
-    Preconditions.checkArgument(primaryOutput.isSymlink());
-    return new SymlinkAction(
-        owner, targetPath, null, primaryOutput, progressMessage, TargetType.OTHER);
   }
 
   /**
@@ -274,7 +272,10 @@ public final class SymlinkAction extends AbstractAction {
         linkPath.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
       } else {
         // Should only happen if the Fileset included no links.
-        actionExecutionContext.getExecRoot().getRelative(getInputPath()).createDirectory();
+        actionExecutionContext
+            .getExecRoot()
+            .getRelative(getInputPath())
+            .createDirectoryAndParents();
       }
     } catch (IOException e) {
       String message =
@@ -347,5 +348,18 @@ public final class SymlinkAction extends AbstractAction {
             .setMessage(message)
             .setSymlinkAction(FailureDetails.SymlinkAction.newBuilder().setCode(detailedCode))
             .build());
+  }
+
+  @Override
+  @Nullable
+  public PlatformInfo getExecutionPlatform() {
+    // SymlinkAction is platform agnostic.
+    return null;
+  }
+
+  @Override
+  public ImmutableMap<String, String> getExecProperties() {
+    // SymlinkAction is platform agnostic.
+    return ImmutableMap.of();
   }
 }

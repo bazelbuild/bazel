@@ -16,11 +16,13 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * {@link SkyFunction} for {@link WorkspaceNameValue}s.
@@ -33,8 +35,25 @@ public class WorkspaceNameFunction implements SkyFunction {
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, WorkspaceNameFunctionException {
-    SkyKey externalPackageKey = PackageValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
-    PackageValue externalPackageValue = (PackageValue) env.getValue(externalPackageKey);
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+    if (starlarkSemantics == null) {
+      return null;
+    }
+    if (starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD)) {
+      // When Bzlmod is enabled, we don't care what the "workspace name" specified in the WORKSPACE
+      // file is, and always use the static string "_main" instead. The workspace name returned by
+      // this SkyFunction is only used as the runfiles/execpath prefix for the main repo; for other
+      // repos, the canonical repo name is used. The canonical name of the main repo is the empty
+      // string, so we can't use that; instead, we just use a static string.
+      //
+      // "_main" was chosen because it's not a valid apparent repo name, which, coupled with the
+      // fact that no Bzlmod-generated canonical repo names are valid apparent repo names, means
+      // that a path passed to rlocation can go through repo mapping multiple times without any
+      // danger (i.e. going through repo mapping is idempotent).
+      return WorkspaceNameValue.withName("_main");
+    }
+    PackageValue externalPackageValue =
+        (PackageValue) env.getValue(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
     if (externalPackageValue == null) {
       return null;
     }

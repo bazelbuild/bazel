@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Migrating from Xcode to Bazel
 
+{% include "_buttons.html" %}
+
 This page describes how to build or test an Xcode project with Bazel. It
 describes the differences between Xcode and Bazel, and provides the steps
 for converting an Xcode project to a Bazel project. It also provides
@@ -20,27 +22,12 @@ troubleshooting solutions to address common errors.
 *   When building Xcode projects with Bazel, the `BUILD` file(s) become the
     source of truth. If you work on the project in Xcode, you must generate a
     new version of the Xcode project that matches the `BUILD` files using
-    [Tulsi](http://tulsi.bazel.build/) whenever you update the `BUILD` files. If
-    you're not using Xcode, the `bazel build` and `bazel test` commands provide
-    build and test capabilities with certain limitations described later in this
-    guide.
-
-*   Due to differences in build configuration schemas, such as directory layouts
-    or build flags, Xcode might not be fully aware of the "big picture" of the
-    build and thus some Xcode features might not work. Namely:
-
-    *   Depending on the targets you select for conversion in Tulsi, Xcode might
-        not be able to properly index the project source. This affects code
-        completion and navigation in Xcode, since Xcode won't be able to see all
-        of the project's source code.
-
-    *   Static analysis, address sanitizers, and thread sanitizers might not
-        work, since Bazel does not produce the outputs that Xcode expects for
-        those features.
-
-    *   If you generate an Xcode project with Tulsi and use that project to run
-        tests from within Xcode, Xcode will run the tests instead of
-        Bazel. To run tests with Bazel, run the `bazel test` command manually.
+    [rules_xcodeproj](https://github.com/buildbuddy-io/rules_xcodeproj/){: .external}
+    whenever you update the `BUILD` files. Certain changes to the `BUILD` files
+    such as adding dependencies to a target don't require regenerating the
+    project which can speed up development. If you're not using Xcode, the
+    `bazel build` and `bazel test` commands provide build and test capabilities
+    with certain limitations described later in this guide.
 
 ## Before you begin {:#before-you-begin}
 
@@ -49,7 +36,7 @@ Before you begin, do the following:
 1.  [Install Bazel](/install) if you have not already done so.
 
 2.  If you're not familiar with Bazel and its concepts, complete the
-    [iOS app tutorial](/tutorials/ios-app). You should understand the Bazel
+    [iOS app tutorial](/start/ios-app)). You should understand the Bazel
     workspace, including the `WORKSPACE` and `BUILD` files, as well as the
     concepts of targets, build rules, and Bazel packages.
 
@@ -69,7 +56,7 @@ To build or test an Xcode project with Bazel, do the following:
 
 1.  [Create the `WORKSPACE` file](#create-workspace)
 
-2. [(Experimental) Integrate CocoaPods dependencies](#integrate-cocoapods)
+2. [(Experimental) Integrate SwiftPM dependencies](#integrate-swiftpm)
 
 3.  [Create a `BUILD` file:](#create-build-file)
 
@@ -83,7 +70,7 @@ To build or test an Xcode project with Bazel, do the following:
 
 5.  [Run the build](#run-build)
 
-6.  [Generate the Xcode project with Tulsi](#generate-xcode-tulsi)
+6.  [Generate the Xcode project with rules_xcodeproj](#generate-the-xcode-project-with-rules_xcodeproj)
 
 ### Step 1: Create the `WORKSPACE` file {:#create-workspace}
 
@@ -96,13 +83,13 @@ file.
 Note: Place the project source code within the directory tree containing the
           `WORKSPACE` file.
 
-### Step 2: (Experimental) Integrate CocoaPods dependencies {:#integrate-cocoapods}
+### Step 2: (Experimental) Integrate SwiftPM dependencies {:#integrate-swiftpm}
 
-To integrate CocoaPods dependencies into the Bazel workspace, you must convert
-them into Bazel packages as described in [Converting CocoaPods dependencies](/migrate/cocoapods).
+To integrate SwiftPM dependencies into the Bazel workspace with [swift_bazel](https://github.com/cgrindel/swift_bazel){: .external},
+you must convert them into Bazel packages as described in the [following tutorial](https://chuckgrindel.com/swift-packages-in-bazel-using-swift_bazel/){: .external}.
 
-Note: CocoaPods conversion is a manual process with many variables.
-CocoaPods integration with Bazel has not been fully verified and is not
+Note: SwiftPM support is a manual process with many variables.
+SwiftPM integration with Bazel has not been fully verified and is not
 officially supported.
 
 ### Step 3: Create a `BUILD` file {:#create-build-file}
@@ -147,19 +134,19 @@ Bazel's [Apple build rules](https://github.com/bazelbuild/rules_apple){: .extern
 running library-based unit tests on iOS and macOS, as well as application-based
 tests on macOS. For application-based tests on iOS or UI tests on either
 platform, Bazel will build the test outputs but the tests must run within Xcode
-through a project generated with Tulsi. Add test targets as follows:
+through a project generated with rules_xcodeproj. Add test targets as follows:
 
 *   [`macos_unit_test`](https://github.com/bazelbuild/rules_apple/blob/master/doc/rules-macos.md#macos_unit_test){: .external} to run library-based and application-based unit tests on a macOS.
 
 *   [`ios_unit_test`](https://github.com/bazelbuild/rules_apple/blob/master/doc/rules-ios.md#ios_unit_test){: .external}
     to run library-based unit tests on iOS. For tests requiring the iOS
     simulator, Bazel will build the test outputs but not run the tests. You must
-    [generate an Xcode project with Tulsi](#step-5-generate-the-xcode-project-with-tulsi)
+    [generate an Xcode project with rules_xcodeproj](#generate-the-xcode-project-with-rules_xcodeproj)
     and run the tests from within Xcode.
 
 *   [`ios_ui_test`](https://github.com/bazelbuild/rules_apple/blob/master/doc/rules-ios.md#ios_ui_test){: .external}
     to build outputs required to run user interface tests in the iOS simulator
-    using Xcode. You must [generate an Xcode project with Tulsi](#step-5-generate-the-xcode-project-with-tulsi)
+    using Xcode. You must [generate an Xcode project with rules_xcodeproj](#generate-the-xcode-project-with-rules_xcodeproj)
     and run the tests from within Xcode. Bazel cannot natively run UI tests.
 
 At the minimum, specify a value for the `minimum_os_version` attribute. While
@@ -173,7 +160,7 @@ simulator, also specify the `ios_application` target name as the value of the
 #### Step 3c: Add the library target(s) {:#add-library-target}
 
 Add an [`objc_library`](/reference/be/objective-c#objc_library)
-target for each Objective C library and a [`swift_library`](https://github.com/bazelbuild/rules_apple/blob/master/doc/rules-swift.md){: .external}
+target for each Objective-C library and a [`swift_library`](https://github.com/bazelbuild/rules_swift/blob/master/doc/rules.md#swift_library){: .external}
 target for each Swift library on which the application and/or tests depend.
 
 
@@ -191,6 +178,16 @@ Add the library targets as follows:
 Note: You can use the [`glob`](/reference/be/functions#glob)
 function to include all sources and/or headers of a certain type. Use it
 carefully as it might include files you do not want Bazel to build.
+
+You can browse existing examples for various types of applications directly in the
+[rules_apple examples directory](https://github.com/bazelbuild/rules_apple/tree/master/examples/). For example:
+
+*   [macOS application targets](https://github.com/bazelbuild/rules_apple/tree/master/examples/macos){: .external}
+
+*   [iOS applications targets](https://github.com/bazelbuild/rules_apple/tree/master/examples/ios){: .external}
+
+*   [Multi platform applications (macOS, iOS, watchOS, tvOS)](https://github.com/bazelbuild/rules_apple/tree/master/examples/multi_platform){: .external}
+
 
 For more information on build rules, see [Apple Rules for Bazel](https://github.com/bazelbuild/rules_apple){: .external}.
 
@@ -244,11 +241,11 @@ For example:
 bazel build //:my-target
 ```
 
-### Step 6: Generate the Xcode project with Tulsi {:#generate-xcode-tulsi}
+### Step 6: Generate the Xcode project with rules_xcodeproj {:#generate-the-xcode-project-with-rules_xcodeproj}
 
 When building with Bazel, the `WORKSPACE` and `BUILD` files become the source
 of truth about the build. To make Xcode aware of this, you must generate a
-Bazel-compatible Xcode project using [Tulsi](http://tulsi.bazel.build/).
+Bazel-compatible Xcode project using [rules_xcodeproj](https://github.com/buildbuddy-io/rules_xcodeproj#features){: .external}.
 
 ### Troubleshooting {:#troubleshooting}
 

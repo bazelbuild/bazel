@@ -179,7 +179,7 @@ public class SpawnStrategyRegistryTest {
   }
 
   /**
-   * This demostrate that the latter description filter overrides preceding one of same regexp.
+   * This demonstrate that the latter description filter overrides preceding one of same regexp.
    * filter=val_1 filter=val_2 is equivalent to filter=val_2
    */
   @Test
@@ -604,7 +604,7 @@ public class SpawnStrategyRegistryTest {
     private int usedCalled = 0;
 
     public NoopAbstractStrategy(String name) {
-      super(null, null, /*verboseFailures=*/ true);
+      super(null, null, null);
       this.name = name;
     }
 

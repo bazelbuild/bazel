@@ -13,20 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.actions;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
-import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.OS;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.io.InputStream;
@@ -46,37 +46,35 @@ public final class LauncherFileWriteAction extends AbstractFileWriteAction {
 
   private final LaunchInfo launchInfo;
   private final Artifact launcher;
+  private final boolean isExecutedOnWindows;
 
   /** Creates a new {@link LauncherFileWriteAction}, registering it with the {@code ruleContext}. */
   public static void createAndRegister(
       RuleContext ruleContext, Artifact output, LaunchInfo launchInfo) {
     ruleContext.registerAction(
         new LauncherFileWriteAction(
-            ruleContext.getActionOwner(),
-            output,
-            ruleContext.getPrerequisiteArtifact("$launcher"),
-            launchInfo));
+            ruleContext, output, ruleContext.getPrerequisiteArtifact("$launcher"), launchInfo));
   }
 
   /** Creates a new {@code LauncherFileWriteAction}. */
   private LauncherFileWriteAction(
-      ActionOwner owner, Artifact output, Artifact launcher, LaunchInfo launchInfo) {
+      RuleContext ruleContext, Artifact output, Artifact launcher, LaunchInfo launchInfo) {
     super(
-        owner,
+        ruleContext.getActionOwner(),
         NestedSetBuilder.create(Order.STABLE_ORDER, Preconditions.checkNotNull(launcher)),
         output,
-        /*makeExecutable=*/ true);
+        /* makeExecutable= */ true);
     this.launcher = launcher; // already null-checked in the superclass c'tor
     this.launchInfo = Preconditions.checkNotNull(launchInfo);
+    this.isExecutedOnWindows = ruleContext.isExecutedOnWindows();
   }
 
   @Override
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
-    // TODO(laszlocsomor): make this code check for the execution platform, not the host platform,
-    // once Bazel supports distinguishing between the two.
-    // OS.getCurrent() returns the host platform, not the execution platform, which is fine in a
-    // single-machine execution environment, but problematic with remote execution.
-    Preconditions.checkState(OS.getCurrent() == OS.WINDOWS);
+    // TODO(tjgq): Move this check into createAndRegister.
+    // This requires fixing many unit tests that don't appropriately set the execution platform
+    // when running on Windows.
+    checkState(isExecutedOnWindows);
     return out -> {
       try (InputStream in = ctx.getInputPath(this.launcher).getInputStream()) {
         ByteStreams.copy(in, out);

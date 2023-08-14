@@ -37,9 +37,6 @@ platforms:
     build_flags:
       - "-c"
       - "opt"
-      # TODO(pcloudy): Remove the following flag when we actually use Apple
-      # Silicon machines for macos_arm64 platform
-      - "--cpu=darwin_arm64"
   windows:
     build_flags:
       - "--copt=-w"
@@ -55,7 +52,7 @@ platforms:
       - "--host_copt=-w"
       - "-c"
       - "opt"
-      - "--cpu=x64_arm64_windows"
+      - "--config=windows_arm64"
     build_targets:
       - "//src:bazel.exe"
       - "//src:bazel_nojdk.exe"

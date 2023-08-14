@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -23,6 +25,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.IncompatiblePlatformProviderApi;
+import java.util.Comparator;
 import javax.annotation.Nullable;
 
 /**
@@ -69,6 +72,15 @@ public abstract class IncompatiblePlatformProvider
       @Nullable Label targetPlatform, ImmutableList<ConstraintValueInfo> constraints) {
     Preconditions.checkNotNull(constraints);
     Preconditions.checkArgument(!constraints.isEmpty());
+
+    // Deduplicate and sort the list of incompatible constraints. Doing it here means that everyone
+    // inspecting this provider doesn't have to deal with it.
+    constraints =
+        constraints.stream()
+            .sorted(Comparator.comparing(ConstraintValueInfo::label))
+            .distinct()
+            .collect(toImmutableList());
+
     return new AutoValue_IncompatiblePlatformProvider(targetPlatform, null, constraints);
   }
 
@@ -95,6 +107,8 @@ public abstract class IncompatiblePlatformProvider
    *
    * <p>This may be null. If it is null, then {@code getTargetsResponsibleForIncompatibility()} is
    * guaranteed to be non-null. It will have at least one element in it if it is not null.
+   *
+   * <p>The list is sorted based on the stringified label of each constraint.
    */
   @Nullable
   public abstract ImmutableList<ConstraintValueInfo> constraintsResponsibleForIncompatibility();

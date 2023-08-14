@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkState;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -29,13 +28,9 @@ import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleHelperImpl;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
-import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
-import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -44,16 +39,15 @@ import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFu
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
-import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
+import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.PackageValidator;
+import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
@@ -61,6 +55,7 @@ import com.google.devtools.build.lib.skyframe.BzlCompileFunction;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.skyframe.BzlmodRepoRuleFunction;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
+import com.google.devtools.build.lib.skyframe.DefaultSyscallCache;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.ExternalPackageFunction;
@@ -73,9 +68,9 @@ import com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PackageValue;
-import com.google.devtools.build.lib.skyframe.PerBuildSyscallCache;
 import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.RepoFileFunction;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction;
@@ -87,6 +82,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.Differencer;
+import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
+import com.google.devtools.build.skyframe.EmittedEventState;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
@@ -100,7 +97,6 @@ import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.Version;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -109,7 +105,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -292,9 +287,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         new PackageFactory(
             ruleClassProvider,
             forkJoinPoolForNonSkyframeGlobbing,
-            getEnvironmentExtensions(),
-            "PackageLoader",
-            DefaultPackageSettings.INSTANCE,
+            PackageSettings.DEFAULTS,
             PackageValidator.NOOP_VALIDATOR,
             PackageOverheadEstimator.NOOP_ESTIMATOR,
             PackageLoadingListener.NOOP_LISTENER);
@@ -304,24 +297,24 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       StarlarkSemantics starlarkSemantics,
       PathPackageLocator pkgLocator,
       ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues) {
-    final Map<SkyKey, SkyValue> valuesToInject = new HashMap<>();
+    final Map<SkyKey, Delta> valuesToInject = new HashMap<>();
     Injectable injectable =
         new Injectable() {
           @Override
-          public void inject(Map<SkyKey, ? extends SkyValue> values) {
-            valuesToInject.putAll(values);
+          public void inject(Map<SkyKey, Delta> deltas) {
+            valuesToInject.putAll(deltas);
           }
 
           @Override
-          public void inject(SkyKey key, SkyValue value) {
-            valuesToInject.put(key, value);
+          public void inject(SkyKey key, Delta delta) {
+            valuesToInject.put(key, delta);
           }
         };
     for (PrecomputedValue.Injected injected : extraPrecomputedValues) {
       injected.inject(injectable);
     }
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(injectable, pkgLocator);
-    PrecomputedValue.DEFAULT_VISIBILITY.set(injectable, ConstantRuleVisibility.PRIVATE);
+    PrecomputedValue.DEFAULT_VISIBILITY.set(injectable, RuleVisibility.PRIVATE);
     PrecomputedValue.CONFIG_SETTING_VISIBILITY_POLICY
         .set(injectable, ConfigSettingVisibilityPolicy.LEGACY_OFF);
     PrecomputedValue.STARLARK_SEMANTICS.set(injectable, starlarkSemantics);
@@ -343,44 +336,26 @@ public abstract class AbstractPackageLoader implements PackageLoader {
 
   @Override
   public Result loadPackages(Iterable<PackageIdentifier> pkgIds) throws InterruptedException {
-    ArrayList<SkyKey> keys = new ArrayList<>();
-    for (PackageIdentifier pkgId : ImmutableSet.copyOf(pkgIds)) {
-      keys.add(PackageValue.key(pkgId));
-    }
-
     Reporter reporter = new Reporter(commonReporter);
     StoredEventHandler storedEventHandler = new StoredEventHandler();
     reporter.addHandler(storedEventHandler);
-    ExecutorService executorServiceForSkyframe =
-        AbstractQueueVisitor.createExecutorService(
-            skyframeThreads, "skyframe-threadpool-for-package-loader");
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
-            // Technically, the Skyframe codepath we use shuts down the executor it creates and uses
-            // (say, if we used #setNumThreads but not also #setExecutorServiceSupplier). Still,
-            // since this is brittle and not explicitly tested, we act defensively and provide our
-            // own executor that we explicitly shutdown ourselves.
-            .setExecutorServiceSupplier(Suppliers.ofInstance(executorServiceForSkyframe))
-            .setNumThreads(skyframeThreads)
+            .setParallelism(skyframeThreads)
             .setEventHandler(reporter)
             .build();
-    try {
-      return loadPackagesInternal(keys, evaluationContext, storedEventHandler);
-    } finally {
-      if (!executorServiceForSkyframe.isShutdown()) {
-        ExecutorUtil.uninterruptibleShutdownNow(executorServiceForSkyframe);
-      }
-    }
+    return loadPackagesInternal(ImmutableSet.copyOf(pkgIds), evaluationContext, storedEventHandler);
   }
 
   private Result loadPackagesInternal(
-      Iterable<SkyKey> pkgKeys,
+      ImmutableSet<SkyKey> pkgKeys,
       EvaluationContext evaluationContext,
       StoredEventHandler storedEventHandler)
       throws InterruptedException {
-    EvaluationResult<PackageValue> evalResult =
-        makeFreshEvaluator().evaluate(pkgKeys, evaluationContext);
+    MemoizingEvaluator evaluator = makeFreshEvaluator();
+    EvaluationResult<PackageValue> evalResult = evaluator.evaluate(pkgKeys, evaluationContext);
+
     ImmutableMap.Builder<PackageIdentifier, PackageLoader.PackageOrException> result =
         ImmutableMap.builder();
     for (SkyKey key : pkgKeys) {
@@ -426,11 +401,12 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         EvaluationProgressReceiver.NULL,
         GraphInconsistencyReceiver.THROWING,
         EventFilter.FULL_STORAGE,
-        new NestedSetVisitor.VisitedState(),
-        /*keepEdges=*/ false);
+        new EmittedEventState(),
+        /* keepEdges= */ false,
+        // Using pooled interner is unsound if there are multiple MemoizingEvaluators evaluating
+        // concurrently.
+        /* usePooledInterning= */ false);
   }
-
-  protected abstract ImmutableList<EnvironmentExtension> getEnvironmentExtensions();
 
   protected abstract CrossRepositoryLabelViolationStrategy
       getCrossRepositoryLabelViolationStrategy();
@@ -441,10 +417,12 @@ public abstract class AbstractPackageLoader implements PackageLoader {
 
   protected abstract ActionOnIOExceptionReadingBuildFile getActionOnIOExceptionReadingBuildFile();
 
+  protected abstract boolean shouldUseRepoDotBazel();
+
   private ImmutableMap<SkyFunctionName, SkyFunction> makeFreshSkyFunctions() {
     TimestampGranularityMonitor tsgm = new TimestampGranularityMonitor(BlazeClock.instance());
-    PerBuildSyscallCache syscallCache =
-        PerBuildSyscallCache.newBuilder().setInitialCapacity(nonSkyframeGlobbingThreads).build();
+    DefaultSyscallCache syscallCache =
+        DefaultSyscallCache.newBuilder().setInitialCapacity(nonSkyframeGlobbingThreads).build();
     pkgFactory.setSyscallCache(syscallCache);
     pkgFactory.setMaxDirectoriesToEagerlyVisitInGlobbing(
         MAX_DIRECTORIES_TO_EAGERLY_VISIT_IN_GLOBBING);
@@ -484,35 +462,43 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         .put(
             SkyFunctions.IGNORED_PACKAGE_PREFIXES,
             new IgnoredPackagePrefixesFunction(
-                /*ignoredPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT))
+                /* ignoredPackagePrefixesFile= */ PathFragment.EMPTY_FRAGMENT))
         .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
-        .put(SkyFunctions.BZL_COMPILE, new BzlCompileFunction(pkgFactory, hashFunction))
-        .put(SkyFunctions.STARLARK_BUILTINS, new StarlarkBuiltinsFunction(pkgFactory))
+        .put(
+            SkyFunctions.BZL_COMPILE,
+            new BzlCompileFunction(ruleClassProvider.getBazelStarlarkEnvironment(), hashFunction))
+        .put(
+            SkyFunctions.STARLARK_BUILTINS,
+            new StarlarkBuiltinsFunction(ruleClassProvider.getBazelStarlarkEnvironment()))
         .put(
             SkyFunctions.BZL_LOAD,
             BzlLoadFunction.create(
-                pkgFactory, directories, hashFunction, Caffeine.newBuilder().build()))
+                ruleClassProvider, directories, hashFunction, Caffeine.newBuilder().build()))
         .put(SkyFunctions.WORKSPACE_NAME, new WorkspaceNameFunction())
         .put(
             WorkspaceFileValue.WORKSPACE_FILE,
             new WorkspaceFileFunction(
-                ruleClassProvider, pkgFactory, directories, /*bzlLoadFunctionForInlining=*/ null))
+                ruleClassProvider, pkgFactory, directories, /* bzlLoadFunctionForInlining= */ null))
+        .put(
+            SkyFunctions.REPO_FILE,
+            new RepoFileFunction(
+                ruleClassProvider.getBazelStarlarkEnvironment(), directories.getWorkspace()))
         .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction(getExternalPackageHelper()))
         .put(
             BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
-            new BzlmodRepoRuleFunction(
-                ruleClassProvider, directories, new BzlmodRepoRuleHelperImpl()))
+            new BzlmodRepoRuleFunction(ruleClassProvider, directories))
         .put(SkyFunctions.REPOSITORY_MAPPING, new RepositoryMappingFunction())
         .put(
             SkyFunctions.PACKAGE,
             new PackageFunction(
                 pkgFactory,
                 cachingPackageLocator,
-                /*showLoadingProgress=*/ new AtomicBoolean(false),
-                /*numPackagesSuccessfullyLoaded=*/ new AtomicInteger(0),
-                /*bzlLoadFunctionForInlining=*/ null,
-                /*packageProgress=*/ null,
+                /* showLoadingProgress= */ new AtomicBoolean(false),
+                /* numPackagesSuccessfullyLoaded= */ new AtomicInteger(0),
+                /* bzlLoadFunctionForInlining= */ null,
+                /* packageProgress= */ null,
                 getActionOnIOExceptionReadingBuildFile(),
+                shouldUseRepoDotBazel(),
                 // Tell PackageFunction to optimize for our use-case of no incrementality.
                 GlobbingStrategy.NON_SKYFRAME,
                 k -> ThreadStateReceiver.NULL_INSTANCE))

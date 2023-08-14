@@ -22,13 +22,17 @@ import static com.google.devtools.build.lib.remote.util.RxUtils.toTransferResult
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
+import build.bazel.remote.execution.v2.OutputSymlink;
+import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionUploadFinishedEvent;
 import com.google.devtools.build.lib.actions.ActionUploadStartedEvent;
@@ -52,20 +56,22 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.CodedOutputStream;
 import com.google.protobuf.Timestamp;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Single;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -75,8 +81,9 @@ public class UploadManifest {
   private final DigestUtil digestUtil;
   private final RemotePathResolver remotePathResolver;
   private final ActionResult.Builder result;
-  private final boolean allowSymlinks;
-  private final boolean uploadSymlinks;
+  private final boolean followSymlinks;
+  private final boolean allowDanglingSymlinks;
+  private final boolean allowAbsoluteSymlinks;
   private final Map<Digest, Path> digestToFile = new HashMap<>();
   private final Map<Digest, ByteString> digestToBlobs = new HashMap<>();
   @Nullable private ActionKey actionKey;
@@ -85,6 +92,7 @@ public class UploadManifest {
 
   public static UploadManifest create(
       RemoteOptions remoteOptions,
+      CacheCapabilities cacheCapabilities,
       DigestUtil digestUtil,
       RemotePathResolver remotePathResolver,
       ActionKey actionKey,
@@ -93,8 +101,8 @@ public class UploadManifest {
       Collection<Path> outputFiles,
       FileOutErr outErr,
       int exitCode,
-      Optional<Instant> startTime,
-      Optional<Duration> wallTime)
+      Instant startTime,
+      int wallTimeInMs)
       throws ExecException, IOException {
     ActionResult.Builder result = ActionResult.newBuilder();
     result.setExitCode(exitCode);
@@ -104,8 +112,11 @@ public class UploadManifest {
             digestUtil,
             remotePathResolver,
             result,
-            remoteOptions.incompatibleRemoteSymlinks,
-            remoteOptions.allowSymlinkUpload);
+            /* followSymlinks= */ !remoteOptions.incompatibleRemoteSymlinks,
+            /* allowDanglingSymlinks= */ remoteOptions.incompatibleRemoteDanglingSymlinks,
+            /* allowAbsoluteSymlinks= */ cacheCapabilities
+                .getSymlinkAbsolutePathStrategy()
+                .equals(SymlinkAbsolutePathStrategy.Value.ALLOWED));
     manifest.addFiles(outputFiles);
     manifest.setStdoutStderr(outErr);
     manifest.addAction(actionKey, action, command);
@@ -116,11 +127,16 @@ public class UploadManifest {
       result.setStdoutDigest(manifest.getStdoutDigest());
     }
 
-    if (startTime.isPresent() && wallTime.isPresent()) {
+    // if wallTime is zero, than it's not set
+    if (startTime != null && wallTimeInMs != 0) {
+      Timestamp startTimestamp = instantToTimestamp(startTime);
+      Timestamp completedTimestamp = instantToTimestamp(startTime.plusMillis(wallTimeInMs));
       result
           .getExecutionMetadataBuilder()
-          .setWorkerStartTimestamp(instantToTimestamp(startTime.get()))
-          .setWorkerCompletedTimestamp(instantToTimestamp(startTime.get().plus(wallTime.get())));
+          .setWorkerStartTimestamp(startTimestamp)
+          .setExecutionStartTimestamp(startTimestamp)
+          .setExecutionCompletedTimestamp(completedTimestamp)
+          .setWorkerCompletedTimestamp(completedTimestamp);
     }
 
     return manifest;
@@ -142,13 +158,15 @@ public class UploadManifest {
       DigestUtil digestUtil,
       RemotePathResolver remotePathResolver,
       ActionResult.Builder result,
-      boolean uploadSymlinks,
-      boolean allowSymlinks) {
+      boolean followSymlinks,
+      boolean allowDanglingSymlinks,
+      boolean allowAbsoluteSymlinks) {
     this.digestUtil = digestUtil;
     this.remotePathResolver = remotePathResolver;
     this.result = result;
-    this.uploadSymlinks = uploadSymlinks;
-    this.allowSymlinks = allowSymlinks;
+    this.followSymlinks = followSymlinks;
+    this.allowDanglingSymlinks = allowDanglingSymlinks;
+    this.allowAbsoluteSymlinks = allowAbsoluteSymlinks;
   }
 
   private void setStdoutStderr(FileOutErr outErr) throws IOException {
@@ -185,30 +203,43 @@ public class UploadManifest {
       } else if (stat.isFile() && !stat.isSpecialFile()) {
         Digest digest = digestUtil.compute(file, stat.getSize());
         addFile(digest, file);
-      } else if (stat.isSymbolicLink() && allowSymlinks) {
+      } else if (stat.isSymbolicLink()) {
         PathFragment target = file.readSymbolicLink();
         // Need to resolve the symbolic link to know what to add, file or directory.
         FileStatus statFollow = file.statIfFound(Symlinks.FOLLOW);
         if (statFollow == null) {
-          throw new IOException(
-              String.format("Action output %s is a dangling symbolic link to %s ", file, target));
-        }
-        if (statFollow.isSpecialFile()) {
-          illegalOutput(file);
-        }
-        Preconditions.checkState(
-            statFollow.isFile() || statFollow.isDirectory(), "Unknown stat type for %s", file);
-        if (uploadSymlinks && !target.isAbsolute()) {
-          if (statFollow.isFile()) {
+          if (allowDanglingSymlinks) {
+            if (target.isAbsolute() && !allowAbsoluteSymlinks) {
+              throw new IOException(
+                  String.format(
+                      "Action output %s is an absolute symbolic link to %s, which is not allowed by"
+                          + " the remote cache",
+                      file, target));
+            }
+            // Report symlink to a file since we don't know any better.
             addFileSymbolicLink(file, target);
           } else {
-            addDirectorySymbolicLink(file, target);
+            throw new IOException(
+                String.format(
+                    "Action output %s is a dangling symbolic link to %s. ", file, target));
           }
+        } else if (statFollow.isSpecialFile()) {
+          illegalOutput(file);
         } else {
-          if (statFollow.isFile()) {
-            addFile(digestUtil.compute(file), file);
+          Preconditions.checkState(
+              statFollow.isFile() || statFollow.isDirectory(), "Unknown stat type for %s", file);
+          if (!followSymlinks && !target.isAbsolute()) {
+            if (statFollow.isFile()) {
+              addFileSymbolicLink(file, target);
+            } else {
+              addDirectorySymbolicLink(file, target);
+            }
           } else {
-            addDirectory(file);
+            if (statFollow.isFile()) {
+              addFile(digestUtil.compute(file), file);
+            } else {
+              addDirectory(file);
+            }
           }
         }
       } else {
@@ -253,17 +284,23 @@ public class UploadManifest {
   }
 
   private void addFileSymbolicLink(Path file, PathFragment target) {
-    result
-        .addOutputFileSymlinksBuilder()
-        .setPath(remotePathResolver.localPathToOutputPath(file))
-        .setTarget(target.toString());
+    OutputSymlink outputSymlink =
+        OutputSymlink.newBuilder()
+            .setPath(remotePathResolver.localPathToOutputPath(file))
+            .setTarget(target.toString())
+            .build();
+    result.addOutputFileSymlinks(outputSymlink);
+    result.addOutputSymlinks(outputSymlink);
   }
 
   private void addDirectorySymbolicLink(Path file, PathFragment target) {
-    result
-        .addOutputDirectorySymlinksBuilder()
-        .setPath(remotePathResolver.localPathToOutputPath(file))
-        .setTarget(target.toString());
+    OutputSymlink outputSymlink =
+        OutputSymlink.newBuilder()
+            .setPath(remotePathResolver.localPathToOutputPath(file))
+            .setTarget(target.toString())
+            .build();
+    result.addOutputDirectorySymlinks(outputSymlink);
+    result.addOutputSymlinks(outputSymlink);
   }
 
   private void addFile(Digest digest, Path file) throws IOException {
@@ -277,25 +314,43 @@ public class UploadManifest {
     digestToFile.put(digest, file);
   }
 
-  private void addDirectory(Path dir) throws ExecException, IOException {
-    Tree.Builder tree = Tree.newBuilder();
-    Directory root = computeDirectory(dir, tree);
-    tree.setRoot(root);
+  // Field numbers of the 'root' and 'directory' fields in the Tree message.
+  private static final int TREE_ROOT_FIELD_NUMBER =
+      Tree.getDescriptor().findFieldByName("root").getNumber();
+  private static final int TREE_CHILDREN_FIELD_NUMBER =
+      Tree.getDescriptor().findFieldByName("children").getNumber();
 
-    ByteString data = tree.build().toByteString();
+  private void addDirectory(Path dir) throws ExecException, IOException {
+    Set<ByteString> directories = new LinkedHashSet<>();
+    var ignored = computeDirectory(dir, directories);
+
+    // Convert individual Directory messages to a Tree message. As we want the
+    // records to be topologically sorted (parents before children), we iterate
+    // over the directories in reverse insertion order.
+    ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+    CodedOutputStream codedOutputStream = CodedOutputStream.newInstance(byteArrayOutputStream);
+    int fieldNumber = TREE_ROOT_FIELD_NUMBER;
+    for (ByteString directory : Lists.reverse(new ArrayList<ByteString>(directories))) {
+      codedOutputStream.writeBytes(fieldNumber, directory);
+      fieldNumber = TREE_CHILDREN_FIELD_NUMBER;
+    }
+    codedOutputStream.flush();
+
+    ByteString data = ByteString.copyFrom(byteArrayOutputStream.toByteArray());
     Digest digest = digestUtil.compute(data.toByteArray());
 
     if (result != null) {
       result
           .addOutputDirectoriesBuilder()
           .setPath(remotePathResolver.localPathToOutputPath(dir))
-          .setTreeDigest(digest);
+          .setTreeDigest(digest)
+          .setIsTopologicallySorted(true);
     }
 
     digestToBlobs.put(digest, data);
   }
 
-  private Directory computeDirectory(Path path, Tree.Builder tree)
+  private ByteString computeDirectory(Path path, Set<ByteString> directories)
       throws ExecException, IOException {
     Directory.Builder b = Directory.newBuilder();
 
@@ -306,12 +361,11 @@ public class UploadManifest {
       String name = dirent.getName();
       Path child = path.getRelative(name);
       if (dirent.getType() == Dirent.Type.DIRECTORY) {
-        Directory dir = computeDirectory(child, tree);
-        b.addDirectoriesBuilder().setName(name).setDigest(digestUtil.compute(dir));
-        tree.addChildren(dir);
-      } else if (dirent.getType() == Dirent.Type.SYMLINK && allowSymlinks) {
+        ByteString dir = computeDirectory(child, directories);
+        b.addDirectoriesBuilder().setName(name).setDigest(digestUtil.compute(dir.toByteArray()));
+      } else if (dirent.getType() == Dirent.Type.SYMLINK) {
         PathFragment target = child.readSymbolicLink();
-        if (uploadSymlinks && !target.isAbsolute()) {
+        if (!followSymlinks && !target.isAbsolute()) {
           // Whether it is dangling or not, we're passing it on.
           b.addSymlinksBuilder().setName(name).setTarget(target.toString());
           continue;
@@ -327,9 +381,8 @@ public class UploadManifest {
           b.addFilesBuilder().setName(name).setDigest(digest).setIsExecutable(child.isExecutable());
           digestToFile.put(digest, child);
         } else if (statFollow.isDirectory()) {
-          Directory dir = computeDirectory(child, tree);
-          b.addDirectoriesBuilder().setName(name).setDigest(digestUtil.compute(dir));
-          tree.addChildren(dir);
+          ByteString dir = computeDirectory(child, directories);
+          b.addDirectoriesBuilder().setName(name).setDigest(digestUtil.compute(dir.toByteArray()));
         } else {
           illegalOutput(child);
         }
@@ -342,17 +395,17 @@ public class UploadManifest {
       }
     }
 
-    return b.build();
+    ByteString directory = b.build().toByteString();
+    directories.add(directory);
+    return directory;
   }
 
-  private void illegalOutput(Path what) throws ExecException {
-    String kind = what.isSymbolicLink() ? "symbolic link" : "special file";
+  private void illegalOutput(Path path) throws ExecException {
     String message =
         String.format(
-            "Output %s is a %s. Only regular files and directories may be "
-                + "uploaded to a remote cache. "
-                + "Change the file type or use --remote_allow_symlink_upload.",
-            remotePathResolver.localPathToOutputPath(what), kind);
+            "Output %s is a special file. Only regular files, directories or symlinks may be "
+                + "uploaded to a remote cache.",
+            remotePathResolver.localPathToOutputPath(path));
 
     FailureDetail failureDetail =
         FailureDetail.newBuilder()

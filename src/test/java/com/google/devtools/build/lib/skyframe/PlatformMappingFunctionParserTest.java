@@ -29,8 +29,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class PlatformMappingFunctionParserTest {
 
-  private static final Label PLATFORM1 = Label.parseAbsoluteUnchecked("//platforms:one");
-  private static final Label PLATFORM2 = Label.parseAbsoluteUnchecked("//platforms:two");
+  private static final Label PLATFORM1 = Label.parseCanonicalUnchecked("//platforms:one");
+  private static final Label PLATFORM2 = Label.parseCanonicalUnchecked("//platforms:two");
 
   @Test
   public void testParse() throws Exception {
@@ -48,8 +48,8 @@ public class PlatformMappingFunctionParserTest {
             "    //platforms:two");
 
     assertThat(mappings.platformsToFlags.keySet()).containsExactly(PLATFORM1, PLATFORM2);
-    assertThat(mappings.platformsToFlags.get(PLATFORM1)).containsExactly("--cpu=one");
-    assertThat(mappings.platformsToFlags.get(PLATFORM2)).containsExactly("--cpu=two");
+    assertThat(mappings.platformsToFlags.get(PLATFORM1).nativeFlags()).containsExactly("--cpu=one");
+    assertThat(mappings.platformsToFlags.get(PLATFORM2).nativeFlags()).containsExactly("--cpu=two");
 
     assertThat(mappings.flagsToPlatforms.keySet())
         .containsExactly(ImmutableSet.of("--cpu=one"), ImmutableSet.of("--cpu=two"));
@@ -77,8 +77,8 @@ public class PlatformMappingFunctionParserTest {
             "    //platforms:two");
 
     assertThat(mappings.platformsToFlags.keySet()).containsExactly(PLATFORM1, PLATFORM2);
-    assertThat(mappings.platformsToFlags.get(PLATFORM1)).containsExactly("--cpu=one");
-    assertThat(mappings.platformsToFlags.get(PLATFORM2)).containsExactly("--cpu=two");
+    assertThat(mappings.platformsToFlags.get(PLATFORM1).nativeFlags()).containsExactly("--cpu=one");
+    assertThat(mappings.platformsToFlags.get(PLATFORM2).nativeFlags()).containsExactly("--cpu=two");
 
     assertThat(mappings.flagsToPlatforms.keySet())
         .containsExactly(ImmutableSet.of("--cpu=one"), ImmutableSet.of("--cpu=two"));
@@ -107,8 +107,8 @@ public class PlatformMappingFunctionParserTest {
             "  //platforms:two");
 
     assertThat(mappings.platformsToFlags.keySet()).containsExactly(PLATFORM1, PLATFORM2);
-    assertThat(mappings.platformsToFlags.get(PLATFORM1)).containsExactly("--cpu=one");
-    assertThat(mappings.platformsToFlags.get(PLATFORM2)).containsExactly("--cpu=two");
+    assertThat(mappings.platformsToFlags.get(PLATFORM1).nativeFlags()).containsExactly("--cpu=one");
+    assertThat(mappings.platformsToFlags.get(PLATFORM2).nativeFlags()).containsExactly("--cpu=two");
 
     assertThat(mappings.flagsToPlatforms.keySet())
         .containsExactly(ImmutableSet.of("--cpu=one"), ImmutableSet.of("--cpu=two"));
@@ -128,7 +128,7 @@ public class PlatformMappingFunctionParserTest {
             "    --cpu=two");
 
     assertThat(mappings.platformsToFlags.keySet()).containsExactly(PLATFORM1, PLATFORM2);
-    assertThat(mappings.platformsToFlags.get(PLATFORM1))
+    assertThat(mappings.platformsToFlags.get(PLATFORM1).nativeFlags())
         .containsExactly("--cpu=one", "--compilation_mode=dbg");
   }
 
@@ -161,7 +161,7 @@ public class PlatformMappingFunctionParserTest {
             );
 
     assertThat(mappings.platformsToFlags.keySet()).containsExactly(PLATFORM1);
-    assertThat(mappings.platformsToFlags.get(PLATFORM1)).containsExactly("--cpu=one");
+    assertThat(mappings.platformsToFlags.get(PLATFORM1).nativeFlags()).containsExactly("--cpu=one");
     assertThat(mappings.flagsToPlatforms).isEmpty();
   }
 
@@ -393,6 +393,6 @@ public class PlatformMappingFunctionParserTest {
 
   private static PlatformMappingFunction.Mappings parse(String... lines)
       throws PlatformMappingFunction.PlatformMappingException {
-    return PlatformMappingFunction.parse(ImmutableList.copyOf(lines));
+    return PlatformMappingFunction.parse(/* env= */ null, ImmutableList.copyOf(lines));
   }
 }

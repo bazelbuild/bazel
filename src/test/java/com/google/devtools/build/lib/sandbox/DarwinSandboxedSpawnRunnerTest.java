@@ -115,7 +115,7 @@ public final class DarwinSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTe
     SpawnExecutionContextForTesting policy =
         new SpawnExecutionContextForTesting(spawn, fileOutErr, Duration.ofMinutes(1));
 
-    SpawnResult spawnResult = runner.execAsync(spawn, policy).get();
+    SpawnResult spawnResult = runner.exec(spawn, policy);
 
     assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.NON_ZERO_EXIT);
     assertThat(spawnResult.exitCode()).isEqualTo(42);
@@ -125,7 +125,7 @@ public final class DarwinSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTe
   public void testSimpleExecution() throws Exception {
     DarwinSandboxedSpawnRunner runner =
         new DarwinSandboxedSpawnRunner(
-            new SandboxHelpers(/*delayVirtualInputMaterialization=*/ true),
+            new SandboxHelpers(),
             commandEnvironment,
             sandboxBase,
             /* sandboxfsProcess= */ null,
@@ -138,7 +138,7 @@ public final class DarwinSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTe
   public void testSupportsParamFiles() throws Exception {
     DarwinSandboxedSpawnRunner runner =
         new DarwinSandboxedSpawnRunner(
-            new SandboxHelpers(/*delayVirtualInputMaterialization=*/ true),
+            new SandboxHelpers(),
             commandEnvironment,
             sandboxBase,
             /* sandboxfsProcess= */ null,
@@ -158,7 +158,7 @@ public final class DarwinSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTe
         new FileOutErr(testRoot.getChild("stdout"), testRoot.getChild("stderr"));
     SpawnExecutionContextForTesting policy =
         new SpawnExecutionContextForTesting(spawn, fileOutErr, Duration.ofMinutes(1));
-    SpawnResult spawnResult = runner.execAsync(spawn, policy).get();
+    SpawnResult spawnResult = runner.exec(spawn, policy);
     assertThat(spawnResult.status()).isEqualTo(Status.SUCCESS);
     Path paramFile = commandEnvironment.getExecRoot().getRelative("out");
     assertThat(paramFile.exists()).isTrue();
@@ -179,7 +179,7 @@ public final class DarwinSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTe
 
     DarwinSandboxedSpawnRunner runner =
         new DarwinSandboxedSpawnRunner(
-            new SandboxHelpers(/*delayVirtualInputMaterialization=*/ true),
+            new SandboxHelpers(),
             commandEnvironment,
             sandboxBase,
             sandboxfsProcess,

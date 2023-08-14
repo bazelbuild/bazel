@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
+import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
+import static com.google.devtools.build.lib.rules.cpp.SolibSymlinkAction.MAX_FILENAME_LENGTH;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
@@ -26,6 +28,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
@@ -74,7 +77,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkList;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -1117,7 +1119,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "  fragments = ['cpp'],",
         ");");
 
-    /** Calling {@link #getTarget} to get loading errors */
+    /* Calling {@link #getTarget} to get loading errors */
     getTarget("//a" + pkgSuffix + ":r");
     ConfiguredTarget r = getConfiguredTarget("//a" + pkgSuffix + ":r");
     if (r == null) {
@@ -1366,7 +1368,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     doTestCcLinkingContext(
         ImmutableList.of("a.a", "libdep2.a", "b.rlib", "c.a", "d.a", "libdep1.a"),
         ImmutableList.of("a.pic.a", "b.rlib", "c.pic.a", "e.pic.a"),
-        // The suffix of dynamic library is caculated based on repository name and package path
+        // The suffix of dynamic library is calculated based on repository name and package path
         // to avoid conflicts with dynamic library from other packages.
         ImmutableList.of("a.so", "libdep2_61.so", "b.so", "e.so", "libdep1_61.so"));
   }
@@ -1523,6 +1525,35 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
                             .toString())
                 .collect(ImmutableList.toImmutableList()))
         .containsExactly("libcustom.ifso");
+  }
+
+  @Test
+  public void testReallyLongSolibLink() throws Exception {
+    setUpCcLinkingContextTest(false);
+
+    String longpath =
+        "this/is/a/really/really/really/really/really/really/really/really/really/really/"
+            + "really/really/really/really/really/really/really/really/really/really/really/"
+            + "really/really/long/path/that/generates/really/long/solib/link/path";
+    scratch.file(
+        longpath + "/BUILD",
+        "load('//tools/build_defs/cc:rule.bzl', 'crule')",
+        "crule(name='a',",
+        "   dynamic_library = 'a.so',",
+        ")");
+
+    ConfiguredTarget a = getConfiguredTarget("//" + longpath + ":a");
+    StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
+    Depset librariesToLink = info.getValue("libraries_to_link", Depset.class);
+    ImmutableList<String> dynamicLibraryParentDirectories =
+        librariesToLink.toList(LibraryToLink.class).stream()
+            .filter(x -> x.getDynamicLibrary() != null)
+            .map(
+                x -> x.getDynamicLibrary().getRootRelativePath().getParentDirectory().getBaseName())
+            .collect(ImmutableList.toImmutableList());
+    for (String dynamicLibraryParentDirectory : dynamicLibraryParentDirectories) {
+      assertThat(dynamicLibraryParentDirectory.length()).isLessThan(MAX_FILENAME_LENGTH + 1);
+    }
   }
 
   private void doTestCcLinkingContext(
@@ -1937,7 +1968,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     EnvEntry entry = CcModule.envEntryFromStarlark(entryProvider);
     assertThat(entry).isNotNull();
     StringValueParser parser = new StringValueParser("def");
-    assertThat(entry).isEqualTo(new EnvEntry("abc", parser.getChunks()));
+    assertThat(entry).isEqualTo(new EnvEntry("abc", parser.getChunks(), ImmutableSet.of()));
   }
 
   @Test
@@ -3360,7 +3391,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             () -> CcModule.flagSetFromStarlark(flagSetStruct, /* actionName= */ null));
     assertThat(e)
         .hasMessageThat()
-        .contains("at index 0 of actions, got element of type struct, want string");
+        .contains("at index 1 of actions, got element of type struct, want string");
   }
 
   @Test
@@ -4596,7 +4627,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
     assertThat(e)
         .hasMessageThat()
-        .contains("missing 1 required named argument: toolchain_identifier");
+        .contains("missing 1 required keyword-only argument: toolchain_identifier");
   }
 
   @Test
@@ -4605,28 +4636,30 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
     assertThat(e)
         .hasMessageThat()
-        .contains("missing 1 required named argument: target_system_name");
+        .contains("missing 1 required keyword-only argument: target_system_name");
   }
 
   @Test
   public void testCcToolchainInfoFromStarlarkRequiredTargetCpu() throws Exception {
     setupStarlarkRuleForStringFieldsTesting("target_cpu");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
-    assertThat(e).hasMessageThat().contains("missing 1 required named argument: target_cpu");
+    assertThat(e).hasMessageThat().contains("missing 1 required keyword-only argument: target_cpu");
   }
 
   @Test
   public void testCcToolchainInfoFromStarlarkRequiredTargetLibc() throws Exception {
     setupStarlarkRuleForStringFieldsTesting("target_libc");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
-    assertThat(e).hasMessageThat().contains("missing 1 required named argument: target_libc");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("missing 1 required keyword-only argument: target_libc");
   }
 
   @Test
   public void testCcToolchainInfoFromStarlarkRequiredCompiler() throws Exception {
     setupStarlarkRuleForStringFieldsTesting("compiler");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
-    assertThat(e).hasMessageThat().contains("missing 1 required named argument: compiler");
+    assertThat(e).hasMessageThat().contains("missing 1 required keyword-only argument: compiler");
   }
 
   @Test
@@ -5264,10 +5297,13 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             "'a.pic.o' does not have any of the allowed extensions .a, .lib, .pic.a or .rlib");
     assertThat(e)
         .hasMessageThat()
-        .contains("'a.ifso' does not have any of the allowed extensions .so, .dylib or .dll");
+        .contains(
+            "'a.ifso' does not have any of the allowed extensions .so, .dylib, .dll, .pyd or"
+                + " .wasm");
     assertThat(e)
         .hasMessageThat()
-        .contains("'a.lib' does not have any of the allowed extensions .so, .dylib or .dll");
+        .contains(
+            "'a.lib' does not have any of the allowed extensions .so, .dylib, .dll, .pyd or .wasm");
     assertThat(e)
         .hasMessageThat()
         .contains(
@@ -5292,11 +5328,11 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         (CcCompilationOutputs) getMyInfoFromTarget(target).getValue("compilation_outputs");
     assertThat(
             AnalysisTestUtil.artifactsToStrings(
-                masterConfig, compilationOutputs.getObjectFiles(/* usePic= */ true)))
+                targetConfig, compilationOutputs.getObjectFiles(/* usePic= */ true)))
         .containsExactly("src foo/pic_object1.o", "src foo/pic_object2.o");
     assertThat(
             AnalysisTestUtil.artifactsToStrings(
-                masterConfig, compilationOutputs.getObjectFiles(/* usePic= */ false)))
+                targetConfig, compilationOutputs.getObjectFiles(/* usePic= */ false)))
         .containsExactly("src foo/object1.o", "src foo/object2.o");
   }
 
@@ -5914,7 +5950,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     setupTestTransitiveLink(scratch, "output_type = 'dynamic_library'", " main_output=None");
 
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:bin"));
-    assertThat(e).hasMessageThat().contains("Rule in 'tools/build_defs' cannot use private API");
+    assertThat(e).hasMessageThat().contains("cannot use private API");
   }
 
   @Test
@@ -5936,29 +5972,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(library).isNotNull();
     assertThat(library.getDynamicLibrary()).isNotNull();
     assertThat(library.getInterfaceLibrary()).isNotNull();
-  }
-
-  @Test
-  public void testWindowsDoesNotProduceDynamicLibraryWithoutWinDef() throws Exception {
-    getAnalysisMock()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig,
-            CcToolchainConfig.builder()
-                .withFeatures(
-                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
-                    CppRuleClasses.TARGETS_WINDOWS,
-                    CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES,
-                    CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY));
-    createFilesForTestingLinking(scratch, "tools/build_defs/foo", /* linkProviderLines= */ "");
-    assertThat(getConfiguredTarget("//foo:bin")).isNotNull();
-    ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
-    assertThat(target).isNotNull();
-    LibraryToLink library =
-        (LibraryToLink) ((StarlarkList) getMyInfoFromTarget(target).getValue("libraries")).get(0);
-    assertThat(library).isNotNull();
-    assertThat(library.getDynamicLibrary()).isNull();
-    assertThat(library.getInterfaceLibrary()).isNull();
   }
 
   @Test
@@ -6408,7 +6421,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "      '_grep_includes': attr.label(",
         "             executable = True,",
         "             default = Label('//tools/cpp/grep_includes:grep-includes'),",
-        "             cfg = 'host'",
+        "             cfg = 'exec'",
         "       ),",
         "      'additional_outputs': attr.output_list(),",
         "    },",
@@ -6893,7 +6906,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "  },",
         ")");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:b_lib"));
-    assertThat(e).hasMessageThat().contains("Rule in 'my_rules' cannot use private API");
+    assertThat(e).hasMessageThat().contains("cannot use private API");
   }
 
   @Test
@@ -6996,8 +7009,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             "incompatible_enable_cc_test_feature()",
             "build_test_dwp()",
             "grte_top()",
-            "enable_legacy_cc_provider()",
-            "experimental_cc_interface_deps()",
+            "experimental_cc_implementation_deps()",
             "share_native_deps()",
             "experimental_platform_cc_test()");
     scratch.file(
@@ -7141,13 +7153,13 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "  implementation = _transitive_modules_impl",
         ")");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:m"));
-    assertThat(e).hasMessageThat().contains("Rule in 'my_rules' cannot use private API");
+    assertThat(e).hasMessageThat().contains("cannot use private API");
     e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:p2"));
-    assertThat(e).hasMessageThat().contains("Rule in 'my_rules' cannot use private API");
+    assertThat(e).hasMessageThat().contains("cannot use private API");
     e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:ai"));
-    assertThat(e).hasMessageThat().contains("Rule in 'my_rules' cannot use private API");
+    assertThat(e).hasMessageThat().contains("cannot use private API");
     e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:tm"));
-    assertThat(e).hasMessageThat().contains("Rule in 'my_rules' cannot use private API");
+    assertThat(e).hasMessageThat().contains("cannot use private API");
   }
 
   @Test
@@ -7190,7 +7202,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
           ")");
       initializeSkyframeExecutor();
       AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:foo"));
-      assertThat(e).hasMessageThat().contains("Rule in 'b' cannot use private API");
+      assertThat(e).hasMessageThat().contains("cannot use private API");
     }
   }
 
@@ -7214,13 +7226,13 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
           ")");
       invalidatePackages();
       AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:foo"));
-      assertThat(e).hasMessageThat().contains("Rule in 'b' cannot use private API");
+      assertThat(e).hasMessageThat().contains("cannot use private API");
     }
   }
 
   @Test
   public void testExpandedLtoAndFdoApiRaisesError() throws Exception {
-    useConfiguration("--fdo_optimize=pkg/profile.afdo", "--compilation_mode=opt");
+    useConfiguration("--fdo_optimize=/pkg/profile.afdo", "--compilation_mode=opt");
     scratch.file(
         "bazel_internal/test_rules/cc/BUILD",
         "load(':lto_backend_artifacts.bzl', 'lto_backend_artifacts')",
@@ -7239,7 +7251,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "  fdo_context = toolchain.fdo_context()",
         "  branch_fdo_profile = fdo_context.branch_fdo_profile()",
         "  lto_backend_artifacts = cc_common.create_lto_backend_artifacts(ctx=ctx,",
-        "        lto_output_root_prefix=ctx.label.package, bitcode_file=ctx.file.file,",
+        "        lto_output_root_prefix=ctx.label.package, lto_obj_root_prefix=ctx.label.package,",
+        "        bitcode_file=ctx.file.file,",
         "        feature_configuration=feature_configuration, cc_toolchain=toolchain,",
         "        fdo_context=fdo_context, use_pic=True,",
         "        should_create_per_object_debug_info=False, argv=[])",
@@ -7342,7 +7355,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
           ")");
       invalidatePackages();
       AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:foo"));
-      assertThat(e).hasMessageThat().contains("Rule in 'b' cannot use private API");
+      assertThat(e).hasMessageThat().contains("cannot use private API");
     }
   }
 
@@ -7418,44 +7431,14 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
           "    '_grep_includes': attr.label(",
           "          executable = True,",
           "          default = Label('//tools/cpp/grep_includes:grep-includes'),",
-          "          cfg = 'host'",
+          "          cfg = 'exec'",
           "    ),",
           "  },",
           "  fragments = ['cpp'],",
           ")");
       invalidatePackages();
       AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:foo"));
-      assertThat(e).hasMessageThat().contains("Rule in 'b' cannot use private API");
-    }
-  }
-
-  @Test
-  public void testExtraLinkTimeLibraryApiRaisesError() throws Exception {
-    scratch.file(
-        "b/BUILD",
-        "load('//b:rule.bzl', 'cc_rule')",
-        "cc_library(name='cc_dep', srcs=['cc_dep.cc'])",
-        "cc_rule(name='foo', cc_dep=':cc_dep')");
-    ImmutableList<String> calls =
-        ImmutableList.of(
-            "cc_common.create_linking_context(linker_inputs=depset([]), go_link_c_archive=None)",
-            "linking_context.go_link_c_archive()");
-    for (String call : calls) {
-      scratch.overwriteFile(
-          "b/rule.bzl",
-          "def _impl(ctx):",
-          "  linking_context = ctx.attr.cc_dep[CcInfo].linking_context",
-          "  " + call,
-          "  return [DefaultInfo()]",
-          "cc_rule = rule(",
-          "  implementation = _impl,",
-          "  attrs = { ",
-          "    'cc_dep': attr.label(),",
-          "  },",
-          ")");
-      invalidatePackages();
-      AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:foo"));
-      assertThat(e).hasMessageThat().contains("Rule in 'b' cannot use private API");
+      assertThat(e).hasMessageThat().contains("cannot use private API");
     }
   }
 
@@ -7481,9 +7464,15 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     CppLinkAction action =
         (CppLinkAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".a"));
 
-    action.getLinkCommandLine().getBuildVariables().getSequenceVariable("string_sequence_variable");
-    action.getLinkCommandLine().getBuildVariables().getStringVariable("string_variable");
-    action.getLinkCommandLine().getBuildVariables().getSequenceVariable("string_depset_variable");
+    action
+        .getLinkCommandLineForTesting()
+        .getBuildVariables()
+        .getSequenceVariable("string_sequence_variable");
+    action.getLinkCommandLineForTesting().getBuildVariables().getStringVariable("string_variable");
+    action
+        .getLinkCommandLineForTesting()
+        .getBuildVariables()
+        .getSequenceVariable("string_depset_variable");
   }
 
   @Test
@@ -7496,9 +7485,15 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         (CppLinkAction)
             getGeneratingAction((Artifact) getMyInfoFromTarget(target).getValue("executable"));
 
-    action.getLinkCommandLine().getBuildVariables().getSequenceVariable("string_sequence_variable");
-    action.getLinkCommandLine().getBuildVariables().getStringVariable("string_variable");
-    action.getLinkCommandLine().getBuildVariables().getSequenceVariable("string_depset_variable");
+    action
+        .getLinkCommandLineForTesting()
+        .getBuildVariables()
+        .getSequenceVariable("string_sequence_variable");
+    action.getLinkCommandLineForTesting().getBuildVariables().getStringVariable("string_variable");
+    action
+        .getLinkCommandLineForTesting()
+        .getBuildVariables()
+        .getSequenceVariable("string_depset_variable");
   }
 
   @Test
@@ -7676,7 +7671,9 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     AssertionError e =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
 
-    assertThat(e).hasMessageThat().contains("private API only for use in builtins");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("file '//foo:custom_rule.bzl' cannot use private @_builtins API");
   }
 
   @Test
@@ -7852,7 +7849,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGetCompileBuildVariablesStripOptsNotAcessibleFromOutsideBuiltins()
+  public void testGetCompileBuildVariablesStripOptsNotAccessibleFromOutsideBuiltins()
       throws Exception {
     scratch.file(
         "foo/BUILD",
@@ -7882,7 +7879,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGetCompileBuildVariablesInputFileNotAcessibleFromOutsideBuiltins()
+  public void testGetCompileBuildVariablesInputFileNotAccessibleFromOutsideBuiltins()
       throws Exception {
     scratch.file(
         "foo/BUILD",
@@ -7912,7 +7909,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCreateLinkingContextFromCompilationOutputsStampNotAcessibleFromOutsideBuiltins()
+  public void testCreateLinkingContextFromCompilationOutputsStampNotAccessibleFromOutsideBuiltins()
       throws Exception {
     scratch.file(
         "foo/BUILD",
@@ -7944,7 +7941,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLinkUseTestOnlyFlagNotAcessibleFromOutsideBuiltins() throws Exception {
+  public void testLinkUseTestOnlyFlagNotAccessibleFromOutsideBuiltins() throws Exception {
     scratch.file(
         "foo/BUILD",
         "load(':custom_rule.bzl', 'custom_rule')",
@@ -7973,7 +7970,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLinkUsePdbFileNotAcessibleFromOutsideBuiltins() throws Exception {
+  public void testLinkUsePdbFileNotAccessibleFromOutsideBuiltins() throws Exception {
     scratch.file(
         "foo/BUILD",
         "load(':custom_rule.bzl', 'custom_rule')",
@@ -8002,7 +7999,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLinkUseWinDefFileNotAcessibleFromOutsideBuiltins() throws Exception {
+  public void testLinkUseWinDefFileNotAccessibleFromOutsideBuiltins() throws Exception {
     scratch.file(
         "foo/BUILD",
         "load(':custom_rule.bzl', 'custom_rule')",
@@ -8080,5 +8077,149 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
 
     assertThat(e).hasMessageThat().contains("cannot use private API");
+  }
+
+  @Test
+  public void testGetBuildInfoArtifactsIsPrivateApi() throws Exception {
+    scratch.file(
+        "foo/BUILD", "load(':custom_rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  cc_common.get_build_info(ctx)",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        ")");
+    invalidatePackages();
+
+    AssertionError e =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
+
+    assertThat(e).hasMessageThat().contains("cannot use private API");
+  }
+
+  @Test
+  public void testBuildInfoArtifacts() throws Exception {
+    scratch.file(
+        "bazel_internal/test_rules/cc/rule.bzl",
+        "def _impl(ctx):",
+        "  artifacts = cc_common.get_build_info(ctx)",
+        "  return [DefaultInfo(files = depset(artifacts))]",
+        "build_info_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {'stamp': attr.int()},",
+        ")");
+    scratch.file(
+        "bazel_internal/test_rules/cc/BUILD",
+        "load(':rule.bzl', 'build_info_rule')",
+        "build_info_rule(name = 'stamped', stamp = 1,)",
+        "build_info_rule(name = 'unstamped', stamp = 0,)");
+    assertThat(
+            prettyArtifactNames(
+                getConfiguredTarget("//bazel_internal/test_rules/cc:stamped")
+                    .getProvider(FileProvider.class)
+                    .getFilesToBuild()))
+        .containsExactly("build-info-nonvolatile.h", "build-info-volatile.h");
+    assertThat(
+            prettyArtifactNames(
+                getConfiguredTarget("//bazel_internal/test_rules/cc:unstamped")
+                    .getProvider(FileProvider.class)
+                    .getFilesToBuild()))
+        .containsExactly("build-info-redacted.h");
+  }
+
+  @Test
+  public void testCheckPrivateApiCanOnlyBeCalledFromCcCommonBzl() throws Exception {
+    scratch.file(
+        "foo/BUILD", //
+        "load(':custom_rule.bzl', 'custom_rule')",
+        "custom_rule(name = 'custom')");
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  cc_common.check_private_api(allowlist = [])",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        ")");
+
+    AssertionError e =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
+
+    assertThat(e)
+        .hasMessageThat()
+        .contains("'struct' value has no field or method 'check_private_api'");
+  }
+
+  @Test
+  public void testCheckPrivateApiAllowlistBlocksPrivateParameter() throws Exception {
+    scratch.file(
+        "foo/BUILD", //
+        "load(':custom_rule.bzl', 'custom_rule')",
+        "custom_rule(name = 'custom')");
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  cc_common.create_compilation_context(purpose = 'whatever')",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        ")");
+
+    AssertionError e =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
+
+    assertThat(e).hasMessageThat().contains("cannot use private API");
+  }
+
+  @Test
+  public void testCheckPrivateApiAllowlistAllowsPrivateParameter() throws Exception {
+    scratch.overwriteFile(
+        "tools/build_defs/android/BUILD",
+        "load(':custom_rule.bzl', 'custom_rule')",
+        "custom_rule(name = 'custom')");
+    scratch.overwriteFile(
+        "tools/build_defs/android/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  cc_common.create_compilation_context(purpose = 'whatever')",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        ")");
+
+    getConfiguredTarget("//tools/build_defs/android:custom");
+  }
+
+  // grep_includes is not supported by Bazel.
+  @Test
+  public void testGrepIncludesIsSetToNullInsideCcToolchain() throws Exception {
+    if (!AnalysisMock.get().isThisBazel()) {
+      return;
+    }
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'cc_skylark_library')",
+        "cc_skylark_library(",
+        "    name = 'skylark_lib',",
+        ")");
+    scratch.file(
+        "foo/extension.bzl",
+        "def _cc_skylark_library_impl(ctx):",
+        "    return [ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]]",
+        "cc_skylark_library = rule(",
+        "    implementation = _cc_skylark_library_impl,",
+        "    attrs = {",
+        "      '_cc_toolchain': attr.label(default =",
+        "          configuration_field(fragment = 'cpp', name = 'cc_toolchain')),",
+        "    },",
+        "    fragments = ['cpp'],",
+        ")");
+
+    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
+    Artifact grepIncludes = toolchainProvider.getGrepIncludes();
+
+    assertThat(grepIncludes).isNull();
   }
 }

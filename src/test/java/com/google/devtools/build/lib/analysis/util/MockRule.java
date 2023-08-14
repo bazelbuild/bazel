@@ -94,15 +94,13 @@ import java.util.Arrays;
  */
 public interface MockRule extends RuleDefinition {
   // MockRule is designed to be easy to use. That doesn't necessarily mean its implementation is
-  // easy to undestand.
+  // easy to understand.
   //
   // If you just want to mock a rule, it's best to rely on the interface javadoc above, rather than
   // trying to parse what's going on below. You really only need to understand the below if you want
   // to customize MockRule itself.
 
-  /**
-   * Container for the desired name and custom settings for this rule class.
-   */
+  /** Container for the desired name and custom settings for this rule class. */
   class State {
     private final String name;
     private final MockRuleCustomBehavior customBehavior;

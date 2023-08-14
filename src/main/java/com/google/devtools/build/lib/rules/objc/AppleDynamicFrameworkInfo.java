@@ -20,7 +20,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleDynamicFrameworkInfoApi;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
+import com.google.devtools.build.lib.starlarkbuildapi.objc.AppleDynamicFrameworkInfoApi;
 import javax.annotation.Nullable;
 
 /**
@@ -32,6 +33,8 @@ import javax.annotation.Nullable;
  *   <li>'framework_files': The full set of artifacts that should be included as inputs to link
  *       against the dynamic framework
  *   <li>'binary': The dylib binary artifact of the dynamic framework
+ *   <li>'cc_info': A {@link CcInfo} which contains information about the transitive dependencies
+ *       linked into the binary.
  *   <li>'objc': An {@link ObjcProvider} which contains information about the transitive
  *       dependencies linked into the binary, (intended so that bundle loaders depending on this
  *       executable may avoid relinking symbols included in the loadable binary
@@ -49,26 +52,20 @@ public final class AppleDynamicFrameworkInfo extends NativeInfo
       new BuiltinProvider<AppleDynamicFrameworkInfo>(
           STARLARK_NAME, AppleDynamicFrameworkInfo.class) {};
 
-  /** Field name for the dylib binary artifact of the dynamic framework. */
-  public static final String DYLIB_BINARY_FIELD_NAME = "binary";
-  /** Field name for the framework path names of the dynamic framework. */
-  public static final String FRAMEWORK_DIRS_FIELD_NAME = "framework_dirs";
-  /** Field name for the framework link-input artifacts of the dynamic framework. */
-  public static final String FRAMEWORK_FILES_FIELD_NAME = "framework_files";
-  /** Field name for the {@link ObjcProvider} containing dependency information. */
-  public static final String OBJC_PROVIDER_FIELD_NAME = "objc";
-
   private final NestedSet<String> dynamicFrameworkDirs;
   private final NestedSet<Artifact> dynamicFrameworkFiles;
   @Nullable private final Artifact dylibBinary;
+  private final CcInfo depsCcInfo;
   private final ObjcProvider depsObjcProvider;
 
   public AppleDynamicFrameworkInfo(
       @Nullable Artifact dylibBinary,
+      CcInfo depsCcInfo,
       ObjcProvider depsObjcProvider,
       NestedSet<String> dynamicFrameworkDirs,
       NestedSet<Artifact> dynamicFrameworkFiles) {
     this.dylibBinary = dylibBinary;
+    this.depsCcInfo = depsCcInfo;
     this.depsObjcProvider = depsObjcProvider;
     this.dynamicFrameworkDirs = dynamicFrameworkDirs;
     this.dynamicFrameworkFiles = dynamicFrameworkFiles;
@@ -81,17 +78,22 @@ public final class AppleDynamicFrameworkInfo extends NativeInfo
 
   @Override
   public Depset /*<String>*/ getDynamicFrameworkDirs() {
-    return Depset.of(Depset.ElementType.STRING, dynamicFrameworkDirs);
+    return Depset.of(String.class, dynamicFrameworkDirs);
   }
 
   @Override
   public Depset /*<Artifact>*/ getDynamicFrameworkFiles() {
-    return Depset.of(Artifact.TYPE, dynamicFrameworkFiles);
+    return Depset.of(Artifact.class, dynamicFrameworkFiles);
   }
 
   @Override
   public Artifact getAppleDylibBinary() {
     return dylibBinary;
+  }
+
+  @Override
+  public CcInfo getDepsCcInfo() {
+    return depsCcInfo;
   }
 
   @Override

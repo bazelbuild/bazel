@@ -1,8 +1,12 @@
+# TODO(arostovtsev): move this package to rules/starlarkdocextract when we remove legacy Stardoc.
+
 load("@rules_java//java:defs.bzl", "java_proto_library")
 
 package(
     default_visibility = [
+        "//src/main/java/com/google/devtools/build/lib/rules/starlarkdocextract:__subpackages__",
         "//src/main/java/com/google/devtools/build/skydoc:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib/rules/starlarkdocextract:__subpackages__",
         "//src/test/java/com/google/devtools/build/skydoc:__subpackages__",
     ],
 )

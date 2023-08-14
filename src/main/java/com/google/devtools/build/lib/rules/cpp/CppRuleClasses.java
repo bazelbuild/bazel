@@ -33,6 +33,7 @@ import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.SHARED_LIBRAR
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.VERSIONED_SHARED_LIBRARY;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
@@ -41,6 +42,7 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.In
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault.Resolver;
+import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -110,7 +112,7 @@ public class CppRuleClasses {
               FileTypeSet.of(
                   CPP_SOURCE, C_SOURCE, CPP_HEADER, ASSEMBLER_WITH_C_PREPROCESSOR, ASSEMBLER))
           .withSourceAttributes("srcs", "hdrs")
-          .withDependencyAttributes("interface_deps", "deps", "data");
+          .withDependencyAttributes("implementation_deps", "deps", "data");
 
   /** Implicit outputs for cc_binary rules. */
   public static final SafeImplicitOutputsFunction CC_BINARY_STRIPPED =
@@ -167,6 +169,15 @@ public class CppRuleClasses {
 
   /** A string constant for the layering_check feature. */
   public static final String LAYERING_CHECK = "layering_check";
+
+  /**
+   * A string constant that signifies whether the crosstool validates layering_check in
+   * textual_hdrs. We use the compiler's definition of textual_hdrs also for all regular but
+   * non-modular headers. This in turn means that the compiler can check layering in headers of the
+   * same target, irrespective the PARSE_HEADERS feature and we can elide separate header actions.
+   */
+  public static final String VALIDATES_LAYERING_CHECK_IN_TEXTUAL_HDRS =
+      "validates_layering_check_in_textual_hdrs";
 
   /** A string constant for the header_modules feature. */
   public static final String HEADER_MODULES = "header_modules";
@@ -245,6 +256,13 @@ public class CppRuleClasses {
   /** A string constant for a feature that indicates that the toolchain can produce PIC objects. */
   public static final String SUPPORTS_PIC = "supports_pic";
 
+  /**
+   * A string constant for a feature that indicates that PIC compiles are preferred for binaries
+   * even in optimized builds. For configurations that use dynamic linking for tests, this provides
+   * increases sharing of artifacts between tests and binaries at the cost of performance overhead.
+   */
+  public static final String PREFER_PIC_FOR_OPT_BINARIES = "prefer_pic_for_opt_binaries";
+
   /** A string constant for the feature the represents preprocessor defines. */
   public static final String PREPROCESSOR_DEFINES = "preprocessor_defines";
 
@@ -268,6 +286,9 @@ public class CppRuleClasses {
 
   /** A string constant for the LTO indexing bitcode feature. */
   public static final String NO_USE_LTO_INDEXING_BITCODE_FILE = "no_use_lto_indexing_bitcode_file";
+
+  /** A string constant for the LTO separate native object directory feature. */
+  public static final String USE_LTO_NATIVE_OBJECT_DIRECTORY = "use_lto_native_object_directory";
 
   /*
    * A string constant for allowing implicit ThinLTO enablement for AFDO.
@@ -403,6 +424,9 @@ public class CppRuleClasses {
   /** A string constant for the propeller optimize feature. */
   public static final String PROPELLER_OPTIMIZE = "propeller_optimize";
 
+  /** A string constant for the memprof profile optimization feature. */
+  public static final String MEMPROF_OPTIMIZE = "memprof_optimize";
+
   /**
    * A string constant for the propeller_optimize_thinlto_compile_actions feature.
    *
@@ -445,6 +469,9 @@ public class CppRuleClasses {
   /** A feature marking that the target needs to link its deps in --whole-archive block. */
   public static final String LEGACY_WHOLE_ARCHIVE = "legacy_whole_archive";
 
+  /** A feature for force disabling whole-archive on a per target and per rule type basis. */
+  public static final String FORCE_NO_WHOLE_ARCHIVE = "force_no_whole_archive";
+
   /**
    * A feature marking that the target generates libraries that should not be put in a
    * --whole-archive block.
@@ -453,6 +480,15 @@ public class CppRuleClasses {
       "disable_whole_archive_for_static_lib";
 
   public static final String COMPILER_PARAM_FILE = "compiler_param_file";
+
+  /**
+   * A feature to control whether to use param files for archiving commands. This can be applied to
+   * individual targets.
+   */
+  public static final String ARCHIVE_PARAM_FILE = "archive_param_file";
+
+  /** A feature to use gcc quoting for linking param files. */
+  public static final String GCC_QUOTING_FOR_PARAM_FILES = "gcc_quoting_for_param_files";
 
   /**
    * A feature to indicate that this target generates debug symbols for a dSYM file. For Apple
@@ -487,9 +523,6 @@ public class CppRuleClasses {
    */
   public static final String LEGACY_IS_CC_TEST_FEATURE_NAME = "legacy_is_cc_test";
 
-  /** Tag used to opt in into interface_deps behavior. */
-  public static final String INTERFACE_DEPS_TAG = "__INTERFACE_DEPS__";
-
   /** Ancestor for all rules that do include scanning. */
   public static final class CcIncludeScanningRule implements RuleDefinition {
     private final boolean addGrepIncludes;
@@ -507,7 +540,7 @@ public class CppRuleClasses {
       if (addGrepIncludes) {
         builder.add(
             attr("$grep_includes", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .value(env.getToolsLabel("//tools/cpp:grep-includes")));
       }
       return builder.build();
@@ -529,7 +562,12 @@ public class CppRuleClasses {
   public static final class CcLinkingRule implements RuleDefinition {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder.addExecGroup(CPP_LINK_EXEC_GROUP).build();
+      return builder
+          .addExecGroups(
+              ImmutableMap.of(
+                  CPP_LINK_EXEC_GROUP,
+                  ExecGroup.builder().addToolchainType(ccToolchainTypeRequirement(env)).build()))
+          .build();
     }
 
     @Override

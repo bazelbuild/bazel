@@ -39,7 +39,7 @@ public final class ProviderCodecTest {
             dummyProvider,
             StarlarkProvider.builder(Location.BUILTIN)
                 .setExported(
-                    new StarlarkProvider.Key(Label.parseAbsoluteUnchecked("//foo:bar.bzl"), "foo"))
+                    new StarlarkProvider.Key(Label.parseCanonicalUnchecked("//foo:bar.bzl"), "foo"))
                 .build())
         .addDependency(DummyProvider.class, dummyProvider)
         .runTests();

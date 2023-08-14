@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getDirectJars;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -33,11 +34,11 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
-import com.google.devtools.build.lib.rules.java.JavaImport;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
+import com.google.devtools.build.lib.testutil.MoreAsserts;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -46,9 +47,14 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link JavaImport}. */
+/** Unit tests for java_import. */
 @RunWith(JUnit4.class)
 public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
+
+  @Before
+  public void setCommandLineFlags() throws Exception {
+    setBuildLanguageOptions("--experimental_google_legacy_api");
+  }
 
   @Before
   public final void writeBuildFile() throws Exception {
@@ -66,6 +72,12 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
         "    name = 'java_import_exports',",
         "    packages = ['//...'],",
         ")");
+    scratch.overwriteFile(
+        "tools/allowlists/java_import_empty_jars/BUILD",
+        "package_group(",
+        "    name = 'java_import_empty_jars',",
+        "    packages = [],",
+        ")");
   }
 
   @Test
@@ -73,6 +85,23 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
     ConfiguredTarget jarLib = getConfiguredTarget("//java/jarlib:libraryjar");
     assertThat(prettyArtifactNames(getFilesToBuild(jarLib)))
         .containsExactly("java/jarlib/library.jar");
+  }
+
+  // Regression test for b/262751943.
+  @Test
+  public void testCommandLineContainsTargetLabel() throws Exception {
+    scratch.file("java/BUILD", "java_import(name = 'java_imp', jars = ['import.jar'])");
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//java:java_imp");
+    Artifact compiledArtifact =
+        JavaInfo.getProvider(JavaCompilationArgsProvider.class, configuredTarget)
+            .getDirectCompileTimeJars()
+            .toList()
+            .get(0);
+    SpawnAction action = (SpawnAction) getGeneratingAction(compiledArtifact);
+    ImmutableList<String> args = action.getCommandLines().allArguments();
+
+    MoreAsserts.assertContainsSublist(args, "--target_label", "//java:java_imp");
   }
 
   // Regression test for b/5868388.
@@ -259,7 +288,9 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testPermitsEmptyJars() throws Exception {
+    useConfiguration("--incompatible_disallow_java_import_empty_jars=0");
     scratchConfiguredTarget("pkg", "rule", "java_import(name = 'rule', jars = [])");
+    assertNoEvents();
   }
 
   @Test
@@ -300,7 +331,7 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
     checkError(
         "badlib",
         "library-jar",
-        "//badlib:library-jar: should not refer to Java rules",
+        "'jars' attribute cannot contain labels of Java targets",
         "java_library(name = 'javalib',",
         "             srcs = ['Javalib.java'])",
         "java_import(name  = 'library-jar',",
@@ -391,7 +422,7 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
         "    jars = ['dummy.jar'],",
         "    exports = [':lib'])");
     ConfiguredTarget processorTarget = getConfiguredTarget("//java/com/google/test:jar");
-    JavaInfo javaInfo = (JavaInfo) processorTarget.get(JavaInfo.PROVIDER.getKey());
+    JavaInfo javaInfo = processorTarget.get(JavaInfo.PROVIDER);
     assertThat(javaInfo.isNeverlink()).isTrue();
   }
 

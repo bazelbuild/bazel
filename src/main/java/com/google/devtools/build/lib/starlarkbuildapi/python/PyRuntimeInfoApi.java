@@ -45,8 +45,6 @@ import net.starlark.java.eval.StarlarkValue;
     category = DocCategory.PROVIDER)
 public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
 
-  static final String DEFAULT_STUB_SHEBANG = "#!/usr/bin/env python3";
-
   @StarlarkMethod(
       name = "interpreter_path",
       structField = true,
@@ -83,6 +81,26 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
   Depset getFilesForStarlark();
 
   @StarlarkMethod(
+      name = "coverage_tool",
+      structField = true,
+      allowReturnNones = true,
+      doc =
+          "If set, this field is a <code>File</code> representing tool used for collecting code "
+              + "coverage information from python tests. Otherwise, this is <code>None</code>.")
+  @Nullable
+  FileT getCoverageTool();
+
+  @StarlarkMethod(
+      name = "coverage_files",
+      structField = true,
+      allowReturnNones = true,
+      doc =
+          "The files required at runtime for using <code>coverage_tool</code>. "
+              + "Will be <code>None</code> if no <code>coverage_tool</code> was provided.")
+  @Nullable
+  Depset getCoverageToolFilesForStarlark();
+
+  @StarlarkMethod(
       name = "python_version",
       structField = true,
       doc =
@@ -98,6 +116,15 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
               + "used when executing <code>py_binary</code> targets.  Does not apply "
               + "to Windows.")
   String getStubShebang();
+
+  @StarlarkMethod(
+      name = "bootstrap_template",
+      structField = true,
+      doc =
+          "The stub script template file to use. Should have %python_binary%, "
+              + "%workspace_name%, %main%, and %imports%. See "
+              + "@bazel_tools//tools/python:python_bootstrap_template.txt for more variables.")
+  FileT getBootstrapTemplate();
 
   /** Provider type for {@link PyRuntimeInfoApi} objects. */
   @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
@@ -146,6 +173,29 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
                       + "<code>interpreter</code> is given and this argument is <code>None</code>, "
                       + "<code>files</code> becomes an empty <code>depset</code> instead."),
           @Param(
+              name = "coverage_tool",
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
+              positional = false,
+              named = true,
+              defaultValue = "None",
+              doc = "The value for the new object's <code>coverage_tool</code> field."),
+          @Param(
+              name = "coverage_files",
+              allowedTypes = {
+                @ParamType(type = Depset.class, generic1 = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
+              positional = false,
+              named = true,
+              defaultValue = "None",
+              doc =
+                  "The value for the new object's <code>coverage_files</code> field. Do not give a "
+                      + "value for this argument if you do not also pass in "
+                      + "<code>coverage_tool</code>."),
+          @Param(
               name = "python_version",
               positional = false,
               named = true,
@@ -155,12 +205,20 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
               allowedTypes = {@ParamType(type = String.class)},
               positional = false,
               named = true,
-              defaultValue = "'" + DEFAULT_STUB_SHEBANG + "'",
+              defaultValue = "None",
               doc =
                   "The value for the new object's <code>stub_shebang</code> field. "
-                      + "Default is <code>"
-                      + DEFAULT_STUB_SHEBANG
-                      + "</code>."),
+                      + "If None or not specified, <code>#!/usr/bin/env python3</code> is used."),
+          @Param(
+              name = "bootstrap_template",
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
+              positional = false,
+              named = true,
+              defaultValue = "None",
+              doc = ""),
         },
         useStarlarkThread = true,
         selfCall = true)
@@ -169,8 +227,11 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
         Object interpreterPathUncast,
         Object interpreterUncast,
         Object filesUncast,
+        Object coverageToolUncast,
+        Object coverageFilesUncast,
         String pythonVersion,
         String stubShebang,
+        Object bootstrapTemplate,
         StarlarkThread thread)
         throws EvalException;
   }

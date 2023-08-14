@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.skyframe.TestsForTargetPatternValue.TestsFo
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -52,18 +52,20 @@ final class TestsForTargetPatternFunction implements SkyFunction {
         testsInSuitesKeys.add(TestExpansionValue.key(target, true));
       }
     }
-    SkyframeIterableResult testsInSuites = env.getOrderedValuesAndExceptions(testsInSuitesKeys);
+    SkyframeLookupResult testsInSuites = env.getValuesAndExceptions(testsInSuitesKeys);
     if (env.valuesMissing()) {
       return null;
     }
 
     Set<Label> result = new LinkedHashSet<>();
     boolean hasError = targets.hasError();
+    int keyIndex = 0;
     for (Target target : targets.getTargets()) {
       if (TargetUtils.isTestRule(target)) {
         result.add(target.getLabel());
       } else if (TargetUtils.isTestSuiteRule(target)) {
-        TestExpansionValue value = (TestExpansionValue) testsInSuites.next();
+        TestExpansionValue value =
+            (TestExpansionValue) testsInSuites.get(testsInSuitesKeys.get(keyIndex++));
         if (value == null) {
           return null;
         }
@@ -85,8 +87,7 @@ final class TestsForTargetPatternFunction implements SkyFunction {
     for (Label label : labels) {
       pkgIdentifiers.add(label.getPackageIdentifier());
     }
-    List<SkyKey> packagesKeys = PackageValue.keys(pkgIdentifiers);
-    SkyframeIterableResult packages = env.getOrderedValuesAndExceptions(packagesKeys);
+    SkyframeLookupResult packages = env.getValuesAndExceptions(pkgIdentifiers);
     if (env.valuesMissing()) {
       return null;
     }
@@ -94,9 +95,9 @@ final class TestsForTargetPatternFunction implements SkyFunction {
     ResolvedTargets.Builder<Target> builder = ResolvedTargets.builder();
     builder.mergeError(hasError);
     Map<PackageIdentifier, Package> packageMap = new HashMap<>();
-    for (SkyKey packagesKey : packagesKeys) {
+    for (SkyKey packagesKey : pkgIdentifiers) {
       // Don't bother to check for exceptions - the incoming list should only contain valid targets.
-      PackageValue packagesValue = (PackageValue) packages.next();
+      PackageValue packagesValue = (PackageValue) packages.get(packagesKey);
       if (packagesValue == null) {
         BugReport.sendBugReport(
             new IllegalStateException(

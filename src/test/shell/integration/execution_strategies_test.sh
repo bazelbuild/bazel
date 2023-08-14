@@ -93,33 +93,6 @@ function test_empty_strategy_means_default() {
   expect_not_log "\"FooBar\" = "
 }
 
-function test_dynamic_strategy_skip_first() {
-  mkdir -p pkg
-  cat >pkg/BUILD <<'EOF'
-java_library(
-  name = "pkg",
-  srcs = ["pkg.java"],
-)
-EOF
-  touch pkg/pkg.java
-
-  # Remote strategy is "worker" to make the test work both internally and
-  # externally. We don't really care beyond getting the expected warning right.
-  bazel build --internal_spawn_scheduler --spawn_strategy=dynamic \
-    --dynamic_remote_strategy=worker \
-    --dynamic_local_strategy=standalone \
-    --experimental_debug_spawn_scheduler \
-    --experimental_dynamic_skip_first_build //pkg &> $TEST_log || fail
-  expect_log "Disabling dynamic execution"
-
-  bazel build --internal_spawn_scheduler --spawn_strategy=dynamic \
-    --dynamic_remote_strategy=worker \
-    --dynamic_local_strategy=standalone \
-    --experimental_debug_spawn_scheduler \
-    --experimental_dynamic_skip_first_build //pkg &> $TEST_log || fail
-  expect_not_log "Disabling dynamic execution"
-}
-
 # Runs a build, waits for the given dir and file to appear, and then kills
 # Bazel to check what happens with said files.
 function build_and_interrupt() {
@@ -159,8 +132,9 @@ genrule(
 )
 EOF
   touch pkg/pkg.txt
-  local dir="bazel-genfiles/pkg/dir"
-  local file="bazel-genfiles/pkg/file"
+  local genfiles_dir="$(bazel info $PRODUCT_NAME-genfiles)"
+  local dir="${genfiles_dir}/pkg/dir"
+  local file="${genfiles_dir}/pkg/file"
 
   build_and_interrupt "${dir}" "${file}" --noexperimental_local_lockfree_output
   [[ -d "${dir}" ]] || fail "Expected directory output to not exist"
@@ -203,8 +177,9 @@ EOF
 load(":rules.bzl", "test_tree_artifact")
 test_tree_artifact(name = "pkg")
 EOF
-  local dir="bazel-bin/pkg/pkg.dir"
-  local file="bazel-bin/pkg/pkg.dir/file"
+  local bin_dir="$(bazel info $PRODUCT_NAME-bin)"
+  local dir="${bin_dir}/pkg/pkg.dir"
+  local file="${bin_dir}/pkg/pkg.dir/file"
 
   build_and_interrupt "${dir}" "${file}" --noexperimental_local_lockfree_output
   [[ -d "${dir}" ]] || fail "Expected tree artifact root to exist"
@@ -214,6 +189,47 @@ EOF
   if [[ -f "${file}" ]]; then
      fail "Expected tree artifact contents to not exist"
   fi
+}
+
+function test_ignore_local_failures() {
+  if "$is_windows"; then
+    cat 1>&2 <<EOF
+This test is known to be broken on Windows because it does not have Posix signals
+Skipping...
+EOF
+    return 0
+  fi
+
+  cat > BUILD <<'EOF'
+genrule(
+  name = "test",
+  outs = ["test.txt"],
+  cmd = (
+      "if pwd | grep sandbox ; then "
+      + "  echo Remote branch running; "
+      + "  sleep 3; "
+      + "  echo remote | tee $(location test.txt); "
+      + "else "
+      + "  echo Local branch killing itself; "
+      + "  kill -9 $$$$; "
+      + "  echo local | tee $(location test.txt); "
+      + "fi; "
+  ),
+)
+
+EOF
+
+  bazel build --internal_spawn_scheduler --genrule_strategy=dynamic \
+    --dynamic_remote_strategy=sandboxed \
+    --dynamic_local_strategy=standalone \
+    --experimental_dynamic_ignore_local_signals=8,9,10 \
+    --experimental_local_lockfree_output \
+    --experimental_local_execution_delay=0 \
+    --verbose_failures \
+    :all &>"$TEST_log" || fail "build failed"
+
+  expect_not_log '^local$'
+  expect_log '^remote$'
 }
 
 run_suite "Tests for the execution strategy selection."

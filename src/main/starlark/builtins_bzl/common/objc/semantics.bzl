@@ -14,6 +14,24 @@
 
 """Semantics for Bazel Objc rules"""
 
+load(":common/cc/cc_common.bzl", "cc_common")
+
+def _check_toolchain_supports_objc_compile(ctx, cc_toolchain):
+    feature_configuration = cc_common.configure_features(
+        ctx = ctx,
+        cc_toolchain = cc_toolchain,
+        language = "objc",
+        requested_features = ctx.features,
+        unsupported_features = ctx.disabled_features,
+    )
+
+    if not cc_common.action_is_enabled(
+        feature_configuration = feature_configuration,
+        action_name = "objc-compile",
+    ):
+        fail("Compiling objc_library targets requires the Apple CC toolchain " +
+             "which can be found here: https://github.com/bazelbuild/apple_support#toolchain-setup")
+
 def _get_licenses_attr():
     # TODO(b/182226065): Change to applicable_licenses
     return {}
@@ -25,6 +43,7 @@ def _get_repo():
     return "bazel_tools"
 
 semantics = struct(
+    check_toolchain_supports_objc_compile = _check_toolchain_supports_objc_compile,
     get_semantics = _get_semantics,
     get_repo = _get_repo,
     get_licenses_attr = _get_licenses_attr,

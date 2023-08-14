@@ -68,6 +68,8 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/bazel/remote_helpers.sh")" \
   || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 
+mock_rules_java_to_avoid_downloading
+
 # Basic test.
 function test_macro_local_repository() {
   create_new_workspace
@@ -1174,10 +1176,10 @@ def _impl(repository_ctx):
 repo = repository_rule(implementation = _impl, local = False)
 EOF
 
-  # This test case explictly verifies that a checksum is returned, even if
+  # This test case explicitly verifies that a checksum is returned, even if
   # none was provided by the call to download_and_extract. So we do have to
   # allow a download without provided checksum, even though it is plain http;
-  # nevertheless, localhost is pretty safe against man-in-the-middle attacs.
+  # nevertheless, localhost is pretty safe against man-in-the-middle attacks.
   bazel build @foo//:all \
         >& $TEST_log && shutdown_server || fail "Execution of @foo//:all failed"
 
@@ -1541,7 +1543,7 @@ EOF
 
 function test_download_failure_message() {
   # Regression test for #7850
-  # Verify that the for a failed downlaod, it is clearly indicated
+  # Verify that the for a failed download, it is clearly indicated
   # what was attempted to download and how it fails.
   cat > BUILD <<'EOF'
 genrule(
@@ -1713,38 +1715,64 @@ EOF
   expect_log "//:b.bzl"
 }
 
-function test_auth_provided() {
-  mkdir x
+# Common setup logic for test_auth_*.
+# Receives as arguments the username and password for basic authentication.
+# If no arguments are provided, no authentication is used.
+function setup_auth() {
+  if [[ $# -ne 0 && $# -ne 2 ]]; then
+    fail "setup_auth expects exactly zero or two arguments"
+  fi
+
+  mkdir -p x
   echo 'exports_files(["file.txt"])' > x/BUILD
   echo 'Hello World' > x/file.txt
   tar cvf x.tar x
   sha256="$(sha256sum x.tar | head -c 64)"
   serve_file_auth x.tar
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("//:auth.bzl", "with_auth")
-with_auth(
-  name="ext",
-  url = "http://127.0.0.1:$nc_port/x.tar",
-  sha256 = "$sha256",
-)
+
+  if [[ $# -eq 2 ]]; then
+    local -r username=$1
+    local -r password=$2
+    cat > auth_attrs.bzl <<EOF
+AUTH_ATTRS = {
+  "type": "basic",
+  "login" : "$username",
+  "password" : "$password",
+}
 EOF
+  else
+    cat > auth_attrs.bzl <<'EOF'
+AUTH_ATTRS = None
+EOF
+  fi
+
   cat > auth.bzl <<'EOF'
+load("//:auth_attrs.bzl", "AUTH_ATTRS")
 def _impl(ctx):
   ctx.download_and_extract(
     url = ctx.attr.url,
     sha256 = ctx.attr.sha256,
-    # Use the username/password pair hard-coded
-    # in the testing server.
-    auth = {ctx.attr.url : { "type": "basic",
-                            "login" : "foo",
-                            "password" : "bar"}}
+    auth = { ctx.attr.url: AUTH_ATTRS } if AUTH_ATTRS else {},
   )
 
-with_auth = repository_rule(
+maybe_with_auth = repository_rule(
   implementation = _impl,
-  attrs = { "url" : attr.string(), "sha256" : attr.string() }
+  attrs = {
+    "url" : attr.string(),
+    "sha256" : attr.string(),
+  }
 )
 EOF
+
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+load("//:auth.bzl", "maybe_with_auth")
+maybe_with_auth(
+  name = "ext",
+  url = "http://127.0.0.1:$nc_port/x.tar",
+  sha256 = "$sha256",
+)
+EOF
+
   cat > BUILD <<'EOF'
 genrule(
   name = "it",
@@ -1753,12 +1781,55 @@ genrule(
   cmd = "cp $< $@",
 )
 EOF
+}
+
+function test_auth_from_starlark() {
+  setup_auth foo bar
+
   bazel build //:it \
-      || fail "Expected success despite needing a file behind basic auth"
+      || fail "Expected success when downloading repo with basic auth"
+}
+
+function test_auth_from_credential_helper() {
+  if "$is_windows"; then
+    # Skip on Windows: credential helper is a Python script.
+    return
+  fi
+
+  setup_credential_helper
+
+  setup_auth # no auth
+
+  bazel build //:it \
+      && fail "Expected failure when downloading repo without credential helper"
+
+  bazel build --credential_helper="${TEST_TMPDIR}/credhelper" //:it \
+      || fail "Expected success when downloading repo with credential helper"
+
+  expect_credential_helper_calls 1
+
+  bazel build --credential_helper="${TEST_TMPDIR}/credhelper" //:it \
+      || fail "Expected success when downloading repo with credential helper"
+
+  expect_credential_helper_calls 1 # expect credentials to have been cached
+}
+
+function test_auth_from_credential_helper_overrides_starlark() {
+  if "$is_windows"; then
+    # Skip on Windows: credential helper is a Python script.
+    return
+  fi
+
+  setup_credential_helper
+
+  setup_auth baduser badpass
+
+  bazel build --credential_helper="${TEST_TMPDIR}/credhelper" //:it \
+      || fail "Expected success when downloading repo with credential helper overriding basic auth"
 }
 
 function test_netrc_reading() {
-  # Write a badly formated, but correct, .netrc file
+  # Write a badly formatted, but correct, .netrc file
   cat > .netrc <<'EOF'
 machine ftp.example.com
 macdef init
@@ -1865,7 +1936,7 @@ machine	  oauthlife.com
 	password	TOKEN
 EOF
   # Read a given .netrc file and combine it with a list of URL,
-  # and write the obtained authentication dicionary to disk; this
+  # and write the obtained authentication dictionary to disk; this
   # is not the intended way of using, but makes testing easy.
   cat > def.bzl <<'EOF'
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "read_netrc", "use_netrc")
@@ -1978,7 +2049,7 @@ genrule(
   cmd = "cp $< $@",
 )
 EOF
-  bazel build //:it > "${TEST_log}" 2>&1 && fail "Expeceted failure" || :
+  bazel build //:it > "${TEST_log}" 2>&1 && fail "Expected failure" || :
   expect_log 'plain http.*missing checksum'
 
   # After adding a good checksum, we expect success
@@ -2078,7 +2149,7 @@ EOF
       || fail "Expected success despite needing a file behind bearer auth"
 }
 
-function test_implicit_netrc() {
+function test_http_archive_implicit_netrc() {
   mkdir x
   echo 'exports_files(["file.txt"])' > x/BUILD
   echo 'Hello World' > x/file.txt
@@ -2118,6 +2189,87 @@ EOF
       || fail "Expected success despite needing a file behind basic auth"
 }
 
+function test_http_archive_credential_helper() {
+  if "$is_windows"; then
+    # Skip on Windows: credential helper is a Python script.
+    return
+  fi
+
+  setup_credential_helper
+
+  mkdir x
+  echo 'exports_files(["file.txt"])' > x/BUILD
+  echo 'Hello World' > x/file.txt
+  tar cvf x.tar x
+  sha256=$(sha256sum x.tar | head -c 64)
+  serve_file_auth x.tar
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  url = "http://127.0.0.1:$nc_port/x.tar",
+  sha256="$sha256",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  srcs = ["@ext//x:file.txt"],
+  outs = ["it.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+  bazel build --credential_helper="${TEST_TMPDIR}/credhelper" //:it \
+      || fail "Expected success despite needing a file behind credential helper"
+}
+
+function test_http_archive_credential_helper_overrides_netrc() {
+  if "$is_windows"; then
+    # Skip on Windows: credential helper is a Python script.
+    return
+  fi
+
+  setup_credential_helper
+
+  mkdir x
+  echo 'exports_files(["file.txt"])' > x/BUILD
+  echo 'Hello World' > x/file.txt
+  tar cvf x.tar x
+  sha256=$(sha256sum x.tar | head -c 64)
+  serve_file_auth x.tar
+
+  export HOME=`pwd`
+  if "$is_windows"; then
+    export USERPROFILE="$(cygpath -m ${HOME})"
+  fi
+  cat > .netrc <<'EOF'
+machine 127.0.0.1
+login badusername
+password badpassword
+EOF
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  url = "http://127.0.0.1:$nc_port/x.tar",
+  sha256="$sha256",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  srcs = ["@ext//x:file.txt"],
+  outs = ["it.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+  bazel build --credential_helper="${TEST_TMPDIR}/credhelper" //:it \
+      || fail "Expected success despite needing a file behind credential helper"
+}
+
 function test_disable_download_should_prevent_downloading() {
   mkdir x
   echo 'exports_files(["file.txt"])' > x/BUILD
@@ -2145,9 +2297,9 @@ genrule(
 )
 EOF
 
-  bazel build --experimental_repository_disable_download //:it > "${TEST_log}" 2>&1 \
+  bazel build --repository_disable_download //:it > "${TEST_log}" 2>&1 \
       && fail "Expected failure" || :
-  expect_log "Failed to download repo ext: download is disabled"
+  expect_log "Failed to download repository @ext: download is disabled"
 }
 
 function test_disable_download_should_allow_distdir() {
@@ -2177,7 +2329,7 @@ genrule(
 )
 EOF
 
-  bazel build --distdir="." --experimental_repository_disable_download //:it || fail "Failed to build"
+  bazel build --distdir="." --repository_disable_download //:it || fail "Failed to build"
 }
 
 function test_disable_download_should_allow_local_repository() {
@@ -2203,7 +2355,35 @@ genrule(
 )
 EOF
 
-  bazel build --experimental_repository_disable_download //:it || fail "Failed to build"
+  bazel build --repository_disable_download //:it || fail "Failed to build"
+}
+
+function test_no_restarts_fetching_with_worker_thread() {
+  setup_starlark_repository
+
+  echo foo > file1
+  echo bar > file2
+
+  cat >test.bzl <<EOF
+def _impl(rctx):
+  print("hello world!")
+  print(rctx.read(Label("//:file1")))
+  print(rctx.read(Label("//:file2")))
+  rctx.file("BUILD", "filegroup(name='bar')")
+
+repo = repository_rule(implementation=_impl, local=True)
+EOF
+
+  # no worker thread, restarts twice
+  bazel build @foo//:bar --experimental_worker_for_repo_fetching=off >& $TEST_log \
+    || fail "Expected build to succeed"
+  expect_log_n "hello world!" 3
+
+  # platform worker thread, never restarts
+  bazel shutdown
+  bazel build @foo//:bar --experimental_worker_for_repo_fetching=platform >& $TEST_log \
+    || fail "Expected build to succeed"
+  expect_log_n "hello world!" 1
 }
 
 run_suite "local repository tests"

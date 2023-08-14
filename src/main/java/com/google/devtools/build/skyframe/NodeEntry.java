@@ -13,11 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.util.GroupedList;
-import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -32,7 +30,7 @@ import javax.annotation.Nullable;
  * <p>Certain graph implementations' node entries can throw {@link InterruptedException} on various
  * accesses. Such exceptions should not be caught locally -- they should be allowed to propagate up.
  */
-public interface NodeEntry {
+public interface NodeEntry extends PriorityTracker {
 
   /**
    * Return code for {@link #addReverseDepAndCheckIfDone} and {@link
@@ -80,12 +78,6 @@ public interface NodeEntry {
     NEEDS_FORCED_REBUILDING,
     /** A rebuilding is in progress. */
     REBUILDING,
-    /**
-     * A forced rebuilding is in progress, likely because of a transient error on the previous build
-     * or a recoverable inconsistency in the current one. The distinction between this and {@link
-     * #REBUILDING} is only needed for internal checks.
-     */
-    FORCED_REBUILDING
   }
 
   /** Ways that a node may be dirtied. */
@@ -158,10 +150,11 @@ public interface NodeEntry {
   MarkedDirtyResult markDirty(DirtyType dirtyType) throws InterruptedException;
 
   /**
-   * Returned by {@link #markDirty} if that call changed the node from done to dirty. Contains an
-   * iterable of the node's reverse deps for efficiency, because an important use case for {@link
-   * #markDirty} is during invalidation, and the invalidator must immediately afterwards schedule
-   * the invalidation of a node's reverse deps if the invalidator successfully dirties that node.
+   * Returned by {@link #markDirty} if that call changed the node from done to dirty. Contains a
+   * {@link Collection} of the node's reverse deps for efficiency, because an important use case for
+   * {@link #markDirty} is during invalidation, and the invalidator must immediately afterwards
+   * schedule the invalidation of a node's reverse deps if the invalidator successfully dirties that
+   * node.
    *
    * <p>Warning: {@link #getReverseDepsUnsafe()} may return a live view of the reverse deps
    * collection of the marked-dirty node. The consumer of this data must be careful only to iterate
@@ -169,13 +162,20 @@ public interface NodeEntry {
    * during invalidation, because reverse deps don't change during invalidation.
    */
   final class MarkedDirtyResult {
-    private final Iterable<SkyKey> reverseDepsUnsafe;
 
-    public MarkedDirtyResult(Iterable<SkyKey> reverseDepsUnsafe) {
-      this.reverseDepsUnsafe = Preconditions.checkNotNull(reverseDepsUnsafe);
+    private static final MarkedDirtyResult NO_RDEPS = new MarkedDirtyResult(ImmutableList.of());
+
+    public static MarkedDirtyResult withReverseDeps(Collection<SkyKey> reverseDepsUnsafe) {
+      return reverseDepsUnsafe.isEmpty() ? NO_RDEPS : new MarkedDirtyResult(reverseDepsUnsafe);
     }
 
-    public Iterable<SkyKey> getReverseDepsUnsafe() {
+    private final Collection<SkyKey> reverseDepsUnsafe;
+
+    private MarkedDirtyResult(Collection<SkyKey> reverseDepsUnsafe) {
+      this.reverseDepsUnsafe = reverseDepsUnsafe;
+    }
+
+    public Collection<SkyKey> getReverseDepsUnsafe() {
       return reverseDepsUnsafe;
     }
   }
@@ -224,7 +224,7 @@ public interface NodeEntry {
   /**
    * Removes a reverse dependency.
    *
-   * <p>May only be called if this entry is not done (i.e. {@link #isDone} is false) and {@param
+   * <p>May only be called if this entry is not done (i.e. {@link #isDone} is false) and {@code
    * reverseDep} was added/confirmed during this evaluation (by {@link #addReverseDepAndCheckIfDone}
    * or {@link #checkIfDoneForDirtyReverseDep}).
    */
@@ -238,7 +238,7 @@ public interface NodeEntry {
    * <p>May only be called on a done node entry.
    */
   @ThreadSafe
-  Iterable<SkyKey> getReverseDepsForDoneEntry() throws InterruptedException;
+  Collection<SkyKey> getReverseDepsForDoneEntry() throws InterruptedException;
 
   /**
    * Returns raw {@link SkyValue} stored in this entry, which may include metadata associated with
@@ -338,7 +338,7 @@ public interface NodeEntry {
   @ThreadSafe
   DependencyState checkIfDoneForDirtyReverseDep(SkyKey reverseDep) throws InterruptedException;
 
-  Iterable<SkyKey> getAllReverseDepsForNodeBeingDeleted();
+  Collection<SkyKey> getAllReverseDepsForNodeBeingDeleted();
 
   /**
    * Tell this entry that one of its dependencies is now done. Callers must check the return value,
@@ -442,10 +442,7 @@ public interface NodeEntry {
    * SkyFunction} last build, meaning independently of the values of any other deps in this group
    * (although possibly depending on deps in earlier groups). Thus the caller may check all the deps
    * in this group in parallel, since the deps in all previous groups are verified unchanged. See
-   * {@link SkyFunction.Environment#getOrderedValuesAndExceptions} for more on dependency groups.
-   *
-   * <p>The caller should register these as deps of this entry using {@link #addTemporaryDirectDeps}
-   * before checking them.
+   * {@link SkyFunction.Environment#getValuesAndExceptions} for more on dependency groups.
    *
    * @see DirtyBuildingState#getNextDirtyDirectDeps()
    */
@@ -455,10 +452,10 @@ public interface NodeEntry {
   /**
    * Returns all deps of a node that has not yet finished evaluating. In other words, if a node has
    * a reverse dep on this node, its key will be in the returned set here. If this node was freshly
-   * created, this is just any elements that were added using {@link #addTemporaryDirectDeps} (so it
-   * is the same as {@link #getTemporaryDirectDeps}). If this node is marked dirty, this includes
-   * all the elements that would have been returned by successive calls to {@link
-   * #getNextDirtyDirectDeps} (or, equivalently, one call to {@link
+   * created, this is just any elements that were added using one of the methods to add temporary
+   * direct deps (so it is the same as {@link #getTemporaryDirectDeps}). If this node is marked
+   * dirty, this includes all the elements that would have been returned by successive calls to
+   * {@link #getNextDirtyDirectDeps} (or, equivalently, one call to {@link
    * #getAllRemainingDirtyDirectDeps}).
    *
    * <p>This method should only be called when this node is about to be deleted after an aborted
@@ -498,11 +495,11 @@ public interface NodeEntry {
   void markRebuilding();
 
   /**
-   * Returns the {@link GroupedList} of direct dependencies. This may only be called while the node
-   * is being evaluated, that is, before {@link #setValue} and after {@link #markDirty}.
+   * Returns the {@link GroupedDeps} of direct dependencies. This may only be called while the node
+   * is being evaluated (i.e. before {@link #setValue} and after {@link #markDirty}.
    */
   @ThreadSafe
-  GroupedList<SkyKey> getTemporaryDirectDeps();
+  GroupedDeps getTemporaryDirectDeps();
 
   @ThreadSafe
   boolean noDepsLastBuild();
@@ -527,28 +524,54 @@ public interface NodeEntry {
   void resetForRestartFromScratch();
 
   /**
-   * Adds the temporary direct deps given in {@code helper} and returns the set of unique deps
-   * added. It is the users responsibility to ensure that there are no elements in common between
-   * helper and the already existing temporary direct deps.
+   * Adds a temporary direct dep in its own group.
+   *
+   * <p>The given dep must not be present in this node's existing temporary direct deps.
    */
   @ThreadSafe
-  Set<SkyKey> addTemporaryDirectDeps(GroupedListHelper<SkyKey> helper);
+  void addSingletonTemporaryDirectDep(SkyKey dep);
 
   /**
-   * Add a group of direct deps to the node. May only be called with a {@link Collection} returned
-   * by {@link #getNextDirtyDirectDeps()} just before enqueuing those direct deps during dependency
-   * checking.
+   * Adds a temporary direct group.
+   *
+   * <p>The group must be duplicate-free and not contain any deps in common with this node's
+   * existing temporary direct deps.
    */
   @ThreadSafe
-  void addTemporaryDirectDepsGroupToDirtyEntry(List<SkyKey> group);
+  void addTemporaryDirectDepGroup(List<SkyKey> group);
+
+  /**
+   * Adds temporary direct deps in groups.
+   *
+   * <p>The iteration order of the given deps along with the {@code groupSizes} parameter dictate
+   * how deps are grouped. For example, if {@code deps = {a,b,c}} and {@code groupSizes = [2, 1]},
+   * then there will be two groups: {@code [a,b]} and {@code [c]}. The sum of {@code groupSizes}
+   * must equal the size of {@code deps}. Note that it only makes sense to call this method with a
+   * set implementation that has a stable iteration order.
+   *
+   * <p>The given set of deps must not contain any deps in common with this node's existing
+   * temporary direct deps.
+   */
+  @ThreadSafe
+  void addTemporaryDirectDepsInGroups(Set<SkyKey> deps, List<Integer> groupSizes);
 
   void addExternalDep();
 
   /**
-   * Returns true if the node is ready to be evaluated, i.e., it has been signaled exactly as many
-   * times as it has temporary dependencies. This may only be called while the node is being
-   * evaluated, that is, before {@link #setValue} and after {@link #markDirty}.
+   * Returns true if the node has been signaled exactly as many times as it has temporary
+   * dependencies, or if {@code getKey().supportsPartialReevaluation()}. This may only be called
+   * while the node is being evaluated (i.e. before {@link #setValue} and after {@link #markDirty}).
    */
   @ThreadSafe
-  boolean isReady();
+  boolean isReadyToEvaluate();
+
+  /**
+   * Returns true if the node has not been signaled exactly as many times as it has temporary
+   * dependencies. This may only be called while the node is being evaluated (i.e. before {@link
+   * #setValue} and after {@link #markDirty}).
+   *
+   * <p>The node must not complete or be reset while in this state because it may yet be signaled.
+   */
+  @ThreadSafe
+  boolean hasUnsignaledDeps();
 }

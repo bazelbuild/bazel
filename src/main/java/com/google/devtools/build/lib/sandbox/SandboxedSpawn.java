@@ -35,18 +35,22 @@ interface SandboxedSpawn extends DescribableExecutionUnit {
     return false;
   }
 
+  /** Returns the path that sandbox debug output is written to, if any. */
+  @Nullable
+  Path getSandboxDebugPath();
+
   /** Returns the path where statistics about subprocess execution are written, if any. */
   @Nullable
   Path getStatisticsPath();
 
   /**
    * Creates the sandboxed execution root, making all {@code inputs} available for reading, making
-   * sure that the parent directories of all {@code outputs} and that all {@code writableDirs}
-   * exist and can be written into.
+   * sure that the parent directories of all {@code outputs} and that all {@code writableDirs} exist
+   * and can be written into.
    *
    * @throws IOException
    */
-  void createFileSystem() throws IOException;
+  void createFileSystem() throws IOException, InterruptedException;
 
   /**
    * Moves all {@code outputs} to {@code execRoot} while keeping the directory structure.

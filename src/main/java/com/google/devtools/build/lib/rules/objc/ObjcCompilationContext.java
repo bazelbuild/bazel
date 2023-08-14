@@ -53,6 +53,7 @@ public final class ObjcCompilationContext implements StarlarkValue {
   private final ImmutableList<PathFragment> strictDependencyIncludes;
   private final ImmutableList<CcCompilationContext> directCcCompilationContexts;
   private final ImmutableList<CcCompilationContext> ccCompilationContexts;
+  private final ImmutableList<CcCompilationContext> implementationCcCompilationContexts;
 
   ObjcCompilationContext(
       Iterable<String> defines,
@@ -64,7 +65,8 @@ public final class ObjcCompilationContext implements StarlarkValue {
       Iterable<PathFragment> quoteIncludes,
       Iterable<PathFragment> strictDependencyIncludes,
       Iterable<CcCompilationContext> directCcCompilationContexts,
-      Iterable<CcCompilationContext> ccCompilationContexts) {
+      Iterable<CcCompilationContext> ccCompilationContexts,
+      Iterable<CcCompilationContext> implementationCcCompilationContexts) {
     this.defines = ImmutableList.copyOf(defines);
     this.publicHeaders = ImmutableList.copyOf(publicHeaders);
     this.publicTextualHeaders = ImmutableList.copyOf(publicTextualHeaders);
@@ -75,6 +77,8 @@ public final class ObjcCompilationContext implements StarlarkValue {
     this.strictDependencyIncludes = ImmutableList.copyOf(strictDependencyIncludes);
     this.directCcCompilationContexts = ImmutableList.copyOf(directCcCompilationContexts);
     this.ccCompilationContexts = ImmutableList.copyOf(ccCompilationContexts);
+    this.implementationCcCompilationContexts =
+        ImmutableList.copyOf(implementationCcCompilationContexts);
   }
 
   public ImmutableList<String> getDefines() {
@@ -159,11 +163,24 @@ public final class ObjcCompilationContext implements StarlarkValue {
     return ccCompilationContexts;
   }
 
+  public ImmutableList<CcCompilationContext> getImplementationCcCompilationContexts() {
+    return implementationCcCompilationContexts;
+  }
+
   @StarlarkMethod(name = "cc_compilation_contexts", documented = false, structField = true)
   public Sequence<CcCompilationContext> getCcCompilationContextsForStarlark() {
     return StarlarkList.immutableCopyOf(getCcCompilationContexts());
   }
 
+  @StarlarkMethod(
+      name = "implementation_cc_compilation_contexts",
+      documented = false,
+      structField = true)
+  public Sequence<CcCompilationContext> getImplementationCcCompilationContextsForStarlark() {
+    return StarlarkList.immutableCopyOf(getImplementationCcCompilationContexts());
+  }
+
+  @StarlarkMethod(name = "create_cc_compilation_context", documented = false)
   public CcCompilationContext createCcCompilationContext() {
     CcCompilationContext.Builder builder =
         CcCompilationContext.builder(
@@ -200,6 +217,8 @@ public final class ObjcCompilationContext implements StarlarkValue {
     private final List<PathFragment> strictDependencyIncludes = new ArrayList<>();
     private final List<CcCompilationContext> directCcCompilationContexts = new ArrayList<>();
     private final List<CcCompilationContext> ccCompilationContexts = new ArrayList<>();
+    private final List<CcCompilationContext> implementationCcCompilationContexts =
+        new ArrayList<>();
 
     Builder() {}
 
@@ -267,6 +286,13 @@ public final class ObjcCompilationContext implements StarlarkValue {
     }
 
     @CanIgnoreReturnValue
+    public Builder addImplementationCcCompilationContexts(
+        Iterable<CcCompilationContext> ccCompilationContexts) {
+      Iterables.addAll(this.implementationCcCompilationContexts, ccCompilationContexts);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
     public Builder addCcCompilationContext(CcCompilationContext ccCompilationContext) {
       this.ccCompilationContexts.add(ccCompilationContext);
       return this;
@@ -283,7 +309,8 @@ public final class ObjcCompilationContext implements StarlarkValue {
           quoteIncludes,
           strictDependencyIncludes,
           directCcCompilationContexts,
-          ccCompilationContexts);
+          ccCompilationContexts,
+          implementationCcCompilationContexts);
     }
   }
 }

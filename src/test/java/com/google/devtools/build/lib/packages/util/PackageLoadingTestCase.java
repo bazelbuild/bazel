@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleVisibility;
@@ -38,6 +37,7 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -56,6 +56,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.junit.After;
 import org.junit.Before;
 
 /**
@@ -103,7 +104,6 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     packageFactory =
         loadingMock
             .getPackageFactoryBuilderForTesting(directories)
-            .setEnvironmentExtensions(getEnvironmentExtensions())
             .setPackageValidator(
                 (pkg, pkgOverhead, handler) -> {
                   // Delegate to late-bound this.validator.
@@ -115,6 +115,11 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     delegatingSyscallCache.setDelegate(SyscallCache.NO_CACHE);
     skyframeExecutor = createSkyframeExecutor();
     setUpSkyframe();
+  }
+
+  @After
+  public final void cleanUpInterningPools() {
+    skyframeExecutor.getEvaluator().cleanupInterningPools();
   }
 
   /** Allows subclasses to augment the {@link RuleDefinition}s available in this test. */
@@ -129,19 +134,14 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
             .setFileSystem(fileSystem)
             .setDirectories(directories)
             .setActionKeyContext(actionKeyContext)
-            .setPerCommandSyscallCache(delegatingSyscallCache)
+            .setSyscallCache(delegatingSyscallCache)
             .build();
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
-            PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false)));
+                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty())));
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     return skyframeExecutor;
-  }
-
-  protected Iterable<EnvironmentExtension> getEnvironmentExtensions() {
-    return ImmutableList.of();
   }
 
   protected void setUpSkyframe(RuleVisibility defaultVisibility) {
@@ -149,11 +149,6 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     packageOptions.defaultVisibility = defaultVisibility;
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = GLOBBING_THREADS;
-    skyframeExecutor.injectExtraPrecomputedValues(
-        ImmutableList.of(
-            PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
-            PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false)));
     skyframeExecutor.preparePackageLoading(
         new PathPackageLocator(
             outputBase,
@@ -163,6 +158,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
         Options.getDefaults(BuildLanguageOptions.class),
         UUID.randomUUID(),
         ImmutableMap.of(),
+        QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
   }
@@ -184,6 +180,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
     skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageOptions.getDeletedPackages()));
@@ -308,8 +305,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
-            PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false)));
+                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty())));
     return skyframeExecutor.getPackageManager();
   }
 

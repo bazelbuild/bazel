@@ -17,8 +17,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.spy;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
@@ -107,6 +107,18 @@ public final class TreeArtifactValueTest {
     assertThat(tree.getMetadata().getDigest()).isEqualTo(tree.getDigest());
     assertThat(tree.getArchivedRepresentation())
         .hasValue(ArchivedRepresentation.create(archivedTreeArtifact, archivedArtifactMetadata));
+  }
+
+  @Test
+  public void createsCorrectValueWithmaterializationExecPath() {
+    PathFragment targetPath = PathFragment.create("some/target/path");
+    SpecialArtifact parent = createTreeArtifact("bin/tree");
+
+    TreeArtifactValue tree =
+        TreeArtifactValue.newBuilder(parent).setMaterializationExecPath(targetPath).build();
+
+    assertThat(tree.getMaterializationExecPath()).hasValue(targetPath);
+    assertThat(tree.getMetadata().getMaterializationExecPath()).hasValue(targetPath);
   }
 
   @Test
@@ -361,7 +373,13 @@ public final class TreeArtifactValueTest {
     scratch.resolve("tree/a/b/dangling_link").createSymbolicLink(PathFragment.create("?"));
     List<Pair<PathFragment, Dirent.Type>> children = new ArrayList<>();
 
-    TreeArtifactValue.visitTree(treeDir, (child, type) -> children.add(Pair.of(child, type)));
+    TreeArtifactValue.visitTree(
+        treeDir,
+        (child, type) -> {
+          synchronized (children) {
+            children.add(Pair.of(child, type));
+          }
+        });
 
     assertThat(children)
         .containsExactly(
@@ -423,7 +441,13 @@ public final class TreeArtifactValueTest {
     scratch.resolve("tree/a/up_link").createSymbolicLink(PathFragment.create("../file"));
     List<Pair<PathFragment, Dirent.Type>> children = new ArrayList<>();
 
-    TreeArtifactValue.visitTree(treeDir, (child, type) -> children.add(Pair.of(child, type)));
+    TreeArtifactValue.visitTree(
+        treeDir,
+        (child, type) -> {
+          synchronized (children) {
+            children.add(Pair.of(child, type));
+          }
+        });
 
     assertThat(children)
         .containsExactly(
@@ -438,7 +462,13 @@ public final class TreeArtifactValueTest {
     scratch.resolve("tree/absolute_link").createSymbolicLink(PathFragment.create("/tmp"));
     List<Pair<PathFragment, Dirent.Type>> children = new ArrayList<>();
 
-    TreeArtifactValue.visitTree(treeDir, (child, type) -> children.add(Pair.of(child, type)));
+    TreeArtifactValue.visitTree(
+        treeDir,
+        (child, type) -> {
+          synchronized (children) {
+            children.add(Pair.of(child, type));
+          }
+        });
 
     assertThat(children)
         .containsExactly(Pair.of(PathFragment.create("absolute_link"), Dirent.Type.SYMLINK));
@@ -699,13 +729,14 @@ public final class TreeArtifactValueTest {
   }
 
   private static FileArtifactValue metadataWithId(int id) {
-    return new RemoteFileArtifactValue(new byte[] {(byte) id}, id, id);
+    return RemoteFileArtifactValue.create(
+        new byte[] {(byte) id}, id, id, /* expireAtEpochMilli= */ -1);
   }
 
   private static FileArtifactValue metadataWithIdNoDigest(int id) {
-    FileArtifactValue value = mock(FileArtifactValue.class);
-    when(value.getDigest()).thenReturn(null);
-    when(value.getModifiedTime()).thenReturn((long) id);
+    FileArtifactValue value = spy(FileArtifactValue.class);
+    doReturn(null).when(value).getDigest();
+    doReturn((long) id).when(value).getModifiedTime();
     return value;
   }
 }

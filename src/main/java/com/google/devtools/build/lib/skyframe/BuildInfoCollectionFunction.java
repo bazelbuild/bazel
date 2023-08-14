@@ -14,10 +14,11 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Actions;
-import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoCollection;
@@ -32,7 +33,7 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -61,20 +62,20 @@ public class BuildInfoCollectionFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     final BuildInfoKeyAndConfig keyAndConfig = (BuildInfoKeyAndConfig) skyKey.argument();
     ImmutableSet<SkyKey> keysToRequest =
-        ImmutableSet.of(
-            WorkspaceStatusValue.BUILD_INFO_KEY,
-            keyAndConfig.getConfigurationKey());
-    SkyframeIterableResult result = env.getOrderedValuesAndExceptions(keysToRequest);
+        ImmutableSet.of(WorkspaceStatusValue.BUILD_INFO_KEY, keyAndConfig.getConfigurationKey());
+    SkyframeLookupResult result = env.getValuesAndExceptions(keysToRequest);
     if (env.valuesMissing()) {
       return null;
     }
-    WorkspaceStatusValue infoArtifactValue = (WorkspaceStatusValue) result.next();
+    WorkspaceStatusValue infoArtifactValue =
+        (WorkspaceStatusValue) result.get(WorkspaceStatusValue.BUILD_INFO_KEY);
     if (infoArtifactValue == null) {
       BugReport.logUnexpected("Value for: BuildInfoKey was missing, this should never happen");
       return null;
     }
 
-    BuildConfigurationValue config = (BuildConfigurationValue) result.next();
+    BuildConfigurationValue config =
+        (BuildConfigurationValue) result.get(keyAndConfig.getConfigurationKey());
     if (config == null) {
       BugReport.logUnexpected(
           "Value for: '%s' was missing, this should never happen",
@@ -96,17 +97,13 @@ public class BuildInfoCollectionFunction implements SkyFunction {
             config,
             infoArtifactValue.getStableArtifact(),
             infoArtifactValue.getVolatileArtifact());
-    GeneratingActions generatingActions;
+    ImmutableList<ActionAnalysisMetadata> actions = collection.getActions();
     try {
-      generatingActions =
-          Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-              actionKeyContext,
-              collection.getActions(),
-              keyAndConfig,
-              /*outputFiles=*/ null);
+      Actions.assignOwnersAndThrowIfConflictToleratingSharedActions(
+          actionKeyContext, actions, keyAndConfig);
     } catch (ActionConflictException | Actions.ArtifactGeneratedByOtherRuleException e) {
       throw new IllegalStateException("Errors not expected in build info: " + skyKey, e);
     }
-    return new BuildInfoCollectionValue(collection, generatingActions);
+    return new BuildInfoCollectionValue(actions, collection);
   }
 }

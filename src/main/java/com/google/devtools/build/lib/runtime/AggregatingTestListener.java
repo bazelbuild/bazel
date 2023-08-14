@@ -254,7 +254,9 @@ public final class AggregatingTestListener {
     DetailedExitCode systemFailure = null;
     for (ConfiguredTarget testTarget : testTargets) {
       ConfiguredTargetKey key = asKey(testTarget);
-      TestResultAggregator aggregator = aggregators.get(key);
+      TestResultAggregator aggregator =
+          Preconditions.checkNotNull(
+              aggregators.get(key), "Missing aggregator (key=%s, testTarget=%s)", key, testTarget);
       TestSummary summary;
       if (AliasProvider.isAlias(testTarget)) {
         TestSummary.Builder summaryBuilder = TestSummary.newBuilder(testTarget);
@@ -328,7 +330,7 @@ public final class AggregatingTestListener {
   private static ConfiguredTargetKey asKey(ConfiguredTarget target) {
     return ConfiguredTargetKey.builder()
         .setLabel(target.getLabel())
-        .setConfigurationKey(target.getConfigurationKey())
+        .setConfigurationKey(target.getActual().getConfigurationKey())
         .build();
   }
 }

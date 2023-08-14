@@ -58,7 +58,7 @@ fi
 function test_rules_java_can_be_overridden() {
   # The bazelrc file might contain an --override_repository flag for rules_java,
   # which would cause this test to fail to override the repo via a WORKSPACE file.
-  sed -i.bak '/override_repository=rules_java/d' $TEST_TMPDIR/bazelrc
+  sed -i.bak '/override_repository=rules_java=/d' $TEST_TMPDIR/bazelrc
 
   # We test that a custom repository can override @platforms in their
   # WORKSPACE file.
@@ -71,10 +71,17 @@ local_repository(
 )
 EOF
 
-  mkdir -p override || fail "couldn't create override directory"
+  mkdir -p override/java || fail "couldn't create override directory"
   touch override/WORKSPACE || fail "couldn't touch override/WORKSPACE"
   cat > override/BUILD <<EOF
 filegroup(name = 'yolo')
+EOF
+  touch override/java/BUILD || fail "couldn't touch override/java/BUILD"
+  cat > override/java/repositories.bzl <<EOF
+def rules_java_dependencies():
+    pass
+def rules_java_toolchains():
+    pass
 EOF
 
   cd rules_java_can_be_overridden || fail "couldn't cd into workspace"
@@ -84,10 +91,63 @@ EOF
 
 function test_rules_java_repository_builds_itself() {
   write_default_bazelrc
+  setup_skylib_support
 
   # We test that a built-in @rules_java repository is buildable.
-  bazel build @rules_java//... &> $TEST_log \
+  bazel build -- @rules_java//java/... &> $TEST_log \
       || fail "Build failed unexpectedly"
+}
+
+
+function test_experimental_java_library_export_do_not_use() {
+  mkdir -p java
+  cat >java/java_library.bzl <<EOF
+def _impl(ctx):
+    return experimental_java_library_export_do_not_use.bazel_java_library_rule(
+        ctx,
+        ctx.files.srcs,
+        ctx.attr.deps,
+        ctx.attr.runtime_deps,
+        ctx.attr.plugins,
+        ctx.attr.exports,
+        ctx.attr.exported_plugins,
+        ctx.files.resources,
+        ctx.attr.javacopts,
+        ctx.attr.neverlink,
+        ctx.files.proguard_specs,
+        ctx.attr.add_exports,
+        ctx.attr.add_opens,
+    ).values()
+
+java_library = rule(
+  implementation = _impl,
+  attrs = experimental_java_library_export_do_not_use.JAVA_LIBRARY_ATTRS,
+  provides = [JavaInfo],
+  outputs = {
+      "classjar": "lib%{name}.jar",
+      "sourcejar": "lib%{name}-src.jar",
+  },
+  fragments = ["java", "cpp"],
+  toolchains = ["@bazel_tools//tools/jdk:toolchain_type"],
+)
+EOF
+  cat >java/BUILD <<EOF
+load(":java_library.bzl", "java_library")
+package(default_visibility=['//visibility:public'])
+java_library(name = 'hello_library',
+             srcs = ['HelloLibrary.java']);
+EOF
+  cat >java/HelloLibrary.java <<EOF
+package hello_library;
+public class HelloLibrary {
+  public static void funcHelloLibrary() {
+    System.out.print("Hello, Library!;");
+  }
+}
+EOF
+
+  bazel build //java:hello_library &> $TEST_log && fail "build succeeded"
+  bazel build --experimental_java_library_export //java:hello_library &> $TEST_log || fail "build failed"
 }
 
 run_suite "rules_java tests"

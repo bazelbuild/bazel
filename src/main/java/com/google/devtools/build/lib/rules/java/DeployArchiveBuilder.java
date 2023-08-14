@@ -26,14 +26,18 @@ import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -236,6 +240,7 @@ public class DeployArchiveBuilder {
 
   public static CustomCommandLine.Builder defaultSingleJarCommandLineWithoutOneVersion(
       Artifact outputJar,
+      Label label,
       String javaMainClass,
       ImmutableList<String> deployManifestLines,
       Iterable<Artifact> buildInfoFiles,
@@ -252,6 +257,7 @@ public class DeployArchiveBuilder {
       NestedSet<String> addOpens) {
     return defaultSingleJarCommandLine(
         outputJar,
+        label,
         javaMainClass,
         deployManifestLines,
         buildInfoFiles,
@@ -272,6 +278,7 @@ public class DeployArchiveBuilder {
 
   public static CustomCommandLine.Builder defaultSingleJarCommandLine(
       Artifact outputJar,
+      Label label,
       String javaMainClass,
       ImmutableList<String> deployManifestLines,
       Iterable<Artifact> buildInfoFiles,
@@ -291,6 +298,7 @@ public class DeployArchiveBuilder {
 
     CustomCommandLine.Builder args = CustomCommandLine.builder();
     args.addExecPath("--output", outputJar);
+    args.add("--build_target", label.getCanonicalForm());
     if (compress == Compression.COMPRESSED) {
       args.add("--compression");
     }
@@ -321,11 +329,9 @@ public class DeployArchiveBuilder {
       args.addAll(
           "--sources", OneVersionCheckActionBuilder.jarAndTargetVectorArg(runtimeClasspath));
     }
-    if (oneVersionEnforcementLevel != OneVersionEnforcementLevel.OFF) {
+    if (oneVersionEnforcementLevel != OneVersionEnforcementLevel.OFF
+        && oneVersionAllowlistArtifact != null) {
       args.add("--enforce_one_version");
-      // RuleErrors should have been added in Builder.build() before this command
-      // line is invoked.
-      Preconditions.checkNotNull(oneVersionAllowlistArtifact);
       args.addExecPath("--one_version_whitelist", oneVersionAllowlistArtifact);
       if (oneVersionEnforcementLevel == OneVersionEnforcementLevel.WARNING) {
         args.add("--succeed_on_found_violations");
@@ -392,8 +398,19 @@ public class DeployArchiveBuilder {
     if (runfilesMiddleman != null) {
       inputs.add(runfilesMiddleman);
     }
-
-    ImmutableList<Artifact> buildInfoArtifacts = ruleContext.getBuildInfo(JavaBuildInfoFactory.KEY);
+    ImmutableList<Artifact> buildInfoArtifacts = ImmutableList.of();
+    int stamp = 0;
+    if (ruleContext.attributes().has("stamp", Type.INTEGER)) {
+      stamp = ruleContext.attributes().get("stamp", Type.INTEGER).toIntUnchecked();
+    }
+    if (ruleContext.attributes().has("stamp", BuildType.TRISTATE)) {
+      stamp = ruleContext.attributes().get("stamp", BuildType.TRISTATE).toInt();
+    }
+    try {
+      buildInfoArtifacts = semantics.getBuildInfo(ruleContext, stamp);
+    } catch (RuleErrorException e) {
+      throw new InterruptedException("Translating BuildInfo files failed: " + e);
+    }
     inputs.addAll(buildInfoArtifacts);
 
     NestedSetBuilder<Artifact> runtimeClasspath = NestedSetBuilder.stableOrder();
@@ -410,12 +427,8 @@ public class DeployArchiveBuilder {
       inputs.add(launcher);
     }
 
-    if (oneVersionEnforcementLevel != OneVersionEnforcementLevel.OFF) {
-      if (oneVersionAllowlistArtifact == null) {
-        OneVersionCheckActionBuilder.addRuleErrorForMissingArtifacts(
-            ruleContext, JavaToolchainProvider.from(ruleContext));
-        return;
-      }
+    if (oneVersionEnforcementLevel != OneVersionEnforcementLevel.OFF
+        && oneVersionAllowlistArtifact != null) {
       inputs.add(oneVersionAllowlistArtifact);
     }
     if (sharedArchive != null) {
@@ -426,7 +439,7 @@ public class DeployArchiveBuilder {
       inputs.add(libModules);
     }
 
-    Artifact singlejar = JavaToolchainProvider.from(ruleContext).getSingleJar();
+    FilesToRunProvider singlejar = JavaToolchainProvider.from(ruleContext).getSingleJar();
 
     String toolchainIdentifier = null;
     try {
@@ -441,6 +454,7 @@ public class DeployArchiveBuilder {
         semantics.buildSingleJarCommandLine(
             toolchainIdentifier,
             outputJar,
+            ruleContext.getLabel(),
             javaStartClass,
             deployManifestLines,
             buildInfoArtifacts,

@@ -24,9 +24,13 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
+import com.google.devtools.build.lib.rules.cpp.CcModule;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.J2ObjcConfigurationApi;
 import java.util.Collections;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * A J2ObjC transpiler configuration fragment containing J2ObjC translation flags. This
@@ -70,6 +74,7 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
   private final boolean removeDeadCode;
   private final boolean experimentalJ2ObjcHeaderMap;
   private final boolean experimentalShorterHeaderPath;
+  private final boolean j2objcLibraryMigration;
   @Nullable private final Label deadCodeReport;
 
   public J2ObjcConfiguration(BuildOptions buildOptions) {
@@ -84,6 +89,7 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
     this.experimentalJ2ObjcHeaderMap = j2ObjcOptions.experimentalJ2ObjcHeaderMap;
     this.experimentalShorterHeaderPath = j2ObjcOptions.experimentalShorterHeaderPath;
     this.deadCodeReport = j2ObjcOptions.deadCodeReport;
+    this.j2objcLibraryMigration = j2ObjcOptions.j2objcLibraryMigration;
   }
 
   /**
@@ -125,11 +131,24 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
     return removeDeadCode;
   }
 
+  @Override
+  public boolean getRemoveDeadCodeForStarlark(StarlarkThread thread) throws EvalException {
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    return removeDeadCode;
+  }
+
   /**
    * Returns whether to generate J2ObjC header map in a separate action in parallel of the J2ObjC
    * transpilation action.
    */
   public boolean experimentalJ2ObjcHeaderMap() {
+    return experimentalJ2ObjcHeaderMap;
+  }
+
+  @Override
+  public boolean getExperimentalJ2ObjcHeaderMapForStarlark(StarlarkThread thread)
+      throws EvalException {
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
     return experimentalJ2ObjcHeaderMap;
   }
 
@@ -140,9 +159,26 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
     return experimentalShorterHeaderPath;
   }
 
+  @Override
+  public boolean experimentalShorterHeaderPathforStarlark(StarlarkThread thread)
+      throws EvalException {
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    return experimentalShorterHeaderPath;
+  }
+
   /** Returns whether objc_library should build generated files using ARC (-fobjc-arc). */
   public boolean compileWithARC() {
     return translationFlags.contains(J2OBJC_USE_ARC_FLAG);
+  }
+
+  public boolean j2objcLibraryMigration() {
+    return j2objcLibraryMigration;
+  }
+
+  @Override
+  public boolean j2objcLibraryMigrationForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return j2objcLibraryMigration();
   }
 
   @Override

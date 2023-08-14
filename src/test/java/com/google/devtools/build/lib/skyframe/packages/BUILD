@@ -35,6 +35,7 @@ java_test(
     srcs = ["BazelPackageLoaderTest.java"],
     deps = [
         ":AbstractPackageLoaderTest",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
@@ -42,7 +43,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe/packages:PackageLoader",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/common/options:options_internal",
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
+        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
     ],

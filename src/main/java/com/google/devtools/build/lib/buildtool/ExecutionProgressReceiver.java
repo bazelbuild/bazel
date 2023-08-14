@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.MiddlemanType;
-import com.google.devtools.build.lib.analysis.AspectValue;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectBuiltEv
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetBuiltEvent;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
+import com.google.devtools.build.skyframe.GroupedDeps;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -73,9 +74,7 @@ public final class ExecutionProgressReceiver
    * {@code builtTargets} is accessed through a synchronized set, and so no other access to it is
    * permitted while this receiver is active.
    */
-  ExecutionProgressReceiver(
-      int exclusiveTestsCount,
-      EventBus eventBus) {
+  public ExecutionProgressReceiver(int exclusiveTestsCount, EventBus eventBus) {
     this.exclusiveTestsCount = exclusiveTestsCount;
     this.eventBus = eventBus;
   }
@@ -111,7 +110,8 @@ public final class ExecutionProgressReceiver
       @Nullable SkyValue newValue,
       @Nullable ErrorInfo newError,
       Supplier<EvaluationSuccessState> evaluationSuccessState,
-      EvaluationState state) {
+      EvaluationState state,
+      @Nullable GroupedDeps directDeps) {
     SkyFunctionName type = skyKey.functionName();
     if (type.equals(SkyFunctions.ACTION_EXECUTION)) {
       // Remember all completed actions, even those in error, regardless of having been cached or
@@ -150,13 +150,15 @@ public final class ExecutionProgressReceiver
       if (buildDriverKey.isTopLevelAspectDriver()) {
         ((TopLevelAspectsValue) buildDriverValue.getWrappedSkyValue())
             .getTopLevelAspectsValues()
-            .forEach(x -> eventBus.post(AspectBuiltEvent.create(((AspectValue) x).getKey())));
+            .forEach(x -> eventBus.post(AspectBuiltEvent.create(x.getKey())));
         return;
       }
 
       eventBus.post(
           TopLevelTargetBuiltEvent.create(
-              (ConfiguredTargetKey) buildDriverKey.getActionLookupKey()));
+              ConfiguredTargetKey.fromConfiguredTarget(
+                  ((ConfiguredTargetValue) buildDriverValue.getWrappedSkyValue())
+                      .getConfiguredTarget())));
     }
   }
 

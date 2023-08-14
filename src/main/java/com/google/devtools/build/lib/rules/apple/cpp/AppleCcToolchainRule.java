@@ -39,7 +39,7 @@ public class AppleCcToolchainRule implements RuleDefinition {
             BaseRuleClasses.NativeBuildRule.class,
             CcToolchainRule.class,
             AppleToolchain.RequiresXcodeConfigRule.class)
-        .factoryClass(AppleCcToolchain.class)
+        .factoryClass(BaseRuleClasses.EmptyRuleConfiguredTargetFactory.class)
         .build();
   }
 }

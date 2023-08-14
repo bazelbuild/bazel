@@ -17,7 +17,6 @@ Proguard
 """
 
 load(":common/java/java_semantics.bzl", "semantics")
-load(":common/rule_util.bzl", "create_dep")
 
 ProguardSpecProvider = _builtins.toplevel.ProguardSpecProvider
 
@@ -29,6 +28,8 @@ def _validate_spec(ctx, spec_file):
         "validated_proguard/%s/%s_valid" % (ctx.label.name, spec_file.path),
     )
 
+    toolchain = semantics.find_java_toolchain(ctx)
+
     args = ctx.actions.args()
     args.add("--path", spec_file)
     args.add("--output", validated_proguard_spec)
@@ -36,10 +37,11 @@ def _validate_spec(ctx, spec_file):
     ctx.actions.run(
         mnemonic = "ValidateProguard",
         progress_message = "Validating proguard configuration %{input}",
-        executable = ctx.executable._proguard_allowlister,
+        executable = toolchain.proguard_allowlister,
         arguments = [args],
         inputs = [spec_file],
         outputs = [validated_proguard_spec],
+        toolchain = Label(semantics.JAVA_TOOLCHAIN_TYPE),
     )
 
     return validated_proguard_spec
@@ -59,8 +61,6 @@ def validate_proguard_specs(ctx, proguard_specs = [], transitive_attrs = []):
     Returns:
       (ProguardSpecProvider) A ProguardSpecProvider.
     """
-    if proguard_specs and not hasattr(ctx.attr, "_proguard_allowlister"):
-        fail("_proguard_allowlister is required to use proguard_specs")
     proguard_validations = _filter_provider(ProguardSpecProvider, *transitive_attrs)
     return ProguardSpecProvider(
         depset(
@@ -68,27 +68,3 @@ def validate_proguard_specs(ctx, proguard_specs = [], transitive_attrs = []):
             transitive = [validation.specs for validation in proguard_validations],
         ),
     )
-
-VALIDATE_PROGUARD_SPECS_IMPLICIT_ATTRS = {
-    "_proguard_allowlister": attr.label(
-        allow_files = True,
-        default = semantics.PROGUARD_ALLOWLISTER_LABEL,
-        cfg = "exec",
-        executable = True,
-    ),
-}
-
-# TODO(b/213551463) remove once unused
-VALIDATE_PROGUARD_SPECS = create_dep(
-    validate_proguard_specs,
-    {
-        "proguard_specs": attr.label_list(allow_files = True),
-        "_proguard_allowlister": attr.label(
-            allow_files = True,
-            default = semantics.PROGUARD_ALLOWLISTER_LABEL,
-            cfg = "exec",
-            executable = True,
-        ),
-    },
-    [],
-)

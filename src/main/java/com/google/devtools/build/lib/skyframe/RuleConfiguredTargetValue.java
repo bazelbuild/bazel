@@ -17,7 +17,6 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.RuleConfiguredObjectValue;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
@@ -41,26 +40,25 @@ public final class RuleConfiguredTargetValue
   private final ImmutableList<ActionAnalysisMetadata> actions;
 
   // May be null either after clearing or because transitive packages are not tracked.
-  @Nullable private NestedSet<Package> transitivePackagesForPackageRootResolution;
+  @Nullable private NestedSet<Package> transitivePackages;
 
   // Transitive packages are not serialized.
   @AutoCodec.Instantiator
   RuleConfiguredTargetValue(RuleConfiguredTarget configuredTarget) {
-    this(configuredTarget, /*transitivePackagesForPackageRootResolution=*/ null);
+    this(configuredTarget, /*transitivePackages=*/ null);
   }
 
-  RuleConfiguredTargetValue(
-      RuleConfiguredTarget configuredTarget,
-      @Nullable NestedSet<Package> transitivePackagesForPackageRootResolution) {
+  public RuleConfiguredTargetValue(
+      RuleConfiguredTarget configuredTarget, @Nullable NestedSet<Package> transitivePackages) {
     this.configuredTarget = Preconditions.checkNotNull(configuredTarget);
-    this.transitivePackagesForPackageRootResolution = transitivePackagesForPackageRootResolution;
+    this.transitivePackages = transitivePackages;
     // These are specifically *not* copied to save memory.
     this.actions = configuredTarget.getActions();
   }
 
+  @Nullable // May be null after clearing.
   @Override
-  public ConfiguredTarget getConfiguredTarget() {
-    Preconditions.checkNotNull(configuredTarget);
+  public RuleConfiguredTarget getConfiguredTarget() {
     return configuredTarget;
   }
 
@@ -69,18 +67,18 @@ public final class RuleConfiguredTargetValue
     return actions;
   }
 
+  @Nullable
   @Override
-  public NestedSet<Package> getTransitivePackagesForPackageRootResolution() {
-    return Preconditions.checkNotNull(transitivePackagesForPackageRootResolution);
+  public NestedSet<Package> getTransitivePackages() {
+    return transitivePackages;
   }
 
   @Override
   public void clear(boolean clearEverything) {
-    Preconditions.checkNotNull(configuredTarget);
     if (clearEverything) {
       configuredTarget = null;
     }
-    transitivePackagesForPackageRootResolution = null;
+    transitivePackages = null;
   }
 
   @Override

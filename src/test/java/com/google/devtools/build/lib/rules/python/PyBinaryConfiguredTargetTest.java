@@ -32,49 +32,6 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
     super("py_binary");
   }
 
-  /**
-   * Creates a target //pkg:bin with the given version attr and that depends on a target //pkg:lib
-   * having the given sources version attr.
-   */
-  private void declareBinDependingOnLibWithVersions(String binVersion, String libSrcsVersion)
-      throws Exception {
-    scratch.file(
-        "pkg/BUILD",
-        "py_library(name = 'lib',",
-        "    srcs = [],",
-        "    srcs_version = '" + libSrcsVersion + "')",
-        "py_binary(name = 'bin',",
-        "    srcs = ['bin.py'],",
-        "    deps = [':lib'],",
-        "    python_version = '" + binVersion + "')");
-  }
-
-  @Test
-  public void python2WithPy3SrcsVersionDependency() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
-    declareBinDependingOnLibWithVersions("PY2", "PY3");
-    assertThat(getPyExecutableDeferredError("//pkg:bin"))
-        .startsWith(
-            "//pkg:bin: This target is being built for Python 2 but (transitively) "
-                + "includes Python 3-only sources");
-  }
-
-  @Test
-  public void python2WithPy3OnlySrcsVersionDependency() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
-    declareBinDependingOnLibWithVersions("PY2", "PY3ONLY");
-    assertThat(getPyExecutableDeferredError("//pkg:bin"))
-        .contains("being built for Python 2 but (transitively) includes Python 3-only sources");
-  }
-
-  @Test
-  public void python3WithPy2OnlySrcsVersionDependency_NewSemantics() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
-    declareBinDependingOnLibWithVersions("PY3", "PY2ONLY");
-    assertThat(getPyExecutableDeferredError("//pkg:bin"))
-        .contains("being built for Python 3 but (transitively) includes Python 2-only sources");
-  }
-
   @Test
   public void filesToBuild() throws Exception {
     scratch.file("pkg/BUILD",

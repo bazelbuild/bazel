@@ -189,4 +189,111 @@ EOF
   expect_not_log 'label.*@remote//file'
 }
 
+function test_no_residue_in_exec_request(){
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+sh_binary(
+    name = 'arg',
+    srcs = ['arg.sh'],
+)
+EOF
+
+  cat > a/arg.sh <<'EOF'
+#!/bin/bash
+
+COUNTER=1
+for i in "$@"; do
+  echo "ARG $COUNTER": $i;
+  COUNTER=$(($COUNTER+1))
+done
+EOF
+
+  chmod +x a/arg.sh
+  bazel run --build_event_json_file=bep.json //a:arg -- \
+    'arg1' 'arg2' \
+    >&"$TEST_log" || fail "run failed"
+
+  expect_log "ARG 1: arg1"
+  expect_log "ARG 2: arg2"
+
+  cat bep.json >> "$TEST_log"
+
+  expect_log "execRequest"
+  expect_not_log "argv"
+}
+
+function test_residue_in_run_bep(){
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+sh_binary(
+    name = 'arg',
+    srcs = ['arg.sh'],
+)
+EOF
+
+  cat > a/arg.sh <<'EOF'
+#!/bin/bash
+
+COUNTER=1
+for i in "$@"; do
+  echo "ARG $COUNTER": $i;
+  COUNTER=$(($COUNTER+1))
+done
+EOF
+
+  chmod +x a/arg.sh
+  bazel run --experimental_run_bep_event_include_residue=true \
+   --build_event_json_file=bep.json //a:arg -- 'arg1' 'arg2' \
+    >&"$TEST_log" || fail "run failed"
+
+  expect_log "ARG 1: arg1"
+  expect_log "ARG 2: arg2"
+
+  ls >& "$TEST_log"
+  cat bep.json >> "$TEST_log"
+
+  expect_log "execRequest"
+  expect_log "argv"
+  expect_log "arg1"
+  expect_log "arg2"
+}
+
+function test_no_residue_in_run_bep(){
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+sh_binary(
+    name = 'arg',
+    srcs = ['arg.sh'],
+)
+EOF
+
+  cat > a/arg.sh <<'EOF'
+#!/bin/bash
+
+COUNTER=1
+for i in "$@"; do
+  echo "ARG $COUNTER": $i;
+  COUNTER=$(($COUNTER+1))
+done
+EOF
+
+  chmod +x a/arg.sh
+  bazel run --build_event_json_file=bep.json \
+  --experimental_run_bep_event_include_residue=false //a:arg -- \
+    'arg1' 'arg2' \
+    >&"$TEST_log" || fail "run failed"
+
+  expect_log "ARG 1: arg1"
+  expect_log "ARG 2: arg2"
+
+  ls >& "$TEST_log"
+  cat bep.json >> "$TEST_log"
+
+  expect_log "execRequest"
+  expect_not_log "argv"
+  expect_log "REDACTED"
+  expect_not_log "arg1"
+  expect_not_log "arg2"
+}
+
 run_suite "Bazel-specific integration tests for the build-event stream"

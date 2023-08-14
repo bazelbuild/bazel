@@ -25,10 +25,11 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.bazel.rules.cpp.proto.BazelCcProtoAspect;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
@@ -46,6 +47,11 @@ import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class CcProtoLibraryTest extends BuildViewTestCase {
+
+  private final StarlarkAspectClass starlarkCcProtoAspect =
+      new StarlarkAspectClass(
+          Label.parseCanonicalUnchecked("@_builtins//:common/cc/cc_proto_library.bzl"),
+          "cc_proto_aspect");
 
   @Before
   public void setUp() throws Exception {
@@ -213,6 +219,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
 
   @Test
   public void outputDirectoryForProtoCompileAction_externalRepos() throws Exception {
+    setBuildLanguageOptions("--experimental_builtins_injection_override=+cc_proto_library");
     scratch.file(
         "x/BUILD", "cc_proto_library(name = 'foo_cc_proto', deps = ['@bla//foo:bar_proto'])");
 
@@ -245,7 +252,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
             targetConfig.getGenfilesDirectory(RepositoryName.create("bla")),
             getOwnerForAspect(
                 getConfiguredTarget("@bla//foo:bar_proto"),
-                ruleClassProvider.getNativeAspectClass(BazelCcProtoAspect.class.getSimpleName()),
+                starlarkCcProtoAspect,
                 AspectParameters.EMPTY));
     CcCompilationContext ccCompilationContext =
         target.get(CcInfo.PROVIDER).getCcCompilationContext();

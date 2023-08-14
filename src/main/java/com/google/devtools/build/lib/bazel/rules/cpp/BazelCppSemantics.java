@@ -18,13 +18,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
-import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.AspectLegalCppSemantics;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -35,7 +34,10 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
-import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
 
 /** C++ compilation semantics. */
 public class BazelCppSemantics implements AspectLegalCppSemantics {
@@ -50,23 +52,31 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
   // the repo name set.
   public static final Provider.Key CC_SHARED_INFO_PROVIDER_RULES_CC =
       new StarlarkProvider.Key(
-          Label.parseAbsoluteUnchecked("@rules_cc//examples:experimental_cc_shared_library.bzl"),
+          Label.parseCanonicalUnchecked("@rules_cc//examples:experimental_cc_shared_library.bzl"),
           "CcSharedLibraryInfo");
 
   public static final Provider.Key CC_SHARED_INFO_PROVIDER =
       new StarlarkProvider.Key(
-          Label.parseAbsoluteUnchecked("//examples:experimental_cc_shared_library.bzl"),
+          Label.parseCanonicalUnchecked("//examples:experimental_cc_shared_library.bzl"),
           "CcSharedLibraryInfo");
 
   public static final Provider.Key CC_SHARED_INFO_PROVIDER_BUILT_INS =
       new StarlarkProvider.Key(
-          Label.parseAbsoluteUnchecked("@_builtins//:common/cc/experimental_cc_shared_library.bzl"),
+          Label.parseCanonicalUnchecked(
+              "@_builtins//:common/cc/experimental_cc_shared_library.bzl"),
           "CcSharedLibraryInfo");
 
   private final Language language;
 
   private BazelCppSemantics(Language language) {
     this.language = language;
+  }
+
+  private static final String CPP_TOOLCHAIN_TYPE = "@bazel_tools//tools/cpp:toolchain_type";
+
+  @Override
+  public String getCppToolchainType() {
+    return CPP_TOOLCHAIN_TYPE;
   }
 
   @Override
@@ -104,11 +114,6 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
   }
 
   @Override
-  public HeadersCheckingMode determineHeadersCheckingMode(RuleContext ruleContext) {
-    return HeadersCheckingMode.STRICT;
-  }
-
-  @Override
   public HeadersCheckingMode determineStarlarkHeadersCheckingMode(
       RuleContext ruleContext, CppConfiguration cppConfig, CcToolchainProvider toolchain) {
     if (cppConfig.strictHeaderCheckingFromStarlark()) {
@@ -132,30 +137,8 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
   }
 
   @Override
-  public void validateAttributes(RuleContext ruleContext) {
-  }
-
-  @Override
   public boolean needsIncludeValidation() {
     return language != Language.OBJC;
-  }
-
-  @Override
-  @Nullable
-  public StructImpl getCcSharedLibraryInfo(TransitiveInfoCollection dep) {
-    StructImpl ccSharedLibraryInfo = (StructImpl) dep.get(CC_SHARED_INFO_PROVIDER);
-    if (ccSharedLibraryInfo != null) {
-      return ccSharedLibraryInfo;
-    }
-    ccSharedLibraryInfo = (StructImpl) dep.get(CC_SHARED_INFO_PROVIDER_RULES_CC);
-    if (ccSharedLibraryInfo != null) {
-      return ccSharedLibraryInfo;
-    }
-    ccSharedLibraryInfo = (StructImpl) dep.get(CC_SHARED_INFO_PROVIDER_BUILT_INS);
-    if (ccSharedLibraryInfo != null) {
-      return ccSharedLibraryInfo;
-    }
-    return null;
   }
 
   @Override
@@ -166,18 +149,17 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
       ImmutableSet<String> unsupportedFeatures) {}
 
   @Override
-  public boolean createEmptyArchive() {
-    return false;
-  }
-
-  @Override
-  public boolean shouldUseInterfaceDepsBehavior(RuleContext ruleContext) {
-    boolean experimentalCcInterfaceDeps =
-        ruleContext.getFragment(CppConfiguration.class).experimentalCcInterfaceDeps();
-    if (!experimentalCcInterfaceDeps
-        && ruleContext.attributes().isAttributeValueExplicitlySpecified("interface_deps")) {
-      ruleContext.attributeError("interface_deps", "requires --experimental_cc_interface_deps");
+  public void validateStarlarkCompileApiCall(
+      StarlarkActionFactory actionFactory,
+      StarlarkThread thread,
+      String includePrefix,
+      String stripIncludePrefix,
+      Sequence<?> additionalIncludeScanningRoots)
+      throws EvalException {
+    if (!additionalIncludeScanningRoots.isEmpty()) {
+      throw Starlark.errorf(
+          "The 'additional_include_scanning_roots' parameter doesn't do anything useful. This is"
+              + " only used internally for a mechanism we'd like to get rid of.");
     }
-    return experimentalCcInterfaceDeps;
   }
 }

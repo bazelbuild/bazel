@@ -100,7 +100,7 @@ EOF
 }
 
 function setup_head_android_tools_if_exists() {
-  local head_android_tools=$(rlocation io_bazel/tools/android/runtime_deps/android_tools.tar.gz)
+  local head_android_tools=$(rlocation io_bazel/tools/android/runtime_deps/android_tools.tar)
   if [[ -f $head_android_tools ]]; then
     HEAD_ANDROID_TOOLS_WS="$TEST_TMPDIR/head_android_tools"
     mkdir "$HEAD_ANDROID_TOOLS_WS"
@@ -110,11 +110,18 @@ function setup_head_android_tools_if_exists() {
 }
 
 # Resolves Android toolchains with platforms.
-function resolve_android_toolchains_with_platforms() {
-  echo "This test uses platform-based Android toolchain resolution."
-  add_to_bazelrc "build --incompatible_enable_android_toolchain_resolution"
-  add_to_bazelrc "build --platform_mappings=test_android_platforms/mappings"
-  add_to_bazelrc "build --platforms=//test_android_platforms:simple"
+function resolve_android_toolchains() {
+  if [[ "$1" = '--with_platforms' ]]; then
+    echo "This test uses platform-based Android toolchain resolution."
+    add_to_bazelrc "build --incompatible_enable_android_toolchain_resolution"
+    add_to_bazelrc "build --incompatible_enable_cc_toolchain_resolution"
+    add_to_bazelrc "build --platform_mappings=test_android_platforms/mappings"
+    add_to_bazelrc "build --platforms=//test_android_platforms:simple"
+  else
+    echo "This test uses legacy Android toolchains."
+    add_to_bazelrc "build --noincompatible_enable_android_toolchain_resolution"
+    add_to_bazelrc "build --noincompatible_enable_cc_toolchain_resolution"
+  fi
 }
 
 setup_head_android_tools_if_exists

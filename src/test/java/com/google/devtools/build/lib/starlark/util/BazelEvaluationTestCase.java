@@ -16,8 +16,9 @@ package com.google.devtools.build.lib.starlark.util;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkModules;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkGlobalsImpl;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -26,7 +27,7 @@ import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
-import com.google.devtools.build.lib.packages.BazelStarlarkContext;
+import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.config.ConfigStarlarkCommon;
@@ -37,13 +38,13 @@ import com.google.devtools.common.options.OptionsParsingException;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.syntax.Expression;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.SyntaxError;
@@ -82,15 +83,6 @@ public final class BazelEvaluationTestCase {
     return eventCollectionApparatus.reporter();
   }
 
-  // TODO(adonovan): don't let subclasses inherit vaguely specified "helpers".
-  // Separate all the tests clearly into tests of the scanner, parser, resolver,
-  // and evaluation.
-
-  /** Parses an expression. */
-  final Expression parseExpression(String... lines) throws SyntaxError.Exception {
-    return Expression.parse(ParserInput.fromLines(lines));
-  }
-
   /** Updates a global binding in the module. */
   // TODO(adonovan): rename setGlobal.
   @CanIgnoreReturnValue
@@ -126,28 +118,28 @@ public final class BazelEvaluationTestCase {
     // for testing rule implementation functions. It has phase LOADING, for example.
     // TODO(adonovan): stop creating threads in tests. This is the responsibility of the
     // production code. Tests should provide only files and commands.
-    new BazelStarlarkContext(
-            BazelStarlarkContext.Phase.LOADING,
+    new BzlInitThreadContext(
+            Label.parseCanonicalUnchecked("//:dummy.bzl"),
+            /* transitiveDigest= */ new byte[0], // dummy value for tests
             TestConstants.TOOLS_REPOSITORY,
-            /*fragmentNameToClass=*/ null,
-            new SymbolGenerator<>(new Object()),
-            /*analysisRuleLabel=*/ null,
-            /*networkAllowlistForTests=*/ null) // dummy value for tests
+            /* networkAllowlistForTests= */ Optional.empty(),
+            /* fragmentNameToClass= */ ImmutableMap.of(),
+            new SymbolGenerator<>(new Object()))
         .storeInThread(thread);
   }
 
   private static Object newModule(ImmutableMap.Builder<String, Object> predeclared) {
-    StarlarkModules.addPredeclared(predeclared);
+    predeclared.putAll(StarlarkGlobalsImpl.INSTANCE.getFixedBzlToplevels());
     predeclared.put("platform_common", new PlatformCommon());
     predeclared.put("config_common", new ConfigStarlarkCommon());
 
     // Return the module's client data. (This one uses dummy values for tests.)
     return BazelModuleContext.create(
-        Label.parseAbsoluteUnchecked("//test:label"),
+        Label.parseCanonicalUnchecked("//test:label"),
         RepositoryMapping.ALWAYS_FALLBACK,
         "test/label.bzl",
-        /*loads=*/ ImmutableMap.of(),
-        /*bzlTransitiveDigest=*/ new byte[0]);
+        /* loads= */ ImmutableList.of(),
+        /* bzlTransitiveDigest= */ new byte[0]);
   }
 
   public StarlarkThread getStarlarkThread() {
@@ -165,8 +157,8 @@ public final class BazelEvaluationTestCase {
     if (this.module == null) {
       ImmutableMap.Builder<String, Object> predeclared = ImmutableMap.builder();
       Object clientData = newModule(predeclared);
-      Module module = Module.withPredeclared(semantics, predeclared.buildOrThrow());
-      module.setClientData(clientData);
+      Module module =
+          Module.withPredeclaredAndData(semantics, predeclared.buildOrThrow(), clientData);
       this.module = module;
     }
     return this.module;
@@ -190,24 +182,10 @@ public final class BazelEvaluationTestCase {
     }
   }
 
-  public void checkEvalErrorDoesNotContain(String msg, String... input) throws Exception {
-    try {
-      exec(input);
-    } catch (SyntaxError.Exception | EvalException | EventCollectionApparatus.FailFastException e) {
-      assertThat(e).hasMessageThat().doesNotContain(msg);
-    }
-  }
-
   // Forward relevant methods to the EventCollectionApparatus
   @CanIgnoreReturnValue
   public BazelEvaluationTestCase setFailFast(boolean failFast) {
     eventCollectionApparatus.setFailFast(failFast);
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public BazelEvaluationTestCase assertNoWarningsOrErrors() {
-    eventCollectionApparatus.assertNoWarningsOrErrors();
     return this;
   }
 
@@ -217,20 +195,6 @@ public final class BazelEvaluationTestCase {
 
   public Event assertContainsError(String expectedMessage) {
     return eventCollectionApparatus.assertContainsError(expectedMessage);
-  }
-
-  public Event assertContainsWarning(String expectedMessage) {
-    return eventCollectionApparatus.assertContainsWarning(expectedMessage);
-  }
-
-  public Event assertContainsDebug(String expectedMessage) {
-    return eventCollectionApparatus.assertContainsDebug(expectedMessage);
-  }
-
-  @CanIgnoreReturnValue
-  public BazelEvaluationTestCase clearEvents() {
-    eventCollectionApparatus.clear();
-    return this;
   }
 
   /** Encapsulates a separate test which can be executed by a Scenario. */
@@ -296,13 +260,6 @@ public final class BazelEvaluationTestCase {
       return this;
     }
 
-    /** Evaluates an expression and compares its result to the ordered list of expected objects. */
-    @CanIgnoreReturnValue
-    public Scenario testExactOrder(String src, Object... items) throws Exception {
-      runTest(collectionTestable(src, items));
-      return this;
-    }
-
     /** Evaluates an expression and checks whether it fails with the expected error. */
     @CanIgnoreReturnValue
     public Scenario testIfExactError(String expectedError, String... lines) throws Exception {
@@ -314,13 +271,6 @@ public final class BazelEvaluationTestCase {
     @CanIgnoreReturnValue
     public Scenario testIfErrorContains(String expectedError, String... lines) throws Exception {
       runTest(errorTestable(false, expectedError, lines));
-      return this;
-    }
-
-    /** Looks up the value of the specified variable and compares it to the expected value. */
-    @CanIgnoreReturnValue
-    public Scenario testLookup(String name, Object expected) throws Exception {
-      runTest(createLookUpTestable(name, expected));
       return this;
     }
 
@@ -340,19 +290,6 @@ public final class BazelEvaluationTestCase {
           } else {
             checkEvalErrorContains(error, lines);
           }
-        }
-      };
-    }
-
-    /**
-     * Creates a Testable that checks whether the value of the expression is a sequence containing
-     * the expected elements.
-     */
-    private Testable collectionTestable(final String src, final Object... expected) {
-      return new Testable() {
-        @Override
-        public void run() throws Exception {
-          assertThat((Iterable<?>) eval(src)).containsExactly(expected).inOrder();
         }
       };
     }
@@ -381,23 +318,6 @@ public final class BazelEvaluationTestCase {
           }
 
           assertThat(actual).isEqualTo(realExpected);
-        }
-      };
-    }
-
-    /**
-     * Creates a Testable that looks up the given variable and compares its value to the expected
-     * value
-     *
-     * @param name
-     * @param expected
-     * @return An instance of Testable that does both lookup and comparison
-     */
-    private Testable createLookUpTestable(final String name, final Object expected) {
-      return new Testable() {
-        @Override
-        public void run() throws Exception {
-          assertThat(lookup(name)).isEqualTo(expected);
         }
       };
     }

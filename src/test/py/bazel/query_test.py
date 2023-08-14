@@ -40,8 +40,10 @@ class QueryTest(test_base.TestBase):
 
   def testQueryFilesUsedByRepositoryRules(self):
     self.ScratchFile('WORKSPACE')
-    self._AssertQueryOutputContains("kind('source file', deps(//external:*))",
-                                    '@bazel_tools//tools/jdk:jdk.BUILD')
+    self._AssertQueryOutputContains(
+        "kind('source file', deps(//external:*))",
+        '@bazel_tools//tools/genrule:genrule-setup.sh',
+    )
 
   def testBuildFilesForExternalRepos_Simple(self):
     self.ScratchFile('WORKSPACE', [
@@ -114,9 +116,9 @@ class QueryTest(test_base.TestBase):
         '    )',
     ])
 
-    exit_code, stdout, stderr = self.RunBazel(
-        ['query', 'buildfiles(//external:io_bazel_rules_python)'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(
+        ['query', 'buildfiles(//external:io_bazel_rules_python)']
+    )
     result = set()
     for item in stdout:
       if not item:
@@ -125,16 +127,14 @@ class QueryTest(test_base.TestBase):
       result.add(item)
 
   def _AssertQueryOutput(self, query_expr, *expected_results):
-    exit_code, stdout, stderr = self.RunBazel(['query', query_expr])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(['query', query_expr])
 
     stdout = sorted(x for x in stdout if x)
     self.assertEqual(len(stdout), len(expected_results))
     self.assertListEqual(stdout, sorted(expected_results))
 
   def _AssertQueryOutputContains(self, query_expr, *expected_content):
-    exit_code, stdout, stderr = self.RunBazel(['query', query_expr])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(['query', query_expr])
 
     stdout = {x for x in stdout if x}
     for item in expected_content:

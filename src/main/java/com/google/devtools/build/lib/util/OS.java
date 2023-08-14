@@ -62,7 +62,7 @@ public enum OS {
     return System.getProperty("os.version");
   }
 
-  // We inject a the OS name through blaze.os, so we can have
+  // We inject an OS name through blaze.os, so we can have
   // some coverage for Windows specific code on Linux.
   private static OS determineCurrentOs() {
     String osName = System.getProperty("blaze.os");

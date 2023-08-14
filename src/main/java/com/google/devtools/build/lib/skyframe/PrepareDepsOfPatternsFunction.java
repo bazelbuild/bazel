@@ -17,7 +17,10 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
@@ -31,7 +34,7 @@ import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKe
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import javax.annotation.Nullable;
 
 /**
@@ -40,19 +43,22 @@ import javax.annotation.Nullable;
  */
 public class PrepareDepsOfPatternsFunction implements SkyFunction {
 
-  public static ImmutableList<SkyKey> getSkyKeys(SkyKey skyKey, ExtendedEventHandler eventHandler) {
+  public static ImmutableList<SkyKey> getSkyKeys(
+      SkyKey skyKey, ExtendedEventHandler eventHandler, RepositoryMapping mainRepoMapping) {
     TargetPatternSequence targetPatternSequence = (TargetPatternSequence) skyKey.argument();
+    TargetPattern.Parser mainRepoTargetParser =
+        new TargetPattern.Parser(
+            targetPatternSequence.getOffset(), RepositoryName.MAIN, mainRepoMapping);
     PrepareDepsOfPatternSkyKeysAndExceptions prepareDepsOfPatternSkyKeysAndExceptions =
-        PrepareDepsOfPatternValue.keys(targetPatternSequence.getPatterns(),
-            targetPatternSequence.getOffset());
+        PrepareDepsOfPatternValue.keys(targetPatternSequence.getPatterns(), mainRepoTargetParser);
 
     ImmutableList.Builder<SkyKey> skyKeyBuilder = ImmutableList.builder();
-    for (PrepareDepsOfPatternSkyKeyValue skyKeyValue
-        : prepareDepsOfPatternSkyKeysAndExceptions.getValues()) {
+    for (PrepareDepsOfPatternSkyKeyValue skyKeyValue :
+        prepareDepsOfPatternSkyKeysAndExceptions.getValues()) {
       skyKeyBuilder.add(skyKeyValue.getSkyKey());
     }
-    for (PrepareDepsOfPatternSkyKeyException skyKeyException
-        : prepareDepsOfPatternSkyKeysAndExceptions.getExceptions()) {
+    for (PrepareDepsOfPatternSkyKeyException skyKeyException :
+        prepareDepsOfPatternSkyKeysAndExceptions.getExceptions()) {
       TargetParsingException e = skyKeyException.getException();
       // We post an event here rather than in handleTargetParsingException because the
       // TargetPatternFunction already posts an event unless the pattern cannot be parsed, in
@@ -88,10 +94,16 @@ public class PrepareDepsOfPatternsFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     ExtendedEventHandler eventHandler = env.getListener();
-    // TODO(wyv): use the repo mapping of the main repo here.
-    ImmutableList<SkyKey> skyKeys = getSkyKeys(skyKey, eventHandler);
 
-    SkyframeIterableResult tokensByKey = env.getOrderedValuesAndExceptions(skyKeys);
+    RepositoryMappingValue repositoryMappingValue =
+        (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
+    if (repositoryMappingValue == null) {
+      return null;
+    }
+    RepositoryMapping mainRepoMapping = repositoryMappingValue.getRepositoryMapping();
+    ImmutableList<SkyKey> skyKeys = getSkyKeys(skyKey, eventHandler, mainRepoMapping);
+
+    SkyframeLookupResult tokensByKey = env.getValuesAndExceptions(skyKeys);
     if (env.valuesMissing()) {
       return null;
     }
@@ -99,14 +111,15 @@ public class PrepareDepsOfPatternsFunction implements SkyFunction {
     for (SkyKey key : skyKeys) {
       try {
         SkyValue value =
-            tokensByKey.nextOrThrow(
+            tokensByKey.getOrThrow(
+                key,
                 TargetParsingException.class,
                 ProcessPackageDirectoryException.class,
                 InconsistentFilesystemException.class);
         if (value == null) {
           BugReport.sendBugReport(
               new IllegalStateException(
-                  "SkyValue " + key + " was missing, this should never happern"));
+                  "SkyValue " + key + " was missing, this should never happen"));
           return null;
         }
       } catch (TargetParsingException e) {

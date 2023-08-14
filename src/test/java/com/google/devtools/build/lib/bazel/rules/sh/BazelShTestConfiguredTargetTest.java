@@ -15,8 +15,11 @@ package com.google.devtools.build.lib.bazel.rules.sh;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -24,21 +27,44 @@ import org.junit.runners.JUnit4;
 /** Tests for sh_test configured target. */
 @RunWith(JUnit4.class)
 public class BazelShTestConfiguredTargetTest extends BuildViewTestCase {
+
+  @Before
+  public void setUp() throws Exception {
+    scratch.file("BUILD", "sh_test(name = 'test', srcs = ['test.sh'])");
+  }
+
   @Test
   public void testCoverageOutputGenerator() throws Exception {
-    scratch.file("sh/test/BUILD", "sh_test(name = 'foo_test', srcs = ['foo_test.sh'])");
     reporter.removeHandler(failFastHandler);
-    ConfiguredTarget ct = getConfiguredTarget("//sh/test:foo_test");
+    ConfiguredTarget ct = getConfiguredTarget("//:test");
     assertThat(getRuleContext(ct).getPrerequisite(":lcov_merger")).isNull();
   }
 
   @Test
   public void testCoverageOutputGeneratorCoverageMode() throws Exception {
     useConfiguration("--collect_code_coverage");
-    scratch.file("sh/test/BUILD", "sh_test(name = 'foo_test', srcs = ['foo_test.sh'])");
     reporter.removeHandler(failFastHandler);
-    ConfiguredTarget ct = getConfiguredTarget("//sh/test:foo_test");
+    ConfiguredTarget ct = getConfiguredTarget("//:test");
     assertThat(getRuleContext(ct).getPrerequisite(":lcov_merger").getLabel().toString())
         .isEqualTo("@bazel_tools//tools/test:lcov_merger");
+  }
+
+  @Test
+  public void testNonWindowsWrapper() throws Exception {
+    assertThat(getTestRunnerAction("//:test").getArguments().get(0)).endsWith("test-setup.sh");
+  }
+
+  @Test
+  public void testWindowsWrapper() throws Exception {
+    scratch.file(
+        "platforms/BUILD",
+        "platform(name = 'windows', constraint_values = ['@platforms//os:windows'])");
+    useConfiguration("--host_platform=//platforms:windows");
+
+    assertThat(getTestRunnerAction("//:test").getArguments().get(0)).endsWith("test_wrapper_bin");
+  }
+
+  private TestRunnerAction getTestRunnerAction(String label) throws Exception {
+    return (TestRunnerAction) Iterables.getOnlyElement(getActions(label, TestRunnerAction.class));
   }
 }

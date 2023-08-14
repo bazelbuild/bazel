@@ -29,10 +29,12 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -116,24 +118,10 @@ public class SymlinkForest {
       Path source,
       Set<Path> externalRepoLinks)
       throws IOException {
-    // For external repositories, create one symlink to each external repository
-    // directory.
-    // From <output_base>/execroot/<main repo name>/external/<external repo name>
-    // to   <output_base>/external/<external repo name>
-    //
-    // However, if --experimental_sibling_repository_layout is true, symlink:
-    // From <output_base>/execroot/<external repo name>
-    // to   <output_base>/external/<external repo name>
-    Path execrootLink = execroot.getRelative(repository.getExecPath(siblingRepositoryLayout));
-
-    if (!siblingRepositoryLayout && externalRepoLinks.isEmpty()) {
-      execroot.getRelative(LabelConstants.EXTERNAL_PATH_PREFIX).createDirectoryAndParents();
-    }
-    if (!externalRepoLinks.add(execrootLink)) {
-      return;
-    }
-    execrootLink.createSymbolicLink(source);
-    plantedSymlinks.add(execrootLink);
+    Optional<Path> plantedSymlink =
+        plantSingleSymlinkForExternalRepo(
+            repository, source, execroot, siblingRepositoryLayout, externalRepoLinks);
+    plantedSymlink.ifPresent(plantedSymlinks::add);
   }
 
   private void plantSymlinkForestWithFullMainRepository(
@@ -305,15 +293,7 @@ public class SymlinkForest {
    */
   public ImmutableList<Path> plantSymlinkForest() throws IOException, AbruptExitException {
     deleteTreesBelowNotPrefixed(execroot, prefix);
-
-    if (siblingRepositoryLayout) {
-      // Delete execroot/../<symlinks> to directories representing external repositories.
-      for (Path p : execroot.getParentDirectory().getDirectoryEntries()) {
-        if (p.isSymbolicLink()) {
-          p.deleteTree();
-        }
-      }
-    }
+    deleteSiblingRepositorySymlinks(siblingRepositoryLayout, execroot);
 
     boolean shouldLinkAllTopLevelItems = false;
     Map<Path, Path> mainRepoLinks = Maps.newLinkedHashMap();
@@ -379,6 +359,18 @@ public class SymlinkForest {
     return plantedSymlinks.build();
   }
 
+  private static void deleteSiblingRepositorySymlinks(
+      boolean siblingRepositoryLayout, Path execroot) throws IOException {
+    if (siblingRepositoryLayout) {
+      // Delete execroot/../<symlinks> to directories representing external repositories.
+      for (Path p : execroot.getParentDirectory().getDirectoryEntries()) {
+        if (p.isSymbolicLink()) {
+          p.deleteTree();
+        }
+      }
+    }
+  }
+
   /**
    * Eagerly plant the symlinks from execroot to the source root provided by the single package path
    * of the current build. Only works with a single package path. Before planting the new symlinks,
@@ -391,6 +383,7 @@ public class SymlinkForest {
       boolean siblingRepositoryLayout)
       throws IOException {
     deleteTreesBelowNotPrefixed(execroot, prefix);
+    deleteSiblingRepositorySymlinks(siblingRepositoryLayout, execroot);
 
     // Plant everything under the single source root.
     for (Path target : sourceRoot.getDirectoryEntries()) {
@@ -404,6 +397,40 @@ public class SymlinkForest {
         execPath.createSymbolicLink(target);
       }
     }
+  }
+
+  /**
+   * Performs the planting of a symlink to an external repository.
+   *
+   * @return the planted symlink, or an empty optional if nothing was planted.
+   */
+  @CanIgnoreReturnValue
+  public static Optional<Path> plantSingleSymlinkForExternalRepo(
+      RepositoryName repository,
+      Path source,
+      Path execroot,
+      boolean siblingRepositoryLayout,
+      Set<Path> alreadyPlantedExternalRepoLinks)
+      throws IOException {
+    // For external repositories, create one symlink to each external repository
+    // directory.
+    // From <output_base>/execroot/<main repo name>/external/<external repo name>
+    // to   <output_base>/external/<external repo name>
+    //
+    // However, if --experimental_sibling_repository_layout is true, symlink:
+    // From <output_base>/execroot/<external repo name>
+    // to   <output_base>/external/<external repo name>
+    Path execrootLink = execroot.getRelative(repository.getExecPath(siblingRepositoryLayout));
+
+    if (!siblingRepositoryLayout && alreadyPlantedExternalRepoLinks.isEmpty()) {
+      execroot.getRelative(LabelConstants.EXTERNAL_PATH_PREFIX).createDirectoryAndParents();
+    }
+    // Prevent re-creating existing symlinks.
+    if (!alreadyPlantedExternalRepoLinks.add(execrootLink)) {
+      return Optional.empty();
+    }
+    execrootLink.createSymbolicLink(source);
+    return Optional.of(execrootLink);
   }
 
   private static PackageIdentifier createInRepo(

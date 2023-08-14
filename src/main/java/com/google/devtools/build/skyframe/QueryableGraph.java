@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.lib.supplier.MemoizingInterruptibleSupplier;
-import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
@@ -33,6 +32,7 @@ import javax.annotation.Nullable;
  */
 @ThreadSafe
 public interface QueryableGraph {
+
   /**
    * Returns the node with the given {@code key}, or {@code null} if the node does not exist.
    *
@@ -44,26 +44,75 @@ public interface QueryableGraph {
   NodeEntry get(@Nullable SkyKey requestor, Reason reason, SkyKey key) throws InterruptedException;
 
   /**
-   * Fetches all the given nodes. Returns a map {@code m} such that, for all {@code k} in {@code
-   * keys}, {@code m.get(k).equals(e)} iff {@code get(k) == e} and {@code e != null}, and {@code
-   * !m.containsKey(k)} iff {@code get(k) == null}.
+   * Fetches all the given nodes. Returns a {@link NodeBatch} {@code b} such that, for all {@code k}
+   * in {@code keys}, {@code b.get(k) == get(k)}.
+   *
+   * <p>Prefer calling this method over {@link #getBatchMap} if it is not necessary to represent the
+   * result as a {@link Map}, as it may be significantly more efficient.
    *
    * @param requestor if non-{@code null}, the node on behalf of which the given {@code keys} are
    *     being requested.
    * @param reason the reason the nodes are being requested.
    */
-  Map<SkyKey, ? extends NodeEntry> getBatch(
+  default NodeBatch getBatch(
       @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
-      throws InterruptedException;
+      throws InterruptedException {
+    return getBatchMap(requestor, reason, keys)::get;
+  }
+
+  /** A hint about the most efficient way to look up a key in the graph. */
+  enum LookupHint {
+    INDIVIDUAL,
+    BATCH
+  }
+
+  /**
+   * Hints to the caller about the most efficient way to look up a key in this graph.
+   *
+   * <p>A return of {@link LookupHint#INDIVIDUAL} indicates that the given key can efficiently be
+   * looked up by calling {@link #get}. In such a case, it is not worth the effort to aggregate the
+   * key into a collection with other keys for a {@link #getBatch} call.
+   *
+   * <p>A return of {@link LookupHint#BATCH} indicates that the given key should ideally be
+   * requested with other keys as part of a call to {@link #getBatch}. This may be the case if, for
+   * example, the corresponding node is stored remotely, and requesting keys in a single batch
+   * reduces trips to remote storage.
+   */
+  LookupHint getLookupHint(SkyKey key);
 
   /**
    * A version of {@link #getBatch} that returns an {@link InterruptibleSupplier} to possibly
    * retrieve the results later.
    */
   @CanIgnoreReturnValue
-  default InterruptibleSupplier<Map<SkyKey, ? extends NodeEntry>> getBatchAsync(
+  default InterruptibleSupplier<NodeBatch> getBatchAsync(
       @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
     return MemoizingInterruptibleSupplier.of(() -> getBatch(requestor, reason, keys));
+  }
+
+  /**
+   * Fetches all the given nodes. Returns a map {@code m} such that, for all {@code k} in {@code
+   * keys}, {@code m.get(k) == get(k)} and {@code !m.containsKey(k)} iff {@code get(k) == null}.
+   *
+   * <p>Prefer calling {@link #getBatch} over this method if it is not necessary to represent the
+   * result as a {@link Map}, as it may be significantly more efficient.
+   *
+   * @param requestor if non-{@code null}, the node on behalf of which the given {@code keys} are
+   *     being requested.
+   * @param reason the reason the nodes are being requested.
+   */
+  Map<SkyKey, ? extends NodeEntry> getBatchMap(
+      @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
+      throws InterruptedException;
+
+  /**
+   * A version of {@link #getBatchMap} that returns an {@link InterruptibleSupplier} to possibly
+   * retrieve the results later.
+   */
+  @CanIgnoreReturnValue
+  default InterruptibleSupplier<Map<SkyKey, ? extends NodeEntry>> getBatchMapAsync(
+      @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
+    return MemoizingInterruptibleSupplier.of(() -> getBatchMap(requestor, reason, keys));
   }
 
   /**
@@ -74,11 +123,12 @@ public interface QueryableGraph {
    * @param previouslyRequestedDeps deps that have already been requested during this build and
    *     should not be prefetched because they will be subsequently fetched anyway
    * @return {@code previouslyRequestedDeps} as a set if the implementation called {@link
-   *     GroupedList#toSet} (so that the caller may reuse it), otherwise {@code null}
+   *     GroupedDeps#toSet} (so that the caller may reuse it), otherwise {@code null}
    */
+  @CanIgnoreReturnValue
   @Nullable
   default ImmutableSet<SkyKey> prefetchDeps(
-      SkyKey requestor, Set<SkyKey> oldDeps, GroupedList<SkyKey> previouslyRequestedDeps)
+      SkyKey requestor, Set<SkyKey> oldDeps, GroupedDeps previouslyRequestedDeps)
       throws InterruptedException {
     return null;
   }

@@ -15,14 +15,18 @@ package com.google.devtools.build.lib.remote.merkletree;
 
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.DirectoryNode;
 import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.FileNode;
+import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.SymlinkNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Path;
@@ -32,6 +36,7 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
@@ -55,12 +60,38 @@ class DirectoryTreeBuilder {
 
   static DirectoryTree fromActionInputs(
       SortedMap<PathFragment, ActionInput> inputs,
-      MetadataProvider metadataProvider,
+      InputMetadataProvider inputMetadataProvider,
       Path execRoot,
+      ArtifactPathResolver artifactPathResolver,
+      DigestUtil digestUtil)
+      throws IOException {
+    return fromActionInputs(
+        inputs,
+        ImmutableSet.of(),
+        inputMetadataProvider,
+        execRoot,
+        artifactPathResolver,
+        digestUtil);
+  }
+
+  static DirectoryTree fromActionInputs(
+      SortedMap<PathFragment, ActionInput> inputs,
+      Set<PathFragment> toolInputs,
+      InputMetadataProvider inputMetadataProvider,
+      Path execRoot,
+      ArtifactPathResolver artifactPathResolver,
       DigestUtil digestUtil)
       throws IOException {
     Map<PathFragment, DirectoryNode> tree = new HashMap<>();
-    int numFiles = buildFromActionInputs(inputs, metadataProvider, execRoot, digestUtil, tree);
+    int numFiles =
+        buildFromActionInputs(
+            inputs,
+            toolInputs,
+            inputMetadataProvider,
+            execRoot,
+            artifactPathResolver,
+            digestUtil,
+            tree);
     return new DirectoryTree(tree, numFiles);
   }
 
@@ -117,8 +148,10 @@ class DirectoryTreeBuilder {
    */
   private static int buildFromActionInputs(
       SortedMap<PathFragment, ActionInput> inputs,
-      MetadataProvider metadataProvider,
+      Set<PathFragment> toolInputs,
+      InputMetadataProvider inputMetadataProvider,
       Path execRoot,
+      ArtifactPathResolver artifactPathResolver,
       DigestUtil digestUtil,
       Map<PathFragment, DirectoryNode> tree)
       throws IOException {
@@ -132,35 +165,56 @@ class DirectoryTreeBuilder {
             boolean childAdded =
                 currDir.addChild(
                     FileNode.createExecutable(
-                        path.getBaseName(), virtualActionInput.getBytes(), d));
+                        path.getBaseName(),
+                        virtualActionInput.getBytes(),
+                        d,
+                        toolInputs.contains(path)));
             return childAdded ? 1 : 0;
           }
 
           FileArtifactValue metadata =
               Preconditions.checkNotNull(
-                  metadataProvider.getMetadata(input),
+                  inputMetadataProvider.getInputMetadata(input),
                   "missing metadata for '%s'",
                   input.getExecPathString());
           switch (metadata.getType()) {
             case REGULAR_FILE:
-              Digest d = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
-              Path inputPath = ActionInputHelper.toInputPath(input, execRoot);
-              boolean childAdded =
-                  currDir.addChild(FileNode.createExecutable(path.getBaseName(), inputPath, d));
-              return childAdded ? 1 : 0;
+              {
+                Digest d = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
+                Path inputPath = artifactPathResolver.toPath(input);
+                boolean childAdded =
+                    currDir.addChild(
+                        FileNode.createExecutable(
+                            path.getBaseName(), inputPath, d, toolInputs.contains(path)));
+                return childAdded ? 1 : 0;
+              }
 
             case DIRECTORY:
               SortedMap<PathFragment, ActionInput> directoryInputs =
                   explodeDirectory(input.getExecPath(), execRoot);
               return buildFromActionInputs(
-                  directoryInputs, metadataProvider, execRoot, digestUtil, tree);
+                  directoryInputs,
+                  toolInputs,
+                  inputMetadataProvider,
+                  execRoot,
+                  artifactPathResolver,
+                  digestUtil,
+                  tree);
 
             case SYMLINK:
-              throw new IllegalStateException(
-                  String.format(
-                      "Encountered symlink input '%s', but all"
-                          + " symlinks should have been resolved by SkyFrame. This is a bug.",
-                      path));
+              {
+                Preconditions.checkState(
+                    input instanceof SpecialArtifact && input.isSymlink(),
+                    "Encountered symlink input '%s', but all source symlinks should have been"
+                        + " resolved by SkyFrame. This is a bug.",
+                    path);
+                Path inputPath = artifactPathResolver.toPath(input);
+                boolean childAdded =
+                    currDir.addChild(
+                        new SymlinkNode(
+                            path.getBaseName(), inputPath.readSymbolicLink().getPathString()));
+                return childAdded ? 1 : 0;
+              }
 
             case SPECIAL_FILE:
               throw new IOException(

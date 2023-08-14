@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -39,11 +38,6 @@ public class DelegatingAttributeMapper implements AttributeMap {
   @Override
   public Label getLabel() {
     return delegate.getLabel();
-  }
-
-  @Override
-  public String getRuleClassName() {
-    return delegate.getRuleClassName();
   }
 
   @Override
@@ -84,8 +78,8 @@ public class DelegatingAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public void visitLabels(Attribute attribute, Consumer<Label> consumer) {
-    delegate.visitLabels(attribute, consumer);
+  public void visitLabels(String attributeName, Consumer<Label> consumer) {
+    delegate.visitLabels(attributeName, consumer);
   }
 
   @Override
@@ -94,28 +88,8 @@ public class DelegatingAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public String getPackageDefaultHdrsCheck() {
-    return delegate.getPackageDefaultHdrsCheck();
-  }
-
-  @Override
-  public boolean isPackageDefaultHdrsCheckSet() {
-    return delegate.isPackageDefaultHdrsCheckSet();
-  }
-
-  @Override
-  public Boolean getPackageDefaultTestOnly() {
-    return delegate.getPackageDefaultTestOnly();
-  }
-
-  @Override
-  public String getPackageDefaultDeprecation() {
-    return delegate.getPackageDefaultDeprecation();
-  }
-
-  @Override
-  public ImmutableList<String> getPackageDefaultCopts() {
-    return delegate.getPackageDefaultCopts();
+  public PackageArgs getPackageArgs() {
+    return delegate.getPackageArgs();
   }
 
   @Override

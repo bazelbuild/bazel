@@ -160,7 +160,7 @@ def _impl(ctx):
             ),
             flag_set(
                 actions = all_cpp_compile_actions + [ACTION_NAMES.lto_backend],
-                flag_groups = [flag_group(flags = ["-std=c++0x"])],
+                flag_groups = [flag_group(flags = ["-std=c++14"])],
             ),
         ],
     )

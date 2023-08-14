@@ -15,85 +15,69 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.devtools.build.lib.rules.cpp.Link.LINK_LIBRARY_FILETYPES;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_FILE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINK_INPUTS;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_FILE;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.COMPILABLE_SRCS_TYPE;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.HEADERS;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.NON_ARC_SRCS_TYPE;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PRECOMPILED_SRCS_TYPE;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.STRIP;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
-import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
-import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.LocalMetadataCollector;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkOptions;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkerInput;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper;
-import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainRule;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
-import com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag;
+import com.google.devtools.build.lib.rules.cpp.UserVariablesExtension;
 import com.google.devtools.build.lib.rules.objc.ObjcVariablesExtension.VariableCategory;
-import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.LinkedHashSet;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Set;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
@@ -133,31 +117,12 @@ public class CompilationSupport implements StarlarkValue {
           "-fexceptions", "-fasm-blocks", "-fobjc-abi-version=2", "-fobjc-legacy-dispatch");
 
   /**
-   * Frameworks implicitly linked to iOS, watchOS, and tvOS binaries when using legacy compilation.
+   * Frameworks implicitly linked to iOS, visionOS, watchOS, and tvOS binaries when using legacy
+   * compilation.
    */
   @VisibleForTesting
   static final NestedSet<String> AUTOMATIC_SDK_FRAMEWORKS =
       NestedSetBuilder.create(Order.STABLE_ORDER, "Foundation", "UIKit");
-
-  /** Selects cc libraries that have alwayslink=1. */
-  private static final Predicate<Artifact> ALWAYS_LINKED_CC_LIBRARY =
-      input -> LINK_LIBRARY_FILETYPES.matches(input.getFilename());
-
-  /** Returns the location of the xcrunwrapper tool. */
-  public static final FilesToRunProvider xcrunwrapper(RuleContext ruleContext) {
-    return ruleContext.getExecutablePrerequisite("$xcrunwrapper");
-  }
-
-  /**
-   * Files which can be instrumented along with the attributes in which they may occur and the
-   * attributes along which they are propagated from dependencies (via {@link
-   * InstrumentedFilesInfo}).
-   */
-  private static final InstrumentationSpec INSTRUMENTATION_SPEC =
-      new InstrumentationSpec(
-              FileTypeSet.of(ObjcRuleClasses.NON_CPP_SOURCES, ObjcRuleClasses.CPP_SOURCES, HEADERS))
-          .withSourceAttributes("srcs", "non_arc_srcs", "hdrs")
-          .withDependencyAttributes("deps", "data", "binary", "xctest_app");
 
   /** Iterable wrapper providing strong type safety for arguments to binary linking. */
   static final class ExtraLinkArgs extends IterableWrapper<String> {
@@ -195,7 +160,7 @@ public class CompilationSupport implements StarlarkValue {
   /** Returns information about the given rule's compilation artifacts. */
   // TODO(bazel-team): Remove this information from ObjcCommon and move it internal to this class.
   static CompilationArtifacts compilationArtifacts(RuleContext ruleContext) {
-    return compilationArtifacts(ruleContext, ObjcRuleClasses.intermediateArtifacts(ruleContext));
+    return compilationArtifacts(ruleContext, new IntermediateArtifacts(ruleContext));
   }
 
   /**
@@ -207,30 +172,7 @@ public class CompilationSupport implements StarlarkValue {
    */
   static CompilationArtifacts compilationArtifacts(
       RuleContext ruleContext, IntermediateArtifacts intermediateArtifacts) {
-    PrerequisiteArtifacts srcs =
-        ruleContext.getPrerequisiteArtifacts("srcs").errorsForNonMatching(SRCS_TYPE);
-    return new CompilationArtifacts.Builder()
-        .addSrcs(srcs.filter(COMPILABLE_SRCS_TYPE).list())
-        .addNonArcSrcs(
-            ruleContext
-                .getPrerequisiteArtifacts("non_arc_srcs")
-                .errorsForNonMatching(NON_ARC_SRCS_TYPE)
-                .list())
-        .addPrivateHdrs(srcs.filter(HEADERS).list())
-        .addPrecompiledSrcs(srcs.filter(PRECOMPILED_SRCS_TYPE).list())
-        .setIntermediateArtifacts(intermediateArtifacts)
-        .build();
-  }
-
-  /** Returns a list of framework library search paths. */
-  static ImmutableList<String> frameworkLibrarySearchPaths(ObjcProvider provider) {
-    ImmutableList.Builder<String> searchPaths = new ImmutableList.Builder<>();
-    return searchPaths
-        // Add library search paths corresponding to custom (non-SDK) frameworks. For each framework
-        // foo/bar.framework, include "foo" as a search path.
-        .addAll(provider.staticFrameworkPaths().toList())
-        .addAll(provider.dynamicFrameworkPaths().toList())
-        .build();
+    return new CompilationArtifacts(ruleContext, intermediateArtifacts);
   }
 
   private final RuleContext ruleContext;
@@ -279,11 +221,11 @@ public class CompilationSupport implements StarlarkValue {
     if (toolchain == null
         && (ruleContext
                 .attributes()
-                .has(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, BuildType.LABEL)
+                .has(CcToolchainRule.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, BuildType.LABEL)
             || ruleContext
                 .attributes()
                 .has(
-                    CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME_FOR_STARLARK,
+                    CcToolchainRule.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME_FOR_STARLARK,
                     BuildType.LABEL))) {
       toolchain = CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
     }
@@ -345,8 +287,7 @@ public class CompilationSupport implements StarlarkValue {
       }
 
       if (intermediateArtifacts == null) {
-        intermediateArtifacts =
-            ObjcRuleClasses.intermediateArtifacts(ruleContext, buildConfiguration);
+        intermediateArtifacts = new IntermediateArtifacts(ruleContext, buildConfiguration);
       }
 
       if (compilationAttributes == null) {
@@ -361,34 +302,6 @@ public class CompilationSupport implements StarlarkValue {
           compilationAttributes,
           toolchain);
     }
-  }
-
-  /**
-   * Returns a provider that collects this target's instrumented sources as well as those of its
-   * dependencies.
-   *
-   * @param ruleContext the rule context of the target
-   * @param toolchain the toolchain used by the target
-   * @param buildConfiguration the build configuration of the target
-   * @param objectFiles the object files generated by the target
-   * @return an instrumented files provider
-   */
-  protected static InstrumentedFilesInfo getInstrumentedFilesProvider(
-      RuleContext ruleContext,
-      CcToolchainProvider toolchain,
-      BuildConfigurationValue buildConfiguration,
-      ImmutableList<Artifact> objectFiles)
-      throws RuleErrorException {
-    CppConfiguration cppConfiguration = buildConfiguration.getFragment(CppConfiguration.class);
-    return InstrumentedFilesCollector.collect(
-        ruleContext,
-        INSTRUMENTATION_SPEC,
-        OBJC_METADATA_COLLECTOR,
-        objectFiles,
-        CppHelper.getGcovFilesIfNeeded(ruleContext, toolchain),
-        CppHelper.getCoverageEnvironmentIfNeeded(ruleContext, cppConfiguration, toolchain),
-        /* withBaselineCoverage= */ true,
-        /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
   }
 
   /**
@@ -436,17 +349,118 @@ public class CompilationSupport implements StarlarkValue {
     return this;
   }
 
-  private StrippingType getStrippingType(ExtraLinkArgs extraLinkArgs) {
-    if (Iterables.contains(extraLinkArgs, "-dynamiclib")) {
+  private StrippingType getStrippingType(
+      ExtraLinkArgs extraLinkArgs, FeatureConfiguration featureConfiguration) {
+    if (Iterables.contains(extraLinkArgs, "-dynamiclib")
+        || featureConfiguration.isEnabled(ObjcRuleClasses.LINK_DYLIB_FEATURE)) {
       return StrippingType.DYNAMIC_LIB;
     }
-    if (Iterables.contains(extraLinkArgs, "-bundle")) {
+    if (Iterables.contains(extraLinkArgs, "-bundle")
+        || featureConfiguration.isEnabled(ObjcRuleClasses.LINK_BUNDLE_FEATURE)) {
       return StrippingType.LOADABLE_BUNDLE;
     }
     if (Iterables.contains(extraLinkArgs, "-kext")) {
       return StrippingType.KERNEL_EXTENSION;
     }
     return StrippingType.DEFAULT;
+  }
+
+  /**
+   * Returns the preferred static library for linking, or {@code null} if there is no static
+   * library.
+   *
+   * @param library the input library.
+   */
+  @Nullable
+  public static Artifact getStaticLibraryForLinking(LibraryToLink library) {
+    if (library.getStaticLibrary() != null) {
+      return library.getStaticLibrary();
+    } else if (library.getPicStaticLibrary() != null) {
+      return library.getPicStaticLibrary();
+    } else {
+      return null;
+    }
+  }
+
+  /**
+   * Returns the preferred variant of the library for linking.
+   *
+   * @param library the input library.
+   */
+  public static Artifact getLibraryForLinking(LibraryToLink library) {
+    if (library.getStaticLibrary() != null) {
+      return library.getStaticLibrary();
+    } else if (library.getPicStaticLibrary() != null) {
+      return library.getPicStaticLibrary();
+    } else if (library.getInterfaceLibrary() != null) {
+      return library.getInterfaceLibrary();
+    } else {
+      return library.getDynamicLibrary();
+    }
+  }
+
+  private static Pair<ImmutableSet<Artifact>, ImmutableSet<Artifact>>
+      classifyLibrariesFromCcLinkingContext(CcLinkingContext ccLinkingContext) {
+    ImmutableList<LinkerInput> linkerInputs = ccLinkingContext.getLinkerInputs().toList();
+    ImmutableSet.Builder<Artifact> alwaysLinkLibrariesBuilder = ImmutableSet.builder();
+    for (LinkerInput linkerInput : linkerInputs) {
+      for (LibraryToLink libraryToLink : linkerInput.getLibraries()) {
+        if (libraryToLink.getAlwayslink()) {
+          Artifact library = getLibraryForLinking(libraryToLink);
+          alwaysLinkLibrariesBuilder.add(library);
+        }
+      }
+    }
+    ImmutableSet<Artifact> alwaysLinkLibraries = alwaysLinkLibrariesBuilder.build();
+
+    ImmutableSet.Builder<Artifact> asNeededlibrariesBuilder = ImmutableSet.builder();
+    for (LinkerInput linkerInput : linkerInputs) {
+      for (LibraryToLink libraryToLink : linkerInput.getLibraries()) {
+        if (!libraryToLink.getAlwayslink()) {
+          Artifact library = getLibraryForLinking(libraryToLink);
+          if (!alwaysLinkLibraries.contains(library)) {
+            asNeededlibrariesBuilder.add(library);
+          }
+        }
+      }
+    }
+    return Pair.of(asNeededlibrariesBuilder.build(), alwaysLinkLibraries);
+  }
+
+  private static ImmutableList<String> dedupSdkLinkopts(NestedSet<LinkOptions> linkopts) {
+    HashSet<String> duplicates = new HashSet<>();
+    ImmutableList.Builder<String> finalLinkopts = ImmutableList.builder();
+
+    for (LinkOptions linkOptions : linkopts.toList()) {
+      ImmutableList<String> args = linkOptions.get();
+      for (Iterator<String> iterator = args.iterator(); iterator.hasNext(); ) {
+        String arg = iterator.next();
+        if (iterator.hasNext() && (arg.equals("-framework") || arg.equals("-weak_framework"))) {
+          String framework = iterator.next();
+          String key = arg.charAt(1) + framework;
+          if (!duplicates.contains(key)) {
+            finalLinkopts.add(arg, framework);
+            duplicates.add(key);
+          }
+        } else if (arg.startsWith("-Wl,-framework,") || arg.startsWith("-Wl,-weak_framework,")) {
+          String framework = arg.split(",", -1)[2];
+          String key = arg.charAt(5) + framework;
+          if (!duplicates.contains(key)) {
+            finalLinkopts.add(arg.split(",", -1)[1], framework);
+            duplicates.add(key);
+          }
+        } else if (arg.startsWith("-l")) {
+          if (!duplicates.contains(arg)) {
+            finalLinkopts.add(arg);
+            duplicates.add(arg);
+          }
+        } else {
+          finalLinkopts.add(arg);
+        }
+      }
+    }
+
+    return finalLinkopts.build();
   }
 
   /**
@@ -460,31 +474,51 @@ public class CompilationSupport implements StarlarkValue {
    * stripping (using {@code /usr/bin/strip}) and dead-code stripping (using linker flags: {@code
    * -dead_strip}).
    *
-   * @param objcProvider common information about this rule's attributes and its dependencies
-   * @param ccLinkingContexts the linking contexts from this rule's dependencies
+   * @param linkingInfoProvider the CcLinkingContext with most of the dependency information
+   *     required for linking.
+   * @param secondaryObjcProvider the ObjcProvider that provides secondary linking info.
    * @param j2ObjcMappingFileProvider contains mapping files for j2objc transpilation
    * @param j2ObjcEntryClassProvider contains j2objc entry class information for dead code removal
    * @param extraLinkArgs any additional arguments to pass to the linker
    * @param extraLinkInputs any additional input artifacts to pass to the link action
+   * @param userVariablesExtension the UserVariablesExtension to pass to the linker action
    * @return this compilation support
    */
   @CanIgnoreReturnValue
-  CompilationSupport registerLinkActions(
-      ObjcProvider objcProvider,
-      Iterable<CcLinkingContext> ccLinkingContexts,
-      J2ObjcMappingFileProvider j2ObjcMappingFileProvider,
-      J2ObjcEntryClassProvider j2ObjcEntryClassProvider,
+  public CompilationSupport registerLinkActions(
+      CcLinkingContext linkingInfoProvider,
+      ObjcProvider secondaryLinkingInfoProvider,
+      StarlarkInfo j2ObjcMappingFileProvider,
+      StarlarkInfo j2ObjcEntryClassProvider,
       ExtraLinkArgs extraLinkArgs,
       Iterable<Artifact> extraLinkInputs,
-      boolean isStampingEnabled)
-      throws InterruptedException, RuleErrorException {
-    Iterable<Artifact> prunedJ2ObjcArchives =
-        computeAndStripPrunedJ2ObjcArchives(
-            j2ObjcEntryClassProvider, j2ObjcMappingFileProvider, objcProvider);
-    ImmutableList<Artifact> bazelBuiltLibraries =
-        Iterables.isEmpty(prunedJ2ObjcArchives)
-            ? objcProvider.getObjcLibraries()
-            : substituteJ2ObjcPrunedLibraries(objcProvider);
+      Iterable<String> extraRequestedFeatures,
+      Iterable<String> extraDisabledFeatures,
+      boolean isStampingEnabled,
+      UserVariablesExtension userVariablesExtension)
+      throws InterruptedException, RuleErrorException, EvalException {
+    // We need to split input libraries into those that require -force_load and those that don't.
+    // Clang loads archives specified in filelists and also specified as -force_load twice,
+    // resulting in duplicate symbol errors unless they are deduped.
+    Pair<ImmutableSet<Artifact>, ImmutableSet<Artifact>> inputLibrarySet =
+        classifyLibrariesFromCcLinkingContext(linkingInfoProvider);
+
+    ImmutableSet<Artifact> asNeededLibrarySet = inputLibrarySet.first;
+    ImmutableSet<Artifact> alwaysLinkLibrarySet = inputLibrarySet.second;
+
+    if (stripJ2ObjcDeadCode(j2ObjcEntryClassProvider)
+        && !secondaryLinkingInfoProvider.get(ObjcProvider.J2OBJC_LIBRARY).toList().isEmpty()) {
+      registerJ2ObjcDeadCodeRemovalActions(
+          secondaryLinkingInfoProvider, j2ObjcMappingFileProvider, j2ObjcEntryClassProvider);
+
+      asNeededLibrarySet =
+          substituteJ2ObjcPrunedLibraries(asNeededLibrarySet, secondaryLinkingInfoProvider);
+      alwaysLinkLibrarySet =
+          substituteJ2ObjcPrunedLibraries(alwaysLinkLibrarySet, secondaryLinkingInfoProvider);
+    }
+
+    ImmutableList<Artifact> asNeededLibraryList = asNeededLibrarySet.asList();
+    ImmutableList<Artifact> alwaysLinkLibraryList = alwaysLinkLibrarySet.asList();
 
     // Passing large numbers of inputs on the command line triggers a bug in Apple's Clang
     // (b/29094356), so we'll create an input list manually and pass -filelist path/to/input/list.
@@ -493,47 +527,43 @@ public class CompilationSupport implements StarlarkValue {
     // CppLinkAction too, so create it now.
     Artifact inputFileList = intermediateArtifacts.linkerObjList();
 
-    ImmutableSet<Artifact> forceLinkArtifacts = getForceLoadArtifacts(objcProvider);
-
-    // Clang loads archives specified in filelists and also specified as -force_load twice,
-    // resulting in duplicate symbol errors unless they are deduped.
-    ImmutableSet<Artifact> objFiles =
-        ImmutableSet.copyOf(
-            Iterables.filter(
-                Iterables.concat(
-                    bazelBuiltLibraries,
-                    objcProvider.get(IMPORTED_LIBRARY).toList(),
-                    objcProvider.getCcLibraries()),
-                Predicates.not(Predicates.in(forceLinkArtifacts))));
-
-    LinkTargetType linkType =
-        objcProvider.is(Flag.USES_CPP)
-            ? LinkTargetType.OBJCPP_EXECUTABLE
-            : LinkTargetType.OBJC_EXECUTABLE;
-
-    ObjcVariablesExtension.Builder extensionBuilder =
-        new ObjcVariablesExtension.Builder()
-            .setRuleContext(ruleContext)
-            .setObjcProvider(objcProvider)
-            .setConfiguration(buildConfiguration)
-            .setIntermediateArtifacts(intermediateArtifacts)
-            .setFrameworkNames(frameworkNames(objcProvider))
-            .setFrameworkSearchPath(frameworkLibrarySearchPaths(objcProvider))
-            .setLibraryNames(libraryNames(objcProvider))
-            .setForceLoadArtifacts(getForceLoadArtifacts(objcProvider))
-            .setAttributeLinkopts(attributes.linkopts())
-            .addVariableCategory(VariableCategory.EXECUTABLE_LINKING_VARIABLES);
-
-    Artifact binaryToLink = getBinaryToLink();
+    ImmutableSet<String> allRequestedFeatures =
+        new ImmutableSet.Builder<String>()
+            .addAll(ruleContext.getFeatures())
+            .addAll(extraRequestedFeatures)
+            .build();
+    ImmutableSet<String> allDisabledFeatures =
+        new ImmutableSet.Builder<String>()
+            .addAll(ruleContext.getDisabledFeatures())
+            .addAll(extraDisabledFeatures)
+            .build();
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrReportRuleError(
             ruleContext,
             buildConfiguration,
-            ruleContext.getFeatures(),
-            ruleContext.getDisabledFeatures(),
+            allRequestedFeatures,
+            allDisabledFeatures,
             Language.OBJC,
             toolchain,
             cppSemantics);
+
+    ImmutableList<Artifact> staticRuntimes;
+    try {
+      staticRuntimes = toolchain.getStaticRuntimeLinkInputs(featureConfiguration).toList();
+    } catch (EvalException e) {
+      throw ruleContext.throwWithRuleError(e);
+    }
+
+    ObjcVariablesExtension.Builder extensionBuilder =
+        new ObjcVariablesExtension.Builder()
+            .setRuleContext(ruleContext)
+            .setIntermediateArtifacts(intermediateArtifacts)
+            .setForceLoadArtifacts(alwaysLinkLibrarySet)
+            .setAttributeLinkopts(attributes.linkopts())
+            .setDepLinkopts(dedupSdkLinkopts(linkingInfoProvider.getUserLinkFlags()))
+            .addVariableCategory(VariableCategory.EXECUTABLE_LINKING_VARIABLES);
+
+    Artifact binaryToLink = getBinaryToLink();
 
     Label binaryLabel = null;
     try {
@@ -559,20 +589,17 @@ public class CompilationSupport implements StarlarkValue {
                 ruleContext.getSymbolGenerator(),
                 TargetUtils.getExecutionInfo(
                     ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
-            .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
             .setIsStampingEnabled(isStampingEnabled)
             .setTestOrTestOnlyTarget(ruleContext.isTestOnlyTarget() || ruleContext.isTestTarget())
-            .addNonCodeLinkerInputs(bazelBuiltLibraries)
-            .addNonCodeLinkerInputs(objcProvider.getCcLibraries())
+            .addNonCodeLinkerInputs(asNeededLibraryList)
+            .addNonCodeLinkerInputs(alwaysLinkLibraryList)
+            .addNonCodeLinkerInputs(linkingInfoProvider.getNonCodeInputs().toList())
             .addNonCodeLinkerInputs(ImmutableList.copyOf(extraLinkInputs))
             .addNonCodeLinkerInputs(ImmutableList.copyOf(attributes.linkInputs()))
             .addNonCodeLinkerInputs(ImmutableList.of(inputFileList))
-            .addTransitiveAdditionalLinkerInputs(objcProvider.get(IMPORTED_LIBRARY))
-            .addTransitiveAdditionalLinkerInputs(objcProvider.get(STATIC_FRAMEWORK_FILE))
-            .addTransitiveAdditionalLinkerInputs(objcProvider.get(DYNAMIC_FRAMEWORK_FILE))
-            .addTransitiveAdditionalLinkerInputs(objcProvider.get(LINK_INPUTS))
+            .addVariableExtension(userVariablesExtension)
             .setShouldCreateStaticLibraries(false)
-            .setDynamicLinkType(linkType)
+            .setDynamicLinkType(LinkTargetType.OBJC_EXECUTABLE)
             .setLinkingMode(LinkingMode.STATIC)
             .addLinkopts(ImmutableList.copyOf(extraLinkArgs));
 
@@ -595,23 +622,14 @@ public class CompilationSupport implements StarlarkValue {
       linkerOutputs.add(linkmap);
     }
 
-    if (cppConfiguration.getAppleBitcodeMode() == AppleBitcodeMode.EMBEDDED) {
-      Artifact bitcodeSymbolMap = intermediateArtifacts.bitcodeSymbolMap();
-      extensionBuilder
-          .setBitcodeSymbolMap(bitcodeSymbolMap)
-          .addVariableCategory(VariableCategory.BITCODE_VARIABLES);
-      linkerOutputs.add(bitcodeSymbolMap);
-    }
-
     executableLinkingHelper.addVariableExtension(extensionBuilder.build());
 
     executableLinkingHelper.addLinkerOutputs(linkerOutputs.build());
 
-    CcLinkingContext.Builder linkstampsBuilder = CcLinkingContext.builder();
-    for (CcLinkingContext context : ccLinkingContexts) {
-      linkstampsBuilder.addLinkstamps(context.getLinkstamps().toList());
-    }
-    CcLinkingContext linkstamps = linkstampsBuilder.build();
+    CcLinkingContext linkstamps =
+        CcLinkingContext.builder()
+            .addLinkstamps(linkingInfoProvider.getLinkstamps().toList())
+            .build();
     executableLinkingHelper.addCcLinkingContexts(ImmutableList.of(linkstamps));
 
     executableLinkingHelper.link(CcCompilationOutputs.EMPTY);
@@ -629,11 +647,16 @@ public class CompilationSupport implements StarlarkValue {
     // Populate the input file list with both the compiled object files and any linkstamp object
     // files.
     registerObjFilelistAction(
-        ImmutableSet.<Artifact>builder().addAll(objFiles).addAll(linkstampValues).build(),
+        ImmutableSet.<Artifact>builder()
+            .addAll(asNeededLibraryList)
+            .addAll(staticRuntimes)
+            .addAll(linkstampValues)
+            .build(),
         inputFileList);
 
     if (cppConfiguration.objcShouldStripBinary()) {
-      registerBinaryStripAction(binaryToLink, getStrippingType(extraLinkArgs));
+      registerBinaryStripAction(
+          binaryToLink, getStrippingType(extraLinkArgs, featureConfiguration));
     }
 
     return this;
@@ -671,95 +694,53 @@ public class CompilationSupport implements StarlarkValue {
     return this;
   }
 
-  /**
-   * Returns all framework names to pass to the linker using {@code -framework} flags. For a
-   * framework in the directory foo/bar.framework, the name is "bar". Each framework is found
-   * without using the full path by means of the framework search paths.
-   *
-   * <p>It's awful that we can't pass the full path to the framework and avoid framework search
-   * paths, but this is imposed on us by clang. clang does not support passing the full path to the
-   * framework, so Bazel cannot do it either.
-   */
-  private Set<String> frameworkNames(ObjcProvider provider) {
-    Set<String> names = new LinkedHashSet<>();
-    names.addAll(provider.get(SDK_FRAMEWORK).toList());
-    names.addAll(provider.staticFrameworkNames().toList());
-    names.addAll(provider.dynamicFrameworkNames().toList());
-    return names;
-  }
-
-  /** Returns libraries that should be passed to the linker. */
-  private ImmutableList<String> libraryNames(ObjcProvider objcProvider) {
-    ImmutableList.Builder<String> args = new ImmutableList.Builder<>();
-    for (String dylib : objcProvider.get(SDK_DYLIB).toList()) {
-      if (dylib.startsWith("lib")) {
-        // remove lib prefix if it exists which is standard
-        // for libraries (libxml.dylib -> -lxml).
-        dylib = dylib.substring(3);
-      }
-      args.add(dylib);
-    }
-    return args.build();
-  }
-
-  /** Returns libraries that should be passed into the linker with {@code -force_load}. */
-  private ImmutableSet<Artifact> getForceLoadArtifacts(ObjcProvider objcProvider) {
-    List<Artifact> ccLibraries = objcProvider.getCcLibraries();
-    Iterable<Artifact> ccLibrariesToForceLoad =
-        Iterables.filter(ccLibraries, ALWAYS_LINKED_CC_LIBRARY);
-
-    return ImmutableSet.<Artifact>builder()
-        .addAll(objcProvider.get(FORCE_LOAD_LIBRARY).toList())
-        .addAll(ccLibrariesToForceLoad)
-        .build();
-  }
-
-  /** Returns pruned J2Objc archives for this target. */
-  private ImmutableList<Artifact> j2objcPrunedLibraries(ObjcProvider objcProvider) {
-    ImmutableList.Builder<Artifact> j2objcPrunedLibraryBuilder = ImmutableList.builder();
-    for (Artifact j2objcLibrary : objcProvider.get(ObjcProvider.J2OBJC_LIBRARY).toList()) {
-      j2objcPrunedLibraryBuilder.add(intermediateArtifacts.j2objcPrunedArchive(j2objcLibrary));
-    }
-    return j2objcPrunedLibraryBuilder.build();
+  private <T> NestedSet<T> getField(StarlarkInfo provider, String fieldName, Class<T> type)
+      throws EvalException {
+    return Depset.cast(provider.getValue(fieldName), type, fieldName);
   }
 
   /** Returns true if this build should strip J2Objc dead code. */
-  private boolean stripJ2ObjcDeadCode(J2ObjcEntryClassProvider j2ObjcEntryClassProvider) {
+  private boolean stripJ2ObjcDeadCode(StarlarkInfo j2ObjcEntryClassProvider) throws EvalException {
     J2ObjcConfiguration j2objcConfiguration =
         buildConfiguration.getFragment(J2ObjcConfiguration.class);
+    NestedSet<String> entryClasses =
+        getField(j2ObjcEntryClassProvider, "entry_classes", String.class);
+
     // Only perform J2ObjC dead code stripping if flag --j2objc_dead_code_removal is specified and
     // users have specified entry classes.
-    return j2objcConfiguration.removeDeadCode()
-        && !j2ObjcEntryClassProvider.getEntryClasses().isEmpty();
+    return j2objcConfiguration.removeDeadCode() && !entryClasses.isEmpty();
   }
 
   /** Registers actions to perform J2Objc dead code removal. */
   private void registerJ2ObjcDeadCodeRemovalActions(
       ObjcProvider objcProvider,
-      J2ObjcMappingFileProvider j2ObjcMappingFileProvider,
-      J2ObjcEntryClassProvider j2ObjcEntryClassProvider) {
-    NestedSet<String> entryClasses = j2ObjcEntryClassProvider.getEntryClasses();
+      StarlarkInfo j2ObjcMappingFileProvider,
+      StarlarkInfo j2ObjcEntryClassProvider)
+      throws EvalException {
+    NestedSet<String> entryClasses =
+        getField(j2ObjcEntryClassProvider, "entry_classes", String.class);
     NestedSet<Artifact> j2ObjcDependencyMappingFiles =
-        j2ObjcMappingFileProvider.getDependencyMappingFiles();
+        getField(j2ObjcMappingFileProvider, "dependency_mapping_files", Artifact.class);
     NestedSet<Artifact> j2ObjcHeaderMappingFiles =
-        j2ObjcMappingFileProvider.getHeaderMappingFiles();
+        getField(j2ObjcMappingFileProvider, "header_mapping_files", Artifact.class);
     NestedSet<Artifact> j2ObjcArchiveSourceMappingFiles =
-        j2ObjcMappingFileProvider.getArchiveSourceMappingFiles();
+        getField(j2ObjcMappingFileProvider, "archive_source_mapping_files", Artifact.class);
 
     for (Artifact j2objcArchive : objcProvider.get(ObjcProvider.J2OBJC_LIBRARY).toList()) {
       Artifact prunedJ2ObjcArchive = intermediateArtifacts.j2objcPrunedArchive(j2objcArchive);
       Artifact dummyArchive =
-          ruleContext
-              .getPrerequisite("$dummy_lib", ObjcProvider.STARLARK_CONSTRUCTOR)
-              .get(LIBRARY)
-              .getSingleton();
+          getLibraryForLinking(
+              ruleContext
+                  .getPrerequisite("$dummy_lib", CcInfo.PROVIDER)
+                  .getCcLinkingContext()
+                  .getLibraries()
+                  .getSingleton());
 
       CustomCommandLine commandLine =
           CustomCommandLine.builder()
               .addExecPath("--input_archive", j2objcArchive)
               .addExecPath("--output_archive", prunedJ2ObjcArchive)
               .addExecPath("--dummy_archive", dummyArchive)
-              .addExecPath("--xcrunwrapper", xcrunwrapper(ruleContext).getExecutable())
               .addExecPaths(
                   "--dependency_mapping_files",
                   VectorArg.join(",").each(j2ObjcDependencyMappingFiles))
@@ -773,14 +754,11 @@ public class CompilationSupport implements StarlarkValue {
               .build();
 
       ruleContext.registerAction(
-          ObjcRuleClasses.spawnAppleEnvActionBuilder(
-                  XcodeConfigInfo.fromRuleContext(ruleContext),
-                  appleConfiguration.getSingleArchPlatform())
+          new SpawnAction.Builder()
               .setMnemonic("DummyPruner")
               .setExecutable(ruleContext.getExecutablePrerequisite("$j2objc_dead_code_pruner"))
               .addInput(dummyArchive)
               .addInput(j2objcArchive)
-              .addInput(xcrunwrapper(ruleContext).getExecutable())
               .addTransitiveInputs(j2ObjcDependencyMappingFiles)
               .addTransitiveInputs(j2ObjcHeaderMappingFiles)
               .addTransitiveInputs(j2ObjcArchiveSourceMappingFiles)
@@ -791,33 +769,18 @@ public class CompilationSupport implements StarlarkValue {
                       .setUseAlways(true)
                       .build())
               .addOutput(prunedJ2ObjcArchive)
+              .setExecGroup("j2objc")
               .build(ruleContext));
     }
   }
 
-  /** Returns archives arising from j2objc transpilation after dead code removal. */
-  private Iterable<Artifact> computeAndStripPrunedJ2ObjcArchives(
-      J2ObjcEntryClassProvider j2ObjcEntryClassProvider,
-      J2ObjcMappingFileProvider j2ObjcMappingFileProvider,
-      ObjcProvider objcProvider) {
-    Iterable<Artifact> prunedJ2ObjcArchives = ImmutableList.<Artifact>of();
-    if (stripJ2ObjcDeadCode(j2ObjcEntryClassProvider)) {
-      registerJ2ObjcDeadCodeRemovalActions(
-          objcProvider, j2ObjcMappingFileProvider, j2ObjcEntryClassProvider);
-      prunedJ2ObjcArchives = j2objcPrunedLibraries(objcProvider);
-    }
-    return prunedJ2ObjcArchives;
-  }
-
-  /**
-   * Returns a nested set of Bazel-built ObjC libraries with all unpruned J2ObjC libraries
-   * substituted with pruned ones.
-   */
-  private ImmutableList<Artifact> substituteJ2ObjcPrunedLibraries(ObjcProvider objcProvider) {
-    ImmutableList.Builder<Artifact> libraries = new ImmutableList.Builder<>();
+  /** Returns a set of libraries with all unpruned J2ObjC libraries substituted with pruned ones. */
+  private ImmutableSet<Artifact> substituteJ2ObjcPrunedLibraries(
+      ImmutableSet<Artifact> originalLibraries, ObjcProvider objcProvider) {
+    ImmutableSet.Builder<Artifact> libraries = new ImmutableSet.Builder<>();
 
     Set<Artifact> unprunedJ2ObjcLibs = objcProvider.get(ObjcProvider.J2OBJC_LIBRARY).toSet();
-    for (Artifact library : objcProvider.getObjcLibraries()) {
+    for (Artifact library : originalLibraries) {
       // If we match an unpruned J2ObjC library, add the pruned version of the J2ObjC static library
       // instead.
       if (unprunedJ2ObjcLibs.contains(library)) {
@@ -846,6 +809,7 @@ public class CompilationSupport implements StarlarkValue {
   private static CommandLine symbolStripCommandLine(
       ImmutableList<String> extraFlags, Artifact unstrippedArtifact, Artifact strippedArtifact) {
     return CustomCommandLine.builder()
+        .add("/usr/bin/xcrun")
         .add(STRIP)
         .addAll(extraFlags)
         .addExecPath("-o", strippedArtifact)
@@ -888,33 +852,11 @@ public class CompilationSupport implements StarlarkValue {
                 XcodeConfigInfo.fromRuleContext(ruleContext),
                 appleConfiguration.getSingleArchPlatform())
             .setMnemonic("ObjcBinarySymbolStrip")
-            .setExecutable(xcrunwrapper(ruleContext))
             .addCommandLine(symbolStripCommandLine(stripArgs, binaryToLink, strippedBinary))
             .addOutput(strippedBinary)
             .addInput(binaryToLink)
             .build(ruleContext));
   }
-
-  /**
-   * Collector that, given a list of output artifacts, finds and registers coverage notes metadata
-   * for any compilation action.
-   */
-  private static final LocalMetadataCollector OBJC_METADATA_COLLECTOR =
-      new LocalMetadataCollector() {
-        @Override
-        public void collectMetadataArtifacts(
-            Iterable<Artifact> artifacts,
-            AnalysisEnvironment analysisEnvironment,
-            NestedSetBuilder<Artifact> metadataFilesBuilder) {
-          for (Artifact artifact : artifacts) {
-            ActionAnalysisMetadata action = analysisEnvironment.getLocalGeneratingAction(artifact);
-            if (action.getMnemonic().equals("ObjcCompile")
-                || action.getMnemonic().equals("ObjcCompileHeader")) {
-              addOutputs(metadataFilesBuilder, action, ObjcRuleClasses.COVERAGE_NOTES);
-            }
-          }
-        }
-      };
 
   public static Optional<Artifact> getCustomModuleMap(RuleContext ruleContext) {
     if (ruleContext.attributes().has("module_map", BuildType.LABEL)) {

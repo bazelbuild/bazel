@@ -14,30 +14,29 @@
 
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Maps;
-import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
-import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.ActionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.vfs.BulkDeleter;
@@ -47,14 +46,18 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
+import java.util.AbstractSet;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * Abstract implementation of Action which implements basic functionality: the inputs, outputs, and
@@ -64,12 +67,6 @@ import net.starlark.java.eval.Sequence;
 @Immutable
 @ThreadSafe
 public abstract class AbstractAction extends ActionKeyCacher implements Action, ActionApi {
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-
-  @Override
-  public boolean isImmutable() {
-    return true; // immutable and Starlark-hashable
-  }
 
   /**
    * An arbitrary default resource set. We assume that a typical subprocess is single-threaded
@@ -81,84 +78,35 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   // TODO(ulfjack): Collect actual data to confirm that this is an acceptable approximation.
   public static final ResourceSet DEFAULT_RESOURCE_SET = ResourceSet.createWithRamCpu(250, 1);
 
-  /**
-   * The owner/inputs/outputs attributes below should never be directly accessed even within
-   * AbstractAction itself. The appropriate getter methods should be used instead. This has to be
-   * done due to the fact that the getter methods can be overridden in subclasses.
-   */
-  @VisibleForSerialization protected final ActionOwner owner;
-
-  /**
-   * Tools are a subset of inputs and used by the WorkerSpawnStrategy to determine whether a
-   * compiler has changed since the last time it was used. This should include all artifacts that
-   * the tool does not dynamically reload / check on each unit of work - e.g. its own binary, the
-   * JDK for Java binaries, shared libraries, ... but not a configuration file, if it reloads that
-   * when it has changed.
-   *
-   * <p>If the "tools" set does not contain exactly the right set of artifacts, the following can
-   * happen: If an artifact that should be included is missing, the tool might not be restarted when
-   * it should, and builds can become incorrect (example: The compiler binary is not part of this
-   * set, then the compiler gets upgraded, but the worker strategy still reuses the old version). If
-   * an artifact that should *not* be included is accidentally part of this set, the worker process
-   * will be restarted more often that is necessary - e.g. if a file that is unique to each unit of
-   * work, e.g. the source code that a compiler should compile for a compile action, is part of this
-   * set, then the worker will never be reused and will be restarted for each unit of work.
-   */
-  private final NestedSet<Artifact> tools;
-
-  @GuardedBy("this")
-  private boolean inputsDiscovered = false;  // Only used when discoversInputs() returns true
+  private final ActionOwner owner;
 
   // The variable inputs is non-final only so that actions that discover their inputs can modify it.
+  // Access through getInputs() in case it's overridden.
   @GuardedBy("this")
-  @VisibleForSerialization
-  protected NestedSet<Artifact> inputs;
+  private NestedSet<Artifact> inputs;
 
-  protected final ActionEnvironment env;
-  private final RunfilesSupplier runfilesSupplier;
-  @VisibleForSerialization protected final ImmutableSet<Artifact> outputs;
+  /**
+   * To save memory, this is either an {@link Artifact} for actions with a single output, or a
+   * duplicate-free {@code Artifact[]} for actions with multiple outputs.
+   */
+  private final Object outputs;
 
-  /** Construct an abstract action with the specified inputs and outputs; */
   protected AbstractAction(
-      ActionOwner owner, NestedSet<Artifact> inputs, Iterable<Artifact> outputs) {
-    this(
-        owner,
-        /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        inputs,
-        EmptyRunfilesSupplier.INSTANCE,
-        outputs,
-        ActionEnvironment.EMPTY);
+      ActionOwner owner, NestedSet<Artifact> inputs, Iterable<? extends Artifact> outputs) {
+    this.owner = checkNotNull(owner);
+    this.inputs = checkNotNull(inputs);
+    this.outputs = singletonOrArray(outputs);
   }
 
-  protected AbstractAction(
-      ActionOwner owner,
-      NestedSet<Artifact> inputs,
-      Iterable<Artifact> outputs,
-      ActionEnvironment env) {
-    this(
-        owner,
-        /*tools = */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        inputs,
-        EmptyRunfilesSupplier.INSTANCE,
-        outputs,
-        env);
+  private static Object singletonOrArray(Iterable<? extends Artifact> outputs) {
+    ImmutableSet<Artifact> set = ImmutableSet.copyOf(outputs);
+    checkArgument(!set.isEmpty(), "Action outputs may not be empty");
+    return set.size() == 1 ? Iterables.getOnlyElement(set) : set.toArray(Artifact[]::new);
   }
 
-  protected AbstractAction(
-      ActionOwner owner,
-      NestedSet<Artifact> tools,
-      NestedSet<Artifact> inputs,
-      RunfilesSupplier runfilesSupplier,
-      Iterable<? extends Artifact> outputs,
-      ActionEnvironment env) {
-    Preconditions.checkNotNull(owner);
-    this.owner = owner;
-    this.tools = tools;
-    this.inputs = inputs;
-    this.env = Preconditions.checkNotNull(env);
-    this.outputs = ImmutableSet.copyOf(outputs);
-    this.runfilesSupplier = Preconditions.checkNotNull(runfilesSupplier);
-    Preconditions.checkArgument(!this.outputs.isEmpty(), "action outputs may not be empty");
+  @Override
+  public final boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
   }
 
   @Override
@@ -167,39 +115,26 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public final synchronized boolean inputsDiscovered() {
-    return !discoversInputs() || inputsDiscovered;
+  public final boolean inputsKnown() {
+    if (!discoversInputs()) {
+      return true;
+    }
+    synchronized (this) {
+      return inputsDiscovered();
+    }
   }
 
   /**
-   * Should be overridden by actions that do input discovery.
+   * {@inheritDoc}
    *
-   * <p>The value returned by each instance should be constant over the lifetime of that instance.
-   *
-   * <p>If this returns true, {@link #discoverInputs(ActionExecutionContext)} must also be
-   * implemented.
+   * <p>Should be overridden along with {@link #discoverInputs}, {@link #inputsDiscovered}, and
+   * {@link #setInputsDiscovered} by actions that do input discovery.
    */
   @Override
   public boolean discoversInputs() {
     return false;
   }
 
-  /**
-   * Runs input discovery on the action.
-   *
-   * <p>Called by Blaze if {@link #discoversInputs()} returns true. It must return the set of input
-   * artifacts that were not known at analysis time. May also call {@link #updateInputs}; if it
-   * doesn't, the action itself must arrange for the newly discovered artifacts to be available
-   * during action execution, probably by keeping state in the action instance and using a custom
-   * action execution context and for {@link #updateInputs} to be called during the execution of the
-   * action.
-   *
-   * <p>Since keeping state within an action is bad, don't do that unless there is a very good
-   * reason to do so.
-   *
-   * <p>May return {@code null} if more dependencies were requested from skyframe but were
-   * unavailable, meaning a restart is necessary.
-   */
   @Override
   @Nullable
   public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
@@ -210,17 +145,42 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   @Override
   public final void resetDiscoveredInputs() {
-    Preconditions.checkState(discoversInputs(), "Not an input-discovering action: %s", this);
-    if (!inputsDiscovered()) {
+    checkState(discoversInputs(), "Not an input-discovering action: %s", this);
+    if (!inputsKnown()) {
       return;
     }
     NestedSet<Artifact> originalInputs = getOriginalInputs();
     if (originalInputs != null) {
       synchronized (this) {
         inputs = originalInputs;
-        inputsDiscovered = false;
+        setInputsDiscovered(false);
       }
     }
+  }
+
+  /**
+   * Returns true if inputs have been discovered.
+   *
+   * <p>The value returned reflects the most recent call to {@link #setInputsDiscovered}. If {@link
+   * #setInputsDiscovered} has never been called, returns false.
+   *
+   * <p>This method is used instead of a {@code boolean} field in this class in order to save memory
+   * for actions which do not discover inputs.
+   */
+  @ForOverride
+  @GuardedBy("this")
+  protected boolean inputsDiscovered() {
+    throw new IllegalStateException("Must be overridden by input-discovering actions: " + this);
+  }
+
+  /**
+   * Informs input-discovering actions about their discovery state so that they can correctly
+   * implement {@link #inputsDiscovered}.
+   */
+  @ForOverride
+  @GuardedBy("this")
+  protected void setInputsDiscovered(boolean inputsDiscovered) {
+    throw new IllegalStateException("Must be overridden by input-discovering actions: " + this);
   }
 
   /**
@@ -242,6 +202,11 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
         "Method must be overridden for actions that may have unknown inputs.");
   }
 
+  @Override
+  public NestedSet<Artifact> getSchedulingDependencies() {
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+  }
+
   /**
    * Should be called when the inputs of the action become known, that is, either during {@link
    * #discoverInputs(ActionExecutionContext)} or during {@link #execute(ActionExecutionContext)}.
@@ -254,48 +219,76 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
    */
   @Override
   public synchronized void updateInputs(NestedSet<Artifact> inputs) {
-    Preconditions.checkState(
-        discoversInputs(), "Can't update inputs unless discovering: %s %s", this, inputs);
+    checkState(discoversInputs(), "Can't update inputs unless discovering: %s %s", this, inputs);
     this.inputs = inputs;
-    inputsDiscovered = true;
+    setInputsDiscovered(true);
   }
 
   @Override
   public NestedSet<Artifact> getTools() {
-    return tools;
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
-  /** Should not be overridden (it's non-final only for tests) */
   @Override
   public synchronized NestedSet<Artifact> getInputs() {
     return inputs;
   }
 
-  public final ActionEnvironment getEnvironment() {
-    return env;
+  public ActionEnvironment getEnvironment() {
+    return ActionEnvironment.EMPTY;
   }
 
   @Override
   public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
       throws CommandLineExpansionException {
-    Map<String, String> effectiveEnvironment = Maps.newLinkedHashMapWithExpectedSize(env.size());
+    ActionEnvironment env = getEnvironment();
+    Map<String, String> effectiveEnvironment =
+        Maps.newLinkedHashMapWithExpectedSize(env.estimatedSize());
     env.resolve(effectiveEnvironment, clientEnv);
     return ImmutableMap.copyOf(effectiveEnvironment);
   }
 
   @Override
   public Collection<String> getClientEnvironmentVariables() {
-    return env.getInheritedEnv();
+    return getEnvironment().getInheritedEnv();
   }
 
   @Override
   public RunfilesSupplier getRunfilesSupplier() {
-    return runfilesSupplier;
+    return EmptyRunfilesSupplier.INSTANCE;
   }
 
   @Override
-  public ImmutableSet<Artifact> getOutputs() {
-    return outputs;
+  public Collection<Artifact> getOutputs() {
+    return outputs instanceof Artifact
+        ? ImmutableSet.of((Artifact) outputs)
+        : new OutputSet((Artifact[]) outputs);
+  }
+
+  /**
+   * Simple {@link Set} wrapper around an array for actions with multiple outputs.
+   *
+   * <p>Implements {@link Set} so that passing an instance to {@link ImmutableSet#copyOf} results in
+   * precise pre-sizing (since it is known to be duplicate-free). Note that the return type of
+   * {@link ActionAnalysisMetadata#getOutputs} is {@link Collection}, so callers are unlikely to
+   * expect a fast {@link #contains} implementation.
+   */
+  private static final class OutputSet extends AbstractSet<Artifact> {
+    private final Artifact[] array;
+
+    OutputSet(Artifact[] array) {
+      this.array = array;
+    }
+
+    @Override
+    public Iterator<Artifact> iterator() {
+      return Iterators.forArray(array);
+    }
+
+    @Override
+    public int size() {
+      return array.length;
+    }
   }
 
   @Override
@@ -306,10 +299,8 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public Artifact getPrimaryOutput() {
-    // Default behavior is to return the first output artifact.
-    // Use the method rather than field in case of overriding in subclasses.
-    return Iterables.getFirst(getOutputs(), null);
+  public final Artifact getPrimaryOutput() {
+    return outputs instanceof Artifact ? (Artifact) outputs : ((Artifact[]) outputs)[0];
   }
 
   @Override
@@ -324,7 +315,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
         + getMnemonic()
         + "["
         + getInputs().toList()
-        + (inputsDiscovered() ? " -> " : ", unknown inputs -> ")
+        + (inputsKnown() ? " -> " : ", unknown inputs -> ")
         + getOutputs()
         + "]"
         + ")";
@@ -361,12 +352,45 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   @Nullable
   @Override
   public final String getProgressMessage() {
+    return getProgressMessageChecked(null);
+  }
+
+  @Nullable
+  @Override
+  public final String getProgressMessage(RepositoryMapping mainRepositoryMapping) {
+    checkNotNull(mainRepositoryMapping);
+    return getProgressMessageChecked(mainRepositoryMapping);
+  }
+
+  @Nullable
+  private String getProgressMessageChecked(@Nullable RepositoryMapping mainRepositoryMapping) {
     String message = getRawProgressMessage();
     if (message == null) {
       return null;
     }
-    String additionalInfo = getOwner().getAdditionalProgressInfo();
-    return additionalInfo == null ? message : message + " [" + additionalInfo + "]";
+    message = replaceProgressMessagePlaceholders(message, mainRepositoryMapping);
+    return owner.isBuildConfigurationForTool() ? message + " [for tool]" : message;
+  }
+
+  private String replaceProgressMessagePlaceholders(
+      String progressMessage, @Nullable RepositoryMapping mainRepositoryMapping) {
+    if (progressMessage.contains("%{label}") && owner.getLabel() != null) {
+      String labelString;
+      if (mainRepositoryMapping != null) {
+        labelString = owner.getLabel().getDisplayForm(mainRepositoryMapping);
+      } else {
+        labelString = owner.getLabel().toString();
+      }
+      progressMessage = progressMessage.replace("%{label}", labelString);
+    }
+    if (progressMessage.contains("%{output}") && getPrimaryOutput() != null) {
+      progressMessage =
+          progressMessage.replace("%{output}", getPrimaryOutput().getExecPathString());
+    }
+    if (progressMessage.contains("%{input}") && getPrimaryInput() != null) {
+      progressMessage = progressMessage.replace("%{input}", getPrimaryInput().getExecPathString());
+    }
+    return progressMessage;
   }
 
   /**
@@ -410,9 +434,10 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
       @Nullable BulkDeleter bulkDeleter,
       boolean cleanupArchivedArtifacts)
       throws IOException, InterruptedException {
+    Collection<Artifact> outputs = getOutputs();
     Iterable<Artifact> artifactsToDelete =
         cleanupArchivedArtifacts
-            ? Iterables.concat(outputs, archivedTreeArtifactOutputs())
+            ? Iterables.concat(outputs, archivedTreeArtifactOutputs(outputs))
             : outputs;
     Iterable<PathFragment> additionalPathOutputsToDelete = getAdditionalPathOutputsToDelete();
     Iterable<PathFragment> directoryOutputsToDelete = getDirectoryOutputsToDelete();
@@ -451,7 +476,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
     return ImmutableList.of();
   }
 
-  private Iterable<Artifact> archivedTreeArtifactOutputs() {
+  private static Iterable<Artifact> archivedTreeArtifactOutputs(Collection<Artifact> outputs) {
     return Iterables.transform(
         Iterables.filter(outputs, Artifact::isTreeArtifact),
         tree -> ArchivedTreeArtifact.createForTree((SpecialArtifact) tree));
@@ -506,74 +531,10 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
       }
     }
   }
-
-  /**
-   * If the action might read directories as inputs in a way that is unsound wrt dependency
-   * checking, this method must be called.
-   */
-  protected void checkInputsForDirectories(
-      EventHandler eventHandler, MetadataProvider metadataProvider) throws ExecException {
-    // Report "directory dependency checking" warning only for non-generated directories (generated
-    // ones will be reported earlier).
-    for (Artifact input : getMandatoryInputs().toList()) {
-      // Assume that if the file did not exist, we would not have gotten here.
-      try {
-        if (input.isSourceArtifact()
-            && metadataProvider.getMetadata(input).getType().isDirectory()) {
-          // TODO(ulfjack): What about dependency checking of special files?
-          eventHandler.handle(
-              Event.warn(
-                  getOwner().getLocation(),
-                  String.format(
-                      "input '%s' to %s is a directory; "
-                          + "dependency checking of directories is unsound",
-                      input.prettyPrint(), getOwner().getLabel())));
-        }
-      } catch (IOException e) {
-        throw new EnvironmentalExecException(e, Code.INPUT_DIRECTORY_CHECK_IO_EXCEPTION);
-      }
-    }
-  }
-
+    
   @Override
   public MiddlemanType getActionType() {
     return MiddlemanType.NORMAL;
-  }
-
-  /** If the action might create directories as outputs this method must be called. */
-  protected void checkOutputsForDirectories(ActionExecutionContext actionExecutionContext) {
-    FileArtifactValue metadata;
-    for (Artifact output : getOutputs()) {
-      MetadataHandler metadataHandler = actionExecutionContext.getMetadataHandler();
-      if (metadataHandler.artifactOmitted(output)) {
-        continue;
-      }
-      try {
-        metadata = metadataHandler.getMetadata(output);
-      } catch (IOException e) {
-        logger.atWarning().withCause(e).log("Error getting metadata for %s", output);
-        metadata = null;
-      }
-      if (metadata != null) {
-        if (!metadata.getType().isDirectory()) {
-          continue;
-        }
-      } else if (!actionExecutionContext.getInputPath(output).isDirectory()) {
-        continue;
-      }
-      String ownerString = Label.print(getOwner().getLabel());
-      actionExecutionContext
-          .getEventHandler()
-          .handle(
-              Event.warn(
-                      getOwner().getLocation(),
-                      "output '"
-                          + output.prettyPrint()
-                          + "' of "
-                          + ownerString
-                          + " is a directory; dependency checking of directories is unsound")
-                  .withTag(ownerString));
-    }
   }
 
   @Override
@@ -600,11 +561,10 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   @Override
   public ExtraActionInfo.Builder getExtraActionInfo(ActionKeyContext actionKeyContext)
       throws CommandLineExpansionException, InterruptedException {
-    ActionOwner owner = getOwner();
     ExtraActionInfo.Builder result =
         ExtraActionInfo.newBuilder()
             .setOwner(owner.getLabel().toString())
-            .setId(getKey(actionKeyContext, /*artifactExpander=*/ null))
+            .setId(getKey(actionKeyContext, /* artifactExpander= */ null))
             .setMnemonic(getMnemonic());
     ImmutableList<AspectDescriptor> aspectDescriptors = owner.getAspectDescriptors();
     AspectDescriptor lastAspect =
@@ -633,7 +593,9 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
    * other files as well. For example C(++) compilation may perform include file header scanning.
    * This needs to be mirrored by the extra_action rule. Called by {@link
    * com.google.devtools.build.lib.analysis.extra.ExtraAction} at execution time for actions that
-   * return true for {link #discoversInputs()}.
+   * return true for {link #discoversInputs}.
+   *
+   * <p>Returns null when a required value is missing and a Skyframe restart is required.
    *
    * @param actionExecutionContext Services in the scope of the action, like the Out/Err streams.
    * @throws ActionExecutionException only when code called from this method throws that exception.
@@ -648,31 +610,35 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   @Override
   public Depset getStarlarkInputs() {
-    return Depset.of(Artifact.TYPE, getInputs());
+    return Depset.of(Artifact.class, getInputs());
   }
 
   @Override
   public Depset getStarlarkOutputs() {
-    return Depset.of(Artifact.TYPE, NestedSetBuilder.wrap(Order.STABLE_ORDER, getOutputs()));
+    return Depset.of(Artifact.class, NestedSetBuilder.wrap(Order.STABLE_ORDER, getOutputs()));
   }
 
   @Override
+  @Nullable
   public Sequence<String> getStarlarkArgv() throws EvalException, InterruptedException {
     return null;
   }
 
   @Override
-  public Sequence<CommandLineArgsApi> getStarlarkArgs() throws EvalException {
+  @Nullable
+  public Sequence<CommandLineArgsApi> getStarlarkArgs() {
     // Not all action types support returning Args.
     return null;
   }
 
   @Override
+  @Nullable
   public String getStarlarkContent() throws IOException, EvalException, InterruptedException {
     return null;
   }
 
   @Override
+  @Nullable
   public Dict<String, String> getStarlarkSubstitutions() throws EvalException {
     return null;
   }
@@ -684,18 +650,26 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public Dict<String, String> getEnv() {
-    return Dict.immutableCopyOf(env.getFixedEnv());
+  public Dict<String, String> getEnv(StarlarkSemantics semantics) throws EvalException {
+    if (semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_GET_FIXED_CONFIGURED_ACTION_ENV)) {
+      try {
+        return Dict.immutableCopyOf(getEffectiveEnvironment(/*clientEnv=*/ ImmutableMap.of()));
+      } catch (CommandLineExpansionException ex) {
+        throw new EvalException(ex);
+      }
+    } else {
+      return Dict.immutableCopyOf(getEnvironment().getFixedEnv());
+    }
   }
 
   @Override
   public ImmutableMap<String, String> getExecProperties() {
-    return getOwner().getExecProperties();
+    return owner.getExecProperties();
   }
 
   @Override
   @Nullable
   public PlatformInfo getExecutionPlatform() {
-    return getOwner().getExecutionPlatform();
+    return owner.getExecutionPlatform();
   }
 }

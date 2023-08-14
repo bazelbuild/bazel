@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -23,7 +22,6 @@ import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
@@ -31,7 +29,6 @@ import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.Missin
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.packages.Type.LabelVisitor;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.io.Serializable;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -39,7 +36,6 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
-import java.util.function.BiPredicate;
 import javax.annotation.Nullable;
 
 /**
@@ -83,13 +79,6 @@ public final class AspectDefinition {
   private final boolean applyToFiles;
   private final boolean applyToGeneratingRules;
 
-  /**
-   * A predicate that checks whether the aspect should propagate down a given attribute in a given
-   * configuration. Defaults to always true. See {@link Builder#propagateViaAttribute(BiPredicate)}
-   * for details.
-   */
-  private final BiPredicate<Object, String> propagateViaAttribute;
-
   private final ImmutableSet<AspectClass> requiredAspectClasses;
 
   private final ImmutableSet<Label> execCompatibleWith;
@@ -110,7 +99,6 @@ public final class AspectDefinition {
       @Nullable ConfigurationFragmentPolicy configurationFragmentPolicy,
       boolean applyToFiles,
       boolean applyToGeneratingRules,
-      BiPredicate<Object, String> propagateViaAttribute,
       ImmutableSet<AspectClass> requiredAspectClasses,
       ImmutableSet<Label> execCompatibleWith,
       ImmutableMap<String, ExecGroup> execGroups) {
@@ -124,7 +112,6 @@ public final class AspectDefinition {
     this.configurationFragmentPolicy = configurationFragmentPolicy;
     this.applyToFiles = applyToFiles;
     this.applyToGeneratingRules = applyToGeneratingRules;
-    this.propagateViaAttribute = propagateViaAttribute;
     this.requiredAspectClasses = requiredAspectClasses;
     this.execCompatibleWith = execCompatibleWith;
     this.execGroups = execGroups;
@@ -187,12 +174,6 @@ public final class AspectDefinition {
     return true;
   }
 
-  /** Returns the set of attributes along which the aspect propagates. */
-  @VisibleForTesting
-  public ImmutableSet<String> getRestrictToAttributes() {
-    return restrictToAttributes;
-  }
-
   /** Returns the set of configuration fragments required by this Aspect. */
   public ConfigurationFragmentPolicy getConfigurationFragmentPolicy() {
     return configurationFragmentPolicy;
@@ -215,15 +196,6 @@ public final class AspectDefinition {
     return applyToGeneratingRules;
   }
 
-  /**
-   * A predicate that checks whether the aspect should propagate down a given attribute in a given
-   * configuration. Defaults to always true. See {@link Builder#propagateViaAttribute(BiPredicate)}
-   * for details.
-   */
-  public BiPredicate<Object, String> propagateViaAttribute() {
-    return propagateViaAttribute;
-  }
-
   public static boolean satisfies(Aspect aspect, AdvertisedProviderSet advertisedProviderSet) {
     return aspect.getDefinition().requiredProviders.isSatisfiedBy(advertisedProviderSet);
   }
@@ -235,15 +207,11 @@ public final class AspectDefinition {
 
   /** Collects all attribute labels from the specified aspectDefinition. */
   public static void addAllAttributesOfAspect(
-      final Rule from,
-      final Multimap<Attribute, Label> labelBuilder,
-      Aspect aspect,
-      DependencyFilter dependencyFilter) {
-    forEachLabelDepFromAllAttributesOfAspect(from, aspect, dependencyFilter, labelBuilder::put);
+      Multimap<Attribute, Label> labelBuilder, Aspect aspect, DependencyFilter dependencyFilter) {
+    forEachLabelDepFromAllAttributesOfAspect(aspect, dependencyFilter, labelBuilder::put);
   }
 
   public static void forEachLabelDepFromAllAttributesOfAspect(
-      Rule from,
       Aspect aspect,
       DependencyFilter dependencyFilter,
       BiConsumer<Attribute, Label> consumer) {
@@ -262,13 +230,13 @@ public final class AspectDefinition {
       if (type.getLabelClass() != LabelClass.DEPENDENCY) {
         continue;
       }
-      visitSingleAttribute(from, aspectAttribute, aspectAttribute.getType(), labelVisitor);
+      visitSingleAttribute(aspectAttribute, aspectAttribute.getType(), labelVisitor);
     }
   }
 
   private static <T> void visitSingleAttribute(
-      Rule from, Attribute attribute, Type<T> type, LabelVisitor labelVisitor) {
-    type.visitLabels(labelVisitor, type.cast(attribute.getDefaultValue(from)), attribute);
+      Attribute attribute, Type<T> type, LabelVisitor labelVisitor) {
+    type.visitLabels(labelVisitor, type.cast(attribute.getDefaultValue(null)), attribute);
   }
 
   public static Builder builder(AspectClass aspectClass) {
@@ -283,8 +251,6 @@ public final class AspectDefinition {
         AdvertisedProviderSet.builder();
     private final RequiredProviders.Builder requiredProviders =
         RequiredProviders.acceptAnyBuilder();
-    private BiPredicate<Object, String> propagateViaAttribute =
-        (BiPredicate<Object, String> & Serializable) (a, c) -> true;
     private final RequiredProviders.Builder requiredAspectProviders =
         RequiredProviders.acceptNoneBuilder();
     @Nullable private LinkedHashSet<String> propagateAlongAttributes = new LinkedHashSet<>();
@@ -325,6 +291,17 @@ public final class AspectDefinition {
     }
 
     /**
+     * Same as the equivalent calls to {@link #requireProviderSets} and {@link
+     * #requireStarlarkProviderSets} for specifying the required providers conveyed by {@code
+     * requiredProviders}.
+     */
+    @CanIgnoreReturnValue
+    public Builder requireProviders(RequiredProviders requiredProviders) {
+      requiredProviders.addToAspectDefinitionBuilder(this);
+      return this;
+    }
+
+    /**
      * Asserts that this aspect can only be evaluated for rules that supply all of the providers
      * from at least one set of required providers.
      */
@@ -356,27 +333,6 @@ public final class AspectDefinition {
     @CanIgnoreReturnValue
     public Builder requiredAspectClasses(ImmutableSet<AspectClass> requiredAspectClasses) {
       this.requiredAspectClasses = requiredAspectClasses;
-      return this;
-    }
-
-    /**
-     * Optional predicate to conditionally propagate down an attribute based on the {@link
-     * com.google.devtools.build.lib.analysis.config.BuildConfigurationValue}.
-     *
-     * <p>This is implemented specifically to support the platform-based Android toolchain
-     * migration. See {@link com.google.devtools.build.lib.rules.android.DexArchiveAspect} for
-     * details. Don't use this for other purposes. It introduces unfortunate API complexity and
-     * should be removed when Android no longer needs it.
-     *
-     * @param propagateFunction {@link BiPredicate} that takes the aspect's build configuration and
-     *     name of the attribute to propagate. If it returns true, propagates down this attribute in
-     *     this configuration. We don't explicitly type with {@link
-     *     com.google.devtools.build.lib.analysis.config.BuildConfigurationValue} because {@link
-     *     AspectDefinition} is a loading phase class, with no access to config symbols.
-     */
-    @CanIgnoreReturnValue
-    public Builder propagateViaAttribute(BiPredicate<Object, String> propagateFunction) {
-      propagateViaAttribute = propagateFunction;
       return this;
     }
 
@@ -512,7 +468,7 @@ public final class AspectDefinition {
 
     /**
      * Declares that the implementation of the associated aspect definition requires the given
-     * fragments to be present in this rule's host and target configurations.
+     * fragments to be present in this rule's exec and target configurations.
      *
      * <p>The value is inherited by subclasses.
      */
@@ -521,25 +477,6 @@ public final class AspectDefinition {
         Class<? extends Fragment>... configurationFragments) {
       configurationFragmentPolicy.requiresConfigurationFragments(
           ImmutableSet.copyOf(configurationFragments));
-      return this;
-    }
-
-    /**
-     * Declares that the implementation of the associated aspect definition requires the given
-     * fragments to be present in the given configuration that isn't the aspect's configuration but
-     * is also readable by the aspect.
-     *
-     * <p>You probably don't want to use this, because aspects generally shouldn't read
-     * configurations other than their own. If you want to declare host config fragments, see {@link
-     * com.google.devtools.build.lib.analysis.config.ConfigAwareAspectBuilder}.
-     *
-     * <p>The value is inherited by subclasses.
-     */
-    @CanIgnoreReturnValue
-    public Builder requiresConfigurationFragments(
-        ConfigurationTransition transition, Class<? extends Fragment>... configurationFragments) {
-      configurationFragmentPolicy.requiresConfigurationFragments(
-          transition, ImmutableSet.copyOf(configurationFragments));
       return this;
     }
 
@@ -555,26 +492,6 @@ public final class AspectDefinition {
         Collection<String> configurationFragmentNames) {
       configurationFragmentPolicy.requiresConfigurationFragmentsByStarlarkBuiltinName(
           configurationFragmentNames);
-      return this;
-    }
-
-    /**
-     * Declares that the implementation of the associated aspect definition requires the given
-     * fragments to be present in the given configuration that isn't the aspect's configuration but
-     * is also readable by the aspect.
-     *
-     * <p>In contrast to {@link #requiresConfigurationFragments(ConfigurationTransition, Class...)},
-     * this method takes the Starlark module names of fragments instead of their classes.
-     *
-     * <p>You probably don't want to use this, because aspects generally shouldn't read
-     * configurations other than their own. If you want to declare host config fragments, see {@link
-     * com.google.devtools.build.lib.analysis.config.ConfigAwareAspectBuilder}.
-     */
-    @CanIgnoreReturnValue
-    public Builder requiresConfigurationFragmentsByStarlarkBuiltinName(
-        ConfigurationTransition transition, Collection<String> configurationFragmentNames) {
-      configurationFragmentPolicy.requiresConfigurationFragmentsByStarlarkBuiltinName(
-          transition, configurationFragmentNames);
       return this;
     }
 
@@ -668,7 +585,6 @@ public final class AspectDefinition {
           configurationFragmentPolicy.build(),
           applyToFiles,
           applyToGeneratingRules,
-          propagateViaAttribute,
           requiredAspectClasses,
           execCompatibleWith,
           execGroups);

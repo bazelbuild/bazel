@@ -69,7 +69,7 @@ EOF
 
   bazel build --cpu=arm64 package:report &> $TEST_log \
       || fail "Build failed unexpectedly"
-  expect_log "platform: //plat:platform1"
+  expect_log "platform: @//plat:platform1"
 }
 
 function test_top_level_platform_to_flags_mapping() {
@@ -104,7 +104,7 @@ EOF
 
   bazel build --cpu=arm64 --platform_mappings=custom/platform_mappings \
       package:report &> $TEST_log || fail "Build failed unexpectedly"
-  expect_log "platform: //plat:platform1"
+  expect_log "platform: @//plat:platform1"
 }
 
 function test_custom_platform_mapping_location_after_exec_transition() {
@@ -121,7 +121,7 @@ genrule(
     name = "genrule1",
     outs = ["genrule1.out"],
     cmd = "echo hello > \$@",
-    exec_tools = [
+    tools = [
       ":genrule2",
     ],
 )
@@ -129,7 +129,7 @@ genrule(
     name = "genrule2",
     outs = ["genrule2.out"],
     cmd = "echo hello > \$@",
-    exec_tools = [
+    tools = [
       ":report",
     ],
 )
@@ -140,7 +140,7 @@ EOF
       --platform_mappings=custom/platform_mappings \
       --extra_execution_platforms=//plat:platform1 \
       package:genrule1 &> $TEST_log || fail "Build failed unexpectedly"
-  expect_log "platform: //plat:platform1"
+  expect_log "platform: @//plat:platform1"
   expect_log "copts: \[\"foo\"\]"
 }
 
@@ -184,7 +184,7 @@ my_rule = rule(
   attrs = {
       "deps": attr.label_list(cfg = my_transition),
       "_allowlist_function_transition": attr.label(
-          default = "@//tools/allowlists/function_transition_allowlist"),
+          default = "@bazel_tools//tools/allowlists/function_transition_allowlist"),
   }
 )
 EOF
@@ -203,98 +203,8 @@ EOF
 
   bazel build --cpu=k8 package:custom &> $TEST_log \
       || fail "Build failed unexpectedly"
-  expect_not_log "platform: //plat:platform1"
-  expect_log "platform: //plat:platform2"
-}
-
-function test_target_platform_fallback() {
-  cat > platform_mappings <<EOF
-flags:
-  --cpu=k8
-    //plat:platform1
-EOF
-
-  cat > package/BUILD <<EOF
-load("//report:report.bzl", "report_flags")
-report_flags(name = "report")
-EOF
-
-  bazel build --cpu=arm64 package:report \
-      --noincompatible_auto_configure_host_platform \
-      --target_platform_fallback=//plat:platform2 &> "${TEST_log}" \
-      || fail "Build failed unexpectedly"
-  expect_log "platform: //plat:platform2"
-}
-
-function test_target_platform_fallback_after_exec() {
-  echo "" > platform_mappings
-
-  cat > package/rule.bzl <<EOF
-def _my_transition_impl(settings, attrs):
-  return {
-    # Platforms *must* be wiped for transitions to correctly participate in
-    # platform mapping.
-    "//command_line_option:platforms": [],
-  }
-
-
-my_transition = transition(
-  implementation = _my_transition_impl,
-  inputs = [],
-  outputs = [
-      "//command_line_option:platforms",
-  ],
-)
-
-
-def _transitioning_rule_impl(ctx):
-  return []
-
-
-transitioning_rule = rule(
-  implementation = _transitioning_rule_impl,
-  attrs = {
-      "deps": attr.label_list(cfg = my_transition),
-      "_allowlist_function_transition": attr.label(
-          default = "@//tools/allowlists/function_transition_allowlist"),
-  }
-)
-
-
-def _other_rule_impl(ctx):
-  return []
-
-
-other_rule = rule(
-  implementation = _other_rule_impl,
-  attrs = {
-      "tools": attr.label_list(cfg = "exec"),
-  },
-)
-EOF
-
-  cat > package/BUILD <<EOF
-load("//report:report.bzl", "report_flags")
-load("//package:rule.bzl", "other_rule", "transitioning_rule")
-
-other_rule(
-  name = "custom",
-  tools = [ ":transitioning" ],
-)
-
-transitioning_rule(
-  name = "transitioning",
-  deps = [ ":report" ]
-)
-
-report_flags(name = "report")
-EOF
-
-  bazel build --host_platform=//plat:platform1 package:custom \
-      --noincompatible_auto_configure_host_platform \
-      --target_platform_fallback=//plat:platform2 &> "${TEST_log}" \
-      || fail "Build failed unexpectedly"
-  expect_log "platform: //plat:platform2"
+  expect_not_log "platform: @//plat:platform1"
+  expect_log "platform: @//plat:platform2"
 }
 
 run_suite "platform mapping test"

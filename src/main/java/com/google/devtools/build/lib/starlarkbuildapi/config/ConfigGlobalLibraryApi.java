@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.config;
 
-import com.google.devtools.build.docgen.annot.DocumentMethods;
+import com.google.devtools.build.docgen.annot.GlobalMethods;
+import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -26,7 +27,7 @@ import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkThread;
 
 /** A collection of top-level Starlark functions pertaining to configuration. */
-@DocumentMethods
+@GlobalMethods(environment = Environment.BZL)
 public interface ConfigGlobalLibraryApi {
   @StarlarkMethod(
       name = "transition",
@@ -105,8 +106,9 @@ public interface ConfigGlobalLibraryApi {
               + " <code>analysis_test = True</code>. Such rules are restricted in capabilities (for"
               + " example, the size of their dependency tree is limited), so transitions created"
               + " using this function are limited in potential scope as compared to transitions"
-              + " created using <a href=\"transition.html\">transition</a>. <p>This function is"
-              + " primarily designed to facilitate the <a"
+              + " created using <a"
+              + " href=\"../builtins/transition.html\"><code>transition()</code></a>. <p>This"
+              + " function is primarily designed to facilitate the <a"
               + " href=\"https://bazel.build/rules/testing\">Analysis Test Framework</a> core"
               + " library. See its documentation (or its implementation) for best practices.",
       parameters = {

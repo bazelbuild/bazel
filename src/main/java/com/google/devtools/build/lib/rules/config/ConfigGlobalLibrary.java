@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.Map;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
@@ -53,10 +52,14 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
     StarlarkSemantics semantics = thread.getSemantics();
     List<String> inputsList = Sequence.cast(inputs, String.class, "inputs");
     List<String> outputsList = Sequence.cast(outputs, String.class, "outputs");
-    validateBuildSettingKeys(inputsList, Settings.INPUTS);
-    validateBuildSettingKeys(outputsList, Settings.OUTPUTS);
-    BazelModuleContext moduleContext =
-        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
+    // TODO(b/288258583): use a more sustainable way of determining if this is an exec transition.
+    // Either match the transition name with the value of --experimental_exec_config (maybe passing
+    // that info through StarlarkSemantics) or add an "exec = True" paramter to Starlark's
+    // transition() function.
+    boolean isExecTransition = implementation.getLocation().file().endsWith("_exec_platforms.bzl");
+    validateBuildSettingKeys(inputsList, Settings.INPUTS, isExecTransition);
+    validateBuildSettingKeys(outputsList, Settings.OUTPUTS, isExecTransition);
+    BazelModuleContext moduleContext = BazelModuleContext.ofInnermostBzlOrThrow(thread);
     Location location = thread.getCallerLocation();
     return StarlarkDefinedConfigTransition.newRegularTransition(
         implementation,
@@ -68,6 +71,7 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
         moduleContext.repoMapping());
   }
 
+  // TODO(b/237422931): move into testing module
   @Override
   public ConfigurationTransitionApi analysisTestTransition(
       Dict<?, ?> changedSettings, // <String, String> expected
@@ -75,15 +79,16 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
       throws EvalException {
     Map<String, Object> changedSettingsMap =
         Dict.cast(changedSettings, String.class, Object.class, "changed_settings dict");
-    validateBuildSettingKeys(changedSettingsMap.keySet(), Settings.OUTPUTS);
-    BazelModuleContext moduleContext =
-        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
+    validateBuildSettingKeys(
+        changedSettingsMap.keySet(), Settings.OUTPUTS, /* isExecTransition= */ false);
+    BazelModuleContext moduleContext = BazelModuleContext.ofInnermostBzlOrThrow(thread);
     Location location = thread.getCallerLocation();
     return StarlarkDefinedConfigTransition.newAnalysisTestTransition(
         changedSettingsMap, moduleContext.repoMapping(), moduleContext.label(), location);
   }
 
-  private void validateBuildSettingKeys(Iterable<String> optionKeys, Settings keyErrorDescriptor)
+  private void validateBuildSettingKeys(
+      Iterable<String> optionKeys, Settings keyErrorDescriptor, boolean isExecTransition)
       throws EvalException {
 
     HashSet<String> processedOptions = Sets.newHashSet();
@@ -92,7 +97,7 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
     for (String optionKey : optionKeys) {
       if (!optionKey.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
         try {
-          Label.parseAbsoluteUnchecked(optionKey);
+          var unused = Label.parseCanonicalUnchecked(optionKey);
         } catch (IllegalArgumentException e) {
           throw Starlark.errorf(
               "invalid transition %s '%s'. If this is intended as a native option, "
@@ -101,7 +106,7 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
         }
       } else {
         String optionName = optionKey.substring(COMMAND_LINE_OPTION_PREFIX.length());
-        if (!validOptionName(optionName)) {
+        if (!isExecTransition && !validOptionName(optionName)) {
           throw Starlark.errorf(
               "Invalid transition %s '%s'. Cannot transition on --experimental_* or "
                   + "--incompatible_* options",
@@ -114,6 +119,13 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
     }
   }
 
+  /**
+   * Flags that user-defined transitions aren't allowed to set.
+   *
+   * <p>Exec transitions are exempt from this because they already set many non-standard flags.
+   * Maybe that can change in a future migration, but that's their current semantics. See caller
+   * code for implementation details.
+   */
   private static boolean validOptionName(String optionName) {
     if (optionName.startsWith("experimental_")) {
       // Don't allow experimental flags.
@@ -121,7 +133,9 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
     }
 
     if (optionName.equals("incompatible_enable_cc_toolchain_resolution")
-        || optionName.equals("incompatible_enable_apple_toolchain_resolution")) {
+        || optionName.equals("incompatible_enable_cgo_toolchain_resolution")
+        || optionName.equals("incompatible_enable_apple_toolchain_resolution")
+        || optionName.equals("incompatible_enable_android_toolchain_resolution")) {
       // This is specifically allowed.
       return true;
     } else if (optionName.startsWith("incompatible_")) {

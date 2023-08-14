@@ -15,25 +15,20 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.common.base.Suppliers;
-import com.google.common.collect.MapMaker;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceArtifactException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
-import java.util.ArrayList;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -82,31 +77,16 @@ final class ArtifactNestedSetFunction implements SkyFunction {
    */
   private ConcurrentMap<SkyKey, SkyValue> artifactSkyKeyToSkyValue = new ConcurrentHashMap<>();
 
-  /**
-   * Maps the NestedSets' underlying objects to the corresponding SkyKey. This is to avoid
-   * re-creating SkyKey for the same nested set upon reevaluation because of e.g. a missing value.
-   *
-   * <p>The map weakly references its values: when the ArtifactNestedSetKey becomes otherwise
-   * unreachable, the entry is collected.
-   */
-  // Note: Not using a caffeine cache here because it used more memory (b/193294367).
-  private final ConcurrentMap<NestedSet.Node, ArtifactNestedSetKey> nestedSetToSkyKey =
-      new MapMaker().concurrencyLevel(BlazeInterners.concurrencyLevel()).weakValues().makeMap();
-
-  private final Supplier<ArtifactNestedSetValue> valueSupplier;
-
   private static ArtifactNestedSetFunction singleton = null;
 
-  private ArtifactNestedSetFunction(Supplier<ArtifactNestedSetValue> valueSupplier) {
-    this.valueSupplier = valueSupplier;
-  }
+  private ArtifactNestedSetFunction() {}
 
   @Override
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, ArtifactNestedSetFunctionException {
-    List<SkyKey> depKeys = getDepSkyKeys((ArtifactNestedSetKey) skyKey);
-    SkyframeIterableResult depsEvalResult = env.getOrderedValuesAndExceptions(depKeys);
+    List<SkyKey> depKeys = ((ArtifactNestedSetKey) skyKey).getDirectDepKeys();
+    SkyframeLookupResult depsEvalResult = env.getValuesAndExceptions(depKeys);
 
     NestedSetBuilder<Pair<SkyKey, Exception>> transitiveExceptionsBuilder =
         NestedSetBuilder.stableOrder();
@@ -115,13 +95,12 @@ final class ArtifactNestedSetFunction implements SkyFunction {
     // Throw a SkyFunctionException when a dep evaluation results in an exception.
     // Only non-null values should be committed to
     // ArtifactNestedSetFunction#artifacSkyKeyToSkyValue.
-    int i = 0;
-    while (depsEvalResult.hasNext()) {
-      SkyKey key = depKeys.get(i++);
+    for (SkyKey key : depKeys) {
       try {
         // Trigger the exception, if any.
         SkyValue value =
-            depsEvalResult.nextOrThrow(
+            depsEvalResult.getOrThrow(
+                key,
                 SourceArtifactException.class,
                 ActionExecutionException.class,
                 ArtifactNestedSetEvalException.class);
@@ -159,23 +138,7 @@ final class ArtifactNestedSetFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    return valueSupplier.get();
-  }
-
-  private List<SkyKey> getDepSkyKeys(ArtifactNestedSetKey skyKey) {
-    List<Artifact> leaves = skyKey.getSet().getLeaves();
-    List<NestedSet<Artifact>> nonLeaves = skyKey.getSet().getNonLeaves();
-
-    List<SkyKey> keys = new ArrayList<>(leaves.size() + nonLeaves.size());
-    for (Artifact file : leaves) {
-      keys.add(Artifact.key(file));
-    }
-    for (NestedSet<Artifact> nonLeaf : nonLeaves) {
-      keys.add(
-          nestedSetToSkyKey.computeIfAbsent(
-              nonLeaf.toNode(), node -> new ArtifactNestedSetKey(nonLeaf, node)));
-    }
-    return keys;
+    return ArtifactNestedSetValue.INSTANCE;
   }
 
   static ArtifactNestedSetFunction getInstance() {
@@ -186,16 +149,9 @@ final class ArtifactNestedSetFunction implements SkyFunction {
    * Creates a new instance. Should only be used in {@code SkyframeExecutor#skyFunctions}. Keeping
    * this method separated from {@code #getInstance} since sometimes we need to overwrite the
    * existing instance.
-   *
-   * <p>If value-based change pruning is disabled, the function makes an optimization of using a
-   * singleton {@link ArtifactNestedSetValue}, since (in)equality of the value doesn't matter.
    */
-  static ArtifactNestedSetFunction createInstance(boolean valueBasedChangePruningEnabled) {
-    singleton =
-        new ArtifactNestedSetFunction(
-            valueBasedChangePruningEnabled
-                ? ArtifactNestedSetValue::new
-                : Suppliers.ofInstance(new ArtifactNestedSetValue()));
+  static ArtifactNestedSetFunction createInstance() {
+    singleton = new ArtifactNestedSetFunction();
     return singleton;
   }
 

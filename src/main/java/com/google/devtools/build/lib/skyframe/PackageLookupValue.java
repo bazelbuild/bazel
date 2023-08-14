@@ -15,9 +15,8 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -138,7 +137,7 @@ public abstract class PackageLookupValue implements SkyValue {
   @AutoCodec.VisibleForSerialization
   @AutoCodec
   static class Key extends AbstractSkyKey<PackageIdentifier> {
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     private Key(PackageIdentifier arg) {
       super(arg);
@@ -153,6 +152,11 @@ public abstract class PackageLookupValue implements SkyValue {
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.PACKAGE_LOOKUP;
+    }
+
+    @Override
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
+      return interner;
     }
   }
 
@@ -394,5 +398,60 @@ public abstract class PackageLookupValue implements SkyValue {
     public String getErrorMsg() {
       return String.format("The repository '%s' could not be resolved: %s", repositoryName, reason);
     }
+  }
+
+  /**
+   * Creates the error message for the input {@linkplain Label label} has a subpackage crossing
+   * boundary.
+   *
+   * <p>Returns {@code null} if no subpackage is discovered or the subpackage is marked as DELETED.
+   */
+  @Nullable
+  static String getErrorMessageForLabelCrossingPackageBoundary(
+      Root pkgRoot,
+      Label label,
+      PackageIdentifier subpackageIdentifier,
+      PackageLookupValue packageLookupValue) {
+    String message = null;
+    if (packageLookupValue.packageExists()) {
+      message =
+          String.format(
+              "Label '%s' is invalid because '%s' is a subpackage", label, subpackageIdentifier);
+      Root subPackageRoot = packageLookupValue.getRoot();
+
+      if (pkgRoot.equals(subPackageRoot)) {
+        PathFragment labelRootPathFragment = label.getPackageIdentifier().getSourceRoot();
+        PathFragment subpackagePathFragment = subpackageIdentifier.getSourceRoot();
+        if (subpackagePathFragment.startsWith(labelRootPathFragment)) {
+          PathFragment labelNameInSubpackage =
+              PathFragment.create(label.getName())
+                  .subFragment(
+                      subpackagePathFragment.segmentCount() - labelRootPathFragment.segmentCount());
+          message += "; perhaps you meant to put the" + " colon here: '";
+          if (subpackageIdentifier.getRepository().isMain()) {
+            message += "//";
+          }
+          message += subpackageIdentifier + ":" + labelNameInSubpackage + "'?";
+        } else {
+          // TODO: Is this a valid case? How do we handle this case?
+        }
+      } else {
+        message +=
+            "; have you deleted "
+                + subpackageIdentifier
+                + "/BUILD? "
+                + "If so, use the --deleted_packages="
+                + subpackageIdentifier
+                + " option";
+      }
+    } else if (packageLookupValue instanceof IncorrectRepositoryReferencePackageLookupValue) {
+      message =
+          String.format(
+              "Label '%s' is invalid because '%s' is a subpackage",
+              label,
+              ((IncorrectRepositoryReferencePackageLookupValue) packageLookupValue)
+                  .correctedPackageIdentifier);
+    }
+    return message;
   }
 }

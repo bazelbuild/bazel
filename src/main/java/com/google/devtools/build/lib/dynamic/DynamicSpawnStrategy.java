@@ -29,9 +29,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry.DynamicMode;
-import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -40,6 +38,9 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.dynamic.DynamicExecutionModule.IgnoreFailureCheck;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionPolicy;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.DynamicExecution;
 import com.google.devtools.build.lib.server.FailureDetails.DynamicExecution.Code;
@@ -49,7 +50,6 @@ import com.google.errorprone.annotations.FormatString;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -103,13 +103,8 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
 
   private final Function<Spawn, Optional<Spawn>> getExtraSpawnForLocalExecution;
 
-  /** If true, this is the first build since the server started. */
-  private final boolean firstBuild;
-
   /** A callback that allows checking if a given failure can be ignored on one branch. */
   private final IgnoreFailureCheck ignoreFailureCheck;
-
-  private boolean skipBuildWarningShown;
 
   /** Limit on how many threads we should use for dynamic execution. */
   private final ShrinkableSemaphore threadLimiter;
@@ -126,7 +121,6 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
    *     Spawn}.
    * @param getPostProcessingSpawnForLocalExecution A function that returns any post-processing
    *     spawns that should be run after finishing running a spawn locally.
-   * @param firstBuild True if this is the first build since the server started.
    * @param numCpus The number of CPUs allowed for local execution (--local_cpu_resources).
    * @param jobs The maximum number of jobs (--jobs parameter).
    * @param ignoreFailureCheck A callback to check if a failure on one branch should be allowed to
@@ -137,7 +131,6 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       DynamicExecutionOptions options,
       Function<Spawn, ExecutionPolicy> getExecutionPolicy,
       Function<Spawn, Optional<Spawn>> getPostProcessingSpawnForLocalExecution,
-      boolean firstBuild,
       int numCpus,
       int jobs,
       IgnoreFailureCheck ignoreFailureCheck) {
@@ -145,12 +138,9 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
     this.options = options;
     this.getExecutionPolicy = getExecutionPolicy;
     this.getExtraSpawnForLocalExecution = getPostProcessingSpawnForLocalExecution;
-    this.firstBuild = firstBuild;
     this.threadLimiter =
         new ShrinkableSemaphore(
-            options.cpuLimited || options.localLoadFactor > 0 ? numCpus : jobs,
-            jobs,
-            options.localLoadFactor);
+            options.localLoadFactor > 0 ? numCpus : jobs, jobs, options.localLoadFactor);
     this.ignoreFailureCheck = ignoreFailureCheck;
   }
 
@@ -167,38 +157,39 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
   private static boolean canExecLocal(
       Spawn spawn,
       ExecutionPolicy executionPolicy,
-      ActionContext.ActionContextRegistry actionContextRegistry,
-      DynamicStrategyRegistry dynamicStrategyRegistry) {
+      ActionContext.ActionContextRegistry acr,
+      DynamicStrategyRegistry dsr) {
     if (!executionPolicy.canRunLocally()) {
       return false;
     }
-    List<SandboxedSpawnStrategy> localStrategies =
-        dynamicStrategyRegistry.getDynamicSpawnActionContexts(spawn, LOCAL);
-    return localStrategies.stream()
-        .anyMatch(
-            s ->
-                (s.canExec(spawn, actionContextRegistry)
-                    || s.canExecWithLegacyFallback(spawn, actionContextRegistry)));
+    for (SandboxedSpawnStrategy s : dsr.getDynamicSpawnActionContexts(spawn, LOCAL)) {
+      if ((s.canExec(spawn, acr) || s.canExecWithLegacyFallback(spawn, acr))) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private static boolean canExecRemote(
       Spawn spawn,
       ExecutionPolicy executionPolicy,
-      ActionContext.ActionContextRegistry actionContextRegistry,
-      DynamicStrategyRegistry dynamicStrategyRegistry) {
+      ActionContext.ActionContextRegistry acr,
+      DynamicStrategyRegistry dsr) {
     if (!executionPolicy.canRunRemotely()) {
       return false;
     }
-    List<SandboxedSpawnStrategy> remoteStrategies =
-        dynamicStrategyRegistry.getDynamicSpawnActionContexts(spawn, REMOTE);
-    return remoteStrategies.stream().anyMatch(s -> s.canExec(spawn, actionContextRegistry));
+    for (SandboxedSpawnStrategy s : dsr.getDynamicSpawnActionContexts(spawn, REMOTE)) {
+      if (s.canExec(spawn, acr)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   @Override
   public ImmutableList<SpawnResult> exec(
       final Spawn spawn, final ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
-    DynamicSpawnStrategy.verifyAvailabilityInfo(options, spawn);
     ImmutableList<SpawnResult> nonDynamicResults =
         maybeExecuteNonDynamically(spawn, actionExecutionContext);
     if (nonDynamicResults != null) {
@@ -278,47 +269,6 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
   }
 
   /**
-   * Checks if the given spawn has the right execution requirements to indicate whether it can
-   * succeed when running remotely and/or locally depending on the Xcode versions it needs.
-   *
-   * @param options the dynamic execution options that configure this check
-   * @param spawn the spawn to validate
-   * @throws ExecException if the spawn does not contain the expected execution requirements
-   */
-  static void verifyAvailabilityInfo(DynamicExecutionOptions options, Spawn spawn)
-      throws ExecException {
-    if (options.requireAvailabilityInfo
-        && !options.availabilityInfoExempt.contains(spawn.getMnemonic())) {
-      if (spawn.getExecutionInfo().containsKey(ExecutionRequirements.REQUIRES_DARWIN)
-          && !spawn.getExecutionInfo().containsKey(ExecutionRequirements.REQUIREMENTS_SET)) {
-        String message =
-            String.format(
-                "The following spawn was missing Xcode-related execution requirements. Please"
-                    + " let the Bazel team know if you encounter this issue. You can work around"
-                    + " this error by passing --experimental_require_availability_info=false --"
-                    + " at your own risk! This may cause some actions to be executed on the"
-                    + " wrong platform, which can result in build failures.\n"
-                    + "Failing spawn: mnemonic = %s\n"
-                    + "tool files = %s\n"
-                    + "execution platform = %s\n"
-                    + "execution info = %s\n",
-                spawn.getMnemonic(),
-                spawn.getToolFiles(),
-                spawn.getExecutionPlatform(),
-                spawn.getExecutionInfo());
-
-        FailureDetail detail =
-            FailureDetail.newBuilder()
-                .setMessage(message)
-                .setDynamicExecution(
-                    DynamicExecution.newBuilder().setCode(Code.XCODE_RELATED_PREREQ_UNMET))
-                .build();
-        throw new EnvironmentalExecException(detail);
-      }
-    }
-  }
-
-  /**
    * Checks if this action should be executed dynamically, and if not executes it locally or
    * remotely as applicable, or throws an exception if it cannot be executed at all.
    *
@@ -378,17 +328,6 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
           dynamicStrategyRegistry.getDynamicSpawnActionContexts(spawn, REMOTE));
       return LocalBranch.runLocally(
           spawn, actionExecutionContext, null, getExtraSpawnForLocalExecution);
-    } else if (options.skipFirstBuild && firstBuild) {
-      if (!skipBuildWarningShown) {
-        skipBuildWarningShown = true;
-        actionExecutionContext
-            .getEventHandler()
-            .handle(
-                Event.info(
-                    "Disabling dynamic execution until we have seen a successful build, see"
-                        + " --experimental_dynamic_skip_first_build."));
-      }
-      return RemoteBranch.runRemotely(spawn, actionExecutionContext, null, delayLocalExecution);
     } else if (options.excludeTools) {
       String msg = spawn.getResourceOwner().getProgressMessage();
       if (msg != null && msg.contains(FOR_TOOL)) {
@@ -551,8 +490,8 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
             .handle(
                 Event.info(
                     String.format(
-                        "Caught InterruptedException from ExecException for %s branch of %s, which"
-                            + " may cause a crash.",
+                        "Caught InterruptedException from ExecutionException for %s branch of %s,"
+                            + " which may cause a crash.",
                         mode, getSpawnReadableId(branch.getSpawn()))));
         return null;
       } else {
@@ -562,8 +501,8 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
         Throwables.throwIfUnchecked(cause);
         throw new AssertionError(
             String.format(
-                "Unexpected exception type %s from %s strategy.exec()",
-                cause.getClass().getName(), mode));
+                "Unexpected exception type %s from %s strategy.exec() for %s",
+                cause.getClass().getName(), mode, getSpawnReadableId(branch.getSpawn())));
       }
     } catch (InterruptedException e) {
       branch.cancel();
@@ -598,11 +537,9 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       throws InterruptedException {
     DynamicMode cancellingStrategy = cancellingBranch.getMode();
     if (cancellingBranch.isCancelled()) {
-      // TODO(b/173020239): Determine why stopBranch() can be called when cancellingBranch is
-      // cancelled.
       throw new DynamicInterruptedException(
           String.format(
-              "Execution of %s strategy stopped because it was cancelled but not interrupted",
+              "Execution of %s strategy was cancelled just before it could get the lock.",
               cancellingStrategy));
     }
     // This multi-step, unlocked access to "strategyThatCancelled" is valid because, for a given
@@ -610,7 +547,11 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
     // are, we are in big trouble.)
     DynamicMode current = strategyThatCancelled.get();
     if (cancellingStrategy.equals(current)) {
-      throw new AssertionError("stopBranch called more than once by " + cancellingStrategy);
+      throw new AssertionError(
+          "stopBranch called more than once by "
+              + cancellingStrategy
+              + " on "
+              + getSpawnReadableId(cancellingBranch.getSpawn()));
     } else {
       // Protect against the two branches from cancelling each other. The first branch to set the
       // reference to its own identifier wins and is allowed to issue the cancellation; the other
@@ -628,18 +569,29 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
                           cancellingBranch.isCancelled() ? "cancelled" : "not cancelled")));
         }
 
-        if (!otherBranch.cancel()) {
-          // This can happen if the other branch is local under local_lockfree and has returned
-          // its result but not yet cancelled this branch, or if the other branch was already
-          // cancelled for other reasons. In the latter case, we are good to continue.
-          if (!otherBranch.isCancelled()) {
-            throw new DynamicInterruptedException(
-                String.format(
-                    "Execution of %s strategy stopped because %s strategy could not be cancelled",
-                    cancellingStrategy, cancellingStrategy.other()));
+        try (SilentCloseable c =
+            Profiler.instance()
+                .profile(
+                    ProfilerTask.DYNAMIC_LOCK,
+                    () ->
+                        String.format(
+                            "Cancelling %s branch of %s",
+                            cancellingStrategy.other(),
+                            getSpawnReadableId(cancellingBranch.getSpawn())))) {
+
+          if (!otherBranch.cancel()) {
+            // This can happen if the other branch is local under local_lockfree and has returned
+            // its result but not yet cancelled this branch, or if the other branch was already
+            // cancelled for other reasons. In the latter case, we are good to continue.
+            if (!otherBranch.isCancelled()) {
+              throw new DynamicInterruptedException(
+                  String.format(
+                      "Execution of %s strategy stopped because %s strategy could not be cancelled",
+                      cancellingStrategy, cancellingStrategy.other()));
+            }
           }
+          otherBranch.getDoneSemaphore().acquire();
         }
-        otherBranch.getDoneSemaphore().acquire();
       } else {
         throw new DynamicInterruptedException(
             String.format(

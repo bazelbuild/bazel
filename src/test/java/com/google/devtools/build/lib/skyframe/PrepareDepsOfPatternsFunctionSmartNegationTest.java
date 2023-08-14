@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -91,7 +92,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
             .setDirectories(directories)
             .setActionKeyContext(new ActionKeyContext())
             .setExtraSkyFunctions(AnalysisMock.get().getSkyFunctions(directories))
-            .setPerCommandSyscallCache(SyscallCache.NO_CACHE)
+            .setSyscallCache(SyscallCache.NO_CACHE)
             .setIgnoredPackagePrefixesFunction(
                 new IgnoredPackagePrefixesFunction(
                     PathFragment.create(ADDITIONAL_IGNORED_PACKAGE_PREFIXES_FILE_PATH_STRING)))
@@ -106,6 +107,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
         Options.getDefaults(BuildLanguageOptions.class),
         UUID.randomUUID(),
         ImmutableMap.of(),
+        QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(null));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
     skyframeExecutor.injectExtraPrecomputedValues(
@@ -116,8 +118,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
                 RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
-                RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
-            PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false)));
+                RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY)));
     scratch.file(ADDITIONAL_IGNORED_PACKAGE_PREFIXES_FILE_PATH_STRING);
   }
 
@@ -134,11 +135,8 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
     WalkableGraph walkableGraph = getGraphFromPatternsEvaluation(patternSequence);
 
     // Then the graph contains package values for "@//foo" and "@//foo/foo",
-    assertThat(exists(PackageValue.key(PackageIdentifier.createInMainRepo("foo")), walkableGraph))
-        .isTrue();
-    assertThat(
-            exists(PackageValue.key(PackageIdentifier.createInMainRepo("foo/foo")), walkableGraph))
-        .isTrue();
+    assertThat(exists(PackageIdentifier.createInMainRepo("foo"), walkableGraph)).isTrue();
+    assertThat(exists(PackageIdentifier.createInMainRepo("foo/foo"), walkableGraph)).isTrue();
 
     // But the graph does not contain a value for the target "@//foo/foo:foofoo".
     assertThat(exists(getKeyForLabel(Label.create("@//foo/foo", "foofoo")), walkableGraph))
@@ -177,13 +175,10 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
     WalkableGraph walkableGraph = getGraphFromPatternsEvaluation(patternSequence);
 
     // Then the graph contains a package value for "@//foo",
-    assertThat(exists(PackageValue.key(PackageIdentifier.createInMainRepo("foo")), walkableGraph))
-        .isTrue();
+    assertThat(exists(PackageIdentifier.createInMainRepo("foo"), walkableGraph)).isTrue();
 
     // But no package value for "@//foo/foo",
-    assertThat(
-            exists(PackageValue.key(PackageIdentifier.createInMainRepo("foo/foo")), walkableGraph))
-        .isFalse();
+    assertThat(exists(PackageIdentifier.createInMainRepo("foo/foo"), walkableGraph)).isFalse();
 
     // And the graph does not contain a value for the target "@//foo/foo:foofoo".
     Label label = Label.create("@//foo/foo", "foofoo");
@@ -216,7 +211,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
-            .setNumThreads(100)
+            .setParallelism(100)
             .setEventHandler(new Reporter(new EventBus(), eventCollector))
             .build();
     EvaluationResult<SkyValue> evaluationResult =

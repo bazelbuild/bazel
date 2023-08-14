@@ -22,8 +22,8 @@ import com.google.common.collect.ImmutableList;
 public enum ArtifactCategory {
   STATIC_LIBRARY("lib", ".a", ".lib"),
   ALWAYSLINK_STATIC_LIBRARY("lib", ".lo", ".lo.lib"),
-  DYNAMIC_LIBRARY("lib", ".so", ".dylib", ".dll"),
-  EXECUTABLE("", "", ".exe"),
+  DYNAMIC_LIBRARY("lib", ".so", ".dylib", ".dll", ".wasm"),
+  EXECUTABLE("", "", ".exe", ".wasm"),
   INTERFACE_LIBRARY("lib", ".ifso", ".tbd", ".if.lib", ".lib"),
   PIC_FILE("", ".pic"),
   INCLUDED_FILE_LIST("", ".d"),
@@ -61,10 +61,6 @@ public enum ArtifactCategory {
             .build();
 
     this.starlarkName = toString().toLowerCase();
-  }
-
-  public String getStarlarkName() {
-    return starlarkName;
   }
 
   /** Returns the name of the category. */

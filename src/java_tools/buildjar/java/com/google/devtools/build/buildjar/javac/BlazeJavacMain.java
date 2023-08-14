@@ -54,6 +54,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import javax.annotation.Nullable;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticListener;
 import javax.tools.JavaFileObject;
@@ -117,8 +118,7 @@ public class BlazeJavacMain {
     options.put("expandJarClassPaths", "false");
 
     try (ClassloaderMaskingFileManager fileManager =
-        new ClassloaderMaskingFileManager(
-            context, arguments.builtinProcessors(), getMatchingBootFileManager(arguments))) {
+        new ClassloaderMaskingFileManager(context, getMatchingBootFileManager(arguments))) {
 
       setLocations(fileManager, arguments);
 
@@ -294,7 +294,7 @@ public class BlazeJavacMain {
                 .filter(f -> f.getFileName().toString().equals("module-info.java"))
                 .collect(toImmutableList());
         if (moduleInfos.size() == 1) {
-          sourcePath = ImmutableList.of(getOnlyElement(moduleInfos).getParent());
+          sourcePath = ImmutableList.of(getOnlyElement(moduleInfos).toAbsolutePath().getParent());
         }
       }
       fileManager.setLocationFromPaths(StandardLocation.SOURCE_PATH, sourcePath);
@@ -320,6 +320,11 @@ public class BlazeJavacMain {
     }
   }
 
+  private static final boolean BOOT_CLASSPATH_CACHE_ENABLED =
+      Boolean.parseBoolean(
+          System.getProperty(
+              "com.google.devtools.build.buildjar.javac.enable_boot_classpath_cache", "true"));
+
   /**
    * Multiple javac file manager instances each specific for a combination of bootClassPaths with
    * their digest.
@@ -331,8 +336,13 @@ public class BlazeJavacMain {
    * Returns a BootClassPathCachingFileManager instance that matches the combination of
    * bootClassPaths and their digest in the case of a worker with valid arguments.
    */
+  @Nullable
   private static synchronized BootClassPathCachingFileManager getMatchingBootFileManager(
       BlazeJavacArguments arguments) {
+    if (!BOOT_CLASSPATH_CACHE_ENABLED) {
+      // Caching disabled by a feature switch.
+      return null;
+    }
     if (!arguments.requestId().isPresent()) {
       // worker mode is not enabled
       return null;
@@ -356,16 +366,12 @@ public class BlazeJavacMain {
   @Trusted
   private static class ClassloaderMaskingFileManager extends JavacFileManager {
 
-    private final ImmutableSet<String> builtinProcessors;
     /** the BootClassPathCachingFileManager instance used for BootClassPaths only. */
     private final BootClassPathCachingFileManager bootFileManger;
 
     public ClassloaderMaskingFileManager(
-        Context context,
-        ImmutableSet<String> builtinProcessors,
-        BootClassPathCachingFileManager bootFileManager) {
+        Context context, BootClassPathCachingFileManager bootFileManager) {
       super(context, true, UTF_8);
-      this.builtinProcessors = builtinProcessors;
       this.bootFileManger = bootFileManager;
     }
 
@@ -390,15 +396,12 @@ public class BlazeJavacMain {
                   || name.startsWith("com.google.common.collect.")
                   || name.startsWith("com.google.common.base.")
                   || name.startsWith("com.google.common.graph.")
+                  || name.startsWith("com.google.common.regex.")
                   || name.startsWith("org.checkerframework.shaded.dataflow.")
                   || name.startsWith("org.checkerframework.errorprone.dataflow.")
                   || name.startsWith("com.sun.source.")
                   || name.startsWith("com.sun.tools.")
-                  || name.startsWith("com.google.devtools.build.buildjar.javac.statistics.")
-                  || name.startsWith("dagger.model.")
-                  // TODO(b/191812726): Include dagger.spi.model before releasing it to SPI users.
-                  || (name.startsWith("dagger.spi.") && !name.startsWith("dagger.spi.model."))
-                  || builtinProcessors.contains(name)) {
+                  || name.startsWith("com.google.devtools.build.buildjar.javac.statistics.")) {
                 return Class.forName(name);
               }
               throw new ClassNotFoundException(name);

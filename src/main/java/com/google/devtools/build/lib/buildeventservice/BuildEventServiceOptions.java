@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.buildeventservice;
 
 import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.Converters.DurationConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -99,6 +100,21 @@ public class BuildEventServiceOptions extends OptionsBase {
   public List<String> besKeywords;
 
   @Option(
+      name = "bes_system_keywords",
+      defaultValue = "null",
+      converter = Converters.CommaSeparatedOptionListConverter.class,
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      allowMultiple = true,
+      help =
+          "Specifies a list of notification keywords to be included directly, without the "
+              + "\"user_keyword=\" prefix included for keywords supplied via --bes_keywords. "
+              + "Intended for Build service operators that set --bes_lifecycle_events=false and "
+              + "include keywords when calling PublishLifecycleEvent. Build service operators "
+              + "using this flag should prevent users from overriding the flag value.")
+  public List<String> besSystemKeywords;
+
+  @Option(
       name = "bes_outerr_buffer_size",
       defaultValue = "10240",
       documentationCategory = OptionDocumentationCategory.LOGGING,
@@ -133,11 +149,13 @@ public class BuildEventServiceOptions extends OptionsBase {
       name = "bes_upload_mode",
       defaultValue = "wait_for_upload_complete",
       converter = BesUploadModeConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
       help =
           "Specifies whether the Build Event Service upload should block the build completion "
-              + "or should end the invocation immediately and finish the upload in the background.")
+              + "or should end the invocation immediately and finish the upload in the background. "
+              + "Either 'wait_for_upload_complete' (default), 'nowait_for_upload_complete', "
+              + "or 'fully_async'.")
   public BesUploadMode besUploadMode;
 
   @Option(
@@ -161,6 +179,18 @@ public class BuildEventServiceOptions extends OptionsBase {
               + " received InvocationAttemptStarted and BuildEnqueued events matching the current"
               + " tool event.")
   public boolean besCheckPrecedingLifecycleEvents;
+
+  @Option(
+      name = "bes_oom_finish_upload_timeout",
+      defaultValue = "10m",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      converter = DurationConverter.class,
+      help =
+          "Specifies how long bazel should wait for the BES/BEP upload to complete while OOMing. "
+              + "This flag ensures termination when the JVM is severely GC thrashing and cannot "
+              + "make progress on any user thread.")
+  public Duration besOomFinishUploadTimeout;
 
   /** Determines the mode that will be used to upload data to the Build Event Service. */
   public enum BesUploadMode {

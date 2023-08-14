@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
@@ -35,13 +36,14 @@ import java.util.List;
  */
 class TargetCycleReporter extends AbstractLabelCycleReporter {
 
-  private static final Predicate<SkyKey> SUPPORTED_SKY_KEY =
+  private static final Predicate<SkyKey> CONFIGURED_TARGET_OR_TRANSITIVE_RDEP =
       Predicates.or(
           SkyFunctions.isSkyFunction(SkyFunctions.CONFIGURED_TARGET),
           SkyFunctions.isSkyFunction(SkyFunctions.ASPECT),
           SkyFunctions.isSkyFunction(SkyFunctions.TOP_LEVEL_ASPECTS),
           SkyFunctions.isSkyFunction(TransitiveTargetKey.NAME),
-          SkyFunctions.isSkyFunction(SkyFunctions.PREPARE_ANALYSIS_PHASE));
+          SkyFunctions.isSkyFunction(SkyFunctions.PREPARE_ANALYSIS_PHASE),
+          SkyFunctions.isSkyFunction(SkyFunctions.BUILD_DRIVER));
 
   TargetCycleReporter(PackageProvider packageProvider) {
     super(packageProvider);
@@ -49,24 +51,26 @@ class TargetCycleReporter extends AbstractLabelCycleReporter {
 
   @Override
   protected boolean shouldSkipOnPathToCycle(SkyKey key) {
-    return SkyFunctions.PREPARE_ANALYSIS_PHASE.equals(key.functionName());
+    return SkyFunctions.PREPARE_ANALYSIS_PHASE.equals(key.functionName())
+        // BuildDriverKeys don't provide any relevant info for the end user.
+        || SkyFunctions.BUILD_DRIVER.equals(key.functionName());
   }
 
   @Override
   protected boolean canReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo) {
-    return SUPPORTED_SKY_KEY.apply(topLevelKey)
-        && cycleInfo.getPathToCycle().stream().allMatch(SUPPORTED_SKY_KEY)
-        && cycleInfo.getCycle().stream().allMatch(SUPPORTED_SKY_KEY);
+    return CONFIGURED_TARGET_OR_TRANSITIVE_RDEP.apply(topLevelKey)
+        && cycleInfo.getPathToCycle().stream().allMatch(CONFIGURED_TARGET_OR_TRANSITIVE_RDEP)
+        && cycleInfo.getCycle().stream().allMatch(CONFIGURED_TARGET_OR_TRANSITIVE_RDEP);
   }
 
   @Override
-  public String prettyPrint(SkyKey key) {
+  public String prettyPrint(Object key) {
     if (key instanceof ConfiguredTargetKey) {
-      return ((ConfiguredTargetKey) key.argument()).prettyPrint();
+      return ((ConfiguredTargetKey) key).prettyPrint();
     } else if (key instanceof AspectKey) {
-      return ((AspectKey) key.argument()).prettyPrint();
+      return ((AspectKey) key).prettyPrint();
     } else {
-      return getLabel(key).toString();
+      return getLabel((SkyKey) key).toString();
     }
   }
 
@@ -104,8 +108,8 @@ class TargetCycleReporter extends AbstractLabelCycleReporter {
       Target nextTarget = getTargetForLabel(eventHandler, nextLabel);
       // TODO(aranguyen): remove this code as a result of b/128716030
       // This is inefficient but it's no big deal since we only do this when there's a cycle.
-      if (currentTarget.getVisibility().getDependencyLabels().contains(nextLabel)
-          && !nextTarget.getTargetKind().equals(PackageGroup.targetKind())) {
+      if (!nextTarget.getTargetKind().equals(PackageGroup.targetKind())
+          && Iterables.contains(currentTarget.getVisibilityDependencyLabels(), nextLabel)) {
         return "\nThe cycle is caused by a visibility edge from "
             + currentTarget.getLabel()
             + " to the non-package_group target "

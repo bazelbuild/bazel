@@ -445,7 +445,9 @@ public class XcodeConfigTest extends BuildViewTestCase {
             + " tvosMinimumOsVersion='1.6',"
             + " macosSdkVersion='1.7',"
             + " macosMinimumOsVersion='1.8',"
-            + " xcodeVersion='1.9'))]",
+            + " visionosSdkVersion='1.9',"
+            + " visionosMinimumOsVersion='1.10',"
+            + " xcodeVersion='1.11'))]",
         "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
     scratch.file("foo/BUILD", "load(':extension.bzl', 'my_rule')", "my_rule(name='test')");
     assertNoEvents();
@@ -466,11 +468,11 @@ public class XcodeConfigTest extends BuildViewTestCase {
                 DottedVersion.fromStringUnchecked("1.7"),
                 DottedVersion.fromStringUnchecked("1.8"),
                 DottedVersion.fromStringUnchecked("1.9"),
+                DottedVersion.fromStringUnchecked("1.10"),
+                DottedVersion.fromStringUnchecked("1.11"),
                 XcodeConfigInfo.Availability.UNKNOWN,
-                /** xcodeVersionFlagValue= */
-                "",
-                /** includeXcodeReqs= */
-                false));
+                /* xcodeVersionFlagValue= */ "",
+                /* includeXcodeReqs= */ false));
   }
 
   @Test
@@ -489,7 +491,9 @@ public class XcodeConfigTest extends BuildViewTestCase {
             + " tvosMinimumOsVersion='1.6',"
             + " macosSdkVersion='1.7',"
             + " macosMinimumOsVersion='1.8',"
-            + " xcodeVersion='1.9'))]",
+            + " visionosSdkVersion='1.9',"
+            + " visionosMinimumOsVersion='1.10',"
+            + " xcodeVersion='1.11'))]",
         "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
     scratch.file("foo/BUILD", "load(':extension.bzl', 'my_rule')", "my_rule(name='test')");
     assertNoEvents();
@@ -509,12 +513,14 @@ public class XcodeConfigTest extends BuildViewTestCase {
             + " iosSdkVersion='1.1',"
             + " iosMinimumOsVersion='1.2',"
             + " watchosSdkVersion='1.3',"
-            + " watchosMinimumOsVersion='1.4',"
+            + " watchosMinimumOsVersion='2.4',"
             + " tvosSdkVersion='1.5',"
             + " tvosMinimumOsVersion='1.6',"
             + " macosSdkVersion='1.7',"
             + " macosMinimumOsVersion='1.8',"
-            + " xcodeVersion='1.9')",
+            + " visionosSdkVersion='1.9',"
+            + " visionosMinimumOsVersion='1.10',"
+            + " xcodeVersion='1.11')",
         "  return [result(xcode_version=xcode_version.xcode_version(),"
             + "min_os=xcode_version.minimum_os_for_platform_type(ctx.fragments.apple.single_arch_platform.platform_type)),]",
         "my_rule = rule(_impl, attrs = { 'dep' : attr.label() },  fragments = ['apple'])");
@@ -525,7 +531,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
         (StructImpl)
             myRuleTarget.get(
                 new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "result"));
-    assertThat(info.getValue("xcode_version").toString()).isEqualTo("1.9");
+    assertThat(info.getValue("xcode_version").toString()).isEqualTo("1.11");
     assertThat(info.getValue("min_os").toString()).isEqualTo("1.8");
   }
 
@@ -1218,20 +1224,6 @@ public class XcodeConfigTest extends BuildViewTestCase {
     assertContainsEvent("must be contained in versions attribute");
   }
 
-  @Test
-  public void testInvalidBitcodeVersion() throws Exception {
-    new BuildFileBuilder()
-        .addExplicitVersion("version512", "5.1.2", true)
-        .write(scratch, "xcode/BUILD");
-
-    useConfiguration(
-        "--apple_platform_type=ios", "--apple_bitcode=embedded", "--apple_split_cpu=arm64");
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//xcode:foo");
-    assertContainsEvent("apple_bitcode mode 'embedded' is unsupported");
-  }
-
   // Verifies that the --xcode_version_config configuration value can be accessed via the
   // configuration_field() Starlark method and used in a Starlark rule.
   @Test
@@ -1514,15 +1506,15 @@ public class XcodeConfigTest extends BuildViewTestCase {
     assertThat(provider.getXcodeVersion()).isEqualTo(DottedVersion.fromString(version));
   }
 
-  private void assertAvailability(XcodeConfigInfo.Availability availabilty) throws Exception {
-    assertAvailability(availabilty, "//xcode:foo");
+  private void assertAvailability(XcodeConfigInfo.Availability availability) throws Exception {
+    assertAvailability(availability, "//xcode:foo");
   }
 
   private void assertAvailability(
-      XcodeConfigInfo.Availability availabilty, String providerTargetLabel) throws Exception {
+      XcodeConfigInfo.Availability availability, String providerTargetLabel) throws Exception {
     ConfiguredTarget xcodeConfig = getConfiguredTarget(providerTargetLabel);
     XcodeConfigInfo provider = xcodeConfig.get(XcodeConfigInfo.PROVIDER);
-    assertThat(provider.getAvailability()).isEqualTo(availabilty);
+    assertThat(provider.getAvailability()).isEqualTo(availability);
   }
 
   private void assertHasRequirements(List<String> executionRequirements) throws Exception {

@@ -24,13 +24,13 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.eventbus.Subscribe;
 import com.google.common.eventbus.SubscriberExceptionContext;
 import com.google.common.eventbus.SubscriberExceptionHandler;
 import com.google.devtools.build.lib.actions.Action;
@@ -47,13 +47,13 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil.DummyWorkspaceStatusActionContext;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.bazel.BazelRepositoryModule;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.BuildTool;
+import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -74,6 +75,7 @@ import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.integration.util.IntegrationMock;
 import com.google.devtools.build.lib.network.ConnectivityStatusProvider;
 import com.google.devtools.build.lib.network.NoOpConnectivityModule;
+import com.google.devtools.build.lib.outputfilter.OutputFilteringModule;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
@@ -104,6 +106,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SkymeldModule;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.standalone.StandaloneModule;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -126,10 +129,13 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.build.lib.worker.WorkerModule;
+import com.google.devtools.build.skyframe.NotifyingHelper;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.errorprone.annotations.FormatMethod;
+import com.google.errorprone.annotations.Keep;
+import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.ArrayList;
@@ -139,6 +145,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import org.junit.After;
@@ -249,6 +256,34 @@ public abstract class BuildIntegrationTestCase {
   }
 
   /**
+   * Lazily injects the given listener at the start of the next build.
+   *
+   * <p>Injecting the listener immediately would reach the <em>current</em> evaluator, but the next
+   * build may create a new evaluator, which happens when {@link
+   * com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor} is not tracking incremental
+   * state.
+   */
+  public final void injectListenerAtStartOfNextBuild(NotifyingHelper.Listener listener) {
+    getRuntimeWrapper()
+        .registerSubscriber(
+            new Object() {
+              private boolean injected = false;
+
+              @Subscribe
+              @Keep
+              void buildStarting(@SuppressWarnings("unused") BuildStartingEvent event) {
+                if (!injected) {
+                  getSkyframeExecutor()
+                      .getEvaluator()
+                      .injectGraphTransformerForTesting(
+                          NotifyingHelper.makeNotifyingTransformer(listener));
+                  injected = true;
+                }
+              }
+            });
+  }
+
+  /**
    * Creates an uncaught exception handler to be used in {@link
    * Thread#setDefaultUncaughtExceptionHandler}.
    *
@@ -271,6 +306,9 @@ public abstract class BuildIntegrationTestCase {
   }
 
   protected void createRuntimeWrapper() throws Exception {
+    if (runtimeWrapper != null) {
+      cleanupInterningPools();
+    }
     runtimeWrapper =
         new BlazeRuntimeWrapper(
             events,
@@ -320,6 +358,11 @@ public abstract class BuildIntegrationTestCase {
   }
 
   @After
+  public final void cleanupInterningPools() {
+    getSkyframeExecutor().getEvaluator().cleanupInterningPools();
+  }
+
+  @After
   public final void cleanUp() throws Exception {
     if (subscriberException.getException() != null) {
       throwIfUnchecked(subscriberException.getException());
@@ -328,20 +371,40 @@ public abstract class BuildIntegrationTestCase {
     LoggingUtil.installRemoteLoggerForTesting(null);
 
     if (OS.getCurrent() == OS.WINDOWS) {
-      // Bazel runtime still holds the file handle of windows_jni.dll making it impossible to delete
-      // on Windows. Try to delete all other files (and directories).
-      bestEffortDeleteTreesBelow(testRoot, "windows_jni.dll");
+      bestEffortDeleteTreesBelow(
+          testRoot,
+          filename -> {
+            // Bazel runtime still holds the file handle of windows_jni.dll making it impossible to
+            // delete on Windows.
+            if (filename.equals("windows_jni.dll")) {
+              return true;
+            }
+
+            // mockito's inline mock maker manipulates byte code of mocked methods and output new
+            // byte code in a temporary jarfile with pattern mockitobootXXXXXXX.jar. It then loads
+            // these jar files into JVM to make mock effective which means Bazel runtime still holds
+            // handles of these files making it impossible to delete on Windows.
+            //
+            // See https://github.com/mockito/mockito/issues/1379#issuecomment-466372914 and
+            // https://github.com/mockito/mockito/blob/91f18ea1648e389bea06289d818def7978e82288/src/main/java/org/mockito/internal/creation/bytebuddy/InlineDelegateByteBuddyMockMaker.java#L123C10-L123C10.
+            if (filename.startsWith("mockitoboot") && filename.endsWith(".jar")) {
+              return true;
+            }
+
+            return false;
+          });
     } else {
       testRoot.deleteTreesBelow(); // (comment out during debugging)
     }
 
     // Make sure that a test which crashes with on a bug report does not taint following ones with
     // an unprocessed exception stored statically in BugReport.
-    BugReport.maybePropagateUnprocessedThrowableIfInTest();
+    BugReport.maybePropagateLastCrashIfInTest();
     Thread.interrupted(); // If there was a crash in test case, main thread was interrupted.
   }
 
-  private static void bestEffortDeleteTreesBelow(Path path, String canSkip) throws IOException {
+  private static void bestEffortDeleteTreesBelow(Path path, Predicate<String> canSkip)
+      throws IOException {
     for (Dirent dirent : path.readdir(Symlinks.NOFOLLOW)) {
       Path child = path.getRelative(dirent.getName());
       if (dirent.getType() == Dirent.Type.DIRECTORY) {
@@ -355,7 +418,7 @@ public abstract class BuildIntegrationTestCase {
       try {
         child.delete();
       } catch (IOException e) {
-        if (!child.getBaseName().equals(canSkip)) {
+        if (!canSkip.test(child.getBaseName())) {
           throw e;
         }
       }
@@ -369,7 +432,7 @@ public abstract class BuildIntegrationTestCase {
    * Tests which deliberately cause crashes, need to clear that flag not to taint the environment.
    */
   public static void assertAndClearBugReporterStoredCrash(Class<? extends Throwable> expected) {
-    assertThrows(expected, BugReport::maybePropagateUnprocessedThrowableIfInTest);
+    assertThat(BugReport.getAndResetLastCrashingThrowableIfInTest()).isInstanceOf(expected);
   }
 
   /**
@@ -497,8 +560,7 @@ public abstract class BuildIntegrationTestCase {
             .add(
                 PrecomputedValue.injected(
                     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE,
-                    Optional.empty()),
-                PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false))
+                    Optional.empty()))
             .addAll(BAZEL_REPOSITORY_PRECOMPUTED_VALUES)
             .build();
       }
@@ -529,8 +591,11 @@ public abstract class BuildIntegrationTestCase {
             .setBugReporter(bugReporter)
             .setStartupOptionsProvider(startupOptionsParser)
             .addBlazeModule(new BuildIntegrationTestCommandsModule())
+            .addBlazeModule(new OutputFilteringModule())
             .addBlazeModule(connectivityModule)
-            .addBlazeModule(getMockBazelRepositoryModule());
+            .addBlazeModule(new SkymeldModule())
+            .addBlazeModule(getMockBazelRepositoryModule())
+            .addBlazeModule(new CredentialModule());
     getSpawnModules().forEach(builder::addBlazeModule);
     builder
         .addBlazeModule(getBuildInfoModule())
@@ -573,8 +638,6 @@ public abstract class BuildIntegrationTestCase {
     runtimeWrapper.addOptions(TestConstants.PRODUCT_SPECIFIC_FLAGS);
     // TODO(rosica): Remove this once g3 is migrated.
     runtimeWrapper.addOptions("--noincompatible_use_specific_tool_files");
-    // TODO(rosica): Remove this once g3 is migrated.
-    runtimeWrapper.addOptions("--noincompatible_make_thinlto_command_lines_standalone");
   }
 
   protected void resetOptions() {
@@ -665,8 +728,13 @@ public abstract class BuildIntegrationTestCase {
     return existingConfiguredTarget;
   }
 
-  protected BuildConfigurationCollection getConfigurationCollection() {
-    return runtimeWrapper.getConfigurationCollection();
+  protected BuildConfigurationValue getConfiguration() {
+    return runtimeWrapper.getConfiguration();
+  }
+
+  protected final BuildConfigurationValue getConfiguration(ConfiguredTarget ct) {
+    return getSkyframeExecutor()
+        .getConfiguration(NullEventHandler.INSTANCE, ct.getConfigurationKey());
   }
 
   /**
@@ -678,8 +746,7 @@ public abstract class BuildIntegrationTestCase {
    * falls back to the base top-level configuration.
    */
   protected BuildConfigurationValue getTargetConfiguration() {
-    BuildConfigurationValue baseConfiguration =
-        getConfigurationCollection().getTargetConfiguration();
+    BuildConfigurationValue baseConfiguration = getConfiguration();
     BuildResult result = getResult();
     if (result == null) {
       return baseConfiguration;
@@ -695,8 +762,8 @@ public abstract class BuildIntegrationTestCase {
     return Iterables.getOnlyElement(topLevelTargetConfigurations);
   }
 
-  protected BuildConfigurationValue getHostConfiguration() {
-    return getConfigurationCollection().getHostConfiguration();
+  protected BuildConfigurationValue getExecConfiguration() throws Exception {
+    return runtimeWrapper.getExecConfiguration();
   }
 
   protected TopLevelArtifactContext getTopLevelArtifactContext() {
@@ -881,6 +948,10 @@ public abstract class BuildIntegrationTestCase {
     return new String(FileSystemUtils.readContentAsLatin1(artifact.getPath()));
   }
 
+  protected ByteString readContentAsByteArray(Artifact artifact) throws IOException {
+    return ByteString.copyFrom(FileSystemUtils.readContent(artifact.getPath()));
+  }
+
   /**
    * Given a collection of Artifacts, returns a corresponding set of strings of the form "<root>
    * <relpath>", such as "bin x/libx.a". Such strings make assertions easier to write.
@@ -888,7 +959,7 @@ public abstract class BuildIntegrationTestCase {
    * <p>The returned set preserves the order of the input.
    */
   protected Set<String> artifactsToStrings(NestedSet<Artifact> artifacts) {
-    return AnalysisTestUtil.artifactsToStrings(getConfigurationCollection(), artifacts.toList());
+    return AnalysisTestUtil.artifactsToStrings(getConfiguration(), artifacts.toList());
   }
 
   protected ActionsTestUtil actionsTestUtil() {
@@ -901,11 +972,6 @@ public abstract class BuildIntegrationTestCase {
 
   protected NestedSet<Artifact> getFilesToBuild(TransitiveInfoCollection target) {
     return target.getProvider(FileProvider.class).getFilesToBuild();
-  }
-
-  protected final BuildConfigurationValue getConfiguration(ConfiguredTarget ct) {
-    return getSkyframeExecutor()
-        .getConfiguration(NullEventHandler.INSTANCE, ct.getConfigurationKey());
   }
 
   /** Returns the BuildRequest of the last call to buildTarget(). */
@@ -951,6 +1017,10 @@ public abstract class BuildIntegrationTestCase {
 
   protected Path getOutputBase() {
     return outputBase;
+  }
+
+  protected BlazeDirectories getDirectories() {
+    return directories;
   }
 
   protected Path getWorkspace() {
@@ -1019,7 +1089,7 @@ public abstract class BuildIntegrationTestCase {
     }
 
     @Override
-    public synchronized void sendNonFatalBugReport(Exception exception) {
+    public synchronized void sendNonFatalBugReport(Throwable exception) {
       exceptions.add(exception);
     }
 

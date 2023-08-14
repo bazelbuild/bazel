@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.buildEvent;
+import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.configurationId;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
@@ -22,53 +25,42 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithConfiguration;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
-import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
-import java.util.Collection;
+import javax.annotation.Nullable;
 
 /** Event reporting about the configurations associated with a given apect for a target */
 public class AspectConfiguredEvent implements BuildEventWithConfiguration {
   private final Label target;
-  private final String aspect;
-  private final Collection<BuildConfigurationValue> configurations;
+  private final String aspectClassName;
+  private final String aspectDescription;
+  @Nullable private final BuildConfigurationValue configuration;
 
-  AspectConfiguredEvent(
-      Label target, String aspect, Collection<BuildConfigurationValue> configurations) {
-    this.configurations = configurations;
+  public AspectConfiguredEvent(
+      Label target,
+      String aspectClassName,
+      String aspectDescription,
+      @Nullable BuildConfigurationValue configuration) {
     this.target = target;
-    this.aspect = aspect;
+    this.aspectClassName = aspectClassName;
+    this.aspectDescription = aspectDescription;
+    this.configuration = configuration;
   }
 
   @Override
-  public Collection<BuildEvent> getConfigurations() {
-    ImmutableList.Builder<BuildEvent> builder = new ImmutableList.Builder<>();
-    for (BuildConfigurationValue config : configurations) {
-      if (config != null) {
-        builder.add(config.toBuildEvent());
-      } else {
-        builder.add(new NullConfiguration());
-      }
-    }
-    return builder.build();
+  public ImmutableList<BuildEvent> getConfigurations() {
+    return ImmutableList.of(buildEvent(configuration));
   }
 
   @Override
   public BuildEventId getEventId() {
-    return BuildEventIdUtil.aspectConfigured(target, aspect);
+    return BuildEventIdUtil.aspectConfigured(target, aspectClassName);
   }
 
   @Override
-  public Collection<BuildEventId> getChildrenEvents() {
-    ImmutableList.Builder<BuildEventId> childrenBuilder = ImmutableList.builder();
-    for (BuildConfigurationValue config : configurations) {
-      if (config != null) {
-        childrenBuilder.add(BuildEventIdUtil.targetCompleted(target, config.getEventId()));
-      } else {
-        childrenBuilder.add(
-            BuildEventIdUtil.targetCompleted(target, BuildEventIdUtil.nullConfigurationId()));
-      }
-    }
-    return childrenBuilder.build();
+  public ImmutableList<BuildEventId> getChildrenEvents() {
+    return ImmutableList.of(
+        BuildEventIdUtil.aspectCompleted(
+            target, configurationId(configuration), aspectDescription));
   }
 
   @Override

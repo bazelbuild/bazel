@@ -14,16 +14,15 @@
 
 """A Starlark implementation of the java_lite_proto_library rule."""
 
+load(":common/proto/proto_info.bzl", "ProtoInfo")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/proto/proto_common.bzl", "ProtoLangToolchainInfo", proto_common = "proto_common_do_not_use")
 load(":common/java/proto/java_proto_library.bzl", "JavaProtoAspectInfo", "bazel_java_proto_library_rule", "java_compile_for_protos")
+load(":common/java/java_info.bzl", "JavaInfo")
+load(":common/java/java_common.bzl", "java_common")
 
 PROTO_TOOLCHAIN_ATTR = "_aspect_proto_toolchain_for_javalite"
-JAVA_TOOLCHAIN_ATTR = "_java_toolchain"
 
-java_common = _builtins.toplevel.java_common
-ProtoInfo = _builtins.toplevel.ProtoInfo
-JavaInfo = _builtins.toplevel.JavaInfo
 ProguardSpecProvider = _builtins.toplevel.ProguardSpecProvider
 
 def _aspect_impl(target, ctx):
@@ -51,7 +50,7 @@ def _aspect_impl(target, ctx):
             target[ProtoInfo],
             proto_toolchain_info,
             [source_jar],
-            source_jar,
+            experimental_output_files = "single",
         )
         runtime = proto_toolchain_info.runtime
         if runtime:
@@ -79,13 +78,11 @@ java_lite_proto_aspect = aspect(
         PROTO_TOOLCHAIN_ATTR: attr.label(
             default = configuration_field(fragment = "proto", name = "proto_toolchain_for_java_lite"),
         ),
-        JAVA_TOOLCHAIN_ATTR: attr.label(
-            default = Label(semantics.JAVA_TOOLCHAIN_LABEL),
-        ),
     },
     fragments = ["java"],
     required_providers = [ProtoInfo],
     provides = [JavaInfo, JavaProtoAspectInfo],
+    toolchains = [semantics.JAVA_TOOLCHAIN],
 )
 
 def _rule_impl(ctx):
@@ -102,6 +99,9 @@ def _rule_impl(ctx):
     """
 
     proto_toolchain_info = ctx.attr._aspect_proto_toolchain_for_javalite[ProtoLangToolchainInfo]
+    for dep in ctx.attr.deps:
+        proto_common.check_collocated(ctx.label, dep[ProtoInfo], proto_toolchain_info)
+
     runtime = proto_toolchain_info.runtime
 
     if runtime:
@@ -110,7 +110,9 @@ def _rule_impl(ctx):
         proguard_provider_specs = ProguardSpecProvider(depset())
 
     java_info, DefaultInfo, OutputGroupInfo = bazel_java_proto_library_rule(ctx)
-    java_info = semantics.add_constraints(java_info, ["android"])
+
+    if hasattr(java_common, "add_constraints"):
+        java_info = java_common.add_constraints(java_info, constraints = ["android"])
 
     return [
         java_info,

@@ -31,7 +31,7 @@ public interface Reportable {
 
   /**
    * If this event originated from {@link
-   * com.google.devtools.build.skyframe.SkyFunction.Environment#reportEvent}, whether it should be
+   * com.google.devtools.build.skyframe.SkyFunction.Environment#getListener}, whether it should be
    * stored in the corresponding Skyframe node to be replayed on incremental builds when the node is
    * deemed up-to-date.
    *
@@ -42,8 +42,8 @@ public interface Reportable {
    *
    * <p>Evaluations may disable all event storage and replay by using a custom {@link
    * com.google.devtools.build.skyframe.EventFilter}, in which case this method is only used to
-   * fulfill the semantics of {@link
-   * com.google.devtools.build.skyframe.SkyFunction.Environment#reportEvent}.
+   * fulfill the semantics described at {@link
+   * com.google.devtools.build.skyframe.SkyFunction.Environment#getListener}.
    *
    * <p>This method is not relevant for events which do not originate from {@link
    * com.google.devtools.build.skyframe.SkyFunction} evaluation.

@@ -41,11 +41,10 @@ public class PlatformBaseRule implements RuleDefinition{
                 // No need to show up in ":all", etc. target patterns.
                 .value(ImmutableList.of("manual"))
                 .nonconfigurable("low-level attribute, used in platform configuration"))
+        .removeAttribute(":action_listener")
+        .removeAttribute("applicable_licenses")
         .exemptFromConstraintChecking("this rule helps *define* a constraint")
         .useToolchainResolution(ToolchainResolutionMode.DISABLED)
-        .removeAttribute("deps")
-        .removeAttribute("data")
-        .removeAttribute(":action_listener")
         .build();
   }
 
@@ -54,8 +53,7 @@ public class PlatformBaseRule implements RuleDefinition{
     return RuleDefinition.Metadata.builder()
         .name(RULE_NAME)
         .type(RuleClass.Builder.RuleClassType.ABSTRACT)
-        .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
+        .ancestors(BaseRuleClasses.NativeBuildRule.class)
         .build();
   }
-
 }

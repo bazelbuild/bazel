@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.util.AbruptExitException;
  */
 public interface RPCServer {
 
-  /** Start serving and block until the a shutdown command is received. */
+  /** Start serving and block until the shutdown command is received. */
   void serve() throws AbruptExitException;
 
   /**

@@ -241,7 +241,8 @@ public final class GrpcServerTest {
                 BlazeCommandResult.success(),
                 ImmutableList.of(
                     Any.pack(StringValue.of("foo")),
-                    Any.pack(BytesValue.of(ByteString.copyFromUtf8("bar")))));
+                    Any.pack(BytesValue.of(ByteString.copyFromUtf8("bar")))),
+                true);
           }
         };
     createServer(dispatcher);
@@ -585,7 +586,7 @@ public final class GrpcServerTest {
 
   /**
    * Ensure that if a command is marked as preemptible, running a second preemptible command
-   * interupts the first command.
+   * interrupts the first command.
    */
   @Test
   public void testMultiPreeempt() throws Exception {

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.platform;
 import build.bazel.remote.execution.v2.Platform;
 import build.bazel.remote.execution.v2.Platform.Property;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -64,6 +65,13 @@ public final class PlatformUtils {
   @Nullable
   public static Platform getPlatformProto(Spawn spawn, @Nullable RemoteOptions remoteOptions)
       throws UserExecException {
+    return getPlatformProto(spawn, remoteOptions, ImmutableMap.of());
+  }
+
+  @Nullable
+  public static Platform getPlatformProto(
+      Spawn spawn, @Nullable RemoteOptions remoteOptions, Map<String, String> additionalProperties)
+      throws UserExecException {
     SortedMap<String, String> defaultExecProperties =
         remoteOptions != null
             ? remoteOptions.getRemoteDefaultExecProperties()
@@ -71,34 +79,34 @@ public final class PlatformUtils {
 
     if (spawn.getExecutionPlatform() == null
         && spawn.getCombinedExecProperties().isEmpty()
-        && defaultExecProperties.isEmpty()) {
+        && defaultExecProperties.isEmpty()
+        && additionalProperties.isEmpty()) {
       return null;
     }
 
-    Platform.Builder platformBuilder = Platform.newBuilder();
-
+    Map<String, String> properties;
     if (!spawn.getCombinedExecProperties().isEmpty()) {
-      Map<String, String> combinedExecProperties;
       // Apply default exec properties if the execution platform does not already set
       // exec_properties
       if (spawn.getExecutionPlatform() == null
           || spawn.getExecutionPlatform().execProperties().isEmpty()) {
-        combinedExecProperties = new HashMap<>();
-        combinedExecProperties.putAll(defaultExecProperties);
-        combinedExecProperties.putAll(spawn.getCombinedExecProperties());
+        properties = new HashMap<>();
+        properties.putAll(defaultExecProperties);
+        properties.putAll(spawn.getCombinedExecProperties());
       } else {
-        combinedExecProperties = spawn.getCombinedExecProperties();
-      }
-
-      for (Map.Entry<String, String> entry : combinedExecProperties.entrySet()) {
-        platformBuilder.addPropertiesBuilder().setName(entry.getKey()).setValue(entry.getValue());
+        properties = spawn.getCombinedExecProperties();
       }
     } else if (spawn.getExecutionPlatform() != null
         && !Strings.isNullOrEmpty(spawn.getExecutionPlatform().remoteExecutionProperties())) {
+      properties = new HashMap<>();
       // Try and get the platform info from the execution properties.
       try {
+        Platform.Builder platformBuilder = Platform.newBuilder();
         TextFormat.getParser()
             .merge(spawn.getExecutionPlatform().remoteExecutionProperties(), platformBuilder);
+        for (Property property : platformBuilder.getPropertiesList()) {
+          properties.put(property.getName(), property.getValue());
+        }
       } catch (ParseException e) {
         String message =
             String.format(
@@ -108,12 +116,23 @@ public final class PlatformUtils {
             e, createFailureDetail(message, Code.INVALID_REMOTE_EXECUTION_PROPERTIES));
       }
     } else {
-      for (Map.Entry<String, String> property : defaultExecProperties.entrySet()) {
-        platformBuilder.addProperties(
-            Property.newBuilder().setName(property.getKey()).setValue(property.getValue()).build());
+      properties = defaultExecProperties;
+    }
+
+    if (!additionalProperties.isEmpty()) {
+      if (properties.isEmpty()) {
+        properties = additionalProperties;
+      } else {
+        // Merge the two maps.
+        properties = new HashMap<>(properties);
+        properties.putAll(additionalProperties);
       }
     }
 
+    Platform.Builder platformBuilder = Platform.newBuilder();
+    for (Map.Entry<String, String> entry : properties.entrySet()) {
+      platformBuilder.addPropertiesBuilder().setName(entry.getKey()).setValue(entry.getValue());
+    }
     sortPlatformProperties(platformBuilder);
     return platformBuilder.build();
   }

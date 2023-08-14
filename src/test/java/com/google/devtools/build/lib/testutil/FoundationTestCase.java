@@ -32,9 +32,7 @@ import java.util.regex.Pattern;
 import org.junit.After;
 import org.junit.Before;
 
-/**
- * A helper class for implementing tests of the "foundation" library.
- */
+/** A helper class for implementing tests of the "foundation" library. */
 public abstract class FoundationTestCase {
   protected Path rootDirectory;
   protected Path outputBase;
@@ -65,12 +63,11 @@ public abstract class FoundationTestCase {
         }
       };
 
-  protected static final EventHandler printHandler = new EventHandler() {
-      @Override
-      public void handle(Event event) {
-        System.out.println(event);
-      }
-    };
+  protected static final EventHandler printHandler =
+      new EventHandler() {
+        @Override
+        public void handle(Event event) {}
+      };
 
   @Before
   public final void initializeFileSystemAndDirectories() throws Exception {
@@ -93,12 +90,10 @@ public abstract class FoundationTestCase {
   @After
   public final void clearInterrupts() throws Exception {
     Thread.interrupted(); // Clear any interrupt pending against this thread,
-                          // so that we don't cause later tests to fail.
+    // so that we don't cause later tests to fail.
   }
 
-  /**
-   * Creates the file system; override to inject FS behavior.
-   */
+  /** Creates the file system; override to inject FS behavior. */
   protected FileSystem createFileSystem() {
     return new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
   }
@@ -110,8 +105,7 @@ public abstract class FoundationTestCase {
   }
 
   protected Event assertContainsEvent(String expectedMessage) {
-    return MoreAsserts.assertContainsEvent(eventCollector,
-                                              expectedMessage);
+    return MoreAsserts.assertContainsEvent(eventCollector, expectedMessage);
   }
 
   protected Event assertContainsEvent(Pattern expectedMessagePattern) {
@@ -119,20 +113,16 @@ public abstract class FoundationTestCase {
   }
 
   protected Event assertContainsEvent(String expectedMessage, Set<EventKind> kinds) {
-    return MoreAsserts.assertContainsEvent(eventCollector,
-                                              expectedMessage,
-                                              kinds);
+    return MoreAsserts.assertContainsEvent(eventCollector, expectedMessage, kinds);
   }
 
-  protected void assertContainsEventWithFrequency(String expectedMessage,
-      int expectedFrequency) {
-    MoreAsserts.assertContainsEventWithFrequency(eventCollector, expectedMessage,
-        expectedFrequency);
+  protected void assertContainsEventWithFrequency(String expectedMessage, int expectedFrequency) {
+    MoreAsserts.assertContainsEventWithFrequency(
+        eventCollector, expectedMessage, expectedFrequency);
   }
 
   protected void assertDoesNotContainEvent(String expectedMessage) {
-    MoreAsserts.assertDoesNotContainEvent(eventCollector,
-                                             expectedMessage);
+    MoreAsserts.assertDoesNotContainEvent(eventCollector, expectedMessage);
   }
 
   protected void assertContainsEventsInOrder(String... expectedMessages) {

@@ -1,6 +1,7 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_testonly = 1,
     default_visibility = ["//src:__subpackages__"],
 )
@@ -19,6 +20,7 @@ java_library(
     ]),
     data = [
         "//tools/jdk:srcs",
+        "@rules_java//toolchains:srcs",
     ],
     resources = [
         "cc_toolchain_config.bzl",

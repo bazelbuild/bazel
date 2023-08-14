@@ -28,12 +28,18 @@ import java.util.zip.GZIPOutputStream;
  * {@link OutputStream} implementation optimized for {@link GenQuery} by (optionally) compressing
  * query results on the fly. Produces {@link GenQueryResult}s which are preferred for storing the
  * output of {@link GenQuery}'s underlying queries.
+ *
+ * <p>The produced {@link GenQueryResult}s can also be in gzipped compressed format if the genquery
+ * definition explicitly sets {@code compressed_output} parameter to {@code True}.
  */
 class GenQueryOutputStream extends OutputStream {
 
   /**
    * When compression is enabled, the threshold at which the stream will switch to compressing
    * output. The value of this constant is arbitrary but effective.
+   *
+   * <p>If genquery definition explicitly sets {@code compressed_output} parameter to {@code True},
+   * the stream will be compressed regardless of whether its size reaches this threshold.
    */
   private static final int COMPRESSION_THRESHOLD = 1 << 20;
 
@@ -48,6 +54,9 @@ class GenQueryOutputStream extends OutputStream {
     /**
      * Adds the query output to the supplied {@link Fingerprint}. Equivalent to {@code
      * fingerprint.addBytes(genQueryResult.getBytes())}, but potentially more efficient.
+     *
+     * <p>A boolean indicating whether the query output is compressed or not is added to the
+     * supplied {@link Fingerprint} first.
      */
     void fingerprint(Fingerprint fingerprint);
 
@@ -64,15 +73,22 @@ class GenQueryOutputStream extends OutputStream {
     void writeTo(OutputStream out) throws IOException;
   }
 
-  private final boolean compressionEnabled;
   private int bytesWritten = 0;
-  private boolean compressed = false;
+  private boolean outputWasCompressed;
   private boolean closed = false;
   private ByteString.Output bytesOut = ByteString.newOutput();
-  private OutputStream out = bytesOut;
+  private OutputStream out;
+  private final boolean compressedOutputRequested;
 
-  GenQueryOutputStream(boolean compressionEnabled) {
-    this.compressionEnabled = compressionEnabled;
+  GenQueryOutputStream(boolean compressedOutputRequested) throws IOException {
+    this.compressedOutputRequested = compressedOutputRequested;
+    if (compressedOutputRequested) {
+      this.out = new GZIPOutputStream(bytesOut);
+      this.outputWasCompressed = true;
+    } else {
+      this.out = bytesOut;
+      this.outputWasCompressed = false;
+    }
   }
 
   @Override
@@ -107,21 +123,17 @@ class GenQueryOutputStream extends OutputStream {
 
   GenQueryResult getResult() {
     Preconditions.checkState(closed, "Must be closed");
-    return compressed
-        ? new CompressedResult(bytesOut.toByteString(), bytesWritten)
-        : new RegularResult(bytesOut.toByteString());
+    return !outputWasCompressed || compressedOutputRequested
+        ? new SimpleResult(bytesOut.toByteString())
+        : new CompressedResultWithDecompressedOutput(bytesOut.toByteString(), bytesWritten);
   }
 
   private void maybeStartCompression(int additionalBytes) throws IOException {
-    if (!compressionEnabled) {
+    if (outputWasCompressed) {
       return;
     }
 
-    if (compressed) {
-      return;
-    }
-
-    if (bytesWritten + additionalBytes < COMPRESSION_THRESHOLD) {
+    if (!compressedOutputRequested && bytesWritten + additionalBytes < COMPRESSION_THRESHOLD) {
       return;
     }
 
@@ -130,14 +142,18 @@ class GenQueryOutputStream extends OutputStream {
     bytesOut.writeTo(gzipOut);
     bytesOut = compressedBytesOut;
     out = gzipOut;
-    compressed = true;
+    outputWasCompressed = true;
   }
 
+  /**
+   * Used when input and output GenQuery result data are in the same format, so no decompression or
+   * other data transformation is needed.
+   */
   @VisibleForTesting
-  static class RegularResult implements GenQueryResult {
+  static final class SimpleResult implements GenQueryResult {
     private final ByteString data;
 
-    RegularResult(ByteString data) {
+    SimpleResult(ByteString data) {
       this.data = data;
     }
 
@@ -162,12 +178,13 @@ class GenQueryOutputStream extends OutputStream {
     }
   }
 
+  /** Used when input GenQuery result is in compressed format and output should be decompressed. */
   @VisibleForTesting
-  static class CompressedResult implements GenQueryResult {
+  static final class CompressedResultWithDecompressedOutput implements GenQueryResult {
     private final ByteString compressedData;
     private final int size;
 
-    CompressedResult(ByteString compressedData, int size) {
+    CompressedResultWithDecompressedOutput(ByteString compressedData, int size) {
       this.compressedData = compressedData;
       this.size = size;
     }

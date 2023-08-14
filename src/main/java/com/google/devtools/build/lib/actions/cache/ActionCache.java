@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.DigestUtils;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -44,6 +45,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
@@ -75,6 +77,9 @@ public interface ActionCache {
    */
   void remove(String key);
 
+  /** Removes entry from cache that matches the predicate. */
+  void removeIf(Predicate<ActionCache.Entry> predicate);
+
   /**
    * An entry in the ActionCache that contains all action input and output
    * artifact paths and their metadata plus action key itself.
@@ -84,9 +89,11 @@ public interface ActionCache {
    * will continue to return same result regardless of internal data transformations).
    */
   final class Entry {
+    private static final byte[] EMPTY_CLIENT_ENV_DIGEST = new byte[0];
+
     /** Unique instance to represent a corrupted cache entry. */
     public static final ActionCache.Entry CORRUPTED =
-        new ActionCache.Entry(null, ImmutableMap.of(), false);
+        new ActionCache.Entry(null, ImmutableMap.of(), false, OutputPermissions.READONLY);
 
     private final String actionKey;
     @Nullable
@@ -95,7 +102,7 @@ public interface ActionCache {
     // If null, digest is non-null and the entry is immutable.
     private Map<String, FileArtifactValue> mdMap;
     private byte[] digest;
-    private final byte[] usedClientEnvDigest;
+    private final byte[] actionPropertiesDigest;
     private final Map<String, RemoteFileArtifactValue> outputFileMetadata;
     private final Map<String, SerializableTreeArtifactValue> outputTreeMetadata;
 
@@ -109,9 +116,10 @@ public interface ActionCache {
     public abstract static class SerializableTreeArtifactValue {
       public static SerializableTreeArtifactValue create(
           ImmutableMap<String, RemoteFileArtifactValue> childValues,
-          Optional<RemoteFileArtifactValue> archivedFileValue) {
+          Optional<RemoteFileArtifactValue> archivedFileValue,
+          Optional<PathFragment> materializationExecPath) {
         return new AutoValue_ActionCache_Entry_SerializableTreeArtifactValue(
-            childValues, archivedFileValue);
+            childValues, archivedFileValue, materializationExecPath);
       }
 
       /**
@@ -138,22 +146,34 @@ public interface ActionCache {
                 .filter(ar -> ar.archivedFileValue().isRemote())
                 .map(ar -> (RemoteFileArtifactValue) ar.archivedFileValue());
 
-        if (childValues.isEmpty() && archivedFileValue.isEmpty()) {
+        Optional<PathFragment> materializationExecPath = treeMetadata.getMaterializationExecPath();
+
+        if (childValues.isEmpty()
+            && archivedFileValue.isEmpty()
+            && materializationExecPath.isEmpty()) {
           return Optional.empty();
         }
 
-        return Optional.of(SerializableTreeArtifactValue.create(childValues, archivedFileValue));
+        return Optional.of(
+            SerializableTreeArtifactValue.create(
+                childValues, archivedFileValue, materializationExecPath));
       }
 
       // A map from parentRelativePath to the file metadata
       public abstract ImmutableMap<String, RemoteFileArtifactValue> childValues();
 
       public abstract Optional<RemoteFileArtifactValue> archivedFileValue();
+
+      public abstract Optional<PathFragment> materializationExecPath();
     }
 
-    public Entry(String key, Map<String, String> usedClientEnv, boolean discoversInputs) {
+    public Entry(
+        String key,
+        Map<String, String> usedClientEnv,
+        boolean discoversInputs,
+        OutputPermissions outputPermissions) {
       actionKey = key;
-      this.usedClientEnvDigest = digestClientEnv(usedClientEnv);
+      this.actionPropertiesDigest = digestActionProperties(usedClientEnv, outputPermissions);
       files = discoversInputs ? new ArrayList<>() : null;
       mdMap = new HashMap<>();
       outputFileMetadata = new HashMap<>();
@@ -162,13 +182,13 @@ public interface ActionCache {
 
     public Entry(
         String key,
-        byte[] usedClientEnvDigest,
+        byte[] actionPropertiesDigest,
         @Nullable List<String> files,
         byte[] digest,
         Map<String, RemoteFileArtifactValue> outputFileMetadata,
         Map<String, SerializableTreeArtifactValue> outputTreeMetadata) {
       actionKey = key;
-      this.usedClientEnvDigest = usedClientEnvDigest;
+      this.actionPropertiesDigest = actionPropertiesDigest;
       this.files = files;
       this.digest = digest;
       mdMap = null;
@@ -176,10 +196,9 @@ public interface ActionCache {
       this.outputTreeMetadata = outputTreeMetadata;
     }
 
-    private static final byte[] EMPTY_CLIENT_ENV_DIGEST = new byte[0];
-
     /**
-     * Computes an order-independent digest of a map of environment variables.
+     * Computes an order-independent digest of action properties. This includes a map of client
+     * environment variables and the non-default permissions for output artifacts of the action.
      *
      * <p>Note that as discussed in https://github.com/bazelbuild/bazel/issues/15660, using {@link
      * DigestUtils#xor} to achieve order-independence is questionable in case it is possible that
@@ -187,12 +206,20 @@ public interface ActionCache {
      * (due to lossy conversion from UTF-16 to UTF-8). We could instead use a sorted map, however
      * changing the digest function would cause action cache misses across bazel versions.
      */
-    private static byte[] digestClientEnv(Map<String, String> clientEnv) {
+    private static byte[] digestActionProperties(
+        Map<String, String> clientEnv, OutputPermissions outputPermissions) {
       byte[] result = EMPTY_CLIENT_ENV_DIGEST;
       Fingerprint fp = new Fingerprint();
       for (Map.Entry<String, String> entry : clientEnv.entrySet()) {
         fp.addString(entry.getKey());
         fp.addString(entry.getValue());
+        result = DigestUtils.xor(result, fp.digestAndReset());
+      }
+      // Add the permissions mode to the digest if it differs from the default.
+      // This is a bit of a hack to save memory on entries which have the default permissions mode
+      // and no client env.
+      if (outputPermissions != OutputPermissions.READONLY) {
+        fp.addInt(outputPermissions.getPermissionsMode());
         result = DigestUtils.xor(result, fp.digestAndReset());
       }
       return result;
@@ -223,7 +250,8 @@ public interface ActionCache {
       return outputFileMetadata.get(output.getExecPathString());
     }
 
-    Map<String, RemoteFileArtifactValue> getOutputFiles() {
+    /** Gets metadata of all output files */
+    public Map<String, RemoteFileArtifactValue> getOutputFiles() {
       return outputFileMetadata;
     }
 
@@ -250,7 +278,8 @@ public interface ActionCache {
       return outputTreeMetadata.get(output.getExecPathString());
     }
 
-    Map<String, SerializableTreeArtifactValue> getOutputTrees() {
+    /** Gets metadata of all output trees */
+    public Map<String, SerializableTreeArtifactValue> getOutputTrees() {
       return outputTreeMetadata;
     }
 
@@ -279,14 +308,16 @@ public interface ActionCache {
       return actionKey;
     }
 
-    /** @return the effectively used client environment */
-    public byte[] getUsedClientEnvDigest() {
-      return usedClientEnvDigest;
+    /** Returns the effectively used client environment. */
+    public byte[] getActionPropertiesDigest() {
+      return actionPropertiesDigest;
     }
 
-    /** Determines whether this entry used the same client environment as the one given. */
-    public boolean usedSameClientEnv(Map<String, String> clientEnv) {
-      return Arrays.equals(digestClientEnv(clientEnv), usedClientEnvDigest);
+    /** Determines whether this entry has the same action properties as the one given. */
+    public boolean sameActionProperties(
+        Map<String, String> clientEnv, OutputPermissions outputPermissions) {
+      return Arrays.equals(
+          digestActionProperties(clientEnv, outputPermissions), actionPropertiesDigest);
     }
 
     /**
@@ -334,7 +365,7 @@ public interface ActionCache {
       builder.append("      actionKey = ").append(actionKey).append("\n");
       builder
           .append("      usedClientEnvKey = ")
-          .append(formatDigest(usedClientEnvDigest))
+          .append(formatDigest(actionPropertiesDigest))
           .append("\n");
       builder.append("      digestKey = ");
       if (digest == null) {

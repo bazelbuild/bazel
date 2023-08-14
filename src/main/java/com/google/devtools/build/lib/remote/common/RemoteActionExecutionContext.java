@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.common;
 
-import build.bazel.remote.execution.v2.ExecuteResponse;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -21,40 +20,82 @@ import javax.annotation.Nullable;
 
 /** A context that provide remote execution related information for executing an action remotely. */
 public class RemoteActionExecutionContext {
-  /** The current step of the context. */
-  public enum Step {
-    INIT,
-    CHECK_ACTION_CACHE,
-    UPLOAD_INPUTS,
-    EXECUTE_REMOTELY,
-    UPLOAD_OUTPUTS,
-    DOWNLOAD_OUTPUTS,
-    UPLOAD_BES_FILES,
+  /** Determines whether to read/write remote cache, disk cache or both. */
+  public enum CachePolicy {
+    NO_CACHE,
+    REMOTE_CACHE_ONLY,
+    DISK_CACHE_ONLY,
+    ANY_CACHE;
+
+    public static CachePolicy create(boolean allowRemoteCache, boolean allowDiskCache) {
+      if (allowRemoteCache && allowDiskCache) {
+        return ANY_CACHE;
+      } else if (allowRemoteCache) {
+        return REMOTE_CACHE_ONLY;
+      } else if (allowDiskCache) {
+        return DISK_CACHE_ONLY;
+      } else {
+        return NO_CACHE;
+      }
+    }
+
+    public boolean allowAnyCache() {
+      return this != NO_CACHE;
+    }
+
+    public boolean allowRemoteCache() {
+      return this == REMOTE_CACHE_ONLY || this == ANY_CACHE;
+    }
+
+    public boolean allowDiskCache() {
+      return this == DISK_CACHE_ONLY || this == ANY_CACHE;
+    }
+
+    public CachePolicy addRemoteCache() {
+      if (this == DISK_CACHE_ONLY || this == ANY_CACHE) {
+        return ANY_CACHE;
+      }
+
+      return REMOTE_CACHE_ONLY;
+    }
   }
 
   @Nullable private final Spawn spawn;
   private final RequestMetadata requestMetadata;
   private final NetworkTime networkTime;
-
-  @Nullable private ExecuteResponse executeResponse;
-  private Step step;
+  private final CachePolicy writeCachePolicy;
+  private final CachePolicy readCachePolicy;
 
   private RemoteActionExecutionContext(
       @Nullable Spawn spawn, RequestMetadata requestMetadata, NetworkTime networkTime) {
     this.spawn = spawn;
     this.requestMetadata = requestMetadata;
     this.networkTime = networkTime;
-    this.step = Step.INIT;
+    this.writeCachePolicy = CachePolicy.ANY_CACHE;
+    this.readCachePolicy = CachePolicy.ANY_CACHE;
   }
 
-  /** Returns current {@link Step} of the context. */
-  public Step getStep() {
-    return step;
+  private RemoteActionExecutionContext(
+      @Nullable Spawn spawn,
+      RequestMetadata requestMetadata,
+      NetworkTime networkTime,
+      CachePolicy writeCachePolicy,
+      CachePolicy readCachePolicy) {
+    this.spawn = spawn;
+    this.requestMetadata = requestMetadata;
+    this.networkTime = networkTime;
+    this.writeCachePolicy = writeCachePolicy;
+    this.readCachePolicy = readCachePolicy;
   }
 
-  /** Sets current {@link Step} of the context. */
-  public void setStep(Step step) {
-    this.step = step;
+  public RemoteActionExecutionContext withWriteCachePolicy(CachePolicy writeCachePolicy) {
+    return new RemoteActionExecutionContext(
+        spawn, requestMetadata, networkTime, writeCachePolicy, readCachePolicy);
+  }
+
+  public RemoteActionExecutionContext withReadCachePolicy(CachePolicy readCachePolicy) {
+    return new RemoteActionExecutionContext(
+        spawn, requestMetadata, networkTime, writeCachePolicy, readCachePolicy);
   }
 
   /** Returns the {@link Spawn} of the action being executed or {@code null}. */
@@ -86,13 +127,12 @@ public class RemoteActionExecutionContext {
     return spawn.getResourceOwner();
   }
 
-  public void setExecuteResponse(@Nullable ExecuteResponse executeResponse) {
-    this.executeResponse = executeResponse;
+  public CachePolicy getWriteCachePolicy() {
+    return writeCachePolicy;
   }
 
-  @Nullable
-  public ExecuteResponse getExecuteResponse() {
-    return executeResponse;
+  public CachePolicy getReadCachePolicy() {
+    return readCachePolicy;
   }
 
   /** Creates a {@link RemoteActionExecutionContext} with given {@link RequestMetadata}. */
@@ -107,5 +147,14 @@ public class RemoteActionExecutionContext {
   public static RemoteActionExecutionContext create(
       @Nullable Spawn spawn, RequestMetadata metadata) {
     return new RemoteActionExecutionContext(spawn, metadata, new NetworkTime());
+  }
+
+  public static RemoteActionExecutionContext create(
+      @Nullable Spawn spawn,
+      RequestMetadata requestMetadata,
+      CachePolicy writeCachePolicy,
+      CachePolicy readCachePolicy) {
+    return new RemoteActionExecutionContext(
+        spawn, requestMetadata, new NetworkTime(), writeCachePolicy, readCachePolicy);
   }
 }

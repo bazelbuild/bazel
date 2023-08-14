@@ -190,7 +190,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
-            .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
+            .setParallelism(SkyframeExecutor.DEFAULT_THREAD_COUNT)
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
     return evaluator.evaluate(ImmutableList.of(key), evaluationContext);
@@ -670,7 +670,10 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     // Delete the symlink's target to make it dangling.
     // Exclude the symlink and make sure it's not included.
     linkTarget.getPath().delete();
-    differencer.invalidate(ImmutableList.of(FileStateValue.key(rootedPath(linkTarget))));
+    differencer.invalidate(
+        ImmutableList.of(
+            FileStateValue.key(rootedPath(linkTarget)),
+            DirectoryListingStateValue.key(rootedPath(linkTarget).getParentDirectory())));
     params =
         FilesetTraversalParamsFactory.recursiveTraversalOfPackage(
             /* ownerLabel */ label("//foo"),

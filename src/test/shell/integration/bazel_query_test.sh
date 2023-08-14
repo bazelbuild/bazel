@@ -668,7 +668,7 @@ genquery(name='q',
          opts = ["--output=blargh"],)
 EOF
 
-  local expected_error_msg="in genquery rule //starfruit:q: Invalid output format 'blargh'. Valid values are: label, label_kind, build, minrank, maxrank, package, location, graph, xml, proto"
+  local expected_error_msg="in genquery rule //starfruit:q: Invalid output format 'blargh'. Valid values are: label, label_kind, build, minrank, maxrank, package, location, graph, xml, proto, streamed_jsonproto, "
   bazel build //starfruit:q >& $TEST_log && fail "Expected failure"
   expect_log "$expected_error_msg"
 }
@@ -1062,6 +1062,85 @@ EOF
     || fail "Expected success"
 
   expect_log "//${package}:hint"
+}
+
+function test_same_pkg_direct_rdeps_loads_only_inputs_packages() {
+  mkdir -p "pkg1"
+  mkdir -p "pkg2"
+  mkdir -p "pkg3"
+
+  cat > "pkg1/BUILD" <<EOF
+sh_library(name = "t1", deps = [":t2", "//pkg2:t3"])
+sh_library(name = "t2")
+EOF
+
+  cat > "pkg2/BUILD" <<EOF
+sh_library(name = "t3")
+EOF
+
+  cat > "pkg3/BUILD" <<EOF
+sh_library(name = "t4", deps = [":t5"])
+sh_library(name = "t5")
+EOF
+
+  bazel query --experimental_ui_debug_all_events \
+     "same_pkg_direct_rdeps(//pkg1:t2+//pkg3:t5)"  >& $TEST_log \
+    || fail "Expected success"
+
+  expect_log "Loading package: pkg1"
+  expect_log "Loading package: pkg3"
+  # For graphless query mode, pkg2 should not be loaded because
+  # same_pkg_direct_rdeps only cares about the targets in the same package
+  # as its inputs.
+  expect_not_log "Loading package: pkg2"
+  # the result of "same_pkg_direct_rdeps(//pkg1:t2+//pkg3:t5)"
+  expect_log "//pkg1:t1"
+  expect_log "//pkg3:t4"
+}
+
+function test_basic_query_streamed_jsonproto() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "bar",
+    srcs = ["dummy.txt"],
+    outs = ["bar_out.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
+genrule(
+    name = "foo",
+    srcs = ["dummy.txt"],
+    outs = ["foo_out.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+  bazel query --output=streamed_jsonproto --noimplicit_deps "//$pkg/..." > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  # Verify that the appropriate attributes were included.
+
+  foo_line_number=$(grep -n "foo" output | cut -d':' -f1)
+  bar_line_number=$(grep -n "bar" output | cut -d':' -f1)
+
+  foo_ndjson_line=$(sed -n "${foo_line_number}p" output)
+  bar_ndjson_line=$(sed -n "${bar_line_number}p" output)
+
+  echo "$foo_ndjson_line" > foo_ndjson_file
+  echo "$bar_ndjson_line" > bar_ndjson_file
+
+  assert_contains "\"ruleClass\":\"genrule\"" foo_ndjson_file
+  assert_contains "\"name\":\"//$pkg:foo\"" foo_ndjson_file
+  assert_contains "\"ruleInput\":\[\"//$pkg:dummy.txt\"\]" foo_ndjson_file
+  assert_contains "\"ruleOutput\":\[\"//$pkg:foo_out.txt\"\]" foo_ndjson_file
+  assert_contains "echo unused" foo_ndjson_file
+
+  assert_contains "\"ruleClass\":\"genrule\"" bar_ndjson_file
+  assert_contains "\"name\":\"//$pkg:bar\"" bar_ndjson_file
+  assert_contains "\"ruleInput\":\[\"//$pkg:dummy.txt\"\]" bar_ndjson_file
+  assert_contains "\"ruleOutput\":\[\"//$pkg:bar_out.txt\"\]" bar_ndjson_file
+  assert_contains "echo unused" bar_ndjson_file
 }
 
 run_suite "${PRODUCT_NAME} query tests"

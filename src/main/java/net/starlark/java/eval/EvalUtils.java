@@ -14,6 +14,7 @@
 package net.starlark.java.eval;
 
 import java.util.IllegalFormatException;
+import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.TokenKind;
 
@@ -127,10 +128,10 @@ final class EvalUtils {
             // int | int
             return StarlarkInt.or((StarlarkInt) x, (StarlarkInt) y);
           }
-        } else if (x instanceof Dict) {
-          if (y instanceof Dict) {
-            // dict | dict
-            return Dict.builder().putAll((Dict<?, ?>) x).putAll((Dict<?, ?>) y).build(mu);
+        } else if (x instanceof Map) {
+          if (y instanceof Map) {
+            // map | map (usually dicts)
+            return Dict.builder().putAll((Map<?, ?>) x).putAll((Map<?, ?>) y).build(mu);
           }
         }
         break;

@@ -32,44 +32,57 @@ import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class RuleFactoryTest extends PackageLoadingTestCase {
 
-  private ConfiguredRuleClassProvider provider = TestRuleClassProvider.getRuleClassProvider();
-  private final RuleFactory ruleFactory = new RuleFactory(provider);
+  private final ConfiguredRuleClassProvider provider = TestRuleClassProvider.getRuleClassProvider();
 
   private static final ImmutableList<StarlarkThread.CallStackEntry> DUMMY_STACK =
       ImmutableList.of(
-          new StarlarkThread.CallStackEntry(
-              "<toplevel>", Location.fromFileLineColumn("BUILD", 42, 1)),
-          new StarlarkThread.CallStackEntry("foo", Location.fromFileLineColumn("foo.bzl", 10, 1)),
-          new StarlarkThread.CallStackEntry(
-              "myrule", Location.fromFileLineColumn("bar.bzl", 30, 6)));
+          StarlarkThread.callStackEntry(
+              StarlarkThread.TOP_LEVEL, Location.fromFileLineColumn("BUILD", 42, 1)),
+          StarlarkThread.callStackEntry("foo", Location.fromFileLineColumn("foo.bzl", 10, 1)),
+          StarlarkThread.callStackEntry("myrule", Location.fromFileLineColumn("bar.bzl", 30, 6)));
 
   private Package.Builder newBuilder(PackageIdentifier id, Path filename) {
     return packageFactory
         .newPackageBuilder(
-            id, "TESTING", StarlarkSemantics.DEFAULT, RepositoryMapping.ALWAYS_FALLBACK)
-        .setFilename(RootedPath.toRootedPath(root, filename));
+            id,
+            "TESTING",
+            Optional.empty(),
+            Optional.empty(),
+            StarlarkSemantics.DEFAULT,
+            RepositoryMapping.ALWAYS_FALLBACK,
+            RepositoryMapping.ALWAYS_FALLBACK)
+        .setFilename(RootedPath.toRootedPath(root, filename))
+        .setLoads(ImmutableList.of());
   }
 
   @Test
-  public void testCreateRule() throws Exception {
+  public void testCreateRule(@TestParameter boolean explicitlySetGeneratorAttrs) throws Exception {
     Path myPkgPath = scratch.resolve("/workspace/mypkg/BUILD");
     Package.Builder pkgBuilder = newBuilder(PackageIdentifier.createInMainRepo("mypkg"), myPkgPath);
 
     Map<String, Object> attributeValues = new HashMap<>();
     attributeValues.put("name", "foo");
     attributeValues.put("alwayslink", true);
+
+    // TODO(b/274802222): Should this be prohibited?
+    if (explicitlySetGeneratorAttrs) {
+      attributeValues.put("generator_name", "fake_generator_name");
+      attributeValues.put("generator_function", "fake_generator_function");
+    }
 
     RuleClass ruleClass = provider.getRuleClassMap().get("cc_library");
     Rule rule =
@@ -78,7 +91,6 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
             ruleClass,
             new BuildLangTypedAttributeValuesMap(attributeValues),
             new Reporter(new EventBus()),
-            StarlarkSemantics.DEFAULT,
             DUMMY_STACK);
 
     assertThat(rule.getAssociatedRule()).isSameInstanceAs(rule);
@@ -96,7 +108,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
     assertThat(rule.getRuleClass()).isEqualTo("cc_library");
     assertThat(rule.getTargetKind()).isEqualTo("cc_library rule");
     // The rule reports the location of the outermost call (aka generator), in the BUILD file.
-    // Thie behavior was added to fix b/23974287, but it loses informtion and is redundant
+    // This behavior was added to fix b/23974287, but it loses information and is redundant
     // w.r.t. generator_location. A better fix to that issue would be to keep rule.location as
     // the innermost call, and to report the entire call stack at the first error for the rule.
     assertThat(rule.getLocation().file()).isEqualTo("BUILD");
@@ -138,13 +150,12 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
             ruleClass,
             new BuildLangTypedAttributeValuesMap(attributeValues),
             new Reporter(new EventBus()),
-            StarlarkSemantics.DEFAULT,
             DUMMY_STACK);
     assertThat(rule.containsErrors()).isFalse();
   }
 
   @Test
-  public void testWorkspaceRuleFailsInBuildFile() throws Exception {
+  public void testWorkspaceRuleFailsInBuildFile() {
     Path myPkgPath = scratch.resolve("/workspace/mypkg/BUILD");
     Package.Builder pkgBuilder = newBuilder(PackageIdentifier.createInMainRepo("mypkg"), myPkgPath);
 
@@ -162,13 +173,12 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
                     new Reporter(new EventBus()),
-                    StarlarkSemantics.DEFAULT,
                     DUMMY_STACK));
     assertThat(e).hasMessageThat().contains("must be in the WORKSPACE file");
   }
 
   @Test
-  public void testBuildRuleFailsInWorkspaceFile() throws Exception {
+  public void testBuildRuleFailsInWorkspaceFile() {
     Path myPkgPath = scratch.resolve("/workspace/WORKSPACE");
     Package.Builder pkgBuilder = newBuilder(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, myPkgPath);
 
@@ -186,12 +196,11 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
                     new Reporter(new EventBus()),
-                    StarlarkSemantics.DEFAULT,
                     DUMMY_STACK));
     assertThat(e).hasMessageThat().contains("cannot be in the WORKSPACE file");
   }
 
-  private void assertAttr(RuleClass ruleClass, String attrName, Type<?> type) throws Exception {
+  private static void assertAttr(RuleClass ruleClass, String attrName, Type<?> type) {
     assertWithMessage(
             "Rule class '"
                 + ruleClass.getName()
@@ -205,7 +214,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testOutputFileNotEqualDot() throws Exception {
+  public void testOutputFileNotEqualDot() {
     Path myPkgPath = scratch.resolve("/workspace/mypkg");
     Package.Builder pkgBuilder = newBuilder(PackageIdentifier.createInMainRepo("mypkg"), myPkgPath);
 
@@ -222,7 +231,6 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
                     new Reporter(new EventBus()),
-                    StarlarkSemantics.DEFAULT,
                     DUMMY_STACK));
     assertWithMessage(e.getMessage())
         .that(e.getMessage().contains("output file name can't be equal '.'"))
@@ -237,18 +245,16 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
     Path myPkgPath = scratch.resolve("/workspace/mypkg/BUILD");
     Package pkg = newBuilder(PackageIdentifier.createInMainRepo("mypkg"), myPkgPath).build();
 
-    for (String name : ruleFactory.getRuleClassNames()) {
+    for (RuleClass ruleClass : provider.getRuleClassMap().values()) {
       // Create rule instance directly so we'll avoid mandatory attribute check yet will be able
       // to use TargetUtils.isTestRule() method to identify test rules.
-      RuleClass ruleClass = ruleFactory.getRuleClass(name);
       Rule rule =
           new Rule(
               pkg,
               Label.create(pkg.getPackageIdentifier(), "myrule"),
               ruleClass,
               Location.fromFile(myPkgPath.toString()),
-              CallStack.EMPTY,
-              AttributeContainer.newMutableInstance(ruleClass));
+              /* interiorCallStack= */ null);
       if (TargetUtils.isTestRule(rule)) {
         assertAttr(ruleClass, "tags", Type.STRING_LIST);
         assertAttr(ruleClass, "size", Type.STRING);

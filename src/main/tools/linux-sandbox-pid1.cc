@@ -21,6 +21,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <grp.h>
 #include <libgen.h>
 #include <math.h>
 #include <mntent.h>
@@ -42,6 +43,7 @@
 #include <unistd.h>
 
 #include <string>
+#include <unordered_set>
 
 #ifndef MS_REC
 // Some systems do not define MS_REC in sys/mount.h. We might be able to grab it
@@ -161,7 +163,7 @@ static int CreateTarget(const char *path, bool is_directory) {
 
   if (is_directory) {
     if (mkdir(path, 0755) < 0) {
-      DIE("mkdir");
+      DIE("mkdir(%s)", path);
     }
   } else {
     LinkFile(path);
@@ -241,6 +243,19 @@ static void SetupUserNamespace() {
     inner_uid = global_outer_uid;
     inner_gid = global_outer_gid;
   }
+  if (opt.enable_pty) {
+    // Change the group to "tty" regardless of what was previously set
+    struct group grp;
+    char buf[256];
+    size_t buflen = sizeof(buf);
+    struct group *result;
+    getgrnam_r("tty", &grp, buf, buflen, &result);
+    if (result == nullptr) {
+      DIE("getgrnam_r");
+    }
+    inner_gid = grp.gr_gid;
+  }
+
   WriteFile("/proc/self/uid_map", "%u %u 1\n", inner_uid, global_outer_uid);
   WriteFile("/proc/self/gid_map", "%u %u 1\n", inner_gid, global_outer_gid);
 }
@@ -265,10 +280,6 @@ static void MountFilesystems() {
     }
   }
 
-  // Make sure that our working directory is a mount point. The easiest way to
-  // do this is by bind-mounting it upon itself.
-  PRINT_DEBUG("working dir: %s", opt.working_dir.c_str());
-
   // An attempt to mount the sandbox in tmpfs will always fail, so this block is
   // slightly redundant with the next mount() check, but dumping the mount()
   // syscall is incredibly cryptic, so we explicitly check against and warn
@@ -282,29 +293,43 @@ static void MountFilesystems() {
     }
   }
 
-  if (mount(opt.working_dir.c_str(), opt.working_dir.c_str(), nullptr, MS_BIND,
-            nullptr) < 0) {
-    DIE("mount(%s, %s, nullptr, MS_BIND, nullptr)", opt.working_dir.c_str(),
-        opt.working_dir.c_str());
-  }
+  std::unordered_set<std::string> bind_mount_sources;
 
   for (size_t i = 0; i < opt.bind_mount_sources.size(); i++) {
     const std::string &source = opt.bind_mount_sources.at(i);
+    bind_mount_sources.insert(source);
     const std::string &target = opt.bind_mount_targets.at(i);
     PRINT_DEBUG("bind mount: %s -> %s", source.c_str(), target.c_str());
-    if (mount(source.c_str(), target.c_str(), nullptr, MS_BIND, nullptr) < 0) {
-      DIE("mount(%s, %s, nullptr, MS_BIND, nullptr)", source.c_str(),
+    if (mount(source.c_str(), target.c_str(), nullptr, MS_BIND | MS_REC,
+              nullptr) < 0) {
+      DIE("mount(%s, %s, nullptr, MS_BIND | MS_REC, nullptr)", source.c_str(),
           target.c_str());
     }
   }
 
   for (const std::string &writable_file : opt.writable_files) {
     PRINT_DEBUG("writable: %s", writable_file.c_str());
+    if (bind_mount_sources.find(writable_file) != bind_mount_sources.end()) {
+      // Bind mount sources contained in writable_files will be kept writable in
+      // MakeFileSystemMostlyReadOnly, but have already been mounted at this
+      // point.
+      continue;
+    }
     if (mount(writable_file.c_str(), writable_file.c_str(), nullptr,
               MS_BIND | MS_REC, nullptr) < 0) {
       DIE("mount(%s, %s, nullptr, MS_BIND | MS_REC, nullptr)",
           writable_file.c_str(), writable_file.c_str());
     }
+  }
+
+  // Make sure that our working directory is a mount point. The easiest way to
+  // do this is by bind-mounting it upon itself.
+  PRINT_DEBUG("working dir: %s", opt.working_dir.c_str());
+
+  if (mount(opt.working_dir.c_str(), opt.working_dir.c_str(), nullptr, MS_BIND,
+            nullptr) < 0) {
+    DIE("mount(%s, %s, nullptr, MS_BIND, nullptr)", opt.working_dir.c_str(),
+        opt.working_dir.c_str());
   }
 }
 
@@ -312,6 +337,14 @@ static void MountFilesystems() {
 // returns true.
 static bool ShouldBeWritable(const std::string &mnt_dir) {
   if (mnt_dir == opt.working_dir) {
+    return true;
+  }
+
+  if (opt.enable_pty && mnt_dir == "/dev/pts") {
+    return true;
+  }
+
+  if (mnt_dir == "/sys/fs/cgroup" && !opt.cgroups_dir.empty()) {
     return true;
   }
 
@@ -382,13 +415,15 @@ static void MakeFilesystemMostlyReadOnly() {
       // /proc/sys/fs/binfmt_misc, because it is hidden. If we get ESTALE, the
       // mount is a broken NFS mount. In the ideal case, the user would either
       // fix or remove that mount, but in cases where that's not possible, we
-      // should just ignore it.
+      // should just ignore it. Similarly, one can get ENODEV in case of
+      // autofs/automount failure.
       switch (errno) {
         case EACCES:
         case EPERM:
         case EINVAL:
         case ENOENT:
         case ESTALE:
+        case ENODEV:
           PRINT_DEBUG(
               "remount(nullptr, %s, nullptr, %d, nullptr) failure (%m) ignored",
               ent->mnt_dir, mountFlags);
@@ -415,7 +450,7 @@ static void MountProc() {
 static void SetupNetworking() {
   // When running in a separate network namespace, enable the loopback interface
   // because some application may want to use it.
-  if (opt.create_netns) {
+  if (opt.create_netns == NETNS_WITH_LOOPBACK) {
     int fd;
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd < 0) {
@@ -477,6 +512,13 @@ static void SpawnChild() {
     // Unblock all signals, restore default handlers.
     ClearSignalMask();
 
+    // Close the file PRINT_DEBUG writes to.
+    // Must happen late enough so we don't lose any debugging output.
+    if (global_debug) {
+      fclose(global_debug);
+      global_debug = nullptr;
+    }
+
     // Force umask to include read and execute for everyone, to make output
     // permissions predictable.
     umask(022);
@@ -525,6 +567,13 @@ static int WaitForChild() {
     const int exit_code = WEXITSTATUS(status);
     PRINT_DEBUG("child exited normally with code %d", exit_code);
     return exit_code;
+  }
+}
+
+static void AddProcessToCgroup() {
+  if (!opt.cgroups_dir.empty()) {
+    PRINT_DEBUG("Adding process to cgroups dir %s", opt.cgroups_dir.c_str());
+    WriteFile(opt.cgroups_dir + "/cgroup.procs", "1");
   }
 }
 
@@ -581,7 +630,7 @@ static void MountAllMounts() {
         opt.working_dir.c_str());
   }
   for (int i = 0; i < (signed)opt.bind_mount_sources.size(); i++) {
-    if (opt.debug) {
+    if (global_debug) {
       if (strcmp(opt.bind_mount_sources[i].c_str(),
                  opt.bind_mount_targets[i].c_str()) == 0) {
         // The file is mounted to the same path inside the sandbox, as outside
@@ -680,6 +729,7 @@ int Pid1Main(void *sync_pipe_param) {
   }
   SetupNetworking();
   EnterWorkingDirectory();
+  AddProcessToCgroup();
 
   // Ignore terminal signals; we hand off the terminal to the child in
   // SpawnChild below.

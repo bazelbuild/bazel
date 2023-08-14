@@ -14,9 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSetMultimap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcLinkingOutputsApi;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -71,21 +69,6 @@ public class CcLinkingOutputs implements CcLinkingOutputsApi<Artifact, LtoBacken
 
   public boolean isEmpty() {
     return libraryToLink == null;
-  }
-
-  /**
-   * Gathers up a map from library identifiers to sets of LibraryToLink which share that library
-   * identifier.
-   */
-  public static ImmutableSetMultimap<String, LinkerInputs.LibraryToLink> getLibrariesByIdentifier(
-      Iterable<LinkerInputs.LibraryToLink> inputs) {
-    ImmutableSetMultimap.Builder<String, LinkerInputs.LibraryToLink> result =
-        new ImmutableSetMultimap.Builder<>();
-    for (LinkerInputs.LibraryToLink library : inputs) {
-      Preconditions.checkNotNull(library.getLibraryIdentifier());
-      result.put(library.getLibraryIdentifier(), library);
-    }
-    return result.build();
   }
 
   private static final ImmutableList<String> PIC_SUFFIXES =

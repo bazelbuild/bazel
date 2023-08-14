@@ -124,8 +124,14 @@ public final class Crosstool {
       private String targetLibc = "local";
       private String abiVersion = "local";
       private String abiLibcVersion = "local";
-      private ImmutableList<String> toolchainExecConstraints = ImmutableList.of();
-      private ImmutableList<String> toolchainTargetConstraints = ImmutableList.of();
+      private ImmutableList<String> toolchainExecConstraints =
+          ImmutableList.of(
+              TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64",
+              TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:linux");
+      private ImmutableList<String> toolchainTargetConstraints =
+          ImmutableList.of(
+              TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64",
+              TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:linux");
 
       @CanIgnoreReturnValue
       public Builder withCpu(String cpu) {
@@ -577,6 +583,8 @@ public final class Crosstool {
                 "    name = 'interface_library_builder',",
                 "    srcs = ['build_interface_so'],",
                 ")",
+                // We add a :link_extra_lib target in case we need it.
+                "cc_library(name = 'link_extra_lib', srcs = ['linkextra.cc'])",
                 // We add an empty :malloc target in case we need it.
                 "cc_library(name = 'malloc')",
                 // Fake targets to get us through loading/analysis.
@@ -604,8 +612,7 @@ public final class Crosstool {
     StringBuilder compilerMap =
         new StringBuilder()
             .append("'k8': ':cc-compiler-darwin_x86_64',\n")
-            .append("'aarch64': ':cc-compiler-darwin_x86_64',\n")
-            .append("'darwin': ':cc-compiler-darwin_x86_64',\n");
+            .append("'aarch64': ':cc-compiler-darwin_x86_64',\n");
     Set<String> seenCpus = new LinkedHashSet<>();
     for (CcToolchainConfig toolchain : ccToolchainConfigList) {
       if (seenCpus.add(toolchain.getTargetCpu())) {
@@ -653,6 +660,35 @@ public final class Crosstool {
                 "    ],",
                 ")");
     for (CcToolchainConfig toolchainConfig : ccToolchainConfigList) {
+      String staticRuntimeLabel =
+          toolchainConfig.hasStaticLinkCppRuntimesFeature()
+              ? "mock-static-runtimes-target-for-" + toolchainConfig.getToolchainIdentifier()
+              : null;
+      String dynamicRuntimeLabel =
+          toolchainConfig.hasStaticLinkCppRuntimesFeature()
+              ? "mock-dynamic-runtimes-target-for-" + toolchainConfig.getToolchainIdentifier()
+              : null;
+      if (staticRuntimeLabel != null) {
+        crosstoolBuild.add(
+            Joiner.on('\n')
+                .join(
+                    "filegroup(",
+                    "  name = '" + staticRuntimeLabel + "',",
+                    "  licenses = ['unencumbered'],",
+                    "  srcs = ['libstatic-runtime-lib-source.a'])",
+                    ""));
+      }
+      if (dynamicRuntimeLabel != null) {
+        crosstoolBuild.add(
+            Joiner.on('\n')
+                .join(
+                    "filegroup(",
+                    "  name = '" + dynamicRuntimeLabel + "',",
+                    "  licenses = ['unencumbered'],",
+                    "  srcs = ['libdynamic-runtime-lib-source.so'])",
+                    ""));
+      }
+
       crosstoolBuild.add(
           "apple_cc_toolchain(",
           "    name = 'cc-compiler-" + toolchainConfig.getTargetCpu() + "',",
@@ -673,10 +709,16 @@ public final class Crosstool {
           "    strip_files = ':empty',",
           "    supports_param_files = 0,",
           supportsHeaderParsing ? "    supports_header_parsing = 1," : "",
+          dynamicRuntimeLabel == null
+              ? ""
+              : "    dynamic_runtime_lib = '" + dynamicRuntimeLabel + "',",
+          staticRuntimeLabel == null
+              ? ""
+              : "    static_runtime_lib = '" + staticRuntimeLabel + "',",
           ")",
           "toolchain(name = 'cc-toolchain-" + toolchainConfig.getTargetCpu() + "',",
-          "    exec_compatible_with = [],",
-          "    target_compatible_with = [],",
+          toolchainConfig.getToolchainExecConstraints(),
+          toolchainConfig.getToolchainTargetConstraints(),
           "    toolchain = ':cc-compiler-" + toolchainConfig.getTargetCpu() + "',",
           "    toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type'",
           ")");

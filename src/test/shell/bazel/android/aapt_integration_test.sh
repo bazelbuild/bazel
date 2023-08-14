@@ -46,9 +46,7 @@ source "$(rlocation io_bazel/src/test/shell/integration_test_setup.sh)" \
 # (bazelbuild/continuous-integration#578).
 add_to_bazelrc "build --incompatible_use_python_toolchains=false"
 
-if [[ "$1" = '--with_platforms' ]]; then
-  resolve_android_toolchains_with_platforms
-fi
+resolve_android_toolchains "$1"
 
 function test_build_with_aapt2() {
   create_new_workspace

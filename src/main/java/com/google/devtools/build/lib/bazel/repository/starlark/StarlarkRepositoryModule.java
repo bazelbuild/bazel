@@ -22,7 +22,6 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
-import com.google.devtools.build.docgen.annot.DocumentMethods;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule.Descriptor;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtension;
@@ -35,11 +34,11 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
+import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
@@ -49,12 +48,11 @@ import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryModuleApi;
 import java.util.Map;
-import net.starlark.java.annot.Param;
+import java.util.Optional;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -66,7 +64,6 @@ import net.starlark.java.eval.Tuple;
  * The Starlark module containing the definition of {@code repository_rule} function to define a
  * Starlark remote repository.
  */
-@DocumentMethods
 public class StarlarkRepositoryModule implements RepositoryModuleApi {
 
   @Override
@@ -77,7 +74,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       Sequence<?> environ, // <String> expected
       Boolean configure,
       Boolean remotable,
-      String doc,
+      Object doc, // <String> or Starlark.NONE
       StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext context = BazelStarlarkContext.from(thread);
@@ -112,16 +109,22 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       }
     }
     builder.setConfiguredTargetFunction(implementation);
-    BazelModuleContext bzlModule =
-        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
+    // TODO(b/291752414): If we care about the digest of repository rules, we should be using the
+    // transitive bzl digest of the module of the outermost stack frame, not the innermost.
+    BazelModuleContext moduleContext = BazelModuleContext.ofInnermostBzlOrThrow(thread);
     builder.setRuleDefinitionEnvironmentLabelAndDigest(
-        bzlModule.label(), bzlModule.bzlTransitiveDigest());
+        moduleContext.label(), moduleContext.bzlTransitiveDigest());
     builder.setWorkspaceOnly();
-    return new RepositoryRuleFunction(builder, implementation);
+    return new RepositoryRuleFunction(
+        builder,
+        implementation,
+        Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString));
   }
 
-  // RepositoryRuleFunction is the result of repository_rule(...).
-  // It is a callable value; calling it yields a Rule instance.
+  /**
+   * The value returned by calling the {@code repository_rule} function in Starlark. It itself is a
+   * callable value; calling it yields a {@link Rule} instance.
+   */
   @StarlarkBuiltin(
       name = "repository_rule",
       category = DocCategory.BUILTIN,
@@ -129,21 +132,43 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
           "A callable value that may be invoked during evaluation of the WORKSPACE file or within"
               + " the implementation function of a module extension to instantiate and return a"
               + " repository rule.")
-  private static final class RepositoryRuleFunction
+  public static final class RepositoryRuleFunction
       implements StarlarkCallable, StarlarkExportable, RuleFunction {
     private final RuleClass.Builder builder;
     private final StarlarkCallable implementation;
-    private Label extensionLabel;
-    private String exportedName;
+    private final Optional<String> documentation;
+    @Nullable private Label extensionLabel;
+    @Nullable private String exportedName;
 
-    private RepositoryRuleFunction(RuleClass.Builder builder, StarlarkCallable implementation) {
+    private RepositoryRuleFunction(
+        RuleClass.Builder builder,
+        StarlarkCallable implementation,
+        Optional<String> documentation) {
       this.builder = builder;
       this.implementation = implementation;
+      this.documentation = documentation;
     }
 
     @Override
     public String getName() {
       return "repository_rule";
+    }
+
+    /**
+     * Returns the value of the doc parameter passed to {@code repository_rule()} in Starlark, or an
+     * empty Optional if a doc string was not provided.
+     */
+    public Optional<String> getDocumentation() {
+      return documentation;
+    }
+
+    /**
+     * Returns the label of the .bzl module where {@code repository_rule()} was called, or null if
+     * the rule has not been exported yet.
+     */
+    @Nullable
+    public Label getExtensionLabel() {
+      return extensionLabel;
     }
 
     @Override
@@ -225,17 +250,17 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
 
         // TODO(adonovan): is this cast safe? Check.
         String name = (String) kwargs.get("name");
-        WorkspaceFactoryHelper.addMainRepoEntry(packageBuilder, name, thread.getSemantics());
+        if (name == null) {
+          throw Starlark.errorf("argument 'name' is required");
+        }
+        WorkspaceFactoryHelper.addMainRepoEntry(packageBuilder, name);
         WorkspaceFactoryHelper.addRepoMappings(packageBuilder, kwargs, name);
-        Rule rule =
-            WorkspaceFactoryHelper.createAndAddRepositoryRule(
-                context.getBuilder(),
-                ruleClass,
-                /*bindRuleClass=*/ null,
-                WorkspaceFactoryHelper.getFinalKwargs(kwargs),
-                thread.getSemantics(),
-                thread.getCallStack());
-        return rule;
+        return WorkspaceFactoryHelper.createAndAddRepositoryRule(
+            context.getBuilder(),
+            ruleClass,
+            /* bindRuleClass= */ null,
+            WorkspaceFactoryHelper.getFinalKwargs(kwargs),
+            thread.getCallStack());
       } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
         throw Starlark.errorf("%s", e.getMessage());
       }
@@ -263,85 +288,30 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
     }
   }
 
-  @StarlarkMethod(
-      name = "module_extension",
-      doc =
-          "Creates a new module extension. Store it in a global value, so that it can be exported"
-              + " and used in a MODULE.bazel file.",
-      parameters = {
-        @Param(
-            name = "implementation",
-            named = true,
-            doc =
-                "The function that implements this module extension. Must take a single parameter,"
-                    + " <code><a href=\"module_ctx.html\">module_ctx</a></code>. The function is"
-                    + " called once at the beginning of a build to determine the set of available"
-                    + " repos."),
-        @Param(
-            name = "tag_classes",
-            defaultValue = "{}",
-            doc =
-                "A dictionary to declare all the tag classes used by the extension. It maps from"
-                    + " the name of the tag class to a <code><a"
-                    + " href=\"tag_class.html\">tag_class</a></code> object.",
-            named = true,
-            positional = false),
-        @Param(
-            name = "doc",
-            defaultValue = "''",
-            doc =
-                "A description of the module extension that can be extracted by documentation"
-                    + " generating tools.",
-            named = true,
-            positional = false)
-      },
-      useStarlarkThread = true)
+  @Override
   public Object moduleExtension(
       StarlarkCallable implementation,
       Dict<?, ?> tagClasses, // Dict<String, TagClass>
-      String doc,
+      Object doc, // <String> or Starlark.NONE
+      Sequence<?> environ, // <String>
       StarlarkThread thread)
       throws EvalException {
-    ModuleExtension.InStarlark inStarlark = new ModuleExtension.InStarlark();
-    inStarlark
-        .getBuilder()
+    return ModuleExtension.builder()
         .setImplementation(implementation)
         .setTagClasses(
             ImmutableMap.copyOf(Dict.cast(tagClasses, String.class, TagClass.class, "tag_classes")))
-        .setDoc(doc)
-        .setDefinitionEnvironmentLabel(
-            BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread)).label())
-        .setLocation(thread.getCallerLocation());
-    return inStarlark;
+        .setDoc(Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString))
+        .setDefiningBzlFileLabel(
+            BzlInitThreadContext.fromOrFail(thread, "module_extension()").getBzlFile())
+        .setEnvVariables(ImmutableList.copyOf(Sequence.cast(environ, String.class, "environ")))
+        .setLocation(thread.getCallerLocation())
+        .build();
   }
 
-  @StarlarkMethod(
-      name = "tag_class",
-      doc =
-          "Creates a new tag_class object, which defines an attribute schema for a class of tags,"
-              + " which are data objects usable by a module extension.",
-      parameters = {
-        @Param(
-            name = "attrs",
-            defaultValue = "{}",
-            named = true,
-            doc =
-                "A dictionary to declare all the attributes of this tag class. It maps from an"
-                    + " attribute name to an attribute object (see <a href=\"attr.html\">attr</a>"
-                    + " module)."),
-        @Param(
-            name = "doc",
-            defaultValue = "''",
-            doc =
-                "A description of the tag class that can be extracted by documentation"
-                    + " generating tools.",
-            named = true,
-            positional = false)
-      },
-      useStarlarkThread = true)
+  @Override
   public TagClass tagClass(
       Dict<?, ?> attrs, // Dict<String, StarlarkAttrModule.Descriptor>
-      String doc,
+      Object doc, // <String> or Starlark.NONE
       StarlarkThread thread)
       throws EvalException {
     ImmutableList.Builder<Attribute> attrBuilder = ImmutableList.builder();
@@ -354,6 +324,9 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       // TODO(wyv): validate attributes. No selects, no latebound defaults, or any crazy stuff like
       //   that.
     }
-    return TagClass.create(attrBuilder.build(), doc, thread.getCallerLocation());
+    return TagClass.create(
+        attrBuilder.build(),
+        Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString),
+        thread.getCallerLocation());
   }
 }

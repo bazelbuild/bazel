@@ -1,7 +1,10 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_plugin")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 
-package(default_visibility = ["//src:__subpackages__"])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src:__subpackages__"],
+)
 
 filegroup(
     name = "srcs",

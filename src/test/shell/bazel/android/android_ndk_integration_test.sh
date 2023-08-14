@@ -38,9 +38,7 @@ fail_if_no_android_ndk
 source "${CURRENT_DIR}/../../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-if [[ "$1" = '--with_platforms' ]]; then
-  resolve_android_toolchains_with_platforms
-fi
+resolve_android_toolchains $1
 
 function create_android_binary() {
   mkdir -p java/bazel
@@ -211,6 +209,7 @@ function test_android_binary() {
   # platform for ARM but not x86. Enabling it for x86 requires an
   # Android-compatible cc toolchain in tools/cpp/BUILD.tools.
   add_to_bazelrc "build --noincompatible_enable_android_toolchain_resolution"
+  add_to_bazelrc "build --noincompatible_enable_cc_toolchain_resolution"
 
   cpus="armeabi,armeabi-v7a,arm64-v8a,x86,x86_64"
 
@@ -231,6 +230,7 @@ function test_android_binary_sibling_repository_layout() {
   # platform for ARM but not x86. Enabling it for x86 requires an
   # Android-compatible cc toolchain in tools/cpp/BUILD.tools.
   add_to_bazelrc "build --noincompatible_enable_android_toolchain_resolution"
+  add_to_bazelrc "build --noincompatible_enable_cc_toolchain_resolution"
 
   cpus="armeabi,armeabi-v7a,arm64-v8a,x86,x86_64"
 
@@ -253,6 +253,7 @@ function test_android_binary_clang() {
   # platform for ARM but not x86. Enabling it for x86 requires an
   # Android-compatible cc toolchain in tools/cpp/BUILD.tools.
   add_to_bazelrc "build --noincompatible_enable_android_toolchain_resolution"
+  add_to_bazelrc "build --noincompatible_enable_cc_toolchain_resolution"
 
   cpus="armeabi,armeabi-v7a,arm64-v8a,x86,x86_64"
 
@@ -369,6 +370,33 @@ EOF
     || fail "build failed with --features=compiler_param_file"
 }
 
+function test_stripped_cc_test() {
+  create_new_workspace
+  setup_android_sdk_support
+  setup_android_ndk_support
+  cat > BUILD <<EOF
+cc_test(
+    name = "foo",
+    srcs = ["foo.cc"],
+)
+EOF
+  cat > foo.cc <<EOF
+int main() { return 0; }
+EOF
+  bazel build //:foo.stripped \
+    --cpu=armeabi-v7a \
+    --crosstool_top=//external:android/crosstool \
+    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
+    || fail "build failed"
+
+  bazel build //:foo.stripped \
+    --features=compiler_param_file \
+    --cpu=armeabi-v7a \
+    --crosstool_top=//external:android/crosstool \
+    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
+    || fail "build failed with --features=compiler_param_file"
+}
+
 function test_crosstool_stlport() {
   create_new_workspace
   setup_android_sdk_support
@@ -396,11 +424,13 @@ int main(){
 }
 EOF
   assert_build //:foo \
+    --noincompatible_enable_cc_toolchain_resolution \
     --cpu=armeabi-v7a \
     --crosstool_top=@androidndk//:toolchain-stlport \
     --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
 
   assert_build //:foo \
+    --noincompatible_enable_cc_toolchain_resolution \
     --features=compiler_param_file \
     --cpu=armeabi-v7a \
     --crosstool_top=@androidndk//:toolchain-stlport \
@@ -471,11 +501,13 @@ int main(){
 }
 EOF
   assert_build //:foo \
+    --noincompatible_enable_cc_toolchain_resolution \
     --cpu=armeabi-v7a \
     --crosstool_top=@androidndk//:toolchain-gnu-libstdcpp \
     --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
 
   assert_build //:foo \
+    --noincompatible_enable_cc_toolchain_resolution \
     --features=compiler_param_file \
     --cpu=armeabi-v7a \
     --crosstool_top=@androidndk//:toolchain-gnu-libstdcpp \
@@ -495,7 +527,7 @@ cc_binary(
 
 platform(
     name = 'android_arm',
-    constraint_values = ['@platforms//cpu:armv7', '@bazel_tools//platforms:android'],
+    constraint_values = ['@platforms//cpu:armv7', '@platforms//os:android'],
     visibility = ['//visibility:public']
 )
 EOF
@@ -546,11 +578,13 @@ function test_crosstool_libcpp_with_multiarch() {
   cpus="armeabi,armeabi-v7a,arm64-v8a,x86,x86_64"
 
   assert_build //java/bazel:bin \
+    --noincompatible_enable_cc_toolchain_resolution \
     --fat_apk_cpu="$cpus" \
     --android_crosstool_top=@androidndk//:toolchain-libcpp \
     --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
 
   assert_build //java/bazel:bin \
+    --noincompatible_enable_cc_toolchain_resolution \
     --features=compiler_param_file \
     --fat_apk_cpu="$cpus" \
     --android_crosstool_top=@androidndk//:toolchain-libcpp \

@@ -2,6 +2,7 @@ load("@rules_java//java:defs.bzl", "java_library")
 load("//:distdir_deps.bzl", "gen_workspace_stanza")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_visibility = ["//src:__subpackages__"],
 )
 
@@ -27,6 +28,7 @@ java_library(
         ],
     ) + [
         ":jdk.WORKSPACE",
+        ":rules_java_builtin.WORKSPACE",
     ],
     deps = [
         ":bazel_java_semantics",
@@ -61,6 +63,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/test_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_collection",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
@@ -78,7 +81,7 @@ java_library(
 )
 
 gen_workspace_stanza(
-    name = "workspace_with_rules_java",
+    name = "workspace_with_java_toolchains",
     out = "jdk.WORKSPACE",
     repo_clause = """
     name = "{repo}",
@@ -87,25 +90,10 @@ gen_workspace_stanza(
     urls = {urls},
     """,
     repos = [
-        "remote_java_tools",
-        "remote_java_tools_linux",
-        "remote_java_tools_windows",
-        "remote_java_tools_darwin",
         "rules_cc",
         "rules_java",
         "rules_proto",
-        "remotejdk11_linux",
-        "remotejdk11_linux_aarch64",
-        "remotejdk11_linux_ppc64le",
-        "remotejdk11_linux_s390x",
-        "remotejdk11_macos",
-        "remotejdk11_macos_aarch64",
-        "remotejdk11_win",
-        "remotejdk11_win_arm64",
-    ] + [
-        "remotejdk%s_%s" % (version, os)
-        for os in ("macos", "macos_aarch64", "linux", "win", "win_arm64")
-        for version in ("17", "18")
+        "rules_python",
     ],
     template = "jdk.WORKSPACE.tmpl",
     visibility = ["//:__pkg__"],

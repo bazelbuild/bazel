@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.Closeable;
@@ -34,13 +36,14 @@ public interface DiffAwareness extends Closeable {
   public interface Factory {
     /**
      * Returns a {@link DiffAwareness} instance suitable for managing changes to files under the
-     * given package path entry, or {@code null} if this factory cannot create such an instance.
+     * given package path entry, or {@code null} if this factory cannot create such an instance. The
+     * instance will not report any changes to files within the given set of ignored paths.
      *
      * <p>Skyframe has a collection of factories, and will create a {@link DiffAwareness} instance
      * per package path entry using one of the factories that returns a non-null value.
      */
     @Nullable
-    DiffAwareness maybeCreate(Root pathEntry);
+    DiffAwareness maybeCreate(Root pathEntry, ImmutableSet<Path> ignoredPaths);
   }
 
   /** Opaque view of the filesystem under a package path entry at a specific point in time. */
@@ -64,18 +67,17 @@ public interface DiffAwareness extends Closeable {
   /**
    * Returns the set of files of interest that have been modified between the given two views.
    *
-   * <p>The given views must have come from previous calls to {@link #getCurrentView} on the
-   * {@link DiffAwareness} instance (i.e. using a {@link View} from another instance is not
-   * supported).
+   * <p>The given views must have come from previous calls to {@link #getCurrentView} on the {@link
+   * DiffAwareness} instance (i.e. using a {@link View} from another instance is not supported).
    *
-   * @throws IncompatibleViewException if the given views are not compatible with this
-   *     {@link DiffAwareness} instance. This probably indicates a bug.
+   * @throws IncompatibleViewException if the given views are not compatible with this {@link
+   *     DiffAwareness} instance. This probably indicates a bug.
    * @throws BrokenDiffAwarenessException if something is wrong and the caller should discard this
    *     {@link DiffAwareness} instance. The {@link DiffAwareness} is expected to close itself in
    *     this case.
    */
   ModifiedFileSet getDiff(View oldView, View newView)
-      throws IncompatibleViewException, BrokenDiffAwarenessException;
+      throws IncompatibleViewException, InterruptedException, BrokenDiffAwarenessException;
 
   /** @return the name of this implementation */
   String name();

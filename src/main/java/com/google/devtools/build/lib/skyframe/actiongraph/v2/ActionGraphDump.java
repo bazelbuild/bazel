@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -29,14 +30,13 @@ import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
-import com.google.devtools.build.lib.analysis.SourceManifestAction;
-import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.starlark.UnresolvedSymlinkAction;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -80,7 +80,6 @@ public class ActionGraphDump {
       boolean includeArtifacts,
       AqueryActionFilter actionFilters,
       boolean includeParamFiles,
-      boolean deduplicateDepsets,
       boolean includeFileWriteContents,
       AqueryOutputHandler aqueryOutputHandler,
       ExtendedEventHandler eventHandler) {
@@ -90,7 +89,6 @@ public class ActionGraphDump {
         includeArtifacts,
         actionFilters,
         includeParamFiles,
-        deduplicateDepsets,
         includeFileWriteContents,
         aqueryOutputHandler,
         eventHandler);
@@ -102,7 +100,6 @@ public class ActionGraphDump {
       boolean includeArtifacts,
       AqueryActionFilter actionFilters,
       boolean includeParamFiles,
-      boolean deduplicateDepsets,
       boolean includeFileWriteContents,
       AqueryOutputHandler aqueryOutputHandler,
       ExtendedEventHandler eventHandler) {
@@ -118,7 +115,7 @@ public class ActionGraphDump {
     KnownRuleClassStrings knownRuleClassStrings = new KnownRuleClassStrings(aqueryOutputHandler);
     knownArtifacts = new KnownArtifacts(aqueryOutputHandler);
     knownConfigurations = new KnownConfigurations(aqueryOutputHandler);
-    knownNestedSets = new KnownNestedSets(aqueryOutputHandler, knownArtifacts, deduplicateDepsets);
+    knownNestedSets = new KnownNestedSets(aqueryOutputHandler, knownArtifacts);
     knownAspectDescriptors = new KnownAspectDescriptors(aqueryOutputHandler);
     knownTargets = new KnownTargets(aqueryOutputHandler, knownRuleClassStrings);
   }
@@ -174,11 +171,16 @@ public class ActionGraphDump {
     }
 
     // store environment
-    if (action instanceof SpawnAction) {
-      SpawnAction spawnAction = (SpawnAction) action;
+    if (action instanceof AbstractAction && action instanceof CommandAction) {
+      AbstractAction spawnAction = (AbstractAction) action;
+      // Some actions (e.g. CppCompileAction) don't override getEnvironment, but only
+      // getEffectiveEnvironment. Since calling the latter with an empty client env returns the
+      // fixed part of the full ActionEnvironment with the default implementations provided by
+      // AbstractAction, we can call getEffectiveEnvironment here to handle these actions as well.
       // TODO(twerth): This handles the fixed environment. We probably want to output the inherited
       // environment as well.
-      ImmutableMap<String, String> fixedEnvironment = spawnAction.getEnvironment().getFixedEnv();
+      ImmutableMap<String, String> fixedEnvironment =
+          spawnAction.getEffectiveEnvironment(ImmutableMap.of());
       for (Map.Entry<String, String> environmentVariable : fixedEnvironment.entrySet()) {
         actionBuilder.addEnvironmentVariables(
             AnalysisProtosV2.KeyValuePair.newBuilder()
@@ -193,14 +195,16 @@ public class ActionGraphDump {
       actionBuilder.addAllArguments(commandAction.getArguments());
     }
 
-    if (includeFileWriteContents && action instanceof FileWriteAction) {
-      FileWriteAction fileWriteAction = (FileWriteAction) action;
-      actionBuilder.setFileContents(fileWriteAction.getFileContents());
+    if (includeFileWriteContents
+        && action instanceof AbstractFileWriteAction.FileContentsProvider) {
+      String contents =
+          ((AbstractFileWriteAction.FileContentsProvider) action).getFileContents(eventHandler);
+      actionBuilder.setFileContents(contents);
     }
 
-    if (includeFileWriteContents && action instanceof SourceManifestAction) {
-      SourceManifestAction sourceManifestAction = (SourceManifestAction) action;
-      actionBuilder.setFileContents(sourceManifestAction.getFileContentsAsString(eventHandler));
+    if (action instanceof UnresolvedSymlinkAction) {
+      actionBuilder.setUnresolvedSymlinkTarget(
+          ((UnresolvedSymlinkAction) action).getTarget().toString());
     }
 
     // Include the content of param files in output.
@@ -229,7 +233,7 @@ public class ActionGraphDump {
 
     ActionOwner actionOwner = action.getOwner();
     if (actionOwner != null) {
-      BuildEvent event = actionOwner.getConfiguration();
+      BuildEvent event = actionOwner.getBuildConfigurationEvent();
       actionBuilder.setConfigurationId(knownConfigurations.dataToIdAndStreamOutputProto(event));
       if (actionOwner.getExecutionPlatform() != null) {
         actionBuilder.setExecutionPlatform(actionOwner.getExecutionPlatform().label().toString());
@@ -263,8 +267,10 @@ public class ActionGraphDump {
     }
 
     if (action instanceof TemplateExpansionAction) {
-      actionBuilder.setTemplateContent(((TemplateExpansionAction) action).getTemplate().toString());
-      for (Substitution substitution : ((TemplateExpansionAction) action).getSubstitutions()) {
+      TemplateExpansionAction templateExpansionAction = (TemplateExpansionAction) action;
+      actionBuilder.setTemplateContent(AqueryUtils.getTemplateContent(templateExpansionAction));
+
+      for (Substitution substitution : templateExpansionAction.getSubstitutions()) {
         try {
           actionBuilder.addSubstitutions(
               AnalysisProtosV2.KeyValuePair.newBuilder()
@@ -279,9 +285,18 @@ public class ActionGraphDump {
     aqueryOutputHandler.outputAction(actionBuilder.build());
   }
 
-  public void dumpAspect(AspectValue aspectValue, ConfiguredTargetValue configuredTargetValue)
-      throws CommandLineExpansionException, InterruptedException, IOException,
+  public void dumpAspect(
+      @Nullable AspectValue aspectValue, ConfiguredTargetValue configuredTargetValue)
+      throws CommandLineExpansionException,
+          InterruptedException,
+          IOException,
           TemplateExpansionException {
+    // It's possible for a value from a previous build on the same server to be missing
+    // e.g. after having cleared the analysis cache.
+    if (aspectValue == null) {
+      return;
+    }
+
     ConfiguredTarget configuredTarget = configuredTargetValue.getConfiguredTarget();
     if (!includeInActionGraph(configuredTarget.getLabel().toString())) {
       return;

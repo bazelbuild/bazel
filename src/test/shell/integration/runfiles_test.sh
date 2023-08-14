@@ -236,6 +236,7 @@ EOF
   assert_equals "$expected" "$actual"
 
   # The manifest only records files and symlinks, not real directories
+  expected="$expected$(get_repo_mapping_manifest_file)"
   expected_manifest_size=$(echo "$expected" | grep -v ' regular dir' | wc -l)
   actual_manifest_size=$(wc -l < ../MANIFEST)
   assert_equals $expected_manifest_size $actual_manifest_size
@@ -255,6 +256,17 @@ EOF
       fi
     fi
   done
+
+  # Add the repo mapping manifest entry for Bazel.
+  if [[ "$PRODUCT_NAME" == "bazel" ]]; then
+    repo_mapping="_repo_mapping"
+    repo_mapping_target="$(readlink "$repo_mapping")"
+    if "$is_windows"; then
+      repo_mapping_target="$(cygpath -m $repo_mapping_target)"
+    fi
+    echo "$repo_mapping $repo_mapping_target" >> ${TEST_TMPDIR}/MANIFEST2
+  fi
+
   sort MANIFEST > ${TEST_TMPDIR}/MANIFEST_sorted
   sort ${TEST_TMPDIR}/MANIFEST2 > ${TEST_TMPDIR}/MANIFEST2_sorted
   diff -u ${TEST_TMPDIR}/MANIFEST_sorted ${TEST_TMPDIR}/MANIFEST2_sorted
@@ -310,13 +322,21 @@ EOF
     assert_equals  0 $(find ${WORKSPACE_NAME} -type f | wc -l)
     assert_equals  5 $(find ${WORKSPACE_NAME} -type d | wc -l)
     assert_equals  9 $(find ${WORKSPACE_NAME} | wc -l)
-    assert_equals  4 $(wc -l < MANIFEST)
+    if [[ "$PRODUCT_NAME" == "bazel" ]]; then
+      assert_equals  5 $(wc -l < MANIFEST)
+    else
+      assert_equals  4 $(wc -l < MANIFEST)
+    fi
   else
     assert_equals  3 $(find ${WORKSPACE_NAME} -type l | wc -l)
     assert_equals  0 $(find ${WORKSPACE_NAME} -type f | wc -l)
     assert_equals  5 $(find ${WORKSPACE_NAME} -type d | wc -l)
     assert_equals  8 $(find ${WORKSPACE_NAME} | wc -l)
-    assert_equals  3 $(wc -l < MANIFEST)
+    if [[ "$PRODUCT_NAME" == "bazel" ]]; then
+      assert_equals  4 $(wc -l < MANIFEST)
+    else
+      assert_equals  3 $(wc -l < MANIFEST)
+    fi
   fi
 
   rm -f ${TEST_TMPDIR}/MANIFEST
@@ -333,6 +353,17 @@ EOF
       fi
     fi
   done
+
+  # Add the repo mapping manifest entry for Bazel.
+  if [[ "$PRODUCT_NAME" == "bazel" ]]; then
+    repo_mapping="_repo_mapping"
+    repo_mapping_target="$(readlink "$repo_mapping")"
+    if "$is_windows"; then
+      repo_mapping_target="$(cygpath -m $repo_mapping_target)"
+    fi
+    echo "$repo_mapping $repo_mapping_target" >> ${TEST_TMPDIR}/MANIFEST2
+  fi
+
   sort MANIFEST > ${TEST_TMPDIR}/MANIFEST_sorted
   sort ${TEST_TMPDIR}/MANIFEST2 > ${TEST_TMPDIR}/MANIFEST2_sorted
   diff -u ${TEST_TMPDIR}/MANIFEST_sorted ${TEST_TMPDIR}/MANIFEST2_sorted
@@ -364,6 +395,36 @@ EOF
   [[ -d ${PRODUCT_NAME}-bin/thing${EXT}.runfiles/bar ]] || fail "bar not found"
   [[ ! -d ${PRODUCT_NAME}-bin/thing${EXT}.runfiles/foo ]] \
     || fail "Old foo still found"
+}
+
+# regression test for b/237547165
+function test_fail_on_middleman_in_transitive_runfiles_for_executable() {
+  cat > rule.bzl <<EOF
+def _impl(ctx):
+    exe = ctx.actions.declare_file(ctx.label.name + '.out')
+    ctx.actions.write(exe, "")
+    internal_outputs = ctx.attr.bin[OutputGroupInfo]._hidden_top_level_INTERNAL_
+    runfiles = ctx.runfiles(transitive_files = internal_outputs)
+    return DefaultInfo(runfiles = runfiles, executable = exe)
+bad_runfiles = rule(
+  implementation = _impl,
+  attrs = {"bin" : attr.label()},
+  executable = True,
+)
+EOF
+  cat > BUILD <<EOF
+load(":rule.bzl", "bad_runfiles");
+cc_binary(
+    name = "thing",
+    srcs = ["thing.cc"],
+)
+bad_runfiles(name = "test", bin = ":thing")
+EOF
+  cat > thing.cc <<EOF
+int main() { return 0; }
+EOF
+  bazel build //:test &> $TEST_log && fail "Expected build to fail but it succeeded"
+  expect_log_once "Runfiles must not contain middleman artifacts"
 }
 
 

@@ -384,9 +384,15 @@ public final class PrintActionCommand implements BlazeCommand {
       }
       // Check all the inputs for the configured target against the file we want argv for.
       Set<Artifact> expandedArtifacts = Sets.newHashSet();
+      LinkedHashSet<Artifact> rootArtifacts = Sets.newLinkedHashSet();
+      rootArtifacts.addAll(action.getInputs().toList());
+      rootArtifacts.addAll(action.getSchedulingDependencies().toList());
+
+      // TODO(lberki): This doesn't need to be recursive anymore, probably now that scheduling
+      // middlemen are gone.
       expandRecursive(
           env.getSkyframeExecutor().getActionGraph(env.getReporter()),
-          action.getInputs().toList(),
+          rootArtifacts,
           expandedArtifacts);
       for (Artifact input : expandedArtifacts) {
         if (filesDesired.remove(input.getRootRelativePath().getSafePathString())) {

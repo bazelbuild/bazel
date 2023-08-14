@@ -43,15 +43,17 @@ public class SyntheticAttributeHashCalculatorTest extends PackageLoadingTestCase
     String hashBefore =
         SyntheticAttributeHashCalculator.compute(
             ruleBefore,
-            /*serializedAttributes=*/ ImmutableMap.of(),
-            /*extraDataForAttrHash=*/ "",
-            DigestHashFunction.SHA256.getHashFunction());
+            /* serializedAttributes= */ ImmutableMap.of(),
+            /* extraDataForAttrHash= */ "",
+            DigestHashFunction.SHA256.getHashFunction(),
+            /* includeAttributeSourceAspects= */ false);
     String hashAfter =
         SyntheticAttributeHashCalculator.compute(
             ruleAfter,
-            /*serializedAttributes=*/ ImmutableMap.of(),
-            /*extraDataForAttrHash=*/ "",
-            DigestHashFunction.SHA256.getHashFunction());
+            /* serializedAttributes= */ ImmutableMap.of(),
+            /* extraDataForAttrHash= */ "",
+            DigestHashFunction.SHA256.getHashFunction(),
+            /* includeAttributeSourceAspects= */ false);
 
     assertThat(hashBefore).isNotEqualTo(hashAfter);
   }
@@ -71,15 +73,17 @@ public class SyntheticAttributeHashCalculatorTest extends PackageLoadingTestCase
     String hashBefore =
         SyntheticAttributeHashCalculator.compute(
             ruleBefore,
-            /*serializedAttributes=*/ ImmutableMap.of(),
-            /*extraDataForAttrHash=*/ "",
-            DigestHashFunction.SHA256.getHashFunction());
+            /* serializedAttributes= */ ImmutableMap.of(),
+            /* extraDataForAttrHash= */ "",
+            DigestHashFunction.SHA256.getHashFunction(),
+            /* includeAttributeSourceAspects= */ false);
     String hashAfter =
         SyntheticAttributeHashCalculator.compute(
             ruleAfter,
-            /*serializedAttributes=*/ ImmutableMap.of(),
-            /*extraDataForAttrHash=*/ "",
-            DigestHashFunction.SHA256.getHashFunction());
+            /* serializedAttributes= */ ImmutableMap.of(),
+            /* extraDataForAttrHash= */ "",
+            DigestHashFunction.SHA256.getHashFunction(),
+            /* includeAttributeSourceAspects= */ false);
 
     assertThat(hashBefore).isEqualTo(hashAfter);
   }
@@ -92,9 +96,10 @@ public class SyntheticAttributeHashCalculatorTest extends PackageLoadingTestCase
     String hashBefore =
         SyntheticAttributeHashCalculator.compute(
             rule,
-            /*serializedAttributes=*/ ImmutableMap.of(),
-            /*extraDataForAttrHash=*/ "",
-            DigestHashFunction.SHA256.getHashFunction());
+            /* serializedAttributes= */ ImmutableMap.of(),
+            /* extraDataForAttrHash= */ "",
+            DigestHashFunction.SHA256.getHashFunction(),
+            /* includeAttributeSourceAspects= */ false);
 
     ImmutableMap<Attribute, Build.Attribute> serializedAttributes =
         ImmutableMap.of(
@@ -110,7 +115,8 @@ public class SyntheticAttributeHashCalculatorTest extends PackageLoadingTestCase
             rule,
             serializedAttributes, /*extraDataForAttrHash*/
             "",
-            DigestHashFunction.SHA256.getHashFunction());
+            DigestHashFunction.SHA256.getHashFunction(),
+            /* includeAttributeSourceAspects= */ false);
 
     assertThat(hashBefore).isNotEqualTo(hashAfter);
   }
@@ -123,16 +129,18 @@ public class SyntheticAttributeHashCalculatorTest extends PackageLoadingTestCase
     String hashBefore =
         SyntheticAttributeHashCalculator.compute(
             rule,
-            /*serializedAttributes=*/ ImmutableMap.of(),
-            /*extraDataForAttrHash=*/ "",
-            DigestHashFunction.SHA256.getHashFunction());
+            /* serializedAttributes= */ ImmutableMap.of(),
+            /* extraDataForAttrHash= */ "",
+            DigestHashFunction.SHA256.getHashFunction(),
+            /* includeAttributeSourceAspects= */ false);
 
     String hashAfter =
         SyntheticAttributeHashCalculator.compute(
             rule,
-            /*serializedAttributes=*/ ImmutableMap.of(), /*extraDataForAttrHash*/
+            /* serializedAttributes= */ ImmutableMap.of(), /*extraDataForAttrHash*/
             "blahblaah",
-            DigestHashFunction.SHA256.getHashFunction());
+            DigestHashFunction.SHA256.getHashFunction(),
+            /* includeAttributeSourceAspects= */ false);
 
     assertThat(hashBefore).isNotEqualTo(hashAfter);
   }
@@ -155,16 +163,65 @@ public class SyntheticAttributeHashCalculatorTest extends PackageLoadingTestCase
     String hashBefore =
         SyntheticAttributeHashCalculator.compute(
             ruleBefore,
-            /*serializedAttributes=*/ ImmutableMap.of(),
-            /*extraDataForAttrHash=*/ "",
-            DigestHashFunction.SHA256.getHashFunction());
+            /* serializedAttributes= */ ImmutableMap.of(),
+            /* extraDataForAttrHash= */ "",
+            DigestHashFunction.SHA256.getHashFunction(),
+            /* includeAttributeSourceAspects= */ false);
     String hashAfter =
         SyntheticAttributeHashCalculator.compute(
             ruleAfter,
-            /*serializedAttributes=*/ ImmutableMap.of(),
-            /*extraDataForAttrHash=*/ "",
-            DigestHashFunction.SHA256.getHashFunction());
+            /* serializedAttributes= */ ImmutableMap.of(),
+            /* extraDataForAttrHash= */ "",
+            DigestHashFunction.SHA256.getHashFunction(),
+            /* includeAttributeSourceAspects= */ false);
 
     assertThat(hashBefore).isNotEqualTo(hashAfter);
+  }
+
+  @Test
+  public void testComputeIncludeAttributeSourceAspectsChangesHash() throws Exception {
+    scratch.file(
+        "a/defs.bzl",
+        "def _test_aspect_impl(target, ctx):",
+        "  return []",
+        "test_aspect = aspect(",
+        "  implementation = _test_aspect_impl,",
+        "  attr_aspects = ['deps'],",
+        "  attrs = {",
+        "    '_aspect_attr_1': attr.label(default = '//a:c'),",
+        "    '_aspect_attr_2': attr.label(default = '//a:d'),",
+        "  },",
+        ")",
+        "def _lib_impl(ctx):",
+        "  return",
+        "test_lib = rule(",
+        "  implementation = _lib_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(aspects = [test_aspect]),",
+        "  },",
+        ")");
+    scratch.file(
+        "a/BUILD",
+        "load('defs.bzl', 'test_lib')",
+        "test_lib(name = 'a', deps = [':b'])",
+        "test_lib(name = 'b')");
+    Rule rule = (Rule) getTarget("//a:a");
+
+    String hashWithAttributeAspects =
+        SyntheticAttributeHashCalculator.compute(
+            rule,
+            /* serializedAttributes= */ ImmutableMap.of(),
+            /* extraDataForAttrHash= */ "",
+            DigestHashFunction.SHA256.getHashFunction(),
+            /* includeAttributeSourceAspects= */ true);
+
+    String hashWithoutAttributeAspects =
+        SyntheticAttributeHashCalculator.compute(
+            rule,
+            /* serializedAttributes= */ ImmutableMap.of(),
+            /* extraDataForAttrHash= */ "",
+            DigestHashFunction.SHA256.getHashFunction(),
+            /* includeAttributeSourceAspects= */ false);
+    assertThat(hashWithAttributeAspects).isNotEqualTo(hashWithoutAttributeAspects);
   }
 }

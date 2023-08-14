@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
+import com.google.devtools.build.lib.runtime.commands.events.CleanStartingEvent;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -199,7 +200,7 @@ public final class SandboxModule extends BlazeModule {
     SandboxOptions options = checkNotNull(env.getOptions().getOptions(SandboxOptions.class));
     sandboxBase = computeSandboxBase(options, env);
 
-    SandboxHelpers helpers = new SandboxHelpers(options.delayVirtualInputMaterialization);
+    SandboxHelpers helpers = new SandboxHelpers();
 
     // Do not remove the sandbox base when --sandbox_debug was specified so that people can check
     // out the contents of the generated sandbox directories.
@@ -218,7 +219,7 @@ public final class SandboxModule extends BlazeModule {
         treeDeleter = new AsynchronousTreeDeleter();
       }
     }
-
+    SandboxStash.initialize(env.getWorkspaceName(), env.getOutputBase(), options);
     Path mountPoint = sandboxBase.getRelative("sandboxfs");
 
     if (sandboxfsProcess != null) {
@@ -283,8 +284,8 @@ public final class SandboxModule extends BlazeModule {
     boolean linuxSandboxSupported = LinuxSandboxedSpawnRunner.isSupported(cmdEnv);
     boolean darwinSandboxSupported = DarwinSandboxedSpawnRunner.isSupported(cmdEnv);
 
-    boolean verboseFailures =
-        checkNotNull(cmdEnv.getOptions().getOptions(ExecutionOptions.class)).verboseFailures;
+    ExecutionOptions executionOptions =
+        checkNotNull(cmdEnv.getOptions().getOptions(ExecutionOptions.class));
     // This works on most platforms, but isn't the best choice, so we put it first and let later
     // platform-specific sandboxing strategies become the default.
     if (processWrapperSupported) {
@@ -300,7 +301,7 @@ public final class SandboxModule extends BlazeModule {
                   treeDeleter));
       spawnRunners.add(spawnRunner);
       builder.registerStrategy(
-          new ProcessWrapperSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner, verboseFailures),
+          new ProcessWrapperSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner, executionOptions),
           "sandboxed",
           "processwrapper-sandbox");
     }
@@ -327,7 +328,7 @@ public final class SandboxModule extends BlazeModule {
                     treeDeleter));
         spawnRunners.add(spawnRunner);
         builder.registerStrategy(
-            new DockerSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner, verboseFailures),
+            new DockerSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner, executionOptions),
             "docker");
       }
     } else if (options.dockerVerbose) {
@@ -354,7 +355,7 @@ public final class SandboxModule extends BlazeModule {
                   treeDeleter));
       spawnRunners.add(spawnRunner);
       builder.registerStrategy(
-          new LinuxSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner, verboseFailures),
+          new LinuxSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner, executionOptions),
           "sandboxed",
           "linux-sandbox");
     }
@@ -373,7 +374,7 @@ public final class SandboxModule extends BlazeModule {
                   treeDeleter));
       spawnRunners.add(spawnRunner);
       builder.registerStrategy(
-          new DarwinSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner, verboseFailures),
+          new DarwinSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner, executionOptions),
           "sandboxed",
           "darwin-sandbox");
     }
@@ -386,7 +387,7 @@ public final class SandboxModule extends BlazeModule {
                   helpers, cmdEnv, timeoutKillDelay, windowsSandboxPath));
       spawnRunners.add(spawnRunner);
       builder.registerStrategy(
-          new WindowsSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner, verboseFailures),
+          new WindowsSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner, executionOptions),
           "sandboxed",
           "windows-sandbox");
     }
@@ -450,9 +451,7 @@ public final class SandboxModule extends BlazeModule {
         LocalEnvProvider.forCurrentOs(env.getClientEnv()),
         env.getBlazeWorkspace().getBinTools(),
         ProcessWrapper.fromCommandEnvironment(env),
-        env.getXattrProvider(),
-        // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
-        RunfilesTreeUpdater.INSTANCE);
+        RunfilesTreeUpdater.forCommandEnvironment(env));
   }
 
   /**
@@ -514,7 +513,7 @@ public final class SandboxModule extends BlazeModule {
                   String.format(
                       "%s uses implicit fallback from sandbox to local, which is deprecated"
                           + " because it is not hermetic. Prefer setting an explicit list of"
-                          + " strategies, e.g., --strategy=%s=sandbox,standalone",
+                          + " strategies, e.g., --strategy=%s=sandboxed,standalone",
                       spawn.getMnemonic(), spawn.getMnemonic())));
         }
       }
@@ -568,6 +567,11 @@ public final class SandboxModule extends BlazeModule {
   @Subscribe
   public void buildInterrupted(@SuppressWarnings("unused") BuildInterruptedEvent event) {
     unmountSandboxfs();
+  }
+
+  @Subscribe
+  public void cleanStarting(@SuppressWarnings("unused") CleanStartingEvent event) {
+    SandboxStash.clean(treeDeleter, env.getOutputBase());
   }
 
   /**

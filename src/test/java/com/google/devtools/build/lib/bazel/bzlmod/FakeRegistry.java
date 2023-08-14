@@ -37,6 +37,7 @@ public class FakeRegistry implements Registry {
   private final String url;
   private final String rootPath;
   private final Map<ModuleKey, String> modules = new HashMap<>();
+  private final Map<String, ImmutableMap<Version, String>> yankedVersionMap = new HashMap<>();
 
   public FakeRegistry(String url, String rootPath) {
     this.url = url;
@@ -49,14 +50,29 @@ public class FakeRegistry implements Registry {
     return this;
   }
 
+  @CanIgnoreReturnValue
+  public FakeRegistry addYankedVersion(
+      String moduleName, ImmutableMap<Version, String> yankedVersions) {
+    yankedVersionMap.put(moduleName, yankedVersions);
+    return this;
+  }
+
   @Override
   public String getUrl() {
     return url;
   }
 
   @Override
-  public Optional<byte[]> getModuleFile(ModuleKey key, ExtendedEventHandler eventHandler) {
-    return Optional.ofNullable(modules.get(key)).map(value -> value.getBytes(UTF_8));
+  public Optional<ModuleFile> getModuleFile(ModuleKey key, ExtendedEventHandler eventHandler) {
+    return Optional.ofNullable(modules.get(key))
+        .map(value -> value.getBytes(UTF_8))
+        .map(
+            content ->
+                ModuleFile.create(
+                    content,
+                    String.format(
+                        "%s/modules/%s/%s/MODULE.bazel",
+                        url, key.getName(), key.getVersion().toString())));
   }
 
   @Override
@@ -65,9 +81,16 @@ public class FakeRegistry implements Registry {
     return RepoSpec.builder()
         .setRuleClassName("local_repository")
         .setAttributes(
-            ImmutableMap.of(
-                "name", repoName.getName(), "path", rootPath + "/" + repoName.getName()))
+            AttributeValues.create(
+                ImmutableMap.of(
+                    "name", repoName.getName(), "path", rootPath + "/" + repoName.getName())))
         .build();
+  }
+
+  @Override
+  public Optional<ImmutableMap<Version, String>> getYankedVersions(
+      String moduleName, ExtendedEventHandler eventHandler) {
+    return Optional.ofNullable(yankedVersionMap.get(moduleName));
   }
 
   @Override

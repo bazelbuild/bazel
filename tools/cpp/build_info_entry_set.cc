@@ -15,6 +15,7 @@
 #include "tools/cpp/build_info_entry_set.h"
 
 #include <iostream>
+#include <map>
 
 namespace bazel {
 namespace tools {
@@ -42,20 +43,27 @@ bool BuildInfoEntrySet::GetKeyValue(
   return false;
 }
 
-std::unordered_map<std::string, BuildInfoEntrySet::BuildInfoEntry>
+void BuildInfoEntrySet::AddSlashes(std::string& key) {
+  for (std::string::iterator it = key.begin(); it != key.end(); it++) {
+    if (*it == ':') {
+      it = key.insert(it, '\\');
+      it++;
+    }
+  }
+}
+
+std::map<std::string, BuildInfoEntrySet::BuildInfoEntry>
 BuildInfoEntrySet::TranslateKeys(
-    const std::unordered_map<std::string, std::string>& key_translations,
+    const std::map<std::string, std::string>& translation_keys,
     std::unordered_map<std::string, KeyDescription>& keys,
     std::unordered_map<std::string, std::string>& values) {
-  std::unordered_map<std::string, BuildInfoEntrySet::BuildInfoEntry>
-      translated_keys =
-          std::unordered_map<std::string, BuildInfoEntrySet::BuildInfoEntry>();
-  for (const auto& i : key_translations) {
-    std::string translation = i.first;
-    std::string key = i.second;
+  std::map<std::string, BuildInfoEntrySet::BuildInfoEntry> translated_keys =
+      std::map<std::string, BuildInfoEntrySet::BuildInfoEntry>();
+  for (const auto& [translation, key] : translation_keys) {
     std::string key_value;
     if (GetKeyValue(key, keys, values, key_value) &&
         keys.find(key) != keys.end()) {
+      AddSlashes(key_value);
       translated_keys.emplace(
           translation,
           BuildInfoEntrySet::BuildInfoEntry(key_value, keys.at(key).key_type));

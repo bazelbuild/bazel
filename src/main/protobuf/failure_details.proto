@@ -147,7 +147,8 @@ message FailureDetail {
     StarlarkLoading starlark_loading = 179;
     ExternalDeps external_deps = 181;
     DiffAwareness diff_awareness = 182;
-    ModqueryCommand modquery_command = 183;
+    ModCommand mod_command = 183;
+    BuildReport build_report = 184;
   }
 
   reserved 102; // For internal use
@@ -225,6 +226,7 @@ message Spawn {
     //   refactored to prohibit undetailed failures
     UNSPECIFIED_EXECUTION_FAILURE = 12 [(metadata) = { exit_code: 1 }];
     FORBIDDEN_INPUT = 13 [(metadata) = { exit_code: 1 }];
+    REMOTE_CACHE_EVICTED = 14 [(metadata) = { exit_code: 39 }];
   }
   Code code = 1;
 
@@ -246,6 +248,8 @@ message ExternalRepository {
     EXTERNAL_REPOSITORY_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     OVERRIDE_DISALLOWED_MANAGED_DIRECTORIES = 1 [(metadata) = { exit_code: 2 }];
     BAD_DOWNLOADER_CONFIG = 2 [(metadata) = { exit_code: 2 }];
+    REPOSITORY_MAPPING_RESOLUTION_FAILED = 3 [(metadata) = { exit_code: 37 }];
+    CREDENTIALS_INIT_FAILURE = 4 [(metadata) = { exit_code: 2 }];
   }
   Code code = 1;
   // Additional data could include external repository names.
@@ -274,7 +278,7 @@ message BuildProgress {
         [(metadata) = { exit_code: 45 }];
     BES_UPLOAD_RETRY_LIMIT_EXCEEDED_FAILURE = 17
         [(metadata) = { exit_code: 38 }];
-    reserved 1, 2, 18; // For internal use
+    reserved 1, 2, 18, 20; // For internal use
   }
   Code code = 1;
   // Additional data could include the build progress upload endpoint.
@@ -316,6 +320,11 @@ message Crash {
   // The cause chain of the crash, with the outermost throwable first. Limited
   // to the outermost exception and at most 4 nested causes (so, max size of 5).
   repeated Throwable causes = 2;
+
+  // True when the root cause of the crash was not an OutOfMemoryError, but
+  // CRASH_OOM was chosen because an OutOfMemoryError was detected prior to the
+  // crash.
+  bool oom_detector_override = 3;
 }
 
 message Throwable {
@@ -338,6 +347,19 @@ message SymlinkForest {
   }
 
   Code code = 1;
+}
+
+message BuildReport {
+  enum Code {
+    BUILD_REPORT_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    BUILD_REPORT_UPLOADER_NEEDS_PACKAGE_PATHS = 1
+        [(metadata) = { exit_code: 36 }];
+    BUILD_REPORT_WRITE_FAILED = 2 [(metadata) = { exit_code: 36 }];
+  }
+
+  Code code = 1;
+  // Additional data for partial failures might include the build report that
+  // failed to be written.
 }
 
 message PackageOptions {
@@ -586,6 +608,7 @@ message BuildConfiguration {
     // possibilities in Bazel, so we go with the more straightforward
     // command-line error exit code 2.
     INVALID_OUTPUT_DIRECTORY_MNEMONIC = 11 [(metadata) = { exit_code: 2 }];
+    CONFIGURATION_DISCARDED_ANALYSIS_CACHE = 12 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
@@ -609,10 +632,12 @@ message InfoCommand {
 message MemoryOptions {
   enum Code {
     MEMORY_OPTIONS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
-    EXPERIMENTAL_OOM_MORE_EAGERLY_THRESHOLD_INVALID_VALUE = 1
-        [(metadata) = { exit_code: 2 }];
-    EXPERIMENTAL_OOM_MORE_EAGERLY_NO_TENURED_COLLECTORS_FOUND = 2
-        [(metadata) = { exit_code: 2 }];
+    // Deprecated: validation is now implemented by the option converter.
+    DEPRECATED_EXPERIMENTAL_OOM_MORE_EAGERLY_THRESHOLD_INVALID_VALUE = 1
+        [(metadata) = { exit_code: 2 }, deprecated = true];
+    // Deprecated: no tenured collectors found is now a crash on startup.
+    DEPRECATED_EXPERIMENTAL_OOM_MORE_EAGERLY_NO_TENURED_COLLECTORS_FOUND = 2
+        [(metadata) = { exit_code: 2 }, deprecated = true];
   }
 
   Code code = 1;
@@ -1172,6 +1197,8 @@ message Analysis {
     ASPECT_CREATION_FAILED = 17 [(metadata) = { exit_code: 1 }];
     CONFIGURED_VALUE_CREATION_FAILED = 18 [(metadata) = { exit_code: 1 }];
     INCOMPATIBLE_TARGET_REQUESTED = 19 [(metadata) = { exit_code: 1 }];
+    ANALYSIS_FAILURE_PROPAGATION_FAILED = 20 [(metadata) = { exit_code: 1 }];
+    ANALYSIS_CACHE_DISCARDED = 21 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -1218,6 +1245,7 @@ message PackageLoading {
     BUILTINS_INJECTION_FAILURE = 29 [(metadata) = { exit_code: 1 }];
     SYMLINK_CYCLE_OR_INFINITE_EXPANSION = 30 [(metadata) = { exit_code: 1 }];
     OTHER_IO_EXCEPTION = 31 [(metadata) = { exit_code: 36 }];
+    BAD_REPO_FILE = 32 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -1278,9 +1306,9 @@ message DiffAwareness {
   Code code = 1;
 }
 
-message ModqueryCommand {
+message ModCommand {
   enum Code {
-    MODQUERY_COMMAND_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    MOD_COMMAND_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     MISSING_ARGUMENTS = 1 [(metadata) = { exit_code: 2 }];
     TOO_MANY_ARGUMENTS = 2 [(metadata) = { exit_code: 2 }];
     INVALID_ARGUMENTS = 3 [(metadata) = { exit_code: 2 }];

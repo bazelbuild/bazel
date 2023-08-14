@@ -1,0 +1,23 @@
+name: "PR Labeler"
+
+on:
+  pull_request_target:
+    types: ["opened", "reopened", "ready_for_review"]
+
+permissions:
+  contents: read
+
+jobs:
+  triage:
+    permissions:
+      contents: read
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+    - name: Harden Runner
+      uses: step-security/harden-runner@6b3083af2869dc3314a0257a42f4af696cc79ba3 # v2.3.1
+      with:
+        egress-policy: audit
+
+    - uses: actions/labeler@ba790c862c380240c6d5e7427be5ace9a05c754b # v4.0.3
+    if: ${{ github.event.pull_request.draft == false }}

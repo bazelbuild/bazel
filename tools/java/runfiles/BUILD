@@ -26,6 +26,8 @@ filegroup(
 filegroup(
     name = "java-srcs",
     srcs = [
+        "AutoBazelRepository.java",
+        "AutoBazelRepositoryProcessor.java",
         "Runfiles.java",
         "Util.java",
     ],
@@ -33,6 +35,20 @@ filegroup(
 
 java_library(
     name = "runfiles",
-    srcs = [":java-srcs"],
-    visibility = ["//tools/java/runfiles/testing:__pkg__"],
+    srcs = [
+        "Runfiles.java",
+        "Util.java",
+    ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/skydoc:__pkg__",
+        "//src/test/java/com/google/devtools/build/skydoc:__pkg__",
+        "//tools/java/runfiles/testing:__pkg__",
+    ],
+)
+
+java_library(
+    name = "runfiles_for_stardoc",
+    srcs = ["RunfilesForStardoc.java"],
+    visibility = ["//src/main/java/com/google/devtools/build/skydoc:__pkg__"],
+    deps = [":runfiles"],
 )

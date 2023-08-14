@@ -3,13 +3,15 @@ Book: /_book.yaml
 
 # Deploying Rules
 
+{% include "_buttons.html" %}
+
 This page is for rule writers who are planning to make their rules available
 to others.
 
 ## Hosting and naming rules
 
 New rules should go into their own GitHub repository under your organization.
-Contact the [bazel-dev mailing list](https://groups.google.com/forum/#!forum/bazel-dev)
+Start a thread on [GitHub](https://github.com/bazelbuild/bazel/discussions)
 if you feel like your rules belong in the [bazelbuild](https://github.com/bazelbuild)
 organization.
 
@@ -69,8 +71,8 @@ In the project's `WORKSPACE`, you should define the name that users will use
 to reference your rules. If your rules belong to the
 [bazelbuild](https://github.com/bazelbuild) organization, you must use
 `rules_<lang>` (such as `rules_mockascript`). Otherwise, you should name your
-repository `<org>_rules_<lang>` (such as `build_stack_rules_proto`). Please contact
-[bazel-dev mailing list](https://groups.google.com/forum/#!forum/bazel-dev)
+repository `<org>_rules_<lang>` (such as `build_stack_rules_proto`). Please
+start a thread on [GitHub](https://github.com/bazelbuild/bazel/discussions)
 if you feel like your rules should follow the convention for rules in the
 [bazelbuild](https://github.com/bazelbuild) organization.
 
@@ -127,7 +129,7 @@ For `rules_mockascript` that means there will be a directory named
 ### Constraints
 
 If your rule defines
-[toolchain](/docs/toolchains) rules,
+[toolchain](/extending/toolchains) rules,
 it's possible that you'll need to define custom `constraint_setting`s and/or
 `constraint_value`s. Put these into a `//<LANG>/constraints` package. Your
 directory structure will look like this:

@@ -3,9 +3,9 @@ load("@rules_java//java:defs.bzl", "java_library", "java_test")
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
-        "//src/test/java/com/google/devtools/build/android/idlclass:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar:srcs",
         "//src/test/java/com/google/devtools/build/android/dexer:srcs",
+        "//src/test/java/com/google/devtools/build/android/idlclass:srcs",
         "//src/test/java/com/google/devtools/build/android/junctions:srcs",
         "//src/test/java/com/google/devtools/build/android/r8:srcs",
         "//src/test/java/com/google/devtools/build/android/resources:srcs",
@@ -25,7 +25,7 @@ java_test(
         "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
         "//src/main/java/com/google/devtools/common/options",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
-        "//third_party:android_common_25_0_0",
+        "//src/tools/android/java/com/google/devtools/build/android:android_common_30_1_3",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -76,7 +76,7 @@ java_test(
     srcs = ["AaptCommandBuilderTest.java"],
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
-        "//third_party:android_common_25_0_0",
+        "//src/tools/android/java/com/google/devtools/build/android:android_common_30_1_3",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:junit4",
@@ -91,7 +91,7 @@ java_test(
     deps = [
         ":test_utils",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
-        "//third_party:android_common_25_0_0",
+        "//src/tools/android/java/com/google/devtools/build/android:android_common_30_1_3",
         "//third_party:guava",
         "//third_party:jimfs",
         "//third_party:junit4",
@@ -120,7 +120,7 @@ java_test(
     deps = [
         ":test_utils",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
-        "//third_party:android_common_25_0_0",
+        "//src/tools/android/java/com/google/devtools/build/android:android_common_30_1_3",
         "//third_party:guava",
         "//third_party:jimfs",
         "//third_party:junit4",
@@ -163,7 +163,8 @@ java_test(
     deps = [
         ":test_utils",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
-        "//third_party:android_common_25_0_0",
+        "//src/tools/android/java/com/google/devtools/build/android:android_common_30_1_3",
+        "//src/tools/android/java/com/google/devtools/build/android/resources",
         "//third_party:guava",
         "//third_party:jimfs",
         "//third_party:junit4",
@@ -259,8 +260,8 @@ java_test(
     deps = [
         ":test_utils",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+        "//src/tools/android/java/com/google/devtools/build/android:android_common_30_1_3",
         "//src/tools/android/java/com/google/devtools/build/android/resources",
-        "//third_party:android_common_25_0_0",
         "//third_party:guava",
         "//third_party:jimfs",
         "//third_party:junit4",
@@ -274,8 +275,8 @@ java_test(
     srcs = ["PlaceholderRTxtWriterTest.java"],
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+        "//src/tools/android/java/com/google/devtools/build/android:android_common_30_1_3",
         "//src/tools/android/java/com/google/devtools/build/android/resources",
-        "//third_party:android_common_25_0_0",
         "//third_party:guava",
         "//third_party:jimfs",
         "//third_party:junit4",
@@ -344,8 +345,8 @@ java_library(
     ),
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+        "//src/tools/android/java/com/google/devtools/build/android:android_common_30_1_3",
         "//src/tools/android/java/com/google/devtools/build/android/resources",
-        "//third_party:android_common_25_0_0",
         "//third_party:guava",
         "//third_party:truth",
     ],

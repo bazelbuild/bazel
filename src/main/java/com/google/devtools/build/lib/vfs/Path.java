@@ -492,8 +492,8 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    * an {@link UnsupportedOperationException} if the link points to a non-existent file.
    *
    * @return the content (i.e. target) of the symbolic link
-   * @throws IOException if the current path is not a symbolic link, or the contents of the link
-   *     could not be read for any reason
+   * @throws FileSystem.NotASymlinkException if the current path is not a symbolic link.
+   * @throws IOException if the contents of the link could not be read for any reason
    */
   public PathFragment readSymbolicLink() throws IOException {
     return fileSystem.readSymbolicLink(asFragment());
@@ -504,8 +504,8 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    * are intentionally left underspecified otherwise to permit efficient implementations.
    *
    * @return the content (i.e. target) of the symbolic link
-   * @throws IOException if the current path is not a symbolic link, or the contents of the link
-   *     could not be read for any reason
+   * @throws FileSystem.NotASymlinkException if the current path is not a symbolic link.
+   * @throws IOException if the contents of the link could not be read for any reason
    */
   public PathFragment readSymbolicLinkUnchecked() throws IOException {
     return fileSystem.readSymbolicLinkUnchecked(asFragment());

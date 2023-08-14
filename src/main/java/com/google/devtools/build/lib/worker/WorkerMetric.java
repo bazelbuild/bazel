@@ -14,10 +14,10 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics.WorkerStats;
 import java.time.Instant;
-import javax.annotation.Nullable;
 
 /**
  * Contains data about worker statistics during execution. This class contains data for {@link
@@ -28,13 +28,12 @@ public abstract class WorkerMetric {
 
   public abstract WorkerProperties getWorkerProperties();
 
-  @Nullable
   public abstract WorkerStat getWorkerStat();
 
   public abstract boolean isMeasurable();
 
   public static WorkerMetric create(
-      WorkerProperties workerProperties, @Nullable WorkerStat workerStat, boolean isMeasurable) {
+      WorkerProperties workerProperties, WorkerStat workerStat, boolean isMeasurable) {
     return new AutoValue_WorkerMetric(workerProperties, workerStat, isMeasurable);
   }
 
@@ -43,17 +42,19 @@ public abstract class WorkerMetric {
   public abstract static class WorkerStat {
     public abstract int getUsedMemoryInKB();
 
-    public abstract Instant getTimestamp();
+    public abstract Instant getLastCallTime();
 
-    public static WorkerStat create(int usedMemoryInKB, Instant timestamp) {
-      return new AutoValue_WorkerMetric_WorkerStat(usedMemoryInKB, timestamp);
+    public abstract Instant getCollectTime();
+
+    public static WorkerStat create(int usedMemoryInKB, Instant lastCallTime, Instant collectTime) {
+      return new AutoValue_WorkerMetric_WorkerStat(usedMemoryInKB, lastCallTime, collectTime);
     }
   }
 
   /** Worker properties */
   @AutoValue
   public abstract static class WorkerProperties {
-    public abstract int getWorkerId();
+    public abstract ImmutableList<Integer> getWorkerIds();
 
     public abstract long getProcessId();
 
@@ -63,10 +64,17 @@ public abstract class WorkerMetric {
 
     public abstract boolean isSandboxed();
 
+    public abstract int getWorkerKeyHash();
+
     public static WorkerProperties create(
-        int workerId, long processId, String mnemonic, boolean isMultiplex, boolean isSandboxed) {
+        ImmutableList<Integer> workerIds,
+        long processId,
+        String mnemonic,
+        boolean isMultiplex,
+        boolean isSandboxed,
+        int workerKeyHash) {
       return new AutoValue_WorkerMetric_WorkerProperties(
-          workerId, processId, mnemonic, isMultiplex, isSandboxed);
+          workerIds, processId, mnemonic, isMultiplex, isSandboxed, workerKeyHash);
     }
   }
 
@@ -76,18 +84,20 @@ public abstract class WorkerMetric {
 
     WorkerMetrics.Builder builder =
         WorkerMetrics.newBuilder()
-            .setWorkerId(workerProperties.getWorkerId())
+            .addAllWorkerIds(workerProperties.getWorkerIds())
             .setProcessId((int) workerProperties.getProcessId())
             .setMnemonic(workerProperties.getMnemonic())
             .setIsSandbox(workerProperties.isSandboxed())
             .setIsMultiplex(workerProperties.isMultiplex())
-            .setIsMeasurable(isMeasurable());
+            .setIsMeasurable(isMeasurable())
+            .setWorkerKeyHash(workerProperties.getWorkerKeyHash());
 
     if (workerStat != null) {
       WorkerStats stats =
           WorkerMetrics.WorkerStats.newBuilder()
-              .setCollectTimeInMs(workerStat.getTimestamp().toEpochMilli())
+              .setCollectTimeInMs(workerStat.getCollectTime().toEpochMilli())
               .setWorkerMemoryInKb(workerStat.getUsedMemoryInKB())
+              .setLastActionStartTimeInMs(workerStat.getLastCallTime().toEpochMilli())
               .build();
       builder.addWorkerStats(stats);
     }

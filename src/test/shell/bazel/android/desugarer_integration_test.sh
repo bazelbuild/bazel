@@ -38,9 +38,7 @@ fail_if_no_android_sdk
 source "$(rlocation io_bazel/src/test/shell/integration_test_setup.sh)" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-if [[ "$1" = '--with_platforms' ]]; then
-  resolve_android_toolchains_with_platforms
-fi
+resolve_android_toolchains "$1"
 
 function create_java_8_android_binary() {
   mkdir -p java/bazel
@@ -126,10 +124,24 @@ function test_java_8_android_binary_worker_strategy() {
   setup_android_sdk_support
   create_java_8_android_binary
 
-  bazel build \
-   --strategy=Desugar=worker \
-   --desugar_for_android //java/bazel:bin \
-      || fail "build failed"
+  assert_build //java/bazel:bin \
+    --persistent_android_dex_desugar \
+    --worker_verbose &> $TEST_log
+  expect_log "Created new non-sandboxed Desugar worker (id [0-9]\+, key hash -\?[0-9]\+)"
+  expect_log "Created new non-sandboxed DexBuilder worker (id [0-9]\+, key hash -\?[0-9]\+)"
+}
+
+function test_java_8_android_binary_multiplex_worker_strategy() {
+  create_new_workspace
+  setup_android_sdk_support
+  create_java_8_android_binary
+
+  assert_build //java/bazel:bin \
+    --worker_multiplex \
+    --persistent_multiplex_android_dex_desugar \
+    --worker_verbose &> $TEST_log
+  expect_log "Created new non-sandboxed Desugar multiplex-worker (id [0-9]\+, key hash -\?[0-9]\+)"
+  expect_log "Created new non-sandboxed DexBuilder multiplex-worker (id [0-9]\+, key hash -\?[0-9]\+)"
 }
 
 run_suite "Android desugarer integration tests"

@@ -13,8 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.disk;
 
+import static com.google.devtools.build.lib.remote.util.DigestUtil.isOldStyleDigestFunction;
+
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.Directory;
+import build.bazel.remote.execution.v2.Tree;
+import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.Futures;
@@ -28,6 +33,8 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.ExtensionRegistryLite;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -44,10 +51,24 @@ public class DiskCacheClient implements RemoteCacheClient {
   private final boolean verifyDownloads;
   private final DigestUtil digestUtil;
 
-  public DiskCacheClient(Path root, boolean verifyDownloads, DigestUtil digestUtil) {
-    this.root = root;
+  /**
+   * @param verifyDownloads whether verify the digest of downloaded content are the same as the
+   *     digest used to index that file.
+   */
+  public DiskCacheClient(Path root, boolean verifyDownloads, DigestUtil digestUtil)
+      throws IOException {
     this.verifyDownloads = verifyDownloads;
     this.digestUtil = digestUtil;
+
+    if (isOldStyleDigestFunction(digestUtil.getDigestFunction())) {
+      this.root = root;
+    } else {
+      this.root =
+          root.getChild(
+              Ascii.toLowerCase(digestUtil.getDigestFunction().getValueDescriptor().getName()));
+    }
+
+    this.root.createDirectoryAndParents();
   }
 
   /** Returns {@code true} if the provided {@code key} is stored in the CAS. */
@@ -55,9 +76,9 @@ public class DiskCacheClient implements RemoteCacheClient {
     return toPath(digest.getHash(), /* actionResult= */ false).exists();
   }
 
-  /** Returns {@code true} if the provided {@code key} is stored in the Action Cache. */
-  public boolean containsActionResult(ActionKey actionKey) {
-    return toPath(actionKey.getDigest().getHash(), /* actionResult= */ true).exists();
+  /** Returns {@link Path} into the CAS for the given {@link Digest}. */
+  public Path getPath(Digest digest) {
+    return toPath(digest.getHash(), /* actionResult= */ false);
   }
 
   public void captureFile(Path src, Digest digest, boolean isActionCache) throws IOException {
@@ -101,13 +122,60 @@ public class DiskCacheClient implements RemoteCacheClient {
         MoreExecutors.directExecutor());
   }
 
+  private void checkDigestExists(Digest digest) throws CacheNotFoundException {
+    if (digest.getSizeBytes() == 0) {
+      return;
+    }
+
+    if (!toPath(digest.getHash(), /* actionResult= */ false).exists()) {
+      throw new CacheNotFoundException(digest);
+    }
+  }
+
+  private void checkOutputDirectory(Directory dir) throws CacheNotFoundException {
+    for (var file : dir.getFilesList()) {
+      checkDigestExists(file.getDigest());
+    }
+  }
+
+  private void checkActionResult(ActionResult actionResult) throws IOException {
+    for (var outputFile : actionResult.getOutputFilesList()) {
+      checkDigestExists(outputFile.getDigest());
+    }
+
+    for (var outputDirectory : actionResult.getOutputDirectoriesList()) {
+      var treeDigest = outputDirectory.getTreeDigest();
+      checkDigestExists(treeDigest);
+
+      var treePath = toPath(treeDigest.getHash(), /* actionResult= */ false);
+      var tree =
+          Tree.parseFrom(treePath.getInputStream(), ExtensionRegistryLite.getEmptyRegistry());
+      checkOutputDirectory(tree.getRoot());
+      for (var dir : tree.getChildrenList()) {
+        checkOutputDirectory(dir);
+      }
+    }
+  }
+
   @Override
   public ListenableFuture<CachedActionResult> downloadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
-    return Futures.transform(
+    return Futures.transformAsync(
         Utils.downloadAsActionResult(
             actionKey, (digest, out) -> download(digest, out, /* isActionCache= */ true)),
-        CachedActionResult::disk,
+        actionResult -> {
+          if (actionResult == null) {
+            return Futures.immediateFuture(null);
+          }
+
+          try {
+            checkActionResult(actionResult);
+          } catch (CacheNotFoundException e) {
+            return Futures.immediateFuture(null);
+          }
+
+          return Futures.immediateFuture(CachedActionResult.disk(actionResult));
+        },
         MoreExecutors.directExecutor());
   }
 
@@ -174,11 +242,13 @@ public class DiskCacheClient implements RemoteCacheClient {
 
     // Write a temporary file first, and then rename, to avoid data corruption in case of a crash.
     Path temp = toPathNoSplit(UUID.randomUUID().toString());
-    try (OutputStream out = temp.getOutputStream()) {
+
+    try (FileOutputStream out = new FileOutputStream(temp.getPathFile())) {
       ByteStreams.copy(in, out);
+      // Fsync temp before we rename it to avoid data loss in the case of machine
+      // crashes (the OS may reorder the writes and the rename).
+      out.getFD().sync();
     }
-    // TODO(ulfjack): Fsync temp here before we rename it to avoid data loss in the case of machine
-    // crashes (the OS may reorder the writes and the rename).
     temp.renameTo(target);
   }
 }

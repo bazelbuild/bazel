@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -38,11 +37,6 @@ public interface AttributeMap {
    * Returns the label of the rule.
    */
   Label getLabel();
-
-  /**
-   * Returns the name of the rule class.
-   */
-  String getRuleClassName();
 
   /**
    * Returns true if an attribute with the given name exists.
@@ -125,28 +119,16 @@ public interface AttributeMap {
    * (either by being a label or being a collection that includes labels).
    *
    * <p>If it is not necessary to visit labels of every attribute, prefer {@link
-   * #visitLabels(Attribute, Consumer)} or {@link #visitLabels(DependencyFilter, BiConsumer)} for
+   * #visitLabels(String, Consumer)} or {@link #visitLabels(DependencyFilter, BiConsumer)} for
    * better performance.
    */
   void visitAllLabels(BiConsumer<Attribute, Label> consumer);
 
   /** Same as {@link #visitAllLabels} but for a single attribute. */
-  void visitLabels(Attribute attribute, Consumer<Label> consumer);
+  void visitLabels(String attributeName, Consumer<Label> consumer);
 
   /** Same as {@link #visitAllLabels} but for attributes matching a {@link DependencyFilter}. */
   void visitLabels(DependencyFilter filter, BiConsumer<Attribute, Label> consumer);
 
-  // TODO(bazel-team): These methods are here to support computed defaults that inherit
-  // package-level default values. Instead, we should auto-inherit and remove the computed
-  // defaults. If we really need to give access to package-level defaults, we should come up with
-  // a more generic interface.
-  String getPackageDefaultHdrsCheck();
-
-  boolean isPackageDefaultHdrsCheckSet();
-
-  Boolean getPackageDefaultTestOnly();
-
-  String getPackageDefaultDeprecation();
-
-  ImmutableList<String> getPackageDefaultCopts();
+  PackageArgs getPackageArgs();
 }

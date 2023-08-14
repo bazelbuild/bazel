@@ -17,6 +17,7 @@ import static com.google.common.base.StandardSystemProperty.JAVA_SPECIFICATION_V
 import static com.google.devtools.build.lib.rules.java.JavaStarlarkCommon.checkPrivateAccess;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -26,11 +27,9 @@ import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.collect.nestedset.Depset.ElementType;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
@@ -42,6 +41,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.java.JavaToolchainStarlark
 import java.util.Iterator;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 
 /** Information about the JDK used by the <code>java_*</code> rules. */
@@ -55,19 +55,23 @@ public final class JavaToolchainProvider extends NativeInfo
 
   /** Returns the Java Toolchain associated with the rule being analyzed or {@code null}. */
   public static JavaToolchainProvider from(RuleContext ruleContext) {
-    TransitiveInfoCollection prerequisite =
-        ruleContext.getPrerequisite(JavaRuleClasses.JAVA_TOOLCHAIN_ATTRIBUTE_NAME);
-    return from(prerequisite, ruleContext);
+    ToolchainInfo toolchainInfo =
+        ruleContext.getToolchainInfo(
+            ruleContext
+                .getPrerequisite(JavaRuleClasses.JAVA_TOOLCHAIN_TYPE_ATTRIBUTE_NAME)
+                .getLabel());
+    return from(toolchainInfo, ruleContext);
   }
 
+  @VisibleForTesting
   public static JavaToolchainProvider from(ProviderCollection collection) {
-    return from(collection, null);
+    ToolchainInfo toolchainInfo = collection.get(ToolchainInfo.PROVIDER);
+    return from(toolchainInfo, null);
   }
 
   @Nullable
   private static JavaToolchainProvider from(
-      ProviderCollection collection, @Nullable RuleErrorConsumer errorConsumer) {
-    ToolchainInfo toolchainInfo = collection.get(ToolchainInfo.PROVIDER);
+      ToolchainInfo toolchainInfo, @Nullable RuleErrorConsumer errorConsumer) {
     if (toolchainInfo != null) {
       try {
         JavaToolchainProvider provider = (JavaToolchainProvider) toolchainInfo.getValue("java");
@@ -106,12 +110,12 @@ public final class JavaToolchainProvider extends NativeInfo
       ImmutableSet<String> headerCompilerBuiltinProcessors,
       ImmutableSet<String> reducedClasspathIncompatibleProcessors,
       boolean forciblyDisableHeaderCompilation,
-      Artifact singleJar,
+      FilesToRunProvider singleJar,
       @Nullable FilesToRunProvider oneVersion,
       @Nullable Artifact oneVersionAllowlist,
+      @Nullable Artifact oneVersionAllowlistForTests,
       Artifact genClass,
       @Nullable Artifact depsChecker,
-      @Nullable Artifact resourceJarBuilder,
       @Nullable Artifact timezoneData,
       FilesToRunProvider ijar,
       ImmutableListMultimap<String, String> compatibleJavacOptions,
@@ -137,9 +141,9 @@ public final class JavaToolchainProvider extends NativeInfo
         singleJar,
         oneVersion,
         oneVersionAllowlist,
+        oneVersionAllowlistForTests,
         genClass,
         depsChecker,
-        resourceJarBuilder,
         timezoneData,
         ijar,
         compatibleJavacOptions,
@@ -168,12 +172,12 @@ public final class JavaToolchainProvider extends NativeInfo
   private final ImmutableSet<String> headerCompilerBuiltinProcessors;
   private final ImmutableSet<String> reducedClasspathIncompatibleProcessors;
   private final boolean forciblyDisableHeaderCompilation;
-  private final Artifact singleJar;
+  private final FilesToRunProvider singleJar;
   @Nullable private final FilesToRunProvider oneVersion;
   @Nullable private final Artifact oneVersionAllowlist;
+  @Nullable private final Artifact oneVersionAllowlistForTests;
   private final Artifact genClass;
   @Nullable private final Artifact depsChecker;
-  @Nullable private final Artifact resourceJarBuilder;
   @Nullable private final Artifact timezoneData;
   private final FilesToRunProvider ijar;
   private final ImmutableListMultimap<String, String> compatibleJavacOptions;
@@ -202,12 +206,12 @@ public final class JavaToolchainProvider extends NativeInfo
       ImmutableSet<String> headerCompilerBuiltinProcessors,
       ImmutableSet<String> reducedClasspathIncompatibleProcessors,
       boolean forciblyDisableHeaderCompilation,
-      Artifact singleJar,
+      FilesToRunProvider singleJar,
       @Nullable FilesToRunProvider oneVersion,
       @Nullable Artifact oneVersionAllowlist,
+      @Nullable Artifact oneVersionAllowlistForTests,
       Artifact genClass,
       @Nullable Artifact depsChecker,
-      @Nullable Artifact resourceJarBuilder,
       @Nullable Artifact timezoneData,
       FilesToRunProvider ijar,
       ImmutableListMultimap<String, String> compatibleJavacOptions,
@@ -238,9 +242,9 @@ public final class JavaToolchainProvider extends NativeInfo
     this.singleJar = singleJar;
     this.oneVersion = oneVersion;
     this.oneVersionAllowlist = oneVersionAllowlist;
+    this.oneVersionAllowlistForTests = oneVersionAllowlistForTests;
     this.genClass = genClass;
     this.depsChecker = depsChecker;
-    this.resourceJarBuilder = resourceJarBuilder;
     this.timezoneData = timezoneData;
     this.ijar = ijar;
     this.compatibleJavacOptions = compatibleJavacOptions;
@@ -257,11 +261,12 @@ public final class JavaToolchainProvider extends NativeInfo
   }
 
   /** Returns the label for this {@code java_toolchain}. */
+  @Override
   public Label getToolchainLabel() {
     return label;
   }
 
-  /** @return the target Java bootclasspath */
+  /** Returns the target Java bootclasspath. */
   public BootClassPathInfo getBootclasspath() {
     return bootclasspath;
   }
@@ -319,7 +324,6 @@ public final class JavaToolchainProvider extends NativeInfo
     return reducedClasspathIncompatibleProcessors;
   }
 
-
   /**
    * Returns {@code true} if header compilation should be forcibly disabled, overriding
    * --java_header_compilation.
@@ -328,14 +332,33 @@ public final class JavaToolchainProvider extends NativeInfo
     return forciblyDisableHeaderCompilation;
   }
 
-  /** Returns the {@link Artifact} of the SingleJar deploy jar */
   @Override
-  public Artifact getSingleJar() {
+  public boolean getForciblyDisableHeaderCompilationStarlark(StarlarkThread thread)
+      throws EvalException {
+    checkPrivateAccess(thread);
+    return getForciblyDisableHeaderCompilation();
+  }
+
+  @Override
+  public boolean hasHeaderCompiler(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return getHeaderCompiler() != null;
+  }
+
+  @Override
+  public boolean hasHeaderCompilerDirect(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return getHeaderCompilerDirect() != null;
+  }
+
+  /** Returns the {@link FilesToRunProvider} of the SingleJar tool. */
+  @Override
+  public FilesToRunProvider getSingleJar() {
     return singleJar;
   }
 
   /**
-   * Return the {@link Artifact} of the binary that enforces one-version compliance of java
+   * Return the {@link FilesToRunProvider} of the tool that enforces one-version compliance of Java
    * binaries.
    */
   @Override
@@ -351,10 +374,20 @@ public final class JavaToolchainProvider extends NativeInfo
     return oneVersionAllowlist;
   }
 
-  /** Return the {@link Artifact} of the allowlist used by the one-version compliance checker. */
+  /**
+   * Return the {@link Artifact} of the one-version allowlist for tests used by the one-version
+   * compliance checker.
+   */
   @Nullable
-  public Artifact getOneVersionWhitelist() {
-    return oneVersionAllowlist;
+  public Artifact oneVersionAllowlistForTests() {
+    return oneVersionAllowlistForTests;
+  }
+
+  @Override
+  @Nullable
+  public Artifact getOneVersionAllowlistForTests(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return oneVersionAllowlistForTests();
   }
 
   /** Returns the {@link Artifact} of the GenClass deploy jar */
@@ -368,9 +401,10 @@ public final class JavaToolchainProvider extends NativeInfo
     return depsChecker;
   }
 
-  @Nullable
-  public Artifact getResourceJarBuilder() {
-    return resourceJarBuilder;
+  @Override
+  public Artifact getDepsCheckerForStarlark(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return depsChecker();
   }
 
   /**
@@ -383,6 +417,7 @@ public final class JavaToolchainProvider extends NativeInfo
   }
 
   /** Returns the ijar executable */
+  @Override
   public FilesToRunProvider getIjar() {
     return ijar;
   }
@@ -391,12 +426,12 @@ public final class JavaToolchainProvider extends NativeInfo
     return compatibleJavacOptions;
   }
 
-  /** @return the map of target environment-specific javacopts. */
+  /** Returns the map of target environment-specific javacopts. */
   public ImmutableList<String> getCompatibleJavacOptions(String key) {
     return getCompatibleJavacOptions().get(key);
   }
 
-  /** @return the list of default options for the java compiler */
+  /** Returns the list of default options for the java compiler. */
   public ImmutableList<String> getJavacOptions(RuleContext ruleContext) {
     ImmutableList.Builder<String> result = ImmutableList.<String>builder().addAll(javacOptions);
     if (ruleContext != null) {
@@ -415,7 +450,7 @@ public final class JavaToolchainProvider extends NativeInfo
     return jvmOptions;
   }
 
-  /** @return whether JavaBuilders supports running as a persistent worker or not */
+  /** Returns whether JavaBuilders supports running as a persistent worker or not. */
   public boolean getJavacSupportsWorkers() {
     return javacSupportsWorkers;
   }
@@ -430,17 +465,26 @@ public final class JavaToolchainProvider extends NativeInfo
     return javacSupportsWorkerCancellation;
   }
 
-  /** Returns the global {@code java_plugin_configuration} data. */
+  /** Returns the global {@code java_package_configuration} data. */
   public ImmutableList<JavaPackageConfigurationProvider> packageConfiguration() {
     return packageConfiguration;
   }
 
+  @Override
   public FilesToRunProvider getJacocoRunner() {
     return jacocoRunner;
   }
 
+  @Override
   public FilesToRunProvider getProguardAllowlister() {
     return proguardAllowlister;
+  }
+
+  @Override
+  public StarlarkList<JavaPackageConfigurationProvider> getPackageConfigurationStarlark(
+      StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return StarlarkList.immutableCopyOf(packageConfiguration);
   }
 
   public JavaSemantics getJavaSemantics() {
@@ -487,17 +531,17 @@ public final class JavaToolchainProvider extends NativeInfo
 
   @Override
   public Depset getStarlarkBootclasspath() {
-    return Depset.of(Artifact.TYPE, getBootclasspath().bootclasspath());
+    return Depset.of(Artifact.class, getBootclasspath().bootclasspath());
   }
 
   @Override
   public Depset getStarlarkJvmOptions() {
-    return Depset.of(ElementType.STRING, getJvmOptions());
+    return Depset.of(String.class, getJvmOptions());
   }
 
   @Override
   public Depset getStarlarkTools() {
-    return Depset.of(Artifact.TYPE, getTools());
+    return Depset.of(Artifact.class, getTools());
   }
 
   @Override

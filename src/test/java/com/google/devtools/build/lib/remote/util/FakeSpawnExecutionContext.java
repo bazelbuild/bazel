@@ -20,14 +20,14 @@ import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.cache.MetadataInjector;
-import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
+import com.google.devtools.build.lib.remote.RemoteActionFileSystem;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.SortedMap;
+import javax.annotation.Nullable;
 
 /** Execution context for tests */
 public class FakeSpawnExecutionContext implements SpawnExecutionContext {
@@ -46,51 +47,39 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
   }
 
   private final Spawn spawn;
-  private final MetadataProvider metadataProvider;
-  private final MetadataInjector metadataInjector;
+  private final InputMetadataProvider inputMetadataProvider;
   private final Path execRoot;
   private final FileOutErr outErr;
   private final ClassToInstanceMap<ActionContext> actionContextRegistry;
+  @Nullable private final RemoteActionFileSystem actionFileSystem;
 
   public FakeSpawnExecutionContext(
-      Spawn spawn, MetadataProvider metadataProvider, Path execRoot, FileOutErr outErr) {
-    this(
-        spawn,
-        metadataProvider,
-        execRoot,
-        outErr,
-        ImmutableClassToInstanceMap.of(),
-        ActionsTestUtil.THROWING_METADATA_HANDLER);
+      Spawn spawn, InputMetadataProvider inputMetadataProvider, Path execRoot, FileOutErr outErr) {
+    this(spawn, inputMetadataProvider, execRoot, outErr, ImmutableClassToInstanceMap.of(), null);
   }
 
   public FakeSpawnExecutionContext(
       Spawn spawn,
-      MetadataProvider metadataProvider,
+      InputMetadataProvider inputMetadataProvider,
       Path execRoot,
       FileOutErr outErr,
       ClassToInstanceMap<ActionContext> actionContextRegistry) {
-    this(
-        spawn,
-        metadataProvider,
-        execRoot,
-        outErr,
-        actionContextRegistry,
-        ActionsTestUtil.THROWING_METADATA_HANDLER);
+    this(spawn, inputMetadataProvider, execRoot, outErr, actionContextRegistry, null);
   }
 
   public FakeSpawnExecutionContext(
       Spawn spawn,
-      MetadataProvider metadataProvider,
+      InputMetadataProvider inputMetadataProvider,
       Path execRoot,
       FileOutErr outErr,
       ClassToInstanceMap<ActionContext> actionContextRegistry,
-      MetadataInjector metadataInjector) {
+      @Nullable RemoteActionFileSystem actionFileSystem) {
     this.spawn = spawn;
-    this.metadataProvider = metadataProvider;
+    this.inputMetadataProvider = inputMetadataProvider;
     this.execRoot = execRoot;
     this.outErr = outErr;
     this.actionContextRegistry = actionContextRegistry;
-    this.metadataInjector = metadataInjector;
+    this.actionFileSystem = actionFileSystem;
   }
 
   public boolean isLockOutputFilesCalled() {
@@ -118,8 +107,8 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
   }
 
   @Override
-  public MetadataProvider getMetadataProvider() {
-    return metadataProvider;
+  public InputMetadataProvider getInputMetadataProvider() {
+    return inputMetadataProvider;
   }
 
   @Override
@@ -129,7 +118,12 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
 
   @Override
   public SpawnInputExpander getSpawnInputExpander() {
-    return new SpawnInputExpander(execRoot, /*strict*/ false);
+    return new SpawnInputExpander(execRoot, /* strict= */ false);
+  }
+
+  @Override
+  public ArtifactPathResolver getPathResolver() {
+    return ArtifactPathResolver.forExecRoot(execRoot);
   }
 
   @Override
@@ -143,20 +137,16 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
   }
 
   @Override
-  public SortedMap<PathFragment, ActionInput> getInputMapping(PathFragment baseDirectory)
+  public SortedMap<PathFragment, ActionInput> getInputMapping(
+      PathFragment baseDirectory, boolean willAccessRepeatedly)
       throws IOException, ForbiddenActionInputException {
     return getSpawnInputExpander()
-        .getInputMapping(spawn, this::artifactExpander, baseDirectory, metadataProvider);
+        .getInputMapping(spawn, this::artifactExpander, baseDirectory, inputMetadataProvider);
   }
 
   @Override
   public void report(ProgressStatus progress) {
     // Intentionally left empty.
-  }
-
-  @Override
-  public MetadataInjector getMetadataInjector() {
-    return metadataInjector;
   }
 
   @Override
@@ -171,4 +161,10 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
 
   @Override
   public void checkForLostInputs() {}
+
+  @Nullable
+  @Override
+  public RemoteActionFileSystem getActionFileSystem() {
+    return actionFileSystem;
+  }
 }

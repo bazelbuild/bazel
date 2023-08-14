@@ -306,7 +306,7 @@ public class CcToolchainTest extends BuildViewTestCase {
   public void testInvalidIncludeDirectory() throws Exception {
     assertInvalidIncludeDirectoryMessage("%package(//a", "has an unrecognized %prefix%");
     assertInvalidIncludeDirectoryMessage(
-        "%package(//a:@@a)%", "The package '//a:@@a' is not valid");
+        "%package(//a:@@a)%", "invalid package identifier '//a:@@a': contains ':'");
     assertInvalidIncludeDirectoryMessage(
         "%package(//a)%foo", "The path in the package.*is not valid");
   }
@@ -463,7 +463,7 @@ public class CcToolchainTest extends BuildViewTestCase {
                 useConfiguration(
                     "-c",
                     "opt",
-                    "--fdo_optimize=a/profile.profdata",
+                    "--fdo_optimize=/a/profile.profdata",
                     "--cs_fdo_absolute_path=a/csprofile.profdata"));
     assertThat(e).hasMessageThat().contains("in --cs_fdo_absolute_path is not an absolute path");
   }
@@ -474,10 +474,10 @@ public class CcToolchainTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         "cc_toolchain_alias(name = 'b')",
-        "fdo_profile(name='out.xfdo', profile='profile.xfdo')");
+        "genrule(name='profile.xfdo', outs = ['c.txt'], cmd = '')");
     useConfiguration("-c", "opt", "--xbinary_fdo=//a:profile.xfdo");
     assertThat(getConfiguredTarget("//a:b")).isNull();
-    assertContainsEvent("--fdo_profile/--xbinary_fdo input needs to be an fdo_profile rule");
+    assertContainsEvent("does not have mandatory providers: 'FdoProfileInfo'");
   }
 
   @Test
@@ -666,7 +666,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
     scratch.file("libc1/BUILD", "filegroup(name = 'everything', srcs = ['header1.h'])");
     scratch.file("libc1/header1.h", "#define FOO 1");
-    useConfiguration();
+    useConfiguration("--noincompatible_enable_cc_toolchain_resolution");
     ConfiguredTarget target = getConfiguredTarget("//a:b");
     CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
 

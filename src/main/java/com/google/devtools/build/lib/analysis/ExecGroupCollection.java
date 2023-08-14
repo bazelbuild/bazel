@@ -22,8 +22,11 @@ import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableTable;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Table;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
@@ -42,22 +45,33 @@ import javax.annotation.Nullable;
  */
 @AutoValue
 public abstract class ExecGroupCollection {
-
-  public static Builder emptyBuilder() {
-    return new AutoValue_ExecGroupCollection_Builder(ImmutableMap.of());
-  }
-
-  public static Builder builder(
-      ExecGroup defaultExecGroup, ImmutableMap<String, ExecGroup> execGroups) {
-    // Post-process the groups to handle inheritance.
-    Map<String, ExecGroup> processedGroups = new LinkedHashMap<>();
+  /**
+   * Prepares the input exec groups to serve as {@link Builder#execGroups}.
+   *
+   * <p>Applies any inheritance specified via {@link ExecGroup#copyFrom} and adds auto exec groups
+   * when {@code useAutoExecGroups} is true.
+   */
+  public static ImmutableMap<String, ExecGroup> process(
+      ImmutableMap<String, ExecGroup> execGroups,
+      ImmutableSet<Label> defaultExecWith,
+      ImmutableSet<ToolchainTypeRequirement> defaultToolchainTypes,
+      boolean useAutoExecGroups) {
+    var processedGroups =
+        Maps.<String, ExecGroup>newHashMapWithExpectedSize(
+            useAutoExecGroups
+                ? (execGroups.size() + defaultToolchainTypes.size())
+                : execGroups.size());
     for (Map.Entry<String, ExecGroup> entry : execGroups.entrySet()) {
       String name = entry.getKey();
       ExecGroup execGroup = entry.getValue();
 
       if (execGroup.copyFrom() != null) {
         if (execGroup.copyFrom().equals(DEFAULT_EXEC_GROUP_NAME)) {
-          execGroup = execGroup.inheritFrom(defaultExecGroup);
+          execGroup =
+              ExecGroup.builder()
+                  .execCompatibleWith(defaultExecWith)
+                  .toolchainTypes(defaultToolchainTypes)
+                  .build();
         } else {
           execGroup = execGroup.inheritFrom(execGroups.get(execGroup.copyFrom()));
         }
@@ -66,23 +80,26 @@ public abstract class ExecGroupCollection {
       processedGroups.put(name, execGroup);
     }
 
-    return new AutoValue_ExecGroupCollection_Builder(ImmutableMap.copyOf(processedGroups));
+    if (useAutoExecGroups) {
+      // Creates one exec group for each toolchain (automatic exec groups).
+      for (ToolchainTypeRequirement toolchainType : defaultToolchainTypes) {
+        processedGroups.put(
+            toolchainType.toolchainType().toString(),
+            ExecGroup.builder()
+                .addToolchainType(toolchainType)
+                .copyFrom(null)
+                .execCompatibleWith(defaultExecWith)
+                .build());
+      }
+    }
+    return ImmutableMap.copyOf(processedGroups);
   }
 
   /** Builder class for correctly constructing ExecGroupCollection instances. */
   // Note that this is _not_ an actual @AutoValue.Builder: it provides more logic and has different
   // fields.
-  @AutoValue
   public abstract static class Builder {
     public abstract ImmutableMap<String, ExecGroup> execGroups();
-
-    public ImmutableSet<String> getExecGroupNames() {
-      return execGroups().keySet();
-    }
-
-    public ExecGroup getExecGroup(String name) {
-      return execGroups().get(name);
-    }
 
     public ExecGroupCollection build(
         @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,

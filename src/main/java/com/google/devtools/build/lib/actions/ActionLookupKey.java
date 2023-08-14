@@ -31,7 +31,6 @@ import javax.annotation.Nullable;
  * while remaining agnostic to what action lookup values actually exist.
  */
 public interface ActionLookupKey extends ArtifactOwner, CPUHeavySkyKey {
-
   /**
    * Returns the {@link BuildConfigurationKey} for the configuration associated with this key, or
    * {@code null} if this key has no associated configuration.
@@ -40,7 +39,7 @@ public interface ActionLookupKey extends ArtifactOwner, CPUHeavySkyKey {
   BuildConfigurationKey getConfigurationKey();
 
   /**
-   * Returns {@code true} if this key <em>may</em> own shareable actions, as determined by {@link
+   * Returns {@code true} if the actions <em>may</em> own shareable actions, as determined by {@link
    * ActionLookupData#valueIsShareable}.
    *
    * <p>Returns {@code false} for some non-standard keys such as the build info key and coverage
@@ -52,5 +51,10 @@ public interface ActionLookupKey extends ArtifactOwner, CPUHeavySkyKey {
    */
   default boolean mayOwnShareableActions() {
     return getLabel() != null;
+  }
+
+  @Override
+  default boolean hasLowFanout() {
+    return false; // May have >10k deps.
   }
 }

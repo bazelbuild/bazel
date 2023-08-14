@@ -78,12 +78,13 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
                 .get("reduced_classpath_incompatible_processors", Type.STRING_LIST));
     boolean forciblyDisableHeaderCompilation =
         ruleContext.attributes().get("forcibly_disable_header_compilation", Type.BOOLEAN);
-    Artifact singleJar = ruleContext.getPrerequisiteArtifact("singlejar");
+    FilesToRunProvider singleJar = ruleContext.getExecutablePrerequisite("singlejar");
     FilesToRunProvider oneVersion = ruleContext.getExecutablePrerequisite("oneversion");
     Artifact oneVersionAllowlist = ruleContext.getPrerequisiteArtifact("oneversion_whitelist");
+    Artifact oneVersionAllowlistForTests =
+        ruleContext.getPrerequisiteArtifact("oneversion_allowlist_for_tests");
     Artifact genClass = ruleContext.getPrerequisiteArtifact("genclass");
     Artifact depsChecker = ruleContext.getPrerequisiteArtifact("deps_checker");
-    Artifact resourceJarBuilder = ruleContext.getPrerequisiteArtifact("resourcejar");
     Artifact timezoneData = ruleContext.getPrerequisiteArtifact("timezone_data");
     FilesToRunProvider ijar = ruleContext.getExecutablePrerequisite("ijar");
     FilesToRunProvider proguardAllowlister =
@@ -184,9 +185,9 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             singleJar,
             oneVersion,
             oneVersionAllowlist,
+            oneVersionAllowlistForTests,
             genClass,
             depsChecker,
-            resourceJarBuilder,
             timezoneData,
             ijar,
             compatibleJavacOptions,
@@ -209,7 +210,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
     return builder.build();
   }
 
-  private ImmutableList<String> getJavacOpts(RuleContext ruleContext) {
+  private ImmutableList<String> getJavacOpts(RuleContext ruleContext) throws InterruptedException {
     ImmutableList.Builder<String> javacopts = ImmutableList.builder();
     String source = ruleContext.attributes().get("source_version", Type.STRING);
     if (!isNullOrEmpty(source)) {

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.android;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkValue;
@@ -67,7 +68,13 @@ public interface AndroidConfigurationApi extends StarlarkValue {
   @StarlarkMethod(name = "apk_signing_method_v2", structField = true, doc = "", documented = false)
   boolean apkSigningMethodV2();
 
-  @StarlarkMethod(name = "apk_signing_method_v4", structField = true, doc = "", documented = false)
+  @StarlarkMethod(
+      name = "apk_signing_method_v4",
+      structField = true,
+      doc = "",
+      documented = false,
+      allowReturnNones = true)
+  @Nullable
   Boolean apkSigningMethodV4();
 
   @StarlarkMethod(name = "assume_min_sdk_version", structField = true, doc = "", documented = false)
@@ -88,18 +95,18 @@ public interface AndroidConfigurationApi extends StarlarkValue {
   ImmutableList<String> getDexoptsSupportedInDexMerger();
 
   @StarlarkMethod(
+      name = "get_dexopts_supported_in_dex_sharder",
+      structField = true,
+      doc = "",
+      documented = false)
+  ImmutableList<String> getDexoptsSupportedInDexSharder();
+
+  @StarlarkMethod(
       name = "get_target_dexopts_that_prevent_incremental_dexing",
       structField = true,
       doc = "",
       documented = false)
   ImmutableList<String> getTargetDexoptsThatPreventIncrementalDexing();
-
-  @StarlarkMethod(
-      name = "use_workers_with_dexbuilder",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean useWorkersWithDexbuilder();
 
   @StarlarkMethod(name = "desugar_java8", structField = true, doc = "", documented = false)
   boolean desugarJava8();
@@ -232,11 +239,25 @@ public interface AndroidConfigurationApi extends StarlarkValue {
   boolean persistentBusyboxTools();
 
   @StarlarkMethod(
-      name = "experimental_persistent_multiplex_busybox_tools",
+      name = "persistent_multiplex_busybox_tools",
       structField = true,
       doc = "",
       documented = false)
   boolean persistentMultiplexBusyboxTools();
+
+  @StarlarkMethod(
+      name = "persistent_android_dex_desugar",
+      structField = true,
+      doc = "",
+      documented = false)
+  boolean persistentDexDesugar();
+
+  @StarlarkMethod(
+      name = "persistent_multiplex_android_dex_desugar",
+      structField = true,
+      doc = "",
+      documented = false)
+  boolean persistentMultiplexDexDesugar();
 
   @StarlarkMethod(
       name = "get_output_directory_name",
@@ -254,4 +275,11 @@ public interface AndroidConfigurationApi extends StarlarkValue {
 
   @StarlarkMethod(name = "hwasan", structField = true, doc = "", documented = false)
   boolean isHwasan();
+
+  @StarlarkMethod(
+      name = "filter_library_jar_with_program_jar",
+      structField = true,
+      doc = "",
+      documented = false)
+  boolean filterLibraryJarWithProgramJar();
 }

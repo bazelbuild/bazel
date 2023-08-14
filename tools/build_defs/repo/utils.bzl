@@ -11,6 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+# WARNING:
+# https://github.com/bazelbuild/bazel/issues/17713
+# .bzl files in this package (tools/build_defs/repo) are evaluated
+# in a Starlark environment without "@_builtins" injection, and must not refer
+# to symbols associated with build/workspace .bzl files
+
 """Utils for manipulating external repositories, once fetched.
 
 ### Setup
@@ -363,9 +370,13 @@ def use_netrc(netrc, urls, patterns):
             # authentication. So ignore them.
             continue
         host = schemerest[1].split("/")[0].split(":")[0]
-        if not host in netrc:
+        if host in netrc:
+            authforhost = netrc[host]
+        elif "" in netrc:
+            authforhost = netrc[""]
+        else:
             continue
-        authforhost = netrc[host]
+
         if host in patterns:
             auth_dict = {
                 "type": "pattern",

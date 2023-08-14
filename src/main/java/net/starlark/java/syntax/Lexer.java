@@ -50,6 +50,8 @@ final class Lexer {
 
   private final List<SyntaxError> errors;
 
+  private final FileOptions options;
+
   // Input buffer and position
   private final char[] buffer;
   private int pos;
@@ -91,11 +93,12 @@ final class Lexer {
 
   // Constructs a lexer which tokenizes the parser input.
   // Errors are appended to errors.
-  Lexer(ParserInput input, List<SyntaxError> errors) {
+  Lexer(ParserInput input, List<SyntaxError> errors, FileOptions options) {
     this.locs = FileLocations.create(input.getContent(), input.getFile());
     this.buffer = input.getContent();
     this.pos = 0;
     this.errors = errors;
+    this.options = options;
     this.checkIndentation = true;
     this.dents = 0;
 
@@ -360,6 +363,8 @@ final class Lexer {
                 }
                 if (octal > 0xff) {
                   error("octal escape sequence out of range (maximum is \\377)", pos - 1);
+                } else if (options.stringLiteralsAreAsciiOnly() && octal >= 0x80) {
+                  error("octal escape sequence denotes non-ASCII character", pos - 1);
                 }
                 literal.append((char) (octal & 0xff));
                 break;
@@ -389,6 +394,9 @@ final class Lexer {
           break;
         default:
           literal.append(c);
+          if (options.stringLiteralsAreAsciiOnly() && c >= 0x80) {
+            error("string literal contains non-ASCII character", pos - 1);
+          }
           break;
       }
     }
@@ -450,6 +458,15 @@ final class Lexer {
             // close-quote, all done.
             setToken(TokenKind.STRING, literalStartPos, pos);
             setValue(bufferSlice(contentStartPos, pos - 1));
+            // If we're requiring ASCII-only, do another scan for validation.
+            if (options.stringLiteralsAreAsciiOnly()) {
+              for (int i = contentStartPos; i < pos - 1; i++) {
+                if (buffer[i] >= 0x80) {
+                  // Can report multiple errors per string literal.
+                  error("string literal contains non-ASCII character", i);
+                }
+              }
+            }
             return;
           }
           break;

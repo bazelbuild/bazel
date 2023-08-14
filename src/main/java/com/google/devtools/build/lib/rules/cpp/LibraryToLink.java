@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LibraryToLinkApi;
@@ -40,8 +39,6 @@ import net.starlark.java.eval.StarlarkThread;
 // instances have a surprising memory cost.
 @Immutable
 public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBackendArtifacts> {
-
-  public static final Depset.ElementType TYPE = Depset.ElementType.of(LibraryToLink.class);
 
   public static ImmutableList<Artifact> getDynamicLibrariesForRuntime(
       boolean linkingStatically, Iterable<LibraryToLink> libraries) {

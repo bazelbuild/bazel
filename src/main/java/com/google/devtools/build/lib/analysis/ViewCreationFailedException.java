@@ -32,16 +32,24 @@ public class ViewCreationFailedException extends Exception {
   }
 
   public ViewCreationFailedException(String message, FailureDetail failureDetail, Throwable cause) {
-    super(message + ": " + cause.getMessage(), cause);
+    super(combineMessages(message, cause), cause);
     this.failureDetail = checkNotNull(failureDetail);
   }
 
   public ViewCreationFailedException(FailureDetail failureDetail, Throwable cause) {
-    super(cause);
+    super(cause.getMessage(), cause);
     this.failureDetail = checkNotNull(failureDetail);
   }
 
   public FailureDetail getFailureDetail() {
     return failureDetail;
+  }
+
+  private static String combineMessages(String message, Throwable cause) {
+    if (cause.getMessage().isEmpty()) {
+      return message;
+    } else {
+      return message + ": " + cause.getMessage();
+    }
   }
 }

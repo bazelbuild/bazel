@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
@@ -368,12 +369,12 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
   private ImmutableList<Action> evaluate(ActionTemplate<?> actionTemplate) throws Exception {
     ActionLookupValue ctValue = createActionLookupValue(actionTemplate);
 
-    differencer.inject(CTKEY, ctValue);
+    differencer.inject(CTKEY, Delta.justNew(ctValue));
     ActionTemplateExpansionKey templateKey = ActionTemplateExpansionValue.key(CTKEY, 0);
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
-            .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
+            .setParallelism(SkyframeExecutor.DEFAULT_THREAD_COUNT)
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
     EvaluationResult<ActionTemplateExpansionValue> result =
@@ -390,11 +391,12 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
   }
 
   private static ActionLookupValue createActionLookupValue(ActionTemplate<?> actionTemplate)
-      throws ActionConflictException, InterruptedException,
+      throws ActionConflictException,
+          InterruptedException,
           Actions.ArtifactGeneratedByOtherRuleException {
-    return new BasicActionLookupValue(
-        Actions.assignOwnersAndFindAndThrowActionConflict(
-            new ActionKeyContext(), ImmutableList.of(actionTemplate), CTKEY));
+    ImmutableList<ActionAnalysisMetadata> actions = ImmutableList.of(actionTemplate);
+    Actions.assignOwnersAndThrowIfConflict(new ActionKeyContext(), actions, CTKEY);
+    return new BasicActionLookupValue(actions);
   }
 
   private SpecialArtifact createTreeArtifact(String path) {
@@ -503,6 +505,11 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     }
 
     @Override
+    public NestedSet<Artifact> getSchedulingDependencies() {
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    }
+
+    @Override
     public Collection<String> getClientEnvironmentVariables() {
       return ImmutableList.of();
     }
@@ -551,7 +558,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     }
 
     @Override
-    public synchronized void sendNonFatalBugReport(Exception exception) {
+    public synchronized void sendNonFatalBugReport(Throwable exception) {
       exceptions.add(exception);
     }
 

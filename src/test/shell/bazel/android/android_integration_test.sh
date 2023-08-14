@@ -33,9 +33,7 @@ fail_if_no_android_sdk
 source "${CURRENT_DIR}/../../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-if [[ "$1" = '--with_platforms' ]]; then
-  resolve_android_toolchains_with_platforms
-fi
+resolve_android_toolchains "$1"
 
 function test_sdk_library_deps() {
   create_new_workspace
@@ -166,7 +164,7 @@ EOF
       //java/com/example/hello:hello || fail "build failed"
 }
 
-function test_d8_dexes_and_desugars_hello_android() {
+function test_d8_dexes_and_sandbox_desugars_hello_android() {
   write_hello_android_files
   setup_android_sdk_support
   cat > java/com/example/hello/BUILD <<'EOF'
@@ -179,11 +177,48 @@ android_binary(
 EOF
 
   bazel clean
-  # Note: D8 desugaring with persistent workers is not currently supported, so
-  # need to add --strategy=Desugar=sandboxed
   bazel build --define=android_standalone_dexing_tool=d8_compat_dx \
-      --define=android_desugaring_tool=d8 \
       --strategy=Desugar=sandboxed \
+      //java/com/example/hello:hello || fail "build failed"
+}
+
+function test_d8_dexes_and_worker_desugars_hello_android() {
+  write_hello_android_files
+  setup_android_sdk_support
+  cat > java/com/example/hello/BUILD <<'EOF'
+android_binary(
+    name = 'hello',
+    manifest = "AndroidManifest.xml",
+    srcs = ['MainActivity.java'],
+    resource_files = glob(["res/**"]),
+)
+EOF
+
+  bazel clean
+  bazel build --define=android_standalone_dexing_tool=d8_compat_dx \
+      --strategy=Desugar=worker \
+      //java/com/example/hello:hello || fail "build failed"
+}
+
+function test_hello_android_bzlmod() {
+  write_hello_android_files
+  setup_android_sdk_support
+  cat > java/com/example/hello/BUILD <<'EOF'
+android_binary(
+    name = 'hello',
+    manifest = "AndroidManifest.xml",
+    srcs = ['MainActivity.java'],
+    resource_files = glob(["res/**"]),
+)
+EOF
+  cat > MODULE.bazel << 'EOF'
+# Required for android_integration_test_with_platforms
+bazel_dep(name = "platforms", version = "0.0.7")
+EOF
+
+  bazel clean
+  # Check that android builds with bzlmod enable work.
+  bazel build --experimental_enable_bzlmod \
       //java/com/example/hello:hello || fail "build failed"
 }
 
@@ -230,6 +265,33 @@ android_binary(
     srcs = glob(["*.java"]),
     resource_files = glob(["res/**"]),
     multidex = "native",
+)
+EOF
+
+  write_large_java_file java/com/example/hello/Lib1.java
+  write_large_java_file java/com/example/hello/Lib2.java
+
+  bazel build java/com/example/hello:hello || fail "build failed"
+  assert_multiple_dex_files
+}
+
+function test_manual_main_dex() {
+  # Substantially cribbed from test_native_multidex()
+  write_hello_android_files
+  setup_android_sdk_support
+  cat > java/com/example/hello/BUILD <<'EOF'
+genrule(
+    name = "main_dex_list_txt",
+    cmd = "echo com.example.hello > $@",
+    outs = ["main_dex_list.txt"],
+)
+android_binary(
+    name = "hello",
+    manifest = "AndroidManifest.xml",
+    srcs = glob(["*.java"]),
+    resource_files = glob(["res/**"]),
+    multidex = "manual_main_dex",
+    main_dex_list = ":main_dex_list_txt",
 )
 EOF
 
@@ -324,6 +386,63 @@ EOF
   bazel build java/com/example/hello:hello || fail "build failed"
   # Ensures that we didn't accidentally optimize away all the unused methods.
   assert_multiple_dex_files
+}
+
+function test_reduce_merged_assets() {
+  write_hello_android_files
+  setup_android_sdk_support
+  mkdir -p java/com/example/hello/assets
+  echo hello > java/com/example/hello/assets/hello.txt
+  cat > java/com/example/hello/BUILD <<'EOF'
+android_binary(
+    name = "hello",
+    manifest = "AndroidManifest.xml",
+    deps = [":hello_lib"],
+)
+android_library(
+    name = "hello_lib",
+    manifest = "AndroidManifest.xml",
+    srcs = glob(["*.java"]),
+    resource_files = glob(["res/**"]),
+    assets_dir = "assets",
+    assets = glob(["assets/**"]),
+)
+EOF
+  # The standard behavior is to output the merged assets as assets.zip
+  bazel build //java/com/example/hello:hello_lib --output_library_merged_assets || fail "build failed"
+  local tmpdir=$(mktemp -d)
+  # Expect the assets.zip to exist.
+  unzip bazel-bin/java/com/example/hello/hello_lib_files/assets.zip -d $tmpdir
+  # Expect that hello.txt contains hello.
+  assert_contains "hello" $tmpdir/assets/hello.txt
+  rm -rf $tmpdir
+}
+
+function test_dont_reduce_merged_assets() {
+  write_hello_android_files
+  setup_android_sdk_support
+  mkdir -p java/com/example/hello/assets
+  echo hello > java/com/example/hello/assets/hello.txt
+  cat > java/com/example/hello/BUILD <<'EOF'
+android_binary(
+    name = "hello",
+    manifest = "AndroidManifest.xml",
+    deps = [":hello_lib"],
+)
+android_library(
+    name = "hello_lib",
+    manifest = "AndroidManifest.xml",
+    srcs = glob(["*.java"]),
+    resource_files = glob(["res/**"]),
+    assets_dir = "assets",
+    assets = glob(["assets/**"]),
+)
+EOF
+  bazel build //java/com/example/hello:hello --nooutput_library_merged_assets || fail "build failed"
+  # Expect assets.zip to NOT exist.
+  if [[ -f bazel-bin/java/com/example/hello/hello_lib_files/assets.zip ]]; then
+    fail "assets.zip should NOT exist!"
+  fi
 }
 
 run_suite "Android integration tests"

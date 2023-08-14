@@ -81,7 +81,7 @@ public class ToolchainContextSubject extends Subject {
   }
 
   public ToolchainTypeRequirementSubject toolchainType(String toolchainTypeLabel) {
-    return toolchainType(Label.parseAbsoluteUnchecked(toolchainTypeLabel));
+    return toolchainType(Label.parseCanonicalUnchecked(toolchainTypeLabel));
   }
 
   public ToolchainTypeRequirementSubject toolchainType(Label toolchainType) {
@@ -107,6 +107,6 @@ public class ToolchainContextSubject extends Subject {
   }
 
   public IterableSubject resolvedToolchainLabels() {
-    return check("resolevdToolchainLabels()").that(actual.resolvedToolchainLabels());
+    return check("resolvedToolchainLabels()").that(actual.resolvedToolchainLabels());
   }
 }

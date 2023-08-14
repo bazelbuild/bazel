@@ -34,6 +34,9 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Crash.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.testutil.TestThread;
+import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.CustomExitCodePublisher;
 import com.google.devtools.build.lib.util.CustomFailureDetailPublisher;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -47,6 +50,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.Permission;
 import java.util.Arrays;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
@@ -56,6 +61,7 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.function.ThrowingRunnable;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
@@ -71,6 +77,11 @@ import org.mockito.ArgumentCaptor;
 @RunWith(TestParameterInjector.class)
 public final class BugReportTest {
 
+  private static final ExitCode EXIT_CODE_BLAZE_OOMING = ExitCode.OOM_ERROR;
+  private static final Code FAILURE_DETAIL_CODE_BLAZE_OOMING = Code.CRASH_OOM;
+
+  @TestParameter private boolean oomDetectorOverride;
+
   @BeforeClass
   public static void installCustomSecurityManager() {
     if (System.getSecurityManager() == null) {
@@ -80,10 +91,24 @@ public final class BugReportTest {
     }
   }
 
+  @Before
+  public void maybeSetOomDetector() {
+    if (oomDetectorOverride) {
+      CrashFailureDetails.setOomDetector(() -> true);
+    }
+  }
+
   @AfterClass
   public static void uninstallCustomSecurityManager() {
     if (System.getSecurityManager() instanceof ExitProhibitingSecurityManager) {
       System.setSecurityManager(null);
+    }
+  }
+
+  @After
+  public void restoreDefaultOomDetector() {
+    if (oomDetectorOverride) {
+      CrashFailureDetails.setOomDetector(() -> false);
     }
   }
 
@@ -115,17 +140,17 @@ public final class BugReportTest {
   private enum ExceptionType {
     FATAL(
         new RuntimeException("fatal exception"),
-        /*isFatal=*/ true,
+        /* isFatal= */ true,
         Level.SEVERE,
         "myProductName crashed with args: arg foo"),
     NONFATAL(
         new IllegalStateException("bug report"),
-        /*isFatal=*/ false,
+        /* isFatal= */ false,
         Level.WARNING,
         "myProductName had a non fatal error with args: arg foo"),
     OOM(
         new OutOfMemoryError("Java heap space"),
-        /*isFatal=*/ true,
+        /* isFatal= */ true,
         Level.SEVERE,
         "myProductName OOMError: arg foo");
 
@@ -144,6 +169,14 @@ public final class BugReportTest {
       this.isFatal = isFatal;
       this.level = level;
       this.expectedMessage = expectedMessage;
+    }
+
+    private String getExpectedMessage() {
+      return expectedMessage;
+    }
+
+    private String getExpectedMessageWhileOoming() {
+      return "While OOMing, " + expectedMessage;
     }
   }
 
@@ -173,7 +206,7 @@ public final class BugReportTest {
   }
 
   @Test
-  public void logException(@TestParameter ExceptionType exceptionType) throws Exception {
+  public void logException(@TestParameter ExceptionType exceptionType) {
     TestLogHandler handler = new TestLogHandler();
     Logger logger = Logger.getLogger("build.lib.bugreport");
     logger.addHandler(handler);
@@ -181,30 +214,38 @@ public final class BugReportTest {
 
     BugReport.logException(
         exceptionType.throwable, exceptionType.isFatal, ImmutableList.of("arg", "foo"));
-
     LogRecord got = handler.getStoredLogRecords().get(0);
+    if (oomDetectorOverride) {
+      assertThat(got.getMessage()).isEqualTo(exceptionType.getExpectedMessageWhileOoming());
+    } else {
+      assertThat(got.getMessage()).isEqualTo(exceptionType.getExpectedMessage());
+    }
     assertThat(got.getThrown()).isSameInstanceAs(exceptionType.throwable);
     assertThat(got.getLevel()).isEqualTo(exceptionType.level);
-    assertThat(got.getMessage()).isEqualTo(exceptionType.expectedMessage);
   }
 
   @Test
   public void convenienceMethod(@TestParameter CrashType crashType) throws Exception {
     Throwable t = crashType.createThrowable();
     FailureDetail expectedFailureDetail =
-        createExpectedFailureDetail(t, crashType.expectedFailureDetailCode);
-
+        createExpectedFailureDetail(t, crashType, oomDetectorOverride);
     // TODO(b/222158599): This should always be ExitException.
     SecurityException e = assertThrows(SecurityException.class, () -> BugReport.handleCrash(t));
     if (e instanceof ExitException) {
       int code = ((ExitException) e).code;
       assertThat(code).isEqualTo(crashType.expectedExitCode.getNumericExitCode());
     }
-    assertThrows(t.getClass(), BugReport::maybePropagateUnprocessedThrowableIfInTest);
+    assertThat(BugReport.getAndResetLastCrashingThrowableIfInTest()).isSameInstanceAs(t);
 
     verify(mockRuntime)
-        .cleanUpForCrash(DetailedExitCode.of(crashType.expectedExitCode, expectedFailureDetail));
-    verifyExitCodeWritten(crashType.expectedExitCode.getNumericExitCode());
+        .cleanUpForCrash(
+            DetailedExitCode.of(
+                oomDetectorOverride ? EXIT_CODE_BLAZE_OOMING : crashType.expectedExitCode,
+                expectedFailureDetail));
+    verifyExitCodeWritten(
+        oomDetectorOverride
+            ? EXIT_CODE_BLAZE_OOMING.getNumericExitCode()
+            : crashType.expectedExitCode.getNumericExitCode());
     verifyFailureDetailWritten(expectedFailureDetail);
   }
 
@@ -212,7 +253,7 @@ public final class BugReportTest {
   public void halt(@TestParameter CrashType crashType) throws Exception {
     Throwable t = crashType.createThrowable();
     FailureDetail expectedFailureDetail =
-        createExpectedFailureDetail(t, crashType.expectedFailureDetailCode);
+        createExpectedFailureDetail(t, crashType, oomDetectorOverride);
 
     // TODO(b/222158599): This should always be ExitException.
     SecurityException e =
@@ -223,11 +264,17 @@ public final class BugReportTest {
       int code = ((ExitException) e).code;
       assertThat(code).isEqualTo(crashType.expectedExitCode.getNumericExitCode());
     }
-    assertThrows(t.getClass(), BugReport::maybePropagateUnprocessedThrowableIfInTest);
+    assertThat(BugReport.getAndResetLastCrashingThrowableIfInTest()).isSameInstanceAs(t);
 
     verify(mockRuntime)
-        .cleanUpForCrash(DetailedExitCode.of(crashType.expectedExitCode, expectedFailureDetail));
-    verifyExitCodeWritten(crashType.expectedExitCode.getNumericExitCode());
+        .cleanUpForCrash(
+            DetailedExitCode.of(
+                oomDetectorOverride ? EXIT_CODE_BLAZE_OOMING : crashType.expectedExitCode,
+                expectedFailureDetail));
+    verifyExitCodeWritten(
+        oomDetectorOverride
+            ? EXIT_CODE_BLAZE_OOMING.getNumericExitCode()
+            : crashType.expectedExitCode.getNumericExitCode());
     verifyFailureDetailWritten(expectedFailureDetail);
   }
 
@@ -235,15 +282,74 @@ public final class BugReportTest {
   public void keepAlive(@TestParameter CrashType crashType) throws Exception {
     Throwable t = crashType.createThrowable();
     FailureDetail expectedFailureDetail =
-        createExpectedFailureDetail(t, crashType.expectedFailureDetailCode);
+        createExpectedFailureDetail(t, crashType, oomDetectorOverride);
 
     BugReport.handleCrash(Crash.from(t), CrashContext.keepAlive());
-    assertThrows(t.getClass(), BugReport::maybePropagateUnprocessedThrowableIfInTest);
+    assertThat(BugReport.getAndResetLastCrashingThrowableIfInTest()).isSameInstanceAs(t);
 
     verify(mockRuntime)
-        .cleanUpForCrash(DetailedExitCode.of(crashType.expectedExitCode, expectedFailureDetail));
+        .cleanUpForCrash(
+            DetailedExitCode.of(
+                oomDetectorOverride ? EXIT_CODE_BLAZE_OOMING : crashType.expectedExitCode,
+                expectedFailureDetail));
     verifyNoExitCodeWritten();
     verifyFailureDetailWritten(expectedFailureDetail);
+  }
+
+  @Test
+  public void haltOrReturnIfCrashInProgress_otherCrashInProgress_returnsEagerly(
+      @TestParameter CrashType crashType) throws Throwable {
+    // Arrange:
+    // A first thread will crash with CrashContext.halt(). We mock out the BlazeRuntimeInterface to
+    // force this thread to block while holding the BugReport global lock.
+    CountDownLatch cleanupBegunLatch = new CountDownLatch(1);
+    CountDownLatch cleanupMayFinishLatch = new CountDownLatch(1);
+    doAnswer(
+            (inv) -> {
+              cleanupBegunLatch.countDown();
+              cleanupMayFinishLatch.await();
+              return null;
+            })
+        .when(mockRuntime)
+        .cleanUpForCrash(any(DetailedExitCode.class));
+
+    Throwable firstThrown = new IllegalStateException("second crash in background thread");
+    ThrowingRunnable doFirstCrash =
+        () -> BugReport.handleCrash(Crash.from(firstThrown), CrashContext.halt());
+    AtomicReference<SecurityException> firstCrashThrownRef = new AtomicReference<>(null);
+    TestThread firstCrashThread =
+        new TestThread(
+            () -> firstCrashThrownRef.set(assertThrows(SecurityException.class, doFirstCrash)));
+    firstCrashThread.start();
+    cleanupBegunLatch.await();
+
+    // Act:
+    // Try to crash on a second thread, with a `haltOrReturnIfCrashInProgress` CrashContext. This
+    // should return without throwing because the BugReport global lock is held.
+    Throwable secondThrown = crashType.createThrowable();
+    CrashContext haltOrReturnCtx = CrashContext.haltOrReturnIfCrashInProgress();
+    ThrowingRunnable doSecondCrash =
+        () -> BugReport.handleCrash(Crash.from(secondThrown), haltOrReturnCtx);
+    doSecondCrash.run();
+
+    // Assert:
+    // Allow the first crashing thread to finish, then confirm that the
+    // `CrashContext.haltOrReturnIfCrashInProgress()` will halt when BugReport's lock is free.
+    cleanupMayFinishLatch.countDown();
+    firstCrashThread.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+
+    // TODO(b/222158599): These should always be ExitException.
+    SecurityException firstException = firstCrashThrownRef.get();
+    if (firstException instanceof ExitException) {
+      int code = ((ExitException) firstException).code;
+      assertThat(code).isEqualTo(ExitCode.BLAZE_INTERNAL_ERROR.getNumericExitCode());
+    }
+
+    SecurityException secondException = assertThrows(SecurityException.class, doSecondCrash);
+    if (secondException instanceof ExitException) {
+      int code = ((ExitException) secondException).code;
+      assertThat(code).isEqualTo(crashType.expectedExitCode.getNumericExitCode());
+    }
   }
 
   @Test
@@ -255,13 +361,13 @@ public final class BugReportTest {
     BugReport.handleCrash(
         Crash.from(t),
         CrashContext.keepAlive().withExtraOomInfo("Build fewer targets!").reportingTo(handler));
-    assertThrows(t.getClass(), BugReport::maybePropagateUnprocessedThrowableIfInTest);
+    assertThat(BugReport.getAndResetLastCrashingThrowableIfInTest()).isSameInstanceAs(t);
 
     verify(handler).handle(event.capture());
     assertThat(event.getValue().getKind()).isEqualTo(EventKind.FATAL);
     assertThat(event.getValue().getMessage()).contains(Throwables.getStackTraceAsString(t));
-
-    if (crashType == CrashType.OOM) {
+    if (oomDetectorOverride || crashType == CrashType.OOM) {
+      assertThat(event.getValue().getMessage()).contains("ran out of memory and crashed.");
       assertThat(event.getValue().getMessage()).contains("Build fewer targets!");
     } else {
       assertThat(event.getValue().getMessage()).doesNotContain("Build fewer targets!");
@@ -282,13 +388,14 @@ public final class BugReportTest {
         .fillInCrashContext(any());
 
     BugReport.handleCrash(Crash.from(t), CrashContext.keepAlive());
-    assertThrows(t.getClass(), BugReport::maybePropagateUnprocessedThrowableIfInTest);
+    assertThat(BugReport.getAndResetLastCrashingThrowableIfInTest()).isSameInstanceAs(t);
 
     verify(handler).handle(event.capture());
     assertThat(event.getValue().getKind()).isEqualTo(EventKind.FATAL);
     assertThat(event.getValue().getMessage()).contains(Throwables.getStackTraceAsString(t));
 
-    if (crashType == CrashType.OOM) {
+    if (oomDetectorOverride || crashType == CrashType.OOM) {
+      assertThat(event.getValue().getMessage()).contains("ran out of memory and crashed.");
       assertThat(event.getValue().getMessage()).contains("Build fewer targets!");
     } else {
       assertThat(event.getValue().getMessage()).doesNotContain("Build fewer targets!");
@@ -311,19 +418,26 @@ public final class BugReportTest {
   }
 
   private static FailureDetail createExpectedFailureDetail(
-      Throwable t, Code expectedFailureDetailCode) {
+      Throwable t, CrashType crashType, boolean oomDetectorOverride) {
+    FailureDetails.Crash.Builder crash =
+        FailureDetails.Crash.newBuilder()
+            .setCode(
+                oomDetectorOverride
+                    ? FAILURE_DETAIL_CODE_BLAZE_OOMING
+                    : crashType.expectedFailureDetailCode)
+            .addCauses(
+                FailureDetails.Throwable.newBuilder()
+                    .setThrowableClass(t.getClass().getName())
+                    .setMessage(t.getMessage())
+                    .addAllStackTrace(
+                        Lists.transform(
+                            Arrays.asList(t.getStackTrace()), StackTraceElement::toString)));
+    if (oomDetectorOverride && crashType == CrashType.CRASH) {
+      crash.setOomDetectorOverride(true);
+    }
     return FailureDetail.newBuilder()
         .setMessage(String.format("Crashed: (%s) %s", t.getClass().getName(), t.getMessage()))
-        .setCrash(
-            FailureDetails.Crash.newBuilder()
-                .setCode(expectedFailureDetailCode)
-                .addCauses(
-                    FailureDetails.Throwable.newBuilder()
-                        .setThrowableClass(t.getClass().getName())
-                        .setMessage(t.getMessage())
-                        .addAllStackTrace(
-                            Lists.transform(
-                                Arrays.asList(t.getStackTrace()), StackTraceElement::toString))))
+        .setCrash(crash)
         .build();
   }
 
@@ -348,4 +462,3 @@ public final class BugReportTest {
     public void checkPermission(Permission p) {} // Allow everything else.
   }
 }
-

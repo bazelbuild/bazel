@@ -16,13 +16,11 @@
 Definition of java_library rule.
 """
 
-load(":common/java/java_common.bzl", "BASIC_JAVA_LIBRARY_WITH_PROGUARD_IMPLICIT_ATTRS", "basic_java_library", "construct_defaultinfo")
+load(":common/java/basic_java_library.bzl", "BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS", "basic_java_library", "construct_defaultinfo")
 load(":common/rule_util.bzl", "merge_attrs")
 load(":common/java/java_semantics.bzl", "semantics")
-
-JavaInfo = _builtins.toplevel.JavaInfo
-JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
-CcInfo = _builtins.toplevel.CcInfo
+load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/java/java_info.bzl", "JavaInfo", "JavaPluginInfo")
 
 def bazel_java_library_rule(
         ctx,
@@ -59,7 +57,7 @@ def bazel_java_library_rule(
       add_exports: (list[str]) Allow this library to access the given <module>/<package>.
       add_opens: (list[str]) Allow this library to reflectively access the given <module>/<package>.
     Returns:
-      (list[provider]) A list containing DefaultInfo, JavaInfo,
+      (dict[str, provider]) A list containing DefaultInfo, JavaInfo,
         InstrumentedFilesInfo, OutputGroupsInfo, ProguardSpecProvider providers.
     """
     if not srcs and deps:
@@ -112,7 +110,7 @@ def _proxy(ctx):
         ctx.attr.add_opens,
     ).values()
 
-JAVA_LIBRARY_IMPLICIT_ATTRS = BASIC_JAVA_LIBRARY_WITH_PROGUARD_IMPLICIT_ATTRS
+JAVA_LIBRARY_IMPLICIT_ATTRS = BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS
 
 JAVA_LIBRARY_ATTRS = merge_attrs(
     JAVA_LIBRARY_IMPLICIT_ATTRS,
@@ -164,17 +162,21 @@ JAVA_LIBRARY_ATTRS = merge_attrs(
         "add_exports": attr.string_list(),
         "add_opens": attr.string_list(),
         "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
+        "_java_toolchain_type": attr.label(default = semantics.JAVA_TOOLCHAIN_TYPE),
     },
 )
 
 java_library = rule(
     _proxy,
-    attrs = JAVA_LIBRARY_ATTRS,
+    attrs = merge_attrs(
+        JAVA_LIBRARY_ATTRS,
+        {"_use_auto_exec_groups": attr.bool(default = True)},
+    ),
     provides = [JavaInfo],
     outputs = {
         "classjar": "lib%{name}.jar",
         "sourcejar": "lib%{name}-src.jar",
     },
     fragments = ["java", "cpp"],
-    compile_one_filetype = [".java"],
+    toolchains = [semantics.JAVA_TOOLCHAIN],
 )

@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
-/** Rule definition for {@code py_runtime} */
+/** Fake rule definition for {@code py_runtime} for generated doc purposes. */
 public final class PyRuntimeRule implements RuleDefinition {
 
   @Override
@@ -55,6 +55,22 @@ public final class PyRuntimeRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("interpreter_path", STRING))
 
+        /* <!-- #BLAZE_RULE(py_runtime).ATTRIBUTE(coverage_tool) -->
+        This is a target to use for collecting code coverage information from <code>py_binary</code>
+        and <code>py_test</code> targets.
+
+        <p>If set, the target must either produce a single file or be and executable target.
+        The path to the single file, or the executable if the target is executable,
+        determines the entry point for the python coverage tool.  The target and its
+        runfiles will be added to the runfiles when coverage is enabled.</p>
+
+        <p>The entry point for the tool must be loadable by a python interpreter (e.g. a
+        <code>.py</code> or <code>.pyc</code> file).  It must accept the command line arguments
+        of <a href="https://coverage.readthedocs.io/">coverage.py</a>, at least including
+        the <code>run</code> and <code>lcov</code> subcommands.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("coverage_tool", LABEL).allowedFileTypes(FileTypeSet.NO_FILE))
+
         /* <!-- #BLAZE_RULE(py_runtime).ATTRIBUTE(python_version) -->
         Whether this runtime is for Python major version 2 or 3. Valid values are <code>"PY2"</code>
         and <code>"PY3"</code>.
@@ -68,7 +84,7 @@ public final class PyRuntimeRule implements RuleDefinition {
                 .allowedValues(PyRuleClasses.TARGET_PYTHON_ATTR_VALUE_SET))
 
         /* <!-- #BLAZE_RULE(py_runtime).ATTRIBUTE(stub_shebang) -->
-        "Shebang" expression prepended to the bootstrapping Python stub script
+        "Shebang" expression prepended to the bootstrapping Python script
         used when executing <code>py_binary</code> targets.
 
         <p>See <a href="https://github.com/bazelbuild/bazel/issues/8685">issue 8685</a> for
@@ -77,6 +93,16 @@ public final class PyRuntimeRule implements RuleDefinition {
         <p>Does not apply to Windows.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("stub_shebang", STRING).value(PyRuntimeInfo.DEFAULT_STUB_SHEBANG))
+
+        /* <!-- #BLAZE_RULE(py_runtime).ATTRIBUTE(bootstrap_template) -->
+        Previously referred to as the "Python stub script", this is the
+              entrypoint to every Python executable target.
+              <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("bootstrap_template", LABEL)
+                .value(env.getToolsLabel(PyRuntimeInfo.DEFAULT_BOOTSTRAP_TEMPLATE))
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .singleArtifact())
         .add(attr("output_licenses", LICENSE))
         .build();
   }
@@ -86,7 +112,7 @@ public final class PyRuntimeRule implements RuleDefinition {
     return Metadata.builder()
         .name("py_runtime")
         .ancestors(BaseRuleClasses.NativeBuildRule.class)
-        .factoryClass(PyRuntime.class)
+        .factoryClass(BaseRuleClasses.EmptyRuleConfiguredTargetFactory.class)
         .build();
   }
 }

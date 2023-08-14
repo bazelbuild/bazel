@@ -22,6 +22,7 @@ import com.google.common.collect.Ordering;
 import java.io.File;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -41,6 +42,8 @@ public class CommandFailureUtils {
     void describeCommandCwd(String cwd, StringBuilder message);
     void describeCommandEnvPrefix(StringBuilder message, boolean isolated);
     void describeCommandEnvVar(StringBuilder message, Map.Entry<String, String> entry);
+
+    void describeCommandUnsetEnvVar(StringBuilder message, String name);
     /**
      * Formats the command element and adds it to the message.
      *
@@ -84,6 +87,12 @@ public class CommandFailureUtils {
     }
 
     @Override
+    public void describeCommandUnsetEnvVar(StringBuilder message, String name) {
+      // Only the short form of --unset is supported on macOS.
+      message.append("-u ").append(ShellEscaper.escapeString(name)).append(" \\\n  ");
+    }
+
+    @Override
     public void describeCommandElement(
         StringBuilder message, String commandElement, boolean isBinary) {
       message.append(ShellEscaper.escapeString(commandElement));
@@ -124,6 +133,11 @@ public class CommandFailureUtils {
     }
 
     @Override
+    public void describeCommandUnsetEnvVar(StringBuilder message, String name) {
+      message.append("SET ").append(name).append('=').append("\n  ");
+    }
+
+    @Override
     public void describeCommandElement(
         StringBuilder message, String commandElement, boolean isBinary) {
       // Replace the forward slashes with back slashes if the `commandElement` is the binary path
@@ -156,6 +170,7 @@ public class CommandFailureUtils {
       boolean prettyPrintArgs,
       Collection<String> commandLineElements,
       @Nullable Map<String, String> environment,
+      @Nullable List<String> environmentVariablesToClear,
       @Nullable String cwd,
       @Nullable String configurationChecksum,
       @Nullable String executionPlatformAsLabelString) {
@@ -205,6 +220,12 @@ public class CommandFailureUtils {
       if (environment != null) {
         describeCommandImpl.describeCommandEnvPrefix(
             message, form != CommandDescriptionForm.COMPLETE_UNISOLATED);
+        if (environmentVariablesToClear != null) {
+          for (String name : Ordering.natural().sortedCopy(environmentVariablesToClear)) {
+            message.append("  ");
+            describeCommandImpl.describeCommandUnsetEnvVar(message, name);
+          }
+        }
         // A map can never have two keys with the same value, so we only need to compare the keys.
         Comparator<Map.Entry<String, String>> mapEntryComparator = comparingByKey();
         for (Map.Entry<String, String> entry :
@@ -257,11 +278,12 @@ public class CommandFailureUtils {
 
   /**
    * Construct an error message that describes a failed command invocation. Currently this returns a
-   * message of the form "foo failed: error executing command /dir/foo bar baz".
+   * message of the form "foo failed: error executing FooCompile command /dir/foo bar baz".
    */
   @VisibleForTesting
   static String describeCommandFailure(
       boolean verbose,
+      String mnemonic,
       Collection<String> commandLineElements,
       Map<String, String> env,
       @Nullable String cwd,
@@ -278,7 +300,9 @@ public class CommandFailureUtils {
         : CommandDescriptionForm.ABBREVIATED;
 
     StringBuilder output = new StringBuilder();
-    output.append("error executing command ");
+    output.append("error executing ");
+    output.append(mnemonic);
+    output.append(" command ");
     if (targetLabel != null) {
       output.append("(from target ").append(targetLabel).append(") ");
     }
@@ -291,6 +315,7 @@ public class CommandFailureUtils {
             /* prettyPrintArgs= */ false,
             commandLineElements,
             env,
+            null,
             cwd,
             configurationChecksum,
             executionPlatformAsLabelString));
@@ -301,6 +326,7 @@ public class CommandFailureUtils {
       boolean verboseFailures, @Nullable String cwd, DescribableExecutionUnit command) {
     return describeCommandFailure(
         verboseFailures,
+        command.getMnemonic(),
         command.getArguments(),
         command.getEnvironment(),
         cwd,

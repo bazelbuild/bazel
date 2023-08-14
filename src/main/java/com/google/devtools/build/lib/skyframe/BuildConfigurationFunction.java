@@ -23,13 +23,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.ConfigurationValueEvent;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentFactory;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.OptionInfo;
+import com.google.devtools.build.lib.analysis.config.transitions.BaselineOptionsValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -41,7 +42,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionMetadataTag;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Map;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
@@ -81,48 +81,44 @@ public final class BuildConfigurationFunction implements SkyFunction {
     BuildConfigurationKey key = (BuildConfigurationKey) skyKey.argument();
 
     BuildOptions targetOptions = key.getOptions();
+    CoreOptions coreOptions = targetOptions.get(CoreOptions.class);
 
     String transitionDirectoryNameFragment;
-    if (targetOptions
-        .get(CoreOptions.class)
-        .outputDirectoryNamingScheme
-        .equals(CoreOptions.OutputDirectoryNamingScheme.DIFF_AGAINST_BASELINE)) {
-      // Herein lies a hack to apply platform mappings to the baseline options.
-      // TODO(blaze-configurability-team): this should become unnecessary once --platforms is marked
-      //   as EXPLICIT_IN_OUTPUT_PATH
-      PlatformMappingValue platformMappingValue =
-          (PlatformMappingValue)
-              env.getValue(
-                  PlatformMappingValue.Key.create(
-                      targetOptions.get(PlatformOptions.class).platformMappings));
-      if (platformMappingValue == null) {
+    if (targetOptions.hasNoConfig()) {
+      transitionDirectoryNameFragment = "noconfig"; // See NoConfigTransition.
+    } else if (coreOptions.useBaselineForOutputDirectoryNamingScheme()) {
+      boolean applyExecTransitionToBaseline =
+          coreOptions.outputDirectoryNamingScheme.equals(
+                  CoreOptions.OutputDirectoryNamingScheme.DIFF_AGAINST_DYNAMIC_BASELINE)
+              && coreOptions.isExec;
+      var baselineOptionsValue =
+          (BaselineOptionsValue)
+              env.getValue(BaselineOptionsValue.key(applyExecTransitionToBaseline));
+      if (baselineOptionsValue == null) {
         return null;
       }
-      BuildOptions baselineOptions = PrecomputedValue.BASELINE_CONFIGURATION.get(env);
-      try {
-        BuildOptions mappedBaselineOptions =
-            BuildConfigurationKey.withPlatformMapping(platformMappingValue, baselineOptions)
-                .getOptions();
-        transitionDirectoryNameFragment =
-            computeNameFragmentWithDiff(targetOptions, mappedBaselineOptions);
-      } catch (OptionsParsingException e) {
-        throw new BuildConfigurationFunctionException(e);
-      }
+
+      transitionDirectoryNameFragment =
+          computeNameFragmentWithDiff(targetOptions, baselineOptionsValue.toOptions());
     } else {
       transitionDirectoryNameFragment =
           computeNameFragmentWithAffectedByStarlarkTransition(targetOptions);
     }
 
     try {
-      return BuildConfigurationValue.create(
-          targetOptions,
-          RepositoryName.createUnvalidated(workspaceNameValue.getName()),
-          starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT),
-          transitionDirectoryNameFragment,
-          // Arguments below this are server-global.
-          directories,
-          ruleClassProvider,
-          fragmentFactory);
+      var configurationValue =
+          BuildConfigurationValue.create(
+              targetOptions,
+              RepositoryName.createUnvalidated(workspaceNameValue.getName()),
+              starlarkSemantics.getBool(
+                  BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT),
+              transitionDirectoryNameFragment,
+              // Arguments below this are server-global.
+              directories,
+              ruleClassProvider,
+              fragmentFactory);
+      env.getListener().post(ConfigurationValueEvent.create(configurationValue));
+      return configurationValue;
     } catch (InvalidConfigurationException e) {
       throw new BuildConfigurationFunctionException(e);
     }
@@ -138,7 +134,8 @@ public final class BuildConfigurationFunction implements SkyFunction {
    * Compute the hash for the new BuildOptions based on the names and values of all options (both
    * native and Starlark) that are different from some supplied baseline configuration.
    */
-  private static String computeNameFragmentWithDiff(
+  @VisibleForTesting
+  public static String computeNameFragmentWithDiff(
       BuildOptions toOptions, BuildOptions baselineOptions) {
     // Quick short-circuit for trivial case.
     if (toOptions.equals(baselineOptions)) {
@@ -244,7 +241,7 @@ public final class BuildConfigurationFunction implements SkyFunction {
     }
     for (String starlarkOptionName : chosenStarlark) {
       Object value =
-          toOptions.getStarlarkOptions().get(Label.parseAbsoluteUnchecked(starlarkOptionName));
+          toOptions.getStarlarkOptions().get(Label.parseCanonicalUnchecked(starlarkOptionName));
       toHash.put(starlarkOptionName, value);
     }
 

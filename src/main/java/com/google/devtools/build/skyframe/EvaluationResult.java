@@ -161,9 +161,10 @@ public class EvaluationResult<T extends SkyValue> {
 
     /** Adds a value to the result. An error for this key must not already be present. */
     @CanIgnoreReturnValue
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "LenientFormatStringValidation"})
     public Builder<T> addResult(SkyKey key, SkyValue value) {
       result.put(key, Preconditions.checkNotNull((T) value, key));
+      // Expected 3 args, but got 2.
       Preconditions.checkState(
           !errors.containsKey(key), "%s in both result and errors: %s %s", value, errors);
       return this;
@@ -173,9 +174,11 @@ public class EvaluationResult<T extends SkyValue> {
      * Adds an error to the result. A successful value for this key must not already be present.
      * Publicly visible only for testing: should be package-private.
      */
+    @SuppressWarnings("LenientFormatStringValidation")
     @CanIgnoreReturnValue
     public Builder<T> addError(SkyKey key, ErrorInfo error) {
       errors.put(key, Preconditions.checkNotNull(error, key));
+      // Expected 3 args, but got 2.
       Preconditions.checkState(
           !result.containsKey(key), "%s in both result and errors: %s %s", error, result);
       if (error.isCatastrophic()) {

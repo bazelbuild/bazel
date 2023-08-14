@@ -279,22 +279,41 @@ public final class Json implements StarlarkValue {
   @StarlarkMethod(
       name = "decode",
       doc =
-          "The decode function accepts one positional parameter, a JSON string.\n"
+          "The decode function has one required positional parameter: a JSON string.\n"
               + "It returns the Starlark value that the string denotes.\n"
-              + "<ul>"
-              + "<li>'null', 'true', and 'false' are parsed as None, True, and False.\n"
-              + "<li>Numbers are parsed as int, or as a float if they contain"
-              + " a decimal point or an exponent. Although JSON has no syntax "
-              + " for non-finite values, very large values may be decoded as infinity.\n"
-              + "<li>a JSON object is parsed as a new unfrozen Starlark dict."
-              + " Keys must be unique strings.\n"
+              + "<ul><li><code>\"null\"</code>, <code>\"true\"</code> and <code>\"false\"</code>"
+              + " are parsed as <code>None</code>, <code>True</code>, and <code>False</code>.\n"
+              + "<li>Numbers are parsed as int, or as a float if they contain a decimal point or an"
+              + " exponent. Although JSON has no syntax  for non-finite values, very large values"
+              + " may be decoded as infinity.\n"
+              + "<li>a JSON object is parsed as a new unfrozen Starlark dict. If the same key"
+              + " string occurs more than once in the object, the last value for the key is kept.\n"
               + "<li>a JSON array is parsed as new unfrozen Starlark list.\n"
               + "</ul>\n"
-              + "Decoding fails if x is not a valid JSON encoding.\n",
-      parameters = {@Param(name = "x")},
+              + "If <code>x</code> is not a valid JSON encoding and the optional"
+              + " <code>default</code> parameter is specified (including specified as"
+              + " <code>None</code>), this function returns the <code>default</code> value.\n"
+              + "If <code>x</code> is not a valid JSON encoding and the optional"
+              + " <code>default</code> parameter is <em>not</em> specified, this function fails.",
+      parameters = {
+        @Param(name = "x", doc = "JSON string to decode."),
+        @Param(
+            name = "default",
+            named = true,
+            doc = "If specified, the value to return when <code>x</code> cannot be decoded.",
+            defaultValue = "unbound")
+      },
       useStarlarkThread = true)
-  public Object decode(String x, StarlarkThread thread) throws EvalException {
-    return new Decoder(thread.mutability(), x).decode();
+  public Object decode(String x, Object defaultValue, StarlarkThread thread) throws EvalException {
+    try {
+      return new Decoder(thread.mutability(), x).decode();
+    } catch (EvalException e) {
+      if (defaultValue != Starlark.UNBOUND) {
+        return defaultValue;
+      } else {
+        throw e;
+      }
+    }
   }
 
   private static final class Decoder {
@@ -398,11 +417,7 @@ public final class Json implements StarlarkValue {
               }
               i++; // ':'
               Object value = parse();
-              int sz = dict.size();
               dict.putEntry((String) key, value); // can't fail
-              if (dict.size() == sz) {
-                throw Starlark.errorf("object has duplicate key: %s", Starlark.repr(key));
-              }
               c = next();
               if (c != ',') {
                 if (c != '}') {

@@ -15,35 +15,63 @@
 package com.google.devtools.build.lib.starlarkbuildapi.python;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
-import com.google.devtools.build.lib.starlarkbuildapi.python.PyInfoApi.PyInfoProviderApi;
-import com.google.devtools.build.lib.starlarkbuildapi.python.PyRuntimeInfoApi.PyRuntimeInfoProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ContextAndFlagGuardedValue;
+import com.google.devtools.build.lib.starlarkbuildapi.stubs.ProviderStub;
 import net.starlark.java.eval.FlagGuardedValue;
 
 /** {@link Bootstrap} for Starlark objects related to the Python rules. */
 public class PyBootstrap implements Bootstrap {
+  public static final ImmutableSet<PackageIdentifier> allowedRepositories =
+      ImmutableSet.of(
+          PackageIdentifier.createUnchecked("_builtins", ""),
+          PackageIdentifier.createUnchecked("bazel_tools", ""),
+          PackageIdentifier.createUnchecked("rules_python", ""),
+          PackageIdentifier.createUnchecked("", "tools/build_defs/python"));
 
-  private final PyInfoProviderApi pyInfoProviderApi;
-  private final PyRuntimeInfoProviderApi pyRuntimeInfoProviderApi;
   private final PyStarlarkTransitionsApi pyStarlarkTransitionsApi;
 
-  public PyBootstrap(
-      PyInfoProviderApi pyInfoProviderApi,
-      PyRuntimeInfoProviderApi pyRuntimeInfoProviderApi,
-      PyStarlarkTransitionsApi pyStarlarkTransitionsApi) {
-    this.pyInfoProviderApi = pyInfoProviderApi;
-    this.pyRuntimeInfoProviderApi = pyRuntimeInfoProviderApi;
+  public PyBootstrap(PyStarlarkTransitionsApi pyStarlarkTransitionsApi) {
     this.pyStarlarkTransitionsApi = pyStarlarkTransitionsApi;
   }
 
   @Override
   public void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder) {
-    builder.put("PyInfo", pyInfoProviderApi);
-    builder.put("PyRuntimeInfo", pyRuntimeInfoProviderApi);
+    builder.put(
+        "PyInfo",
+        ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
+            BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
+            // Workaround for https://github.com/bazelbuild/bazel/issues/17713
+            new ProviderStub(),
+            allowedRepositories));
+    builder.put(
+        "PyRuntimeInfo",
+        ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
+            BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
+            // Workaround for https://github.com/bazelbuild/bazel/issues/17713
+            new ProviderStub(),
+            allowedRepositories));
+
     builder.put(
         "py_transitions",
         FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
             BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, pyStarlarkTransitionsApi));
+    builder.put(
+        "PyWrapCcInfo",
+        ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
+            BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
+            // Workaround for https://github.com/bazelbuild/bazel/issues/17713
+            new ProviderStub(),
+            allowedRepositories));
+    builder.put(
+        "PyCcLinkParamsProvider",
+        ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
+            BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
+            // Workaround for https://github.com/bazelbuild/bazel/issues/17713
+            new ProviderStub(),
+            allowedRepositories));
   }
 }

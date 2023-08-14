@@ -22,6 +22,7 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -57,7 +58,8 @@ public final class TargetUtils {
         || tag.startsWith("disable-")
         || tag.startsWith("cpu:")
         || tag.equals(ExecutionRequirements.LOCAL)
-        || tag.equals(ExecutionRequirements.WORKER_KEY_MNEMONIC);
+        || tag.equals(ExecutionRequirements.WORKER_KEY_MNEMONIC)
+        || tag.startsWith("resources:");
   }
 
   private TargetUtils() {} // Uninstantiable.
@@ -112,6 +114,16 @@ public final class TargetUtils {
     return hasConstraint(rule, "exclusive");
   }
 
+  /**
+   * Returns true if test marked as "exclusive-if-local" by the appropriate keyword in the tags
+   * attribute.
+   *
+   * <p>Method assumes that passed target is a test rule, so usually it should be used only after
+   * isTestRule() or isTestOrTestSuiteRule(). Behavior is undefined otherwise.
+   */
+  public static boolean isExclusiveIfLocalTestRule(Rule rule) {
+    return hasConstraint(rule, "exclusive-if-local");
+  }
   /**
    * Returns true if test marked as "local" by the appropriate keyword
    * in the tags attribute.
@@ -322,7 +334,7 @@ public final class TargetUtils {
   }
 
   private static boolean isExplicitDependency(Rule rule, Label label) {
-    if (rule.getVisibility().getDependencyLabels().contains(label)) {
+    if (Iterables.contains(rule.getVisibilityDependencyLabels(), label)) {
       return true;
     }
 
@@ -330,7 +342,7 @@ public final class TargetUtils {
     try {
       mapper.visitLabels(
           DependencyFilter.NO_IMPLICIT_DEPS,
-          (attribute, depLabel) -> {
+          (Label depLabel, Attribute attribute) -> {
             if (label.equals(depLabel)) {
               throw StopIteration.INSTANCE;
             }

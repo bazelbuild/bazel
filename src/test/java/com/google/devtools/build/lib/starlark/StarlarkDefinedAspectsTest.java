@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.starlark;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.analysis.OutputGroupInfo.INTERNAL_SUFFIX;
 import static java.util.stream.Collectors.toList;
 import static org.junit.Assert.assertThrows;
@@ -33,8 +34,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -234,7 +233,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "def _impl(target, ctx):",
         "   print('This aspect does nothing')",
         "   return struct()",
-        "MyAspect = aspect(implementation=_impl, fragments=['java'], host_fragments=['cpp'])");
+        "MyAspect = aspect(implementation=_impl, fragments=['java'])");
     scratch.file("test/BUILD", "java_library(name = 'xxx',)");
 
     AnalysisResult analysisResult =
@@ -246,23 +245,13 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     assertThat(
             aspectDefinition
                 .getConfigurationFragmentPolicy()
-                .isLegalConfigurationFragment(JavaConfiguration.class, NoTransition.INSTANCE))
+                .isLegalConfigurationFragment(JavaConfiguration.class))
         .isTrue();
     assertThat(
             aspectDefinition
                 .getConfigurationFragmentPolicy()
-                .isLegalConfigurationFragment(JavaConfiguration.class, HostTransition.INSTANCE))
+                .isLegalConfigurationFragment(CppConfiguration.class))
         .isFalse();
-    assertThat(
-            aspectDefinition
-                .getConfigurationFragmentPolicy()
-                .isLegalConfigurationFragment(CppConfiguration.class, NoTransition.INSTANCE))
-        .isFalse();
-    assertThat(
-            aspectDefinition
-                .getConfigurationFragmentPolicy()
-                .isLegalConfigurationFragment(CppConfiguration.class, HostTransition.INSTANCE))
-        .isTrue();
   }
 
   @Test
@@ -384,7 +373,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "   attrs = { 'dep' : attr.label(aspects = [MyAspect]) },",
         ")");
     StarlarkProvider.Key providerKey =
-        new StarlarkProvider.Key(Label.parseAbsoluteUnchecked("//test:aspect.bzl"), "p");
+        new StarlarkProvider.Key(Label.parseCanonicalUnchecked("//test:aspect.bzl"), "p");
     scratch.file(
         "test/BUILD",
         "load('//test:aspect.bzl', 'my_rule')",
@@ -1593,8 +1582,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "   pass",
         "my_rule = rule(_main_rule_impl,",
         "   attrs = { ",
-        "      'exe1' : attr.label(executable = True, allow_files = True, cfg = 'host'),",
-        "      'exe2' : attr.label(executable = True, allow_files = True, cfg = 'host'),",
+        "      'exe1' : attr.label(executable = True, allow_files = True, cfg = 'exec'),",
+        "      'exe2' : attr.label(executable = True, allow_files = True, cfg = 'exec'),",
         "   },",
         ")");
 
@@ -1613,15 +1602,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
   @Test
   public void aspectFragmentAccessSuccess() throws Exception {
-    analyzeConfiguredTargetForAspectFragment(
-        "ctx.fragments.java.strict_java_deps", "'java'", "", "", "");
-    assertNoEvents();
-  }
-
-  @Test
-  public void aspectHostFragmentAccessSuccess() throws Exception {
-    analyzeConfiguredTargetForAspectFragment(
-        "ctx.host_fragments.java.strict_java_deps", "", "'java'", "", "");
+    analyzeConfiguredTargetForAspectFragment("ctx.fragments.java.strict_java_deps", "'java'", "");
     assertNoEvents();
   }
 
@@ -1632,36 +1613,15 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         ViewCreationFailedException.class,
         () ->
             analyzeConfiguredTargetForAspectFragment(
-                "ctx.fragments.java.strict_java_deps", "'cpp'", "'java'", "'java'", ""));
+                "ctx.fragments.java.strict_java_deps", "'cpp'", "'cpp'"));
     assertContainsEvent(
         "//test:aspect.bzl%MyAspect aspect on my_rule has to declare 'java' as a "
-            + "required fragment in target configuration in order to access it. Please update the "
-            + "'fragments' argument of the rule definition "
-            + "(for example: fragments = [\"java\"])");
-  }
-
-  @Test
-  public void aspectHostFragmentAccessError() {
-    reporter.removeHandler(failFastHandler);
-    assertThrows(
-        ViewCreationFailedException.class,
-        () ->
-            analyzeConfiguredTargetForAspectFragment(
-                "ctx.host_fragments.java.java_strict_deps", "'java'", "'cpp'", "", "'java'"));
-    assertContainsEvent(
-        "//test:aspect.bzl%MyAspect aspect on my_rule has to declare 'java' as a "
-            + "required fragment in host configuration in order to access it. Please update the "
-            + "'host_fragments' argument of the rule definition "
-            + "(for example: host_fragments = [\"java\"])");
+            + "required fragment in order to access it. Please update the 'fragments' argument of "
+            + "the rule definition (for example: fragments = [\"java\"])");
   }
 
   private void analyzeConfiguredTargetForAspectFragment(
-      String fullFieldName,
-      String fragments,
-      String hostFragments,
-      String ruleFragments,
-      String ruleHostFragments)
-      throws Exception {
+      String fullFieldName, String fragments, String ruleFragments) throws Exception {
     scratch.file(
         "test/aspect.bzl",
         "def _aspect_impl(target, ctx):",
@@ -1674,14 +1634,12 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "   implementation=_aspect_impl,",
         "   attr_aspects=['deps'],",
         "   fragments=[" + fragments + "],",
-        "   host_fragments=[" + hostFragments + "],",
         ")",
         "my_rule = rule(",
         "   implementation=_rule_impl,",
         "   attrs = { 'attr' : ",
         "             attr.label_list(mandatory=True, allow_files=True, aspects = [MyAspect]) },",
         "   fragments=[" + ruleFragments + "],",
-        "   host_fragments=[" + ruleHostFragments + "],",
         ")");
     scratch.file(
         "test/BUILD",
@@ -1720,13 +1678,13 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "repro_no_aspect(name = 'r0')",
         "repro_no_aspect(name = 'r1', deps = [':r0'])",
         "repro(name = 'r2', deps = [':r1'])");
-    buildTargetAndCheckRuleInfo("//test:r0", "//test:r1");
+    buildTargetAndCheckRuleInfo("@//test:r0", "@//test:r1");
 
     // Make aspect propagation list empty.
     scratch.overwriteFile("test/build_defs.bzl", aspectBzlFile(""));
 
     // The aspect should not propagate to //test:r0 anymore.
-    buildTargetAndCheckRuleInfo("//test:r1");
+    buildTargetAndCheckRuleInfo("@//test:r1");
   }
 
   private void buildTargetAndCheckRuleInfo(String... expectedLabels) throws Exception {
@@ -2036,8 +1994,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     // "yes" means that aspect a2 sees a1's providers.
     assertThat(result)
         .containsExactly(
-            "//test:r0[\"//test:aspect.bzl%a1\", \"//test:aspect.bzl%a2\"]=yes",
-            "//test:r1[\"//test:aspect.bzl%a2\"]=no");
+            "@//test:r0[\"//test:aspect.bzl%a1\", \"//test:aspect.bzl%a2\"]=yes",
+            "@//test:r1[\"//test:aspect.bzl%a2\"]=no");
   }
 
   /**
@@ -2098,10 +2056,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     Sequence<?> result = (Sequence<?>) target.get("result");
     assertThat(result)
         .containsExactly(
-            "//test:r0[\"//test:aspect.bzl%a1\", \"//test:aspect.bzl%a3\"]=a1p",
-            "//test:r1[\"//test:aspect.bzl%a3\"]=",
-            "//test:r0[\"//test:aspect.bzl%a2\", \"//test:aspect.bzl%a3\"]=a2p",
-            "//test:r2[\"//test:aspect.bzl%a3\"]=");
+            "@//test:r0[\"//test:aspect.bzl%a1\", \"//test:aspect.bzl%a3\"]=a1p",
+            "@//test:r1[\"//test:aspect.bzl%a3\"]=",
+            "@//test:r0[\"//test:aspect.bzl%a2\", \"//test:aspect.bzl%a3\"]=a2p",
+            "@//test:r2[\"//test:aspect.bzl%a3\"]=");
   }
 
   /**
@@ -2149,8 +2107,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     // "yes" means that aspect a2 sees a1's providers.
     assertThat(result)
         .containsExactly(
-            "//test:r0[\"//test:aspect.bzl%a2\"]=no",
-            "//test:r1[\"//test:aspect.bzl%a2\"]=no", "//test:r2_1[\"//test:aspect.bzl%a2\"]=no");
+            "@//test:r0[\"//test:aspect.bzl%a2\"]=no",
+            "@//test:r1[\"//test:aspect.bzl%a2\"]=no", "@//test:r2_1[\"//test:aspect.bzl%a2\"]=no");
   }
 
   /** Linear aspects-on-aspects with alias rule. */
@@ -2193,8 +2151,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     // "yes" means that aspect a2 sees a1's providers.
     assertThat(result)
         .containsExactly(
-            "//test:r0[\"//test:aspect.bzl%a1\", \"//test:aspect.bzl%a2\"]=yes",
-            "//test:r1[\"//test:aspect.bzl%a2\"]=no");
+            "@//test:r0[\"//test:aspect.bzl%a1\", \"//test:aspect.bzl%a2\"]=yes",
+            "@//test:r1[\"//test:aspect.bzl%a2\"]=no");
   }
 
   @Test
@@ -2231,8 +2189,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
     assertThat(result)
         .containsExactly(
-            "//test:r0[\"//test:aspect.bzl%a\"]=None",
-            "//test:r1[\"//test:aspect.bzl%a\"]=//test:r0[\"//test:aspect.bzl%a\"],True");
+            "@//test:r0[\"//test:aspect.bzl%a\"]=None",
+            "@//test:r1[\"//test:aspect.bzl%a\"]=@//test:r0[\"//test:aspect.bzl%a\"],True");
   }
 
   @Test
@@ -2431,11 +2389,11 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl p3Provider = (StructImpl) configuredAspect.get(p3);
     assertThat((Sequence<?>) p3Provider.getValue("value"))
         .containsExactly(
-            "//test:r0_1=True",
-            "//test:r0_2=True",
-            "//test:r0_3=True",
-            "//test:r1_1=False",
-            "//test:r2_1=False");
+            "@//test:r0_1=True",
+            "@//test:r0_2=True",
+            "@//test:r0_3=True",
+            "@//test:r1_1=False",
+            "@//test:r2_1=False");
   }
 
   /**
@@ -2493,7 +2451,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "PCollector");
     StructImpl pCollectorProvider = (StructImpl) configuredTarget.get(pCollector);
     assertThat((Sequence<?>) pCollectorProvider.getValue("result"))
-        .containsExactly("//test:r1", "//test:r0", "//test:r0+PAspect");
+        .containsExactly("@//test:r1", "@//test:r0", "@//test:r0+PAspect");
   }
 
   @Test
@@ -2763,7 +2721,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StarlarkProvider.Key myInfoKey =
         new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "MyInfo");
     StructImpl myInfo = (StructImpl) configuredAspect.get(myInfoKey);
-    assertThat(myInfo.getValue("hidden_attr_label")).isEqualTo("//test:zzz");
+    assertThat(myInfo.getValue("hidden_attr_label")).isEqualTo("@//test:zzz");
   }
 
   /** Simple straightforward linear aspects-on-aspects. */
@@ -2806,7 +2764,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
     String result = (String) target.get("result");
 
-    assertThat(result).isEqualTo("//test:zzz");
+    assertThat(result).isEqualTo("@//test:zzz");
   }
 
   @Test
@@ -3232,10 +3190,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     // my_aspect does not require any providers so it will be applied to all the dependencies of
     // main target
     List<String> expected = new ArrayList<>();
-    expected.add("//test:defs.bzl%my_aspect(//test:target_without_providers)");
-    expected.add("//test:defs.bzl%my_aspect(//test:target_with_providers)");
-    expected.add("//test:defs.bzl%my_aspect(//test:target_with_providers_not_advertised)");
-    expected.add("//test:defs.bzl%my_aspect(//test:target_with_providers_indeps)");
+    expected.add("//test:defs.bzl%my_aspect(@//test:target_without_providers)");
+    expected.add("//test:defs.bzl%my_aspect(@//test:target_with_providers)");
+    expected.add("//test:defs.bzl%my_aspect(@//test:target_with_providers_not_advertised)");
+    expected.add("//test:defs.bzl%my_aspect(@//test:target_with_providers_indeps)");
     assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:main");
     ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
     Object ruleDepsUnchecked = target.get("rule_deps");
@@ -3345,8 +3303,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     // However, my_aspect cannot be propagated to target_with_ab_indeps_not_reached because it was
     // not applied to its parent (target_with_a)
     List<String> expected = new ArrayList<>();
-    expected.add("//test:defs.bzl%my_aspect(//test:target_with_ab)");
-    expected.add("//test:defs.bzl%my_aspect(//test:target_with_ab_indeps_reached)");
+    expected.add("//test:defs.bzl%my_aspect(@//test:target_with_ab)");
+    expected.add("//test:defs.bzl%my_aspect(@//test:target_with_ab_indeps_reached)");
     assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:main");
     ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
     Object ruleDepsUnchecked = target.get("rule_deps");
@@ -3472,9 +3430,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     // However, my_aspect cannot be propagated to target_with_c_indeps_not_reached because it was
     // not applied to its parent (target_with_a)
     List<String> expected = new ArrayList<>();
-    expected.add("//test:defs.bzl%my_aspect(//test:target_with_ab)");
-    expected.add("//test:defs.bzl%my_aspect(//test:target_with_c)");
-    expected.add("//test:defs.bzl%my_aspect(//test:target_with_c_indeps_reached)");
+    expected.add("//test:defs.bzl%my_aspect(@//test:target_with_ab)");
+    expected.add("//test:defs.bzl%my_aspect(@//test:target_with_c)");
+    expected.add("//test:defs.bzl%my_aspect(@//test:target_with_c_indeps_reached)");
     assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:main");
     ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
     Object ruleDepsUnchecked = target.get("rule_deps");
@@ -3564,10 +3522,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl aResultProvider = (StructImpl) aspectA.get(aResult);
     assertThat((Sequence<?>) aResultProvider.getValue("val"))
         .containsExactly(
-            "aspect_c runs on target //test:dep_target_a",
-            "aspect_a runs on target //test:dep_target_a",
-            "aspect_c runs on target //test:main_target",
-            "aspect_a runs on target //test:main_target");
+            "aspect_c runs on target @//test:dep_target_a",
+            "aspect_a runs on target @//test:dep_target_a",
+            "aspect_c runs on target @//test:main_target",
+            "aspect_a runs on target @//test:main_target");
 
     // aspect_b should run on main_target and dep_target_b and can retrieve aspect_c provider value
     // on both of them
@@ -3578,10 +3536,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl bResultProvider = (StructImpl) aspectB.get(bResult);
     assertThat((Sequence<?>) bResultProvider.getValue("val"))
         .containsExactly(
-            "aspect_c runs on target //test:dep_target_b",
-            "aspect_b runs on target //test:dep_target_b",
-            "aspect_c runs on target //test:main_target",
-            "aspect_b runs on target //test:main_target");
+            "aspect_c runs on target @//test:dep_target_b",
+            "aspect_b runs on target @//test:dep_target_b",
+            "aspect_c runs on target @//test:main_target",
+            "aspect_b runs on target @//test:main_target");
   }
 
   @Test
@@ -3714,10 +3672,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl aResultProvider = (StructImpl) aspectA.get(aResult);
     assertThat((Sequence<?>) aResultProvider.getValue("val"))
         .containsExactly(
-            "aspect_c runs on target //test:dep_target_with_prov_c",
-            "aspect_a runs on target //test:dep_target_with_prov_c",
-            "aspect_a runs on target //test:dep_target_with_prov_a",
-            "aspect_a runs on target //test:main_target");
+            "aspect_c runs on target @//test:dep_target_with_prov_c",
+            "aspect_a runs on target @//test:dep_target_with_prov_c",
+            "aspect_a runs on target @//test:dep_target_with_prov_a",
+            "aspect_a runs on target @//test:main_target");
 
     // aspect_b runs on main_target, dep_target_with_prov_b and dep_target_with_prov_c and it can
     // only retrieve aspect_c provider value on dep_target_with_prov_c
@@ -3728,10 +3686,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl bResultProvider = (StructImpl) aspectB.get(bResult);
     assertThat((Sequence<?>) bResultProvider.getValue("val"))
         .containsExactly(
-            "aspect_c runs on target //test:dep_target_with_prov_c",
-            "aspect_b runs on target //test:dep_target_with_prov_c",
-            "aspect_b runs on target //test:dep_target_with_prov_b",
-            "aspect_b runs on target //test:main_target");
+            "aspect_c runs on target @//test:dep_target_with_prov_c",
+            "aspect_b runs on target @//test:dep_target_with_prov_c",
+            "aspect_b runs on target @//test:dep_target_with_prov_b",
+            "aspect_b runs on target @//test:main_target");
   }
 
   @Test
@@ -3845,10 +3803,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl provA = (StructImpl) target1.get(provAkey);
     assertThat((Sequence<?>) provA.getValue("val"))
         .containsExactly(
-            "aspect_c runs on target //test:dep_1 and param = rule_1_val",
-            "aspect_a runs on target //test:dep_1",
-            "aspect_c runs on target //test:dep_3 and param = rule_1_val",
-            "aspect_a runs on target //test:dep_3");
+            "aspect_c runs on target @//test:dep_1 and param = rule_1_val",
+            "aspect_a runs on target @//test:dep_1",
+            "aspect_c runs on target @//test:dep_3 and param = rule_1_val",
+            "aspect_a runs on target @//test:dep_3");
 
     // aspect_b runs on dep_2 and dep_3 and it can retrieve aspect_c provider value on them.
     // aspect_c here should get its parameter value from rule_2
@@ -3858,10 +3816,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl provB = (StructImpl) target2.get(provBkey);
     assertThat((Sequence<?>) provB.getValue("val"))
         .containsExactly(
-            "aspect_c runs on target //test:dep_2 and param = rule_2_val",
-            "aspect_b runs on target //test:dep_2",
-            "aspect_c runs on target //test:dep_3 and param = rule_2_val",
-            "aspect_b runs on target //test:dep_3");
+            "aspect_c runs on target @//test:dep_2 and param = rule_2_val",
+            "aspect_b runs on target @//test:dep_2",
+            "aspect_c runs on target @//test:dep_3 and param = rule_2_val",
+            "aspect_b runs on target @//test:dep_3");
   }
 
   @Test
@@ -3916,9 +3874,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl aResultProvider = (StructImpl) aspectA.get(aResult);
     assertThat((Sequence<?>) aResultProvider.getValue("val"))
         .containsExactly(
-            "aspect_a on target //test:main_target cannot see native aspect provider",
-            "aspect_a on target //test:dep_1 cannot see native aspect provider",
-            "aspect_a on target //test:dep_2 can see native aspect provider");
+            "aspect_a on target @//test:main_target cannot see native aspect provider",
+            "aspect_a on target @//test:dep_1 cannot see native aspect provider",
+            "aspect_a on target @//test:dep_2 can see native aspect provider");
   }
 
   @Test
@@ -3992,17 +3950,17 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "RequiredAspectProv");
     StructImpl requiredAspectProvider = (StructImpl) configuredTarget.get(requiredAspectProv);
     assertThat(requiredAspectProvider.getValue("p1_val"))
-        .isEqualTo("In required_aspect, p1 = p1_v1 on target //test:dep_target");
+        .isEqualTo("In required_aspect, p1 = p1_v1 on target @//test:dep_target");
     assertThat(requiredAspectProvider.getValue("p2_val"))
-        .isEqualTo("In required_aspect, p2 not found on target //test:dep_target");
+        .isEqualTo("In required_aspect, p2 not found on target @//test:dep_target");
 
     StarlarkProvider.Key baseAspectProv =
         new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "BaseAspectProv");
     StructImpl baseAspectProvider = (StructImpl) configuredTarget.get(baseAspectProv);
     assertThat(baseAspectProvider.getValue("p1_val"))
-        .isEqualTo("In base_aspect, p1 not found on target //test:dep_target");
+        .isEqualTo("In base_aspect, p1 not found on target @//test:dep_target");
     assertThat(baseAspectProvider.getValue("p2_val"))
-        .isEqualTo("In base_aspect, p2 = p2_v1 on target //test:dep_target");
+        .isEqualTo("In base_aspect, p2 = p2_v1 on target @//test:dep_target");
   }
 
   @Test
@@ -4067,13 +4025,13 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "RequiredAspectProv");
     StructImpl requiredAspectProvider = (StructImpl) configuredTarget.get(requiredAspectProv);
     assertThat(requiredAspectProvider.getValue("p_val"))
-        .isEqualTo("In required_aspect, p = p_v2 on target //test:dep_target");
+        .isEqualTo("In required_aspect, p = p_v2 on target @//test:dep_target");
 
     StarlarkProvider.Key baseAspectProv =
         new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "BaseAspectProv");
     StructImpl baseAspectProvider = (StructImpl) configuredTarget.get(baseAspectProv);
     assertThat(baseAspectProvider.getValue("p_val"))
-        .isEqualTo("In base_aspect, p = p_v2 on target //test:dep_target");
+        .isEqualTo("In base_aspect, p = p_v2 on target @//test:dep_target");
   }
 
   @Test
@@ -4179,15 +4137,15 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl baseAspectProvider = (StructImpl) configuredTarget.get(baseAspectProv);
     assertThat((Sequence<?>) baseAspectProvider.getValue("result"))
         .containsExactly(
-            "second_required_aspect run on target //test:second_dep_target",
-            "second_required_aspect run on target //test:dep_target",
-            "second_required_aspect run on target //test:first_dep_target",
-            "first_required_aspect run on target //test:first_dep_target",
-            "first_required_aspect run on target //test:dep_target",
-            "second_required_aspect run on target //test:base_dep_target",
-            "first_required_aspect run on target //test:base_dep_target",
-            "base_aspect run on target //test:base_dep_target",
-            "base_aspect run on target //test:dep_target");
+            "second_required_aspect run on target @//test:second_dep_target",
+            "second_required_aspect run on target @//test:dep_target",
+            "second_required_aspect run on target @//test:first_dep_target",
+            "first_required_aspect run on target @//test:first_dep_target",
+            "first_required_aspect run on target @//test:dep_target",
+            "second_required_aspect run on target @//test:base_dep_target",
+            "first_required_aspect run on target @//test:base_dep_target",
+            "base_aspect run on target @//test:base_dep_target",
+            "base_aspect run on target @//test:dep_target");
   }
 
   @Test
@@ -4306,9 +4264,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl collectorProvider = (StructImpl) configuredTarget.get(collectorProv);
     assertThat((Sequence<?>) collectorProvider.getValue("result"))
         .containsExactly(
-            "aspect_c run on target //test:target_with_prov_c and value of Prov_C = val_c",
-            "aspect_b run on target //test:target_with_prov_b and value of Prov_B = val_b",
-            "aspect_a run on target //test:target_with_prov_a and value of Prov_A = val_a")
+            "aspect_c run on target @//test:target_with_prov_c and value of Prov_C = val_c",
+            "aspect_b run on target @//test:target_with_prov_b and value of Prov_B = val_b",
+            "aspect_a run on target @//test:target_with_prov_a and value of Prov_A = val_a")
         .inOrder();
   }
 
@@ -4518,10 +4476,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
     String aspectAResult = (String) configuredTarget.get("aspect_a_result");
     assertThat(aspectAResult)
-        .isEqualTo("aspect_a on target //test:dep_target found prov_a = a1 and found prov_b = b1");
+        .isEqualTo("aspect_a on target @//test:dep_target found prov_a = a1 and found prov_b = b1");
 
     String aspectBResult = (String) configuredTarget.get("aspect_b_result");
-    assertThat(aspectBResult).isEqualTo("aspect_b on target //test:dep_target found prov_b = b1");
+    assertThat(aspectBResult).isEqualTo("aspect_b on target @//test:dep_target found prov_b = b1");
   }
 
   @Test
@@ -4597,10 +4555,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
     String aspectAResult = (String) configuredTarget.get("aspect_a_result");
-    assertThat(aspectAResult).isEqualTo("aspect_a on target //test:dep_target found prov_a = a1");
+    assertThat(aspectAResult).isEqualTo("aspect_a on target @//test:dep_target found prov_a = a1");
 
     String aspectBResult = (String) configuredTarget.get("aspect_b_result");
-    assertThat(aspectBResult).isEqualTo("aspect_b on target //test:dep_target cannot find prov_b");
+    assertThat(aspectBResult).isEqualTo("aspect_b on target @//test:dep_target cannot find prov_b");
   }
 
   /**
@@ -4717,8 +4675,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl a3ResultProvider = (StructImpl) a3.get(a3Result);
     assertThat((Sequence<?>) a3ResultProvider.getValue("value"))
         .containsExactly(
-            "aspect a3 on target //test:dep_target cannot see a1p and cannot see a2p",
-            "aspect a3 on target //test:main cannot see a1p and cannot see a2p");
+            "aspect a3 on target @//test:dep_target cannot see a1p and cannot see a2p",
+            "aspect a3 on target @//test:main cannot see a1p and cannot see a2p");
 
     ConfiguredAspect a2 = getConfiguredAspect(configuredAspects, "a2");
     assertThat(a2).isNotNull();
@@ -4727,8 +4685,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl a2ResultProvider = (StructImpl) a2.get(a2Result);
     assertThat((Sequence<?>) a2ResultProvider.getValue("value"))
         .containsExactly(
-            "aspect a2 on target //test:dep_target cannot see a1p and sees a2p = a2p_val",
-            "aspect a2 on target //test:main cannot see a1p and sees a2p = a2p_val");
+            "aspect a2 on target @//test:dep_target cannot see a1p and sees a2p = a2p_val",
+            "aspect a2 on target @//test:main cannot see a1p and sees a2p = a2p_val");
 
     ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
     assertThat(a1).isNotNull();
@@ -4737,8 +4695,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
-            "aspect a1 on target //test:dep_target sees a1p = a1p_val and cannot see a2p",
-            "aspect a1 on target //test:main sees a1p = a1p_val and cannot see a2p");
+            "aspect a1 on target @//test:dep_target sees a1p = a1p_val and cannot see a2p",
+            "aspect a1 on target @//test:main sees a1p = a1p_val and cannot see a2p");
   }
 
   /**
@@ -4902,8 +4860,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
-            "aspect a1 on target //test:dep_target sees a1p = a1p_a3_val",
-            "aspect a1 on target //test:main sees a1p = a1p_a3_val");
+            "aspect a1 on target @//test:dep_target sees a1p = a1p_a3_val",
+            "aspect a1 on target @//test:main sees a1p = a1p_a3_val");
   }
 
   @Test
@@ -4970,8 +4928,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
-            "aspect a1 on target //test:dep_target cannot see a1p",
-            "aspect a1 on target //test:main cannot see a1p");
+            "aspect a1 on target @//test:dep_target cannot see a1p",
+            "aspect a1 on target @//test:main cannot see a1p");
   }
 
   /**
@@ -5041,8 +4999,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
-            "aspect a1 on target //test:dep_target cannot see a1p",
-            "aspect a1 on target //test:main cannot see a1p");
+            "aspect a1 on target @//test:dep_target cannot see a1p",
+            "aspect a1 on target @//test:main cannot see a1p");
   }
 
   /**
@@ -5118,9 +5076,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
-            "aspect a1 on target //test:dep_target sees a1p = a1p_val",
-            "aspect a1 on target //test:extra_dep_target cannot see a1p",
-            "aspect a1 on target //test:main sees a1p = a1p_val");
+            "aspect a1 on target @//test:dep_target sees a1p = a1p_val",
+            "aspect a1 on target @//test:extra_dep_target cannot see a1p",
+            "aspect a1 on target @//test:main sees a1p = a1p_val");
   }
 
   /**
@@ -5212,9 +5170,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
-            "aspect a1 on target //test:target_with_prov_a sees a1p = a1p_val",
-            "aspect a1 on target //test:target_with_prov_b cannot see a1p",
-            "aspect a1 on target //test:main sees a1p = a1p_val");
+            "aspect a1 on target @//test:target_with_prov_a sees a1p = a1p_val",
+            "aspect a1 on target @//test:target_with_prov_b cannot see a1p",
+            "aspect a1 on target @//test:main sees a1p = a1p_val");
   }
 
   /**
@@ -5305,8 +5263,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl a2ResultProvider = (StructImpl) a2.get(a2Result);
     assertThat((Sequence<?>) a2ResultProvider.getValue("value"))
         .containsExactly(
-            "aspect a2 on target //test:dep_target sees a3p = a3p_val",
-            "aspect a2 on target //test:main sees a3p = a3p_val");
+            "aspect a2 on target @//test:dep_target sees a3p = a3p_val",
+            "aspect a2 on target @//test:main sees a3p = a3p_val");
 
     ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
     assertThat(a1).isNotNull();
@@ -5315,8 +5273,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
-            "aspect a1 on target //test:dep_target sees a3p = a3p_val",
-            "aspect a1 on target //test:main sees a3p = a3p_val");
+            "aspect a1 on target @//test:dep_target sees a3p = a3p_val",
+            "aspect a1 on target @//test:main sees a3p = a3p_val");
   }
 
   /**
@@ -5436,11 +5394,11 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl a3ResultProvider = (StructImpl) a3.get(a3Result);
     assertThat((Sequence<?>) a3ResultProvider.getValue("value"))
         .containsExactly(
-            "aspect a3 on target //test:t0 sees a1p = a1p_val and cannot see a2p",
-            "aspect a3 on target //test:t0 cannot see a1p and sees a2p = a2p_val",
-            "aspect a3 on target //test:t1 sees a1p = a1p_val and cannot see a2p",
-            "aspect a3 on target //test:t2 cannot see a1p and sees a2p = a2p_val",
-            "aspect a3 on target //test:main sees a1p = a1p_val and sees a2p = a2p_val");
+            "aspect a3 on target @//test:t0 sees a1p = a1p_val and cannot see a2p",
+            "aspect a3 on target @//test:t0 cannot see a1p and sees a2p = a2p_val",
+            "aspect a3 on target @//test:t1 sees a1p = a1p_val and cannot see a2p",
+            "aspect a3 on target @//test:t2 cannot see a1p and sees a2p = a2p_val",
+            "aspect a3 on target @//test:main sees a1p = a1p_val and sees a2p = a2p_val");
   }
 
   @Test
@@ -5583,8 +5541,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
-            "aspect a1 on target //test:dep_target sees a2p = a2p_val",
-            "aspect a1 on target //test:main cannot see a2p");
+            "aspect a1 on target @//test:dep_target sees a2p = a2p_val",
+            "aspect a1 on target @//test:main cannot see a2p");
   }
 
   @Test
@@ -5648,13 +5606,13 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "a1_result");
     StructImpl a1ResultProvider = (StructImpl) a1Ont1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
-        .containsExactly("aspect a1 on target //test:t1 sees a2p = a2p_val");
+        .containsExactly("aspect a1 on target @//test:t1 sees a2p = a2p_val");
 
     ConfiguredAspect a1Ont2 = getConfiguredAspect(configuredAspects, "a1", "t2");
     assertThat(a1Ont2).isNotNull();
     a1ResultProvider = (StructImpl) a1Ont2.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
-        .containsExactly("aspect a1 on target //test:t2 sees a2p = a2p_val");
+        .containsExactly("aspect a1 on target @//test:t2 sees a2p = a2p_val");
   }
 
   @Test
@@ -5735,8 +5693,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
-            "aspect a1 on target //test:dep_target sees a2p = a2p_val and sees a3p = a3p_val",
-            "aspect a1 on target //test:main sees a2p = a2p_val and sees a3p = a3p_val");
+            "aspect a1 on target @//test:dep_target sees a2p = a2p_val and sees a3p = a3p_val",
+            "aspect a1 on target @//test:main sees a2p = a2p_val and sees a3p = a3p_val");
   }
 
   @Test
@@ -5829,8 +5787,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
-            "aspect a1 on target //test:dep_target sees a2p = a2p_val and sees a3p = a3p_val",
-            "aspect a1 on target //test:main sees a2p = a2p_val and sees a3p = a3p_val");
+            "aspect a1 on target @//test:dep_target sees a2p = a2p_val and sees a3p = a3p_val",
+            "aspect a1 on target @//test:main sees a2p = a2p_val and sees a3p = a3p_val");
 
     ConfiguredAspect a2 = getConfiguredAspect(configuredAspects, "a2");
     assertThat(a2).isNotNull();
@@ -5839,8 +5797,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl a2ResultProvider = (StructImpl) a2.get(a2Result);
     assertThat((Sequence<?>) a2ResultProvider.getValue("value"))
         .containsExactly(
-            "aspect a2 on target //test:dep_target sees a3p = a3p_val",
-            "aspect a2 on target //test:main sees a3p = a3p_val");
+            "aspect a2 on target @//test:dep_target sees a3p = a3p_val",
+            "aspect a2 on target @//test:main sees a3p = a3p_val");
   }
 
   /**
@@ -6084,7 +6042,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "RequiredAspectProv");
     StructImpl requiredAspectProvider = (StructImpl) requiredAspect.get(requiredAspectProv);
     assertThat((Sequence<?>) requiredAspectProvider.getValue("p_val"))
-        .containsExactly("In required_aspect, p = main_val on target //test:main_target");
+        .containsExactly("In required_aspect, p = main_val on target @//test:main_target");
 
     // base_aspect can run on main_target and dep_target and it can also see the providers created
     // by running required_target on them.
@@ -6095,10 +6053,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl baseAspectProvider = (StructImpl) baseAspect.get(baseAspectProv);
     assertThat((Sequence<?>) baseAspectProvider.getValue("p_val"))
         .containsExactly(
-            "In base_aspect, p = dep_val on target //test:dep_target",
-            "In base_aspect, p = main_val on target //test:main_target",
-            "In required_aspect, p = dep_val on target //test:dep_target",
-            "In required_aspect, p = main_val on target //test:main_target");
+            "In base_aspect, p = dep_val on target @//test:dep_target",
+            "In base_aspect, p = main_val on target @//test:main_target",
+            "In required_aspect, p = dep_val on target @//test:dep_target",
+            "In required_aspect, p = main_val on target @//test:main_target");
   }
 
   @Test
@@ -6193,15 +6151,15 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl baseAspectProvider = (StructImpl) baseAspect.get(baseAspectProv);
     assertThat((Sequence<?>) baseAspectProvider.getValue("result"))
         .containsExactly(
-            "second_required_aspect run on target //test:second_dep_target",
-            "second_required_aspect run on target //test:main_target",
-            "second_required_aspect run on target //test:first_dep_target",
-            "second_required_aspect run on target //test:base_dep_target",
-            "first_required_aspect run on target //test:first_dep_target",
-            "first_required_aspect run on target //test:main_target",
-            "first_required_aspect run on target //test:base_dep_target",
-            "base_aspect run on target //test:base_dep_target",
-            "base_aspect run on target //test:main_target");
+            "second_required_aspect run on target @//test:second_dep_target",
+            "second_required_aspect run on target @//test:main_target",
+            "second_required_aspect run on target @//test:first_dep_target",
+            "second_required_aspect run on target @//test:base_dep_target",
+            "first_required_aspect run on target @//test:first_dep_target",
+            "first_required_aspect run on target @//test:main_target",
+            "first_required_aspect run on target @//test:base_dep_target",
+            "base_aspect run on target @//test:base_dep_target",
+            "base_aspect run on target @//test:main_target");
   }
 
   @Test
@@ -6323,10 +6281,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl collectorProvider = (StructImpl) aspectA.get(collectorProv);
     assertThat((Sequence<?>) collectorProvider.getValue("result"))
         .containsExactly(
-            "aspect_c run on target //test:target_with_prov_c and value of Prov_C = val_c",
-            "aspect_b run on target //test:target_with_prov_b and value of Prov_B = val_b",
-            "aspect_a run on target //test:target_with_prov_a and value of Prov_A = val_a",
-            "aspect_a run on target //test:main_target and value of Prov_A = main_val_a")
+            "aspect_c run on target @//test:target_with_prov_c and value of Prov_C = val_c",
+            "aspect_b run on target @//test:target_with_prov_b and value of Prov_B = val_b",
+            "aspect_a run on target @//test:target_with_prov_a and value of Prov_A = val_a",
+            "aspect_a run on target @//test:main_target and value of Prov_A = main_val_a")
         .inOrder();
   }
 
@@ -6515,12 +6473,13 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     assertThat(aspectA).isNotNull();
     String aspectAResult = (String) aspectA.get("aspect_a_result");
     assertThat(aspectAResult)
-        .isEqualTo("aspect_a on target //test:main_target found prov_a = a1 and found prov_b = b1");
+        .isEqualTo(
+            "aspect_a on target @//test:main_target found prov_a = a1 and found prov_b = b1");
 
     ConfiguredAspect aspectB = getConfiguredAspect(configuredAspects, "aspect_b");
     assertThat(aspectB).isNotNull();
     String aspectBResult = (String) aspectB.get("aspect_b_result");
-    assertThat(aspectBResult).isEqualTo("aspect_b on target //test:main_target found prov_b = b1");
+    assertThat(aspectBResult).isEqualTo("aspect_b on target @//test:main_target found prov_b = b1");
   }
 
   @Test
@@ -6587,12 +6546,13 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "aspect_a");
     assertThat(aspectA).isNotNull();
     String aspectAResult = (String) aspectA.get("aspect_a_result");
-    assertThat(aspectAResult).isEqualTo("aspect_a on target //test:main_target found prov_a = a1");
+    assertThat(aspectAResult).isEqualTo("aspect_a on target @//test:main_target found prov_a = a1");
 
     ConfiguredAspect aspectB = getConfiguredAspect(configuredAspects, "aspect_b");
     assertThat(aspectB).isNotNull();
     String aspectBResult = (String) aspectB.get("aspect_b_result");
-    assertThat(aspectBResult).isEqualTo("aspect_b on target //test:main_target cannot find prov_b");
+    assertThat(aspectBResult)
+        .isEqualTo("aspect_b on target @//test:main_target cannot find prov_b");
   }
 
   @Ignore("TODO(b/206127051): Fix the crash, rename the test and add a check the error message.")
@@ -6614,7 +6574,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "aspect_b = aspect(",
         "  implementation = _aspect_b,",
         "  required_aspect_providers = [AInfo],",
-        "  attrs = {'_attr': attr.label(default=':bin', executable=True, cfg='host')},",
+        "  attrs = {'_attr': attr.label(default=':bin', executable=True, cfg='exec')},",
         ")");
     scratch.file("test/bin.sh").setExecutable(true);
 
@@ -6687,18 +6647,18 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StarlarkList<?> aspectAResult = (StarlarkList) aspectA.get("aspect_a_result");
     assertThat(Starlark.toIterable(aspectAResult))
         .containsExactly(
-            "aspect_a on target //test:main_target, p1 = p1_v1 and a_p = a_p_v1",
-            "aspect_a on target //test:dep_target_1, p1 = p1_v1 and a_p = a_p_v1",
-            "aspect_a on target //test:dep_target_2, p1 = p1_v1 and a_p = a_p_v1");
+            "aspect_a on target @//test:main_target, p1 = p1_v1 and a_p = a_p_v1",
+            "aspect_a on target @//test:dep_target_1, p1 = p1_v1 and a_p = a_p_v1",
+            "aspect_a on target @//test:dep_target_2, p1 = p1_v1 and a_p = a_p_v1");
 
     ConfiguredAspect aspectB = getConfiguredAspect(configuredAspects, "aspect_b");
     assertThat(aspectB).isNotNull();
     StarlarkList<?> aspectBResult = (StarlarkList) aspectB.get("aspect_b_result");
     assertThat(Starlark.toIterable(aspectBResult))
         .containsExactly(
-            "aspect_b on target //test:main_target, p1 = p1_v1 and b_p = b_p_v1",
-            "aspect_b on target //test:dep_target_1, p1 = p1_v1 and b_p = b_p_v1",
-            "aspect_b on target //test:dep_target_2, p1 = p1_v1 and b_p = b_p_v1");
+            "aspect_b on target @//test:main_target, p1 = p1_v1 and b_p = b_p_v1",
+            "aspect_b on target @//test:dep_target_1, p1 = p1_v1 and b_p = b_p_v1",
+            "aspect_b on target @//test:dep_target_2, p1 = p1_v1 and b_p = b_p_v1");
   }
 
   @Test
@@ -6827,9 +6787,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StarlarkList<?> aspectAResult = (StarlarkList) aspectA.get("aspect_a_result");
     assertThat(Starlark.toIterable(aspectAResult))
         .containsExactly(
-            "aspect_a on target //test:main_target, p1 = p1_v2 and p2 = p2_v1",
-            "aspect_a on target //test:dep_target_1, p1 = p1_v2 and p2 = p2_v1",
-            "aspect_a on target //test:dep_target_2, p1 = p1_v2 and p2 = p2_v1");
+            "aspect_a on target @//test:main_target, p1 = p1_v2 and p2 = p2_v1",
+            "aspect_a on target @//test:dep_target_1, p1 = p1_v2 and p2 = p2_v1",
+            "aspect_a on target @//test:dep_target_2, p1 = p1_v2 and p2 = p2_v1");
   }
 
   @Test
@@ -6898,18 +6858,18 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StarlarkList<?> aspectAResult = (StarlarkList) aspectA.get("aspect_a_result");
     assertThat(Starlark.toIterable(aspectAResult))
         .containsExactly(
-            "aspect_a on target //test:main_target, p1 = p1_v1 and p2 = p2_v2",
-            "aspect_a on target //test:dep_target_1, p1 = p1_v1 and p2 = p2_v2",
-            "aspect_a on target //test:dep_target_2, p1 = p1_v1 and p2 = p2_v2");
+            "aspect_a on target @//test:main_target, p1 = p1_v1 and p2 = p2_v2",
+            "aspect_a on target @//test:dep_target_1, p1 = p1_v1 and p2 = p2_v2",
+            "aspect_a on target @//test:dep_target_2, p1 = p1_v1 and p2 = p2_v2");
 
     ConfiguredAspect aspectB = getConfiguredAspect(configuredAspects, "aspect_b");
     assertThat(aspectB).isNotNull();
     StarlarkList<?> aspectBResult = (StarlarkList) aspectB.get("aspect_b_result");
     assertThat(Starlark.toIterable(aspectBResult))
         .containsExactly(
-            "aspect_b on target //test:main_target, p1 = p1_v1 and p3 = p3_v3",
-            "aspect_b on target //test:dep_target_1, p1 = p1_v1 and p3 = p3_v3",
-            "aspect_b on target //test:dep_target_2, p1 = p1_v1 and p3 = p3_v3");
+            "aspect_b on target @//test:main_target, p1 = p1_v1 and p3 = p3_v3",
+            "aspect_b on target @//test:dep_target_1, p1 = p1_v1 and p3 = p3_v3",
+            "aspect_b on target @//test:dep_target_2, p1 = p1_v1 and p3 = p3_v3");
   }
 
   @Test
@@ -7220,9 +7180,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StarlarkList<?> aspectAResult = (StarlarkList) aspectA.get("aspect_a_result");
     assertThat(Starlark.toIterable(aspectAResult))
         .containsExactly(
-            "aspect_a on target //test:main_target, p = p_v",
-            "aspect_a on target //test:dep_target_1, p = p_v",
-            "aspect_a on target //test:dep_target_2, p = p_v");
+            "aspect_a on target @//test:main_target, p = p_v",
+            "aspect_a on target @//test:dep_target_1, p = p_v",
+            "aspect_a on target @//test:dep_target_2, p = p_v");
   }
 
   /**
@@ -7531,7 +7491,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
     StarlarkList<?> ruleResult = (StarlarkList) configuredTarget.get("my_rule_result");
     assertThat(Starlark.toIterable(ruleResult))
-        .containsExactly("my_aspect on target //test:dep_target, my_attr = 1");
+        .containsExactly("my_aspect on target @//test:dep_target, my_attr = 1");
   }
 
   @Test
@@ -7574,7 +7534,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
     StarlarkList<?> ruleResult = (StarlarkList) configuredTarget.get("my_rule_result");
     assertThat(Starlark.toIterable(ruleResult))
-        .containsExactly("my_aspect on target //test:dep_target, my_attr = 2");
+        .containsExactly("my_aspect on target @//test:dep_target, my_attr = 2");
   }
 
   @Test
@@ -7618,7 +7578,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
     StarlarkList<?> ruleResult = (StarlarkList) configuredTarget.get("my_rule_result");
     assertThat(Starlark.toIterable(ruleResult))
-        .containsExactly("my_aspect on target //test:dep_target, my_attr = 3");
+        .containsExactly("my_aspect on target @//test:dep_target, my_attr = 3");
   }
 
   @Test
@@ -7733,9 +7693,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StarlarkList<?> aspectAResult = (StarlarkList) aspectA.get("aspect_a_result");
     assertThat(Starlark.toIterable(aspectAResult))
         .containsExactly(
-            "aspect_a on target //test:main_target, p = 2",
-            "aspect_a on target //test:dep_target_1, p = 2",
-            "aspect_a on target //test:dep_target_2, p = 2");
+            "aspect_a on target @//test:main_target, p = 2",
+            "aspect_a on target @//test:dep_target_1, p = 2",
+            "aspect_a on target @//test:dep_target_2, p = 2");
   }
 
   @Test
@@ -7785,9 +7745,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StarlarkList<?> aspectAResult = (StarlarkList) aspectA.get("aspect_a_result");
     assertThat(Starlark.toIterable(aspectAResult))
         .containsExactly(
-            "aspect_a on target //test:main_target, p = 1",
-            "aspect_a on target //test:dep_target_1, p = 1",
-            "aspect_a on target //test:dep_target_2, p = 1");
+            "aspect_a on target @//test:main_target, p = 1",
+            "aspect_a on target @//test:dep_target_1, p = 1",
+            "aspect_a on target @//test:dep_target_2, p = 1");
   }
 
   @Test
@@ -7963,7 +7923,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
     StarlarkList<?> ruleResult = (StarlarkList) configuredTarget.get("my_rule_result");
     assertThat(Starlark.toIterable(ruleResult))
-        .containsExactly("my_aspect on target //test:dep_target, my_attr = True");
+        .containsExactly("my_aspect on target @//test:dep_target, my_attr = True");
   }
 
   @Test
@@ -8006,7 +7966,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
     StarlarkList<?> ruleResult = (StarlarkList) configuredTarget.get("my_rule_result");
     assertThat(Starlark.toIterable(ruleResult))
-        .containsExactly("my_aspect on target //test:dep_target, my_attr = False");
+        .containsExactly("my_aspect on target @//test:dep_target, my_attr = False");
   }
 
   @Test
@@ -8050,7 +8010,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
     StarlarkList<?> ruleResult = (StarlarkList) configuredTarget.get("my_rule_result");
     assertThat(Starlark.toIterable(ruleResult))
-        .containsExactly("my_aspect on target //test:dep_target, my_attr = False");
+        .containsExactly("my_aspect on target @//test:dep_target, my_attr = False");
   }
 
   @Test
@@ -8103,9 +8063,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StarlarkList<?> aspectAResult = (StarlarkList) aspectA.get("aspect_a_result");
     assertThat(Starlark.toIterable(aspectAResult))
         .containsExactly(
-            "aspect_a on target //test:main_target, p = True",
-            "aspect_a on target //test:dep_target_1, p = True",
-            "aspect_a on target //test:dep_target_2, p = True");
+            "aspect_a on target @//test:main_target, p = True",
+            "aspect_a on target @//test:dep_target_1, p = True",
+            "aspect_a on target @//test:dep_target_2, p = True");
   }
 
   @Test
@@ -8155,9 +8115,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     StarlarkList<?> aspectAResult = (StarlarkList) aspectA.get("aspect_a_result");
     assertThat(Starlark.toIterable(aspectAResult))
         .containsExactly(
-            "aspect_a on target //test:main_target, p = False",
-            "aspect_a on target //test:dep_target_1, p = False",
-            "aspect_a on target //test:dep_target_2, p = False");
+            "aspect_a on target @//test:main_target, p = False",
+            "aspect_a on target @//test:dep_target_1, p = False",
+            "aspect_a on target @//test:dep_target_2, p = False");
   }
 
   @Test
@@ -8368,7 +8328,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
     String aspectAResult = (String) configuredTarget.get("aspect_a_result");
-    assertThat(aspectAResult).isEqualTo("aspect_a on target //test:dep_target, p = p_v2");
+    assertThat(aspectAResult).isEqualTo("aspect_a on target @//test:dep_target, p = p_v2");
   }
 
   @Test
@@ -8415,7 +8375,279 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
     String aspectAResult = (String) configuredTarget.get("aspect_a_result");
-    assertThat(aspectAResult).isEqualTo("aspect_a on target //test:dep_target, p = p_v1");
+    assertThat(aspectAResult).isEqualTo("aspect_a on target @//test:dep_target, p = p_v1");
+  }
+
+  @Test
+  public void testAspectLabelIsRepoMapped() throws Exception {
+    scratch.appendFile("WORKSPACE", "workspace(name = 'my_repo')");
+    scratch.file(
+        "test/aspect.bzl",
+        "load(':rule.bzl', 'MyInfo')",
+        "def _impl(target, ctx):",
+        "   if MyInfo not in target:",
+        "       fail('Provider identity mismatch')",
+        "   return struct()",
+        "MyAspect = aspect(implementation=_impl)");
+    scratch.file(
+        "test/rule.bzl",
+        "MyInfo = provider()",
+        "def _impl(ctx):",
+        "    return [MyInfo()]",
+        "my_rule = rule(implementation=_impl)");
+    scratch.file("test/BUILD", "load(':rule.bzl', 'my_rule')", "my_rule(name = 'target')");
+
+    AnalysisResult result =
+        update(ImmutableList.of("@my_repo//test:aspect.bzl%MyAspect"), "//test:target");
+    assertThat(result.hasError()).isFalse();
+  }
+
+  @Test
+  public void testAspectKeyCreatedOnlyOnceForSameBaseKeysInDiffOrder() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "a_provider = provider()",
+        "b_provider = provider()",
+        "c_provider = provider()",
+        "",
+        "def _a_impl(target, ctx):",
+        "  result = []",
+        "  if ctx.rule.attr.deps:",
+        "    for dep in ctx.rule.attr.deps:",
+        "      result.extend(dep[a_provider].value)",
+        "  result.append('aspect a on target {} aspect_ids {}'.format(target.label,",
+        "                                                                ctx.aspect_ids))",
+        "  return [a_provider(value = result)]",
+        "a = aspect(",
+        "  implementation = _a_impl,",
+        "  attr_aspects = ['deps'],",
+        "  required_aspect_providers = [[b_provider], [c_provider]],",
+        ")",
+        "",
+        "def _b_impl(target, ctx):",
+        "  return [b_provider(value = ['aspect b on target {}'.format(target.label)])]",
+        "b = aspect(",
+        "  implementation = _b_impl,",
+        "  attr_aspects = ['deps'],",
+        "  provides = [b_provider],",
+        ")",
+        "",
+        "def _c_impl(target, ctx):",
+        "  return [c_provider(value = ['aspect c on target {}'.format(target.label)])]",
+        "c = aspect(",
+        "  implementation = _c_impl,",
+        "  attr_aspects = ['deps'],",
+        "  provides = [c_provider]",
+        ")",
+        "",
+        "def _r1_impl(ctx):",
+        "  result = []",
+        "  if ctx.attr.deps:",
+        "    for dep in ctx.attr.deps:",
+        "      result.extend(dep[a_provider].value)",
+        "  return struct(aspect_a_collected_result = result)",
+        "r1 = rule(",
+        "  implementation = _r1_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(aspects = [c, b, a]),",
+        "  },",
+        ")",
+        "",
+        "def _r2_impl(ctx):",
+        "  pass",
+        "r2 = rule(",
+        "  implementation = _r2_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(aspects = [b]),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'r1', 'r2')",
+        "r1(",
+        "  name = 't1',",
+        // base_keys of aspect a on t3 are [c, b]
+        "  deps = [':t2', ':t3'],",
+        ")",
+        "r2(",
+        "  name = 't2',",
+        // aspects reaching t3 will be [b, c, b, a], after deduplicating aspects path, it will be
+        // [b, c, a] and as a result the base_keys of aspect a will be [b, c]
+        "  deps = [':t3'],",
+        ")",
+        "r2(",
+        "  name = 't3',",
+        ")");
+
+    update("//test:t1");
+
+    // Aspect a should have a single AspectKey for its application on t3 and the baseKeys in it will
+    // be sorted as [b, c]
+    ImmutableList<AspectKey> keysForAspectAOnT3 = getAspectKeys("//test:t3", "//test:defs.bzl%a");
+    assertThat(keysForAspectAOnT3).hasSize(1);
+
+    ImmutableList<AspectKey> baseKeys = keysForAspectAOnT3.get(0).getBaseKeys();
+    assertThat(baseKeys.stream().map(k -> k.getAspectClass().getName()))
+        .containsExactly("//test:defs.bzl%b", "//test:defs.bzl%c")
+        .inOrder();
+  }
+
+  @Test
+  public void testAspectRunsTwiceWithDiffBaseAspectsDeps() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "a_provider = provider()",
+        "b_provider = provider()",
+        "c_provider = provider()",
+        "",
+        "def _a_impl(target, ctx):",
+        "  result = []",
+        "  if ctx.rule.attr.deps:",
+        "    for dep in ctx.rule.attr.deps:",
+        "      result.extend(dep[a_provider].value)",
+        "  if b_provider in target:",
+        "    result.append('aspect a on {} sees b_provider = {}'.format(target.label,",
+        "                                                              target[b_provider].value))",
+        "  return [a_provider(value = result)]",
+        "a = aspect(",
+        "  implementation = _a_impl,",
+        "  attr_aspects = ['deps'],",
+        "  required_aspect_providers = [[b_provider], [c_provider]],",
+        ")",
+        "",
+        "def _b_impl(target, ctx):",
+        "  result = 'aspect b cannot see c_provider'",
+        "  if c_provider in target:",
+        "    result = 'aspect b can see c_provider'",
+        "  return [b_provider(value = result)]",
+        "b = aspect(",
+        "  implementation = _b_impl,",
+        "  attr_aspects = ['deps'],",
+        "  provides = [b_provider],",
+        "  required_aspect_providers = [[c_provider]]",
+        ")",
+        "",
+        "def _c_impl(target, ctx):",
+        "  return [c_provider(value = ['aspect c on target {}'.format(target.label)])]",
+        "c = aspect(",
+        "  implementation = _c_impl,",
+        "  attr_aspects = ['deps'],",
+        "  provides = [c_provider]",
+        ")",
+        "",
+        "def _r1_impl(ctx):",
+        "  result = []",
+        "  if ctx.attr.deps:",
+        "    for dep in ctx.attr.deps:",
+        "      result.extend(dep[a_provider].value)",
+        "  return struct(aspect_a_collected_result = result)",
+        "r1 = rule(",
+        "  implementation = _r1_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(aspects = [a]),",
+        "  },",
+        ")",
+        "",
+        "def _r2_impl(ctx):",
+        "  pass",
+        "r2 = rule(",
+        "  implementation = _r2_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(aspects = [c, b]),",
+        "  },",
+        ")",
+        "",
+        "def _r3_impl(ctx):",
+        "  pass",
+        "r3 = rule(",
+        "  implementation = _r3_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(aspects = [b, c]),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'r1', 'r2', 'r3')",
+        "r1(",
+        "  name = 't1',",
+        // t1 propagate aspect (a) to targets (t2 and t3)
+        "  deps = [':t2', ':t3'],",
+        ")",
+        "r2(",
+        "  name = 't2',",
+        // t2 propagates aspects (c, b) to target t4 and aspect a is propagated from the prev level
+        // aspects path on t4 is [c, b, a], this means a can see b and b can see c
+        "  deps = [':t4'],",
+        ")",
+        "r3(",
+        "  name = 't3',",
+        // t3 propagates aspects (b, c) to target t4 and aspect a is propagated from the prev level
+        // aspects path on t4 is [b, c, a], this means a can see b but b cannot see c
+        " deps = [':t4'],",
+        ")",
+        "r1(",
+        "  name = 't4',",
+        ")");
+
+    AnalysisResult analysisResult = update("//test:t1");
+
+    // Aspect a should have 2 AspectKeys for its application on t4, one where in the basekeys b can
+    // see c and the other is where b cannot see c
+    ImmutableList<AspectKey> keysForAspectAOnT4 = getAspectKeys("//test:t4", "//test:defs.bzl%a");
+    assertThat(keysForAspectAOnT4).hasSize(2);
+
+    ConfiguredTarget configuredTarget =
+        Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
+    StarlarkList<?> aspectAResult =
+        (StarlarkList) configuredTarget.get("aspect_a_collected_result");
+    assertThat(Starlark.toIterable(aspectAResult))
+        .containsExactly(
+            "aspect a on @//test:t4 sees b_provider = aspect b can see c_provider",
+            "aspect a on @//test:t4 sees b_provider = aspect b cannot see c_provider");
+  }
+
+  @Test
+  public void testAspectWithSameExplicitAttributeNameAsUnderlyingTarget() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _a_impl(target, ctx):",
+        "  value = 'x from aspect = {}, x from target = {}'.format(ctx.attr.x, ctx.rule.attr.x)",
+        "  return struct(aspect_result = value)",
+        "a = aspect(",
+        "  implementation = _a_impl,",
+        "  attrs = {",
+        "    'x': attr.string(default = 'xyz')",
+        "  },",
+        ")",
+        "",
+        "def _rule_impl(ctx):",
+        "  pass",
+        "r1 = rule(",
+        "  implementation = _rule_impl,",
+        "  attrs = {",
+        "    'x': attr.int(default = 4)",
+        "  },",
+        ")");
+    scratch.file("test/BUILD", "load('//test:defs.bzl', 'r1')", "r1(name = 't1')");
+
+    AnalysisResult analysisResult = update(ImmutableList.of("//test:defs.bzl%a"), "//test:t1");
+
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "a");
+    assertThat(aspectA).isNotNull();
+    String aspectAResult = (String) aspectA.get("aspect_result");
+    assertThat(aspectAResult).isEqualTo("x from aspect = xyz, x from target = 4");
+  }
+
+  private ImmutableList<AspectKey> getAspectKeys(String targetLabel, String aspectLabel) {
+    return skyframeExecutor.getEvaluator().getDoneValues().entrySet().stream()
+        .filter(
+            entry ->
+                entry.getKey() instanceof AspectKey
+                    && ((AspectKey) entry.getKey()).getAspectClass().getName().equals(aspectLabel)
+                    && ((AspectKey) entry.getKey()).getLabel().toString().equals(targetLabel))
+        .map(e -> (AspectKey) e.getKey())
+        .collect(toImmutableList());
   }
 
   private ConfiguredAspect getConfiguredAspect(
@@ -8450,9 +8682,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   private void exposeNativeAspectToStarlark() throws Exception {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
-    builder.addStarlarkAccessibleTopLevels(
+    builder.addBzlToplevel(
         "starlark_native_aspect", TestAspects.STARLARK_NATIVE_ASPECT_WITH_PROVIDER);
-    builder.addStarlarkAccessibleTopLevels(
+    builder.addBzlToplevel(
         "parametrized_native_aspect",
         TestAspects.PARAMETRIZED_STARLARK_NATIVE_ASPECT_WITH_PROVIDER);
     builder.addNativeAspectClass(TestAspects.STARLARK_NATIVE_ASPECT_WITH_PROVIDER);

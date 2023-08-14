@@ -1,0 +1,95 @@
+// Copyright 2022 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// Protos that represent a complete graph of all executed spawns, actions that
+// don't have spawns, and their performance metrics. Targets are composed of
+// actions, and actions are composed of 0 or more spawns.
+
+syntax = "proto3";
+
+package execution_graph;
+
+// option cc_api_version = 2;
+// option java_api_version = 2;
+option java_package = "com.google.devtools.build.lib.actions";
+
+// Node is one entry in the executed graph.
+message Node {
+  // All nodes should have a description so human debuggers could see what was
+  // going on in this step. This should be ActionAnalysisMetadata.prettyPrint().
+  string description = 1;
+
+  // The index is a unique (within a single build) but arbitrary identifier for
+  // this node. The same node will likely have different indexes across builds.
+  // For performance reasons, the set of all indexes in a build should be dense.
+  int32 index = 2;
+
+  // The target name. The field is not set if a spawn or action is shared
+  // between multiple targets or if it doesn't belong to any target. Note that a
+  // target can trigger several spawns, that can run in parallel or in sequence.
+  string target_label = 3;
+
+  // The spawn or action mnemonic. For example, Javac, GoLink, TestRunner, etc.
+  string mnemonic = 4;
+
+  Metrics metrics = 5;
+
+  // A list of node indexes corresponding to direct dependencies of this
+  // node.
+  repeated int32 dependent_index = 6;
+
+  // The name of the spawn runner that ran the spawn, if applicable.
+  string runner = 7;
+
+  // Details about the runner.
+  string runner_subtype = 8;
+
+  // A node index that this is a retry of. For example, the second attempt of
+  // a flaky test would point to the first attempt, and the third attempt would
+  // point to the second.
+  optional int32 retry_of = 9;
+}
+
+// Metrics contains all the timing metrics about a Node.
+message Metrics {
+  // The time when the node started, as milliseconds from the Unix epoch.
+  int64 start_timestamp_millis = 1
+      ;
+
+  // How long did this node last. This should be the sum of all the parts
+  // below, but is included separately to identify issues when that's not true.
+  int32 duration_millis = 2;
+
+  int32 parse_millis = 3;
+  int32 fetch_millis = 4;
+  int32 network_millis = 5;
+  int32 upload_millis = 6;
+  int32 process_millis = 7;
+  int32 setup_millis = 8;
+  int32 process_outputs_millis = 9;
+  int32 queue_millis = 10;
+  int32 discover_inputs_millis = 14;
+
+  // Total time spent on failed attempts.
+  int32 retry_millis = 11;
+
+  // Mapping from error code to the time spent on attempts that failed with
+  // that error.
+  map<int32, int32> retry_millis_by_error = 12;
+
+  // Time spent where we don't have more detailed information. This should be
+  // just duration_millis minus all the other parts, but it is kept separately
+  // to identify bugs in the code that produces the timing info.
+  int32 other_millis = 13;
+}

@@ -64,14 +64,14 @@ public interface OsPathPolicy {
   /**
    * Returns whether the passed string starts with the given prefix, given the OS case sensitivity.
    *
-   * <p>This is a pure string operation and doesn't need to worry about matching path segments.
+   * <p>This is a pure string operation and doesn't account for path separators.
    */
   boolean startsWith(String path, String prefix);
 
   /**
-   * Returns whether the passed string ends with the given prefix, given the OS case sensitivity.
+   * Returns whether the passed string ends with the given suffix, given the OS case sensitivity.
    *
-   * <p>This is a pure string operation and doesn't need to worry about matching path segments.
+   * <p>This is a pure string operation and doesn't account for path separators.
    */
   boolean endsWith(String path, String suffix);
 

@@ -35,14 +35,15 @@ import java.io.OutputStream;
 public class DigestUtil {
   private final XattrProvider xattrProvider;
   private final DigestHashFunction hashFn;
+  private final DigestFunction.Value digestFunction;
 
   public DigestUtil(XattrProvider xattrProvider, DigestHashFunction hashFn) {
     this.xattrProvider = xattrProvider;
     this.hashFn = hashFn;
+    this.digestFunction = getDigestFunctionFromHashFunction(hashFn);
   }
 
-  /** Returns the currently used digest function. */
-  public DigestFunction.Value getDigestFunction() {
+  private static DigestFunction.Value getDigestFunctionFromHashFunction(DigestHashFunction hashFn) {
     for (String name : hashFn.getNames()) {
       try {
         return DigestFunction.Value.valueOf(name);
@@ -51,6 +52,11 @@ public class DigestUtil {
       }
     }
     return DigestFunction.Value.UNKNOWN;
+  }
+
+  /** Returns the currently used digest function. */
+  public DigestFunction.Value getDigestFunction() {
+    return digestFunction;
   }
 
   public Digest compute(byte[] blob) {
@@ -124,5 +130,13 @@ public class DigestUtil {
 
   public static byte[] toBinaryDigest(Digest digest) {
     return HashCode.fromString(digest.getHash()).asBytes();
+  }
+
+  public static boolean isOldStyleDigestFunction(DigestFunction.Value digestFunction) {
+    // Old-style digest functions (SHA256, etc) are distinguishable by the length
+    // of their hash alone and do not require extra specification, but newer
+    // digest functions (which may have the same length hashes as the older
+    // functions!) must be explicitly specified in the upload resource name.
+    return digestFunction.getNumber() <= 7;
   }
 }

@@ -17,6 +17,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.NUM_JOBS;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -30,13 +31,13 @@ import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
-import com.google.devtools.build.lib.concurrent.Sharder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ActionConflictsAndStats;
 import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.SkyValue;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -55,7 +56,7 @@ import java.util.concurrent.Executors;
 @ThreadSafe
 public final class IncrementalArtifactConflictFinder {
   private final MutableActionGraph threadSafeMutableActionGraph;
-  public final ConcurrentMap<String, Object> pathFragmentTrieRoot;
+  private final ConcurrentMap<String, Object> pathFragmentTrieRoot;
   private final ListeningExecutorService executorService;
 
   private IncrementalArtifactConflictFinder(MutableActionGraph threadSafeMutableActionGraph) {
@@ -75,8 +76,12 @@ public final class IncrementalArtifactConflictFinder {
     return new IncrementalArtifactConflictFinder(threadSafeMutableActionGraph);
   }
 
+  public int getOutputArtifactCount() {
+    return threadSafeMutableActionGraph.getSize();
+  }
+
   ActionConflictsAndStats findArtifactConflicts(
-      Sharder<ActionLookupValue> actionLookupValues, boolean strictConflictChecks)
+      ImmutableCollection<SkyValue> actionLookupValues, boolean strictConflictChecks)
       throws InterruptedException {
     ConcurrentMap<ActionAnalysisMetadata, ConflictException> temporaryBadActionMap =
         new ConcurrentHashMap<>();
@@ -84,8 +89,6 @@ public final class IncrementalArtifactConflictFinder {
     try (SilentCloseable c =
         Profiler.instance().profile("IncrementalArtifactConflictFinder.findArtifactConflicts")) {
       constructActionGraphAndArtifactList(
-          executorService,
-          threadSafeMutableActionGraph,
           pathFragmentTrieRoot,
           actionLookupValues,
           strictConflictChecks,
@@ -96,26 +99,29 @@ public final class IncrementalArtifactConflictFinder {
         ImmutableMap.copyOf(temporaryBadActionMap), threadSafeMutableActionGraph.getSize());
   }
 
-  private static void constructActionGraphAndArtifactList(
-      ListeningExecutorService executorService,
-      MutableActionGraph actionGraph,
+  private void constructActionGraphAndArtifactList(
       ConcurrentMap<String, Object> pathFragmentTrieRoot,
-      Sharder<ActionLookupValue> actionLookupValues,
+      ImmutableCollection<SkyValue> actionLookupValues,
       boolean strictConflictChecks,
       ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap)
       throws InterruptedException {
-    // The max number of shards is NUM_JOBS.
-    List<ListenableFuture<Void>> futures = new ArrayList<>(NUM_JOBS);
-    for (List<ActionLookupValue> shard : actionLookupValues) {
-      futures.add(
-          executorService.submit(
-              () ->
-                  actionRegistration(
-                      shard,
-                      actionGraph,
-                      pathFragmentTrieRoot,
-                      strictConflictChecks,
-                      badActionMap)));
+    List<ListenableFuture<Void>> futures = new ArrayList<>(actionLookupValues.size());
+    synchronized (executorService) {
+      // Some other thread shut down the executor, exit now.
+      if (executorService.isShutdown()) {
+        return;
+      }
+      for (SkyValue alv : actionLookupValues) {
+        futures.add(
+            executorService.submit(
+                () ->
+                    actionRegistration(
+                        alv,
+                        threadSafeMutableActionGraph,
+                        pathFragmentTrieRoot,
+                        strictConflictChecks,
+                        badActionMap)));
+      }
     }
     // Now wait on the futures.
     try {
@@ -125,40 +131,42 @@ public final class IncrementalArtifactConflictFinder {
     }
   }
 
-  void shutdown() throws InterruptedException {
-    if (ExecutorUtil.interruptibleShutdown(executorService)) {
-      throw new InterruptedException();
+  void shutdown() {
+    synchronized (executorService) {
+      if (!executorService.isShutdown() && ExecutorUtil.interruptibleShutdown(executorService)) {
+        // Preserve the interrupt status.
+        Thread.currentThread().interrupt();
+      }
     }
   }
 
   private static Void actionRegistration(
-      List<ActionLookupValue> values,
+      SkyValue value,
       MutableActionGraph actionGraph,
       ConcurrentMap<String, Object> pathFragmentTrieRoot,
       boolean strictConflictChecks,
       ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap) {
-    for (ActionLookupValue value : values) {
-      for (ActionAnalysisMetadata action : value.getActions()) {
-        try {
-          actionGraph.registerAction(action);
-        } catch (ActionConflictException e) {
-          // It may be possible that we detect a conflict for the same action more than once, if
-          // that action belongs to multiple aspect values. In this case we will harmlessly
-          // overwrite the badActionMap entry.
-          badActionMap.put(action, new ConflictException(e));
-          // We skip the rest of the loop, and do not add the path->artifact mapping for this
-          // artifact below -- we don't need to check it since this action is already in
-          // error.
-          continue;
-        } catch (InterruptedException e) {
-          // Bail.
-          Thread.currentThread().interrupt();
-          return null;
-        }
-        for (Artifact output : action.getOutputs()) {
-          checkOutputPrefix(
-              actionGraph, strictConflictChecks, pathFragmentTrieRoot, output, badActionMap);
-        }
+    Preconditions.checkState(value instanceof ActionLookupValue);
+    for (ActionAnalysisMetadata action : ((ActionLookupValue) value).getActions()) {
+      try {
+        actionGraph.registerAction(action);
+      } catch (ActionConflictException e) {
+        // It may be possible that we detect a conflict for the same action more than once, if
+        // that action belongs to multiple aspect values. In this case we will harmlessly
+        // overwrite the badActionMap entry.
+        badActionMap.put(action, new ConflictException(e));
+        // We skip the rest of the loop, and do not add the path->artifact mapping for this
+        // artifact below -- we don't need to check it since this action is already in
+        // error.
+        continue;
+      } catch (InterruptedException e) {
+        // Bail.
+        Thread.currentThread().interrupt();
+        return null;
+      }
+      for (Artifact output : action.getOutputs()) {
+        checkOutputPrefix(
+            actionGraph, strictConflictChecks, pathFragmentTrieRoot, output, badActionMap);
       }
     }
     return null;

@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
@@ -47,6 +48,7 @@ public class SingleJarCommandLineTest extends FoundationTestCase {
     CommandLine command =
         defaultSingleJarCommandLine(
                 dummy,
+                Label.parseCanonicalUnchecked("//dummy"),
                 null,
                 ImmutableList.<String>of(),
                 ImmutableList.<Artifact>of(),
@@ -76,6 +78,7 @@ public class SingleJarCommandLineTest extends FoundationTestCase {
     CommandLine command =
         defaultSingleJarCommandLine(
                 dummy,
+                Label.parseCanonicalUnchecked("//dummy"),
                 null,
                 ImmutableList.<String>of(),
                 ImmutableList.<Artifact>of(),
@@ -105,6 +108,7 @@ public class SingleJarCommandLineTest extends FoundationTestCase {
     CommandLine command =
         defaultSingleJarCommandLine(
                 dummy,
+                Label.parseCanonicalUnchecked("//dummy"),
                 null,
                 ImmutableList.<String>of(),
                 ImmutableList.<Artifact>of(),
@@ -133,6 +137,7 @@ public class SingleJarCommandLineTest extends FoundationTestCase {
     CommandLine command =
         defaultSingleJarCommandLine(
                 dummy,
+                Label.parseCanonicalUnchecked("//dummy"),
                 null,
                 ImmutableList.<String>of(),
                 ImmutableList.<Artifact>of(),
@@ -161,6 +166,7 @@ public class SingleJarCommandLineTest extends FoundationTestCase {
     CommandLine command =
         defaultSingleJarCommandLine(
                 dummy,
+                Label.parseCanonicalUnchecked("//dummy"),
                 null,
                 ImmutableList.<String>of(),
                 ImmutableList.<Artifact>of(),
@@ -193,6 +199,7 @@ public class SingleJarCommandLineTest extends FoundationTestCase {
     CommandLine command =
         defaultSingleJarCommandLine(
                 dummy,
+                Label.parseCanonicalUnchecked("//dummy"),
                 null,
                 ImmutableList.<String>of(),
                 ImmutableList.<Artifact>of(),
@@ -214,7 +221,7 @@ public class SingleJarCommandLineTest extends FoundationTestCase {
         .containsAtLeast("--enforce_one_version", "--succeed_on_found_violations");
 
     // --one_version_whitelist and the execpath to the whitelist are two different args, but they
-    // need to be next to eachother.
+    // need to be next to each other.
     MoreAsserts.assertContainsSublist(
         Lists.newArrayList(command.arguments()), "--one_version_whitelist", "whitelistfile");
   }

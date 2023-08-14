@@ -18,12 +18,14 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
+import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor.ExceptionHandlingMode;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
 import com.google.devtools.build.lib.concurrent.ForkJoinQuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
@@ -38,6 +40,7 @@ import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.errorprone.annotations.ForOverride;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
@@ -96,10 +99,10 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
       GraphT graph, DirtyTrackingProgressReceiver progressReceiver, InvalidationState state) {
     this.executor =
         new AbstractQueueVisitor(
-            /*parallelism=*/ DEFAULT_THREAD_COUNT,
-            /*keepAliveTime=*/ 15,
-            /*units=*/ TimeUnit.SECONDS,
-            /*failFastOnException=*/ true,
+            /* parallelism= */ DEFAULT_THREAD_COUNT,
+            /* keepAliveTime= */ 15,
+            /* units= */ TimeUnit.SECONDS,
+            ExceptionHandlingMode.FAIL_FAST,
             "skyframe-invalidator",
             errorClassifier);
     this.graph = Preconditions.checkNotNull(graph);
@@ -164,7 +167,7 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
 
   /** Enqueues nodes for invalidation. Elements of {@code keys} may not exist in the graph. */
   @ThreadSafe
-  abstract void visit(Iterable<SkyKey> keys, InvalidationType invalidationType);
+  abstract void visit(Collection<SkyKey> keys, InvalidationType invalidationType);
 
   @VisibleForTesting
   enum InvalidationType {
@@ -276,7 +279,7 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
           executor.execute(
               () ->
                   visit(
-                      Iterables.transform(
+                      Collections2.transform(
                           pendingList.subList(
                               (index * listSize) / numThreads,
                               ((index + 1) * listSize) / numThreads),
@@ -312,7 +315,7 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
     }
 
     @Override
-    public void visit(Iterable<SkyKey> keys, InvalidationType invalidationType) {
+    public void visit(Collection<SkyKey> keys, InvalidationType invalidationType) {
       Preconditions.checkState(invalidationType == InvalidationType.DELETED, keys);
       ImmutableList.Builder<SkyKey> unvisitedKeysBuilder = ImmutableList.builder();
       for (SkyKey key : keys) {
@@ -324,8 +327,7 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
       for (SkyKey key : unvisitedKeys) {
         pendingVisitations.add(Pair.of(key, InvalidationType.DELETED));
       }
-      final Map<SkyKey, ? extends NodeEntry> entries =
-          graph.getBatch(null, Reason.INVALIDATION, unvisitedKeys);
+      NodeBatch entries = graph.getBatch(null, Reason.INVALIDATION, unvisitedKeys);
       for (SkyKey key : unvisitedKeys) {
         executor.execute(
             () -> {
@@ -367,7 +369,7 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
                 // No need to do reverse dep surgery on nodes that are deleted/about to be deleted
                 // anyway.
                 Map<SkyKey, ? extends NodeEntry> depMap =
-                    graph.getBatch(
+                    graph.getBatchMap(
                         key,
                         Reason.INVALIDATION,
                         Iterables.filter(
@@ -446,9 +448,9 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
     }
 
     @Override
-    void visit(Iterable<SkyKey> keys, InvalidationType invalidationType) {
+    void visit(Collection<SkyKey> keys, InvalidationType invalidationType) {
       Preconditions.checkState(invalidationType != InvalidationType.DELETED, keys);
-      visit(keys, invalidationType, /*depthForOverflowCheck=*/ 0, null);
+      visit(keys, invalidationType, /* depthForOverflowCheck= */ 0, null);
     }
 
     /**
@@ -479,15 +481,14 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
      */
     @ThreadSafe
     private void visit(
-        Iterable<SkyKey> keys,
-        final InvalidationType invalidationType,
+        Collection<SkyKey> keys,
+        InvalidationType invalidationType,
         int depthForOverflowCheck,
         @Nullable SkyKey enqueueingKeyForExistenceCheck) {
       // Code from here until pendingVisitations#add is called below must be uninterruptible.
       boolean isChanged = (invalidationType == InvalidationType.CHANGED);
       Set<SkyKey> setToCheck = isChanged ? changed : dirtied;
-      int size = Iterables.size(keys);
-      ArrayList<SkyKey> keysToGet = new ArrayList<>(size);
+      ArrayList<SkyKey> keysToGet = new ArrayList<>(keys.size());
       for (SkyKey key : keys) {
         if (setToCheck.add(key)) {
           Preconditions.checkState(
@@ -501,7 +502,7 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
       }
       Map<SkyKey, ? extends NodeEntry> entries;
       try {
-        entries = graph.getBatch(null, Reason.INVALIDATION, keysToGet);
+        entries = graph.getBatchMap(null, Reason.INVALIDATION, keysToGet);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         // This can only happen if the main thread has been interrupted, and so the

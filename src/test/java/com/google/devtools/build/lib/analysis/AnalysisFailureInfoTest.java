@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -83,7 +84,7 @@ public final class AnalysisFailureInfoTest extends BuildViewTestCase {
         (AnalysisFailureInfo) target.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey());
     AnalysisFailure failure = info.getCauses().getSet(AnalysisFailure.class).toList().get(0);
     assertThat(failure.getMessage()).contains("variable '$<' : no input file");
-    assertThat(failure.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//test:bad_variable"));
+    assertThat(failure.getLabel()).isEqualTo(Label.parseCanonicalUnchecked("//test:bad_variable"));
   }
 
   /** Regression test for b/154007057. */
@@ -100,7 +101,7 @@ public final class AnalysisFailureInfoTest extends BuildViewTestCase {
         (AnalysisFailureInfo) target.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey());
     AnalysisFailure failure = info.getCauses().getSet(AnalysisFailure.class).toList().get(0);
     assertThat(failure.getMessage()).contains("FailingRuleConfiguredTargetFactory.create() fails");
-    assertThat(failure.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//test:bad_factory"));
+    assertThat(failure.getLabel()).isEqualTo(Label.parseCanonicalUnchecked("//test:bad_factory"));
   }
 
   /** Dummy factory whose {@code create()} method always returns {@code null}. */
@@ -114,6 +115,63 @@ public final class AnalysisFailureInfoTest extends BuildViewTestCase {
     }
   }
 
+  @Test
+  public void analysisTestNotReturningAnalysisTestResultInfo_cannotPropagate() throws Exception {
+    scratch.file(
+        "test/BUILD", //
+        "providerless_analysis_test(name = 'providerless')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:providerless");
+    assertContainsEvent(
+        "Error while collecting analysis-phase failure information for '//test:providerless': rules"
+            + " with analysis_test=true must return an instance of AnalysisTestResultInfo");
+  }
+
+  /** Regression test for b/233890545 */
+  @Test
+  public void analysisTestExpectingFailureDependedOnByAnalysisTest_cannotPropagate()
+      throws Exception {
+    useConfiguration("--allow_analysis_failures=false");
+    scratch.file(
+        "test/extension.bzl",
+        "def bad_rule_impl(ctx):",
+        "   fail('Bad rule fails')",
+        "",
+        "bad_rule = rule(",
+        "  implementation = bad_rule_impl,",
+        "  attrs = {'dep': attr.label()}",
+        ")",
+        "",
+        "def analysis_test_impl(ctx):",
+        "  return [AnalysisTestResultInfo(success = False, message = 'Expect failure')]",
+        "",
+        "_transition = analysis_test_transition(",
+        "  settings = {'//command_line_option:allow_analysis_failures': 'True'}",
+        ")",
+        "",
+        "analysis_test = rule(",
+        "  implementation = analysis_test_impl,",
+        "  analysis_test = True,",
+        "  attrs = {'dep': attr.label(cfg = _transition)}",
+        ")");
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:extension.bzl', 'bad_rule', 'analysis_test')",
+        "",
+        "analysis_test(name = 'outer', dep = ':inner')",
+        "analysis_test(name = 'inner', dep = ':tested_by_inner')",
+        "bad_rule(name = 'tested_by_inner')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:outer");
+    assertContainsEvent(
+        "Error while collecting analysis-phase failure information for '//test:inner':"
+            + " analysis_test rule '//test:inner' cannot be transitively depended on by another"
+            + " analysis test rule");
+  }
+
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder =
@@ -122,7 +180,17 @@ public final class AnalysisFailureInfoTest extends BuildViewTestCase {
                 ((MockRule)
                     () ->
                         MockRule.factory(FailingRuleConfiguredTargetFactory.class)
-                            .define("native_rule_with_failing_configured_target_factory")));
+                            .define("native_rule_with_failing_configured_target_factory")))
+            .addRuleDefinition(
+                (MockRule)
+                    () ->
+                        MockRule.ancestor(
+                                BaseRuleClasses.TestBaseRule.class,
+                                BaseRuleClasses.NativeBuildRule.class)
+                            .type(RuleClassType.TEST)
+                            .define(
+                                "providerless_analysis_test",
+                                (ruleClassBuilder, env) -> ruleClassBuilder.setIsAnalysisTest()));
     TestRuleClassProvider.addStandardRules(builder);
     return builder.build();
   }
@@ -152,7 +220,7 @@ public final class AnalysisFailureInfoTest extends BuildViewTestCase {
         (AnalysisFailureInfo) target.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey());
     AnalysisFailure failure = info.getCauses().getSet(AnalysisFailure.class).toList().get(0);
     assertThat(failure.getMessage()).contains("This Is My Failure Message");
-    assertThat(failure.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//test:r"));
+    assertThat(failure.getLabel()).isEqualTo(Label.parseCanonicalUnchecked("//test:r"));
   }
 
   @Test
@@ -173,7 +241,7 @@ public final class AnalysisFailureInfoTest extends BuildViewTestCase {
         (AnalysisFailureInfo) target.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey());
     AnalysisFailure failure = info.getCauses().getSet(AnalysisFailure.class).toList().get(0);
     assertThat(failure.getMessage()).contains("This Is My Failure Message");
-    assertThat(failure.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//test:r"));
+    assertThat(failure.getLabel()).isEqualTo(Label.parseCanonicalUnchecked("//test:r"));
   }
 
   @Test
@@ -194,7 +262,7 @@ public final class AnalysisFailureInfoTest extends BuildViewTestCase {
         (AnalysisFailureInfo) target.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey());
     AnalysisFailure failure = info.getCauses().getSet(AnalysisFailure.class).toList().get(0);
     assertThat(failure.getMessage()).contains("This Is My Failure Message");
-    assertThat(failure.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//test:r"));
+    assertThat(failure.getLabel()).isEqualTo(Label.parseCanonicalUnchecked("//test:r"));
   }
 
   @Test
@@ -229,10 +297,10 @@ public final class AnalysisFailureInfoTest extends BuildViewTestCase {
 
     AnalysisFailure expectedOne =
         new AnalysisFailure(
-            Label.parseAbsoluteUnchecked("//test:one"), "This Is My Failure Message");
+            Label.parseCanonicalUnchecked("//test:one"), "This Is My Failure Message");
     AnalysisFailure expectedTwo =
         new AnalysisFailure(
-            Label.parseAbsoluteUnchecked("//test:two"), "This Is My Failure Message");
+            Label.parseCanonicalUnchecked("//test:two"), "This Is My Failure Message");
 
     assertThat(info.getCausesNestedSet().toList())
         .comparingElementsUsing(analysisFailureCorrespondence)
@@ -265,7 +333,7 @@ public final class AnalysisFailureInfoTest extends BuildViewTestCase {
         (AnalysisFailureInfo) target.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey());
     AnalysisFailure expectedOne =
         new AnalysisFailure(
-            Label.parseAbsoluteUnchecked("//test:one"), "This Is My Aspect Failure Message");
+            Label.parseCanonicalUnchecked("//test:one"), "This Is My Aspect Failure Message");
 
     assertThat(info.getCausesNestedSet().toList())
         .comparingElementsUsing(analysisFailureCorrespondence)
@@ -302,7 +370,7 @@ public final class AnalysisFailureInfoTest extends BuildViewTestCase {
         (AnalysisFailureInfo) target.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey());
     AnalysisFailure expectedOne =
         new AnalysisFailure(
-            Label.parseAbsoluteUnchecked("//test:one"), "This Is My Aspect Failure Message");
+            Label.parseCanonicalUnchecked("//test:one"), "This Is My Aspect Failure Message");
 
     assertThat(info.getCausesNestedSet().toList())
         .comparingElementsUsing(analysisFailureCorrespondence)
@@ -336,7 +404,7 @@ public final class AnalysisFailureInfoTest extends BuildViewTestCase {
         (AnalysisFailureInfo) target.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey());
     AnalysisFailure expectedRuleFailure =
         new AnalysisFailure(
-            Label.parseAbsoluteUnchecked("//test:one"), "This Is My Rule Failure Message");
+            Label.parseCanonicalUnchecked("//test:one"), "This Is My Rule Failure Message");
 
     assertThat(info.getCausesNestedSet().toList())
         .comparingElementsUsing(analysisFailureCorrespondence)

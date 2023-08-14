@@ -148,11 +148,6 @@ public class BazelRuleClassProviderTest {
   }
 
   @Test
-  public void j2objcConsistency() {
-    checkModule(J2ObjcRules.INSTANCE);
-  }
-
-  @Test
   public void variousWorkspaceConsistency() {
     checkModule(BazelRuleClassProvider.VARIOUS_WORKSPACE_RULES);
   }
@@ -208,7 +203,7 @@ public class BazelRuleClassProviderTest {
     StrictActionEnvOptions o = Options.getDefaults(
         StrictActionEnvOptions.class);
     o.useStrictActionEnv = true;
-    StrictActionEnvOptions h = o.getHost();
+    StrictActionEnvOptions h = o.getExec();
     assertThat(h.useStrictActionEnv).isTrue();
   }
 

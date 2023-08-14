@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
+import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -31,8 +31,8 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.util.List;
+import java.util.Optional;
 import net.starlark.java.eval.StarlarkCallable;
-import net.starlark.java.syntax.Location;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -64,20 +64,20 @@ public class PackageTest {
   @Test
   public void testBuildPartialPopulatesImplicitTestSuiteIgnoresManualTests() throws Exception {
     Package.Builder pkgBuilder = pkgBuilder("test_pkg");
-    Label testLabel = Label.parseAbsoluteUnchecked("//test_pkg:my_test");
+    Label testLabel = Label.parseCanonicalUnchecked("//test_pkg:my_test");
     addRule(pkgBuilder, testLabel, FAUX_TEST_CLASS);
 
-    Label manualTestLabel = Label.parseAbsoluteUnchecked("//test_pkg:my_manual_test");
+    Label manualTestLabel = Label.parseCanonicalUnchecked("//test_pkg:my_manual_test");
     Rule tag2Rule = addRule(pkgBuilder, manualTestLabel, FAUX_TEST_CLASS);
     tag2Rule.setAttributeValue(
         FAUX_TEST_CLASS.getAttributeByName("tags"), ImmutableList.of("manual"), /*explicit=*/ true);
 
-    Label taggedTestLabel = Label.parseAbsoluteUnchecked("//test_pkg:my_tagged_test");
+    Label taggedTestLabel = Label.parseCanonicalUnchecked("//test_pkg:my_tagged_test");
     Rule taggedTestRule = addRule(pkgBuilder, taggedTestLabel, FAUX_TEST_CLASS);
     taggedTestRule.setAttributeValue(
         FAUX_TEST_CLASS.getAttributeByName("tags"), ImmutableList.of("tag1"), /*explicit=*/ true);
 
-    Label taggedManualTestLabel = Label.parseAbsoluteUnchecked("//test_pkg:my_tagged_manual_test");
+    Label taggedManualTestLabel = Label.parseCanonicalUnchecked("//test_pkg:my_tagged_manual_test");
     Rule taggedManualTestRule = addRule(pkgBuilder, taggedManualTestLabel, FAUX_TEST_CLASS);
     taggedManualTestRule.setAttributeValue(
         FAUX_TEST_CLASS.getAttributeByName("tags"),
@@ -97,12 +97,12 @@ public class PackageTest {
   public void testBuildPartialPopulatesImplicitTestSuiteValueOnlyForRequestedTags()
       throws Exception {
     Package.Builder pkgBuilder = pkgBuilder("test_pkg");
-    Label tag1Label = Label.parseAbsoluteUnchecked("//test_pkg:my_test_tag_1");
+    Label tag1Label = Label.parseCanonicalUnchecked("//test_pkg:my_test_tag_1");
     Rule tag1Rule = addRule(pkgBuilder, tag1Label, FAUX_TEST_CLASS);
     tag1Rule.setAttributeValue(
         FAUX_TEST_CLASS.getAttributeByName("tags"), ImmutableList.of("tag1"), /*explicit=*/ true);
 
-    Label tag2Label = Label.parseAbsoluteUnchecked("//test_pkg:my_test_tag_2");
+    Label tag2Label = Label.parseCanonicalUnchecked("//test_pkg:my_test_tag_2");
     Rule tag2Rule = addRule(pkgBuilder, tag2Label, FAUX_TEST_CLASS);
     tag2Rule.setAttributeValue(
         FAUX_TEST_CLASS.getAttributeByName("tags"), ImmutableList.of("tag2"), /*explicit=*/ true);
@@ -122,12 +122,12 @@ public class PackageTest {
   @Test
   public void testBuildPartialPopulatesImplicitTestSuitesMatchingTags() throws Exception {
     Package.Builder pkgBuilder = pkgBuilder("test_pkg");
-    Label matchingLabel = Label.parseAbsoluteUnchecked("//test_pkg:matching");
+    Label matchingLabel = Label.parseCanonicalUnchecked("//test_pkg:matching");
     Rule matchingRule = addRule(pkgBuilder, matchingLabel, FAUX_TEST_CLASS);
     matchingRule.setAttributeValue(
         FAUX_TEST_CLASS.getAttributeByName("tags"), ImmutableList.of("tag1"), /*explicit=*/ true);
 
-    Label excludedLabel = Label.parseAbsoluteUnchecked("//test_pkg:excluded");
+    Label excludedLabel = Label.parseCanonicalUnchecked("//test_pkg:excluded");
     Rule excludedRule = addRule(pkgBuilder, excludedLabel, FAUX_TEST_CLASS);
     excludedRule.setAttributeValue(
         FAUX_TEST_CLASS.getAttributeByName("tags"),
@@ -143,7 +143,7 @@ public class PackageTest {
   @Test
   public void testBuildPartialPopulatesImplicitTestSuiteValueIdempotently() throws Exception {
     Package.Builder pkgBuilder = pkgBuilder("test_pkg");
-    Label testLabel = Label.parseAbsoluteUnchecked("//test_pkg:my_test");
+    Label testLabel = Label.parseCanonicalUnchecked("//test_pkg:my_test");
     addRule(pkgBuilder, testLabel, FAUX_TEST_CLASS);
 
     // Ensure targets are accumulated.
@@ -160,10 +160,13 @@ public class PackageTest {
   private Package.Builder pkgBuilder(String name) {
     Package.Builder result =
         new Package.Builder(
-            DefaultPackageSettings.INSTANCE,
+            PackageSettings.DEFAULTS,
             PackageIdentifier.createInMainRepo(name),
             "workspace",
-            /*noImplicitFileExport=*/ true,
+            Optional.empty(),
+            Optional.empty(),
+            /* noImplicitFileExport= */ true,
+            RepositoryMapping.ALWAYS_FALLBACK,
             RepositoryMapping.ALWAYS_FALLBACK);
     result.setFilename(
         RootedPath.toRootedPath(
@@ -173,13 +176,7 @@ public class PackageTest {
 
   private static Rule addRule(Package.Builder pkgBuilder, Label label, RuleClass ruleClass)
       throws Exception {
-    Rule rule =
-        pkgBuilder.createRule(
-            label,
-            ruleClass,
-            Location.BUILTIN,
-            ImmutableList.of(),
-            new AttributeContainer.Mutable(FAUX_TEST_CLASS.getAttributeCount()));
+    Rule rule = pkgBuilder.createRule(label, ruleClass, /* callstack= */ ImmutableList.of());
     rule.populateOutputFiles(new StoredEventHandler(), pkgBuilder);
     pkgBuilder.addRule(rule);
     return rule;

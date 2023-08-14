@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.android.AndroidApplicationResourceInfo;
 import com.google.devtools.build.lib.rules.android.AndroidCommon;
 import com.google.devtools.build.lib.rules.android.AndroidDataBindingProcessorBuilder;
@@ -136,13 +137,13 @@ class DataBindingV2Context implements DataBindingContext {
 
   @Override
   public void supplyAnnotationProcessor(
-      RuleContext ruleContext, BiConsumer<JavaPluginInfo, Iterable<Artifact>> consumer) {
+      RuleContext ruleContext, BiConsumer<JavaPluginInfo, Iterable<Artifact>> consumer)
+      throws RuleErrorException {
 
     JavaPluginInfo javaPluginInfo =
-        (JavaPluginInfo)
-            ruleContext
-                .getPrerequisite(DataBinding.DATABINDING_ANNOTATION_PROCESSOR_ATTR)
-                .get(JavaPluginInfo.PROVIDER.getKey());
+        ruleContext
+            .getPrerequisite(DataBinding.DATABINDING_ANNOTATION_PROCESSOR_ATTR)
+            .get(JavaPluginInfo.PROVIDER);
 
     ImmutableList<Artifact> annotationProcessorOutputs =
         DataBinding.getMetadataOutputs(ruleContext, useUpdatedArgs, metadataOutputSuffixes);

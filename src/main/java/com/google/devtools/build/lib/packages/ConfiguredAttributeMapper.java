@@ -13,16 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicates;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.packages.BuildType.Selector;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import java.util.ArrayList;
@@ -31,6 +33,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -122,7 +125,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
    * Variation of {@link #get} that throws an informative exception if the attribute can't be
    * resolved due to intrinsic contradictions in the configuration.
    */
-  private <T> T getAndValidate(String attributeName, Type<T> type) throws ValidationException {
+  public <T> T getAndValidate(String attributeName, Type<T> type) throws ValidationException {
     SelectorList<T> selectorList = getSelectorList(attributeName, type);
     if (selectorList == null) {
       // This is a normal attribute.
@@ -145,9 +148,8 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
                       + " expression",
                   attributeName));
         }
-        Verify.verify(attr.getCondition() == Predicates.<AttributeMap>alwaysTrue());
         @SuppressWarnings("unchecked")
-        T defaultValue = (T) attr.getDefaultValue(null);
+        T defaultValue = (T) attr.getDefaultValue(rule);
         resolvedList.add(defaultValue);
       } else {
         resolvedList.add(resolvedPath.value);
@@ -159,7 +161,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
   private static class ConfigKeyAndValue<T> {
     final Label configKey;
     final T value;
-    /** If null, this means the default condition (doesn't correspond to a config_setting). * */
+    /** If null, this means the default condition (doesn't correspond to a config_setting). */
     @Nullable final ConfigMatchingProvider provider;
 
     ConfigKeyAndValue(Label key, T value, @Nullable ConfigMatchingProvider provider) {
@@ -171,51 +173,54 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
 
   private <T> ConfigKeyAndValue<T> resolveSelector(String attributeName, Selector<T> selector)
       throws ValidationException {
-    Map<Label, ConfigKeyAndValue<T>> matchingConditions = new LinkedHashMap<>();
+    // Use a LinkedHashMap to guarantee a deterministic branch selection when multiple branches
+    // matches but they
+    // resolve to the same value.
+    LinkedHashMap<Label, ConfigKeyAndValue<T>> matchingConditions = new LinkedHashMap<>();
     // Use a LinkedHashSet to guarantee deterministic error message ordering. We use a LinkedHashSet
     // vs. a more general SortedSet because the latter supports insertion-order, which should more
     // closely match how users see select() structures in BUILD files.
     LinkedHashSet<Label> conditionLabels = new LinkedHashSet<>();
 
     // Find the matching condition and record its value (checking for duplicates).
-    for (Map.Entry<Label, T> entry : selector.getEntries().entrySet()) {
-      Label selectorKey = entry.getKey();
-      if (BuildType.Selector.isReservedLabel(selectorKey)) {
-        continue;
-      }
-
-      ConfigMatchingProvider curCondition = configConditions.get(selectorKey);
-      if (curCondition == null) {
-        // This can happen if the rule is in error
-        continue;
-      }
-      conditionLabels.add(selectorKey);
-
-      if (curCondition.matches()) {
-        // We keep track of all matches which are more precise than any we have found so far.
-        // Therefore, we remove any previous matches which are strictly less precise than this
-        // one, and only add this one if none of the previous matches are more precise.
-        // It is an error if we do not end up with only one most-precise match.
-        boolean suppressed = false;
-        Iterator<Map.Entry<Label, ConfigKeyAndValue<T>>> it =
-            matchingConditions.entrySet().iterator();
-        while (it.hasNext()) {
-          ConfigMatchingProvider existingMatch = it.next().getValue().provider;
-          if (curCondition.refines(existingMatch)) {
-            it.remove();
-          } else if (existingMatch.refines(curCondition)) {
-            suppressed = true;
-            break;
+    selector.forEach(
+        (selectorKey, value) -> {
+          if (BuildType.Selector.isDefaultConditionLabel(selectorKey)) {
+            return;
           }
-        }
-        if (!suppressed) {
-          matchingConditions.put(
-              selectorKey, new ConfigKeyAndValue<>(selectorKey, entry.getValue(), curCondition));
-        }
-      }
-    }
 
-    if (matchingConditions.size() > 1) {
+          ConfigMatchingProvider curCondition = configConditions.get(selectorKey);
+          if (curCondition == null) {
+            // This can happen if the rule is in error
+            return;
+          }
+          conditionLabels.add(selectorKey);
+
+          if (curCondition.matches()) {
+            // We keep track of all matches which are more precise than any we have found so
+            // far. Therefore, we remove any previous matches which are strictly less precise
+            // than this one, and only add this one if none of the previous matches are more
+            // precise. It is an error if we do not end up with only one most-precise match.
+            boolean suppressed = false;
+            Iterator<Map.Entry<Label, ConfigKeyAndValue<T>>> it =
+                matchingConditions.entrySet().iterator();
+            while (it.hasNext()) {
+              ConfigMatchingProvider existingMatch = it.next().getValue().provider;
+              if (curCondition.refines(existingMatch)) {
+                it.remove();
+              } else if (existingMatch.refines(curCondition)) {
+                suppressed = true;
+                break;
+              }
+            }
+            if (!suppressed) {
+              matchingConditions.put(
+                  selectorKey, new ConfigKeyAndValue<>(selectorKey, value, curCondition));
+            }
+          }
+        });
+
+    if (matchingConditions.values().stream().map(s -> s.value).distinct().count() > 1) {
       throw new ValidationException(
           "Illegal ambiguous match on configurable attribute \""
               + attributeName
@@ -223,9 +228,11 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
               + getLabel()
               + ":\n"
               + Joiner.on("\n").join(matchingConditions.keySet())
-              + "\nMultiple matches are not allowed unless one is unambiguously more specialized.");
-    } else if (matchingConditions.size() == 1) {
-      return Iterables.getOnlyElement(matchingConditions.values());
+              + "\nMultiple matches are not allowed unless one is unambiguously "
+              + "more specialized or they resolve to the same value. "
+              + "See https://bazel.build/reference/be/functions#select.");
+    } else if (matchingConditions.size() > 0) {
+      return Iterables.getFirst(matchingConditions.values(), null);
     }
 
     // If nothing matched, choose the default condition.
@@ -290,8 +297,8 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
       return getAndValidate(attributeName, type);
     } catch (ValidationException e) {
       // Callers that reach this branch should explicitly validate the attribute through an
-      // appropriate call and handle the exception directly. This method assumes
-      // pre-validated attributes.
+      // appropriate call (either {@link #validateAttributes} or {@link #getAndValidate}) and handle
+      // the exception directly. This method assumes pre-validated attributes.
       throw new IllegalStateException(
           "lookup failed on attribute " + attributeName + ": " + e.getMessage());
     }
@@ -316,5 +323,19 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
       }
     }
     return false; // Every select() in this list chooses a path with value "None".
+  }
+
+  /** Returns the labels that appear multiple times in the same attribute value. */
+  public Set<Label> checkForDuplicateLabels(Attribute attribute) {
+    Type<List<Label>> attrType = BuildType.LABEL_LIST;
+    checkArgument(attribute.getType() == attrType, "Not a label list type: %s", attribute);
+    String attrName = attribute.getName();
+    SelectorList<List<Label>> selectorList = getSelectorList(attrName, attrType);
+    // already checked in RuleClass via AggregatingAttributeMapper.checkForDuplicateLabels
+    if (selectorList == null || selectorList.getSelectors().size() == 1) {
+      return ImmutableSet.of();
+    }
+    List<Label> labels = get(attrName, attrType);
+    return CollectionUtils.duplicatedElementsOf(labels);
   }
 }

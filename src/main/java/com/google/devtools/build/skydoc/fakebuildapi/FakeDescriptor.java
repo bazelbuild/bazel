@@ -19,6 +19,7 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.Attr
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderNameGroup;
 import java.util.List;
+import java.util.Optional;
 import net.starlark.java.eval.Printer;
 
 /**
@@ -26,14 +27,14 @@ import net.starlark.java.eval.Printer;
  */
 public class FakeDescriptor implements Descriptor {
   private final AttributeType type;
-  private final String docString;
+  private final Optional<String> docString;
   private final boolean mandatory;
   private final List<List<String>> providerNameGroups;
   private final String defaultRepresentation;
 
   public FakeDescriptor(
       AttributeType type,
-      String docString,
+      Optional<String> docString,
       boolean mandatory,
       List<List<String>> providerNameGroups,
       Object defaultObject) {
@@ -51,10 +52,10 @@ public class FakeDescriptor implements Descriptor {
     AttributeInfo.Builder attrInfo =
         AttributeInfo.newBuilder()
             .setName(attributeName)
-            .setDocString(docString)
             .setType(type)
             .setMandatory(mandatory)
             .setDefaultValue(mandatory ? "" : defaultRepresentation);
+    docString.ifPresent(attrInfo::setDocString);
 
     if (!providerNameGroups.isEmpty()) {
       for (List<String> providerNameGroup : providerNameGroups) {

@@ -14,50 +14,60 @@
 
 package com.google.devtools.build.lib.runtime;
 
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.common.collect.ImmutableList;
+import com.google.common.eventbus.EventBus;
+import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.runtime.MemoryPressure.MemoryPressureStats;
 import com.google.devtools.build.lib.skyframe.HighWaterMarkLimiter;
-import com.google.devtools.build.lib.util.AbruptExitException;
-import javax.annotation.Nullable;
+import com.google.devtools.common.options.OptionsBase;
+import com.google.errorprone.annotations.Keep;
 
 /**
  * A {@link BlazeModule} that installs a {@link MemoryPressureListener} that reacts to memory
  * pressure events.
  */
-public class MemoryPressureModule extends BlazeModule {
-  private RetainedHeapLimiter retainedHeapLimiter;
-  @Nullable private MemoryPressureListener memoryPressureListener;
+public final class MemoryPressureModule extends BlazeModule {
+  private final MemoryPressureListener memoryPressureListener = MemoryPressureListener.create();
+  private HighWaterMarkLimiter highWaterMarkLimiter;
+  private EventBus eventBus;
 
   @Override
-  public void workspaceInit(
-      BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
-
-    retainedHeapLimiter = RetainedHeapLimiter.create(runtime.getBugReporter());
-    memoryPressureListener = MemoryPressureListener.create(retainedHeapLimiter);
+  public ImmutableList<Class<? extends OptionsBase>> getCommandOptions(Command command) {
+    return ImmutableList.of(MemoryPressureOptions.class);
   }
 
   @Override
-  public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
-    if (memoryPressureListener != null) {
-      memoryPressureListener.setEventBus(env.getEventBus());
-    }
+  public void beforeCommand(CommandEnvironment env) {
+    eventBus = env.getEventBus();
+    memoryPressureListener.setEventBus(eventBus);
 
-    CommonCommandOptions commonOptions = env.getOptions().getOptions(CommonCommandOptions.class);
-    HighWaterMarkLimiter highWaterMarkLimiter =
-        new HighWaterMarkLimiter(
-            env.getSkyframeExecutor(),
-            env.getSyscallCache(),
-            commonOptions.skyframeHighWaterMarkMemoryThreshold);
+    MemoryPressureOptions options = env.getOptions().getOptions(MemoryPressureOptions.class);
+    highWaterMarkLimiter =
+        new HighWaterMarkLimiter(env.getSkyframeExecutor(), env.getSyscallCache(), options);
+    memoryPressureListener.setGcThrashingDetector(GcThrashingDetector.createForCommand(options));
 
-    retainedHeapLimiter.setThreshold(
-        /*listening=*/ memoryPressureListener != null, commonOptions.oomMoreEagerlyThreshold);
-
-    env.getEventBus().register(highWaterMarkLimiter);
+    eventBus.register(this);
+    eventBus.register(highWaterMarkLimiter);
   }
 
   @Override
   public void afterCommand() {
-    if (memoryPressureListener != null) {
-      memoryPressureListener.setEventBus(null);
-    }
+    postStats();
+    memoryPressureListener.setEventBus(null);
+    memoryPressureListener.setGcThrashingDetector(null);
+    eventBus = null;
+    highWaterMarkLimiter = null;
+  }
+
+  @Subscribe
+  @Keep
+  void onCrash(@SuppressWarnings("unused") CrashEvent event) {
+    postStats();
+  }
+
+  private void postStats() {
+    MemoryPressureStats.Builder stats = MemoryPressureStats.newBuilder();
+    highWaterMarkLimiter.addStatsAndReset(stats);
+    eventBus.post(stats.build());
   }
 }

@@ -71,7 +71,7 @@ class BazelCompletionWriter(object):
     """Initializes writer state.
 
     Args:
-        bazel: String containing a path the a bazel binary to run.
+        bazel: String containing a path to the bazel binary to run.
         output_user_root: String path to user root directory used for
           running bazel commands.
     """
@@ -240,7 +240,7 @@ class Arg(object):
     Args:
         output_file: File object to write completions into. Must be open in
           a writable mode.
-        command: String containg the command name (i.e. "bazel").
+        command: String containing the command name (i.e. "bazel").
     """
     args = self._get_complete_args_base(
         command=command, subcommand=self.expected_subcommand)

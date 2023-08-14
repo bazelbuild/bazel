@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
+import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
@@ -41,15 +41,15 @@ final class WorkspaceFactoryTestHelper {
   private Package.Builder builder;
   private StarlarkSemantics starlarkSemantics;
 
-  private final boolean allowOverride;
+  private final boolean allowWorkspace;
 
   WorkspaceFactoryTestHelper(Root root) {
     this(true, root);
   }
 
-  WorkspaceFactoryTestHelper(boolean allowOverride, Root root) {
+  WorkspaceFactoryTestHelper(boolean allowWorkspace, Root root) {
     this.root = root;
-    this.allowOverride = allowOverride;
+    this.allowWorkspace = allowWorkspace;
     this.starlarkSemantics = StarlarkSemantics.DEFAULT;
   }
 
@@ -66,18 +66,19 @@ final class WorkspaceFactoryTestHelper {
     // execute
     builder =
         Package.newExternalPackageBuilder(
-            DefaultPackageSettings.INSTANCE,
-            RootedPath.toRootedPath(root, workspaceFilePath),
-            "",
-            RepositoryMapping.ALWAYS_FALLBACK,
-            StarlarkSemantics.DEFAULT);
+                PackageSettings.DEFAULTS,
+                RootedPath.toRootedPath(root, workspaceFilePath),
+                "",
+                RepositoryMapping.ALWAYS_FALLBACK,
+                StarlarkSemantics.DEFAULT)
+            .setLoads(ImmutableList.of());
     WorkspaceFactory factory =
         new WorkspaceFactory(
             builder,
             TestRuleClassProvider.getRuleClassProvider(),
-            ImmutableList.<PackageFactory.EnvironmentExtension>of(),
             Mutability.create("test"),
-            allowOverride,
+            /* allowOverride= */ true,
+            allowWorkspace,
             root.asPath(),
             root.asPath(),
             /* defaultSystemJavabaseDir= */ null,

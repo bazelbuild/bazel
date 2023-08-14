@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.remote.util.Utils.createSpawnResult;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
-import com.google.common.base.Throwables;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -33,7 +32,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.SpawnCache;
 import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
-import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -54,9 +52,6 @@ final class RemoteSpawnCache implements SpawnCache {
 
   private static final SpawnCheckingCacheEvent SPAWN_CHECKING_CACHE_EVENT =
       SpawnCheckingCacheEvent.create("remote-cache");
-
-  private static final SpawnExecutingEvent SPAWN_EXECUTING_EVENT =
-      SpawnExecutingEvent.create("remote-cache");
 
   private final Path execRoot;
   private final RemoteOptions options;
@@ -82,8 +77,10 @@ final class RemoteSpawnCache implements SpawnCache {
   @Override
   public CacheHandle lookup(Spawn spawn, SpawnExecutionContext context)
       throws InterruptedException, IOException, ExecException, ForbiddenActionInputException {
-    boolean shouldAcceptCachedResult = remoteExecutionService.shouldAcceptCachedResult(spawn);
-    boolean shouldUploadLocalResults = remoteExecutionService.shouldUploadLocalResults(spawn);
+    boolean shouldAcceptCachedResult =
+        remoteExecutionService.getReadCachePolicy(spawn).allowAnyCache();
+    boolean shouldUploadLocalResults =
+        remoteExecutionService.getWriteCachePolicy(spawn).allowAnyCache();
     if (!shouldAcceptCachedResult && !shouldUploadLocalResults) {
       return SpawnCache.NO_RESULT_NO_STORE;
     }
@@ -117,9 +114,9 @@ final class RemoteSpawnCache implements SpawnCache {
           fetchTime.stop();
           totalTime.stop();
           spawnMetrics
-              .setFetchTime(fetchTime.elapsed())
-              .setTotalTime(totalTime.elapsed())
-              .setNetworkTime(action.getNetworkTime().getDuration());
+              .setFetchTimeInMs((int) fetchTime.elapsed().toMillis())
+              .setTotalTimeInMs((int) totalTime.elapsed().toMillis())
+              .setNetworkTimeInMs((int) action.getNetworkTime().getDuration().toMillis());
           SpawnResult spawnResult =
               createSpawnResult(
                   action.getActionKey(),
@@ -127,8 +124,8 @@ final class RemoteSpawnCache implements SpawnCache {
                   /*cacheHit=*/ true,
                   result.cacheName(),
                   inMemoryOutput,
-                  result.getExecutionMetadata().getWorkerStartTimestamp(),
-                  result.getExecutionMetadata().getWorkerCompletedTimestamp(),
+                  result.getExecutionMetadata().getExecutionStartTimestamp(),
+                  result.getExecutionMetadata().getExecutionCompletedTimestamp(),
                   spawnMetrics.build(),
                   spawn.getMnemonic());
           return SpawnCache.success(spawnResult);
@@ -136,16 +133,10 @@ final class RemoteSpawnCache implements SpawnCache {
       } catch (CacheNotFoundException e) {
         // Intentionally left blank
       } catch (IOException e) {
-        if (BulkTransferException.isOnlyCausedByCacheNotFoundException(e)) {
+        if (BulkTransferException.allCausedByCacheNotFoundException(e)) {
           // Intentionally left blank
         } else {
-          String errorMessage;
-          if (!verboseFailures) {
-            errorMessage = Utils.grpcAwareErrorMessage(e);
-          } else {
-            // On --verbose_failures print the whole stack trace
-            errorMessage = "\n" + Throwables.getStackTraceAsString(e);
-          }
+          String errorMessage = Utils.grpcAwareErrorMessage(e, verboseFailures);
           if (isNullOrEmpty(errorMessage)) {
             errorMessage = e.getClass().getSimpleName();
           }
@@ -154,10 +145,6 @@ final class RemoteSpawnCache implements SpawnCache {
         }
       }
     }
-
-    context.report(SPAWN_EXECUTING_EVENT);
-
-    context.prefetchInputsAndWait();
 
     if (shouldUploadLocalResults) {
       return new CacheHandle() {
@@ -187,7 +174,11 @@ final class RemoteSpawnCache implements SpawnCache {
             try (SilentCloseable c = prof.profile("RemoteCache.checkForConcurrentModifications")) {
               checkForConcurrentModifications();
             } catch (IOException | ForbiddenActionInputException e) {
-              remoteExecutionService.report(Event.warn(e.getMessage()));
+              String msg =
+                  "Skipping uploading outputs because of concurrent modifications "
+                      + "with --experimental_guard_against_concurrent_changes enabled: "
+                      + e.getMessage();
+              remoteExecutionService.report(Event.warn(msg));
               return;
             }
           }
@@ -200,11 +191,11 @@ final class RemoteSpawnCache implements SpawnCache {
 
         private void checkForConcurrentModifications()
             throws IOException, ForbiddenActionInputException {
-          for (ActionInput input : action.getInputMap().values()) {
+          for (ActionInput input : action.getInputMap(true).values()) {
             if (input instanceof VirtualActionInput) {
               continue;
             }
-            FileArtifactValue metadata = context.getMetadataProvider().getMetadata(input);
+            FileArtifactValue metadata = context.getInputMetadataProvider().getInputMetadata(input);
             Path path = execRoot.getRelative(input.getExecPath());
             if (metadata.wasModifiedSinceDigest(path)) {
               throw new IOException(path + " was modified during execution");

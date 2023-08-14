@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.ACTION_LISTENER;
@@ -25,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
+import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -39,6 +41,8 @@ import com.google.devtools.build.lib.analysis.util.TestAspects.AspectInfo;
 import com.google.devtools.build.lib.analysis.util.TestAspects.DummyRuleFactory;
 import com.google.devtools.build.lib.analysis.util.TestAspects.ExtraAttributeAspect;
 import com.google.devtools.build.lib.analysis.util.TestAspects.RuleInfo;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -55,7 +59,6 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -460,7 +463,8 @@ public class AspectTest extends AnalysisTestCase {
 
       @Override
       public ConfiguredAspect create(
-          ConfiguredTargetAndData ctadBase,
+          Label targetLabel,
+          ConfiguredTarget ct,
           RuleContext ruleContext,
           AspectParameters parameters,
           RepositoryName toolsRepository)
@@ -516,7 +520,7 @@ public class AspectTest extends AnalysisTestCase {
                                     .aspect(AspectThatRegistersAction.INSTANCE))
                             .add(
                                 attr(":action_listener", LABEL_LIST)
-                                    .cfg(ExecutionTransitionFactory.create())
+                                    .cfg(ExecutionTransitionFactory.createFactory())
                                     .value(ACTION_LISTENER)));
 
     public static class AspectThatRegistersAction extends NativeAspectClass
@@ -533,7 +537,8 @@ public class AspectTest extends AnalysisTestCase {
 
       @Override
       public ConfiguredAspect create(
-          ConfiguredTargetAndData ctadBase,
+          Label targetLabel,
+          ConfiguredTarget ct,
           RuleContext ruleContext,
           AspectParameters parameters,
           RepositoryName toolsRepository)
@@ -861,14 +866,32 @@ public class AspectTest extends AnalysisTestCase {
         "a",
         "java_binary(name = 'x', main_class = 'x.FooBar', srcs = ['x.java'])"
     );
-    AnalysisResult analysisResult = update(new EventBus(), defaultFlags(),
-        ImmutableList.of(aspectApplyingToFiles.getName()),
-        "//a:x_deploy.jar");
+
+    var collector = new AspectConfiguredCollector();
+    eventBus.register(collector);
+
+    AnalysisResult analysisResult =
+        update(
+            eventBus,
+            defaultFlags(),
+            ImmutableList.of(aspectApplyingToFiles.getName()),
+            "//a:x_deploy.jar");
     ConfiguredAspect aspect = Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
     AspectApplyingToFiles.Provider provider =
         aspect.getProvider(AspectApplyingToFiles.Provider.class);
-    assertThat(provider.getLabel())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//a:x_deploy.jar"));
+    Label label = Label.parseCanonicalUnchecked("//a:x_deploy.jar");
+    assertThat(provider.getLabel()).isEqualTo(label);
+
+    // Verifies that the AspectConfiguredEvent declares the corresponding AspectCompleteEvent.
+    AspectConfiguredEvent configuredEvent = getOnlyElement(collector.events);
+    BuildEventId targetCompletedId = getOnlyElement(configuredEvent.getChildrenEvents());
+    AspectKey key = getOnlyElement(analysisResult.getAspectsMap().keySet());
+    assertThat(targetCompletedId)
+        .isEqualTo(
+            BuildEventIdUtil.aspectCompleted(
+                label,
+                BuildEventIdUtil.configurationId(key.getConfigurationKey()),
+                "AspectApplyingToFiles"));
   }
 
   @Test
@@ -885,6 +908,27 @@ public class AspectTest extends AnalysisTestCase {
         "//a:x.java");
     ConfiguredAspect aspect = Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
     assertThat(aspect.getProvider(AspectApplyingToFiles.Provider.class)).isNull();
+  }
+
+  @Test
+  public void aspectApplyingToPackageGroupIgnored() throws Exception {
+    AspectApplyingToFiles aspectApplyingToFiles = new AspectApplyingToFiles();
+    setRulesAndAspectsAvailableInTests(ImmutableList.of(aspectApplyingToFiles), ImmutableList.of());
+    pkg("b");
+    pkg(
+        "a",
+        "package_group(name = 'group', packages = ['//b'])",
+        "java_binary(name = 'x', main_class = 'x.F', srcs = ['x.java'], visibility = [':group'])");
+    scratch.file("a/x.java", "");
+
+    // This exercises a code path that crashes if the PackageGroup is matched as an aspect provider.
+    AnalysisResult analysisResult =
+        update(
+            new EventBus(),
+            defaultFlags(),
+            ImmutableList.of(aspectApplyingToFiles.getName()),
+            "//a:group");
+    assertThat(analysisResult.getAspectsMap()).hasSize(1);
   }
 
   @Test
@@ -1306,7 +1350,6 @@ public class AspectTest extends AnalysisTestCase {
 
   @Test
   public void aspectSeesAspectHintsAttributeOnNativeRule() throws Exception {
-    useConfiguration("--experimental_enable_aspect_hints");
     setupAspectHints();
     scratch.file(
         "aspect_hints/BUILD",
@@ -1327,7 +1370,6 @@ public class AspectTest extends AnalysisTestCase {
 
   @Test
   public void aspectSeesAspectHintsAttributeOnStarlarkRule() throws Exception {
-    useConfiguration("--experimental_enable_aspect_hints");
     setupAspectHints();
     setupStarlarkRule();
     scratch.file(
@@ -1422,5 +1464,14 @@ public class AspectTest extends AnalysisTestCase {
         .filter(e -> e.getKey().getAspectName().equals(name))
         .map(Map.Entry::getValue)
         .collect(onlyElement());
+  }
+
+  private static class AspectConfiguredCollector {
+    private final ArrayList<AspectConfiguredEvent> events = new ArrayList<>();
+
+    @Subscribe
+    public void configuredEvent(AspectConfiguredEvent event) {
+      events.add(event);
+    }
   }
 }

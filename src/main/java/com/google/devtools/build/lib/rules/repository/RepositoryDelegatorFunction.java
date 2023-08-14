@@ -24,16 +24,18 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleFormatter;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.repository.ExternalPackageException;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.repository.ExternalRuleNotFoundException;
 import com.google.devtools.build.lib.repository.RepositoryFailedEvent;
+import com.google.devtools.build.lib.repository.RepositoryFetchProgress;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.NoRepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.AlreadyReportedRepositoryAccessException;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -54,6 +56,7 @@ import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * A {@link SkyFunction} that implements delegation to the correct repository fetcher.
@@ -80,9 +83,6 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
   public static final Precomputed<Optional<RootedPath>> RESOLVED_FILE_INSTEAD_OF_WORKSPACE =
       new Precomputed<>("resolved_file_instead_of_workspace");
-
-  // This indicates whether we should load external repositories from the Bzlmod system.
-  public static final Precomputed<Boolean> ENABLE_BZLMOD = new Precomputed<>("enable_bzlmod");
 
   public static final String DONT_FETCH_UNCONDITIONALLY = "";
 
@@ -223,34 +223,24 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     return value;
   }
 
-  private void setupRepositoryRoot(Path repoRoot) throws RepositoryFunctionException {
-    try {
-      repoRoot.deleteTree();
-      Preconditions.checkNotNull(repoRoot.getParentDirectory()).createDirectoryAndParents();
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
-    }
-  }
-
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, RepositoryFunctionException {
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+    if (starlarkSemantics == null) {
+      return null;
+    }
     RepositoryName repositoryName = (RepositoryName) skyKey.argument();
 
     if (!repositoryName.isVisible()) {
       return new NoRepositoryDirectoryValue(
           String.format(
-              "Repository '%s' is not visible from repository '%s'",
-              repositoryName.getNameWithAt(),
-              repositoryName.getOwnerRepoIfNotVisible().getNameWithAt()));
+              "No repository visible as '@%s' from %s",
+              repositoryName.getName(), repositoryName.getOwnerRepoDisplayString()));
     }
 
     Map<RepositoryName, PathFragment> overrides = REPOSITORY_OVERRIDES.get(env);
-    boolean doNotFetchUnconditionally =
-        DONT_FETCH_UNCONDITIONALLY.equals(DEPENDENCY_FOR_UNCONDITIONAL_FETCHING.get(env));
-    boolean needsConfiguring = false;
-
     Path repoRoot =
         RepositoryFunction.getExternalRepositoryDirectory(directories)
             .getRelative(repositoryName.getName());
@@ -261,8 +251,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     }
 
     Rule rule = null;
-
-    if (Preconditions.checkNotNull(ENABLE_BZLMOD.get(env))) {
+    if (starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD)) {
       // Tries to get a repository rule instance from Bzlmod generated repos.
       SkyKey key = BzlmodRepoRuleValue.key(repositoryName);
       BzlmodRepoRuleValue value = (BzlmodRepoRuleValue) env.getValue(key);
@@ -296,15 +285,18 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           String.format("'%s' is not a repository rule", repositoryName.getCanonicalForm()));
     }
 
+    boolean needsConfiguring = false;
     if (handler.isConfigure(rule)) {
       needsConfiguring =
           !DONT_FETCH_UNCONDITIONALLY.equals(DEPENDENCY_FOR_UNCONDITIONAL_CONFIGURING.get(env));
     }
-
     if (env.valuesMissing()) {
       return null;
     }
+
     DigestWriter digestWriter = new DigestWriter(directories, repositoryName, rule);
+    boolean doNotFetchUnconditionally =
+        DONT_FETCH_UNCONDITIONALLY.equals(DEPENDENCY_FOR_UNCONDITIONAL_FETCHING.get(env));
 
     // Local repositories are fetched regardless of the marker file because the operation is
     // generally fast and they do not depend on non-local data, so it does not make much sense to
@@ -400,19 +392,18 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       Rule rule)
       throws InterruptedException, RepositoryFunctionException {
 
-    setupRepositoryRoot(repoRoot);
+    handler.setupRepoRootBeforeFetching(repoRoot);
 
-    String repositoryName = ((RepositoryName) skyKey.argument()).getNameWithAt();
-    env.getListener().post(new RepositoryFetching(repositoryName, false));
+    RepositoryName repoName = (RepositoryName) skyKey.argument();
+    env.getListener().post(RepositoryFetchProgress.ongoing(repoName, "starting"));
 
     RepositoryDirectoryValue.Builder repoBuilder;
     try {
       repoBuilder = handler.fetch(rule, repoRoot, directories, env, markerData, skyKey);
     } catch (RepositoryFunctionException e) {
       // Upon an exceptional exit, the fetching of that repository is over as well.
-      env.getListener().post(new RepositoryFetching(repositoryName, true));
-      env.getListener()
-          .post(new RepositoryFailedEvent((RepositoryName) skyKey.argument(), e.getMessage()));
+      env.getListener().post(RepositoryFetchProgress.finished(repoName));
+      env.getListener().post(new RepositoryFailedEvent(repoName, e.getMessage()));
       env.getListener()
           .handle(
               Event.error(
@@ -425,10 +416,10 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     }
 
     if (env.valuesMissing()) {
-      env.getListener().post(new RepositoryFetching(repositoryName, false, "Restarting."));
+      handler.reportSkyframeRestart(env, repoName);
       return null;
     }
-    env.getListener().post(new RepositoryFetching(repositoryName, true));
+    env.getListener().post(RepositoryFetchProgress.finished(repoName));
     return Preconditions.checkNotNull(repoBuilder);
   }
 
@@ -463,7 +454,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   private RepositoryDirectoryValue setupOverride(
       PathFragment sourcePath, Environment env, Path repoRoot, String pathAttr)
       throws RepositoryFunctionException, InterruptedException {
-    setupRepositoryRoot(repoRoot);
+    RepositoryFunction.setupRepoRoot(repoRoot);
     RepositoryDirectoryValue.Builder directoryValue =
         symlinkRepoRoot(
             directories,
@@ -516,14 +507,15 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   private static class DigestWriter {
     private final Path markerPath;
     private final Rule rule;
-    private final Map<String, String> markerData;
+    // not just Map<> to signal that iteration order must be deterministic
+    private final TreeMap<String, String> markerData;
     private final String ruleKey;
 
     DigestWriter(BlazeDirectories directories, RepositoryName repositoryName, Rule rule) {
       ruleKey = computeRuleKey(rule);
       markerPath = getMarkerPath(directories, repositoryName.getName());
       this.rule = rule;
-      markerData = Maps.newHashMap();
+      markerData = Maps.newTreeMap();
     }
 
     byte[] writeMarkerFile() throws RepositoryFunctionException {
@@ -639,34 +631,4 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     }
   }
 
-  private static class RepositoryFetching implements FetchProgress {
-    final String id;
-    final boolean finished;
-    final String message;
-
-    RepositoryFetching(String name, boolean finished) {
-      this(name, finished, finished ? "finished." : "fetching");
-    }
-
-    RepositoryFetching(String name, boolean finished, String message) {
-      this.id = name;
-      this.finished = finished;
-      this.message = message;
-    }
-
-    @Override
-    public String getResourceIdentifier() {
-      return id;
-    }
-
-    @Override
-    public String getProgress() {
-      return message;
-    }
-
-    @Override
-    public boolean isFinished() {
-      return finished;
-    }
-  }
 }

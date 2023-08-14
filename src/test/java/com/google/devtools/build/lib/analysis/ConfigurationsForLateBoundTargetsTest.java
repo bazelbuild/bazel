@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
@@ -75,7 +76,7 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
                               attr(":latebound_attr", LABEL)
                                   .value(
                                       Attribute.LateBoundDefault.fromConstantForTesting(
-                                          Label.parseAbsoluteUnchecked("//foo:latebound_dep")))
+                                          Label.parseCanonicalUnchecked("//foo:latebound_dep")))
                                   .cfg(TransitionFactories.of(CHANGE_FOO_FLAG_TRANSITION)))
                           .requiresConfigurationFragments(LateBoundSplitUtil.TestFragment.class));
 
@@ -107,7 +108,7 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
   }
 
   @Test
-  public void lateBoundAttributeInHostConfiguration() throws Exception {
+  public void lateBoundAttributeInExecConfiguration() throws Exception {
     scratch.file("foo/BUILD",
         "genrule(",
         "    name = 'gen',",
@@ -120,20 +121,14 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
         "rule_with_test_fragment(",
         "    name = 'latebound_dep')");
     update("//foo:gen");
-    assertThat(getConfiguredTarget("//foo:foo", getHostConfiguration())).isNotNull();
+    assertThat(getConfiguredTarget("//foo:foo", getExecConfiguration())).isNotNull();
     // TODO(b/203203933) Fix LateboundDefault-s to return exec configuration
     ImmutableList<ConfiguredTarget> deps =
         ImmutableList.copyOf(
             SkyframeExecutorTestUtils.getExistingConfiguredTargets(
                 skyframeExecutor, Label.parseCanonical("//foo:latebound_dep")));
     assertThat(deps).hasSize(2);
-    ConfiguredTarget dep =
-        deps.stream()
-            .filter(d -> getConfiguration(d).equals(getHostConfiguration()))
-            .findFirst()
-            .get();
-    // This is technically redundant, but slightly stronger in checking that the host configuration
-    // doesn't happen to match what the patch would have done.
-    assertThat(LateBoundSplitUtil.getOptions(getConfiguration(dep)).fooFlag).isEmpty();
+    assertThat(deps.stream().filter(d -> getConfiguration(d).isExecConfiguration()).findFirst())
+        .isPresent();
   }
 }

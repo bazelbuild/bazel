@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.jimfs.Jimfs;
 import com.google.common.truth.Subject;
 import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
+import com.google.devtools.build.android.resources.ResourceTypeEnum;
 import com.google.devtools.build.android.xml.ArrayXmlResourceValue;
 import com.google.devtools.build.android.xml.ArrayXmlResourceValue.ArrayType;
 import com.google.devtools.build.android.xml.AttrXmlResourceValue;
@@ -1037,7 +1038,7 @@ public class DataResourceXmlTest {
   public void writeMacroXmlResource() throws Exception {
     // TODO(b/193025750): The current version of the layoutlib prebuilt used by Bazel does not
     // contain the macro type.
-    assumeTrue(ResourceType.getEnum("macro") != null);
+    assumeTrue(ResourceTypeEnum.get("macro") != null);
 
     String xml = "<macro name='foo'>@string/bar</macro>";
     Path source = writeResourceXml(xml);
@@ -1050,7 +1051,7 @@ public class DataResourceXmlTest {
   public void writeOverlayableXmlResource() throws Exception {
     // TODO(b/193025750): The current version of the layoutlib prebuilt used by Bazel does not
     // contain the overlayable type.
-    assumeTrue(ResourceType.getEnum("overlayable") != null);
+    assumeTrue(ResourceTypeEnum.get("overlayable") != null);
 
     String xml =
         "<overlayable name='foo'>"

@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.buildeventservice.BuildEventServiceM
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeFalse;
 
+import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -31,6 +32,7 @@ import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.Crash;
 import com.google.devtools.build.lib.bugreport.CrashContext;
@@ -56,6 +58,7 @@ import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.network.ConnectivityStatus;
 import com.google.devtools.build.lib.network.ConnectivityStatusProvider;
 import com.google.devtools.build.lib.network.NoOpConnectivityModule;
+import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -74,6 +77,7 @@ import com.google.protobuf.Empty;
 import io.grpc.ManagedChannel;
 import io.grpc.Metadata;
 import io.grpc.Server;
+import io.grpc.ServerInterceptors;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import io.grpc.inprocess.InProcessChannelBuilder;
@@ -102,6 +106,7 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -141,6 +146,7 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
               }
             })
         .addBlazeModule(new NoSpawnCacheModule())
+        .addBlazeModule(new CredentialModule())
         .addBlazeModule(
             new BazelBuildEventServiceModule() {
               @Override
@@ -179,7 +185,9 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
 
   @Before
   public void setUp() throws Exception {
-    serviceRegistry.addService(buildEventService);
+    serviceRegistry.addService(
+        ServerInterceptors.intercept(
+            buildEventService, new TracingMetadataUtils.ServerHeadersInterceptor()));
     fakeServer =
         InProcessServerBuilder.forName(fakeServerName)
             .fallbackHandlerRegistry(serviceRegistry)
@@ -224,6 +232,16 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     assertThat(besModule.getBepTransports()).hasSize(1);
     assertThat(besModule.getBepTransports().asList().get(0))
         .isInstanceOf(BuildEventServiceTransport.class);
+  }
+
+  @Test
+  public void testRetryCount() throws Exception {
+    runBuildWithOptions(
+        "--bes_backend=does.not.exist:1234", "--experimental_build_event_upload_max_retries=3");
+    afterBuildCommand();
+
+    events.assertContainsError(
+        "The Build Event Protocol upload failed: All 3 retry attempts failed");
   }
 
   @Test
@@ -442,6 +460,9 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     events.assertNoWarningsOrErrors();
   }
 
+  // TODO(b/246912214): Deflake this by fixing the threading model to match the upstream gRPC
+  // changes in https://github.com/grpc/grpc-java/pull/9319 that affect InProcessTransport.
+  @Ignore("b/246912214")
   @Test
   public void testBeforeSecondCommand_fullyAsync_slowHalfCloseWarning() throws Exception {
     buildEventService.setDelayBeforeHalfClosingStream(Duration.ofSeconds(10));
@@ -464,6 +485,9 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     events.assertNoWarningsOrErrors();
   }
 
+  // TODO(b/246912214): Deflake this by fixing the threading model to match the upstream gRPC
+  // changes in https://github.com/grpc/grpc-java/pull/9319 that affect InProcessTransport.
+  @Ignore("b/246912214")
   @Test
   public void testBeforeSecondCommand_fullyAsync_besTimeout_slowHalfCloseWarning()
       throws Exception {
@@ -586,9 +610,11 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     runBuildWithOptions();
     BuildEventServiceOptions besOptions = new BuildEventServiceOptions();
     besOptions.besKeywords = ImmutableList.of("keyword0", "keyword1", "keyword0");
+    besOptions.besSystemKeywords = ImmutableList.of("sys_keyword0", "sys_keyword1", "sys_keyword0");
 
     assertThat(besModule.getBesKeywords(besOptions, null))
-        .containsExactly("user_keyword=keyword0", "user_keyword=keyword1");
+        .containsExactly(
+            "user_keyword=keyword0", "user_keyword=keyword1", "sys_keyword0", "sys_keyword1");
   }
 
   @Test
@@ -702,10 +728,12 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
   public void oom_firstReportedViaHandleCrash() throws Exception {
     testOom(
         () -> {
-          // Simulates an OOM coming from RetainedHeapLimiter, which reports the error by calling
-          // handleCrash. Uses keepAlive() to avoid exiting the JVM and aborting the test.
-          BugReport.handleCrash(Crash.from(new OutOfMemoryError()), CrashContext.keepAlive());
-          BugReport.maybePropagateUnprocessedThrowableIfInTest();
+          OutOfMemoryError oom = new OutOfMemoryError();
+          // Simulates an OOM coming from GcThrashingDetector, which reports the error by calling
+          // handleCrash. Uses keepAlive() to avoid exiting the JVM and aborting the test, then
+          // throw the original oom to ensure control flow terminates.
+          BugReport.handleCrash(Crash.from(oom), CrashContext.keepAlive());
+          throw oom;
         });
   }
 
@@ -724,8 +752,13 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
         .getEvaluator()
         .injectGraphTransformerForTesting(
             NotifyingHelper.makeNotifyingTransformer(
+                // To get the right configuration, some analysis has to already been done.
+                // We're only throwing OOM here for non shareable ActionLookupData to exclude
+                // workspace status actions, which in Skymeld mode can run without any analysis.
                 (key, type, order, context) -> {
-                  if (key instanceof ActionLookupData && !threwOom.getAndSet(true)) {
+                  if (key instanceof ActionLookupData
+                      && key.valueIsShareable()
+                      && !threwOom.getAndSet(true)) {
                     throwOom.run();
                   }
                 }));
@@ -769,6 +802,36 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
                                                 .getConfigurationChecksum()))))
                 .setAborted(expectedAbort)
                 .build());
+    assertThat(runtimeWrapper.getCrashMessages())
+        .containsExactly(
+            TestConstants.PRODUCT_NAME + " is crashing: Crashed: (java.lang.OutOfMemoryError) ");
+    assertAndClearBugReporterStoredCrash(OutOfMemoryError.class);
+  }
+
+  @Test
+  public void oom_besClosesAfterSpecialCaseTimeoutThrownFromSkyframe() throws Exception {
+    // BES server-side will never finish. The test will pass simply by completing and not waiting
+    // until the test timeout.
+    buildEventService.setDelayBeforeClosingStream(Duration.ofHours(10));
+    write("foo/BUILD", "genrule(name = 'gen', outs = ['gen.out'], cmd = 'touch $@')");
+    AtomicBoolean threwOom = new AtomicBoolean(false);
+    getSkyframeExecutor()
+        .getEvaluator()
+        .injectGraphTransformerForTesting(
+            NotifyingHelper.makeNotifyingTransformer(
+                (key, type, order, context) -> {
+                  if (key instanceof ActionLookupData && !threwOom.getAndSet(true)) {
+                    throw new OutOfMemoryError();
+                  }
+                }));
+    addOptions(
+        "--bes_backend=inprocess",
+        "--bes_upload_mode=WAIT_FOR_UPLOAD_COMPLETE",
+        "--bes_oom_finish_upload_timeout=2s",
+        "--oom_message=Please build fewer targets.");
+
+    assertThrows(OutOfMemoryError.class, () -> buildTarget("//foo:gen"));
+
     assertThat(runtimeWrapper.getCrashMessages())
         .containsExactly(
             TestConstants.PRODUCT_NAME + " is crashing: Crashed: (java.lang.OutOfMemoryError) ");
@@ -921,6 +984,11 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     @Override
     public void publishLifecycleEvent(
         PublishLifecycleEventRequest request, StreamObserver<Empty> responseObserver) {
+      RequestMetadata metadata = TracingMetadataUtils.fromCurrentContext();
+      assertThat(metadata.getToolInvocationId()).isNotEmpty();
+      assertThat(metadata.getCorrelatedInvocationsId()).isNotEmpty();
+      assertThat(metadata.getActionId()).isEqualTo("publish_lifecycle_event");
+
       responseObserver.onNext(Empty.getDefaultInstance());
       responseObserver.onCompleted();
     }
@@ -929,6 +997,11 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     public synchronized StreamObserver<PublishBuildToolEventStreamRequest>
         publishBuildToolEventStream(
             StreamObserver<PublishBuildToolEventStreamResponse> responseObserver) {
+      RequestMetadata metadata = TracingMetadataUtils.fromCurrentContext();
+      assertThat(metadata.getToolInvocationId()).isNotEmpty();
+      assertThat(metadata.getCorrelatedInvocationsId()).isNotEmpty();
+      assertThat(metadata.getActionId()).isEqualTo("publish_build_tool_event_stream");
+
       if (errorMessage != null) {
         return new ErroringPublishBuildStreamObserver(responseObserver, errorMessage);
       }

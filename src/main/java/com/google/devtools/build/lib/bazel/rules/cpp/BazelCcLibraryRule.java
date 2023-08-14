@@ -50,19 +50,25 @@ public final class BazelCcLibraryRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("alwayslink", BOOLEAN))
         .override(attr("linkstatic", BOOLEAN).value(false))
-        /*<!-- #BLAZE_RULE(cc_library).ATTRIBUTE(interface_deps) -->
-        When <code>--experimental_cc_interface_deps</code> is True, the targets listed in deps will
-        behave as implementation deps. Unlike with regular deps, the headers and include paths of
-        implementation deps (and all their transitive deps) are only used for compilation of this
-        library, and not libraries that depend on it. Libraries depended on as implementation deps
-        are still linked in binary targets that depend on this library. The dependencies listed in
-        interface_deps will continue having the same behavior as the old deps where the headers and
-        include paths are propagated downstream.
+        /*<!-- #BLAZE_RULE(cc_library).ATTRIBUTE(implementation_deps) -->
+        The list of other libraries that the library target depends on. Unlike with
+        <code>deps</code>, the headers and include paths of these libraries (and all their
+        transitive deps) are only used for compilation of this library, and not libraries that
+        depend on it. Libraries specified with <code>implementation_deps</code> are still linked in
+        binary targets that depend on this library.
+        <p>For now usage is limited to cc_libraries and guarded by the flag
+        <code>--experimental_cc_implementation_deps</code>.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(
-            attr("interface_deps", LABEL_LIST)
+            attr("implementation_deps", LABEL_LIST)
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 .mandatoryProviders(CcInfo.PROVIDER.id()))
+        /*<!-- #BLAZE_RULE(cc_library).ATTRIBUTE(additional_compiler_inputs) -->
+        Any additional files you might want to pass to the compiler command line, such as sanitizer
+        ignorelists, for example. Files specified here can then be used in copts with the
+        $(location) function.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(attr("additional_compiler_inputs", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
         .advertiseStarlarkProvider(CcInfo.PROVIDER.id())
         .build();
   }
@@ -72,7 +78,7 @@ public final class BazelCcLibraryRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("cc_library")
         .ancestors(CcLibraryBaseRule.class, BaseRuleClasses.MakeVariableExpandingRule.class)
-        .factoryClass(BazelCcLibrary.class)
+        .factoryClass(BaseRuleClasses.EmptyRuleConfiguredTargetFactory.class)
         .build();
   }
 }

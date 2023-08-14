@@ -30,12 +30,9 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcLinkingContextApi;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.ExtraLinkTimeLibraryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LinkerInputApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LinkstampApi;
-import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -50,7 +47,8 @@ import net.starlark.java.eval.StarlarkThread;
 
 /** Structure of CcLinkingContext. */
 public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
-  public static final CcLinkingContext EMPTY = builder().build();
+  public static final CcLinkingContext EMPTY =
+      builder().setExtraLinkTimeLibraries(ExtraLinkTimeLibraries.EMPTY).build();
 
   /** A list of link options contributed by a single configured target/aspect. */
   @Immutable
@@ -115,9 +113,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   public static final class Linkstamp implements LinkstampApi<Artifact> {
     private final Artifact artifact;
     private final NestedSet<Artifact> declaredIncludeSrcs;
-    private final byte[] nestedDigest;
-
-    public static final Depset.ElementType TYPE = Depset.ElementType.of(Linkstamp.class);
+    private final int nestedDigest;
 
     // TODO(janakr): if action key context is not available, the digest can be computed lazily,
     // only if we are doing an equality comparison and artifacts are equal. That should never
@@ -131,9 +127,11 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
         throws CommandLineExpansionException, InterruptedException {
       this.artifact = Preconditions.checkNotNull(artifact);
       this.declaredIncludeSrcs = Preconditions.checkNotNull(declaredIncludeSrcs);
-      Fingerprint fp = new Fingerprint();
-      actionKeyContext.addNestedSetToFingerprint(fp, this.declaredIncludeSrcs);
-      nestedDigest = fp.digestAndReset();
+      StringBuilder nestedDigestBuilder = new StringBuilder();
+      for (Artifact declaredIncludeSrc : declaredIncludeSrcs.toList()) {
+        nestedDigestBuilder.append(declaredIncludeSrc.getExecPathString());
+      }
+      nestedDigest = nestedDigestBuilder.toString().hashCode();
     }
 
     /** Returns the linkstamp artifact. */
@@ -155,7 +153,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     @Override
     public Depset getDeclaredIncludeSrcsForStarlark(StarlarkThread thread) throws EvalException {
       CcModule.checkPrivateStarlarkificationAllowlist(thread);
-      return Depset.of(Artifact.TYPE, getDeclaredIncludeSrcs());
+      return Depset.of(Artifact.class, getDeclaredIncludeSrcs());
     }
 
     @Override
@@ -178,8 +176,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
         return false;
       }
       Linkstamp other = (Linkstamp) obj;
-      return artifact.equals(other.artifact)
-          && Arrays.equals(this.nestedDigest, other.nestedDigest);
+      return artifact.equals(other.artifact) && nestedDigest == other.nestedDigest;
     }
   }
 
@@ -191,9 +188,6 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   @Immutable
   public static class LinkerInput
       implements LinkerInputApi<LibraryToLink, LtoBackendArtifacts, Artifact> {
-
-    public static final Depset.ElementType TYPE = Depset.ElementType.of(LinkerInput.class);
-
     // Identifies which target created the LinkerInput. It doesn't have to be unique between
     // LinkerInputs.
     private final Label owner;
@@ -311,12 +305,6 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
       private final ImmutableList.Builder<Linkstamp> linkstamps = ImmutableList.builder();
 
       @CanIgnoreReturnValue
-      public Builder addLibrary(LibraryToLink library) {
-        this.libraries.add(library);
-        return this;
-      }
-
-      @CanIgnoreReturnValue
       public Builder addLibraries(List<LibraryToLink> libraries) {
         this.libraries.addAll(libraries);
         return this;
@@ -413,6 +401,9 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   }
 
   public static CcLinkingContext merge(List<CcLinkingContext> ccLinkingContexts) {
+    if (ccLinkingContexts.isEmpty()) {
+      return EMPTY;
+    }
     Builder mergedCcLinkingContext = CcLinkingContext.builder();
     ExtraLinkTimeLibraries.Builder mergedExtraLinkTimeLibraries = ExtraLinkTimeLibraries.builder();
     for (CcLinkingContext ccLinkingContext : ccLinkingContexts) {
@@ -475,7 +466,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
 
   @Override
   public Depset getStarlarkLinkerInputs() {
-    return Depset.of(LinkerInput.TYPE, linkerInputs);
+    return Depset.of(LinkerInput.class, linkerInputs);
   }
 
   @Override
@@ -487,7 +478,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   public Object getStarlarkLibrariesToLink(StarlarkSemantics semantics) {
     // TODO(plf): Flag can be removed already.
     if (semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_DEPSET_FOR_LIBRARIES_TO_LINK_GETTER)) {
-      return Depset.of(LibraryToLink.TYPE, getLibraries());
+      return Depset.of(LibraryToLink.class, getLibraries());
     } else {
       return StarlarkList.immutableCopyOf(getLibraries().toList());
     }
@@ -495,23 +486,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
 
   @Override
   public Depset getStarlarkNonCodeInputs() {
-    return Depset.of(Artifact.TYPE, getNonCodeInputs());
-  }
-
-  @Override
-  public ExtraLinkTimeLibraryApi getGoLinkCArchiveForStarlark(StarlarkThread thread)
-      throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    ExtraLinkTimeLibrary goLinkCArchive = null;
-    if (extraLinkTimeLibraries != null) {
-      for (ExtraLinkTimeLibrary extraLibrary : extraLinkTimeLibraries.getExtraLibraries()) {
-        if (goLinkCArchive != null) {
-          throw new EvalException("multiple GoLinkCArchive entries in go_link_c_archive");
-        }
-        goLinkCArchive = extraLibrary;
-      }
-    }
-    return goLinkCArchive;
+    return Depset.of(Artifact.class, getNonCodeInputs());
   }
 
   public NestedSet<LinkOptions> getUserLinkFlags() {
@@ -540,7 +515,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   @Override
   public Depset getLinkstampsForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Linkstamp.TYPE, getLinkstamps());
+    return Depset.of(Linkstamp.class, getLinkstamps());
   }
 
   public NestedSet<Artifact> getNonCodeInputs() {
@@ -581,13 +556,6 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     }
 
     @CanIgnoreReturnValue
-    public Builder addLibrary(LibraryToLink library) {
-      hasDirectLinkerInput = true;
-      linkerInputBuilder.addLibrary(library);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
     public Builder addLibraries(List<LibraryToLink> libraries) {
       hasDirectLinkerInput = true;
       linkerInputBuilder.addLibraries(libraries);
@@ -609,7 +577,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     }
 
     @CanIgnoreReturnValue
-    Builder addNonCodeInputs(List<Artifact> nonCodeInputs) {
+    public Builder addNonCodeInputs(List<Artifact> nonCodeInputs) {
       hasDirectLinkerInput = true;
       linkerInputBuilder.addNonCodeInputs(nonCodeInputs);
       return this;

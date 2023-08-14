@@ -19,6 +19,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.buildtool.AqueryProcessor.AqueryActionFilterException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.query2.aquery.ActionGraphQueryEnvironment;
 import com.google.devtools.build.lib.query2.aquery.AqueryOptions;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
@@ -58,7 +59,9 @@ public class AqueryBuildToolTest extends BuildIntegrationTestCase {
   public void testConstructor_wrongAqueryFilterFormat_throwsError() throws Exception {
     QueryExpression expr = QueryParser.parse("deps(inputs('abc', //abc))", functions);
 
-    assertThrows(AqueryActionFilterException.class, () -> new AqueryProcessor(expr));
+    assertThrows(
+        AqueryActionFilterException.class,
+        () -> new AqueryProcessor(expr, TargetPattern.defaultParser()));
   }
 
   @Test
@@ -66,7 +69,9 @@ public class AqueryBuildToolTest extends BuildIntegrationTestCase {
     QueryExpression expr = QueryParser.parse("inputs('*abc', //abc)", functions);
 
     AqueryActionFilterException thrown =
-        assertThrows(AqueryActionFilterException.class, () -> new AqueryProcessor(expr));
+        assertThrows(
+            AqueryActionFilterException.class,
+            () -> new AqueryProcessor(expr, TargetPattern.defaultParser()));
     assertThat(thrown).hasMessageThat().contains("Wrong query syntax:");
   }
 
@@ -74,7 +79,7 @@ public class AqueryBuildToolTest extends BuildIntegrationTestCase {
   public void testDmpActionGraphFromSkyframe_wrongOutputFormat_returnsFailure() throws Exception {
     addOptions("--output=text");
     CommandEnvironment env = runtimeWrapper.newCommand(AqueryCommand.class);
-    AqueryProcessor aqueryProcessor = new AqueryProcessor(null);
+    AqueryProcessor aqueryProcessor = new AqueryProcessor(null, TargetPattern.defaultParser());
     BlazeCommandResult result = aqueryProcessor.dumpActionGraphFromSkyframe(env);
 
     assertThat(result.isSuccess()).isFalse();

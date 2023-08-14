@@ -21,11 +21,14 @@ load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/semantics.bzl", "semantics")
 
 cc_internal = _builtins.internal.cc_internal
+config_common = _builtins.toplevel.config_common
 platform_common = _builtins.toplevel.platform_common
 testing = _builtins.toplevel.testing
 
+_CC_TEST_TOOLCHAIN_TYPE = "@" + semantics.get_repo() + "//tools/cpp:test_runner_toolchain_type"
+
 def _cc_test_impl(ctx):
-    binary_info, cc_info, providers = cc_binary_impl(ctx, [])
+    binary_info, providers = cc_binary_impl(ctx, [])
     test_env = {}
     test_env.update(cc_helper.get_expanded_env(ctx, {}))
 
@@ -52,26 +55,17 @@ def _cc_test_impl(ctx):
     if cc_helper.has_target_constraints(ctx, ctx.attr._apple_constraints):
         # When built for Apple platforms, require the execution to be on a Mac.
         providers.append(testing.ExecutionInfo({"requires-darwin": ""}))
-    return _handle_legacy_return(ctx, cc_info, providers)
-
-def _handle_legacy_return(ctx, cc_info, providers):
-    if ctx.fragments.cpp.enable_legacy_cc_provider():
-        # buildifier: disable=rule-impl-return
-        return struct(
-            cc = cc_internal.create_cc_provider(cc_info = cc_info),
-            providers = providers,
-        )
-    else:
-        return providers
+    return providers
 
 def _impl(ctx):
-    if semantics.should_use_legacy_cc_test(ctx):
+    cc_test_toolchain = ctx.exec_groups["test"].toolchains[_CC_TEST_TOOLCHAIN_TYPE]
+    if cc_test_toolchain:
+        cc_test_info = cc_test_toolchain.cc_test_info
+    else:
         # This is the "legacy" cc_test flow
         return _cc_test_impl(ctx)
 
-    cc_test_info = ctx.attr._test_toolchain.cc_test_info
-
-    binary_info, cc_info, providers = cc_binary_impl(ctx, cc_test_info.linkopts)
+    binary_info, providers = cc_binary_impl(ctx, cc_test_info.linkopts)
     processed_environment = cc_helper.get_expanded_env(ctx, {})
 
     test_providers = cc_test_info.get_runner.func(
@@ -81,9 +75,20 @@ def _impl(ctx):
         **cc_test_info.get_runner.args
     )
     providers.extend(test_providers)
-    return _handle_legacy_return(ctx, cc_info, providers)
+    return providers
 
-def _make_cc_test(with_linkstatic = False, with_aspects = False):
+def make_cc_test(with_linkstatic = False, with_aspects = False):
+    """Makes one of the cc_test rule variants.
+
+    This function shall only be used internally in CC ruleset.
+
+    Args:
+      with_linkstatic: sets value _linkstatic_explicitly_set attribute
+      with_aspects: Attaches graph_structure_aspect to `deps` attribute and
+        implicit deps.
+    Returns:
+      A cc_test rule class.
+    """
     _cc_test_attrs = None
     if with_aspects:
         _cc_test_attrs = dict(cc_binary_attrs_with_aspects)
@@ -98,6 +103,7 @@ def _make_cc_test(with_linkstatic = False, with_aspects = False):
                 "@" + paths.join(semantics.get_platforms_root(), "os:ios"),
                 "@" + paths.join(semantics.get_platforms_root(), "os:macos"),
                 "@" + paths.join(semantics.get_platforms_root(), "os:tvos"),
+                "@" + paths.join(semantics.get_platforms_root(), "os:visionos"),
                 "@" + paths.join(semantics.get_platforms_root(), "os:watchos"),
             ],
         ),
@@ -112,14 +118,12 @@ def _make_cc_test(with_linkstatic = False, with_aspects = False):
         linkstatic = attr.bool(default = False),
     )
     _cc_test_attrs.update(semantics.get_test_malloc_attr())
-    _cc_test_attrs.update(semantics.get_test_toolchain_attr())
     _cc_test_attrs.update(semantics.get_coverage_attrs())
 
     _cc_test_attrs.update(
         _linkstatic_explicitly_set = attr.bool(default = with_linkstatic),
     )
     return rule(
-        name = "cc_test",
         implementation = _impl,
         attrs = _cc_test_attrs,
         outputs = {
@@ -127,47 +131,15 @@ def _make_cc_test(with_linkstatic = False, with_aspects = False):
             "stripped_binary": "%{name}.stripped",
             "dwp_file": "%{name}.dwp",
         },
-        fragments = ["google_cpp", "cpp"],
+        fragments = ["cpp", "coverage"] + semantics.additional_fragments(),
         exec_groups = {
-            "cpp_link": exec_group(copy_from_rule = True),
+            "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),
+            # testing.ExecutionInfo defaults to an exec_group of "test".
+            "test": exec_group(toolchains = [config_common.toolchain_type(_CC_TEST_TOOLCHAIN_TYPE, mandatory = False)]),
         },
-        toolchains = cc_helper.use_cpp_toolchain(),
+        toolchains = [] +
+                     cc_helper.use_cpp_toolchain() +
+                     semantics.get_runtimes_toolchain(),
         incompatible_use_toolchain_transition = True,
         test = True,
     )
-
-_cc_test_variants = struct(
-    with_aspects = struct(
-        explicit_linkstatic = _make_cc_test(with_linkstatic = True, with_aspects = True),
-        default_linkstatic = _make_cc_test(with_aspects = True),
-    ),
-    without_aspects = struct(
-        explicit_linkstatic = _make_cc_test(with_linkstatic = True),
-        default_linkstatic = _make_cc_test(),
-    ),
-)
-
-def cc_test_wrapper(**kwargs):
-    """Entry point for cc_test rules.
-
-    This avoids propagating aspects on certain attributes if dynamic_deps attribute is unset.
-
-    It also serves to detect if the `linkstatic` attribute was explicitly set or not.
-    This is to workaround a deficiency in Starlark attributes.
-    (See: https://github.com/bazelbuild/bazel/issues/14434)
-
-    Args:
-        **kwargs: Arguments suitable for cc_test.
-    """
-    cc_test_aspects = None
-
-    # Propagate an aspect if dynamic_deps attribute is specified.
-    if "dynamic_deps" in kwargs and cc_helper.is_non_empty_list_or_select(kwargs["dynamic_deps"], "dynamic_deps"):
-        cc_test_aspects = _cc_test_variants.with_aspects
-    else:
-        cc_test_aspects = _cc_test_variants.without_aspects
-
-    if "linkstatic" in kwargs:
-        cc_test_aspects.explicit_linkstatic(**kwargs)
-    else:
-        cc_test_aspects.default_linkstatic(**kwargs)

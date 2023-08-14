@@ -92,9 +92,7 @@ TEST_F(CombinersTest, ConcatenatorSmall) {
   Inflater inflater;
   inflater.DataToInflate(entry->data(), compressed_size);
   uint8_t buffer[256];
-  memset(buffer, kPoison, sizeof(buffer));
   ASSERT_EQ(Z_STREAM_END, inflater.Inflate((buffer), sizeof(buffer)));
-  EXPECT_EQ(kPoison, buffer[original_size]);
   EXPECT_EQ(kConcatenatedContents,
             std::string(reinterpret_cast<char *>(buffer), original_size));
   free(reinterpret_cast<void *>(entry));
@@ -181,9 +179,7 @@ TEST_F(CombinersTest, XmlCombiner) {
   Inflater inflater;
   inflater.DataToInflate(entry->data(), compressed_size);
   uint8_t buffer[256];
-  memset(buffer, kPoison, sizeof(buffer));
   ASSERT_EQ(Z_STREAM_END, inflater.Inflate((buffer), sizeof(buffer)));
-  EXPECT_EQ(kPoison, buffer[original_size]);
   EXPECT_EQ(kCombinedXmlContents,
             std::string(reinterpret_cast<char *>(buffer), original_size));
   free(reinterpret_cast<void *>(entry));
@@ -233,9 +229,7 @@ TEST_F(CombinersTest, PropertyCombiner) {
   Inflater inflater;
   inflater.DataToInflate(entry->data(), compressed_size);
   uint8_t buffer[256];
-  memset(buffer, kPoison, sizeof(buffer));
   ASSERT_EQ(Z_STREAM_END, inflater.Inflate((buffer), sizeof(buffer)));
-  EXPECT_EQ(kPoison, buffer[original_size]);
   EXPECT_EQ(kProperties,
             std::string(reinterpret_cast<char *>(buffer), original_size));
   free(reinterpret_cast<void *>(entry));

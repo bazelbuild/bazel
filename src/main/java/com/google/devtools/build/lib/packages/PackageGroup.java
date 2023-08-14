@@ -14,10 +14,9 @@
 
 package com.google.devtools.build.lib.packages;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
@@ -46,6 +45,8 @@ public class PackageGroup implements Target {
       Package pkg,
       Collection<String> packageSpecifications,
       Collection<Label> includes,
+      boolean allowPublicPrivate,
+      boolean repoRootMeansCurrentRepo,
       EventHandler eventHandler,
       Location location) {
     this.label = label;
@@ -60,7 +61,11 @@ public class PackageGroup implements Target {
       PackageSpecification specification = null;
       try {
         specification =
-            PackageSpecification.fromString(label.getRepository(), packageSpecification);
+            PackageSpecification.fromString(
+                label.getRepository(),
+                packageSpecification,
+                allowPublicPrivate,
+                repoRootMeansCurrentRepo);
       } catch (PackageSpecification.InvalidPackageSpecificationException e) {
         errorsFound = true;
         eventHandler.handle(
@@ -83,16 +88,17 @@ public class PackageGroup implements Target {
     return packageSpecifications;
   }
 
-  public boolean contains(Package pkg) {
-    return packageSpecifications.containsPackage(pkg.getPackageIdentifier());
+  public boolean contains(PackageIdentifier pkgId) {
+    return packageSpecifications.containsPackage(pkgId);
   }
 
   public List<Label> getIncludes() {
     return includes;
   }
 
-  public List<String> getContainedPackages() {
-    return packageSpecifications.containedPackages().collect(toImmutableList());
+  // See PackageSpecification#asString.
+  public List<String> getContainedPackages(boolean includeDoubleSlash) {
+    return packageSpecifications.packageStrings(includeDoubleSlash);
   }
 
   @Override
@@ -110,7 +116,8 @@ public class PackageGroup implements Target {
     return label;
   }
 
-  @Override public String getName() {
+  @Override
+  public String getName() {
     return label.getName();
   }
 
@@ -136,7 +143,7 @@ public class PackageGroup implements Target {
 
   @Override
   public String toString() {
-   return targetKind() + " " + getLabel();
+    return targetKind() + " " + getLabel();
   }
 
   @Override
@@ -144,7 +151,7 @@ public class PackageGroup implements Target {
     // Package groups are always public to avoid a PackageGroupConfiguredTarget
     // needing itself for the visibility check. It may work, but I did not
     // think it over completely.
-    return ConstantRuleVisibility.PUBLIC;
+    return RuleVisibility.PUBLIC;
   }
 
   @Override

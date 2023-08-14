@@ -23,15 +23,15 @@ import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.File;
@@ -42,6 +42,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import javax.annotation.Nullable;
 
 // TODO(b/62588075): Use this class for the LocalSpawnRunnerTest as well.
 /**
@@ -104,8 +105,8 @@ public final class SpawnRunnerTestUtil {
     }
 
     @Override
-    public MetadataProvider getMetadataProvider() {
-      return mock(MetadataProvider.class);
+    public InputMetadataProvider getInputMetadataProvider() {
+      return mock(InputMetadataProvider.class);
     }
 
     @Override
@@ -129,7 +130,8 @@ public final class SpawnRunnerTestUtil {
     }
 
     @Override
-    public SortedMap<PathFragment, ActionInput> getInputMapping(PathFragment baseDirectory) {
+    public SortedMap<PathFragment, ActionInput> getInputMapping(
+        PathFragment baseDirectory, boolean willAccessRepeatedly) {
       TreeMap<PathFragment, ActionInput> inputMapping = new TreeMap<>();
       for (ActionInput actionInput : spawn.getInputFiles().toList()) {
         inputMapping.put(baseDirectory.getRelative(actionInput.getExecPath()), actionInput);
@@ -140,11 +142,6 @@ public final class SpawnRunnerTestUtil {
     @Override
     public void report(ProgressStatus progress) {
       reportedStatus.add(progress);
-    }
-
-    @Override
-    public MetadataInjector getMetadataInjector() {
-      return mock(MetadataInjector.class);
     }
 
     @Override
@@ -159,6 +156,12 @@ public final class SpawnRunnerTestUtil {
 
     @Override
     public void checkForLostInputs() {}
+
+    @Nullable
+    @Override
+    public FileSystem getActionFileSystem() {
+      return null;
+    }
   }
 
   /**

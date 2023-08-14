@@ -16,11 +16,11 @@ package com.google.devtools.build.lib.runtime.commands;
 
 import static java.util.stream.Collectors.toList;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.profiler.memory.AllocationTracker;
 import com.google.devtools.build.lib.profiler.memory.AllocationTracker.RuleBytes;
@@ -275,14 +275,14 @@ public class DumpCommand implements BlazeCommand {
   }
 
   private static void dumpRuleClasses(BlazeRuntime runtime, PrintStream out) {
-    PackageFactory factory = runtime.getPackageFactory();
-    List<String> ruleClassNames = new ArrayList<>(factory.getRuleClassNames());
+    ImmutableMap<String, RuleClass> ruleClassMap = runtime.getRuleClassProvider().getRuleClassMap();
+    List<String> ruleClassNames = new ArrayList<>(ruleClassMap.keySet());
     Collections.sort(ruleClassNames);
     for (String name : ruleClassNames) {
       if (name.startsWith("$")) {
         continue;
       }
-      RuleClass ruleClass = factory.getRuleClass(name);
+      RuleClass ruleClass = ruleClassMap.get(name);
       out.print(ruleClass + "(");
       boolean first = true;
       for (Attribute attribute : ruleClass.getAttributes()) {

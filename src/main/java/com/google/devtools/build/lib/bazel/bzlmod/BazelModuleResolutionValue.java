@@ -1,4 +1,4 @@
-// Copyright 2021 The Bazel Authors. All rights reserved.
+// Copyright 2022 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,104 +16,39 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableTable;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.Map;
 
 /**
- * The result of running Bazel module resolution, containing the Bazel module dependency graph
- * post-version-resolution.
+ * The result of the selection process, containing both the pruned and the un-pruned dependency
+ * graphs.
  */
 @AutoValue
-public abstract class BazelModuleResolutionValue implements SkyValue {
+abstract class BazelModuleResolutionValue implements SkyValue {
+  /* TODO(andreisolo): Also load the modules overridden by {@code single_version_override} or
+      NonRegistryOverride if we need to detect changes in the dependency graph caused by them.
+  */
+
   @SerializationConstant
   public static final SkyKey KEY = () -> SkyFunctions.BAZEL_MODULE_RESOLUTION;
 
-  public static BazelModuleResolutionValue create(
-      ImmutableMap<ModuleKey, Module> depGraph,
-      ImmutableMap<ModuleKey, Module> unprunedDepGraph,
-      ImmutableMap<RepositoryName, ModuleKey> canonicalRepoNameLookup,
-      ImmutableMap<String, ModuleKey> moduleNameLookup,
-      ImmutableList<AbridgedModule> abridgedModules,
-      ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesTable,
-      ImmutableMap<ModuleExtensionId, String> extensionUniqueNames) {
-    return new AutoValue_BazelModuleResolutionValue(
-        depGraph,
-        unprunedDepGraph,
-        canonicalRepoNameLookup,
-        moduleNameLookup,
-        abridgedModules,
-        extensionUsagesTable,
-        extensionUniqueNames);
-  }
+  /** Final dep graph sorted in BFS iteration order, with unused modules removed. */
+  abstract ImmutableMap<ModuleKey, Module> getResolvedDepGraph();
 
   /**
-   * The post-selection dep graph. Must have BFS iteration order, starting from the root module. For
-   * any KEY in the returned map, it's guaranteed that {@code depGraph[KEY].getKey() == KEY}.
+   * Un-pruned dep graph, with updated dep keys, and additionally containing the unused modules
+   * which were initially discovered (and their MODULE.bazel files loaded). Does not contain modules
+   * overridden by {@code single_version_override} or {@link NonRegistryOverride}, only by {@code
+   * multiple_version_override}.
    */
-  public abstract ImmutableMap<ModuleKey, Module> getDepGraph();
+  abstract ImmutableMap<ModuleKey, InterimModule> getUnprunedDepGraph();
 
-  /**
-   * The post-selection un-pruned dep graph, used for in-depth inspection. TODO(andreisolo): decide
-   * whether to store the un-pruned graph or just the removed modules? Random order (depends on
-   * SkyFrame execution order). For any KEY in the returned map, it's guaranteed that {@code
-   * depGraph[KEY].getKey() == KEY}.
-   */
-  public abstract ImmutableMap<ModuleKey, Module> getUnprunedDepGraph();
-
-  /** A mapping from a canonical repo name to the key of the module backing it. */
-  public abstract ImmutableMap<RepositoryName, ModuleKey> getCanonicalRepoNameLookup();
-
-  /**
-   * A mapping from a plain module name to the key of the module. Does not include the root module,
-   * or modules with multiple-version overrides.
-   */
-  public abstract ImmutableMap<String, ModuleKey> getModuleNameLookup();
-
-  /** All modules in the same order as {@link #getDepGraph}, but with limited information. */
-  public abstract ImmutableList<AbridgedModule> getAbridgedModules();
-
-  /**
-   * All module extension usages grouped by the extension's ID and the key of the module where this
-   * usage occurs. For each extension identifier ID, extensionUsagesTable[ID][moduleKey] is the
-   * ModuleExtensionUsage of ID in the module keyed by moduleKey.
-   */
-  public abstract ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage>
-      getExtensionUsagesTable();
-
-  /**
-   * A mapping from the ID of a module extension to a unique string that serves as its "name". This
-   * is not the same as the extension's declared name, as the declared name is only unique within
-   * the .bzl file, whereas this unique name is guaranteed to be unique across the workspace.
-   */
-  public abstract ImmutableMap<ModuleExtensionId, String> getExtensionUniqueNames();
-
-  /**
-   * Returns the full {@link RepositoryMapping} for the given module, including repos from Bazel
-   * module deps and module extensions.
-   */
-  public final RepositoryMapping getFullRepoMapping(ModuleKey key) {
-    ImmutableMap.Builder<String, RepositoryName> mapping = ImmutableMap.builder();
-    for (Map.Entry<ModuleExtensionId, ModuleExtensionUsage> e :
-        getExtensionUsagesTable().column(key).entrySet()) {
-      ModuleExtensionId extensionId = e.getKey();
-      ModuleExtensionUsage usage = e.getValue();
-      for (Map.Entry<String, String> entry : usage.getImports().entrySet()) {
-        String canonicalRepoName =
-            getExtensionUniqueNames().get(extensionId) + "~" + entry.getValue();
-        mapping.put(entry.getKey(), RepositoryName.createUnvalidated(canonicalRepoName));
-      }
-    }
-    return getDepGraph()
-        .get(key)
-        .getRepoMappingWithBazelDepsOnly()
-        .withAdditionalMappings(mapping.buildOrThrow());
+  static BazelModuleResolutionValue create(
+      ImmutableMap<ModuleKey, Module> resolvedDepGraph,
+      ImmutableMap<ModuleKey, InterimModule> unprunedDepGraph) {
+    return new AutoValue_BazelModuleResolutionValue(resolvedDepGraph, unprunedDepGraph);
   }
 }

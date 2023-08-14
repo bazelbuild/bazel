@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth8.assertThat;
 
 import com.google.devtools.build.lib.bazel.BazelStartupOptionsModule.Options;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.CanonicalCommandLineEvent;
@@ -59,6 +60,45 @@ public class StarlarkOptionCommandLineEventTest extends StarlarkOptionsTestCase 
     assertThat(line.getSections(3).getOptionList().getOption(0).getOptionName())
         .isEqualTo("//test:my_int_setting");
     assertThat(line.getSections(3).getOptionList().getOption(0).getOptionValue()).isEqualTo("666");
+  }
+
+  /**
+   * {@link OriginalCommandLineEvent} contains options explicitly set on the command line but not
+   * options inherited through bazelrcs.
+   */
+  @Test
+  public void testStarlarkOptionsFromCommandLineAndBazelRc_original() throws Exception {
+    OptionsParser fakeStartupOptions =
+        OptionsParser.builder()
+            .optionsClasses(BlazeServerStartupOptions.class, Options.class)
+            .build();
+    scratch.file(
+        "test/build_setting.bzl",
+        "def _build_setting_impl(ctx):",
+        "  return []",
+        "int_flag = rule(",
+        "  implementation = _build_setting_impl,",
+        "  build_setting = config.int(flag=True)",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_setting.bzl', 'int_flag')",
+        "int_flag(name = 'cmdflag', build_setting_default = 10)",
+        "int_flag(name = 'bazelrcflag', build_setting_default = 20)");
+
+    var unused =
+        parseStarlarkOptions(
+            /* commandLineOptions= */ "--//test:cmdflag=666",
+            /* bazelrcOptions= */ "--//test:bazelrcflag=777");
+    CommandLine line =
+        new OriginalCommandLineEvent(
+                "testblaze", fakeStartupOptions, "someCommandName", optionsParser, Optional.empty())
+            .asStreamProto(null)
+            .getStructuredCommandLine();
+
+    assertThat(line.getSections(3).getOptionList().getOptionCount()).isEqualTo(1);
+    assertThat(line.getSections(3).getOptionList().getOption(0).getCombinedForm())
+        .isEqualTo("--//test:cmdflag=666");
   }
 
   @Test
@@ -112,5 +152,45 @@ public class StarlarkOptionCommandLineEventTest extends StarlarkOptionsTestCase 
     // CommandLineEventTest#testOptionsAtVariousPriorities_OriginalCommandLine.
     // Verify that the starlark flag was processed as expected.
     assertThat(line.getSections(3).getOptionList().getOptionCount()).isEqualTo(0);
+  }
+
+  /**
+   * {@link CanonicalCommandLineEvent} includes both options set explicitly on the command line and
+   * options inherited through bazelrcs.
+   */
+  @Test
+  public void testStarlarkOptionsFromCommandLineAndBazelRc_canonical() throws Exception {
+    OptionsParser fakeStartupOptions =
+        OptionsParser.builder()
+            .optionsClasses(BlazeServerStartupOptions.class, Options.class)
+            .build();
+    scratch.file(
+        "test/build_setting.bzl",
+        "def _build_setting_impl(ctx):",
+        "  return []",
+        "int_flag = rule(",
+        "  implementation = _build_setting_impl,",
+        "  build_setting = config.int(flag=True)",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_setting.bzl', 'int_flag')",
+        "int_flag(name = 'cmdflag', build_setting_default = 10)",
+        "int_flag(name = 'bazelrcflag', build_setting_default = 20)");
+
+    var unused =
+        parseStarlarkOptions(
+            /* commandLineOptions= */ "--//test:cmdflag=666",
+            /* bazelrcOptions= */ "--//test:bazelrcflag=777");
+    CommandLine line =
+        new CanonicalCommandLineEvent(
+                "testblaze", fakeStartupOptions, "someCommandName", optionsParser)
+            .asStreamProto(null)
+            .getStructuredCommandLine();
+
+    assertThat(
+            line.getSections(3).getOptionList().getOptionList().stream()
+                .map(o -> o.getCombinedForm()))
+        .containsExactly("--//test:cmdflag=666", "--//test:bazelrcflag=777");
   }
 }

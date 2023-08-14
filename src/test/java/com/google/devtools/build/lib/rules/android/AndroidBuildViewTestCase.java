@@ -56,6 +56,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import org.junit.Before;
 
@@ -73,7 +74,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
   }
 
   protected String defaultPlatformFlag() {
-    return String.format("--platforms=%s/android:armeabi-v7a", TestConstants.PLATFORM_PACKAGE_ROOT);
+    return "";
   }
 
   @Override
@@ -81,7 +82,13 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
       throws Exception {
 
     if (!platformBasedToolchains()) {
-      super.useConfiguration(starlarkOptions, args);
+      super.useConfiguration(
+          starlarkOptions,
+          ImmutableList.builder()
+              .add((Object[]) args)
+              .add("--noincompatible_enable_cc_toolchain_resolution")
+              .build()
+              .toArray(new String[0]));
       return;
     }
 
@@ -89,7 +96,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     ImmutableList.Builder<String> fullArgs = ImmutableList.builder();
     fullArgs.add("--incompatible_enable_android_toolchain_resolution");
     // Uncomment the below to get more info when tests fail because of toolchain resolution.
-    //  fullArgs.add("--toolchain_resolution_debug=tools/android:.*toolchain_type");
+    // fullArgs.add("--toolchain_resolution_debug=tools/android:.*toolchain_type");
     boolean hasPlatform = false;
     for (String arg : args) {
       if (arg.startsWith("--android_sdk=")) {
@@ -115,8 +122,12 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
       }
     }
     if (!hasPlatform) {
+      fullArgs.add(
+          String.format(
+              "--platforms=%sandroid:armeabi-v7a", TestConstants.CONSTRAINTS_PACKAGE_ROOT));
       fullArgs.add(defaultPlatformFlag());
     }
+    fullArgs.add("--incompatible_enable_cc_toolchain_resolution");
     super.useConfiguration(starlarkOptions, fullArgs.build().toArray(new String[0]));
   }
 
@@ -141,9 +152,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
           .that(getGeneratingLabelForArtifact(copiedLib))
           .isNotEqualTo(target.getLabel());
     }
-    assertThat(
-            AnalysisTestUtil.artifactsToStrings(
-                targetConfiguration, getHostConfiguration(), copiedLibs))
+    assertThat(AnalysisTestUtil.artifactsToStrings(targetConfiguration, copiedLibs))
         .containsAtLeastElementsIn(ImmutableSet.copyOf(Arrays.asList(expectedLibNames)));
   }
 
@@ -177,6 +186,11 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
   protected Artifact getFinalUnsignedApk(ConfiguredTarget target) {
     return getFirstArtifactEndingWith(
         target.getProvider(FileProvider.class).getFilesToBuild(), "_unsigned.apk");
+  }
+
+  protected Artifact getDeployJar(ConfiguredTarget target) {
+    return getFirstArtifactEndingWith(
+        target.getProvider(FileProvider.class).getFilesToBuild(), "_deploy.jar");
   }
 
   protected Artifact getResourceApk(ConfiguredTarget target) {
@@ -218,7 +232,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
         : info.getDirectAndroidResources().getSingleton();
   }
 
-  protected Artifact getResourceClassJar(final ConfiguredTargetAndData target) {
+  protected Artifact getResourceClassJar(final ConfiguredTargetAndData target) throws Exception {
     JavaRuleOutputJarsProvider jarProvider =
         JavaInfo.getProvider(JavaRuleOutputJarsProvider.class, target.getConfiguredTarget());
     assertThat(jarProvider).isNotNull();
@@ -230,7 +244,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
               return javaOutput
                   .getClassJar()
                   .getFilename()
-                  .equals(target.getTarget().getName() + "_resources.jar");
+                  .equals(target.getTargetForTesting().getName() + "_resources.jar");
             })
         .getClassJar();
   }
@@ -352,7 +366,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     }
     Map<String, String> splitData =
         Splitter.on(",")
-            .withKeyValueSeparator(Splitter.onPattern("(?<!\\\\):"))
+            .withKeyValueSeparator(Splitter.on(Pattern.compile("(?<!\\\\):")))
             .split(mergeArgs.get(mergeArgs.indexOf("--mergeeManifests") + 1));
     ImmutableMap.Builder<String, String> results = new ImmutableMap.Builder<>();
     for (Map.Entry<String, String> manifestAndLabel : splitData.entrySet()) {
@@ -369,7 +383,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     return null;
   }
 
-  // Returns an artifact that will be generated when a rule has assets that are processed seperately
+  // Returns an artifact that will be generated when a rule has assets that are processed separately
   static Artifact getDecoupledAssetArtifact(ConfiguredTarget target) {
     return target.get(AndroidAssetsInfo.PROVIDER).getValidationResult();
   }
@@ -496,7 +510,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
           .isNotNull();
       SpawnAction proOptimization = getGeneratingSpawnAction(preoptimizationOutput);
 
-      // Verify intitial step.
+      // Verify initial step.
       assertThat(proOptimization.getArguments()).contains("-runtype INITIAL");
       checkProguardLibJars(proOptimization, expectedlibraryJars);
     }

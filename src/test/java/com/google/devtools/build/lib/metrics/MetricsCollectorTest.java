@@ -26,11 +26,13 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.CumulativeMetrics;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
 import java.util.List;
 import org.junit.After;
 import org.junit.Assume;
@@ -77,6 +79,11 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
         "    cmd = '/bin/mkdir $(location dir)',",
         "    srcs = [],",
         ")");
+  }
+
+  @Before
+  public void setUpWorkerMetricsCollecto() {
+    WorkerMetricsCollector.instance().setClock(new JavaClock());
   }
 
   @After
@@ -150,6 +157,8 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
 
     // Do one build of a target in a standalone package. Gets us a baseline for analysis/execution.
     buildTarget("//e:facade");
+    boolean skymeldWasInvolved =
+        getCommandEnvironment().withMergedAnalysisAndExecutionSourceOfTruth();
     BuildGraphMetrics buildGraphMetrics =
         buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics();
     int actionLookupValueCount = buildGraphMetrics.getActionLookupValueCount();
@@ -218,11 +227,22 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
 
     // Do a null build. No useful analysis stats.
     buildTarget("//a");
+    if (skymeldWasInvolved) {
+      // The BuildDriverKey of //e:facade is gone.
+      newGraphSize -= 1;
+    }
 
+    // For null build, we don't do any conflict checking. As the metrics are collected during the
+    // traversal that's part of conflict checking, these analysis-related numbers are 0.
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics())
-        .ignoringFieldAbsence()
         .isEqualTo(
             BuildGraphMetrics.newBuilder()
+                .setActionLookupValueCount(0)
+                .setActionLookupValueCountNotIncludingAspects(0)
+                .setActionCount(0)
+                .setActionCountNotIncludingAspects(0)
+                .setInputFileConfiguredTargetCount(0)
+                .setOutputArtifactCount(0)
                 .setPostInvocationSkyframeNodeCount(newGraphSize)
                 .build());
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getArtifactMetrics())
@@ -283,6 +303,11 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
 
     // Null --nobuild.
     buildTarget("//a");
+    if (skymeldWasInvolved) {
+      // When doing --nobuild, no new BuildDriverKey entry is put in the graph while the old one is
+      // deleted.
+      newGraphSize -= 1;
+    }
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics())
         .ignoringFieldAbsence()
         .isEqualTo(
@@ -294,6 +319,10 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     // Do a null full build. Back to baseline.
     addOptions("--build");
     buildTarget("//a");
+    if (skymeldWasInvolved) {
+      // Extra BuildDriverKey
+      newGraphSize += 1;
+    }
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics())
         .ignoringFieldAbsence()
         .isEqualTo(
@@ -491,6 +520,13 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void testExecutionTimeInMs() throws Exception {
+    buildTarget("//foo:foo");
+    BuildMetrics buildMetrics = buildMetricsEventListener.event.getBuildMetrics();
+    assertThat(buildMetrics.getTimingMetrics().getExecutionPhaseTimeInMs()).isGreaterThan(0);
+  }
+
+  @Test
   public void testUsedHeapSizePostBuild() throws Exception {
     // TODO(bazel-team): Fix recording used heap size on Windows.
     Assume.assumeTrue(OS.getCurrent() != OS.WINDOWS);
@@ -584,5 +620,54 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     for (ActionData actionData : actionDataList) {
       assertThat(actionData.getFirstStartedMs()).isAtMost(actionData.getLastEndedMs());
     }
+  }
+
+  @Test
+  public void skymeldNullIncrementalBuild_buildGraphMetricsNotCollected() throws Exception {
+    write(
+        "foo/BUILD",
+        "genrule(",
+        "    name = 'foo',",
+        "    outs = ['dir'],",
+        "    cmd = '/bin/mkdir $(location dir)',",
+        "    srcs = [],",
+        ")",
+        "genrule(",
+        "    name = 'bar',",
+        "    outs = ['dir2'],",
+        "    cmd = '/bin/mkdir $(location dir2)',",
+        "    srcs = [],",
+        ")");
+    addOptions("--experimental_merged_skyframe_analysis_execution");
+    BuildGraphMetrics expected =
+        BuildGraphMetrics.newBuilder()
+            .setActionLookupValueCount(8)
+            .setActionLookupValueCountNotIncludingAspects(8)
+            .setActionCount(2)
+            .setActionCountNotIncludingAspects(2)
+            .setInputFileConfiguredTargetCount(1)
+            .setOutputArtifactCount(2)
+            .build();
+    buildTarget("//foo:foo", "//foo:bar");
+
+    assertThat(buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics())
+        .comparingExpectedFieldsOnly()
+        .isEqualTo(expected);
+
+    // Null build.
+    buildTarget("//foo:foo", "//foo:bar");
+
+    BuildGraphMetrics expectedNullBuild =
+        BuildGraphMetrics.newBuilder()
+            .setActionLookupValueCount(0)
+            .setActionLookupValueCountNotIncludingAspects(0)
+            .setActionCount(0)
+            .setActionCountNotIncludingAspects(0)
+            .setInputFileConfiguredTargetCount(0)
+            .setOutputArtifactCount(0)
+            .build();
+    assertThat(buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics())
+        .comparingExpectedFieldsOnly()
+        .isEqualTo(expectedNullBuild);
   }
 }

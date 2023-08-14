@@ -49,18 +49,10 @@ public final class StarlarkCallbackHelper {
   // Alternatively (or additionally), we could put PackageContext
   // into BazelStarlarkContext so there's only a single blob of state.
   private final StarlarkSemantics starlarkSemantics;
-  // The Bazel context that was in effect at the place where the StarlarkCallbackHelper was defined.
-  // This will be used as a template for creating a new context each time the callback is invoked
-  // (since BazelStarlarkContexts cannot be safely shared or reused).
-  private final BazelStarlarkContext contextTemplate;
 
-  public StarlarkCallbackHelper(
-      StarlarkFunction callback,
-      StarlarkSemantics starlarkSemantics,
-      BazelStarlarkContext contextTemplate) {
+  public StarlarkCallbackHelper(StarlarkFunction callback, StarlarkSemantics starlarkSemantics) {
     this.callback = callback;
     this.starlarkSemantics = starlarkSemantics;
-    this.contextTemplate = contextTemplate;
   }
 
   public ImmutableList<String> getParameterNames() {
@@ -74,23 +66,15 @@ public final class StarlarkCallbackHelper {
     try (Mutability mu = Mutability.create("callback", callback)) {
       StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
       thread.setPrintHandler(Event.makeDebugPrintHandler(eventHandler));
-      // TODO(b/236456122): If we don't eliminate StarlarkCallbackHelper entirely, we can give it
-      // its own BazelStarlarkContext subclass.
-      BazelStarlarkContext context =
-          new BazelStarlarkContext(
-              contextTemplate.getPhase(),
-              contextTemplate.getToolsRepository(),
-              contextTemplate.getFragmentNameToClass(),
+      new BazelStarlarkContext(
+              BazelStarlarkContext.Phase.LOADING,
               // TODO(brandjon): In principle, if we're creating a new symbol generator here, we
               // should have a unique owner object to associate it with for distinguishing
               // reference-equality objects. But I don't think implicit outputs or computed defaults
               // care about identity.
               new SymbolGenerator<>(new Object()),
-              // Analysis rule label should be null for computed defaults and implicit outputs, but
-              // may as well copy the field for symmetry.
-              contextTemplate.getAnalysisRuleLabel(),
-              contextTemplate.getNetworkAllowlistForTests().orElse(null));
-      context.storeInThread(thread);
+              /* analysisRuleLabel= */ null)
+          .storeInThread(thread);
       return Starlark.call(
           thread, callback, buildArgumentList(struct, arguments), /*kwargs=*/ ImmutableMap.of());
     } catch (ClassCastException | IllegalArgumentException e) { // TODO(adonovan): investigate

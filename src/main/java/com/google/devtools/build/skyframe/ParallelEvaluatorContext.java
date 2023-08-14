@@ -13,18 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.github.benmanes.caffeine.cache.Cache;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
+import com.google.devtools.build.lib.concurrent.ComparableRunnable;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reportable;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
-import java.util.Map;
-import javax.annotation.Nullable;
+import java.util.Set;
 
 /**
  * Context object holding sufficient information for {@link SkyFunctionEnvironment} to perform its
@@ -40,6 +41,7 @@ class ParallelEvaluatorContext {
   private final Version minimalVersion;
   private final ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions;
   private final ExtendedEventHandler reporter;
+  private final EmittedEventState emittedEventState;
   private final NestedSetVisitor<Reportable> replayingNestedSetEventVisitor;
   private final boolean keepGoing;
   private final DirtyTrackingProgressReceiver progressReceiver;
@@ -58,16 +60,14 @@ class ParallelEvaluatorContext {
   private final Supplier<NodeEntryVisitor> visitorSupplier;
 
   /**
-   * Returns a {@link Runnable} given a {@code key} to evaluate and an {@code evaluationPriority}
-   * indicating whether it should be scheduled for evaluation soon (higher is better). The returned
-   * {@link Runnable} is a {@link ComparableRunnable} so that it can be ordered by {@code
-   * evaluationPriority} in a priority queue if needed.
+   * Returns a {@link Runnable} given a {@code key} to evaluate.
+   *
+   * <p>The returned {@link Runnable} is a {@link ComparableRunnable} so that it can be ordered by a
+   * priority queue.
    */
   interface RunnableMaker {
-    ComparableRunnable make(SkyKey key, int evaluationPriority);
+    ComparableRunnable make(SkyKey key, int priority);
   }
-
-  interface ComparableRunnable extends Runnable, Comparable<ComparableRunnable> {}
 
   public ParallelEvaluatorContext(
       QueryableGraph graph,
@@ -75,7 +75,7 @@ class ParallelEvaluatorContext {
       Version minimalVersion,
       ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
       ExtendedEventHandler reporter,
-      NestedSetVisitor.VisitedState emittedEventState,
+      EmittedEventState emittedEventState,
       boolean keepGoing,
       DirtyTrackingProgressReceiver progressReceiver,
       EventFilter storedEventFilter,
@@ -90,21 +90,16 @@ class ParallelEvaluatorContext {
     this.skyFunctions = skyFunctions;
     this.reporter = reporter;
     this.graphInconsistencyReceiver = graphInconsistencyReceiver;
+    this.emittedEventState = emittedEventState;
     this.replayingNestedSetEventVisitor =
         new NestedSetVisitor<>(new NestedSetEventReceiver(reporter), emittedEventState);
     this.keepGoing = keepGoing;
-    this.progressReceiver = Preconditions.checkNotNull(progressReceiver);
+    this.progressReceiver = checkNotNull(progressReceiver);
     this.storedEventFilter = storedEventFilter;
     this.errorInfoManager = errorInfoManager;
     this.visitorSupplier = Suppliers.memoize(visitorSupplier);
     this.mergingSkyframeAnalysisExecutionPhases = mergingSkyframeAnalysisExecutionPhases;
     this.stateCache = stateCache;
-  }
-
-  Map<SkyKey, ? extends NodeEntry> getBatchValues(
-      @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
-      throws InterruptedException {
-    return graph.getBatch(requestor, reason, keys);
   }
 
   /**
@@ -113,29 +108,26 @@ class ParallelEvaluatorContext {
    * <p>Calling this method indicates that we are building this node after the main build aborted,
    * so skips signalling any parents that are already done (that can happen with cycles).
    */
-  void signalParentsOnAbort(SkyKey skyKey, Iterable<SkyKey> parents, Version version)
+  void signalParentsOnAbort(SkyKey skyKey, Set<SkyKey> parents, Version version)
       throws InterruptedException {
-    Map<SkyKey, ? extends NodeEntry> batch = getBatchValues(skyKey, Reason.SIGNAL_DEP, parents);
+    NodeBatch batch = graph.getBatch(skyKey, Reason.SIGNAL_DEP, parents);
     for (SkyKey parent : parents) {
-      NodeEntry entry = Preconditions.checkNotNull(batch.get(parent), parent);
+      NodeEntry entry = checkNotNull(batch.get(parent), parent);
       if (!entry.isDone()) { // In cycles, we can have parents that are already done.
         entry.signalDep(version, skyKey);
       }
     }
   }
 
-  /**
-   * Signals all parents that this node is finished and enqueues any parents that are ready at the
-   * given evaluation priority.
-   */
-  void signalParentsAndEnqueueIfReady(
-      SkyKey skyKey, Iterable<SkyKey> parents, Version version, int evaluationPriority)
+  /** Signals all parents that this node is finished and enqueues any parents that are ready. */
+  void signalParentsAndEnqueueIfReady(SkyKey skyKey, Set<SkyKey> parents, Version version)
       throws InterruptedException {
-    Map<SkyKey, ? extends NodeEntry> batch = getBatchValues(skyKey, Reason.SIGNAL_DEP, parents);
+    NodeBatch batch = graph.getBatch(skyKey, Reason.SIGNAL_DEP, parents);
     for (SkyKey parent : parents) {
-      NodeEntry entry = Preconditions.checkNotNull(batch.get(parent), parent);
-      if (entry.signalDep(version, skyKey)) {
-        getVisitor().enqueueEvaluation(parent, evaluationPriority);
+      NodeEntry entry = checkNotNull(batch.get(parent), parent);
+      boolean evaluationRequired = entry.signalDep(version, skyKey);
+      if (evaluationRequired || parent.supportsPartialReevaluation()) {
+        getVisitor().enqueueEvaluation(parent, entry.getPriority(), skyKey);
       }
     }
   }
@@ -166,6 +158,10 @@ class ParallelEvaluatorContext {
 
   GraphInconsistencyReceiver getGraphInconsistencyReceiver() {
     return graphInconsistencyReceiver;
+  }
+
+  EmittedEventState getEmittedEventState() {
+    return emittedEventState;
   }
 
   NestedSetVisitor<Reportable> getReplayingNestedSetEventVisitor() {

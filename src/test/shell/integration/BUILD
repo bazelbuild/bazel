@@ -41,6 +41,7 @@ gen_workspace_stanza(
     out = "rules_proto_stanza.txt",
     repos = [
         "rules_proto",
+        "rules_python",
     ],
 )
 
@@ -127,7 +128,7 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    shard_count = 4,
+    shard_count = 8,
 )
 
 sh_test(
@@ -247,16 +248,6 @@ sh_test(
 )
 
 sh_test(
-    name = "output_filter_test",
-    size = "large",
-    srcs = ["output_filter_test.sh"],
-    data = [
-        ":test-deps",
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-)
-
-sh_test(
     name = "bazel_testjobs_test",
     srcs = ["bazel_testjobs_test.sh"],
     data = [
@@ -330,6 +321,16 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_aquery_test",
+    size = "large",
+    srcs = ["bazel_aquery_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "bazel_command_log_test",
     size = "medium",
     srcs = ["bazel_command_log_test.sh"],
@@ -367,6 +368,7 @@ sh_test(
     data = [
         ":rules_proto_stanza.txt",
         ":test-deps",
+        "//third_party/zlib",
         "@bazel_tools//tools/bash/runfiles",
     ],
 )
@@ -577,6 +579,25 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_hardened_sandboxed_worker_test",
+    size = "large",
+    srcs = ["bazel_worker_test.sh"],
+    args = [
+        "'--worker_sandboxing --experimental_worker_sandbox_hardening'",
+        "sandboxed",
+        "proto",
+    ],
+    data = [
+        ":test-deps",
+        "//src/test/java/com/google/devtools/build/lib/worker:ExampleWorker_deploy.jar",
+    ],
+    shard_count = 3,
+    tags = [
+        "no_windows",
+    ],
+)
+
+sh_test(
     name = "server_logging_test",
     size = "medium",
     srcs = ["server_logging_test.sh"],
@@ -588,7 +609,7 @@ sh_test(
 
 sh_test(
     name = "client_test",
-    size = "medium",
+    size = "large",
     srcs = ["client_test.sh"],
     data = [":test-deps"],
     tags = ["no_windows"],
@@ -596,6 +617,7 @@ sh_test(
 
 sh_test(
     name = "test_test",
+    size = "large",
     srcs = ["test_test.sh"],
     data = [
         ":test-deps",
@@ -838,6 +860,20 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    tags = ["no_windows"],
+)
+
+sh_test(
+    name = "unicode_test",
+    srcs = ["unicode_test.sh"],
+    data = [
+        "unicode_test.bzl",
+        "unicode_test_BUILD",
+        "unicode_test_expected.txt",
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    # TODO(arostovtsev): figure out how to make this test Windows-compatible.
     tags = ["no_windows"],
 )
 

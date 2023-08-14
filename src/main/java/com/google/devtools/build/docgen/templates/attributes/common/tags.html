@@ -31,7 +31,7 @@
     cached remotely (but it may be cached locally; it may also be executed remotely).
     Note: for the purposes of this tag, the disk-cache is considered a local cache, whereas
     the http and gRPC caches are considered remote.
-    If a combined cache is specified (i.e. a cache with local and remote components),
+    If a combination of local disk cache and remote cache are used (combined cache),
     it's treated as a remote cache and disabled entirely unless <code>--incompatible_remote_results_ignore_disk</code>
     is set in which case the local components will be used.
   </li>
@@ -91,6 +91,11 @@
     running on a remote machine.
   </li>
 
+  <li><code>exclusive-if-local</code> will force the test to be run in the
+    &quot;exclusive&quot; mode if it is executed locally, but will run the test in parallel if it's
+    executed remotely.
+  </li>
+
   <li><code>manual</code> keyword will exclude the target from expansion of target pattern wildcards
     (<code>...</code>, <code>:*</code>, <code>:all</code>, etc.) and <code>test_suite</code> rules
     which do not list the test explicitly when computing the set of top-level targets to build/run
@@ -108,7 +113,8 @@
     executed (regardless of <code class='flag'>--cache_test_results</code>
     value).
   </li>
-</ul>
+
+  </ul>
 
 See
 <a href="${link test-encyclopedia#tag-conventions}">Tag Conventions</a>

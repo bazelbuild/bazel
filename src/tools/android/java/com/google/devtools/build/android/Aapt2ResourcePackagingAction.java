@@ -13,10 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.concat;
 import static java.util.stream.Collectors.toList;
 
-import com.android.builder.core.VariantType;
+import com.android.builder.core.VariantTypeImpl;
 import com.android.utils.StdLogger;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -256,15 +257,15 @@ public class Aapt2ResourcePackagingAction {
 
     @Option(
         name = "packageType",
-        defaultValue = "DEFAULT",
+        defaultValue = "BASE_APK",
         converter = VariantTypeConverter.class,
         category = "config",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
         help =
             "Variant configuration type for packaging the resources."
-                + " Acceptable values DEFAULT, LIBRARY, ANDROID_TEST, UNIT_TEST")
-    public VariantType packageType;
+                + " Acceptable values BASE_APK, LIBRARY, ANDROID_TEST, UNIT_TEST")
+    public VariantTypeImpl packageType;
 
     @Option(
         name = "densities",
@@ -344,6 +345,16 @@ public class Aapt2ResourcePackagingAction {
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
         help = "When generating proguard configurations, include location references.")
     public boolean includeProguardLocationReferences;
+
+    @Option(
+        name = "resourceApks",
+        defaultValue = "null",
+        category = "input",
+        converter = PathListConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "List of reource only APK files to link against.")
+    public List<Path> resourceApks;
   }
 
   public static void main(String[] args) throws Exception {
@@ -474,6 +485,12 @@ public class Aapt2ResourcePackagingAction {
                 .collect(toList()));
       }
 
+      ImmutableList<StaticLibrary> resourceApks = ImmutableList.of();
+      if (options.resourceApks != null) {
+        resourceApks =
+            options.resourceApks.stream().map(StaticLibrary::from).collect(toImmutableList());
+      }
+
       final PackagedResources packagedResources =
           ResourceLinker.create(aaptConfigOptions.aapt2, executorService, linkedOut)
               .profileUsing(profiler)
@@ -482,6 +499,7 @@ public class Aapt2ResourcePackagingAction {
                   options.packageId != -1 ? Optional.of(options.packageId) : Optional.empty())
               .outputAsProto(aaptConfigOptions.resourceTableAsProto)
               .dependencies(ImmutableList.copyOf(dependencies))
+              .resourceApks(resourceApks)
               .include(compiledResourceDeps)
               .withAssets(assetDirs)
               .buildVersion(aaptConfigOptions.buildToolsVersion)

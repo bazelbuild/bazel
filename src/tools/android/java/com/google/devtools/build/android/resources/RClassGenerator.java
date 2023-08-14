@@ -13,11 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.android.resources;
 
+import static java.lang.Math.max;
 import static java.nio.file.StandardOpenOption.CREATE_NEW;
 
 import com.android.SdkConstants;
 import com.android.resources.ResourceType;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 import java.io.IOException;
@@ -26,6 +28,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -47,6 +50,8 @@ public class RClassGenerator {
   static final String PROVENANCE_ANNOTATION_CLASS_DESCRIPTOR =
       "Lcom/google/devtools/build/android/resources/Provenance;";
   static final String PROVENANCE_ANNOTATION_LABEL_KEY = "label";
+
+  private static final int MAX_BYTES_PER_METHOD = 65535;
 
   private final String label;
   private final Path outFolder;
@@ -225,21 +230,56 @@ public class RClassGenerator {
     constructor.visitEnd();
   }
 
-  private static void writeStaticClassInit(
-      ClassWriter classWriter,
-      String className,
-      Collection<FieldInitializer> deferredInitializers) {
-    MethodVisitor visitor =
-        classWriter.visitMethod(
-            Opcodes.ACC_STATIC, "<clinit>", "()V", null, /* signature */ null /* exceptions */);
-    visitor.visitCode();
-    int stackSlotsNeeded = 0;
-    InstructionAdapter insts = new InstructionAdapter(visitor);
-    for (FieldInitializer fieldInit : deferredInitializers) {
-      stackSlotsNeeded = Math.max(stackSlotsNeeded, fieldInit.writeCLInit(insts, className));
+  /*
+   * Writes out <clinit> and if fields are non-final, creates code to delegate to another static
+   * method if <clinit> becomes too large.
+   */
+  private void writeStaticClassInit(
+      ClassWriter classWriter, String className, List<FieldInitializer> deferredInitializers) {
+    int accessFlags = Opcodes.ACC_STATIC;
+    // MAX_BYTES_PER_METHOD - INVOKESTATIC(3) - RETURN(1)
+    int maxBytesBeforeInvokeAndReturn = MAX_BYTES_PER_METHOD - 3 - 1;
+    int staticInitNameSuffix = 0;
+    String methodName = "<clinit>";
+    ListIterator<FieldInitializer> iterator = deferredInitializers.listIterator();
+    while (iterator.hasNext()) {
+      int currentMethodSize = 0;
+      int stackSlotsNeeded = 0;
+      // This first time around the method name is <clinit> and after that, the method name is
+      // created in the previous iteration.
+      MethodVisitor visitor =
+          classWriter.visitMethod(
+              accessFlags, methodName, "()V", null, /* signature */ null /* exceptions */);
+      visitor.visitCode();
+      InstructionAdapter insts = new InstructionAdapter(visitor);
+      while (iterator.hasNext()) {
+        FieldInitializer fieldInit = iterator.next();
+        // Only limit fields per method if fields are non-final since otherwise fields have to be
+        // initialized in clinit.
+        if (!finalFields
+            && currentMethodSize + fieldInit.getMaxBytecodeSize() > maxBytesBeforeInvokeAndReturn) {
+          Preconditions.checkState(
+              currentMethodSize != 0,
+              "Field %s.%s is too big to initialize.",
+              className,
+              fieldInit.getFieldName());
+          // Backtrack to prepare field for next method.
+          iterator.previous();
+          break;
+        }
+        stackSlotsNeeded = max(stackSlotsNeeded, fieldInit.writeCLInit(insts, className));
+        currentMethodSize += fieldInit.getMaxBytecodeSize();
+      }
+      if (iterator.hasNext()) {
+        // If there are more fields, delegate to new method that will contain their initializations.
+        methodName = "staticInit" + staticInitNameSuffix++;
+        visitor.visitMethodInsn(
+            Opcodes.INVOKESTATIC, className, methodName, "()V", /*isInterface=*/ false);
+        accessFlags = Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE | Opcodes.ACC_SYNTHETIC;
+      }
+      insts.areturn(Type.VOID_TYPE);
+      visitor.visitMaxs(stackSlotsNeeded, 0);
+      visitor.visitEnd();
     }
-    insts.areturn(Type.VOID_TYPE);
-    visitor.visitMaxs(stackSlotsNeeded, 0);
-    visitor.visitEnd();
   }
 }

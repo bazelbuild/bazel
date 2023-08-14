@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.devtools.build.lib.skyframe.CoverageReportValue.COVERAGE_REPORT_KEY;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
@@ -24,11 +27,13 @@ import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
+import com.google.devtools.build.lib.analysis.test.CoverageActionFinishedEvent;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
@@ -62,7 +67,7 @@ public class SkyframeBuilder implements Builder {
   private final ResourceManager resourceManager;
   private final SkyframeExecutor skyframeExecutor;
   private final ModifiedFileSet modifiedOutputFiles;
-  private final MetadataProvider fileCache;
+  private final InputMetadataProvider fileCache;
   private final ActionInputPrefetcher actionInputPrefetcher;
   private final ActionCacheChecker actionCacheChecker;
   private final BugReporter bugReporter;
@@ -73,7 +78,7 @@ public class SkyframeBuilder implements Builder {
       ResourceManager resourceManager,
       ActionCacheChecker actionCacheChecker,
       ModifiedFileSet modifiedOutputFiles,
-      MetadataProvider fileCache,
+      InputMetadataProvider fileCache,
       ActionInputPrefetcher actionInputPrefetcher,
       BugReporter bugReporter) {
     this.resourceManager = resourceManager;
@@ -98,14 +103,14 @@ public class SkyframeBuilder implements Builder {
       OptionsProvider options,
       @Nullable Range<Long> lastExecutionTimeRange,
       TopLevelArtifactContext topLevelArtifactContext,
-      boolean trustRemoteArtifacts)
+      RemoteArtifactChecker remoteArtifactChecker)
       throws BuildFailedException, AbruptExitException, TestExecException, InterruptedException {
     BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
     // TODO(bazel-team): Should use --experimental_fsvc_threads instead of the hardcoded constant
     // but plumbing the flag through is hard.
     int fsvcThreads = buildRequestOptions == null ? 200 : buildRequestOptions.fsvcThreads;
     skyframeExecutor.detectModifiedOutputFiles(
-        modifiedOutputFiles, lastExecutionTimeRange, trustRemoteArtifacts, fsvcThreads);
+        modifiedOutputFiles, lastExecutionTimeRange, remoteArtifactChecker, fsvcThreads);
     try (SilentCloseable c = Profiler.instance().profile("configureActionExecutor")) {
       skyframeExecutor.configureActionExecutor(fileCache, actionInputPrefetcher);
     }
@@ -118,6 +123,9 @@ public class SkyframeBuilder implements Builder {
     skyframeExecutor
         .getEventBus()
         .post(new ExecutionProgressReceiverAvailableEvent(executionProgressReceiver));
+    // When not in Skymeld mode, TargetCompleteEvents don't need to be held back.
+    // See {@link CoverageActionFinishedEvent}.
+    skyframeExecutor.getEventBus().post(new CoverageActionFinishedEvent());
 
     List<DetailedExitCode> detailedExitCodes = new ArrayList<>();
     EvaluationResult<?> result;
@@ -137,6 +145,14 @@ public class SkyframeBuilder implements Builder {
         executionProgressReceiver, statusReporter);
     watchdog.start();
 
+    // We need to extract out artifacts for the combined coverage report; these should only be built
+    // after any exclusive tests have been run, otherwise the tests get run as part of the build.
+    ImmutableSet<Artifact> coverageReportArtifacts =
+        artifacts.stream()
+            .filter(artifact -> artifact.getArtifactOwner().equals(COVERAGE_REPORT_KEY))
+            .collect(toImmutableSet());
+    Set<Artifact> artifactsToBuild = Sets.difference(artifacts, coverageReportArtifacts);
+
     targetsToBuild = Sets.difference(targetsToBuild, targetsToSkip);
     parallelTests = Sets.difference(parallelTests, targetsToSkip);
     exclusiveTests = Sets.difference(exclusiveTests, targetsToSkip);
@@ -147,7 +163,7 @@ public class SkyframeBuilder implements Builder {
               reporter,
               resourceManager,
               executor,
-              artifacts,
+              artifactsToBuild,
               targetsToBuild,
               aspects,
               parallelTests,
@@ -201,6 +217,26 @@ public class SkyframeBuilder implements Builder {
           detailedExitCodes.add(detailedExitCode);
         }
       }
+      // Build coverage report
+      if (!coverageReportArtifacts.isEmpty()) {
+        result =
+            skyframeExecutor.evaluateSkyKeysWithExecution(
+                reporter,
+                executor,
+                Artifact.keys(coverageReportArtifacts),
+                options,
+                actionCacheChecker);
+        detailedExitCode =
+            SkyframeErrorProcessor.processResult(
+                reporter,
+                result,
+                options.getOptions(KeepGoingOption.class).keepGoing,
+                skyframeExecutor.getCyclesReporter(),
+                bugReporter);
+        if (detailedExitCode != null) {
+          detailedExitCodes.add(detailedExitCode);
+        }
+      }
     } finally {
       watchdog.stop();
       skyframeExecutor.setActionExecutionProgressReportingObjects(null, null, null);
@@ -220,7 +256,7 @@ public class SkyframeBuilder implements Builder {
     return actionCacheChecker;
   }
 
-  MetadataProvider getFileCache() {
+  InputMetadataProvider getFileCache() {
     return fileCache;
   }
 

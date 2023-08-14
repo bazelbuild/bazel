@@ -45,6 +45,9 @@ public final class CcDebugInfoContext implements CcDebugInfoContextApi {
 
   /** Merge multiple {@link CcDebugInfoContext}s into one. */
   public static CcDebugInfoContext merge(Collection<CcDebugInfoContext> contexts) {
+    if (contexts.isEmpty()) {
+      return EMPTY;
+    }
     NestedSetBuilder<Artifact> transitiveDwoFiles = NestedSetBuilder.stableOrder();
     NestedSetBuilder<Artifact> transitivePicDwoFiles = NestedSetBuilder.stableOrder();
 
@@ -82,12 +85,12 @@ public final class CcDebugInfoContext implements CcDebugInfoContextApi {
 
   @Override
   public Depset getStarlarkTransitiveFiles() {
-    return Depset.of(Artifact.TYPE, getTransitiveDwoFiles());
+    return Depset.of(Artifact.class, getTransitiveDwoFiles());
   }
 
   @Override
   public Depset getStarlarkTransitivePicFiles() {
-    return Depset.of(Artifact.TYPE, getTransitivePicDwoFiles());
+    return Depset.of(Artifact.class, getTransitivePicDwoFiles());
   }
 
   @Override

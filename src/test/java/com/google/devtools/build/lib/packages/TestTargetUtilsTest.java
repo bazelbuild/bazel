@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -21,8 +23,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
@@ -39,17 +39,16 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.Mockito;
 
 @RunWith(JUnit4.class)
-public class TestTargetUtilsTest extends PackageLoadingTestCase {
+public final class TestTargetUtilsTest extends PackageLoadingTestCase {
   private Target test1;
   private Target test2;
   private Target test1b;
   private Target suite;
 
   @Before
-  public final void createTargets() throws Exception {
+  public void createTargets() throws Exception {
     scratch.file(
         "tests/BUILD",
         "py_test(name = 'small_test_1',",
@@ -83,7 +82,7 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testFilterBySize() throws Exception {
+  public void testFilterBySize() {
     Predicate<Target> sizeFilter =
         TestFilter.testSizeFilter(EnumSet.of(TestSize.SMALL, TestSize.LARGE));
     assertThat(sizeFilter.test(test1)).isTrue();
@@ -96,35 +95,27 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testFilterByLang() throws Exception {
-    StoredEventHandler eventHandler = new StoredEventHandler();
+  public void testFilterByLang() {
     LoadingOptions options = new LoadingOptions();
-    options.testLangFilterList = ImmutableList.of("nonexistent", "existent", "-noexist", "-exist");
+    options.testLangFilterList = ImmutableList.of("positive", "-negative");
     options.testSizeFilterSet = ImmutableSet.of();
     options.testTimeoutFilterSet = ImmutableSet.of();
     options.testTagFilterList = ImmutableList.of();
-    TestFilter filter =
-        TestFilter.forOptions(
-            options, eventHandler, ImmutableSet.of("existent_test", "exist_test"));
-    assertThat(eventHandler.getEvents()).hasSize(2);
-    Package pkg = Mockito.mock(Package.class);
-    RuleClass ruleClass = Mockito.mock(RuleClass.class);
+    TestFilter filter = TestFilter.forOptions(options);
+    Package pkg = mock(Package.class);
+    RuleClass ruleClass = mock(RuleClass.class);
+    when(ruleClass.getDefaultImplicitOutputsFunction()).thenReturn(ImplicitOutputsFunction.NONE);
     Rule mockRule =
         new Rule(
             pkg,
-            null,
+            Label.parseCanonicalUnchecked("//pkg:a"),
             ruleClass,
             Location.fromFile(""),
-            CallStack.EMPTY,
-            AttributeContainer.newMutableInstance(ruleClass));
-    Mockito.when(ruleClass.getName()).thenReturn("existent_library");
+            /* interiorCallStack= */ null);
+    when(ruleClass.getName()).thenReturn("positive_test");
     assertThat(filter.apply(mockRule)).isTrue();
-    Mockito.when(ruleClass.getName()).thenReturn("exist_library");
+    when(ruleClass.getName()).thenReturn("negative_test");
     assertThat(filter.apply(mockRule)).isFalse();
-    assertThat(eventHandler.getEvents())
-        .contains(Event.warn("Unknown language 'nonexistent' in --test_lang_filters option"));
-    assertThat(eventHandler.getEvents())
-        .contains(Event.warn("Unknown language 'noexist' in --test_lang_filters option"));
   }
 
   @Test
@@ -186,7 +177,7 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
-            .setNumThreads(1)
+            .setParallelism(1)
             .setEventHandler(reporter)
             .build();
     EvaluationResult<TestsForTargetPatternValue> result =

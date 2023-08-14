@@ -30,12 +30,15 @@ import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
+import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -159,7 +162,8 @@ public class CompactPersistentActionCacheTest {
   @SuppressWarnings("ReturnValueIgnored")
   @Test
   public void testEntryToStringIsIdempotent() {
-    ActionCache.Entry entry = new ActionCache.Entry("actionKey", ImmutableMap.of(), false);
+    ActionCache.Entry entry =
+        new ActionCache.Entry("actionKey", ImmutableMap.of(), false, OutputPermissions.READONLY);
     entry.toString();
     entry.addInputFile(
         PathFragment.create("foo/bar"), FileArtifactValue.createForDirectoryWithMtime(1234));
@@ -194,7 +198,11 @@ public class CompactPersistentActionCacheTest {
     return FileArtifactValue.createForTesting(artifact.getPath());
   }
 
-  private RemoteFileArtifactValue createRemoteMetadata(Artifact artifact, String content) {
+  private RemoteFileArtifactValue createRemoteMetadata(
+      Artifact artifact,
+      String content,
+      long expireAtEpochMilli,
+      @Nullable PathFragment materializationExecPath) {
     byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
     byte[] digest =
         artifact
@@ -204,13 +212,25 @@ public class CompactPersistentActionCacheTest {
             .getHashFunction()
             .hashBytes(bytes)
             .asBytes();
-    return new RemoteFileArtifactValue(digest, bytes.length, 1, "action-id");
+    return RemoteFileArtifactValue.create(
+        digest, bytes.length, 1, expireAtEpochMilli, materializationExecPath);
+  }
+
+  private RemoteFileArtifactValue createRemoteMetadata(
+      Artifact artifact, String content, @Nullable PathFragment materializationExecPath) {
+    return createRemoteMetadata(
+        artifact, content, /* expireAtEpochMilli= */ -1, materializationExecPath);
+  }
+
+  private RemoteFileArtifactValue createRemoteMetadata(Artifact artifact, String content) {
+    return createRemoteMetadata(artifact, content, /* materializationExecPath= */ null);
   }
 
   private TreeArtifactValue createTreeMetadata(
       SpecialArtifact parent,
       ImmutableMap<String, FileArtifactValue> children,
-      Optional<FileArtifactValue> archivedArtifactValue) {
+      Optional<FileArtifactValue> archivedArtifactValue,
+      Optional<PathFragment> materializationExecPath) {
     TreeArtifactValue.Builder builder = TreeArtifactValue.newBuilder(parent);
     for (Map.Entry<String, FileArtifactValue> entry : children.entrySet()) {
       builder.putChild(
@@ -222,13 +242,17 @@ public class CompactPersistentActionCacheTest {
           builder.setArchivedRepresentation(
               TreeArtifactValue.ArchivedRepresentation.create(artifact, metadata));
         });
+    if (materializationExecPath.isPresent()) {
+      builder.setMaterializationExecPath(materializationExecPath.get());
+    }
     return builder.build();
   }
 
   @Test
   public void putAndGet_savesRemoteFileMetadata() {
     String key = "key";
-    ActionCache.Entry entry = new ActionCache.Entry(key, ImmutableMap.of(), false);
+    ActionCache.Entry entry =
+        new ActionCache.Entry(key, ImmutableMap.of(), false, OutputPermissions.READONLY);
     Artifact artifact = ActionsTestUtil.DUMMY_ARTIFACT;
     RemoteFileArtifactValue metadata = createRemoteMetadata(artifact, "content");
     entry.addOutputFile(artifact, metadata, /*saveFileMetadata=*/ true);
@@ -240,9 +264,44 @@ public class CompactPersistentActionCacheTest {
   }
 
   @Test
+  public void putAndGet_savesRemoteFileMetadata_withExpireAtEpochMilli() {
+    String key = "key";
+    ActionCache.Entry entry =
+        new ActionCache.Entry(key, ImmutableMap.of(), false, OutputPermissions.READONLY);
+    Artifact artifact = ActionsTestUtil.DUMMY_ARTIFACT;
+    long expireAtEpochMilli = Instant.now().toEpochMilli();
+    RemoteFileArtifactValue metadata =
+        createRemoteMetadata(
+            artifact, "content", expireAtEpochMilli, /* materializationExecPath= */ null);
+    entry.addOutputFile(artifact, metadata, /* saveFileMetadata= */ true);
+
+    cache.put(key, entry);
+    entry = cache.get(key);
+
+    assertThat(entry.getOutputFile(artifact).getExpireAtEpochMilli()).isEqualTo(expireAtEpochMilli);
+  }
+
+  @Test
+  public void putAndGet_savesRemoteFileMetadata_withmaterializationExecPath() {
+    String key = "key";
+    ActionCache.Entry entry =
+        new ActionCache.Entry(key, ImmutableMap.of(), false, OutputPermissions.READONLY);
+    Artifact artifact = ActionsTestUtil.DUMMY_ARTIFACT;
+    RemoteFileArtifactValue metadata =
+        createRemoteMetadata(artifact, "content", PathFragment.create("/execroot/some/path"));
+    entry.addOutputFile(artifact, metadata, /*saveFileMetadata=*/ true);
+
+    cache.put(key, entry);
+    entry = cache.get(key);
+
+    assertThat(entry.getOutputFile(artifact)).isEqualTo(metadata);
+  }
+
+  @Test
   public void putAndGet_ignoresLocalFileMetadata() throws IOException {
     String key = "key";
-    ActionCache.Entry entry = new ActionCache.Entry(key, ImmutableMap.of(), false);
+    ActionCache.Entry entry =
+        new ActionCache.Entry(key, ImmutableMap.of(), false, OutputPermissions.READONLY);
     Artifact artifact = ActionsTestUtil.DUMMY_ARTIFACT;
     FileArtifactValue metadata = createLocalMetadata(artifact, "content");
     entry.addOutputFile(artifact, metadata, /*saveFileMetadata=*/ true);
@@ -256,7 +315,8 @@ public class CompactPersistentActionCacheTest {
   @Test
   public void putAndGet_treeMetadata_onlySavesRemoteFileMetadata() throws IOException {
     String key = "key";
-    ActionCache.Entry entry = new ActionCache.Entry(key, ImmutableMap.of(), false);
+    ActionCache.Entry entry =
+        new ActionCache.Entry(key, ImmutableMap.of(), false, OutputPermissions.READONLY);
     SpecialArtifact artifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(
             artifactRoot, PathFragment.create("bin/dummy"));
@@ -274,7 +334,8 @@ public class CompactPersistentActionCacheTest {
                         Artifact.TreeFileArtifact.createTreeOutput(
                             artifact, PathFragment.create("file2")),
                         "content2")),
-            Optional.empty());
+            /* archivedArtifactValue= */ Optional.empty(),
+            /* materializationExecPath= */ Optional.empty());
     entry.addOutputTree(artifact, metadata, /* saveTreeMetadata= */ true);
 
     cache.put(key, entry);
@@ -289,19 +350,24 @@ public class CompactPersistentActionCacheTest {
                         Artifact.TreeFileArtifact.createTreeOutput(
                             artifact, PathFragment.create("file1")),
                         "content1")),
-                Optional.empty()));
+                /* archivedFileValue= */ Optional.empty(),
+                /* materializationExecPath= */ Optional.empty()));
   }
 
   @Test
   public void putAndGet_treeMetadata_savesRemoteArchivedArtifact() {
     String key = "key";
-    ActionCache.Entry entry = new ActionCache.Entry(key, ImmutableMap.of(), false);
+    ActionCache.Entry entry =
+        new ActionCache.Entry(key, ImmutableMap.of(), false, OutputPermissions.READONLY);
     SpecialArtifact artifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(
             artifactRoot, PathFragment.create("bin/dummy"));
     TreeArtifactValue metadata =
         createTreeMetadata(
-            artifact, ImmutableMap.of(), Optional.of(createRemoteMetadata(artifact, "content")));
+            artifact,
+            ImmutableMap.of(),
+            Optional.of(createRemoteMetadata(artifact, "content")),
+            /* materializationExecPath= */ Optional.empty());
     entry.addOutputTree(artifact, metadata, /* saveTreeMetadata= */ true);
 
     cache.put(key, entry);
@@ -310,13 +376,16 @@ public class CompactPersistentActionCacheTest {
     assertThat(entry.getOutputTree(artifact))
         .isEqualTo(
             SerializableTreeArtifactValue.create(
-                ImmutableMap.of(), Optional.of(createRemoteMetadata(artifact, "content"))));
+                ImmutableMap.of(),
+                Optional.of(createRemoteMetadata(artifact, "content")),
+                Optional.empty()));
   }
 
   @Test
   public void putAndGet_treeMetadata_ignoresLocalArchivedArtifact() throws IOException {
     String key = "key";
-    ActionCache.Entry entry = new ActionCache.Entry(key, ImmutableMap.of(), false);
+    ActionCache.Entry entry =
+        new ActionCache.Entry(key, ImmutableMap.of(), false, OutputPermissions.READONLY);
     SpecialArtifact artifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(
             artifactRoot, PathFragment.create("bin/dummy"));
@@ -326,13 +395,42 @@ public class CompactPersistentActionCacheTest {
             ImmutableMap.of(),
             Optional.of(
                 createLocalMetadata(
-                    ActionsTestUtil.createArtifact(artifactRoot, "bin/archive"), "content")));
+                    ActionsTestUtil.createArtifact(artifactRoot, "bin/archive"), "content")),
+            /* materializationExecPath= */ Optional.empty());
     entry.addOutputTree(artifact, metadata, /* saveTreeMetadata= */ true);
 
     cache.put(key, entry);
     entry = cache.get(key);
 
     assertThat(entry.getOutputTree(artifact)).isNull();
+  }
+
+  @Test
+  public void putAndGet_treeMetadata_savesMaterializationExecPath() {
+    String key = "key";
+    PathFragment materializationExecPath = PathFragment.create("/execroot/some/path");
+    ActionCache.Entry entry =
+        new ActionCache.Entry(key, ImmutableMap.of(), false, OutputPermissions.READONLY);
+    SpecialArtifact artifact =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+            artifactRoot, PathFragment.create("bin/dummy"));
+    TreeArtifactValue metadata =
+        createTreeMetadata(
+            artifact,
+            ImmutableMap.of(),
+            /* archivedArtifactValue= */ Optional.empty(),
+            Optional.of(materializationExecPath));
+    entry.addOutputTree(artifact, metadata, /* saveTreeMetadata= */ true);
+
+    cache.put(key, entry);
+    entry = cache.get(key);
+
+    assertThat(entry.getOutputTree(artifact))
+        .isEqualTo(
+            SerializableTreeArtifactValue.create(
+                ImmutableMap.of(),
+                /* archivedFileValue= */ Optional.empty(),
+                Optional.of(materializationExecPath)));
   }
 
   private static void assertKeyEquals(ActionCache cache1, ActionCache cache2, String key) {
@@ -363,7 +461,8 @@ public class CompactPersistentActionCacheTest {
 
   private void putKey(String key, ActionCache ac, boolean discoversInputs) {
     ActionCache.Entry entry =
-        new ActionCache.Entry(key, ImmutableMap.of("k", "v"), discoversInputs);
+        new ActionCache.Entry(
+            key, ImmutableMap.of("k", "v"), discoversInputs, OutputPermissions.READONLY);
     entry.getFileDigest();
     ac.put(key, entry);
   }

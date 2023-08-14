@@ -29,18 +29,6 @@ import com.google.devtools.common.options.OptionsBase;
  */
 public class AnalysisOptions extends OptionsBase {
   @Option(
-    name = "analysis_warnings_as_errors",
-    deprecationWarning =
-        "analysis_warnings_as_errors is now a no-op and will be removed in"
-            + " an upcoming Blaze release",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.NO_OP},
-    help = "Treat visible analysis warnings as errors."
-  )
-  public boolean analysisWarningsAsErrors;
-
-  @Option(
     name = "discard_analysis_cache",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -50,6 +38,17 @@ public class AnalysisOptions extends OptionsBase {
             + " Reduces memory usage by ~10%, but makes further incremental builds slower."
   )
   public boolean discardAnalysisCache;
+
+  @Option(
+      name = "allow_analysis_cache_discard",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
+      help =
+          "If discarding the analysis cache due to a change in the build system, setting this"
+              + " option to false will cause bazel to exit, rather than continuing with the build."
+              + " This option has no effect when 'discard_analysis_cache' is also set.")
+  public boolean allowAnalysisCacheDiscards;
 
   @Option(
     name = "max_config_changes_to_show",
@@ -62,6 +61,18 @@ public class AnalysisOptions extends OptionsBase {
         + "If the number given is -1, all changed options will be displayed."
   )
   public int maxConfigChangesToShow;
+
+  @Option(
+      name = "skip_incompatible_explicit_targets",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "Skip incompatible targets that are explicitly listed on the command line. "
+              + "By default, building such targets results in an error but they are "
+              + "silently skipped when this option is enabled. See: "
+              + "https://bazel.build/extending/platforms#skipping-incompatible-targets")
+  public boolean skipIncompatibleExplicitTargets;
 
   @Option(
       name = "experimental_extra_action_filter",
@@ -92,25 +103,6 @@ public class AnalysisOptions extends OptionsBase {
             + " or -1 indicating the maximum possible window."
   )
   public long versionWindowForDirtyNodeGc;
-
-  @Option(
-      name = "experimental_skyframe_prepare_analysis",
-      deprecationWarning = "This flag is a no-op and will be deleted in a future release.",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help = "Deprecated. No-op.")
-  public boolean skyframePrepareAnalysis;
-
-  @Option(
-      name = "experimental_strict_conflict_checks",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help =
-          "Check for action prefix file path conflicts, regardless of action-specific overrides.")
-  public boolean strictConflictChecks;
 
   @Option(
       name = "experimental_skyframe_cpu_heavy_skykeys_thread_pool_size",
@@ -144,4 +136,18 @@ public class AnalysisOptions extends OptionsBase {
               + " be used. Example value: \"HOST_CPUS*0.5\".",
       converter = CpuResourceConverter.class)
   public int oomSensitiveSkyFunctionsSemaphoreSize;
+
+  @Option(
+      name = "experimental_use_priority_in_analysis",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION
+      },
+      help =
+          "If true, runs the analysis phase with priority queuing for SkyFunctions, improving large"
+              + " build performance. This option is ignored unless"
+              + " experimental_skyframe_cpu_heavy_skykeys_thread_pool_size has a positive value.")
+  public boolean usePrioritization;
 }

@@ -210,4 +210,53 @@ EOF
   expect_log "Attribute foo is configurable and cannot be used in outputs"
 }
 
+function test_build_generated_file_with_selects_succeeds() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg || fail "mkdir -p $pkg failed"
+  cat >$pkg/rule.bzl <<EOF
+def _impl(ctx):
+  ctx.actions.write(
+      output=ctx.outputs.out,
+      content="Hello World!"
+  )
+  return []
+
+demo_rule = rule(
+  _impl,
+  attrs = {
+    'srcs': attr.label_list(allow_files=True),
+    'foo': attr.string(),
+  },
+  outputs = {
+    'out': '%{foo}.txt'
+  })
+EOF
+
+  cat >$pkg/a.txt <<EOF
+EOF
+  cat >$pkg/b.txt <<EOF
+EOF
+  cat >$pkg/BUILD <<EOF
+load(':rule.bzl', 'demo_rule')
+
+config_setting(
+  name = "k8_cpu",
+  values = {'cpu': 'k8'},
+)
+
+demo_rule(
+  name = 'demo',
+  srcs = select({
+    ':k8_cpu': ['a.txt'],
+  }) + select({
+    ':k8_cpu': ['b.txt'],
+  }),
+  foo = 'foobar',
+)
+EOF
+
+  bazel cquery --cpu=k8 --experimental_use_validation_aspect //$pkg:foobar.txt &> $TEST_log \
+    || fail "Cquery 'foobar.txt' expected to succeed"
+}
+
 run_suite "starlark outputs tests"

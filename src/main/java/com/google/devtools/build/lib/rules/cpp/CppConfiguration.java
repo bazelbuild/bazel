@@ -14,12 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import static com.google.devtools.build.lib.rules.cpp.CcModule.isBuiltIn;
-
-import com.google.common.base.Preconditions;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
@@ -29,40 +24,38 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
-import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
-import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration.AppleCpus;
-import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CppConfigurationApi;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.EnumMap;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
- * This class represents the C/C++ parts of the {@link BuildConfigurationValue}, including the host
+ * This class represents the C/C++ parts of the {@link BuildConfigurationValue}, including the exec
  * architecture, target architecture, compiler version, and a standard library version.
  */
 @Immutable
 @RequiresOptions(options = {AppleCommandLineOptions.class, CppOptions.class})
 public final class CppConfiguration extends Fragment
     implements CppConfigurationApi<InvalidConfigurationException> {
+  private static final String BAZEL_TOOLS_REPO = "@bazel_tools";
+
   /**
-   * String indicating a Mac system, for example when used in a crosstool configuration's host or
+   * String indicating a Mac system, for example when used in a crosstool configuration's exec or
    * target system name.
    */
   public static final String MAC_SYSTEM_NAME = "x86_64-apple-macosx";
@@ -74,7 +67,7 @@ public final class CppConfiguration extends Fragment
    * Packages that can use the extended parameters in CppConfiguration See javadoc for {@link
    * com.google.devtools.build.lib.rules.cpp.CcModule}
    */
-  public static final ImmutableList<String> EXPANDED_CC_CONFIGURATION_API_ALLOWLIST =
+  public static final ImmutableList<PackageIdentifier> EXPANDED_CC_CONFIGURATION_API_ALLOWLIST =
       ImmutableList.of();
 
   /** An enumeration of all the tools that comprise a toolchain. */
@@ -131,7 +124,7 @@ public final class CppConfiguration extends Fragment
    * --dynamic_mode parses to DynamicModeFlag, but AUTO will be translated based on platform,
    * resulting in a DynamicMode value.
    */
-  public enum DynamicMode {
+  public enum DynamicMode implements StarlarkValue {
     OFF,
     DEFAULT,
     FULLY
@@ -187,7 +180,6 @@ public final class CppConfiguration extends Fragment
   private final boolean isToolConfigurationDoNotUseWillBeRemovedFor129045294;
 
   private final boolean appleGenerateDsym;
-  private final AppleBitcodeMode appleBitcodeMode;
 
   public CppConfiguration(BuildOptions options) throws InvalidConfigurationException {
     CppOptions cppOptions = options.get(CppOptions.class);
@@ -206,12 +198,18 @@ public final class CppConfiguration extends Fragment
     if (cppOptions.getFdoOptimize() != null) {
       if (cppOptions.getFdoOptimize().startsWith("//")) {
         try {
-          fdoProfileLabel = Label.parseAbsolute(cppOptions.getFdoOptimize(), ImmutableMap.of());
+          fdoProfileLabel = Label.parseCanonical(cppOptions.getFdoOptimize());
         } catch (LabelSyntaxException e) {
           throw new InvalidConfigurationException(e);
         }
       } else {
         fdoPath = PathFragment.create(cppOptions.getFdoOptimize());
+        if (!fdoPath.isAbsolute()) {
+          throw new InvalidConfigurationException(
+              "Path of '"
+                  + fdoPath.getPathString()
+                  + "' in --fdo_optimize has to be either an absolute path or a label.");
+        }
         try {
           // We don't check for file existence, but at least the filename should be well-formed.
           FileSystemUtils.checkBaseName(fdoPath.getBaseName());
@@ -290,35 +288,44 @@ public final class CppConfiguration extends Fragment
                 && compilationMode == CompilationMode.FASTBUILD);
     this.compilationMode = compilationMode;
     this.collectCodeCoverage = commonOptions.collectCodeCoverage;
-    this.isToolConfigurationDoNotUseWillBeRemovedFor129045294 =
-        commonOptions.isHost || commonOptions.isExec;
-    this.appleGenerateDsym =
-        (cppOptions.appleGenerateDsym
-            || (cppOptions.appleEnableAutoDsymDbg && compilationMode == CompilationMode.DBG));
-    this.appleBitcodeMode =
-        computeAppleBitcodeMode(options.get(AppleCommandLineOptions.class), commonOptions);
-  }
-
-  private static AppleBitcodeMode computeAppleBitcodeMode(
-      AppleCommandLineOptions options, CoreOptions commonOptions) {
-    ApplePlatform.PlatformType applePlatformType =
-        Preconditions.checkNotNull(options.applePlatformType, "applePlatformType");
-    AppleCpus appleCpus = AppleCpus.create(options, commonOptions);
-    EnumMap<ApplePlatform.PlatformType, AppleBitcodeMode> platformBitcodeModes =
-        AppleConfiguration.collectBitcodeModes(options.appleBitcodeMode);
-
-    return AppleConfiguration.getAppleBitcodeMode(
-        applePlatformType, appleCpus, platformBitcodeModes);
+    this.isToolConfigurationDoNotUseWillBeRemovedFor129045294 = commonOptions.isExec;
+    this.appleGenerateDsym = cppOptions.appleGenerateDsym;
   }
 
   /** Returns the label of the <code>cc_compiler</code> rule for the C++ configuration. */
   @StarlarkConfigurationField(
       name = "cc_toolchain",
       doc = "The label of the target describing the C++ toolchain",
-      defaultLabel = "//tools/cpp:crosstool",
+      defaultLabel = "//tools/cpp:toolchain",
       defaultInToolRepository = true)
+  @Nullable
   public Label getRuleProvidingCcToolchainProvider() {
-    return cppOptions.crosstoolTop;
+    if (cppOptions.enableCcToolchainResolution) {
+      // In case C++ toolchain resolution is enabled, crosstool_top flags are not used.
+      // Returning null prevents additional work on the flags values and makes it possible to
+      // remove `--crosstool_top` flags.
+      return null;
+    } else {
+      return cppOptions.crosstoolTop;
+    }
+  }
+
+  @Nullable
+  @StarlarkConfigurationField(name = "zipper", doc = "The zipper label for FDO.")
+  public Label getFdoZipper() {
+    if (getFdoOptimizeLabel() != null || getFdoProfileLabel() != null || getFdoPath() != null) {
+      return Label.parseCanonicalUnchecked(BAZEL_TOOLS_REPO + "//tools/zip:unzip_fdo");
+    }
+    return null;
+  }
+
+  @Nullable
+  @StarlarkConfigurationField(name = "default_zipper", doc = "The default zipper label for FDO.")
+  public Label getDefaultFdoZipper() {
+    if (getMemProfProfileLabel() != null) {
+      return Label.parseCanonicalUnchecked(BAZEL_TOOLS_REPO + "//tools/zip:zipper");
+    }
+    return null;
   }
 
   /** Returns the configured current compilation mode. */
@@ -479,10 +486,6 @@ public final class CppConfiguration extends Fragment
     return cppOptions.experimentalLinkStaticLibrariesOnce;
   }
 
-  public boolean experimentalEnableTargetExportCheck() {
-    return cppOptions.experimentalEnableTargetExportCheck;
-  }
-
   public boolean experimentalCcSharedLibraryDebug() {
     return cppOptions.experimentalCcSharedLibraryDebug;
   }
@@ -501,10 +504,6 @@ public final class CppConfiguration extends Fragment
 
   public boolean getInmemoryDotdFiles() {
     return cppOptions.inmemoryDotdFiles;
-  }
-
-  public boolean getParseHeadersSkippedIfCorrespondingSrcsFound() {
-    return cppOptions.parseHeadersSkippedIfCorrespondingSrcsFound;
   }
 
   public boolean getUseInterfaceSharedLibraries() {
@@ -592,9 +591,13 @@ public final class CppConfiguration extends Fragment
     }
 
     // This is an assertion check vs. user error because users can't trigger this state.
-    Verify.verify(
-        !(buildOptions.get(CoreOptions.class).isHost && cppOptions.isFdo()),
-        "FDO state should not propagate to the host configuration");
+    // TODO(b/253313672): uncomment the below and check tests don't fail. This was originally set
+    // check the exec configuration doesn't apply FDO settings. With the host configuration gone
+    // we should migrate this check to the exec config. Since there's a chance of breakage it's best
+    // to test this as its own dedicated change.
+    // Verify.verify(
+    //   !(buildOptions.get(CoreOptions.class).isExec && cppOptions.isFdo()),
+    // "FDO state should not propagate to the exec configuration");
   }
 
   @Override
@@ -619,28 +622,15 @@ public final class CppConfiguration extends Fragment
 
   @Nullable
   String getFdoInstrument() {
-    if (isToolConfigurationDoNotUseWillBeRemovedFor129045294()) {
-      // We don't want FDO in the host configuration
-      return null;
-    }
     return cppOptions.fdoInstrumentForBuild;
   }
 
-  /**
-   * @deprecated Unsafe because it returns a value from target configuration even in the host
-   *     configuration.
-   */
-  @Deprecated
-  PathFragment getFdoPathUnsafeSinceItCanReturnValueFromWrongConfiguration() {
+  PathFragment getFdoPath() {
     return fdoPath;
   }
 
-  /**
-   * @deprecated Unsafe because it returns a value from target configuration even in the host
-   *     configuration.
-   */
-  @Deprecated
-  Label getFdoOptimizeLabelUnsafeSinceItCanReturnValueFromWrongConfiguration() {
+  @StarlarkConfigurationField(name = "fdo_optimize", doc = "The label specified in --fdo_optimize")
+  public Label getFdoOptimizeLabel() {
     return fdoOptimizeLabel;
   }
 
@@ -661,60 +651,39 @@ public final class CppConfiguration extends Fragment
   }
 
   @Nullable
-  Label getFdoPrefetchHintsLabel() {
-    if (isToolConfigurationDoNotUseWillBeRemovedFor129045294()) {
-      // We don't want FDO in the host configuration
-      return null;
-    }
-    return getFdoPrefetchHintsLabelUnsafeSinceItCanReturnValueFromWrongConfiguration();
-  }
-
-  /**
-   * @deprecated Unsafe because it returns a value from target configuration even in the host
-   *     configuration.
-   */
-  @Deprecated
-  Label getFdoPrefetchHintsLabelUnsafeSinceItCanReturnValueFromWrongConfiguration() {
+  @StarlarkConfigurationField(
+      name = "fdo_prefetch_hints",
+      doc = "The label specified in --fdo_prefetch_hints")
+  public Label getFdoPrefetchHintsLabel() {
     return cppOptions.getFdoPrefetchHintsLabel();
   }
 
-  /**
-   * @deprecated Unsafe because it returns a value from target configuration even in the host
-   *     configuration.
-   */
-  @Deprecated
-  Label getFdoProfileLabelUnsafeSinceItCanReturnValueFromWrongConfiguration() {
+  @StarlarkConfigurationField(name = "fdo_profile", doc = "The label specified in --fdo_profile")
+  public Label getFdoProfileLabel() {
     return cppOptions.fdoProfileLabel;
   }
 
+  @StarlarkConfigurationField(
+      name = "cs_fdo_profile",
+      doc = "The label specified in --cs_fdo_profile")
   public Label getCSFdoProfileLabel() {
     return cppOptions.csFdoProfileLabel;
   }
 
-  public Label getPropellerOptimizeLabel() {
-    return cppOptions.propellerOptimizeLabel;
-  }
-
-  /**
-   * @deprecated Unsafe because it returns a value from target configuration even in the host
-   *     configuration.
-   */
   @Nullable
-  @Deprecated
-  Label getPropellerOptimizeLabelUnsafeSinceItCanReturnValueFromWrongConfiguration() {
+  @StarlarkConfigurationField(
+      name = "propeller_optimize",
+      doc = "The label specified in --propeller_optimize")
+  public Label getPropellerOptimizeLabel() {
     if (cppOptions.fdoInstrumentForBuild != null || cppOptions.csFdoInstrumentForBuild != null) {
       return null;
     }
     return cppOptions.getPropellerOptimizeLabel();
   }
 
-  /**
-   * @deprecated Unsafe because it returns a value from target configuration even in the host
-   *     configuration.
-   */
   @Nullable
-  @Deprecated
-  Label getXFdoProfileLabelUnsafeSinceItCanReturnValueFromWrongConfiguration() {
+  @StarlarkConfigurationField(name = "xbinary_fdo", doc = "The label specified in --xbinary_fdo")
+  public Label getXFdoProfileLabel() {
     if (cppOptions.fdoOptimizeForBuild != null
         || cppOptions.fdoInstrumentForBuild != null
         || cppOptions.fdoProfileLabel != null
@@ -723,6 +692,14 @@ public final class CppConfiguration extends Fragment
     }
 
     return cppOptions.xfdoProfileLabel;
+  }
+
+  @Nullable
+  @StarlarkConfigurationField(
+      name = "memprof_profile",
+      doc = "The memprof profile label for cc_toolchain rule")
+  public Label getMemProfProfileLabel() {
+    return cppOptions.getMemProfProfileLabel();
   }
 
   public boolean isFdoAbsolutePathEnabled() {
@@ -748,6 +725,7 @@ public final class CppConfiguration extends Fragment
   /**
    * Returns the value of the libc top-level directory (--grte_top) as specified on the command line
    */
+  @StarlarkConfigurationField(name = "libc_top", doc = "The libc_top label for cc_toolchain.")
   public Label getLibcTopLabel() {
     return cppOptions.libcTopLabel;
   }
@@ -768,12 +746,15 @@ public final class CppConfiguration extends Fragment
    * Returns the value of the libc top-level directory (--grte_top) as specified on the command line
    */
   @Nullable
+  @StarlarkConfigurationField(
+      name = "target_libc_top_DO_NOT_USE_ONLY_FOR_CC_TOOLCHAIN",
+      doc = "DO NOT USE")
   public Label getTargetLibcTopLabel() {
-    if (!isToolConfigurationDoNotUseWillBeRemovedFor129045294()) {
+    if (!isToolConfigurationDoNotUseWillBeRemovedFor129045294) {
       // This isn't for a platform-enabled C++ toolchain (legacy C++ toolchains evaluate in the
-      // target configuration while platform-enabled toolchains evaluate in the host/exec
-      // configuration). targetLibcTopLabel is only intended for platform-enabled toolchains and can
-      // cause errors otherwise.
+      // target configuration while platform-enabled toolchains evaluate in the exec configuration).
+      // targetLibcTopLabel is only intended for platform-enabled toolchains and can cause errors
+      // otherwise.
       //
       // For example: if a legacy-configured toolchain inherits a --grte_top pointing to an Android
       // runtime alias that select()s on a target Android CPU and an iOS dep changes the CPU to an
@@ -782,16 +763,6 @@ public final class CppConfiguration extends Fragment
       return null;
     }
     return cppOptions.targetLibcTopLabel;
-  }
-
-  @StarlarkMethod(name = "enable_legacy_cc_provider", documented = false, useStarlarkThread = true)
-  public boolean enableLegacyCcProviderForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return enableLegacyCcProvider();
-  }
-
-  public boolean enableLegacyCcProvider() {
-    return !cppOptions.disableLegacyCcProvider;
   }
 
   public boolean dontEnableHostNonhost() {
@@ -806,11 +777,14 @@ public final class CppConfiguration extends Fragment
     return collectCodeCoverage;
   }
 
-  /** @deprecated this is only a temporary workaround, will be removed by b/129045294. */
-  // TODO(b/129045294): Remove at first opportunity
-  @Deprecated
-  boolean isToolConfigurationDoNotUseWillBeRemovedFor129045294() {
-    return isToolConfigurationDoNotUseWillBeRemovedFor129045294;
+  @StarlarkMethod(
+      name = "enable_cc_toolchain_resolution",
+      documented = false,
+      useStarlarkThread = true)
+  public boolean enableCcToolchainResolutionForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return enableCcToolchainResolution();
   }
 
   public boolean enableCcToolchainResolution() {
@@ -833,6 +807,12 @@ public final class CppConfiguration extends Fragment
     return cppOptions.disableNoCopts;
   }
 
+  @Override
+  public boolean disableNocoptsStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return disableNoCopts();
+  }
+
   public boolean loadCcRulesFromBzl() {
     return cppOptions.loadCcRulesFromBzl;
   }
@@ -841,12 +821,17 @@ public final class CppConfiguration extends Fragment
     return cppOptions.validateTopLevelHeaderInclusions;
   }
 
+  @Override
   public boolean appleGenerateDsym() {
     return appleGenerateDsym;
   }
 
   public boolean experimentalStarlarkCcImport() {
     return cppOptions.experimentalStarlarkCcImport;
+  }
+
+  public boolean useSchedulingMiddlemen() {
+    return cppOptions.useSchedulingMiddlemen;
   }
 
   public boolean strictHeaderCheckingFromStarlark() {
@@ -883,17 +868,17 @@ public final class CppConfiguration extends Fragment
   }
 
   @StarlarkMethod(
-      name = "experimental_cc_interface_deps",
+      name = "experimental_cc_implementation_deps",
       documented = false,
       useStarlarkThread = true)
-  public boolean experimentalCcInterfaceDepsForStarlark(StarlarkThread thread)
+  public boolean experimentalCcImplementationDepsForStarlark(StarlarkThread thread)
       throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return experimentalCcInterfaceDeps();
+    return experimentalCcImplementationDeps();
   }
 
-  public boolean experimentalCcInterfaceDeps() {
-    return cppOptions.experimentalCcInterfaceDeps;
+  public boolean experimentalCcImplementationDeps() {
+    return cppOptions.experimentalCcImplementationDeps;
   }
 
   public boolean getExperimentalCppCompileResourcesEstimation() {
@@ -907,13 +892,11 @@ public final class CppConfiguration extends Fragment
 
   private static void checkInExpandedApiAllowlist(StarlarkThread thread, String feature)
       throws EvalException {
-    String rulePackage =
-        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
-            .label()
-            .getPackageName();
-    if (!isBuiltIn(thread) && !EXPANDED_CC_CONFIGURATION_API_ALLOWLIST.contains(rulePackage)) {
-      throw Starlark.errorf(
-          "Rule in '%s' cannot use '%s' in CppConfiguration", rulePackage, feature);
+    try {
+      BuiltinRestriction.failIfCalledOutsideAllowlist(
+          thread, EXPANDED_CC_CONFIGURATION_API_ALLOWLIST);
+    } catch (EvalException e) {
+      throw Starlark.errorf("%s (feature '%s' in CppConfiguration)", e.getMessage(), feature);
     }
   }
 
@@ -929,6 +912,7 @@ public final class CppConfiguration extends Fragment
     return generateLlvmLCov();
   }
 
+  @Nullable
   @Override
   public String fdoInstrumentStarlark(StarlarkThread thread) throws EvalException {
     checkInExpandedApiAllowlist(thread, "fdo_instrument");
@@ -962,13 +946,6 @@ public final class CppConfiguration extends Fragment
   }
 
   @Override
-  public boolean getExperimentalEnableTargetExportCheck(StarlarkThread thread)
-      throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return experimentalEnableTargetExportCheck();
-  }
-
-  @Override
   public boolean getExperimentalCcSharedLibraryDebug(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return experimentalCcSharedLibraryDebug();
@@ -980,15 +957,9 @@ public final class CppConfiguration extends Fragment
     return experimentalPlatformCcTest();
   }
 
-  /**
-   * Returns the bitcode mode to use for compilation.
-   *
-   * <p>Users can control bitcode mode using the {@code apple_bitcode} build flag, but bitcode will
-   * be disabled for all simulator architectures regardless of this flag.
-   */
   @Override
-  public AppleBitcodeMode getAppleBitcodeMode() {
-    return appleBitcodeMode;
+  public String getAppleBitcodeMode() {
+    return "none";
   }
 
   @Override

@@ -15,21 +15,12 @@
 
 """Unit tests for stubify_incremental_install."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import os
 import unittest
+from unittest import mock
 import zipfile
 
 # Do not edit this line. Copybara replaces it with PY2 migration helper.
-import six
-
-if six.PY3:
-    from unittest import mock
-else:
-    import mock
 
 from tools.android import incremental_install
 
@@ -69,7 +60,7 @@ class MockAdb(object):
       content = self.files.get(remote)
       if content is not None:
         with open(local, "wb") as f:
-          f.write(six.ensure_binary(content, "utf-8"))
+          f.write(content.encode("utf-8"))
       else:
         returncode = 1
         stderr = "remote object '%s' does not exist\n" % remote
@@ -97,16 +88,16 @@ class MockAdb(object):
       self.shell_cmdlns.append(shell_cmdln)
       if shell_cmdln.startswith(("mkdir", "am", "monkey", "input")):
         pass
-      elif six.ensure_str(shell_cmdln).startswith("dumpsys package "):
+      elif shell_cmdln.startswith("dumpsys package "):
         if self.package_timestamp is not None:
           timestamp = "firstInstallTime=%s" % self.package_timestamp
         else:
           timestamp = ""
         return self._CreatePopenMock(0, timestamp, "")
-      elif six.ensure_str(shell_cmdln).startswith("rm"):
+      elif shell_cmdln.startswith("rm"):
         file_path = shell_cmdln.split()[2]
         self.files.pop(file_path, None)
-      elif six.ensure_str(shell_cmdln).startswith("getprop ro.product.cpu.abi"):
+      elif shell_cmdln.startswith("getprop ro.product.cpu.abi"):
         return self._CreatePopenMock(0, self.abi, "")
       else:
         raise Exception("Unknown shell command line: %s" % shell_cmdln)

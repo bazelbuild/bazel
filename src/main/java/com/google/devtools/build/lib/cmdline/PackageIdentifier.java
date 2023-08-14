@@ -16,21 +16,26 @@ package com.google.devtools.build.lib.cmdline;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
-import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Objects;
+import com.google.devtools.build.skyframe.CPUHeavySkyKey;
+import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
 import javax.annotation.concurrent.Immutable;
 
 /**
  * Uniquely identifies a package. Contains the (canonical) name of the repository this package lives
  * in, and the package's path fragment.
+ *
+ * <p>Used as a {@link SkyKey} to request a {@link
+ * com.google.devtools.build.lib.skyframe.PackageValue}.
  */
 @AutoCodec
 @Immutable
-public final class PackageIdentifier implements Comparable<PackageIdentifier> {
-  private static final Interner<PackageIdentifier> INTERNER = BlazeInterners.newWeakInterner();
+public final class PackageIdentifier implements CPUHeavySkyKey, Comparable<PackageIdentifier> {
+  private static final SkyKeyInterner<PackageIdentifier> interner = SkyKey.newInterner();
 
   public static PackageIdentifier create(String repository, PathFragment pkgName)
       throws LabelSyntaxException {
@@ -39,8 +44,12 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier> {
 
   @AutoCodec.Instantiator
   public static PackageIdentifier create(RepositoryName repository, PathFragment pkgName) {
-    // Note: We rely on these being (weakly) interned to fast-path Label#equals.
-    return INTERNER.intern(new PackageIdentifier(repository, pkgName));
+    return interner.intern(new PackageIdentifier(repository, pkgName));
+  }
+
+  /** Creates {@code PackageIdentifier} from a known-valid string. */
+  public static PackageIdentifier createUnchecked(String repository, String pkgName) {
+    return create(RepositoryName.createUnvalidated(repository), PathFragment.create(pkgName));
   }
 
   public static final PackageIdentifier EMPTY_PACKAGE_ID =
@@ -107,7 +116,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier> {
   private PackageIdentifier(RepositoryName repository, PathFragment pkgName) {
     this.repository = Preconditions.checkNotNull(repository);
     this.pkgName = Preconditions.checkNotNull(pkgName);
-    this.hashCode = Objects.hash(repository, pkgName);
+    this.hashCode = HashCodes.hashObjects(repository, pkgName);
   }
 
   public static PackageIdentifier parse(String input) throws LabelSyntaxException {
@@ -116,8 +125,8 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier> {
     }
     LabelParser.Parts parts = LabelParser.Parts.parse(input + ":dummy_target");
     RepositoryName repoName =
-        parts.repo == null ? RepositoryName.MAIN : RepositoryName.createUnvalidated(parts.repo);
-    return create(repoName, PathFragment.create(parts.pkg));
+        parts.repo() == null ? RepositoryName.MAIN : RepositoryName.createUnvalidated(parts.repo());
+    return create(repoName, PathFragment.create(parts.pkg()));
   }
 
   public RepositoryName getRepository() {
@@ -169,7 +178,47 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier> {
    */
   // TODO(bazel-team): Maybe rename to "getDefaultForm"?
   public String getCanonicalForm() {
-    return repository.getCanonicalForm() + "//" + getPackageFragment();
+    return repository.getCanonicalForm() + "//" + pkgName;
+  }
+
+  /**
+   * Returns an absolutely unambiguous canonical form for this package in label form. Parsing this
+   * string in any environment, even when subject to repository mapping, should identify the same
+   * package.
+   */
+  String getUnambiguousCanonicalForm() {
+    return String.format("@%s//%s", repository.getNameWithAt(), pkgName);
+  }
+
+  /**
+   * Returns a label representation for this package that is suitable for display. The returned
+   * string is as simple as possible while referencing the current package when parsed in the
+   * context of the main repository whose repository mapping is provided.
+   *
+   * @param mainRepositoryMapping the {@link RepositoryMapping} of the main repository
+   * @return
+   *     <dl>
+   *       <dt><code>//some/pkg</code>
+   *       <dd>if this package lives in the main repository
+   *       <dt><code>@protobuf//some/pkg</code>
+   *       <dd>if this package lives in a repository with "protobuf" as <code>name</code> of a
+   *           repository in WORKSPACE or as apparent name of a Bzlmod dependency of the main module
+   *       <dt><code>@@protobuf~3.19.2//some/pkg</code>
+   *       <dd>only with Bzlmod if the current package belongs to a repository that is not visible
+   *           from the main module
+   */
+  public String getDisplayForm(RepositoryMapping mainRepositoryMapping) {
+    return String.format("%s//%s", repository.getDisplayForm(mainRepositoryMapping), pkgName);
+  }
+
+  @Override
+  public SkyFunctionName functionName() {
+    return SkyFunctions.PACKAGE;
+  }
+
+  @Override
+  public SkyKeyInterner<?> getSkyKeyInterner() {
+    return interner;
   }
 
   /**
@@ -183,7 +232,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier> {
   @Override
   public String toString() {
     if (repository.isMain()) {
-      return getPackageFragment().getPathString();
+      return pkgName.getPathString();
     }
     return getCanonicalForm();
   }

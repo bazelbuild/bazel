@@ -96,7 +96,7 @@ public abstract class JavaPackageConfigurationProvider
   @StarlarkMethod(name = "data", documented = false, useStarlarkThread = true)
   public Depset starlarkData(StarlarkThread starlarkThread) throws EvalException {
     checkPrivateAccess(starlarkThread);
-    return Depset.of(Artifact.TYPE, data());
+    return Depset.of(Artifact.class, data());
   }
 
 }

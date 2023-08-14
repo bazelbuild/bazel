@@ -15,8 +15,10 @@
 package com.google.devtools.build.lib.query2.query.output;
 
 import com.google.common.base.Ascii;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -90,8 +92,8 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
       printed.add(rule.getLabel());
     }
 
-    /** Outputs a given rule in BUILD-style syntax. */
-    private void outputRule(Rule rule, AttributeReader attrReader, Writer writer)
+    /** Outputs a given rule in BUILD-style syntax. Made visible for Modquery command. */
+    public void outputRule(Rule rule, AttributeReader attrReader, Writer writer)
         throws IOException {
       // TODO(b/151151653): display the filenames in root-relative form.
       // This is an incompatible change, but Blaze users (and their editors)
@@ -119,9 +121,7 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
               .append(lineTerm);
           continue;
         }
-        AttributeValueSource attributeValueSource =
-            AttributeValueSource.forRuleAndAttribute(rule, attr);
-        if (attributeValueSource != AttributeValueSource.RULE) {
+        if (!rule.isAttributeValueExplicitlySpecified(attr)) {
           continue; // Don't print default values.
         }
 
@@ -143,7 +143,7 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
       // Display the instantiation stack, if any.
       appendStack(
           String.format("# Rule %s instantiated at (most recent call last):", rule.getName()),
-          rule.getCallStack().toList());
+          rule.reconstructCallStack());
 
       // Display the stack of the rule class definition, if any.
       appendStack(
@@ -207,11 +207,9 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
           ((BuildType.SelectorList<?>) attributeMap.getRawAttributeValue(rule, attr))
               .getSelectors()) {
         if (selector.isUnconditional()) {
-          selectors.add(
-              outputRawAttrValue(
-                  Iterables.getOnlyElement(selector.getEntries().entrySet()).getValue()));
+          selectors.add(outputRawAttrValue(Preconditions.checkNotNull(selector.getDefault())));
         } else {
-          selectors.add(String.format("select(%s)", outputRawAttrValue(selector.getEntries())));
+          selectors.add(String.format("select(%s)", outputRawAttrValue(selector.mapCopy())));
         }
       }
       return String.join(" + ", selectors);
@@ -221,7 +219,7 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
   /** Query's implementation. */
   @Override
   public OutputFormatterCallback<Target> createPostFactoStreamCallback(
-      OutputStream out, final QueryOptions options) {
+      OutputStream out, final QueryOptions options, RepositoryMapping mainRepoMapping) {
     return new BuildOutputFormatterCallback(out, options.getLineTerminator());
   }
 
@@ -229,10 +227,11 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
   public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
       OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
     return new SynchronizedDelegatingOutputFormatterCallback<>(
-        createPostFactoStreamCallback(out, options));
+        createPostFactoStreamCallback(out, options, env.getMainRepoMapping()));
   }
 
-  private static class BuildOutputFormatterCallback extends TextOutputFormatterCallback<Target> {
+  /** BuildOutputFormatter callback for Query. Made visible for ModQuery. */
+  public static class BuildOutputFormatterCallback extends TextOutputFormatterCallback<Target> {
     private final TargetOutputter targetOutputter;
 
     BuildOutputFormatterCallback(OutputStream out, String lineTerm) {

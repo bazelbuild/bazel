@@ -96,6 +96,22 @@ EOF
       fail "Stripping failed, debug symbols still found in the stripped binary"
 }
 
+function test_osx_test_strip() {
+  mkdir -p cpp/osx_test_strip
+  cat > cpp/osx_test_strip/BUILD <<EOF
+cc_test(
+  name = "main",
+  srcs = ["main.cc"],
+)
+EOF
+  cat > cpp/osx_test_strip/main.cc <<EOF
+int main() { return 0; }
+EOF
+  assert_build //cpp/osx_test_strip:main.stripped
+  ! dsymutil -s bazel-bin/cpp/osx_test_strip/main | grep N_FUN || \
+      fail "Stripping failed, debug symbols still found in the stripped binary"
+}
+
 # Regression test for https://github.com/bazelbuild/bazel/pull/12046
 function test_osx_sandboxed_cc_library_build() {
   mkdir -p cpp/osx_sandboxed_cc_library_build

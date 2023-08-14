@@ -29,16 +29,15 @@ import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.SkyFunctionEnvironmentForTesting;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -62,7 +61,6 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
           "static_aapt2_tool",
           "aapt2",
           "empty.sh",
-          "android_blaze.jar",
           "android.jar",
           "ResourceProcessorBusyBox_deploy.jar");
 
@@ -182,14 +180,13 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
   }
 
   public FakeRuleErrorConsumer errorConsumer;
-  public FileSystem fileSystem;
-  public ArtifactRoot root;
+  public ArtifactRoot artifactRoot;
 
   @Before
   public void setup() throws Exception {
     errorConsumer = new FakeRuleErrorConsumer();
     fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
-    root = ArtifactRoot.asSourceRoot(Root.fromPath(fileSystem.getPath("/")));
+    artifactRoot = ArtifactRoot.asSourceRoot(Root.fromPath(fileSystem.getPath("/")));
   }
 
   @After
@@ -213,7 +210,9 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
   private Artifact getArtifact(String subdir, String pathString) {
     Path path = fileSystem.getPath("/" + subdir + "/" + pathString);
     return new Artifact.SourceArtifact(
-        root, root.getExecPath().getRelative(root.getRoot().relativize(path)), OWNER);
+        artifactRoot,
+        artifactRoot.getExecPath().getRelative(artifactRoot.getRoot().relativize(path)),
+        OWNER);
   }
 
   /**
@@ -224,11 +223,10 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
    * AndroidConfiguration}.
    */
   public RuleContext getRuleContextForActionTesting(ConfiguredTarget dummyTarget) throws Exception {
-    RuleContext dummy = getRuleContext(dummyTarget);
     ExtendedEventHandler eventHandler = new StoredEventHandler();
 
     SkyFunction.Environment skyframeEnv =
-        skyframeExecutor.getSkyFunctionEnvironmentForTesting(eventHandler);
+        new SkyFunctionEnvironmentForTesting(eventHandler, skyframeExecutor);
     StarlarkBuiltinsValue starlarkBuiltinsValue =
         (StarlarkBuiltinsValue)
             Preconditions.checkNotNull(skyframeEnv.getValue(StarlarkBuiltinsValue.key()));
@@ -246,11 +244,7 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
             skyframeEnv,
             starlarkBuiltinsValue);
 
-    return view.getRuleContextForTesting(
-        eventHandler,
-        dummyTarget,
-        analysisEnv,
-        new BuildConfigurationCollection(dummy.getConfiguration(), dummy.getHostConfiguration()));
+    return view.getRuleContextForTesting(eventHandler, dummyTarget, analysisEnv);
   }
 
   /**

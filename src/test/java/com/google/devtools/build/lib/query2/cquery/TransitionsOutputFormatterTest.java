@@ -20,10 +20,12 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.util.MockRule;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
@@ -37,7 +39,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -50,7 +51,7 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
   private CqueryOptions options;
   private Reporter reporter;
   private final List<Event> events = new ArrayList<>();
-  @Nullable private TransitionFactory<RuleTransitionData> trimmingTransitionFactory;
+  private ConfiguredRuleClassProvider ruleClassProvider;
 
   @Before
   public final void setUpCqueryOptions() {
@@ -89,8 +90,10 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
 
     result = getOutput("deps(//test:rule_with_split)", Transitions.FULL);
     assertThat(result.get(1)).startsWith("  split#//test:bar#FooSplitTransition");
+    // TODO(shahan): the right hand side of the diff below is in split dep ordering, which is
+    // dependent on checksum values. It could be brittle.
     assertThat(result.get(2))
-        .isEqualTo("    foo:SET BY RULE CLASS PATCH -> [SET BY SPLIT 1, SET BY SPLIT 2]");
+        .isEqualTo("    foo:SET BY RULE CLASS PATCH -> [SET BY SPLIT 2, SET BY SPLIT 1]");
   }
 
   @Test
@@ -219,11 +222,10 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
                     builder
                         .add(attr("deps", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)));
 
-    ConfiguredRuleClassProvider ruleClassProvider =
+    this.ruleClassProvider =
         setRuleClassProviders(ruleWithTransitions, simpleRule)
             .overrideTrimmingTransitionFactoryForTesting(infixTrimmingTransitionFactory)
             .build();
-    this.trimmingTransitionFactory = ruleClassProvider.getTrimmingTransitionFactory();
     helper.useRuleClassProvider(ruleClassProvider);
   }
 
@@ -233,7 +235,7 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
     Set<String> targetPatternSet = new LinkedHashSet<>();
     expression.collectTargetPatterns(targetPatternSet);
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
-    PostAnalysisQueryEnvironment<KeyedConfiguredTarget> env =
+    PostAnalysisQueryEnvironment<ConfiguredTarget> env =
         ((ConfiguredTargetQueryHelper) helper).getPostAnalysisQueryEnvironment(targetPatternSet);
     options.transitions = verbosity;
     // TODO(blaze-configurability): Test late-bound attributes.
@@ -241,11 +243,11 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
         new TransitionsOutputFormatterCallback(
             reporter,
             options,
-            /*out=*/ null,
+            /* out= */ null,
             getHelper().getSkyframeExecutor(),
             env.getAccessor(),
-            env.getHostConfiguration(),
-            trimmingTransitionFactory);
+            ruleClassProvider,
+            RepositoryMapping.ALWAYS_FALLBACK);
     env.evaluateQuery(env.transformParsedQuery(QueryParser.parse(queryExpression, env)), callback);
     return callback.getResult();
   }

@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InfoItem;
-import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.runtime.commands.info.BlazeBinInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.BlazeGenfilesInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.BlazeTestlogsInfoItem;
@@ -48,6 +47,7 @@ import com.google.devtools.build.lib.runtime.commands.info.InstallBaseInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.JavaHomeInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.JavaRuntimeInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.JavaVirtualMachineInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.LocalResourcesInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.MakeInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.MaxHeapSizeInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.OutputBaseInfoItem;
@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.runtime.commands.info.ServerPidInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.StarlarkSemanticsInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.UsedHeapSizeAfterGcInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.UsedHeapSizeInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.WorkerMetricsInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.WorkspaceInfoItem;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -66,7 +67,6 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -191,18 +191,7 @@ public class InfoCommand implements BlazeCommand {
         }
       }
 
-      Pair<ImmutableList<String>, ImmutableList<String>> starlarkOptionsAndResidue =
-          StarlarkOptionsParser.removeStarlarkOptions(optionsParsingResult.getResidue());
-      ImmutableList<String> removedStarlarkOptions = starlarkOptionsAndResidue.getFirst();
-      ImmutableList<String> residue = starlarkOptionsAndResidue.getSecond();
-      if (!removedStarlarkOptions.isEmpty()) {
-        env.getReporter()
-            .handle(
-                Event.warn(
-                    "info command does not support starlark options. Ignoring options: "
-                        + removedStarlarkOptions));
-      }
-
+      List<String> residue = optionsParsingResult.getResidue();
       env.getEventBus().post(new NoBuildEvent());
       if (!residue.isEmpty()) {
         ImmutableSet.Builder<String> unknownKeysBuilder = ImmutableSet.builder();
@@ -234,7 +223,7 @@ public class InfoCommand implements BlazeCommand {
               FailureDetails.InfoCommand.Code.KEY_NOT_RECOGNIZED);
         }
       } else { // print them all
-        configurationSupplier.get();  // We'll need this later anyway
+        var unused = configurationSupplier.get(); // We'll need this later anyway
         for (InfoItem infoItem : items.values()) {
           if (infoItem.isHidden()) {
             continue;
@@ -304,7 +293,9 @@ public class InfoCommand implements BlazeCommand {
             new DefaultsPackageInfoItem(),
             new BuildLanguageInfoItem(),
             new DefaultPackagePathInfoItem(commandOptions),
-            new StarlarkSemanticsInfoItem(commandOptions));
+            new StarlarkSemanticsInfoItem(commandOptions),
+            new WorkerMetricsInfoItem(),
+            new LocalResourcesInfoItem());
     ImmutableMap.Builder<String, InfoItem> result = new ImmutableMap.Builder<>();
     for (InfoItem item : hardwiredInfoItems) {
       result.put(item.getName(), item);

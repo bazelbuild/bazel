@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedE
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.MainRepoMappingComputationStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.Event;
@@ -51,6 +52,7 @@ import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ConfigurationPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedEvent;
 import com.google.devtools.build.lib.util.io.AnsiTerminal;
 import com.google.devtools.build.lib.util.io.AnsiTerminal.Color;
 import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
@@ -80,19 +82,12 @@ public final class UiEventHandler implements EventHandler {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  /** Latest refresh of the progress bar, if contents other than time changed */
-  private static final long MAXIMAL_UPDATE_DELAY_MILLIS = 200L;
+  /** Minimal time between scheduled updates */
+  private static final long MINIMAL_UPDATE_INTERVAL_MILLIS = 200L;
   /** Minimal rate limiting (in ms), if the progress bar cannot be updated in place */
   private static final long NO_CURSES_MINIMAL_PROGRESS_RATE_LIMIT = 1000L;
-  /**
-   * Minimal rate limiting, as fraction of the request time so far, if the progress bar cannot be
-   * updated in place
-   */
-  private static final double NO_CURSES_MINIMAL_RELATIVE_PROGRESS_RATE_LMIT = 0.15;
   /** Periodic update interval of a time-dependent progress bar if it can be updated in place */
   private static final long SHORT_REFRESH_MILLIS = 1000L;
-  /** Periodic update interval of a time-dependent progress bar if it cannot be updated in place */
-  private static final long LONG_REFRESH_MILLIS = 20000L;
 
   private static final DateTimeFormatter TIMESTAMP_FORMAT =
       DateTimeFormatter.ofPattern("(HH:mm:ss) ");
@@ -100,7 +95,6 @@ public final class UiEventHandler implements EventHandler {
 
   private final boolean cursorControl;
   private final Clock clock;
-  private final long uiStartTimeMillis;
   private final AnsiTerminal terminal;
   private final boolean debugAllEvents;
   private final UiStateTracker stateTracker;
@@ -109,8 +103,8 @@ public final class UiEventHandler implements EventHandler {
   private final boolean progressInTermTitle;
   private final boolean showTimestamp;
   private final OutErr outErr;
-  private final ImmutableSet<EventKind> filteredEvents;
-  private long minimalDelayMillis;
+  private final ImmutableSet<EventKind> filteredEventKinds;
+  private long progressRateLimitMillis;
   private long minimalUpdateInterval;
   private long lastRefreshMillis;
   private long mustRefreshAfterMillis;
@@ -161,7 +155,11 @@ public final class UiEventHandler implements EventHandler {
   }
 
   public UiEventHandler(
-      OutErr outErr, UiOptions options, Clock clock, @Nullable PathFragment workspacePathFragment) {
+      OutErr outErr,
+      UiOptions options,
+      Clock clock,
+      @Nullable PathFragment workspacePathFragment,
+      boolean skymeldMode) {
     this.terminalWidth = (options.terminalColumns > 0 ? options.terminalColumns : 80);
     this.maxStdoutErrBytes = options.maxStdoutErrBytes;
     this.outErr =
@@ -174,37 +172,45 @@ public final class UiEventHandler implements EventHandler {
     this.progressInTermTitle = options.progressInTermTitle && options.useCursorControl();
     this.showTimestamp = options.showTimestamp;
     this.clock = clock;
-    this.uiStartTimeMillis = clock.currentTimeMillis();
     this.debugAllEvents = options.experimentalUiDebugAllEvents;
     this.locationPrinter =
         new LocationPrinter(options.attemptToPrintRelativePaths, workspacePathFragment);
     // If we have cursor control, we try to fit in the terminal width to avoid having
-    // to wrap the progress bar. We will wrap the progress bar to terminalWidth - 1
+    // to wrap the progress bar. We will wrap the progress bar to terminalWidth - 2
     // characters to avoid depending on knowing whether the underlying terminal does the
     // line feed already when reaching the last character of the line, or only once an
     // additional character is written. Another column is lost for the continuation character
     // in the wrapping process.
-    this.stateTracker =
-        this.cursorControl
-            ? new UiStateTracker(clock, this.terminalWidth - 2)
-            : new UiStateTracker(clock);
+
+    if (skymeldMode) {
+      this.stateTracker =
+          this.cursorControl
+              ? new SkymeldUiStateTracker(clock, /*targetWidth=*/ this.terminalWidth - 2)
+              : new SkymeldUiStateTracker(clock);
+    } else {
+      this.stateTracker =
+          this.cursorControl
+              ? new UiStateTracker(clock, /*targetWidth=*/ this.terminalWidth - 2)
+              : new UiStateTracker(clock);
+    }
     this.stateTracker.setProgressSampleSize(options.uiActionsShown);
     this.numLinesProgressBar = 0;
     if (this.cursorControl) {
-      this.minimalDelayMillis = Math.round(options.showProgressRateLimit * 1000);
+      this.progressRateLimitMillis = Math.round(options.showProgressRateLimit * 1000);
     } else {
-      this.minimalDelayMillis =
+      this.progressRateLimitMillis =
           Math.max(
               Math.round(options.showProgressRateLimit * 1000),
               NO_CURSES_MINIMAL_PROGRESS_RATE_LIMIT);
     }
-    this.minimalUpdateInterval = Math.max(this.minimalDelayMillis, MAXIMAL_UPDATE_DELAY_MILLIS);
+    this.minimalUpdateInterval =
+        Math.max(this.progressRateLimitMillis, MINIMAL_UPDATE_INTERVAL_MILLIS);
     this.stdoutLineBuffer = new ByteArrayOutputStream();
     this.stderrLineBuffer = new ByteArrayOutputStream();
     this.dateShown = false;
     this.updateThread = new AtomicReference<>();
     this.updateLock = new ReentrantLock();
-    this.filteredEvents = ImmutableSet.copyOf(options.eventFilters);
+    this.filteredEventKinds = options.getFilteredEventKinds();
     // The progress bar has not been updated yet.
     ignoreRefreshLimitOnce();
   }
@@ -406,7 +412,7 @@ public final class UiEventHandler implements EventHandler {
   }
 
   private void handleInternal(Event event) {
-    if (this.filteredEvents.contains(event.getKind())) {
+    if (filteredEventKinds.contains(event.getKind())) {
       return;
     }
     try {
@@ -516,10 +522,20 @@ public final class UiEventHandler implements EventHandler {
   }
 
   @Subscribe
-  public void buildStarted(BuildStartingEvent event) {
+  public void mainRepoMappingComputationStarted(MainRepoMappingComputationStartingEvent event) {
     synchronized (this) {
       buildRunning = true;
     }
+    maybeAddDate();
+    stateTracker.buildStarted();
+    // As a new phase started, inform immediately.
+    ignoreRefreshLimitOnce();
+    refresh();
+    startUpdateThread();
+  }
+
+  @Subscribe
+  public void buildStarted(BuildStartingEvent event) {
     maybeAddDate();
     stateTracker.buildStarted();
     // As a new phase started, inform immediately.
@@ -555,10 +571,6 @@ public final class UiEventHandler implements EventHandler {
 
   @Subscribe
   public synchronized void analysisComplete(AnalysisPhaseCompleteEvent event) {
-    // TODO(b/215335350): Make this work with Skymeld. Ignore for now.
-    if (event.isOriginatedFromSkymeld()) {
-      return;
-    }
     String analysisSummary = stateTracker.analysisComplete();
     handle(Event.info(null, analysisSummary));
   }
@@ -577,15 +589,17 @@ public final class UiEventHandler implements EventHandler {
     // it as an event and add a timestamp, if events are supposed to have a timestamp.
     boolean done = false;
     synchronized (this) {
-      stateTracker.buildComplete(event);
+      handleInternal(stateTracker.buildComplete(event));
       ignoreRefreshLimitOnce();
-      refresh();
 
       // After a build has completed, only stop updating the UI if there is no more activities.
       if (!stateTracker.hasActivities()) {
         buildRunning = false;
         done = true;
       }
+
+      // Only refresh after we have determined whether we need to keep the progress bar up.
+      refresh();
     }
     if (done) {
       stopUpdateThread();
@@ -647,7 +661,7 @@ public final class UiEventHandler implements EventHandler {
   @Subscribe
   public void afterCommand(AfterCommandEvent event) {
     synchronized (this) {
-      buildRunning = true;
+      buildRunning = false;
     }
     completeBuild();
     try {
@@ -662,7 +676,11 @@ public final class UiEventHandler implements EventHandler {
   public void downloadProgress(FetchProgress event) {
     maybeAddDate();
     stateTracker.downloadProgress(event);
-    refresh();
+    if (!event.isFinished()) {
+      refresh();
+    } else {
+      checkActivities();
+    }
   }
 
   @Subscribe
@@ -758,6 +776,12 @@ public final class UiEventHandler implements EventHandler {
     refresh();
   }
 
+  @Subscribe
+  public void singleTestAnalyzed(TestAnalyzedEvent event) {
+    stateTracker.singleTestAnalyzed(event);
+    refreshSoon();
+  }
+
   /**
    * Return true, if the test summary provides information that is both worth being shown in the
    * scroll-back buffer and new with respect to the alreay shown failure messages.
@@ -841,7 +865,7 @@ public final class UiEventHandler implements EventHandler {
       return;
     }
     long nowMillis = clock.currentTimeMillis();
-    if (lastRefreshMillis + minimalDelayMillis < nowMillis) {
+    if (lastRefreshMillis + progressRateLimitMillis < nowMillis) {
       if (updateLock.tryLock()) {
         try {
           synchronized (this) {
@@ -850,17 +874,6 @@ public final class UiEventHandler implements EventHandler {
               clearProgressBar();
               addProgressBar();
               terminal.flush();
-              if (!cursorControl) {
-                // If we can't update the progress bar in place, make sure we increase the update
-                // interval as time progresses, to avoid too many progress messages in place.
-                minimalDelayMillis =
-                    Math.max(
-                        minimalDelayMillis,
-                        Math.round(
-                            NO_CURSES_MINIMAL_RELATIVE_PROGRESS_RATE_LMIT
-                                * (clock.currentTimeMillis() - uiStartTimeMillis)));
-                minimalUpdateInterval = Math.max(minimalDelayMillis, MAXIMAL_UPDATE_DELAY_MILLIS);
-              }
             }
           }
         } catch (IOException e) {
@@ -888,7 +901,7 @@ public final class UiEventHandler implements EventHandler {
     // a future update scheduled.
     long nowMillis = clock.currentTimeMillis();
     if (mustRefreshAfterMillis <= lastRefreshMillis) {
-      mustRefreshAfterMillis = Math.max(nowMillis + minimalUpdateInterval, lastRefreshMillis + 1);
+      mustRefreshAfterMillis = Math.max(nowMillis + 1, lastRefreshMillis + minimalUpdateInterval);
     }
     startUpdateThread();
   }
@@ -898,22 +911,25 @@ public final class UiEventHandler implements EventHandler {
     if (!stateTracker.progressBarTimeDependent()) {
       return false;
     }
+    // Don't do more updates than are requested through events when there is no cursor control.
+    if (!cursorControl) {
+      return false;
+    }
     long nowMillis = clock.currentTimeMillis();
-    long intervalMillis = cursorControl ? SHORT_REFRESH_MILLIS : LONG_REFRESH_MILLIS;
     if (lastRefreshMillis < mustRefreshAfterMillis
-        && mustRefreshAfterMillis < nowMillis + minimalDelayMillis) {
-      // Within the a smal interval from now, an update is scheduled anyway,
+        && mustRefreshAfterMillis < nowMillis + progressRateLimitMillis) {
+      // Within a small interval from now, an update is scheduled anyway,
       // so don't do a time-based update of the progress bar now, to avoid
       // updates too close to each other.
       return false;
     }
-    return lastRefreshMillis + intervalMillis < nowMillis;
+    return lastRefreshMillis + SHORT_REFRESH_MILLIS < nowMillis;
   }
 
   private void ignoreRefreshLimitOnce() {
     // Set refresh time variables in a state such that the next progress bar
     // update will definitely be written out.
-    lastRefreshMillis = clock.currentTimeMillis() - minimalDelayMillis - 1;
+    lastRefreshMillis = clock.currentTimeMillis() - progressRateLimitMillis - 1;
   }
 
   private void startUpdateThread() {
@@ -990,8 +1006,10 @@ public final class UiEventHandler implements EventHandler {
           TIMESTAMP_FORMAT.format(
               Instant.ofEpochMilli(clock.currentTimeMillis()).atZone(ZoneId.systemDefault()));
     }
-    stateTracker.writeProgressBar(terminalWriter, /*shortVersion=*/ !cursorControl, timestamp);
-    terminalWriter.newline();
+    if (stateTracker.hasActivities()) {
+      stateTracker.writeProgressBar(terminalWriter, /*shortVersion=*/ !cursorControl, timestamp);
+      terminalWriter.newline();
+    }
     numLinesProgressBar = countingTerminalWriter.getWrittenLines();
     if (progressInTermTitle) {
       LoggingTerminalWriter stringWriter = new LoggingTerminalWriter(true);

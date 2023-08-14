@@ -173,12 +173,12 @@ public abstract class AndroidStarlarkTest extends AndroidBuildViewTestCase {
           "java/android/platforms/BUILD",
           "platform(",
           "    name = 'x86',",
-          "    parents = ['" + TestConstants.PLATFORM_PACKAGE_ROOT + "/android:armeabi-v7a'],",
+          "    parents = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "android:armeabi-v7a'],",
           "    constraint_values = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_32'],",
           ")",
           "platform(",
           "    name = 'armeabi-v7a',",
-          "    parents = ['" + TestConstants.PLATFORM_PACKAGE_ROOT + "/android:armeabi-v7a'],",
+          "    parents = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "android:armeabi-v7a'],",
           "    constraint_values = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7'],",
           ")");
       scratch.file(
@@ -360,6 +360,6 @@ public abstract class AndroidStarlarkTest extends AndroidBuildViewTestCase {
 
     ConfiguredTarget ct = getConfiguredTarget("//:lib");
     assertThat(getMyInfoFromTarget(ct).getValue("foo"))
-        .isEqualTo(Label.parseAbsoluteUnchecked("//:new_sdk"));
+        .isEqualTo(Label.parseCanonicalUnchecked("//:new_sdk"));
   }
 }

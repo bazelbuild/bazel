@@ -224,9 +224,9 @@ TEST(BlazeUtil, Tokenize) {
 }
 
 static vector<string> SplitQuoted(const string &contents,
-                                  const char delimeter) {
+                                  const char delimiter) {
   vector<string> result;
-  SplitQuotedStringUsing(contents, delimeter, &result);
+  SplitQuotedStringUsing(contents, delimiter, &result);
   return result;
 }
 

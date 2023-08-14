@@ -56,6 +56,7 @@ import java.util.function.Function;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Provides access to features supported by a specific toolchain.
@@ -74,7 +75,7 @@ import net.starlark.java.eval.Starlark;
  * them from build variables).
  */
 @Immutable
-public class CcToolchainFeatures {
+public class CcToolchainFeatures implements StarlarkValue {
 
   /**
    * Thrown when a flag value cannot be expanded under a set of build variables.
@@ -202,16 +203,22 @@ public class CcToolchainFeatures {
   public static class EnvEntry {
     private final String key;
     private final ImmutableList<StringChunk> valueChunks;
+    private final ImmutableSet<String> expandIfAllAvailable;
 
     private EnvEntry(CToolchain.EnvEntry envEntry) throws EvalException {
       this.key = envEntry.getKey();
       StringValueParser parser = new StringValueParser(envEntry.getValue());
       this.valueChunks = parser.getChunks();
+      this.expandIfAllAvailable = ImmutableSet.copyOf(envEntry.getExpandIfAllAvailableList());
     }
 
-    EnvEntry(String key, ImmutableList<StringChunk> valueChunks) {
+    EnvEntry(
+        String key,
+        ImmutableList<StringChunk> valueChunks,
+        ImmutableSet<String> expandIfAllAvailable) {
       this.key = key;
       this.valueChunks = valueChunks;
+      this.expandIfAllAvailable = expandIfAllAvailable;
     }
 
     String getKey() {
@@ -226,6 +233,19 @@ public class CcToolchainFeatures {
                   .collect(ImmutableList.toImmutableList()));
     }
 
+    ImmutableSet<String> getExpandIfAllAvailable() {
+      return expandIfAllAvailable;
+    }
+
+    private boolean canBeExpanded(CcToolchainVariables variables) {
+      for (String variable : expandIfAllAvailable) {
+        if (!variables.isAvailable(variable)) {
+          return false;
+        }
+      }
+      return true;
+    }
+
     /**
      * Adds the key/value pair this object represents to the given map of environment variables. The
      * value of the entry is expanded with the given {@code variables}.
@@ -233,6 +253,9 @@ public class CcToolchainFeatures {
     public void addEnvEntry(
         CcToolchainVariables variables, ImmutableMap.Builder<String, String> envBuilder)
         throws ExpansionException {
+      if (!canBeExpanded(variables)) {
+        return;
+      }
       StringBuilder value = new StringBuilder();
       for (StringChunk chunk : valueChunks) {
         value.append(chunk.expand(variables));

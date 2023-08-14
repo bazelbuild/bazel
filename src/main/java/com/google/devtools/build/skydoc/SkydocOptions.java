@@ -28,7 +28,7 @@ public class SkydocOptions extends OptionsBase {
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = OptionEffectTag.UNKNOWN,
-      help = "The label of the target file for which to generate documentation")
+      help = "The canonical label of the target file for which to generate documentation")
   public String targetFileLabel;
 
   @Option(
@@ -59,13 +59,4 @@ public class SkydocOptions extends OptionsBase {
               + " is empty, then documentation for all exported rule definitions will be"
               + " generated.")
   public List<String> symbolNames;
-
-  @Option(
-      name = "dep_roots",
-      allowMultiple = true,
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = OptionEffectTag.UNKNOWN,
-      help = "File path roots to search when resolving transitive bzl dependencies")
-  public List<String> depRoots;
 }

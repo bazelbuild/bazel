@@ -52,6 +52,8 @@ public abstract class OptionValueDescription {
   /** Returns the current or final value of this option. */
   public abstract Object getValue();
 
+  public abstract boolean containsErrors();
+
   /** Returns the source(s) of this option, if there were multiple, duplicates are removed. */
   public abstract String getSourceString();
 
@@ -131,6 +133,11 @@ public abstract class OptionValueDescription {
     }
 
     @Override
+    public boolean containsErrors() {
+      return false;
+    }
+
+    @Override
     public String getSourceString() {
       return null;
     }
@@ -155,6 +162,7 @@ public abstract class OptionValueDescription {
   private static class SingleOptionValueDescription extends OptionValueDescription {
     private ParsedOptionDescription effectiveOptionInstance;
     private Object effectiveValue;
+    private boolean containsErrors;
 
     private SingleOptionValueDescription(
         OptionDefinition optionDefinition, @Nullable Object conversionContext) {
@@ -167,6 +175,7 @@ public abstract class OptionValueDescription {
       }
       effectiveOptionInstance = null;
       effectiveValue = null;
+      containsErrors = false;
     }
 
     @Override
@@ -175,8 +184,23 @@ public abstract class OptionValueDescription {
     }
 
     @Override
+    public boolean containsErrors() {
+      return containsErrors;
+    }
+
+    @Override
     public String getSourceString() {
       return effectiveOptionInstance.getSource();
+    }
+
+    private Object convertValue(ParsedOptionDescription parsedOption)
+        throws OptionsParsingException {
+      try {
+        return parsedOption.getConvertedValue();
+      } catch (OptionsParsingException e) {
+        containsErrors = true;
+        throw e;
+      }
     }
 
     // Warnings should not end with a '.' because the internal reporter adds one automatically.
@@ -187,7 +211,7 @@ public abstract class OptionValueDescription {
       // This might be the first value, in that case, just store it!
       if (effectiveOptionInstance == null) {
         effectiveOptionInstance = parsedOption;
-        effectiveValue = effectiveOptionInstance.getConvertedValue();
+        effectiveValue = convertValue(parsedOption);
         return null;
       }
 
@@ -202,7 +226,7 @@ public abstract class OptionValueDescription {
         ParsedOptionDescription optionThatExpandedToEffectiveValue =
             effectiveOptionInstance.getExpandedFrom();
 
-        Object newValue = parsedOption.getConvertedValue();
+        Object newValue = convertValue(parsedOption);
         // Output warnings if there is conflicting options set different values in a way that might
         // not have been obvious to the user, such as through expansions and implicit requirements.
         if (effectiveValue != null && !effectiveValue.equals(newValue)) {
@@ -271,8 +295,9 @@ public abstract class OptionValueDescription {
 
   /** The form of a value for an option that accumulates multiple values on the command line. */
   private static class RepeatableOptionValueDescription extends OptionValueDescription {
-    ListMultimap<OptionPriority, ParsedOptionDescription> parsedOptions;
-    ListMultimap<OptionPriority, Object> optionValues;
+    private final ListMultimap<OptionPriority, ParsedOptionDescription> parsedOptions;
+    private final ListMultimap<OptionPriority, Object> optionValues;
+    private boolean containsErrors;
 
     private RepeatableOptionValueDescription(
         OptionDefinition optionDefinition, @Nullable Object conversionContext) {
@@ -283,6 +308,7 @@ public abstract class OptionValueDescription {
       }
       parsedOptions = ArrayListMultimap.create();
       optionValues = ArrayListMultimap.create();
+      containsErrors = false;
     }
 
     @Override
@@ -307,13 +333,26 @@ public abstract class OptionValueDescription {
           .collect(ImmutableList.toImmutableList());
     }
 
+    @Override
+    public boolean containsErrors() {
+      return containsErrors;
+    }
+
     @Nullable
     @Override
     ExpansionBundle addOptionInstance(ParsedOptionDescription parsedOption, Set<String> warnings)
         throws OptionsParsingException {
       // For repeatable options, we allow flags that take both single values and multiple values,
       // potentially collapsing them down.
-      Object convertedValue = parsedOption.getConvertedValue();
+      Object convertedValue;
+
+      try {
+        convertedValue = parsedOption.getConvertedValue();
+      } catch (OptionsParsingException e) {
+        containsErrors = true;
+        throw e;
+      }
+
       OptionPriority priority = parsedOption.getPriority();
       parsedOptions.put(priority, parsedOption);
       if (convertedValue instanceof List<?>) {
@@ -359,6 +398,11 @@ public abstract class OptionValueDescription {
     @Override
     public Object getValue() {
       return null;
+    }
+
+    @Override
+    public boolean containsErrors() {
+      return false;
     }
 
     @Override

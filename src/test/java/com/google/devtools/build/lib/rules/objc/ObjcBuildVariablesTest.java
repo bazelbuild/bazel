@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
-import com.google.devtools.build.lib.rules.apple.cpp.AppleCcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.Link;
@@ -61,12 +60,14 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
 
   @Override
   protected void useConfiguration(String... args) throws Exception {
-    ImmutableList<String> extraArgs = ImmutableList.<String>builder()
-        .add("--xcode_version_config=" + MockObjcSupport.XCODE_VERSION_CONFIG)
-        .add("--apple_crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL)
-        .add("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL)
-        .addAll(ImmutableList.copyOf(args))
-        .build();
+    ImmutableList<String> extraArgs =
+        ImmutableList.<String>builder()
+            .add("--noincompatible_enable_cc_toolchain_resolution")
+            .add("--xcode_version_config=" + MockObjcSupport.XCODE_VERSION_CONFIG)
+            .add("--apple_crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL)
+            .add("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL)
+            .addAll(ImmutableList.copyOf(args))
+            .build();
 
     super.useConfiguration(extraArgs.toArray(new String[extraArgs.size()]));
   }
@@ -88,20 +89,13 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//x:bin");
     CcToolchainVariables variables = getLinkBuildVariables(target, Link.LinkTargetType.EXECUTABLE);
-    assertThat(
-            getVariableValue(
-                getRuleContext(), variables, AppleCcToolchain.XCODE_VERSION_OVERRIDE_VALUE_KEY))
+    assertThat(getVariableValue(getRuleContext(), variables, "xcode_version_override_value"))
         .contains("5.8");
-    assertThat(
-            getVariableValue(
-                getRuleContext(), variables, AppleCcToolchain.APPLE_SDK_VERSION_OVERRIDE_VALUE_KEY))
+    assertThat(getVariableValue(getRuleContext(), variables, "apple_sdk_version_override_value"))
         .contains("8.4");
-    assertThat(
-            getVariableValue(
-                getRuleContext(), variables, AppleCcToolchain.APPLE_SDK_PLATFORM_VALUE_KEY))
+    assertThat(getVariableValue(getRuleContext(), variables, "apple_sdk_platform_value"))
         .contains("iPhoneSimulator");
-    assertThat(getVariableValue(getRuleContext(), variables, AppleCcToolchain.VERSION_MIN_KEY))
-        .contains("12.345");
+    assertThat(getVariableValue(getRuleContext(), variables, "version_min")).contains("12.345");
   }
 
   @Test
@@ -139,101 +133,14 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
         ActionsTestUtil.getFirstArtifactEndingWith(appleBinLinkAction.getInputs(), "liba.a");
     CppLinkAction ccArchiveAction = (CppLinkAction) getGeneratingAction(archive);
 
-    CcToolchainVariables variables = ccArchiveAction.getLinkCommandLine().getBuildVariables();
-    assertThat(
-            getVariableValue(
-                getRuleContext(), variables, AppleCcToolchain.XCODE_VERSION_OVERRIDE_VALUE_KEY))
+    CcToolchainVariables variables =
+        ccArchiveAction.getLinkCommandLineForTesting().getBuildVariables();
+    assertThat(getVariableValue(getRuleContext(), variables, "xcode_version_override_value"))
         .contains("5.8");
-    assertThat(
-            getVariableValue(
-                getRuleContext(), variables, AppleCcToolchain.APPLE_SDK_VERSION_OVERRIDE_VALUE_KEY))
+    assertThat(getVariableValue(getRuleContext(), variables, "apple_sdk_version_override_value"))
         .contains("2.0");
-    assertThat(
-            getVariableValue(
-                getRuleContext(), variables, AppleCcToolchain.APPLE_SDK_PLATFORM_VALUE_KEY))
+    assertThat(getVariableValue(getRuleContext(), variables, "apple_sdk_platform_value"))
         .contains("WatchOS");
-    assertThat(getVariableValue(getRuleContext(), variables, AppleCcToolchain.VERSION_MIN_KEY))
-        .contains(dummyMinimumOsValue);
-  }
-
-  @Test
-  public void testAppleBuildVariablesMacos() throws Exception {
-    MockObjcSupport.setup(mockToolsConfig);
-    String dummyMinimumOsValue = "13.579";
-    ObjcRuleTestCase.addAppleBinaryStarlarkRule(scratch);
-    useConfiguration(
-        "--crosstool_top=//tools/osx/crosstool",
-        "--cpu=darwin_x86_64",
-        "--macos_minimum_os=" + dummyMinimumOsValue);
-    scratch.file(
-        "x/BUILD",
-        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
-        "apple_binary_starlark(",
-        "   name = 'bin',",
-        "   deps = [':a'],",
-        "   platform_type = 'macos',",
-        ")",
-        "cc_library(",
-        "   name = 'a',",
-        "   srcs = ['a.cc'],",
-        ")");
-    scratch.file("x/a.cc");
-
-    ConfiguredTarget target = getConfiguredTarget("//x:bin");
-    // In order to get the set of variables that apply to the c++ actions, follow the chain of
-    // actions starting at the lipobin creation.
-    Artifact lipoBin =
-        getBinArtifact(Label.parseCanonical("//x:bin").getName() + "_lipobin", target);
-    Action lipoAction = getGeneratingAction(lipoBin);
-    Artifact bin = ActionsTestUtil.getFirstArtifactEndingWith(lipoAction.getInputs(), "_bin");
-    CommandAction appleBinLinkAction = (CommandAction) getGeneratingAction(bin);
-    Artifact archive =
-        ActionsTestUtil.getFirstArtifactEndingWith(appleBinLinkAction.getInputs(), "liba.a");
-    CppLinkAction ccArchiveAction = (CppLinkAction) getGeneratingAction(archive);
-
-    CcToolchainVariables variables = ccArchiveAction.getLinkCommandLine().getBuildVariables();
-    assertThat(getVariableValue(getRuleContext(), variables, AppleCcToolchain.VERSION_MIN_KEY))
-        .contains(dummyMinimumOsValue);
-  }
-
-  @Test
-  public void testAppleBuildVariablesMacosHost() throws Exception {
-    MockObjcSupport.setup(mockToolsConfig);
-    String dummyMinimumOsValue = "13.579";
-    useConfiguration(
-        "--crosstool_top=//tools/osx/crosstool",
-        "--cpu=darwin_x86_64",
-        "--host_cpu=darwin_x86_64",
-        "--macos_minimum_os=10.11",
-        "--host_macos_minimum_os=" + dummyMinimumOsValue);
-    ObjcRuleTestCase.addAppleBinaryStarlarkRule(scratch);
-    scratch.file(
-        "x/BUILD",
-        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
-        "apple_binary_starlark(",
-        "   name = 'bin',",
-        "   deps = [':a'],",
-        "   platform_type = 'macos',",
-        ")",
-        "cc_library(",
-        "   name = 'a',",
-        "   srcs = ['a.cc'],",
-        ")");
-    scratch.file("x/a.cc");
-
-    ConfiguredTarget target = getHostConfiguredTarget("//x:bin");
-    Artifact lipoBin =
-        getBinArtifact(Label.parseCanonical("//x:bin").getName() + "_lipobin", target);
-    Action lipoAction = getGeneratingAction(lipoBin);
-    Artifact bin = ActionsTestUtil.getFirstArtifactEndingWith(lipoAction.getInputs(), "_bin");
-    CommandAction appleBinLinkAction = (CommandAction) getGeneratingAction(bin);
-    Artifact archive =
-        ActionsTestUtil.getFirstArtifactEndingWith(appleBinLinkAction.getInputs(), "liba.a");
-    CppLinkAction ccArchiveAction = (CppLinkAction) getGeneratingAction(archive);
-
-    CcToolchainVariables variables = ccArchiveAction.getLinkCommandLine().getBuildVariables();
-    assertThat(getVariableValue(getRuleContext(), variables, AppleCcToolchain.VERSION_MIN_KEY))
-        .contains(dummyMinimumOsValue);
   }
 
   @Test
@@ -251,55 +158,11 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//x:bin");
     CcToolchainVariables variables = getLinkBuildVariables(target, Link.LinkTargetType.EXECUTABLE);
-    assertThat(
-            getVariableValue(
-                getRuleContext(), variables, AppleCcToolchain.XCODE_VERSION_OVERRIDE_VALUE_KEY))
+    assertThat(getVariableValue(getRuleContext(), variables, "xcode_version_override_value"))
         .contains(MockObjcSupport.DEFAULT_XCODE_VERSION);
-    assertThat(
-            getVariableValue(
-                getRuleContext(), variables, AppleCcToolchain.APPLE_SDK_VERSION_OVERRIDE_VALUE_KEY))
+    assertThat(getVariableValue(getRuleContext(), variables, "apple_sdk_version_override_value"))
         .contains(MockObjcSupport.DEFAULT_IOS_SDK_VERSION);
-    assertThat(getVariableValue(getRuleContext(), variables, AppleCcToolchain.VERSION_MIN_KEY))
+    assertThat(getVariableValue(getRuleContext(), variables, "version_min"))
         .contains(AppleCommandLineOptions.DEFAULT_IOS_SDK_VERSION);
-  }
-
-  @Test
-  public void testMinimumOsAttributeBuildVariable() throws Exception {
-    MockObjcSupport.setup(mockToolsConfig);
-    String dummyMinimumOsValue = "13.579";
-    useConfiguration(
-        "--crosstool_top=//tools/osx/crosstool",
-        "--cpu=darwin_x86_64");
-    ObjcRuleTestCase.addAppleBinaryStarlarkRule(scratch);
-    scratch.file(
-        "x/BUILD",
-        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
-        "apple_binary_starlark(",
-        "   name = 'bin',",
-        "   deps = [':a'],",
-        "   platform_type = 'ios',",
-        "   minimum_os_version = '" + dummyMinimumOsValue + "',",
-        ")",
-        "cc_library(",
-        "   name = 'a',",
-        "   srcs = ['a.cc'],",
-        ")");
-    scratch.file("x/a.cc");
-
-    ConfiguredTarget target = getConfiguredTarget("//x:bin");
-    // In order to get the set of variables that apply to the c++ actions, follow the chain of
-    // actions starting at the lipobin creation.
-    Artifact lipoBin =
-        getBinArtifact(Label.parseCanonical("//x:bin").getName() + "_lipobin", target);
-    Action lipoAction = getGeneratingAction(lipoBin);
-    Artifact bin = ActionsTestUtil.getFirstArtifactEndingWith(lipoAction.getInputs(), "_bin");
-    CommandAction appleBinLinkAction = (CommandAction) getGeneratingAction(bin);
-    Artifact archive =
-        ActionsTestUtil.getFirstArtifactEndingWith(appleBinLinkAction.getInputs(), "liba.a");
-    CppLinkAction ccArchiveAction = (CppLinkAction) getGeneratingAction(archive);
-
-    CcToolchainVariables variables = ccArchiveAction.getLinkCommandLine().getBuildVariables();
-    assertThat(getVariableValue(getRuleContext(), variables, AppleCcToolchain.VERSION_MIN_KEY))
-        .contains(dummyMinimumOsValue);
   }
 }

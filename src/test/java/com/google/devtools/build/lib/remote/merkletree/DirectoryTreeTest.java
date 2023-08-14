@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.DirectoryNode;
 import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.FileNode;
 import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.Node;
+import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.SymlinkNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.SortedSet;
 import java.util.stream.Collectors;
 import org.junit.Before;
 import org.junit.Test;
@@ -119,7 +121,10 @@ public abstract class DirectoryTreeTest {
   static void assertLexicographicalOrder(DirectoryTree tree) {
     // Assert the lexicographical order as defined by the remote execution protocol
     tree.visit(
-        (PathFragment dirname, List<FileNode> files, List<DirectoryNode> dirs) -> {
+        (PathFragment dirname,
+            SortedSet<FileNode> files,
+            SortedSet<SymlinkNode> symlinks,
+            SortedSet<DirectoryNode> dirs) -> {
           assertThat(files).isInStrictOrder();
           assertThat(dirs).isInStrictOrder();
         });
@@ -136,7 +141,10 @@ public abstract class DirectoryTreeTest {
   private static List<DirectoryNode> directoryNodesAtDepth(DirectoryTree tree, int depth) {
     List<DirectoryNode> directoryNodes = new ArrayList<>();
     tree.visit(
-        (PathFragment dirname, List<FileNode> files, List<DirectoryNode> dirs) -> {
+        (PathFragment dirname,
+            SortedSet<FileNode> files,
+            SortedSet<SymlinkNode> symlinks,
+            SortedSet<DirectoryNode> dirs) -> {
           int currDepth = dirname.segmentCount();
           if (currDepth == depth) {
             directoryNodes.addAll(dirs);
@@ -148,7 +156,10 @@ public abstract class DirectoryTreeTest {
   static List<FileNode> fileNodesAtDepth(DirectoryTree tree, int depth) {
     List<FileNode> fileNodes = new ArrayList<>();
     tree.visit(
-        (PathFragment dirname, List<FileNode> files, List<DirectoryNode> dirs) -> {
+        (PathFragment dirname,
+            SortedSet<FileNode> files,
+            SortedSet<SymlinkNode> symlinks,
+            SortedSet<DirectoryNode> dirs) -> {
           int currDepth = dirname.segmentCount();
           if (currDepth == depth) {
             fileNodes.addAll(files);

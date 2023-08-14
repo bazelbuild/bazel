@@ -126,8 +126,6 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void pyRuntimeInfoIsPresent() throws Exception {
-    // Starlark implementation doesn't yet support toolchain resolution.
-    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
     useConfiguration("--incompatible_use_python_toolchains=true");
     scratch.file(
         "pkg/BUILD", //
@@ -170,100 +168,10 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
   }
 
   @Test
-  public void py3IsDefaultFlag_SetsDefaultPythonVersion() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
-    scratch.file(
-        "pkg/BUILD", //
-        ruleName + "(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py'],",
-        ")");
-    assertPythonVersionIs_UnderNewConfig(
-        "//pkg:foo", PythonVersion.PY2, "--incompatible_py3_is_default=false");
-    assertPythonVersionIs_UnderNewConfig(
-        "//pkg:foo",
-        PythonVersion.PY3,
-        "--incompatible_py3_is_default=true",
-        // Keep the host Python as PY2, because we don't want to drag any implicit dependencies on
-        // tools into PY3 for this test. (Doing so may require setting extra options to get it to
-        // pass analysis.)
-        "--host_force_python=PY2");
-  }
-
-  @Test
-  public void py3IsDefaultFlag_DoesntOverrideExplicitVersion() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
-    scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY2"));
-    assertPythonVersionIs_UnderNewConfig(
-        "//pkg:foo",
-        PythonVersion.PY2,
-        "--incompatible_py3_is_default=true",
-        // Keep the host Python as PY2, because we don't want to drag any implicit dependencies on
-        // tools into PY3 for this test. (Doing so may require setting extra options to get it to
-        // pass analysis.)
-        "--host_force_python=PY2");
-  }
-
-  @Test
-  public void versionAttrWorks_WhenNotDefaultValue() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
-    scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY2"));
-
-    assertPythonVersionIs("//pkg:foo", PythonVersion.PY2);
-  }
-
-  @Test
   public void versionAttrWorks_WhenSameAsDefaultValue() throws Exception {
     scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY3"));
 
     assertPythonVersionIs("//pkg:foo", PythonVersion.PY3);
-  }
-
-  @Test
-  public void versionAttrTakesPrecedence_NonDefaultValue() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
-    scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY3"));
-
-    assertPythonVersionIs_UnderNewConfig("//pkg:foo", PythonVersion.PY3, "--python_version=PY2");
-  }
-
-  @Test
-  public void versionAttrTakesPrecedence_DefaultValue() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
-    scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY3"));
-
-    assertPythonVersionIs_UnderNewConfig("//pkg:foo", PythonVersion.PY3, "--python_version=PY2");
-  }
-
-  @Test
-  public void canBuildWithDifferentVersionAttrs() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
-    scratch.file(
-        "pkg/BUILD",
-        ruleDeclWithPyVersionAttr("foo_v2", "PY2"),
-        ruleDeclWithPyVersionAttr("foo_v3", "PY3"));
-
-    assertPythonVersionIs("//pkg:foo_v2", PythonVersion.PY2);
-    assertPythonVersionIs("//pkg:foo_v3", PythonVersion.PY3);
-  }
-
-  @Test
-  public void incompatibleSrcsVersion() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
-    reporter.removeHandler(failFastHandler); // We assert below that we don't fail at analysis.
-    scratch.file(
-        "pkg/BUILD",
-        // build file:
-        ruleName + "(",
-        "    name = 'foo',",
-        "    srcs = [':foo.py'],",
-        "    srcs_version = 'PY2ONLY',",
-        "    python_version = 'PY3')");
-    assertThat(getPyExecutableDeferredError("//pkg:foo"))
-        .contains("being built for Python 3 but (transitively) includes Python 2-only sources");
-    // This is an execution-time error, not an analysis-time one. We fail by setting the generating
-    // action to FailAction.
-    assertNoEvents();
   }
 
   @Test

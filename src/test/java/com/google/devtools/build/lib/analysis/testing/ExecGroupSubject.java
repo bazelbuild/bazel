@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertAbout;
 
 import com.google.common.truth.FailureMetadata;
 import com.google.common.truth.IterableSubject;
-import com.google.common.truth.MapSubject;
 import com.google.common.truth.StringSubject;
 import com.google.common.truth.Subject;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -33,11 +32,6 @@ public class ExecGroupSubject extends Subject {
     return assertAbout(ExecGroupSubject::new).that(execGroup);
   }
 
-  /** Static method for getting the subject factory (for use with assertAbout()). */
-  public static Subject.Factory<ExecGroupSubject, ExecGroup> execGroups() {
-    return ExecGroupSubject::new;
-  }
-
   // Instance fields.
 
   private final ExecGroup actual;
@@ -47,12 +41,8 @@ public class ExecGroupSubject extends Subject {
     this.actual = subject;
   }
 
-  public MapSubject toolchainTypes() {
-    return check("toolchainTypes()").that(actual.toolchainTypesMap());
-  }
-
   public ToolchainTypeRequirementSubject toolchainType(String toolchainTypeLabel) {
-    return toolchainType(Label.parseAbsoluteUnchecked(toolchainTypeLabel));
+    return toolchainType(Label.parseCanonicalUnchecked(toolchainTypeLabel));
   }
 
   public ToolchainTypeRequirementSubject toolchainType(Label toolchainType) {
@@ -75,7 +65,7 @@ public class ExecGroupSubject extends Subject {
   }
 
   public void hasExecCompatibleWith(String constraintLabel) {
-    hasExecCompatibleWith(Label.parseAbsoluteUnchecked(constraintLabel));
+    hasExecCompatibleWith(Label.parseCanonicalUnchecked(constraintLabel));
   }
 
   public void hasExecCompatibleWith(Label constraintLabel) {

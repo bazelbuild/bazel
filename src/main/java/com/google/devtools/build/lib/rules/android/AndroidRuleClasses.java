@@ -223,6 +223,13 @@ public final class AndroidRuleClasses {
           null,
           (rule, attributes, androidConfig) -> androidConfig.getLegacyMainDexListGenerator());
 
+  @SerializationConstant
+  static final LabelLateBoundDefault<AndroidConfiguration> OPTIMIZING_DEXER =
+      LabelLateBoundDefault.fromTargetConfiguration(
+          AndroidConfiguration.class,
+          null,
+          (rule, attributes, androidConfig) -> androidConfig.getOptimizingDexer());
+
   public static final FileType ANDROID_IDL = FileType.of(".aidl");
 
   public static final String[] ALLOWED_DEPENDENCIES = {
@@ -375,11 +382,11 @@ public final class AndroidRuleClasses {
           // processed XML expressions into Java code.
           .add(
               attr(DataBinding.DATABINDING_ANNOTATION_PROCESSOR_ATTR, LABEL)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .value(env.getToolsLabel("//tools/android:databinding_annotation_processor")))
           .add(
               attr(DataBinding.DATABINDING_EXEC_PROCESSOR_ATTR, LABEL)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:databinding_exec")))
           .advertiseStarlarkProvider(
@@ -418,12 +425,12 @@ public final class AndroidRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr("plugins", LABEL_LIST)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .mandatoryProviders(JavaPluginInfo.PROVIDER.id())
                   .legacyAllowAnyFileType())
           .add(
               attr(":java_plugins", LABEL_LIST)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .mandatoryProviders(JavaPluginInfo.PROVIDER.id())
                   .silentRuleClassFilter()
                   .value(JavaSemantics.JAVA_PLUGINS))
@@ -437,16 +444,16 @@ public final class AndroidRuleClasses {
           .add(attr("javacopts", STRING_LIST))
           .add(
               attr("$idlclass", LABEL)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:IdlClass")))
           .add(
               attr("$desugar_java8_extra_bootclasspath", LABEL)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .value(env.getToolsLabel("//tools/android:desugar_java8_extra_bootclasspath")))
           .add(
               attr("$android_resources_busybox", LABEL)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .exec()
                   .value(env.getToolsLabel(DEFAULT_RESOURCES_BUSYBOX)))
           .build();
@@ -526,7 +533,7 @@ public final class AndroidRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr("debug_key", LABEL)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .legacyAllowAnyFileType()
                   .value(env.getToolsLabel("//tools/android:debug_keystore")))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(debug_signing_keys) -->
@@ -537,7 +544,7 @@ public final class AndroidRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr("debug_signing_keys", LABEL_LIST)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .legacyAllowAnyFileType())
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(debug_signing_lineage_file) -->
           File containing the signing lineage for the debug_signing_keys. Usually you do not
@@ -547,7 +554,7 @@ public final class AndroidRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr("debug_signing_lineage_file", LABEL)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .legacyAllowAnyFileType())
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(key_rotation_min_sdk) -->
           Sets the minimum Android platform version (API Level) for which an APK's rotated signing
@@ -616,57 +623,57 @@ public final class AndroidRuleClasses {
           .add(attr(ResourceFilterFactory.DENSITIES_NAME, STRING_LIST))
           .add(
               attr("$build_incremental_dexmanifest", LABEL)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .exec()
                   .value(env.getToolsLabel(BUILD_INCREMENTAL_DEXMANIFEST_LABEL)))
           .add(
               attr("$stubify_manifest", LABEL)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .exec()
                   .value(env.getToolsLabel(STUBIFY_MANIFEST_LABEL)))
           .add(
               attr("$shuffle_jars", LABEL)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:shuffle_jars")))
           .add(
               attr("$dexbuilder", LABEL)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:dexbuilder")))
           .add(
               attr("$dexbuilder_after_proguard", LABEL)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:dexbuilder_after_proguard")))
           .add(
               attr("$dexsharder", LABEL)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:dexsharder")))
           .add(
               attr("$dexmerger", LABEL)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:dexmerger")))
           .add(
               attr("$merge_dexzips", LABEL)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:merge_dexzips")))
           .add(
               attr("$incremental_install", LABEL)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .exec()
                   .value(env.getToolsLabel(INCREMENTAL_INSTALL_LABEL)))
           .add(
               attr("$build_split_manifest", LABEL)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .exec()
                   .value(env.getToolsLabel(BUILD_SPLIT_MANIFEST_LABEL)))
           .add(
               attr("$strip_resources", LABEL)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .exec()
                   .value(env.getToolsLabel(STRIP_RESOURCES_LABEL)))
           .add(
@@ -679,7 +686,7 @@ public final class AndroidRuleClasses {
                   .aspect(dexArchiveAspect, DexArchiveAspect.ONLY_DESUGAR_JAVA8))
           .add(
               attr("$desugar", LABEL)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:desugar_java8")))
           .add(
@@ -687,7 +694,7 @@ public final class AndroidRuleClasses {
                   .value(env.getToolsLabel("//tools/android:java8_legacy_dex")))
           .add(
               attr("$build_java8_legacy_dex", LABEL)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:build_java8_legacy_dex")))
           .add(
@@ -695,6 +702,7 @@ public final class AndroidRuleClasses {
                   .value(env.getToolsLabel("//tools/android:desugared_java8_legacy_apis")))
           .add(
               attr("$merge_proguard_maps", LABEL)
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:merge_proguard_maps")))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(dexopts) -->
@@ -796,15 +804,14 @@ public final class AndroidRuleClasses {
           obfuscation.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("proguard_apply_dictionary", LABEL).legacyAllowAnyFileType())
-          .add(attr(":extra_proguard_specs", LABEL_LIST).value(JavaSemantics.EXTRA_PROGUARD_SPECS))
           .add(
               attr("$dex_list_obfuscator", LABEL)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:dex_list_obfuscator")))
           .add(
               attr(":bytecode_optimizer", LABEL)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .value(JavaSemantics.BYTECODE_OPTIMIZER))
           // We need the C++ toolchain for every sub-configuration to get the correct linker.
           .add(
@@ -812,13 +819,22 @@ public final class AndroidRuleClasses {
                   .cfg(TransitionFactories.of(ANDROID_SPLIT_TRANSITION))
                   .value(env.getToolsLabel("//tools/cpp:current_cc_toolchain")))
           /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(manifest_values) -->
-          A dictionary of values to be overridden in the manifest. Any instance of ${name} in the
-          manifest will be replaced with the value corresponding to name in this dictionary.
-          applicationId, versionCode, versionName, minSdkVersion, targetSdkVersion and
-          maxSdkVersion will also override the corresponding attributes of the manifest and
-          uses-sdk tags. packageName will be ignored and will be set from either applicationId if
-          specified or the package in manifest. When manifest_merger is set to legacy, only
-          applicationId, versionCode and versionName will have any effect.
+          A dictionary of values to be overridden in the manifest.
+          <p>
+          Any instance of <code>${name}</code> in the manifest will be replaced with the value
+          corresponding to name in this dictionary.
+          <p>
+          <code>applicationId</code>, <code>versionCode</code>, <code>versionName</code>,
+          <code>minSdkVersion</code>, <code>targetSdkVersion</code> and
+          <code>maxSdkVersion</code> will also override the corresponding attributes in the manifest
+          and <code>uses-sdk</code> tags.
+          <p>
+          <code>packageName</code> will be ignored and will be set from either
+          <code>applicationId</code> if specified or the package in manifest.
+          <p>
+          When <code>manifest_merger</code> is set to <code>legacy</code>, only
+          <code>applicationId</code>, <code>versionCode</code> and <code>versionName</code> will
+          have any effect.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("manifest_values", STRING_DICT))
           .add(
@@ -834,7 +850,7 @@ public final class AndroidRuleClasses {
           // deploy jar so that they can be added to the APK.
           .add(
               attr("$resource_extractor", LABEL)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:resource_extractor")))
           /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(instruments) -->
@@ -850,7 +866,7 @@ public final class AndroidRuleClasses {
                   .allowedFileTypes(NO_FILE))
           .add(
               attr("$instrumentation_test_check", LABEL)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .value(
                       new Attribute.ComputedDefault() {
                         @Override
@@ -864,7 +880,7 @@ public final class AndroidRuleClasses {
                   .exec())
           .add(
               attr("$zip_filter", LABEL)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:zip_filter")))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(package_id) -->
@@ -890,8 +906,14 @@ public final class AndroidRuleClasses {
           // This comes from the --legacy_main_dex_list_generator flag.
           .add(
               attr(":legacy_main_dex_list_generator", LABEL)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .value(LEGACY_MAIN_DEX_LIST_GENERATOR)
+                  .exec())
+          // This comes from the --optimizing_dexer flag.
+          .add(
+              attr(":optimizing_dexer", LABEL)
+                  .cfg(ExecutionTransitionFactory.createFactory())
+                  .value(OPTIMIZING_DEXER)
                   .exec())
           .removeAttribute("data")
           .advertiseStarlarkProvider(StarlarkProviderIdentifier.forKey(ApkInfo.PROVIDER.getKey()))

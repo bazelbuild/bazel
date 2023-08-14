@@ -20,7 +20,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.PackageRoots;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import java.util.Collection;
@@ -28,7 +28,7 @@ import javax.annotation.Nullable;
 
 /** Return value for {@link com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner}. */
 public class AnalysisResult {
-  private final BuildConfigurationCollection configurations;
+  private final BuildConfigurationValue configuration;
   private final ImmutableSet<ConfiguredTarget> targetsToBuild;
   @Nullable private final ImmutableSet<ConfiguredTarget> targetsToTest;
   private final ImmutableSet<ConfiguredTarget> targetsToSkip;
@@ -37,6 +37,7 @@ public class AnalysisResult {
   private final ImmutableSet<Artifact> artifactsToBuild;
   private final ImmutableSet<ConfiguredTarget> parallelTests;
   private final ImmutableSet<ConfiguredTarget> exclusiveTests;
+  private final ImmutableSet<ConfiguredTarget> exclusiveIfLocalTests;
   @Nullable private final TopLevelArtifactContext topLevelContext;
   private final ImmutableMap<AspectKey, ConfiguredAspect> aspects;
   private final PackageRoots packageRoots;
@@ -44,7 +45,7 @@ public class AnalysisResult {
   private final Collection<TargetAndConfiguration> topLevelTargetsWithConfigs;
 
   AnalysisResult(
-      BuildConfigurationCollection configurations,
+      BuildConfigurationValue configuration,
       ImmutableSet<ConfiguredTarget> targetsToBuild,
       ImmutableMap<AspectKey, ConfiguredAspect> aspects,
       @Nullable ImmutableSet<ConfiguredTarget> targetsToTest,
@@ -54,11 +55,12 @@ public class AnalysisResult {
       ImmutableSet<Artifact> artifactsToBuild,
       ImmutableSet<ConfiguredTarget> parallelTests,
       ImmutableSet<ConfiguredTarget> exclusiveTests,
+      ImmutableSet<ConfiguredTarget> exclusiveIfLocalTests,
       TopLevelArtifactContext topLevelContext,
       PackageRoots packageRoots,
       String workspaceName,
       Collection<TargetAndConfiguration> topLevelTargetsWithConfigs) {
-    this.configurations = configurations;
+    this.configuration = configuration;
     this.targetsToBuild = targetsToBuild;
     this.aspects = aspects;
     this.targetsToTest = targetsToTest;
@@ -68,14 +70,15 @@ public class AnalysisResult {
     this.artifactsToBuild = artifactsToBuild;
     this.parallelTests = parallelTests;
     this.exclusiveTests = exclusiveTests;
+    this.exclusiveIfLocalTests = exclusiveIfLocalTests;
     this.topLevelContext = topLevelContext;
     this.packageRoots = packageRoots;
     this.workspaceName = workspaceName;
     this.topLevelTargetsWithConfigs = topLevelTargetsWithConfigs;
   }
 
-  public BuildConfigurationCollection getConfigurationCollection() {
-    return configurations;
+  public BuildConfigurationValue getConfiguration() {
+    return configuration;
   }
 
   /**
@@ -122,6 +125,10 @@ public class AnalysisResult {
     return exclusiveTests;
   }
 
+  public ImmutableSet<ConfiguredTarget> getExclusiveIfLocalTests() {
+    return exclusiveIfLocalTests;
+  }
+
   public ImmutableSet<ConfiguredTarget> getParallelTests() {
     return parallelTests;
   }
@@ -147,10 +154,6 @@ public class AnalysisResult {
     return topLevelContext;
   }
 
-  public String getWorkspaceName() {
-    return workspaceName;
-  }
-
   public Collection<TargetAndConfiguration> getTopLevelTargetsWithConfigs() {
     return topLevelTargetsWithConfigs;
   }
@@ -161,7 +164,7 @@ public class AnalysisResult {
    */
   public AnalysisResult withExclusiveTestsAsParallelTests() {
     return new AnalysisResult(
-        configurations,
+        configuration,
         targetsToBuild,
         aspects,
         targetsToTest,
@@ -170,7 +173,31 @@ public class AnalysisResult {
         actionGraph,
         artifactsToBuild,
         Sets.union(parallelTests, exclusiveTests).immutableCopy(),
-        /*exclusiveTests=*/ ImmutableSet.of(),
+        /* exclusiveTests= */ ImmutableSet.of(),
+        exclusiveIfLocalTests,
+        topLevelContext,
+        packageRoots,
+        workspaceName,
+        topLevelTargetsWithConfigs);
+  }
+
+  /**
+   * Returns an equivalent {@link AnalysisResult}, except with exclusive tests treated as parallel
+   * tests.
+   */
+  public AnalysisResult withExclusiveIfLocalTestsAsParallelTests() {
+    return new AnalysisResult(
+        configuration,
+        targetsToBuild,
+        aspects,
+        targetsToTest,
+        targetsToSkip,
+        failureDetail,
+        actionGraph,
+        artifactsToBuild,
+        Sets.union(parallelTests, exclusiveIfLocalTests).immutableCopy(),
+        exclusiveTests,
+        /* exclusiveIfLocalTests= */ ImmutableSet.of(),
         topLevelContext,
         packageRoots,
         workspaceName,

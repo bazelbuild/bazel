@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.EquivalenceRelation;
 import com.google.devtools.build.lib.graph.Digraph;
@@ -54,7 +55,7 @@ public final class GraphOutputWriter<T> {
      * <p>This is not the same as a build {@link Label}. This is just the text associated with a
      * node in a GraphViz graph.
      */
-    String getLabel(Node<T> node);
+    String getLabel(Node<T> node, RepositoryMapping mainRepositoryMapping);
 
     /** Returns a comparator for the build graph nodes that form the payloads of GraphViz nodes. */
     Comparator<T> comparator();
@@ -67,6 +68,7 @@ public final class GraphOutputWriter<T> {
   private final int maxConditionalEdges;
   private final boolean mergeEquivalentNodes;
   private final Ordering<Node<T>> nodeComparator;
+  private final RepositoryMapping mainRepoMapping;
 
   private static final int RESERVED_LABEL_CHARS = "\\n...and 9999999 more items".length();
 
@@ -90,13 +92,15 @@ public final class GraphOutputWriter<T> {
       boolean sortLabels,
       int maxLabelSize,
       int maxConditionalEdges,
-      boolean mergeEquivalentNodes) {
+      boolean mergeEquivalentNodes,
+      RepositoryMapping mainRepoMapping) {
     this.nodeReader = nodeReader;
     this.lineTerminator = lineTerminator;
     this.sortLabels = sortLabels;
     this.maxLabelSize = maxLabelSize;
     this.maxConditionalEdges = maxConditionalEdges;
     this.mergeEquivalentNodes = mergeEquivalentNodes;
+    this.mainRepoMapping = mainRepoMapping;
     nodeComparator = Ordering.from(nodeReader.comparator()).onResultOf(Node::getLabel);
   }
 
@@ -120,7 +124,7 @@ public final class GraphOutputWriter<T> {
   private void outputUnfactored(
       Digraph<T> graph, @Nullable ConditionalEdges conditionalEdges, PrintWriter out) {
     graph.visitNodesBeforeEdges(
-        new DotOutputVisitor<T>(out, nodeReader::getLabel) {
+        new DotOutputVisitor<T>(out, node -> nodeReader.getLabel(node, mainRepoMapping)) {
           @Override
           public void beginVisit() {
             super.beginVisit();
@@ -180,7 +184,7 @@ public final class GraphOutputWriter<T> {
           StringBuilder buf = new StringBuilder();
           int count = 0;
           for (Node<T> eqNode : node.getLabel()) {
-            String labelString = nodeReader.getLabel(eqNode);
+            String labelString = nodeReader.getLabel(eqNode, mainRepoMapping);
             if (!firstItem) {
               buf.append("\\n");
 

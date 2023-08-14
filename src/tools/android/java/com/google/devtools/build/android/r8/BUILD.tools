@@ -7,6 +7,13 @@ java_library(
         "//external:android/d8_jar_import",
         "//src/tools/android/java/com/google/devtools/build/android:all_android_tools",
     ],
+    plugins = ["auto_value_plugin"],
+)
+
+java_plugin(
+    name = "auto_value_plugin",
+    processor_class = "com.google.auto.value.processor.AutoValueProcessor",
+    deps = ["//src/tools/android/java/com/google/devtools/build/android:all_android_tools"],
 )
 
 java_binary(

@@ -47,14 +47,19 @@ public final class StarlarkDocUtils {
     ImmutableList.Builder<StarlarkParamDoc> paramsBuilder = ImmutableList.builder();
     for (Param param : userSuppliedParams) {
       if (param.documented()) {
-        paramsBuilder.add(new StarlarkParamDoc(methodDoc, param, expander));
+        paramsBuilder.add(
+            new StarlarkParamDoc(methodDoc, param, expander, StarlarkParamDoc.Kind.NORMAL));
       }
     }
     if (!extraPositionals.name().isEmpty()) {
-      paramsBuilder.add(new StarlarkParamDoc(methodDoc, extraPositionals, expander));
+      paramsBuilder.add(
+          new StarlarkParamDoc(
+              methodDoc, extraPositionals, expander, StarlarkParamDoc.Kind.EXTRA_POSITIONALS));
     }
     if (!extraKeywords.name().isEmpty()) {
-      paramsBuilder.add(new StarlarkParamDoc(methodDoc, extraKeywords, expander));
+      paramsBuilder.add(
+          new StarlarkParamDoc(
+              methodDoc, extraKeywords, expander, StarlarkParamDoc.Kind.EXTRA_KEYWORDS));
     }
     return paramsBuilder.build();
   }

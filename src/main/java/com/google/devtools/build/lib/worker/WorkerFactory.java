@@ -13,11 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
+import com.google.common.eventbus.EventBus;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.worker.SandboxedWorker.WorkerSandboxOptions;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Locale;
@@ -40,15 +43,33 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
   // request_id (which is indistinguishable from 0 in proto3).
   private static final AtomicInteger pidCounter = new AtomicInteger(1);
 
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   private final Path workerBaseDir;
   private Reporter reporter;
+  private EventBus eventBus;
+
+  /**
+   * Options specific to hardened sandbox. Null if {@code --experimental_worker_sandbox_hardening}
+   * is not set.
+   */
+  @Nullable private final WorkerSandboxOptions hardenedSandboxOptions;
 
   public WorkerFactory(Path workerBaseDir) {
+    this(workerBaseDir, null);
+  }
+
+  public WorkerFactory(Path workerBaseDir, @Nullable WorkerSandboxOptions hardenedSandboxOptions) {
     this.workerBaseDir = workerBaseDir;
+    this.hardenedSandboxOptions = hardenedSandboxOptions;
   }
 
   public void setReporter(Reporter reporter) {
     this.reporter = reporter;
+  }
+
+  public void setEventBus(EventBus eventBus) {
+    this.eventBus = eventBus;
   }
 
   @Override
@@ -56,14 +77,8 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
     int workerId = pidCounter.getAndIncrement();
     String workTypeName = key.getWorkerTypeName();
     if (!workerBaseDir.isDirectory()) {
-      try {
-        workerBaseDir.createDirectoryAndParents();
-      } catch (IOException e) {
-        System.err.println(
-            "Can't create worker dir, there is a " + workerBaseDir.stat() + " there.");
-      }
+      workerBaseDir.createDirectoryAndParents();
     }
-
     Path logFile =
         workerBaseDir.getRelative(workTypeName + "-" + workerId + "-" + key.getMnemonic() + ".log");
 
@@ -75,7 +90,7 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
         worker = new SandboxedWorkerProxy(key, workerId, logFile, workerMultiplexer, workDir);
       } else {
         Path workDir = getSandboxedWorkerPath(key, workerId);
-        worker = new SandboxedWorker(key, workerId, workDir, logFile);
+        worker = new SandboxedWorker(key, workerId, workDir, logFile, hardenedSandboxOptions);
       }
     } else if (key.isMultiplex()) {
       WorkerMultiplexer workerMultiplexer = WorkerMultiplexerManager.getInstance(key, logFile);
@@ -85,16 +100,19 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
     } else {
       worker = new SingleplexWorker(key, workerId, key.getExecRoot(), logFile);
     }
-    if (reporter != null) {
-      reporter.handle(
-          Event.info(
-              String.format(
-                  "Created new %s %s %s (id %d), logging to %s",
-                  key.isSandboxed() ? "sandboxed" : "non-sandboxed",
-                  key.getMnemonic(),
-                  workTypeName,
-                  workerId,
-                  worker.getLogFile())));
+
+    String msg =
+        String.format(
+            "Created new %s %s %s (id %d, key hash %d), logging to %s",
+            key.isSandboxed() ? "sandboxed" : "non-sandboxed",
+            key.getMnemonic(),
+            workTypeName,
+            workerId,
+            key.hashCode(),
+            worker.getLogFile());
+    WorkerLoggingHelper.logMessage(reporter, WorkerLoggingHelper.LogLevel.INFO, msg);
+    if (eventBus != null) {
+      eventBus.post(new WorkerCreatedEvent(key.hashCode(), key.getMnemonic()));
     }
     return worker;
   }
@@ -122,15 +140,16 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
   /** When a worker process is discarded, destroy its process, too. */
   @Override
   public void destroyObject(WorkerKey key, PooledObject<Worker> p) {
-    if (reporter != null) {
-      int workerId = p.getObject().getWorkerId();
-      reporter.handle(
-          Event.info(
-              String.format(
-                  "Destroying %s %s (id %d)",
-                  key.getMnemonic(), key.getWorkerTypeName(), workerId)));
-    }
+    int workerId = p.getObject().getWorkerId();
+    String msg =
+        String.format(
+            "Destroying %s %s (id %d, key hash %d)",
+            key.getMnemonic(), key.getWorkerTypeName(), workerId, key.hashCode());
+    WorkerLoggingHelper.logMessage(reporter, WorkerLoggingHelper.LogLevel.INFO, msg);
     p.getObject().destroy();
+    if (eventBus != null) {
+      eventBus.post(new WorkerDestroyedEvent(key.hashCode(), key.getMnemonic()));
+    }
   }
 
   /**
@@ -140,9 +159,12 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
   @Override
   public boolean validateObject(WorkerKey key, PooledObject<Worker> p) {
     Worker worker = p.getObject();
+    if (worker.isDoomed()) {
+      return false;
+    }
     Optional<Integer> exitValue = worker.getExitValue();
     if (exitValue.isPresent()) {
-      if (reporter != null && worker.diedUnexpectedly()) {
+      if (worker.diedUnexpectedly()) {
         String msg =
             String.format(
                 "%s %s (id %d) has unexpectedly died with exit code %d.",
@@ -153,14 +175,15 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
                 .logFile(worker.getLogFile())
                 .logSizeLimit(4096)
                 .build();
-        reporter.handle(Event.warn(errorMessage.toString()));
+        WorkerLoggingHelper.logMessage(
+            reporter, WorkerLoggingHelper.LogLevel.WARNING, errorMessage.toString());
       }
       return false;
     }
     boolean filesChanged =
         !key.getWorkerFilesCombinedHash().equals(worker.getWorkerFilesCombinedHash());
 
-    if (reporter != null && filesChanged) {
+    if (filesChanged) {
       StringBuilder msg = new StringBuilder();
       msg.append(
           String.format(
@@ -182,7 +205,8 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
         }
       }
 
-      reporter.handle(Event.warn(msg.toString()));
+      WorkerLoggingHelper.logMessage(
+          reporter, WorkerLoggingHelper.LogLevel.WARNING, msg.toString());
     }
 
     return !filesChanged;
@@ -201,11 +225,51 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
       return false;
     }
     WorkerFactory that = (WorkerFactory) o;
-    return workerBaseDir.equals(that.workerBaseDir);
+    return workerBaseDir.equals(that.workerBaseDir)
+        && Objects.equals(this.hardenedSandboxOptions, that.hardenedSandboxOptions);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(workerBaseDir);
+    return Objects.hash(workerBaseDir, hardenedSandboxOptions);
+  }
+
+  /** This class simultaneously sends messages to a logger and an event reporter. */
+  private static final class WorkerLoggingHelper {
+    private WorkerLoggingHelper() {}
+
+    public static void logMessage(@Nullable Reporter reporter, LogLevel level, String message) {
+      switch (level) {
+        case INFO:
+          logger.atInfo().log("%s", message);
+          if (reporter != null) {
+            reporter.handle(Event.info(message));
+          }
+          return;
+        case WARNING:
+          logger.atWarning().log("%s", message);
+          if (reporter != null) {
+            reporter.handle(Event.warn(message));
+          }
+          return;
+      }
+      throw new IllegalStateException(String.format("illegal logging level %s", level));
+    }
+
+    public static enum LogLevel {
+      INFO("INFO"),
+      WARNING("WARNING");
+
+      private final String level;
+
+      LogLevel(final String level) {
+        this.level = level;
+      }
+
+      @Override
+      public String toString() {
+        return level;
+      }
+    }
   }
 }

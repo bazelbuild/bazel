@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -21,6 +20,10 @@ import com.google.devtools.build.lib.buildtool.AqueryProcessor;
 import com.google.devtools.build.lib.buildtool.AqueryProcessor.AqueryActionFilterException;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildTool;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
+import com.google.devtools.build.lib.cmdline.TargetPattern.Parser;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.query2.aquery.ActionGraphQueryEnvironment;
 import com.google.devtools.build.lib.query2.aquery.AqueryOptions;
@@ -34,9 +37,13 @@ import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.KeepGoingOption;
+import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
+import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -73,15 +80,33 @@ public final class AqueryCommand implements BlazeCommand {
     AqueryOptions aqueryOptions = options.getOptions(AqueryOptions.class);
     boolean queryCurrentSkyframeState = aqueryOptions.queryCurrentSkyframeState;
 
-    // When querying for the state of Skyframe, it's possible to omit the query expression.
-    if (options.getResidue().isEmpty() && !queryCurrentSkyframeState) {
-      String message =
-          "Missing query expression. Use the 'help aquery' command for syntax and help.";
-      env.getReporter().handle(Event.error(message));
-      return createFailureResult(message, Code.COMMAND_LINE_EXPRESSION_MISSING);
+    TargetPattern.Parser mainRepoTargetParser;
+    try {
+      RepositoryMapping repoMapping =
+          env.getSkyframeExecutor()
+              .getMainRepoMapping(
+                  env.getOptions().getOptions(KeepGoingOption.class).keepGoing,
+                  env.getOptions().getOptions(LoadingPhaseThreadsOption.class).threads,
+                  env.getReporter());
+      mainRepoTargetParser =
+          new Parser(env.getRelativeWorkingDirectory(), RepositoryName.MAIN, repoMapping);
+    } catch (RepositoryMappingResolutionException e) {
+      env.getReporter().handle(Event.error(e.getMessage()));
+      return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
+    } catch (InterruptedException e) {
+      String errorMessage = "Fetch interrupted: " + e.getMessage();
+      env.getReporter().handle(Event.error(errorMessage));
+      return BlazeCommandResult.detailedExitCode(
+          InterruptedFailureDetails.detailedExitCode(errorMessage));
     }
 
-    String query = Joiner.on(' ').join(options.getResidue());
+    String query = null;
+    try {
+      query = QueryOptionHelper.readQuery(aqueryOptions, options, env, queryCurrentSkyframeState);
+    } catch (QueryException e) {
+      return BlazeCommandResult.failureDetail(e.getFailureDetail());
+    }
+
     ImmutableMap<String, QueryFunction> functions = getFunctionsMap(env);
 
     // Query expression might be null in the case of --skyframe_state.
@@ -123,7 +148,7 @@ public final class AqueryCommand implements BlazeCommand {
     AqueryProcessor aqueryBuildTool;
 
     try {
-      aqueryBuildTool = new AqueryProcessor(expr);
+      aqueryBuildTool = new AqueryProcessor(expr, mainRepoTargetParser);
     } catch (AqueryActionFilterException e) {
       String message = e.getMessage() + "\n" + expr;
       env.getReporter().handle(Event.error(message));

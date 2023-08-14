@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.vfs.Path;
@@ -74,10 +75,6 @@ public class DecompressorValue implements SkyValue {
     directory = repositoryPath;
   }
 
-  public Path getDirectory() {
-    return directory;
-  }
-
   @Override
   public boolean equals(Object other) {
     return this == other || (other instanceof DecompressorValue
@@ -89,8 +86,8 @@ public class DecompressorValue implements SkyValue {
     return directory.hashCode();
   }
 
-  static Decompressor getDecompressor(Path archivePath)
-      throws RepositoryFunctionException {
+  @VisibleForTesting
+  static Decompressor getDecompressor(Path archivePath) throws RepositoryFunctionException {
     String baseName = archivePath.getBaseName();
     if (baseName.endsWith(".zip")
         || baseName.endsWith(".jar")
@@ -105,7 +102,7 @@ public class DecompressorValue implements SkyValue {
       return TarXzFunction.INSTANCE;
     } else if (baseName.endsWith(".tar.zst") || baseName.endsWith(".tzst")) {
       return TarZstFunction.INSTANCE;
-    } else if (baseName.endsWith(".tar.bz2")) {
+    } else if (baseName.endsWith(".tar.bz2") || baseName.endsWith(".tbz")) {
       return TarBz2Function.INSTANCE;
     } else if (baseName.endsWith(".ar") || baseName.endsWith(".deb")) {
       return ArFunction.INSTANCE;
@@ -113,7 +110,7 @@ public class DecompressorValue implements SkyValue {
       throw new RepositoryFunctionException(
           Starlark.errorf(
               "Expected a file with a .zip, .jar, .war, .aar, .tar, .tar.gz, .tgz, .tar.xz, .txz,"
-                  + " .tar.zst, .tzst, .tar.bz2, .ar or .deb suffix (got %s)",
+                  + " .tar.zst, .tzst, .tar.bz2, .tbz, .ar or .deb suffix (got %s)",
               archivePath),
           Transience.PERSISTENT);
     }
@@ -122,7 +119,7 @@ public class DecompressorValue implements SkyValue {
   public static Path decompress(DecompressorDescriptor descriptor)
       throws RepositoryFunctionException, InterruptedException {
     try {
-      return descriptor.getDecompressor().decompress(descriptor);
+      return getDecompressor(descriptor.archivePath()).decompress(descriptor);
     } catch (IOException e) {
       Path destinationDirectory = descriptor.archivePath().getParentDirectory();
       throw new RepositoryFunctionException(

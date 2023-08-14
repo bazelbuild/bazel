@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import java.io.IOException;
 import java.time.Duration;
 import javax.annotation.Nullable;
@@ -41,6 +43,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
   private final SandboxHelpers helpers;
   private final ProcessWrapper processWrapper;
   private final Path execRoot;
+  private final ImmutableList<Root> packageRoots;
   private final Path sandboxBase;
   private final LocalEnvProvider localEnvProvider;
   @Nullable private final SandboxfsProcess sandboxfsProcess;
@@ -68,6 +71,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
     this.helpers = helpers;
     this.processWrapper = ProcessWrapper.fromCommandEnvironment(cmdEnv);
     this.execRoot = cmdEnv.getExecRoot();
+    this.packageRoots = cmdEnv.getPackageLocator().getPathEntries();
     this.localEnvProvider = LocalEnvProvider.forCurrentOs(cmdEnv.getClientEnv());
     this.sandboxBase = sandboxBase;
     this.sandboxfsProcess = sandboxfsProcess;
@@ -103,16 +107,16 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
             .addExecutionInfo(spawn.getExecutionInfo())
             .setTimeout(timeout);
 
-    Path statisticsPath = null;
-    if (getSandboxOptions().collectLocalSandboxExecutionStatistics) {
-      statisticsPath = sandboxPath.getRelative("stats.out");
-      commandLineBuilder.setStatisticsPath(statisticsPath);
-    }
+    Path statisticsPath = sandboxPath.getRelative("stats.out");
+    commandLineBuilder.setStatisticsPath(statisticsPath);
 
     SandboxInputs inputs =
         helpers.processInputFiles(
-            context.getInputMapping(PathFragment.EMPTY_FRAGMENT),
-            execRoot);
+            context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
+            execRoot,
+            execRoot,
+            packageRoots,
+            null);
     SandboxOutputs outputs = helpers.getOutputs(spawn);
 
     if (sandboxfsProcess != null) {
@@ -127,6 +131,8 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
           ImmutableSet.of(),
           sandboxfsMapSymlinkTargets,
           treeDeleter,
+          spawn.getMnemonic(),
+          /* sandboxDebugPath= */ null,
           statisticsPath);
     } else {
       return new SymlinkedSandboxedSpawn(
@@ -136,11 +142,10 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
           environment,
           inputs,
           outputs,
-          getWritableDirs(sandboxExecRoot, environment),
+          getWritableDirs(sandboxExecRoot, sandboxExecRoot, environment),
           treeDeleter,
+          /* sandboxDebugPath= */ null,
           statisticsPath,
-          getSandboxOptions().reuseSandboxDirectories,
-          sandboxBase,
           spawn.getMnemonic());
     }
   }

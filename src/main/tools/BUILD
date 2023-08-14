@@ -15,6 +15,7 @@ cc_library(
     name = "process-tools",
     srcs = ["process-tools.cc"] + select({
         "//src/conditions:darwin": ["process-tools-darwin.cc"],
+        "//src/conditions:openbsd": ["process-tools-darwin.cc"],
         "//conditions:default": ["process-tools-linux.cc"],
     }),
     hdrs = ["process-tools.h"],
@@ -38,8 +39,9 @@ cc_binary(
         ],
     }),
     linkopts = select({
-        "//src/conditions:windows": [],
         "//src/conditions:darwin": ["-lm"],
+        "//src/conditions:openbsd": [],
+        "//src/conditions:windows": [],
         "//conditions:default": [
             "-lm",
             "-lrt",
@@ -48,8 +50,8 @@ cc_binary(
     deps = select({
         "//src/conditions:windows": [],
         "//conditions:default": [
-            ":process-tools",
             ":logging",
+            ":process-tools",
         ],
     }),
 )
@@ -100,6 +102,7 @@ cc_binary(
         "//conditions:default": [
             ":logging",
             ":process-tools",
+            "//src/main/cpp/util",
         ],
     }),
 )

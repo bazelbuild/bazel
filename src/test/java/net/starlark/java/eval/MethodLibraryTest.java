@@ -263,6 +263,22 @@ public final class MethodLibraryTest {
   }
 
   @Test
+  public void testAbs() throws Exception {
+    ev.new Scenario()
+        // int
+        .testEval("abs(4)", "4")
+        .testEval("abs(-2)", "2")
+        .testEval("abs(0)", "0")
+        // float
+        .testEval("abs(-2.3)", "2.3")
+        .testEval("abs(5.2)", "5.2")
+        .testEval("abs(0.0)", "0.0")
+        // big int
+        .testEval("abs(-12345678901234567890)", "12345678901234567890")
+        .testEval("abs(12345678901234567890)", "12345678901234567890");
+  }
+
+  @Test
   public void testBoolean() throws Exception {
     ev.new Scenario().testExpression("False", Boolean.FALSE).testExpression("True", Boolean.TRUE);
   }
@@ -662,6 +678,7 @@ public final class MethodLibraryTest {
         .testExpression("type('a')", "string")
         .testExpression("type([1, 2])", "list")
         .testExpression("type((1, 2))", "tuple")
+        .testExpression("type((1,))", "tuple")
         .testExpression("type(True)", "bool")
         .testExpression("type(None)", "NoneType")
         .testExpression("type(f)", "function")

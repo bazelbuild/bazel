@@ -4,17 +4,20 @@ load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_binary", "boo
 # Description:
 #   The Java library builders, which are used by Bazel to compile Java
 #   source code.
-package(default_visibility = ["//src/java_tools/buildjar:buildjar_package_group"])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src/java_tools/buildjar:buildjar_package_group"],
+)
 
 filegroup(
     name = "srcs",
     srcs = glob(
         ["**"],
     ) + [
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:srcs",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/statistics:srcs",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:srcs",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:srcs",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/statistics:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )
@@ -220,6 +223,11 @@ java_test(
     name = "BootClassPathCachingFileManagerTest",
     srcs = ["javac/BootClassPathCachingFileManagerTest.java"],
     javacopts = [
+        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+    ],
+    jvm_flags = [
         "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
         "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
         "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",

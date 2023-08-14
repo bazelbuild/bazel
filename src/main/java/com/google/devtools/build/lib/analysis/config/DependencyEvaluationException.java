@@ -37,13 +37,13 @@ import net.starlark.java.syntax.Location;
 public class DependencyEvaluationException extends Exception {
   /* Null denotes whatever default exit code callers choose. */
   @Nullable private final DetailedExitCode detailedExitCode;
-  private final Location location;
+  @Nullable private final Location location;
   private final boolean depReportedOwnError;
 
   private DependencyEvaluationException(
       Exception cause,
       @Nullable DetailedExitCode detailedExitCode,
-      Location location,
+      @Nullable Location location,
       boolean depReportedOwnError) {
     super(cause.getMessage(), cause);
     this.detailedExitCode = detailedExitCode;
@@ -68,6 +68,7 @@ public class DependencyEvaluationException extends Exception {
     return detailedExitCode;
   }
 
+  @Nullable
   public Location getLocation() {
     return location;
   }

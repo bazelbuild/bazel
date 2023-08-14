@@ -1,6 +1,7 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_testonly = 1,
     default_visibility = ["//src:__subpackages__"],
 )
@@ -16,7 +17,6 @@ java_library(
     name = "testing",
     testonly = 1,
     srcs = [
-        "ExecGroupCollectionSubject.java",
         "ExecGroupSubject.java",
         "ResolvedToolchainContextSubject.java",
         "RuleClassSubject.java",
@@ -28,7 +28,6 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:config/toolchain_type_requirement",
-        "//src/main/java/com/google/devtools/build/lib/analysis:exec_group_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:resolved_toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:toolchain_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:toolchain_context",

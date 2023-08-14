@@ -1,0 +1,87 @@
+rule_info {
+  rule_name: "my_rule"
+  doc_string: "This is my rule. It does stuff."
+  attribute {
+    name: "name"
+    doc_string: "A unique name for this target."
+    type: NAME
+    mandatory: true
+  }
+  attribute {
+    name: "a"
+    doc_string: "Some bool"
+    type: BOOLEAN
+    mandatory: true
+  }
+  attribute {
+    name: "b"
+    doc_string: "Some int"
+    type: INT
+    mandatory: true
+  }
+  attribute {
+    name: "c"
+    doc_string: "Some int_list"
+    type: INT_LIST
+    mandatory: true
+  }
+  attribute {
+    name: "d"
+    doc_string: "Some label"
+    type: LABEL
+    mandatory: true
+  }
+  attribute {
+    name: "e"
+    doc_string: "Some label_keyed_string_dict"
+    type: LABEL_STRING_DICT
+    mandatory: true
+  }
+  attribute {
+    name: "f"
+    doc_string: "Some label_list"
+    type: LABEL_LIST
+    mandatory: true
+  }
+  attribute {
+    name: "g"
+    doc_string: "Some output"
+    type: OUTPUT
+  }
+  attribute {
+    name: "h"
+    doc_string: "Some output_list"
+    type: OUTPUT_LIST
+  }
+  attribute {
+    name: "i"
+    doc_string: "Some string"
+    type: STRING
+    mandatory: true
+  }
+  attribute {
+    name: "j"
+    doc_string: "Some string_dict"
+    type: STRING_DICT
+    mandatory: true
+  }
+  attribute {
+    name: "k"
+    doc_string: "Some string_list"
+    type: STRING_LIST
+    mandatory: true
+  }
+  attribute {
+    name: "l"
+    doc_string: "Some string_list_dict"
+    type: STRING_LIST_DICT
+    default_value: "{}"
+  }
+}
+func_info {
+  function_name: "my_rule_impl"
+  parameter {
+    name: "ctx"
+    mandatory: true
+  }
+}

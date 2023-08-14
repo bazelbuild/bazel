@@ -69,4 +69,20 @@ public class CppFileTypesTest {
     assertThat(CppFileTypes.ASSEMBLER.matches("foo.pic.s")).isFalse();
     assertThat(CppFileTypes.ASSEMBLER.matches("foo.S")).isFalse();
   }
+
+  @Test
+  public void testNoExtensionLibraries() {
+    assertThat(Link.SHARED_LIBRARY_FILETYPES.matches("someframework")).isTrue();
+    assertThat(Link.ONLY_SHARED_LIBRARY_FILETYPES.matches("someframework")).isTrue();
+    assertThat(Link.ARCHIVE_LIBRARY_FILETYPES.matches("someframework")).isTrue();
+    assertThat(Link.ARCHIVE_FILETYPES.matches("someframework")).isTrue();
+  }
+
+  @Test
+  public void testCaseSensitiveCFiles() {
+    assertThat(CppFileTypes.C_SOURCE.matches("foo.c")).isTrue();
+    assertThat(CppFileTypes.CPP_SOURCE.matches("foo.c")).isFalse();
+    assertThat(CppFileTypes.C_SOURCE.matches("foo.C")).isFalse();
+    assertThat(CppFileTypes.CPP_SOURCE.matches("foo.C")).isTrue();
+  }
 }

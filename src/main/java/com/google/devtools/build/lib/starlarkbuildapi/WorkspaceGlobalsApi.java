@@ -15,7 +15,8 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi;
 
-import com.google.devtools.build.docgen.annot.DocumentMethods;
+import com.google.devtools.build.docgen.annot.GlobalMethods;
+import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkMethod;
@@ -25,7 +26,7 @@ import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkThread;
 
 /** A collection of global Starlark build API functions that apply to WORKSPACE files. */
-@DocumentMethods
+@GlobalMethods(environment = Environment.WORKSPACE)
 public interface WorkspaceGlobalsApi {
 
   @StarlarkMethod(
@@ -92,7 +93,10 @@ public interface WorkspaceGlobalsApi {
           @Param(
               name = "toolchain_labels",
               allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
-              doc = "The labels of the toolchains to register."),
+              doc =
+                  "The labels of the toolchains to register. Labels can include "
+                      + "<code>:all</code>, in which case, all toolchain-providing targets in the "
+                      + "package will be registered in lexicographical order by name."),
       useStarlarkThread = true)
   void registerToolchains(Sequence<?> toolchainLabels, StarlarkThread thread)
       throws EvalException, InterruptedException;

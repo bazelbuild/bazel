@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
 import java.util.Map;
@@ -72,9 +73,6 @@ public class AppleLinkingOutputs {
     abstract Artifact getBinary();
 
     @Nullable
-    abstract Artifact getBitcodeSymbols();
-
-    @Nullable
     abstract Artifact getDsymBinary();
 
     @Nullable
@@ -91,8 +89,6 @@ public class AppleLinkingOutputs {
 
       abstract Builder setBinary(Artifact binary);
 
-      abstract Builder setBitcodeSymbols(Artifact bitcodeSymbols);
-
       abstract Builder setDsymBinary(Artifact dsymBinary);
 
       abstract Builder setLinkmap(Artifact linkmap);
@@ -101,6 +97,7 @@ public class AppleLinkingOutputs {
     }
   }
 
+  private final CcInfo depsCcInfo;
   private final ObjcProvider depsObjcProvider;
   private final ImmutableList<LinkingOutput> outputs;
   private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
@@ -108,10 +105,12 @@ public class AppleLinkingOutputs {
   private final AppleDebugOutputsInfo legacyDebugOutputsProvider;
 
   AppleLinkingOutputs(
+      CcInfo depsCcInfo,
       ObjcProvider depsObjcProvider,
       ImmutableList<LinkingOutput> outputs,
       ImmutableMap<String, NestedSet<Artifact>> outputGroups,
       AppleDebugOutputsInfo legacyDebugOutputsProvider) {
+    this.depsCcInfo = depsCcInfo;
     this.depsObjcProvider = depsObjcProvider;
     this.outputs = outputs;
     this.outputGroups = outputGroups;
@@ -125,6 +124,14 @@ public class AppleLinkingOutputs {
    */
   public ObjcProvider getDepsObjcProvider() {
     return depsObjcProvider;
+  }
+
+  /**
+   * Returns an {@link CcInfo} containing information about the transitive dependencies linked into
+   * the binary.
+   */
+  public CcInfo getDepsCcInfo() {
+    return depsCcInfo;
   }
 
   /** Returns the list of single-architecture/platform outputs. */
@@ -153,6 +160,7 @@ public class AppleLinkingOutputs {
     private final ImmutableList.Builder<LinkingOutput> outputs;
     private final ImmutableMap.Builder<String, NestedSet<Artifact>> outputGroups;
     private ObjcProvider depsObjcProvider;
+    private CcInfo depsCcInfo;
 
     private AppleDebugOutputsInfo legacyDebugOutputsProvider;
 
@@ -183,6 +191,16 @@ public class AppleLinkingOutputs {
     }
 
     /**
+     * Sets the {@link CcInfo} that contains information about transitive dependencies linked into
+     * the binary.
+     */
+    @CanIgnoreReturnValue
+    public Builder setDepsCcInfo(CcInfo depsCcInfo) {
+      this.depsCcInfo = depsCcInfo;
+      return this;
+    }
+
+    /**
      * Sets the {@link ObjcProvider} that contains information about transitive dependencies linked
      * into the binary.
      */
@@ -194,6 +212,7 @@ public class AppleLinkingOutputs {
 
     public AppleLinkingOutputs build() {
       return new AppleLinkingOutputs(
+          depsCcInfo,
           depsObjcProvider,
           outputs.build(),
           outputGroups.buildOrThrow(),

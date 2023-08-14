@@ -14,6 +14,9 @@
 
 <h1 class="page-title">${ruleFamily.name} Rules</h1>
 
+{% dynamic setvar source_file "src/main/java/com/google/devtools/build/docgen/templates/be/rules.vm" %}
+{% include "_buttons.html" %}
+
 ${ruleFamily.summary}
 
 #if (!$singlePage)
@@ -34,6 +37,10 @@ ${ruleFamily.summary}
     ${rule.ruleName}
   </h2>
 
+    <a class="button button-with-icon" href="https://github.com/bazelbuild/bazel/blob/master/${rule.workspaceRelativeFileName}" target="_blank">
+  View rule source<span class="material-icons icon-after" aria-hidden="true">open_in_new</span>
+  </a>
+  
   <pre class="rule-signature">${rule.attributeSignature}</pre>
 
   $rule.htmlDocumentation

@@ -12,15 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import os
 import unittest
 
 # Do not edit this line. Copybara replaces it with PY2 migration helper.
-import six
 
 from tools.jdk import proguard_whitelister
 
@@ -38,21 +33,20 @@ class ProguardConfigValidatorTest(unittest.TestCase):
     # This will raise an exception if the config is invalid.
     self._CreateValidator(input_path, output_path).ValidateAndWriteOutput()
     with open(output_path) as output:
-      self.assertTrue(("# Merged from %s" % input_path) in output.read())
+      self.assertIn("# Merged from %s" % input_path, output.read())
 
   def _TestInvalidConfig(self, invalid_args, config):
     tmpdir = os.environ["TEST_TMPDIR"]
     input_path = os.path.join(tmpdir, "proguard_whitelister_test_input.pgcfg")
-    with open(input_path, "w") as f:
-      f.write(six.ensure_str(config))
+    with open(input_path, "w", encoding="utf-8") as f:
+      f.write(config)
     output_path = os.path.join(tmpdir, "proguard_whitelister_test_output.pgcfg")
     validator = self._CreateValidator(input_path, output_path)
-    try:
+    with self.assertRaises(RuntimeError) as error:
       validator.ValidateAndWriteOutput()
-      self.fail()
-    except RuntimeError as e:
-      for invalid_arg in invalid_args:
-        self.assertTrue(six.ensure_str(invalid_arg) in str(e))
+    message = str(error.exception)
+    for invalid_arg in invalid_args:
+      self.assertIn(invalid_arg, message)
 
   def testInvalidNoteConfig(self):
     self._TestInvalidConfig(["-dontnote"], """\

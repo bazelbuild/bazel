@@ -63,14 +63,8 @@ public class PackageGroupsRuleVisibility implements RuleVisibility {
     return declaredLabels;
   }
 
-  /**
-   * Tries to parse a list of labels into a {@link PackageGroupsRuleVisibility}.
-   *
-   * @param labels the list of labels to parse
-   * @return The resulting visibility object. A list of labels can always be parsed into a
-   *     PackageGroupsRuleVisibility.
-   */
-  public static PackageGroupsRuleVisibility tryParse(List<Label> labels) {
+  /** Creates a {@link PackageGroupsRuleVisibility} from a list of labels. */
+  public static PackageGroupsRuleVisibility create(List<Label> labels) {
     return new PackageGroupsRuleVisibility(labels);
   }
 }

@@ -120,6 +120,11 @@ public class TargetPatternFunction implements SkyFunction {
       // on EnvironmentBackedRecursivePackageProvider all belong to an interface shared with other
       // implementations that are unconcerned with MissingDepExceptions.
       return null;
+    } catch (InterruptedException e) {
+      if (env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors()) {
+        maybeThrowEncounteredException(parsedPattern, provider);
+      }
+      throw e;
     }
     if (env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors()) {
       maybeThrowEncounteredException(parsedPattern, provider);

@@ -15,7 +15,10 @@
 """Definitions related to the Python toolchain."""
 
 load(":utils.bzl", "expand_pyversion_template")
-load(":private/defs.bzl", "py_runtime")
+
+# TODO: move py_runtime_pair into rules_python (and the rest of @bazel_tools//python)
+# py_runtime should be loaded from rules_python, but this creates a circular dep, because py_runtime_pair is imported there.
+py_runtime = native.py_runtime
 
 def _py_runtime_pair_impl(ctx):
     if ctx.attr.py2_runtime != None:
@@ -34,10 +37,23 @@ def _py_runtime_pair_impl(ctx):
     else:
         py3_runtime = None
 
+    # TODO: Uncomment this after --incompatible_python_disable_py2 defaults to true
+    # if _is_py2_disabled(ctx) and py2_runtime != None:
+    #     fail("Using Python 2 is not supported and disabled; see " +
+    #          "https://github.com/bazelbuild/bazel/issues/15684")
+
     return [platform_common.ToolchainInfo(
         py2_runtime = py2_runtime,
         py3_runtime = py3_runtime,
     )]
+
+def _is_py2_disabled(ctx):
+    # In Google, this file isn't bundled with Bazel, so we have to conditionally
+    # check for this flag.
+    # TODO: Remove this once a build with the flag is released in Google
+    if not hasattr(ctx.fragments.py, "disable_py"):
+        return False
+    return ctx.fragments.py.disable_py2
 
 py_runtime_pair = rule(
     implementation = _py_runtime_pair_impl,
@@ -61,6 +77,7 @@ The runtime to use for Python 3 targets. Must have `python_version` set to
 """,
         ),
     },
+    fragments = ["py"],
     doc = """\
 A toolchain rule for Python.
 
@@ -171,26 +188,10 @@ def define_autodetecting_toolchain(
     # https://github.com/bazelbuild/bazel/issues/4286#issuecomment-475661317.
 
     py_runtime(
-        name = "_autodetecting_py2_runtime",
-        interpreter = ":py2wrapper.sh",
-        python_version = "PY2",
-        stub_shebang = "#!/usr/bin/env python2",
-        visibility = ["//visibility:private"],
-    )
-
-    py_runtime(
         name = "_autodetecting_py3_runtime",
         interpreter = ":py3wrapper.sh",
         python_version = "PY3",
         stub_shebang = "#!/usr/bin/env python3",
-        visibility = ["//visibility:private"],
-    )
-
-    py_runtime(
-        name = "_autodetecting_py2_runtime_nonstrict",
-        interpreter = ":py2wrapper_nonstrict.sh",
-        python_version = "PY2",
-        stub_shebang = "#!/usr/bin/env python2",
         visibility = ["//visibility:private"],
     )
 
@@ -206,35 +207,33 @@ def define_autodetecting_toolchain(
     # logic to use the legacy behavior on Windows.
     # TODO(#7844): Remove this target.
     py_runtime(
-        name = "_sentinel_py2_runtime",
+        name = "_magic_sentinel_runtime",
         interpreter_path = "/_magic_pyruntime_sentinel_do_not_use",
-        python_version = "PY2",
+        python_version = "PY3",
         visibility = ["//visibility:private"],
     )
 
     py_runtime_pair(
         name = "_autodetecting_py_runtime_pair",
-        py2_runtime = select({
+        py3_runtime = select({
             # If we're on windows, inject the sentinel to tell native rule logic
             # that we attempted to use the autodetecting toolchain and need to
             # switch back to legacy behavior.
             # TODO(#7844): Remove this hack.
-            windows_config_setting: ":_sentinel_py2_runtime",
-            "//conditions:default": ":_autodetecting_py2_runtime",
+            windows_config_setting: ":_magic_sentinel_runtime",
+            "//conditions:default": ":_autodetecting_py3_runtime",
         }),
-        py3_runtime = ":_autodetecting_py3_runtime",
         visibility = ["//visibility:public"],
     )
 
     py_runtime_pair(
         name = "_autodetecting_py_runtime_pair_nonstrict",
-        py2_runtime = select({
+        py3_runtime = select({
             # Same hack as above.
             # TODO(#7844): Remove this hack.
-            windows_config_setting: ":_sentinel_py2_runtime",
-            "//conditions:default": ":_autodetecting_py2_runtime_nonstrict",
+            windows_config_setting: ":_magic_sentinel_runtime",
+            "//conditions:default": ":_autodetecting_py3_runtime_nonstrict",
         }),
-        py3_runtime = ":_autodetecting_py3_runtime_nonstrict",
         visibility = ["//visibility:public"],
     )
 

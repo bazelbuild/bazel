@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -96,6 +97,10 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
   /** Flag to track whether the sandbox needs to be unmapped. */
   private boolean sandboxIsMapped;
 
+  /** The mnemonic of this spawn. */
+  private final String mnemonic;
+
+  @Nullable private final Path sandboxDebugPath;
   @Nullable private final Path statisticsPath;
 
   /**
@@ -111,6 +116,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
    *     dynamically-allocated execroot
    * @param mapSymlinkTargets map the targets of symlinks within the sandbox if true
    * @param treeDeleter scheduler for tree deletions
+   * @param mnemonic Mnemonic of this spawn.
    */
   SandboxfsSandboxedSpawn(
       SandboxfsProcess process,
@@ -123,6 +129,8 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
       Set<PathFragment> writableDirs,
       boolean mapSymlinkTargets,
       TreeDeleter treeDeleter,
+      String mnemonic,
+      @Nullable Path sandboxDebugPath,
       @Nullable Path statisticsPath) {
     this.process = process;
     this.arguments = arguments;
@@ -141,6 +149,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
     this.writableDirs = writableDirs;
     this.mapSymlinkTargets = mapSymlinkTargets;
     this.treeDeleter = treeDeleter;
+    this.mnemonic = mnemonic;
 
     this.sandboxPath = sandboxPath;
     this.sandboxScratchDir = sandboxPath.getRelative("scratch");
@@ -148,6 +157,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
     int id = lastId.getAndIncrement();
     this.sandboxName = "" + id;
     this.sandboxIsMapped = false;
+    this.sandboxDebugPath = sandboxDebugPath;
     this.statisticsPath = statisticsPath;
 
     // b/64689608: The execroot of the sandboxed process must end with the workspace name, just
@@ -174,15 +184,23 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
   }
 
   @Override
+  public Path getSandboxDebugPath() {
+    return sandboxDebugPath;
+  }
+
+  @Override
   public Path getStatisticsPath() {
     return statisticsPath;
   }
 
   @Override
+  public String getMnemonic() {
+    return mnemonic;
+  }
+
+  @Override
   public void createFileSystem() throws IOException {
     sandboxScratchDir.createDirectory();
-
-    inputs.materializeVirtualInputs(sandboxScratchDir);
 
     Set<PathFragment> dirsToCreate = new HashSet<>(writableDirs);
     for (PathFragment output : outputs.files()) {
@@ -322,7 +340,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
     // created once we encounter the first symlink in the list of inputs.
     Map<PathFragment, PathFragment> symlinks = null;
 
-    for (Map.Entry<PathFragment, Path> entry : inputs.getFiles().entrySet()) {
+    for (Map.Entry<PathFragment, RootedPath> entry : inputs.getFiles().entrySet()) {
       if (entry.getValue() == null) {
         if (emptyFile == null) {
           Path emptyFilePath = scratchDir.getRelative("empty");
@@ -330,11 +348,11 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
           emptyFile = emptyFilePath.asFragment();
         }
       } else {
-        if (sandboxfsMapSymlinkTargets && entry.getValue().isSymbolicLink()) {
+        if (sandboxfsMapSymlinkTargets && entry.getValue().asPath().isSymbolicLink()) {
           if (symlinks == null) {
             symlinks = new HashMap<>();
           }
-          computeSymlinkMappings(entry.getKey(), entry.getValue(), symlinks);
+          computeSymlinkMappings(entry.getKey(), entry.getValue().asPath(), symlinks);
         }
       }
     }
@@ -350,13 +368,13 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
         (mapper) -> {
           mapper.map(rootFragment, scratchDir.asFragment(), true);
 
-          for (Map.Entry<PathFragment, Path> entry : inputs.getFiles().entrySet()) {
+          for (Map.Entry<PathFragment, RootedPath> entry : inputs.getFiles().entrySet()) {
             PathFragment target;
             if (entry.getValue() == null) {
               checkNotNull(finalEmptyFile, "Must have been initialized above by matching logic");
               target = finalEmptyFile;
             } else {
-              target = entry.getValue().asFragment();
+              target = entry.getValue().asPath().asFragment();
             }
             mapper.map(rootFragment.getRelative(entry.getKey()), target, false);
           }

@@ -15,19 +15,22 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -42,11 +45,14 @@ public class BazelModuleInspectorFunction implements SkyFunction {
 
   @Override
   @Nullable
-  public SkyValue compute(SkyKey skyKey, Environment env)
-      throws SkyFunctionException, InterruptedException {
+  public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     RootModuleFileValue root =
         (RootModuleFileValue) env.getValue(ModuleFileValue.KEY_FOR_ROOT_MODULE);
     if (root == null) {
+      return null;
+    }
+    BazelDepGraphValue depGraphValue = (BazelDepGraphValue) env.getValue(BazelDepGraphValue.KEY);
+    if (depGraphValue == null) {
       return null;
     }
     BazelModuleResolutionValue resolutionValue =
@@ -55,11 +61,17 @@ public class BazelModuleInspectorFunction implements SkyFunction {
       return null;
     }
     ImmutableMap<String, ModuleOverride> overrides = root.getOverrides();
-    ImmutableMap<ModuleKey, Module> unprunedDepGraph = resolutionValue.getUnprunedDepGraph();
-    ImmutableMap<ModuleKey, Module> resolvedDepGraph = resolutionValue.getDepGraph();
+    ImmutableMap<ModuleKey, InterimModule> unprunedDepGraph = resolutionValue.getUnprunedDepGraph();
+    ImmutableMap<ModuleKey, Module> resolvedDepGraph = resolutionValue.getResolvedDepGraph();
 
     ImmutableMap<ModuleKey, AugmentedModule> depGraph =
         computeAugmentedGraph(unprunedDepGraph, resolvedDepGraph.keySet(), overrides);
+
+    ImmutableSetMultimap<ModuleExtensionId, String> extensionToRepoInternalNames =
+        computeExtensionToRepoInternalNames(depGraphValue, env);
+    if (extensionToRepoInternalNames == null) {
+      return null;
+    }
 
     // Group all ModuleKeys seen by their module name for easy lookup
     ImmutableMap<String, ImmutableSet<ModuleKey>> modulesIndex =
@@ -70,11 +82,11 @@ public class BazelModuleInspectorFunction implements SkyFunction {
                         AugmentedModule::getName,
                         Collectors.mapping(AugmentedModule::getKey, toImmutableSet()))));
 
-    return BazelModuleInspectorValue.create(depGraph, modulesIndex);
+    return BazelModuleInspectorValue.create(depGraph, modulesIndex, extensionToRepoInternalNames);
   }
 
   public static ImmutableMap<ModuleKey, AugmentedModule> computeAugmentedGraph(
-      ImmutableMap<ModuleKey, Module> unprunedDepGraph,
+      ImmutableMap<ModuleKey, InterimModule> unprunedDepGraph,
       ImmutableSet<ModuleKey> usedModules,
       ImmutableMap<String, ModuleOverride> overrides) {
     Map<ModuleKey, AugmentedModule.Builder> depGraphAugmentBuilder = new HashMap<>();
@@ -83,9 +95,9 @@ public class BazelModuleInspectorFunction implements SkyFunction {
     // to their children AugmentedModule as dependant. Also fill in their own AugmentedModule
     // with a map from their dependencies to the resolution reason that was applied to each.
     // The newly created graph will also contain ModuleAugments for non-loaded modules.
-    for (Entry<ModuleKey, Module> e : unprunedDepGraph.entrySet()) {
+    for (Entry<ModuleKey, InterimModule> e : unprunedDepGraph.entrySet()) {
       ModuleKey parentKey = e.getKey();
-      Module parentModule = e.getValue();
+      InterimModule parentModule = e.getValue();
 
       AugmentedModule.Builder parentBuilder =
           depGraphAugmentBuilder
@@ -95,10 +107,10 @@ public class BazelModuleInspectorFunction implements SkyFunction {
               .setLoaded(true);
 
       for (String childDep : parentModule.getDeps().keySet()) {
-        ModuleKey originalKey = parentModule.getOriginalDeps().get(childDep);
-        Module originalModule = unprunedDepGraph.get(originalKey);
-        ModuleKey key = parentModule.getDeps().get(childDep);
-        Module module = unprunedDepGraph.get(key);
+        ModuleKey originalKey = parentModule.getOriginalDeps().get(childDep).toModuleKey();
+        InterimModule originalModule = unprunedDepGraph.get(originalKey);
+        ModuleKey key = parentModule.getDeps().get(childDep).toModuleKey();
+        InterimModule module = unprunedDepGraph.get(key);
 
         AugmentedModule.Builder originalChildBuilder =
             depGraphAugmentBuilder.computeIfAbsent(originalKey, AugmentedModule::builder);
@@ -139,18 +151,45 @@ public class BazelModuleInspectorFunction implements SkyFunction {
             } else {
               // There is no other possible override
               Preconditions.checkArgument(override instanceof NonRegistryOverride);
-              reason = ResolutionReason.NON_REGISTRY_OVERRIDE;
+              reason = ((NonRegistryOverride) override).getResolutionReason();
             }
           } else {
             reason = ResolutionReason.MINIMAL_VERSION_SELECTION;
           }
         }
 
-        parentBuilder.addDep(key, reason);
+        if (!reason.equals(ResolutionReason.ORIGINAL)) {
+          parentBuilder.addUnusedDep(childDep, originalKey);
+        }
+        parentBuilder.addDep(childDep, key);
+        parentBuilder.addDepReason(childDep, reason);
       }
     }
 
     return depGraphAugmentBuilder.entrySet().stream()
         .collect(toImmutableMap(Entry::getKey, e -> e.getValue().build()));
+  }
+
+  @Nullable
+  private ImmutableSetMultimap<ModuleExtensionId, String> computeExtensionToRepoInternalNames(
+      BazelDepGraphValue depGraphValue, Environment env) throws InterruptedException {
+    ImmutableSet<ModuleExtensionId> extensionEvalKeys =
+        depGraphValue.getExtensionUsagesTable().rowKeySet();
+    ImmutableList<SingleExtensionEvalValue.Key> singleEvalKeys =
+        extensionEvalKeys.stream().map(SingleExtensionEvalValue::key).collect(toImmutableList());
+    SkyframeLookupResult singleEvalValues = env.getValuesAndExceptions(singleEvalKeys);
+
+    ImmutableSetMultimap.Builder<ModuleExtensionId, String> extensionToRepoInternalNames =
+        ImmutableSetMultimap.builder();
+    for (SingleExtensionEvalValue.Key singleEvalKey : singleEvalKeys) {
+      SingleExtensionEvalValue singleEvalValue =
+          (SingleExtensionEvalValue) singleEvalValues.get(singleEvalKey);
+      if (singleEvalValue == null) {
+        return null;
+      }
+      extensionToRepoInternalNames.putAll(
+          singleEvalKey.argument(), singleEvalValue.getGeneratedRepoSpecs().keySet());
+    }
+    return extensionToRepoInternalNames.build();
   }
 }

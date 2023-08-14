@@ -14,20 +14,25 @@
 
 package com.google.devtools.build.skydoc;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.runfiles.Runfiles;
+import com.google.devtools.build.runfiles.RunfilesForStardoc;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeDeepStructure;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
@@ -44,6 +49,7 @@ import com.google.devtools.common.options.OptionsParser;
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -69,16 +75,12 @@ import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.lib.json.Json;
-import net.starlark.java.syntax.Expression;
-import net.starlark.java.syntax.ExpressionStatement;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.Resolver;
 import net.starlark.java.syntax.Resolver.Scope;
 import net.starlark.java.syntax.StarlarkFile;
-import net.starlark.java.syntax.Statement;
-import net.starlark.java.syntax.StringLiteral;
 import net.starlark.java.syntax.SyntaxError;
 
 /**
@@ -105,26 +107,16 @@ public class SkydocMain {
   private final EventHandler eventHandler = new SystemOutEventHandler();
   private final LinkedHashSet<Path> pending = new LinkedHashSet<>();
   private final Map<Path, Module> loaded = new HashMap<>();
-  private final StarlarkFileAccessor fileAccessor;
-  private final List<String> depRoots;
   private final String workspaceName;
+  private final Runfiles.Preloaded runfiles;
 
-  public SkydocMain(
-      StarlarkFileAccessor fileAccessor, String workspaceName, List<String> depRoots) {
-    this.fileAccessor = fileAccessor;
+  public SkydocMain(String workspaceName, Runfiles.Preloaded runfiles) {
     this.workspaceName = workspaceName;
-    if (depRoots.isEmpty()) {
-      // For backwards compatibility, if no dep_roots are specified, use the current
-      // directory as the only root.
-      this.depRoots = ImmutableList.of(".");
-    } else {
-      this.depRoots = depRoots;
-    }
+    this.runfiles = runfiles;
   }
 
   public static void main(String[] args)
-      throws IOException, InterruptedException, LabelSyntaxException, EvalException,
-          DocstringParseException {
+      throws IOException, InterruptedException, LabelSyntaxException, DocstringParseException {
     OptionsParser parser =
         OptionsParser.builder()
             .optionsClasses(BuildLanguageOptions.class, SkydocOptions.class)
@@ -136,8 +128,6 @@ public class SkydocMain {
 
     String targetFileLabelString;
     String outputPath;
-    ImmutableSet<String> symbolNames;
-    ImmutableList<String> depRoots;
 
     if (Strings.isNullOrEmpty(skydocOptions.targetFileLabel)
         || Strings.isNullOrEmpty(skydocOptions.outputFilePath)) {
@@ -146,58 +136,42 @@ public class SkydocMain {
 
     targetFileLabelString = skydocOptions.targetFileLabel;
     outputPath = skydocOptions.outputFilePath;
-    symbolNames = ImmutableSet.copyOf(skydocOptions.symbolNames);
-    depRoots = ImmutableList.copyOf(skydocOptions.depRoots);
 
-    Label targetFileLabel = Label.parseAbsolute(targetFileLabelString, ImmutableMap.of());
+    Label targetFileLabel = Label.parseCanonical(targetFileLabelString);
 
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
     ImmutableMap.Builder<String, ProviderInfo> providerInfoMap = ImmutableMap.builder();
     ImmutableMap.Builder<String, StarlarkFunction> userDefinedFunctions = ImmutableMap.builder();
     ImmutableMap.Builder<String, AspectInfo> aspectInfoMap = ImmutableMap.builder();
-    ImmutableMap.Builder<Label, String> moduleDocMap = ImmutableMap.builder();
 
+    Module module = null;
     try {
-      new SkydocMain(new FilesystemFileAccessor(), skydocOptions.workspaceName, depRoots)
-          .eval(
-              semanticsOptions.toStarlarkSemantics(),
-              targetFileLabel,
-              ruleInfoMap,
-              providerInfoMap,
-              userDefinedFunctions,
-              aspectInfoMap,
-              moduleDocMap);
-    } catch (StarlarkEvaluationException exception) {
+      module =
+          new SkydocMain(skydocOptions.workspaceName, Runfiles.preload())
+              .eval(
+                  semanticsOptions.toStarlarkSemantics(),
+                  // The label passed on the command line is assumed to be canonical.
+                  targetFileLabel,
+                  ruleInfoMap,
+                  providerInfoMap,
+                  userDefinedFunctions,
+                  aspectInfoMap);
+    } catch (StarlarkEvaluationException | EvalException exception) {
       exception.printStackTrace();
       System.err.println("Stardoc documentation generation failed: " + exception.getMessage());
       System.exit(1);
     }
 
-    Map<String, RuleInfo> filteredRuleInfos =
-        ruleInfoMap.build().entrySet().stream()
-            .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
-            .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
-    Map<String, ProviderInfo> filteredProviderInfos =
-        providerInfoMap.build().entrySet().stream()
-            .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
-            .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
-    Map<String, StarlarkFunction> filteredStarlarkFunctions =
-        userDefinedFunctions.build().entrySet().stream()
-            .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
-            .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
-    Map<String, AspectInfo> filteredAspectInfos =
-        aspectInfoMap.build().entrySet().stream()
-            .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
-            .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
-
+    ProtoRenderer renderer =
+        render(
+            module,
+            ImmutableSet.copyOf(skydocOptions.symbolNames),
+            ruleInfoMap.buildOrThrow(),
+            providerInfoMap.buildOrThrow(),
+            userDefinedFunctions.buildOrThrow(),
+            aspectInfoMap.buildOrThrow());
     try (BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(outputPath))) {
-      new ProtoRenderer()
-          .appendRuleInfos(filteredRuleInfos.values())
-          .appendProviderInfos(filteredProviderInfos.values())
-          .appendStarlarkFunctionInfos(filteredStarlarkFunctions)
-          .appendAspectInfos(filteredAspectInfos.values())
-          .setModuleDocstring(moduleDocMap.build().get(targetFileLabel))
-          .writeModuleInfo(out);
+      renderer.writeModuleInfo(out);
     }
   }
 
@@ -215,11 +189,67 @@ public class SkydocMain {
   }
 
   /**
+   * Renders a Starlark module to proto form.
+   *
+   * @param symbolNames symbols to render; if empty, all non-private symbols (i.e. those whose names
+   *     do not start with '_') will be rendered.
+   * @param ruleInfoMap a map of rule definition information for named rules. Keys are exported
+   *     names of rules, and values are their {@link RuleInfo} rule descriptions. For example,
+   *     'my_rule = rule(...)' has key 'my_rule'
+   * @param providerInfoMap a map of provider definition information for named providers. Keys are
+   *     exported names of providers, and values are their {@link ProviderInfo} descriptions. For
+   *     example, 'my_provider = provider(...)' has key 'my_provider'
+   * @param userDefinedFunctions a map of user-defined functions. Keys are exported names of
+   *     functions, and values are the {@link StarlarkFunction} objects. For example, 'def
+   *     my_function(foo):' is a function with key 'my_function'.
+   * @param aspectInfoMap a map of aspect definition information for named aspects. Keys are
+   *     exported names of aspects, and values are the {@link AspectInfo} asepct descriptions. For
+   *     example, 'my_aspect = aspect(...)' has key 'my_aspect'
+   */
+  @VisibleForTesting
+  public static ProtoRenderer render(
+      Module module,
+      ImmutableSet<String> symbolNames,
+      ImmutableMap<String, RuleInfo> ruleInfoMap,
+      ImmutableMap<String, ProviderInfo> providerInfoMap,
+      ImmutableMap<String, StarlarkFunction> userDefinedFunctions,
+      ImmutableMap<String, AspectInfo> aspectInfoMap)
+      throws DocstringParseException {
+    ImmutableMap<String, RuleInfo> filteredRuleInfos =
+        ruleInfoMap.entrySet().stream()
+            .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
+            .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+    ImmutableMap<String, ProviderInfo> filteredProviderInfos =
+        providerInfoMap.entrySet().stream()
+            .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
+            .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+    ImmutableMap<String, StarlarkFunction> filteredStarlarkFunctions =
+        userDefinedFunctions.entrySet().stream()
+            .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
+            .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+    ImmutableMap<String, AspectInfo> filteredAspectInfos =
+        aspectInfoMap.entrySet().stream()
+            .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
+            .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+
+    String moduleDocstring = module.getDocumentation();
+    if (moduleDocstring == null) {
+      moduleDocstring = "";
+    }
+    return new ProtoRenderer()
+        .appendRuleInfos(filteredRuleInfos.values())
+        .appendProviderInfos(filteredProviderInfos.values())
+        .appendStarlarkFunctionInfos(filteredStarlarkFunctions)
+        .appendAspectInfos(filteredAspectInfos.values())
+        .setModuleDocstring(moduleDocstring);
+  }
+
+  /**
    * Evaluates/interprets the Starlark file at a given path and its transitive Starlark dependencies
    * using a fake build API and collects information about all rule definitions made in the root
    * Starlark file.
    *
-   * @param label the label of the Starlark file to evaluate
+   * @param canonicalLabel the canonical label of the Starlark file to evaluate
    * @param ruleInfoMap a map builder to be populated with rule definition information for named
    *     rules. Keys are exported names of rules, and values are their {@link RuleInfo} rule
    *     descriptions. For example, 'my_rule = rule(...)' has key 'my_rule'
@@ -233,20 +263,20 @@ public class SkydocMain {
    * @param aspectInfoMap a map builder to be populated with aspect definition information for named
    *     aspects. Keys are exported names of aspects, and values are the {@link AspectInfo} asepct
    *     descriptions. For example, 'my_aspect = aspect(...)' has key 'my_aspect'
-   * @param moduleDocMap a map builder to be populated with module docstrings for Starlark file.
-   *     Keys are labels of Starlark files and values are their module docstrings. If the module has
-   *     no docstring, an empty string will be printed.
    * @throws InterruptedException if evaluation is interrupted
    */
+  @VisibleForTesting
   public Module eval(
       StarlarkSemantics semantics,
-      Label label,
+      Label canonicalLabel,
       ImmutableMap.Builder<String, RuleInfo> ruleInfoMap,
       ImmutableMap.Builder<String, ProviderInfo> providerInfoMap,
       ImmutableMap.Builder<String, StarlarkFunction> userDefinedFunctionMap,
-      ImmutableMap.Builder<String, AspectInfo> aspectInfoMap,
-      ImmutableMap.Builder<Label, String> moduleDocMap)
-      throws InterruptedException, IOException, LabelSyntaxException, EvalException,
+      ImmutableMap.Builder<String, AspectInfo> aspectInfoMap)
+      throws InterruptedException,
+          IOException,
+          LabelSyntaxException,
+          EvalException,
           StarlarkEvaluationException {
 
     List<RuleInfoWrapper> ruleInfoList = new ArrayList<>();
@@ -256,8 +286,7 @@ public class SkydocMain {
     List<AspectInfoWrapper> aspectInfoList = new ArrayList<>();
 
     Module module =
-        recursiveEval(
-            semantics, label, ruleInfoList, providerInfoList, aspectInfoList, moduleDocMap);
+        recursiveEval(semantics, canonicalLabel, ruleInfoList, providerInfoList, aspectInfoList);
 
     Map<StarlarkCallable, RuleInfoWrapper> ruleFunctions =
         ruleInfoList.stream()
@@ -278,14 +307,9 @@ public class SkydocMain {
 
     for (Entry<String, Object> envEntry : sortedBindings.entrySet()) {
       if (ruleFunctions.containsKey(envEntry.getValue())) {
-        RuleInfo ruleInfo = ruleFunctions.get(envEntry.getValue()).getRuleInfo().build();
-        // Use symbol name as the rule name only if not already set in the call to rule().
-        if ("".equals(ruleInfo.getRuleName())) {
-          // We make a copy so that additional exports are not affected by setting the rule name on
-          // this builder
-          ruleInfo = ruleInfo.toBuilder().setRuleName(envEntry.getKey()).build();
-        }
-        ruleInfoMap.put(ruleInfo.getRuleName(), ruleInfo);
+        RuleInfo.Builder ruleInfoBuild = ruleFunctions.get(envEntry.getValue()).getRuleInfo();
+        RuleInfo ruleInfo = ruleInfoBuild.setRuleName(envEntry.getKey()).build();
+        ruleInfoMap.put(envEntry.getKey(), ruleInfo);
       }
       if (providerInfos.containsKey(envEntry.getValue())) {
         ProviderInfo.Builder providerInfoBuild =
@@ -300,7 +324,8 @@ public class SkydocMain {
       if (envEntry.getValue() instanceof FakeStructApi) {
         String namespaceName = envEntry.getKey();
         FakeStructApi namespace = (FakeStructApi) envEntry.getValue();
-        putStructFields(namespaceName, namespace, userDefinedFunctionMap);
+        putStructFields(
+            namespaceName, namespace, ruleFunctions, ruleInfoMap, userDefinedFunctionMap);
       }
       if (aspectFunctions.containsKey(envEntry.getValue())) {
         AspectInfo.Builder aspectInfoBuild =
@@ -324,32 +349,24 @@ public class SkydocMain {
   private static void putStructFields(
       String namespaceName,
       FakeStructApi namespace,
+      Map<StarlarkCallable, RuleInfoWrapper> ruleFunctions,
+      ImmutableMap.Builder<String, RuleInfo> ruleInfoMap,
       ImmutableMap.Builder<String, StarlarkFunction> userDefinedFunctionMap)
       throws EvalException {
     for (String field : namespace.getFieldNames()) {
       String qualifiedFieldName = namespaceName + "." + field;
-      if (namespace.getValue(field) instanceof StarlarkFunction) {
+      if (ruleFunctions.containsKey(namespace.getValue(field))) {
+        ruleInfoMap.put(
+            qualifiedFieldName, ruleFunctions.get(namespace.getValue(field)).getRuleInfo().build());
+      } else if (namespace.getValue(field) instanceof StarlarkFunction) {
         StarlarkFunction userDefinedFunction = (StarlarkFunction) namespace.getValue(field);
         userDefinedFunctionMap.put(qualifiedFieldName, userDefinedFunction);
       } else if (namespace.getValue(field) instanceof FakeStructApi) {
         FakeStructApi innerNamespace = (FakeStructApi) namespace.getValue(field);
-        putStructFields(qualifiedFieldName, innerNamespace, userDefinedFunctionMap);
+        putStructFields(
+            qualifiedFieldName, innerNamespace, ruleFunctions, ruleInfoMap, userDefinedFunctionMap);
       }
     }
-  }
-
-  private static String getModuleDoc(StarlarkFile buildFileAST) {
-    ImmutableList<Statement> fileStatements = buildFileAST.getStatements();
-    if (!fileStatements.isEmpty()) {
-      Statement stmt = fileStatements.get(0);
-      if (stmt instanceof ExpressionStatement) {
-        Expression expr = ((ExpressionStatement) stmt).getExpression();
-        if (expr instanceof StringLiteral) {
-          return ((StringLiteral) expr).getValue();
-        }
-      }
-    }
-    return "";
   }
 
   /**
@@ -357,20 +374,20 @@ public class SkydocMain {
    * dependencies using a fake build API and collects information about all rule definitions made in
    * those files.
    *
-   * @param label the label of the Starlark file to evaluate
+   * @param canonicalLabel the canonical label of the Starlark file to evaluate
    * @param ruleInfoList a collection of all rule definitions made so far (using rule()); this
    *     method will add to this list as it evaluates additional files
    * @throws InterruptedException if evaluation is interrupted
    */
   private Module recursiveEval(
       StarlarkSemantics semantics,
-      Label label,
+      Label canonicalLabel,
       List<RuleInfoWrapper> ruleInfoList,
       List<ProviderInfoWrapper> providerInfoList,
-      List<AspectInfoWrapper> aspectInfoList,
-      ImmutableMap.Builder<Label, String> moduleDocMap)
+      List<AspectInfoWrapper> aspectInfoList)
       throws InterruptedException, IOException, LabelSyntaxException, StarlarkEvaluationException {
-    Path path = pathOfLabel(label, semantics);
+    Path path = pathOfCanonicalLabel(canonicalLabel);
+    String sourceRepository = canonicalLabel.getRepository().getName();
 
     if (pending.contains(path)) {
       throw new StarlarkEvaluationException("cycle with " + path);
@@ -404,11 +421,10 @@ public class SkydocMain {
         };
 
     // parse & compile (and get doc)
-    ParserInput input = getInputSource(path.toString());
+    ParserInput input = ParserInput.fromLatin1(Files.readAllBytes(path), path.toString());
     Program prog;
     try {
       StarlarkFile file = StarlarkFile.parse(input, FileOptions.DEFAULT);
-      moduleDocMap.put(label, getModuleDoc(file));
       prog = Program.compileFile(file, predeclaredResolver);
     } catch (SyntaxError.Exception ex) {
       Event.replayEventsOn(eventHandler, ex.errors());
@@ -418,22 +434,21 @@ public class SkydocMain {
     // process loads
     Map<String, Module> imports = new HashMap<>();
     for (String load : prog.getLoads()) {
-      Label relativeLabel = label.getRelativeWithRemapping(load, ImmutableMap.of());
+      Label apparentLoad =
+          Label.parseWithPackageContext(
+              load,
+              PackageContext.of(
+                  canonicalLabel.getPackageIdentifier(), RepositoryMapping.ALWAYS_FALLBACK));
+      Label canonicalLoad = toCanonicalLabel(apparentLoad, sourceRepository);
       try {
         Module loadedModule =
-            recursiveEval(
-                semantics,
-                relativeLabel,
-                ruleInfoList,
-                providerInfoList,
-                aspectInfoList,
-                moduleDocMap);
+            recursiveEval(semantics, canonicalLoad, ruleInfoList, providerInfoList, aspectInfoList);
         imports.put(load, loadedModule);
       } catch (NoSuchFileException noSuchFileException) {
         throw new StarlarkEvaluationException(
             String.format(
-                "File %s imported '%s', yet %s was not found, even at roots %s.",
-                path, load, pathOfLabel(relativeLabel, semantics), depRoots),
+                "File %s imported '%s', yet %s was not found.",
+                path, load, pathOfCanonicalLabel(canonicalLoad)),
             noSuchFileException);
       }
     }
@@ -463,29 +478,28 @@ public class SkydocMain {
     return module;
   }
 
-  private Path pathOfLabel(Label label, StarlarkSemantics semantics) {
-    String workspacePrefix = "";
-    if (!label.getWorkspaceRootForStarlarkOnly(semantics).isEmpty()
-        && !label.getWorkspaceName().equals(workspaceName)) {
-      workspacePrefix = label.getWorkspaceRootForStarlarkOnly(semantics) + "/";
-    }
-
-    return Paths.get(workspacePrefix + label.toPathFragment());
+  private Label toCanonicalLabel(Label apparentLabel, String sourceRepository) {
+    String canonicalRepositoryName =
+        RunfilesForStardoc.getCanonicalRepositoryName(
+            runfiles.withSourceRepository(sourceRepository),
+            apparentLabel.getRepository().getName());
+    return Label.parseCanonicalUnchecked(
+        String.format(
+            "@%s//%s:%s",
+            canonicalRepositoryName,
+            apparentLabel.getPackageIdentifier().getPackageFragment().getPathString(),
+            apparentLabel.getName()));
   }
 
-  private ParserInput getInputSource(String bzlWorkspacePath) throws IOException {
-    for (String rootPath : depRoots) {
-      if (fileAccessor.fileExists(rootPath + "/" + bzlWorkspacePath)) {
-        return fileAccessor.inputSource(rootPath + "/" + bzlWorkspacePath);
-      }
-    }
-
-    // All depRoots attempted and no valid file was found.
-    throw new NoSuchFileException(bzlWorkspacePath);
+  private Path pathOfCanonicalLabel(Label label) {
+    String runfilesDirName =
+        label.getRepository().isMain() ? workspaceName : label.getRepository().getName();
+    String rlocationPath = runfilesDirName + "/" + label.toPathFragment();
+    return Paths.get(runfiles.unmapped().rlocation(rlocationPath));
   }
 
   private static void addMorePredeclared(ImmutableMap.Builder<String, Object> env) {
-    // Add dummy declarations that would come from packages.StarlarkLibrary.COMMON
+    // Add dummy declarations that would come from packages.StarlarkGlobals#getUtilToplevels()
     // were Skydoc allowed to depend on it. See hack for select below.
     env.put("json", Json.INSTANCE);
     env.put("proto", new ProtoModule());
@@ -495,8 +509,7 @@ public class SkydocMain {
           @Override
           public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named) {
             // Accept any arguments, return empty Depset.
-            return Depset.of(
-                Depset.ElementType.EMPTY, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+            return Depset.of(Object.class, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
           }
 
           @Override
@@ -527,7 +540,7 @@ public class SkydocMain {
         });
   }
 
-  @StarlarkBuiltin(name = "ProtoModule", doc = "")
+  @StarlarkBuiltin(name = "ProtoModule", documented = false)
   private static final class ProtoModule implements StarlarkValue {
     @StarlarkMethod(
         name = "encode_text",

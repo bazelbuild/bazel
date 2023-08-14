@@ -15,7 +15,6 @@
 
 import os
 import unittest
-import six
 from src.test.py.bazel import test_base
 
 
@@ -44,20 +43,10 @@ class RunfilesTest(test_base.TestBase):
           self.Rlocation("io_bazel/src/test/py/bazel/testdata/runfiles_test/" +
                          s), t, exe)
 
-    exit_code, stdout, stderr = self.RunBazel(["info", "bazel-bin"])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(["info", "bazel-bin"])
     bazel_bin = stdout[0]
 
-    # TODO(brandjon): (Issue #8169) Make this test compatible with Python
-    # toolchains. Blocked on the fact that there's no PY3 environment on our Mac
-    # workers (bazelbuild/continuous-integration#578).
-    exit_code, _, stderr = self.RunBazel([
-        "build",
-        "--verbose_failures",
-        "--incompatible_use_python_toolchains=false",
-        "//foo:runfiles-" + family
-    ])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(["build", "--verbose_failures", "//foo:runfiles-" + family])
 
     if test_base.TestBase.IsWindows():
       bin_path = os.path.join(bazel_bin, "foo/runfiles-%s.exe" % family)
@@ -66,15 +55,15 @@ class RunfilesTest(test_base.TestBase):
 
     self.assertTrue(os.path.exists(bin_path))
 
-    exit_code, stdout, stderr = self.RunProgram(
-        [bin_path], env_add={"TEST_SRCDIR": "__ignore_me__"})
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunProgram(
+        [bin_path], env_add={"TEST_SRCDIR": "__ignore_me__"}
+    )
     # 10 output lines: 2 from foo-<family>, and 2 from each of bar-<lang>.
     if len(stdout) != 10:
       self.fail("stdout: %s" % stdout)
 
     self.assertEqual(stdout[0], "Hello %s Foo!" % lang_name)
-    six.assertRegex(self, stdout[1], "^rloc=.*/foo/datadep/hello.txt")
+    self.assertRegex(stdout[1], "^rloc=.*/foo/datadep/hello.txt")
     self.assertNotIn("__ignore_me__", stdout[1])
 
     with open(stdout[1].split("=", 1)[1], "r") as f:
@@ -87,8 +76,7 @@ class RunfilesTest(test_base.TestBase):
     for lang in [("py", "Python", "bar.py"), ("java", "Java", "Bar.java"),
                  ("sh", "Bash", "bar.sh"), ("cc", "C++", "bar.cc")]:
       self.assertEqual(stdout[i], "Hello %s Bar!" % lang[1])
-      six.assertRegex(self, stdout[i + 1],
-                      "^rloc=.*/bar/bar-%s-data.txt" % lang[0])
+      self.assertRegex(stdout[i + 1], "^rloc=.*/bar/bar-%s-data.txt" % lang[0])
       self.assertNotIn("__ignore_me__", stdout[i + 1])
 
       with open(stdout[i + 1].split("=", 1)[1], "r") as f:
@@ -128,15 +116,17 @@ class RunfilesTest(test_base.TestBase):
           self.Rlocation("io_bazel/src/test/py/bazel/testdata/runfiles_test/" +
                          s), t, exe)
 
-    exit_code, stdout, stderr = self.RunBazel(["info", "bazel-bin"])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(["info", "bazel-bin"])
     bazel_bin = stdout[0]
 
-    exit_code, _, stderr = self.RunBazel([
-        "build", "--verbose_failures",
-        "//bar:bar-py", "//bar:bar-java", "//bar:bar-sh", "//bar:bar-cc"
+    self.RunBazel([
+        "build",
+        "--verbose_failures",
+        "//bar:bar-py",
+        "//bar:bar-java",
+        "//bar:bar-sh",
+        "//bar:bar-cc",
     ])
-    self.AssertExitCode(exit_code, 0, stderr)
 
     for lang in [("py", "Python", "bar.py"), ("java", "Java", "Bar.java"),
                  ("sh", "Bash", "bar.sh"), ("cc", "C++", "bar.cc")]:
@@ -147,7 +137,7 @@ class RunfilesTest(test_base.TestBase):
 
       self.assertTrue(os.path.exists(bin_path))
 
-      exit_code, stdout, stderr = self.RunProgram(
+      _, stdout, _ = self.RunProgram(
           [bin_path],
           env_remove=set([
               "RUNFILES_MANIFEST_FILE",
@@ -155,12 +145,12 @@ class RunfilesTest(test_base.TestBase):
               "RUNFILES_DIR",
               "JAVA_RUNFILES",
           ]),
-          env_add={"TEST_SRCDIR": "__ignore_me__"})
-      self.AssertExitCode(exit_code, 0, stderr)
+          env_add={"TEST_SRCDIR": "__ignore_me__"},
+      )
       if len(stdout) < 2:
         self.fail("stdout(%s): %s" % (lang[0], stdout))
       self.assertEqual(stdout[0], "Hello %s Bar!" % lang[1])
-      six.assertRegex(self, stdout[1], "^rloc=.*/bar/bar-%s-data.txt" % lang[0])
+      self.assertRegex(stdout[1], "^rloc=.*/bar/bar-%s-data.txt" % lang[0])
       self.assertNotIn("__ignore_me__", stdout[1])
 
       with open(stdout[1].split("=", 1)[1], "r") as f:
@@ -188,16 +178,16 @@ class RunfilesTest(test_base.TestBase):
           self.Rlocation("io_bazel/src/test/py/bazel/testdata/runfiles_test/" +
                          s), t, exe)
 
-    exit_code, stdout, stderr = self.RunBazel(["info", "bazel-bin"])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(["info", "bazel-bin"])
     bazel_bin = stdout[0]
 
     for lang in [("java", "Java"), ("sh", "Bash"), ("cc", "C++")]:
-      exit_code, _, stderr = self.RunBazel([
-          "build", "--verbose_failures", "--enable_runfiles=no",
-          "//bar:bar-" + lang[0]
+      self.RunBazel([
+          "build",
+          "--verbose_failures",
+          "--enable_runfiles=no",
+          "//bar:bar-" + lang[0],
       ])
-      self.AssertExitCode(exit_code, 0, stderr)
 
       if test_base.TestBase.IsWindows():
         bin_path = os.path.join(bazel_bin, "bar/bar-%s.exe" % lang[0])
@@ -228,7 +218,7 @@ class RunfilesTest(test_base.TestBase):
         # runfiles tree, Bazel actually creates empty __init__.py files (again
         # on every platform). However to keep these manifest entries correct,
         # they need to have a space character.
-        # We could probably strip thses lines completely, but this test doesn't
+        # We could probably strip these lines completely, but this test doesn't
         # aim to exercise what would happen in that case.
         mock_manifest_data = [
             mock_manifest_line
@@ -239,26 +229,26 @@ class RunfilesTest(test_base.TestBase):
       substitute_manifest = self.ScratchFile(
           "mock-%s.runfiles/MANIFEST" % lang[0], mock_manifest_data)
 
-      exit_code, stdout, stderr = self.RunProgram(
+      _, stdout, _ = self.RunProgram(
           [bin_path],
           env_remove=set(["RUNFILES_DIR"]),
           env_add={
               # On Linux/macOS, the Java launcher picks up JAVA_RUNFILES and
               # ignores RUNFILES_MANIFEST_FILE.
-              "JAVA_RUNFILES": substitute_manifest[:-len("/MANIFEST")],
+              "JAVA_RUNFILES": substitute_manifest[: -len("/MANIFEST")],
               # On Windows, the Java launcher picks up RUNFILES_MANIFEST_FILE.
               # The C++ runfiles library picks up RUNFILES_MANIFEST_FILE on all
               # platforms.
               "RUNFILES_MANIFEST_FILE": substitute_manifest,
               "RUNFILES_MANIFEST_ONLY": "1",
               "TEST_SRCDIR": "__ignore_me__",
-          })
+          },
+      )
 
-      self.AssertExitCode(exit_code, 0, stderr)
       if len(stdout) < 2:
         self.fail("stdout: %s" % stdout)
       self.assertEqual(stdout[0], "Hello %s Bar!" % lang[1])
-      six.assertRegex(self, stdout[1], "^rloc=" + mock_bar_dep)
+      self.assertRegex(stdout[1], "^rloc=" + mock_bar_dep)
       self.assertNotIn("__ignore_me__", stdout[1])
 
       with open(stdout[1].split("=", 1)[1], "r") as f:
@@ -297,14 +287,12 @@ class RunfilesTest(test_base.TestBase):
         ")",
     ])
 
-    exit_code, stdout, stderr = self.RunBazel(
-        args=["info", "output_path"], cwd=work_dir)
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(args=["info", "output_path"], cwd=work_dir)
     bazel_output = stdout[0]
 
-    exit_code, _, stderr = self.RunBazel(
-        args=["build", "--nolegacy_external_runfiles", ":gen"], cwd=work_dir)
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(
+        args=["build", "--nolegacy_external_runfiles", ":gen"], cwd=work_dir
+    )
     [exec_dir] = [f for f in os.listdir(bazel_output) if "exec" in f]
     if self.IsWindows():
       manifest_path = os.path.join(bazel_output, exec_dir,
@@ -313,6 +301,41 @@ class RunfilesTest(test_base.TestBase):
       manifest_path = os.path.join(bazel_output, exec_dir,
                                    "bin/bin.runfiles_manifest")
     self.AssertFileContentNotContains(manifest_path, "__main__/external/A")
+
+  def testRunfilesLibrariesFindRlocationpathExpansion(self):
+    self.ScratchDir("A")
+    self.ScratchFile("A/WORKSPACE")
+    self.ScratchFile("A/p/BUILD", ["exports_files(['foo.txt'])"])
+    self.ScratchFile("A/p/foo.txt", ["Hello, World!"])
+    self.ScratchFile("WORKSPACE", ["local_repository(name = 'A', path='A')"])
+    self.ScratchFile("pkg/BUILD", [
+        "py_binary(",
+        "  name = 'bin',",
+        "  srcs = ['bin.py'],",
+        "  args = [",
+        "    '$(rlocationpath bar.txt)',",
+        "    '$(rlocationpath @A//p:foo.txt)',",
+        "  ],",
+        "  data = [",
+        "    'bar.txt',",
+        "    '@A//p:foo.txt'",
+        "  ],",
+        "  deps = ['@bazel_tools//tools/python/runfiles'],",
+        ")",
+    ])
+    self.ScratchFile("pkg/bar.txt", ["Hello, Bazel!"])
+    self.ScratchFile("pkg/bin.py", [
+        "import sys",
+        "from tools.python.runfiles import runfiles",
+        "r = runfiles.Create()",
+        "for arg in sys.argv[1:]:",
+        "  print(open(r.Rlocation(arg)).read().strip())",
+    ])
+    _, stdout, _ = self.RunBazel(["run", "//pkg:bin"], allow_failure=True)
+    if len(stdout) != 2:
+      self.fail("stdout: %s" % stdout)
+    self.assertEqual(stdout[0], "Hello, Bazel!")
+    self.assertEqual(stdout[1], "Hello, World!")
 
 
 if __name__ == "__main__":

@@ -15,33 +15,25 @@
 package com.google.devtools.build.lib.bazel.rules;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses;
-import com.google.devtools.build.lib.remote.options.RemoteOptions;
-import com.google.devtools.build.lib.rules.cpp.CcSkyframeFdoSupportFunction;
-import com.google.devtools.build.lib.rules.cpp.CcSkyframeFdoSupportValue;
-import com.google.devtools.build.lib.rules.cpp.CppOptions;
-import com.google.devtools.build.lib.rules.java.JavaOptions;
+import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
+import com.google.devtools.build.lib.rules.java.JavaCompileActionContext;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
-import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
-import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
-import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
+import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.Converters.BooleanConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.TriState;
 import java.io.IOException;
+import java.util.List;
 
 /** Module implementing the rule set of Bazel. */
 public final class BazelRulesModule extends BlazeModule {
@@ -52,33 +44,49 @@ public final class BazelRulesModule extends BlazeModule {
    */
   @SuppressWarnings("deprecation") // These fields have no JavaDoc by design
   public static class BuildGraveyardOptions extends OptionsBase {
-
     @Option(
-        name = "incompatible_disable_legacy_proto_provider",
+        name = "use_top_level_targets_for_symlinks",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help = "Deprecated. No-op.")
+    public boolean useTopLevelTargetsForSymlinks;
+
+    @Option(
+        name = "experimental_skyframe_prepare_analysis",
+        deprecationWarning = "This flag is a no-op and will be deleted in a future release.",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+        help = "Deprecated. No-op.")
+    public boolean skyframePrepareAnalysis;
+
+    @Option(
+        name = "incompatible_use_platforms_repo_for_constraints",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "Deprecated no-op.")
-    public boolean disableLegacyProtoProvider;
+    public boolean usePlatformsRepoForConstraints;
 
     @Option(
-        name = "incompatible_disable_proto_source_root",
-        defaultValue = "true",
+        name = "experimental_replay_action_out_err",
+        defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help = "Deprecated no-op.")
-    public boolean disableProtoSourceRoot;
-
-    @Option(
-        name = "incompatible_do_not_emit_buggy_external_repo_import",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
         metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "Deprecated no-op.")
-    public boolean doNotUseBuggyImportPath;
+    public boolean replayActionOutErr;
+
+    @Option(
+        name = "experimental_async_execution",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "Deprecated no-op.")
+    public boolean useAsyncExecution;
 
     @Option(
         name = "incompatible_disable_crosstool_file",
@@ -155,24 +163,6 @@ public final class BazelRulesModule extends BlazeModule {
     public boolean incompatibleDisableInMemoryToolsDefaultsPackage;
 
     @Option(
-        name = "experimental_enable_cc_toolchain_config_info",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.DEPRECATED},
-        help = "No-op")
-    public boolean enableCcToolchainConfigInfoFromStarlark;
-
-    @Option(
-        name = "output_symbol_counts",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-        metadataTags = {OptionMetadataTag.HIDDEN, OptionMetadataTag.DEPRECATED},
-        help = "Deprecated no-op.")
-    public boolean symbolCounts;
-
-    @Option(
         name = "incompatible_disable_sysroot_from_configuration",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -241,25 +231,6 @@ public final class BazelRulesModule extends BlazeModule {
     public boolean disableLegacyToolchainStarlarkApi;
 
     @Option(
-        name = "incompatible_disable_late_bound_option_defaults",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help = "This option is deprecated and has no effect.")
-    public boolean incompatibleDisableLateBoundOptionDefaults;
-
-    @Deprecated
-    @Option(
-        name = "ui",
-        oldName = "experimental_ui",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "No-op.")
-    public boolean experimentalUi;
-
-    @Option(
         name = "incompatible_enable_profile_by_default",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -267,15 +238,6 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "No-op.")
     public boolean enableProfileByDefault;
-
-    @Option(
-        name = "experimental_skyframe_eval_with_ordered_list",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        metadataTags = OptionMetadataTag.EXPERIMENTAL,
-        effectTags = {OptionEffectTag.NO_OP},
-        help = "No-op")
-    public boolean skyframeEvalWithOrderedList;
 
     @Option(
         name = "legacy_spawn_scheduler",
@@ -303,6 +265,264 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = OptionEffectTag.UNKNOWN,
         help = "Deprecated, this is no longer in use and should be removed.")
     public boolean overrideToolchainTransition;
+
+    @Option(
+        name = "experimental_dynamic_execution_cpu_limited",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.EXECUTION,
+          OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
+        },
+        defaultValue = "false",
+        help =
+            "Deprecated no-op. Use --experimental_dynamic_local_load_factor instead, with the "
+                + "values 0 for false and 1 for true, or with a value in between.")
+    public boolean cpuLimited;
+
+    @Option(
+        name = "dynamic_worker_strategy",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        defaultValue = "",
+        help = "Deprecated no-op. Please use --dynamic_local_strategy=worker,....")
+    @Deprecated
+    public String dynamicWorkerStrategy;
+
+    @Option(
+        name = "experimental_dynamic_skip_first_build",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        defaultValue = "false",
+        help = "Deprecated no-op. Use --experimental_dynamic_local_load_factor instead.")
+    @Deprecated
+    public boolean skipFirstBuild;
+
+    @Option(
+        name = "experimental_parse_headers_skipped_if_corresponding_srcs_found",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean parseHeadersSkippedIfCorrespondingSrcsFound;
+
+    @Option(
+        name = "experimental_worker_as_resource",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op, will be removed soon.")
+    public boolean workerAsResource;
+
+    @Option(
+        name = "high_priority_workers",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+        effectTags = {OptionEffectTag.EXECUTION},
+        help = "No-op, will be removed soon.",
+        allowMultiple = true)
+    public List<String> highPriorityWorkers;
+
+    @Option(
+        name = "use_workers_with_dexbuilder",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.EXECUTION},
+        help = "This option is deprecated and has no effect.")
+    @Deprecated
+    public boolean useWorkersWithDexbuilder;
+
+    @Option(
+        name = "target_platform_fallback",
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+        effectTags = {
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.CHANGES_INPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS
+        },
+        help = "This option is deprecated and has no effect.")
+    public String targetPlatformFallback;
+
+    @Option(
+        name = "incompatible_auto_configure_host_platform",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "This option is deprecated and has no effect.")
+    public boolean autoConfigureHostPlatform;
+
+    @Deprecated
+    @Option(
+        name = "experimental_require_availability_info",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        defaultValue = "false",
+        help = "Deprecated no-op.")
+    public boolean requireAvailabilityInfo;
+
+    @Deprecated
+    @Option(
+        name = "experimental_availability_info_exempt",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        defaultValue = "Genrule,TestRunner",
+        converter = Converters.CommaSeparatedOptionListConverter.class,
+        help = "Deprecated no-op.")
+    public List<String> availabilityInfoExempt;
+
+    @Option(
+        name = "experimental_collect_local_action_metrics",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.EXECUTION},
+        help = "Deprecated no-op.")
+    public boolean collectLocalExecutionStatistics;
+
+    @Option(
+        name = "experimental_collect_local_sandbox_action_metrics",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.LOGGING,
+        effectTags = {OptionEffectTag.EXECUTION},
+        help = "Deprecated no-op.")
+    public boolean collectLocalSandboxExecutionStatistics;
+
+    @Option(
+        name = "experimental_enable_starlark_doc_extract",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+        help = "Deprecated no-op.")
+    public boolean enableBzlDocDump;
+
+    // TODO(b/274595070): Remove this option.
+    @Option(
+        name = "experimental_parallel_aquery_output",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.QUERY,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "No-op.")
+    public boolean parallelAqueryOutput;
+
+    @Option(
+        name = "experimental_show_artifacts",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help = "Deprecated no-op.")
+    public boolean showArtifacts;
+
+    @Option(
+        name = "announce",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help = "Deprecated. No-op.",
+        deprecationWarning = "This option is now deprecated and is a no-op")
+    public boolean announce;
+
+    @Option(
+        name = "print_workspace_in_output_paths_if_needed",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+        help = "Deprecated no-op.")
+    public boolean printWorkspaceInOutputPathsIfNeeded;
+
+    @Option(
+        name = "experimental_multi_cpu",
+        deprecationWarning = "This flag is a no-op and will be deleted in a future release.",
+        converter = Converters.CommaSeparatedOptionListConverter.class,
+        allowMultiple = true,
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+        help = "Deprecated. No-op.")
+    public List<String> multiCpus;
+
+    @Option(
+        name = "action_cache_store_output_metadata",
+        oldName = "experimental_action_cache_store_output_metadata",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+          OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
+        },
+        help = "no-op")
+    public boolean actionCacheStoreOutputMetadata;
+
+    @Option(
+        name = "discard_actions_after_execution",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
+        help = "This option is deprecated and has no effect.")
+    public boolean discardActionsAfterExecution;
+
+    @Option(
+        name = "defer_param_files",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+          OptionEffectTag.EXECUTION,
+          OptionEffectTag.ACTION_COMMAND_LINES
+        },
+        help = "This option is deprecated and has no effect and will be removed in the future.")
+    public boolean deferParamFiles;
+
+    @Option(
+        name = "experimental_throttle_action_cache_check",
+        defaultValue = "true",
+        converter = BooleanConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        metadataTags = OptionMetadataTag.EXPERIMENTAL,
+        effectTags = {OptionEffectTag.EXECUTION},
+        help = "no-op")
+    public boolean throttleActionCacheCheck;
+
+    @Option(
+        name = "check_fileset_dependencies_recursively",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        deprecationWarning =
+            "This flag is a no-op and fileset dependencies are always checked "
+                + "to ensure correctness of builds.",
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS})
+    public boolean checkFilesetDependenciesRecursively;
+
+    @Option(
+        name = "experimental_skyframe_native_filesets",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+        deprecationWarning = "This flag is a no-op and skyframe-native-filesets is always true.")
+    public boolean skyframeNativeFileset;
+
+    @Option(
+        name = "collapse_duplicate_defines",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        },
+        help = "no-op")
+    public boolean collapseDuplicateDefines;
+
+    @Option(
+        name = "incompatible_require_javaplugininfo_in_javacommon",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "When enabled java_common.compile only accepts JavaPluginInfo for plugins.")
+    public boolean requireJavaPluginInfo;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */
@@ -393,15 +613,6 @@ public final class BazelRulesModule extends BlazeModule {
     public boolean forceIgnoreDashStatic;
 
     @Option(
-        name = "incompatible_use_native_patch",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help = "This option is deprecated and has no effect.")
-    public boolean useNativePatch;
-
-    @Option(
         name = "experimental_profile_action_counts",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -450,6 +661,14 @@ public final class BazelRulesModule extends BlazeModule {
    * want to graveyard an all-command option specific to Blaze or Bazel, create a subclass.
    */
   public static final class AllCommandGraveyardOptions extends OptionsBase {
+    @Option(
+        name = "experimental_enable_aspect_hints",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL})
+    public boolean enableAspectHints;
+
     // Historically passed to all Bazel commands by certain tools.
     @Option(
         name = "experimental_allow_top_level_aspects_parameters",
@@ -461,43 +680,6 @@ public final class BazelRulesModule extends BlazeModule {
     public boolean experimentalAllowTopLevelAspectsParameters;
 
     @Option(
-        name = "experimental_required_aspects",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.EXPERIMENTAL},
-        help = "No-op")
-    public boolean experimentalRequiredAspects;
-
-    @Option(
-        name = "experimental_shadowed_action",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.EXPERIMENTAL},
-        help = "No-op")
-    public boolean shadowedAction;
-
-    @Option(
-        name = "json_trace_compression",
-        oldName = "experimental_json_trace_compression",
-        defaultValue = "auto",
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.EXPERIMENTAL},
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        help = "No-op")
-    public TriState enableTracerCompression;
-
-    @Option(
-        name = "experimental_profile_cpu_usage",
-        defaultValue = "true",
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.EXPERIMENTAL},
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        help = "No-op")
-    public boolean enableCpuUsageProfiling;
-
-    @Option(
         name = "bes_best_effort",
         defaultValue = "false",
         deprecationWarning =
@@ -507,15 +689,6 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
         help = "No-op")
     public boolean besBestEffort;
-
-    @Option(
-        name = "distinct_host_configuration",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help = "No-op.")
-    public boolean useDistinctHostConfiguration;
 
     @Option(
         name = "experimental_keep_config_nodes_on_analysis_discard",
@@ -541,6 +714,74 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
         help = "No-op")
     public boolean useEventBasedBuildCompletionStatus;
+
+    // Moved here 2022/08/29
+    @Option(
+        name = "incompatible_disable_third_party_license_checking",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean incompatibleDisableThirdPartyLicenseChecking;
+
+    @Option(
+        name = "experimental_use_fork_join_pool",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        metadataTags = OptionMetadataTag.DEPRECATED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean useForkJoinPool;
+
+    @Option(
+        name = "incompatible_generated_protos_in_virtual_imports",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "No-op.")
+    public boolean generatedProtosInVirtualImports;
+
+    @Option(
+        name = "experimental_java_proto_add_allowed_public_imports",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+        help = "This flag is a noop and scheduled for removal.")
+    public boolean experimentalJavaProtoAddAllowedPublicImports;
+
+    @Option(
+        name = "watchos_simulator_version",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public String watchosSimulatorVersion;
+
+    @Option(
+        name = "watchos_simulator_device",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public String watchosSimulatorDevice;
+
+    @Option(
+        name = "tvos_simulator_version",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public String tvosSimulatorVersion;
+
+    @Option(
+        name = "tvos_simulator_device",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public String tvosSimulatorDevice;
   }
 
   @Override
@@ -556,21 +797,14 @@ public final class BazelRulesModule extends BlazeModule {
           ResourceFileLoader.loadResource(BazelRulesModule.class, "xcode_configure.WORKSPACE"));
       builder.addWorkspaceFileSuffix(
           ResourceFileLoader.loadResource(BazelShRuleClasses.class, "sh_configure.WORKSPACE"));
+
+      // Load rules_license, which is needed for license attestations for many rules, including
+      // things in @bazel_tools
+      builder.addWorkspaceFileSuffix(
+          ResourceFileLoader.loadResource(BazelRulesModule.class, "rules_license.WORKSPACE"));
     } catch (IOException e) {
       throw new IllegalStateException(e);
     }
-  }
-
-  @Override
-  public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
-    validateRemoteOutputsMode(env);
-  }
-
-  @Override
-  public void workspaceInit(
-      BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
-    builder.addSkyFunction(
-        CcSkyframeFdoSupportValue.SKYFUNCTION, new CcSkyframeFdoSupportFunction(directories));
   }
 
   @Override
@@ -580,36 +814,11 @@ public final class BazelRulesModule extends BlazeModule {
         : ImmutableList.of(AllCommandGraveyardOptions.class);
   }
 
-  private static void validateRemoteOutputsMode(CommandEnvironment env) throws AbruptExitException {
-    RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
-    if (remoteOptions == null) {
-      return;
-    }
-    if (!remoteOptions.remoteOutputsMode.downloadAllOutputs()) {
-      JavaOptions javaOptions = env.getOptions().getOptions(JavaOptions.class);
-      if (javaOptions != null && !javaOptions.inmemoryJdepsFiles) {
-        throw createRemoteExecutionExitException(
-            "--experimental_remote_download_outputs=minimal requires"
-                + " --experimental_inmemory_jdeps_files to be enabled",
-            Code.REMOTE_DOWNLOAD_OUTPUTS_MINIMAL_WITHOUT_INMEMORY_JDEPS);
-      }
-      CppOptions cppOptions = env.getOptions().getOptions(CppOptions.class);
-      if (cppOptions != null && !cppOptions.inmemoryDotdFiles) {
-        throw createRemoteExecutionExitException(
-            "--experimental_remote_download_outputs=minimal requires"
-                + " --experimental_inmemory_dotd_files to be enabled",
-            Code.REMOTE_DOWNLOAD_OUTPUTS_MINIMAL_WITHOUT_INMEMORY_DOTD);
-      }
-    }
-  }
-
-  private static AbruptExitException createRemoteExecutionExitException(
-      String message, Code remoteExecutionCode) {
-    return new AbruptExitException(
-        DetailedExitCode.of(
-            FailureDetail.newBuilder()
-                .setMessage(message)
-                .setRemoteExecution(RemoteExecution.newBuilder().setCode(remoteExecutionCode))
-                .build()));
+  @Override
+  public void registerActionContexts(
+      ModuleActionContextRegistry.Builder registryBuilder,
+      CommandEnvironment env,
+      BuildRequest buildRequest) {
+    registryBuilder.register(JavaCompileActionContext.class, new JavaCompileActionContext());
   }
 }

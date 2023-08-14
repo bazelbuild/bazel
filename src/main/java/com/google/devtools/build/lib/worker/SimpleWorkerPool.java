@@ -14,7 +14,10 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.common.base.Throwables;
+import com.google.common.eventbus.EventBus;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import javax.annotation.concurrent.ThreadSafe;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
@@ -28,6 +31,16 @@ import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
  */
 @ThreadSafe
 final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
+
+  /**
+   * The subtrahend for maximal toal number of object per key. Unfortunately
+   * GenericKeyedObjectPoolConfig doesn't support different number of objects per key, so we need to
+   * use this adhoc variable to manage that. We need this variable to automatically adjusting pool
+   * size per worker key.
+   */
+  private Map<WorkerKey, Integer> shrunkBy = new HashMap<>();
+
+  private EventBus eventBus;
 
   public SimpleWorkerPool(WorkerFactory factory, int max) {
     super(factory, makeConfig(max));
@@ -49,6 +62,9 @@ final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
     // workers for one WorkerKey and can't accommodate a worker for another WorkerKey.
     config.setMaxTotal(-1);
 
+    // Don't limit number of workers to check during eviction
+    config.setNumTestsPerEvictionRun(Integer.MAX_VALUE);
+
     // Wait for a worker to become ready when a thread needs one.
     config.setBlockWhenExhausted(true);
 
@@ -63,6 +79,10 @@ final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
     return config;
   }
 
+  void setEventBus(EventBus eventBus) {
+    this.eventBus = eventBus;
+  }
+
   @Override
   public Worker borrowObject(WorkerKey key) throws IOException, InterruptedException {
     try {
@@ -74,13 +94,45 @@ final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
   }
 
   @Override
-  public void invalidateObject(WorkerKey key, Worker obj) throws IOException, InterruptedException {
+  public void invalidateObject(WorkerKey key, Worker obj) throws InterruptedException {
     try {
       super.invalidateObject(key, obj);
+      if (obj.isDoomed()) {
+        if (eventBus != null) {
+          eventBus.post(new WorkerEvictedEvent(key.hashCode(), key.getMnemonic()));
+        }
+        updateShrunkBy(key);
+      }
     } catch (Throwable t) {
-      Throwables.propagateIfPossible(t, IOException.class, InterruptedException.class);
+      Throwables.propagateIfPossible(t, InterruptedException.class);
       throw new RuntimeException("unexpected", t);
     }
+  }
+
+  @Override
+  public void returnObject(WorkerKey key, Worker obj) {
+    super.returnObject(key, obj);
+    if (obj.isDoomed()) {
+      if (eventBus != null) {
+        eventBus.post(new WorkerEvictedEvent(key.hashCode(), key.getMnemonic()));
+      }
+      updateShrunkBy(key);
+    }
+  }
+
+  public int getMaxTotalPerKey(WorkerKey key) {
+    return getMaxTotalPerKey() - shrunkBy.getOrDefault(key, 0);
+  }
+
+  private synchronized void updateShrunkBy(WorkerKey workerKey) {
+    int currentValue = shrunkBy.getOrDefault(workerKey, 0);
+    if (getMaxTotalPerKey() - currentValue > 1) {
+      shrunkBy.put(workerKey, currentValue + 1);
+    }
+  }
+
+  void clearShrunkBy() {
+    shrunkBy = new HashMap<>();
   }
 
   /**

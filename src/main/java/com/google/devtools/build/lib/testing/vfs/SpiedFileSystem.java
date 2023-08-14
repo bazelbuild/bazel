@@ -47,7 +47,13 @@ public class SpiedFileSystem extends DelegateFileSystem {
   }
 
   @Override
-  public OutputStream getOutputStream(PathFragment path, boolean append) throws IOException {
-    return super.getOutputStream(path, append);
+  public OutputStream getOutputStream(PathFragment path, boolean append, boolean internal)
+      throws IOException {
+    return super.getOutputStream(path, append, internal);
+  }
+
+  @Override
+  public boolean createWritableDirectory(PathFragment path) throws IOException {
+    return super.createWritableDirectory(path);
   }
 }

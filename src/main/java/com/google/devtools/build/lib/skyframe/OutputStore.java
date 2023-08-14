@@ -60,7 +60,9 @@ final class OutputStore {
     return treeArtifactData.get(artifact);
   }
 
+  @SuppressWarnings("LenientFormatStringValidation")
   void putTreeArtifactData(SpecialArtifact treeArtifact, TreeArtifactValue value) {
+    // Expected 1 args, but got 0.
     Preconditions.checkArgument(treeArtifact.isTreeArtifact(), "%s is not a tree artifact");
     treeArtifactData.put(treeArtifact, value);
   }

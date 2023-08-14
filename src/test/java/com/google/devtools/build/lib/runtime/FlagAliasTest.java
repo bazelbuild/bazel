@@ -116,7 +116,7 @@ public final class FlagAliasTest {
         ImmutableList.of(
             "c0", "--rc_source=/somewhere/.blazerc", "--flag_alias=foo=//bar", "--foo");
     optionHandler.parseOptions(args, eventHandler);
-    assertThat(parser.getResidue()).contains("--//bar");
+    assertThat(parser.getSkippedArgs()).contains("--//bar");
   }
 
   @Test
@@ -142,9 +142,9 @@ public final class FlagAliasTest {
             "--foo",
             "--flag_alias=foo=//baz",
             "--foo");
-    ImmutableList<String> expectedResidue = ImmutableList.of("--//bar", "--//baz");
+    ImmutableList<String> expectedSkippedArgs = ImmutableList.of("--//bar", "--//baz");
     optionHandler.parseOptions(args, eventHandler);
-    assertThat(parser.getResidue()).isEqualTo(expectedResidue);
+    assertThat(parser.getSkippedArgs()).isEqualTo(expectedSkippedArgs);
   }
 
   @Test
@@ -155,9 +155,9 @@ public final class FlagAliasTest {
             "--default_override=0:c0=--flag_alias=foo=//bar",
             "--default_override=0:c0=--foo",
             "--rc_source=/somewhere/.blazerc");
-    ImmutableList<String> expectedResidue = ImmutableList.of("--//bar");
+    ImmutableList<String> expectedSkippedArgs = ImmutableList.of("--//bar");
     optionHandler.parseOptions(args, eventHandler);
-    assertThat(parser.getResidue()).isEqualTo(expectedResidue);
+    assertThat(parser.getSkippedArgs()).isEqualTo(expectedSkippedArgs);
   }
 
   @Test
@@ -168,9 +168,9 @@ public final class FlagAliasTest {
             "--default_override=0:c0=--flag_alias=foo=//bar",
             "--rc_source=/somewhere/.blazerc",
             "--foo");
-    ImmutableList<String> expectedResidue = ImmutableList.of("--//bar");
+    ImmutableList<String> expectedSkippedArgs = ImmutableList.of("--//bar");
     optionHandler.parseOptions(args, eventHandler);
-    assertThat(parser.getResidue()).isEqualTo(expectedResidue);
+    assertThat(parser.getSkippedArgs()).isEqualTo(expectedSkippedArgs);
   }
 
   @Test
@@ -178,9 +178,9 @@ public final class FlagAliasTest {
     ImmutableList<String> args =
         ImmutableList.of(
             "c0", "--rc_source=/somewhere/.blazerc", "--flag_alias=foo=//bar", "--foo=7");
-    ImmutableList<String> expectedResidue = ImmutableList.of("--//bar=7");
+    ImmutableList<String> expectedSkippedArgs = ImmutableList.of("--//bar=7");
     optionHandler.parseOptions(args, eventHandler);
-    assertThat(parser.getResidue()).isEqualTo(expectedResidue);
+    assertThat(parser.getSkippedArgs()).isEqualTo(expectedSkippedArgs);
   }
 
   // Regression test for b/172453517

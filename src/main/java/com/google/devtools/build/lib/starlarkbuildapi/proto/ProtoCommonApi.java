@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.proto;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -24,11 +25,10 @@ import net.starlark.java.eval.StarlarkValue;
  */
 @StarlarkBuiltin(
     name = "proto_common",
+    category = DocCategory.TOP_LEVEL_MODULE,
     doc =
-        "Utilities for protocol buffers. "
-            + "<p>"
-            + "Please consider using `load(\"@rules_proto//proto:defs.bzl\", \"proto_common\")` "
-            + "to load this symbol from <a href=\"https://github.com/bazelbuild/rules_proto\">"
-            + "rules_proto</a>"
+        "Utilities for protocol buffers. <p>Please consider using"
+            + " <code>load(\"@rules_proto//proto:defs.bzl\", \"proto_common\")</code> to load this"
+            + " symbol from <a href=\"https://github.com/bazelbuild/rules_proto\">rules_proto</a>."
             + "</p>")
 public interface ProtoCommonApi extends StarlarkValue {}

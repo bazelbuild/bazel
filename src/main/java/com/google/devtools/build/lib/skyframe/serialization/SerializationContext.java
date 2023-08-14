@@ -23,10 +23,8 @@ import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.skyframe.serialization.Memoizer.Serializer;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationStrategy;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException.NoCodecException;
@@ -182,31 +180,15 @@ public class SerializationContext implements SerializationDependencyProvider {
         allowFuturesToBlockWritingOn);
   }
 
-  private static final FutureCallback<Object> CRASH_TERMINATING_CALLBACK =
-      new FutureCallback<Object>() {
-        @Override
-        public void onSuccess(@Nullable Object result) {}
-
-        @Override
-        public void onFailure(Throwable t) {
-          BugReport.handleCrash(t);
-        }
-      };
-
   /**
    * Registers a {@link ListenableFuture} that must complete successfully before the serialized
    * bytes generated using this context can be written remotely.
-   *
-   * <p>Failure of the given future implies a bug or other unrecoverable error that crashes this
-   * JVM, which this method configures by attaching a callback that calls {@link
-   * BugReport#handleCrash(Throwable, String...)} in {@link FutureCallback#onFailure}.
    */
   public void addFutureToBlockWritingOn(ListenableFuture<Void> future) {
     checkState(allowFuturesToBlockWritingOn, "This context cannot block on a future");
     if (futuresToBlockWritingOn == null) {
       futuresToBlockWritingOn = new ArrayList<>();
     }
-    Futures.addCallback(future, CRASH_TERMINATING_CALLBACK, directExecutor());
     futuresToBlockWritingOn.add(future);
   }
 

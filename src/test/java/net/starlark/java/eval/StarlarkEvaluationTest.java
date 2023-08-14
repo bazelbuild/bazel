@@ -1146,6 +1146,12 @@ public final class StarlarkEvaluationTest {
         .testExpression(
             "mock.with_params(1, True, True, named=True, optionalNamed=False, acceptsAny=None)",
             "with_params(1, true, true, true, false, None)");
+    ev.new Scenario()
+        .update("mock", new Mock())
+        .setUp("")
+        .testExpression(
+            "mock.with_params(1, True, True, named=True, optionalNamed=False, acceptsAny=123)",
+            "with_params(1, true, true, true, false, 123)");
 
     ev.new Scenario()
         .update("mock", new Mock())
@@ -1383,8 +1389,7 @@ public final class StarlarkEvaluationTest {
         .hasCauseThat()
         .hasMessageThat()
         .contains(
-            "cannot expose internal type to Starlark: class"
-                + " net.starlark.java.eval.StarlarkEvaluationTest$Bad");
+            "invalid Starlark value: class net.starlark.java.eval.StarlarkEvaluationTest$Bad");
   }
 
   @Test

@@ -23,12 +23,20 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.List;
 import org.junit.rules.ExternalResource;
 
 /** A fake HTTP server for testing. */
 public class TestHttpServer extends ExternalResource {
   private static final Joiner JOINER = Joiner.on('\n');
   private HttpServer server;
+  private String authToken;
+
+  public TestHttpServer(String authToken) {
+    this.authToken = authToken;
+  }
+
+  public TestHttpServer() {}
 
   @Override
   protected void before() throws Throwable {
@@ -44,15 +52,26 @@ public class TestHttpServer extends ExternalResource {
     server.start();
   }
 
-  public void serve(String path, byte[] bytes) {
+  public void serve(String path, byte[] bytes, boolean useAuth) {
     server.createContext(
         path,
         exchange -> {
+          if (useAuth) {
+            List<String> tokens = exchange.getRequestHeaders().get("Authorization");
+            if (tokens == null || tokens.isEmpty() || !authToken.equals(tokens.get(0))) {
+              exchange.sendResponseHeaders(401, -1);
+              return;
+            }
+          }
           exchange.sendResponseHeaders(200, bytes.length);
           try (OutputStream os = exchange.getResponseBody()) {
             os.write(bytes);
           }
         });
+  }
+
+  public void serve(String path, byte[] bytes) {
+    serve(path, bytes, false);
   }
 
   public void serve(String path, String... lines) {

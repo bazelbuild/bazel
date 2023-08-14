@@ -19,10 +19,6 @@ An AAR may contain JARs at /classes.jar and /libs/*.jar. This tool extracts all
 of the jars and creates a param file for singlejar to merge them into one jar.
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import os
 import re
 import sys
@@ -31,7 +27,6 @@ import zipfile
 # Do not edit this line. Copybara replaces it with PY2 migration helper.
 from absl import app
 from absl import flags
-import six
 
 from tools.android import junction
 
@@ -50,6 +45,14 @@ def ExtractEmbeddedJars(aar,
                         singlejar_param_file,
                         output_dir,
                         output_dir_orig=None):
+  """Extracts all embedded jars from an AAR.
+
+  Args:
+    aar: The aar to extract from
+    singlejar_param_file: The param file to pass to singlejar
+    output_dir: Where to extract do
+    output_dir_orig: The original unshortened path to the params file
+  """
   if not output_dir_orig:
     output_dir_orig = output_dir
   jar_pattern = re.compile("^(classes|libs/.+)\\.jar$")
@@ -60,7 +63,7 @@ def ExtractEmbeddedJars(aar,
       # output_dir may be a temporary junction, so write the original
       # (unshortened) path to the params file
       singlejar_param_file.write(
-          six.ensure_binary((output_dir_orig + "/" + name + "\n"), "utf-8"))
+          (output_dir_orig + "/" + name + "\n").encode("utf-8"))
       aar.extract(name, output_dir)
 
 

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
+import com.google.auth.Credentials;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -31,8 +32,8 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.net.SocketTimeoutException;
-import java.net.URI;
 import java.net.URL;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -53,6 +54,8 @@ public class HttpDownloader implements Downloader {
   private static final Locale LOCALE = Locale.getDefault();
 
   private float timeoutScaling = 1.0f;
+  private int maxAttempts = 0;
+  private Duration maxRetryTimeout = Duration.ZERO;
 
   public HttpDownloader() {}
 
@@ -60,10 +63,18 @@ public class HttpDownloader implements Downloader {
     this.timeoutScaling = timeoutScaling;
   }
 
+  public void setMaxAttempts(int maxAttempts) {
+    this.maxAttempts = maxAttempts;
+  }
+
+  public void setMaxRetryTimeout(Duration maxRetryTimeout) {
+    this.maxRetryTimeout = maxRetryTimeout;
+  }
+
   @Override
   public void download(
       List<URL> urls,
-      Map<URI, Map<String, String>> authHeaders,
+      Credentials credentials,
       Optional<Checksum> checksum,
       String canonicalId,
       Path destination,
@@ -82,7 +93,7 @@ public class HttpDownloader implements Downloader {
     for (URL url : urls) {
       SEMAPHORE.acquire();
 
-      try (HttpStream payload = multiplexer.connect(url, checksum, authHeaders, type);
+      try (HttpStream payload = multiplexer.connect(url, checksum, credentials, type);
           OutputStream out = destination.getOutputStream()) {
         try {
           ByteStreams.copy(payload, out);
@@ -131,13 +142,17 @@ public class HttpDownloader implements Downloader {
 
   /** Downloads the contents of one URL and reads it into a byte array. */
   public byte[] downloadAndReadOneUrl(
-      URL url, ExtendedEventHandler eventHandler, Map<String, String> clientEnv)
+      URL url,
+      Credentials credentials,
+      ExtendedEventHandler eventHandler,
+      Map<String, String> clientEnv)
       throws IOException, InterruptedException {
     HttpConnectorMultiplexer multiplexer = setUpConnectorMultiplexer(eventHandler, clientEnv);
 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     SEMAPHORE.acquire();
-    try (HttpStream payload = multiplexer.connect(url, Optional.absent())) {
+    try (HttpStream payload =
+        multiplexer.connect(url, Optional.absent(), credentials, Optional.absent())) {
       ByteStreams.copy(payload, out);
     } catch (SocketTimeoutException e) {
       // SocketTimeoutExceptions are InterruptedIOExceptions; however they do not signify
@@ -157,7 +172,14 @@ public class HttpDownloader implements Downloader {
       ExtendedEventHandler eventHandler, Map<String, String> clientEnv) {
     ProxyHelper proxyHelper = new ProxyHelper(clientEnv);
     HttpConnector connector =
-        new HttpConnector(LOCALE, eventHandler, proxyHelper, SLEEPER, timeoutScaling);
+        new HttpConnector(
+            LOCALE,
+            eventHandler,
+            proxyHelper,
+            SLEEPER,
+            timeoutScaling,
+            maxAttempts,
+            maxRetryTimeout);
     ProgressInputStream.Factory progressInputStreamFactory =
         new ProgressInputStream.Factory(LOCALE, CLOCK, eventHandler);
     HttpStream.Factory httpStreamFactory = new HttpStream.Factory(progressInputStreamFactory);

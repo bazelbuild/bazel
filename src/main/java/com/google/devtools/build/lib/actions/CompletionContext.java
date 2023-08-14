@@ -105,16 +105,13 @@ public class CompletionContext {
     return pathResolver;
   }
 
-  @Nullable
-  public FileArtifactValue getFileArtifactValue(Artifact artifact) {
-    return importantInputMap.getMetadata(artifact);
+  public ActionInputMap getImportantInputMap() {
+    return importantInputMap;
   }
 
-  /** Returns true if the given artifact is guaranteed to be a file (and not a directory). */
-  public static boolean isGuaranteedToBeOutputFile(FileStateType type) {
-    return type == FileStateType.REGULAR_FILE
-        || type == FileStateType.SPECIAL_FILE
-        || type == FileStateType.NONEXISTENT;
+  @Nullable
+  public FileArtifactValue getFileArtifactValue(Artifact artifact) {
+    return importantInputMap.getInputMetadata(artifact);
   }
 
   public void visitArtifacts(Iterable<Artifact> artifacts, ArtifactReceiver receiver) {
@@ -132,7 +129,7 @@ public class CompletionContext {
                   : RelativeSymlinkBehaviorWithoutError.RESOLVE);
         }
       } else if (artifact.isTreeArtifact()) {
-        FileArtifactValue treeArtifactMetadata = importantInputMap.getMetadata(artifact);
+        FileArtifactValue treeArtifactMetadata = importantInputMap.getInputMetadata(artifact);
         if (treeArtifactMetadata == null) {
           BugReport.sendBugReport(
               new IllegalStateException(

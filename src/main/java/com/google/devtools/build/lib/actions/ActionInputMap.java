@@ -32,7 +32,7 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
- * Helper for {@link MetadataProvider} implementations.
+ * Helper for {@link InputMetadataProvider} implementations.
  *
  * <p>Allows {@link FileArtifactValue} lookups by exec path or {@link ActionInput}. <i>Also</i>
  * allows {@link ActionInput} to be looked up by exec path.
@@ -42,7 +42,7 @@ import javax.annotation.Nullable;
  *
  * <p>This class is thread-compatible.
  */
-public final class ActionInputMap implements MetadataProvider, ActionInputMapSink {
+public final class ActionInputMap implements InputMetadataProvider, ActionInputMapSink {
 
   private static final Object PLACEHOLDER = new Object();
 
@@ -174,7 +174,7 @@ public final class ActionInputMap implements MetadataProvider, ActionInputMapSin
 
   @Nullable
   @Override
-  public FileArtifactValue getMetadata(ActionInput input) {
+  public FileArtifactValue getInputMetadata(ActionInput input) {
     if (input instanceof TreeFileArtifact) {
       TreeFileArtifact treeFileArtifact = (TreeFileArtifact) input;
       int treeIndex = getIndex(treeFileArtifact.getParent().getExecPathString());
@@ -242,6 +242,33 @@ public final class ActionInputMap implements MetadataProvider, ActionInputMapSin
 
     Map.Entry<?, FileArtifactValue> entry = tree.findChildEntryByExecPath(execPath);
     return entry != null ? entry.getValue() : null;
+  }
+
+  /**
+   * Returns the {@link TreeArtifactValue} for the given path, or {@code null} if no such tree
+   * artifact exists.
+   */
+  @Nullable
+  public TreeArtifactValue getTreeMetadata(PathFragment execPath) {
+    int index = getIndex(execPath.getPathString());
+    if (index < 0) {
+      return null;
+    }
+    Object value = values[index];
+    if (!(value instanceof TrieArtifact)) {
+      return null;
+    }
+    return ((TrieArtifact) value).treeArtifactValue;
+  }
+
+  /**
+   * Returns the {@link TreeArtifactValue} for the shortest prefix of the given path, possibly the
+   * path itself, that corresponds to a tree artifact; or {@code null} if no such tree artifact
+   * exists.
+   */
+  @Nullable
+  public TreeArtifactValue getTreeMetadataForPrefix(PathFragment execPath) {
+    return treeArtifactsRoot.findTreeArtifactNodeAtPrefix(execPath);
   }
 
   @Nullable

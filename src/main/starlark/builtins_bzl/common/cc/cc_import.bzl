@@ -20,23 +20,10 @@ rely on this. Pass the flag --experimental_starlark_cc_import
 
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/objc/semantics.bzl", "semantics")
-
-CcInfo = _builtins.toplevel.CcInfo
-cc_common = _builtins.toplevel.cc_common
+load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/cc_common.bzl", "cc_common")
 
 CPP_LINK_STATIC_LIBRARY_ACTION_NAME = "c++-link-static-library"
-
-def _to_list(element):
-    if element == None:
-        return []
-    else:
-        return [element]
-
-def _to_depset(element):
-    if element == None:
-        return depset()
-    else:
-        return depset([element])
 
 def _perform_error_checks(
         system_provided,
@@ -54,7 +41,7 @@ def _perform_error_checks(
         fail("'shared_library' should be specified when 'system_provided' is false")
 
     if (shared_library_artifact != None and
-        not cc_helper.is_shared_library_extension_valid(shared_library_artifact.basename)):
+        not cc_helper.is_valid_shared_library_artifact(shared_library_artifact)):
         fail("'shared_library' does not produce any cc_import shared_library files (expected .so, .dylib or .dll)")
 
 def _create_archive_action(
@@ -93,6 +80,7 @@ def _create_archive_action(
     # action is created by cc_library
     ctx.actions.run(
         executable = archiver_path,
+        toolchain = cc_helper.CPP_TOOLCHAIN_TYPE,
         arguments = [args],
         env = env,
         inputs = depset(
@@ -165,7 +153,7 @@ def _cc_import_impl(ctx):
             linker_inputs = depset([linker_input]),
         )
 
-    (compilation_context, compilation_outputs) = cc_common.compile(
+    (compilation_context, _) = cc_common.compile(
         actions = ctx.actions,
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
@@ -219,7 +207,9 @@ cc_import = rule(
             default = Label("@" + semantics.get_repo() + "//tools/cpp:grep-includes"),
         ),
         "_cc_toolchain": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
+        "_use_auto_exec_groups": attr.bool(default = True),
     },
+    provides = [CcInfo],
     toolchains = cc_helper.use_cpp_toolchain(),
     fragments = ["cpp"],
     incompatible_use_toolchain_transition = True,

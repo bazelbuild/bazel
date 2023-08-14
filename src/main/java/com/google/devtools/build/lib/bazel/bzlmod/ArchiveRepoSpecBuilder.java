@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -62,6 +63,12 @@ public class ArchiveRepoSpecBuilder {
   }
 
   @CanIgnoreReturnValue
+  public ArchiveRepoSpecBuilder setPatchCmds(ImmutableList<String> patchCmds) {
+    attrBuilder.put("patch_cmds", patchCmds);
+    return this;
+  }
+
+  @CanIgnoreReturnValue
   public ArchiveRepoSpecBuilder setPatchStrip(int patchStrip) {
     attrBuilder.put("patch_args", ImmutableList.of("-p" + patchStrip));
     return this;
@@ -79,11 +86,19 @@ public class ArchiveRepoSpecBuilder {
     return this;
   }
 
+  @CanIgnoreReturnValue
+  public ArchiveRepoSpecBuilder setArchiveType(String archiveType) {
+    if (!Strings.isNullOrEmpty(archiveType)) {
+      attrBuilder.put("type", archiveType);
+    }
+    return this;
+  }
+
   public RepoSpec build() {
     return RepoSpec.builder()
         .setBzlFile("@bazel_tools//tools/build_defs/repo:http.bzl")
         .setRuleClassName("http_archive")
-        .setAttributes(attrBuilder.buildOrThrow())
+        .setAttributes(AttributeValues.create(attrBuilder.buildOrThrow()))
         .build();
   }
 }

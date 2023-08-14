@@ -16,7 +16,7 @@
 # define HAVE_PROCSTAT
 # define STANDARD_JAVABASE "/usr/local/openjdk8"
 #elif defined(__OpenBSD__)
-# define STANDARD_JAVABASE "/usr/local/jdk-1.8.0"
+# define STANDARD_JAVABASE "/usr/local/jdk-17"
 #else
 # error This BSD is not supported
 #endif
@@ -66,7 +66,7 @@ string GetOutputRoot() {
   struct passwd *pw = nullptr;
   int uid = getuid();
   int r = getpwuid_r(uid, &pwbuf, buf, 2048, &pw);
-  if (r != -1 && pw != nullptr) {
+  if (r == 0 && pw != nullptr) {
     return blaze_util::JoinPath(pw->pw_dir, ".cache/bazel");
   } else {
     return "/tmp";

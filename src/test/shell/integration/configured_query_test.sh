@@ -227,7 +227,7 @@ my_rule = rule(
     attrs = {
       "src_dep": attr.label(allow_single_file = True),
       "target_dep": attr.label(cfg = 'target'),
-      "host_dep": attr.label(cfg = 'host'),
+      "host_dep": attr.label(cfg = 'exec'),
     },
 )
 EOF
@@ -952,9 +952,18 @@ bool_flag = rule(
     build_setting = config.bool(flag = True),
 )
 
+def _list_flag_impl(ctx):
+    return BuildSettingInfo(value = ctx.build_setting_value)
+
+list_flag = rule(
+    implementation = _list_flag_impl,
+    build_setting = config.string_list(flag = True),
+)
+
 def _dep_transition_impl(settings, attr):
     return {
         "//$pkg:myflag": True,
+        "//$pkg:mylistflag": ["a", "b"],
         "//command_line_option:platform_suffix": "blah"
     }
 
@@ -963,6 +972,7 @@ _dep_transition = transition(
     inputs = [],
     outputs = [
         "//$pkg:myflag",
+        "//$pkg:mylistflag",
         "//command_line_option:platform_suffix",
     ],
 )
@@ -980,13 +990,18 @@ root_rule = rule(
 EOF
 
   cat > $pkg/BUILD <<'EOF'
-load(":rules.bzl", "bool_flag", "root_rule")
+load(":rules.bzl", "bool_flag", "list_flag", "root_rule")
 
 exports_files(["rules.bzl"])
 
 bool_flag(
     name = "myflag",
     build_setting_default = False,
+)
+
+list_flag(
+    name = "mylistflag",
+    build_setting_default = ["c"],
 )
 
 py_library(
@@ -1008,24 +1023,31 @@ def format(target):
     return str(target.label) + '%None'
   first = str(bo['//command_line_option:platform_suffix'])
   second = str(('//$pkg:myflag' in bo) and bo['//$pkg:myflag'])
-  return str(target.label) + '%' + first + '%' + second
+  third = str(bo['//$pkg:mylistflag'] if '//$pkg:mylistflag' in bo else None)
+  return str(target.label) + '%' + first + '%' + second + '%' + third
 EOF
 
   bazel cquery "//$pkg:bar" --output=starlark \
     --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"
 
-  assert_contains "//$pkg:bar%None%False" output
+  assert_contains "//$pkg:bar%None%False%None" output
+
+  bazel cquery "//$pkg:bar" --output=starlark \
+    --//$pkg:myflag=True --//$pkg:mylistflag=c,d \
+    --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:bar%None%True%\\[\"c\", \"d\"]" output
 
   bazel cquery "//$pkg:foo" --output=starlark \
     --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"
 
-  assert_contains "//$pkg:foo%None%False" output
+  assert_contains "//$pkg:foo%None%False%None" output
 
   bazel cquery "kind(rule, deps(//$pkg:foo))" --output=starlark \
     --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"
 
-  assert_contains "//$pkg:foo%None%False" output
-  assert_contains "//$pkg:bar%blah%True" output
+  assert_contains "//$pkg:foo%None%False%None" output
+  assert_contains "//$pkg:bar%blah%True%\\[\"a\", \"b\"]" output
 
   bazel cquery "//$pkg:rules.bzl" --output=starlark \
     --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"
@@ -1183,18 +1205,41 @@ EOF
   assert_contains "^path=$pkg/foo$" output
 }
 
-function test_starlark_output_providers_function() {
+function test_starlark_common_libs() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   cat > $pkg/BUILD <<'EOF'
-py_library(
-    name = "pylib",
-    srcs = ["pylib.py"],
-    srcs_version = "PY3",
+exports_files(srcs = ["foo"])
+EOF
+
+  bazel cquery "//$pkg:foo" --output=starlark \
+    --starlark:expr="str(type(depset())) + ' ' + str(json.encode(struct(foo = 'bar')))" \
+    > output 2>"$TEST_log" || fail "Unexpected failure"
+
+  assert_contains "^depset {\"foo\":\"bar\"}$" output
+}
+
+function test_starlark_output_providers_function() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/defs.bzl <<'EOF'
+def foo_impl(ctx):
+    return [DefaultInfo()]
+
+foo_library = rule(
+    implementation = foo_impl,
 )
 EOF
-  cat > $pkg/pylib.py <<'EOF'
-pylib=1
+  cat > $pkg/BUILD <<'EOF'
+load(":defs.bzl", "foo_library")
+
+foo_library(
+    name = "lib",
+)
+exports_files(["srcfile.txt"])
+EOF
+  cat > $pkg/srcfile.txt <<'EOF'
+hello, world
 EOF
   cat > $pkg/outfunc.bzl <<'EOF'
 def format(target):
@@ -1204,24 +1249,24 @@ def format(target):
     ret = str(target.label) + ':providers=' + str(sorted(p.keys()))
     vis_info = p.get('VisibilityProvider')
     if vis_info:
-        ret += '\n\tVisbilityProvider.label:' + str(vis_info.label)
-    py_info = p.get('PyInfo')
-    if py_info:
-        ret += '\n\tPyInfo:py3_only=' + str(py_info.has_py3_only_sources)
+        ret += '\n\tVisibilityProvider.label:' + str(vis_info.label)
+    output_group_info = p.get('OutputGroupInfo')
+    if output_group_info:
+        ret += '\n\tOutputGroupInfo found'
     return ret
 EOF
-  bazel cquery "//$pkg:pylib" --output=starlark --starlark:file="$pkg/outfunc.bzl" >output \
+  bazel cquery "//$pkg:lib" --output=starlark --starlark:file="$pkg/outfunc.bzl" >output \
     2>"$TEST_log" || fail "Expected success"
 
-  assert_contains "//$pkg:pylib:providers=.*PyInfo" output
-  assert_contains "PyInfo:py3_only=True" output
+  assert_contains "//$pkg:lib:providers=.*OutputGroupInfo" output
+  assert_contains "OutputGroupInfo found" output
 
   # A file
-  bazel cquery "//$pkg:pylib.py" --output=starlark --starlark:file="$pkg/outfunc.bzl" >output \
+  bazel cquery "//$pkg:srcfile.txt" --output=starlark --starlark:file="$pkg/outfunc.bzl" >output \
     2>"$TEST_log" || fail "Expected success"
-  assert_contains "//$pkg:pylib.py:providers=.*FileProvider.*FilesToRunProvider.*LicensesProvider.*VisibilityProvider" \
+  assert_contains "//$pkg:srcfile.txt:providers=.*FileProvider.*FilesToRunProvider.*LicensesProvider.*VisibilityProvider" \
     output
-  assert_contains "VisbilityProvider.label://$pkg:pylib.py" output
+  assert_contains "VisibilityProvider.label:@//$pkg:srcfile.txt" output
 }
 
 function test_starlark_output_providers_starlark_provider() {
@@ -1249,6 +1294,37 @@ def format(target):
     return p["//$pkg:my_rule.bzl%MyRuleInfo"].label
 EOF
   bazel cquery "//$pkg:myrule" --output=starlark --starlark:file="$pkg/outfunc.bzl" >output \
+    2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "some_value" output
+}
+
+function test_starlark_output_providers_starlark_provider_for_alias() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+load(":my_rule.bzl", "my_rule")
+my_rule(name="myrule")
+alias(name="myalias", actual="myrule")
+EOF
+  cat > $pkg/my_rule.bzl <<'EOF'
+# A no-op rule that manifests a provider
+MyRuleInfo = provider(fields={"label": "a_rule_label"})
+
+def _my_rule_impl(ctx):
+    return [MyRuleInfo(label="some_value")]
+
+my_rule = rule(
+    implementation = _my_rule_impl,
+    attrs = {},
+)
+EOF
+  cat > $pkg/outfunc.bzl <<EOF
+def format(target):
+    p = providers(target)
+    return p["//$pkg:my_rule.bzl%MyRuleInfo"].label
+EOF
+  bazel cquery "//$pkg:myalias" --output=starlark --starlark:file="$pkg/outfunc.bzl" >output \
     2>"$TEST_log" || fail "Expected success"
 
   assert_contains "some_value" output
@@ -1414,6 +1490,35 @@ EOF
   # actionable error, not a stack trace.
   bazel cquery --keep_going "config(//$pkg:oak, notaconfighash)" > output 2>"$TEST_log" && fail "Expected error"
   expect_not_log "QueryException"
+}
+
+function test_does_not_fail_horribly_with_file() {
+  rm -rf peach
+  mkdir -p peach
+  cat > peach/BUILD <<EOF
+sh_library(name='brighton', deps=[':harken'])
+sh_library(name='harken')
+EOF
+
+  echo "deps(//peach:brighton)" > query_file
+  bazel cquery --query_file=query_file > $TEST_log
+
+  expect_log "//peach:brighton"
+  expect_log "//peach:harken"
+}
+
+function test_files_include_source_files() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<'EOF'
+filegroup(name="files", srcs=["BUILD"])
+alias(name="alias", actual="single_file")
+EOF
+  touch $pkg/single_file
+
+  bazel cquery --output=files //$pkg:all > output 2>"$TEST_log" || fail "Unexpected failure"
+  assert_contains "$pkg/BUILD" output
+  assert_contains "$pkg/single_file" output
 }
 
 run_suite "${PRODUCT_NAME} configured query tests"

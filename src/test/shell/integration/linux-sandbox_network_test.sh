@@ -39,6 +39,11 @@ function set_up {
   mkdir -p $SANDBOX_DIR
 }
 
+function test_network_no_namespace() {
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS  -- ip link ls &> $TEST_log || fail
+  expect_log "LOOPBACK.*UP"
+}
+
 function test_network_namespace() {
   $linux_sandbox $SANDBOX_DEFAULT_OPTS -N  -- ip link ls &> $TEST_log || fail
   expect_log "LOOPBACK,UP"
@@ -48,6 +53,12 @@ function test_ping_loopback() {
   $linux_sandbox $SANDBOX_DEFAULT_OPTS -N -R -- \
     /bin/sh -c 'ping6 -c 1 ::1 || ping -c 1 127.0.0.1' &>$TEST_log || fail
   expect_log "1 received"
+}
+
+function test_ping_no_loopback() {
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -n -R -- \
+    /bin/sh -c 'ping6 -c 1 ::1 || ping -c 1 127.0.0.1' &>$TEST_log && fail
+  expect_not_log "LOOPBACK.*UP"
 }
 
 # The test shouldn't fail if the environment doesn't support running it.

@@ -209,18 +209,17 @@ EOF
   bazel build //$pkg/foo/bar:tomato >&"$TEST_log" || fail "build failed"
   expect_log "is unexpected here"
 
-  # check that we do get a deprecation warning if we select the target
+  bazel clean >& "$TEST_log" || fail "clean failed"
 
-  echo "# add comment to trigger rebuild" >> $pkg/foo/bar/tomato.skin
-  echo "# add comment to trigger rebuild" >> $pkg/foo/bar/tomato.pulp
+  # check that we do get a deprecation warning if we select the target
   bazel build --output_filter=$pkg/foo/bar:tomato //$pkg/foo/bar:tomato >&"$TEST_log" \
     || fail "build failed"
   expect_log "is unexpected here"
 
+  bazel clean >& "$TEST_log" || fail "clean failed"
+
   # check that we do not get a deprecation warning if we select another target
-  echo "# add another comment" >> $pkg/foo/bar/tomato.skin
-  echo "# add another comment" >> $pkg/foo/bar/tomato.pulp
-  bazel build --output_filter=$pkg/foo/bar/:red //$pkg/foo/bar:tomato >&"$TEST_log" \
+  bazel build --output_filter=$pkg/foo/bar:red //$pkg/foo/bar:tomato >&"$TEST_log" \
     || fail "build failed"
   expect_not_log "is unexpected here"
 }

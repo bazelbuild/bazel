@@ -17,6 +17,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.testutil.PostAnalysisQueryTest;
@@ -29,7 +30,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link ActionGraphQueryEnvironment}. */
 @RunWith(JUnit4.class)
-public class ActionGraphQueryTest extends PostAnalysisQueryTest<KeyedConfiguredTargetValue> {
+public class ActionGraphQueryTest extends PostAnalysisQueryTest<ConfiguredTargetValue> {
   @Override
   protected HashMap<String, QueryFunction> getDefaultFunctions() {
     ImmutableList<QueryFunction> defaultFunctions =
@@ -45,8 +46,7 @@ public class ActionGraphQueryTest extends PostAnalysisQueryTest<KeyedConfiguredT
   }
 
   @Override
-  protected BuildConfigurationValue getConfiguration(
-      KeyedConfiguredTargetValue configuredTargetValue) {
+  protected BuildConfigurationValue getConfiguration(ConfiguredTargetValue configuredTargetValue) {
     return getHelper()
         .getSkyframeExecutor()
         .getConfiguration(
@@ -55,12 +55,8 @@ public class ActionGraphQueryTest extends PostAnalysisQueryTest<KeyedConfiguredT
   }
 
   @Override
-  protected QueryHelper<KeyedConfiguredTargetValue> createQueryHelper() {
-    if (helper != null) {
-      getHelper().cleanUp();
-    }
-    helper = new ActionGraphQueryHelper();
-    return helper;
+  protected QueryHelper<ConfiguredTargetValue> createQueryHelper() {
+    return new ActionGraphQueryHelper();
   }
 
   @Override
@@ -68,12 +64,12 @@ public class ActionGraphQueryTest extends PostAnalysisQueryTest<KeyedConfiguredT
   public void testMultipleTopLevelConfigurations_nullConfigs() throws Exception {
     writeFile("test/BUILD", "java_library(name='my_java',", "  srcs = ['foo.java'],", ")");
 
-    Set<KeyedConfiguredTargetValue> result = eval("//test:my_java+//test:foo.java");
+    Set<ConfiguredTargetValue> result = eval("//test:my_java+//test:foo.java");
 
     assertThat(result).hasSize(2);
 
-    Iterator<KeyedConfiguredTargetValue> resultIterator = result.iterator();
-    KeyedConfiguredTargetValue first = resultIterator.next();
+    Iterator<ConfiguredTargetValue> resultIterator = result.iterator();
+    ConfiguredTargetValue first = resultIterator.next();
     if (first.getConfiguredTarget().getLabel().toString().equals("//test:foo.java")) {
       assertThat(getConfiguration(first)).isNull();
       assertThat(getConfiguration(resultIterator.next())).isNotNull();
@@ -130,7 +126,7 @@ public class ActionGraphQueryTest extends PostAnalysisQueryTest<KeyedConfiguredT
         ")");
     appendToWorkspace("register_toolchains('//q:tc.toolchain')");
 
-    Set<KeyedConfiguredTargetValue> result = eval("deps('//q:r')");
+    Set<ConfiguredTargetValue> result = eval("deps('//q:r')");
 
     assertDoesNotContainEvent("Targets were missing from graph");
     assertThat(

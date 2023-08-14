@@ -22,7 +22,6 @@ java_library(
         "//external:has_androidsdk": glob(
             ["*Test.java"],
             exclude = [
-                "DexFileMergerTest.java",
                 "NoAndroidSdkStubTest.java",
                 "AllTests.java",
             ],
@@ -30,8 +29,8 @@ java_library(
         "//conditions:default": ["NoAndroidSdkStubTest.java"],
     }),
     deps = [
-        "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",
         "//src/main/java/com/google/devtools/common/options:options_internal",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",
         "//src/tools/android/java/com/google/devtools/build/android/r8",
         "//third_party:guava",
         "//third_party:junit4",
@@ -51,8 +50,8 @@ java_test(
     data = [
         ":arithmetic",
         ":barray",
-        ":dexmergersample",
         ":naming001",
+        ":testdata_lambda_desugared.jar",
         ":twosimpleclasses",
     ],
     jvm_flags = [
@@ -60,7 +59,7 @@ java_test(
         "-DCompatDexBuilderTests.naming001=$(location :naming001)",
         "-DCompatDxTests.arithmetic=$(location :arithmetic)",
         "-DCompatDxTests.barray=$(location :barray)",
-        "-DDexFileMergerTest.dexmergersample=$(location :dexmergersample)",
+        "-DCompatDexBuilderTests.lambda=$(location :testdata_lambda_desugared.jar)",
     ],
     runtime_deps = [
         ":tests",
@@ -108,11 +107,19 @@ java_library(
 )
 
 java_library(
-    name = "dexmergersample",
-    srcs = glob(["testdata/dexmergersample/*.java"]),
-    # Must be compiled as java8, otherwise CompatDx complains about invoke-customs
-    javacopts = [
-        "-source 8",
-        "-target 8",
+    name = "testdata_lambda",
+    srcs = glob(["testdata/lambda/*.java"]),
+)
+
+genrule(
+    name = "desugar_testdata_lambda",
+    srcs = [
+        ":testdata_lambda",
+        "@bazel_tools//tools/android:android_jar",
     ],
+    outs = ["testdata_lambda_desugared.jar"],
+    cmd = "$(location //src/tools/android/java/com/google/devtools/build/android/r8:desugar) " +
+          "-i $(location :testdata_lambda) -o $@ " +
+          "--bootclasspath_entry $(location @bazel_tools//tools/android:android_jar)",
+    tools = ["//src/tools/android/java/com/google/devtools/build/android/r8:desugar"],
 )

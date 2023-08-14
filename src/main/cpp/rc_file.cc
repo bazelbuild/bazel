@@ -55,9 +55,11 @@ RcFile::ParseError RcFile::ParseFile(const string& filename,
                                      string* error_text) {
   BAZEL_LOG(INFO) << "Parsing the RcFile " << filename;
   string contents;
-  if (!blaze_util::ReadFile(filename, &contents)) {
+  string error_message;
+  if (!blaze_util::ReadFile(filename, &contents, &error_message)) {
     blaze_util::StringPrintf(error_text,
-        "Unexpected error reading .blazerc file '%s'", filename.c_str());
+        "Unexpected error reading .blazerc file '%s': %s",
+        filename.c_str(), error_message.c_str());
     return ParseError::UNREADABLE_FILE;
   }
   const std::string canonical_filename =

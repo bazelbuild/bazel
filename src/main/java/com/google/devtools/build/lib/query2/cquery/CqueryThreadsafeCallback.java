@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
@@ -42,7 +42,7 @@ import javax.annotation.Nullable;
  * focused on completeness, should output full configuration checksums.
  */
 public abstract class CqueryThreadsafeCallback
-    extends NamedThreadSafeOutputFormatterCallback<KeyedConfiguredTarget> {
+    extends NamedThreadSafeOutputFormatterCallback<ConfiguredTarget> {
 
   protected final ExtendedEventHandler eventHandler;
   protected final CqueryOptions options;
@@ -64,7 +64,7 @@ public abstract class CqueryThreadsafeCallback
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<KeyedConfiguredTarget> accessor,
+      TargetAccessor<ConfiguredTarget> accessor,
       boolean uniquifyResults) {
     this.eventHandler = eventHandler;
     this.options = options;
@@ -111,32 +111,12 @@ public abstract class CqueryThreadsafeCallback
     return configCache.computeIfAbsent(
         configKey, key -> skyframeExecutor.getConfiguration(eventHandler, key));
   }
-  /**
-   * Returns a user-friendly configuration identifier as a prefix of <code>fullId</code>.
-   *
-   * <p>This helps users read and manipulate what are otherwise distractingly long strings, in the
-   * same spirit as Git short commit hashes.
-   */
-  protected static String shortId(String fullId) {
-    // Inherit Git's default commit hash prefix length. It's a principled choice with similar usage
-    // patterns. cquery, which uses this, has access to every configuration in the build. If it
-    // turns out this setting produces ambiguous prefixes, we could always compare configurations
-    // to find the actual minimal unambiguous length.
-    return fullId.substring(0, 7);
-  }
 
   /**
-   * Returns a user-friendly configuration identifier, using special IDs for null and host
-   * configurations and {@link #shortId(String)} for others.
+   * Returns a user-friendly configuration identifier, using special IDs for null configurations.
    */
   protected static String shortId(@Nullable BuildConfigurationValue config) {
-    if (config == null) {
-      return "null";
-    } else if (config.isHostConfiguration()) {
-      return "HOST";
-    } else {
-      return shortId(config.checksum());
-    }
+    return config == null ? "null" : config.shortId();
   }
 }
 

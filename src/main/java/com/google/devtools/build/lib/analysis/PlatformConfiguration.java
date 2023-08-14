@@ -42,7 +42,7 @@ public class PlatformConfiguration extends Fragment implements PlatformConfigura
   public PlatformConfiguration(BuildOptions buildOptions) {
     PlatformOptions platformOptions = buildOptions.get(PlatformOptions.class);
 
-    this.hostPlatform = platformOptions.computeHostPlatform();
+    this.hostPlatform = platformOptions.hostPlatform;
     this.extraExecutionPlatforms = ImmutableList.copyOf(platformOptions.extraExecutionPlatforms);
     this.targetPlatform = platformOptions.computeTargetPlatform();
     this.extraToolchains = ImmutableList.copyOf(platformOptions.extraToolchains);

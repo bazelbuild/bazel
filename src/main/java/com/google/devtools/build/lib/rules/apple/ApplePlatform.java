@@ -37,30 +37,33 @@ public enum ApplePlatform implements ApplePlatformApi {
   MACOS("macos", "MacOSX", PlatformType.MACOS, true),
   TVOS_DEVICE("tvos_device", "AppleTVOS", PlatformType.TVOS, true),
   TVOS_SIMULATOR("tvos_simulator", "AppleTVSimulator", PlatformType.TVOS, false),
+  VISIONOS_DEVICE("visionos_device", "XROS", PlatformType.VISIONOS, true),
+  VISIONOS_SIMULATOR("visionos_simulator", "XRSimulator", PlatformType.VISIONOS, false),
   WATCHOS_DEVICE("watchos_device", "WatchOS", PlatformType.WATCHOS, true),
   WATCHOS_SIMULATOR("watchos_simulator", "WatchSimulator", PlatformType.WATCHOS, false),
   CATALYST("catalyst", "MacOSX", PlatformType.CATALYST, true);
 
-  // TODO(b/180572694): Remove ios_sim_arm64 after platforms based toolchain resolution supported.
   private static final ImmutableSet<String> IOS_SIMULATOR_TARGET_CPUS =
       ImmutableSet.of("ios_x86_64", "ios_i386", "ios_sim_arm64");
   private static final ImmutableSet<String> IOS_DEVICE_TARGET_CPUS =
       ImmutableSet.of("ios_armv6", "ios_arm64", "ios_armv7", "ios_armv7s", "ios_arm64e");
+  private static final ImmutableSet<String> VISIONOS_SIMULATOR_TARGET_CPUS =
+      ImmutableSet.of("visionos_x86_64", "visionos_sim_arm64");
+  private static final ImmutableSet<String> VISIONOS_DEVICE_TARGET_CPUS =
+      ImmutableSet.of("visionos_arm64");
   private static final ImmutableSet<String> WATCHOS_SIMULATOR_TARGET_CPUS =
       ImmutableSet.of("watchos_i386", "watchos_x86_64", "watchos_arm64");
   private static final ImmutableSet<String> WATCHOS_DEVICE_TARGET_CPUS =
-      ImmutableSet.of("watchos_armv7k", "watchos_arm64_32");
+      ImmutableSet.of(
+          "watchos_armv7k", "watchos_arm64_32", "watchos_device_arm64", "watchos_device_arm64e");
   private static final ImmutableSet<String> TVOS_SIMULATOR_TARGET_CPUS =
       ImmutableSet.of("tvos_x86_64", "tvos_sim_arm64");
   private static final ImmutableSet<String> TVOS_DEVICE_TARGET_CPUS =
       ImmutableSet.of("tvos_arm64");
   private static final ImmutableSet<String> CATALYST_TARGET_CPUS =
       ImmutableSet.of("catalyst_x86_64");
-  // "darwin" is included because that's currently the default when on macOS, and
-  // migrating it would be a breaking change more details:
-  // https://github.com/bazelbuild/bazel/pull/7062
   private static final ImmutableSet<String> MACOS_TARGET_CPUS =
-      ImmutableSet.of("darwin_x86_64", "darwin_arm64", "darwin_arm64e", "darwin");
+      ImmutableSet.of("darwin_x86_64", "darwin_arm64", "darwin_arm64e");
 
   private static final ImmutableSet<String> BIT_32_TARGET_CPUS =
       ImmutableSet.of("ios_i386", "ios_armv7", "ios_armv7s", "watchos_i386", "watchos_armv7k");
@@ -138,6 +141,10 @@ public enum ApplePlatform implements ApplePlatformApi {
       return IOS_SIMULATOR;
     } else if (IOS_DEVICE_TARGET_CPUS.contains(targetCpu)) {
       return IOS_DEVICE;
+    } else if (VISIONOS_SIMULATOR_TARGET_CPUS.contains(targetCpu)) {
+      return VISIONOS_SIMULATOR;
+    } else if (VISIONOS_DEVICE_TARGET_CPUS.contains(targetCpu)) {
+      return VISIONOS_DEVICE;
     } else if (WATCHOS_SIMULATOR_TARGET_CPUS.contains(targetCpu)) {
       return WATCHOS_SIMULATOR;
     } else if (WATCHOS_DEVICE_TARGET_CPUS.contains(targetCpu)) {
@@ -245,6 +252,7 @@ public enum ApplePlatform implements ApplePlatformApi {
   @Immutable
   public enum PlatformType implements ApplePlatformTypeApi {
     IOS("ios"),
+    VISIONOS("visionos"),
     WATCHOS("watchos"),
     TVOS("tvos"),
     MACOS("macos"),
@@ -267,7 +275,7 @@ public enum ApplePlatform implements ApplePlatformApi {
 
     @Override
     public String toString() {
-      return name().toLowerCase();
+      return name().toLowerCase(Locale.ROOT);
     }
 
     /**

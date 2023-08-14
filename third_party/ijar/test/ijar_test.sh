@@ -85,6 +85,8 @@ CENTRAL_DIR_LARGEST_REGULAR=$IJAR_SRCDIR/test/largest_regular.jar
 CENTRAL_DIR_SMALLEST_ZIP64=$IJAR_SRCDIR/test/smallest_zip64.jar
 CENTRAL_DIR_ZIP64=$IJAR_SRCDIR/test/definitely_zip64.jar
 KEEP_FOR_COMPILE=$IJAR_SRCDIR/test/keep_for_compile_lib.jar
+DYNAMICCONSTANT_JAR=$IJAR_SRCDIR/test/dynamic_constant.jar
+DYNAMICCONSTANT_IJAR=$TEST_TMPDIR/dynamic_constant_interface.jar
 
 #### Setup
 
@@ -106,8 +108,8 @@ function check_consistent_file_contents() {
   local actual="$(cat $1 | ${MD5SUM} | awk '{ print $1; }')"
   local filename="$(echo $1 | ${MD5SUM} | awk '{ print $1; }')"
   local expected="$actual"
-  if (echo "${expected_output}" | grep -q "^${filename} "); then
-    echo "${expected_output}" | grep -q "^${filename} ${actual}$" || {
+  if (grep -q "^${filename} " <<<"${expected_output}"); then
+    grep -q "^${filename} ${actual}$" <<<"${expected_output}" || {
       ls -l "$1"
       fail "output file contents differ"
     }
@@ -520,6 +522,13 @@ function test_method_parameters_attribute() {
   $JAVAP -classpath $METHODPARAM_IJAR -v methodparameters.Test >& $TEST_log \
     || fail "javap failed"
   expect_log "MethodParameters" "MethodParameters not preserved!"
+}
+
+function test_dynamic_constant() {
+  $IJAR $DYNAMICCONSTANT_JAR $DYNAMICCONSTANT_IJAR || fail "ijar failed"
+
+  lines=$($JAVAP -c -private -classpath $DYNAMICCONSTANT_IJAR dynamicconstant.Test | grep -c Code: || true)
+  check_eq 0 $lines "Interface jar should have no method bodies!"
 }
 
 function test_nestmates_attribute() {

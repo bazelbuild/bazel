@@ -124,8 +124,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.ScratchFile('main/main.cc', c_cc_content)
 
   def getBazelInfo(self, info_key):
-    exit_code, stdout, stderr = self.RunBazel(['info', info_key])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(['info', info_key])
     return stdout[0]
 
   def testBuildDynamicLibraryWithUserExportedSymbol(self):
@@ -134,9 +133,7 @@ class BazelWindowsCppTest(test_base.TestBase):
 
     # //:A export symbols by itself using __declspec(dllexport), so it doesn't
     # need Bazel to export symbols using DEF file.
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '//:A', '--output_groups=dynamic_library'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(['build', '//:A', '--output_groups=dynamic_library'])
 
     # TODO(pcloudy): change suffixes to .lib and .dll after making DLL
     # extensions correct on Windows.
@@ -155,9 +152,7 @@ class BazelWindowsCppTest(test_base.TestBase):
 
     # //:B doesn't export symbols by itself, so it need Bazel to export symbols
     # using DEF file.
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '//:B', '--output_groups=dynamic_library'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(['build', '//:B', '--output_groups=dynamic_library'])
 
     # TODO(pcloudy): change suffixes to .lib and .dll after making DLL
     # extensions correct on Windows.
@@ -171,11 +166,12 @@ class BazelWindowsCppTest(test_base.TestBase):
 
     # Test build //:B if windows_export_all_symbols feature is disabled by
     # no_windows_export_all_symbols.
-    exit_code, _, stderr = self.RunBazel([
-        'build', '//:B', '--output_groups=dynamic_library',
-        '--features=no_windows_export_all_symbols'
+    self.RunBazel([
+        'build',
+        '//:B',
+        '--output_groups=dynamic_library',
+        '--features=no_windows_export_all_symbols',
     ])
-    self.AssertExitCode(exit_code, 0, stderr)
     import_library = os.path.join(bazel_bin, 'B.if.lib')
     shared_library = os.path.join(bazel_bin, 'B_0.dll')
     empty_def_file = os.path.join(bazel_bin, 'B.gen.empty.def')
@@ -191,8 +187,7 @@ class BazelWindowsCppTest(test_base.TestBase):
 
     # Since linkstatic=0 is specified for //:C, it's dependencies should be
     # dynamically linked.
-    exit_code, _, stderr = self.RunBazel(['build', '//:C'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(['build', '//:C'])
 
     # TODO(pcloudy): change suffixes to .lib and .dll after making DLL
     # extensions correct on
@@ -219,13 +214,12 @@ class BazelWindowsCppTest(test_base.TestBase):
         '  name = "main",',
         '  srcs = ["main.cc"],',
         '  deps = ["//:B"],',
-        '  linkstatic = 0,'
+        '  linkstatic = 0,',
         ')',
     ])
     bazel_bin = self.getBazelInfo('bazel-bin')
 
-    exit_code, _, stderr = self.RunBazel(['build', '//main:main'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(['build', '//main:main'])
 
     # Test if A.dll and B.dll are copied to the directory of main.exe
     main_bin = os.path.join(bazel_bin, 'main/main.exe')
@@ -234,8 +228,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'main/B_0.dll')))
 
     # Run the binary to see if it runs successfully
-    exit_code, stdout, stderr = self.RunProgram([main_bin])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunProgram([main_bin])
     self.assertEqual(['Hello A, 1', 'Hello A, 2', 'Hello B', 'Hello C'], stdout)
 
   def testBuildCcBinaryDependsOnConflictDLLs(self):
@@ -247,19 +240,17 @@ class BazelWindowsCppTest(test_base.TestBase):
             '  name = "main",',
             '  srcs = ["main.cc"],',
             '  deps = ["//:B", "//lib:A"],',  # Transitively depends on //:A
-            '  linkstatic = 0,'
+            '  linkstatic = 0,',
             ')',
         ])
     bazel_bin = self.getBazelInfo('bazel-bin')
 
     # //main:main depends on both //lib:A and //:A
-    exit_code, _, stderr = self.RunBazel(['build', '//main:main'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(['build', '//main:main'])
 
     # Run the binary to see if it runs successfully
     main_bin = os.path.join(bazel_bin, 'main/main.exe')
-    exit_code, stdout, stderr = self.RunProgram([main_bin])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunProgram([main_bin])
     self.assertEqual(['Hello A, 1', 'Hello A, 2', 'Hello B', 'Hello C'], stdout)
     # There are 2 A_{hash}.dll since //main:main depends on both //lib:A and
     # //:A
@@ -278,28 +269,27 @@ class BazelWindowsCppTest(test_base.TestBase):
             '  name = "main",',
             '  srcs = ["main.cc"],',
             '  deps = ["//:B"],',  # Transitively depends on //:A
-            '  linkstatic = 0,'
+            '  linkstatic = 0,',
             ')',
             '',
             'cc_binary(',
             '  name = "other_main",',
             '  srcs = ["other_main.cc"],',
             '  deps = ["//lib:A"],',
-            '  linkstatic = 0,'
+            '  linkstatic = 0,',
             ')',
         ])
     bazel_bin = self.getBazelInfo('bazel-bin')
     self.ScratchFile('main/other_main.cc', ['int main() {return 0;}'])
 
     # Building //main:main should succeed
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '//main:main', '--incompatible_avoid_conflict_dlls'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(
+        ['build', '//main:main', '--incompatible_avoid_conflict_dlls']
+    )
     main_bin = os.path.join(bazel_bin, 'main/main.exe')
 
     # Run the main_bin binary to see if it runs successfully
-    exit_code, stdout, stderr = self.RunProgram([main_bin])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunProgram([main_bin])
     self.assertEqual(['Hello A, 1', 'Hello A, 2', 'Hello B', 'Hello C'], stdout)
     # There is only 1 A_{hash}.dll since //main:main depends transitively on
     # //:A
@@ -310,16 +300,16 @@ class BazelWindowsCppTest(test_base.TestBase):
         len(glob.glob(os.path.join(bazel_bin, 'main', 'B_*.dll'))), 1)
 
     # Building //main:other_main should succeed
-    exit_code, _, stderr = self.RunBazel([
-        'build', '//main:main', '//main:other_main',
-        '--incompatible_avoid_conflict_dlls'
+    self.RunBazel([
+        'build',
+        '//main:main',
+        '//main:other_main',
+        '--incompatible_avoid_conflict_dlls',
     ])
-    self.AssertExitCode(exit_code, 0, stderr)
     other_main_bin = os.path.join(bazel_bin, 'main/other_main.exe')
 
     # Run the other_main_bin binary to see if it runs successfully
-    exit_code, stdout, stderr = self.RunProgram([other_main_bin])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunProgram([other_main_bin])
     # There are 2 A_{hash}.dll since //main:main depends on //:A
     # and //main:other_main depends on //lib:A
     self.assertEqual(
@@ -375,8 +365,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'A_9324b6d0.dll')))
 
     # Run the binary to see if it runs successfully
-    exit_code, stdout, stderr = self.RunProgram([main_bin])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunProgram([main_bin])
     self.assertEqual(['Hello A'], stdout)
 
   def testDynamicLinkingMSVCRT(self):
@@ -386,24 +375,32 @@ class BazelWindowsCppTest(test_base.TestBase):
     # By default, it should link to msvcrt dynamically.
     exit_code, _, stderr = self.RunBazel(
         ['build', '//:A', '--output_groups=dynamic_library', '-s'])
-    paramfile = os.path.join(bazel_output,
-                             'x64_windows-fastbuild/bin/A_0.dll-2.params')
+    compile_params = os.path.join(
+        bazel_output, 'x64_windows-fastbuild/bin/_objs/A/a.obj.params'
+    )
+    link_params = os.path.join(
+        bazel_output, 'x64_windows-fastbuild/bin/A_0.dll-2.params'
+    )
     self.AssertExitCode(exit_code, 0, stderr)
-    self.assertIn('/MD', ''.join(stderr))
-    self.AssertFileContentContains(paramfile, '/DEFAULTLIB:msvcrt.lib')
-    self.assertNotIn('/MT', ''.join(stderr))
-    self.AssertFileContentNotContains(paramfile, '/DEFAULTLIB:libcmt.lib')
+    self.AssertFileContentContains(compile_params, '/MD')
+    self.AssertFileContentContains(link_params, '/DEFAULTLIB:msvcrt.lib')
+    self.AssertFileContentNotContains(compile_params, '/MT')
+    self.AssertFileContentNotContains(link_params, '/DEFAULTLIB:libcmt.lib')
 
     # Test build in debug mode.
     exit_code, _, stderr = self.RunBazel(
         ['build', '-c', 'dbg', '//:A', '--output_groups=dynamic_library', '-s'])
-    paramfile = os.path.join(bazel_output,
-                             'x64_windows-dbg/bin/A_0.dll-2.params')
+    compile_params = os.path.join(
+        bazel_output, 'x64_windows-dbg/bin/_objs/A/a.obj.params'
+    )
+    link_params = os.path.join(
+        bazel_output, 'x64_windows-dbg/bin/A_0.dll-2.params'
+    )
     self.AssertExitCode(exit_code, 0, stderr)
-    self.assertIn('/MDd', ''.join(stderr))
-    self.AssertFileContentContains(paramfile, '/DEFAULTLIB:msvcrtd.lib')
-    self.assertNotIn('/MTd', ''.join(stderr))
-    self.AssertFileContentNotContains(paramfile, '/DEFAULTLIB:libcmtd.lib')
+    self.AssertFileContentContains(compile_params, '/MDd')
+    self.AssertFileContentContains(link_params, '/DEFAULTLIB:msvcrtd.lib')
+    self.AssertFileContentNotContains(compile_params, '/MTd')
+    self.AssertFileContentNotContains(link_params, '/DEFAULTLIB:libcmtd.lib')
 
   def testStaticLinkingMSVCRT(self):
     self.createProjectFiles()
@@ -414,26 +411,34 @@ class BazelWindowsCppTest(test_base.TestBase):
         'build', '//:A', '--output_groups=dynamic_library',
         '--features=static_link_msvcrt', '-s'
     ])
-    paramfile = os.path.join(bazel_output,
-                             'x64_windows-fastbuild/bin/A_0.dll-2.params')
+    compile_params = os.path.join(
+        bazel_output, 'x64_windows-fastbuild/bin/_objs/A/a.obj.params'
+    )
+    link_params = os.path.join(
+        bazel_output, 'x64_windows-fastbuild/bin/A_0.dll-2.params'
+    )
     self.AssertExitCode(exit_code, 0, stderr)
-    self.assertNotIn('/MD', ''.join(stderr))
-    self.AssertFileContentNotContains(paramfile, '/DEFAULTLIB:msvcrt.lib')
-    self.assertIn('/MT', ''.join(stderr))
-    self.AssertFileContentContains(paramfile, '/DEFAULTLIB:libcmt.lib')
+    self.AssertFileContentNotContains(compile_params, '/MD')
+    self.AssertFileContentNotContains(link_params, '/DEFAULTLIB:msvcrt.lib')
+    self.AssertFileContentContains(compile_params, '/MT')
+    self.AssertFileContentContains(link_params, '/DEFAULTLIB:libcmt.lib')
 
     # Test build in debug mode.
     exit_code, _, stderr = self.RunBazel([
         'build', '-c', 'dbg', '//:A', '--output_groups=dynamic_library',
         '--features=static_link_msvcrt', '-s'
     ])
-    paramfile = os.path.join(bazel_output,
-                             'x64_windows-dbg/bin/A_0.dll-2.params')
+    compile_params = os.path.join(
+        bazel_output, 'x64_windows-dbg/bin/_objs/A/a.obj.params'
+    )
+    link_params = os.path.join(
+        bazel_output, 'x64_windows-dbg/bin/A_0.dll-2.params'
+    )
     self.AssertExitCode(exit_code, 0, stderr)
-    self.assertNotIn('/MDd', ''.join(stderr))
-    self.AssertFileContentNotContains(paramfile, '/DEFAULTLIB:msvcrtd.lib')
-    self.assertIn('/MTd', ''.join(stderr))
-    self.AssertFileContentContains(paramfile, '/DEFAULTLIB:libcmtd.lib')
+    self.AssertFileContentNotContains(compile_params, '/MDd')
+    self.AssertFileContentNotContains(link_params, '/DEFAULTLIB:msvcrtd.lib')
+    self.AssertFileContentContains(compile_params, '/MTd')
+    self.AssertFileContentContains(link_params, '/DEFAULTLIB:libcmtd.lib')
 
   def testBuildSharedLibraryFromCcBinaryWithStaticLink(self):
     self.createProjectFiles()
@@ -444,8 +449,8 @@ class BazelWindowsCppTest(test_base.TestBase):
             '  name = "main.dll",',
             '  srcs = ["main.cc"],',
             '  deps = ["//:B"],',  # Transitively depends on //:A
-            '  linkstatic = 1,'
-            '  linkshared = 1,'
+            '  linkstatic = 1,',
+            '  linkshared = 1,',
             '  features=["windows_export_all_symbols"]',
             ')',
         ])
@@ -479,8 +484,8 @@ class BazelWindowsCppTest(test_base.TestBase):
             '  name = "main.dll",',
             '  srcs = ["main.cc"],',
             '  deps = ["//:B"],',  # Transitively depends on //:A
-            '  linkstatic = 0,'
-            '  linkshared = 1,'
+            '  linkstatic = 0,',
+            '  linkshared = 1,',
             '  features=["windows_export_all_symbols"]',
             ')',
             '',
@@ -528,8 +533,8 @@ class BazelWindowsCppTest(test_base.TestBase):
             '  name = "main.dll",',
             '  srcs = ["main.cc"],',
             '  deps = ["//:B"],',  # Transitively depends on //:A
-            '  linkstatic = 1,'
-            '  linkshared = 1,'
+            '  linkstatic = 1,',
+            '  linkshared = 1,',
             ')',
         ])
     bazel_bin = self.getBazelInfo('bazel-bin')
@@ -631,7 +636,7 @@ class BazelWindowsCppTest(test_base.TestBase):
 
     # Test exporting symbols using custom DEF file in cc_library.
     # Auto-generating DEF file should be disabled when custom DEF file specified
-    # Rename DLL shoud be disabled when when custom DEF file specified
+    # Rename DLL should be disabled when when custom DEF file specified
     exit_code, _, stderr = self.RunBazel([
         'build', '//:lib', '-s', '--output_groups=dynamic_library',
         '--features=windows_export_all_symbols'
@@ -681,7 +686,7 @@ class BazelWindowsCppTest(test_base.TestBase):
         '  shared_library = "A.dll",',
         '  visibility = ["//:__subpackages__"],',
         ')',
-        ''
+        '',
         'filegroup(',
         '  name = "bin_src",',
         '  srcs = ["bin.cc"],',
@@ -736,7 +741,9 @@ class BazelWindowsCppTest(test_base.TestBase):
         '  this_is_an_error();',
         '}',
     ])
-    exit_code, stdout, stderr = self.RunBazel(['build', '//:bad'])
+    exit_code, stdout, stderr = self.RunBazel(
+        ['build', '//:bad'], allow_failure=True
+    )
     self.AssertExitCode(exit_code, 1, stderr)
     self.assertIn('this_is_an_error', ''.join(stdout))
 
@@ -893,8 +900,10 @@ class BazelWindowsCppTest(test_base.TestBase):
         '  return 0;',
         '}',
     ])
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '-s', '--cpu=x64_x86_windows', '//:main'])
+    exit_code, _, stderr = self.RunBazel([
+        'build', '-s', '--cpu=x64_x86_windows',
+        '--noincompatible_enable_cc_toolchain_resolution', '//:main'
+    ])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('x86\\cl.exe', '\n'.join(stderr))
 
@@ -911,8 +920,10 @@ class BazelWindowsCppTest(test_base.TestBase):
         '  return 0;',
         '}',
     ])
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '-s', '--cpu=x64_arm_windows', '//:main'])
+    exit_code, _, stderr = self.RunBazel([
+        'build', '-s', '--cpu=x64_arm_windows',
+        '--noincompatible_enable_cc_toolchain_resolution', '//:main'
+    ])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('arm\\cl.exe', '\n'.join(stderr))
 
@@ -929,8 +940,10 @@ class BazelWindowsCppTest(test_base.TestBase):
         '  return 0;',
         '}',
     ])
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '-s', '--cpu=x64_arm64_windows', '//:main'])
+    exit_code, _, stderr = self.RunBazel([
+        'build', '-s', '--cpu=x64_arm64_windows',
+        '--noincompatible_enable_cc_toolchain_resolution', '//:main'
+    ])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('arm64\\cl.exe', '\n'.join(stderr))
 
@@ -949,8 +962,10 @@ class BazelWindowsCppTest(test_base.TestBase):
     ])
 
     # Test build without debug and optimize modes.
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '-s', '--compiler=mingw-gcc', '//:main'])
+    exit_code, _, stderr = self.RunBazel([
+        'build', '-s', '--compiler=mingw-gcc',
+        '--noincompatible_enable_cc_toolchain_resolution', '//:main'
+    ])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('mingw64\\bin\\gcc', '\n'.join(stderr))
     self.assertNotIn('-g -Og', ''.join(stderr))
@@ -959,8 +974,11 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.assertNotIn('-Wl,--gc-sections', ''.join(stderr))
 
     # Test build in debug mode.
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '-s', '--compiler=mingw-gcc', '-c', 'dbg', '//:main'])
+    exit_code, _, stderr = self.RunBazel([
+        'build', '-s', '--compiler=mingw-gcc',
+        '--noincompatible_enable_cc_toolchain_resolution', '-c', 'dbg',
+        '//:main'
+    ])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('mingw64\\bin\\gcc', '\n'.join(stderr))
     self.assertIn('-g -Og', ''.join(stderr))
@@ -969,8 +987,11 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.assertNotIn('-Wl,--gc-sections', ''.join(stderr))
 
     # Test build in optimize mode.
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '-s', '--compiler=mingw-gcc', '-c', 'opt', '//:main'])
+    exit_code, _, stderr = self.RunBazel([
+        'build', '-s', '--compiler=mingw-gcc',
+        '--noincompatible_enable_cc_toolchain_resolution', '-c', 'opt',
+        '//:main'
+    ])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('mingw64\\bin\\gcc', '\n'.join(stderr))
     self.assertNotIn('-g -Og', ''.join(stderr))
@@ -996,8 +1017,10 @@ class BazelWindowsCppTest(test_base.TestBase):
     paramfile = 'x64_windows-%s/bin/main.exe-2.params'
 
     # Test build without debug and optimize modes.
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '-s', '--compiler=msys-gcc', '//:main'])
+    exit_code, _, stderr = self.RunBazel([
+        'build', '-s', '--compiler=msys-gcc',
+        '--noincompatible_enable_cc_toolchain_resolution', '//:main'
+    ])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('usr\\bin\\gcc', '\n'.join(stderr))
     self.assertNotIn('-g -Og', ''.join(stderr))
@@ -1008,8 +1031,11 @@ class BazelWindowsCppTest(test_base.TestBase):
         '-Wl,--gc-sections')
 
     # Test build in debug mode.
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '-s', '--compiler=msys-gcc', '-c', 'dbg', '//:main'])
+    exit_code, _, stderr = self.RunBazel([
+        'build', '-s', '--compiler=msys-gcc',
+        '--noincompatible_enable_cc_toolchain_resolution', '-c', 'dbg',
+        '//:main'
+    ])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('usr\\bin\\gcc', '\n'.join(stderr))
     self.assertIn('-g -Og', ''.join(stderr))
@@ -1019,8 +1045,11 @@ class BazelWindowsCppTest(test_base.TestBase):
         os.path.join(bazel_output, paramfile % 'dbg'), '-Wl,--gc-sections')
 
     # Test build in optimize mode.
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '-s', '--compiler=msys-gcc', '-c', 'opt', '//:main'])
+    exit_code, _, stderr = self.RunBazel([
+        'build', '-s', '--compiler=msys-gcc',
+        '--noincompatible_enable_cc_toolchain_resolution', '-c', 'opt',
+        '//:main'
+    ])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('usr\\bin\\gcc', '\n'.join(stderr))
     self.assertNotIn('-g -Og', ''.join(stderr))
@@ -1042,10 +1071,130 @@ class BazelWindowsCppTest(test_base.TestBase):
         '  return 0;',
         '}',
     ])
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '-s', '--cpu=arm64_windows', '//:main'])
+    exit_code, _, stderr = self.RunBazel([
+        'build', '-s', '--cpu=arm64_windows',
+        '--noincompatible_enable_cc_toolchain_resolution', '//:main'
+    ])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('arm64\\cl.exe', ''.join(stderr))
+
+  def testLongCompileCommandLines(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile(
+        'BUILD',
+        [
+            'cc_binary(',
+            '    name = "long",',
+            '    srcs = ["long.cc"],',
+            # Creates a command that is longer than 32767 characters, which is
+            # the maximum length of a command line on Windows.
+            '    includes = [str(i) + 450 * "a"  for i in range(120)],',
+            ')',
+        ],
+    )
+    self.ScratchFile('long.cc', ['int main() { return 0; }'])
+
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--verbose_failures', '//:long']
+    )
+    self.AssertExitCode(exit_code, 0, stderr)
+
+  def testCompilerSettingMsvc(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile(
+        'BUILD',
+        [
+            'config_setting(',
+            '    name = "msvc_compiler",',
+            (
+                '    flag_values = {"@bazel_tools//tools/cpp:compiler":'
+                ' "msvc-cl"},'
+            ),
+            ')',
+            'cc_binary(',
+            '    name = "main",',
+            '    srcs = select({":msvc_compiler": ["main.cc"]}),',
+            ')',
+        ],
+    )
+    self.ScratchFile('main.cc', ['int main() { return 0; }'])
+
+    exit_code, _, stderr = self.RunBazel(['build', '//:main'])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+  def testCompilerSettingClangCl(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile(
+        'BUILD',
+        [
+            'platform(',
+            '    name = "x64_windows-clang-cl",',
+            '    constraint_values = [',
+            '        "@platforms//cpu:x86_64",',
+            '        "@platforms//os:windows",',
+            '        "@bazel_tools//tools/cpp:clang-cl",',
+            '    ],',
+            ')',
+            'config_setting(',
+            '    name = "clang_cl_compiler",',
+            (
+                '    flag_values = {"@bazel_tools//tools/cpp:compiler":'
+                ' "clang-cl"},'
+            ),
+            ')',
+            'cc_binary(',
+            '    name = "main",',
+            '    srcs = select({":clang_cl_compiler": ["main.cc"]}),',
+            ')',
+        ],
+    )
+    self.ScratchFile('main.cc', ['int main() { return 0; }'])
+
+    exit_code, _, stderr = self.RunBazel([
+        'build',
+        '--incompatible_enable_cc_toolchain_resolution',
+        '--extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows-clang-cl',
+        '--extra_execution_platforms=//:x64_windows-clang-cl',
+        '//:main',
+    ])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+  def testCompilerSettingMingwGcc(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile(
+        'BUILD',
+        [
+            'platform(',
+            '    name = "x64_windows-mingw-gcc",',
+            '    constraint_values = [',
+            '        "@platforms//cpu:x86_64",',
+            '        "@platforms//os:windows",',
+            '        "@bazel_tools//tools/cpp:mingw",',
+            '    ],',
+            ')',
+            'config_setting(',
+            '    name = "mingw_gcc_compiler",',
+            (
+                '    flag_values = {"@bazel_tools//tools/cpp:compiler":'
+                ' "mingw-gcc"},'
+            ),
+            ')',
+            'cc_binary(',
+            '    name = "main",',
+            '    srcs = select({":mingw_gcc_compiler": ["main.cc"]}),',
+            ')',
+        ],
+    )
+    self.ScratchFile('main.cc', ['int main() { return 0; }'])
+
+    exit_code, _, stderr = self.RunBazel([
+        'build',
+        '--incompatible_enable_cc_toolchain_resolution',
+        '--extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows_mingw',
+        '--extra_execution_platforms=//:x64_windows-mingw-gcc',
+        '//:main',
+    ])
+    self.AssertExitCode(exit_code, 0, stderr)
 
 
 if __name__ == '__main__':

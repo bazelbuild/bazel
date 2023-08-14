@@ -88,7 +88,7 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
     mockFS.throwIOExceptionFor = PathFragment.create("/workspace/foo/BUILD");
     invalidatePackages(/*alsoConfigs=*/ false); // We don't want to fail early on config creation.
 
-    SkyKey skyKey = PackageValue.key(PackageIdentifier.createInMainRepo("foo"));
+    SkyKey skyKey = PackageIdentifier.createInMainRepo("foo");
     EvaluationResult<PackageValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
@@ -117,10 +117,10 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
     SkyKey skyKey =
         BzlCompileValue.key(
             Root.fromPath(repoPath),
-            Label.parseAbsoluteUnchecked("@a_remote_repo//remote_pkg:foo.bzl"));
+            Label.parseCanonicalUnchecked("@a_remote_repo//remote_pkg:foo.bzl"));
     EvaluationResult<BzlCompileValue> result =
         SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
+            getSkyframeExecutor(), skyKey, /* keepGoing= */ false, reporter);
     List<String> loads =
         BzlLoadFunction.getLoadsFromProgram(result.get(skyKey).getProgram()).stream()
             .map(Pair::getFirst)
@@ -130,10 +130,10 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testLoadOfNonexistentFile() throws Exception {
-    SkyKey skyKey = BzlCompileValue.key(root, Label.parseAbsoluteUnchecked("//pkg:foo.bzl"));
+    SkyKey skyKey = BzlCompileValue.key(root, Label.parseCanonicalUnchecked("//pkg:foo.bzl"));
     EvaluationResult<BzlCompileValue> result =
         SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
+            getSkyframeExecutor(), skyKey, /* keepGoing= */ false, reporter);
     assertThat(result.get(skyKey).lookupSuccessful()).isFalse();
     assertThat(result.get(skyKey).getError()).contains("cannot load '//pkg:foo.bzl': no such file");
   }
@@ -142,7 +142,7 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
   public void testBigIntegerLiterals() throws Exception {
     // This test ensures that numerical literals with values that can't be expressed as Java longs
     // can be compiled. Regression test for b/217548647.
-    SkyKey skyKey = BzlCompileValue.key(root, Label.parseAbsoluteUnchecked("//pkg:bigint.bzl"));
+    SkyKey skyKey = BzlCompileValue.key(root, Label.parseCanonicalUnchecked("//pkg:bigint.bzl"));
     scratch.file("pkg/BUILD");
     scratch.file(
         "pkg/bigint.bzl",

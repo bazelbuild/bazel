@@ -1,17 +1,51 @@
-name: Feature Request
+name: Feature request
 description: Suggest a new feature
+labels: ["type: feature request", "untriaged"]
+assignees:
+  - pavank1992
+  - sgowroji
+  - iancha1992
 body:
   - type: markdown
     attributes:
       value: >
         **Attention:** if this is a _question_ about how to build / test / query / deploy using
-        Bazel, or a _discussion starter_, send it to bazel-discuss@googlegroups.com or discuss on
-        [Bazel Slack](https://slack.bazel.build/) instead!
+        Bazel, or a _discussion starter_, please start a new thread at Bazel's
+        [GitHub Discussions](https://github.com/bazelbuild/bazel/discussions), send it to
+        bazel-discuss@googlegroups.com, or discuss on [Bazel Slack](https://slack.bazel.build/)
+        instead!
   - type: textarea
     id: desc
     attributes:
       label: >
         Description of the feature request:
+  - type: dropdown
+    id: subteam
+    attributes:
+      label: >
+        Which category does this issue belong to?
+      description: >
+        Answering this will help us triage this issue faster and more accurately to the
+        relevant team(s).
+      multiple: true
+      options:
+        - Android
+        - C++/Objective-C Rules
+        - CLI
+        - Configurability
+        - Core
+        - Documentation
+        - External Dependency
+        - Java Rules
+        - Loading API
+        - Local Execution
+        - Performance
+        - Python Rules
+        - Remote Execution
+        - Rules API
+        - Server-Side Rules
+        - Starlark Integration
+        - Starlark Interpreter
   - type: textarea
     id: problem
     attributes:

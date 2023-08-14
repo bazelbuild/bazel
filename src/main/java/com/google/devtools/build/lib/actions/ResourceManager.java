@@ -27,8 +27,13 @@ import com.google.devtools.build.lib.worker.WorkerKey;
 import com.google.devtools.build.lib.worker.WorkerPool;
 import java.io.IOException;
 import java.util.Deque;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import javax.annotation.Nullable;
 
@@ -62,7 +67,7 @@ import javax.annotation.Nullable;
  * threads correctly release acquired resources, Blaze will never be fully blocked.
  */
 @ThreadSafe
-public class ResourceManager {
+public class ResourceManager implements ResourceEstimator {
 
   /**
    * A handle returned by {@link #acquireResources(ActionExecutionMetadata, ResourceSet,
@@ -131,6 +136,18 @@ public class ResourceManager {
     return Singleton.instance;
   }
 
+  /** Returns prediction of RAM in Mb used by registered actions. */
+  @Override
+  public double getUsedMemoryInMb() {
+    return usedRam;
+  }
+
+  /** Returns prediction of CPUs used by registered actions. */
+  @Override
+  public double getUsedCPU() {
+    return usedCpu;
+  }
+
   // Allocated resources are allowed to go "negative", but at least
   // MIN_AVAILABLE_CPU_RATIO portion of CPU and MIN_AVAILABLE_RAM_RATIO portion
   // of RAM should be available.
@@ -171,13 +188,15 @@ public class ResourceManager {
   // definition in the ResourceSet class.
   private double usedRam;
 
+  // Used amount of extra resources. Corresponds to the extra resource
+  // definition in the ResourceSet class.
+  private Map<String, Float> usedExtraResources;
+
   // Used local test count. Corresponds to the local test count definition in the ResourceSet class.
   private int usedLocalTestCount;
 
   /** If set, local-only actions are given priority over dynamically run actions. */
   private boolean prioritizeLocalActions;
-
-  private ResourceManager() {}
 
   @VisibleForTesting
   public static ResourceManager instanceForTestingOnly() {
@@ -192,6 +211,7 @@ public class ResourceManager {
   public synchronized void resetResourceUsage() {
     usedCpu = 0;
     usedRam = 0;
+    usedExtraResources = new HashMap<>();
     usedLocalTestCount = 0;
     for (Pair<ResourceSet, LatchWithWorker> request : localRequests) {
       request.second.latch.countDown();
@@ -252,13 +272,15 @@ public class ResourceManager {
     } catch (InterruptedException e) {
       // Synchronize on this to avoid any racing with #processWaitingThreads
       synchronized (this) {
-        if (latchWithWorker.latch.getCount() == 0) {
-          // Resources already acquired by other side. Release them, but not inside this
-          // synchronized block to avoid deadlock.
-          release(resources, latchWithWorker.worker);
-        } else {
-          // Inform other side that resources shouldn't be acquired.
-          latchWithWorker.latch.countDown();
+        if (latchWithWorker != null) {
+          if (latchWithWorker.latch == null || latchWithWorker.latch.getCount() == 0) {
+            // Resources already acquired by other side. Release them, but not inside this
+            // synchronized block to avoid deadlock.
+            release(resources, latchWithWorker.worker);
+          } else {
+            // Inform other side that resources shouldn't be acquired.
+            latchWithWorker.latch.countDown();
+          }
         }
       }
       throw e;
@@ -286,6 +308,20 @@ public class ResourceManager {
       throws IOException, InterruptedException {
     usedCpu += resources.getCpuUsage();
     usedRam += resources.getMemoryMb();
+
+    resources
+        .getExtraResourceUsage()
+        .entrySet()
+        .forEach(
+            resource -> {
+              String key = (String) resource.getKey();
+              float value = resource.getValue();
+              if (usedExtraResources.containsKey(key)) {
+                value += (float) usedExtraResources.get(key);
+              }
+              usedExtraResources.put(key, value);
+            });
+
     usedLocalTestCount += resources.getLocalTestCount();
 
     if (resources.getWorkerKey() != null) {
@@ -298,6 +334,7 @@ public class ResourceManager {
   public synchronized boolean inUse() {
     return usedCpu != 0.0
         || usedRam != 0.0
+        || !usedExtraResources.isEmpty()
         || usedLocalTestCount != 0
         || !localRequests.isEmpty()
         || !dynamicWorkerRequests.isEmpty()
@@ -309,23 +346,22 @@ public class ResourceManager {
     return threadLocked.get();
   }
 
-  void releaseResources(ActionExecutionMetadata owner, ResourceSet resources)
-      throws IOException, InterruptedException {
-    releaseResources(owner, resources, /* worker= */ null);
-    return;
-  }
-
   /**
-   * Releases previously requested resource =.
+   * Releases previously requested resource.
    *
    * <p>NB! This method must be thread-safe!
+   *
+   * @param owner action metadata, which resources should ve released
+   * @param resources resources should be released
+   * @param worker the worker, which used during execution
+   * @throws java.io.IOException if could not return worker to the workerPool
    */
-  @VisibleForTesting
   void releaseResources(
       ActionExecutionMetadata owner, ResourceSet resources, @Nullable Worker worker)
       throws IOException, InterruptedException {
     Preconditions.checkNotNull(
         resources, "releaseResources called with resources == NULL during %s", owner);
+
     Preconditions.checkState(
         threadHasResources(), "releaseResources without resource lock during %s", owner);
 
@@ -343,13 +379,22 @@ public class ResourceManager {
     }
   }
 
+  // TODO (b/241066751) find better way to change resource ownership
+  public void releaseResourceOwnership() {
+    threadLocked.set(false);
+  }
+
+  public void acquireResourceOwnership() {
+    threadLocked.set(true);
+  }
+
   /**
    * Returns the pair of worker and latch. Worker should be null if there is no workerKey in
    * resources. The latch isn't null if we could not acquire the resources right now and need to
    * wait.
    */
   private synchronized LatchWithWorker acquire(ResourceSet resources, ResourcePriority priority)
-      throws IOException, InterruptedException {
+      throws IOException, InterruptedException, NoSuchElementException {
     if (areResourcesAvailable(resources)) {
       Worker worker = incrementResources(resources);
       return new LatchWithWorker(/* latch= */ null, worker);
@@ -378,14 +423,27 @@ public class ResourceManager {
     return request.second;
   }
 
-  private synchronized boolean release(ResourceSet resources, @Nullable Worker worker)
+  /**
+   * Release resources and process the queues of waiting threads. Return true when any new thread
+   * processed.
+   */
+  private boolean release(ResourceSet resources, @Nullable Worker worker)
       throws IOException, InterruptedException {
+    // We need to release the worker first to not block highPriorityWorkerMnemonics management. See
+    // more on b/244297036.
+    if (worker != null) {
+      this.workerPool.returnObject(worker.getWorkerKey(), worker);
+    }
+    releaseResourcesOnly(resources);
+
+    return processAllWaitingThreads();
+  }
+
+  private synchronized void releaseResourcesOnly(ResourceSet resources) {
     usedCpu -= resources.getCpuUsage();
     usedRam -= resources.getMemoryMb();
+
     usedLocalTestCount -= resources.getLocalTestCount();
-    if (worker != null) {
-      this.workerPool.returnObject(resources.getWorkerKey(), worker);
-    }
 
     // TODO(bazel-team): (2010) rounding error can accumulate and value below can end up being
     // e.g. 1E-15. So if it is small enough, we set it to 0. But maybe there is a better solution.
@@ -396,6 +454,22 @@ public class ResourceManager {
     if (usedRam < epsilon) {
       usedRam = 0;
     }
+
+    Set<String> toRemove = new HashSet<>();
+    for (Map.Entry<String, Float> resource : resources.getExtraResourceUsage().entrySet()) {
+      String key = (String) resource.getKey();
+      float value = (float) usedExtraResources.get(key) - resource.getValue();
+      usedExtraResources.put(key, value);
+      if (value < epsilon) {
+        toRemove.add(key);
+      }
+    }
+    for (String key : toRemove) {
+      usedExtraResources.remove(key);
+    }
+  }
+
+  private synchronized boolean processAllWaitingThreads() throws IOException, InterruptedException {
     boolean anyProcessed = false;
     if (!localRequests.isEmpty()) {
       processWaitingThreads(localRequests);
@@ -431,12 +505,57 @@ public class ResourceManager {
     }
   }
 
+  /** Throws an exception if requested extra resource isn't being tracked */
+  private void assertExtraResourcesTracked(ResourceSet resources) throws NoSuchElementException {
+    for (Map.Entry<String, Float> resource : resources.getExtraResourceUsage().entrySet()) {
+      String key = (String) resource.getKey();
+      if (!availableResources.getExtraResourceUsage().containsKey(key)) {
+        throw new NoSuchElementException(
+            "Resource " + key + " is not tracked in this resource set.");
+      }
+    }
+  }
+
+  /** Return true iff all requested extra resources are considered to be available. */
+  private boolean areExtraResourcesAvailable(ResourceSet resources) throws NoSuchElementException {
+    for (Map.Entry<String, Float> resource : resources.getExtraResourceUsage().entrySet()) {
+      String key = (String) resource.getKey();
+      float used = (float) usedExtraResources.getOrDefault(key, 0f);
+      float requested = resource.getValue();
+      float available = availableResources.getExtraResourceUsage().get(key);
+      float epsilon = 0.0001f; // Account for possible rounding errors.
+      if (requested != 0.0 && used != 0.0 && requested + used > available + epsilon) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   // Method will return true if all requested resources are considered to be available.
-  private boolean areResourcesAvailable(ResourceSet resources) {
+  @VisibleForTesting
+  boolean areResourcesAvailable(ResourceSet resources) throws NoSuchElementException {
     Preconditions.checkNotNull(availableResources);
     // Comparison below is robust, since any calculation errors will be fixed
     // by the release() method.
-    if (usedCpu == 0.0 && usedRam == 0.0 && usedLocalTestCount == 0) {
+
+    WorkerKey workerKey = resources.getWorkerKey();
+    int availableWorkers = 0;
+    int activeWorkers = 0;
+    if (workerKey != null) {
+      availableWorkers = this.workerPool.getMaxTotalPerKey(workerKey);
+      activeWorkers = this.workerPool.getNumActive(workerKey);
+    }
+    boolean workerIsAvailable = workerKey == null || (activeWorkers < availableWorkers);
+
+    // We test for tracking of extra resources whenever acquired and throw an
+    // exception before acquiring any untracked resource.
+    assertExtraResourcesTracked(resources);
+
+    if (usedCpu == 0.0
+        && usedRam == 0.0
+        && usedExtraResources.isEmpty()
+        && usedLocalTestCount == 0
+        && workerIsAvailable) {
       return true;
     }
     // Use only MIN_NECESSARY_???_RATIO of the resource value to check for
@@ -454,14 +573,6 @@ public class ResourceManager {
 
     double remainingRam = availableRam - usedRam;
 
-    WorkerKey workerKey = resources.getWorkerKey();
-    int availableWorkers = 0;
-    int activeWorkers = 0;
-    if (workerKey != null) {
-      availableWorkers = this.workerPool.getMaxTotalPerKey(workerKey);
-      activeWorkers = this.workerPool.getNumActive(workerKey);
-    }
-
     // Resources are considered available if any one of the conditions below is true:
     // 1) If resource is not requested at all, it is available.
     // 2) If resource is not used at the moment, it is considered to be
@@ -471,20 +582,21 @@ public class ResourceManager {
     // 3) If used resource amount is less than total available resource amount.
     boolean cpuIsAvailable = cpu == 0.0 || usedCpu == 0.0 || usedCpu + cpu <= availableCpu;
     boolean ramIsAvailable = ram == 0.0 || usedRam == 0.0 || ram <= remainingRam;
-    boolean localTestCountIsAvailable = localTestCount == 0 || usedLocalTestCount == 0
-        || usedLocalTestCount + localTestCount <= availableLocalTestCount;
-    boolean workerIsAvailable = workerKey == null || activeWorkers < availableWorkers;
-    return cpuIsAvailable && ramIsAvailable && localTestCountIsAvailable && workerIsAvailable;
+    boolean localTestCountIsAvailable =
+        localTestCount == 0
+            || usedLocalTestCount == 0
+            || usedLocalTestCount + localTestCount <= availableLocalTestCount;
+    boolean extraResourcesIsAvailable = areExtraResourcesAvailable(resources);
+    return cpuIsAvailable
+        && ramIsAvailable
+        && extraResourcesIsAvailable
+        && localTestCountIsAvailable
+        && workerIsAvailable;
   }
 
   @VisibleForTesting
   synchronized int getWaitCount() {
     return localRequests.size() + dynamicStandaloneRequests.size() + dynamicWorkerRequests.size();
-  }
-
-  @VisibleForTesting
-  synchronized boolean isAvailable(double ram, double cpu, int localTestCount) {
-    return areResourcesAvailable(ResourceSet.create(ram, cpu, localTestCount));
   }
 
   private static class LatchWithWorker {

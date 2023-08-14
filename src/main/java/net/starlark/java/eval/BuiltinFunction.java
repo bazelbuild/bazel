@@ -16,6 +16,7 @@ package net.starlark.java.eval;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Maps;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -209,7 +210,8 @@ public final class BuiltinFunction implements StarlarkCallable {
     }
 
     // named arguments
-    LinkedHashMap<String, Object> kwargs = desc.acceptsExtraKwargs() ? new LinkedHashMap<>() : null;
+    LinkedHashMap<String, Object> kwargs =
+        desc.acceptsExtraKwargs() ? Maps.newLinkedHashMapWithExpectedSize(1) : null;
     for (int i = 0; i < named.length; i += 2) {
       String name = (String) named[i]; // safe
       Object value = named[i + 1];
@@ -342,9 +344,14 @@ public final class BuiltinFunction implements StarlarkCallable {
   }
 
   private void checkParamValue(ParamDescriptor param, Object value) throws EvalException {
+    List<Class<?>> allowedClasses = param.getAllowedClasses();
+    if (allowedClasses == null) {
+      return;
+    }
+
     // Value must belong to one of the specified classes.
     boolean ok = false;
-    for (Class<?> cls : param.getAllowedClasses()) {
+    for (Class<?> cls : allowedClasses) {
       if (cls.isInstance(value)) {
         ok = true;
         break;

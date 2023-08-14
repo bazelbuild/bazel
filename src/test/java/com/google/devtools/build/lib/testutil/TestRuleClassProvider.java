@@ -143,6 +143,12 @@ public class TestRuleClassProvider {
     }
 
     @Override
+    protected boolean checkVisibilityForToolchains(
+        RuleContext.Builder context, Label prerequisite) {
+      return true;
+    }
+
+    @Override
     protected boolean allowExperimentalDeps(RuleContext.Builder context) {
       // It does not matter whether we return true or false here if packageUnderExperimental always
       // returns false.
@@ -220,7 +226,7 @@ public class TestRuleClassProvider {
           .requiresConfigurationFragments(PlatformConfiguration.class)
           .addToolchainTypes(
               ToolchainTypeRequirement.create(
-                  Label.parseAbsoluteUnchecked("//toolchain:test_toolchain")))
+                  Label.parseCanonicalUnchecked("//toolchain:test_toolchain")))
           .build();
     }
 

@@ -21,6 +21,8 @@ import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses.EmptyRuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses.TestBaseRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
@@ -31,10 +33,11 @@ import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
-import com.google.devtools.build.lib.rules.java.JavaSemantics;
 
 /**
  * Rule definition for the java_test rule.
+ *
+ * <p>This rule is implemented in Starlark. This class remains only for doc-gen purposes.
  */
 public final class BazelJavaTestRule implements RuleDefinition {
 
@@ -54,17 +57,16 @@ public final class BazelJavaTestRule implements RuleDefinition {
         .setImplicitOutputsFunction(BazelJavaRuleClasses.JAVA_BINARY_IMPLICIT_OUTPUTS)
         .override(attr("stamp", TRISTATE).value(TriState.NO))
         .override(attr("use_testrunner", BOOLEAN).value(true))
-        .override(attr(":java_launcher", LABEL).value(JavaSemantics.JAVA_LAUNCHER))
         // Input files for test actions collecting code coverage
         .add(
             attr(":lcov_merger", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .value(BaseRuleClasses.getCoverageOutputGeneratorLabel()))
         // Add the script as an attribute in order for java_test to output code coverage results for
         // code covered by CC binaries invocations.
         .add(
             attr("$collect_cc_coverage", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .singleArtifact()
                 .value(env.getToolsLabel("//tools/test:collect_cc_coverage")))
         /* <!-- #BLAZE_RULE(java_test).ATTRIBUTE(test_class) -->
@@ -108,11 +110,11 @@ public final class BazelJavaTestRule implements RuleDefinition {
 
   @Override
   public Metadata getMetadata() {
-    return RuleDefinition.Metadata.builder()
+    return Metadata.builder()
         .name("java_test")
         .type(RuleClassType.TEST)
-        .ancestors(BaseJavaBinaryRule.class, BaseRuleClasses.TestBaseRule.class)
-        .factoryClass(BazelJavaTest.class)
+        .ancestors(BaseJavaBinaryRule.class, TestBaseRule.class)
+        .factoryClass(EmptyRuleConfiguredTargetFactory.class)
         .build();
   }
 }

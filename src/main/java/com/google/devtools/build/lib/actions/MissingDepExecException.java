@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
  * dependencies.
  *
  * <p>This is expected to be possible when {@link
- * MetadataProvider#mayGetGeneratingActionsFromSkyframe} is {@code true}.
+ * InputMetadataProvider#mayGetGeneratingActionsFromSkyframe} is {@code true}.
  */
 public final class MissingDepExecException extends ExecException {
 

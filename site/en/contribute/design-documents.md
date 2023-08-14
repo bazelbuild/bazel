@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Design Documents
 
+{% include "_buttons.html" %}
+
 If you're planning to add, change, or remove a user-facing feature, or make a
 *significant architectural change* to Bazel, you **must** write a design
 document and have it reviewed before you can submit the change.

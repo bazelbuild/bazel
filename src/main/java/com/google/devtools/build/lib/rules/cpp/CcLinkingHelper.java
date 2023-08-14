@@ -22,10 +22,8 @@ import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -129,7 +127,6 @@ public final class CcLinkingHelper {
   private final SymbolGenerator<?> symbolGenerator;
   private final ImmutableMap<String, String> executionInfo;
 
-  private Artifact grepIncludes;
   private boolean isStampingEnabled;
   private boolean isTestOrTestOnlyTarget;
 
@@ -172,16 +169,6 @@ public final class CcLinkingHelper {
     this.actionConstructionContext = actionConstructionContext;
     this.symbolGenerator = symbolGenerator;
     this.executionInfo = executionInfo;
-  }
-
-  /** Sets fields that overlap for cc_library and cc_binary rules. */
-  @CanIgnoreReturnValue
-  public CcLinkingHelper fromCommon(RuleContext ruleContext, CcCommon common) {
-    addCcLinkingContexts(
-        CppHelper.getLinkingContextsFromDeps(
-            ImmutableList.copyOf(ruleContext.getPrerequisites("deps"))));
-    addNonCodeLinkerInputs(common.getLinkerScripts());
-    return this;
   }
 
   @CanIgnoreReturnValue
@@ -243,26 +230,6 @@ public final class CcLinkingHelper {
   @CanIgnoreReturnValue
   public CcLinkingHelper addCcLinkingContexts(Iterable<CcLinkingContext> ccLinkingContexts) {
     Iterables.addAll(this.ccLinkingContexts, ccLinkingContexts);
-    return this;
-  }
-
-  /**
-   * Adds the given linkstamps. Note that linkstamps are usually not compiled at the library level,
-   * but only in the dependent binary rules.
-   */
-  @CanIgnoreReturnValue
-  public CcLinkingHelper addLinkstamps(Iterable<? extends TransitiveInfoCollection> linkstamps) {
-    for (TransitiveInfoCollection linkstamp : linkstamps) {
-      this.linkstamps.addTransitive(linkstamp.getProvider(FileProvider.class).getFilesToBuild());
-    }
-    return this;
-  }
-
-  /** Adds the given artifact to the input of any generated link actions. */
-  @CanIgnoreReturnValue
-  public CcLinkingHelper addLinkActionInput(Artifact input) {
-    Preconditions.checkNotNull(input);
-    this.linkActionInputs.add(input);
     return this;
   }
 
@@ -540,15 +507,6 @@ public final class CcLinkingHelper {
     return this;
   }
 
-  /**
-   * Used to test the grep-includes tool. This is needing during linking because of linkstamping.
-   */
-  @CanIgnoreReturnValue
-  public CcLinkingHelper setGrepIncludes(Artifact grepIncludes) {
-    this.grepIncludes = grepIncludes;
-    return this;
-  }
-
   /** Whether linkstamping is enabled. */
   @CanIgnoreReturnValue
   public CcLinkingHelper setIsStampingEnabled(boolean isStampingEnabled) {
@@ -736,7 +694,8 @@ public final class CcLinkingHelper {
                 "-Wl,-soname="
                     + SolibSymlinkAction.getDynamicLibrarySoname(
                         linkerOutput.getRootRelativePath(),
-                        /* preserveName= */ false,
+                        /* preserveName= */ dynamicLinkType
+                            != LinkTargetType.NODEPS_DYNAMIC_LIBRARY,
                         actionConstructionContext.getConfiguration().getMnemonic()));
       }
     }
@@ -841,6 +800,10 @@ public final class CcLinkingHelper {
     if (dynamicLinkActionBuilder.getAllLtoBackendArtifacts() != null) {
       ccLinkingOutputs.addAllLtoArtifacts(dynamicLinkActionBuilder.getAllLtoBackendArtifacts());
     }
+    Artifact implLibraryLinkArtifact = getDynamicLibrarySolibSymlinkOutput(linkerOutput);
+    if (implLibraryLinkArtifact != null) {
+      dynamicLinkActionBuilder.setDynamicLibrarySolibSymlinkOutput(implLibraryLinkArtifact);
+    }
     CppLinkAction dynamicLinkAction = dynamicLinkActionBuilder.build();
     if (dynamicLinkType.isExecutable()) {
       ccLinkingOutputs.setExecutable(linkerOutput);
@@ -866,14 +829,16 @@ public final class CcLinkingHelper {
         }
         libraryToLinkBuilder.setDynamicLibrary(dynamicLibrary.getArtifact());
       } else {
-        Artifact implLibraryLinkArtifact =
-            SolibSymlinkAction.getDynamicLibrarySymlink(
-                /* actionRegistry= */ actionRegistry,
-                /* actionConstructionContext= */ actionConstructionContext,
-                ccToolchain.getSolibDirectory(),
-                dynamicLibrary.getArtifact(),
-                /* preserveName= */ false,
-                /* prefixConsumer= */ false);
+        if (dynamicLinkType == LinkTargetType.NODEPS_DYNAMIC_LIBRARY) {
+          implLibraryLinkArtifact =
+              SolibSymlinkAction.getDynamicLibrarySymlink(
+                  /* actionRegistry= */ actionRegistry,
+                  /* actionConstructionContext= */ actionConstructionContext,
+                  ccToolchain.getSolibDirectory(),
+                  dynamicLibrary.getArtifact(),
+                  /* preserveName= */ false,
+                  /* prefixConsumer= */ false);
+        }
         libraryToLinkBuilder.setDynamicLibrary(implLibraryLinkArtifact);
         libraryToLinkBuilder.setResolvedSymlinkDynamicLibrary(dynamicLibrary.getArtifact());
 
@@ -884,7 +849,8 @@ public final class CcLinkingHelper {
                   /* actionConstructionContext= */ actionConstructionContext,
                   ccToolchain.getSolibDirectory(),
                   interfaceLibrary.getArtifact(),
-                  /* preserveName= */ false,
+                  // Need to preserve name for transitive shared libraries that may be distributed.
+                  /* preserveName= */ dynamicLinkType != LinkTargetType.NODEPS_DYNAMIC_LIBRARY,
                   /* prefixConsumer= */ false);
           libraryToLinkBuilder.setInterfaceLibrary(libraryLinkArtifact);
           libraryToLinkBuilder.setResolvedSymlinkInterfaceLibrary(interfaceLibrary.getArtifact());
@@ -896,11 +862,7 @@ public final class CcLinkingHelper {
 
   private CppLinkActionBuilder newLinkActionBuilder(
       Artifact outputArtifact, LinkTargetType linkType) {
-    String mnemonic =
-        (linkType.equals(LinkTargetType.OBJCPP_EXECUTABLE)
-                || linkType.equals(LinkTargetType.OBJC_EXECUTABLE))
-            ? "ObjcLink"
-            : null;
+    String mnemonic = linkType.equals(LinkTargetType.OBJC_EXECUTABLE) ? "ObjcLink" : null;
     CppLinkActionBuilder builder =
         new CppLinkActionBuilder(
                 ruleErrorConsumer,
@@ -912,7 +874,6 @@ public final class CcLinkingHelper {
                 fdoContext,
                 featureConfiguration,
                 semantics)
-            .setGrepIncludes(grepIncludes)
             .setMnemonic(mnemonic)
             .setIsStampingEnabled(isStampingEnabled)
             .setTestOrTestOnlyTarget(isTestOrTestOnlyTarget)
@@ -1047,5 +1008,25 @@ public final class CcLinkingHelper {
       librariesToLinkBuilder.add(libraryToLinkToUse);
     }
     return librariesToLinkBuilder.build();
+  }
+
+  @Nullable
+  private Artifact getDynamicLibrarySolibSymlinkOutput(Artifact linkerOutputArtifact) {
+    if (dynamicLinkType != LinkTargetType.DYNAMIC_LIBRARY
+        || neverlink
+        || featureConfiguration.isEnabled(CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY)) {
+      return null;
+    }
+    return SolibSymlinkAction.getDynamicLibrarySymlink(
+        /* actionRegistry= */ actionRegistry,
+        /* actionConstructionContext= */ actionConstructionContext,
+        ccToolchain.getSolibDirectory(),
+        linkerOutputArtifact,
+        // For transitive shared libraries we want to preserve the name of the original library so
+        // that distribution artifacts can be linked against it and not against the mangled name.
+        // This makes it possible to find the library on the system if the RPATH has been set
+        // properly.
+        /* preserveName= */ true,
+        /* prefixConsumer= */ false);
   }
 }

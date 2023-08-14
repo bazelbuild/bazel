@@ -14,15 +14,13 @@
 
 package com.google.devtools.build.lib.authandtls.credentialhelper;
 
-import com.github.benmanes.caffeine.cache.CacheLoader;
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.github.benmanes.caffeine.cache.Cache;
 import com.google.auth.Credentials;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.net.URI;
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -33,29 +31,34 @@ import javax.annotation.Nullable;
  * helper} as subprocess, falling back to another {@link Credentials} if no suitable helper exists.
  */
 public class CredentialHelperCredentials extends Credentials {
+  private final CredentialHelperProvider credentialHelperProvider;
+  private final CredentialHelperEnvironment credentialHelperEnvironment;
+  private final Cache<URI, ImmutableMap<String, ImmutableList<String>>> credentialCache;
   private final Optional<Credentials> fallbackCredentials;
 
-  private final LoadingCache<URI, GetCredentialsResponse> credentialCache;
+  /** Wraps around an {@link IOException} so we can smuggle it through {@link Cache#get}. */
+  public static final class WrappedIOException extends RuntimeException {
+    private final IOException wrapped;
+
+    WrappedIOException(IOException e) {
+      super(e);
+      this.wrapped = e;
+    }
+
+    IOException getWrapped() {
+      return wrapped;
+    }
+  }
 
   public CredentialHelperCredentials(
       CredentialHelperProvider credentialHelperProvider,
       CredentialHelperEnvironment credentialHelperEnvironment,
-      Optional<Credentials> fallbackCredentials,
-      Duration cacheTimeout) {
-    Preconditions.checkNotNull(credentialHelperProvider);
-    Preconditions.checkNotNull(credentialHelperEnvironment);
+      Cache<URI, ImmutableMap<String, ImmutableList<String>>> credentialCache,
+      Optional<Credentials> fallbackCredentials) {
+    this.credentialHelperProvider = Preconditions.checkNotNull(credentialHelperProvider);
+    this.credentialHelperEnvironment = Preconditions.checkNotNull(credentialHelperEnvironment);
+    this.credentialCache = Preconditions.checkNotNull(credentialCache);
     this.fallbackCredentials = Preconditions.checkNotNull(fallbackCredentials);
-    Preconditions.checkNotNull(cacheTimeout);
-    Preconditions.checkArgument(
-        !cacheTimeout.isNegative() && !cacheTimeout.isZero(),
-        "Cache timeout must be greater than 0");
-
-    credentialCache =
-        Caffeine.newBuilder()
-            .expireAfterWrite(cacheTimeout)
-            .build(
-                new CredentialHelperCacheLoader(
-                    credentialHelperProvider, credentialHelperEnvironment));
   }
 
   @Override
@@ -68,12 +71,18 @@ public class CredentialHelperCredentials extends Credentials {
   }
 
   @Override
+  @SuppressWarnings("unchecked") // Map<String, ImmutableList<String>> to Map<String<List<String>>
   public Map<String, List<String>> getRequestMetadata(URI uri) throws IOException {
     Preconditions.checkNotNull(uri);
 
-    Optional<Map<String, List<String>>> credentials = getRequestMetadataFromCredentialHelper(uri);
-    if (credentials.isPresent()) {
-      return credentials.get();
+    ImmutableMap<String, ImmutableList<String>> credentials;
+    try {
+      credentials = credentialCache.get(uri, this::getCredentialsFromHelper);
+    } catch (WrappedIOException e) {
+      throw e.getWrapped();
+    }
+    if (credentials != null) {
+      return (Map) credentials;
     }
 
     if (fallbackCredentials.isPresent()) {
@@ -83,13 +92,28 @@ public class CredentialHelperCredentials extends Credentials {
     return ImmutableMap.of();
   }
 
-  @SuppressWarnings("unchecked") // Map<String, ImmutableList<String>> to Map<String<List<String>>
-  private Optional<Map<String, List<String>>> getRequestMetadataFromCredentialHelper(URI uri) {
+  @Nullable
+  private ImmutableMap<String, ImmutableList<String>> getCredentialsFromHelper(URI uri) {
     Preconditions.checkNotNull(uri);
 
-    GetCredentialsResponse response = credentialCache.get(uri);
+    Optional<CredentialHelper> maybeCredentialHelper =
+        credentialHelperProvider.findCredentialHelper(uri);
+    if (maybeCredentialHelper.isEmpty()) {
+      return null;
+    }
+    CredentialHelper credentialHelper = maybeCredentialHelper.get();
 
-    return Optional.ofNullable(response).map(value -> (Map) value.getHeaders());
+    GetCredentialsResponse response;
+    try {
+      response = credentialHelper.getCredentials(credentialHelperEnvironment, uri);
+    } catch (IOException e) {
+      throw new WrappedIOException(e);
+    }
+    if (response == null) {
+      return null;
+    }
+
+    return response.getHeaders();
   }
 
   @Override
@@ -109,33 +133,5 @@ public class CredentialHelperCredentials extends Credentials {
     }
 
     credentialCache.invalidateAll();
-  }
-
-  private static final class CredentialHelperCacheLoader
-      implements CacheLoader<URI, GetCredentialsResponse> {
-    private final CredentialHelperProvider credentialHelperProvider;
-    private final CredentialHelperEnvironment credentialHelperEnvironment;
-
-    public CredentialHelperCacheLoader(
-        CredentialHelperProvider credentialHelperProvider,
-        CredentialHelperEnvironment credentialHelperEnvironment) {
-      this.credentialHelperProvider = Preconditions.checkNotNull(credentialHelperProvider);
-      this.credentialHelperEnvironment = Preconditions.checkNotNull(credentialHelperEnvironment);
-    }
-
-    @Nullable
-    @Override
-    public GetCredentialsResponse load(URI uri) throws IOException, InterruptedException {
-      Preconditions.checkNotNull(uri);
-
-      Optional<CredentialHelper> maybeCredentialHelper =
-          credentialHelperProvider.findCredentialHelper(uri);
-      if (maybeCredentialHelper.isEmpty()) {
-        return null;
-      }
-      CredentialHelper credentialHelper = maybeCredentialHelper.get();
-
-      return credentialHelper.getCredentials(credentialHelperEnvironment, uri);
-    }
   }
 }

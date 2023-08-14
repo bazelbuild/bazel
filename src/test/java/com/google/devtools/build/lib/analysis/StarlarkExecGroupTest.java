@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.analysis.testing.ExecGroupCollectionSubject.assertThat;
 import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -24,6 +23,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
+import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -78,7 +78,7 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
         "    toolchain = ':bar',",
         ")");
 
-    scratch.file(
+    scratch.overwriteFile(
         "platform/BUILD",
         "constraint_setting(name = 'setting')",
         "constraint_value(",
@@ -106,6 +106,102 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
         "--extra_toolchains=//toolchain:foo_toolchain,//toolchain:bar_toolchain",
         "--platforms=//platform:platform_1",
         "--extra_execution_platforms=//platform:platform_1,//platform:platform_2");
+  }
+
+  @Test
+  public void testDirectExecTransitionWithToolchains() throws Exception {
+    // toolchain_2 is available on platform_2, so exec transition also needs to be to platform_2
+    createToolchainsAndPlatforms();
+
+    scratch.file(
+        "test/defs.bzl",
+        "MyInfo = provider()",
+        "def _impl(ctx):",
+        "  return [MyInfo(dep = ctx.attr.dep)]",
+        "with_transition = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'dep': attr.label(cfg = 'exec'),",
+        "  },",
+        "  toolchains = ['//rule:toolchain_type_2'],",
+        ")",
+        "def _impl2(ctx):",
+        "  return []",
+        "simple_rule = rule(implementation = _impl2)");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'with_transition', 'simple_rule')",
+        "with_transition(name = 'parent', dep = ':child')",
+        "simple_rule(name = 'child')");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:parent");
+    Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "MyInfo");
+    BuildConfigurationValue dep =
+        getConfiguration((ConfiguredTarget) ((StructImpl) target.get(key)).getValue("dep"));
+
+    assertThat(dep.getFragment(PlatformConfiguration.class).getTargetPlatform())
+        .isEqualTo(Label.parseCanonicalUnchecked("//platform:platform_2"));
+  }
+
+  @Test
+  public void testIndirectExecTransitionWithToolchains() throws Exception {
+    createToolchainsAndPlatforms();
+    useConfiguration(
+        "--extra_toolchains=//toolchain:foo_toolchain,//toolchain:bar_toolchain",
+        "--platforms=//platform:platform_1",
+        "--extra_execution_platforms=//platform:platform_1,//platform:platform_2",
+        "--incompatible_auto_exec_groups");
+
+    scratch.file(
+        "test/defs.bzl",
+        "MyInfo = provider()",
+        "def _impl_parent(ctx):",
+        "  output = ctx.actions.declare_file('parent.out')",
+        "  ctx.actions.run(",
+        "    executable = '',",
+        "    progress_message = 'Test with AEG.',",
+        "    outputs = [output],",
+        "  )",
+        "  return [MyInfo(dep = ctx.attr.dep), DefaultInfo(files = depset([output]))]",
+        "parent_rule = rule(",
+        "  implementation = _impl_parent,",
+        "  attrs = {",
+        "    'dep': attr.label(),",
+        "    '_use_auto_exec_groups': attr.bool(default = True),",
+        "  },",
+        "  toolchains = ['//rule:toolchain_type_2'],",
+        ")",
+        "def _impl(ctx):",
+        "  return [MyInfo(dep = ctx.attr.dep)]",
+        "pass_thru = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'dep': attr.label(cfg = 'exec'),",
+        "  },",
+        ")",
+        "def _impl2(ctx):",
+        "  return []",
+        "simple_rule = rule(implementation = _impl2)");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'parent_rule', 'pass_thru', 'simple_rule')",
+        "parent_rule(name = 'parent', dep = ':passthru')",
+        "pass_thru(name = 'passthru', dep = ':child')",
+        "simple_rule(name = 'child')");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:parent");
+    Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "MyInfo");
+    ConfiguredTarget dep = (ConfiguredTarget) ((StructImpl) target.get(key)).getValue("dep");
+    BuildConfigurationValue passthruDepConfig =
+        getConfiguration((ConfiguredTarget) ((StructImpl) dep.get(key)).getValue("dep"));
+
+    // Action will be executed on '//platform:platform_1' plaform.
+    assertThat(
+            getGeneratingAction(target, "test/parent.out")
+                .getOwner()
+                .getExecutionPlatform()
+                .label())
+        .isEqualTo(passthruDepConfig.getFragment(PlatformConfiguration.class).getTargetPlatform());
   }
 
   @Test
@@ -147,9 +243,9 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
             (ConfiguredTarget) ((StructImpl) target.get(key)).getValue("exec_group_dep"));
 
     assertThat(dep.getFragment(PlatformConfiguration.class).getTargetPlatform())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//platform:platform_1"));
+        .isEqualTo(Label.parseCanonicalUnchecked("//platform:platform_1"));
     assertThat(execGroupDep.getFragment(PlatformConfiguration.class).getTargetPlatform())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//platform:platform_2"));
+        .isEqualTo(Label.parseCanonicalUnchecked("//platform:platform_2"));
   }
 
   @Test
@@ -201,10 +297,10 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
                 .getOwner()
                 .getExecutionPlatform()
                 .label())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//platform:platform_2"));
+        .isEqualTo(Label.parseCanonicalUnchecked("//platform:platform_2"));
     assertThat(
             getGeneratingAction(target, "test/out.txt").getOwner().getExecutionPlatform().label())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//platform:platform_1"));
+        .isEqualTo(Label.parseCanonicalUnchecked("//platform:platform_1"));
   }
 
   @Test
@@ -246,12 +342,11 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCannotNameExecGroupDefaultName() throws Exception {
+  public void ruleCannotNameExecGroupDefaultName() throws Exception {
     createToolchainsAndPlatforms();
 
     scratch.file(
         "test/defs.bzl",
-        "MyInfo = provider()",
         "def _impl(ctx):",
         "  return []",
         "my_rule = rule(",
@@ -266,6 +361,59 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
         "test/BUILD", //
         "load('//test:defs.bzl', 'my_rule')",
         "my_rule(name = 'papaya')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:papaya");
+    assertContainsEvent("Exec group name '" + DEFAULT_EXEC_GROUP_NAME + "' is not a valid name");
+  }
+
+  private void createAspectRuleWithExecGroup(String execGroupName) throws IOException {
+    scratch.file(
+        "test/defs.bzl",
+        "def _aspect_impl(target, ctx):",
+        "    return []",
+        "my_aspect = aspect(",
+        "    implementation = _aspect_impl,",
+        "    exec_groups = {",
+        "        '" + execGroupName + "': exec_group(toolchains = ['//rule:toolchain_type_2']),",
+        "    },",
+        "    toolchains = ['//rule:toolchain_type_1'],",
+        ")",
+        "def _rule_impl(ctx):",
+        "    return []",
+        "my_rule = rule(",
+        "    implementation = _rule_impl,",
+        "    attrs = {",
+        "        'srcs': attr.label_list(aspects = [my_aspect])",
+        "    },",
+        ")");
+  }
+
+  @Test
+  public void aspectUsesExecGroup() throws Exception {
+    createToolchainsAndPlatforms();
+    createAspectRuleWithExecGroup("watermelon");
+
+    scratch.file(
+        "test/BUILD",
+        "load(':defs.bzl', 'my_rule')",
+        "filegroup(name = 'banana')",
+        "my_rule(name = 'papaya', srcs = [':banana'])");
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//test:papaya");
+    assertThat(configuredTarget).isNotNull();
+  }
+
+  @Test
+  public void aspectCannotNameExecGroupDefaultName() throws Exception {
+    createToolchainsAndPlatforms();
+    createAspectRuleWithExecGroup(DEFAULT_EXEC_GROUP_NAME);
+
+    scratch.file(
+        "test/BUILD",
+        "load(':defs.bzl', 'my_rule')",
+        "filegroup(name = 'banana')",
+        "my_rule(name = 'papaya', srcs = [':banana'])");
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:papaya");
@@ -359,38 +507,7 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testInheritsRuleRequirements() throws Exception {
-    createToolchainsAndPlatforms();
-    scratch.file(
-        "test/defs.bzl",
-        "MyInfo = provider()",
-        "def _impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  exec_groups = {",
-        "    'watermelon': exec_group(copy_from_rule = True),",
-        "  },",
-        "  exec_compatible_with = ['//platform:constraint_1'],",
-        "  toolchains = ['//rule:toolchain_type_1'],",
-        ")");
-    scratch.file("test/BUILD", "load('//test:defs.bzl', 'my_rule')", "my_rule(name = 'papaya')");
-
-    ConfiguredTarget ct = getConfiguredTarget("//test:papaya");
-    ExecGroupCollection execGroups = getRuleContext(ct).getExecGroups();
-    assertThat(execGroups).isNotNull();
-    assertThat(execGroups).hasExecGroup("watermelon");
-    // TODO(https://github.com/bazelbuild/bazel/issues/14726): Add tests of optional toolchains.
-    assertThat(execGroups).execGroup("watermelon").hasToolchainType("//rule:toolchain_type_1");
-    assertThat(execGroups)
-        .execGroup("watermelon")
-        .toolchainType("//rule:toolchain_type_1")
-        .isMandatory();
-    assertThat(execGroups).execGroup("watermelon").hasExecCompatibleWith("//platform:constraint_1");
-  }
-
-  @Test
-  public void testInheritsPlatformExecGroupExecProperty() throws Exception {
+  public void ruleInheritsPlatformExecGroupExecProperty() throws Exception {
     createToolchainsAndPlatforms();
     writeRuleWithActionsAndWatermelonExecGroup();
 
@@ -413,7 +530,30 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testOverridePlatformExecGroupExecProperty() throws Exception {
+  public void aspectInheritsPlatformExecGroupExecProperty() throws Exception {
+    createToolchainsAndPlatforms();
+    writeRuleWithActionsAndWatermelonExecGroup();
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'with_actions')",
+        "with_actions(",
+        "  name = 'papaya',",
+        "  output = 'out.txt',",
+        "  watermelon_output = 'watermelon_out.txt',",
+        ")");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:papaya");
+
+    assertThat(
+            getGeneratingAction(target, "test/watermelon_out.txt").getOwner().getExecProperties())
+        .containsExactly("ripeness", "unripe", "color", "red");
+    assertThat(getGeneratingAction(target, "test/out.txt").getOwner().getExecProperties())
+        .containsExactly();
+  }
+
+  @Test
+  public void ruleOverridePlatformExecGroupExecProperty() throws Exception {
     createToolchainsAndPlatforms();
     writeRuleWithActionsAndWatermelonExecGroup();
 

@@ -24,7 +24,11 @@ import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CcBinar
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 
-/** Rule definition for cc_binary rules. */
+/**
+ * Rule definition for cc_binary rules.
+ *
+ * <p>This rule is implemented in Starlark. This class remains only for doc-gen purposes.
+ */
 public final class BazelCcBinaryRule implements RuleDefinition {
 
   @Override
@@ -62,7 +66,7 @@ public final class BazelCcBinaryRule implements RuleDefinition {
         <p>
           If you specify both <code>linkopts=['-static']</code> and <code>linkshared=True</code>,
           you get a single completely self-contained unit. If you specify both
-          <code>linkstatic=1</code> and <code>linkshared=True</code>, you get a single, mostly
+          <code>linkstatic=True</code> and <code>linkshared=True</code>, you get a single, mostly
           self-contained unit.
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
@@ -78,7 +82,7 @@ public final class BazelCcBinaryRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("cc_binary")
         .ancestors(CcBinaryBaseRule.class, BaseRuleClasses.BinaryBaseRule.class)
-        .factoryClass(BazelCcBinary.class)
+        .factoryClass(BaseRuleClasses.EmptyRuleConfiguredTargetFactory.class)
         .build();
   }
 }
@@ -188,13 +192,13 @@ cc_library(
 </p>
 
 <p>
-  Unfortunately Bazel currently cannot distinguish between direct and transitive
-  inclusions, so it cannot detect error cases where a file illegally includes a
-  header directly that is only allowed to be included transitively. For example,
-  Bazel would not complain if in the example above <code>foo.cc</code> directly
-  includes <code>baz.h</code>. This would be illegal, because <code>foo</code>
-  does not directly depend on <code>baz</code>. Currently, no error is produced
-  in that case, but such error checking may be added in the future.
+  Bazel depends on toolchain support to enforce the inclusion checking rules.
+  The <code>layering_check</code> feature has to be supported by the toolchain
+  and requested explicitly, for example via the
+  <code>--features=layering_check</code> command-line flag or the
+  <code>features</code> parameter of the
+  <a href="${link package}"><code>package</code></a> function. The toolchains
+  provided by Bazel only support this feature with clang on Unix and macOS.
 </p>
 
 <!-- #END_BLAZE_RULE -->*/

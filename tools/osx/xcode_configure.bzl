@@ -17,7 +17,7 @@
    installed on the local host.
 """
 
-_EXECUTE_TIMEOUT = 120
+OSX_EXECUTE_TIMEOUT = 600
 
 def _search_string(fullstring, prefix, suffix):
     """Returns the substring between two given substrings of a larger string.
@@ -45,7 +45,7 @@ def _search_sdk_output(output, sdkname):
     """Returns the sdk version given xcodebuild stdout and an sdkname."""
     return _search_string(output, "(%s" % sdkname, ")")
 
-def _xcode_version_output(repository_ctx, name, version, aliases, developer_dir):
+def _xcode_version_output(repository_ctx, name, version, aliases, developer_dir, timeout):
     """Returns a string containing an xcode_version build target."""
     build_contents = ""
     decorated_aliases = []
@@ -55,7 +55,7 @@ def _xcode_version_output(repository_ctx, name, version, aliases, developer_dir)
     repository_ctx.report_progress("Fetching SDK information for Xcode %s" % version)
     xcodebuild_result = repository_ctx.execute(
         ["xcrun", "xcodebuild", "-version", "-sdk"],
-        _EXECUTE_TIMEOUT,
+        timeout,
         {"DEVELOPER_DIR": developer_dir},
     )
     if (xcodebuild_result.return_code != 0):
@@ -71,6 +71,7 @@ def _xcode_version_output(repository_ctx, name, version, aliases, developer_dir)
     ios_sdk_version = _search_sdk_output(xcodebuild_result.stdout, "iphoneos")
     tvos_sdk_version = _search_sdk_output(xcodebuild_result.stdout, "appletvos")
     macos_sdk_version = _search_sdk_output(xcodebuild_result.stdout, "macosx")
+    visionos_sdk_version = _search_sdk_output(xcodebuild_result.stdout, "xros")
     watchos_sdk_version = _search_sdk_output(xcodebuild_result.stdout, "watchos")
     build_contents += "xcode_version(\n  name = '%s'," % name
     build_contents += "\n  version = '%s'," % version
@@ -82,6 +83,8 @@ def _xcode_version_output(repository_ctx, name, version, aliases, developer_dir)
         build_contents += "\n  default_tvos_sdk_version = '%s'," % tvos_sdk_version
     if macos_sdk_version:
         build_contents += "\n  default_macos_sdk_version = '%s'," % macos_sdk_version
+    if visionos_sdk_version:
+        build_contents += "\n  default_visionos_sdk_version = '%s'," % visionos_sdk_version
     if watchos_sdk_version:
         build_contents += "\n  default_watchos_sdk_version = '%s'," % watchos_sdk_version
     build_contents += "\n)\n"
@@ -118,6 +121,11 @@ def run_xcode_locator(repository_ctx, xcode_locator_src_label):
     repository_ctx.report_progress("Building xcode-locator")
     xcodeloc_src_path = str(repository_ctx.path(xcode_locator_src_label))
     env = repository_ctx.os.environ
+    if "BAZEL_OSX_EXECUTE_TIMEOUT" in env:
+        timeout = int(env["BAZEL_OSX_EXECUTE_TIMEOUT"])
+    else:
+        timeout = OSX_EXECUTE_TIMEOUT
+
     xcrun_result = repository_ctx.execute([
         "env",
         "-i",
@@ -126,7 +134,7 @@ def run_xcode_locator(repository_ctx, xcode_locator_src_label):
         "--sdk",
         "macosx",
         "clang",
-        "-mmacosx-version-min=10.9",
+        "-mmacosx-version-min=10.13",
         "-fobjc-arc",
         "-framework",
         "CoreServices",
@@ -135,7 +143,7 @@ def run_xcode_locator(repository_ctx, xcode_locator_src_label):
         "-o",
         "xcode-locator-bin",
         xcodeloc_src_path,
-    ], _EXECUTE_TIMEOUT)
+    ], timeout)
 
     if (xcrun_result.return_code != 0):
         suggestion = ""
@@ -156,7 +164,7 @@ def run_xcode_locator(repository_ctx, xcode_locator_src_label):
     repository_ctx.report_progress("Running xcode-locator")
     xcode_locator_result = repository_ctx.execute(
         ["./xcode-locator-bin", "-v"],
-        _EXECUTE_TIMEOUT,
+        timeout,
     )
     if (xcode_locator_result.return_code != 0):
         error_msg = (
@@ -188,6 +196,12 @@ def _darwin_build_file(repository_ctx):
     """Evaluates local system state to create xcode_config and xcode_version targets."""
     repository_ctx.report_progress("Fetching the default Xcode version")
     env = repository_ctx.os.environ
+
+    if "BAZEL_OSX_EXECUTE_TIMEOUT" in env:
+        timeout = int(env["BAZEL_OSX_EXECUTE_TIMEOUT"])
+    else:
+        timeout = OSX_EXECUTE_TIMEOUT
+
     xcodebuild_result = repository_ctx.execute([
         "env",
         "-i",
@@ -195,7 +209,7 @@ def _darwin_build_file(repository_ctx):
         "xcrun",
         "xcodebuild",
         "-version",
-    ], _EXECUTE_TIMEOUT)
+    ], timeout)
 
     (toolchains, xcodeloc_err) = run_xcode_locator(
         repository_ctx,
@@ -229,6 +243,7 @@ def _darwin_build_file(repository_ctx):
             version,
             aliases,
             developer_dir,
+            timeout,
         )
         target_label = "':%s'" % target_name
         target_names.append(target_label)
@@ -281,7 +296,7 @@ def _impl(repository_ctx):
 
 xcode_autoconf = repository_rule(
     implementation = _impl,
-    local = True,
+    configure = True,
     attrs = {
         "xcode_locator": attr.string(),
         "remote_xcode": attr.string(),

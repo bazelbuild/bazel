@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
@@ -92,14 +91,13 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
       return;
     }
 
-    BuildConfigurationCollection configs = createCollection("--cpu=piii");
-    BuildConfigurationValue config = configs.getTargetConfiguration();
+    BuildConfigurationValue config = createConfiguration("--cpu=piii");
     assertThat(config.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//tools/cpp:toolchain"));
+        .isEqualTo(Label.parseCanonicalUnchecked("//tools/cpp:toolchain"));
 
-    BuildConfigurationValue hostConfig = configs.getHostConfiguration();
-    assertThat(hostConfig.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//tools/cpp:toolchain"));
+    BuildConfigurationValue execConfig = createExec();
+    assertThat(execConfig.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
+        .isEqualTo(Label.parseCanonicalUnchecked("//tools/cpp:toolchain"));
   }
 
   @Test
@@ -184,21 +182,8 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   }
 
   @Test
-  public void testNormalization_definesWithSameName_collapseDuplicateDefinesDisabled()
-      throws Exception {
-    BuildConfigurationValue config =
-        create("--nocollapse_duplicate_defines", "--define", "a=1", "--define", "a=2");
-    CoreOptions options = config.getOptions().get(CoreOptions.class);
-    assertThat(ImmutableListMultimap.copyOf(options.commandLineBuildVariables))
-        .containsExactly("a", "1", "a", "2")
-        .inOrder();
-    assertThat(config).isNotEqualTo(create("--nocollapse_duplicate_defines", "--define", "a=2"));
-  }
-
-  @Test
   public void testNormalization_definesWithDifferentNames() throws Exception {
-    BuildConfigurationValue config =
-        create("--collapse_duplicate_defines", "--define", "a=1", "--define", "b=2");
+    BuildConfigurationValue config = create("--define", "a=1", "--define", "b=2");
     CoreOptions options = config.getOptions().get(CoreOptions.class);
     assertThat(ImmutableMap.copyOf(options.commandLineBuildVariables))
         .containsExactly("a", "1", "b", "2");
@@ -206,11 +191,10 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
 
   @Test
   public void testNormalization_definesWithSameName() throws Exception {
-    BuildConfigurationValue config =
-        create("--collapse_duplicate_defines", "--define", "a=1", "--define", "a=2");
+    BuildConfigurationValue config = create("--define", "a=1", "--define", "a=2");
     CoreOptions options = config.getOptions().get(CoreOptions.class);
     assertThat(ImmutableMap.copyOf(options.commandLineBuildVariables)).containsExactly("a", "2");
-    assertThat(config).isEqualTo(create("--collapse_duplicate_defines", "--define", "a=2"));
+    assertThat(config).isEqualTo(create("--define", "a=2"));
   }
 
   // This is really a test of option parsing, not command-line variable
@@ -234,31 +218,31 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   }
 
   @Test
-  public void testHostDefine() throws Exception {
-    BuildConfigurationValue cfg = createHost("--define=foo=bar");
+  public void testExecDefine() throws Exception {
+    BuildConfigurationValue cfg = createExec("--define=foo=bar");
     assertThat(cfg.getCommandLineBuildVariables().get("foo")).isEqualTo("bar");
   }
 
   @Test
   public void testHostCompilationModeDefault() throws Exception {
-    BuildConfigurationValue cfg = createHost();
+    BuildConfigurationValue cfg = createExec();
     assertThat(cfg.getCompilationMode()).isEqualTo(CompilationMode.OPT);
   }
 
   @Test
   public void testHostCompilationModeNonDefault() throws Exception {
-    BuildConfigurationValue cfg = createHost("--host_compilation_mode=dbg");
+    BuildConfigurationValue cfg = createExec("--host_compilation_mode=dbg");
     assertThat(cfg.getCompilationMode()).isEqualTo(CompilationMode.DBG);
   }
 
   @Test
   public void testIncompatibleMergeGenfilesDirectory() throws Exception {
     BuildConfigurationValue target = create("--incompatible_merge_genfiles_directory");
-    BuildConfigurationValue host = createHost("--incompatible_merge_genfiles_directory");
+    BuildConfigurationValue exec = createExec("--incompatible_merge_genfiles_directory");
     assertThat(target.getGenfilesDirectory(RepositoryName.MAIN))
         .isEqualTo(target.getBinDirectory(RepositoryName.MAIN));
-    assertThat(host.getGenfilesDirectory(RepositoryName.MAIN))
-        .isEqualTo(host.getBinDirectory(RepositoryName.MAIN));
+    assertThat(exec.getGenfilesDirectory(RepositoryName.MAIN))
+        .isEqualTo(exec.getBinDirectory(RepositoryName.MAIN));
   }
 
   private ImmutableList<BuildConfigurationValue> getTestConfigurations() throws Exception {

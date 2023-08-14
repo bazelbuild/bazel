@@ -23,7 +23,7 @@ import "google/protobuf/timestamp.proto";
 import "google/rpc/status.proto";
 
 option csharp_namespace = "Build.Bazel.Remote.Asset.v1";
-option go_package = "remoteasset";
+option go_package = "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1;remoteasset";
 option java_multiple_files = true;
 option java_outer_classname = "RemoteAssetProto";
 option java_package = "build.bazel.remote.asset.v1";

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import com.google.devtools.build.lib.exec.AbstractSpawnStrategy;
+import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.vfs.Path;
 
@@ -22,8 +23,8 @@ import com.google.devtools.build.lib.vfs.Path;
  * strategy also support offloading the work to a remote worker.
  */
 final class RemoteSpawnStrategy extends AbstractSpawnStrategy {
-  RemoteSpawnStrategy(Path execRoot, SpawnRunner spawnRunner, boolean verboseFailures) {
-    super(execRoot, spawnRunner, verboseFailures);
+  RemoteSpawnStrategy(Path execRoot, SpawnRunner spawnRunner, ExecutionOptions executionOptions) {
+    super(execRoot, spawnRunner, executionOptions);
   }
 
   @Override

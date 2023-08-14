@@ -13,18 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Streams.stream;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
-import com.google.devtools.build.lib.actions.PathStripper.CommandAdjuster;
+import com.google.devtools.build.lib.actions.PathStripper.PathMapper;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
@@ -32,10 +32,8 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
-import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /**
@@ -44,37 +42,13 @@ import javax.annotation.Nullable;
  * <p>This class is used by {@link com.google.devtools.build.lib.exec.SpawnRunner} implementations
  * to expand the command lines into a master argument list + any param files needed to be written.
  */
-public class CommandLines {
-  /**
-   * An object that can apply the {@code stripPaths} map to optionally strip config prefixes before
-   * returning output artifact exec paths
-   */
-  public interface PathStrippable {
-    String expand(Function<PathFragment, PathFragment> stripPaths);
-  }
+public abstract class CommandLines {
 
   // A (hopefully) conservative estimate of how much long each param file arg would be
   // eg. the length of '@path/to/param_file'.
   private static final int PARAM_FILE_ARG_LENGTH_ESTIMATE = 512;
   private static final UUID PARAM_FILE_UUID =
       UUID.fromString("106c1389-88d7-4cc1-8f05-f8a61fd8f7b1");
-
-  /** Command line OS limitations, such as the max length. */
-  public static class CommandLineLimits {
-    /**
-     * "Unlimited" command line limits.
-     *
-     * <p>Use these limits when you want to prohibit param files, or you don't use param files so
-     * you don't care what the limit is.
-     */
-    public static final CommandLineLimits UNLIMITED = new CommandLineLimits(Integer.MAX_VALUE);
-
-    public final int maxLength;
-
-    public CommandLineLimits(int maxLength) {
-      this.maxLength = maxLength;
-    }
-  }
 
   /** A simple tuple of a {@link CommandLine} and a {@link ParamFileInfo}. */
   public static class CommandLineAndParamFileInfo {
@@ -88,20 +62,7 @@ public class CommandLines {
     }
   }
 
-  /**
-   * Memory optimization: Store as Object instead of <code>List<CommandLineAndParamFileInfo></code>.
-   *
-   * <p>We store either a single CommandLine or CommandLineAndParamFileInfo, or list of Objects
-   * where each item is either a CommandLine or CommandLineAndParamFileInfo. This minimizes unneeded
-   * wrapper objects.
-   *
-   * <p>In the case of actions with a single CommandLine, this saves 48 bytes per action.
-   */
-  private final Object commandLines;
-
-  private CommandLines(Object commandLines) {
-    this.commandLines = commandLines;
-  }
+  private CommandLines() {}
 
   /**
    * Expands this object into a single primary command line and (0-N) param files. The spawn runner
@@ -109,7 +70,7 @@ public class CommandLines {
    *
    * @param artifactExpander The artifact expander to use.
    * @param paramFileBasePath Used to derive param file names. Often the first output of an action
-   * @param stripPaths function to strip configuration prefixes from output paths, in accordance
+   * @param pathMapper function to strip configuration prefixes from output paths, in accordance
    *     with the logic in {@link PathStripper}
    * @param limits The command line limits the host OS can support.
    * @return The expanded command line and its param files (if any).
@@ -117,11 +78,11 @@ public class CommandLines {
   public ExpandedCommandLines expand(
       ArtifactExpander artifactExpander,
       PathFragment paramFileBasePath,
-      PathStripper.CommandAdjuster pathStripper,
+      PathMapper pathMapper,
       CommandLineLimits limits)
       throws CommandLineExpansionException, InterruptedException {
     return expand(
-        artifactExpander, paramFileBasePath, limits, pathStripper, PARAM_FILE_ARG_LENGTH_ESTIMATE);
+        artifactExpander, paramFileBasePath, limits, pathMapper, PARAM_FILE_ARG_LENGTH_ESTIMATE);
   }
 
   @VisibleForTesting
@@ -129,16 +90,10 @@ public class CommandLines {
       ArtifactExpander artifactExpander,
       PathFragment paramFileBasePath,
       CommandLineLimits limits,
-      PathStripper.CommandAdjuster pathStripper,
+      PathMapper pathMapper,
       int paramFileArgLengthEstimate)
       throws CommandLineExpansionException, InterruptedException {
-    // Optimize for simple case of single command line
-    if (commandLines instanceof CommandLine) {
-      CommandLine commandLine = (CommandLine) commandLines;
-      Iterable<String> arguments = commandLine.arguments(artifactExpander);
-      return new ExpandedCommandLines(arguments, ImmutableList.of());
-    }
-    List<CommandLineAndParamFileInfo> commandLines = getCommandLines();
+    ImmutableList<CommandLineAndParamFileInfo> commandLines = unpack();
     IterablesChain.Builder<String> arguments = IterablesChain.builder();
     ArrayList<ParamFileActionInput> paramFiles = new ArrayList<>(commandLines.size());
     int conservativeMaxLength = limits.maxLength - commandLines.size() * paramFileArgLengthEstimate;
@@ -149,12 +104,12 @@ public class CommandLines {
       CommandLine commandLine = pair.commandLine;
       ParamFileInfo paramFileInfo = pair.paramFileInfo;
       if (paramFileInfo == null) {
-        Iterable<String> args = commandLine.arguments(artifactExpander, pathStripper);
+        Iterable<String> args = commandLine.arguments(artifactExpander, pathMapper);
         arguments.add(args);
         cmdLineLength += totalArgLen(args);
       } else {
-        Preconditions.checkNotNull(paramFileInfo); // If null, we would have just had a CommandLine
-        Iterable<String> args = commandLine.arguments(artifactExpander, pathStripper);
+        checkNotNull(paramFileInfo); // If null, we would have just had a CommandLine
+        Iterable<String> args = commandLine.arguments(artifactExpander, pathMapper);
         boolean useParamFile = true;
         if (!paramFileInfo.always()) {
           int tentativeCmdLineLength = cmdLineLength + totalArgLen(args);
@@ -172,7 +127,7 @@ public class CommandLines {
           String paramArg =
               SingleStringArgFormatter.format(
                   paramFileInfo.getFlagFormatString(),
-                  pathStripper.strip(paramFileExecPath).getPathString());
+                  pathMapper.map(paramFileExecPath).getPathString());
           arguments.addElement(paramArg);
           cmdLineLength += paramArg.length() + 1;
 
@@ -211,15 +166,15 @@ public class CommandLines {
    */
   public ImmutableList<String> allArguments()
       throws CommandLineExpansionException, InterruptedException {
-    return allArguments(CommandAdjuster.NOOP);
+    return allArguments(PathMapper.NOOP);
   }
 
   /** Variation of {@link #allArguments()} that supports output path stripping. */
-  public ImmutableList<String> allArguments(CommandAdjuster stripPaths)
+  public ImmutableList<String> allArguments(PathMapper stripPaths)
       throws CommandLineExpansionException, InterruptedException {
     ImmutableList.Builder<String> arguments = ImmutableList.builder();
-    for (CommandLineAndParamFileInfo pair : getCommandLines()) {
-      arguments.addAll(pair.commandLine.arguments(/*artifactExpander=*/ null, stripPaths));
+    for (CommandLineAndParamFileInfo pair : unpack()) {
+      arguments.addAll(pair.commandLine.arguments(/* artifactExpander= */ null, stripPaths));
     }
     return arguments.build();
   }
@@ -227,19 +182,14 @@ public class CommandLines {
   public void addToFingerprint(
       ActionKeyContext actionKeyContext,
       @Nullable ArtifactExpander artifactExpander,
-      Fingerprint fingerprint)
+      Fingerprint fingerprint,
+      PathMapper pathStripper)
       throws CommandLineExpansionException, InterruptedException {
-    // Optimize for simple case of single command line
-    if (commandLines instanceof CommandLine) {
-      CommandLine commandLine = (CommandLine) commandLines;
-      commandLine.addToFingerprint(actionKeyContext, artifactExpander, fingerprint);
-      return;
-    }
-    List<CommandLineAndParamFileInfo> commandLines = getCommandLines();
+    ImmutableList<CommandLineAndParamFileInfo> commandLines = unpack();
     for (CommandLineAndParamFileInfo pair : commandLines) {
       CommandLine commandLine = pair.commandLine;
       ParamFileInfo paramFileInfo = pair.paramFileInfo;
-      commandLine.addToFingerprint(actionKeyContext, artifactExpander, fingerprint);
+      commandLine.addToFingerprint(actionKeyContext, artifactExpander, fingerprint, pathStripper);
       if (paramFileInfo != null) {
         addParamFileInfoToFingerprint(paramFileInfo, fingerprint);
       }
@@ -275,11 +225,11 @@ public class CommandLines {
   }
 
   /** An in-memory param file virtual action input. */
-  public static final class ParamFileActionInput implements VirtualActionInput {
-    final PathFragment paramFileExecPath;
-    final Iterable<String> arguments;
-    final ParameterFileType type;
-    final Charset charset;
+  public static final class ParamFileActionInput extends VirtualActionInput {
+    private final PathFragment paramFileExecPath;
+    private final Iterable<String> arguments;
+    private final ParameterFileType type;
+    private final Charset charset;
 
     public ParamFileActionInput(
         PathFragment paramFileExecPath,
@@ -292,26 +242,16 @@ public class CommandLines {
       this.charset = charset;
     }
 
-    /**
-     * Returns a cloned copy of this {@link ParamFileActionInput} replacing each command line
-     * argument with an adjusted version determined by a given function.
-     */
-    public ParamFileActionInput withAdjustedArgs(Function<String, String> adjuster) {
-      return new ParamFileActionInput(
-          paramFileExecPath,
-          stream(arguments).map(adjuster).collect(toImmutableList()),
-          type,
-          charset);
-    }
-
-    @Override
-    public boolean isSymlink() {
-      return false;
-    }
-
     @Override
     public void writeTo(OutputStream out) throws IOException {
       ParameterFile.writeParameterFile(out, arguments, type, charset);
+    }
+
+    @Override
+    @CanIgnoreReturnValue
+    public byte[] atomicallyWriteTo(Path outputPath, String uniqueSuffix) throws IOException {
+      // This is needed for internal path wrangling reasons :(
+      return super.atomicallyWriteTo(outputPath, uniqueSuffix);
     }
 
     @Override
@@ -336,31 +276,14 @@ public class CommandLines {
     }
   }
 
-  // Helper function to unpack the optimized storage format into a list
-  public List<CommandLineAndParamFileInfo> getCommandLines() {
-    if (commandLines instanceof CommandLine) {
-      return ImmutableList.of(new CommandLineAndParamFileInfo((CommandLine) commandLines, null));
-    } else if (commandLines instanceof CommandLineAndParamFileInfo) {
-      return ImmutableList.of((CommandLineAndParamFileInfo) commandLines);
-    } else if (commandLines instanceof Object[]) {
-      List<Object> commandLines = Arrays.asList((Object[]) this.commandLines);
-      ImmutableList.Builder<CommandLineAndParamFileInfo> result =
-          ImmutableList.builderWithExpectedSize(commandLines.size());
-      for (Object commandLine : commandLines) {
-        if (commandLine instanceof CommandLine) {
-          result.add(new CommandLineAndParamFileInfo((CommandLine) commandLine, null));
-        } else if (commandLine instanceof CommandLineAndParamFileInfo) {
-          result.add((CommandLineAndParamFileInfo) commandLine);
-        } else {
-          result.add(new CommandLineAndParamFileInfo(new SingletonCommandLine(commandLine), null));
-        }
-      }
-      return result.build();
-    } else {
-      return ImmutableList.of(
-          new CommandLineAndParamFileInfo(new SingletonCommandLine(commandLines), null));
-    }
-  }
+  /**
+   * Unpacks the optimized storage format into a list of {@link CommandLineAndParamFileInfo}.
+   *
+   * <p>The returned {@link ImmutableList} and its {@link CommandLineAndParamFileInfo} elements are
+   * not part of the optimized storage representation. Retaining them in an action would defeat the
+   * memory optimizations made by {@link CommandLines}.
+   */
+  public abstract ImmutableList<CommandLineAndParamFileInfo> unpack();
 
   private static int totalArgLen(Iterable<String> args) {
     int result = 0;
@@ -382,106 +305,259 @@ public class CommandLines {
     return new Builder();
   }
 
-  public static Builder builder(Builder other) {
-    return new Builder(other);
-  }
-
   /** Returns an instance with a single command line. */
   public static CommandLines of(CommandLine commandLine) {
-    return new CommandLines(commandLine);
+    return new OnePartCommandLines(commandLine);
   }
 
   /** Returns an instance with a single trivial command line. */
   public static CommandLines of(Iterable<String> args) {
-    return new CommandLines(CommandLine.of(args));
+    return new OnePartCommandLines(CommandLine.of(args));
   }
 
   public static CommandLines concat(CommandLine commandLine, CommandLines commandLines) {
     Builder builder = builder();
     builder.addCommandLine(commandLine);
-    for (CommandLineAndParamFileInfo pair : commandLines.getCommandLines()) {
+    for (CommandLineAndParamFileInfo pair : commandLines.unpack()) {
       builder.addCommandLine(pair);
     }
     return builder.build();
   }
 
-  /** Builder for {@link CommandLines}. */
+  /**
+   * Builder for {@link CommandLines}.
+   *
+   * <p>Attempts to build the most memory-efficient {@link CommandLines} instance possible. Most
+   * command lines are composed of 1-3 parts. Additionally, the first part is typically just an
+   * executable or shell command and does not have an associated params file. If both of these
+   * criteria are met, memory is saved by using one of the array-free subclasses. Otherwise, uses
+   * {@link NPartCommandLines} which handles any arbitrary case.
+   */
   public static class Builder {
-    private final List<Object> commandLines;
-
-    Builder() {
-      commandLines = new ArrayList<>();
-    }
-
-    Builder(Builder other) {
-      commandLines = new ArrayList<>(other.commandLines);
-    }
+    private Object part1; // Set to null when we need to use NPartCommandLines.
+    private Object part2;
+    private ParamFileInfo part2ParamFileInfo;
+    private Object part3;
+    private ParamFileInfo part3ParamFileInfo;
+    private int parts = 0;
+    private final List<Object> commandLines = new ArrayList<>();
 
     @CanIgnoreReturnValue
     public Builder addSingleArgument(Object argument) {
-      commandLines.add(argument);
-      return this;
+      checkArgument(
+          !(argument instanceof ParamFileInfo)
+              && !(argument instanceof CommandLineAndParamFileInfo),
+          argument);
+      return addInternal(argument, null);
     }
 
     @CanIgnoreReturnValue
     public Builder addCommandLine(CommandLine commandLine) {
-      commandLines.add(commandLine);
-      return this;
+      return addInternal(commandLine, null);
     }
 
     @CanIgnoreReturnValue
-    public Builder addCommandLine(CommandLine commandLine, ParamFileInfo paramFileInfo) {
-      if (paramFileInfo == null) {
-        commandLines.add(commandLine);
-      } else {
-        commandLines.add(new CommandLineAndParamFileInfo(commandLine, paramFileInfo));
-      }
-      return this;
+    public Builder addCommandLine(CommandLine commandLine, @Nullable ParamFileInfo paramFileInfo) {
+      return addInternal(commandLine, paramFileInfo);
     }
 
     @CanIgnoreReturnValue
     public Builder addCommandLine(CommandLineAndParamFileInfo pair) {
-      if (pair.paramFileInfo == null) {
-        commandLines.add(pair.commandLine);
-      } else {
-        commandLines.add(pair);
+      return addInternal(pair.commandLine, pair.paramFileInfo);
+    }
+
+    private Builder addInternal(Object part, @Nullable ParamFileInfo paramFileInfo) {
+      parts++;
+      if (parts == 1) {
+        if (paramFileInfo == null) {
+          part1 = part;
+        }
+      } else if (parts == 2) {
+        part2 = part;
+        part2ParamFileInfo = paramFileInfo;
+      } else if (parts == 3) {
+        part3 = part;
+        part3ParamFileInfo = paramFileInfo;
+      } else if (parts == 4) {
+        part1 = null; // Destined to build an NPartCommandLines.
+      }
+      commandLines.add(part);
+      if (paramFileInfo != null) {
+        commandLines.add(paramFileInfo);
       }
       return this;
     }
 
     public CommandLines build() {
-      final Object commandLines;
-      if (this.commandLines.size() == 1) {
-        commandLines = this.commandLines.get(0);
-      } else {
-        Object[] result = new Object[this.commandLines.size()];
-        for (int i = 0; i < this.commandLines.size(); ++i) {
-          result[i] = this.commandLines.get(i);
-        }
-        commandLines = result;
+      if (part1 == null) {
+        return new NPartCommandLines(commandLines.toArray());
       }
-      return new CommandLines(commandLines);
+      if (parts == 1) {
+        return new OnePartCommandLines(part1);
+      }
+      if (parts == 2) {
+        return new TwoPartCommandLines(part1, part2, part2ParamFileInfo);
+      }
+      if (part2ParamFileInfo == null && part3ParamFileInfo == null) {
+        return new ThreePartCommandLinesWithoutParamsFiles(part1, part2, part3);
+      }
+      return new ThreePartCommandLines(part1, part2, part2ParamFileInfo, part3, part3ParamFileInfo);
+    }
+  }
+
+  private static CommandLine toCommandLine(Object obj) {
+    return obj instanceof CommandLine ? (CommandLine) obj : new SingletonCommandLine(obj);
+  }
+
+  private static final class OnePartCommandLines extends CommandLines {
+    private final Object part1;
+
+    OnePartCommandLines(Object part1) {
+      this.part1 = part1;
+    }
+
+    @Override
+    public void addToFingerprint(
+        ActionKeyContext actionKeyContext,
+        @Nullable ArtifactExpander artifactExpander,
+        Fingerprint fingerprint,
+        PathMapper pathMapper)
+        throws CommandLineExpansionException, InterruptedException {
+      toCommandLine(part1)
+          .addToFingerprint(actionKeyContext, artifactExpander, fingerprint, pathMapper);
+    }
+
+    @Override
+    public ImmutableList<CommandLineAndParamFileInfo> unpack() {
+      return ImmutableList.of(new CommandLineAndParamFileInfo(toCommandLine(part1), null));
+    }
+  }
+
+  private static final class TwoPartCommandLines extends CommandLines {
+    private final Object part1;
+    private final Object part2;
+    @Nullable private final ParamFileInfo part2ParamFileInfo;
+
+    TwoPartCommandLines(Object part1, Object part2, @Nullable ParamFileInfo part2ParamFileInfo) {
+      this.part1 = part1;
+      this.part2 = part2;
+      this.part2ParamFileInfo = part2ParamFileInfo;
+    }
+
+    @Override
+    public ImmutableList<CommandLineAndParamFileInfo> unpack() {
+      return ImmutableList.of(
+          new CommandLineAndParamFileInfo(toCommandLine(part1), null),
+          new CommandLineAndParamFileInfo(toCommandLine(part2), part2ParamFileInfo));
+    }
+  }
+
+  private static final class ThreePartCommandLinesWithoutParamsFiles extends CommandLines {
+    private final Object part1;
+    private final Object part2;
+    private final Object part3;
+
+    ThreePartCommandLinesWithoutParamsFiles(Object part1, Object part2, Object part3) {
+      this.part1 = part1;
+      this.part2 = part2;
+      this.part3 = part3;
+    }
+
+    @Override
+    public ImmutableList<CommandLineAndParamFileInfo> unpack() {
+      return ImmutableList.of(
+          new CommandLineAndParamFileInfo(toCommandLine(part1), null),
+          new CommandLineAndParamFileInfo(toCommandLine(part2), null),
+          new CommandLineAndParamFileInfo(toCommandLine(part3), null));
+    }
+  }
+
+  private static final class ThreePartCommandLines extends CommandLines {
+    private final Object part1;
+    private final Object part2;
+    @Nullable private final ParamFileInfo part2ParamFileInfo;
+    private final Object part3;
+    @Nullable private final ParamFileInfo part3ParamFileInfo;
+
+    ThreePartCommandLines(
+        Object part1,
+        Object part2,
+        @Nullable ParamFileInfo part2ParamFileInfo,
+        Object part3,
+        @Nullable ParamFileInfo part3ParamFileInfo) {
+      this.part1 = part1;
+      this.part2 = part2;
+      this.part2ParamFileInfo = part2ParamFileInfo;
+      this.part3 = part3;
+      this.part3ParamFileInfo = part3ParamFileInfo;
+    }
+
+    @Override
+    public ImmutableList<CommandLineAndParamFileInfo> unpack() {
+      return ImmutableList.of(
+          new CommandLineAndParamFileInfo(toCommandLine(part1), null),
+          new CommandLineAndParamFileInfo(toCommandLine(part2), part2ParamFileInfo),
+          new CommandLineAndParamFileInfo(toCommandLine(part3), part3ParamFileInfo));
+    }
+  }
+
+  private static final class NPartCommandLines extends CommandLines {
+
+    /**
+     * Stored as an {@code Object[]} to save memory. Elements in this array are either:
+     *
+     * <ul>
+     *   <li>A {@link CommandLine}, optionally followed by a {@link ParamFileInfo}.
+     *   <li>An arbitrary {@link Object} to be wrapped in a {@link SingletonCommandLine}.
+     * </ul>
+     */
+    private final Object[] commandLines;
+
+    NPartCommandLines(Object[] commandLines) {
+      this.commandLines = commandLines;
+    }
+
+    @Override
+    public ImmutableList<CommandLineAndParamFileInfo> unpack() {
+      ImmutableList.Builder<CommandLineAndParamFileInfo> result = ImmutableList.builder();
+      for (int i = 0; i < commandLines.length; i++) {
+        Object obj = commandLines[i];
+        CommandLine commandLine;
+        ParamFileInfo paramFileInfo = null;
+
+        if (obj instanceof CommandLine) {
+          commandLine = (CommandLine) obj;
+          if (i + 1 < commandLines.length && commandLines[i + 1] instanceof ParamFileInfo) {
+            paramFileInfo = (ParamFileInfo) commandLines[++i];
+          }
+        } else {
+          commandLine = new SingletonCommandLine(obj);
+        }
+
+        result.add(new CommandLineAndParamFileInfo(commandLine, paramFileInfo));
+      }
+      return result.build();
     }
   }
 
   private static class SingletonCommandLine extends CommandLine {
     private final Object arg;
 
-    public SingletonCommandLine(Object arg) {
+    SingletonCommandLine(Object arg) {
       this.arg = arg;
     }
 
     @Override
     public Iterable<String> arguments() throws CommandLineExpansionException, InterruptedException {
-      return arguments(null, PathStripper.CommandAdjuster.NOOP);
+      return arguments(null, PathMapper.NOOP);
     }
 
     @Override
     public Iterable<String> arguments(
-        @Nullable ArtifactExpander artifactExpander, CommandAdjuster pathStripper)
+        @Nullable ArtifactExpander artifactExpander, PathMapper pathMapper)
         throws CommandLineExpansionException, InterruptedException {
       if (arg instanceof PathStrippable) {
-        return ImmutableList.of(((PathStrippable) arg).expand(pathStripper::strip));
+        return ImmutableList.of(((PathStrippable) arg).expand(pathMapper::map));
       }
       return ImmutableList.of(CommandLineItem.expandToCommandLine(arg));
     }

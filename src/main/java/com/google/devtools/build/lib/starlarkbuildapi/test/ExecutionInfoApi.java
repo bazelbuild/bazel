@@ -15,15 +15,26 @@
 package com.google.devtools.build.lib.starlarkbuildapi.test;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
 
 /**
  * This provider can be implemented by rules which need special environments to run in (especially
  * tests).
  */
-@StarlarkBuiltin(name = "ExecutionInfo", doc = "", documented = false)
+@StarlarkBuiltin(
+    name = "ExecutionInfo",
+    doc = "Use this provider to specify special environment requirements needed to run tests.",
+    documented = true,
+    category = DocCategory.PROVIDER)
 public interface ExecutionInfoApi extends StructApi {
 
   @StarlarkMethod(
@@ -37,4 +48,37 @@ public interface ExecutionInfoApi extends StructApi {
       doc = "The name of the exec group that is used to execute the test.",
       structField = true)
   String getExecGroup();
+
+  /** Provider for {@link ExecutionInfoApi}. */
+  @StarlarkBuiltin(
+      name = "Provider",
+      // Documented by the outer ExecutionInfoApi class and its constructor doc.
+      documented = false)
+  interface ExecutionInfoApiProvider extends ProviderApi {
+
+    @StarlarkMethod(
+        name = "ExecutionInfo",
+        doc = "Creates an instance.",
+        documented = true,
+        parameters = {
+          @Param(
+              name = "requirements",
+              defaultValue = "{}",
+              allowedTypes = {@ParamType(type = Dict.class)},
+              named = true,
+              positional = true,
+              doc =
+                  "A dict indicating special execution requirements, such as hardware platforms."),
+          @Param(
+              name = "exec_group",
+              allowedTypes = {@ParamType(type = String.class)},
+              defaultValue = "'test'",
+              named = true,
+              positional = true,
+              doc = "The name of the exec group that is used to execute the test.")
+        },
+        selfCall = true)
+    @StarlarkConstructor
+    ExecutionInfoApi constructor(Dict<?, ?> requirements, String execGroup) throws EvalException;
+  }
 }

@@ -72,7 +72,7 @@ public final class GeneratedExtensionRegistryProvider extends NativeInfo
   /** @return the proto jars used to generate the registry. */
   @Override
   public Depset /*<Artifact>*/ getInputsForStarlark() {
-    return Depset.of(Artifact.TYPE, inputs);
+    return Depset.of(Artifact.class, inputs);
   }
 
   public NestedSet<Artifact> getInputs() {
@@ -156,10 +156,6 @@ public final class GeneratedExtensionRegistryProvider extends NativeInfo
       implements GeneratedExtensionRegistryProviderApi.Provider<Artifact> {
     private Provider() {
       super(NAME, GeneratedExtensionRegistryProvider.class);
-    }
-
-    public String getName() {
-      return NAME;
     }
 
     @Override

@@ -1,4 +1,4 @@
-load("//tools/python:private/defs.bzl", "py_test")
+load("@rules_python//python:defs.bzl", "py_test")
 load(":utils.bzl", "expand_pyversion_template")
 
 package(default_visibility = ["//visibility:public"])
@@ -32,8 +32,8 @@ py_test(
     name = "pywrapper_test",
     srcs = ["pywrapper_test.py"],
     data = [
-        ":py2wrapper.sh",
-        ":py2wrapper_nonstrict.sh",
+        ":py3wrapper.sh",
+        ":py3wrapper_nonstrict.sh",
     ],
     deps = ["//src/test/py/bazel:test_base"],
 )

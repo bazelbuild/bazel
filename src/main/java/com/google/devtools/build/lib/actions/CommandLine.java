@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.PathStripper.CommandAdjuster;
+import com.google.devtools.build.lib.actions.PathStripper.PathMapper;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -51,7 +51,7 @@ public abstract class CommandLine {
     return arguments();
   }
 
-  public Iterable<String> arguments(ArtifactExpander artifactExpander, CommandAdjuster pathStripper)
+  public Iterable<String> arguments(ArtifactExpander artifactExpander, PathMapper pathMapper)
       throws CommandLineExpansionException, InterruptedException {
     return arguments(artifactExpander);
   }
@@ -67,7 +67,8 @@ public abstract class CommandLine {
   public void addToFingerprint(
       ActionKeyContext actionKeyContext,
       @Nullable ArtifactExpander artifactExpander,
-      Fingerprint fingerprint)
+      Fingerprint fingerprint,
+      PathMapper pathMapper)
       throws CommandLineExpansionException, InterruptedException {
     for (String s : arguments()) {
       fingerprint.addString(s);

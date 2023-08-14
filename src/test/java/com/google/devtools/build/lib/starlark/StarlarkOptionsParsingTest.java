@@ -23,9 +23,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
-import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.starlark.util.StarlarkOptionsTestCase;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.ArrayList;
@@ -106,7 +104,8 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
 
     OptionsParsingResult result =
         parseStarlarkOptions(
-            "--@starlark_options_test//test:my_int_setting=666 --@repo2//:flag2=222");
+            "--@starlark_options_test//test:my_int_setting=666 --@repo2//:flag2=222",
+            /* onlyStarlarkParser= */ true);
 
     assertThat(result.getStarlarkOptions()).hasSize(2);
     assertThat(result.getStarlarkOptions().get("//test:my_int_setting"))
@@ -160,10 +159,12 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
   public void testSingleDash_notAllowed() throws Exception {
     writeBasicIntFlag();
 
-    OptionsParsingResult result = parseStarlarkOptions("-//test:my_int_setting=666");
-
-    assertThat(result.getStarlarkOptions()).isEmpty();
-    assertThat(result.getResidue()).containsExactly("-//test:my_int_setting=666");
+    OptionsParsingException e =
+        assertThrows(
+            OptionsParsingException.class,
+            () ->
+                parseStarlarkOptions("-//test:my_int_setting=666", /* onlyStarlarkParser= */ true));
+    assertThat(e).hasMessageThat().isEqualTo("Invalid options syntax: -//test:my_int_setting=666");
   }
 
   // test --non_flag_setting=value
@@ -380,35 +381,6 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
         .isEqualTo(StarlarkInt.of(15));
   }
 
-  @Test
-  public void testRemoveStarlarkOptionsWorks() throws Exception {
-    Pair<ImmutableList<String>, ImmutableList<String>> residueAndStarlarkOptions =
-        StarlarkOptionsParser.removeStarlarkOptions(
-            ImmutableList.of(
-                "--//local/starlark/option",
-                "--//local/starlark/option=with_value",
-                "--@some_repo//external/starlark/option",
-                "--@some_repo//external/starlark/option=with_value",
-                "--@//main/repo/option",
-                "--@//main/repo/option=with_value",
-                "some-random-residue",
-                "--mangled//external/starlark/option",
-                "--mangled//external/starlark/option=with_value"));
-    assertThat(residueAndStarlarkOptions.getFirst())
-        .containsExactly(
-            "--//local/starlark/option",
-            "--//local/starlark/option=with_value",
-            "--@some_repo//external/starlark/option",
-            "--@some_repo//external/starlark/option=with_value",
-            "--@//main/repo/option",
-            "--@//main/repo/option=with_value");
-    assertThat(residueAndStarlarkOptions.getSecond())
-        .containsExactly(
-            "some-random-residue",
-            "--mangled//external/starlark/option",
-            "--mangled//external/starlark/option=with_value");
-  }
-
   /**
    * When Starlark flags are only set as flags, they shouldn't produce {@link
    * TargetParsingCompleteEvent}s. That's intended to communicate (to the build event protocol)
@@ -500,5 +472,27 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
     assertThat(result.getStarlarkOptions().keySet()).containsExactly("//test:cats");
     assertThat((List<String>) result.getStarlarkOptions().get("//test:cats"))
         .containsExactly("calico", "bengal");
+  }
+
+  @Test
+  public void flagReferencesExactlyOneTarget() throws Exception {
+    scratch.file(
+        "test/build_setting.bzl",
+        "string_flag = rule(",
+        "  implementation = lambda ctx, attr: [],",
+        "  build_setting = config.string(flag=True)",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_setting.bzl', 'string_flag')",
+        "string_flag(name = 'one', build_setting_default = '')",
+        "string_flag(name = 'two', build_setting_default = '')");
+
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> parseStarlarkOptions("--//test:all"));
+
+    assertThat(e)
+        .hasMessageThat()
+        .contains("//test:all: user-defined flags must reference exactly one target");
   }
 }

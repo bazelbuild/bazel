@@ -58,8 +58,8 @@ public class ZipDecompressor implements Decompressor {
   @VisibleForTesting static final int WINDOWS_FILE_ATTRIBUTE_NORMAL = 0x80;
 
   /**
-   * This unzips the zip file to directory {@link DecompressorDescriptor#repositoryPath()}, which by
-   * default is empty relative [to the calling external repository rule] path. The zip file is
+   * This unzips the zip file to directory {@link DecompressorDescriptor#destinationPath()}, which
+   * by default is empty relative [to the calling external repository rule] path. The zip file is
    * expected to have the WORKSPACE file at the top level, e.g.:
    *
    * <pre>
@@ -77,8 +77,9 @@ public class ZipDecompressor implements Decompressor {
   @Nullable
   public Path decompress(DecompressorDescriptor descriptor)
       throws IOException, InterruptedException {
-    Path destinationDirectory = descriptor.repositoryPath();
+    Path destinationDirectory = descriptor.destinationPath();
     Optional<String> prefix = descriptor.prefix();
+    Map<String, String> renameFiles = descriptor.renameFiles();
     boolean foundPrefix = false;
     // Store link, target info of symlinks, we create them after regular files are extracted.
     Map<Path, PathFragment> symlinks = new HashMap<>();
@@ -86,7 +87,9 @@ public class ZipDecompressor implements Decompressor {
     try (ZipReader reader = new ZipReader(descriptor.archivePath().getPathFile())) {
       Collection<ZipFileEntry> entries = reader.entries();
       for (ZipFileEntry entry : entries) {
-        StripPrefixedPath entryPath = StripPrefixedPath.maybeDeprefix(entry.getName(), prefix);
+        String entryName = entry.getName();
+        entryName = renameFiles.getOrDefault(entryName, entryName);
+        StripPrefixedPath entryPath = StripPrefixedPath.maybeDeprefix(entryName, prefix);
         foundPrefix = foundPrefix || entryPath.foundPrefix();
         if (entryPath.skip()) {
           continue;

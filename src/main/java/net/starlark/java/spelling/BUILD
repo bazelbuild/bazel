@@ -1,5 +1,10 @@
 # The spelling checker used by the Starlark interpreter.
 
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src:__subpackages__"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),

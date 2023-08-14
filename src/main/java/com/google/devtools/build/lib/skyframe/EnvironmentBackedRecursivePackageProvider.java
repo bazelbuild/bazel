@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -94,10 +94,9 @@ public final class EnvironmentBackedRecursivePackageProvider
   @Override
   public Package getPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageName)
       throws NoSuchPackageException, MissingDepException, InterruptedException {
-    SkyKey pkgKey = PackageValue.key(packageName);
     PackageValue pkgValue;
     try {
-      pkgValue = (PackageValue) env.getValueOrThrow(pkgKey, NoSuchPackageException.class);
+      pkgValue = (PackageValue) env.getValueOrThrow(packageName, NoSuchPackageException.class);
       if (pkgValue == null) {
         throw new MissingDepException();
       }
@@ -199,23 +198,23 @@ public final class EnvironmentBackedRecursivePackageProvider
         ImmutableSet.copyOf(
             Iterables.filter(ignoredSubdirectories, path -> path.startsWith(directory)));
 
-    SkyframeIterableResult recursivePackageValues =
-        env.getOrderedValuesAndExceptions(
-            Iterables.transform(
-                roots,
-                r ->
-                    RecursivePkgValue.key(
-                        repository,
-                        RootedPath.toRootedPath(r, directory),
-                        filteredIgnoredSubdirectories)));
+    Iterable<RecursivePkgValue.Key> recursivePackageKeys =
+        Iterables.transform(
+            roots,
+            r ->
+                RecursivePkgValue.key(
+                    repository,
+                    RootedPath.toRootedPath(r, directory),
+                    filteredIgnoredSubdirectories));
+    SkyframeLookupResult recursivePackageValues = env.getValuesAndExceptions(recursivePackageKeys);
     NoSuchPackageException firstNspe = null;
-    while (recursivePackageValues.hasNext()) {
+    for (RecursivePkgValue.Key key : recursivePackageKeys) {
       RecursivePkgValue lookup;
       try {
         lookup =
             (RecursivePkgValue)
-                recursivePackageValues.nextOrThrow(
-                    NoSuchPackageException.class, ProcessPackageDirectoryException.class);
+                recursivePackageValues.getOrThrow(
+                    key, NoSuchPackageException.class, ProcessPackageDirectoryException.class);
       } catch (NoSuchPackageException e) {
         // NoSuchPackageException can happen during error bubbling in a no-keep-going build.
         if (firstNspe == null) {

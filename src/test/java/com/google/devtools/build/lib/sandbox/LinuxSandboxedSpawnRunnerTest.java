@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.sandbox;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 import static com.google.common.truth.TruthJUnit.assume;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -40,7 +39,6 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.time.Duration;
@@ -61,23 +59,23 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
   }
 
   @Test
-  public void execAsync_echoCommand_executesSuccessfully() throws Exception {
+  public void exec_echoCommand_executesSuccessfully() throws Exception {
     LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(createCommandEnvironment());
     Spawn spawn = new SpawnBuilder("echo", "echolalia").build();
     Path stdout = testRoot.getChild("stdout");
     SpawnExecutionContext policy = createSpawnExecutionContext(spawn, stdout);
 
-    SpawnResult spawnResult = runner.execAsync(spawn, policy).get();
+    SpawnResult spawnResult = runner.exec(spawn, policy);
 
     assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(spawnResult.exitCode()).isEqualTo(0);
     assertThat(spawnResult.setupSuccess()).isTrue();
-    assertThat(spawnResult.getWallTime()).isPresent();
+    assertThat(spawnResult.getWallTimeInMs()).isGreaterThan(0);
     assertThat(FileSystemUtils.readLines(stdout, UTF_8)).containsExactly("echolalia");
   }
 
   @Test
-  public void execAsync_commandWithParamFiles_executesSuccessfully() throws Exception {
+  public void exec_commandWithParamFiles_executesSuccessfully() throws Exception {
     CommandEnvironment commandEnvironment = createCommandEnvironment();
     LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);
     Spawn spawn =
@@ -92,7 +90,7 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
             .build();
     SpawnExecutionContext policy = createSpawnExecutionContext(spawn);
 
-    SpawnResult spawnResult = runner.execAsync(spawn, policy).get();
+    SpawnResult spawnResult = runner.exec(spawn, policy);
 
     assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     Path paramFile = commandEnvironment.getExecRoot().getRelative("out");
@@ -103,11 +101,9 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
   }
 
   @Test
-  public void execAsync_spawnRunningBinTool_executesSuccessfully(
-      @TestParameter boolean delayVirtualInputMaterialization) throws Exception {
+  public void exec_spawnRunningBinTool_executesSuccessfully() throws Exception {
     CommandEnvironment commandEnvironment = createCommandEnvironment();
-    LinuxSandboxedSpawnRunner runner =
-        setupSandboxAndCreateRunner(commandEnvironment, delayVirtualInputMaterialization);
+    LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);
     BinTools.PathActionInput pathActionInput =
         new BinTools.PathActionInput(
             new Scratch().file("/execRoot/tool", "#!/bin/bash", "echo hello > $1"),
@@ -124,16 +120,15 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
             .build();
     SpawnExecutionContext policy = createSpawnExecutionContext(spawn);
 
-    SpawnResult spawnResult = runner.execAsync(spawn, policy).get();
+    SpawnResult spawnResult = runner.exec(spawn, policy);
 
     assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(FileSystemUtils.readLines(output.getPath(), UTF_8)).containsExactly("hello");
   }
 
   @Test
-  public void execAsync_collectsExecutionStatistics() throws Exception {
-    CommandEnvironment commandEnvironment =
-        getCommandEnvironmentWithExecutionStatisticsOptionEnabled("workspace");
+  public void exec_collectsExecutionStatistics() throws Exception {
+    CommandEnvironment commandEnvironment = createCommandEnvironment();
     LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);
     Path cpuTimeSpenderPath =
         SpawnRunnerTestUtil.copyCpuTimeSpenderIntoPath(commandEnvironment.getExecRoot());
@@ -152,68 +147,85 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
             .build();
     SpawnExecutionContextForTesting policy = createSpawnExecutionContext(spawn);
 
-    SpawnResult spawnResult = runner.execAsync(spawn, policy).get();
+    SpawnResult spawnResult = runner.exec(spawn, policy);
 
     assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(spawnResult.exitCode()).isEqualTo(0);
     assertThat(spawnResult.setupSuccess()).isTrue();
-    assertThat(spawnResult.getWallTime()).isPresent();
-    assertThat(spawnResult.getWallTime().get()).isAtLeast(minimumWallTimeToSpend);
-    assertThat(spawnResult.getWallTime().get()).isAtMost(maximumWallTimeToSpend);
-    assertThat(spawnResult.getUserTime()).isPresent();
-    assertThat(spawnResult.getUserTime().get()).isAtLeast(minimumUserTimeToSpend);
-    assertThat(spawnResult.getUserTime().get()).isAtMost(maximumUserTimeToSpend);
-    assertThat(spawnResult.getSystemTime()).isPresent();
-    assertThat(spawnResult.getSystemTime().get()).isAtLeast(minimumSystemTimeToSpend);
-    assertThat(spawnResult.getSystemTime().get()).isAtMost(maximumSystemTimeToSpend);
-    assertThat(spawnResult.getNumBlockOutputOperations().get()).isAtLeast(0L);
-    assertThat(spawnResult.getNumBlockInputOperations().get()).isAtLeast(0L);
-    assertThat(spawnResult.getNumInvoluntaryContextSwitches().get()).isAtLeast(0L);
+    assertThat(spawnResult.getWallTimeInMs()).isAtLeast((int) minimumWallTimeToSpend.toMillis());
+    assertThat(spawnResult.getWallTimeInMs()).isAtMost((int) maximumWallTimeToSpend.toMillis());
+    assertThat(spawnResult.getUserTimeInMs()).isAtLeast((int) minimumUserTimeToSpend.toMillis());
+    assertThat(spawnResult.getUserTimeInMs()).isAtMost((int) maximumUserTimeToSpend.toMillis());
+    assertThat(spawnResult.getSystemTimeInMs())
+        .isAtLeast((int) minimumSystemTimeToSpend.toMillis());
+    assertThat(spawnResult.getSystemTimeInMs()).isAtMost((int) maximumSystemTimeToSpend.toMillis());
+    assertThat(spawnResult.getNumBlockOutputOperations()).isAtLeast(0L);
+    assertThat(spawnResult.getNumBlockInputOperations()).isAtLeast(0L);
+    assertThat(spawnResult.getNumInvoluntaryContextSwitches()).isAtLeast(0L);
   }
 
   @Test
-  public void execAsync_statisticsCollectionDisabled_returnsEmptyStatistics() throws Exception {
+  public void hermeticTmp_tmpCreatedAndMounted() throws Exception {
+    runtimeWrapper.addOptions("--incompatible_sandbox_hermetic_tmp");
     CommandEnvironment commandEnvironment = createCommandEnvironment();
     LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);
-    Path cpuTimeSpenderPath =
-        SpawnRunnerTestUtil.copyCpuTimeSpenderIntoPath(commandEnvironment.getExecRoot());
-    Duration minimumWallTimeToSpend = Duration.ofSeconds(10);
-    // Because of e.g. interference, wall time taken may be much larger than CPU time used.
-    Duration maximumWallTimeToSpend = Duration.ofSeconds(40);
-    Duration minimumUserTimeToSpend = minimumWallTimeToSpend;
-    Duration minimumSystemTimeToSpend = Duration.ZERO;
-    Spawn spawn =
-        new SpawnBuilder(
-                cpuTimeSpenderPath.getPathString(),
-                String.valueOf(minimumUserTimeToSpend.getSeconds()),
-                String.valueOf(minimumSystemTimeToSpend.getSeconds()))
-            .build();
-    SpawnExecutionContext policy = createSpawnExecutionContext(spawn);
+    Spawn spawn = new SpawnBuilder().build();
+    SandboxedSpawn sandboxedSpawn = runner.prepareSpawn(spawn, createSpawnExecutionContext(spawn));
 
-    SpawnResult spawnResult = runner.execAsync(spawn, policy).get();
+    Path sandboxPath =
+        sandboxedSpawn.getSandboxExecRoot().getParentDirectory().getParentDirectory();
+    Path hermeticTmpPath = sandboxPath.getRelative("_hermetic_tmp");
+    assertThat(hermeticTmpPath.isDirectory()).isTrue();
 
-    assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
-    assertThat(spawnResult.exitCode()).isEqualTo(0);
-    assertThat(spawnResult.setupSuccess()).isTrue();
-    assertThat(spawnResult.getWallTime()).isPresent();
-    assertThat(spawnResult.getWallTime().get()).isAtLeast(minimumWallTimeToSpend);
-    assertThat(spawnResult.getWallTime().get()).isAtMost(maximumWallTimeToSpend);
-    assertThat(spawnResult.getUserTime()).isEmpty();
-    assertThat(spawnResult.getSystemTime()).isEmpty();
-    assertThat(spawnResult.getNumBlockOutputOperations()).isEmpty();
-    assertThat(spawnResult.getNumBlockInputOperations()).isEmpty();
-    assertThat(spawnResult.getNumInvoluntaryContextSwitches()).isEmpty();
+    assertThat(sandboxedSpawn).isInstanceOf(SymlinkedSandboxedSpawn.class);
+    String args = String.join(" ", sandboxedSpawn.getArguments());
+    assertThat(args).contains("-w /tmp");
+    assertThat(args).contains("-M " + hermeticTmpPath + " -m /tmp");
+  }
+
+  @Test
+  public void hermeticTmp_sandboxTmpfsOnTmp_tmpNotCreatedOrMounted() throws Exception {
+    runtimeWrapper.addOptions("--incompatible_sandbox_hermetic_tmp", "--sandbox_tmpfs_path=/tmp");
+    CommandEnvironment commandEnvironment = createCommandEnvironment();
+    LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);
+    Spawn spawn = new SpawnBuilder().build();
+    SandboxedSpawn sandboxedSpawn = runner.prepareSpawn(spawn, createSpawnExecutionContext(spawn));
+
+    Path sandboxPath =
+        sandboxedSpawn.getSandboxExecRoot().getParentDirectory().getParentDirectory();
+    Path hermeticTmpPath = sandboxPath.getRelative("_hermetic_tmp");
+    assertThat(hermeticTmpPath.isDirectory()).isFalse();
+
+    assertThat(sandboxedSpawn).isInstanceOf(SymlinkedSandboxedSpawn.class);
+    String args = String.join(" ", sandboxedSpawn.getArguments());
+    assertThat(args).contains("-w /tmp");
+    assertThat(args).contains("-e /tmp");
+    assertThat(args).doesNotContain("-m /tmp");
+  }
+
+  @Test
+  public void hermeticTmp_sandboxTmpfsUnderTmp_tmpNotCreatedOrMounted() throws Exception {
+    runtimeWrapper.addOptions(
+        "--incompatible_sandbox_hermetic_tmp", "--sandbox_tmpfs_path=/tmp/subdir");
+    CommandEnvironment commandEnvironment = createCommandEnvironment();
+    LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);
+    Spawn spawn = new SpawnBuilder().build();
+    SandboxedSpawn sandboxedSpawn = runner.prepareSpawn(spawn, createSpawnExecutionContext(spawn));
+
+    Path sandboxPath =
+        sandboxedSpawn.getSandboxExecRoot().getParentDirectory().getParentDirectory();
+    Path hermeticTmpPath = sandboxPath.getRelative("_hermetic_tmp");
+    assertThat(hermeticTmpPath.isDirectory()).isFalse();
+
+    assertThat(sandboxedSpawn).isInstanceOf(SymlinkedSandboxedSpawn.class);
+    String args = String.join(" ", sandboxedSpawn.getArguments());
+    assertThat(args).contains("-w /tmp");
+    assertThat(args).contains("-e /tmp");
+    assertThat(args).doesNotContain("-m /tmp");
   }
 
   private static LinuxSandboxedSpawnRunner setupSandboxAndCreateRunner(
       CommandEnvironment commandEnvironment) throws IOException {
-    return setupSandboxAndCreateRunner(
-        commandEnvironment, /*delayVirtualInputMaterialization=*/ true);
-  }
-
-  private static LinuxSandboxedSpawnRunner setupSandboxAndCreateRunner(
-      CommandEnvironment commandEnvironment, boolean delayVirtualInputMaterialization)
-      throws IOException {
     Path execRoot = commandEnvironment.getExecRoot();
     execRoot.createDirectory();
 
@@ -223,7 +235,7 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
     sandboxBase.createDirectory();
 
     return LinuxSandboxedStrategy.create(
-        new SandboxHelpers(delayVirtualInputMaterialization),
+        new SandboxHelpers(),
         commandEnvironment,
         sandboxBase,
         /*timeoutKillDelay=*/ Duration.ofSeconds(2),

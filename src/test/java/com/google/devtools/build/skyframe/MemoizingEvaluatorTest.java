@@ -39,7 +39,6 @@ import com.google.common.truth.IterableSubject;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.bugreport.BugReport;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.events.DelegatingEventHandler;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
@@ -47,6 +46,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.GraphTester.NotComparableStringValue;
 import com.google.devtools.build.skyframe.GraphTester.StringValue;
 import com.google.devtools.build.skyframe.GraphTester.TestFunction;
@@ -82,7 +82,7 @@ public abstract class MemoizingEvaluatorTest {
   protected MemoizingEvaluatorTester tester;
   protected EventCollector eventCollector;
   protected ExtendedEventHandler reporter;
-  protected NestedSetVisitor.VisitedState emittedEventState;
+  protected EmittedEventState emittedEventState;
 
   // Knobs that control the size / duration of larger tests.
   private static final int TEST_NODE_COUNT = 100;
@@ -96,7 +96,7 @@ public abstract class MemoizingEvaluatorTest {
   }
 
   private void initializeTester(@Nullable TrackingProgressReceiver customProgressReceiver) {
-    emittedEventState = new NestedSetVisitor.VisitedState();
+    emittedEventState = new EmittedEventState();
     tester = new MemoizingEvaluatorTester();
     if (customProgressReceiver != null) {
       tester.setProgressReceiver(customProgressReceiver);
@@ -137,10 +137,6 @@ public abstract class MemoizingEvaluatorTest {
   @ForOverride
   protected void afterEvaluation(@Nullable EvaluationResult<?> result, EvaluationContext context)
       throws InterruptedException {}
-
-  protected boolean eventsStored() {
-    return true;
-  }
 
   protected boolean cyclesDetected() {
     return true;
@@ -232,9 +228,6 @@ public abstract class MemoizingEvaluatorTest {
     tester.invalidate();
     value = (StringValue) tester.evalAndGet("x");
     assertThat(value.getValue()).isEqualTo("y");
-    if (eventsStored()) {
-      assertThatEvents(eventCollector).containsExactly("fizzlepop");
-    }
   }
 
   @Test
@@ -287,9 +280,9 @@ public abstract class MemoizingEvaluatorTest {
         .setBuilder(
             (skyKey, env) -> {
               if (counter.getAndIncrement() > 0) {
-                deps.addAll(env.getTemporaryDirectDeps().get(0));
+                deps.addAll(env.getTemporaryDirectDeps().getDepGroup(0));
               } else {
-                assertThat(env.getTemporaryDirectDeps().listSize()).isEqualTo(0);
+                assertThat(env.getTemporaryDirectDeps().numGroups()).isEqualTo(0);
               }
               return env.getValue(bottomKey);
             });
@@ -528,20 +521,14 @@ public abstract class MemoizingEvaluatorTest {
             MemoizingEvaluatorTester.toSkyKeys("top1", "d1", "d2", "top2", "d3"));
   }
 
-  // NOTE: Some of these tests exercising errors/warnings run through a size-2 for loop in order
-  // to ensure that we are properly recording and replyaing these messages on null builds.
   @Test
   public void warningViaMultiplePaths() throws Exception {
     tester.set("d1", new StringValue("d1")).setWarning("warn-d1");
     tester.set("d2", new StringValue("d2")).setWarning("warn-d2");
     tester.getOrCreate("top").setComputedValue(CONCATENATE).addDependency("d1").addDependency("d2");
-    for (int i = 0; i < 2; i++) {
-      initializeReporter();
-      tester.evalAndGet("top");
-      if (i == 0 || eventsStored()) {
-        assertThatEvents(eventCollector).containsExactly("warn-d1", "warn-d2");
-      }
-    }
+    initializeReporter();
+    tester.evalAndGet("top");
+    assertThatEvents(eventCollector).containsExactly("warn-d1", "warn-d2");
   }
 
   @Test
@@ -561,7 +548,7 @@ public abstract class MemoizingEvaluatorTest {
           .hasSingletonErrorThat(topKey)
           .hasExceptionThat()
           .isInstanceOf(SomeErrorException.class);
-      if (i == 0 || eventsStored()) {
+      if (i == 0) {
         assertThatEvents(eventCollector).containsExactly("warn-dep");
       }
     }
@@ -583,7 +570,7 @@ public abstract class MemoizingEvaluatorTest {
           .hasSingletonErrorThat(topKey)
           .hasExceptionThat()
           .isInstanceOf(SomeErrorException.class);
-      if (i == 0 || eventsStored()) {
+      if (i == 0) {
         assertThatEvents(eventCollector).containsExactly("warning msg");
       }
     }
@@ -605,7 +592,7 @@ public abstract class MemoizingEvaluatorTest {
           .hasSingletonErrorThat(topKey)
           .hasExceptionThat()
           .isInstanceOf(SomeErrorException.class);
-      if (i == 0 || eventsStored()) {
+      if (i == 0) {
         assertThatEvents(eventCollector).containsExactly("warning msg");
       }
     }
@@ -616,14 +603,9 @@ public abstract class MemoizingEvaluatorTest {
     tester.set("t1", new StringValue("t1")).addDependency("dep");
     tester.set("t2", new StringValue("t2")).addDependency("dep");
     tester.set("dep", new StringValue("dep")).setWarning("look both ways before crossing");
-    for (int i = 0; i < 2; i++) {
-      // Make sure we see the warning exactly once.
-      initializeReporter();
-      tester.eval(/*keepGoing=*/ false, "t1", "t2");
-      if (i == 0 || eventsStored()) {
-        assertThatEvents(eventCollector).containsExactly("look both ways before crossing");
-      }
-    }
+    initializeReporter();
+    tester.eval(/* keepGoing= */ false, "t1", "t2");
+    assertThatEvents(eventCollector).containsExactly("look both ways before crossing");
   }
 
   @Test
@@ -633,42 +615,24 @@ public abstract class MemoizingEvaluatorTest {
         .set("warning-value", new StringValue("warning-value"))
         .setWarning("don't chew with your mouth open");
 
-    for (int i = 0; i < 2; i++) {
-      initializeReporter();
-      tester.evalAndGetError(/*keepGoing=*/ true, "error-value");
-      if (i == 0 || eventsStored()) {
-        assertThatEvents(eventCollector).containsExactly("don't chew with your mouth open");
-      }
-    }
-
     initializeReporter();
-    tester.evalAndGet("warning-value");
-    if (eventsStored()) {
-      assertThatEvents(eventCollector).containsExactly("don't chew with your mouth open");
-    }
+    tester.evalAndGetError(/* keepGoing= */ true, "error-value");
+    assertThatEvents(eventCollector).containsExactly("don't chew with your mouth open");
   }
 
   @Test
   public void progressMessageOnlyPrintedTheFirstTime() throws Exception {
-    // The framework keeps track of warning and error messages, but not progress messages.
-    // So here we see both the progress and warning on the first build, but only the warning
-    // on the subsequent null build.
-    tester
-        .set("x", new StringValue("y"))
-        .setWarning("fizzlepop")
-        .setProgress("just letting you know");
+    // Skyframe does not store progress messages. Here we only see the message on the first build.
+    tester.set("x", new StringValue("y")).setProgress("just letting you know");
 
     StringValue value = (StringValue) tester.evalAndGet("x");
     assertThat(value.getValue()).isEqualTo("y");
-    assertThatEvents(eventCollector).containsExactly("fizzlepop", "just letting you know");
+    assertThatEvents(eventCollector).containsExactly("just letting you know");
 
-    if (eventsStored()) {
-      // On the rebuild, we only replay warning messages.
-      initializeReporter();
-      value = (StringValue) tester.evalAndGet("x");
-      assertThat(value.getValue()).isEqualTo("y");
-      assertThatEvents(eventCollector).containsExactly("fizzlepop");
-    }
+    initializeReporter();
+    value = (StringValue) tester.evalAndGet("x");
+    assertThat(value.getValue()).isEqualTo("y");
+    assertThatEvents(eventCollector).isEmpty();
   }
 
   @Test
@@ -1132,7 +1096,7 @@ public abstract class MemoizingEvaluatorTest {
               @Nullable
               @Override
               public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-                env.getOrderedValuesAndExceptions(ImmutableList.of(leafKey, bKey));
+                env.getValuesAndExceptions(ImmutableList.of(leafKey, bKey));
                 return null;
               }
             });
@@ -1243,8 +1207,8 @@ public abstract class MemoizingEvaluatorTest {
               @Override
               public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
                 // The order here is important -- 2 before 1.
-                SkyframeIterableResult result =
-                    env.getOrderedValuesAndExceptions(ImmutableList.of(cycleKey2, cycleKey1));
+                SkyframeLookupResult result =
+                    env.getValuesAndExceptions(ImmutableList.of(cycleKey2, cycleKey1));
                 Preconditions.checkState(env.valuesMissing(), result);
                 return null;
               }
@@ -1584,7 +1548,7 @@ public abstract class MemoizingEvaluatorTest {
                 // Order depKey first - makeGraphDeterministic() only makes the batch maps returned
                 // by the graph deterministic, not the order of temporary direct deps. This makes
                 // the order of deps match (alphabetized by the string representation).
-                env.getOrderedValuesAndExceptions(ImmutableList.of(depKey, topKey));
+                env.getValuesAndExceptions(ImmutableList.of(depKey, topKey));
                 assertThat(env.valuesMissing()).isTrue();
                 return null;
               }
@@ -2117,7 +2081,7 @@ public abstract class MemoizingEvaluatorTest {
         .getOrCreate(topKey)
         .setBuilder(
             (skyKey, env) -> {
-              env.getOrderedValuesAndExceptions(ImmutableList.of(errorKey, midKey, mid2Key));
+              env.getValuesAndExceptions(ImmutableList.of(errorKey, midKey, mid2Key));
               if (env.valuesMissing()) {
                 return null;
               }
@@ -2155,9 +2119,9 @@ public abstract class MemoizingEvaluatorTest {
         .setBuilder(
             (skyKey, env) -> {
               SkyKeyValue val =
-                  ((SkyKeyValue)
-                      env.getOrderedValuesAndExceptions(ImmutableList.of(groupDepA, groupDepB))
-                          .next());
+                  (SkyKeyValue)
+                      env.getValuesAndExceptions(ImmutableList.of(groupDepA, groupDepB))
+                          .get(groupDepA);
               if (env.valuesMissing()) {
                 return null;
               }
@@ -2290,7 +2254,7 @@ public abstract class MemoizingEvaluatorTest {
                 topRequestedDepOrRestartedBuild.countDown();
               }
               // top's builder just requests both deps in a group.
-              env.getOrderedValuesAndExceptions(ImmutableList.of(firstKey, slowAddingDep));
+              env.getValuesAndExceptions(ImmutableList.of(firstKey, slowAddingDep));
               return env.valuesMissing() ? null : new StringValue("top");
             });
     // First build : just prime the graph.
@@ -2523,7 +2487,7 @@ public abstract class MemoizingEvaluatorTest {
               if (dep1 == null) {
                 return null;
               }
-              env.getOrderedValuesAndExceptions(
+              env.getValuesAndExceptions(
                   ImmutableList.of(newlyRequestedDoneDep, newlyRequestedNotDoneDep));
               if (numFunctionCalls.get() < 4) {
                 return Restart.SELF;
@@ -2637,7 +2601,7 @@ public abstract class MemoizingEvaluatorTest {
 
               // Request the second group. In the first build it's [leaf2, leaf4].
               // In the second build it's [leaf2, leaf5]
-              env.getOrderedValuesAndExceptions(
+              env.getValuesAndExceptions(
                   ImmutableList.of(
                       leaves.get(2),
                       GraphTester.toSkyKey(((StringValue) values.get(leaves.get(2))).getValue())));
@@ -3838,13 +3802,6 @@ public abstract class MemoizingEvaluatorTest {
     // And the SkyFunction for otherErrorKey was evaluated exactly once.
     assertThat(numOtherInvocations.get()).isEqualTo(1);
     assertWithMessage(bogusInvocationMessage.get()).that(bogusInvocationMessage.get()).isNull();
-
-    // NB: The SkyFunction for otherErrorKey gets evaluated exactly once--it does not get
-    // re-evaluated during error bubbling. Why? When otherErrorKey throws, it is always the
-    // second error encountered, because it waited for errorKey's error to be committed before
-    // trying to get it. In fail-fast evaluations only the first failing SkyFunction's
-    // newly-discovered-dependencies are registered. Therefore, there won't be a reverse-dep from
-    // errorKey to otherErrorKey for the error to bubble through.
   }
 
   @Test
@@ -3985,7 +3942,7 @@ public abstract class MemoizingEvaluatorTest {
         .getOrCreate(parent)
         .addDependency(child)
         .setConstantValue(parentStringValue)
-        .setWarning(parentEvent);
+        .setErrorEvent(parentEvent);
 
     assertThat(tester.evalAndGet(/*keepGoing=*/ false, parent)).isEqualTo(parentStringValue);
     assertThatEvents(eventCollector).containsExactly(childEvent, parentEvent);
@@ -4007,9 +3964,6 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void depEventPredicate() throws Exception {
-    if (!eventsStored()) {
-      return;
-    }
     SkyKey parent = GraphTester.toSkyKey("parent");
     SkyKey excludedDep = GraphTester.toSkyKey("excludedDep");
     SkyKey includedDep = GraphTester.toSkyKey("includedDep");
@@ -4033,18 +3987,19 @@ public abstract class MemoizingEvaluatorTest {
         .setComputedValue(CONCATENATE);
     tester
         .getOrCreate(excludedDep)
-        .setWarning("excludedDep warning")
+        .setErrorEvent("excludedDep error message")
         .setConstantValue(new StringValue("excludedDep"));
     tester
         .getOrCreate(includedDep)
-        .setWarning("includedDep warning")
+        .setErrorEvent("includedDep error message")
         .setConstantValue(new StringValue("includedDep"));
-    tester.eval(/*keepGoing=*/ false, includedDep, excludedDep);
-    assertThatEvents(eventCollector).containsExactly("excludedDep warning", "includedDep warning");
+    tester.eval(/* keepGoing= */ false, includedDep, excludedDep);
+    assertThatEvents(eventCollector)
+        .containsExactly("excludedDep error message", "includedDep error message");
     eventCollector.clear();
     emittedEventState.clear();
-    tester.eval(/*keepGoing=*/ true, parent);
-    assertThatEvents(eventCollector).containsExactly("includedDep warning");
+    tester.eval(/* keepGoing= */ true, parent);
+    assertThatEvents(eventCollector).containsExactly("includedDep error message");
     assertThat(
             ValueWithMetadata.getEvents(
                     tester
@@ -4052,7 +4007,7 @@ public abstract class MemoizingEvaluatorTest {
                         .getExistingEntryAtCurrentlyEvaluatingVersion(parent)
                         .getValueMaybeWithMetadata())
                 .toList())
-        .containsExactly(Event.warn("includedDep warning"));
+        .containsExactly(Event.error("includedDep error message"));
   }
 
   // Tests that we have a sane implementation of error transience.
@@ -4202,98 +4157,98 @@ public abstract class MemoizingEvaluatorTest {
   @Test
   public void valueInjection() throws Exception {
     SkyKey key = GraphTester.nonHermeticKey("new_value");
-    SkyValue val = new StringValue("val");
+    Delta delta = Delta.justNew(new StringValue("val"));
 
-    tester.differencer.inject(ImmutableMap.of(key, val));
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, key)).isEqualTo(val);
+    tester.differencer.inject(ImmutableMap.of(key, delta));
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, key)).isEqualTo(delta.newValue());
   }
 
   @Test
   public void valueInjectionOverExistingEntry() throws Exception {
     SkyKey key = GraphTester.nonHermeticKey("key");
-    SkyValue val = new StringValue("val");
+    Delta delta = Delta.justNew(new StringValue("val"));
 
     tester.getOrCreate(key).setConstantValue(new StringValue("old_val"));
-    tester.differencer.inject(ImmutableMap.of(key, val));
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, key)).isEqualTo(val);
+    tester.differencer.inject(ImmutableMap.of(key, delta));
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, key)).isEqualTo(delta.newValue());
   }
 
   @Test
   public void valueInjectionOverExistingDirtyEntry() throws Exception {
     SkyKey key = GraphTester.nonHermeticKey("key");
-    SkyValue val = new StringValue("val");
+    Delta delta = Delta.justNew(new StringValue("val"));
 
     tester.getOrCreate(key).setConstantValue(new StringValue("old_val"));
-    tester.differencer.inject(ImmutableMap.of(key, val));
+    tester.differencer.inject(ImmutableMap.of(key, delta));
     tester.eval(/*keepGoing=*/ false, new SkyKey[0]); // Create the value.
 
     tester.differencer.invalidate(ImmutableList.of(key));
     tester.eval(/*keepGoing=*/ false, new SkyKey[0]); // Mark value as dirty.
 
-    tester.differencer.inject(ImmutableMap.of(key, val));
+    tester.differencer.inject(ImmutableMap.of(key, delta));
     tester.eval(/*keepGoing=*/ false, new SkyKey[0]); // Inject again.
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, key)).isEqualTo(val);
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, key)).isEqualTo(delta.newValue());
   }
 
   @Test
   public void valueInjectionOverExistingEntryMarkedForInvalidation() throws Exception {
     SkyKey key = GraphTester.nonHermeticKey("key");
-    SkyValue val = new StringValue("val");
+    Delta delta = Delta.justNew(new StringValue("val"));
 
     tester.getOrCreate(key).setConstantValue(new StringValue("old_val"));
     tester.differencer.invalidate(ImmutableList.of(key));
-    tester.differencer.inject(ImmutableMap.of(key, val));
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, key)).isEqualTo(val);
+    tester.differencer.inject(ImmutableMap.of(key, delta));
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, key)).isEqualTo(delta.newValue());
   }
 
   @Test
   public void valueInjectionOverExistingEntryMarkedForDeletion() throws Exception {
     SkyKey key = GraphTester.nonHermeticKey("key");
-    SkyValue val = new StringValue("val");
+    Delta delta = Delta.justNew(new StringValue("val"));
 
     tester.getOrCreate(key).setConstantValue(new StringValue("old_val"));
     tester.evaluator.delete(Predicates.alwaysTrue());
-    tester.differencer.inject(ImmutableMap.of(key, val));
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, key)).isEqualTo(val);
+    tester.differencer.inject(ImmutableMap.of(key, delta));
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, key)).isEqualTo(delta.newValue());
   }
 
   @Test
   public void valueInjectionOverExistingEqualEntryMarkedForInvalidation() throws Exception {
     SkyKey key = GraphTester.nonHermeticKey("key");
-    SkyValue val = new StringValue("val");
+    Delta delta = Delta.justNew(new StringValue("val"));
 
-    tester.differencer.inject(ImmutableMap.of(key, val));
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, key)).isEqualTo(val);
+    tester.differencer.inject(ImmutableMap.of(key, delta));
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, key)).isEqualTo(delta.newValue());
 
     tester.differencer.invalidate(ImmutableList.of(key));
-    tester.differencer.inject(ImmutableMap.of(key, val));
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, key)).isEqualTo(val);
+    tester.differencer.inject(ImmutableMap.of(key, delta));
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, key)).isEqualTo(delta.newValue());
   }
 
   @Test
   public void valueInjectionOverExistingEqualEntryMarkedForDeletion() throws Exception {
     SkyKey key = GraphTester.nonHermeticKey("key");
-    SkyValue val = new StringValue("val");
+    Delta delta = Delta.justNew(new StringValue("val"));
 
-    tester.differencer.inject(ImmutableMap.of(key, val));
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, key)).isEqualTo(val);
+    tester.differencer.inject(ImmutableMap.of(key, delta));
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, key)).isEqualTo(delta.newValue());
 
     tester.evaluator.delete(Predicates.alwaysTrue());
-    tester.differencer.inject(ImmutableMap.of(key, val));
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, key)).isEqualTo(val);
+    tester.differencer.inject(ImmutableMap.of(key, delta));
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, key)).isEqualTo(delta.newValue());
   }
 
   @Test
   public void valueInjectionOverValueWithDeps() throws Exception {
     SkyKey key = GraphTester.nonHermeticKey("key");
     SkyKey otherKey = GraphTester.nonHermeticKey("other");
-    SkyValue val = new StringValue("val");
+    Delta delta = Delta.justNew(new StringValue("val"));
     StringValue prevVal = new StringValue("foo");
 
     tester.getOrCreate(otherKey).setConstantValue(prevVal);
     tester.getOrCreate(key).addDependency(otherKey).setComputedValue(COPY);
     assertThat(tester.evalAndGet(/*keepGoing=*/ false, key)).isEqualTo(prevVal);
-    tester.differencer.inject(ImmutableMap.of(key, val));
+    tester.differencer.inject(ImmutableMap.of(key, delta));
     StringValue depVal = new StringValue("newfoo");
     tester.getOrCreate(otherKey).setConstantValue(depVal);
     tester.differencer.invalidate(ImmutableList.of(otherKey));
@@ -4304,25 +4259,25 @@ public abstract class MemoizingEvaluatorTest {
   @Test
   public void valueInjectionOverEqualValueWithDeps() throws Exception {
     SkyKey key = GraphTester.nonHermeticKey("key");
-    SkyValue val = new StringValue("val");
+    Delta delta = Delta.justNew(new StringValue("val"));
 
-    tester.getOrCreate("other").setConstantValue(val);
+    tester.getOrCreate("other").setConstantValue(delta.newValue());
     tester.getOrCreate(key).addDependency("other").setComputedValue(COPY);
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, key)).isEqualTo(val);
-    tester.differencer.inject(ImmutableMap.of(key, val));
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, key)).isEqualTo(val);
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, key)).isEqualTo(delta.newValue());
+    tester.differencer.inject(ImmutableMap.of(key, delta));
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, key)).isEqualTo(delta.newValue());
   }
 
   @Test
   public void valueInjectionOverValueWithErrors() throws Exception {
     SkyKey key = GraphTester.nonHermeticKey("key");
-    SkyValue val = new StringValue("val");
+    Delta delta = Delta.justNew(new StringValue("val"));
 
     tester.getOrCreate(key).setHasError(true);
     tester.evalAndGetError(/*keepGoing=*/ true, key);
 
-    tester.differencer.inject(ImmutableMap.of(key, val));
-    assertThat(tester.evalAndGet(false, key)).isEqualTo(val);
+    tester.differencer.inject(ImmutableMap.of(key, delta));
+    assertThat(tester.evalAndGet(false, key)).isEqualTo(delta.newValue());
   }
 
   @Test
@@ -4338,44 +4293,44 @@ public abstract class MemoizingEvaluatorTest {
     assertThat(result.hasError()).isFalse();
     assertThat(result.get(parentKey)).isEqualTo(oldVal);
 
-    SkyValue val = new StringValue("val");
-    tester.differencer.inject(ImmutableMap.of(childKey, val));
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, childKey)).isEqualTo(val);
+    Delta delta = Delta.justNew(new StringValue("val"));
+    tester.differencer.inject(ImmutableMap.of(childKey, delta));
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, childKey)).isEqualTo(delta.newValue());
     // Injecting a new child should have invalidated the parent.
     assertThat(tester.getExistingValue("parent")).isNull();
 
     tester.eval(false, childKey);
-    assertThat(tester.getExistingValue(childKey)).isEqualTo(val);
+    assertThat(tester.getExistingValue(childKey)).isEqualTo(delta.newValue());
     assertThat(tester.getExistingValue("parent")).isNull();
-    assertThat(tester.evalAndGet("parent")).isEqualTo(val);
+    assertThat(tester.evalAndGet("parent")).isEqualTo(delta.newValue());
   }
 
   @Test
   public void valueInjectionOverExistingEqualEntryDoesNotInvalidate() throws Exception {
     SkyKey childKey = GraphTester.nonHermeticKey("child");
     SkyKey parentKey = GraphTester.toSkyKey("parent");
-    SkyValue val = new StringValue("same_val");
+    Delta delta = Delta.justNew(new StringValue("same_val"));
 
     tester.getOrCreate(parentKey).addDependency(childKey).setComputedValue(COPY);
     tester.getOrCreate(childKey).setConstantValue(new StringValue("same_val"));
-    assertThat(tester.evalAndGet("parent")).isEqualTo(val);
+    assertThat(tester.evalAndGet("parent")).isEqualTo(delta.newValue());
 
-    tester.differencer.inject(ImmutableMap.of(childKey, val));
-    assertThat(tester.getExistingValue(childKey)).isEqualTo(val);
+    tester.differencer.inject(ImmutableMap.of(childKey, delta));
+    assertThat(tester.getExistingValue(childKey)).isEqualTo(delta.newValue());
     // Since we are injecting an equal value, the parent should not have been invalidated.
-    assertThat(tester.getExistingValue("parent")).isEqualTo(val);
+    assertThat(tester.getExistingValue("parent")).isEqualTo(delta.newValue());
   }
 
   @Test
   public void valueInjectionInterrupt() throws Exception {
     SkyKey key = GraphTester.nonHermeticKey("key");
-    SkyValue val = new StringValue("val");
+    Delta delta = Delta.justNew(new StringValue("val"));
 
-    tester.differencer.inject(ImmutableMap.of(key, val));
+    tester.differencer.inject(ImmutableMap.of(key, delta));
     Thread.currentThread().interrupt();
     assertThrows(InterruptedException.class, () -> tester.evalAndGet(/*keepGoing=*/ false, key));
     SkyValue newVal = tester.evalAndGet(/*keepGoing=*/ false, key);
-    assertThat(newVal).isEqualTo(val);
+    assertThat(newVal).isEqualTo(delta.newValue());
   }
 
   protected void runTestPersistentErrorsNotRerun(boolean includeTransientError) throws Exception {
@@ -5195,10 +5150,10 @@ public abstract class MemoizingEvaluatorTest {
       EvaluationContext evaluationContext =
           EvaluationContext.newBuilder()
               .setKeepGoing(keepGoing)
-              .setNumThreads(numThreads)
+              .setParallelism(numThreads)
               .setEventHandler(reporter)
               .build();
-      BugReport.maybePropagateUnprocessedThrowableIfInTest();
+      BugReport.maybePropagateLastCrashIfInTest();
       EvaluationResult<T> result = null;
       beforeEvaluation();
       try {

@@ -29,7 +29,9 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext.LoadGraphVisitor;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.ErrorSensingEventHandler;
 import com.google.devtools.build.lib.events.Event;
@@ -48,11 +50,13 @@ import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionContext;
 import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
+import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.server.FailureDetails.Query.Code;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -257,6 +261,60 @@ public abstract class AbstractBlazeQueryEnvironment<T>
         });
   }
 
+  /**
+   * Wrapper for evaluating query expression in a non-streaming blaze query environment.
+   *
+   * <p>In {@link AbstractBlazeQueryEvaluateExpressionImpl}, {@code futureTask} is created only
+   * after {@link #eval(Callback)} provides the callback implementation. So creating an {@link
+   * AbstractBlazeQueryEvaluateExpressionImpl} instance and calling {@link #eval(Callback)} method
+   * should have the same behavior as directly calling {@code
+   * AbstractBlazeQueryEnvironment#eval(QueryExpression, QueryExpressionContext, Callback)} above.
+   */
+  protected class AbstractBlazeQueryEvaluateExpressionImpl implements EvaluateExpression<T> {
+    private final QueryExpression expression;
+    private final QueryExpressionContext<T> context;
+    private QueryTaskFutureImpl<Void> queryTaskFuture;
+
+    private AbstractBlazeQueryEvaluateExpressionImpl(
+        QueryExpression expr, QueryExpressionContext<T> context) {
+      this.expression = expr;
+      this.context = context;
+    }
+
+    @Override
+    public QueryTaskFuture<Void> eval(Callback<T> callback) {
+      queryTaskFuture =
+          (QueryTaskFutureImpl<Void>)
+              AbstractBlazeQueryEnvironment.this.eval(expression, context, callback);
+      return queryTaskFuture;
+    }
+
+    @Override
+    public boolean gracefullyCancel() {
+      // For non-SkyQueryEnvironment-descended environments, there is no need to cancel the future
+      // task, so this should be a no-op implementation.
+      return false;
+    }
+
+    @Override
+    public boolean isUngracefullyCancelled() {
+      if (queryTaskFuture == null) {
+        return false;
+      }
+
+      // Since `#gracefullyCancel` is a no-op for `AbstractBlazeQueryEvaluateExpressionImpl`
+      // instance, any situation causing the `queryTaskFuture` to be cancelled should be regarded as
+      // an ungraceful behavior.
+      return queryTaskFuture.isCancelled();
+    }
+  }
+
+  @Override
+  public EvaluateExpression<T> createEvaluateExpression(
+      QueryExpression expr, QueryExpressionContext<T> context) {
+    return new AbstractBlazeQueryEvaluateExpressionImpl(expr, context);
+  }
+
   @Override
   public <R> QueryTaskFuture<R> execute(QueryTaskCallable<R> callable) {
     try {
@@ -292,11 +350,35 @@ public abstract class AbstractBlazeQueryEnvironment<T>
   }
 
   @Override
+  public <R> QueryTaskFuture<R> whenSucceedsOrIsCancelledCall(
+      QueryTaskFuture<?> future, QueryTaskCallable<R> callable) {
+    return QueryTaskFutureImpl.whenSucceedsOrIsCancelledCall(
+        (QueryTaskFutureImpl<?>) future, callable, directExecutor());
+  }
+
+  @Override
   public <T1, T2> QueryTaskFuture<T2> transformAsync(
       QueryTaskFuture<T1> future, Function<T1, QueryTaskFuture<T2>> function) {
+    QueryTaskFutureImpl<T1> futureImpl = (QueryTaskFutureImpl<T1>) future;
+    if (futureImpl.isDone()) {
+      // Due to how our subclasses use single-threaded query engines, in practice
+      // futureImpl will always already be done. Therefore this is a fast-path to make it harder to
+      // stack overflow on deeply nested expressions whose evaluation involves #transformAsync.
+      //
+      // TODO(b/283225081): Do something more effective and more pervasive.
+      T1 t1;
+      try {
+        t1 = futureImpl.getChecked();
+      } catch (QueryException e) {
+        return immediateFailedFuture(e);
+      } catch (InterruptedException e) {
+        return immediateCancelledFuture();
+      }
+      return function.apply(t1);
+    }
     return QueryTaskFutureImpl.ofDelegate(
         Futures.transformAsync(
-            (QueryTaskFutureImpl<T1>) future,
+            futureImpl,
             input -> (QueryTaskFutureImpl<T2>) function.apply(input),
             directExecutor()));
   }
@@ -398,6 +480,77 @@ public abstract class AbstractBlazeQueryEnvironment<T>
     return true;
   }
 
+  /** Abstract base class for {@link TransitiveLoadFilesHelper<Target>}. */
+  protected abstract static class TransitiveLoadFilesHelperForTargets
+      implements TransitiveLoadFilesHelper<Target> {
+    @Override
+    public PackageIdentifier getPkgId(Target target) {
+      return target.getLabel().getPackageIdentifier();
+    }
+
+    @Override
+    public Target getBuildFileTarget(Target originalTarget) {
+      return originalTarget.getPackage().getBuildFile();
+    }
+
+    @Override
+    public void visitLoads(
+        Target originalTarget, LoadGraphVisitor<QueryException, InterruptedException> visitor)
+        throws QueryException, InterruptedException {
+      originalTarget.getPackage().visitLoadGraph(visitor);
+    }
+  }
+
+  @Override
+  public final void transitiveLoadFiles(
+      Iterable<T> targets,
+      boolean alsoAddBuildFiles,
+      Set<PackageIdentifier> seenPackages,
+      Set<Label> seenBzlLabels,
+      Uniquifier<T> uniquifier,
+      TransitiveLoadFilesHelper<T> helper,
+      Callback<T> callback)
+      throws QueryException, InterruptedException {
+    ArrayList<T> result = new ArrayList<>();
+    for (T target : targets) {
+      PackageIdentifier pkgId = helper.getPkgId(target);
+      if (!seenPackages.add(pkgId)) {
+        continue;
+      }
+
+      if (alsoAddBuildFiles) {
+        T buildFileTarget = helper.getBuildFileTarget(target);
+        if (uniquifier.unique(buildFileTarget)) {
+          result.add(buildFileTarget);
+        }
+      }
+
+      helper.visitLoads(
+          target,
+          bzlLabel -> {
+            if (!seenBzlLabels.add(bzlLabel)) {
+              return false;
+            }
+            T loadFileTarget = helper.getLoadFileTarget(target, bzlLabel);
+            if (uniquifier.unique(loadFileTarget)) {
+              result.add(loadFileTarget);
+            }
+            if (alsoAddBuildFiles) {
+              T buildFileTargetForLoadFileTarget =
+                  helper.maybeGetBuildFileTargetForLoadFileTarget(target, bzlLabel);
+              // Can be null in genquery: see http://b/123795023#comment6.
+              if (buildFileTargetForLoadFileTarget != null) {
+                if (uniquifier.unique(buildFileTargetForLoadFileTarget)) {
+                  result.add(buildFileTargetForLoadFileTarget);
+                }
+              }
+            }
+            return true;
+          });
+    }
+    callback.process(result);
+  }
+
   /**
    * Perform any work that should be done ahead of time to resolve the target patterns in the query.
    * Implementations may choose to cache the results of resolving the patterns, cache intermediate
@@ -468,6 +621,23 @@ public abstract class AbstractBlazeQueryEnvironment<T>
           : new QueryTaskFutureImpl<>(delegate);
     }
 
+    public static <R> QueryTaskFutureImpl<R> whenSucceedsOrIsCancelledCall(
+        QueryTaskFutureImpl<?> future, QueryTaskCallable<R> callable, Executor executor) {
+      return QueryTaskFutureImpl.ofDelegate(
+          Futures.whenAllComplete(cast(ImmutableList.of(future)))
+              .call(
+                  () -> {
+                    try {
+                      var unused = future.get();
+                    } catch (CancellationException unused) {
+                      // If the input future is cancelled, we are supposed to swallow the
+                      // `CancellationException` and proceed normally.
+                    }
+                    return callable.call();
+                  },
+                  executor));
+    }
+
     @Override
     public boolean cancel(boolean mayInterruptIfRunning) {
       return delegate.cancel(mayInterruptIfRunning);
@@ -508,7 +678,7 @@ public abstract class AbstractBlazeQueryEnvironment<T>
       }
     }
 
-    public T getChecked() throws InterruptedException, QueryException {
+    private T getChecked() throws InterruptedException, QueryException {
       try {
         return get();
       } catch (CancellationException unused) {

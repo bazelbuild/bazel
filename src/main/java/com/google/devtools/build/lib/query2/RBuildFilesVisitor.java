@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.query2;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -39,7 +38,6 @@ import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.DirectoryListingStateValue;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
-import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.WorkspaceNameValue;
 import com.google.devtools.build.lib.vfs.FileStateKey;
@@ -82,8 +80,7 @@ public class RBuildFilesVisitor extends ParallelQueryVisitor<SkyKey, PackageIden
           SkyFunctions.PREPARE_DEPS_OF_PATTERN,
           SkyFunctions.PREPARE_DEPS_OF_PATTERNS);
 
-  private static final SkyKey EXTERNAL_PACKAGE_KEY =
-      PackageValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
+  private static final SkyKey EXTERNAL_PACKAGE_KEY = LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER;
   private final SkyQueryEnvironment env;
   private final QueryExpressionContext<Target> context;
   private final Uniquifier<SkyKey> visitUniquifier;
@@ -201,8 +198,7 @@ public class RBuildFilesVisitor extends ParallelQueryVisitor<SkyKey, PackageIden
    * <p>If includeAncestorKeys is true, we will include a directory listing state of the first
    * ancestor directory that exists and file states for non-existent ancestors.
    */
-  @VisibleForTesting
-  static Set<SkyKey> getSkyKeysForFileFragments(
+  public static Set<SkyKey> getSkyKeysForFileFragments(
       WalkableGraph graph, Iterable<PathFragment> pathFragments, boolean includeAncestorKeys)
       throws InterruptedException {
     if (Iterables.isEmpty(pathFragments)) {

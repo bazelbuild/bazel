@@ -14,8 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.util.GroupedList;
-import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -115,7 +114,7 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public Iterable<SkyKey> getAllReverseDepsForNodeBeingDeleted() {
+  public Collection<SkyKey> getAllReverseDepsForNodeBeingDeleted() {
     return getDelegate().getAllReverseDepsForNodeBeingDeleted();
   }
 
@@ -125,7 +124,7 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public GroupedList<SkyKey> getTemporaryDirectDeps() {
+  public GroupedDeps getTemporaryDirectDeps() {
     return getDelegate().getTemporaryDirectDeps();
   }
 
@@ -145,13 +144,28 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public Set<SkyKey> addTemporaryDirectDeps(GroupedListHelper<SkyKey> helper) {
-    return getDelegate().addTemporaryDirectDeps(helper);
+  public void addSingletonTemporaryDirectDep(SkyKey dep) {
+    getDelegate().addSingletonTemporaryDirectDep(dep);
   }
 
   @Override
-  public boolean isReady() {
-    return getDelegate().isReady();
+  public void addTemporaryDirectDepGroup(List<SkyKey> group) {
+    getDelegate().addTemporaryDirectDepGroup(group);
+  }
+
+  @Override
+  public void addTemporaryDirectDepsInGroups(Set<SkyKey> deps, List<Integer> groupSizes) {
+    getDelegate().addTemporaryDirectDepsInGroups(deps, groupSizes);
+  }
+
+  @Override
+  public boolean isReadyToEvaluate() {
+    return getDelegate().isReadyToEvaluate();
+  }
+
+  @Override
+  public boolean hasUnsignaledDeps() {
+    return getDelegate().hasUnsignaledDeps();
   }
 
   @Override
@@ -185,7 +199,7 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public Iterable<SkyKey> getReverseDepsForDoneEntry() throws InterruptedException {
+  public Collection<SkyKey> getReverseDepsForDoneEntry() throws InterruptedException {
     return getDelegate().getReverseDepsForDoneEntry();
   }
 
@@ -206,12 +220,27 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public void addTemporaryDirectDepsGroupToDirtyEntry(List<SkyKey> group) {
-    getDelegate().addTemporaryDirectDepsGroupToDirtyEntry(group);
+  public void addExternalDep() {
+    getDelegate().addExternalDep();
   }
 
   @Override
-  public void addExternalDep() {
-    getDelegate().addExternalDep();
+  public int getPriority() {
+    return getDelegate().getPriority();
+  }
+
+  @Override
+  public int depth() {
+    return getDelegate().depth();
+  }
+
+  @Override
+  public void updateDepthIfGreater(int proposedDepth) {
+    getDelegate().updateDepthIfGreater(proposedDepth);
+  }
+
+  @Override
+  public void incrementEvaluationCount() {
+    getDelegate().incrementEvaluationCount();
   }
 }

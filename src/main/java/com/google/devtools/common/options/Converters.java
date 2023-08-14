@@ -20,6 +20,7 @@ import com.google.common.base.Ascii;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import java.time.Duration;
 import java.util.Iterator;
@@ -40,11 +41,11 @@ public final class Converters {
    */
   public static final String BLAZE_ALIASING_FLAG = "flag_alias";
 
-  private static final ImmutableList<String> ENABLED_REPS =
-      ImmutableList.of("true", "1", "yes", "t", "y");
+  private static final ImmutableSet<String> ENABLED_REPS =
+      ImmutableSet.of("true", "1", "yes", "t", "y");
 
-  private static final ImmutableList<String> DISABLED_REPS =
-      ImmutableList.of("false", "0", "no", "f", "n");
+  private static final ImmutableSet<String> DISABLED_REPS =
+      ImmutableSet.of("false", "0", "no", "f", "n");
 
   /** Standard converter for booleans. Accepts common shorthands/synonyms. */
   public static class BooleanConverter extends Converter.Contextless<Boolean> {
@@ -180,7 +181,7 @@ public final class Converters {
 
   /** Standard converter for the {@link java.time.Duration} type. */
   public static class DurationConverter extends Converter.Contextless<Duration> {
-    private final Pattern durationRegex = Pattern.compile("^([0-9]+)(d|h|m|s|ms)$");
+    private static final Pattern DURATION_REGEX = Pattern.compile("^([0-9]+)(d|h|m|s|ms)$");
 
     @Override
     public Duration convert(String input) throws OptionsParsingException {
@@ -188,7 +189,7 @@ public final class Converters {
       if ("0".equals(input)) {
         return Duration.ZERO;
       }
-      Matcher m = durationRegex.matcher(input);
+      Matcher m = DURATION_REGEX.matcher(input);
       if (!m.matches()) {
         throw new OptionsParsingException("Illegal duration '" + input + "'.");
       }
@@ -288,12 +289,47 @@ public final class Converters {
     }
   }
 
+  /**
+   * Converter for options separated by some separator character, where order and count do not
+   * matter, i.e. semantically it is a set, not a list.
+   */
+  public static class SeparatedOptionSetConverter extends SeparatedOptionListConverter {
+    private final String separatorDescription;
+
+    protected SeparatedOptionSetConverter(
+        char separator, String separatorDescription, boolean allowEmptyValues) {
+      super(separator, separatorDescription, allowEmptyValues);
+      this.separatorDescription = separatorDescription;
+    }
+
+    @Override
+    public ImmutableList<String> convert(String input) throws OptionsParsingException {
+      ImmutableList<String> result = super.convert(input);
+      return result.stream().distinct().sorted().collect(ImmutableList.toImmutableList());
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return separatorDescription + "-separated set of options";
+    }
+  }
+
+  /**
+   * Converter for comma separated values, where
+   * <li>order and multiplicity preserved
+   * <li>empty values are preserved
+   */
   public static class CommaSeparatedOptionListConverter extends SeparatedOptionListConverter {
     public CommaSeparatedOptionListConverter() {
       super(',', "comma", true);
     }
   }
 
+  /**
+   * Converter for comma separated values, where
+   * <li>order and multiplicity preserved
+   * <li>empty values are filtered out
+   */
   public static class CommaSeparatedNonEmptyOptionListConverter
       extends SeparatedOptionListConverter {
     public CommaSeparatedNonEmptyOptionListConverter() {
@@ -301,9 +337,25 @@ public final class Converters {
     }
   }
 
+  /**
+   * Converter for colon separated values, where
+   * <li>order and multiplicity preserved
+   * <li>empty values are preserved
+   */
   public static class ColonSeparatedOptionListConverter extends SeparatedOptionListConverter {
     public ColonSeparatedOptionListConverter() {
       super(':', "colon", true);
+    }
+  }
+
+  /**
+   * Converter for colon separated values, where
+   * <li>order and multiplicity are assumed to not matter
+   * <li>empty values are preserved
+   */
+  public static class CommaSeparatedOptionSetConverter extends SeparatedOptionSetConverter {
+    public CommaSeparatedOptionSetConverter() {
+      super(',', "comma", true);
     }
   }
 
@@ -341,7 +393,7 @@ public final class Converters {
 
     // TODO(bazel-team): if this class never actually contains duplicates, we could s/List/Set/
     // here.
-    private final List<String> values;
+    private final ImmutableList<String> values;
 
     public StringSetConverter(String... values) {
       this.values = ImmutableList.copyOf(values);
@@ -415,7 +467,7 @@ public final class Converters {
     @Override
     public Integer convert(String input) throws OptionsParsingException {
       try {
-        Integer value = Integer.parseInt(input);
+        int value = Integer.parseInt(input);
         if (value < minValue) {
           throw new OptionsParsingException("'" + input + "' should be >= " + minValue);
         } else if (value < minValue || value > maxValue) {
@@ -469,6 +521,24 @@ public final class Converters {
     @Override
     public String getTypeDescription() {
       return "a 'name=value' assignment";
+    }
+  }
+
+  /** A converter for for assignments from a string value to a float value. */
+  public static class StringToFloatAssignmentConverter
+      extends Converter.Contextless<Map.Entry<String, Float>> {
+    private static final AssignmentConverter baseConverter = new AssignmentConverter();
+
+    @Override
+    public Map.Entry<String, Float> convert(String input)
+        throws OptionsParsingException, NumberFormatException {
+      Map.Entry<String, String> stringEntry = baseConverter.convert(input);
+      return Maps.immutableEntry(stringEntry.getKey(), Float.parseFloat(stringEntry.getValue()));
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a named float, 'name=value'";
     }
   }
 
@@ -581,7 +651,7 @@ public final class Converters {
     }
 
     public Map.Entry<String, List<String>> convert(String input) throws OptionsParsingException {
-      return convert(input, /*conversionContext=*/ null);
+      return convert(input, /* conversionContext= */ null);
     }
 
     @Override

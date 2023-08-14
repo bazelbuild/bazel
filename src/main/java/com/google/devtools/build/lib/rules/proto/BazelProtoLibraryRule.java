@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.proto;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 
@@ -42,8 +43,7 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
         <code>proto_library</code> targets.
         It may not depend on language-specific libraries.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .override(
-            attr("deps", LABEL_LIST).mandatoryProviders(ProtoInfo.PROVIDER.id()).allowedFileTypes())
+        .override(attr("deps", LABEL_LIST).allowedFileTypes())
         /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(srcs) -->
         The list of <code>.proto</code> and <code>.protodevel</code> files that are
         processed to create the target. This is usually a non empty list. One usecase
@@ -59,10 +59,7 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
         List of proto_library targets that can be referenced via "import public" in the proto
         source.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(
-            attr("exports", LABEL_LIST)
-                .mandatoryProviders(ProtoInfo.PROVIDER.id())
-                .allowedFileTypes())
+        .add(attr("exports", LABEL_LIST).allowedFileTypes())
         /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(strip_import_prefix) -->
         The prefix to strip from the paths of the .proto files in this rule.
 
@@ -85,8 +82,12 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
         <p>The prefix in the <code>strip_import_prefix</code> attribute is removed before this
         prefix is added.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("allow_exports", LABEL).allowedFileTypes())
+        /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(allow_exports) -->
+        An optional allowlist that prevents proto library to be reexported or used in
+        lang_proto_library that is not in one of the listed packages.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("import_prefix", STRING))
-        .advertiseStarlarkProvider(ProtoInfo.PROVIDER.id())
         .build();
   }
 

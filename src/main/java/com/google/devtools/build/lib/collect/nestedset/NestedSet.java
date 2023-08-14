@@ -240,7 +240,7 @@ public final class NestedSet<E> {
   }
 
   // Precondition: EMPTY_CHILDREN is used as the canonical empty array.
-  private NestedSet(Order order, int depth, Object children, @Nullable byte[] memo) {
+  NestedSet(Order order, int depth, Object children, @Nullable byte[] memo) {
     this.depthAndOrder = (depth << 2) | order.ordinal();
     this.children = children;
     this.memo = memo;

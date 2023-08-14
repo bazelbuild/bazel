@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -26,10 +28,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.sun.management.GarbageCollectionNotificationInfo;
 import com.sun.management.GcInfo;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.MemoryUsage;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import javax.management.Notification;
@@ -49,7 +53,6 @@ public final class MemoryPressureListenerTest {
   private final NotificationBean mockUselessBean = mock(NotificationBean.class);
   private final BugReporter bugReporter = mock(BugReporter.class);
   private final EventBus eventBus = new EventBus();
-  private final RetainedHeapLimiter retainedHeapLimiter = RetainedHeapLimiter.create(bugReporter);
   private final List<MemoryPressureEvent> events = new ArrayList<>();
 
   @Before
@@ -73,24 +76,25 @@ public final class MemoryPressureListenerTest {
   @Test
   public void findBeans() {
     assertThat(
-        MemoryPressureListener.findTenuredCollectorBeans(
-            ImmutableList.of(mockUselessBean, mockBean)))
+            MemoryPressureListener.findTenuredCollectorBeans(
+                ImmutableList.of(mockUselessBean, mockBean)))
         .containsExactly(mockBean);
   }
 
   @Test
-  public void createFromBeans_returnsNullIfNoTenuredSpaceBean() {
-    assertThat(
+  public void createFromBeans_throwsIfNoTenuredSpaceBean() {
+    assertThrows(
+        IllegalStateException.class,
+        () ->
             MemoryPressureListener.createFromBeans(
-                ImmutableList.of(mockUselessBean), retainedHeapLimiter))
-        .isNull();
+                ImmutableList.of(mockUselessBean), directExecutor()));
   }
 
   @Test
   public void simple() {
     MemoryPressureListener underTest =
         MemoryPressureListener.createFromBeans(
-            ImmutableList.of(mockUselessBean, mockBean), retainedHeapLimiter);
+            ImmutableList.of(mockUselessBean, mockBean), directExecutor());
     underTest.setEventBus(eventBus);
     verify(mockBean).addNotificationListener(underTest, null, null);
     verify(mockUselessBean, never()).addNotificationListener(any(), any(), any());
@@ -130,7 +134,7 @@ public final class MemoryPressureListenerTest {
   public void nullEventBus_doNotPublishEvent() {
     MemoryPressureListener underTest =
         MemoryPressureListener.createFromBeans(
-            ImmutableList.of(mockUselessBean, mockBean), retainedHeapLimiter);
+            ImmutableList.of(mockUselessBean, mockBean), directExecutor());
     verify(mockBean).addNotificationListener(underTest, null, null);
     verify(mockUselessBean, never()).addNotificationListener(any(), any(), any());
 
@@ -162,7 +166,7 @@ public final class MemoryPressureListenerTest {
   @Test
   public void manualGc() {
     MemoryPressureListener underTest =
-        MemoryPressureListener.createFromBeans(ImmutableList.of(mockBean), retainedHeapLimiter);
+        MemoryPressureListener.createFromBeans(ImmutableList.of(mockBean), directExecutor());
     underTest.setEventBus(eventBus);
     verify(mockBean).addNotificationListener(underTest, null, null);
 
@@ -193,7 +197,7 @@ public final class MemoryPressureListenerTest {
   @Test
   public void doesntInvokeHandlerWhenTenuredSpaceMaxSizeIsZero() {
     MemoryPressureListener underTest =
-        MemoryPressureListener.createFromBeans(ImmutableList.of(mockBean), retainedHeapLimiter);
+        MemoryPressureListener.createFromBeans(ImmutableList.of(mockBean), directExecutor());
     underTest.setEventBus(eventBus);
     verify(mockBean).addNotificationListener(underTest, null, null);
 
@@ -223,7 +227,7 @@ public final class MemoryPressureListenerTest {
 
     MemoryPressureListener underTest =
         MemoryPressureListener.createFromBeans(
-            ImmutableList.of(mockBean, anotherMockBean), retainedHeapLimiter);
+            ImmutableList.of(mockBean, anotherMockBean), directExecutor());
     underTest.setEventBus(eventBus);
     verify(mockBean).addNotificationListener(underTest, null, null);
     verify(anotherMockBean).addNotificationListener(underTest, null, null);
@@ -261,19 +265,26 @@ public final class MemoryPressureListenerTest {
   }
 
   @Test
-  public void retainedHeapLimiter_aboveThreshold_handleCrash() {
+  public void gcThrashingDetector_limitMet_handleCrash() {
     MemoryPressureListener underTest =
         MemoryPressureListener.createFromBeans(
-            ImmutableList.of(mockUselessBean, mockBean), retainedHeapLimiter);
-    underTest.setEventBus(eventBus);
+            ImmutableList.of(mockUselessBean, mockBean), directExecutor());
     verify(mockBean).addNotificationListener(underTest, null, null);
     verify(mockUselessBean, never()).addNotificationListener(any(), any(), any());
+
+    underTest.setEventBus(eventBus);
+    underTest.setGcThrashingDetector(
+        new GcThrashingDetector(
+            /* threshold= */ 90,
+            ImmutableList.of(GcThrashingDetector.Limit.of(Duration.ofMinutes(1), 1)),
+            BlazeClock.instance(),
+            bugReporter));
 
     GcInfo mockGcInfo = mock(GcInfo.class);
     String nonTenuredSpaceName = "nope";
     MemoryUsage mockMemoryUsageForNonTenuredSpace = mock(MemoryUsage.class);
     MemoryUsage mockMemoryUsageForTenuredSpace = mock(MemoryUsage.class);
-    when(mockMemoryUsageForTenuredSpace.getUsed()).thenReturn(101L);
+    when(mockMemoryUsageForTenuredSpace.getUsed()).thenReturn(99L);
     when(mockMemoryUsageForTenuredSpace.getMax()).thenReturn(100L);
     when(mockGcInfo.getMemoryUsageAfterGc())
         .thenReturn(
@@ -286,34 +297,18 @@ public final class MemoryPressureListenerTest {
     MemoryPressureEvent event =
         MemoryPressureEvent.newBuilder()
             .setWasManualGc(false)
-            .setTenuredSpaceUsedBytes(101L)
-            .setTenuredSpaceMaxBytes(100L)
+            .setWasFullGc(true)
+            .setTenuredSpaceUsedBytes(99)
+            .setTenuredSpaceMaxBytes(100)
             .build();
     Notification notification =
         new Notification(
             GarbageCollectionNotificationInfo.GARBAGE_COLLECTION_NOTIFICATION, "test", 123);
     notification.setUserData(
-        new GarbageCollectionNotificationInfo("gcName", "gcAction", "non-manual", mockGcInfo)
+        new GarbageCollectionNotificationInfo("gcName", "end of major GC", "non-manual", mockGcInfo)
             .toCompositeData(null));
     underTest.handleNotification(notification, null);
 
     assertThat(events).containsExactly(event);
-
-    MemoryPressureEvent manualGcEvent =
-        MemoryPressureEvent.newBuilder()
-            .setWasManualGc(true)
-            .setTenuredSpaceUsedBytes(101L)
-            .setTenuredSpaceMaxBytes(100L)
-            .build();
-    Notification manualGCNotification =
-        new Notification(
-            GarbageCollectionNotificationInfo.GARBAGE_COLLECTION_NOTIFICATION, "test", 123);
-    manualGCNotification.setUserData(
-        new GarbageCollectionNotificationInfo("gcName", "gcAction", "System.gc()", mockGcInfo)
-            .toCompositeData(null));
-    underTest.handleNotification(manualGCNotification, null);
-
-    verify(bugReporter).handleCrash(any(), any());
-    assertThat(events).containsExactly(event, manualGcEvent);
   }
 }

@@ -19,10 +19,8 @@ import static org.mockito.Mockito.mock;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
-import com.google.devtools.build.lib.concurrent.Sharder;
 import com.google.devtools.build.lib.skyframe.BuildDriverFunction.ActionLookupValuesCollectionResult;
 import com.google.devtools.build.lib.skyframe.BuildDriverFunction.TransitiveActionLookupValuesHelper;
-import com.google.devtools.build.skyframe.SkyKey;
 import java.util.HashSet;
 import java.util.Set;
 import org.junit.Test;
@@ -35,16 +33,15 @@ public class BuildDriverFunctionTest {
 
   @Test
   public void checkActionConflicts_noConflict_conflictFreeKeysRegistered() throws Exception {
-    Set<SkyKey> globalSet = new HashSet<>();
+    Set<ActionLookupKey> globalSet = new HashSet<>();
     IncrementalArtifactConflictFinder dummyConflictFinder =
         IncrementalArtifactConflictFinder.createWithActionGraph(mock(MutableActionGraph.class));
     TransitiveActionLookupValuesHelper fakeHelper =
         new TransitiveActionLookupValuesHelper() {
           @Override
           public ActionLookupValuesCollectionResult collect(ActionLookupKey key) {
-            // Return an empty sharder to have an easy "conflict free" scenario.
             return ActionLookupValuesCollectionResult.create(
-                new Sharder<>(1, 1), ImmutableSet.of(key));
+                ImmutableSet.of(), ImmutableSet.of(key));
           }
 
           @Override
@@ -54,9 +51,14 @@ public class BuildDriverFunctionTest {
         };
     ActionLookupKey dummyKey = mock(ActionLookupKey.class);
     BuildDriverFunction function =
-        new BuildDriverFunction(fakeHelper, () -> dummyConflictFinder, null);
+        new BuildDriverFunction(
+            fakeHelper,
+            () -> dummyConflictFinder,
+            /* ruleContextConstraintSemantics= */ null,
+            /* extraActionFilterSupplier= */ null,
+            /* testTypeResolver= */ null);
 
-    function.checkActionConflicts(dummyKey, /*strictConflictCheck=*/ true);
+    var unused = function.checkActionConflicts(dummyKey, /* strictConflictCheck= */ true);
 
     assertThat(globalSet).containsExactly(dummyKey);
   }

@@ -15,17 +15,24 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.devtools.build.lib.util.HashCodes.hashObjects;
 
 import com.google.common.base.MoreObjects;
-import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.Keep;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -34,17 +41,9 @@ import javax.annotation.Nullable;
  * dependency resolution and the rule analysis.
  *
  * <p>In practice, a ({@link Label} and post-transition {@link BuildConfigurationKey}) pair plus a
- * possible execution platform override {@link Label} with special constraints. To elaborate, in
- * order of highest to lowest potential for concern:
+ * possible execution platform override {@link Label} with special constraints described as follows.
  *
- * <p>1. The {@link BuildConfigurationKey} must be post-transition and thus ready for immediate use
- * in dependency resolution and analysis. In practice, this means that if the rule has an
- * incoming-edge transition (cfg in {@link RuleClass}) or there are global trimming transitions,
- * THOSE TRANSITIONS MUST ALREADY BE DONE before creating the key. Failure to do so will lead to
- * build graphs with ConfiguredTarget that have seemingly impossible {@link BuildConfigurationValue}
- * (due to the skipped transitions).
- *
- * <p>2. A build should not request keys with equal ({@link Label}, {@link BuildConfigurationValue})
+ * <p>A build should not request keys with equal ({@link Label}, {@link BuildConfigurationValue})
  * pairs but different execution platform override {@link Label} if the invoked rule will register
  * actions. (This is potentially OK if all outputs of all registered actions incorporate the
  * execution platform in their name unless the build also requests keys without an override that
@@ -57,42 +56,22 @@ import javax.annotation.Nullable;
  * <p>TODO(blaze-configurability-team): Consider just using BuildOptions over a
  * BuildConfigurationKey.
  */
-@AutoCodec
 public class ConfiguredTargetKey implements ActionLookupKey {
   /**
    * Cache so that the number of ConfiguredTargetKey instances is {@code O(configured targets)} and
    * not {@code O(edges between configured targets)}.
    */
-  private static final Interner<ConfiguredTargetKey> interner = BlazeInterners.newWeakInterner();
+  private static final SkyKey.SkyKeyInterner<ConfiguredTargetKey> interner = SkyKey.newInterner();
 
   private final Label label;
   @Nullable private final BuildConfigurationKey configurationKey;
-
   private final transient int hashCode;
 
-  ConfiguredTargetKey(Label label, @Nullable BuildConfigurationKey configurationKey, int hashCode) {
-    this.label = checkNotNull(label);
+  private ConfiguredTargetKey(
+      Label label, @Nullable BuildConfigurationKey configurationKey, int hashCode) {
+    this.label = label;
     this.configurationKey = configurationKey;
     this.hashCode = hashCode;
-  }
-
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec.Instantiator
-  static ConfiguredTargetKey create(Label label, @Nullable BuildConfigurationKey configurationKey) {
-    int hashCode = computeHashCode(label, configurationKey, /*executionPlatformLabel=*/ null);
-    return interner.intern(new ConfiguredTargetKey(label, configurationKey, hashCode));
-  }
-
-  public Builder toBuilder() {
-    return builder()
-        .setConfigurationKey(configurationKey)
-        .setLabel(label)
-        .setExecutionPlatformLabel(getExecutionPlatformLabel());
-  }
-
-  @Override
-  public final Label getLabel() {
-    return label;
   }
 
   @Override
@@ -100,7 +79,18 @@ public class ConfiguredTargetKey implements ActionLookupKey {
     return SkyFunctions.CONFIGURED_TARGET;
   }
 
+  @Override
+  public SkyKeyInterner<?> getSkyKeyInterner() {
+    return interner;
+  }
+
+  @Override
+  public Label getLabel() {
+    return label;
+  }
+
   @Nullable
+  @Override
   public final BuildConfigurationKey getConfigurationKey() {
     return configurationKey;
   }
@@ -110,19 +100,26 @@ public class ConfiguredTargetKey implements ActionLookupKey {
     return null;
   }
 
+  /**
+   * True if the target's rule transition should be applied.
+   *
+   * <p>True by default but set false when a non-idempotent rule transition is detected. It prevents
+   * over-application of such transitions.
+   */
+  public boolean shouldApplyRuleTransition() {
+    return true;
+  }
+
+  public final String prettyPrint() {
+    if (getLabel() == null) {
+      return "null";
+    }
+    return String.format("%s (%s)", getLabel(), formatConfigurationKey(configurationKey));
+  }
+
   @Override
   public final int hashCode() {
     return hashCode;
-  }
-
-  private static int computeHashCode(
-      Label label,
-      @Nullable BuildConfigurationKey configurationKey,
-      @Nullable Label executionPlatformLabel) {
-    int configVal = configurationKey == null ? 79 : configurationKey.hashCode();
-    int executionPlatformLabelVal =
-        executionPlatformLabel == null ? 47 : executionPlatformLabel.hashCode();
-    return 31 * label.hashCode() + configVal + executionPlatformLabelVal;
   }
 
   @Override
@@ -135,37 +132,60 @@ public class ConfiguredTargetKey implements ActionLookupKey {
     }
     ConfiguredTargetKey other = (ConfiguredTargetKey) obj;
     return hashCode == other.hashCode
-        && label.equals(other.label)
+        && getLabel().equals(other.getLabel())
         && Objects.equals(configurationKey, other.configurationKey)
-        && Objects.equals(getExecutionPlatformLabel(), other.getExecutionPlatformLabel());
-  }
-
-  public final String prettyPrint() {
-    if (label == null) {
-      return "null";
-    }
-    return String.format(
-        "%s (%s)",
-        label, configurationKey == null ? "null" : configurationKey.getOptions().checksum());
+        && Objects.equals(getExecutionPlatformLabel(), other.getExecutionPlatformLabel())
+        && shouldApplyRuleTransition() == other.shouldApplyRuleTransition();
   }
 
   @Override
   public final String toString() {
     // TODO(b/162809183): consider reverting to less verbose toString when bug is resolved.
     MoreObjects.ToStringHelper helper =
-        MoreObjects.toStringHelper(this).add("label", label).add("config", configurationKey);
+        MoreObjects.toStringHelper(this).add("label", getLabel()).add("config", configurationKey);
     if (getExecutionPlatformLabel() != null) {
       helper.add("executionPlatformLabel", getExecutionPlatformLabel());
     }
     return helper.toString();
   }
 
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec
-  static class ToolchainDependencyConfiguredTargetKey extends ConfiguredTargetKey {
-    private static final Interner<ToolchainDependencyConfiguredTargetKey>
-        toolchainDependencyConfiguredTargetKeyInterner = BlazeInterners.newWeakInterner();
+  /**
+   * Key indicating that no rule transition should be applied to the configuration.
+   *
+   * <p>NOTE: although it's true that no rule transition is applied when there is a null
+   * configuration, this key type is used to handle a special edge case described below. It should
+   * only be used with a non-null configuration.
+   *
+   * <p>When a non-noop rule transition occurs, it creates a new <i>delegation</i> {@link
+   * ConfiguredTargetKey} with the resulting configuration. This is so if different starting
+   * configurations result in the same configuration after transition, they converge on the same
+   * key-value entry in Skyframe.
+   *
+   * <p>This can be problematic when transitions are not idempotent because evaluation of the
+   * <i>delegate</i> repeats the transition, resulting in a another <i>delegate</i>. In cases of
+   * non-convergent transitions, this may lead to infinite expansion.
+   *
+   * <p>To ensure that transitions are effectively only applied once, prior to delegation, the
+   * {@link ConfiguredTargetFunction} applies the transition a second time to check it for
+   * idempotency. It sets {@link ConfiguredTargetKey#shouldApplyRuleTransition} false when it is not
+   * idempotent.
+   */
+  private static final class ConfiguredTargetKeyWithFinalConfiguration extends ConfiguredTargetKey {
+    // This is implemented using subtypes instead of adding a boolean field to `ConfiguredTargetKey`
+    // to reduce memory cost.
 
+    private ConfiguredTargetKeyWithFinalConfiguration(
+        Label label, BuildConfigurationKey configurationKey, int hashCode) {
+      super(label, checkNotNull(configurationKey), hashCode);
+    }
+
+    @Override
+    public boolean shouldApplyRuleTransition() {
+      return false;
+    }
+  }
+
+  private static class ToolchainDependencyConfiguredTargetKey extends ConfiguredTargetKey {
     private final Label executionPlatformLabel;
 
     private ToolchainDependencyConfiguredTargetKey(
@@ -177,22 +197,34 @@ public class ConfiguredTargetKey implements ActionLookupKey {
       this.executionPlatformLabel = checkNotNull(executionPlatformLabel);
     }
 
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    static ToolchainDependencyConfiguredTargetKey create(
+    @Override
+    public Label getExecutionPlatformLabel() {
+      return executionPlatformLabel;
+    }
+  }
+
+  private static final class ToolchainDependencyConfiguredTargetKeyWithFinalConfiguration
+      extends ToolchainDependencyConfiguredTargetKey {
+    private ToolchainDependencyConfiguredTargetKeyWithFinalConfiguration(
         Label label,
-        @Nullable BuildConfigurationKey configurationKey,
+        BuildConfigurationKey configurationKey,
+        int hashCode,
         Label executionPlatformLabel) {
-      int hashCode = computeHashCode(label, configurationKey, executionPlatformLabel);
-      return toolchainDependencyConfiguredTargetKeyInterner.intern(
-          new ToolchainDependencyConfiguredTargetKey(
-              label, configurationKey, hashCode, executionPlatformLabel));
+      super(label, checkNotNull(configurationKey), hashCode, executionPlatformLabel);
     }
 
     @Override
-    public final Label getExecutionPlatformLabel() {
-      return executionPlatformLabel;
+    public boolean shouldApplyRuleTransition() {
+      return false;
     }
+  }
+
+  public Builder toBuilder() {
+    return builder()
+        .setConfigurationKey(configurationKey)
+        .setLabel(getLabel())
+        .setExecutionPlatformLabel(getExecutionPlatformLabel())
+        .setShouldApplyRuleTransition(shouldApplyRuleTransition());
   }
 
   /** Returns a new {@link Builder} to create instances of {@link ConfiguredTargetKey}. */
@@ -200,12 +232,14 @@ public class ConfiguredTargetKey implements ActionLookupKey {
     return new Builder();
   }
 
-  /** Returns a new {@link ConfiguredTargetKey}. */
+  /** Returns the {@link ConfiguredTargetKey} that owns {@code configuredTarget}. */
   public static ConfiguredTargetKey fromConfiguredTarget(ConfiguredTarget configuredTarget) {
-    return builder()
-        .setLabel(configuredTarget.getOriginalLabel())
-        .setConfigurationKey(configuredTarget.getConfigurationKey())
-        .build();
+    // If configuredTarget is a MergedConfiguredTarget unwraps it first. MergedConfiguredTarget is
+    // ephemeral and does not have a directly corresponding entry in Skyframe.
+    //
+    // The cast exists because the key passes through parts of analysis that work on both aspects
+    // and configured targets. This process discards the key's specific type information.
+    return (ConfiguredTargetKey) configuredTarget.unwrapIfMerged().getLookupKey();
   }
 
   /** A helper class to create instances of {@link ConfiguredTargetKey}. */
@@ -213,6 +247,7 @@ public class ConfiguredTargetKey implements ActionLookupKey {
     private Label label = null;
     private BuildConfigurationKey configurationKey = null;
     private Label executionPlatformLabel = null;
+    private boolean shouldApplyRuleTransition = true;
 
     private Builder() {}
 
@@ -246,13 +281,81 @@ public class ConfiguredTargetKey implements ActionLookupKey {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder setShouldApplyRuleTransition(boolean shouldApplyRuleTransition) {
+      this.shouldApplyRuleTransition = shouldApplyRuleTransition;
+      return this;
+    }
+
     /** Builds a new {@link ConfiguredTargetKey} based on the supplied data. */
     public ConfiguredTargetKey build() {
-      if (this.executionPlatformLabel != null) {
-        return ToolchainDependencyConfiguredTargetKey.create(
-            label, configurationKey, executionPlatformLabel);
+      int hashCode =
+          computeHashCode(
+              label, configurationKey, executionPlatformLabel, shouldApplyRuleTransition);
+      ConfiguredTargetKey newKey;
+      if (executionPlatformLabel == null) {
+        newKey =
+            shouldApplyRuleTransition
+                ? new ConfiguredTargetKey(label, configurationKey, hashCode)
+                : new ConfiguredTargetKeyWithFinalConfiguration(label, configurationKey, hashCode);
+      } else {
+        newKey =
+            shouldApplyRuleTransition
+                ? new ToolchainDependencyConfiguredTargetKey(
+                    label, configurationKey, hashCode, executionPlatformLabel)
+                : new ToolchainDependencyConfiguredTargetKeyWithFinalConfiguration(
+                    label, configurationKey, hashCode, executionPlatformLabel);
       }
-      return create(label, configurationKey);
+      return interner.intern(newKey);
+    }
+  }
+
+  private static int computeHashCode(
+      Label label,
+      @Nullable BuildConfigurationKey configurationKey,
+      @Nullable Label executionPlatformLabel,
+      boolean shouldApplyRuleTransition) {
+    int hashCode = hashObjects(label, configurationKey, executionPlatformLabel);
+    if (!shouldApplyRuleTransition) {
+      hashCode = ~hashCode;
+    }
+    return hashCode;
+  }
+
+  private static String formatConfigurationKey(@Nullable BuildConfigurationKey key) {
+    if (key == null) {
+      return "null";
+    }
+    return key.getOptions().checksum();
+  }
+
+  /** Codec for all {@link ConfiguredTargetKey} subtypes. */
+  @Keep
+  private static class ConfiguredTargetKeyCodec implements ObjectCodec<ConfiguredTargetKey> {
+    @Override
+    public Class<ConfiguredTargetKey> getEncodedClass() {
+      return ConfiguredTargetKey.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, ConfiguredTargetKey key, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.serialize(key.getLabel(), codedOut);
+      context.serialize(key.getConfigurationKey(), codedOut);
+      context.serialize(key.getExecutionPlatformLabel(), codedOut);
+      context.serialize(key.shouldApplyRuleTransition(), codedOut);
+    }
+
+    @Override
+    public ConfiguredTargetKey deserialize(DeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      return builder()
+          .setLabel(context.deserialize(codedIn))
+          .setConfigurationKey(context.deserialize(codedIn))
+          .setExecutionPlatformLabel(context.deserialize(codedIn))
+          .setShouldApplyRuleTransition(context.deserialize(codedIn))
+          .build();
     }
   }
 }

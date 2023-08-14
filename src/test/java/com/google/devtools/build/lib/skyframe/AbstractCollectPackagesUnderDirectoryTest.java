@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.testing.common.FakeOptions;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -306,15 +307,15 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
                 RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
-                RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
-            PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false)));
+                RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY)));
     skyframeExecutor.sync(
         reporter,
         pathPackageLocator,
         UUID.randomUUID(),
-        /*clientEnv=*/ ImmutableMap.of(),
-        /*repoEnvOption=*/ ImmutableMap.of(),
+        /* clientEnv= */ ImmutableMap.of(),
+        /* repoEnvOption= */ ImmutableMap.of(),
         new TimestampGranularityMonitor(BlazeClock.instance()),
+        QuiescingExecutorsImpl.forTesting(),
         FakeOptions.builder().put(packageOptions).putDefaults(BuildLanguageOptions.class).build());
     evaluator = skyframeExecutor.getEvaluator();
   }
@@ -341,7 +342,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
-            .setNumThreads(1)
+            .setParallelism(1)
             .setEventHandler(new Reporter(new EventBus(), reporter))
             .build();
     return evaluator.evaluate(ImmutableList.of(key), evaluationContext);

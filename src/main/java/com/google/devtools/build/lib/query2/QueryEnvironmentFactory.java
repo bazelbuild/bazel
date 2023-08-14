@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.Rule;
@@ -44,6 +45,7 @@ public class QueryEnvironmentFactory {
       TargetProvider targetProvider,
       CachingPackageLocator cachingPackageLocator,
       TargetPatternPreloader targetPatternPreloader,
+      TargetPattern.Parser mainRepoTargetParser,
       PathFragment relativeWorkingDirectory,
       boolean keepGoing,
       boolean strictScope,
@@ -65,6 +67,7 @@ public class QueryEnvironmentFactory {
           eventHandler,
           settings,
           extraFunctions,
+          mainRepoTargetParser,
           relativeWorkingDirectory,
           graphFactory,
           universeScope,
@@ -76,7 +79,7 @@ public class QueryEnvironmentFactory {
           targetProvider,
           cachingPackageLocator,
           targetPatternPreloader,
-          relativeWorkingDirectory,
+          mainRepoTargetParser,
           keepGoing,
           strictScope,
           loadingPhaseThreads,
@@ -90,7 +93,7 @@ public class QueryEnvironmentFactory {
           targetProvider,
           cachingPackageLocator,
           targetPatternPreloader,
-          relativeWorkingDirectory,
+          mainRepoTargetParser,
           keepGoing,
           strictScope,
           loadingPhaseThreads,

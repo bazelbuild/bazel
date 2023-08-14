@@ -70,7 +70,8 @@ public class TrackingProgressReceiver implements EvaluationProgressReceiver {
       @Nullable SkyValue value,
       @Nullable ErrorInfo error,
       Supplier<EvaluationSuccessState> evaluationSuccessState,
-      EvaluationState state) {
+      EvaluationState state,
+      @Nullable GroupedDeps directDeps) {
     evaluated.add(skyKey);
     if (checkEvaluationResults && evaluationSuccessState.get().succeeded()) {
       deleted.remove(skyKey);

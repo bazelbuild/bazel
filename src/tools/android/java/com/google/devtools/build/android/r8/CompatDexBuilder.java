@@ -24,8 +24,15 @@ import com.android.tools.r8.D8;
 import com.android.tools.r8.D8Command;
 import com.android.tools.r8.DexIndexedConsumer;
 import com.android.tools.r8.DiagnosticsHandler;
+import com.android.tools.r8.SyntheticInfoConsumer;
+import com.android.tools.r8.SyntheticInfoConsumerData;
 import com.android.tools.r8.origin.ArchiveEntryOrigin;
 import com.android.tools.r8.origin.PathOrigin;
+import com.android.tools.r8.references.ClassReference;
+import com.google.auto.value.AutoValue;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.Weigher;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.worker.ProtoWorkerMessageProcessor;
@@ -52,6 +59,7 @@ import java.util.concurrent.Future;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
+import javax.annotation.Nullable;
 
 /**
  * Tool used by Bazel that converts a Jar file of .class files into a .zip file of .dex files, one
@@ -60,9 +68,49 @@ import java.util.zip.ZipOutputStream;
  * <p>D8 version of DexBuilder.
  */
 public class CompatDexBuilder {
+  private static final long ONE_MEG = 1024 * 1024;
+
+  private static class ContextConsumer implements SyntheticInfoConsumer {
+
+    // After compilation this will be non-null iff the compiled class is a D8 synthesized class.
+    ClassReference sythesizedPrimaryClass = null;
+
+    // If the above is non-null then this will be the non-synthesized context class that caused
+    // D8 to synthesize the above class.
+    ClassReference contextOfSynthesizedClass = null;
+
+    @Nullable
+    String getContextMapping() {
+      if (sythesizedPrimaryClass != null) {
+        return sythesizedPrimaryClass.getBinaryName()
+            + ";"
+            + contextOfSynthesizedClass.getBinaryName();
+      }
+      return null;
+    }
+
+    @Override
+    public synchronized void acceptSyntheticInfo(SyntheticInfoConsumerData data) {
+      verify(
+          sythesizedPrimaryClass == null || sythesizedPrimaryClass.equals(data.getSyntheticClass()),
+          "The single input classfile should ensure this has one value.");
+      verify(
+          contextOfSynthesizedClass == null
+              || contextOfSynthesizedClass.equals(data.getSynthesizingContextClass()),
+          "The single input classfile should ensure this has one value.");
+      sythesizedPrimaryClass = data.getSyntheticClass();
+      contextOfSynthesizedClass = data.getSynthesizingContextClass();
+    }
+
+    @Override
+    public void finished() {
+      // Do nothing.
+    }
+  }
 
   private static class DexConsumer implements DexIndexedConsumer {
 
+    final ContextConsumer contextConsumer = new ContextConsumer();
     byte[] bytes;
 
     @Override
@@ -74,6 +122,14 @@ public class CompatDexBuilder {
 
     byte[] getBytes() {
       return bytes;
+    }
+
+    void setBytes(byte[] byteCode) {
+      this.bytes = byteCode;
+    }
+
+    ContextConsumer getContextConsumer() {
+      return contextConsumer;
     }
 
     @Override
@@ -94,12 +150,29 @@ public class CompatDexBuilder {
       // Redirect all stdout and stderr output for logging.
       System.setOut(ps);
       System.setErr(ps);
+
+      // Set up dexer cache
+      Cache<DexingKeyR8, byte[]> dexCache =
+          CacheBuilder.newBuilder()
+              // Use at most 200 MB for cache and leave at least 25 MB of heap space alone. For
+              // reference:
+              // .class & class.dex files are around 1-5 KB, so this fits ~30K-35K class-dex pairs.
+              .maximumWeight(min(Runtime.getRuntime().maxMemory() - 25 * ONE_MEG, 200 * ONE_MEG))
+              .weigher(
+                  new Weigher<DexingKeyR8, byte[]>() {
+                    @Override
+                    public int weigh(DexingKeyR8 key, byte[] value) {
+                      return key.classfileContent().length + value.length;
+                    }
+                  })
+              .build();
       try {
         WorkRequestHandler workerHandler =
             new WorkRequestHandler.WorkRequestHandlerBuilder(
                     new WorkRequestHandler.WorkRequestCallback(
                         (request, pw) ->
-                            compatDexBuilder.processRequest(request.getArgumentsList(), pw, buf)),
+                            compatDexBuilder.processRequest(
+                                dexCache, request.getArgumentsList(), pw, buf)),
                     realStdErr,
                     new ProtoWorkerMessageProcessor(System.in, realStdOut))
                 .setCpuUsageBeforeGc(Duration.ofSeconds(10))
@@ -113,13 +186,18 @@ public class CompatDexBuilder {
         System.setErr(realStdErr);
       }
     } else {
-      compatDexBuilder.dexEntries(Arrays.asList(args));
+      // Dex cache has no value in non-persistent mode, so pass it as null.
+      compatDexBuilder.dexEntries(/* dexCache= */ null, Arrays.asList(args));
     }
   }
 
-  private int processRequest(List<String> args, PrintWriter pw, ByteArrayOutputStream buf) {
+  private int processRequest(
+      @Nullable Cache<DexingKeyR8, byte[]> dexCache,
+      List<String> args,
+      PrintWriter pw,
+      ByteArrayOutputStream buf) {
     try {
-      dexEntries(args);
+      dexEntries(dexCache, args);
       return 0;
     } catch (OptionsParsingException e) {
       pw.println("CompatDexBuilder raised OptionsParsingException: " + e.getMessage());
@@ -138,7 +216,7 @@ public class CompatDexBuilder {
   }
 
   @SuppressWarnings("JdkObsolete")
-  private void dexEntries(List<String> args)
+  private void dexEntries(@Nullable Cache<DexingKeyR8, byte[]> dexCache, List<String> args)
       throws IOException, InterruptedException, ExecutionException, OptionsParsingException {
     List<String> flags = new ArrayList<>();
     String input = null;
@@ -228,12 +306,32 @@ public class CompatDexBuilder {
         for (ZipEntry classEntry : toDex) {
           futures.add(
               executor.submit(
-                  () -> dexEntry(zipFile, classEntry, compilationMode, minSdkVersion, executor)));
+                  () ->
+                      dexEntry(
+                          dexCache,
+                          zipFile,
+                          classEntry,
+                          compilationMode,
+                          minSdkVersion,
+                          executor)));
         }
+        StringBuilder contextMappingBuilder = new StringBuilder();
         for (int i = 0; i < futures.size(); i++) {
           ZipEntry entry = toDex.get(i);
           DexConsumer consumer = futures.get(i).get();
           ZipUtils.addEntry(entry.getName() + ".dex", consumer.getBytes(), ZipEntry.STORED, out);
+          String mapping = consumer.getContextConsumer().getContextMapping();
+          if (mapping != null) {
+            contextMappingBuilder.append(mapping).append('\n');
+          }
+        }
+        String contextMapping = contextMappingBuilder.toString();
+        if (!contextMapping.isEmpty()) {
+          ZipUtils.addEntry(
+              "META-INF/synthetic-contexts.map",
+              contextMapping.getBytes(UTF_8),
+              ZipEntry.STORED,
+              out);
         }
       }
     } finally {
@@ -242,6 +340,7 @@ public class CompatDexBuilder {
   }
 
   private DexConsumer dexEntry(
+      @Nullable Cache<DexingKeyR8, byte[]> dexCache,
       ZipFile zipFile,
       ZipEntry classEntry,
       CompilationMode mode,
@@ -252,17 +351,56 @@ public class CompatDexBuilder {
     D8Command.Builder builder = D8Command.builder();
     builder
         .setProgramConsumer(consumer)
+        .setSyntheticInfoConsumer(consumer.getContextConsumer())
         .setMode(mode)
         .setMinApiLevel(minSdkVersion)
         .setDisableDesugaring(true)
         .setIntermediate(true);
+    byte[] cachedDexBytes = null;
+    byte[] classFileBytes = null;
     try (InputStream stream = zipFile.getInputStream(classEntry)) {
+      classFileBytes = ByteStreams.toByteArray(stream);
+      if (dexCache != null) {
+        // If the cache exists, check for cache validity.
+        cachedDexBytes =
+            dexCache.getIfPresent(DexingKeyR8.create(mode, minSdkVersion, classFileBytes));
+      }
+      if (cachedDexBytes != null) {
+        // Cache hit: quit early and return the data
+        consumer.setBytes(cachedDexBytes);
+        return consumer;
+      }
       builder.addClassProgramData(
-          ByteStreams.toByteArray(stream),
+          classFileBytes,
           new ArchiveEntryOrigin(
               classEntry.getName(), new PathOrigin(Paths.get(zipFile.getName()))));
     }
     D8.run(builder.build(), executor);
+    // After dexing finishes, store the dexed output into the cache.
+    if (dexCache != null) {
+      dexCache.put(DexingKeyR8.create(mode, minSdkVersion, classFileBytes), consumer.getBytes());
+    }
     return consumer;
   }
+
+  /**
+   * Generates a unique key for the R8 dex builder (CompatDexBuilder) as a key for the dex builder's
+   * runtime cache.
+   */
+  @AutoValue
+  public abstract static class DexingKeyR8 {
+    public static DexingKeyR8 create(
+        CompilationMode compilationMode, int minSdkVersion, byte[] classfileContent) {
+      return new AutoValue_CompatDexBuilder_DexingKeyR8(
+          compilationMode, minSdkVersion, classfileContent);
+    }
+
+    public abstract CompilationMode compilationMode();
+
+    public abstract int minSdkVersion();
+
+    @SuppressWarnings("mutable")
+    public abstract byte[] classfileContent();
+  }
 }
+

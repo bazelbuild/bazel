@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -39,8 +38,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ComposingTransitionFactoryTest {
   // Use starlark flags for the test since they are easy to set and check.
-  private static final Label FLAG_1 = Label.parseAbsoluteUnchecked("//flag1");
-  private static final Label FLAG_2 = Label.parseAbsoluteUnchecked("//flag2");
+  private static final Label FLAG_1 = Label.parseCanonicalUnchecked("//flag1");
+  private static final Label FLAG_2 = Label.parseCanonicalUnchecked("//flag2");
   private EventHandler eventHandler;
 
   @Before
@@ -136,28 +135,6 @@ public class ComposingTransitionFactoryTest {
             ComposingTransitionFactory.of(
                 TransitionFactories.of(new StubSplit(FLAG_1, "value1a", "value1b")),
                 TransitionFactories.of(new StubSplit(FLAG_2, "value2a", "value2b"))));
-  }
-
-  @Test
-  public void compose_host_first() {
-    TransitionFactory<StubData> composed =
-        ComposingTransitionFactory.of(
-            HostTransition.createFactory(),
-            TransitionFactories.of(new StubPatch(FLAG_1, "value2")));
-
-    assertThat(composed).isNotNull();
-    assertThat(composed.isHost()).isTrue();
-  }
-
-  @Test
-  public void compose_host_second() {
-    TransitionFactory<StubData> composed =
-        ComposingTransitionFactory.of(
-            TransitionFactories.of(new StubPatch(FLAG_1, "value2")),
-            HostTransition.createFactory());
-
-    assertThat(composed).isNotNull();
-    assertThat(composed.isHost()).isTrue();
   }
 
   @Test

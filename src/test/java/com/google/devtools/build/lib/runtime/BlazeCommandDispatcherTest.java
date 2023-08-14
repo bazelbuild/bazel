@@ -18,7 +18,6 @@ import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Arrays.asList;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -93,7 +92,7 @@ public final class BlazeCommandDispatcherTest {
 
   @After
   public void cleanUp() {
-    BugReport.maybePropagateUnprocessedThrowableIfInTest();
+    BugReport.maybePropagateLastCrashIfInTest();
   }
 
   private void initializeRuntimeInternal(BlazeModule... additionalModules) throws Exception {
@@ -277,7 +276,8 @@ public final class BlazeCommandDispatcherTest {
     assertThat(crash.getCauses(0).getStackTrace(0)).contains("BlazeCommandDispatcherTest.java");
     assertThat(directResult.getExitCode()).isEqualTo(ExitCode.OOM_ERROR);
     assertThat(directResult.shutdown()).isTrue();
-    assertThrows(OutOfMemoryError.class, BugReport::maybePropagateUnprocessedThrowableIfInTest);
+    assertThat(BugReport.getAndResetLastCrashingThrowableIfInTest())
+        .isInstanceOf(OutOfMemoryError.class);
   }
 
   @Test

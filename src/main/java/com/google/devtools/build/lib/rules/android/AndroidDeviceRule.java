@@ -104,7 +104,7 @@ public final class AndroidDeviceRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("default_properties", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .allowedFileTypes(JavaSemantics.PROPERTIES))
         /* <!-- #BLAZE_RULE(android_device).ATTRIBUTE(platform_apks) -->
         A list of apks to be installed on the device at boot time.
@@ -115,54 +115,54 @@ public final class AndroidDeviceRule implements RuleDefinition {
         .add(attr("pregenerate_oat_files_for_tests", BOOLEAN).value(false))
         .add(
             attr("$adb_static", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .value(env.getToolsLabel("//tools/android:adb_static")))
         .add(
             attr("$adb", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .value(env.getToolsLabel("//tools/android:adb")))
         .add(
             attr("$emulator_arm", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .value(env.getToolsLabel("//tools/android/emulator:emulator_arm")))
         .add(
             attr("$emulator_x86", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .value(env.getToolsLabel("//tools/android/emulator:emulator_x86")))
         .add(
             attr("$emulator_x86_bios", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .value(env.getToolsLabel("//tools/android/emulator:emulator_x86_bios")))
         .add(
             attr("$mksd", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .exec()
                 .value(env.getToolsLabel("//tools/android/emulator:mksd")))
         .add(
             attr("$empty_snapshot_fs", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .value(env.getToolsLabel("//tools/android/emulator:empty_snapshot_fs")))
         .add(
             attr("$xvfb_support", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .value(env.getToolsLabel("//tools/android/emulator:xvfb_support")))
         .add(
             attr("$unified_launcher", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .exec()
                 .value(env.getToolsLabel("//tools/android/emulator:unified_launcher")))
         .add(
             attr("$android_runtest", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .exec()
                 .value(env.getToolsLabel("//tools/android:android_runtest")))
         .add(
             attr("$testing_shbase", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .value(env.getToolsLabel("//tools/android/emulator:shbase")))
         .add(
             attr("$sdk_path", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .exec()
                 .value(env.getToolsLabel("//tools/android/emulator:sdk_path")))
         .add(

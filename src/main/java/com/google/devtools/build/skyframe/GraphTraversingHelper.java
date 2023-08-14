@@ -21,8 +21,9 @@ import javax.annotation.Nullable;
 
 /**
  * Helper to check if requested nodes are done in the graph. The only method {@link
- * #declareDependenciesAndCheckIfValuesMissing} calls {@link SkyframeIterableResult} and checks that
- * all nodes are done, either with values or expected exceptions.
+ * #declareDependenciesAndCheckIfValuesMissing} calls {@link
+ * SkyFunction.Environment#getValuesAndExceptions} and checks that all nodes are done, either with
+ * values or expected exceptions.
  *
  * <p>Only use this helper if you know what you are doing! Most Skyframe users should not need to
  * call it.
@@ -33,7 +34,7 @@ public final class GraphTraversingHelper {
    * Returns false iff for each key in {@code skyKeys}, the corresponding node is done with values
    * in the Skyframe graph.
    */
-  public static <E extends Exception> boolean declareDependenciesAndCheckIfValuesMissing(
+  public static boolean declareDependenciesAndCheckIfValuesMissing(
       SkyFunction.Environment env, Iterable<? extends SkyKey> skyKeys) throws InterruptedException {
     return declareDependenciesAndCheckIfValuesMissing(
         env, skyKeys, /*exceptionClass1=*/ null, /*exceptionClass2=*/ null);
@@ -74,17 +75,15 @@ public final class GraphTraversingHelper {
           @Nullable Class<E2> exceptionClass2,
           BugReporter bugReporter)
           throws InterruptedException {
-    SkyframeIterableResult result = env.getOrderedValuesAndExceptions(skyKeys);
+    SkyframeLookupResult result = env.getValuesAndExceptions(skyKeys);
     if (env.valuesMissing()) {
       return true;
     }
-    for (int index = 0; result.hasNext(); ++index) {
+    for (SkyKey key : skyKeys) {
       try {
-        SkyValue value = result.nextOrThrow(exceptionClass1, exceptionClass2);
+        SkyValue value = result.getOrThrow(key, exceptionClass1, exceptionClass2);
         if (value == null) {
-          bugReporter.logUnexpected(
-              "Value for: '%s' was missing, this should never happen",
-              Iterables.get(skyKeys, index));
+          bugReporter.logUnexpected("Value for: '%s' was missing, this should never happen", key);
           return true;
         }
       } catch (Exception e) {
@@ -108,16 +107,14 @@ public final class GraphTraversingHelper {
    * {@link SkyFunction} callers that don't handle child exceptions themselves, and just want to
    * propagate child exceptions upwards via Skyframe.
    */
-  public static <E extends Exception>
-      boolean declareDependenciesAndCheckIfValuesMissingMaybeWithExceptions(
-          SkyFunction.Environment env, Iterable<? extends SkyKey> skyKeys)
-          throws InterruptedException {
-    SkyframeIterableResult result = env.getOrderedValuesAndExceptions(skyKeys);
+  public static boolean declareDependenciesAndCheckIfValuesMissingMaybeWithExceptions(
+      SkyFunction.Environment env, Iterable<? extends SkyKey> skyKeys) throws InterruptedException {
+    SkyframeLookupResult result = env.getValuesAndExceptions(skyKeys);
     if (env.valuesMissing()) {
       return true;
     }
-    while (result.hasNext()) {
-      if (result.next() == null) {
+    for (SkyKey key : skyKeys) {
+      if (result.get(key) == null) {
         return true;
       }
     }

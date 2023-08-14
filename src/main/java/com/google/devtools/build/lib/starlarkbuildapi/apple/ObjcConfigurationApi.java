@@ -16,10 +16,13 @@ package com.google.devtools.build.lib.starlarkbuildapi.apple;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** A configuration fragment for Objective C. */
@@ -45,34 +48,6 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
       doc = "The SDK version of the iOS simulator to use when running on the simulator.")
   @Nullable
   DottedVersionApi<?> getIosSimulatorVersion();
-
-  @StarlarkMethod(
-      name = "simulator_device_for_platform_type",
-      allowReturnNones = true,
-      doc = "The type of device (e.g., 'iPhone 6' to simulate when running on the simulator.",
-      parameters = {
-        @Param(
-            name = "platform_type",
-            positional = true,
-            named = false,
-            doc = "The apple platform type."),
-      })
-  @Nullable
-  String getSimulatorDeviceForPlatformType(ApplePlatformTypeApiT platformType);
-
-  @StarlarkMethod(
-      name = "simulator_version_for_platform_type",
-      allowReturnNones = true,
-      doc = "The SDK version of the simulator to use when running on the simulator.",
-      parameters = {
-        @Param(
-            name = "platform_type",
-            positional = true,
-            named = false,
-            doc = "The apple platform type."),
-      })
-  @Nullable
-  DottedVersionApi<?> getSimulatorVersionForPlatformType(ApplePlatformTypeApiT platformType);
 
   @StarlarkMethod(
       name = "generate_linkmap",
@@ -126,4 +101,24 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
           "Returns whether device debug entitlements should be included when signing an "
               + "application.")
   boolean useDeviceDebugEntitlements();
+
+  @StarlarkMethod(
+      name = "disallow_sdk_frameworks_attributes",
+      structField = true,
+      doc = "Returns whether sdk_frameworks and weak_sdk_frameworks are disallowed attributes.")
+  boolean disallowSdkFrameworksAttributes();
+
+  @StarlarkMethod(
+      name = "alwayslink_by_default",
+      structField = true,
+      doc = "Returns whether objc_library and objc_import should default to alwayslink=True.")
+  boolean alwayslinkByDefault();
+
+  @StarlarkMethod(
+      name = "target_should_alwayslink",
+      documented = false,
+      parameters = {@Param(name = "ctx")},
+      useStarlarkThread = true)
+  boolean targetShouldAlwayslink(StarlarkRuleContext ruleContext, StarlarkThread thread)
+      throws EvalException;
 }

@@ -15,10 +15,12 @@
 package com.google.devtools.build.lib.rules.repository;
 
 import static com.google.common.base.Preconditions.checkState;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -33,6 +35,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.repository.ExternalPackageException;
+import com.google.devtools.build.lib.repository.RepositoryFetchProgress;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.AlreadyReportedException;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
@@ -49,7 +52,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
-import java.nio.charset.Charset;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -64,26 +67,26 @@ import net.starlark.java.eval.Starlark;
  *
  * <p>External repositories come in two flavors: local and non-local.
  *
- * <p>Local ones are those whose fetching does not require access to any external resources
- * (e.g. network). These are always re-fetched on Bazel server restarts. This operation is fast
- * (usually just a few symlinks and maybe writing a BUILD file). {@code --nofetch} does not apply
- * to local repositories.
+ * <p>Local ones are those whose fetching does not require access to any external resources (e.g.
+ * network). These are always re-fetched on Bazel server restarts. This operation is fast (usually
+ * just a few symlinks and maybe writing a BUILD file). {@code --nofetch} does not apply to local
+ * repositories.
  *
- * <p>The up-to-dateness of non-local repositories is checked using a marker file under the
- * output base. When such a repository is fetched, data from the rule in the WORKSPACE file is
- * written to the marker file which is consulted on next server startup. If the rule hasn't changed,
- * the repository is not re-fetched.
+ * <p>The up-to-dateness of non-local repositories is checked using a marker file under the output
+ * base. When such a repository is fetched, data from the rule in the WORKSPACE file is written to
+ * the marker file which is consulted on next server startup. If the rule hasn't changed, the
+ * repository is not re-fetched.
  *
  * <p>Fetching repositories can be disabled using the {@code --nofetch} command line option. If a
  * repository is on the file system, Bazel just tries to use it and hopes for the best. If the
  * repository has never been fetched, Bazel errors out for lack of a better option. This is
- * implemented using
- * {@link com.google.devtools.build.lib.bazel.BazelRepositoryModule#REPOSITORY_VALUE_CHECKER} and
- * a flag in {@link RepositoryDirectoryValue} that tells Bazel whether the value in Skyframe is
- * stale according to the value of {@code --nofetch} or not.
+ * implemented using {@link
+ * com.google.devtools.build.lib.bazel.BazelRepositoryModule#REPOSITORY_VALUE_CHECKER} and a flag in
+ * {@link RepositoryDirectoryValue} that tells Bazel whether the value in Skyframe is stale
+ * according to the value of {@code --nofetch} or not.
  *
- * <p>When a rule in the WORKSPACE file is changed, the corresponding
- * {@link RepositoryDirectoryValue} is invalidated using the usual Skyframe route.
+ * <p>When a rule in the WORKSPACE file is changed, the corresponding {@link
+ * RepositoryDirectoryValue} is invalidated using the usual Skyframe route.
  */
 public abstract class RepositoryFunction {
 
@@ -92,21 +95,17 @@ public abstract class RepositoryFunction {
   /**
    * Exception thrown when something goes wrong accessing a remote repository.
    *
-   * <p>This exception should be used by child classes to limit the types of exceptions
-   * {@link RepositoryDelegatorFunction} has to know how to catch.</p>
+   * <p>This exception should be used by child classes to limit the types of exceptions {@link
+   * RepositoryDelegatorFunction} has to know how to catch.
    */
   public static class RepositoryFunctionException extends SkyFunctionException {
 
-    /**
-     * Error reading or writing to the filesystem.
-     */
+    /** Error reading or writing to the filesystem. */
     public RepositoryFunctionException(IOException cause, Transience transience) {
       super(cause, transience);
     }
 
-    /**
-     * For errors in WORKSPACE file rules (e.g., malformed paths or URLs).
-     */
+    /** For errors in WORKSPACE file rules (e.g., malformed paths or URLs). */
     public RepositoryFunctionException(EvalException cause, Transience transience) {
       super(cause, transience);
     }
@@ -135,6 +134,23 @@ public abstract class RepositoryFunction {
               || e instanceof ExternalPackageException,
           e);
     }
+  }
+
+  public static void setupRepoRoot(Path repoRoot) throws RepositoryFunctionException {
+    try {
+      repoRoot.deleteTree();
+      Preconditions.checkNotNull(repoRoot.getParentDirectory()).createDirectoryAndParents();
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
+  }
+
+  protected void setupRepoRootBeforeFetching(Path repoRoot) throws RepositoryFunctionException {
+    setupRepoRoot(repoRoot);
+  }
+
+  public void reportSkyframeRestart(Environment env, RepositoryName repoName) {
+    env.getListener().post(RepositoryFetchProgress.ongoing(repoName, "Restarting."));
   }
 
   /**
@@ -174,9 +190,9 @@ public abstract class RepositoryFunction {
       throws InterruptedException, RepositoryFunctionException;
 
   @SuppressWarnings("unchecked")
-  private static Iterable<String> getEnviron(Rule rule) {
+  private static Collection<String> getEnviron(Rule rule) {
     if (rule.isAttrDefined("$environ", Type.STRING_LIST)) {
-      return (Iterable<String>) rule.getAttr("$environ");
+      return (Collection<String>) rule.getAttr("$environ");
     }
     return ImmutableList.of();
   }
@@ -187,7 +203,7 @@ public abstract class RepositoryFunction {
    * is needed.
    */
   public boolean verifyMarkerData(Rule rule, Map<String, String> markerData, Environment env)
-      throws InterruptedException, RepositoryFunctionException {
+      throws InterruptedException {
     return verifyEnvironMarkerData(markerData, env, getEnviron(rule))
         && verifyMarkerDataForFiles(rule, markerData, env)
         && verifySemanticsMarkerData(markerData, env);
@@ -292,44 +308,48 @@ public abstract class RepositoryFunction {
   protected Map<String, String> declareEnvironmentDependencies(
       Map<String, String> markerData, Environment env, Iterable<String> keys)
       throws InterruptedException {
-    Map<String, String> environ = ActionEnvironmentFunction.getEnvironmentView(env, keys);
+    ImmutableMap<String, String> envDep = getEnvVarValues(env, keys);
+    if (envDep == null) {
+      return null;
+    }
+    // Add the dependencies to the marker file
+    keys.forEach(key -> markerData.put("ENV:" + key, envDep.get(key)));
+    return envDep;
+  }
 
-    // Returns true if there is a null value and we need to wait for some dependencies.
+  @Nullable
+  public static ImmutableMap<String, String> getEnvVarValues(Environment env, Iterable<String> keys)
+      throws InterruptedException {
+    ImmutableMap<String, String> environ = ActionEnvironmentFunction.getEnvironmentView(env, keys);
     if (environ == null) {
       return null;
     }
-
     Map<String, String> repoEnvOverride = PrecomputedValue.REPO_ENV.get(env);
     if (repoEnvOverride == null) {
       return null;
     }
 
     // Only depend on --repo_env values that are specified in the "environ" attribute.
-    Map<String, String> repoEnv = new LinkedHashMap<String, String>(environ);
+    ImmutableMap.Builder<String, String> repoEnv = ImmutableMap.builder();
+    repoEnv.putAll(environ);
     for (String key : keys) {
       String value = repoEnvOverride.get(key);
       if (value != null) {
         repoEnv.put(key, value);
       }
     }
-
-    // Add the dependencies to the marker file
-    for (Map.Entry<String, String> value : repoEnv.entrySet()) {
-      markerData.put("ENV:" + value.getKey(), value.getValue());
-    }
-
-    return repoEnv;
+    return repoEnv.buildKeepingLast();
   }
 
   /**
-   * Verify marker data previously saved by
-   * {@link #declareEnvironmentDependencies(Map, Environment, Iterable)}. This function is to be
-   * called from a {@link #verifyMarkerData(Rule, Map, Environment)} function to verify the values
-   * for environment variables.
+   * Verify marker data previously saved by {@link #declareEnvironmentDependencies(Map, Environment,
+   * Iterable)}. This function is to be called from a {@link #verifyMarkerData(Rule, Map,
+   * Environment)} function to verify the values for environment variables.
    */
-  protected boolean verifyEnvironMarkerData(Map<String, String> markerData, Environment env,
-      Iterable<String> keys) throws InterruptedException {
-    Map<String, String> environ = ActionEnvironmentFunction.getEnvironmentView(env, keys);
+  protected boolean verifyEnvironMarkerData(
+      Map<String, String> markerData, Environment env, Collection<String> keys)
+      throws InterruptedException {
+    ImmutableMap<String, String> environ = ActionEnvironmentFunction.getEnvironmentView(env, keys);
     if (env.valuesMissing()) {
       return false; // Returns false so caller knows to return immediately
     }
@@ -350,17 +370,18 @@ public abstract class RepositoryFunction {
 
     // Verify that all environment variable in the marker file are also in keys
     for (String key : markerData.keySet()) {
-      if (key.startsWith("ENV:") && !repoEnv.containsKey(key.substring(4))) {
+      if (key.startsWith("ENV:") && !keys.contains(key.substring(4))) {
         return false;
       }
     }
+
     // Now verify the values of the marker data
-    for (Map.Entry<String, String> value : repoEnv.entrySet()) {
-      if (!markerData.containsKey("ENV:" + value.getKey())) {
+    for (String key : keys) {
+      if (!markerData.containsKey("ENV:" + key)) {
         return false;
       }
-      String markerValue = markerData.get("ENV:" + value.getKey());
-      if (!Objects.equals(markerValue, value.getValue())) {
+      String markerValue = markerData.get("ENV:" + key);
+      if (!Objects.equals(markerValue, repoEnv.get(key))) {
         return false;
       }
     }
@@ -393,14 +414,17 @@ public abstract class RepositoryFunction {
     return repositoryDirectory;
   }
 
-  public static void createWorkspaceFile(
-      Path repositoryDirectory, String ruleKind, String ruleName)
+  public static void createWorkspaceFile(Path repositoryDirectory, String ruleKind, String ruleName)
       throws RepositoryFunctionException {
     try {
       Path workspaceFile = repositoryDirectory.getRelative(LabelConstants.WORKSPACE_FILE_NAME);
-      FileSystemUtils.writeContent(workspaceFile, Charset.forName("UTF-8"),
-          String.format("# DO NOT EDIT: automatically generated WORKSPACE file for %s\n"
-              + "workspace(name = \"%s\")\n", ruleKind, ruleName));
+      FileSystemUtils.writeContent(
+          workspaceFile,
+          UTF_8,
+          String.format(
+              "# DO NOT EDIT: automatically generated WORKSPACE file for %s\n"
+                  + "workspace(name = \"%s\")\n",
+              ruleKind, ruleName));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
@@ -440,8 +464,7 @@ public abstract class RepositoryFunction {
   }
 
   @VisibleForTesting
-  protected static PathFragment getTargetPath(String userDefinedPath, Path workspace)
-      throws RepositoryFunctionException {
+  protected static PathFragment getTargetPath(String userDefinedPath, Path workspace) {
     PathFragment pathFragment = PathFragment.create(userDefinedPath);
     return workspace.getRelative(pathFragment).asFragment();
   }
@@ -482,8 +505,7 @@ public abstract class RepositoryFunction {
     return true;
   }
 
-  static void createSymbolicLink(Path from, Path to)
-      throws RepositoryFunctionException {
+  static void createSymbolicLink(Path from, Path to) throws RepositoryFunctionException {
     try {
       // Remove not-symlinks that are already there.
       if (from.exists()) {
@@ -492,8 +514,10 @@ public abstract class RepositoryFunction {
       FileSystemUtils.ensureSymbolicLink(from, to);
     } catch (IOException e) {
       throw new RepositoryFunctionException(
-          new IOException(String.format("Error creating symbolic link from %s to %s: %s",
-              from, to, e.getMessage())), Transience.TRANSIENT);
+          new IOException(
+              String.format(
+                  "Error creating symbolic link from %s to %s: %s", from, to, e.getMessage())),
+          Transience.TRANSIENT);
     }
   }
 
@@ -526,15 +550,11 @@ public abstract class RepositoryFunction {
     env.getValue(RepositoryDirectoryValue.key(RepositoryName.createUnvalidated(repositoryName)));
   }
 
-  /**
-   * Sets up a mapping of environment variables to use.
-   */
+  /** Sets up a mapping of environment variables to use. */
   public void setClientEnvironment(Map<String, String> clientEnvironment) {
     this.clientEnvironment = clientEnvironment;
   }
 
-  /**
-   * Returns the RuleDefinition class for this type of repository.
-   */
+  /** Returns the RuleDefinition class for this type of repository. */
   public abstract Class<? extends RuleDefinition> getRuleDefinition();
 }

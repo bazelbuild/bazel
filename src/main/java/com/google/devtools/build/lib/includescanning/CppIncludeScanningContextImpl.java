@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.includescanning;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
@@ -33,11 +35,13 @@ import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHea
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.IncludeScanning.Code;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -83,14 +87,20 @@ public final class CppIncludeScanningContextImpl implements CppIncludeScanningCo
       includeDirs.add(pathFragment);
     }
 
-    List<PathFragment> includeDirList = ImmutableList.copyOf(includeDirs);
+    ImmutableList<PathFragment> includeDirList = ImmutableList.copyOf(includeDirs);
     IncludeScanner scanner =
         includeScannerSupplier
             .get()
             .scannerFor(quoteIncludeDirs, includeDirList, frameworkIncludeDirs);
 
     Artifact mainSource = action.getMainIncludeScannerSource();
-    Collection<Artifact> sources = action.getIncludeScannerSources();
+    ImmutableList<Artifact> sources =
+        expandTreeArtifacts(
+            action.getIncludeScannerSources(),
+            actionExecutionContext.getEnvironmentForDiscoveringInputs());
+    if (sources == null) {
+      return null;
+    }
 
     try (SilentCloseable c =
         Profiler.instance()
@@ -118,6 +128,45 @@ public final class CppIncludeScanningContextImpl implements CppIncludeScanningCo
               "Error for BUILD file during include scanning: " + e.getMessage(),
               Code.PACKAGE_LOAD_FAILURE));
     }
+  }
+
+  /**
+   * Returns a list of artifacts with all tree artifacts replaced by their expansion or null if we
+   * are missing a Skyframe dependency.
+   *
+   * <p>We take an ad-hoc approach, which consults Skyframe to retrieve the tree expansions. This is
+   * necessary because include scanning may include tree artifacts which are not inputs of the
+   * original action.
+   *
+   * <p>Normally, we expand tree artifacts using a tree artifact expander from the {@link
+   * ActionExecutionContext}, however the expander available before include scanning only captures
+   * tree artifacts from the action inputs, which is insufficient. In fact, the action execution
+   * context for include scanning has a null expander in it.
+   */
+  @Nullable
+  private static ImmutableList<Artifact> expandTreeArtifacts(
+      ImmutableList<Artifact> artifacts, Environment env) throws InterruptedException {
+    ImmutableList<Artifact> trees =
+        artifacts.stream().filter(Artifact::isTreeArtifact).collect(toImmutableList());
+    if (trees.isEmpty()) {
+      return artifacts;
+    }
+
+    SkyframeLookupResult expansions = env.getValuesAndExceptions(trees);
+    ImmutableList.Builder<Artifact> expanded = ImmutableList.builder();
+    for (var artifact : artifacts) {
+      if (!artifact.isTreeArtifact()) {
+        expanded.add(artifact);
+        continue;
+      }
+
+      TreeArtifactValue treeArtifactValue = (TreeArtifactValue) expansions.get(artifact);
+      if (treeArtifactValue == null) {
+        return null;
+      }
+      expanded.addAll(treeArtifactValue.getChildren());
+    }
+    return expanded.build();
   }
 
   private static List<Artifact> collect(

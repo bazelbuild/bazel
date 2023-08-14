@@ -838,24 +838,6 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> {
     };
   }
 
-  /**
-   * Ensures that this {@code CompactHashMap} has the smallest representation in memory, given its
-   * current size.
-   */
-  public void trimToSize() {
-    if (needsAllocArrays()) {
-      return;
-    }
-    int size = this.size;
-    if (size < entries.length) {
-      resizeEntries(size);
-    }
-    int minimumTableSize = closedTableSize(size);
-    if (minimumTableSize < table.length) {
-      resizeTable(minimumTableSize);
-    }
-  }
-
   @Override
   public void clear() {
     if (needsAllocArrays()) {

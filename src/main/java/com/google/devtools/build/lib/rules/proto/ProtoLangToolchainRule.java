@@ -22,10 +22,8 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
 
 /**
@@ -34,17 +32,6 @@ import com.google.devtools.build.lib.packages.Type;
  * <p>This rule is implemented in Starlark. This class remains only for doc-gen purposes.
  */
 public class ProtoLangToolchainRule implements RuleDefinition {
-  private static final Label DEFAULT_PROTO_COMPILER =
-      Label.parseAbsoluteUnchecked(ProtoConstants.DEFAULT_PROTOC_LABEL);
-  private static final Attribute.LabelLateBoundDefault<?> PROTO_COMPILER =
-      Attribute.LabelLateBoundDefault.fromTargetConfiguration(
-          ProtoConfiguration.class,
-          DEFAULT_PROTO_COMPILER,
-          (rule, attributes, protoConfig) ->
-              protoConfig.protoCompiler() != null
-                  ? protoConfig.protoCompiler()
-                  : DEFAULT_PROTO_COMPILER);
-
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     return builder
@@ -69,6 +56,16 @@ public class ProtoLangToolchainRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("command_line", Type.STRING).mandatory())
 
+        /* <!-- #BLAZE_RULE(proto_lang_toolchain).ATTRIBUTE(output_files) -->
+        Controls how <code>$(OUT)</code> in <code>command_line</code> is formatted, either by
+        a path to a single file or output directory in case of multiple files.
+        Possible values are: "single", "multiple".
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("output_files", Type.STRING)
+                .allowedValues(new AllowedValueSet("single", "multiple", "legacy"))
+                .value("legacy"))
+
         /* <!-- #BLAZE_RULE(proto_lang_toolchain).ATTRIBUTE(plugin_format_flag) -->
         If provided, this value will be passed to proto-compiler to use the plugin. The value must
         contain a single %s which is replaced with plugin executable.
@@ -84,7 +81,7 @@ public class ProtoLangToolchainRule implements RuleDefinition {
         .add(
             attr("plugin", LABEL)
                 .exec()
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .allowedFileTypes())
 
         /* <!-- #BLAZE_RULE(proto_lang_toolchain).ATTRIBUTE(runtime) -->
@@ -100,10 +97,7 @@ public class ProtoLangToolchainRule implements RuleDefinition {
         This is used for .proto files that are already linked into proto runtimes, such as
         <code>any.proto</code>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(
-            attr("blacklisted_protos", LABEL_LIST)
-                .allowedFileTypes()
-                .mandatoryProviders(StarlarkProviderIdentifier.forKey(ProtoInfo.PROVIDER.getKey())))
+        .add(attr("blacklisted_protos", LABEL_LIST).allowedFileTypes())
 
         /* <!-- #BLAZE_RULE(proto_lang_toolchain).ATTRIBUTE(proto_compiler) -->
         The proto compiler executable.
@@ -112,13 +106,8 @@ public class ProtoLangToolchainRule implements RuleDefinition {
         .add(
             attr("proto_compiler", LABEL)
                 .allowedFileTypes()
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .exec())
-        .add(
-            attr(":proto_compiler", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
-                .exec()
-                .value(PROTO_COMPILER))
         .requiresConfigurationFragments(ProtoConfiguration.class)
         .removeAttribute("data")
         .removeAttribute("deps")
@@ -137,8 +126,8 @@ public class ProtoLangToolchainRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = proto_lang_toolchain, TYPE = LIBRARY, FAMILY = Protocol Buffer) -->
 
-<p>Deprecated. Please <a href="https://github.com/bazelbuild/rules_proto">
-   https://github.com/bazelbuild/rules_proto</a> instead.
+<p>If using Bazel, please load the rule from <a href="https://github.com/bazelbuild/rules_proto">
+   https://github.com/bazelbuild/rules_proto</a>.
 </p>
 
 <p>

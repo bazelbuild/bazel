@@ -49,20 +49,6 @@ function write_workspace() {
   fi
 
   cat >> "$workspace"WORKSPACE << EOF
-# TODO(#9029): May require some adjustment if/when we depend on the real
-# @rules_python in the real source tree, since this third_party/ package won't
-# be available.
-new_local_repository(
-    name = "rules_python",
-    path = "$(dirname $(rlocation io_bazel/third_party/rules_python/rules_python.WORKSPACE))",
-    build_file = "$(rlocation io_bazel/third_party/rules_python/BUILD)",
-    workspace_file = "$(rlocation io_bazel/third_party/rules_python/rules_python.WORKSPACE)",
-)
-
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-EOF
-  cat $(rlocation io_bazel/src/tests/shell/bazel/rules_proto_stanza.txt) >> "$workspace"WORKSPACE
-  cat >> "$workspace"WORKSPACE << EOF
 load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
 rules_proto_dependencies()
 rules_proto_toolchains()
@@ -70,7 +56,7 @@ rules_proto_toolchains()
 # @com_google_protobuf//:protoc depends on @io_bazel//third_party/zlib.
 new_local_repository(
     name = "io_bazel",
-    path = "$(dirname $(rlocation io_bazel/third_party/rules_python/rules_python.WORKSPACE))/../..",
+    path = "$(dirname $(rlocation io_bazel/third_party/zlib))/..",
     build_file_content = "# Intentionally left empty.",
     workspace_file_content = "workspace(name = 'io_bazel')",
 )
@@ -565,6 +551,35 @@ EOF
   bazel build //a:c || fail "build failed"
 }
 
+function test_cc_proto_library_with_toolchain_resolution() {
+  write_workspace ""
+  mkdir -p a
+  cat > a/BUILD <<EOF
+load("@rules_proto//proto:defs.bzl", "proto_library")
+proto_library(name='p', srcs=['p.proto'])
+cc_proto_library(name='cp', deps=[':p'])
+cc_library(name='c', srcs=['c.cc'], deps=[':cp'])
+EOF
+
+  cat > a/p.proto <<EOF
+syntax = "proto2";
+package a;
+message A {
+  optional int32 a = 1;
+}
+EOF
+
+  cat > a/c.cc <<EOF
+#include "a/p.pb.h"
+
+void f() {
+  a::A a;
+}
+EOF
+
+  bazel build --incompatible_enable_cc_toolchain_resolution //a:c || fail "build failed"
+}
+
 function test_cc_proto_library_import_prefix_stripping() {
   write_workspace ""
   mkdir -p a/dir
@@ -656,6 +671,17 @@ proto_library(
   srcs = ["h.proto"],
   deps = ["//g", "@repo//f"],
 )
+
+cc_proto_library(
+  name = "h_cc_proto",
+  deps = ["//h"],
+)
+
+java_proto_library(
+  name = "h_java_proto",
+  deps = ["//h"],
+)
+
 EOF
 
   cat > h/h.proto <<EOF
@@ -671,7 +697,130 @@ message H {
 }
 EOF
 
-  bazel build //h || fail "build failed"
+  bazel build -s --noexperimental_sibling_repository_layout //h >& $TEST_log || fail "failed"
+  bazel build -s --noexperimental_sibling_repository_layout //h:h_cc_proto >& $TEST_log || fail "failed"
+  bazel build -s --noexperimental_sibling_repository_layout //h:h_java_proto >& $TEST_log || fail "failed"
+
+  bazel build -s --experimental_sibling_repository_layout //h >& $TEST_log || fail "failed"
+  bazel build -s --experimental_sibling_repository_layout //h:h_cc_proto >& $TEST_log || fail "failed"
+  bazel build -s --experimental_sibling_repository_layout //h:h_java_proto >& $TEST_log || fail "failed"
+
+  expect_not_log "warning: directory does not exist." # --proto_path is wrong
+}
+
+function test_cross_repo_protos() {
+  mkdir -p e
+  touch e/WORKSPACE
+  write_workspace ""
+
+  cat >> WORKSPACE <<EOF
+local_repository(
+  name = "repo",
+  path = "e"
+)
+EOF
+
+  mkdir -p e/f/good
+  cat > e/f/BUILD <<EOF
+load("@rules_proto//proto:defs.bzl", "proto_library")
+proto_library(
+  name = "f",
+  srcs = ["good/f.proto"],
+  visibility = ["//visibility:public"],
+)
+
+proto_library(
+  name = "gen",
+  srcs = ["good/gen.proto"],
+  visibility = ["//visibility:public"],
+)
+
+genrule(name = 'generate', srcs = ['good/gensrc.txt'], cmd = 'cat \$(SRCS) > \$@', outs = ['good/gen.proto'])
+
+EOF
+
+  cat > e/f/good/f.proto <<EOF
+syntax = "proto2";
+package f;
+
+message F {
+  optional int32 f = 1;
+}
+EOF
+
+  cat > e/f/good/gensrc.txt <<EOF
+syntax = "proto2";
+package gen;
+
+message Gen {
+  optional int32 gen = 1;
+}
+EOF
+
+  mkdir -p g/good
+  cat > g/BUILD << EOF
+load("@rules_proto//proto:defs.bzl", "proto_library")
+proto_library(
+  name = 'g',
+  srcs = ['good/g.proto'],
+  visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > g/good/g.proto <<EOF
+syntax = "proto2";
+package g;
+
+message G {
+  optional int32 g = 1;
+}
+EOF
+
+  mkdir -p h
+  cat > h/BUILD <<EOF
+load("@rules_proto//proto:defs.bzl", "proto_library")
+proto_library(
+  name = "h",
+  srcs = ["h.proto"],
+  deps = ["//g", "@repo//f", "@repo//f:gen"],
+)
+
+cc_proto_library(
+  name = "h_cc_proto",
+  deps = ["//h"],
+)
+
+java_proto_library(
+  name = "h_java_proto",
+  deps = ["//h"],
+)
+EOF
+
+  cat > h/h.proto <<EOF
+syntax = "proto2";
+package h;
+
+import "f/good/f.proto";
+import "g/good/g.proto";
+import "f/good/gen.proto";
+
+message H {
+  optional f.F f = 1;
+  optional g.G g = 2;
+  optional gen.Gen h = 3;
+}
+EOF
+
+  bazel build -s --noexperimental_sibling_repository_layout //h >& $TEST_log || fail "failed"
+  bazel build -s --noexperimental_sibling_repository_layout //h:h_cc_proto >& $TEST_log || fail "failed"
+  bazel build -s --noexperimental_sibling_repository_layout //h:h_java_proto >& $TEST_log || fail "failed"
+
+  bazel build -s --experimental_sibling_repository_layout //h -s >& $TEST_log || fail "failed"
+  bazel build -s --experimental_sibling_repository_layout //h:h_cc_proto -s >& $TEST_log || fail "failed"
+  bazel build -s --experimental_sibling_repository_layout //h:h_java_proto  -s >& $TEST_log || fail "failed"
+
+  expect_not_log "warning: directory does not exist." # --proto_path is wrong
+
 }
 
 run_suite "Integration tests for proto_library"

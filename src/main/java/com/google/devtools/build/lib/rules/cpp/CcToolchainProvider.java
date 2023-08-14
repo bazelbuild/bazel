@@ -23,6 +23,10 @@ import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -32,22 +36,33 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.cpp.CcToolchain.AdditionalBuildVariablesComputer;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.FdoContext.BranchFdoProfile;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Objects;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkThread;
 
 /** Information about a C++ compiler used by the <code>cc_*</code> rules. */
 @Immutable
 public final class CcToolchainProvider extends NativeInfo
     implements CcToolchainProviderApi<
-            FeatureConfigurationForStarlark, BranchFdoProfile, FdoContext>,
+            FeatureConfigurationForStarlark,
+            BranchFdoProfile,
+            FdoContext,
+            ConstraintValueInfo,
+            StarlarkRuleContext,
+            InvalidConfigurationException,
+            CppConfiguration,
+            CcToolchainVariables>,
         HasCcToolchainLabel {
 
   public static final BuiltinProvider<CcToolchainProvider> PROVIDER =
@@ -75,11 +90,12 @@ public final class CcToolchainProvider extends NativeInfo
   private final CcInfo ccInfo;
   private final boolean supportsParamFiles;
   private final boolean supportsHeaderParsing;
-  private final AdditionalBuildVariablesComputer additionalBuildVariablesComputer;
+  private final BuildOptions buildOptions;
   private final CcToolchainVariables buildVariables;
   private final ImmutableList<Artifact> builtinIncludeFiles;
   private final ImmutableList<Artifact> targetBuiltinIncludeFiles;
   @Nullable private final Artifact linkDynamicLibraryTool;
+  @Nullable private final Artifact grepIncludes;
   private final ImmutableList<PathFragment> builtInIncludeDirectories;
   @Nullable private final PathFragment sysroot;
   private final PathFragment targetSysroot;
@@ -122,6 +138,7 @@ public final class CcToolchainProvider extends NativeInfo
   private final String stripExecutable;
   private final String ldExecutable;
   private final String gcovExecutable;
+  private final StarlarkFunction ccToolchainBuildVariablesFunc;
 
   public CcToolchainProvider(
       @Nullable CppConfiguration cppConfiguration,
@@ -147,11 +164,12 @@ public final class CcToolchainProvider extends NativeInfo
       CcCompilationContext ccCompilationContext,
       boolean supportsParamFiles,
       boolean supportsHeaderParsing,
-      AdditionalBuildVariablesComputer additionalBuildVariablesComputer,
+      BuildOptions buildOptions,
       CcToolchainVariables buildVariables,
       ImmutableList<Artifact> builtinIncludeFiles,
       ImmutableList<Artifact> targetBuiltinIncludeFiles,
       Artifact linkDynamicLibraryTool,
+      @Nullable Artifact grepIncludes,
       ImmutableList<PathFragment> builtInIncludeDirectories,
       @Nullable PathFragment sysroot,
       @Nullable PathFragment targetSysroot,
@@ -183,7 +201,8 @@ public final class CcToolchainProvider extends NativeInfo
       String arExecutable,
       String stripExecutable,
       String ldExecutable,
-      String gcovExecutable) {
+      String gcovExecutable,
+      StarlarkFunction ccToolchainBuildVariablesFunc) {
     super();
     this.cppConfiguration = cppConfiguration;
     this.crosstoolTopPathFragment = crosstoolTopPathFragment;
@@ -210,7 +229,7 @@ public final class CcToolchainProvider extends NativeInfo
             .build();
     this.supportsParamFiles = supportsParamFiles;
     this.supportsHeaderParsing = supportsHeaderParsing;
-    this.additionalBuildVariablesComputer = additionalBuildVariablesComputer;
+    this.buildOptions = buildOptions;
     this.buildVariables = buildVariables;
     this.builtinIncludeFiles = builtinIncludeFiles;
     this.targetBuiltinIncludeFiles = targetBuiltinIncludeFiles;
@@ -249,6 +268,8 @@ public final class CcToolchainProvider extends NativeInfo
     this.stripExecutable = stripExecutable;
     this.ldExecutable = ldExecutable;
     this.gcovExecutable = gcovExecutable;
+    this.grepIncludes = grepIncludes;
+    this.ccToolchainBuildVariablesFunc = ccToolchainBuildVariablesFunc;
   }
 
   @Override
@@ -257,8 +278,7 @@ public final class CcToolchainProvider extends NativeInfo
   }
 
   /**
-   * See {@link #usePicForDynamicLibraries(FeatureConfigurationForStarlark)}. This method is there
-   * only to serve Starlark callers.
+   * See {@link #usePicForDynamicLibraries}. This method is there only to serve Starlark callers.
    */
   @Override
   public boolean usePicForDynamicLibrariesFromStarlark(
@@ -408,7 +428,7 @@ public final class CcToolchainProvider extends NativeInfo
    */
   @Nullable
   public PathFragment getToolPathFragmentOrNull(CppConfiguration.Tool tool) {
-    return CcToolchainProviderHelper.getToolPathFragment(toolPaths, tool);
+    return toolPaths.get(tool.getNamePart());
   }
 
   @Override
@@ -420,14 +440,14 @@ public final class CcToolchainProvider extends NativeInfo
 
   @Override
   public Depset getAllFilesForStarlark() {
-    return Depset.of(Artifact.TYPE, getAllFiles());
+    return Depset.of(Artifact.class, getAllFiles());
   }
 
   @Override
   public Depset getStaticRuntimeLibForStarlark(
       FeatureConfigurationForStarlark featureConfigurationForStarlark) throws EvalException {
     return Depset.of(
-        Artifact.TYPE,
+        Artifact.class,
         getStaticRuntimeLinkInputs(featureConfigurationForStarlark.getFeatureConfiguration()));
   }
 
@@ -435,7 +455,7 @@ public final class CcToolchainProvider extends NativeInfo
   public Depset getDynamicRuntimeLibForStarlark(
       FeatureConfigurationForStarlark featureConfigurationForStarlark) throws EvalException {
     return Depset.of(
-        Artifact.TYPE,
+        Artifact.class,
         getDynamicRuntimeLinkInputs(featureConfigurationForStarlark.getFeatureConfiguration()));
   }
 
@@ -459,6 +479,12 @@ public final class CcToolchainProvider extends NativeInfo
     return allFilesIncludingLibc;
   }
 
+  @Override
+  public Depset getAllFilesIncludingLibcForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(Artifact.class, getAllFilesIncludingLibc());
+  }
+
   /** Returns the files necessary for compilation. */
   public NestedSet<Artifact> getCompilerFiles() {
     return compilerFiles;
@@ -467,7 +493,7 @@ public final class CcToolchainProvider extends NativeInfo
   @Override
   public Depset getCompilerFilesForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getCompilerFiles());
+    return Depset.of(Artifact.class, getCompilerFiles());
   }
 
   /**
@@ -490,7 +516,7 @@ public final class CcToolchainProvider extends NativeInfo
   @Override
   public Depset getStripFilesForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getStripFiles());
+    return Depset.of(Artifact.class, getStripFiles());
   }
 
   /** Returns the files necessary for an 'objcopy' invocation. */
@@ -501,7 +527,7 @@ public final class CcToolchainProvider extends NativeInfo
   @Override
   public Depset getObjcopyFilesForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getObjcopyFiles());
+    return Depset.of(Artifact.class, getObjcopyFiles());
   }
 
   /**
@@ -515,7 +541,7 @@ public final class CcToolchainProvider extends NativeInfo
   @Override
   public Depset getAsFilesForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getAsFiles());
+    return Depset.of(Artifact.class, getAsFiles());
   }
 
   /**
@@ -529,7 +555,7 @@ public final class CcToolchainProvider extends NativeInfo
   @Override
   public Depset getArFilesForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getArFiles());
+    return Depset.of(Artifact.class, getArFiles());
   }
 
   /** Returns the files necessary for linking, including the files needed for libc. */
@@ -540,7 +566,7 @@ public final class CcToolchainProvider extends NativeInfo
   @Override
   public Depset getLinkerFilesForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getLinkerFiles());
+    return Depset.of(Artifact.class, getLinkerFiles());
   }
 
   public NestedSet<Artifact> getDwpFiles() {
@@ -550,7 +576,7 @@ public final class CcToolchainProvider extends NativeInfo
   @Override
   public Depset getDwpFilesForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getDwpFiles());
+    return Depset.of(Artifact.class, getDwpFiles());
   }
 
   /** Returns the files necessary for capturing code coverage. */
@@ -561,7 +587,7 @@ public final class CcToolchainProvider extends NativeInfo
   @Override
   public Depset getCoverageFilesForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getCoverageFiles());
+    return Depset.of(Artifact.class, getCoverageFiles());
   }
 
   public NestedSet<Artifact> getLibcLink(CppConfiguration cppConfiguration) {
@@ -620,7 +646,7 @@ public final class CcToolchainProvider extends NativeInfo
 
   /**
    * Returns the name of the directory where the solib symlinks for the dynamic runtime libraries
-   * live. The directory itself will be under the root of the host configuration in the 'bin'
+   * live. The directory itself will be under the root of the exec configuration in the 'bin'
    * directory.
    */
   public PathFragment getDynamicRuntimeSolibDir() {
@@ -709,9 +735,9 @@ public final class CcToolchainProvider extends NativeInfo
    *
    * <p>If C++ rules use platforms/toolchains without
    * https://github.com/bazelbuild/proposals/blob/master/designs/2019-02-12-toolchain-transitions.md
-   * implemented, CcToolchain is analyzed in the host configuration. This configuration is not what
+   * implemented, CcToolchain is analyzed in the exec configuration. This configuration is not what
    * should be used by rules using the toolchain. This method should only be used to access stuff
-   * from CppConfiguration that is identical between host and target (e.g. incompatible flag
+   * from CppConfiguration that is identical between exec and target (e.g. incompatible flag
    * values). Don't use it if you don't know what you're doing.
    *
    * <p>Once toolchain transitions are implemented, we can safely use the CppConfiguration from the
@@ -728,24 +754,54 @@ public final class CcToolchainProvider extends NativeInfo
 
   /** Returns build variables to be templated into the crosstool. */
   public CcToolchainVariables getBuildVariables(
-      BuildOptions buildOptions, CppConfiguration cppConfiguration) {
-    if (cppConfiguration.enableCcToolchainResolution()) {
-      // With platforms, cc toolchain is analyzed in the host configuration, so we cannot reuse
-      // build variables instance.
-      return CcToolchainProviderHelper.getBuildVariables(
-          buildOptions,
-          cppConfiguration,
-          getSysrootPathFragment(cppConfiguration),
-          additionalBuildVariablesComputer);
+      StarlarkThread thread, BuildOptions buildOptions, CppConfiguration cppConfiguration)
+      throws EvalException, InterruptedException {
+    if (!cppConfiguration.enableCcToolchainResolution()) {
+      return buildVariables;
     }
-    return buildVariables;
+    // With platforms, cc toolchain is analyzed in the exec configuration, so we can only reuse the
+    // same build variables instance if the inputs to the construction match.
+    PathFragment sysroot = getSysrootPathFragment(cppConfiguration);
+    String minOsVersion = cppConfiguration.getMinimumOsVersion();
+    if (Objects.equals(sysroot, this.sysroot)
+        && Objects.equals(minOsVersion, this.cppConfiguration.getMinimumOsVersion())
+        && (ccToolchainBuildVariablesFunc.getName().equals("cc_toolchain_build_variables")
+            || buildOptions.equals(this.buildOptions))) {
+      return buildVariables;
+    }
+    // With platforms, cc toolchain is analyzed in the exec configuration, so we cannot reuse
+    // build variables instance.
+    AppleConfiguration appleConfiguration = new AppleConfiguration(buildOptions);
+    ApplePlatform platform = appleConfiguration.getSingleArchPlatform();
+    Object ccToolchainVariables =
+        Starlark.call(
+            thread,
+            ccToolchainBuildVariablesFunc,
+            ImmutableList.of(
+                /* platform */ platform,
+                /* cpu */ buildOptions.get(CoreOptions.class).cpu,
+                /* cpp_config */ cppConfiguration,
+                /* sysroot */ (sysroot != null ? sysroot.getPathString() : Starlark.NONE)),
+            ImmutableMap.of());
+    return (CcToolchainVariables) ccToolchainVariables;
+  }
+
+  @Override
+  public CcToolchainVariables getBuildVariablesForStarlark(
+      StarlarkRuleContext starlarkRuleContext,
+      CppConfiguration cppConfiguration,
+      StarlarkThread thread)
+      throws EvalException, InterruptedException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getBuildVariables(
+        starlarkRuleContext.getRuleContext().getStarlarkThread(),
+        starlarkRuleContext.getRuleContext().getConfiguration().getOptions(),
+        cppConfiguration);
   }
 
   /**
    * Return the set of include files that may be included even if they are not mentioned in the
    * source file or any of the headers included by it.
-   *
-   * @param cppConfiguration
    */
   public ImmutableList<Artifact> getBuiltinIncludeFiles(CppConfiguration cppConfiguration) {
     if (cppConfiguration.equals(getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas())) {
@@ -761,6 +817,12 @@ public final class CcToolchainProvider extends NativeInfo
    */
   public Artifact getLinkDynamicLibraryTool() {
     return linkDynamicLibraryTool;
+  }
+
+  /** Returns the grep-includes tool which is needing during linking because of linkstamping. */
+  @Nullable
+  public Artifact getGrepIncludes() {
+    return grepIncludes;
   }
 
   /** Returns the tool that builds interface libraries from dynamic libraries. */
@@ -792,6 +854,12 @@ public final class CcToolchainProvider extends NativeInfo
     return abi;
   }
 
+  @Override
+  public String getAbiForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getAbi();
+  }
+
   /**
    * Returns the glibc version used by the abi we're using. This is a glibc version number (e.g.,
    * "2.2.2"). Note that in practice we might be using glibc 2.2.2 as ABI even when compiling with
@@ -801,6 +869,18 @@ public final class CcToolchainProvider extends NativeInfo
   // TODO(bazel-team): The javadoc should clarify how this is used in Blaze.
   public String getAbiGlibcVersion() {
     return abiGlibcVersion;
+  }
+
+  @Override
+  public String getAbiGlibcVersionForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getAbiGlibcVersion();
+  }
+
+  @Override
+  public String getCrosstoolTopPathForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return crosstoolTopPathFragment.getPathString();
   }
 
   /** Returns the compiler version string (e.g. "gcc-4.1.1"). */
@@ -831,6 +911,13 @@ public final class CcToolchainProvider extends NativeInfo
    */
   public ImmutableMap<String, String> getAdditionalMakeVariables() {
     return additionalMakeVariables;
+  }
+
+  @Override
+  public Dict<String, String> getAdditionalMakeVariablesForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Dict.immutableCopyOf(getAdditionalMakeVariables());
   }
 
   /**
@@ -909,7 +996,7 @@ public final class CcToolchainProvider extends NativeInfo
   /**
    * Unused, for compatibility with things internal to Google.
    *
-   * <p>Deprecated: Use platforms.
+   * @deprecated use platforms
    */
   @Deprecated
   public String getTargetOS() {

@@ -192,8 +192,8 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
         .addRuleDefinition(SANDWICH_RULE)
         .addRuleDefinition(SANDWICH_LOGIC_RULE)
         .addRuleDefinition(SANDWICH_CTX_RULE)
-        .addStarlarkAccessibleTopLevels("overridable_symbol", "original_value")
-        .addStarlarkAccessibleTopLevels(
+        .addBzlToplevel("overridable_symbol", "original_value")
+        .addBzlToplevel(
             "flag_guarded_symbol",
             // For this mock symbol, we reuse the same flag that guards the production
             // _builtins_dummy symbol.
@@ -485,13 +485,8 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     assertContainsEvent("In BUILD: overridable_rule :: <built-in rule overridable_rule>");
   }
 
-  // TODO(#11954): Once WORKSPACE- and BUILD-loaded bzls use the exact same environments, we'll want
-  // to apply injection to both. This is for uniformity, not because we actually care about builtins
-  // injection for WORKSPACE bzls. In the meantime, assert the status quo: WORKSPACE bzls do not use
-  // injection. WORKSPACE and BUILD files themselves probably won't be unified, so WORKSPACE will
-  // likely continue to not use injection.
   @Test
-  public void workspaceAndWorkspaceBzlDoNotUseInjection() throws Exception {
+  public void workspaceLoadedBzlUsesInjectionButNotWORKSPACE() throws Exception {
     writeExportsBzl(
         "exported_toplevels = {'overridable_symbol': 'new_value'}",
         "exported_rules = {'overridable_rule': 'new_rule'}",
@@ -510,9 +505,8 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
         "print('In bzl: overridable_symbol :: %s' % overridable_symbol)");
 
     buildAndAssertSuccess();
-    // Builtins for WORKSPACE bzls are populated essentially the same as for BUILD bzls, except that
-    // injection doesn't apply.
-    assertContainsEvent("In bzl: overridable_symbol :: original_value");
+    // Builtins for WORKSPACE bzls are populated the same as for BUILD bzls.
+    assertContainsEvent("In bzl: overridable_symbol :: new_value");
     // We don't assert that the rule isn't injected because the workspace native object doesn't
     // contain our original mock rule. We can test this for WORKSPACE files at the top-level though.
     assertContainsEvent("In WORKSPACE: overridable_rule :: <built-in function overridable_rule>");

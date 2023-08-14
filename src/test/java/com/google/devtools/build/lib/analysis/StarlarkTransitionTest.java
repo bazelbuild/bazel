@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -76,9 +75,10 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
         "string_flag(name = 'formation', build_setting_default = 'canyon')");
 
     reporter.removeHandler(failFastHandler);
+
     getConfiguredTarget("//test:arizona");
     assertContainsEvent(
-        "Transition declares duplicate build setting '@//test:formation' in INPUTS");
+        "Transition declares duplicate build setting '@@//test:formation' in INPUTS");
   }
 
   @Test
@@ -117,7 +117,7 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:arizona");
     assertContainsEvent(
-        "Transition declares duplicate build setting '@//test:formation' in OUTPUTS");
+        "Transition declares duplicate build setting '@@//test:formation' in OUTPUTS");
   }
 
   @Test
@@ -132,8 +132,13 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
         "  build_setting = config.string(flag=True),",
         ")",
         "def _transition_impl(settings, attr):",
+        "  formation = settings['@//test:formation']",
+        "  if formation.endswith('-transitioned'):",
+        "    new_value = formation",
+        "  else:",
+        "    new_value = formation + '-transitioned'",
         "  return {",
-        "    '//test:formation': settings['@//test:formation']+'-transitioned',",
+        "    '//test:formation': new_value,",
         "  }",
         "formation_transition = transition(",
         "  implementation = _transition_impl,",
@@ -159,7 +164,7 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
     Map<Label, Object> starlarkOptions =
         getConfiguration(getConfiguredTarget("//test:arizona")).getOptions().getStarlarkOptions();
     assertThat(starlarkOptions).hasSize(1);
-    assertThat(starlarkOptions.get(Label.parseAbsoluteUnchecked("//test:formation")))
+    assertThat(starlarkOptions.get(Label.parseCanonicalUnchecked("//test:formation")))
         .isEqualTo("canyon-transitioned");
   }
 
@@ -207,7 +212,7 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
             getConfiguration(getConfiguredTarget("//test:foo"))
                 .getOptions()
                 .getStarlarkOptions()
-                .get(Label.parseAbsoluteUnchecked("//options:fruit")))
+                .get(Label.parseCanonicalUnchecked("//options:fruit")))
         .isEqualTo("apple-eaten");
 
     scratch.overwriteFile(
@@ -219,7 +224,7 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
             getConfiguration(getConfiguredTarget("//test:foo"))
                 .getOptions()
                 .getStarlarkOptions()
-                .get(Label.parseAbsoluteUnchecked("//options:fruit")))
+                .get(Label.parseCanonicalUnchecked("//options:fruit")))
         .isEqualTo("orange-eaten");
   }
 
@@ -237,7 +242,7 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
 
     assertThat(
             getConfiguration(getConfiguredTarget("//test:foo")).getOptions().getStarlarkOptions())
-        .containsExactly(Label.parseAbsoluteUnchecked("//options:usually_apple"), "apple-eaten");
+        .containsExactly(Label.parseCanonicalUnchecked("//options:usually_apple"), "apple-eaten");
 
     scratch.overwriteFile(
         "options/BUILD",
@@ -249,6 +254,6 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
 
     assertThat(
             getConfiguration(getConfiguredTarget("//test:foo")).getOptions().getStarlarkOptions())
-        .containsExactly(Label.parseAbsoluteUnchecked("//options:usually_orange"), "orange-eaten");
+        .containsExactly(Label.parseCanonicalUnchecked("//options:usually_orange"), "orange-eaten");
   }
 }

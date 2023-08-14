@@ -109,7 +109,7 @@ public final class MapBasedActionGraphTest {
           200,
           1,
           TimeUnit.SECONDS,
-          /*failFastOnException=*/ true,
+          ExceptionHandlingMode.FAIL_FAST,
           "action-graph-test",
           ErrorClassifier.DEFAULT);
       Path execRoot = fileSystem.getPath("/");

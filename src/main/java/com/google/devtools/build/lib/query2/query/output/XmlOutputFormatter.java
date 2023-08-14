@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.DependencyFilter;
@@ -61,6 +62,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
 
   private AspectResolver aspectResolver;
   private DependencyFilter dependencyFilter;
+  private boolean packageGroupIncludesDoubleSlash;
   private boolean relativeLocations;
   private boolean displaySourceFileLocation;
   private QueryOptions queryOptions;
@@ -74,7 +76,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
   public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
       OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
     return new SynchronizedDelegatingOutputFormatterCallback<>(
-        createPostFactoStreamCallback(out, options));
+        createPostFactoStreamCallback(out, options, env.getMainRepoMapping()));
   }
 
   @Override
@@ -83,6 +85,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
     super.setOptions(options, aspectResolver, hashFunction);
     this.aspectResolver = aspectResolver;
     this.dependencyFilter = FormatUtils.getDependencyFilter(options);
+    this.packageGroupIncludesDoubleSlash = options.incompatiblePackageGroupIncludesDoubleSlash;
     this.relativeLocations = options.relativeLocations;
     this.displaySourceFileLocation = options.displaySourceFileLocation;
 
@@ -92,7 +95,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
 
   @Override
   public OutputFormatterCallback<Target> createPostFactoStreamCallback(
-      OutputStream out, QueryOptions options) {
+      OutputStream out, QueryOptions options, RepositoryMapping mainRepoMapping) {
     return new OutputFormatterCallback<Target>() {
 
       private Document doc;
@@ -155,10 +158,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       elem = doc.createElement("rule");
       elem.setAttribute("class", rule.getRuleClass());
       for (Attribute attr : rule.getAttributes()) {
-        AttributeValueSource attributeValueSource =
-            AttributeValueSource.forRuleAndAttribute(rule, attr);
-        if (attributeValueSource == AttributeValueSource.RULE
-            || queryOptions.xmlShowDefaultValues) {
+        if (rule.isAttributeValueExplicitlySpecified(attr) || queryOptions.xmlShowDefaultValues) {
           // TODO(b/162524370): mayTreatMultipleAsNone should be true for types that drop multiple
           //  values.
           Iterable<Object> values =
@@ -170,27 +170,31 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
         }
       }
 
-      // Include explicit elements for all direct inputs and outputs of a rule;
-      // this goes beyond what is available from the attributes above, since it
-      // may also (depending on options) include implicit outputs,
-      // host-configuration outputs, and default values.
+      // Include explicit elements for all direct inputs and outputs of a rule; this goes beyond
+      // what is available from the attributes above, since it may also (depending on options)
+      // include implicit outputs, exec-configuration outputs, and default values.
       for (Label label : rule.getSortedLabels(dependencyFilter)) {
         Element inputElem = doc.createElement("rule-input");
         inputElem.setAttribute("name", label.toString());
         elem.appendChild(inputElem);
       }
-      for (Label label :
-          aspectResolver.computeAspectDependencies(target, dependencyFilter).values()) {
-        Element inputElem = doc.createElement("rule-input");
-        inputElem.setAttribute("name", label.toString());
-        elem.appendChild(inputElem);
-      }
+
+      aspectResolver.computeAspectDependencies(target, dependencyFilter).values().stream()
+          .flatMap(m -> m.values().stream())
+          .distinct()
+          .forEach(
+              label -> {
+                Element inputElem = doc.createElement("rule-input");
+                inputElem.setAttribute("name", label.toString());
+                elem.appendChild(inputElem);
+              });
+
       for (OutputFile outputFile : rule.getOutputFiles()) {
         Element outputElem = doc.createElement("rule-output");
         outputElem.setAttribute("name", outputFile.getLabel().toString());
         elem.appendChild(outputElem);
       }
-      for (String feature : rule.getPackage().getFeatures()) {
+      for (String feature : rule.getPackage().getPackageArgs().features().toStringList()) {
         Element outputElem = doc.createElement("rule-default-setting");
         outputElem.setAttribute("name", feature);
         elem.appendChild(outputElem);
@@ -205,7 +209,10 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       includes.setAttribute("name", "includes");
       elem.appendChild(includes);
       Element packages =
-          createValueElement(doc, Type.STRING_LIST, packageGroup.getContainedPackages());
+          createValueElement(
+              doc,
+              Type.STRING_LIST,
+              packageGroup.getContainedPackages(packageGroupIncludesDoubleSlash));
       packages.setAttribute("name", "packages");
       elem.appendChild(packages);
     } else if (target instanceof OutputFile) {
@@ -258,13 +265,13 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
   }
 
   private static void addPackageGroupsToElement(Document doc, Element parent, Target target) {
-    for (Label visibilityDependency : target.getVisibility().getDependencyLabels()) {
+    for (Label visibilityDependency : target.getVisibilityDependencyLabels()) {
       Element elem = doc.createElement("package-group");
       elem.setAttribute("name", visibilityDependency.toString());
       parent.appendChild(elem);
     }
 
-    for (Label visibilityDeclaration : target.getVisibility().getDeclaredLabels()) {
+    for (Label visibilityDeclaration : target.getVisibilityDeclaredLabels()) {
       Element elem = doc.createElement("visibility-label");
       elem.setAttribute("name", visibilityDeclaration.toString());
       parent.appendChild(elem);
@@ -272,7 +279,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
   }
 
   private static void addFeaturesToElement(Document doc, Element parent, InputFile inputFile) {
-    for (String feature : inputFile.getPackage().getFeatures()) {
+    for (String feature : inputFile.getPackage().getPackageArgs().features().toStringList()) {
       Element elem = doc.createElement("feature");
       elem.setAttribute("name", feature);
       parent.appendChild(elem);

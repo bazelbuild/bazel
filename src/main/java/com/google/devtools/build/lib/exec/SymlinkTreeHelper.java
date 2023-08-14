@@ -120,30 +120,31 @@ public final class SymlinkTreeHelper {
   /**
    * Creates symlink tree and output manifest using the {@code build-runfiles.cc} tool.
    *
-   * @param enableRunfiles If {@code false} only the output manifest is created.
+   * @param manifestOnly If {@code true}, only the output manifest is created.
    */
   public void createSymlinks(
       Path execRoot,
       OutErr outErr,
       BinTools binTools,
       Map<String, String> shellEnvironment,
-      boolean enableRunfiles)
+      boolean manifestOnly)
       throws ExecException, InterruptedException {
-    if (enableRunfiles) {
-      createSymlinksUsingCommand(execRoot, binTools, shellEnvironment, outErr);
-    } else {
+    if (manifestOnly) {
       copyManifest();
+    } else {
+      createSymlinksUsingCommand(execRoot, binTools, shellEnvironment, outErr);
     }
   }
 
   /** Copies the input manifest to the output manifest. */
   public void copyManifest() throws ExecException {
-    // Pretend we created the runfiles tree by copying the manifest
+    // Pretend we created the runfiles tree by symlinking the output manifest to the input manifest.
+    Path outputManifest = getOutputManifest();
     try {
       symlinkTreeRoot.createDirectoryAndParents();
-      FileSystemUtils.copyFile(inputManifest, getOutputManifest());
+      outputManifest.createSymbolicLink(inputManifest);
     } catch (IOException e) {
-      throw new EnvironmentalExecException(e, Code.SYMLINK_TREE_MANIFEST_COPY_IO_EXCEPTION);
+      throw new EnvironmentalExecException(e, Code.SYMLINK_TREE_MANIFEST_LINK_IO_EXCEPTION);
     }
   }
 
@@ -180,8 +181,8 @@ public final class SymlinkTreeHelper {
     Preconditions.checkNotNull(shellEnvironment);
     List<String> args = Lists.newArrayList();
     args.add(binTools.getEmbeddedPath(BUILD_RUNFILES).asFragment().getPathString());
+    args.add("--allow_relative");
     if (filesetTree) {
-      args.add("--allow_relative");
       args.add("--use_metadata");
     }
     args.add(inputManifest.relativeTo(execRoot).getPathString());

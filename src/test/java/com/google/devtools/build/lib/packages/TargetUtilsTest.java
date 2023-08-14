@@ -296,4 +296,88 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
 
     assertThat(execInfo).containsExactly("no-remote", "1");
   }
+
+  @Test
+  public void testExecutionInfoMisc() throws Exception {
+    // Migrated from a removed test class that was focused on top-level build configuration.
+    // TODO(anyone): remove tests here that are redundant w.r.t. the other tests in this file.
+    scratch.file(
+        "x/BUILD",
+        "cc_test(name = 'y',",
+        "          srcs = ['a'],",
+        "          size = 'small',",
+        "          tags = ['manual','local','exclusive'])",
+        "cc_test(name = 'z',",
+        "          srcs = ['a'],",
+        "          size = 'small',",
+        "          tags = ['othertag', 'requires-feature2'])",
+        "cc_test(name = 'k',",
+        "          srcs = ['a'],",
+        "          size = 'small',",
+        "          tags = ['requires-feature1'])",
+        "cc_test(name = 'exclusive_if_local',",
+        "          srcs = ['a'],",
+        "          size = 'small',",
+        "          tags = ['exclusive-if-local'])",
+        "cc_test(name = 'exclusive_only',",
+        "          srcs = ['a'],",
+        "          size = 'small',",
+        "          tags = ['exclusive'])",
+        "test_suite(name = 'ts',",
+        "          tests = ['z'])",
+        "cc_binary(name = 'x',",
+        "          srcs = ['a', 'b', 'c'],",
+        "          defines = ['-Da', '-Db'])",
+        "cc_binary(name = 'lib1',",
+        "          srcs = ['a', 'b', 'c'],",
+        "          linkshared = 1)",
+        "genrule(name = 'gen1',",
+        "          srcs = [],",
+        "          outs = ['t1', 't2'],",
+        "          cmd = 'my cmd')",
+        "genrule(name = 'gen2',",
+        "          srcs = ['liba.so'],",
+        "          outs = ['libnewa.so'],",
+        "          cmd = 'my cmd')");
+    Rule x = (Rule) getTarget("//x:x");
+    assertThat(TargetUtils.isTestRule(x)).isFalse();
+    Rule ts = (Rule) getTarget("//x:ts");
+    assertThat(TargetUtils.isTestRule(ts)).isFalse();
+    assertThat(TargetUtils.isTestOrTestSuiteRule(ts)).isTrue();
+    Rule z = (Rule) getTarget("//x:z");
+    assertThat(TargetUtils.isTestRule(z)).isTrue();
+    assertThat(TargetUtils.isTestOrTestSuiteRule(z)).isTrue();
+    assertThat(TargetUtils.isExclusiveTestRule(z)).isFalse();
+    assertThat(TargetUtils.isExclusiveIfLocalTestRule(z)).isFalse();
+    assertThat(TargetUtils.isLocalTestRule(z)).isFalse();
+    assertThat(TargetUtils.hasManualTag(z)).isFalse();
+    assertThat(TargetUtils.getExecutionInfo(z)).doesNotContainKey("requires-feature1");
+    assertThat(TargetUtils.getExecutionInfo(z)).containsKey("requires-feature2");
+    Rule k = (Rule) getTarget("//x:k");
+    assertThat(TargetUtils.isTestRule(k)).isTrue();
+    assertThat(TargetUtils.isTestOrTestSuiteRule(k)).isTrue();
+    assertThat(TargetUtils.isExclusiveTestRule(k)).isFalse();
+    assertThat(TargetUtils.isExclusiveIfLocalTestRule(k)).isFalse();
+    assertThat(TargetUtils.isLocalTestRule(k)).isFalse();
+    assertThat(TargetUtils.hasManualTag(k)).isFalse();
+    assertThat(TargetUtils.getExecutionInfo(k)).containsKey("requires-feature1");
+    assertThat(TargetUtils.getExecutionInfo(k)).doesNotContainKey("requires-feature2");
+    Rule y = (Rule) getTarget("//x:y");
+    assertThat(TargetUtils.isTestRule(y)).isTrue();
+    assertThat(TargetUtils.isTestOrTestSuiteRule(y)).isTrue();
+    assertThat(TargetUtils.isExclusiveTestRule(y)).isTrue();
+    assertThat(TargetUtils.isExclusiveIfLocalTestRule(y)).isFalse();
+    assertThat(TargetUtils.isLocalTestRule(y)).isTrue();
+    assertThat(TargetUtils.hasManualTag(y)).isTrue();
+    assertThat(TargetUtils.getExecutionInfo(y)).doesNotContainKey("requires-feature1");
+    assertThat(TargetUtils.getExecutionInfo(y)).doesNotContainKey("requires-feature2");
+    Rule exclusiveIfRunLocally = (Rule) getTarget("//x:exclusive_if_local");
+    assertThat(TargetUtils.isExclusiveIfLocalTestRule(exclusiveIfRunLocally)).isTrue();
+    assertThat(TargetUtils.isLocalTestRule(exclusiveIfRunLocally)).isFalse();
+    assertThat(TargetUtils.isExclusiveTestRule(exclusiveIfRunLocally)).isFalse();
+    Rule exclusive = (Rule) getTarget("//x:exclusive_only");
+    assertThat(TargetUtils.isExclusiveTestRule(exclusive)).isTrue();
+    assertThat(TargetUtils.isLocalTestRule(exclusive)).isFalse(); // LOCAL tag gets added later.
+    assertThat(TargetUtils.isExclusiveIfLocalTestRule(exclusive)).isFalse();
+  }
 }

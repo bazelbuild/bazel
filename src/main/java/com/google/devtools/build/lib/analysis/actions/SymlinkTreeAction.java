@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.actions;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -42,13 +43,14 @@ public final class SymlinkTreeAction extends AbstractAction {
 
   private static final String GUID = "7a16371c-cd4a-494d-b622-963cd89f5212";
 
-  @Nullable private final Artifact inputManifest;
+  private final Artifact inputManifest;
   private final Runfiles runfiles;
   private final Artifact outputManifest;
   @Nullable private final String filesetRoot;
+  private final ActionEnvironment env;
   private final boolean enableRunfiles;
   private final boolean inprocessSymlinkCreation;
-  private final boolean skipRunfilesManifests;
+  private final Artifact repoMappingManifest;
 
   /**
    * Creates SymlinkTreeAction instance.
@@ -59,6 +61,7 @@ public final class SymlinkTreeAction extends AbstractAction {
    * @param runfiles the input runfiles
    * @param outputManifest the generated symlink tree manifest (must have "MANIFEST" base name).
    *     Symlink tree root will be set to the artifact's parent directory.
+   * @param repoMappingManifest the repository mapping manifest
    * @param filesetRoot non-null if this is a fileset symlink tree
    */
   public SymlinkTreeAction(
@@ -67,17 +70,18 @@ public final class SymlinkTreeAction extends AbstractAction {
       Artifact inputManifest,
       @Nullable Runfiles runfiles,
       Artifact outputManifest,
+      @Nullable Artifact repoMappingManifest,
       String filesetRoot) {
     this(
         owner,
         inputManifest,
         runfiles,
         outputManifest,
+        repoMappingManifest,
         filesetRoot,
         config.getActionEnvironment(),
         config.runfilesEnabled(),
-        config.inprocessSymlinkCreation(),
-        config.skipRunfilesManifests());
+        config.inprocessSymlinkCreation());
   }
 
   /**
@@ -90,23 +94,24 @@ public final class SymlinkTreeAction extends AbstractAction {
    * @param runfiles the input runfiles
    * @param outputManifest the generated symlink tree manifest (must have "MANIFEST" base name).
    *     Symlink tree root will be set to the artifact's parent directory.
+   * @param repoMappingManifest the repository mapping manifest
    * @param filesetRoot non-null if this is a fileset symlink tree,
    */
+  @VisibleForTesting
   public SymlinkTreeAction(
       ActionOwner owner,
       Artifact inputManifest,
       @Nullable Runfiles runfiles,
       Artifact outputManifest,
+      @Nullable Artifact repoMappingManifest,
       @Nullable String filesetRoot,
       ActionEnvironment env,
       boolean enableRunfiles,
-      boolean inprocessSymlinkCreation,
-      boolean skipRunfilesManifests) {
+      boolean inprocessSymlinkCreation) {
     super(
         owner,
-        computeInputs(enableRunfiles, skipRunfilesManifests, runfiles, inputManifest),
-        ImmutableSet.of(outputManifest),
-        env);
+        computeInputs(enableRunfiles, runfiles, inputManifest, repoMappingManifest),
+        ImmutableSet.of(outputManifest));
     Preconditions.checkArgument(outputManifest.getPath().getBaseName().equals("MANIFEST"));
     Preconditions.checkArgument(
         (runfiles == null) == (filesetRoot != null),
@@ -114,28 +119,35 @@ public final class SymlinkTreeAction extends AbstractAction {
     this.runfiles = runfiles;
     this.outputManifest = outputManifest;
     this.filesetRoot = filesetRoot;
+    this.env = env;
     this.enableRunfiles = enableRunfiles;
     this.inprocessSymlinkCreation = inprocessSymlinkCreation;
-    this.skipRunfilesManifests = skipRunfilesManifests && enableRunfiles && (filesetRoot == null);
-    this.inputManifest = this.skipRunfilesManifests ? null : inputManifest;
+    this.inputManifest = inputManifest;
+    this.repoMappingManifest = repoMappingManifest;
   }
 
   private static NestedSet<Artifact> computeInputs(
       boolean enableRunfiles,
-      boolean skipRunfilesManifests,
       Runfiles runfiles,
-      Artifact inputManifest) {
-    NestedSetBuilder<Artifact> inputs = NestedSetBuilder.<Artifact>stableOrder();
-    if (!skipRunfilesManifests || !enableRunfiles || runfiles == null) {
-      inputs.add(inputManifest);
-    }
+      Artifact inputManifest,
+      @Nullable Artifact repoMappingManifest) {
+    NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
+    inputs.add(inputManifest);
     // All current strategies (in-process and build-runfiles-windows) for
     // making symlink trees on Windows depend on the target files
     // existing, so directory or file links can be made as appropriate.
     if (enableRunfiles && runfiles != null && OS.getCurrent() == OS.WINDOWS) {
       inputs.addTransitive(runfiles.getAllArtifacts());
+      if (repoMappingManifest != null) {
+        inputs.add(repoMappingManifest);
+      }
     }
     return inputs.build();
+  }
+
+  @Override
+  public ActionEnvironment getEnvironment() {
+    return env;
   }
 
   public Artifact getInputManifest() {
@@ -149,6 +161,11 @@ public final class SymlinkTreeAction extends AbstractAction {
 
   public Artifact getOutputManifest() {
     return outputManifest;
+  }
+
+  @Nullable
+  public Artifact getRepoMappingManifest() {
+    return repoMappingManifest;
   }
 
   public boolean isFilesetTree() {
@@ -187,7 +204,6 @@ public final class SymlinkTreeAction extends AbstractAction {
     fp.addNullableString(filesetRoot);
     fp.addBoolean(enableRunfiles);
     fp.addBoolean(inprocessSymlinkCreation);
-    fp.addBoolean(skipRunfilesManifests);
     env.addTo(fp);
     // We need to ensure that the fingerprints for two different instances of this action are
     // different. Consider the hypothetical scenario where we add a second runfiles object to this
@@ -199,7 +215,11 @@ public final class SymlinkTreeAction extends AbstractAction {
     // safe to add more fields in the future.
     fp.addBoolean(runfiles != null);
     if (runfiles != null) {
-      runfiles.fingerprint(fp);
+      runfiles.fingerprint(actionKeyContext, fp);
+    }
+    fp.addBoolean(repoMappingManifest != null);
+    if (repoMappingManifest != null) {
+      fp.addPath(repoMappingManifest.getExecPath());
     }
   }
 

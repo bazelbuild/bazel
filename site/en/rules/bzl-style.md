@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # .bzl style guide
 
+{% include "_buttons.html" %}
+
 This page covers basic style guidelines for Starlark and also includes
 information on macros and rules.
 
@@ -135,17 +137,15 @@ referenced directly at the Bazel CLI or in BUILD files: In that case, only the
 *end users* of those targets need to know about them, and any build problems
 introduced by macros are never far from their usage.
 
-For macros that define internal targets (implementation details of the macro
+For macros that define generated targets (implementation details of the macro
 which are not supposed to be referred to at the CLI or depended on by targets
 not instantiated by that macro), follow these best practices:
 
 *   A macro should take a `name` argument and define a target with that name.
     That target becomes that macro's *main target*.
-*   All other targets defined by a macro should:
-    *   Have their names preceded with an underscore (`_`), followed by the
-        value of the `name` attribute. For instance, if the macro is supplied
-        with the name *resources*, internal targets should have names
-        beginning with *_resources*.
+*   Generated targets, that is all other targets defined by a macro, should:
+    *   Have their names prefixed by `<name>` or `_<name>`. For example, using
+        `name = '%s_bar' % (name)`.
     *   Have restricted visibility (`//visibility:private`), and
     *   Have a `manual` tag to avoid expansion in wildcard targets (`:all`,
         `...`, `:*`, etc).
@@ -168,6 +168,8 @@ problem, ask the rule author if they can extend the API to accomplish your
 goals.
 
 As a rule of thumb, the more macros resemble the rules, the better.
+
+See also [macros](/extending/macros#conventions).
 
 ## Rules {:#rules}
 
@@ -202,7 +204,7 @@ As a rule of thumb, the more macros resemble the rules, the better.
     (named with a leading underscore). A common style is to give the
     implementation function for `myrule` the name `_myrule_impl`.
 *   Pass information between your rules using a well-defined
-    [provider](/rules/rules#providers) interface. Declare and document provider
+    [provider](/extending/rules#providers) interface. Declare and document provider
     fields.
 *   Design your rule with extensibility in mind. Consider that other rules might
     want to interact with your rule, access your providers, and reuse the

@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -193,9 +194,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
             ruleContext, aar, ANDROID_MANIFEST, jdepsArtifact, androidManifestArtifact));
 
     JavaCompilationArgsProvider javaCompilationArgsProvider =
-        common.collectJavaCompilationArgs(
-            /* isNeverLink = */ JavaCommon.isNeverLink(ruleContext),
-            /* srcLessDepsExport = */ false);
+        common.collectJavaCompilationArgs(/* isNeverLink= */ JavaCommon.isNeverLink(ruleContext));
 
     // Wire up the source jar for the current target and transitive source jars from dependencies.
     ImmutableList<Artifact> srcJars = ImmutableList.of();
@@ -205,10 +204,8 @@ public class AarImport implements RuleConfiguredTargetFactory {
       srcJars = ImmutableList.of(srcJar);
       transitiveJavaSourceJarBuilder.add(srcJar);
     }
-    for (JavaSourceJarsProvider other :
-        JavaInfo.getProvidersFromListOfTargets(
-            JavaSourceJarsProvider.class, ruleContext.getPrerequisites("exports"))) {
-      transitiveJavaSourceJarBuilder.addTransitive(other.getTransitiveSourceJars());
+    for (TransitiveInfoCollection target : ruleContext.getPrerequisites("exports")) {
+      transitiveJavaSourceJarBuilder.addTransitive(JavaInfo.transitiveSourceJars(target));
     }
     NestedSet<Artifact> transitiveJavaSourceJars = transitiveJavaSourceJarBuilder.build();
     JavaSourceJarsProvider javaSourceJarsProvider =
@@ -219,9 +216,9 @@ public class AarImport implements RuleConfiguredTargetFactory {
             .setRuntimeJars(ImmutableList.of(mergedJar))
             .setJavaConstraints(ImmutableList.of("android"))
             .setNeverlink(JavaCommon.isNeverLink(ruleContext))
-            .addProvider(JavaCompilationArgsProvider.class, javaCompilationArgsProvider)
-            .addProvider(JavaSourceJarsProvider.class, javaSourceJarsProvider)
-            .addProvider(JavaRuleOutputJarsProvider.class, jarProviderBuilder.build());
+            .javaCompilationArgs(javaCompilationArgsProvider)
+            .javaSourceJars(javaSourceJarsProvider)
+            .javaRuleOutputs(jarProviderBuilder.build());
 
     common.addTransitiveInfoProviders(
         ruleBuilder, javaInfoBuilder, filesToBuild, /*classJar=*/ null);
@@ -243,7 +240,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .addNativeDeclaredProvider(
             new AndroidNativeLibsInfo(
                 AndroidCommon.collectTransitiveNativeLibs(ruleContext).add(nativeLibs).build()))
-        .addNativeDeclaredProvider(javaInfoBuilder.build());
+        .addStarlarkDeclaredProvider(javaInfoBuilder.build());
     if (jdepsArtifact != null) {
       // Add the deps check result so that we can unit test it.
       ruleBuilder.addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, jdepsArtifact);
@@ -252,7 +249,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
   }
 
   private static NestedSet<Artifact> getCompileTimeJarsFromCollection(
-      ImmutableList<TransitiveInfoCollection> deps, boolean isDirect) {
+      ImmutableList<TransitiveInfoCollection> deps, boolean isDirect) throws RuleErrorException {
     JavaCompilationArgsProvider provider = JavaCompilationArgsProvider.legacyFromTargets(deps);
     return isDirect ? provider.getDirectCompileTimeJars() : provider.getTransitiveCompileTimeJars();
   }
@@ -403,7 +400,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
   private static SpawnAction createAarJarsMergingActions(
       RuleContext ruleContext, Artifact jarsTreeArtifact, Artifact mergedJar, Artifact paramFile) {
     SpawnAction.Builder builder = new SpawnAction.Builder().useDefaultShellEnvironment();
-    Artifact singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
+    FilesToRunProvider singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
     return builder
         .setExecutable(singleJar)
         .setMnemonic("AarJarsMerger")

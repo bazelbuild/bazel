@@ -33,6 +33,7 @@ import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_DICT;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST_DICT;
+import static com.google.devtools.build.lib.packages.Type.STRING_NO_INTERN;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
@@ -59,6 +60,7 @@ public class AttributeFormatter {
   private static final ImmutableSet<Type<?>> depTypes =
       ImmutableSet.of(
           STRING,
+          STRING_NO_INTERN,
           LABEL,
           OUTPUT,
           STRING_LIST,
@@ -92,7 +94,26 @@ public class AttributeFormatter {
         attr.getType(),
         value,
         explicitlySpecified,
-        encodeBooleanAndTriStateAsIntegerAndString);
+        encodeBooleanAndTriStateAsIntegerAndString,
+        /* sourceAspect= */ null,
+        /* includeAttributeSourceAspects */ false);
+  }
+
+  public static Build.Attribute getAttributeProto(
+      Attribute attr,
+      @Nullable Object value,
+      boolean explicitlySpecified,
+      boolean encodeBooleanAndTriStateAsIntegerAndString,
+      @Nullable Aspect sourceAspect,
+      boolean includeAttributeSourceAspects) {
+    return getAttributeProto(
+        attr.getName(),
+        attr.getType(),
+        value,
+        explicitlySpecified,
+        encodeBooleanAndTriStateAsIntegerAndString,
+        sourceAspect,
+        includeAttributeSourceAspects);
   }
 
   private static Build.Attribute getAttributeProto(
@@ -100,7 +121,9 @@ public class AttributeFormatter {
       Type<?> type,
       @Nullable Object value,
       boolean explicitlySpecified,
-      boolean encodeBooleanAndTriStateAsIntegerAndString) {
+      boolean encodeBooleanAndTriStateAsIntegerAndString,
+      @Nullable Aspect sourceAspect,
+      boolean includeAttributeSourceAspects) {
     Build.Attribute.Builder attrPb = Build.Attribute.newBuilder();
     attrPb.setName(name);
     attrPb.setExplicitlySpecified(explicitlySpecified);
@@ -116,6 +139,11 @@ public class AttributeFormatter {
             new AttributeBuilderAdapter(attrPb, encodeBooleanAndTriStateAsIntegerAndString);
         writeAttributeValueToBuilder(adapter, type, value);
       }
+    }
+
+    if (includeAttributeSourceAspects) {
+      attrPb.setSourceAspectName(
+          sourceAspect != null ? sourceAspect.getAspectClass().getName() : "");
     }
 
     return attrPb.build();
@@ -143,20 +171,19 @@ public class AttributeFormatter {
       // Note that the order of entries returned by selector.getEntries is stable. The map's
       // entries' order is preserved from the fact that Starlark dictionary entry order is stable
       // (it's determined by insertion order).
-      for (Map.Entry<Label, ?> entry : selector.getEntries().entrySet()) {
-        Label condition = entry.getKey();
-        SelectorEntry.Builder selectorEntryBuilder =
-            SelectorEntry.newBuilder()
-                .setLabel(condition.toString())
-                .setIsDefaultValue(!selector.isValueSet(condition));
+      selector.forEach(
+          (condition, conditionValue) -> {
+            SelectorEntry.Builder selectorEntryBuilder =
+                SelectorEntry.newBuilder()
+                    .setLabel(condition.toString())
+                    .setIsDefaultValue(!selector.isValueSet(condition));
 
-        Object conditionValue = entry.getValue();
-        if (conditionValue != null) {
-          writeAttributeValueToBuilder(
-              new SelectorEntryBuilderAdapter(selectorEntryBuilder), type, conditionValue);
-        }
-        selectorBuilder.addEntries(selectorEntryBuilder);
-      }
+            if (conditionValue != null) {
+              writeAttributeValueToBuilder(
+                  new SelectorEntryBuilderAdapter(selectorEntryBuilder), type, conditionValue);
+            }
+            selectorBuilder.addEntries(selectorEntryBuilder);
+          });
       selectorListBuilder.addElements(selectorBuilder);
     }
     attrPb.setSelectorList(selectorListBuilder);
@@ -171,11 +198,11 @@ public class AttributeFormatter {
     if (type == INTEGER) {
       builder.setIntValue(((StarlarkInt) value).toIntUnchecked());
     } else if (type == STRING
+        || type == STRING_NO_INTERN
         || type == LABEL
         || type == NODEP_LABEL
         || type == OUTPUT
         || type == GENQUERY_SCOPE_TYPE) {
-
       builder.setStringValue(value.toString());
     } else if (type == STRING_LIST
         || type == LABEL_LIST

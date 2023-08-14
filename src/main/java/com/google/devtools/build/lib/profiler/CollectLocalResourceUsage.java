@@ -17,9 +17,14 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ResourceEstimator;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.profiler.NetworkMetricsCollector.SystemNetworkUsages;
 import com.google.devtools.build.lib.unix.ProcMeminfoParser;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.worker.WorkerMetric;
 import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
@@ -28,46 +33,59 @@ import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import javax.annotation.Nullable;
 
 /** Thread to collect local resource usage data and log into JSON profile. */
 public class CollectLocalResourceUsage extends Thread {
+
   // TODO(twerth): Make these configurable.
   private static final Duration BUCKET_DURATION = Duration.ofSeconds(1);
   private static final Duration LOCAL_RESOURCES_COLLECT_SLEEP_INTERVAL = Duration.ofMillis(200);
 
   private final BugReporter bugReporter;
   private final boolean collectWorkerDataInProfiler;
+  private final boolean collectLoadAverage;
+  private final boolean collectSystemNetworkUsage;
+  private final boolean collectResourceManagerEstimation;
 
   private volatile boolean stopLocalUsageCollection;
   private volatile boolean profilingStarted;
 
   @GuardedBy("this")
-  private TimeSeries localCpuUsage;
-
-  @GuardedBy("this")
-  private TimeSeries systemCpuUsage;
-
-  @GuardedBy("this")
-  private TimeSeries localMemoryUsage;
-
-  @GuardedBy("this")
-  private TimeSeries systemMemoryUsage;
-
-  @GuardedBy("this")
-  private TimeSeries workersMemoryUsage;
+  @Nullable
+  private Map<ProfilerTask, TimeSeries> timeSeries;
 
   private Stopwatch stopwatch;
 
   private final WorkerMetricsCollector workerMetricsCollector;
 
+  private final ResourceEstimator resourceEstimator;
+  private final boolean collectPressureStallIndicators;
+
   CollectLocalResourceUsage(
       BugReporter bugReporter,
       WorkerMetricsCollector workerMetricsCollector,
-      boolean collectWorkerDataInProfiler) {
+      ResourceEstimator resourceEstimator,
+      boolean collectWorkerDataInProfiler,
+      boolean collectLoadAverage,
+      boolean collectSystemNetworkUsage,
+      boolean collectResourceManagerEstimation,
+      boolean collectPressureStallIndicators) {
+    super("collect-local-resources");
     this.bugReporter = checkNotNull(bugReporter);
     this.collectWorkerDataInProfiler = collectWorkerDataInProfiler;
     this.workerMetricsCollector = workerMetricsCollector;
+    this.collectLoadAverage = collectLoadAverage;
+    this.collectSystemNetworkUsage = collectSystemNetworkUsage;
+    this.collectResourceManagerEstimation = collectResourceManagerEstimation;
+    this.resourceEstimator = resourceEstimator;
+    this.collectPressureStallIndicators = collectPressureStallIndicators;
   }
 
   @Override
@@ -75,22 +93,37 @@ public class CollectLocalResourceUsage extends Thread {
     int numProcessors = Runtime.getRuntime().availableProcessors();
     stopwatch = Stopwatch.createStarted();
     synchronized (this) {
-      localCpuUsage =
-          new TimeSeries(
-              /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
-      localMemoryUsage =
-          new TimeSeries(
-              /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
-      systemCpuUsage =
-          new TimeSeries(
-              /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
-      systemMemoryUsage =
-          new TimeSeries(
-              /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
+      timeSeries = new HashMap<>();
+      Duration startTime = stopwatch.elapsed();
+      List<ProfilerTask> enabledCounters = new ArrayList<>();
+      enabledCounters.addAll(
+          ImmutableList.of(
+              ProfilerTask.LOCAL_CPU_USAGE,
+              ProfilerTask.LOCAL_MEMORY_USAGE,
+              ProfilerTask.SYSTEM_CPU_USAGE,
+              ProfilerTask.SYSTEM_MEMORY_USAGE));
+
       if (collectWorkerDataInProfiler) {
-        workersMemoryUsage =
-            new TimeSeries(
-                /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
+        enabledCounters.add(ProfilerTask.WORKERS_MEMORY_USAGE);
+      }
+      if (collectLoadAverage) {
+        enabledCounters.add(ProfilerTask.SYSTEM_LOAD_AVERAGE);
+      }
+      if (collectSystemNetworkUsage) {
+        enabledCounters.add(ProfilerTask.SYSTEM_NETWORK_UP_USAGE);
+        enabledCounters.add(ProfilerTask.SYSTEM_NETWORK_DOWN_USAGE);
+      }
+      if (collectResourceManagerEstimation) {
+        enabledCounters.add(ProfilerTask.MEMORY_USAGE_ESTIMATION);
+        enabledCounters.add(ProfilerTask.CPU_USAGE_ESTIMATION);
+      }
+      if (collectPressureStallIndicators) {
+        enabledCounters.add(ProfilerTask.PRESSURE_STALL_IO);
+        enabledCounters.add(ProfilerTask.PRESSURE_STALL_MEMORY);
+      }
+
+      for (ProfilerTask counter : enabledCounters) {
+        timeSeries.put(counter, new TimeSeries(startTime, BUCKET_DURATION));
       }
     }
     OperatingSystemMXBean osBean =
@@ -108,8 +141,14 @@ public class CollectLocalResourceUsage extends Thread {
       Duration nextElapsed = stopwatch.elapsed();
       long nextCpuTimeNanos = osBean.getProcessCpuTime();
 
-      double systemLoad = osBean.getSystemCpuLoad();
-      double systemUsage = systemLoad * numProcessors;
+      double systemCpuLoad = osBean.getSystemCpuLoad();
+      if (Double.isNaN(systemCpuLoad)) {
+        // Unlike advertised, on Mac the system CPU load is NaN sometimes.
+        // There is no good way to handle this, so to avoid any downstream method crashing on this,
+        // we reset the CPU value here.
+        systemCpuLoad = 0;
+      }
+      double systemUsage = systemCpuLoad * numProcessors;
 
       long systemMemoryUsageMb = -1;
       if (OS.getCurrent() == OS.LINUX) {
@@ -144,37 +183,90 @@ public class CollectLocalResourceUsage extends Thread {
 
       int workerMemoryUsageMb = 0;
       if (collectWorkerDataInProfiler) {
-        workerMemoryUsageMb =
-            this.workerMetricsCollector.collectMetrics().stream()
-                    .map(WorkerMetric::getWorkerStat)
-                    .filter(x -> x != null)
-                    .mapToInt(WorkerMetric.WorkerStat::getUsedMemoryInKB)
-                    .sum()
-                / 1024;
+        try (SilentCloseable c = Profiler.instance().profile("Worker metrics collection")) {
+          workerMemoryUsageMb =
+              this.workerMetricsCollector.collectMetrics().stream()
+                      .map(WorkerMetric::getWorkerStat)
+                      .filter(Objects::nonNull)
+                      .mapToInt(WorkerMetric.WorkerStat::getUsedMemoryInKB)
+                      .sum()
+                  / 1024;
+        }
+      }
+      double loadAverage = 0;
+      if (collectLoadAverage) {
+        loadAverage = osBean.getSystemLoadAverage();
+      }
+      double pressureStallIo = 0;
+      double pressureStallMemory = 0;
+      if (collectPressureStallIndicators) {
+        pressureStallIo = ResourceUsage.readPressureStallIndicator("io");
+        pressureStallMemory = ResourceUsage.readPressureStallIndicator("memory");
       }
 
       double deltaNanos = nextElapsed.minus(previousElapsed).toNanos();
       double cpuLevel = (nextCpuTimeNanos - previousCpuTimeNanos) / deltaNanos;
+
+      SystemNetworkUsages systemNetworkUsages = null;
+      if (collectSystemNetworkUsage) {
+        systemNetworkUsages =
+            NetworkMetricsCollector.instance().collectSystemNetworkUsages(deltaNanos);
+      }
+
+      double estimatedCpuUsage = 0;
+      double estimatedMemoryUsageInMb = 0;
+      if (collectResourceManagerEstimation) {
+        estimatedCpuUsage = resourceEstimator.getUsedCPU();
+        estimatedMemoryUsageInMb = resourceEstimator.getUsedMemoryInMb();
+      }
+
       synchronized (this) {
-        if (localCpuUsage != null) {
-          localCpuUsage.addRange(previousElapsed.toMillis(), nextElapsed.toMillis(), cpuLevel);
+        addRange(ProfilerTask.LOCAL_CPU_USAGE, previousElapsed, nextElapsed, cpuLevel);
+        if (memoryUsage != -1) {
+          double memoryUsageMb = (double) memoryUsage / (1024 * 1024);
+          addRange(ProfilerTask.LOCAL_MEMORY_USAGE, previousElapsed, nextElapsed, memoryUsageMb);
         }
-        if (localMemoryUsage != null && memoryUsage != -1) {
-          long memoryUsageMb = memoryUsage / (1024 * 1024);
-          localMemoryUsage.addRange(
-              previousElapsed.toMillis(), nextElapsed.toMillis(), (double) memoryUsageMb);
+        addRange(ProfilerTask.SYSTEM_CPU_USAGE, previousElapsed, nextElapsed, systemUsage);
+        addRange(
+            ProfilerTask.SYSTEM_MEMORY_USAGE,
+            previousElapsed,
+            nextElapsed,
+            (double) systemMemoryUsageMb);
+        addRange(
+            ProfilerTask.WORKERS_MEMORY_USAGE, previousElapsed, nextElapsed, workerMemoryUsageMb);
+        if (loadAverage > 0) {
+          addRange(ProfilerTask.SYSTEM_LOAD_AVERAGE, previousElapsed, nextElapsed, loadAverage);
         }
-        if (systemCpuUsage != null) {
-          systemCpuUsage.addRange(previousElapsed.toMillis(), nextElapsed.toMillis(), systemUsage);
+        if (pressureStallIo >= 0) {
+          addRange(ProfilerTask.PRESSURE_STALL_IO, previousElapsed, nextElapsed, pressureStallIo);
         }
-        if (systemMemoryUsage != null) {
-          systemMemoryUsage.addRange(
-              previousElapsed.toMillis(), nextElapsed.toMillis(), (double) systemMemoryUsageMb);
+        if (pressureStallMemory >= 0) {
+          addRange(
+              ProfilerTask.PRESSURE_STALL_MEMORY,
+              previousElapsed,
+              nextElapsed,
+              pressureStallMemory);
         }
-        if (collectWorkerDataInProfiler && (workersMemoryUsage != null)) {
-          workersMemoryUsage.addRange(
-              previousElapsed.toMillis(), nextElapsed.toMillis(), (double) workerMemoryUsageMb);
+        if (systemNetworkUsages != null) {
+          addRange(
+              ProfilerTask.SYSTEM_NETWORK_UP_USAGE,
+              previousElapsed,
+              nextElapsed,
+              systemNetworkUsages.megabitsSentPerSec());
+          addRange(
+              ProfilerTask.SYSTEM_NETWORK_DOWN_USAGE,
+              previousElapsed,
+              nextElapsed,
+              systemNetworkUsages.megabitsRecvPerSec());
         }
+
+        addRange(
+            ProfilerTask.MEMORY_USAGE_ESTIMATION,
+            previousElapsed,
+            nextElapsed,
+            estimatedMemoryUsageInMb);
+        addRange(
+            ProfilerTask.CPU_USAGE_ESTIMATION, previousElapsed, nextElapsed, estimatedCpuUsage);
       }
       previousElapsed = nextElapsed;
       previousCpuTimeNanos = nextCpuTimeNanos;
@@ -195,36 +287,29 @@ public class CollectLocalResourceUsage extends Thread {
     long endTimeNanos = System.nanoTime();
     long elapsedNanos = stopwatch.elapsed(TimeUnit.NANOSECONDS);
     long startTimeNanos = endTimeNanos - elapsedNanos;
+    Duration profileStart = Duration.ofNanos(startTimeNanos);
     int len = (int) (elapsedNanos / BUCKET_DURATION.toNanos()) + 1;
     Profiler profiler = Profiler.instance();
 
-    logCollectedData(profiler, localCpuUsage, ProfilerTask.LOCAL_CPU_USAGE, startTimeNanos, len);
-    localCpuUsage = null;
-
-    logCollectedData(
-        profiler, localMemoryUsage, ProfilerTask.LOCAL_MEMORY_USAGE, startTimeNanos, len);
-    localMemoryUsage = null;
-
-    logCollectedData(profiler, systemCpuUsage, ProfilerTask.SYSTEM_CPU_USAGE, startTimeNanos, len);
-    systemCpuUsage = null;
-
-    logCollectedData(
-        profiler, systemMemoryUsage, ProfilerTask.SYSTEM_MEMORY_USAGE, startTimeNanos, len);
-    systemMemoryUsage = null;
-
-    if (collectWorkerDataInProfiler) {
-      logCollectedData(
-          profiler, workersMemoryUsage, ProfilerTask.WORKERS_MEMORY_USAGE, startTimeNanos, len);
+    for (ProfilerTask task : timeSeries.keySet()) {
+      profiler.logCounters(
+          ImmutableMap.ofEntries(Map.entry(task, timeSeries.get(task).toDoubleArray(len))),
+          profileStart,
+          BUCKET_DURATION);
     }
-    workersMemoryUsage = null;
+    timeSeries = null;
   }
 
-  private static void logCollectedData(
-      Profiler profiler, TimeSeries timeSeries, ProfilerTask type, long startTimeNanos, int len) {
-    double[] localResourceValues = timeSeries.toDoubleArray(len);
-    for (int i = 0; i < len; i++) {
-      long eventTimeNanos = startTimeNanos + i * BUCKET_DURATION.toNanos();
-      profiler.logEventAtTime(eventTimeNanos, type, String.valueOf(localResourceValues[i]));
+  private void addRange(
+      ProfilerTask type, Duration previousElapsed, Duration nextElapsed, double value) {
+    synchronized (this) {
+      if (timeSeries == null) {
+        return;
+      }
+      TimeSeries series = timeSeries.get(type);
+      if (series != null) {
+        series.addRange(previousElapsed, nextElapsed, value);
+      }
     }
   }
 }

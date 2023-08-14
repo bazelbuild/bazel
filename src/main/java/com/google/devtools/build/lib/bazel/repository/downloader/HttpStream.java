@@ -30,6 +30,7 @@ import java.io.InputStream;
 import java.io.SequenceInputStream;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.OptionalLong;
 import java.util.zip.GZIPInputStream;
 import javax.annotation.WillCloseWhenClosed;
 
@@ -87,17 +88,19 @@ final class HttpStream extends FilterInputStream {
           stream = retrier;
         }
 
+        OptionalLong totalBytes = OptionalLong.empty();
         try {
           String contentLength = connection.getHeaderField("Content-Length");
           if (contentLength != null) {
-            long expectedSize = Long.parseLong(contentLength);
-            stream = new CheckContentLengthInputStream(stream, expectedSize);
+            totalBytes = OptionalLong.of(Long.parseUnsignedLong(contentLength));
+            stream = new CheckContentLengthInputStream(stream, totalBytes.getAsLong());
           }
         } catch (NumberFormatException ignored) {
           // ignored
         }
 
-        stream = progressInputStreamFactory.create(stream, connection.getURL(), originalUrl);
+        stream =
+            progressInputStreamFactory.create(stream, connection.getURL(), originalUrl, totalBytes);
 
         // Determine if we need to transparently gunzip. See RFC2616 § 3.5 and § 14.11. Please note
         // that some web servers will send Content-Encoding: gzip even when we didn't request it if

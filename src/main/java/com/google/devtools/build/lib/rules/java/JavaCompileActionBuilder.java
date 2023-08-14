@@ -16,17 +16,13 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.PathStripper;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
@@ -43,7 +39,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction.ProgressMessage;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
-import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collections;
@@ -143,6 +138,7 @@ public final class JavaCompileActionBuilder {
 
   private final RuleContext ruleContext;
   private final JavaToolchainProvider toolchain;
+  private final String execGroup;
   private ImmutableSet<Artifact> additionalOutputs = ImmutableSet.of();
   private Artifact coverageArtifact;
   private ImmutableSet<Artifact> sourceFiles = ImmutableSet.of();
@@ -161,7 +157,6 @@ public final class JavaCompileActionBuilder {
   private JavaToolchainTool javaBuilder;
   private NestedSet<Artifact> toolsJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   private JavaPluginData plugins = JavaPluginData.empty();
-  private ImmutableSet<String> builtinProcessorNames = ImmutableSet.of();
   private NestedSet<Artifact> extraData = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   private Label targetLabel;
   @Nullable private String injectingRuleKind;
@@ -171,16 +166,16 @@ public final class JavaCompileActionBuilder {
   private JavaClasspathMode classpathMode;
   private Artifact manifestOutput;
 
-  public JavaCompileActionBuilder(RuleContext ruleContext, JavaToolchainProvider toolchain) {
+  public JavaCompileActionBuilder(
+      RuleContext ruleContext, JavaToolchainProvider toolchain, String execGroup) {
     this.ruleContext = ruleContext;
     this.toolchain = toolchain;
+    this.execGroup = execGroup;
   }
 
   public JavaCompileAction build() {
     // TODO(bazel-team): all the params should be calculated before getting here, and the various
     // aggregation code below should go away.
-    ImmutableList<String> internedJcopts =
-        javacOpts.stream().map(StringCanonicalizer::intern).collect(toImmutableList());
 
     // Invariant: if strictJavaDeps is OFF, then directJars and
     // dependencyArtifacts are ignored
@@ -200,16 +195,8 @@ public final class JavaCompileActionBuilder {
     }
 
     NestedSetBuilder<Artifact> toolsBuilder = NestedSetBuilder.compileOrder();
-
-    CustomCommandLine.Builder executableLine =
-        javaBuilder.buildCommandLine(toolchain, toolsBuilder);
+    javaBuilder.addInputs(toolchain, toolsBuilder);
     toolsBuilder.addTransitive(toolsJars);
-
-    ActionEnvironment actionEnvironment =
-        ruleContext
-            .getConfiguration()
-            .getActionEnvironment()
-            .withAdditionalFixedVariables(UTF8_ENVIRONMENT);
 
     NestedSetBuilder<Artifact> mandatoryInputsBuilder = NestedSetBuilder.stableOrder();
     mandatoryInputsBuilder
@@ -237,7 +224,7 @@ public final class JavaCompileActionBuilder {
             plugins.processorClasses(),
             sourceJars,
             sourceFiles,
-            internedJcopts);
+            javacOpts);
 
     // TODO(b/123076347): outputDepsProto should never be null if SJD is enabled
     if (strictJavaDeps == StrictDepsMode.OFF || outputs.depsProto() == null) {
@@ -267,16 +254,15 @@ public final class JavaCompileActionBuilder {
             JavaCompileAction.allInputs(
                 mandatoryInputs, classpathEntries, compileTimeDependencyArtifacts),
             ruleContext.getConfiguration());
-    if (stripOutputPaths) {
-      executableLine.stripOutputPaths(JavaCompilationHelper.outputBase(outputs.output()));
-    }
+    CustomCommandLine executableLine =
+        javaBuilder.getCommandLine(
+            toolchain,
+            stripOutputPaths ? JavaCompilationHelper.outputBase(outputs.output()) : null);
 
     return new JavaCompileAction(
         /* compilationType= */ JavaCompileAction.CompilationType.JAVAC,
-        /* owner= */ ruleContext.getActionOwner(),
-        /* env= */ actionEnvironment,
+        /* owner= */ ruleContext.getActionOwner(execGroup),
         /* tools= */ tools,
-        /* runfilesSupplier= */ EmptyRunfilesSupplier.INSTANCE,
         /* progressMessage= */ new ProgressMessage(
             /* prefix= */ "Building",
             /* output= */ outputs.output(),
@@ -289,8 +275,8 @@ public final class JavaCompileActionBuilder {
         /* outputs= */ allOutputs(),
         /* executionInfo= */ executionInfo,
         /* extraActionInfoSupplier= */ extraActionInfoSupplier,
-        /* executableLine= */ executableLine.build(),
-        /* flagLine= */ buildParamFileContents(internedJcopts, stripOutputPaths),
+        /* executableLine= */ executableLine,
+        /* flagLine= */ buildParamFileContents(javacOpts, stripOutputPaths),
         /* configuration= */ ruleContext.getConfiguration(),
         /* dependencyArtifacts= */ compileTimeDependencyArtifacts,
         /* outputDepsProto= */ outputs.depsProto(),
@@ -331,10 +317,7 @@ public final class JavaCompileActionBuilder {
     result.addExecPaths("--sourcepath", sourcePathEntries);
     result.addExecPaths("--processorpath", plugins.processorClasspath());
     result.addAll("--processors", plugins.processorClasses());
-    result.addAll(
-        "--builtin_processors",
-        Sets.intersection(plugins.processorClasses().toSet(), builtinProcessorNames));
-    result.addExecPaths("--source_jars", ImmutableList.copyOf(sourceJars));
+    result.addExecPaths("--source_jars", sourceJars);
     result.addExecPaths("--sources", sourceFiles);
     if (!javacOpts.isEmpty()) {
       if (stripOutputPaths) {
@@ -350,7 +333,7 @@ public final class JavaCompileActionBuilder {
             "--javacopts",
             javacOpts.stream().map(coptStripper::strip).collect(Collectors.toList()));
       } else {
-        result.addAll("--javacopts", javacOpts);
+        result.add("--javacopts").addObject(javacOpts);
       }
       // terminate --javacopts with `--` to support javac flags that start with `--`
       result.add("--");
@@ -475,14 +458,6 @@ public final class JavaCompileActionBuilder {
     checkNotNull(plugins, "plugins must not be null");
     checkState(this.plugins.isEmpty());
     this.plugins = plugins;
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public JavaCompileActionBuilder setBuiltinProcessorNames(
-      ImmutableSet<String> builtinProcessorNames) {
-    this.builtinProcessorNames =
-        checkNotNull(builtinProcessorNames, "builtinProcessorNames must not be null");
     return this;
   }
 

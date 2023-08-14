@@ -18,7 +18,6 @@ package com.google.devtools.build.lib.analysis.test;
 import com.google.common.base.Splitter;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
-import com.google.devtools.build.lib.util.OS;
 
 /**
  * Helper for writing test actions for analysis test rules. Analysis test rules are restricted to
@@ -37,10 +36,8 @@ public class AnalysisTestActionBuilder {
    */
   public static void writeAnalysisTestAction(
       RuleContext ruleContext, AnalysisTestResultInfo testResultInfo) {
-    // TODO(laszlocsomor): Use the execution platform, not the host platform.
-    boolean isExecutedOnWindows = OS.getCurrent() == OS.WINDOWS;
     String escapedMessage =
-        isExecutedOnWindows
+        ruleContext.isExecutedOnWindows()
             ? testResultInfo.getMessage().replace("%", "%%")
             // Prefix each character with \ (double-escaped; once in the string, once in the
             // replacement sequence, which allows backslash-escaping literal "$"). "." is put in
@@ -48,14 +45,14 @@ public class AnalysisTestActionBuilder {
             // always-matching regex (b/201772278).
             : testResultInfo.getMessage().replaceAll("(.)", "\\\\$1");
     StringBuilder sb = new StringBuilder();
-    if (isExecutedOnWindows) {
+    if (ruleContext.isExecutedOnWindows()) {
       sb.append("@echo off\n");
     }
     for (String line : Splitter.on("\n").split(escapedMessage)) {
       sb.append("echo ").append(line).append("\n");
     }
     sb.append("exit ");
-    if (isExecutedOnWindows) {
+    if (ruleContext.isExecutedOnWindows()) {
       sb.append("/b ");
     }
     sb.append(testResultInfo.getSuccess() ? "0" : "1");

@@ -13,11 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import http.server
 import os
+import socketserver
 import threading
 import unittest
-from six.moves import SimpleHTTPServer
-from six.moves import socketserver
+
 from src.test.py.bazel import test_base
 
 
@@ -34,7 +35,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     """Runs a simple http server to serve files under current directory."""
     # Port 0 means to select an arbitrary unused port
     host, port = 'localhost', 0
-    http_handler = SimpleHTTPServer.SimpleHTTPRequestHandler
+    http_handler = http.server.SimpleHTTPRequestHandler
     server = ThreadedTCPServer((host, port), http_handler)
     server_thread = threading.Thread(target=server.serve_forever)
     server_thread.daemon = True
@@ -86,28 +87,25 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     self.ScratchFile('third_party/BUILD')
     self.ScratchFile('third_party/six.BUILD', build_file)
 
-    exit_code, _, stderr = self.RunBazel(['build', '@six_archive//...'])
-    self.assertEqual(exit_code, 0, os.linesep.join(stderr))
+    self.RunBazel(['build', '@six_archive//...'])
 
     fetching_disabled_msg = 'fetching is disabled'
 
     # Changing the mtime of the BUILD file shouldn't invalidate it.
     os.utime(self.Path('third_party/six.BUILD'), (100, 200))
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '--nofetch', '@six_archive//...'])
-    self.assertEqual(exit_code, 0, os.linesep.join(stderr))
+    _, _, stderr = self.RunBazel(['build', '--nofetch', '@six_archive//...'])
     self.assertNotIn(fetching_disabled_msg, os.linesep.join(stderr))
 
     # Check that --nofetch prints a warning if the BUILD file is changed.
     self.ScratchFile('third_party/six.BUILD', build_file + ['"a noop string"'])
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '--nofetch', '@six_archive//...'])
-    self.assertEqual(exit_code, 0, os.linesep.join(stderr))
+    _, _, stderr = self.RunBazel(['build', '--nofetch', '@six_archive//...'])
     self.assertIn(fetching_disabled_msg, os.linesep.join(stderr))
 
     # Test repository reloading after BUILD file changes.
     self.ScratchFile('third_party/six.BUILD', build_file + ['foobar'])
-    exit_code, _, stderr = self.RunBazel(['build', '@six_archive//...'])
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '@six_archive//...'], allow_failure=True
+    )
     self.assertEqual(exit_code, 1, os.linesep.join(stderr))
     self.assertIn('name \'foobar\' is not defined', os.linesep.join(stderr))
 
@@ -133,11 +131,10 @@ class BazelExternalRepositoryTest(test_base.TestBase):
         ')',
     ])
     self.ScratchFile('BUILD')
-    exit_code, _, stderr = self.RunBazel([
+    self.RunBazel([
         'build',
         '@archive_with_symlink//:file-A',
     ])
-    self.assertEqual(exit_code, 0, os.linesep.join(stderr))
 
   def testNewHttpTarArchiveWithSymlinks(self):
     ip, port = self._http_server.server_address
@@ -161,11 +158,10 @@ class BazelExternalRepositoryTest(test_base.TestBase):
         ')',
     ])
     self.ScratchFile('BUILD')
-    exit_code, _, stderr = self.RunBazel([
+    self.RunBazel([
         'build',
         '@archive_with_symlink//:file-A',
     ])
-    self.assertEqual(exit_code, 0, os.linesep.join(stderr))
 
   def _CreatePyWritingStarlarkRule(self, print_string):
     self.ScratchFile('repo/foo.bzl', [
@@ -203,15 +199,13 @@ class BazelExternalRepositoryTest(test_base.TestBase):
         'py_binary(name = "bin", srcs = [":gen"], main = "gen.py")',
     ])
 
-    exit_code, stdout, stderr = self.RunBazel(['run', '//:bin'])
-    self.assertEqual(exit_code, 0, os.linesep.join(stderr))
+    _, stdout, _ = self.RunBazel(['run', '//:bin'])
     self.assertIn('hello!', os.linesep.join(stdout))
 
     # Modify the definition of the Starlark rule in the external repository.
     # The py_binary rule should notice this and rebuild.
     self._CreatePyWritingStarlarkRule('world')
-    exit_code, stdout, stderr = self.RunBazel(['run', '//:bin'])
-    self.assertEqual(exit_code, 0, os.linesep.join(stderr))
+    _, stdout, _ = self.RunBazel(['run', '//:bin'])
     self.assertNotIn('hello!', os.linesep.join(stdout))
     self.assertIn('world', os.linesep.join(stdout))
 
@@ -233,18 +227,22 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     ])
 
     exit_code, _, stderr = self.RunBazel(
-        args=['build', '@other_repo//pkg:file'], cwd=work_dir)
+        args=['build', '@other_repo//pkg:file'],
+        cwd=work_dir,
+        allow_failure=True,
+    )
     self.AssertExitCode(exit_code, 1, stderr)
     self.assertIn('\'@other_repo//pkg/ignore\' is a subpackage',
                   ''.join(stderr))
 
-    exit_code, _, stderr = self.RunBazel(
+    self.RunBazel(
         args=[
-            'build', '@other_repo//pkg:file',
-            '--deleted_packages=@other_repo//pkg/ignore'
+            'build',
+            '@other_repo//pkg:file',
+            '--deleted_packages=@other_repo//pkg/ignore',
         ],
-        cwd=work_dir)
-    self.AssertExitCode(exit_code, 0, stderr)
+        cwd=work_dir,
+    )
 
   def testBazelignoreFileOnExternalRepo(self):
     self.ScratchFile('other_repo/WORKSPACE')
@@ -267,7 +265,10 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     ])
 
     exit_code, _, stderr = self.RunBazel(
-        args=['build', '@other_repo//pkg:file'], cwd=work_dir)
+        args=['build', '@other_repo//pkg:file'],
+        cwd=work_dir,
+        allow_failure=True,
+    )
     self.AssertExitCode(exit_code, 1, stderr)
     self.assertIn('\'@other_repo//pkg/ignore\' is a subpackage',
                   ''.join(stderr))
@@ -276,9 +277,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
         'pkg/ignore',
     ])
 
-    exit_code, _, stderr = self.RunBazel(
-        args=['build', '@other_repo//pkg:file'], cwd=work_dir)
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(args=['build', '@other_repo//pkg:file'], cwd=work_dir)
 
     self.ScratchFile('my_repo/BUILD', [
         'filegroup(',
@@ -287,7 +286,8 @@ class BazelExternalRepositoryTest(test_base.TestBase):
         ')',
     ])
     exit_code, _, stderr = self.RunBazel(
-        args=['build', '//:all_files'], cwd=work_dir)
+        args=['build', '//:all_files'], cwd=work_dir, allow_failure=True
+    )
     self.AssertExitCode(exit_code, 1, stderr)
     self.assertIn('no such package \'@other_repo//pkg/ignore\'',
                   ''.join(stderr))
@@ -317,14 +317,15 @@ class BazelExternalRepositoryTest(test_base.TestBase):
         'local_repository(name = "other_repo", path="../other_repo")',
     ])
 
-    exit_code, stdout, stderr = self.RunBazel(
+    _, stdout, _ = self.RunBazel(
         args=[
             'query',
             '--universe_scope=@other_repo//...:*',
             '--order_output=no',
-            'deps(@other_repo//pkg:file)'],
-        cwd=work_dir)
-    self.AssertExitCode(exit_code, 0, stderr)
+            'deps(@other_repo//pkg:file)',
+        ],
+        cwd=work_dir,
+    )
     self.assertIn('@other_repo//pkg:ignore/file.txt', ''.join(stdout))
 
   def testBazelignoreFileFromMainRepoDoesNotAffectExternalRepos(self):
@@ -345,9 +346,9 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     # This should not exclude @other_repo//foo/bar
     self.ScratchFile('my_repo/.bazelignore', ['foo/bar'])
 
-    exit_code, stdout, stderr = self.RunBazel(
-        args=['query', '@other_repo//foo/bar/...'], cwd=work_dir)
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(
+        args=['query', '@other_repo//foo/bar/...'], cwd=work_dir
+    )
     self.assertIn('@other_repo//foo/bar:file', ''.join(stdout))
 
   def testBazelignoreFileFromExternalRepoDoesNotAffectMainRepo(self):
@@ -368,9 +369,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
         'local_repository(name = "other_repo", path="../other_repo")',
     ])
 
-    exit_code, stdout, stderr = self.RunBazel(
-        args=['query', '//foo/bar/...'], cwd=work_dir)
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(args=['query', '//foo/bar/...'], cwd=work_dir)
     self.assertIn('//foo/bar:file', ''.join(stdout))
 
   def testMainBazelignoreContainingRepoName(self):
@@ -388,17 +387,15 @@ class BazelExternalRepositoryTest(test_base.TestBase):
         'local_repository(name = "other_repo", path="../other_repo")',
     ])
     # This should not exclude @other_repo//foo/bar, because .bazelignore doesn't
-    # support having repository name in the path fragement.
+    # support having repository name in the path fragment.
     self.ScratchFile('my_repo/.bazelignore', ['@other_repo//foo/bar'])
 
-    exit_code, _, stderr = self.RunBazel(
-        args=['build', '@other_repo//foo/bar:file'], cwd=work_dir)
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(args=['build', '@other_repo//foo/bar:file'], cwd=work_dir)
 
   def testExternalBazelignoreContainingRepoName(self):
     self.ScratchFile('other_repo/WORKSPACE')
     # This should not exclude @third_repo//foo/bar, because .bazelignore doesn't
-    # support having repository name in the path fragement.
+    # support having repository name in the path fragment.
     self.ScratchFile('other_repo/.bazelignore', ['@third_repo//foo/bar'])
     self.ScratchFile('other_repo/BUILD', [
         'filegroup(',
@@ -423,9 +420,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
         'local_repository(name = "third_repo", path="../third_repo")',
     ])
 
-    exit_code, _, stderr = self.RunBazel(
-        args=['build', '@other_repo//:file'], cwd=work_dir)
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(args=['build', '@other_repo//:file'], cwd=work_dir)
 
   def testRepoEnv(self):
     # Testing fix for issue: https://github.com/bazelbuild/bazel/issues/15430
@@ -442,10 +437,9 @@ class BazelExternalRepositoryTest(test_base.TestBase):
         '    local = True,', ')'
     ])
 
-    exit_code, _, stderr = self.RunBazel(
-        args=['build', '@debug//:all', '--repo_env=FOO'],
-        env_add={'FOO': 'bar'})
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, _, stderr = self.RunBazel(
+        args=['build', '@debug//:all', '--repo_env=FOO'], env_add={'FOO': 'bar'}
+    )
     self.assertIn('FOO bar', os.linesep.join(stderr))
     self.assertNotIn('null value in entry: FOO=null', os.linesep.join(stderr))
 

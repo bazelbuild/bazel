@@ -89,4 +89,17 @@ public final class StarlarkConstructorMethodDoc extends StarlarkMethodDoc {
   public List<StarlarkParamDoc> getParams() {
     return params;
   }
+
+  @Override
+  public String toString() {
+    return String.format(
+        "StarlarkConstructorMethodDoc{fullyQualifiedName=%s method=%s callable=%s}",
+        fullyQualifiedName, method, formatCallable());
+  }
+
+  private String formatCallable() {
+    return String.format(
+        "StarlarkMethod{name=%s selfCall=%s structField=%s doc=%s}",
+        callable.name(), callable.selfCall(), callable.structField(), callable.doc());
+  }
 }

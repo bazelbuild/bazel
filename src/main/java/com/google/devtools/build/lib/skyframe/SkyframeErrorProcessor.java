@@ -13,28 +13,34 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.configurationIdMessage;
+import static com.google.devtools.build.lib.skyframe.ActionArtifactCycleReporter.ACTION_OR_ARTIFACT_OR_TRANSITIVE_RDEP;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.InputFileErrorException;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSemantics.TargetCompatibilityCheckException;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
@@ -47,12 +53,14 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
+import com.google.devtools.build.lib.skyframe.ArtifactNestedSetFunction.ArtifactNestedSetEvalException;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
 import com.google.devtools.build.lib.skyframe.TestCompletionValue.TestCompletionKey;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelEntityAnalysisConcludedEvent;
@@ -66,13 +74,10 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** A utility class that provides methods to parse errors from Skyframe EvaluationResults. */
@@ -87,7 +92,7 @@ public final class SkyframeErrorProcessor {
    * the build, in case of --nokeep_going.
    *
    * <p>The various attributes will be used later on to construct the FailureDetail in {@link
-   * com.google.devtools.build.lib.analysis.BuildView#createFailureDetail}.
+   * com.google.devtools.build.lib.analysis.BuildView#createAnalysisFailureDetail}.
    */
   @AutoValue
   abstract static class ErrorProcessingResult {
@@ -100,24 +105,83 @@ public final class SkyframeErrorProcessor {
     @Nullable
     abstract DetailedExitCode executionDetailedExitCode();
 
-    static ErrorProcessingResult create(
-        boolean hasLoadingError,
-        boolean hasAnalysisError,
+    static AggregatingBuilder newBuilder() {
+      return new AggregatingBuilder();
+    }
+
+    static class AggregatingBuilder {
+      private boolean hasLoadingError = false;
+      private boolean hasAnalysisError = false;
+      private final Map<ActionAnalysisMetadata, ConflictException> actionConflicts =
+          Maps.newHashMap();
+      @Nullable private DetailedExitCode executionDetailedExitCode = null;
+
+      void aggregateSingleResult(IndividualErrorProcessingResult individualErrorProcessingResult) {
+        hasLoadingError = hasLoadingError || individualErrorProcessingResult.isLoadingError();
+        hasAnalysisError = hasAnalysisError || individualErrorProcessingResult.isAnalysisError();
+        actionConflicts.putAll(individualErrorProcessingResult.actionConflicts());
+        executionDetailedExitCode =
+            DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
+                executionDetailedExitCode,
+                individualErrorProcessingResult.executionDetailedExitCode());
+      }
+
+      ErrorProcessingResult build() {
+        return new AutoValue_SkyframeErrorProcessor_ErrorProcessingResult(
+            hasLoadingError,
+            hasAnalysisError,
+            ImmutableMap.copyOf(actionConflicts),
+            executionDetailedExitCode);
+      }
+    }
+  }
+
+  /**
+   * Represents the information around one single error in the build. These are the building blocks
+   * for the final {@link ErrorProcessingResult}.
+   */
+  @AutoValue
+  abstract static class IndividualErrorProcessingResult {
+
+    abstract ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts();
+
+    @Nullable
+    abstract DetailedExitCode executionDetailedExitCode();
+
+    abstract NestedSet<Cause> analysisRootCauses();
+
+    abstract ImmutableSet<Label> loadingRootCauses();
+
+    boolean isActionConflictError() {
+      return !actionConflicts().isEmpty();
+    }
+
+    boolean isLoadingError() {
+      return !loadingRootCauses().isEmpty();
+    }
+
+    /** This is true for all non-execution errors: including loading & action conflict errors. */
+    boolean isAnalysisError() {
+      return executionDetailedExitCode() == null;
+    }
+
+    static IndividualErrorProcessingResult create(
         ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts,
-        @Nullable DetailedExitCode executionDetailedExitCode) {
-      return new AutoValue_SkyframeErrorProcessor_ErrorProcessingResult(
-          hasLoadingError, hasAnalysisError, actionConflicts, executionDetailedExitCode);
+        @Nullable DetailedExitCode executionDetailedExitCode,
+        NestedSet<Cause> analysisRootCauses,
+        ImmutableSet<Label> loadingRootCauses) {
+      return new AutoValue_SkyframeErrorProcessor_IndividualErrorProcessingResult(
+          actionConflicts, executionDetailedExitCode, analysisRootCauses, loadingRootCauses);
     }
   }
 
   /**
    * Process only loading/analysis errors. Returns a {@link ErrorProcessingResult}.
    *
-   * <p>In case of --nokeep_going or catastrophe: immediately throw the exception.
+   * <p>In case of --nokeep_going: immediately throw the exception.
    */
   static ErrorProcessingResult processAnalysisErrors(
       EvaluationResult<? extends SkyValue> result,
-      Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier,
       CyclesReporter cyclesReporter,
       ExtendedEventHandler eventHandler,
       boolean keepGoing,
@@ -127,7 +191,6 @@ public final class SkyframeErrorProcessor {
     try {
       return processErrors(
           result,
-          configurationLookupSupplier,
           cyclesReporter,
           eventHandler,
           keepGoing,
@@ -140,8 +203,17 @@ public final class SkyframeErrorProcessor {
   }
 
   /**
-   * Process errors encountered during analysis/execution, and return a {@link
-   * ErrorProcessingResult}.
+   * Process errors encountered during analysis/execution.
+   *
+   * <p>This method has different goals depending on --(no)keep_going:
+   *
+   * <ul>
+   *   <li>In case of --keep_going: post the necessary events, then construct an {@link
+   *       ErrorProcessingResult}.
+   *   <li>In case of --nokeep_going: post the necessary events, then throw an appropriate exception
+   *       ASAP, except when the error is caused by an action conflict: we need more downstream
+   *       information.
+   * </ul>
    *
    * <p>Visible only for use by tests via {@link
    * SkyframeExecutor#getConfiguredTargetMapForTesting(ExtendedEventHandler,
@@ -150,11 +222,13 @@ public final class SkyframeErrorProcessor {
    * result} that are not {@link AspectKeyCreator}s or {@link ConfiguredTargetKey}s. Those keys will
    * be ignored.
    *
-   * <p>In case of --nokeep_going: immediately throw the exception.
+   * @throws ViewCreationFailedException when the root cause is analysis-related.
+   * @throws BuildFailedException when the root cause is execution-related.
+   * @throws TestExecException when the root cause is test-related.
+   * @return an ErrorProcessingResult (only in --keep_going mode, or action conflict).
    */
   static ErrorProcessingResult processErrors(
       EvaluationResult<? extends SkyValue> result,
-      Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier,
       CyclesReporter cyclesReporter,
       ExtendedEventHandler eventHandler,
       boolean keepGoing,
@@ -163,68 +237,37 @@ public final class SkyframeErrorProcessor {
       boolean includeExecutionPhase)
       throws InterruptedException, ViewCreationFailedException, BuildFailedException,
           TestExecException {
-    boolean inTest = eventBus == null;
-    boolean hasLoadingError = false;
-    boolean hasAnalysisError = false;
+    boolean inBuildViewTest = eventBus == null;
     ViewCreationFailedException noKeepGoingAnalysisExceptionAspect = null;
-    DetailedExitCode representativeExecutionDetailedExitCode = null;
-    Map<ActionAnalysisMetadata, ConflictException> actionConflicts = new HashMap<>();
+    ErrorProcessingResult.AggregatingBuilder aggregatingResultBuilder =
+        ErrorProcessingResult.newBuilder();
+
     for (Map.Entry<SkyKey, ErrorInfo> errorEntry : result.errorMap().entrySet()) {
       maybePostTopLevelEntryAnalysisConcludedEvent(
           errorEntry.getKey(), errorEntry.getValue(), eventBus, keepGoing);
-      SkyKey errorKey = getErrorKey(errorEntry);
       ErrorInfo errorInfo = errorEntry.getValue();
+
+      // The cycle reporter requires that the path to the cycle starts at the top level key
+      // (requested via SkyframeExecutor), hence we need to provide the original top level key here.
+      //
+      // Why is there a need for "original" vs "effective" error key?
+      // 1) The non-skymeld code path deals with ActionLookupKeys as the top level key,
+      // 2) We wanted to share the error handling code between skymeld and non skymeld.
+      // To do so, we need to "normalize" the top level key in Skymeld mode by getting the effective
+      // ActionLookupKey from a BuildDriverKey. The rest of the method can then be easily shared.
+      cyclesReporter.reportCycles(
+          errorInfo.getCycleInfo(), /*topLevelKey=*/ errorEntry.getKey(), eventHandler);
+
+      SkyKey errorKey = getEffectiveErrorKey(errorEntry);
       if (includeExecutionPhase) {
         assertValidAnalysisOrExecutionException(errorInfo, errorKey, result.getWalkableGraph());
       } else {
         assertValidAnalysisException(errorInfo, errorKey, result.getWalkableGraph());
       }
-      cyclesReporter.reportCycles(errorInfo.getCycleInfo(), errorKey, eventHandler);
       Exception cause = errorInfo.getException();
       Preconditions.checkState(cause != null || !errorInfo.getCycleInfo().isEmpty(), errorInfo);
 
-      // At this point, we consider the error to be analysis-related (that also includes loading
-      // errors and action conflicts), unless the error turns out to originate from the execution
-      // phase.
-      boolean isCurrentErrorAnalysisRelated = true;
-
-      if (errorKey.argument() instanceof TopLevelAspectsKey) {
-        if (!keepGoing) {
-          if (isExecutionException(cause)) {
-            rethrow(cause, bugReporter, result);
-          } else if (!(cause instanceof TopLevelConflictException)
-              && noKeepGoingAnalysisExceptionAspect == null) {
-            TopLevelAspectsKey aspectKey = (TopLevelAspectsKey) errorKey.argument();
-            String errorMsg =
-                String.format(
-                    "Analysis of aspects '%s' failed; build aborted", aspectKey.getDescription());
-            // We don't throw the analysis error immediately to make sure that a target analysis
-            // error is preferred over the aspect one.
-            noKeepGoingAnalysisExceptionAspect = createViewCreationFailedException(cause, errorMsg);
-          }
-        }
-
-        // In the keepGoing case for aspects, the failures should already have been reported to the
-        // event handler. We just update the various attributes required for the final
-        // ErrorProcessingResult here.
-        if (cause instanceof TopLevelConflictException) {
-          TopLevelConflictException tlce = (TopLevelConflictException) cause;
-          actionConflicts.putAll(tlce.getTransitiveActionConflicts());
-        } else if (isExecutionException(cause)) {
-          isCurrentErrorAnalysisRelated = false;
-          DetailedExitCode detailedExitCode = DetailedException.getDetailedExitCode(cause);
-          if (detailedExitCode == null) {
-            detailedExitCode = createDetailedExitCodeForUndetailedExecutionCause(result, cause);
-          }
-          representativeExecutionDetailedExitCode =
-              DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
-                  representativeExecutionDetailedExitCode, detailedExitCode);
-        }
-        hasAnalysisError = hasAnalysisError || isCurrentErrorAnalysisRelated;
-        continue;
-      }
-
-      if (inTest && !(errorKey.argument() instanceof ConfiguredTargetKey)) {
+      if (inBuildViewTest && !isValidErrorKeyType(errorKey.argument())) {
         // This means that we are in a BuildViewTestCase.
         //
         // Tests don't call target pattern parsing before requesting the analysis of a target.
@@ -237,39 +280,224 @@ public final class SkyframeErrorProcessor {
         eventHandler.handle(Event.error(errorInfo.toString()));
         continue;
       }
-      Preconditions.checkState(
-          errorKey.argument() instanceof ConfiguredTargetKey,
-          "expected '%s' to be a TopLevelAspectsKey or ConfiguredTargetKey",
-          errorKey.argument());
-      ConfiguredTargetKey label = (ConfiguredTargetKey) errorKey.argument();
-      Label topLevelLabel = label.getLabel();
 
-      NestedSet<Cause> rootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-      if (cause instanceof ConfiguredValueCreationException) {
-        ConfiguredValueCreationException ctCause = (ConfiguredValueCreationException) cause;
-        // Previously, the nested set was de-duplicating loading root cause labels. Now that we
-        // track Cause instances including a message, we get one event per label and message. In
-        // order to keep backwards compatibility, we de-duplicate root cause labels here.
-        // TODO(ulfjack): Remove this code once we've migrated to the BEP.
-        Set<Label> loadingRootCauses = new HashSet<>();
-        for (Cause rootCause : ctCause.getRootCauses().toList()) {
-          if (rootCause instanceof LoadingFailedCause) {
-            hasLoadingError = true;
-            loadingRootCauses.add(rootCause.getLabel());
-          }
+      Label label = getLabel(errorKey);
+      IndividualErrorProcessingResult individualErrorProcessingResult =
+          processIndividualError(result, eventHandler, bugReporter, errorKey, errorInfo);
+
+      // For action conflicts, more downstream operations are required to have all the
+      // information. We intentionally don't send out any failure event, throw any exception (even
+      // with --nokeep_going) or print a warning message at this point. These will be done elsewhere
+      // at a later point.
+      if (individualErrorProcessingResult.isActionConflictError()) {
+        aggregatingResultBuilder.aggregateSingleResult(individualErrorProcessingResult);
+        continue;
+      }
+
+      maybePostFailureEventsForNonConflictError(
+          eventHandler,
+          eventBus,
+          inBuildViewTest,
+          errorKey,
+          label,
+          individualErrorProcessingResult);
+
+      boolean isExecutionException = isExecutionException(cause);
+      if (keepGoing) {
+        aggregatingResultBuilder.aggregateSingleResult(individualErrorProcessingResult);
+        printWarningMessage(isExecutionException, label, eventHandler);
+      } else {
+        noKeepGoingAnalysisExceptionAspect =
+            throwOrReturnAspectAnalysisException(
+                result,
+                cause,
+                bugReporter,
+                errorKey,
+                isExecutionException,
+                /* hasExecutionCycle= */ CYCLE_CODE.equals(
+                    individualErrorProcessingResult.executionDetailedExitCode()));
+      }
+    }
+
+    if (noKeepGoingAnalysisExceptionAspect != null) {
+      throw noKeepGoingAnalysisExceptionAspect;
+    }
+
+    return aggregatingResultBuilder.build();
+  }
+
+  /*
+   * Post the relevant failure events if we're not in test.
+   *
+   * <p>There is 1 exception: for aspects, the failures should already have been reported to the
+   * event handler, so we do nothing here.
+   */
+  private static void maybePostFailureEventsForNonConflictError(
+      ExtendedEventHandler eventHandler,
+      @Nullable EventBus eventBus,
+      boolean inBuildViewTest,
+      SkyKey errorKey,
+      @Nullable Label label,
+      IndividualErrorProcessingResult individualErrorProcessingResult) {
+    Preconditions.checkState(!individualErrorProcessingResult.isActionConflictError());
+    if (inBuildViewTest) {
+      // eventBus is null, but tests can still assert on the expected root causes being found.
+      eventHandler.handle(
+          Event.error(individualErrorProcessingResult.analysisRootCauses().toList().toString()));
+      return;
+    }
+
+    Preconditions.checkNotNull(eventBus);
+    if (!(errorKey instanceof ConfiguredTargetKey)) {
+      return;
+    }
+
+    ConfiguredTargetKey ctKey = (ConfiguredTargetKey) errorKey.argument();
+    // For loading errors, we expect both LoadingFailureEvent and AnalysisFailureEvent.
+    if (individualErrorProcessingResult.isLoadingError()) {
+      for (Label loadingRootCause : individualErrorProcessingResult.loadingRootCauses()) {
+        // This event is only for backwards compatibility with the old event protocol. Remove
+        // once we've migrated to the build event protocol.
+        eventBus.post(new LoadingFailureEvent(Preconditions.checkNotNull(label), loadingRootCause));
+      }
+    }
+
+    if (individualErrorProcessingResult.isAnalysisError()) {
+      eventBus.post(
+          AnalysisFailureEvent.whileAnalyzingTarget(
+              ctKey, individualErrorProcessingResult.analysisRootCauses()));
+    }
+  }
+
+  /**
+   * Throw the necessary exceptions based on the error processing result.
+   *
+   * <p>This method should be called in --nokeep_going mode, unless the error is an action conflict.
+   *
+   * <p>Special case: if the analysis error belongs to a top-level Aspect, we don't throw the
+   * ViewCreationFailedException immediately to make sure that a target analysis error is preferred
+   * over an aspect one.
+   *
+   * @throws ViewCreationFailedException when the root cause is analysis-related.
+   * @throws BuildFailedException when the root cause is execution-related.
+   * @throws TestExecException when the root cause is test-related.
+   * @return a ViewCreationFailedException if the error belongs to a top-level Aspect.
+   */
+  private static ViewCreationFailedException throwOrReturnAspectAnalysisException(
+      EvaluationResult<? extends SkyValue> result,
+      Exception cause,
+      BugReporter bugReporter,
+      SkyKey errorKey,
+      boolean isExecutionException,
+      boolean hasExecutionCycle)
+      throws BuildFailedException, TestExecException, ViewCreationFailedException {
+    // If the error is execution-related: straightaway rethrow. No further steps required.
+    if (isExecutionException) {
+      rethrow(cause, bugReporter, result);
+    }
+    // If a --nokeep_going build found a cycle, that means there were no other errors thrown
+    // during evaluation (otherwise, it wouldn't have bothered to find a cycle). So the best
+    // we can do is throw a generic build failure exception, since we've already reported the
+    // cycles above. Analysis cycles are handled below.
+    if (hasExecutionCycle) {
+      throw new BuildFailedException(null, CYCLE_CODE);
+    }
+
+    if (errorKey instanceof TopLevelAspectsKey) {
+      TopLevelAspectsKey aspectKey = (TopLevelAspectsKey) errorKey.argument();
+      String errorMsg =
+          String.format(
+              "Analysis of aspects '%s' failed; build aborted", aspectKey.getDescription());
+      return createViewCreationFailedException(cause, errorMsg);
+    }
+
+    Label topLevelLabel = ((ConfiguredTargetKey) errorKey).getLabel();
+    throw createViewCreationFailedException(
+        cause, String.format("Analysis of target '%s' failed; build aborted", topLevelLabel));
+  }
+
+  /**
+   * Processes one individual error from the result.
+   *
+   * <p>No exception should ever be thrown here: this is just to gather the relevant information
+   * around 1 single error. {@link #processErrors} will decide what to do with this information.
+   */
+  private static IndividualErrorProcessingResult processIndividualError(
+      EvaluationResult<? extends SkyValue> result,
+      ExtendedEventHandler eventHandler,
+      BugReporter bugReporter,
+      SkyKey errorKey,
+      ErrorInfo errorInfo) {
+    Exception exception = errorInfo.getException();
+    Set<Label> loadingRootCauses = Sets.newHashSet();
+    ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts = ImmutableMap.of();
+    DetailedExitCode executionDetailedExitCode = null;
+
+    // Legacy: analysis-related failure events for Aspects are sent somewhere else, so we don't have
+    // to do any work related to constructing the analysis failure events here, only for the other
+    // cases like action conflict or execution-related errors.
+    // TODO(b/249690006): Can we simplify things by moving aspects events here?
+    if (errorKey.argument() instanceof TopLevelAspectsKey) {
+      if (exception instanceof TopLevelConflictException) {
+        TopLevelConflictException tlce = (TopLevelConflictException) exception;
+        actionConflicts = tlce.getTransitiveActionConflicts();
+      } else if (isExecutionException(exception)) {
+        executionDetailedExitCode =
+            getExecutionDetailedExitCodeFromCause(result, exception, bugReporter);
+      } else if (!errorInfo.getCycleInfo().isEmpty()
+          && isExecutionCycle(errorInfo.getCycleInfo())) {
+        executionDetailedExitCode = CYCLE_CODE;
+      }
+      return IndividualErrorProcessingResult.create(
+          actionConflicts,
+          executionDetailedExitCode,
+          /*analysisRootCauses=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /*loadingRootCauses=*/ ImmutableSet.of());
+    }
+
+    // Only possible with actions generating build-info.txt and build-changelist.txt.
+    if (errorKey.argument() instanceof ActionLookupData) {
+      return IndividualErrorProcessingResult.create(
+          /*actionConflicts=*/ ImmutableMap.of(),
+          getExecutionDetailedExitCodeFromCause(result, exception, bugReporter),
+          /*analysisRootCauses=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /*loadingRootCauses=*/ ImmutableSet.of());
+    }
+
+    Preconditions.checkState(
+        errorKey.argument() instanceof ConfiguredTargetKey,
+        "expected '%s' to be a TopLevelAspectsKey or ConfiguredTargetKey",
+        errorKey.argument());
+    ConfiguredTargetKey ctKey = (ConfiguredTargetKey) errorKey.argument();
+    Label topLevelLabel = ctKey.getLabel();
+    NestedSet<Cause> analysisRootCauses;
+
+    if (exception instanceof TopLevelConflictException) {
+      TopLevelConflictException tlce = (TopLevelConflictException) exception;
+      actionConflicts = tlce.getTransitiveActionConflicts();
+      analysisRootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    } else if (exception instanceof ConfiguredValueCreationException) {
+      ConfiguredValueCreationException ctCause = (ConfiguredValueCreationException) exception;
+      // Previously, the nested set was de-duplicating loading root cause labels. Now that we
+      // track Cause instances including a message, we get one event per label and message. In
+      // order to keep backwards compatibility, we de-duplicate root cause labels here.
+      // TODO(ulfjack): Remove this code once we've migrated to the BEP.
+      for (Cause rootCause : ctCause.getRootCauses().toList()) {
+        if (rootCause instanceof LoadingFailedCause) {
+          loadingRootCauses.add(rootCause.getLabel());
         }
-        if (!inTest) {
-          for (Label loadingRootCause : loadingRootCauses) {
-            // This event is only for backwards compatibility with the old event protocol. Remove
-            // once we've migrated to the build event protocol.
-            eventBus.post(new LoadingFailureEvent(topLevelLabel, loadingRootCause));
-          }
-        }
-        rootCauses = ctCause.getRootCauses();
-      } else if (!errorInfo.getCycleInfo().isEmpty()) {
+      }
+      analysisRootCauses = ctCause.getRootCauses();
+    } else if (!errorInfo.getCycleInfo().isEmpty()) {
+      if (isExecutionCycle(errorInfo.getCycleInfo())) {
+        // If we have a cycle, cause would be null, so it's guaranteed that this
+        // executionDetailedExitCode is final.
+        executionDetailedExitCode = CYCLE_CODE;
+        analysisRootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+      } else {
         Label analysisRootCause =
             maybeGetConfiguredTargetCycleCulprit(topLevelLabel, errorInfo.getCycleInfo());
-        rootCauses =
+        analysisRootCauses =
             analysisRootCause != null
                 ? NestedSetBuilder.create(
                     Order.STABLE_ORDER,
@@ -278,90 +506,78 @@ public final class SkyframeErrorProcessor {
                         DetailedExitCode.of(createFailureDetail("Dependency cycle", Code.CYCLE))))
                 // TODO(ulfjack): We need to report the dependency cycle here. How?
                 : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-      } else if (cause instanceof ActionConflictException) {
-        ((ActionConflictException) cause).reportTo(eventHandler);
-        rootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-      } else if (cause instanceof NoSuchPackageException) {
-        // This branch is only taken in --nokeep_going builds. In a --keep_going build, the
-        // AnalysisFailedCause is properly reported through the ConfiguredValueCreationException.
-        BuildConfigurationValue configuration =
-            configurationLookupSupplier.get().get(label.getConfigurationKey());
-        ConfigurationId configId = configuration.getEventId().getConfiguration();
-        AnalysisFailedCause analysisFailedCause =
-            new AnalysisFailedCause(
-                topLevelLabel, configId, ((NoSuchPackageException) cause).getDetailedExitCode());
-        rootCauses = NestedSetBuilder.create(Order.STABLE_ORDER, analysisFailedCause);
-      } else if (cause instanceof TopLevelConflictException) {
-        TopLevelConflictException tlce = (TopLevelConflictException) cause;
-        actionConflicts.putAll(tlce.getTransitiveActionConflicts());
-        hasAnalysisError = true;
-        // The root causes for action conflicts will be determined and reported later in the error
-        // handling process. Simply skip the rest of the loop here.
-        continue;
-      } else if (cause instanceof TargetCompatibilityCheckException) {
-        rootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-      } else if (isExecutionException(cause)) {
-        isCurrentErrorAnalysisRelated = false;
-        DetailedExitCode detailedExitCode = DetailedException.getDetailedExitCode(cause);
-        if (detailedExitCode == null) {
-          detailedExitCode = createDetailedExitCodeForUndetailedExecutionCause(result, cause);
-        }
-        representativeExecutionDetailedExitCode =
-            DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
-                representativeExecutionDetailedExitCode, detailedExitCode);
-        rootCauses =
-            cause instanceof ActionExecutionException
-                ? ((ActionExecutionException) cause).getRootCauses()
-                : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-      } else {
-        BugReport.logUnexpected(
-            cause, "Unexpected cause encountered while evaluating: %s", errorKey);
       }
-
-      hasAnalysisError = hasAnalysisError || isCurrentErrorAnalysisRelated;
-
-      if (!inTest && isCurrentErrorAnalysisRelated) {
-        BuildConfigurationValue configuration =
-            configurationLookupSupplier.get().get(label.getConfigurationKey());
-        eventBus.post(
-            new AnalysisFailureEvent(
-                label, configuration == null ? null : configuration.getEventId(), rootCauses));
-      } else {
-        // eventBus is null, but test can still assert on the expected root causes being found.
-        eventHandler.handle(Event.error(rootCauses.toList().toString()));
-      }
-
-      if (!keepGoing) {
-        if (isExecutionException(cause)) {
-          rethrow(cause, bugReporter, result);
-        }
-        String errorMsg =
-            includeExecutionPhase
-                ? String.format("Build of target '%s' failed; build aborted", topLevelLabel)
-                : String.format("Analysis of target '%s' failed; build aborted", topLevelLabel);
-        throw createViewCreationFailedException(cause, errorMsg);
-      } else {
-        String warningMsg =
-            includeExecutionPhase
-                ? String.format("errors encountered while building target '%s'", topLevelLabel)
-                : String.format(
-                    "errors encountered while analyzing target '%s': it will not be built",
-                    topLevelLabel);
-        eventHandler.handle(Event.warn(warningMsg));
-      }
+    } else if (exception instanceof ActionConflictException) {
+      ((ActionConflictException) exception).reportTo(eventHandler);
+      analysisRootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    } else if (exception instanceof NoSuchThingException) {
+      // This branch is only taken in --nokeep_going builds. In a --keep_going build, the
+      // AnalysisFailedCause is properly reported through the ConfiguredValueCreationException.
+      AnalysisFailedCause analysisFailedCause =
+          new AnalysisFailedCause(
+              topLevelLabel,
+              configurationIdMessage(ctKey.getConfigurationKey()),
+              ((NoSuchThingException) exception).getDetailedExitCode());
+      analysisRootCauses = NestedSetBuilder.create(Order.STABLE_ORDER, analysisFailedCause);
+    } else if (exception instanceof TargetCompatibilityCheckException) {
+      analysisRootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    } else if (isExecutionException(exception)) {
+      executionDetailedExitCode =
+          getExecutionDetailedExitCodeFromCause(result, exception, bugReporter);
+      analysisRootCauses =
+          exception instanceof ActionExecutionException
+              ? ((ActionExecutionException) exception).getRootCauses()
+              : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    } else {
+      BugReport.logUnexpected(
+          exception, "Unexpected cause encountered while evaluating: %s", errorKey);
+      analysisRootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
 
-    // We wait until this point to throw the exception to make sure that the target error is
-    // preferred over the aspect one, for the same target.
-    if (!keepGoing && noKeepGoingAnalysisExceptionAspect != null) {
-      throw noKeepGoingAnalysisExceptionAspect;
-    }
+    return IndividualErrorProcessingResult.create(
+        actionConflicts,
+        executionDetailedExitCode,
+        analysisRootCauses,
+        ImmutableSet.copyOf(loadingRootCauses));
+  }
 
-    return ErrorProcessingResult.create(
-        hasLoadingError,
-        hasAnalysisError,
-        ImmutableMap.copyOf(actionConflicts),
-        representativeExecutionDetailedExitCode);
+  private static DetailedExitCode getExecutionDetailedExitCodeFromCause(
+      EvaluationResult<? extends SkyValue> result, Exception cause, BugReporter bugReporter) {
+    DetailedExitCode executionDetailedExitCode = DetailedException.getDetailedExitCode(cause);
+    if (executionDetailedExitCode == null) {
+      executionDetailedExitCode =
+          sendBugReportAndCreateUnknownExecutionDetailedExitCode(result, cause, bugReporter);
+    }
+    return executionDetailedExitCode;
+  }
+
+  private static DetailedExitCode sendBugReportAndCreateUnknownExecutionDetailedExitCode(
+      EvaluationResult<? extends SkyValue> result, Throwable cause, BugReporter bugReporter) {
+    // An undetailed exception means we may incorrectly attribute responsibility for the failure:
+    // we need to fix that.
+    bugReporter.sendNonFatalBugReport(
+        new IllegalStateException(
+            "action terminated with unexpected exception with result " + result, cause));
+    String message =
+        "Unexpected exception, please file an issue with the Bazel team: " + cause.getMessage();
+    return createDetailedExecutionExitCode(message, UNKNOWN_EXECUTION);
+  }
+
+  private static void printWarningMessage(
+      boolean isExecutionException,
+      @Nullable Label topLevelLabel,
+      ExtendedEventHandler eventHandler) {
+    String warningMsg =
+        isExecutionException
+            ? String.format("errors encountered while building target '%s'", topLevelLabel)
+            : String.format(
+                "errors encountered while analyzing target '%s': it will not be built",
+                topLevelLabel);
+    eventHandler.handle(Event.warn(warningMsg));
+  }
+
+  private static boolean isValidErrorKeyType(Object errorKey) {
+    return errorKey instanceof ConfiguredTargetKey || errorKey instanceof TopLevelAspectsKey;
   }
 
   private static void maybePostTopLevelEntryAnalysisConcludedEvent(
@@ -371,11 +587,12 @@ public final class SkyframeErrorProcessor {
     if (keepGoing
         && skyKey instanceof BuildDriverKey
         && !isExecutionException(errorInfo.getException())) {
-      eventBus.post(TopLevelEntityAnalysisConcludedEvent.create(skyKey));
+      eventBus.post(TopLevelEntityAnalysisConcludedEvent.failure(skyKey));
     }
   }
 
-  private static SkyKey getErrorKey(Entry<SkyKey, ErrorInfo> errorEntry) {
+  /** Peel away the wrapper layers to get to the ActionLookupKey of the top level target. */
+  private static SkyKey getEffectiveErrorKey(Entry<SkyKey, ErrorInfo> errorEntry) {
     if (errorEntry.getKey().argument() instanceof BuildDriverKey) {
       return ((BuildDriverKey) errorEntry.getKey().argument()).getActionLookupKey();
     }
@@ -384,6 +601,11 @@ public final class SkyframeErrorProcessor {
       return ((TestCompletionKey) errorEntry.getKey().argument()).configuredTargetKey();
     }
     return errorEntry.getKey();
+  }
+
+  @Nullable
+  private static Label getLabel(SkyKey errorKey) {
+    return errorKey instanceof ActionLookupKey ? ((ActionLookupKey) errorKey).getLabel() : null;
   }
 
   private static ViewCreationFailedException createViewCreationFailedException(
@@ -525,7 +747,9 @@ public final class SkyframeErrorProcessor {
   private static boolean isExecutionException(Throwable cause) {
     return cause instanceof ActionExecutionException
         || cause instanceof InputFileErrorException
-        || cause instanceof TestExecException;
+        || cause instanceof TestExecException
+        // Refer to UnusedInputsFailureIntegrationTest#incrementalFailureOnUnusedInput.
+        || cause instanceof ArtifactNestedSetEvalException;
   }
 
   /**
@@ -562,7 +786,7 @@ public final class SkyframeErrorProcessor {
         rethrow(result.getCatastrophe(), bugReporter, result);
       }
       if (keepGoing) {
-        return getDetailedExitCode(result);
+        return getDetailedExitCodeKeepGoing(result);
       }
       ErrorInfo errorInfo = Preconditions.checkNotNull(result.getError(), result);
       Exception exception = errorInfo.getException();
@@ -581,7 +805,7 @@ public final class SkyframeErrorProcessor {
     return null;
   }
 
-  private static DetailedExitCode getDetailedExitCode(EvaluationResult<?> result) {
+  private static DetailedExitCode getDetailedExitCodeKeepGoing(EvaluationResult<?> result) {
     // If build fails and keepGoing is true, an exit code is assigned using reported errors
     // in the following order:
     //   1. First infrastructure error with non-null exit code
@@ -613,7 +837,7 @@ public final class SkyframeErrorProcessor {
     if (detailedExitCode != null) {
       return detailedExitCode;
     }
-    return createDetailedExitCodeForUndetailedExecutionCause(result, undetailedCause);
+    return createDetailedExitCodeForUndetailedExecutionCauseKeepGoing(result, undetailedCause);
   }
 
   /**
@@ -662,19 +886,15 @@ public final class SkyframeErrorProcessor {
           cause.getMessage(), ((DetailedException) cause).getDetailedExitCode());
     }
 
-    // An undetailed exception means we may incorrectly attribute responsibility for the failure:
-    // we need to fix that.
-    bugReporter.sendBugReport(
-        new IllegalStateException(
-            "action terminated with unexpected exception with result " + resultForDebugging,
-            cause));
-    String message =
-        "Unexpected exception, please file an issue with the Bazel team: " + cause.getMessage();
+    DetailedExitCode unknownExitCode =
+        sendBugReportAndCreateUnknownExecutionDetailedExitCode(
+            resultForDebugging, cause, bugReporter);
     throw new BuildFailedException(
-        message, createDetailedExecutionExitCode(message, UNKNOWN_EXECUTION));
+        Preconditions.checkNotNull(unknownExitCode.getFailureDetail()).getMessage(),
+        unknownExitCode);
   }
 
-  private static DetailedExitCode createDetailedExitCodeForUndetailedExecutionCause(
+  private static DetailedExitCode createDetailedExitCodeForUndetailedExecutionCauseKeepGoing(
       EvaluationResult<?> result, Throwable undetailedCause) {
     if (undetailedCause == null) {
       BugReport.sendBugReport("No exceptions found despite error in %s", result);
@@ -708,5 +928,16 @@ public final class SkyframeErrorProcessor {
       String message, Execution execution) {
     return DetailedExitCode.of(
         FailureDetail.newBuilder().setMessage(message).setExecution(execution).build());
+  }
+
+  private static boolean isExecutionCycle(Iterable<CycleInfo> cycleInfoCollection) {
+    for (CycleInfo cycleInfo : cycleInfoCollection) {
+      if (cycleInfo.getCycle().stream().allMatch(ACTION_OR_ARTIFACT_OR_TRANSITIVE_RDEP)) {
+        // All these cycle info belong to the same top level key. If one of them is
+        // execution-related, we consider the error to be execution-related.
+        return true;
+      }
+    }
+    return false;
   }
 }

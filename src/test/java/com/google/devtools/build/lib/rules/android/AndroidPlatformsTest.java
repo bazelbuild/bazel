@@ -123,7 +123,8 @@ public class AndroidPlatformsTest extends AndroidBuildViewTestCase {
     CppLinkAction x86Link =
         (CppLinkAction) getGeneratingAction(getPrerequisiteArtifacts(x86Binary, "deps").get(0));
     // TODO(blaze-team): replace with the commented line below when platform-based resolution works.
-    assertThat(x86Link.getLinkCommandLine().getLinkerPathString()).isEqualTo("/usr/bin/mock-ar");
+    assertThat(x86Link.getLinkCommandLineForTesting().getLinkerPathString())
+        .isEqualTo("/usr/bin/mock-ar");
     // assertThat(cppLinkAction.getLinkCommandLine().getLinkerPathString())
     //    .isEqualTo("android/crosstool/x86/bin/i686-linux-android-ar");
 
@@ -134,7 +135,8 @@ public class AndroidPlatformsTest extends AndroidBuildViewTestCase {
     CppLinkAction armLink =
         (CppLinkAction) getGeneratingAction(getPrerequisiteArtifacts(armBinary, "deps").get(0));
     // TODO(blaze-team): replace with the commented line below when platform-based resolution works.
-    assertThat(armLink.getLinkCommandLine().getLinkerPathString()).isEqualTo("/usr/bin/mock-ar");
+    assertThat(armLink.getLinkCommandLineForTesting().getLinkerPathString())
+        .isEqualTo("/usr/bin/mock-ar");
     // assertThat(cppLinkAction.getLinkCommandLine().getLinkerPathString())
     //    .isEqualTo("android/crosstool/arm/bin/arm-linux-androideabi-ar");
   }

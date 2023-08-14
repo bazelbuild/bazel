@@ -1,10 +1,10 @@
 load("//tools/build_rules:utilities.bzl", "java_library_srcs")
-load("@rules_java//java:defs.bzl", "java_library")
-load("@rules_java//java:defs.bzl", "java_proto_library")
+load("@rules_java//java:defs.bzl", "java_library", "java_proto_library")
 
 # Description:
 #   Debugging helpers and modules
 package(
+    default_applicable_licenses = ["//:license"],
     default_visibility =
         ["//src:__subpackages__"],
 )

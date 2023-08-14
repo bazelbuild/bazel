@@ -25,6 +25,7 @@ class Options {
  public:
   Options()
       : output_jar_creator("singlejar"),
+        build_target(""),
         exclude_build_data(false),
         force_compression(false),
         normalize_timestamps(false),
@@ -44,6 +45,7 @@ class Options {
 
   std::string output_jar;
   std::string output_jar_creator;
+  std::string build_target;
   std::string main_class;
   std::string java_launcher;
   std::string cds_archive;

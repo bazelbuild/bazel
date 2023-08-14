@@ -1,7 +1,7 @@
 # Bazel - Google's Build System
 
 load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup")
-load("//tools/python:private/defs.bzl", "py_binary")
+load("@rules_python//python:defs.bzl", "py_binary")
 load("@rules_license//rules:license.bzl", "license")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 
@@ -36,11 +36,14 @@ filegroup(
         "//scripts:srcs",
         "//site:srcs",
         "//src:srcs",
-        "//tools:srcs",
-        "//third_party:srcs",
-        "//src/main/starlark/tests/builtins_bzl:srcs",
         "//src/main/java/com/google/devtools/build/docgen/release:srcs",
-    ] + glob([".bazelci/*"]) + [".bazelrc"],
+        "//src/main/starlark/tests/builtins_bzl:srcs",
+        "//third_party:srcs",
+        "//tools:srcs",
+    ] + glob([".bazelci/*"]) + [
+        ".bazelrc",
+        ".bazelversion",
+    ],
     applicable_licenses = ["@io_bazel//:license"],
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
@@ -49,6 +52,7 @@ filegroup(
     name = "git",
     srcs = glob(
         [".git/**"],
+        allow_empty = True,
         exclude = [".git/**/*[*"],  # gitk creates temp files with []
     ),
 )
@@ -92,6 +96,7 @@ genrule(
 pkg_tar(
     name = "bootstrap-jars",
     srcs = [
+        "@blake3",
         "@com_google_protobuf//:protobuf_java",
         "@com_google_protobuf//:protobuf_java_util",
         "@com_google_protobuf//:protobuf_javalite",
@@ -129,6 +134,7 @@ filegroup(
     srcs = [
         "//src/main/java/com/google/devtools/build/lib/bazel/rules:builtins_bzl.zip",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules:coverage.WORKSPACE",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules:rules_license.WORKSPACE",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp:cc_configure.WORKSPACE",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:jdk.WORKSPACE",
     ],
@@ -159,6 +165,27 @@ pkg_tar(
     visibility = ["//:__subpackages__"],
 )
 
+pkg_tar(
+    name = "rules_java-srcs",
+    srcs = ["@rules_java//:distribution"],
+    strip_prefix = "external",
+    visibility = ["//:__subpackages__"],
+)
+
+# The @maven repository is created by maven_install from rules_jvm_external.
+# `@maven//:srcs` contains all jar files downloaded and BUILD files created by maven_install.
+pkg_tar(
+    name = "maven-srcs",
+    srcs = ["@maven//:srcs"],
+    strip_prefix = "external",
+    visibility = ["//:__subpackages__"],
+)
+
+exports_files(
+    ["maven_install.json"],
+    visibility = ["//tools/compliance:__pkg__"],
+)
+
 py_binary(
     name = "combine_distfiles",
     srcs = ["combine_distfiles.py"],
@@ -172,6 +199,8 @@ genrule(
         ":bazel-srcs",
         ":bootstrap-jars",
         ":platforms-srcs",
+        ":rules_java-srcs",
+        ":maven-srcs",
         "//src:derived_java_srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:bootstrap_autocodec.tar",
         "@additional_distfiles//:archives.tar",
@@ -189,6 +218,8 @@ genrule(
         ":bazel-srcs",
         ":bootstrap-jars",
         ":platforms-srcs",
+        ":rules_java-srcs",
+        ":maven-srcs",
         "//src:derived_java_srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:bootstrap_autocodec.tar",
         "@additional_distfiles//:archives.tar",
@@ -215,6 +246,14 @@ platform(
         ":highcpu_machine",
     ],
     parents = ["@local_config_platform//:host"],
+)
+
+platform(
+    name = "windows_arm64",
+    constraint_values = [
+        "@platforms//os:windows",
+        "@platforms//cpu:arm64",
+    ],
 )
 
 REMOTE_PLATFORMS = ("rbe_ubuntu1804_java11",)

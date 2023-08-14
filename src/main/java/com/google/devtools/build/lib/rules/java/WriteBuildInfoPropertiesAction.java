@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.util.Fingerprint;
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -109,6 +110,23 @@ public final class WriteBuildInfoPropertiesAction extends AbstractFileWriteActio
   }
 
   /**
+   * A {@link BufferedWriter} that always writes {@code \n} in {@link BufferedWriter#newLine()},
+   * regardless of the value of the {@code line.separator} system property. This can be used to get
+   * consistent output from {@link Properties#store(Writer, String)} across host OSes.
+   */
+  private static class NewLineNormalizingBufferedWriter extends BufferedWriter {
+    public NewLineNormalizingBufferedWriter(Writer out) {
+      super(out);
+    }
+
+    @Override
+    public void newLine() throws IOException {
+      // super.newLine() uses System#lineSeparator(), which differs across platforms.
+      write('\n');
+    }
+  }
+
+  /**
    * Creates an action that writes a Java property files with build information.
    *
    * <p>It reads the set of build info keys from an action context that is usually contributed to
@@ -175,9 +193,14 @@ public final class WriteBuildInfoPropertiesAction extends AbstractFileWriteActio
         addValues(keys, values, context.getStableKeys());
         Properties properties = new DeterministicProperties();
         keyTranslations.translate(keys, properties);
-        properties.store(new StripFirstLineWriter(out), null);
+        storeNormalized(properties, out);
       }
     };
+  }
+
+  @VisibleForTesting
+  static void storeNormalized(Properties properties, OutputStream out) throws IOException {
+    properties.store(new NewLineNormalizingBufferedWriter(new StripFirstLineWriter(out)), null);
   }
 
   private void addValues(

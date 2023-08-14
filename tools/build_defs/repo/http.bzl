@@ -11,6 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+# WARNING:
+# https://github.com/bazelbuild/bazel/issues/17713
+# .bzl files in this package (tools/build_defs/repo) are evaluated
+# in a Starlark environment without "@_builtins" injection, and must not refer
+# to symbols associated with build/workspace .bzl files
+
 """Rules for downloading files and archives over HTTP.
 
 ### Setup
@@ -110,9 +117,16 @@ def _get_auth(ctx, urls):
     """Given the list of URLs obtain the correct auth dict."""
     if ctx.attr.netrc:
         netrc = read_netrc(ctx, ctx.attr.netrc)
+    elif "NETRC" in ctx.os.environ:
+        netrc = read_netrc(ctx, ctx.os.environ["NETRC"])
     else:
         netrc = read_user_netrc(ctx)
     return use_netrc(netrc, urls, ctx.attr.auth_patterns)
+
+def _update_sha256_attr(ctx, attrs, download_info):
+    # We don't need to override the sha256 attribute if integrity is already specified.
+    sha256_override = {} if ctx.attr.integrity else {"sha256": download_info.sha256}
+    return update_attrs(ctx.attr, attrs.keys(), sha256_override)
 
 def _http_archive_impl(ctx):
     """Implementation of the http_archive rule."""
@@ -124,7 +138,7 @@ def _http_archive_impl(ctx):
 
     download_info = ctx.download_and_extract(
         all_urls,
-        "",
+        ctx.attr.add_prefix,
         ctx.attr.sha256,
         ctx.attr.type,
         ctx.attr.strip_prefix,
@@ -135,9 +149,7 @@ def _http_archive_impl(ctx):
     workspace_and_buildfile(ctx)
     patch(ctx, auth = auth)
 
-    # We don't need to override the sha256 attribute if integrity is already specified.
-    sha256_override = {} if ctx.attr.integrity else {"sha256": download_info.sha256}
-    return update_attrs(ctx.attr, _http_archive_attrs.keys(), sha256_override)
+    return _update_sha256_attr(ctx, _http_archive_attrs, download_info)
 
 _HTTP_FILE_BUILD = """\
 package(default_visibility = ["//visibility:public"])
@@ -172,11 +184,12 @@ def _http_file_impl(ctx):
         ctx.attr.executable,
         canonical_id = ctx.attr.canonical_id,
         auth = auth,
+        integrity = ctx.attr.integrity,
     )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
     ctx.file("file/BUILD", _HTTP_FILE_BUILD.format(downloaded_file_path))
 
-    return update_attrs(ctx.attr, _http_file_attrs.keys(), {"sha256": download_info.sha256})
+    return _update_sha256_attr(ctx, _http_file_attrs, download_info)
 
 _HTTP_JAR_BUILD = """\
 load("@rules_java//java:defs.bzl", "java_import")
@@ -208,10 +221,12 @@ def _http_jar_impl(ctx):
         ctx.attr.sha256,
         canonical_id = ctx.attr.canonical_id,
         auth = auth,
+        integrity = ctx.attr.integrity,
     )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
     ctx.file("jar/BUILD", _HTTP_JAR_BUILD.format(file_name = downloaded_file_name))
-    return update_attrs(ctx.attr, _http_jar_attrs.keys(), {"sha256": download_info.sha256})
+
+    return _update_sha256_attr(ctx, _http_jar_attrs, download_info)
 
 _http_archive_attrs = {
     "url": attr.string(doc = _URL_DOC),
@@ -265,13 +280,22 @@ files/directories that start with the prefix but are not in the directory
 (e.g., `foo-lib-1.2.3.release-notes`). If the specified prefix does not
 match a directory in the archive, Bazel will return an error.""",
     ),
+    "add_prefix": attr.string(
+        default = "",
+        doc = """Destination directory relative to the repository directory.
+
+The archive will be unpacked into this directory, after applying `strip_prefix`
+(if any) to the file paths within the archive. For example, file
+`foo-1.2.3/src/foo.h` will be unpacked to `bar/src/foo.h` if `add_prefix = "bar"`
+and `strip_prefix = "foo-1.2.3"`.""",
+    ),
     "type": attr.string(
         doc = """The archive type of the downloaded file.
 
 By default, the archive type is determined from the file extension of the
 URL. If the file has no extension, you can explicitly specify one of the
 following: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`, `"tar.gz"`, `"tgz"`,
-`"tar.xz"`, `"txz"`, `"tar.zst"`, `"tzst"`, `tar.bz2`, `"ar"`, or `"deb"`.""",
+`"tar.xz"`, `"txz"`, `"tar.zst"`, `"tzst"`, `"tar.bz2"`, `"ar"`, or `"deb"`.""",
     ),
     "patches": attr.label_list(
         default = [],
@@ -297,7 +321,7 @@ following: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`, `"tar.gz"`, `"tgz"`,
     ),
     "patch_tool": attr.string(
         default = "",
-        doc = "The patch(1) utility to use. If this is specified, Bazel will use the specifed " +
+        doc = "The patch(1) utility to use. If this is specified, Bazel will use the specified " +
               "patch tool instead of the Bazel-native patch implementation.",
     ),
     "patch_args": attr.string_list(
@@ -421,6 +445,14 @@ to omit the SHA-256 as remote files can change._ At best omitting this
 field will make your build non-hermetic. It is optional to make development
 easier but should be set before shipping.""",
     ),
+    "integrity": attr.string(
+        doc = """Expected checksum in Subresource Integrity format of the file downloaded.
+
+This must match the checksum of the file downloaded. _It is a security risk
+to omit the checksum as remote files can change._ At best omitting this
+field will make your build non-hermetic. It is optional to make development
+easier but either this attribute or `sha256` should be set before shipping.""",
+    ),
     "canonical_id": attr.string(
         doc = """A canonical id of the archive downloaded.
 
@@ -466,7 +498,20 @@ Examples:
 
 _http_jar_attrs = {
     "sha256": attr.string(
-        doc = "The expected SHA-256 of the file downloaded.",
+        doc = """The expected SHA-256 of the file downloaded.
+
+This must match the SHA-256 of the file downloaded. _It is a security risk
+to omit the SHA-256 as remote files can change._ At best omitting this
+field will make your build non-hermetic. It is optional to make development
+easier but either this attribute or `integrity` should be set before shipping.""",
+    ),
+    "integrity": attr.string(
+        doc = """Expected checksum in Subresource Integrity format of the file downloaded.
+
+This must match the checksum of the file downloaded. _It is a security risk
+to omit the checksum as remote files can change._ At best omitting this
+field will make your build non-hermetic. It is optional to make development
+easier but either this attribute or `sha256` should be set before shipping.""",
     ),
     "canonical_id": attr.string(
         doc = """A canonical id of the archive downloaded.
@@ -515,7 +560,7 @@ Examples:
   )
   ```
 
-  Targets would specify <code>@my_ssl//jar</code> as a dependency to depend on this jar.
+  Targets would specify `@my_ssl//jar` as a dependency to depend on this jar.
 
   You may also reference files on the current system (localhost) by using "file:///path/to/file"
   if you are on Unix-based systems. If you're on Windows, use "file:///c:/path/to/file". In both

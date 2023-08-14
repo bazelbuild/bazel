@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.runtime.commands;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
@@ -29,7 +28,6 @@ import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.runtime.commands.events.CleanStartingEvent;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.CleanCommand.Code;
@@ -39,7 +37,6 @@ import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -49,6 +46,7 @@ import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.List;
 import java.util.UUID;
 import java.util.logging.LogManager;
 
@@ -132,18 +130,8 @@ public final class CleanCommand implements BlazeCommand {
 
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
-    // Assert that the only residue is starlark options and ignore them.
-    Pair<ImmutableList<String>, ImmutableList<String>> starlarkOptionsAndResidue =
-        StarlarkOptionsParser.removeStarlarkOptions(options.getResidue());
-    ImmutableList<String> removedStarlarkOptions = starlarkOptionsAndResidue.getFirst();
-    ImmutableList<String> residue = starlarkOptionsAndResidue.getSecond();
-    if (!removedStarlarkOptions.isEmpty()) {
-      env.getReporter()
-          .handle(
-              Event.warn(
-                  "Blaze clean does not support starlark options. Ignoring options: "
-                      + removedStarlarkOptions));
-    }
+    // Assert that there is no residue and warn about Starlark options.
+    List<String> residue = options.getResidue();
     if (!residue.isEmpty()) {
       String message = "Unrecognized arguments: " + Joiner.on(' ').join(residue);
       env.getReporter().handle(Event.error(message));
@@ -181,13 +169,10 @@ public final class CleanCommand implements BlazeCommand {
 
   @VisibleForTesting
   public static boolean canUseAsync(boolean async, boolean expunge, OS os, Reporter reporter) {
-    // TODO(dmarting): Deactivate expunge_async on non-Linux platform until we completely fix it
-    // for non-Linux platforms (https://github.com/bazelbuild/bazel/issues/1906).
-    // MacOS and FreeBSD support setsid(2) but don't have /usr/bin/setsid, so if we wanted to
-    // support --expunge_async on these platforms, we'd have to write a wrapper that calls setsid(2)
-    // and exec(2).
-    boolean asyncSupport = os == OS.LINUX;
-    if (async && !asyncSupport) {
+    // TODO(bazel-team): Deactivate expunge_async on Windows or Unknown platforms as support for
+    // daemonizing is done in daemonize.c and does not support those platforms.
+    boolean asyncSupportMissing = os == OS.WINDOWS || os == OS.UNKNOWN;
+    if (async && asyncSupportMissing) {
       String fallbackName = expunge ? "--expunge" : "synchronous clean";
       reporter.handle(
           Event.info(
@@ -197,7 +182,7 @@ public final class CleanCommand implements BlazeCommand {
     }
 
     String cleanBanner =
-        (async || !asyncSupport)
+        (async || asyncSupportMissing)
             ? "Starting clean."
             : "Starting clean (this may take a while). "
                 + "Consider using --async if the clean takes more than several minutes.";

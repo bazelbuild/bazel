@@ -17,7 +17,10 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
+import java.util.Optional;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -25,12 +28,22 @@ import net.starlark.java.syntax.Location;
  * information pertinent to the proxy object returned from the {@code use_extension} call.
  */
 @AutoValue
+@GenerateTypeAdapter
 public abstract class ModuleExtensionUsage {
   /** An unresolved label pointing to the Starlark file where the module extension is defined. */
   public abstract String getExtensionBzlFile();
 
   /** The name of the extension. */
   public abstract String getExtensionName();
+
+  /**
+   * The isolation key of this module extension usage. This is present if and only if the usage is
+   * created with {@code isolate = True}.
+   */
+  public abstract Optional<ModuleExtensionId.IsolationKey> getIsolationKey();
+
+  /** The module that contains this particular extension usage. */
+  public abstract ModuleKey getUsingModule();
 
   /**
    * The location where this proxy object was created (by the {@code use_extension} call). Note that
@@ -46,8 +59,26 @@ public abstract class ModuleExtensionUsage {
    */
   public abstract ImmutableBiMap<String, String> getImports();
 
+  /**
+   * The repo names as exported by the module extension that were imported using a proxy marked as a
+   * dev dependency.
+   */
+  public abstract ImmutableSet<String> getDevImports();
+
   /** All the tags specified by this module for this extension. */
   public abstract ImmutableList<Tag> getTags();
+
+  /**
+   * Whether any <code>use_extension</code> calls for this usage had <code>dev_dependency = True
+   * </code> set.*
+   */
+  public abstract boolean getHasDevUseExtension();
+
+  /**
+   * Whether any <code>use_extension</code> calls for this usage had <code>dev_dependency = False
+   * </code> set.*
+   */
+  public abstract boolean getHasNonDevUseExtension();
 
   public static Builder builder() {
     return new AutoValue_ModuleExtensionUsage.Builder();
@@ -61,9 +92,15 @@ public abstract class ModuleExtensionUsage {
 
     public abstract Builder setExtensionName(String value);
 
+    public abstract Builder setIsolationKey(Optional<ModuleExtensionId.IsolationKey> value);
+
+    public abstract Builder setUsingModule(ModuleKey value);
+
     public abstract Builder setLocation(Location value);
 
     public abstract Builder setImports(ImmutableBiMap<String, String> value);
+
+    public abstract Builder setDevImports(ImmutableSet<String> value);
 
     public abstract Builder setTags(ImmutableList<Tag> value);
 
@@ -74,6 +111,10 @@ public abstract class ModuleExtensionUsage {
       tagsBuilder().add(value);
       return this;
     }
+
+    public abstract Builder setHasDevUseExtension(boolean hasDevUseExtension);
+
+    public abstract Builder setHasNonDevUseExtension(boolean hasNonDevUseExtension);
 
     public abstract ModuleExtensionUsage build();
   }

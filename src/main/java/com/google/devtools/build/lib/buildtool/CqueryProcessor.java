@@ -14,11 +14,11 @@
 package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
 import com.google.devtools.build.lib.query2.cquery.ConfiguredTargetQueryEnvironment;
 import com.google.devtools.build.lib.query2.cquery.CqueryOptions;
-import com.google.devtools.build.lib.query2.cquery.KeyedConfiguredTarget;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -27,17 +27,17 @@ import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.Collection;
 
 /** Performs {@code cquery} processing. */
-public final class CqueryProcessor extends PostAnalysisQueryProcessor<KeyedConfiguredTarget> {
+public final class CqueryProcessor extends PostAnalysisQueryProcessor<ConfiguredTarget> {
 
-  public CqueryProcessor(QueryExpression queryExpression) {
-    super(queryExpression);
+  public CqueryProcessor(
+      QueryExpression queryExpression, TargetPattern.Parser mainRepoTargetParser) {
+    super(queryExpression, mainRepoTargetParser);
   }
 
   @Override
   protected ConfiguredTargetQueryEnvironment getQueryEnvironment(
       BuildRequest request,
       CommandEnvironment env,
-      BuildConfigurationValue hostConfiguration,
       TopLevelConfigurations configurations,
       Collection<SkyKey> transitiveConfigurationKeys,
       WalkableGraph walkableGraph)
@@ -53,9 +53,8 @@ public final class CqueryProcessor extends PostAnalysisQueryProcessor<KeyedConfi
         env.getReporter(),
         extraFunctions,
         configurations,
-        hostConfiguration,
         transitiveConfigurationKeys,
-        env.getRelativeWorkingDirectory(),
+        mainRepoTargetParser,
         env.getPackageManager().getPackagePath(),
         () -> walkableGraph,
         cqueryOptions,

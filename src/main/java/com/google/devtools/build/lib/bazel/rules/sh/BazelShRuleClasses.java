@@ -89,9 +89,7 @@ public final class BazelShRuleClasses {
    * by BASH_BINARY_BINDINGS.
    */
   static class BashBinaryBinding {
-    public final String execPath;
     public BashBinaryBinding(@Nullable String execPath) {
-      this.execPath = execPath;
     }
   }
 
@@ -105,8 +103,6 @@ public final class BazelShRuleClasses {
           // "system": don't package any bash with the target, but rather use whatever is
           // available on the system the script is run on.
           SYSTEM_BASH_VERSION, new BashBinaryBinding("/bin/bash"));
-
-  static final String DEFAULT_BASH_VERSION = SYSTEM_BASH_VERSION;
 
   // TODO(bazel-team): refactor sh_binary and sh_base to have a common root
   // with srcs and bash_version attributes

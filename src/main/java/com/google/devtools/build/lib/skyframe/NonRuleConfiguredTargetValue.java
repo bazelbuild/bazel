@@ -37,7 +37,7 @@ public final class NonRuleConfiguredTargetValue implements ConfiguredTargetValue
   @Nullable private ConfiguredTarget configuredTarget;
 
   // May be null either after clearing or because transitive packages are not tracked.
-  @Nullable private NestedSet<Package> transitivePackagesForPackageRootResolution;
+  @Nullable private NestedSet<Package> transitivePackages;
 
   @AutoCodec.Instantiator
   @VisibleForSerialization
@@ -48,30 +48,29 @@ public final class NonRuleConfiguredTargetValue implements ConfiguredTargetValue
   }
 
   NonRuleConfiguredTargetValue(
-      ConfiguredTarget configuredTarget,
-      @Nullable NestedSet<Package> transitivePackagesForPackageRootResolution) {
+      ConfiguredTarget configuredTarget, @Nullable NestedSet<Package> transitivePackages) {
     this.configuredTarget = Preconditions.checkNotNull(configuredTarget);
-    this.transitivePackagesForPackageRootResolution = transitivePackagesForPackageRootResolution;
+    this.transitivePackages = transitivePackages;
   }
 
+  @Nullable // May be null after clearing.
   @Override
   public ConfiguredTarget getConfiguredTarget() {
-    Preconditions.checkNotNull(configuredTarget);
     return configuredTarget;
   }
 
+  @Nullable
   @Override
-  public NestedSet<Package> getTransitivePackagesForPackageRootResolution() {
-    return Preconditions.checkNotNull(transitivePackagesForPackageRootResolution);
+  public NestedSet<Package> getTransitivePackages() {
+    return transitivePackages;
   }
 
   @Override
   public void clear(boolean clearEverything) {
-    Preconditions.checkNotNull(configuredTarget);
     if (clearEverything) {
       configuredTarget = null;
     }
-    transitivePackagesForPackageRootResolution = null;
+    transitivePackages = null;
   }
 
   @Override

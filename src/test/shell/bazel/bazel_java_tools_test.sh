@@ -76,6 +76,9 @@ function set_up() {
   fi
   cat > WORKSPACE <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+EOF
+  cat $(rlocation io_bazel/src/tests/shell/bazel/rules_license_stanza.txt) >> WORKSPACE
+  cat >> WORKSPACE <<EOF
 http_archive(
     name = "local_java_tools",
     urls = ["${java_tools_zip_file_url}"]
@@ -85,6 +88,7 @@ http_archive(
     urls = ["${java_tools_prebuilt_zip_file_url}"]
 )
 EOF
+  cat $(rlocation io_bazel/src/tests/shell/bazel/rules_license_stanza.txt) >> WORKSPACE
 }
 
 function expect_path_in_java_tools() {
@@ -188,8 +192,26 @@ function test_java_tools_singlejar_builds() {
   bazel build @local_java_tools//:singlejar_cc_bin || fail "singlejar failed to build"
 }
 
+function test_java_tools_singlejar_builds_with_layering_check() {
+  if [[ ! $(type -P clang) ]]; then
+    return
+  fi
+
+  bazel build --repo_env=CC=clang --features=layering_check \
+    @local_java_tools//:singlejar_cc_bin || fail "singlejar failed to build with layering check"
+}
+
 function test_java_tools_ijar_builds() {
   bazel build @local_java_tools//:ijar_cc_binary || fail "ijar failed to build"
+}
+
+function test_java_tools_ijar_builds_with_layering_check() {
+  if [[ ! $(type -P clang) ]]; then
+    return
+  fi
+
+  bazel build --repo_env=CC=clang --features=layering_check \
+    @local_java_tools//:ijar_cc_binary || fail "ijar failed to build with layering check"
 }
 
 run_suite "Java tools archive tests"

@@ -3,6 +3,7 @@ Book: /_book.yaml
 
 # Labels
 
+{% include "_buttons.html" %}
 
 All targets belong to exactly one package. The name of a target is
 called its _label_.  Every label uniquely identifies a target. A
@@ -55,15 +56,21 @@ this file is in the `my/app/main/testdata` subdirectory of the repository:
 //my/app/main:testdata/input.txt
 ```
 
-Don't confuse labels like `//my/app` with package names. Labels _always_ start
-with a repository identifier (often abbreviated `//`), but package names never
-do. Thus, `my/app` is the package containing `//my/app/lib` (which can also be
-written as `//my/app/lib:lib`).
+Strings like `//my/app` and `@some_repo//my/app` have two meanings depending on
+the context in which they are used: when Bazel expects a label, they mean
+`//my/app:app` and `@some_repo//my/app:app`, respectively. But, when Bazel
+expects a package (e.g. in `package_group` specifications), they reference the
+package that contains that label.
 
-A common misconception is that `//my/app` refers to a package, or to _all_ the
-targets in a package; neither is true.  Remember, it is equivalent to
-`//my/app:app`, so it names the `app` target in the `my/app` package of the
-current repository).
+A common mistake in `BUILD` files is using `//my/app` to refer to a package, or
+to *all* the targets in a package--it does not.  Remember, it is
+equivalent to `//my/app:app`, so it names the `app` target in the `my/app`
+package of the current repository.
+
+However, the use of `//my/app` to refer to a package is encouraged in the
+specification of a `package_group` or in `.bzl` files, because it clearly
+communicates that the package name is absolute and rooted in the top-level
+directory of the workspace.
 
 Relative labels cannot be used to refer to targets in other packages; the
 repository identifier and package name must always be specified in this case.
@@ -93,14 +100,14 @@ repository that refer to targets in the main repository, and will be
 used from external repositories.
 
 For information about the different ways you can refer to targets, see
-[target patterns](/docs/build#specifying-build-targets).
+[target patterns](/run/build#specifying-build-targets).
 
 ### Lexical specification of a label {:#labels-lexical-specification}
 
 Label syntax discourages use of metacharacters that have special meaning to the
 shell. This helps to avoid inadvertent quoting problems, and makes it easier to
 construct tools and scripts that manipulate labels, such as the
-[Bazel Query Language](/reference/query).
+[Bazel Query Language](/query/language).
 
 The precise details of allowed target names are below.
 
@@ -208,7 +215,7 @@ the build.
 
 This directed acyclic graph over targets is called the _target graph_ or
 _build dependency graph_, and is the domain over which the
-[Bazel Query tool](/docs/query-how-to) operates.
+[Bazel Query tool](/query/guide) operates.
 
 <table class="columns">
   <tr>

@@ -19,6 +19,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -35,7 +37,8 @@ public abstract class RepositoryMapping {
   // Always fallback to the requested name
   public static final RepositoryMapping ALWAYS_FALLBACK = createAllowingFallback(ImmutableMap.of());
 
-  abstract ImmutableMap<String, RepositoryName> repositoryMapping();
+  /** Returns all the entries in this repo mapping. */
+  public abstract ImmutableMap<String, RepositoryName> entries();
 
   /**
    * The owner repo of this repository mapping. It is for providing useful debug information when
@@ -46,16 +49,18 @@ public abstract class RepositoryMapping {
   abstract RepositoryName ownerRepo();
 
   public static RepositoryMapping create(
-      Map<String, RepositoryName> repositoryMapping, RepositoryName ownerRepo) {
-    return new AutoValue_RepositoryMapping(
-        ImmutableMap.copyOf(Preconditions.checkNotNull(repositoryMapping)),
-        Preconditions.checkNotNull(ownerRepo));
+      Map<String, RepositoryName> entries, RepositoryName ownerRepo) {
+    return createInternal(
+        Preconditions.checkNotNull(entries), Preconditions.checkNotNull(ownerRepo));
   }
 
-  public static RepositoryMapping createAllowingFallback(
-      Map<String, RepositoryName> repositoryMapping) {
-    return new AutoValue_RepositoryMapping(
-        ImmutableMap.copyOf(Preconditions.checkNotNull(repositoryMapping)), null);
+  public static RepositoryMapping createAllowingFallback(Map<String, RepositoryName> entries) {
+    return createInternal(Preconditions.checkNotNull(entries), null);
+  }
+
+  private static RepositoryMapping createInternal(
+      Map<String, RepositoryName> entries, RepositoryName ownerRepo) {
+    return new AutoValue_RepositoryMapping(ImmutableMap.copyOf(entries), ownerRepo);
   }
 
   /**
@@ -64,8 +69,8 @@ public abstract class RepositoryMapping {
    */
   public RepositoryMapping withAdditionalMappings(Map<String, RepositoryName> additionalMappings) {
     HashMap<String, RepositoryName> allMappings = new HashMap<>(additionalMappings);
-    allMappings.putAll(repositoryMapping());
-    return new AutoValue_RepositoryMapping(ImmutableMap.copyOf(allMappings), ownerRepo());
+    allMappings.putAll(entries());
+    return createInternal(allMappings, ownerRepo());
   }
 
   /**
@@ -74,7 +79,7 @@ public abstract class RepositoryMapping {
    * repo of the given additional mappings is ignored.
    */
   public RepositoryMapping withAdditionalMappings(RepositoryMapping additionalMappings) {
-    return withAdditionalMappings(additionalMappings.repositoryMapping());
+    return withAdditionalMappings(additionalMappings.entries());
   }
 
   /**
@@ -82,11 +87,7 @@ public abstract class RepositoryMapping {
    * provided apparent repo name is assumed to be valid.
    */
   public RepositoryName get(String preMappingName) {
-    if (preMappingName.startsWith("@")) {
-      // The given name is actually a canonical, post-mapping repo name already.
-      return RepositoryName.createUnvalidated(preMappingName);
-    }
-    RepositoryName canonicalRepoName = repositoryMapping().get(preMappingName);
+    RepositoryName canonicalRepoName = entries().get(preMappingName);
     if (canonicalRepoName != null) {
       return canonicalRepoName;
     }
@@ -96,5 +97,43 @@ public abstract class RepositoryMapping {
     } else {
       return RepositoryName.createUnvalidated(preMappingName).toNonVisible(ownerRepo());
     }
+  }
+
+  /**
+   * Whether the repo with this mapping is subject to strict deps; when strict deps is off, unknown
+   * apparent names are silently treated as canonical names.
+   */
+  public boolean usesStrictDeps() {
+    return ownerRepo() != null;
+  }
+
+  /**
+   * Returns the first apparent name in this mapping that maps to the given canonical name, if any.
+   */
+  public Optional<String> getInverse(RepositoryName postMappingName) {
+    return entries().entrySet().stream()
+        .filter(e -> e.getValue().equals(postMappingName))
+        .map(Entry::getKey)
+        .findFirst();
+  }
+
+  /**
+   * Creates a new {@link RepositoryMapping} instance that is the equivalent of composing this
+   * {@link RepositoryMapping} with another one. That is, {@code a.composeWith(b).get(name) ===
+   * b.get(a.get(name))} (treating {@code b} as allowing fallback).
+   *
+   * <p>Since we're treating the result of {@code a.get(name)} as an apparent repo name instead of a
+   * canonical repo name, this only really makes sense when {@code a} does not use strict deps (i.e.
+   * allows fallback).
+   */
+  public RepositoryMapping composeWith(RepositoryMapping other) {
+    Preconditions.checkArgument(
+        !usesStrictDeps(), "only an allow-fallback mapping can be composed with other mappings");
+    HashMap<String, RepositoryName> entries = new HashMap<>(other.entries());
+    for (Map.Entry<String, RepositoryName> entry : entries().entrySet()) {
+      RepositoryName mappedName = other.get(entry.getValue().getName());
+      entries.put(entry.getKey(), mappedName.isVisible() ? mappedName : entry.getValue());
+    }
+    return createInternal(entries, null);
   }
 }

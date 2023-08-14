@@ -19,10 +19,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestStatus;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -33,12 +36,16 @@ import org.junit.runners.JUnit4;
 public final class TargetSummaryEventTest {
   private static final String PATH = "package";
   private static final String TARGET_NAME = "name";
-  private static final String CHECKSUM = "abcdef";
+
+  private static final BuildConfigurationKey CONFIGURATION_KEY =
+      BuildConfigurationKey.withoutPlatformMapping(BuildOptions.builder().build());
+
+  private static final String CHECKSUM = CONFIGURATION_KEY.getOptions().checksum();
 
   @Test
   public void testGetEventId() throws Exception {
     TargetSummaryEvent event =
-        TargetSummaryEvent.create(target(PATH, TARGET_NAME, CHECKSUM), false, false, null);
+        TargetSummaryEvent.create(target(PATH, TARGET_NAME, CONFIGURATION_KEY), false, false, null);
     assertThat(event.getEventId())
         .isEqualTo(
             BuildEventIdUtil.targetSummary(
@@ -117,14 +124,21 @@ public final class TargetSummaryEventTest {
   }
 
   private static ConfiguredTarget stubTarget() throws Exception {
-    return target(PATH, TARGET_NAME, CHECKSUM);
+    return target(PATH, TARGET_NAME, CONFIGURATION_KEY);
   }
 
-  private static ConfiguredTarget target(String path, String targetName, String configChecksum)
-      throws Exception {
+  private static ConfiguredTarget target(
+      String path, String targetName, BuildConfigurationKey configurationKey) throws Exception {
     ConfiguredTarget target = mock(ConfiguredTarget.class);
     when(target.getOriginalLabel()).thenReturn(Label.create(path, targetName));
-    when(target.getConfigurationChecksum()).thenReturn(configChecksum);
+    when(target.getConfigurationChecksum())
+        .thenReturn(configurationKey == null ? null : configurationKey.getOptions().checksum());
+    ConfiguredTargetKey key =
+        ConfiguredTargetKey.builder()
+            .setLabel(Label.create(path, targetName))
+            .setConfigurationKey(configurationKey)
+            .build();
+    when(target.getLookupKey()).thenReturn(key);
     return target;
   }
 }

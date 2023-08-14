@@ -38,7 +38,7 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
     addTool(config, "tools/python/srcs_version.bzl");
     addTool(config, "tools/python/toolchain.bzl");
     addTool(config, "tools/python/utils.bzl");
-    addTool(config, "tools/python/private/defs.bzl");
+    addTool(config, "tools/python/python_bootstrap_template.txt");
 
     config.create(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/python/BUILD",
@@ -60,18 +60,12 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
         "constraint_setting(name = 'py2_interpreter_path')",
         "constraint_setting(name = 'py3_interpreter_path')",
         "py_runtime(",
-        "    name = 'py2_interpreter',",
-        "    interpreter_path = '/usr/bin/mockpython2',",
-        "    python_version = 'PY2',",
-        ")",
-        "py_runtime(",
         "    name = 'py3_interpreter',",
         "    interpreter_path = '/usr/bin/mockpython3',",
         "    python_version = 'PY3',",
         ")",
         "py_runtime_pair(",
         "    name = 'default_py_runtime_pair',",
-        "    py2_runtime = ':py2_interpreter',",
         "    py3_runtime = ':py3_interpreter',",
         ")",
         "toolchain(",

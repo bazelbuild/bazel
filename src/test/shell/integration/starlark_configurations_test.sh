@@ -112,8 +112,8 @@ EOF
 #### TESTS #############################################################
 
 function test_default_flag() {
- local -r pkg=$FUNCNAME
- mkdir -p $pkg
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
 
   write_build_setting_bzl
 
@@ -172,6 +172,8 @@ function test_multiple_starlark_flags() {
 
   expect_log "type=coffee"
   expect_log "temp=iced"
+
+  bazel clean 2>"$TEST_log" || fail "Clean failed"
 
   # Ensure that order doesn't matter.
   bazel build //$pkg:my_drink --//$pkg:temp="iced" --//$pkg:type="coffee" \
@@ -619,7 +621,7 @@ load('//test:rule.bzl', 'my_rule')
 my_rule(name = 'test')
 EOF
   bazel build //test:test >& "$TEST_log" || exit_code="$?"
-  assert_equals 2 "$exit_code" || fail "Expected exit code 2"
+  assert_equals 1 "$exit_code" || fail "Expected exit code 1"
   expect_log "CPU name '//bad:cpu'"
   expect_log "is invalid as part of a path: must not contain /"
 }

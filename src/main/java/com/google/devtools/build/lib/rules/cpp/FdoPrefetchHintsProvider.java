@@ -16,10 +16,11 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Provider that contains the profile used for prefetch hints. */
 @Immutable
-public final class FdoPrefetchHintsProvider extends NativeInfo {
+public final class FdoPrefetchHintsProvider extends NativeInfo implements StarlarkValue {
   public static final BuiltinProvider<FdoPrefetchHintsProvider> PROVIDER =
       new BuiltinProvider<FdoPrefetchHintsProvider>(
           "FdoPrefetchHintsInfo", FdoPrefetchHintsProvider.class) {};

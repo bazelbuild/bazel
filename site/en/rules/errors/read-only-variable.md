@@ -1,8 +1,9 @@
 Project: /_project.yaml
 Book: /_book.yaml
 
-
 # Error: Variable x is read only
+
+{% include "_buttons.html" %}
 
 A global variable cannot be reassigned. It will always point to the same object.
 However, its content might change, if the value is mutable (for example, the

@@ -21,7 +21,6 @@ import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
-import com.google.common.base.Ascii;
 import com.google.common.base.Verify;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableList;
@@ -131,7 +130,7 @@ public class ConfigCommand implements BlazeCommand {
   protected static class ConfigurationForOutput {
     final String skyKey;
     final String configHash;
-    final boolean isHost;
+    final String mnemonic;
     final boolean isExec;
     final List<FragmentForOutput> fragments;
     final List<FragmentOptionsForOutput> fragmentOptions;
@@ -139,13 +138,13 @@ public class ConfigCommand implements BlazeCommand {
     ConfigurationForOutput(
         String skyKey,
         String configHash,
-        boolean isHost,
+        String mnemonic,
         boolean isExec,
         List<FragmentForOutput> fragments,
         List<FragmentOptionsForOutput> fragmentOptions) {
       this.skyKey = skyKey;
       this.configHash = configHash;
-      this.isHost = isHost;
+      this.mnemonic = mnemonic;
       this.isExec = isExec;
       this.fragments = fragments;
       this.fragmentOptions = fragmentOptions;
@@ -477,7 +476,7 @@ public class ConfigCommand implements BlazeCommand {
     return new ConfigurationForOutput(
         skyKey.toString(),
         configHash,
-        config.isHostConfiguration(),
+        config.getMnemonic(),
         config.isExecConfiguration(),
         fragments.build().asList(),
         fragmentOptions.build().asList());
@@ -515,9 +514,6 @@ public class ConfigCommand implements BlazeCommand {
   }
 
   private static boolean doesConfigMatch(ConfigurationForOutput config, String configPrefix) {
-    if (Ascii.equalsIgnoreCase(configPrefix, "host")) {
-      return config.isHost;
-    }
     return config.checksum().startsWith(configPrefix);
   }
 

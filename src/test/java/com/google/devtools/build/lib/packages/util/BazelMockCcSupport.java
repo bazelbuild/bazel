@@ -35,7 +35,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
   private BazelMockCcSupport() {}
 
   private static final ImmutableList<String> CROSSTOOL_ARCHS =
-      ImmutableList.of("piii", "k8", "armeabi-v7a", "ppc", "darwin");
+      ImmutableList.of("piii", "k8", "armeabi-v7a", "ppc", "darwin_x86_64");
 
   @Override
   protected String getRealFilesystemCrosstoolTopPath() {
@@ -68,7 +68,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
 
   @Override
   public Label getMockCrosstoolLabel() {
-    return Label.parseAbsoluteUnchecked("@bazel_tools//tools/cpp:toolchain");
+    return Label.parseCanonicalUnchecked("@bazel_tools//tools/cpp:toolchain");
   }
 
   @Override
@@ -94,9 +94,13 @@ public final class BazelMockCcSupport extends MockCcSupport {
     result.add(CcToolchainConfig.builder().build());
 
     if (OS.getCurrent() == OS.DARWIN) {
-      result.add(CcToolchainConfig.getCcToolchainConfigForCpu("darwin"));
+      result.add(CcToolchainConfig.getCcToolchainConfigForCpu("darwin_x86_64"));
+      result.add(CcToolchainConfig.getCcToolchainConfigForCpu("darwin_arm64"));
     }
 
+    if (System.getProperty("os.arch").equals("s390x")) {
+      result.add(CcToolchainConfig.getCcToolchainConfigForCpu("s390x"));
+    }
     return result.build();
   }
 }

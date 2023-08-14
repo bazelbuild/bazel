@@ -92,7 +92,7 @@ distdir_bzl_file="${BAZEL_RUNFILES}/distdir.bzl"
 if [[ $PLATFORM =~ msys ]]; then
   jdk_dir="$(cygpath -m $(cd $(rlocation local_jdk/bin/java.exe)/../..; pwd))"
 else
-  jdk_dir="${TEST_SRCDIR}/local_jdk"
+  jdk_dir="$(dirname $(dirname $(rlocation local_jdk/bin/java)))"
 fi
 
 # Tools directory location
@@ -116,11 +116,11 @@ protoc_compiler="${BAZEL_RUNFILES}/src/test/shell/integration/protoc"
 skylib_package="@bazel_skylib//"
 
 if [ -z ${RUNFILES_MANIFEST_ONLY+x} ]; then
-  junit_jar="${BAZEL_RUNFILES}/third_party/junit/junit-*.jar"
-  hamcrest_jar="${BAZEL_RUNFILES}/third_party/hamcrest/hamcrest-*.jar"
+  junit_jar="${BAZEL_RUNFILES}/src/test/shell/bazel/junit.jar"
+  hamcrest_jar="${BAZEL_RUNFILES}/src/test/shell/bazel/hamcrest.jar"
 else
-  junit_jar=$(rlocation io_bazel/third_party/junit/junit-.*.jar)
-  hamcrest_jar=$(rlocation io_bazel/third_party/hamcrest/hamcrest-.*.jar)
+  junit_jar=$(rlocation io_bazel/src/test/shell/bazel/junit.jar)
+  hamcrest_jar=$(rlocation io_bazel/src/test/shell/bazel/hamcrest.jar)
 fi
 
 
@@ -272,62 +272,48 @@ EOF
 
     repos=(
         "android_tools_for_testing"
-        "android_gmaven_r8_for_testing"
+        "android_gmaven_r8"
         "bazel_skylib"
         "bazel_toolchains"
         "com_google_protobuf"
-        "openjdk11_darwin_archive"
-        "openjdk11_darwin_aarch64_archive"
-        "openjdk11_linux_archive"
-        "openjdk11_windows_archive"
-        "openjdk11_windows_arm64_archive"
-        "openjdk17_darwin_archive"
-        "openjdk17_darwin_aarch64_archive"
-        "openjdk17_linux_archive"
-        "openjdk17_windows_archive"
-        "openjdk17_windows_arm64_archive"
-        "openjdk18_darwin_archive"
-        "openjdk18_darwin_aarch64_archive"
-        "openjdk18_linux_archive"
-        "openjdk18_windows_archive"
-        "openjdk18_windows_arm64_archive"
-        "openjdk_linux_aarch64_minimal"
-        "openjdk_linux_minimal"
-        "openjdk_macos_x86_64_minimal"
-        "openjdk_macos_aarch64_minimal"
-        "openjdk_win_minimal"
+        "openjdk_linux_aarch64_vanilla"
+        "openjdk_linux_vanilla"
+        "openjdk_macos_x86_64_vanilla"
+        "openjdk_macos_aarch64_vanilla"
+        "openjdk_win_vanilla"
         "remote_coverage_tools"
-        "remote_java_tools_for_testing"
-        "remote_java_tools_darwin_for_testing"
-        "remote_java_tools_test"
-        "remote_java_tools_test_darwin"
-        "remote_java_tools_test_linux"
-        "remote_java_tools_test_windows"
-        "remote_java_tools_linux_for_testing"
-        "remote_java_tools_windows_for_testing"
-        "remotejdk11_linux_for_testing"
-        "remotejdk11_linux_aarch64_for_testing"
-        "remotejdk11_linux_ppc64le_for_testing"
-        "remotejdk11_linux_s390x_for_testing"
-        "remotejdk11_macos_for_testing"
-        "remotejdk11_macos_aarch64_for_testing"
-        "remotejdk11_win_for_testing"
-        "remotejdk11_win_arm64_for_testing"
-        "remotejdk17_linux_for_testing"
-        "remotejdk17_macos_for_testing"
-        "remotejdk17_macos_aarch64_for_testing"
-        "remotejdk17_win_for_testing"
-        "remotejdk17_win_arm64_for_testing"
-        "remotejdk18_linux_for_testing"
-        "remotejdk18_macos_for_testing"
-        "remotejdk18_macos_aarch64_for_testing"
-        "remotejdk18_win_for_testing"
-        "remotejdk18_win_arm64_for_testing"
+        "remote_java_tools"
+        "remote_java_tools_darwin_x86_64"
+        "remote_java_tools_darwin_arm64"
+        "remote_java_tools_linux"
+        "remote_java_tools_windows"
+        "remotejdk11_linux"
+        "remotejdk11_linux_aarch64"
+        "remotejdk11_linux_ppc64le"
+        "remotejdk11_linux_s390x"
+        "remotejdk11_macos"
+        "remotejdk11_macos_aarch64"
+        "remotejdk11_win"
+        "remotejdk11_win_arm64"
+        "remotejdk17_linux"
+        "remotejdk17_linux_s390x"
+        "remotejdk17_macos"
+        "remotejdk17_macos_aarch64"
+        "remotejdk17_win"
+        "remotejdk17_win_arm64"
+        "remotejdk20_linux"
+        "remotejdk20_macos"
+        "remotejdk20_macos_aarch64"
+        "remotejdk20_win"
+        "remotejdk20_win_arm64"
         "rules_cc"
         "rules_java"
+        "rules_java_builtin_for_testing"
         "rules_license"
         "rules_proto"
         "rules_python"
+        "rules_pkg"
+        "rules_testing"
     )
     for repo in "${repos[@]}"; do
       reponame="${repo%"_for_testing"}"
@@ -371,13 +357,15 @@ EOF
 # Sets up sufficient platform definitions to support Android shell tests using
 # platform-based toolchain resolution.
 #
-# See resolve_android_toolchains_with_platforms in
+# See resolve_android_toolchains in
 # src/test/shell/bazel/android/android_helper.sh for how to platform-based
 # toolchain resolution.
 function setup_android_platforms() {
   mkdir -p test_android_platforms
 
   cat > test_android_platforms/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+
 platform(
     name = "simple",
     constraint_values = [
@@ -463,11 +451,7 @@ function maybe_setup_python_windows_tools() {
   cat > tools/python/windows/BUILD << EOF
 load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
 
-py_runtime(
-  name = "py2_runtime",
-  interpreter_path = r"C:\Python2\python.exe",
-  python_version = "PY2",
-)
+package(default_visibility = ["//visibility:public"])
 
 py_runtime(
   name = "py3_runtime",
@@ -477,7 +461,6 @@ py_runtime(
 
 py_runtime_pair(
   name = "py_runtime_pair",
-  py2_runtime = ":py2_runtime",
   py3_runtime = ":py3_runtime",
 )
 
@@ -510,18 +493,12 @@ function setup_objc_test_support() {
 }
 
 function setup_skylib_support() {
-  # Get skylib path portably by using rlocation to locate a top-level file in
-  # the repo. Use BUILD because it's in the //:test_deps target (unlike
-  # WORKSPACE).
-  local -r skylib_workspace="$(rlocation bazel_skylib/BUILD)"
-  [[ -n "$skylib_workspace" && -e "$skylib_workspace" ]] || fail "could not find Skylib"
-  local -r skylib_root="$(dirname "$skylib_workspace")"
+  mkdir -p rules/private
+  touch rules/private/BUILD
   cat >> WORKSPACE << EOF
-new_local_repository(
-    name = 'bazel_skylib',
-    build_file_content = '',
-    path='$skylib_root',
-)
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+{bazel_skylib}
 
 load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
 bazel_skylib_workspace()
@@ -552,11 +529,37 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 EOF
 }
 
+function add_rules_pkg_to_workspace() {
+  cat >> "$1"<<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+{rules_pkg}
+EOF
+}
+
 function add_rules_proto_to_workspace() {
   cat >> "$1"<<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 {rules_proto}
+EOF
+}
+
+function add_rules_python_to_workspace() {
+  cat >> "$1"<<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+{rules_python}
+EOF
+}
+
+function add_rules_testing_to_workspace() {
+  mkdir lib
+  touch lib/BUILD
+  cat >> "$1"<<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+{rules_testing}
 EOF
 }
 
@@ -573,7 +576,9 @@ EOF
   add_rules_cc_to_workspace "WORKSPACE"
   add_rules_java_to_workspace "WORKSPACE"
   add_rules_license_to_workspace "WORKSPACE"
+  add_rules_pkg_to_workspace "WORKSPACE"
   add_rules_proto_to_workspace "WORKSPACE"
+  add_rules_python_to_workspace "WORKSPACE"
 
   maybe_setup_python_windows_workspace
 }
@@ -759,10 +764,8 @@ function use_fake_python_runtimes_for_testsuite() {
   # The stub script template automatically appends ".exe" to the Python binary
   # name if it doesn't already end in ".exe", ".com", or ".bat".
   if [[ $PLATFORM =~ msys ]]; then
-    PYTHON2_FILENAME="python2.bat"
     PYTHON3_FILENAME="python3.bat"
   else
-    PYTHON2_FILENAME="python2.sh"
     PYTHON3_FILENAME="python3.sh"
   fi
 
@@ -781,12 +784,6 @@ sh_binary(
 )
 
 py_runtime(
-    name = "fake_py2_interpreter",
-    interpreter = ":${PYTHON2_FILENAME}",
-    python_version = "PY2",
-)
-
-py_runtime(
     name = "fake_py3_interpreter",
     interpreter = ":${PYTHON3_FILENAME}",
     python_version = "PY3",
@@ -794,7 +791,6 @@ py_runtime(
 
 py_runtime_pair(
     name = "fake_py_runtime_pair",
-    py2_runtime = ":fake_py2_interpreter",
     py3_runtime = ":fake_py3_interpreter",
 )
 
@@ -807,21 +803,48 @@ EOF
 
   # Windows .bat has uppercase ECHO and no shebang.
   if [[ $PLATFORM =~ msys ]]; then
-    cat > tools/python/$PYTHON2_FILENAME << EOF
-@ECHO I am Python 2
-EOF
     cat > tools/python/$PYTHON3_FILENAME << EOF
 @ECHO I am Python 3
 EOF
   else
-    cat > tools/python/$PYTHON2_FILENAME << EOF
-#!/bin/sh
-echo 'I am Python 2'
-EOF
     cat > tools/python/$PYTHON3_FILENAME << EOF
 #!/bin/sh
 echo 'I am Python 3'
 EOF
-    chmod +x tools/python/$PYTHON2_FILENAME tools/python/$PYTHON3_FILENAME
+    chmod +x tools/python/$PYTHON3_FILENAME
   fi
+}
+
+function mock_rules_java_to_avoid_downloading() {
+  rules_java_workspace="${TEST_TMPDIR}/rules_java_workspace"
+  mkdir -p "${rules_java_workspace}/java"
+  mkdir -p "${rules_java_workspace}/toolchains"
+  touch "${rules_java_workspace}/WORKSPACE"
+  touch "${rules_java_workspace}/toolchains/BUILD"
+  cat > "${rules_java_workspace}/toolchains/local_java_repository.bzl" <<EOF
+def local_java_repository(**attrs):
+    pass
+EOF
+  cat > "${rules_java_workspace}/toolchains/jdk_build_file.bzl" <<EOF
+JDK_BUILD_TEMPLATE = ''
+EOF
+  touch "${rules_java_workspace}/java/BUILD"
+  cat > "${rules_java_workspace}/java/repositories.bzl" <<EOF
+def rules_java_dependencies():
+    pass
+def rules_java_toolchains():
+    pass
+EOF
+  cat > "${rules_java_workspace}/java/defs.bzl" <<EOF
+def java_binary(**attrs):
+    native.java_binary(**attrs)
+def java_library(**attrs):
+    native.java_library(**attrs)
+def java_import(**attrs):
+    native.java_import(**attrs)
+def java_test(**attrs):
+    native.java_test(**attrs)
+EOF
+  add_to_bazelrc "common --override_repository=rules_java=${rules_java_workspace}"
+  add_to_bazelrc "common --override_repository=rules_java_builtin=${rules_java_workspace}"
 }

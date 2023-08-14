@@ -1,8 +1,21 @@
 load("@rules_java//java:defs.bzl", "java_binary", "java_import")
+load("@rules_license//rules:license.bzl", "license")
 
-package(default_visibility = ["//visibility:public"])
+package(
+    default_applicable_licenses = [":license"],
+    default_visibility = ["//visibility:public"],
+)
 
 licenses(["notice"])  # Apache 2.0
+
+license(
+    name = "license",
+    package_name = "jarjar",
+    license_kinds = [
+        "@rules_license//licenses/spdx:Apache-2.0",
+    ],
+    license_text = "LICENSE",
+)
 
 filegroup(
     name = "srcs",

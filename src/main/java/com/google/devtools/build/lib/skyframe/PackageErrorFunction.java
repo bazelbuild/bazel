@@ -14,9 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
@@ -49,7 +47,7 @@ public class PackageErrorFunction implements SkyFunction {
   @AutoCodec.VisibleForSerialization
   @AutoCodec
   static class Key extends AbstractSkyKey<PackageIdentifier> {
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     private Key(PackageIdentifier arg) {
       super(arg);
@@ -65,6 +63,11 @@ public class PackageErrorFunction implements SkyFunction {
     public SkyFunctionName functionName() {
       return SkyFunctions.PACKAGE_ERROR;
     }
+
+    @Override
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
+      return interner;
+    }
   }
 
   @Nullable
@@ -73,10 +76,9 @@ public class PackageErrorFunction implements SkyFunction {
       throws PackageErrorFunctionException, InterruptedException {
     PackageIdentifier packageIdentifier = (PackageIdentifier) skyKey.argument();
     try {
-      SkyKey packageKey = PackageValue.key(packageIdentifier);
       // Callers must have tried to load the package already and gotten the package successfully.
       Package pkg =
-          ((PackageValue) env.getValueOrThrow(packageKey, NoSuchPackageException.class))
+          ((PackageValue) env.getValueOrThrow(packageIdentifier, NoSuchPackageException.class))
               .getPackage();
       Preconditions.checkState(pkg.containsErrors(), skyKey);
       throw new PackageErrorFunctionException(

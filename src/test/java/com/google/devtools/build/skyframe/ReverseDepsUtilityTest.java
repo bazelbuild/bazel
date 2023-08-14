@@ -18,6 +18,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.Test;
@@ -27,7 +28,10 @@ import org.junit.runners.Parameterized.Parameters;
 
 /** Test for {@code ReverseDepsUtility}. */
 @RunWith(Parameterized.class)
-public class ReverseDepsUtilityTest {
+public final class ReverseDepsUtilityTest {
+
+  private static final SkyKey KEY = GraphTester.skyKey("KEY");
+
   private final int numElements;
 
   @Parameters(name = "numElements-{0}")
@@ -46,7 +50,7 @@ public class ReverseDepsUtilityTest {
   @Test
   public void testAddAndRemove() {
     for (int numRemovals = 0; numRemovals <= numElements; numRemovals++) {
-      InMemoryNodeEntry example = new InMemoryNodeEntry();
+      var example = new IncrementalInMemoryNodeEntry(KEY);
       for (int j = 0; j < numElements; j++) {
         ReverseDepsUtility.addReverseDep(example, Key.create(j));
       }
@@ -67,7 +71,7 @@ public class ReverseDepsUtilityTest {
   @Test
   public void testAddAllAndRemove() {
     for (int numRemovals = 0; numRemovals <= numElements; numRemovals++) {
-      InMemoryNodeEntry example = new InMemoryNodeEntry();
+      var example = new IncrementalInMemoryNodeEntry(KEY);
       for (int j = 0; j < numElements; j++) {
         ReverseDepsUtility.addReverseDep(example, Key.create(j));
       }
@@ -84,7 +88,7 @@ public class ReverseDepsUtilityTest {
 
   @Test
   public void testDuplicateCheckOnGetReverseDeps() {
-    InMemoryNodeEntry example = new InMemoryNodeEntry();
+    var example = new IncrementalInMemoryNodeEntry(KEY);
     for (int i = 0; i < numElements; i++) {
       ReverseDepsUtility.addReverseDep(example, Key.create(i));
     }
@@ -102,7 +106,7 @@ public class ReverseDepsUtilityTest {
 
   @Test
   public void duplicateAddNoThrowWithoutCheck() {
-    InMemoryNodeEntry example = new InMemoryNodeEntry();
+    var example = new IncrementalInMemoryNodeEntry(KEY);
     for (int i = 0; i < numElements; i++) {
       ReverseDepsUtility.addReverseDep(example, Key.create(i));
     }
@@ -113,7 +117,7 @@ public class ReverseDepsUtilityTest {
 
   @Test
   public void doubleAddThenRemove() {
-    InMemoryNodeEntry example = new InMemoryNodeEntry();
+    var example = new IncrementalInMemoryNodeEntry(KEY);
     SkyKey key = Key.create(0);
     ReverseDepsUtility.addReverseDep(example, key);
     // Should only fail when we call getReverseDeps().
@@ -126,22 +130,27 @@ public class ReverseDepsUtilityTest {
 
   @Test
   public void doubleAddThenRemoveCheckedOnSize() {
-    InMemoryNodeEntry example = new InMemoryNodeEntry();
+    var example = new IncrementalInMemoryNodeEntry(KEY);
     SkyKey fixedKey = Key.create(0);
     ReverseDepsUtility.addReverseDep(example, fixedKey);
     SkyKey key = Key.create(1);
     ReverseDepsUtility.addReverseDep(example, key);
     // Should only fail when we reach the limit.
     ReverseDepsUtility.addReverseDep(example, key);
-    ReverseDepsUtility.removeReverseDep(example, key);
-    ReverseDepsUtility.checkReverseDep(example, fixedKey);
-    assertThrows(
-        IllegalStateException.class, () -> ReverseDepsUtility.checkReverseDep(example, fixedKey));
+    example.addReverseDepAndCheckIfDone(null);
+    assertThat(example.checkIfDoneForDirtyReverseDep(fixedKey))
+        .isEqualTo(DependencyState.ALREADY_EVALUATING);
+    assertThat(example.checkIfDoneForDirtyReverseDep(key))
+        .isEqualTo(DependencyState.ALREADY_EVALUATING);
+    var e =
+        assertThrows(
+            IllegalStateException.class, () -> ReverseDepsUtility.removeReverseDep(example, key));
+    assertThat(e).hasMessageThat().contains("1 duplicate");
   }
 
   @Test
   public void addRemoveAdd() {
-    InMemoryNodeEntry example = new InMemoryNodeEntry();
+    var example = new IncrementalInMemoryNodeEntry(KEY);
     SkyKey fixedKey = Key.create(0);
     ReverseDepsUtility.addReverseDep(example, fixedKey);
     SkyKey key = Key.create(1);

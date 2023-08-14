@@ -30,7 +30,9 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateType;
+import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.Sharder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -53,9 +55,12 @@ import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.Differencer;
 import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.FunctionHermeticity;
+import com.google.devtools.build.skyframe.InMemoryGraph;
+import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.Version;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
 import java.util.Collection;
@@ -101,11 +106,27 @@ public class FilesystemValueChecker {
    */
   // TODO(bazel-team): Refactor these methods so that FilesystemValueChecker only operates on a
   // WalkableGraph.
-  ImmutableBatchDirtyResult getDirtyKeys(
+  public ImmutableBatchDirtyResult getDirtyKeys(
       Map<SkyKey, SkyValue> valuesMap, SkyValueDirtinessChecker dirtinessChecker)
       throws InterruptedException {
-    return getDirtyValues(new MapBackedValueFetcher(valuesMap), valuesMap.keySet(),
-        dirtinessChecker, /*checkMissingValues=*/false);
+    return getDirtyValues(
+        new MapBackedValueFetcher(valuesMap),
+        valuesMap.keySet(),
+        dirtinessChecker,
+        /* checkMissingValues= */ false,
+        /* inMemoryGraph= */ null);
+  }
+
+  public ImmutableBatchDirtyResult getDirtyKeys(
+      InMemoryGraph inMemoryGraph, SkyValueDirtinessChecker dirtinessChecker)
+      throws InterruptedException {
+    Map<SkyKey, SkyValue> valuesMap = inMemoryGraph.getValues();
+    return getDirtyValues(
+        new MapBackedValueFetcher(valuesMap),
+        valuesMap.keySet(),
+        dirtinessChecker,
+        /* checkMissingValues= */ false,
+        inMemoryGraph);
   }
 
   /**
@@ -117,8 +138,12 @@ public class FilesystemValueChecker {
       Collection<SkyKey> keys,
       SkyValueDirtinessChecker dirtinessChecker)
       throws InterruptedException {
-    return getDirtyValues(new WalkableGraphBackedValueFetcher(walkableGraph), keys,
-        dirtinessChecker, /*checkMissingValues=*/true);
+    return getDirtyValues(
+        new WalkableGraphBackedValueFetcher(walkableGraph),
+        keys,
+        dirtinessChecker,
+        /* checkMissingValues= */ true,
+        /* inMemoryGraph= */ null);
   }
 
   private interface ValueFetcher {
@@ -176,7 +201,7 @@ public class FilesystemValueChecker {
       Map<SkyKey, SkyValue> valuesMap,
       @Nullable final BatchStat batchStatter,
       ModifiedFileSet modifiedOutputFiles,
-      boolean trustRemoteArtifacts,
+      RemoteArtifactChecker remoteArtifactChecker,
       ModifiedOutputsReceiver modifiedOutputsReceiver)
       throws InterruptedException {
     if (modifiedOutputFiles == ModifiedFileSet.NOTHING_MODIFIED) {
@@ -238,7 +263,7 @@ public class FilesystemValueChecker {
                     shard,
                     knownModifiedOutputFiles,
                     sortedKnownModifiedOutputFiles,
-                    trustRemoteArtifacts,
+                    remoteArtifactChecker,
                     modifiedOutputsReceiver)
                 : batchStatJob(
                     dirtyKeys,
@@ -246,7 +271,7 @@ public class FilesystemValueChecker {
                     batchStatter,
                     knownModifiedOutputFiles,
                     sortedKnownModifiedOutputFiles,
-                    trustRemoteArtifacts,
+                    remoteArtifactChecker,
                     modifiedOutputsReceiver);
         executor.execute(job);
       }
@@ -272,7 +297,7 @@ public class FilesystemValueChecker {
       BatchStat batchStatter,
       ImmutableSet<PathFragment> knownModifiedOutputFiles,
       Supplier<NavigableSet<PathFragment>> sortedKnownModifiedOutputFiles,
-      boolean trustRemoteArtifacts,
+      RemoteArtifactChecker remoteArtifactChecker,
       ModifiedOutputsReceiver modifiedOutputsReceiver) {
     return () -> {
       Map<Artifact, Pair<SkyKey, ActionExecutionValue>> fileToKeyAndValue = new HashMap<>();
@@ -319,8 +344,8 @@ public class FilesystemValueChecker {
       try {
         stats =
             batchStatter.batchStat(
-                /*includeDigest=*/ true,
-                /*includeLinks=*/ true,
+                /* includeDigest= */ true,
+                /* includeLinks= */ true,
                 Artifact.asPathFragments(artifacts));
       } catch (IOException e) {
         logger.atWarning().withCause(e).log(
@@ -330,12 +355,13 @@ public class FilesystemValueChecker {
                 shard,
                 knownModifiedOutputFiles,
                 sortedKnownModifiedOutputFiles,
-                trustRemoteArtifacts,
+                remoteArtifactChecker,
                 modifiedOutputsReceiver)
             .run();
         return;
       } catch (InterruptedException e) {
         logger.atInfo().log("Interrupted doing batch stat");
+        Thread.currentThread().interrupt();
         // We handle interrupt in the main thread.
         return;
       }
@@ -375,13 +401,20 @@ public class FilesystemValueChecker {
       for (Map.Entry<Artifact, Pair<SkyKey, ActionExecutionValue>> entry :
           treeArtifactsToKeyAndValue.entrySet()) {
         Artifact artifact = entry.getKey();
-        if (treeArtifactIsDirty(
-            entry.getKey(), entry.getValue().getSecond().getTreeArtifactValue(artifact))) {
-          // Count the changed directory as one "file".
-          // TODO(bazel-team): There are no tests for this codepath.
-          modifiedOutputsReceiver.reportModifiedOutputFile(
-              getBestEffortModifiedTime(artifact.getPath()), artifact);
-          dirtyKeys.add(entry.getValue().getFirst());
+        try {
+          if (treeArtifactIsDirty(
+              entry.getKey(), entry.getValue().getSecond().getTreeArtifactValue(artifact))) {
+            // Count the changed directory as one "file".
+            // TODO(bazel-team): There are no tests for this codepath.
+            modifiedOutputsReceiver.reportModifiedOutputFile(
+                getBestEffortModifiedTime(artifact.getPath()), artifact);
+            dirtyKeys.add(entry.getValue().getFirst());
+          }
+        } catch (InterruptedException e) {
+          logger.atInfo().log("Interrupted doing batch stat");
+          Thread.currentThread().interrupt();
+          // We handle interrupt in the main thread.
+          return;
         }
       }
     };
@@ -392,28 +425,37 @@ public class FilesystemValueChecker {
       List<Pair<SkyKey, ActionExecutionValue>> shard,
       ImmutableSet<PathFragment> knownModifiedOutputFiles,
       Supplier<NavigableSet<PathFragment>> sortedKnownModifiedOutputFiles,
-      boolean trustRemoteArtifacts,
+      RemoteArtifactChecker remoteArtifactChecker,
       ModifiedOutputsReceiver modifiedOutputsReceiver) {
     return new Runnable() {
       @Override
       public void run() {
-        for (Pair<SkyKey, ActionExecutionValue> keyAndValue : shard) {
-          ActionExecutionValue value = keyAndValue.getSecond();
-          if (value == null
-              || actionValueIsDirtyWithDirectSystemCalls(
-                  value,
-                  knownModifiedOutputFiles,
-                  sortedKnownModifiedOutputFiles,
-                  trustRemoteArtifacts,
-                  modifiedOutputsReceiver)) {
-            dirtyKeys.add(keyAndValue.getFirst());
+        try {
+          for (Pair<SkyKey, ActionExecutionValue> keyAndValue : shard) {
+            ActionExecutionValue value = keyAndValue.getSecond();
+            if (value == null
+                || actionValueIsDirtyWithDirectSystemCalls(
+                    value,
+                    knownModifiedOutputFiles,
+                    sortedKnownModifiedOutputFiles,
+                    remoteArtifactChecker,
+                    modifiedOutputsReceiver)) {
+              dirtyKeys.add(keyAndValue.getFirst());
+            }
           }
+        } catch (InterruptedException e) {
+          // This code is called from getDirtyActionValues() and is running under an Executor. This
+          // means that getDirtyActionValues() will take care of house-keeping in case of an
+          // interrupt; all that matters is that we exit as quickly as possible.
+          logger.atInfo().log("Interrupted doing non-batch stat");
+          Thread.currentThread().interrupt();
         }
       }
     };
   }
 
-  private boolean treeArtifactIsDirty(Artifact artifact, TreeArtifactValue value) {
+  private boolean treeArtifactIsDirty(Artifact artifact, TreeArtifactValue value)
+      throws InterruptedException {
     Path path = artifact.getPath();
     if (path.isSymbolicLink()) {
       return true; // TreeArtifacts may not be symbolic links.
@@ -421,7 +463,8 @@ public class FilesystemValueChecker {
 
     // This could be improved by short-circuiting as soon as we see a child that is not present in
     // the TreeArtifactValue, but it doesn't seem to be a major source of overhead.
-    Set<PathFragment> currentChildren = new HashSet<>();
+    // visitTree() is called from multiple threads in parallel so this need to be a hash set
+    Set<PathFragment> currentChildren = Sets.newConcurrentHashSet();
     try {
       TreeArtifactValue.visitTree(
           path,
@@ -439,7 +482,7 @@ public class FilesystemValueChecker {
 
   private boolean artifactIsDirtyWithDirectSystemCalls(
       ImmutableSet<PathFragment> knownModifiedOutputFiles,
-      boolean trustRemoteArtifacts,
+      RemoteArtifactChecker remoteArtifactChecker,
       Map.Entry<? extends Artifact, FileArtifactValue> entry,
       ModifiedOutputsReceiver modifiedOutputsReceiver) {
     Artifact file = entry.getKey();
@@ -453,7 +496,8 @@ public class FilesystemValueChecker {
       boolean trustRemoteValue =
           fileMetadata.getType() == FileStateType.NONEXISTENT
               && lastKnownData.isRemote()
-              && trustRemoteArtifacts;
+              && remoteArtifactChecker.shouldTrustRemoteArtifact(
+                  file, (RemoteFileArtifactValue) lastKnownData);
       if (!trustRemoteValue && fileMetadata.couldBeModifiedSince(lastKnownData)) {
         modifiedOutputsReceiver.reportModifiedOutputFile(
             fileMetadata.getType() != FileStateType.NONEXISTENT
@@ -474,12 +518,13 @@ public class FilesystemValueChecker {
       ActionExecutionValue actionValue,
       ImmutableSet<PathFragment> knownModifiedOutputFiles,
       Supplier<NavigableSet<PathFragment>> sortedKnownModifiedOutputFiles,
-      boolean trustRemoteArtifacts,
-      ModifiedOutputsReceiver modifiedOutputsReceiver) {
+      RemoteArtifactChecker remoteArtifactChecker,
+      ModifiedOutputsReceiver modifiedOutputsReceiver)
+      throws InterruptedException {
     boolean isDirty = false;
     for (Map.Entry<Artifact, FileArtifactValue> entry : actionValue.getAllFileValues().entrySet()) {
       if (artifactIsDirtyWithDirectSystemCalls(
-          knownModifiedOutputFiles, trustRemoteArtifacts, entry, modifiedOutputsReceiver)) {
+          knownModifiedOutputFiles, remoteArtifactChecker, entry, modifiedOutputsReceiver)) {
         isDirty = true;
       }
     }
@@ -488,31 +533,26 @@ public class FilesystemValueChecker {
         actionValue.getAllTreeArtifactValues().entrySet()) {
       TreeArtifactValue tree = entry.getValue();
 
-      if (!tree.isEntirelyRemote()) {
-        for (Map.Entry<TreeFileArtifact, FileArtifactValue> childEntry :
-            tree.getChildValues().entrySet()) {
-          if (artifactIsDirtyWithDirectSystemCalls(
-              knownModifiedOutputFiles,
-              trustRemoteArtifacts,
-              childEntry,
-              modifiedOutputsReceiver)) {
-            isDirty = true;
-          }
+      for (Map.Entry<TreeFileArtifact, FileArtifactValue> childEntry :
+          tree.getChildValues().entrySet()) {
+        if (artifactIsDirtyWithDirectSystemCalls(
+            knownModifiedOutputFiles, remoteArtifactChecker, childEntry, modifiedOutputsReceiver)) {
+          isDirty = true;
         }
-        isDirty =
-            isDirty
-                || tree.getArchivedRepresentation()
-                    .map(
-                        archivedRepresentation ->
-                            artifactIsDirtyWithDirectSystemCalls(
-                                knownModifiedOutputFiles,
-                                trustRemoteArtifacts,
-                                Maps.immutableEntry(
-                                    archivedRepresentation.archivedTreeFileArtifact(),
-                                    archivedRepresentation.archivedFileValue()),
-                                modifiedOutputsReceiver))
-                    .orElse(false);
       }
+      isDirty =
+          isDirty
+              || tree.getArchivedRepresentation()
+                  .map(
+                      archivedRepresentation ->
+                          artifactIsDirtyWithDirectSystemCalls(
+                              knownModifiedOutputFiles,
+                              remoteArtifactChecker,
+                              Maps.immutableEntry(
+                                  archivedRepresentation.archivedTreeFileArtifact(),
+                                  archivedRepresentation.archivedFileValue()),
+                              modifiedOutputsReceiver))
+                  .orElse(false);
 
       Artifact treeArtifact = entry.getKey();
       if (shouldCheckTreeArtifact(sortedKnownModifiedOutputFiles.get(), treeArtifact)
@@ -565,8 +605,9 @@ public class FilesystemValueChecker {
   private ImmutableBatchDirtyResult getDirtyValues(
       ValueFetcher fetcher,
       Collection<SkyKey> keys,
-      final SkyValueDirtinessChecker checker,
-      final boolean checkMissingValues)
+      SkyValueDirtinessChecker checker,
+      boolean checkMissingValues,
+      @Nullable InMemoryGraph inMemoryGraph)
       throws InterruptedException {
     ExecutorService executor =
         Executors.newFixedThreadPool(
@@ -604,11 +645,18 @@ public class FilesystemValueChecker {
               if (!checkMissingValues && value == null) {
                 return;
               }
-
+              @Nullable
+              Version oldMtsv =
+                  inMemoryGraph != null
+                      ? inMemoryGraph
+                          .get(/* requestor= */ null, Reason.OTHER, key)
+                          .getMaxTransitiveSourceVersion()
+                      : null;
               numKeysChecked.incrementAndGet();
-              DirtyResult result = checker.check(key, value, syscallCache, tsgm);
+              DirtyResult result = checker.check(key, value, oldMtsv, syscallCache, tsgm);
               if (result.isDirty()) {
-                batchResult.add(key, value, result.getNewValue());
+                batchResult.add(
+                    key, value, result.getNewValue(), result.getNewMaxTransitiveSourceVersion());
               }
             });
       }
@@ -622,7 +670,8 @@ public class FilesystemValueChecker {
     return batchResult.toImmutable();
   }
 
-  static class ImmutableBatchDirtyResult implements Differencer.DiffWithDelta {
+  /** An immutable {@link com.google.devtools.build.skyframe.Differencer.DiffWithDelta}. */
+  public static class ImmutableBatchDirtyResult implements Differencer.DiffWithDelta {
     private final Collection<SkyKey> dirtyKeysWithoutNewValues;
     private final Map<SkyKey, Delta> dirtyKeysWithNewAndOldValues;
     private final int numKeysChecked;
@@ -642,11 +691,11 @@ public class FilesystemValueChecker {
     }
 
     @Override
-    public Map<SkyKey, SkyValue> changedKeysWithNewValues() {
-      return Delta.newValues(dirtyKeysWithNewAndOldValues);
+    public Map<SkyKey, Delta> changedKeysWithNewValues() {
+      return dirtyKeysWithNewAndOldValues;
     }
 
-    int getNumKeysChecked() {
+    public int getNumKeysChecked() {
       return numKeysChecked;
     }
   }
@@ -666,14 +715,21 @@ public class FilesystemValueChecker {
       this.numChecked = numChecked;
     }
 
-    private void add(SkyKey key, @Nullable SkyValue oldValue, @Nullable SkyValue newValue) {
+    private void add(
+        SkyKey key,
+        @Nullable SkyValue oldValue,
+        @Nullable SkyValue newValue,
+        @Nullable Version newMaxTransitiveSourceVersion) {
       if (newValue == null) {
         concurrentDirtyKeysWithoutNewValues.add(key);
       } else {
+        // TODO(b/139545639) - handle old mtsv's and null mtsv's
         if (oldValue == null) {
-          concurrentDirtyKeysWithNewAndOldValues.put(key, Delta.create(newValue));
+          concurrentDirtyKeysWithNewAndOldValues.put(
+              key, Delta.justNew(newValue, newMaxTransitiveSourceVersion));
         } else {
-          concurrentDirtyKeysWithNewAndOldValues.put(key, Delta.create(oldValue, newValue));
+          concurrentDirtyKeysWithNewAndOldValues.put(
+              key, Delta.changed(oldValue, newValue, newMaxTransitiveSourceVersion));
         }
       }
     }

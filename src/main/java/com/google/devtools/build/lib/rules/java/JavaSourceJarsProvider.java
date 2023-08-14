@@ -18,19 +18,26 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.rules.java.JavaInfo.JavaInfoInternalProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.Iterator;
+import java.util.Collection;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkList;
 
 /** The collection of source jars from the transitive closure. */
 @AutoValue
 @Immutable
-public abstract class JavaSourceJarsProvider implements TransitiveInfoProvider {
+public abstract class JavaSourceJarsProvider implements JavaInfoInternalProvider {
 
   @SerializationConstant
   public static final JavaSourceJarsProvider EMPTY =
@@ -51,23 +58,6 @@ public abstract class JavaSourceJarsProvider implements TransitiveInfoProvider {
   /** Return the source jars that are to be built when the target is on the command line. */
   public abstract ImmutableList<Artifact> getSourceJars();
 
-  public static JavaSourceJarsProvider merge(Iterable<JavaSourceJarsProvider> providers) {
-    Iterator<JavaSourceJarsProvider> it = providers.iterator();
-    if (!it.hasNext()) {
-      return EMPTY;
-    }
-    JavaSourceJarsProvider first = it.next();
-    if (!it.hasNext()) {
-      return first;
-    }
-    JavaSourceJarsProvider.Builder result = builder();
-    result.mergeFrom(first);
-    do {
-      result.mergeFrom(it.next());
-    } while (it.hasNext());
-    return result.build();
-  }
-
   /** Returns a builder for a {@link JavaSourceJarsProvider}. */
   public static Builder builder() {
     return new Builder();
@@ -76,7 +66,8 @@ public abstract class JavaSourceJarsProvider implements TransitiveInfoProvider {
   /** A builder for {@link JavaSourceJarsProvider}. */
   public static final class Builder {
 
-    private final ImmutableList.Builder<Artifact> sourceJars = ImmutableList.builder();
+    // CompactHashSet preserves insertion order here since we never perform any removals
+    private final CompactHashSet<Artifact> sourceJars = CompactHashSet.create();
     private final NestedSetBuilder<Artifact> transitiveSourceJars = NestedSetBuilder.stableOrder();
 
     /** Add a source jar that is to be built when the target is on the command line. */
@@ -88,7 +79,7 @@ public abstract class JavaSourceJarsProvider implements TransitiveInfoProvider {
 
     /** Add source jars to be built when the target is on the command line. */
     @CanIgnoreReturnValue
-    public Builder addAllSourceJars(Iterable<Artifact> sourceJars) {
+    public Builder addAllSourceJars(Collection<Artifact> sourceJars) {
       this.sourceJars.addAll(Preconditions.checkNotNull(sourceJars));
       return this;
     }
@@ -113,16 +104,17 @@ public abstract class JavaSourceJarsProvider implements TransitiveInfoProvider {
       return this;
     }
 
-    /** Merge the source jars and transitive source jars from the provider into this builder. */
-    @CanIgnoreReturnValue
-    public Builder mergeFrom(JavaSourceJarsProvider provider) {
-      addAllTransitiveSourceJars(provider.getTransitiveSourceJars());
-      addAllSourceJars(provider.getSourceJars());
-      return this;
-    }
-
     public JavaSourceJarsProvider build() {
-      return JavaSourceJarsProvider.create(transitiveSourceJars.build(), sourceJars.build());
+      return JavaSourceJarsProvider.create(
+          transitiveSourceJars.build(), ImmutableList.copyOf(sourceJars));
     }
+  }
+
+  static JavaSourceJarsProvider fromStarlarkJavaInfo(StructImpl javaInfo)
+      throws EvalException, TypeException {
+    return JavaSourceJarsProvider.create(
+        javaInfo.getValue("transitive_source_jars", Depset.class).getSet(Artifact.class),
+        Sequence.cast(
+            javaInfo.getValue("source_jars", StarlarkList.class), Artifact.class, "source_jars"));
   }
 }

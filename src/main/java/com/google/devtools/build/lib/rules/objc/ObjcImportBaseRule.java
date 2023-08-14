@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.util.FileType;
@@ -42,6 +43,10 @@ public class ObjcImportBaseRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("archives", LABEL_LIST).mandatory().nonEmpty().allowedFileTypes(FileType.of(".a")))
+        /* <!-- #BLAZE_RULE($objc_import_base_rule).ATTRIBUTE(deps) -->
+        The list of targets that this target depend on.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(attr("deps", LABEL_LIST).mandatoryProviders(CcInfo.PROVIDER.id()).allowedFileTypes())
         .addToolchainTypes(CppRuleClasses.ccToolchainTypeRequirement(environment))
         .build();
   }
@@ -54,8 +59,7 @@ public class ObjcImportBaseRule implements RuleDefinition {
         .ancestors(
             BaseRuleClasses.NativeBuildRule.class,
             ObjcRuleClasses.AlwaysLinkRule.class,
-            ObjcRuleClasses.CrosstoolRule.class,
-            ObjcRuleClasses.XcrunRule.class)
+            ObjcRuleClasses.CrosstoolRule.class)
         .build();
   }
 }

@@ -15,7 +15,9 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.devtools.build.lib.packages.Type.INTEGER;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -32,6 +34,7 @@ import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
@@ -94,6 +97,21 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
 
     Artifact libModules = ruleContext.getPrerequisiteArtifact("lib_modules");
 
+    ImmutableList<CcInfo> hermeticStaticLibs =
+        ImmutableList.copyOf(ruleContext.getPrerequisites("hermetic_static_libs", CcInfo.PROVIDER));
+
+    // If a runtime does not set default_cds in hermetic mode, it is not fatal.
+    // We can skip the default CDS in the check below.
+    Artifact defaultCDS = ruleContext.getPrerequisiteArtifact("default_cds");
+
+    if ((!hermeticInputs.isEmpty() || libModules != null || !hermeticStaticLibs.isEmpty())
+        && (hermeticInputs.isEmpty() || libModules == null || hermeticStaticLibs.isEmpty())) {
+      ruleContext.attributeError(
+          "hermetic",
+          "hermetic specified, all of java_runtime.lib_modules, java_runtime.hermetic_srcs and"
+              + " java_runtime.hermetic_static_libs must be specified");
+    }
+
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
 
     // TODO(cushon): clean up uses of java_runtime in data deps and remove this
@@ -110,7 +128,10 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
             javaHomeRunfilesPath,
             javaBinaryRunfilesPath,
             hermeticInputs,
-            libModules);
+            libModules,
+            defaultCDS,
+            hermeticStaticLibs,
+            ruleContext.attributes().get("version", INTEGER).toIntUnchecked());
 
     TemplateVariableInfo templateVariableInfo =
         new TemplateVariableInfo(

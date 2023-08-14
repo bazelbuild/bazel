@@ -14,20 +14,25 @@
 
 package com.google.devtools.build.lib.worker;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * Helper class that sets up a sandbox in a more comprehensible way. Handles setting up
@@ -36,21 +41,24 @@ import java.util.stream.Collectors;
 class SandboxHelper {
 
   /** Map from workdir-relative input path to optional real file path. */
-  private final Map<PathFragment, Path> inputs = new HashMap<>();
+  private final Map<PathFragment, RootedPath> inputs = new HashMap<>();
 
-  private final Map<PathFragment, String> virtualInputs = new HashMap<>();
+  private final Map<VirtualActionInput, byte[]> virtualInputs = new HashMap<>();
   private final Map<PathFragment, PathFragment> symlinks = new HashMap<>();
   private final Map<PathFragment, Path> workerFiles = new HashMap<>();
   private final List<PathFragment> outputFiles = new ArrayList<>();
   private final List<PathFragment> outputDirs = new ArrayList<>();
 
   /** The global execRoot. */
-  final Path execRoot;
+  final Path execRootPath;
+
+  final Root execRoot;
   /** The worker process's sandbox root. */
   final Path workDir;
 
   public SandboxHelper(Path execRoot, Path workDir) {
-    this.execRoot = execRoot;
+    this.execRootPath = execRoot;
+    this.execRoot = Root.fromPath(execRoot);
     this.workDir = workDir;
   }
 
@@ -62,7 +70,9 @@ class SandboxHelper {
   public SandboxHelper addInputFile(String relativePath, String workspacePath) {
     inputs.put(
         PathFragment.create(relativePath),
-        workspacePath != null ? execRoot.getRelative(workspacePath) : null);
+        workspacePath != null
+            ? RootedPath.toRootedPath(execRoot, PathFragment.create(workspacePath))
+            : null);
     return this;
   }
 
@@ -75,7 +85,7 @@ class SandboxHelper {
   public SandboxHelper addAndCreateInputFile(
       String relativePath, String workspacePath, String contents) throws IOException {
     addInputFile(relativePath, workspacePath);
-    Path absPath = execRoot.getRelative(workspacePath);
+    Path absPath = execRootPath.getRelative(workspacePath);
     absPath.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(absPath, contents);
     return this;
@@ -84,7 +94,16 @@ class SandboxHelper {
   /** Adds a virtual input with some contents, which is assumed to be ASCII text. */
   @CanIgnoreReturnValue
   public SandboxHelper addAndCreateVirtualInput(String relativePath, String contents) {
-    virtualInputs.put(PathFragment.create(relativePath), contents);
+    VirtualActionInput input = ActionsTestUtil.createVirtualActionInput(relativePath, contents);
+    byte[] digest =
+        execRootPath
+            .getRelative(relativePath)
+            .getFileSystem()
+            .getDigestFunction()
+            .getHashFunction()
+            .hashString(contents, UTF_8)
+            .asBytes();
+    virtualInputs.put(input, digest);
     return this;
   }
 
@@ -116,7 +135,7 @@ class SandboxHelper {
    */
   @CanIgnoreReturnValue
   public SandboxHelper addWorkerFile(String relativePath) {
-    Path absPath = execRoot.getRelative(relativePath);
+    Path absPath = execRootPath.getRelative(relativePath);
     workerFiles.put(PathFragment.create(relativePath), absPath);
     return this;
   }
@@ -129,7 +148,7 @@ class SandboxHelper {
   public SandboxHelper addAndCreateWorkerFile(String relativePath, String contents)
       throws IOException {
     addWorkerFile(relativePath);
-    Path absPath = execRoot.getRelative(relativePath);
+    Path absPath = execRootPath.getRelative(relativePath);
     absPath.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(absPath, contents);
     return this;
@@ -154,7 +173,7 @@ class SandboxHelper {
   @CanIgnoreReturnValue
   public SandboxHelper createWorkspaceDirFile(String workspaceDirPath, String contents)
       throws IOException {
-    Path absPath = execRoot.getRelative(workspaceDirPath);
+    Path absPath = execRootPath.getRelative(workspaceDirPath);
     absPath.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(absPath, contents);
     return this;
@@ -172,30 +191,8 @@ class SandboxHelper {
     return this;
   }
 
-  /**
-   * Creates a symlink from within the the {@code workDir}, and creates the target file with the
-   * given contents, which is assumed to be ASCII text. The destination is just what's written into
-   * the symlink and thus relative to the created symlink.
-   */
-  @CanIgnoreReturnValue
-  public SandboxHelper createSymlinkWithContents(
-      String relativePath, String relativeDestination, String contents) throws IOException {
-    createSymlink(relativePath, relativeDestination);
-    Path fromPath = workDir.getRelative(relativePath);
-    Path toPath = fromPath.getRelative(relativeDestination);
-    toPath.getParentDirectory().createDirectoryAndParents();
-    FileSystemUtils.writeContentAsLatin1(toPath, contents);
-    return this;
-  }
-
   public SandboxInputs getSandboxInputs() {
-    return new SandboxInputs(
-        this.inputs,
-        virtualInputs.entrySet().stream()
-            .map(
-                entry -> ActionsTestUtil.createVirtualActionInput(entry.getKey(), entry.getValue()))
-            .collect(Collectors.toSet()),
-        symlinks);
+    return new SandboxInputs(inputs, virtualInputs, symlinks, ImmutableMap.of());
   }
 
   public SandboxOutputs getSandboxOutputs() {

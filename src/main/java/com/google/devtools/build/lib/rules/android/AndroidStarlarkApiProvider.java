@@ -102,7 +102,7 @@ public class AndroidStarlarkApiProvider extends StarlarkApiProvider
   @Override
   public Depset /*<Artifact>*/ getResources() {
     return Depset.of(
-        Artifact.TYPE, collectDirectArtifacts(ValidatedAndroidResources::getResources));
+        Artifact.class, collectDirectArtifacts(ValidatedAndroidResources::getResources));
   }
 
   @Override

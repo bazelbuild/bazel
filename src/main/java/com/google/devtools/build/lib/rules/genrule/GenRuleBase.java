@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OnDemandString;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -73,7 +72,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
 
   /** Collects sources from src attribute. */
   protected ImmutableMap<Label, NestedSet<Artifact>> collectSources(
-      List<? extends TransitiveInfoCollection> srcs) {
+      List<? extends TransitiveInfoCollection> srcs) throws RuleErrorException {
     ImmutableMap.Builder<Label, NestedSet<Artifact>> labelMap = ImmutableMap.builder();
 
     for (TransitiveInfoCollection dep : srcs) {
@@ -94,8 +93,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
   private static Pair<CommandType, String> determineCommandTypeAndAttribute(
       RuleContext ruleContext) {
     AttributeMap attributeMap = ruleContext.attributes();
-    // TODO(pcloudy): This should match the execution platform instead of using OS.getCurrent()
-    if (OS.getCurrent() == OS.WINDOWS) {
+    if (ruleContext.isExecutedOnWindows()) {
       if (attributeMap.isAttributeValueExplicitlySpecified("cmd_ps")) {
         return Pair.of(CommandType.WINDOWS_POWERSHELL, "cmd_ps");
       }
@@ -140,7 +138,9 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
 
     ImmutableMap<Label, NestedSet<Artifact>> labelMap =
         collectSources(ruleContext.getPrerequisites("srcs"));
-    NestedSet<Artifact> resolvedSrcs = NestedSetBuilder.fromNestedSets(labelMap.values()).build();
+    NestedSetBuilder<Artifact> resolvedSrcsBuilder = NestedSetBuilder.stableOrder();
+    labelMap.values().forEach(resolvedSrcsBuilder::addTransitive);
+    NestedSet<Artifact> resolvedSrcs = resolvedSrcsBuilder.build();
 
     // The CommandHelper class makes an explicit copy of this in the constructor, so flattening
     // here should be benign.
@@ -231,7 +231,9 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
       case BASH:
       default:
         // TODO(b/234923262): Take exec_group into consideration when selecting sh tools
-        PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext.getExecutionPlatform());
+        PathFragment shExecutable =
+            ShToolchain.getPathForPlatform(
+                ruleContext.getConfiguration(), ruleContext.getExecutionPlatform());
         constructor =
             CommandHelper.buildBashCommandConstructor(
                 executionInfo, shExecutable, ".genrule_script.sh");
@@ -255,18 +257,18 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
             CompositeRunfilesSupplier.fromSuppliers(commandHelper.getToolsRunfilesSuppliers()),
             progressMessage));
 
-    RunfilesProvider runfilesProvider = RunfilesProvider.withData(
-        // No runfiles provided if not a data dependency.
-        Runfiles.EMPTY,
-        // We only need to consider the outputs of a genrule
-        // No need to visit the dependencies of a genrule. They cross from the target into the host
-        // configuration, because the dependencies of a genrule are always built for the host
-        // configuration.
-        new Runfiles.Builder(
-            ruleContext.getWorkspaceName(),
-            ruleContext.getConfiguration().legacyExternalRunfiles())
-            .addTransitiveArtifacts(filesToBuild)
-            .build());
+    RunfilesProvider runfilesProvider =
+        RunfilesProvider.withData(
+            // No runfiles provided if not a data dependency.
+            Runfiles.EMPTY,
+            // We only need to consider the outputs of a genrule. No need to visit the dependencies
+            // of a genrule. They cross from the target into the exec configuration, because the
+            // dependencies of a genrule are always built for the exec configuration.
+            new Runfiles.Builder(
+                    ruleContext.getWorkspaceName(),
+                    ruleContext.getConfiguration().legacyExternalRunfiles())
+                .addTransitiveArtifacts(filesToBuild)
+                .build());
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuild)
@@ -281,9 +283,8 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
 
   protected CommandHelper.Builder commandHelperBuilder(RuleContext ruleContext) {
     return CommandHelper.builder(ruleContext)
-        .addHostToolDependencies("tools")
-        .addToolDependencies("exec_tools")
-        .addHostToolDependencies("toolchains");
+        .addToolDependencies("tools")
+        .addToolDependencies("toolchains");
   }
 
   /**
@@ -331,7 +332,8 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     }
 
     @Override
-    public String lookupVariable(String variableName) throws ExpansionException {
+    public String lookupVariable(String variableName)
+        throws ExpansionException, InterruptedException {
       String val = lookupVariableImpl(variableName);
       if (windowsPath) {
         return val.replace('/', '\\');
@@ -339,7 +341,8 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
       return val;
     }
 
-    private String lookupVariableImpl(String variableName) throws ExpansionException {
+    private String lookupVariableImpl(String variableName)
+        throws ExpansionException, InterruptedException {
       if (variableName.equals("SRCS")) {
         return Artifact.joinExecPaths(" ", resolvedSrcs.toList());
       }

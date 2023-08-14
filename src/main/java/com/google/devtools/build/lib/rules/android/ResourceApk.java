@@ -339,7 +339,6 @@ public final class ResourceApk {
         .withAssetDependencies(assetDeps)
         .setDebug(dataContext.useDebug())
         .setThrowOnResourceConflict(dataContext.throwOnResourceConflict())
-        .setIncludeProguardLocationReferences(dataContext.includeProguardLocationReferences())
         .buildWithoutLocalResources(dataContext, manifest, dataBindingContext);
   }
 }

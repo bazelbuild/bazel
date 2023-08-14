@@ -528,7 +528,8 @@ public abstract class Args implements CommandLineArgsApi {
       Starlark.checkMutable(this);
       if (!SingleStringArgFormatter.isValid(paramFileArg)) {
         throw Starlark.errorf(
-            "Invalid value for parameter \"param_file_arg\": Expected string with a single \"%s\"",
+            "Invalid value for parameter \"param_file_arg\": Expected string with a single \"%%s\","
+                + " got \"%s\"",
             paramFileArg);
       }
       this.flagFormatString = paramFileArg;

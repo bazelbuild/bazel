@@ -53,11 +53,9 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.jni.JniLoader;
-import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
@@ -85,9 +83,6 @@ import com.google.devtools.build.lib.server.PidFileWatcher;
 import com.google.devtools.build.lib.server.RPCServer;
 import com.google.devtools.build.lib.server.ShutdownHooks;
 import com.google.devtools.build.lib.server.signal.InterruptSignalHandler;
-import com.google.devtools.build.lib.shell.JavaSubprocessFactory;
-import com.google.devtools.build.lib.shell.SubprocessBuilder;
-import com.google.devtools.build.lib.shell.SubprocessFactory;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CustomExitCodePublisher;
 import com.google.devtools.build.lib.util.CustomFailureDetailPublisher;
@@ -96,7 +91,6 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.LoggingUtil;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.util.TestType;
@@ -106,7 +100,6 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.windows.WindowsSubprocessFactory;
 import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
 import com.google.devtools.common.options.CommandNameCache;
 import com.google.devtools.common.options.InvocationPolicyParser;
@@ -385,6 +378,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                       + " will be omitted in merged actions."));
         }
         Profiler profiler = Profiler.instance();
+        WorkerMetricsCollector workerMetricsCollector = WorkerMetricsCollector.instance();
+        workerMetricsCollector.setClock(clock);
         profiler.start(
             profiledTasks,
             out,
@@ -399,6 +394,11 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             options.profileIncludeTargetLabel,
             options.alwaysProfileSlowOperations,
             options.collectWorkerDataInProfiler,
+            options.collectLoadAverageInProfiler,
+            options.collectSystemNetworkUsage,
+            options.collectPressureStallIndicators,
+            options.collectResourceEstimation,
+            env.getLocalResourceManager(),
             WorkerMetricsCollector.instance(),
             bugReporter);
         // Instead of logEvent() we're calling the low level function to pass the timings we took in
@@ -680,7 +680,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     DebugLoggerConfigurator.flushServerLog();
     storedExitCode.set(null);
     return BlazeCommandResult.withResponseExtensions(
-        finalCommandResult, env.getResponseExtensions());
+        finalCommandResult, env.getResponseExtensions(), commonOptions.keepStateAfterBuild);
   }
 
   /**
@@ -1084,14 +1084,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     }
   }
 
-  private static SubprocessFactory subprocessFactoryImplementation() {
-    if (JniLoader.isJniAvailable() && OS.getCurrent() == OS.WINDOWS) {
-      return WindowsSubprocessFactory.INSTANCE;
-    } else {
-      return JavaSubprocessFactory.INSTANCE;
-    }
-  }
-
   /**
    * Parses the command line arguments into a {@link OptionsParser} object.
    *
@@ -1120,7 +1112,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
     // Then parse the command line again, this time with the correct option sources
     parser = OptionsParser.builder().optionsClasses(optionClasses).allowResidue(false).build();
-    parser.parseWithSourceFunction(PriorityCategory.COMMAND_LINE, sourceFunction, args);
+    parser.parseWithSourceFunction(
+        PriorityCategory.COMMAND_LINE, sourceFunction, args, /* fallbackData= */ null);
     return parser;
   }
 
@@ -1250,8 +1243,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               }
               return null;
             });
-
-    SubprocessBuilder.setDefaultSubprocessFactory(subprocessFactoryImplementation());
 
     Path outputUserRootPath = fs.getPath(outputUserRoot);
     Path installBasePath = fs.getPath(installBase);
@@ -1516,8 +1507,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           new PackageFactory(
               ruleClassProvider,
               PackageFactory.makeDefaultSizedForkJoinPoolForGlobbing(),
-              serverBuilder.getEnvironmentExtensions(),
-              BlazeVersionInfo.instance().getVersion(),
               packageSettings,
               getPackageValidator(blazeModules),
               getPackageOverheadEstimator(blazeModules),
@@ -1655,7 +1644,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               .collect(toImmutableList());
       Preconditions.checkState(
           packageSettingss.size() <= 1, "more than one module defines a PackageSettings");
-      return Iterables.getFirst(packageSettingss, DefaultPackageSettings.INSTANCE);
+      return Iterables.getFirst(packageSettingss, PackageSettings.DEFAULTS);
     }
 
     private static PackageValidator getPackageValidator(List<BlazeModule> blazeModules) {

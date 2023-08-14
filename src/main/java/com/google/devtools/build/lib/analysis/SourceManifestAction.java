@@ -13,16 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
+import com.google.devtools.build.lib.analysis.starlark.UnresolvedSymlinkAction;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -50,13 +55,14 @@ import javax.annotation.Nullable;
  * <p>This action carefully avoids building the manifest content in memory because it can be large.
  */
 @Immutable // if all ManifestWriter implementations are immutable
-public final class SourceManifestAction extends AbstractFileWriteAction {
+public final class SourceManifestAction extends AbstractFileWriteAction
+    implements AbstractFileWriteAction.FileContentsProvider {
 
   private static final String GUID = "07459553-a3d0-4d37-9d78-18ed942470f4";
 
   private static final Comparator<Map.Entry<PathFragment, Artifact>> ENTRY_COMPARATOR =
       (path1, path2) -> path1.getKey().getPathString().compareTo(path2.getKey().getPathString());
-
+  private final Artifact repoMappingManifest;
   /**
    * Interface for defining manifest formatting and reporting specifics. Implementations must be
    * immutable.
@@ -99,6 +105,8 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
 
   private final boolean remotableSourceManifestActions;
 
+  private NestedSet<Artifact> symlinkArtifacts = null;
+
   /**
    * Creates a new AbstractSourceManifestAction instance using latin1 encoding to write the manifest
    * file and with a specified root path for manifest entries.
@@ -111,7 +119,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
   @VisibleForTesting
   SourceManifestAction(
       ManifestWriter manifestWriter, ActionOwner owner, Artifact primaryOutput, Runfiles runfiles) {
-    this(manifestWriter, owner, primaryOutput, runfiles, /*remotableSourceManifestActions=*/ false);
+    this(manifestWriter, owner, primaryOutput, runfiles, null, false);
   }
 
   /**
@@ -122,22 +130,63 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
    * @param owner the action owner
    * @param primaryOutput the file to which to write the manifest
    * @param runfiles runfiles
+   * @param repoMappingManifest the repository mapping manifest for runfiles
    */
   public SourceManifestAction(
       ManifestWriter manifestWriter,
       ActionOwner owner,
       Artifact primaryOutput,
       Runfiles runfiles,
+      @Nullable Artifact repoMappingManifest,
       boolean remotableSourceManifestActions) {
+    // The real set of inputs is computed in #getInputs().
     super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), primaryOutput, false);
     this.manifestWriter = manifestWriter;
     this.runfiles = runfiles;
+    this.repoMappingManifest = repoMappingManifest;
     this.remotableSourceManifestActions = remotableSourceManifestActions;
   }
 
+  /**
+   * The manifest entry for a symlink artifact should contain the target of the symlink rather than
+   * its exec path. Reading the symlink target requires that the symlink artifact is declared as an
+   * input of this action. Since declaring all runfiles as inputs of the manifest action would
+   * unnecessarily delay its execution, this action exceptionally overrides {@link
+   * AbstractAction#getInputs()} and filters out the non-symlink runfiles by flattening the nested
+   * set of runfiles. Benchmarks confirmed that this does not regress performance.
+   *
+   * <p>Alternatives considered:
+   *
+   * <ul>
+   *   <li>Having users separate normal artifacts from symlink artifacts during analysis: Makes it
+   *       impossible to pass symlink artifacts to rules that aren't aware of them and requires the
+   *       use of custom providers to pass symlinks to stage as inputs to actions.
+   *   <li>Reaching into {@link ActionExecutionContext} to look up the generating action of symlink
+   *       artifacts and retrieving the target from {@link UnresolvedSymlinkAction}: This would not
+   *       work for symlinks whose target is determined in the execution phase.
+   *   <li>Input discovery: Complex and error-prone in general and conceptually not necessary here -
+   *       we already know what the inputs will be during analysis, we just want to delay the
+   *       required computations.
+   * </ul>
+   */
+  @Override
+  public synchronized NestedSet<Artifact> getInputs() {
+    if (symlinkArtifacts == null) {
+      ImmutableList<Artifact> symlinks =
+          runfiles.getArtifacts().toList().stream()
+              .filter(Artifact::isSymlink)
+              .collect(toImmutableList());
+      symlinkArtifacts = NestedSetBuilder.wrap(Order.STABLE_ORDER, symlinks);
+    }
+    return symlinkArtifacts;
+  }
+
   @VisibleForTesting
-  public void writeOutputFile(OutputStream out, EventHandler eventHandler) throws IOException {
-    writeFile(out, runfiles.getRunfilesInputs(eventHandler, getOwner().getLocation()));
+  public void writeOutputFile(OutputStream out, @Nullable EventHandler eventHandler)
+      throws IOException {
+    writeFile(
+        out,
+        runfiles.getRunfilesInputs(eventHandler, getOwner().getLocation(), repoMappingManifest));
   }
 
   /**
@@ -145,16 +194,23 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
    *
    * @return returns the file contents as a string.
    */
-  public String getFileContentsAsString(EventHandler eventHandler) throws IOException {
+  @Override
+  public String getFileContents(@Nullable EventHandler eventHandler) throws IOException {
     ByteArrayOutputStream stream = new ByteArrayOutputStream();
     writeOutputFile(stream, eventHandler);
     return stream.toString(UTF_8);
   }
 
   @Override
+  public String getStarlarkContent() throws IOException {
+    return getFileContents(null);
+  }
+
+  @Override
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
     final Map<PathFragment, Artifact> runfilesInputs =
-        runfiles.getRunfilesInputs(ctx.getEventHandler(), getOwner().getLocation());
+        runfiles.getRunfilesInputs(
+            ctx.getEventHandler(), getOwner().getLocation(), repoMappingManifest);
     return out -> writeFile(out, runfilesInputs);
   }
 
@@ -198,7 +254,11 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
       Fingerprint fp) {
     fp.addString(GUID);
     fp.addBoolean(remotableSourceManifestActions);
-    runfiles.fingerprint(fp);
+    runfiles.fingerprint(actionKeyContext, fp);
+    fp.addBoolean(repoMappingManifest != null);
+    if (repoMappingManifest != null) {
+      fp.addPath(repoMappingManifest.getExecPath());
+    }
   }
 
   @Override
@@ -227,7 +287,11 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
         // This trailing whitespace is REQUIRED to process the single entry line correctly.
         manifestWriter.append(' ');
         if (symlink != null) {
-          manifestWriter.append(symlink.getPath().getPathString());
+          if (symlink.isSymlink()) {
+            manifestWriter.append(symlink.getPath().readSymbolicLink().getPathString());
+          } else {
+            manifestWriter.append(symlink.getPath().getPathString());
+          }
         }
         manifestWriter.append('\n');
       }

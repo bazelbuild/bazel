@@ -54,6 +54,7 @@ _FEATURE_NAMES = struct(
     user_compile_flags = "user_compile_flags",
     thin_lto = "thin_lto",
     no_use_lto_indexing_bitcode_file = "no_use_lto_indexing_bitcode_file",
+    use_lto_native_object_directory = "use_lto_native_object_directory",
     thin_lto_linkstatic_tests_use_shared_nonlto_backends = "thin_lto_linkstatic_tests_use_shared_nonlto_backends",
     thin_lto_all_linkstatic_use_shared_nonlto_backends = "thin_lto_all_linkstatic_use_shared_nonlto_backends",
     enable_afdo_thinlto = "enable_afdo_thinlto",
@@ -77,6 +78,7 @@ _FEATURE_NAMES = struct(
     implicit_fsafdo = "implicit_fsafdo",
     enable_fsafdo = "enable_fsafdo",
     supports_pic = "supports_pic",
+    prefer_pic_for_opt_binaries = "prefer_pic_for_opt_binaries",
     copy_dynamic_libraries_to_binary = "copy_dynamic_libraries_to_binary",
     per_object_debug_info = "per_object_debug_info",
     supports_start_end_lib = "supports_start_end_lib",
@@ -87,7 +89,9 @@ _FEATURE_NAMES = struct(
     link_env = "link_env",
     dynamic_linking_mode = "dynamic_linking_mode",
     static_linking_mode = "static_linking_mode",
+    archive_param_file = "archive_param_file",
     compiler_param_file = "compiler_param_file",
+    gcc_quoting_for_param_files = "gcc_quoting_for_param_files",
     objcopy_embed_flags = "objcopy_embed_flags",
     ld_embed_flags = "ld_embed_flags",
     opt = "opt",
@@ -472,6 +476,9 @@ _no_use_lto_indexing_bitcode_file_feature = feature(
     name = _FEATURE_NAMES.no_use_lto_indexing_bitcode_file,
 )
 
+_use_lto_native_object_directory_feature = feature(
+    name = _FEATURE_NAMES.use_lto_native_object_directory,
+)
 _thin_lto_feature = feature(
     name = _FEATURE_NAMES.thin_lto,
     flag_sets = [
@@ -814,14 +821,28 @@ _supports_start_end_lib_feature = feature(
 
 _supports_pic_feature = feature(name = _FEATURE_NAMES.supports_pic, enabled = True)
 
+_prefer_pic_for_opt_binaries_feature = feature(
+    name = _FEATURE_NAMES.prefer_pic_for_opt_binaries,
+    enabled = True,
+)
+
 _targets_windows_feature = feature(
     name = _FEATURE_NAMES.targets_windows,
     enabled = True,
     implies = ["copy_dynamic_libraries_to_binary"],
 )
 
+_archive_param_file_feature = feature(
+    name = _FEATURE_NAMES.archive_param_file,
+)
+
 _compiler_param_file_feature = feature(
     name = _FEATURE_NAMES.compiler_param_file,
+    enabled = True,
+)
+
+_gcc_quoting_for_param_files_feature = feature(
+    name = _FEATURE_NAMES.gcc_quoting_for_param_files,
     enabled = True,
 )
 
@@ -1305,6 +1326,7 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.user_compile_flags: _user_compile_flags_feature,
     _FEATURE_NAMES.thin_lto: _thin_lto_feature,
     _FEATURE_NAMES.no_use_lto_indexing_bitcode_file: _no_use_lto_indexing_bitcode_file_feature,
+    _FEATURE_NAMES.use_lto_native_object_directory: _use_lto_native_object_directory_feature,
     _FEATURE_NAMES.thin_lto_linkstatic_tests_use_shared_nonlto_backends: _thin_lto_linkstatic_tests_use_shared_nonlto_backends_feature,
     _FEATURE_NAMES.thin_lto_all_linkstatic_use_shared_nonlto_backends: _thin_lto_all_linkstatic_use_shared_nonlto_backends_feature,
     _FEATURE_NAMES.enable_afdo_thinlto: _enable_afdo_thinlto_feature,
@@ -1331,8 +1353,11 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.copy_dynamic_libraries_to_binary: _copy_dynamic_libraries_to_binary_feature,
     _FEATURE_NAMES.supports_start_end_lib: _supports_start_end_lib_feature,
     _FEATURE_NAMES.supports_pic: _supports_pic_feature,
+    _FEATURE_NAMES.prefer_pic_for_opt_binaries: _prefer_pic_for_opt_binaries_feature,
     _FEATURE_NAMES.targets_windows: _targets_windows_feature,
+    _FEATURE_NAMES.archive_param_file: _archive_param_file_feature,
     _FEATURE_NAMES.compiler_param_file: _compiler_param_file_feature,
+    _FEATURE_NAMES.gcc_quoting_for_param_files: _gcc_quoting_for_param_files_feature,
     _FEATURE_NAMES.module_maps: _module_maps_feature,
     _FEATURE_NAMES.static_link_cpp_runtimes: _static_link_cpp_runtimes_feature,
     _FEATURE_NAMES.simple_compile_feature: _simple_compile_feature,

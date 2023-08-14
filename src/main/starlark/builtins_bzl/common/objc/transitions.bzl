@@ -37,6 +37,14 @@ def _determine_single_architecture(platform_type, settings):
         if cpu_value == "darwin_arm64":
             return "sim_arm64"
         return DEFAULT_IOS_CPU
+    if platform_type == VISIONOS:
+        cpus = settings["//command_line_option:visionos_cpus"]
+        if len(cpus) > 0:
+            return cpus[0]
+        cpu_value = settings["//command_line_option:cpu"]
+        if cpu_value == "darwin_arm64":
+            return "sim_arm64"
+        return DEFAULT_VISIONOS_CPU
     if platform_type == WATCHOS:
         watchos_cpus = settings["//command_line_option:watchos_cpus"]
         if len(watchos_cpus) == 0:
@@ -64,13 +72,16 @@ def _determine_single_architecture(platform_type, settings):
     fail("ERROR: Unhandled platform type {}".format(platform_type))
 
 IOS = "ios"
+VISIONOS = "visionos"
 WATCHOS = "watchos"
 TVOS = "tvos"
 MACOS = "macos"
 CATALYST = "catalyst"
 IOS_CPU_PREFIX = "ios_"
+VISIONOS_CPU_PREFIX = "visionos_"
 DARWIN_CPU_PREFIX = "darwin_"
 DEFAULT_IOS_CPU = "x86_64"
+DEFAULT_VISIONOS_CPU = "x86_64"
 DEFAULT_WATCHOS_CPU = "i386"
 DEFAULT_TVOS_CPU = "x86_64"
 DEFAULT_MACOS_CPU = "x86_64"
@@ -79,7 +90,7 @@ DEFAULT_CATALYST_CPU = "x86_64"
 def _output_dictionary(settings, cpu, platform_type, platforms):
     return {
         "//command_line_option:apple configuration distinguisher": "applebin_" + platform_type,
-        "//command_line_option:compiler": settings["//command_line_option:apple_compiler"],
+        "//command_line_option:compiler": None,
         "//command_line_option:cpu": cpu,
         "//command_line_option:crosstool_top": (
             settings["//command_line_option:apple_crosstool_top"]
@@ -111,7 +122,6 @@ def _apple_crosstool_transition_impl(settings, attr):
 
 _apple_rule_base_transition_inputs = [
     "//command_line_option:apple configuration distinguisher",
-    "//command_line_option:apple_compiler",
     "//command_line_option:apple_platform_type",
     "//command_line_option:apple_platforms",
     "//command_line_option:apple_crosstool_top",
@@ -122,6 +132,7 @@ _apple_rule_base_transition_inputs = [
     "//command_line_option:ios_multi_cpus",
     "//command_line_option:macos_cpus",
     "//command_line_option:tvos_cpus",
+    "//command_line_option:visionos_cpus",
     "//command_line_option:watchos_cpus",
     "//command_line_option:catalyst_cpus",
     "//command_line_option:platforms",
