@@ -72,7 +72,7 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
   private static final String PATH_ENV_VAR = "ANDROID_NDK_HOME";
   private static final PathFragment PLATFORMS_DIR = PathFragment.create("platforms");
 
-  private static final ImmutableSet<String> PATH_ENV_VAR_AS_LIST = ImmutableSet.of(PATH_ENV_VAR);
+  private static final ImmutableSet<String> PATH_ENV_VAR_AS_SET = ImmutableSet.of(PATH_ENV_VAR);
 
   private static String getDefaultCrosstool(Integer majorRevision) {
     // From NDK 17, libc++ replaces gnu-libstdc++ as the default STL.
@@ -263,7 +263,7 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
     if (attributes.isAttributeValueExplicitlySpecified("path")) {
       return true;
     }
-    return super.verifyEnvironMarkerData(markerData, env, PATH_ENV_VAR_AS_LIST);
+    return super.verifyEnvironMarkerData(markerData, env, PATH_ENV_VAR_AS_SET);
   }
 
   @Override
@@ -277,7 +277,7 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
       SkyKey key)
       throws InterruptedException, RepositoryFunctionException {
     Map<String, String> environ =
-        declareEnvironmentDependencies(markerData, env, PATH_ENV_VAR_AS_LIST);
+        declareEnvironmentDependencies(markerData, env, PATH_ENV_VAR_AS_SET);
     if (environ == null) {
       return null;
     }

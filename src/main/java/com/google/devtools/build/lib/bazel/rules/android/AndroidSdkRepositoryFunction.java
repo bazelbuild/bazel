@@ -164,7 +164,7 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
   private static final PathFragment SYSTEM_IMAGES_DIR = PathFragment.create("system-images");
   private static final AndroidRevision MIN_BUILD_TOOLS_REVISION = AndroidRevision.parse("30.0.0");
   private static final String PATH_ENV_VAR = "ANDROID_HOME";
-  private static final ImmutableSet<String> PATH_ENV_VAR_AS_LIST = ImmutableSet.of(PATH_ENV_VAR);
+  private static final ImmutableSet<String> PATH_ENV_VAR_AS_SET = ImmutableSet.of(PATH_ENV_VAR);
   private static final ImmutableList<String> LOCAL_MAVEN_REPOSITORIES =
       ImmutableList.of(
           "extras/android/m2repository", "extras/google/m2repository", "extras/m2repository");
@@ -181,7 +181,7 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
     if (attributes.isAttributeValueExplicitlySpecified("path")) {
       return true;
     }
-    return super.verifyEnvironMarkerData(markerData, env, PATH_ENV_VAR_AS_LIST);
+    return super.verifyEnvironMarkerData(markerData, env, PATH_ENV_VAR_AS_SET);
   }
 
   @Override
@@ -195,7 +195,7 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
       SkyKey key)
       throws RepositoryFunctionException, InterruptedException {
     Map<String, String> environ =
-        declareEnvironmentDependencies(markerData, env, PATH_ENV_VAR_AS_LIST);
+        declareEnvironmentDependencies(markerData, env, PATH_ENV_VAR_AS_SET);
     if (environ == null) {
       return null;
     }
