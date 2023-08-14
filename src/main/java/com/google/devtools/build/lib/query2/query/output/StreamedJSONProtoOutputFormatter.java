@@ -22,13 +22,13 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 
 /**
- * An output formatter that outputs a protocol buffer json representation of a query result and
- * outputs the json to the output print stream.
+ * An output formatter that prints a list of targets according to ndjson spec to the output print
+ * stream.
  */
-public class JSONProtoOutputFormatter extends ProtoOutputFormatter {
+public class StreamedJSONProtoOutputFormatter extends ProtoOutputFormatter {
   @Override
   public String getName() {
-    return "jsonproto";
+    return "streamed_jsonproto";
   }
 
   private final JsonFormat.Printer jsonPrinter = JsonFormat.printer();
@@ -42,7 +42,11 @@ public class JSONProtoOutputFormatter extends ProtoOutputFormatter {
           throws IOException, InterruptedException {
         for (Target target : partialResult) {
           out.write(
-              jsonPrinter.print(toTargetProtoBuffer(target)).getBytes(StandardCharsets.UTF_8));
+              jsonPrinter
+                  .omittingInsignificantWhitespace()
+                  .print(toTargetProtoBuffer(target))
+                  .getBytes(StandardCharsets.UTF_8));
+          out.write(System.lineSeparator().getBytes(StandardCharsets.UTF_8));
         }
       }
     };
