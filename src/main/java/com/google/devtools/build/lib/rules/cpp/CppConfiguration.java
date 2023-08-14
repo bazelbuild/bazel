@@ -289,9 +289,7 @@ public final class CppConfiguration extends Fragment
     this.compilationMode = compilationMode;
     this.collectCodeCoverage = commonOptions.collectCodeCoverage;
     this.isToolConfigurationDoNotUseWillBeRemovedFor129045294 = commonOptions.isExec;
-    this.appleGenerateDsym =
-        (cppOptions.appleGenerateDsym
-            || (cppOptions.appleEnableAutoDsymDbg && compilationMode == CompilationMode.DBG));
+    this.appleGenerateDsym = cppOptions.appleGenerateDsym;
   }
 
   /** Returns the label of the <code>cc_compiler</code> rule for the C++ configuration. */
