@@ -203,8 +203,12 @@ final class DependencyProducer
 
   private String getMessageWithEdgeTransitionInfo(Throwable e) {
     return String.format(
-        "On dependency edge %s -|%s|-> %s: %s",
-        parameters.target().getLabel(), kind.getAttribute().getName(), toLabel, e.getMessage());
+        "On dependency edge %s (%s) -|%s|-> %s: %s",
+        parameters.target().getLabel(),
+        parameters.configurationKey().getOptions().shortId(),
+        kind.getAttribute().getName(),
+        toLabel,
+        e.getMessage());
   }
 
   private StateMachine processTransitionResult(Tasks tasks) {
