@@ -153,7 +153,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
 
     ModuleExtension extension = (ModuleExtension) exported;
     ImmutableMap<String, String> extensionEnvVars =
-        RepositoryFunction.getEnvVarValues(env, extension.getEnvVariables());
+        RepositoryFunction.getEnvVarValues(env, ImmutableSet.copyOf(extension.getEnvVariables()));
     if (extensionEnvVars == null) {
       return null;
     }

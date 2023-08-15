@@ -19,8 +19,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -56,6 +56,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
@@ -190,11 +191,11 @@ public abstract class RepositoryFunction {
       throws InterruptedException, RepositoryFunctionException;
 
   @SuppressWarnings("unchecked")
-  private static Collection<String> getEnviron(Rule rule) {
+  private static ImmutableSet<String> getEnviron(Rule rule) {
     if (rule.isAttrDefined("$environ", Type.STRING_LIST)) {
-      return (Collection<String>) rule.getAttr("$environ");
+      return ImmutableSet.copyOf((Collection<String>) rule.getAttr("$environ"));
     }
-    return ImmutableList.of();
+    return ImmutableSet.of();
   }
 
   /**
@@ -306,7 +307,7 @@ public abstract class RepositoryFunction {
    */
   @Nullable
   protected Map<String, String> declareEnvironmentDependencies(
-      Map<String, String> markerData, Environment env, Iterable<String> keys)
+      Map<String, String> markerData, Environment env, Set<String> keys)
       throws InterruptedException {
     ImmutableMap<String, String> envDep = getEnvVarValues(env, keys);
     if (envDep == null) {
@@ -318,7 +319,7 @@ public abstract class RepositoryFunction {
   }
 
   @Nullable
-  public static ImmutableMap<String, String> getEnvVarValues(Environment env, Iterable<String> keys)
+  public static ImmutableMap<String, String> getEnvVarValues(Environment env, Set<String> keys)
       throws InterruptedException {
     ImmutableMap<String, String> environ = ActionEnvironmentFunction.getEnvironmentView(env, keys);
     if (environ == null) {
@@ -347,7 +348,7 @@ public abstract class RepositoryFunction {
    * Environment)} function to verify the values for environment variables.
    */
   protected boolean verifyEnvironMarkerData(
-      Map<String, String> markerData, Environment env, Collection<String> keys)
+      Map<String, String> markerData, Environment env, Set<String> keys)
       throws InterruptedException {
     ImmutableMap<String, String> environ = ActionEnvironmentFunction.getEnvironmentView(env, keys);
     if (env.valuesMissing()) {
