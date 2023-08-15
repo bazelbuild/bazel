@@ -1103,6 +1103,12 @@ public interface CcModuleApi<
   boolean checkExperimentalCcSharedLibrary(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
+      name = "incompatible_disable_objc_library_transition",
+      useStarlarkThread = true,
+      documented = false)
+  boolean getIncompatibleDisableObjcLibraryTransition(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
       name = "create_linking_context",
       doc = "Creates a <code>LinkingContext</code>.",
       useStarlarkThread = true,

@@ -99,6 +99,30 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testNoTransition() throws Exception {
+    scratch.file(
+        "bin/BUILD",
+        "objc_library(",
+        "    name = 'objc',",
+        "    srcs = ['objc.m'],",
+        ")",
+        "cc_binary(",
+        "    name = 'cc',",
+        "    srcs = ['cc.cc'],",
+        "    deps = [':objc'],",
+        ")");
+
+    setBuildLanguageOptions("--incompatible_disable_objc_library_transition");
+    useConfiguration("--macos_cpus=arm64,x86_64");
+
+    ConfiguredTarget cc = getConfiguredTarget("//bin:cc");
+    Artifact objcObject =
+        ActionsTestUtil.getFirstArtifactEndingWith(
+            actionsTestUtil().artifactClosureOf(getFilesToBuild(cc)), "objc.o");
+    assertThat(objcObject.getExecPathString()).contains("k8-fastbuild");
+  }
+
+  @Test
   public void testFilesToBuild() throws Exception {
     ConfiguredTarget target =
         createLibraryTargetWriter("//objc:One")
