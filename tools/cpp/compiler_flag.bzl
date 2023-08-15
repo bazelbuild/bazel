@@ -26,5 +26,4 @@ compiler_flag = rule(
         "_cc_toolchain": attr.label(default = Label("//tools/cpp:current_cc_toolchain")),
     },
     toolchains = use_cpp_toolchain(),
-    incompatible_use_toolchain_transition = True,
 )

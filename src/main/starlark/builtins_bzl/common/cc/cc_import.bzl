@@ -212,5 +212,4 @@ cc_import = rule(
     provides = [CcInfo],
     toolchains = cc_helper.use_cpp_toolchain(),
     fragments = ["cpp"],
-    incompatible_use_toolchain_transition = True,
 )

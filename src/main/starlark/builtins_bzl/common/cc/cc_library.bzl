@@ -619,7 +619,6 @@ cc_library = rule(
     toolchains = cc_helper.use_cpp_toolchain() +
                  semantics.get_runtimes_toolchain(),
     fragments = ["cpp"] + semantics.additional_fragments(),
-    incompatible_use_toolchain_transition = True,
     provides = [CcInfo],
     exec_groups = {
         "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),

@@ -268,7 +268,6 @@ def _compiler_flag_impl(ctx):
 compiler_flag = rule(
     implementation = _compiler_flag_impl,
     toolchains = ["//target_skipping/custom_tools:toolchain_type"],
-    incompatible_use_toolchain_transition = True,
 )
 EOF
 }
