@@ -19,9 +19,11 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 
 /** Specifies that a module should be retrieved from an archive. */
 @AutoValue
+@GenerateTypeAdapter
 public abstract class ArchiveOverride implements NonRegistryOverride {
 
   public static ArchiveOverride create(
@@ -32,7 +34,7 @@ public abstract class ArchiveOverride implements NonRegistryOverride {
       String stripPrefix,
       int patchStrip) {
     return new AutoValue_ArchiveOverride(
-        urls, patches, patchCmds, integrity, stripPrefix, patchStrip);
+        "archive_override", urls, patches, patchCmds, integrity, stripPrefix, patchStrip);
   }
 
   /** The URLs pointing at the archives. Can be HTTP(S) or file URLs. */

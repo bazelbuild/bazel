@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 @AutoValue
 public abstract class LocalPathOverride implements NonRegistryOverride {
   public static LocalPathOverride create(String path) {
-    return new AutoValue_LocalPathOverride(path);
+    return new AutoValue_LocalPathOverride("local_path_override", path);
   }
 
   /** The path to the local directory where the module contents should be found. */

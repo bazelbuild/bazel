@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 
 /**
  * Specifies that the module should:
@@ -28,6 +29,7 @@ import com.google.common.collect.ImmutableList;
  * </ul>
  */
 @AutoValue
+@GenerateTypeAdapter
 public abstract class SingleVersionOverride implements RegistryOverride {
 
   public static SingleVersionOverride create(
@@ -36,7 +38,8 @@ public abstract class SingleVersionOverride implements RegistryOverride {
       ImmutableList<String> patches,
       ImmutableList<String> patchCmds,
       int patchStrip) {
-    return new AutoValue_SingleVersionOverride(version, registry, patches, patchCmds, patchStrip);
+    return new AutoValue_SingleVersionOverride(
+        "single_version_override", version, registry, patches, patchCmds, patchStrip);
   }
 
   /**

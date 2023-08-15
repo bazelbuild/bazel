@@ -20,9 +20,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 
 /** Specifies that a module should be retrieved from a Git repository. */
 @AutoValue
+@GenerateTypeAdapter
 public abstract class GitOverride implements NonRegistryOverride {
   public static GitOverride create(
       String remote,
@@ -30,7 +32,8 @@ public abstract class GitOverride implements NonRegistryOverride {
       ImmutableList<String> patches,
       ImmutableList<String> patchCmds,
       int patchStrip) {
-    return new AutoValue_GitOverride(remote, commit, patches, patchCmds, patchStrip);
+    return new AutoValue_GitOverride(
+        "git_override", remote, commit, patches, patchCmds, patchStrip);
   }
 
   /** The URL pointing to the git repository. */

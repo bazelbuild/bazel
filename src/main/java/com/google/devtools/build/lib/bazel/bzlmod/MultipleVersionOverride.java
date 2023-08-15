@@ -17,16 +17,18 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 
 /**
  * Specifies that the module should still come from a registry, but multiple versions of it should
  * be allowed to coexist.
  */
 @AutoValue
+@GenerateTypeAdapter
 public abstract class MultipleVersionOverride implements RegistryOverride {
 
   public static MultipleVersionOverride create(ImmutableList<Version> versions, String registry) {
-    return new AutoValue_MultipleVersionOverride(versions, registry);
+    return new AutoValue_MultipleVersionOverride("multiple_version_override", versions, registry);
   }
 
   /** The versions of this module that should coexist. */

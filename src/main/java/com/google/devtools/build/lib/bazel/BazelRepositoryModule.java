@@ -265,6 +265,11 @@ public class BazelRepositoryModule extends BlazeModule {
                 // ResolutionReason for builtin modules
                 return ResolutionReason.LOCAL_PATH_OVERRIDE;
               }
+
+              @Override
+              public String getType() {
+                throw new UnsupportedOperationException("This override must not be serialized");
+              }
             });
 
     builder

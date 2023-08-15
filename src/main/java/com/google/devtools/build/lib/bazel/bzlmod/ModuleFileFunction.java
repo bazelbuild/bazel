@@ -204,7 +204,6 @@ public class ModuleFileFunction implements SkyFunction {
       return null;
     }
     byte[] moduleFileContents = readModuleFile(moduleFilePath.asPath());
-    String moduleFileHash = new Fingerprint().addBytes(moduleFileContents).hexDigestAndReset();
     ModuleFileGlobals moduleFileGlobals =
         execModuleFile(
             ModuleFile.create(moduleFileContents, moduleFilePath.asPath().toString()),
@@ -256,7 +255,7 @@ public class ModuleFileFunction implements SkyFunction {
                     name -> ModuleKey.create(name, Version.EMPTY).getCanonicalRepoName(),
                     name -> name));
     return RootModuleFileValue.create(
-        module, moduleFileHash, overrides, nonRegistryOverrideCanonicalRepoNameLookup);
+        module, overrides, nonRegistryOverrideCanonicalRepoNameLookup);
   }
 
   private ModuleFileGlobals execModuleFile(

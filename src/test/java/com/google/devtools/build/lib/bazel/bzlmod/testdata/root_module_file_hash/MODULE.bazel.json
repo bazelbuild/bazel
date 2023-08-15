@@ -1,0 +1,92 @@
+{
+  "module": {
+    "name": "my_module",
+    "version": "",
+    "key": "<root>",
+    "repoName": "com_my_module",
+    "executionPlatformsToRegister": [],
+    "toolchainsToRegister": [],
+    "extensionUsages": [],
+    "compatibilityLevel": 5,
+    "bazelCompatibility": [],
+    "yankedInfo": {},
+    "deps": {
+      "com_dep1": {
+        "name": "dep1",
+        "version": "1",
+        "maxCompatibilityLevel": 1
+      },
+      "com_dep2": {
+        "name": "dep2",
+        "version": "2",
+        "maxCompatibilityLevel": 2
+      },
+      "com_dep3": {
+        "name": "dep3",
+        "version": "3",
+        "maxCompatibilityLevel": 3
+      },
+      "com_dep4": {
+        "name": "dep4",
+        "version": "4",
+        "maxCompatibilityLevel": 4
+      },
+      "com_dep5": {
+        "name": "dep5",
+        "version": "5",
+        "maxCompatibilityLevel": 5
+      },
+      "com_dep6": {
+        "name": "dep6",
+        "version": "6",
+        "maxCompatibilityLevel": 6
+      },
+      "com_dep7": {
+        "name": "dep7",
+        "version": "7",
+        "maxCompatibilityLevel": 7
+      }
+    },
+    "originalDeps": {}
+  },
+  "overrides": {
+    "dep5": {
+      "type": "single_version_override",
+      "version": "5",
+      "registry": "",
+      "patches": [],
+      "patchCmds": [],
+      "patchStrip": 0
+    },
+    "dep4": {
+      "type": "multiple_version_override",
+      "versions": [
+        "4",
+        "5"
+      ],
+      "registry": "https://registry.example.com/"
+    },
+    "dep1": {
+      "type": "archive_override",
+      "urls": [
+        "https://example.org/foo/dep1"
+      ],
+      "patches": [
+        "@com_my_module//:patch"
+      ],
+      "patchCmds": [],
+      "integrity": "",
+      "stripPrefix": "",
+      "patchStrip": 0
+    },
+    "dep2": {
+      "type": "git_override",
+      "remote": "git@example.org:foo/dep2",
+      "commit": "",
+      "patches": [],
+      "patchCmds": [],
+      "patchStrip": 0
+    }
+  },
+  "nonRegistryOverrideCanonicalRepoNameLookup": {}
+}

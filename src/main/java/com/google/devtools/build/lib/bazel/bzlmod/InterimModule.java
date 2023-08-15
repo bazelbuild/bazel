@@ -55,6 +55,7 @@ public abstract class InterimModule extends ModuleBase {
 
   /** The specification of a dependency. */
   @AutoValue
+  @GenerateTypeAdapter
   public abstract static class DepSpec {
     public abstract String getName();
 

@@ -87,13 +87,13 @@ public class BazelDepGraphFunction implements SkyFunction {
         return null;
       }
 
-      if (root.getModuleFileHash().equals(lockfile.getModuleFileHash())
+      if (root.getHashForModuleResolution().equals(lockfile.getModuleFileHash())
           && flags.equals(lockfile.getFlags())
           && localOverrideHashes.equals(lockfile.getLocalOverrideHashes())) {
         depGraph = lockfile.getModuleDepGraph();
       } else if (lockfileMode.equals(LockfileMode.ERROR)) {
         ImmutableList<String> diffLockfile =
-            lockfile.getModuleAndFlagsDiff(root.getModuleFileHash(), localOverrideHashes, flags);
+            lockfile.getModuleAndFlagsDiff(root.getHashForModuleResolution(), localOverrideHashes, flags);
         throw new BazelDepGraphFunctionException(
             ExternalDepsException.withMessage(
                 Code.BAD_MODULE,
@@ -130,7 +130,7 @@ public class BazelDepGraphFunction implements SkyFunction {
       BazelLockFileValue updateLockfile =
           lockfile.toBuilder()
               .setLockFileVersion(BazelLockFileValue.LOCK_FILE_VERSION)
-              .setModuleFileHash(root.getModuleFileHash())
+              .setModuleFileHash(root.getHashForModuleResolution())
               .setFlags(flags)
               .setLocalOverrideHashes(localOverrideHashes)
               .setModuleDepGraph(depGraph)
@@ -162,7 +162,7 @@ public class BazelDepGraphFunction implements SkyFunction {
         if (moduleValue == null) {
           return null;
         }
-        localOverrideHashes.put(entry.getKey(), moduleValue.getModuleFileHash());
+        localOverrideHashes.put(entry.getKey(), moduleValue.getHashForModuleResolution());
       }
     }
     return localOverrideHashes.buildOrThrow();

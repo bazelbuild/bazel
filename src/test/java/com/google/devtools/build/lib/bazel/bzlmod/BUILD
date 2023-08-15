@@ -24,6 +24,10 @@ java_library(
             "BzlmodTestUtil.java",
         ],
     ),
+    resources = [
+        "testdata/root_module_file_hash/MODULE.bazel.json",
+        "testdata/root_module_file_hash/MODULE.bazel.txt",
+    ],
     deps = [
         ":util",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
@@ -36,9 +40,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:bazel_lockfile_module",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:exception",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:gson_type_adapter_util",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:inspection",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:inspection_impl",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:overrides",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:registry",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:repo_rule_value",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",

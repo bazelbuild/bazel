@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
@@ -25,6 +26,7 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -67,11 +69,15 @@ import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -1139,5 +1145,67 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         "Error in use_extension: in call to use_extension(), parameter 'isolate' is experimental "
             + "and thus unavailable with the current flags. It may be enabled by setting "
             + "--experimental_isolated_extension_usages");
+  }
+
+  @Test
+  public void rootModuleJsonForModuleResolution_roundtrip() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        ByteStreams.toByteArray(
+            ModuleFileFunctionTest.class.getResourceAsStream(
+                "testdata/root_module_file_hash/MODULE.bazel.txt")));
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+    RootModuleFileValue rootModuleFileValue = result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
+    RootModuleFileValue trimmedValue = rootModuleFileValue.trimForModuleResolution();
+    Gson gson = GsonTypeAdapterUtil.createForModuleResolutionHash();
+    RootModuleFileValue rountrippedValue =
+        gson.fromJson(rootModuleFileValue.getJsonForModuleResolution(), RootModuleFileValue.class);
+    assertThat(rountrippedValue).isEqualTo(trimmedValue);
+  }
+
+  @Test
+  public void rootModuleHashForModuleResolution_canary() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        ByteStreams.toByteArray(
+            ModuleFileFunctionTest.class.getResourceAsStream(
+                "testdata/root_module_file_hash/MODULE.bazel.txt")));
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+    RootModuleFileValue rootModuleFileValue = result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
+    String expectedJson =
+        new String(
+            ByteStreams.toByteArray(
+                ModuleFileFunctionTest.class.getResourceAsStream(
+                    "testdata/root_module_file_hash/MODULE.bazel.json")),
+            UTF_8);
+    String actualMinifiedJson = rootModuleFileValue.getJsonForModuleResolution();
+    String actualJson =
+        new Gson()
+            .newBuilder()
+            .setPrettyPrinting()
+            .disableHtmlEscaping()
+            .create()
+            .toJson(new Gson().fromJson(actualMinifiedJson, JsonObject.class));
+    assertThat(actualJson).isEqualTo(expectedJson);
+    // This assert comes last so that the test usually fails on the JSON assert, which is more
+    // transparent.
+    assertThat(rootModuleFileValue.getHashForModuleResolution())
+        .isEqualTo("d8fd33b936a18a54262123db67392dcffd3eab627d663c61efbe257d7ea9a41a");
   }
 }

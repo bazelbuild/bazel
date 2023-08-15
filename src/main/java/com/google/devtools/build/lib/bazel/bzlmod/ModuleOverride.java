@@ -22,5 +22,5 @@ package com.google.devtools.build.lib.bazel.bzlmod;
  */
 // This interface is not named "Override" because of the Java @Override annotation.
 public interface ModuleOverride {
-  // This space intentionally left blank
+  String getType();
 }

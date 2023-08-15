@@ -29,6 +29,9 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonDeserializationContext;
+import com.google.gson.JsonDeserializer;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonParseException;
 import com.google.gson.TypeAdapter;
 import com.google.gson.TypeAdapterFactory;
@@ -328,6 +331,39 @@ public final class GsonTypeAdapterUtil {
         .registerTypeAdapter(ModuleExtensionId.IsolationKey.class, ISOLATION_KEY_TYPE_ADAPTER)
         .registerTypeAdapter(AttributeValues.class, new AttributeValuesAdapter())
         .registerTypeAdapter(byte[].class, BYTE_ARRAY_TYPE_ADAPTER)
+        .create();
+  }
+
+  public static Gson createForModuleResolutionHash() {
+    return new GsonBuilder()
+        .setPrettyPrinting()
+        .disableHtmlEscaping()
+        .enableComplexMapKeySerialization()
+        .registerTypeAdapterFactory(GenerateTypeAdapter.FACTORY)
+        .registerTypeAdapterFactory(IMMUTABLE_MAP)
+        .registerTypeAdapterFactory(IMMUTABLE_LIST)
+        .registerTypeAdapter(Version.class, VERSION_TYPE_ADAPTER)
+        .registerTypeAdapter(ModuleKey.class, MODULE_KEY_TYPE_ADAPTER)
+        // This custom deserialization is only used by tests.
+        .registerTypeAdapter(
+            ModuleOverride.class,
+            (JsonDeserializer<ModuleOverride>)
+                (json, type, context) -> {
+                  String typeString = json.getAsJsonObject().get("type").getAsString();
+                  switch (typeString) {
+                    case "archive_override":
+                      return context.deserialize(json, ArchiveOverride.class);
+                    case "git_override":
+                      return context.deserialize(json, GitOverride.class);
+                    case "multiple_version_override":
+                      return context.deserialize(json, MultipleVersionOverride.class);
+                    case "single_version_override":
+                      return context.deserialize(json, SingleVersionOverride.class);
+                    default:
+                      throw new IllegalArgumentException(
+                          "Unsupported override type: " + typeString);
+                  }
+                })
         .create();
   }
 

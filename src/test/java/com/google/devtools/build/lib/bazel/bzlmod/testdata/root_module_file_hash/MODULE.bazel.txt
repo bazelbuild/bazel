@@ -1,0 +1,76 @@
+# This aims to exercise all of the functionality currently available in a
+# MODULE.bazel file.
+
+module(
+    name = "my_module",
+    version = "1.2.3",
+    repo_name = "com_my_module",
+    compatibility_level = 5,
+    bazel_compatibility = [">1.2.3", "<6.7.8"],
+)
+
+[
+    bazel_dep(
+        name = "dep" + str(i),
+        version = str(i),
+        max_compatibility_level = i,
+        repo_name = "com_dep" + str(i),
+        dev_dependency = i % 2 == 0,
+    )
+    for i in range(1, 8)
+]
+
+ext = use_extension("@dep1//:dep1.bzl", "ext")
+ext.some_tag(does_not = "matter")
+ext.other_tag(is_also = "ignored")
+
+ext_dev = use_extension("@dep1//:dep1.bzl", "ext", dev_dependency = True)
+ext_dev.some_tag(does_not = "matter")
+ext_dev.other_tag(is_also = "ignored")
+
+archive_override(
+    module_name = "dep1",
+    urls = [
+        "https://example.org/foo/dep1",
+    ],
+    patches = [
+        "@com_my_module//:patch",
+    ],
+)
+
+git_override(
+    module_name = "dep2",
+    remote = "git@example.org:foo/dep2",
+)
+
+local_path_override(
+    module_name = "dep3",
+    path = "/path/to/dep3",
+)
+
+multiple_version_override(
+    module_name = "dep4",
+    versions = [
+        "4",
+        "5",
+    ],
+    registry = "https://registry.example.com/",
+)
+
+single_version_override(
+    module_name = "dep5",
+    version = "5",
+)
+
+local_path_override(
+    module_name = "dep6",
+    path = "../relative",
+)
+
+use_repo(ext, "foobar")
+use_repo(ext_dev, "foodev")
+
+register_execution_platforms("//platforms:linux", "//platforms:macos")
+register_execution_platforms("//platforms:windows", dev_dependency = True)
+register_toolchains("//toolchains:gcc", "//toolchains:clang")
+register_toolchains("//toolchains:msvc", dev_dependency = True)
