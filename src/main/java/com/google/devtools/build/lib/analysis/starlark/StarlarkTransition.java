@@ -87,20 +87,16 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   // TODO(blaze-configurability): add more information to this exception e.g. originating target of
   // transition.
   public static class TransitionException extends Exception {
-    private final String message;
-
     public TransitionException(String message) {
-      this.message = message;
+      super(message);
     }
 
     public TransitionException(Throwable cause) {
-      this.message = cause.getMessage();
+      super(cause);
     }
 
-    /** Returns the error message. */
-    @Override
-    public String getMessage() {
-      return message;
+    public TransitionException(String message, Throwable cause) {
+      super(message, cause);
     }
   }
 
