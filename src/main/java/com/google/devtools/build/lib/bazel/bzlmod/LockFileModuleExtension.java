@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
+import java.util.Optional;
 
 /**
  * This object serves as a container for the transitive digest (obtained from transitive .bzl files)
@@ -33,7 +34,8 @@ public abstract class LockFileModuleExtension implements Postable {
     return new AutoValue_LockFileModuleExtension.Builder()
         // TODO(salmasamy) can be removed when updating lockfile version
         .setEnvVariables(ImmutableMap.of())
-        .setAccumulatedFileDigests(ImmutableMap.of());
+        .setAccumulatedFileDigests(ImmutableMap.of())
+        .setModuleExtensionMetadata(Optional.empty());
   }
 
   @SuppressWarnings("mutable")
@@ -44,6 +46,8 @@ public abstract class LockFileModuleExtension implements Postable {
   public abstract ImmutableMap<String, String> getEnvVariables();
 
   public abstract ImmutableMap<String, RepoSpec> getGeneratedRepoSpecs();
+
+  public abstract Optional<ModuleExtensionMetadata> getModuleExtensionMetadata();
 
   public abstract Builder toBuilder();
 
@@ -58,6 +62,8 @@ public abstract class LockFileModuleExtension implements Postable {
     public abstract Builder setEnvVariables(ImmutableMap<String, String> value);
 
     public abstract Builder setGeneratedRepoSpecs(ImmutableMap<String, RepoSpec> value);
+
+    public abstract Builder setModuleExtensionMetadata(Optional<ModuleExtensionMetadata> value);
 
     public abstract LockFileModuleExtension build();
   }
