@@ -189,12 +189,22 @@ final class DependencyProducer
 
   @Override
   public void acceptTransitionError(TransitionException e) {
-    sink.acceptDependencyError(DependencyError.of(e));
+    sink.acceptDependencyError(
+        DependencyError.of(new TransitionException(getMessageWithEdgeTransitionInfo(e), e)));
   }
 
   @Override
   public void acceptTransitionError(OptionsParsingException e) {
-    sink.acceptDependencyError(DependencyError.of(e));
+    sink.acceptDependencyError(
+        DependencyError.of(
+            new OptionsParsingException(
+                getMessageWithEdgeTransitionInfo(e), e.getInvalidArgument(), e)));
+  }
+
+  private String getMessageWithEdgeTransitionInfo(Throwable e) {
+    return String.format(
+        "On dependency edge %s -|%s|-> %s: %s",
+        parameters.target().getLabel(), kind.getAttribute().getName(), toLabel, e.getMessage());
   }
 
   private StateMachine processTransitionResult(Tasks tasks) {
