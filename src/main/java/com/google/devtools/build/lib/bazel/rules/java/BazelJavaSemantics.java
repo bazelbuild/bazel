@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction.LaunchInfo;
 import com.google.devtools.build.lib.analysis.actions.LazyWritePathsFileAction;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.Substitution.ComputedSubstitution;
 import com.google.devtools.build.lib.analysis.actions.Template;
@@ -466,11 +465,6 @@ public class BazelJavaSemantics implements JavaSemantics {
   public Artifact getObfuscatedConstantStringMap(RuleContext ruleContext)
       throws InterruptedException {
     return null;
-  }
-
-  @Override
-  public void setLintProgressMessage(SpawnAction.Builder spawnAction) {
-    spawnAction.setProgressMessage("Running Android Lint for: %{label}");
   }
 }
 

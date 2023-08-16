@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 
@@ -27,7 +26,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -94,36 +92,6 @@ public interface JavaSemantics {
       OutputGroupInfo.HIDDEN_OUTPUT_GROUP_PREFIX + "direct_source_jars";
 
   public String getJavaToolchainType();
-
-  /** Implementation for the :java_launcher attribute. */
-  static LabelLateBoundDefault<JavaConfiguration> javaLauncherAttribute(Label defaultLabel) {
-    return LabelLateBoundDefault.fromTargetConfiguration(
-        JavaConfiguration.class,
-        defaultLabel,
-        (rule, attributes, javaConfig) -> {
-          // This nullness check is purely for the sake of a test that doesn't bother to include
-          // an
-          // attribute map when calling this method.
-          if (attributes != null) {
-            // Don't depend on the launcher if we don't create an executable anyway
-            if (attributes.has("create_executable")
-                && !attributes.get("create_executable", Type.BOOLEAN)) {
-              return null;
-            }
-
-            // use_launcher=False disables the launcher
-            if (attributes.has("use_launcher") && !attributes.get("use_launcher", Type.BOOLEAN)) {
-              return null;
-            }
-
-            // don't read --java_launcher if this target overrides via a launcher attribute
-            if (attributes.isAttributeValueExplicitlySpecified("launcher")) {
-              return attributes.get("launcher", LABEL);
-            }
-          }
-          return javaConfig.getJavaLauncherLabel();
-        });
-  }
 
   @SerializationConstant
   LabelListLateBoundDefault<JavaConfiguration> JAVA_PLUGINS =
@@ -365,7 +333,4 @@ public interface JavaSemantics {
       throws InterruptedException, RuleErrorException;
 
   Artifact getObfuscatedConstantStringMap(RuleContext ruleContext) throws InterruptedException;
-
-  /** Sets the progress message on the lint build action. */
-  void setLintProgressMessage(SpawnAction.Builder spawnAction);
 }
