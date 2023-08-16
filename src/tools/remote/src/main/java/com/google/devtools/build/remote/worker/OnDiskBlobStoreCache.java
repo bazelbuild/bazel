@@ -43,7 +43,8 @@ class OnDiskBlobStoreCache extends RemoteCache {
           .setSymlinkAbsolutePathStrategy(SymlinkAbsolutePathStrategy.Value.ALLOWED)
           .build();
 
-  public OnDiskBlobStoreCache(RemoteOptions options, Path cacheDir, DigestUtil digestUtil) {
+  public OnDiskBlobStoreCache(RemoteOptions options, Path cacheDir, DigestUtil digestUtil)
+      throws IOException {
     super(
         CAPABILITIES,
         new DiskCacheClient(

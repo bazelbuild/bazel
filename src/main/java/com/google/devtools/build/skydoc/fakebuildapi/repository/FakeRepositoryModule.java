@@ -72,7 +72,6 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
       String doc,
       StarlarkThread thread)
       throws EvalException {
-    List<AttributeInfo> attrInfos;
     ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();
     if (attrs != null && attrs != Starlark.NONE) {
       attrsMapBuilder.putAll(Dict.cast(attrs, String.class, FakeDescriptor.class, "attrs"));
@@ -80,7 +79,7 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
 
     attrsMapBuilder.put("name", IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR);
     attrsMapBuilder.put("repo_mapping", IMPLICIT_REPO_MAPPING_ATTRIBUTE_DESCRIPTOR);
-    attrInfos =
+    List<AttributeInfo> attrInfos =
         attrsMapBuilder.build().entrySet().stream()
             .filter(entry -> !entry.getKey().startsWith("_"))
             .map(entry -> entry.getValue().asAttributeInfo(entry.getKey()))
