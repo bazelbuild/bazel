@@ -210,7 +210,7 @@ def basic_java_binary(
             transitive = [output_groups["_source_jars"]],
         )
 
-    one_version_output = _create_one_version_check(ctx, java_attrs.runtime_classpath, is_test_rule_class) if (
+    one_version_output = _create_one_version_check(ctx, java_attrs.runtime_classpath) if (
         ctx.fragments.java.one_version_enforcement_on_java_tests or not is_test_rule_class
     ) else None
     validation_outputs = [one_version_output] if one_version_output else []
@@ -383,18 +383,12 @@ def _create_shared_archive(ctx, java_attrs):
     )
     return jsa
 
-def _create_one_version_check(ctx, inputs, is_test_rule_class):
+def _create_one_version_check(ctx, inputs):
     one_version_level = ctx.fragments.java.one_version_enforcement_level
     if one_version_level == "OFF":
         return None
     tool = helper.check_and_get_one_version_attribute(ctx, "one_version_tool")
-
-    if is_test_rule_class:
-        toolchain = semantics.find_java_toolchain(ctx)
-        allowlist = toolchain.one_version_allowlist_for_tests()
-    else:
-        allowlist = helper.check_and_get_one_version_attribute(ctx, "one_version_allowlist")
-
+    allowlist = helper.check_and_get_one_version_attribute(ctx, "one_version_allowlist")
     if not tool or not allowlist:  # On Mac oneversion tool is not available
         return None
 
