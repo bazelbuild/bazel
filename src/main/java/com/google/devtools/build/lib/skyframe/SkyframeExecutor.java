@@ -3835,6 +3835,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
                 cyclesReporter,
                 eventHandler,
                 /* keepGoing= */ true,
+                tracksStateForIncrementality(),
                 /* eventBus= */ null,
                 bugReporter);
       } catch (ViewCreationFailedException ignored) {

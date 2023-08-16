@@ -68,11 +68,12 @@ public class SkyframeErrorProcessorTest {
             () ->
                 SkyframeErrorProcessor.processErrors(
                     result,
-                    /*cyclesReporter=*/ new CyclesReporter(),
-                    /*eventHandler=*/ mock(ExtendedEventHandler.class),
-                    /*keepGoing=*/ false,
-                    /*eventBus=*/ null,
-                    /*bugReporter=*/ null,
+                    /* cyclesReporter= */ new CyclesReporter(),
+                    /* eventHandler= */ mock(ExtendedEventHandler.class),
+                    /* keepGoing= */ false,
+                    /* keepEdges= */ true,
+                    /* eventBus= */ null,
+                    /* bugReporter= */ null,
                     includeExecutionPhase));
     assertThat(thrown).hasCauseThat().isEqualTo(analysisException);
   }

@@ -430,6 +430,7 @@ public final class SkyframeBuildView {
             skyframeExecutor.getCyclesReporter(),
             eventHandler,
             keepGoing,
+            skyframeExecutor.tracksStateForIncrementality(),
             eventBus,
             bugReporter);
 
@@ -712,9 +713,10 @@ public final class SkyframeBuildView {
                           skyframeExecutor.getCyclesReporter(),
                           eventHandler,
                           keepGoing,
+                          skyframeExecutor.tracksStateForIncrementality(),
                           eventBus,
                           bugReporter,
-                          /*includeExecutionPhase=*/ true)
+                          /* includeExecutionPhase= */ true)
                       .executionDetailedExitCode());
             }
           }
@@ -737,6 +739,7 @@ public final class SkyframeBuildView {
                       skyframeExecutor.getCyclesReporter(),
                       eventHandler,
                       keepGoing,
+                      skyframeExecutor.tracksStateForIncrementality(),
                       eventBus,
                       bugReporter,
                       /* includeExecutionPhase= */ true)
@@ -781,9 +784,10 @@ public final class SkyframeBuildView {
               skyframeExecutor.getCyclesReporter(),
               eventHandler,
               keepGoing,
+              skyframeExecutor.tracksStateForIncrementality(),
               eventBus,
               bugReporter,
-              /*includeExecutionPhase=*/ true);
+              /* includeExecutionPhase= */ true);
       detailedExitCodes.add(errorProcessingResult.executionDetailedExitCode());
 
       foundActionConflictInLatestCheck = !errorProcessingResult.actionConflicts().isEmpty();
