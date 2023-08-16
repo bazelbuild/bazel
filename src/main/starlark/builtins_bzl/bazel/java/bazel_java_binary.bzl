@@ -247,6 +247,8 @@ def _create_windows_exe_launcher(ctx, java_executable, classpath, main_class, jv
     launch_info.add_joined(jvm_flags_for_launcher, join_with = "\t", format_joined = "jvm_flags=%s", omit_if_empty = False)
     jar_bin_path = semantics.find_java_runtime_toolchain(ctx).java_home + "/bin/jar.exe"
     launch_info.add(jar_bin_path, format = "jar_bin_path=%s")
+
+    # TODO(b/295221112): Change to use the "launcher" attribute (only windows use a fixed _launcher attribute)
     launcher_artifact = ctx.executable._launcher
     ctx.actions.run(
         executable = ctx.executable._windows_launcher_maker,
@@ -306,18 +308,12 @@ _BASE_BINARY_ATTRS = merge_attrs(
     },
 )
 
-def make_java_binary(executable, resolve_launcher_flag, has_launcher = False):
+def make_java_binary(executable):
     return _make_binary_rule(
         _bazel_java_binary_impl,
         merge_attrs(
             _BASE_BINARY_ATTRS,
             {
-                "_java_launcher": attr.label(
-                    default = configuration_field(
-                        fragment = "java",
-                        name = "launcher",
-                    ) if resolve_launcher_flag else (_compute_launcher_attr if has_launcher else None),
-                ),
                 "_use_auto_exec_groups": attr.bool(default = True),
             },
             ({} if executable else {
@@ -329,21 +325,15 @@ def make_java_binary(executable, resolve_launcher_flag, has_launcher = False):
         executable = executable,
     )
 
-java_binary = make_java_binary(executable = True, resolve_launcher_flag = True)
+java_binary = make_java_binary(executable = True)
 
-def make_java_test(resolve_launcher_flag, has_launcher = False):
+def make_java_test():
     return _make_binary_rule(
         _bazel_java_test_impl,
         merge_attrs(
             BASE_TEST_ATTRIBUTES,
             _BASE_BINARY_ATTRS,
             {
-                "_java_launcher": attr.label(
-                    default = configuration_field(
-                        fragment = "java",
-                        name = "launcher",
-                    ) if resolve_launcher_flag else (_compute_launcher_attr if has_launcher else None),
-                ),
                 "_lcov_merger": attr.label(
                     cfg = "exec",
                     default = configuration_field(
@@ -366,4 +356,4 @@ def make_java_test(resolve_launcher_flag, has_launcher = False):
         test = True,
     )
 
-java_test = make_java_test(True)
+java_test = make_java_test()
