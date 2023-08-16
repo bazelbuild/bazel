@@ -934,7 +934,6 @@ def make_cc_binary(cc_binary_attrs, **kwargs):
         },
         toolchains = cc_helper.use_cpp_toolchain() +
                      semantics.get_runtimes_toolchain(),
-        incompatible_use_toolchain_transition = True,
         executable = True,
         **kwargs
     )

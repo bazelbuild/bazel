@@ -2464,7 +2464,6 @@ def _impl(ctx):
 outer_toolchain = rule(
     implementation = _impl,
     toolchains = ["//${pkg}/inner:toolchain_type"],
-    incompatible_use_toolchain_transition = True,
 )
 EOF
   cat > "${pkg}/outer/BUILD" <<EOF
@@ -2499,7 +2498,6 @@ def _impl(ctx):
 demo_rule = rule(
     implementation = _impl,
     toolchains = ["//${pkg}/outer:toolchain_type"],
-    incompatible_use_toolchain_transition = True,
 )
 EOF
   cat > "${pkg}/rule/BUILD" <<EOF

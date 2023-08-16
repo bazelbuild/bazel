@@ -3463,7 +3463,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "      exec_compatible_with = ['//something:extra'],",
         "    ),",
         "  },",
-        "  incompatible_use_toolchain_transition = True,",
         ")");
     scratch.file(
         "something/BUILD",

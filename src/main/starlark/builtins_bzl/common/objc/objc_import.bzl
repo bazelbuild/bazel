@@ -91,5 +91,4 @@ objc_import = rule(
     ),
     fragments = ["objc", "apple", "cpp"],
     toolchains = cc_helper.use_cpp_toolchain(),
-    incompatible_use_toolchain_transition = True,
 )

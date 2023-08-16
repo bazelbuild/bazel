@@ -842,7 +842,6 @@ cc_shared_library = rule(
     },
     toolchains = cc_helper.use_cpp_toolchain(),
     fragments = ["cpp"] + semantics.additional_fragments(),
-    incompatible_use_toolchain_transition = True,
 )
 
 for_testing_dont_use_check_if_target_under_path = _check_if_target_under_path

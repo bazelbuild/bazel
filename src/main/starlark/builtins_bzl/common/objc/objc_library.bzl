@@ -135,5 +135,4 @@ objc_library = rule(
     fragments = ["objc", "apple", "cpp"],
     cfg = apple_crosstool_transition,
     toolchains = cc_helper.use_cpp_toolchain(),
-    incompatible_use_toolchain_transition = True,
 )
