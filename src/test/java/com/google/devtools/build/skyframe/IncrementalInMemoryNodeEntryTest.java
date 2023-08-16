@@ -34,7 +34,7 @@ import org.junit.runner.RunWith;
 @RunWith(TestParameterInjector.class)
 public class IncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<IntVersion> {
 
-  private final Version incrementalVersion = initialVersion.next();
+  protected final Version incrementalVersion = initialVersion.next();
 
   @Override
   protected IncrementalInMemoryNodeEntry createEntry(SkyKey key) {
