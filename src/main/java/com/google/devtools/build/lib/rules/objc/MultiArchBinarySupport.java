@@ -465,7 +465,7 @@ public class MultiArchBinarySupport {
 
       // The cpu flag will be set by platform mapping if a mapping exists.
       splitOptions.get(PlatformOptions.class).platforms = ImmutableList.of(platform);
-      setAppleCrosstoolTransitionPlatformConfiguration(buildOptions, splitOptions, platform);
+      setAppleCrosstoolTransitionPlatformConfiguration(splitOptions, platform);
       AppleCommandLineOptions appleCommandLineOptions =
           splitOptions.get(AppleCommandLineOptions.class);
       // Set the configuration distinguisher last, as the method
@@ -749,7 +749,7 @@ public class MultiArchBinarySupport {
     toOptions.cpu = cpu;
     toCppOptions.crosstoolTop = appleOptions.appleCrosstoolTop;
 
-    setAppleCrosstoolTransitionSharedConfiguration(from, to);
+    setAppleCrosstoolTransitionSharedConfiguration(to);
 
     // Ensure platforms aren't set so that platform mapping can take place.
     to.get(PlatformOptions.class).platforms = ImmutableList.of();
@@ -759,14 +759,13 @@ public class MultiArchBinarySupport {
    * Sets configuration fields required for a transition that uses apple_platforms in place of the
    * default platforms to find the appropriate CROSSTOOL and C++ configuration options.
    *
-   * @param from options from the originating configuration
    * @param to options for the destination configuration. This instance will be modified to so the
    *     destination configuration uses the apple crosstool
    * @param platform {@code --platforms} value for toolchain selection in the destination
    *     configuration
    */
   private static void setAppleCrosstoolTransitionPlatformConfiguration(
-      BuildOptionsView from, BuildOptionsView to, Label platform) {
+      BuildOptionsView to, Label platform) {
     PlatformOptions toPlatformOptions = to.get(PlatformOptions.class);
     ImmutableList<Label> incomingPlatform = ImmutableList.of(platform);
 
@@ -783,26 +782,23 @@ public class MultiArchBinarySupport {
     // The cpu flag will be set by platform mapping if a mapping exists.
     to.get(PlatformOptions.class).platforms = incomingPlatform;
 
-    setAppleCrosstoolTransitionSharedConfiguration(from, to);
+    setAppleCrosstoolTransitionSharedConfiguration(to);
   }
 
   /**
    * Sets a common set of configuration fields required for a transition that needs to find the
    * appropriate CROSSTOOL and C++ configuration options.
    *
-   * @param from options from the originating configuration
    * @param to options for the destination configuration. This instance will be modified to so the
    *     destination configuration uses the apple crosstool
    */
-  private static void setAppleCrosstoolTransitionSharedConfiguration(
-      BuildOptionsView from, BuildOptionsView to) {
+  private static void setAppleCrosstoolTransitionSharedConfiguration(BuildOptionsView to) {
     to.get(AppleCommandLineOptions.class).configurationDistinguisher =
         ConfigurationDistinguisher.APPLE_CROSSTOOL;
 
-    AppleCommandLineOptions appleOptions = from.get(AppleCommandLineOptions.class);
     CppOptions toCppOptions = to.get(CppOptions.class);
     toCppOptions.cppCompiler = null;
-    toCppOptions.libcTopLabel = appleOptions.appleLibcTop;
+    toCppOptions.libcTopLabel = null;
 
     // OSX toolchains do not support fission.
     toCppOptions.fissionModes = ImmutableList.of();

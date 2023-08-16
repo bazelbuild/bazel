@@ -64,7 +64,6 @@ import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
 import java.util.List;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -1538,25 +1537,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testFilesToCompileOutputGroup() throws Exception {
     checkFilesToCompileOutputGroup(RULE_TYPE);
-  }
-
-  @Test
-  @Ignore("apple_grte_top isn't being applied because the cpu doesn't change")
-  public void testSysrootArgSpecifiedWithGrteTopFlag() throws Exception {
-    MockObjcSupport.setup(mockToolsConfig);
-    useConfiguration("--cpu=ios_x86_64", "--apple_grte_top=//x");
-    scratch.file(
-        "x/BUILD",
-        "objc_library(",
-        "   name = 'objc',",
-        "   srcs = ['source.m'],",
-        ")",
-        "filegroup(",
-        "    name = 'everything',",
-        "    srcs = ['header.h'],",
-        ")");
-    CommandAction compileAction = compileAction("//x:objc", "source.o");
-    assertThat(compileAction.getArguments()).contains("--sysroot=x");
   }
 
   @Test

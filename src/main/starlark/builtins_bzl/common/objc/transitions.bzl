@@ -97,7 +97,7 @@ def _output_dictionary(settings, cpu, platform_type, platforms):
         ),
         "//command_line_option:platforms": platforms,
         "//command_line_option:fission": [],
-        "//command_line_option:grte_top": settings["//command_line_option:apple_grte_top"],
+        "//command_line_option:grte_top": None,
     }
 
 def _apple_crosstool_transition_impl(settings, attr):
@@ -127,7 +127,6 @@ _apple_rule_base_transition_inputs = [
     "//command_line_option:apple_crosstool_top",
     "//command_line_option:crosstool_top",
     "//command_line_option:apple_split_cpu",
-    "//command_line_option:apple_grte_top",
     "//command_line_option:cpu",
     "//command_line_option:ios_multi_cpus",
     "//command_line_option:macos_cpus",
