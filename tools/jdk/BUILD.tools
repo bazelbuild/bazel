@@ -1,7 +1,6 @@
 package(default_visibility = ["//visibility:public"])
 
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
-load(":launcher_flag_alias.bzl", "launcher_flag_alias")
 
 exports_files([
     "BUILD.java_tools",
@@ -83,6 +82,7 @@ alias(
     name = "vanillajavabuilder",
     actual = "@remote_java_tools//:VanillaJavaBuilder",
 )
+
 
 alias(
     name = "JacocoCoverageRunner",
@@ -167,11 +167,9 @@ TARGET_NAMES = [
     "singlejar",
     "toolchain",
 ] + [
-    "toolchain_java%d" % version
-    for version in (8, 9, 10, 11)
+    "toolchain_java%d" % version for version in (8, 9, 10, 11)
 ] + [
-    "toolchain_jdk_%d" % version
-    for version in (14, 15, 16, 17, 20)
+    "toolchain_jdk_%d" % version for version in (14, 15, 16, 17, 20)
 ]
 
 [
@@ -183,9 +181,3 @@ TARGET_NAMES = [
 ]
 
 #### Aliases to rules_java to keep backward-compatibility (end) ####
-
-# TODO(b/295221112): replace this with Starlark label_flag (or an alias resolving to either java_launcher or host_java_launcher flag)
-launcher_flag_alias(
-    name = "launcher_flag_alias",
-    visibility = ["//visibility:public"],
-)

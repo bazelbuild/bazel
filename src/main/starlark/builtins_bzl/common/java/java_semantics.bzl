@@ -72,5 +72,4 @@ semantics = struct(
     IS_BAZEL = True,
     get_default_resource_path = _get_default_resource_path,
     compatible_javac_options = _compatible_javac_options,
-    LAUNCHER_FLAG_LABEL = Label("@bazel_tools//tools/jdk:launcher_flag_alias"),
 )

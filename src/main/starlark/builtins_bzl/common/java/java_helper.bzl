@@ -47,9 +47,12 @@ def _filter_launcher_for_target(ctx):
         return None
 
     # BUILD rule "launcher" attribute
-    if ctx.attr.launcher and cc_common.launcher_provider in ctx.attr.launcher:
+    if hasattr(ctx.attr, "launcher") and ctx.attr.launcher:
         return ctx.attr.launcher
 
+    # Blaze flag --java_launcher
+    if hasattr(ctx.attr, "_java_launcher") and ctx.attr._java_launcher:
+        return ctx.attr._java_launcher
     return None
 
 def _launcher_artifact_for_target(ctx):

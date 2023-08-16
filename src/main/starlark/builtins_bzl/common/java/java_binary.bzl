@@ -29,7 +29,6 @@ load(
     "collect_native_deps_dirs",
     "get_runtime_classpath_for_archive",
 )
-load(":common/cc/cc_common.bzl", "cc_common")
 
 CcLauncherInfo = _builtins.internal.cc_internal.launcher_provider
 
@@ -98,9 +97,9 @@ def basic_java_binary(
           )
 
     """
-    if not ctx.attr.create_executable and (ctx.attr.launcher and cc_common.launcher_provider in ctx.attr.launcher):
+    if not ctx.attr.create_executable and ctx.attr.launcher:
         fail("launcher specified but create_executable is false")
-    if not ctx.attr.use_launcher and (ctx.attr.launcher and cc_common.launcher_provider in ctx.attr.launcher):
+    if not ctx.attr.use_launcher and ctx.attr.launcher:
         fail("launcher specified but use_launcher is false")
 
     if not ctx.attr.srcs and ctx.attr.deps:
@@ -520,7 +519,7 @@ BASIC_JAVA_BINARY_ATTRIBUTES = merge_attrs(
         ),
         "launcher": attr.label(
             allow_files = False,
-            # TODO(b/295221112): add back CcLauncherInfo
+            providers = [CcLauncherInfo],
         ),
         "neverlink": attr.bool(),
         "javacopts": attr.string_list(),
