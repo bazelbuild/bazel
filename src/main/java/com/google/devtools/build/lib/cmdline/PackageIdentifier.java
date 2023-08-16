@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.CPUHeavySkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import javax.annotation.concurrent.Immutable;
@@ -34,7 +33,7 @@ import javax.annotation.concurrent.Immutable;
  */
 @AutoCodec
 @Immutable
-public final class PackageIdentifier implements CPUHeavySkyKey, Comparable<PackageIdentifier> {
+public final class PackageIdentifier implements SkyKey, Comparable<PackageIdentifier> {
   private static final SkyKeyInterner<PackageIdentifier> interner = SkyKey.newInterner();
 
   public static PackageIdentifier create(String repository, PathFragment pkgName)
