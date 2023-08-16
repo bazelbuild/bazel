@@ -180,12 +180,6 @@ public class SingleExtensionEvalFunction implements SkyFunction {
               lockfileMode,
               lockfile);
       if (singleExtensionEvalValue != null) {
-        ImmutableMap<String, RepoSpec> generatedRepoSpecs =
-            singleExtensionEvalValue.getGeneratedRepoSpecs();
-        Optional<ModuleExtensionMetadata> moduleExtensionMetadata =
-            lockfile.getModuleExtensions().get(extensionId).getModuleExtensionMetadata();
-        validateExtensionResult(
-            generatedRepoSpecs, moduleExtensionMetadata, extensionId, usagesValue, env);
         return singleExtensionEvalValue;
       }
     }
@@ -220,9 +214,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                       .setModuleExtensionMetadata(moduleExtensionMetadata)
                       .build()));
     }
-    validateExtensionResult(
+    return validateAndCreateSingleExtensionEvalValue(
         generatedRepoSpecs, moduleExtensionMetadata, extensionId, usagesValue, env);
-    return createSingleExtensionValue(generatedRepoSpecs, usagesValue);
   }
 
   @Nullable
@@ -274,7 +267,12 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         && Arrays.equals(bzlTransitiveDigest, lockedExtension.getBzlTransitiveDigest())
         && trimmedUsages.equals(trimmedLockedUsages)
         && envVariables.equals(lockedExtension.getEnvVariables())) {
-      return createSingleExtensionValue(lockedExtension.getGeneratedRepoSpecs(), usagesValue);
+      return validateAndCreateSingleExtensionEvalValue(
+          lockedExtension.getGeneratedRepoSpecs(),
+          lockedExtension.getModuleExtensionMetadata(),
+          extensionId,
+          usagesValue,
+          env);
     } else if (lockfileMode.equals(LockfileMode.ERROR)) {
       ImmutableList<String> extDiff =
           lockfile.getModuleExtensionDiff(
@@ -331,27 +329,15 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     return false;
   }
 
-  private SingleExtensionEvalValue createSingleExtensionValue(
-      ImmutableMap<String, RepoSpec> generatedRepoSpecs, SingleExtensionUsagesValue usagesValue) {
-    return SingleExtensionEvalValue.create(
-        generatedRepoSpecs,
-        generatedRepoSpecs.keySet().stream()
-            .collect(
-                toImmutableBiMap(
-                    e ->
-                        RepositoryName.createUnvalidated(
-                            usagesValue.getExtensionUniqueName() + "~" + e),
-                    Function.identity())));
-  }
-
   /**
    * Validates the result of the module extension evaluation against the declared imports, throwing
-   * an exception if validation fails.
+   * an exception if validation fails, and returns a SingleExtensionEvalValue otherwise.
    *
    * <p>Since extension evaluation does not depend on the declared imports, the result of the
-   * evaluation can be reused and persisted in the lockfile even if validation fails.
+   * evaluation of the extension implementation function can be reused and persisted in the lockfile
+   * even if validation fails.
    */
-  private void validateExtensionResult(
+  private SingleExtensionEvalValue validateAndCreateSingleExtensionEvalValue(
       ImmutableMap<String, RepoSpec> generatedRepoSpecs,
       Optional<ModuleExtensionMetadata> moduleExtensionMetadata,
       ModuleExtensionId extensionId,
@@ -362,6 +348,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     // emitted in case of an error.
     if (moduleExtensionMetadata.isPresent()) {
       try {
+        // TODO: ModuleExtensionMetadata#evaluate should throw ExternalDepsException instead of
+        // EvalException.
         moduleExtensionMetadata
             .get()
             .evaluate(
@@ -399,11 +387,21 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         }
       }
     }
+
+    return SingleExtensionEvalValue.create(
+        generatedRepoSpecs,
+        generatedRepoSpecs.keySet().stream()
+            .collect(
+                toImmutableBiMap(
+                    e ->
+                        RepositoryName.createUnvalidated(
+                            usagesValue.getExtensionUniqueName() + "~" + e),
+                    Function.identity())));
   }
 
   /**
-   * @return usages with all information removed that does not influence the evaluation of the
-   *     extension, only the validation against imports that comes afterward.
+   * Returns usages with all information removed that does not influence the evaluation of the
+   * extension.
    */
   private static ImmutableMap<ModuleKey, ModuleExtensionUsage> trimUsagesForEvaluation(
       Map<ModuleKey, ModuleExtensionUsage> usages) {
@@ -416,8 +414,9 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                 // the parts that do, this preserves correctness in case new fields are added to
                 // ModuleExtensionUsage without updating this code.
                 usage.toBuilder()
-                    // Locations are only used for error reporting and thus didn't influence the
-                    // successful evaluation of the extension.
+                    // Locations are only used for error reporting and thus don't influence whether
+                    // the evaluation of the extension is successful and what its result is
+                    // in case of success.
                     .setLocation(Location.BUILTIN)
                     // Extension implementation functions do not see the imports, they are only
                     // validated against the set of generated repos in a validation step that comes
