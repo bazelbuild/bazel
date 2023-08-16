@@ -98,7 +98,7 @@ public class BuildConfigurationValue
   private final ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments;
 
   private final ImmutableMap<String, Class<? extends Fragment>> starlarkVisibleFragments;
-  private final RepositoryName mainRepositoryName;
+  private final String workspaceName;
   private final ImmutableSet<String> reservedActionMnemonics;
   private final CommandLineLimits commandLineLimits;
 
@@ -160,7 +160,7 @@ public class BuildConfigurationValue
   // Only BuildConfigurationFunction (and tests for mocking purposes) should instantiate this.
   public static BuildConfigurationValue create(
       BuildOptions buildOptions,
-      RepositoryName mainRepositoryName,
+      String workspaceName,
       boolean siblingRepositoryLayout,
       String transitionDirectoryNameFragment,
       // Arguments below this are server-global.
@@ -178,7 +178,7 @@ public class BuildConfigurationValue
 
     return new BuildConfigurationValue(
         buildOptions,
-        mainRepositoryName,
+        workspaceName,
         siblingRepositoryLayout,
         transitionDirectoryNameFragment,
         directories,
@@ -204,7 +204,7 @@ public class BuildConfigurationValue
   // Package-visible for serialization purposes.
   BuildConfigurationValue(
       BuildOptions buildOptions,
-      RepositoryName mainRepositoryName,
+      String workspaceName,
       boolean siblingRepositoryLayout,
       String transitionDirectoryNameFragment,
       // Arguments below this are either server-global and constant or completely dependent values.
@@ -230,10 +230,10 @@ public class BuildConfigurationValue
             options,
             platformOptions,
             this.fragments,
-            mainRepositoryName,
+            workspaceName,
             siblingRepositoryLayout,
             transitionDirectoryNameFragment);
-    this.mainRepositoryName = mainRepositoryName;
+    this.workspaceName = workspaceName;
     this.siblingRepositoryLayout = siblingRepositoryLayout;
 
     // We can't use an ImmutableMap.Builder here; we need the ability to add entries with keys that
@@ -278,7 +278,7 @@ public class BuildConfigurationValue
     // Only considering arguments that are non-dependent and non-server-global.
     BuildConfigurationValue otherVal = (BuildConfigurationValue) other;
     return this.buildOptions.equals(otherVal.buildOptions)
-        && this.mainRepositoryName.equals(otherVal.mainRepositoryName)
+        && this.workspaceName.equals(otherVal.workspaceName)
         && this.siblingRepositoryLayout == otherVal.siblingRepositoryLayout
         && this.transitionDirectoryNameFragment.equals(otherVal.transitionDirectoryNameFragment);
   }
@@ -286,7 +286,7 @@ public class BuildConfigurationValue
   @Override
   public int hashCode() {
     return Objects.hash(
-        buildOptions, mainRepositoryName, siblingRepositoryLayout, transitionDirectoryNameFragment);
+        buildOptions, workspaceName, siblingRepositoryLayout, transitionDirectoryNameFragment);
   }
 
   private ImmutableMap<String, Class<? extends Fragment>> buildIndexOfStarlarkVisibleFragments() {
@@ -454,8 +454,8 @@ public class BuildConfigurationValue
     return options.strictFilesetOutput;
   }
 
-  public String getMainRepositoryName() {
-    return mainRepositoryName.getName();
+  public String getWorkspaceName() {
+    return workspaceName;
   }
 
   @Override

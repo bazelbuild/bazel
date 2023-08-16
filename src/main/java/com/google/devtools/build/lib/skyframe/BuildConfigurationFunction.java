@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.config.OptionInfo;
 import com.google.devtools.build.lib.analysis.config.transitions.BaselineOptionsValue;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -109,7 +108,7 @@ public final class BuildConfigurationFunction implements SkyFunction {
       var configurationValue =
           BuildConfigurationValue.create(
               targetOptions,
-              RepositoryName.createUnvalidated(workspaceNameValue.getName()),
+              workspaceNameValue.getName(),
               starlarkSemantics.getBool(
                   BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT),
               transitionDirectoryNameFragment,
