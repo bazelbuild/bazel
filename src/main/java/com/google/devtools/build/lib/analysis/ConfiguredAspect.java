@@ -205,14 +205,15 @@ public interface ConfiguredAspect extends ProviderCollection {
     /**
      * Adds {@link RequiredConfigFragmentsProvider} if {@link
      * CoreOptions#includeRequiredConfigFragmentsProvider} isn't {@link
-     * CoreOptions.IncludeConfigFragmentsEnum#OFF}.
+     * CoreOptions.IncludeConfigFragmentsEnum#OFF} and if the provider was not already added.
      *
      * <p>See {@link com.google.devtools.build.lib.analysis.config.RequiredFragmentsUtil} for a
      * description of the meaning of this provider's content. That class contains methods that
      * populate the results of {@link RuleContext#getRequiredConfigFragments}.
      */
     private void maybeAddRequiredConfigFragmentsProvider() {
-      if (ruleContext.shouldIncludeRequiredConfigFragmentsProvider()) {
+      if (ruleContext.shouldIncludeRequiredConfigFragmentsProvider()
+          && !providers.contains(RequiredConfigFragmentsProvider.class)) {
         addProvider(ruleContext.getRequiredConfigFragments());
       }
     }

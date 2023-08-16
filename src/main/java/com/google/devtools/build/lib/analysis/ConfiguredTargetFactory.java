@@ -592,23 +592,18 @@ public final class ConfiguredTargetFactory {
       return erroredConfiguredAspectWithFailures(ruleContext, analysisFailures);
     }
     if (ruleContext.hasErrors() && !allowAnalysisFailures) {
-      return erroredConfiguredAspect(ruleContext);
+      return erroredConfiguredAspect(ruleContext, null);
     }
 
-    ConfiguredAspect configuredAspect;
-    try {
-      configuredAspect =
-          aspectFactory.create(
-              associatedTarget.getLabel(),
-              configuredTarget,
-              ruleContext,
-              aspect.getParameters(),
-              ruleClassProvider.getToolsRepository());
-      if (configuredAspect == null) {
-        return erroredConfiguredAspect(ruleContext);
-      }
-    } finally {
-      ruleContext.close();
+    ConfiguredAspect configuredAspect =
+        aspectFactory.create(
+            associatedTarget.getLabel(),
+            configuredTarget,
+            ruleContext,
+            aspect.getParameters(),
+            ruleClassProvider.getToolsRepository());
+    if (configuredAspect == null) {
+      return erroredConfiguredAspect(ruleContext, null);
     }
 
     validateAdvertisedProviders(
@@ -642,7 +637,9 @@ public final class ConfiguredTargetFactory {
    * about the failure.
    */
   @Nullable
-  private static ConfiguredAspect erroredConfiguredAspect(RuleContext ruleContext)
+  public static ConfiguredAspect erroredConfiguredAspect(
+      RuleContext ruleContext,
+      @Nullable RequiredConfigFragmentsProvider requiredConfigFragmentsProvider)
       throws ActionConflictException, InterruptedException {
     if (ruleContext.getConfiguration().allowAnalysisFailures()) {
       ImmutableList.Builder<AnalysisFailure> analysisFailures = ImmutableList.builder();
@@ -653,6 +650,11 @@ public final class ConfiguredTargetFactory {
       ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(ruleContext);
       builder.addNativeDeclaredProvider(
           AnalysisFailureInfo.forAnalysisFailures(analysisFailures.build()));
+
+      if (requiredConfigFragmentsProvider != null) {
+        builder.addProvider(requiredConfigFragmentsProvider);
+      }
+
       // Unlike erroredConfiguredTarget, we do not add a RunfilesProvider; that would result in a
       // RunfilesProvider being provided twice in the merged configured target.
 
