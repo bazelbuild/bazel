@@ -138,6 +138,12 @@ public class ResourceProcessorBusyBox {
       void call(String[] args) throws Exception {
         AndroidDataBindingProcessingAction.main(args);
       }
+    },
+    GEN_BASE_CLASSES {
+      @Override
+      void call(String[] args) throws Exception {
+        GenerateDatabindingBaseClassesAction.main(args);
+      }
     };
 
     abstract void call(String[] args) throws Exception;

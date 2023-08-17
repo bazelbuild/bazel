@@ -247,6 +247,24 @@ public final class BusyBoxActionBuilder {
   }
 
   /**
+   * Adds an efficient flag based on transitive artifact exec paths.
+   *
+   * <p>The exec paths of each transitive artifact will be proceeded by the flag, for example:
+   * --flag execpath1 --flag execpath2
+   *
+   * <p>The values will only be collapsed and turned into a flag at execution time.
+   *
+   * <p>The values will also be added as inputs.
+   */
+  @CanIgnoreReturnValue
+  public BusyBoxActionBuilder addTransitiveExecPathsFlagForEachAndInputs(
+      @CompileTimeConstant String arg, NestedSet<Artifact> transitiveValues) {
+    commandLine.addExecPaths(VectorArg.addBefore(arg).each(transitiveValues));
+    inputs.addTransitive(transitiveValues);
+    return this;
+  }
+
+  /**
    * Adds an efficient flag and inputs based on transitive values.
    *
    * <p>Each value will be separated on the command line by the ':' character, the option parser's
