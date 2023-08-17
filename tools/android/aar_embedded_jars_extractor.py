@@ -21,13 +21,13 @@ of the jars and creates a param file for singlejar to merge them into one jar.
 
 import os
 import re
-import sys
 import zipfile
 
 # Do not edit this line. Copybara replaces it with PY2 migration helper.
 from absl import app
 from absl import flags
 
+from tools.android import json_worker_wrapper
 from tools.android import junction
 
 FLAGS = flags.FLAGS
@@ -100,5 +100,4 @@ def main(unused_argv):
 
 
 if __name__ == "__main__":
-  FLAGS(sys.argv)
-  app.run(main)
+  json_worker_wrapper.wrap_worker(FLAGS, main, app.run)
