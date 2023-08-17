@@ -80,6 +80,8 @@ public abstract class ModuleExtensionUsage {
    */
   public abstract boolean getHasNonDevUseExtension();
 
+  public abstract Builder toBuilder();
+
   public static Builder builder() {
     return new AutoValue_ModuleExtensionUsage.Builder();
   }
