@@ -709,15 +709,25 @@ class MethodLibrary {
   public void fail(Object msg, Object attr, Tuple args, StarlarkThread thread)
       throws EvalException {
     Printer printer = new Printer();
+    boolean needSeparator = false;
     if (attr != Starlark.NONE) {
       printer.append("attribute ").append((String) attr).append(":");
+      needSeparator = true;
     }
     // msg acts like a leading element of args.
     if (msg != Starlark.NONE) {
-      printer.append(" ").debugPrint(msg, thread.getSemantics());
+      if (needSeparator) {
+        printer.append(" ");
+      }
+      printer.debugPrint(msg, thread.getSemantics());
+      needSeparator = true;
     }
     for (Object arg : args) {
-      printer.append(" ").debugPrint(arg, thread.getSemantics());
+      if (needSeparator) {
+        printer.append(" ");
+      }
+      printer.debugPrint(arg, thread.getSemantics());
+      needSeparator = true;
     }
     throw Starlark.errorf("%s", printer.toString());
   }
