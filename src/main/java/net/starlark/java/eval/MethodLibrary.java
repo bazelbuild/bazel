@@ -15,13 +15,10 @@
 package net.starlark.java.eval;
 
 import com.google.common.base.Ascii;
-import com.google.common.base.Joiner;
 import com.google.common.collect.Ordering;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Iterator;
-import java.util.List;
 import java.util.NoSuchElementException;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
