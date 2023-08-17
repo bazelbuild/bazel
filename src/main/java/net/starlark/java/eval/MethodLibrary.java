@@ -711,19 +711,18 @@ class MethodLibrary {
       useStarlarkThread = true)
   public void fail(Object msg, Object attr, Tuple args, StarlarkThread thread)
       throws EvalException {
-    List<String> elems = new ArrayList<>();
+    Printer printer = new Printer();
+    if (attr != Starlark.NONE) {
+      printer.append("attribute ").append((String) attr).append(":");
+    }
     // msg acts like a leading element of args.
     if (msg != Starlark.NONE) {
-      elems.add(new Printer().debugPrint(msg, thread.getSemantics()).toString());
+      printer.append(" ").debugPrint(msg, thread.getSemantics());
     }
     for (Object arg : args) {
-      elems.add(new Printer().debugPrint(arg, thread.getSemantics()).toString());
+      printer.append(" ").debugPrint(arg, thread.getSemantics());
     }
-    String str = Joiner.on(" ").join(elems);
-    if (attr != Starlark.NONE) {
-      str = String.format("attribute %s: %s", attr, str);
-    }
-    throw Starlark.errorf("%s", str);
+    throw Starlark.errorf("%s", printer.toString());
   }
 
   @StarlarkMethod(
