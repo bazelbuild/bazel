@@ -54,7 +54,6 @@ local_java_repository(
     java_home = "$PWD/foobar",
     version = "11",
 )
-register_toolchains("@host_javabase//:all")
 EOF
 
   mkdir java
@@ -122,7 +121,6 @@ local_java_repository(
     java_home = "$PWD/foobar",
     version = "11",
 )
-register_toolchains("@host_javabase//:all")
 EOF
   mkdir -p java
   cat >> java/rule.bzl <<EOF
