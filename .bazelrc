@@ -27,12 +27,18 @@ build:remote --config=ubuntu1804_java11
 
 build:macos --macos_minimum_os=10.11
 
+build:windows_arm64 --platforms=//:windows_arm64
+build:windows_arm64 --extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows
+
 # Enable Bzlmod
 build:bzlmod --experimental_enable_bzlmod
 
 # Enable Java 11 language features (https://github.com/bazelbuild/bazel/issues/14592)
 build --java_language_version=11
 build --tool_java_language_version=11
+
+# Manually enable cc toolchain resolution before it is flipped. https://github.com/bazelbuild/bazel/issues/7260
+build --incompatible_enable_cc_toolchain_resolution
 
 # User-specific .bazelrc
 try-import %workspace%/user.bazelrc
