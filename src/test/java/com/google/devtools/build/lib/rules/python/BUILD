@@ -21,7 +21,6 @@ test_suite(
         ":PyLibraryConfiguredTargetTest",
         ":PyRuntimeConfiguredTargetTest",
         ":PyRuntimeInfoTest",
-        ":PyStarlarkTransitionsTest",
         ":PyTestConfiguredTargetTest",
         ":PythonConfigurationTest",
         ":PythonStarlarkApiTest",
