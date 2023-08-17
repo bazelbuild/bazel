@@ -15,13 +15,10 @@
 package net.starlark.java.eval;
 
 import com.google.common.base.Ascii;
-import com.google.common.base.Joiner;
 import com.google.common.collect.Ordering;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Iterator;
-import java.util.List;
 import java.util.NoSuchElementException;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -706,24 +703,33 @@ class MethodLibrary {
           @Param(
               name = "args",
               doc =
-                  "A list of values, formatted with str and joined with spaces, that appear in the"
-                      + " error message."),
+                  "A list of values, formatted with debugPrint (which is equivalent to str by"
+                      + " default) and joined with spaces, that appear in the error message."),
       useStarlarkThread = true)
   public void fail(Object msg, Object attr, Tuple args, StarlarkThread thread)
       throws EvalException {
-    List<String> elems = new ArrayList<>();
+    Printer printer = new Printer();
+    boolean needSeparator = false;
+    if (attr != Starlark.NONE) {
+      printer.append("attribute ").append((String) attr).append(":");
+      needSeparator = true;
+    }
     // msg acts like a leading element of args.
     if (msg != Starlark.NONE) {
-      elems.add(Starlark.str(msg, thread.getSemantics()));
+      if (needSeparator) {
+        printer.append(" ");
+      }
+      printer.debugPrint(msg, thread.getSemantics());
+      needSeparator = true;
     }
     for (Object arg : args) {
-      elems.add(Starlark.str(arg, thread.getSemantics()));
+      if (needSeparator) {
+        printer.append(" ");
+      }
+      printer.debugPrint(arg, thread.getSemantics());
+      needSeparator = true;
     }
-    String str = Joiner.on(" ").join(elems);
-    if (attr != Starlark.NONE) {
-      str = String.format("attribute %s: %s", attr, str);
-    }
-    throw Starlark.errorf("%s", str);
+    throw Starlark.errorf("%s", printer.toString());
   }
 
   @StarlarkMethod(
