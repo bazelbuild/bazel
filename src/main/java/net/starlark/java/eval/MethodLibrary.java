@@ -706,8 +706,8 @@ class MethodLibrary {
           @Param(
               name = "args",
               doc =
-                  "A list of values, formatted with str and joined with spaces, that appear in the"
-                      + " error message."),
+                  "A list of values, formatted with debugPrint (which is equivalent to str by"
+                      + " default) and joined with spaces, that appear in the error message."),
       useStarlarkThread = true)
   public void fail(Object msg, Object attr, Tuple args, StarlarkThread thread)
       throws EvalException {
