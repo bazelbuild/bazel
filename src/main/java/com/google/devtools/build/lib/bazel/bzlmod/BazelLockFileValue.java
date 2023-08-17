@@ -137,7 +137,7 @@ public abstract class BazelLockFileValue implements SkyValue, Postable {
       extDiff.add("One or more files the extension '" + extensionId + "' is using have changed");
     }
     if (!extensionUsages.equals(lockedExtensionUsages)) {
-      extDiff.add("The usages of the extension '" + extensionId + "' has changed");
+      extDiff.add("The usages of the extension '" + extensionId + "' have changed");
     }
     if (!envVariables.equals(lockedExtension.getEnvVariables())) {
       extDiff.add(
