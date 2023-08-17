@@ -193,7 +193,7 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
     synchronized (this) {
       boolean done = isDone();
       if (!done && dirtyBuildingState == null) {
-        dirtyBuildingState = new InitialBuildingState(getKey().hasLowFanout());
+        dirtyBuildingState = new InitialBuildingState();
       }
       if (reverseDep != null) {
         if (done) {
@@ -402,7 +402,7 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
 
     private IncrementalDirtyBuildingState(
         DirtyType dirtyType, SkyKey key, GroupedDeps lastBuildDirectDeps, SkyValue lastBuildValue) {
-      super(dirtyType, key.hasLowFanout());
+      super(dirtyType);
       this.lastBuildDirectDeps = lastBuildDirectDeps;
       this.lastBuildValue = lastBuildValue;
       checkState(

@@ -89,18 +89,15 @@ public abstract class DirtyBuildingState implements PriorityTracker {
   /**
    * Priority information packed into 32-bits.
    *
-   * <p>Packing is used because Java lacks support for native short operations and masking
-   * operations are needed to fit 1-bit of information about whether the {@link SkyKey} has low
-   * fanout. This field has the following layout.
+   * <p>Packing is used because Java lacks support for native short operations. This field has the
+   * following layout.
    *
    * <ol>
-   *   <li><i>Has Low Fanout</i> (1-bit) - 1 if {@link SkyKey#hasLowFanout} is true for the
-   *       underlying key.
    *   <li><i>Depth</i> (15-bits) - the current estimated depth.
    *   <li><i>Restart Count</i> (16-bits, unsigned) - incremented when this node restarts.
    * </ol>
    */
-  private volatile int priority = HAS_LOW_FANOUT_MASK;
+  private volatile int priority = 0;
 
   /**
    * Returns the {@link GroupedDeps} requested last time the node was built, or {@code null} if on
@@ -137,20 +134,11 @@ public abstract class DirtyBuildingState implements PriorityTracker {
    */
   protected int dirtyDirectDepIndex;
 
-  /**
-   * Constructor.
-   *
-   * @param hasLowFanout indicates that this node is not expected to have high dependency fanout.
-   *     Satisfied by by {@link SkyKey#hasLowFanout}.
-   */
-  protected DirtyBuildingState(DirtyType dirtyType, boolean hasLowFanout) {
+  protected DirtyBuildingState(DirtyType dirtyType) {
     dirtyState = dirtyType.getInitialDirtyState();
     // We need to iterate through the deps to see if they have changed, or to remove them if one
     // has. Initialize the iterating index.
     dirtyDirectDepIndex = 0;
-    if (!hasLowFanout) {
-      this.priority = 0;
-    }
   }
 
   /** Returns true if this state has information about a previously built version. */
@@ -360,16 +348,12 @@ public abstract class DirtyBuildingState implements PriorityTracker {
   public final int getPriority() {
     int snapshot = priority;
 
-    // Fanout occupies the top-most bit. Shifts it over one bit so later computations don't need to
-    // consider negative priority values. Since this is the highest set bit, low-fanout nodes
-    // always have higher priority than high-fanout nodes.
-    int fanoutAdjustment = (snapshot & HAS_LOW_FANOUT_MASK) >>> 1;
     int depth = min((snapshot & DEPTH_MASK) >> DEPTH_BIT_OFFSET, DEPTH_SATURATION_BOUND);
     int evaluationCount = min(snapshot & EVALUATION_COUNT_MASK, EVALUATION_COUNT_SATURATION_BOUND);
 
     // This formula was found to produce good results in our benchmark. There's no deep rationale
     // behind it. It's likely possible to improve it, but iterating is slow.
-    return fanoutAdjustment + depth + evaluationCount * evaluationCount;
+    return depth + evaluationCount * evaluationCount;
   }
 
   @Override
@@ -404,7 +388,6 @@ public abstract class DirtyBuildingState implements PriorityTracker {
         .add("signaledDeps", signaledDeps)
         .add("externalDeps", externalDeps)
         .add("dirtyDirectDepIndex", dirtyDirectDepIndex)
-        .add("has low fanout", (snapshot & HAS_LOW_FANOUT_MASK) != 0)
         .add("depth", (snapshot & DEPTH_MASK) >> DEPTH_BIT_OFFSET)
         .add("evaluation count", (snapshot & EVALUATION_COUNT_MASK));
   }
@@ -415,8 +398,6 @@ public abstract class DirtyBuildingState implements PriorityTracker {
   }
 
   // Masks for `priority`.
-  private static final int HAS_LOW_FANOUT_MASK = 0x8000_0000;
-
   private static final int DEPTH_MASK = 0x7FFF_0000;
   private static final int DEPTH_BIT_OFFSET = 16;
 

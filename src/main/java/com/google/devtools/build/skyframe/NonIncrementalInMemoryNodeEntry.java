@@ -221,7 +221,7 @@ public class NonIncrementalInMemoryNodeEntry
   }
 
   private NonIncrementalBuildingState newBuildingState() {
-    return new NonIncrementalBuildingState(getKey().hasLowFanout());
+    return new NonIncrementalBuildingState();
   }
 
   /**
@@ -235,9 +235,7 @@ public class NonIncrementalInMemoryNodeEntry
     @Nullable private GroupedDeps directDeps = null;
     @Nullable private List<SkyKey> reverseDeps = null;
 
-    private NonIncrementalBuildingState(boolean hasLowFanout) {
-      super(hasLowFanout);
-    }
+    private NonIncrementalBuildingState() {}
 
     GroupedDeps getTemporaryDirectDeps(NonIncrementalInMemoryNodeEntry entry) {
       if (directDeps == null) {

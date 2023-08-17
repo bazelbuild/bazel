@@ -22,8 +22,8 @@ import javax.annotation.Nullable;
  */
 class InitialBuildingState extends DirtyBuildingState {
 
-  InitialBuildingState(boolean hasLowFanout) {
-    super(DirtyType.CHANGE, hasLowFanout);
+  InitialBuildingState() {
+    super(DirtyType.CHANGE);
   }
 
   @Nullable
