@@ -71,7 +71,7 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("TEST_SUITE_EXPANSION");
   static final SkyFunctionName TESTS_IN_SUITE = SkyFunctionName.createHermetic("TESTS_IN_SUITE");
   // Non-hermetic because accesses package locator
-  static final SkyFunctionName TARGET_PATTERN_PHASE =
+  public static final SkyFunctionName TARGET_PATTERN_PHASE =
       SkyFunctionName.createNonHermetic("TARGET_PATTERN_PHASE");
   static final SkyFunctionName PREPARE_ANALYSIS_PHASE =
       SkyFunctionName.createNonHermetic("PREPARE_ANALYSIS_PHASE");
