@@ -427,5 +427,51 @@ EOF
   expect_log_once "Runfiles must not contain middleman artifacts"
 }
 
+function test_manifest_action_reruns_on_output_base_change() {
+  CURRENT_DIRECTORY=$(pwd)
+  if $is_windows; then
+    CURRENT_DIRECTORY=$(cygpath -m "${CURRENT_DIRECTORY}")
+  fi
+
+  if $is_windows; then
+    MANIFEST_PATH=bazel-bin/hello_world.exe.runfiles_manifest
+  else
+    MANIFEST_PATH=bazel-bin/hello_world.runfiles_manifest
+  fi
+
+  OUTPUT_BASE="${CURRENT_DIRECTORY}/test/outputs/__main__"
+  TEST_FOLDER_1="${CURRENT_DIRECTORY}/test/test1/$(basename ${CURRENT_DIRECTORY})"
+  TEST_FOLDER_2="${CURRENT_DIRECTORY}/test/test2/$(basename ${CURRENT_DIRECTORY})"
+
+  mkdir -p "${OUTPUT_BASE}"
+  mkdir -p "${TEST_FOLDER_1}"
+  mkdir -p "${TEST_FOLDER_2}"
+
+  cat > BUILD <<EOF
+sh_binary(
+    name = "hello_world",
+    srcs = ["hello_world.sh"],
+)
+EOF
+  cat > hello_world.sh <<EOF
+echo "Hello World"
+EOF
+  chmod +x hello_world.sh
+
+  for d in $(ls -a | grep -v '^test$' | grep -v '^\.*$'); do
+    cp -R "${CURRENT_DIRECTORY}/${d}" "${TEST_FOLDER_1}"
+    cp -R "${CURRENT_DIRECTORY}/${d}" "${TEST_FOLDER_2}"
+  done
+
+  cd "${TEST_FOLDER_1}"
+  bazel --output_base="${OUTPUT_BASE}" build //:hello_world
+  assert_contains "${TEST_FOLDER_1}" "${MANIFEST_PATH}"
+  assert_not_contains "${TEST_FOLDER_2}" "${MANIFEST_PATH}"
+
+  cd "${TEST_FOLDER_2}"
+  bazel --output_base="${OUTPUT_BASE}" build //:hello_world
+  assert_not_contains "${TEST_FOLDER_1}" "${MANIFEST_PATH}"
+  assert_contains "${TEST_FOLDER_2}" "${MANIFEST_PATH}"
+}
 
 run_suite "runfiles"

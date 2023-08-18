@@ -100,6 +100,13 @@ public final class Runfiles implements RunfilesApi {
         args.accept(symlink.getArtifact().getExecPathString());
       };
 
+  private static final CommandLineItem.ExceptionlessMapFn<Artifact>
+      RUNFILES_AND_ABSOLUTE_PATH_MAP_FN =
+          (artifact, args) -> {
+            args.accept(artifact.getRunfilesPathString());
+            args.accept(artifact.getPath().getPathString());
+          };
+
   private static final CommandLineItem.ExceptionlessMapFn<Artifact> RUNFILES_AND_EXEC_PATH_MAP_FN =
       (artifact, args) -> {
         args.accept(artifact.getRunfilesPathString());
@@ -109,7 +116,7 @@ public final class Runfiles implements RunfilesApi {
   /**
    * The directory to put all runfiles under.
    *
-   * <p>Using "foo" will put runfiles under &lt;target&gt;.runfiles/foo.</p>
+   * <p>Using "foo" will put runfiles under &lt;target&gt;.runfiles/foo.
    *
    * <p>This is either set to the workspace name, or is empty.
    */
@@ -1083,15 +1090,19 @@ public final class Runfiles implements RunfilesApi {
     }
   }
 
-  /** Fingerprint this {@link Runfiles} tree. */
-  public void fingerprint(ActionKeyContext actionKeyContext, Fingerprint fp) {
+  /** Fingerprint this {@link Runfiles} tree, including the absolute paths of artifacts. */
+  public void fingerprint(
+      ActionKeyContext actionKeyContext, Fingerprint fp, boolean digestAbsolutePaths) {
     fp.addInt(conflictPolicy.ordinal());
     fp.addBoolean(legacyExternalRunfiles);
     fp.addPath(suffix);
 
     actionKeyContext.addNestedSetToFingerprint(SYMLINK_ENTRY_MAP_FN, fp, symlinks);
     actionKeyContext.addNestedSetToFingerprint(SYMLINK_ENTRY_MAP_FN, fp, rootSymlinks);
-    actionKeyContext.addNestedSetToFingerprint(RUNFILES_AND_EXEC_PATH_MAP_FN, fp, artifacts);
+    actionKeyContext.addNestedSetToFingerprint(
+        digestAbsolutePaths ? RUNFILES_AND_ABSOLUTE_PATH_MAP_FN : RUNFILES_AND_EXEC_PATH_MAP_FN,
+        fp,
+        artifacts);
 
     emptyFilesSupplier.fingerprint(fp);
 
@@ -1100,7 +1111,7 @@ public final class Runfiles implements RunfilesApi {
   }
 
   /** Describes the inputs {@link #fingerprint} uses to aid describeKey() descriptions. */
-  String describeFingerprint() {
+  String describeFingerprint(boolean digestAbsolutePaths) {
     return String.format("conflictPolicy: %s\n", conflictPolicy)
         + String.format("legacyExternalRunfiles: %s\n", legacyExternalRunfiles)
         + String.format("suffix: %s\n", suffix)
@@ -1110,7 +1121,11 @@ public final class Runfiles implements RunfilesApi {
             "rootSymlinks: %s\n", describeNestedSetFingerprint(SYMLINK_ENTRY_MAP_FN, rootSymlinks))
         + String.format(
             "artifacts: %s\n",
-            describeNestedSetFingerprint(RUNFILES_AND_EXEC_PATH_MAP_FN, artifacts))
+            describeNestedSetFingerprint(
+                digestAbsolutePaths
+                    ? RUNFILES_AND_ABSOLUTE_PATH_MAP_FN
+                    : RUNFILES_AND_EXEC_PATH_MAP_FN,
+                artifacts))
         + String.format("emptyFilesSupplier: %s\n", emptyFilesSupplier.getClass().getName());
   }
 }

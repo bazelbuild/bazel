@@ -148,11 +148,23 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
       return expectedSequence.size();
     }
 
-    @Override public String getMnemonic() { return null; }
-    @Override public String getRawProgressMessage() { return null; }
+    @Override
+    public String getMnemonic() {
+      return null;
+    }
+
+    @Override
+    public String getRawProgressMessage() {
+      return null;
+    }
 
     @Override
     public boolean isRemotable() {
+      return false;
+    }
+
+    @Override
+    public boolean emitsAbsolutePaths() {
       return false;
     }
   }
