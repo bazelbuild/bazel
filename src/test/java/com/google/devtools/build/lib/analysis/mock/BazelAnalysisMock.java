@@ -63,6 +63,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
     String androidGmavenR8Workspace = config.getPath("android_gmaven_r8").getPathString();
     String localConfigPlatformWorkspace =
         config.getPath("local_config_platform_workspace").getPathString();
+    String appleSupport = config.getPath("build_bazel_apple_support").getPathString();
 
     return ImmutableList.of(
         "# __SKIP_WORKSPACE_PREFIX__",
@@ -85,6 +86,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "local_repository(name = 'rules_java', path = '" + rulesJavaWorkspace + "')",
         "local_repository(name = 'rules_java_builtin', path = '" + rulesJavaWorkspace + "')",
         "local_repository(name = 'android_gmaven_r8', path = '" + androidGmavenR8Workspace + "')",
+        "local_repository(name = 'build_bazel_apple_support', path = '" + appleSupport + "')",
         "register_toolchains('@rules_java//java/toolchains/runtime:all')",
         "register_toolchains('@rules_java//java/toolchains/javac:all')",
         "bind(name = 'android/sdk', actual='@bazel_tools//tools/android:sdk')",
@@ -111,7 +113,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "local_config_xcode",
         "platforms",
         "rules_java",
-        "rules_java_builtin");
+        "rules_java_builtin",
+        "build_bazel_apple_support");
   }
 
   @Override
@@ -138,6 +141,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "local_config_platform_workspace/WORKSPACE", "workspace(name = 'local_config_platform')");
     config.create(
         "local_config_platform_workspace/MODULE.bazel", "module(name = 'local_config_platform')");
+    config.create("build_bazel_apple_support/WORKSPACE", "workspace(name = 'apple_support')");
     config.create("embedded_tools/WORKSPACE", "workspace(name = 'bazel_tools')");
     Runfiles runfiles = Runfiles.create();
     for (String filename :

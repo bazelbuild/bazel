@@ -14,6 +14,8 @@
 
 """Definition of incoming apple crosstool transition."""
 
+load(":common/objc/semantics.bzl", "semantics")
+
 transition = _builtins.toplevel.transition
 
 def _cpu_string(platform_type, settings):
@@ -118,7 +120,7 @@ def _apple_crosstool_transition_impl(settings, attr):
         return {}
 
     # Ensure platforms aren't set so that platform mapping can take place.
-    return _output_dictionary(settings, cpu, platform_type, [])
+    return _output_dictionary(settings, cpu, platform_type, semantics.cpu_to_platform(cpu))
 
 _apple_rule_base_transition_inputs = [
     "//command_line_option:apple configuration distinguisher",

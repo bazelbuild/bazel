@@ -59,7 +59,7 @@ public class ApplePlatformsToolchainSelectionTest extends ObjcRuleTestCase {
 
     // Verify the macOS platform.
     ConfiguredTarget darwinPlatform =
-        getConfiguredTarget(TestConstants.CONSTRAINTS_PACKAGE_ROOT + "apple:darwin_x86_64");
+        getConfiguredTarget(TestConstants.APPLE_PLATFORM_PACKAGE_ROOT + ":darwin_x86_64");
     PlatformInfo darwinPlatformInfo = PlatformProviderUtils.platform(darwinPlatform);
     assertThat(darwinPlatformInfo).isNotNull();
   }
@@ -81,7 +81,7 @@ public class ApplePlatformsToolchainSelectionTest extends ObjcRuleTestCase {
 
     // Verify the iOS 64 bit device platform.
     ConfiguredTarget iosDevicePlatform =
-        getConfiguredTarget(TestConstants.CONSTRAINTS_PACKAGE_ROOT + "apple:ios_arm64");
+        getConfiguredTarget(TestConstants.APPLE_PLATFORM_PACKAGE_ROOT + ":ios_arm64");
     PlatformInfo iosDevicePlatformInfo = PlatformProviderUtils.platform(iosDevicePlatform);
     assertThat(iosDevicePlatformInfo).isNotNull();
   }

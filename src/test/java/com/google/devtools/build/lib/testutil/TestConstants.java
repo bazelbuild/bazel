@@ -140,7 +140,8 @@ public class TestConstants {
       + " - deps(" + TOOLS_REPOSITORY + "//tools/cpp:current_cc_toolchain)"
       + " - deps(" + TOOLS_REPOSITORY + "//tools/cpp:grep-includes)";
 
-  public static final String PLATFORM_PACKAGE_ROOT = "@bazel_tools//platforms";
+  public static final String APPLE_PLATFORM_PATH = "build_bazel_apple_support/platforms";
+  public static final String APPLE_PLATFORM_PACKAGE_ROOT = "@build_bazel_apple_support//platforms";
   public static final String CONSTRAINTS_PACKAGE_ROOT = "@platforms//";
   public static final String LOCAL_CONFIG_PLATFORM_PACKAGE_ROOT =
       "@local_config_platform//";
