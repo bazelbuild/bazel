@@ -37,3 +37,6 @@ use_repo(remote_coverage_tools_extension, "remote_coverage_tools")
 
 remote_android_extensions = use_extension("//tools/android:android_extensions.bzl", "remote_android_tools_extensions")
 use_repo(remote_android_extensions, "android_gmaven_r8", "android_tools")
+
+# Platforms used by transitions in builtins
+bazel_dep(name = "apple_support", version = "1.5.0", repo_name = "build_bazel_apple_support")

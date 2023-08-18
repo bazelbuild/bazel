@@ -746,7 +746,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
     @Option(
         name = "android_fixed_resource_neverlinking",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
         help =
@@ -826,6 +826,16 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
 
     @Option(
+        name = "experimental_persistent_aar_extractor",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+        effectTags = {
+          OptionEffectTag.EXECUTION,
+        },
+        help = "Enable persistent aar extractor by using workers.")
+    public boolean persistentAarExtractor;
+
+    @Option(
         name = "persistent_android_resource_processor",
         defaultValue = "null",
         documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
@@ -851,6 +861,8 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
           "--strategy=AndroidManifestMerger=worker",
           "--strategy=Aapt2Optimize=worker",
           "--strategy=AARGenerator=worker",
+          "--strategy=ProcessDatabinding=worker",
+          "--strategy=GenerateDataBindingBaseClasses=worker"
         })
     public Void persistentResourceProcessor;
 
@@ -1130,6 +1142,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
       exec.manifestMergerOrder = manifestMergerOrder;
       exec.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
           oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
+      exec.persistentAarExtractor = persistentAarExtractor;
       exec.persistentBusyboxTools = persistentBusyboxTools;
       exec.persistentMultiplexBusyboxTools = persistentMultiplexBusyboxTools;
       exec.disableNativeAndroidRules = disableNativeAndroidRules;
@@ -1175,6 +1188,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean dataBindingV2;
   private final boolean dataBindingUpdatedArgs;
   private final boolean dataBindingAndroidX;
+  private final boolean persistentAarExtractor;
   private final boolean persistentBusyboxTools;
   private final boolean persistentMultiplexBusyboxTools;
   private final boolean persistentDexDesugar;
@@ -1237,6 +1251,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.dataBindingV2 = options.dataBindingV2;
     this.dataBindingUpdatedArgs = options.dataBindingUpdatedArgs;
     this.dataBindingAndroidX = options.dataBindingAndroidX;
+    this.persistentAarExtractor = options.persistentAarExtractor;
     this.persistentBusyboxTools = options.persistentBusyboxTools;
     this.persistentMultiplexBusyboxTools = options.persistentMultiplexBusyboxTools;
     this.persistentDexDesugar = options.persistentDexDesugar;
@@ -1477,6 +1492,11 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public boolean useDataBindingAndroidX() {
     return dataBindingAndroidX;
+  }
+
+  @Override
+  public boolean persistentAarExtractor() {
+    return persistentAarExtractor;
   }
 
   @Override

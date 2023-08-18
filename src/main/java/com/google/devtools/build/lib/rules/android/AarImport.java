@@ -14,10 +14,14 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.actions.ParamFileInfo;
+import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -49,6 +53,7 @@ import com.google.devtools.build.lib.rules.java.ProguardLibrary;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.android.DataBindingV2ProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /**
@@ -64,6 +69,9 @@ public class AarImport implements RuleConfiguredTargetFactory {
   private static final String ANDROID_MANIFEST = "AndroidManifest.xml";
   private static final String MERGED_JAR = "classes_and_libs_merged.jar";
   private static final String PROGUARD_SPEC = "proguard.txt";
+
+  private static final ParamFileInfo WORKERS_FORCED_PARAM_FILE_INFO =
+      ParamFileInfo.builder(ParameterFile.ParameterFileType.UNQUOTED).setUseAlways(true).build();
 
   private final JavaSemantics javaSemantics;
   private final AndroidSemantics androidSemantics;
@@ -272,13 +280,41 @@ public class AarImport implements RuleConfiguredTargetFactory {
     return builder.addTransitive(proguardSpecs).add(proguardSpecArtifact).build();
   }
 
+  private static boolean isPersistentAarExtractor(RuleContext ruleContext) {
+    AndroidConfiguration androidConfig =
+        ruleContext.getConfiguration().getFragment(AndroidConfiguration.class);
+    return androidConfig.persistentAarExtractor();
+  }
+
+  /**
+   * Returns either the worker param file or null depending on whether persistent worker mode is on.
+   */
+  @Nullable
+  private static ParamFileInfo getParamFileInfo(RuleContext ruleContext) {
+    return isPersistentAarExtractor(ruleContext) ? WORKERS_FORCED_PARAM_FILE_INFO : null;
+  }
+
+  /** Adds worker-related execution requirements if worker mode enabled. */
+  private static void modifyExecutionInfo(
+      RuleContext ruleContext, SpawnAction.Builder actionBuilder) {
+    if (isPersistentAarExtractor(ruleContext)) {
+      ImmutableMap.Builder<String, String> executionInfo = ImmutableMap.builder();
+      executionInfo.putAll(ExecutionRequirements.WORKER_MODE_ENABLED);
+      executionInfo.put(ExecutionRequirements.REQUIRES_WORKER_PROTOCOL, "json");
+      actionBuilder.setExecutionInfo(executionInfo.buildOrThrow());
+    }
+  }
+
   /**
    * Creates action to extract embedded Proguard.txt from an AAR. If the file is not found, an empty
    * file will be created
    */
   private static SpawnAction createAarEmbeddedProguardExtractorActions(
       RuleContext ruleContext, Artifact aar, Artifact proguardSpecArtifact) {
-    return new SpawnAction.Builder()
+    SpawnAction.Builder actionBuilder = new SpawnAction.Builder();
+    ParamFileInfo paramFileInfo = getParamFileInfo(ruleContext);
+    modifyExecutionInfo(ruleContext, actionBuilder);
+    return actionBuilder
         .useDefaultShellEnvironment()
         .setExecutable(
             ruleContext.getExecutablePrerequisite(AarImportBaseRule.AAR_EMBEDDED_PROGUARD_EXTACTOR))
@@ -290,7 +326,8 @@ public class AarImport implements RuleConfiguredTargetFactory {
             CustomCommandLine.builder()
                 .addExecPath("--input_aar", aar)
                 .addExecPath("--output_proguard_file", proguardSpecArtifact)
-                .build())
+                .build(),
+            paramFileInfo)
         .build(ruleContext);
   }
 
@@ -352,7 +389,10 @@ public class AarImport implements RuleConfiguredTargetFactory {
       Artifact databindingBrFiles,
       Artifact databindingSetterStoreFiles) {
 
-    return new SpawnAction.Builder()
+    SpawnAction.Builder actionBuilder = new SpawnAction.Builder();
+    ParamFileInfo paramFileInfo = getParamFileInfo(ruleContext);
+    modifyExecutionInfo(ruleContext, actionBuilder);
+    return actionBuilder
         .useDefaultShellEnvironment()
         .setExecutable(
             ruleContext.getExecutablePrerequisite(AarImportBaseRule.AAR_RESOURCES_EXTRACTOR))
@@ -370,7 +410,8 @@ public class AarImport implements RuleConfiguredTargetFactory {
                 .addExecPath("--output_assets_dir", assetsDir)
                 .addExecPath("--output_databinding_br_dir", databindingBrFiles)
                 .addExecPath("--output_databinding_setter_store_dir", databindingSetterStoreFiles)
-                .build())
+                .build(),
+            paramFileInfo)
         .build(ruleContext);
   }
 
@@ -379,7 +420,10 @@ public class AarImport implements RuleConfiguredTargetFactory {
       Artifact aar,
       Artifact jarsTreeArtifact,
       Artifact singleJarParamFile) {
-    return new SpawnAction.Builder()
+    SpawnAction.Builder actionBuilder = new SpawnAction.Builder();
+    ParamFileInfo paramFileInfo = getParamFileInfo(ruleContext);
+    modifyExecutionInfo(ruleContext, actionBuilder);
+    return actionBuilder
         .useDefaultShellEnvironment()
         .setExecutable(
             ruleContext.getExecutablePrerequisite(AarImportBaseRule.AAR_EMBEDDED_JARS_EXTACTOR))
@@ -393,7 +437,8 @@ public class AarImport implements RuleConfiguredTargetFactory {
                 .addExecPath("--input_aar", aar)
                 .addExecPath("--output_dir", jarsTreeArtifact)
                 .addExecPath("--output_singlejar_param_file", singleJarParamFile)
-                .build())
+                .build(),
+            paramFileInfo)
         .build(ruleContext);
   }
 
@@ -420,23 +465,25 @@ public class AarImport implements RuleConfiguredTargetFactory {
 
   private static SpawnAction createAarNativeLibsFilterActions(
       RuleContext ruleContext, Artifact aar, Artifact outputZip) {
-    SpawnAction.Builder actionBuilder =
-        new SpawnAction.Builder()
-            .useDefaultShellEnvironment()
-            .setExecutable(
-                ruleContext.getExecutablePrerequisite(
-                    AarImportBaseRule.AAR_NATIVE_LIBS_ZIP_CREATOR))
-            .setMnemonic("AarNativeLibsFilter")
-            .setProgressMessage("Filtering AAR native libs by architecture for %{label}")
-            .addInput(aar)
-            .addOutput(outputZip)
-            .addCommandLine(
-                CustomCommandLine.builder()
-                    .addExecPath("--input_aar", aar)
-                    .add("--cpu", ruleContext.getConfiguration().getCpu())
-                    .addExecPath("--output_zip", outputZip)
-                    .build());
-    return actionBuilder.build(ruleContext);
+    SpawnAction.Builder actionBuilder = new SpawnAction.Builder();
+    ParamFileInfo paramFileInfo = getParamFileInfo(ruleContext);
+    modifyExecutionInfo(ruleContext, actionBuilder);
+    return actionBuilder
+        .useDefaultShellEnvironment()
+        .setExecutable(
+            ruleContext.getExecutablePrerequisite(AarImportBaseRule.AAR_NATIVE_LIBS_ZIP_CREATOR))
+        .setMnemonic("AarNativeLibsFilter")
+        .setProgressMessage("Filtering AAR native libs by architecture for %{label}")
+        .addInput(aar)
+        .addOutput(outputZip)
+        .addCommandLine(
+            CustomCommandLine.builder()
+                .addExecPath("--input_aar", aar)
+                .add("--cpu", ruleContext.getConfiguration().getCpu())
+                .addExecPath("--output_zip", outputZip)
+                .build(),
+            paramFileInfo)
+        .build(ruleContext);
   }
 
   private static DataBindingV2Provider createDatabindingProvider(
@@ -444,7 +491,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
       SpecialArtifact databindingBrFiles,
       SpecialArtifact databindingSetterStoreFiles) {
 
-    Iterable<? extends DataBindingV2ProviderApi<Artifact>> databindingProvidersFromDeps =
+    List<? extends DataBindingV2ProviderApi<Artifact>> databindingProvidersFromDeps =
         ruleContext.getPrerequisites("deps", DataBindingV2Provider.PROVIDER);
 
     Iterable<? extends DataBindingV2ProviderApi<Artifact>> databindingProvidersFromExports =

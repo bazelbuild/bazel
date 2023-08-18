@@ -17,12 +17,14 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** Empty implementation of RunfilesSupplier */
 public final class EmptyRunfilesSupplier implements RunfilesSupplier {
@@ -53,12 +55,13 @@ public final class EmptyRunfilesSupplier implements RunfilesSupplier {
   }
 
   @Override
-  public boolean isBuildRunfileLinks(PathFragment runfilesDir) {
-    return false;
+  @Nullable
+  public RunfileSymlinksMode getRunfileSymlinksMode(PathFragment runfilesDir) {
+    return null;
   }
 
   @Override
-  public boolean isRunfileLinksEnabled(PathFragment runfilesDir) {
+  public boolean isBuildRunfileLinks(PathFragment runfilesDir) {
     return false;
   }
 

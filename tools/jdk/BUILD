@@ -14,6 +14,7 @@ filegroup(
         "BUILD-jdk",  # Tools are build from the workspace for tests.
         "default_java_toolchain.bzl",
         "java_toolchain_alias.bzl",
+        "launcher_flag_alias.bzl",
         "local_java_repository.bzl",
         "nosystemjdk/README",
         "proguard_whitelister.py",

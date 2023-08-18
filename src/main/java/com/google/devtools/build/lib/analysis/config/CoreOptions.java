@@ -450,7 +450,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help =
           "If true, write runfiles manifests for all targets. If false, omit them. Local tests will"
               + " fail to run when false.")
-  public boolean buildRunfilesManifests;
+  public boolean buildRunfileManifests;
 
   @Option(
       name = "build_runfile_links",
@@ -459,8 +459,8 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "If true, build runfiles symlink forests for all targets.  "
-              + "If false, write only manifests when possible.")
-  public boolean buildRunfiles;
+              + "If false, write them only when required by a local action, test or run command.")
+  public boolean buildRunfileLinks;
 
   @Option(
       name = "legacy_external_runfiles",
@@ -881,7 +881,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
       help = "Whether to make direct file system calls to create symlink trees")
-  public boolean inprocessSymlinkCreation;
+  public boolean inProcessSymlinkCreation;
 
   @Option(
       name = "experimental_remotable_source_manifests",
@@ -974,8 +974,8 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     exec.disallowUnsoundDirectoryOutputs = disallowUnsoundDirectoryOutputs;
 
     // === Runfiles ===
-    exec.buildRunfilesManifests = buildRunfilesManifests;
-    exec.buildRunfiles = buildRunfiles;
+    exec.buildRunfileManifests = buildRunfileManifests;
+    exec.buildRunfileLinks = buildRunfileLinks;
     exec.legacyExternalRunfiles = legacyExternalRunfiles;
     exec.remotableSourceManifestActions = remotableSourceManifestActions;
     exec.alwaysIncludeFilesToBuildInData = alwaysIncludeFilesToBuildInData;

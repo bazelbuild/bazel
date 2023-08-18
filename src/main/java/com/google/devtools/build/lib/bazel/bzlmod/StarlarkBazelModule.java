@@ -54,7 +54,12 @@ public class StarlarkBazelModule implements StarlarkValue {
           "Contains the tags in a module for the module extension currently being processed. This"
               + " object has a field for each tag class of the extension, and the value of the"
               + " field is a list containing an object for each tag instance. This \"tag instance\""
-              + " object in turn has a field for each attribute of the tag class.")
+              + " object in turn has a field for each attribute of the tag class.\n\n"
+              + "When passed as positional arguments to <code>print()</code> or <code>fail()"
+              + "</code>, tag instance objects turn into a meaningful string representation of the"
+              + " form \"'install' tag at /home/user/workspace/MODULE.bazel:3:4\". This can be used"
+              + " to construct error messages that point to the location of the tag in the module"
+              + " file, e.g. <code>fail(\"Conflict between\", tag1, \"and\", tag2)</code>.")
   static class Tags implements Structure {
     private final ImmutableMap<String, StarlarkList<TypeCheckedTag>> typeCheckedTags;
 

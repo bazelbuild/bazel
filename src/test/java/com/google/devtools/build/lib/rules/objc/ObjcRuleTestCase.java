@@ -136,29 +136,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         + "bin/";
   }
 
-  /**
-   * Returns the genfiles dir for artifacts built for a given Apple architecture and minimum OS
-   * version (as set by a configuration transition) and configuration distinguisher but the global
-   * default for {@code --cpu}.
-   *
-   * @param arch the given Apple architecture which artifacts are built under this configuration.
-   *     Note this will likely be different than the value of {@code --cpu}.
-   * @param configurationDistinguisher the configuration distinguisher used to describe the a
-   *     configuration transition
-   * @param minOsVersion the minimum os version for which to compile artifacts in the configuration
-   */
-  protected String configurationGenfiles(
-      String arch,
-      ConfigurationDistinguisher configurationDistinguisher,
-      DottedVersion minOsVersion) {
-    return configurationDir(
-            arch, configurationDistinguisher, minOsVersion, CompilationMode.FASTBUILD)
-        + getTargetConfiguration()
-            .getGenfilesDirectory(RepositoryName.MAIN)
-            .getExecPath()
-            .getBaseName();
-  }
-
   @SuppressWarnings("MissingCasesInEnumSwitch")
   private String configurationDir(
       String arch,

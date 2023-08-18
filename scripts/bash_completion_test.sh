@@ -768,4 +768,30 @@ test_info() {
                      'info --show_make_env '
 }
 
+test_workspace_boundary() {
+    # "Test that workspace boundary files are recognized"
+    # this test only works for Bazel
+    if [[ ! " ${COMMAND_ALIASES[*]} " =~ " bazel " ]]; then return; fi
+
+    mkdir -p sub_repo/some/pkg
+    touch sub_repo/some/pkg/BUILD
+    cd sub_repo 2>/dev/null
+
+    touch WORKSPACE.bazel
+    assert_expansion 'build //s' \
+                     'build //some/'
+
+    mv WORKSPACE.bazel MODULE.bazel
+    assert_expansion 'build //s' \
+                     'build //some/'
+
+    mv MODULE.bazel REPO.bazel
+    assert_expansion 'build //s' \
+                     'build //some/'
+
+    rm REPO.bazel
+    assert_expansion 'build //s' \
+                     'build //sub_repo/'
+}
+
 run_suite "Tests of bash completion of 'blaze' command."

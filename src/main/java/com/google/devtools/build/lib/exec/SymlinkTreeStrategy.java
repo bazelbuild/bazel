@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
@@ -68,6 +69,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
     actionExecutionContext.getEventHandler().post(new RunningActionEvent(action, "local"));
     try (AutoProfiler p =
         GoogleAutoProfilerUtils.logged("running " + action.prettyPrint(), MIN_LOGGING)) {
+      // TODO(tjgq): Respect RunfileSymlinksMode.SKIP even in the presence of an OutputService.
       try {
         if (outputService != null && outputService.canCreateSymlinkTree()) {
           Path inputManifest = actionExecutionContext.getInputPath(action.getInputManifest());
@@ -99,10 +101,11 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
               action.getOutputManifest().getExecPath().getParentDirectory());
 
           createOutput(action, actionExecutionContext, inputManifest);
-        } else if (!action.isRunfilesEnabled()) {
+        } else if (action.getRunfileSymlinksMode() == RunfileSymlinksMode.SKIP) {
           createSymlinkTreeHelper(action, actionExecutionContext).copyManifest();
         } else if (action.getInputManifest() == null
-            || (action.inprocessSymlinkCreation() && !action.isFilesetTree())) {
+            || (action.getRunfileSymlinksMode() == RunfileSymlinksMode.INTERNAL
+                && !action.isFilesetTree())) {
           try {
             Map<PathFragment, Artifact> runfiles = runfilesToMap(action);
             createSymlinkTreeHelper(action, actionExecutionContext)

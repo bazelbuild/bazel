@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -48,8 +49,7 @@ public final class SymlinkTreeAction extends AbstractAction {
   private final Artifact outputManifest;
   @Nullable private final String filesetRoot;
   private final ActionEnvironment env;
-  private final boolean enableRunfiles;
-  private final boolean inprocessSymlinkCreation;
+  private final RunfileSymlinksMode runfileSymlinksMode;
   private final Artifact repoMappingManifest;
 
   /**
@@ -80,8 +80,7 @@ public final class SymlinkTreeAction extends AbstractAction {
         repoMappingManifest,
         filesetRoot,
         config.getActionEnvironment(),
-        config.runfilesEnabled(),
-        config.inprocessSymlinkCreation());
+        config.getRunfileSymlinksMode());
   }
 
   /**
@@ -106,11 +105,10 @@ public final class SymlinkTreeAction extends AbstractAction {
       @Nullable Artifact repoMappingManifest,
       @Nullable String filesetRoot,
       ActionEnvironment env,
-      boolean enableRunfiles,
-      boolean inprocessSymlinkCreation) {
+      RunfileSymlinksMode runfileSymlinksMode) {
     super(
         owner,
-        computeInputs(enableRunfiles, runfiles, inputManifest, repoMappingManifest),
+        computeInputs(runfileSymlinksMode, runfiles, inputManifest, repoMappingManifest),
         ImmutableSet.of(outputManifest));
     Preconditions.checkArgument(outputManifest.getPath().getBaseName().equals("MANIFEST"));
     Preconditions.checkArgument(
@@ -120,14 +118,13 @@ public final class SymlinkTreeAction extends AbstractAction {
     this.outputManifest = outputManifest;
     this.filesetRoot = filesetRoot;
     this.env = env;
-    this.enableRunfiles = enableRunfiles;
-    this.inprocessSymlinkCreation = inprocessSymlinkCreation;
+    this.runfileSymlinksMode = runfileSymlinksMode;
     this.inputManifest = inputManifest;
     this.repoMappingManifest = repoMappingManifest;
   }
 
   private static NestedSet<Artifact> computeInputs(
-      boolean enableRunfiles,
+      RunfileSymlinksMode runfileSymlinksMode,
       Runfiles runfiles,
       Artifact inputManifest,
       @Nullable Artifact repoMappingManifest) {
@@ -136,7 +133,9 @@ public final class SymlinkTreeAction extends AbstractAction {
     // All current strategies (in-process and build-runfiles-windows) for
     // making symlink trees on Windows depend on the target files
     // existing, so directory or file links can be made as appropriate.
-    if (enableRunfiles && runfiles != null && OS.getCurrent() == OS.WINDOWS) {
+    if (runfileSymlinksMode != RunfileSymlinksMode.SKIP
+        && runfiles != null
+        && OS.getCurrent() == OS.WINDOWS) {
       inputs.addTransitive(runfiles.getAllArtifacts());
       if (repoMappingManifest != null) {
         inputs.add(repoMappingManifest);
@@ -176,12 +175,8 @@ public final class SymlinkTreeAction extends AbstractAction {
     return PathFragment.create(filesetRoot);
   }
 
-  public boolean isRunfilesEnabled() {
-    return enableRunfiles;
-  }
-
-  public boolean inprocessSymlinkCreation() {
-    return inprocessSymlinkCreation;
+  public RunfileSymlinksMode getRunfileSymlinksMode() {
+    return runfileSymlinksMode;
   }
 
   @Override
@@ -202,8 +197,7 @@ public final class SymlinkTreeAction extends AbstractAction {
       Fingerprint fp) {
     fp.addString(GUID);
     fp.addNullableString(filesetRoot);
-    fp.addBoolean(enableRunfiles);
-    fp.addBoolean(inprocessSymlinkCreation);
+    fp.addInt(runfileSymlinksMode.ordinal());
     env.addTo(fp);
     // We need to ensure that the fingerprints for two different instances of this action are
     // different. Consider the hypothetical scenario where we add a second runfiles object to this

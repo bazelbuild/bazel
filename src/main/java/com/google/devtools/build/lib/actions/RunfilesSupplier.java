@@ -17,9 +17,11 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Convenience wrapper around runfiles allowing lazy expansion. */
@@ -30,37 +32,35 @@ import net.starlark.java.eval.StarlarkValue;
 // they are exposed through ctx.resolve_tools[2], for example.
 public interface RunfilesSupplier extends StarlarkValue {
 
-  /** @return the contained artifacts */
+  /** Returns the contained artifacts. */
   NestedSet<Artifact> getArtifacts();
 
-  /** @return the runfiles' root directories. */
+  /** Returns the runfiles' root directories. */
   ImmutableSet<PathFragment> getRunfilesDirs();
 
-  /**
-   * Returns mappings from runfiles directories to artifact mappings in that directory.
-   *
-   * @return runfiles' mappings
-   */
+  /** Returns mappings from runfiles directories to artifact mappings in that directory. */
   ImmutableMap<PathFragment, Map<PathFragment, Artifact>> getMappings();
 
-  /** @return the runfiles manifest artifacts, if any. */
+  /** Returns the runfiles manifest artifacts, if any. */
   ImmutableList<Artifact> getManifests();
 
   /**
-   * Returns whether for a given {@code runfilesDir} the runfile symlinks are materialized during
-   * build. Also returns {@code false} if the runfiles supplier doesn't know about the directory.
+   * Returns the {@link RunfileSymlinksMode} for the given {@code runfilesDir}, or {@code null} if
+   * the {@link RunfilesSupplier} doesn't know about the directory.
+   *
+   * @param runfilesDir runfiles directory relative to the exec root
+   */
+  @Nullable
+  RunfileSymlinksMode getRunfileSymlinksMode(PathFragment runfilesDir);
+
+  /**
+   * Returns whether the runfile symlinks should be materialized during the build for the given
+   * {@code runfilesDir}, or {@code false} if the {@link RunfilesSupplier} doesn't know about the
+   * directory.
    *
    * @param runfilesDir runfiles directory relative to the exec root
    */
   boolean isBuildRunfileLinks(PathFragment runfilesDir);
-
-  /**
-   * Returns whether it's allowed to create runfile symlinks in the {@code runfilesDir}. Also
-   * returns {@code false} if the runfiles supplier doesn't know about the directory.
-   *
-   * @param runfilesDir runfiles directory relative to the exec root
-   */
-  boolean isRunfileLinksEnabled(PathFragment runfilesDir);
 
   /**
    * Returns a {@link RunfilesSupplier} identical to this one, but with the given runfiles
