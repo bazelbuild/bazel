@@ -98,6 +98,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -2352,5 +2353,41 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     assertThat(result.get(skyKey).getModule().getGlobal("ext1_data")).isEqualTo("ext1: True");
     assertThat(result.get(skyKey).getModule().getGlobal("ext2_data")).isEqualTo("ext2: False");
     assertThat(result.get(skyKey).getModule().getGlobal("ext3_data")).isEqualTo("ext3: True");
+  }
+
+  @Test
+  public void printAndFailOnTag() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "ext = use_extension('//:defs.bzl', 'ext')",
+        "ext.foo()",
+        "ext.foo()");
+    scratch.file(
+        workspaceRoot.getRelative("defs.bzl").getPathString(),
+        "repo = repository_rule(lambda ctx: True)",
+        "def _ext_impl(ctx):",
+        "  tag1 = ctx.modules[0].tags.foo[0]",
+        "  tag2 = ctx.modules[0].tags.foo[1]",
+        "  print('Conflict between', tag1, 'and', tag2)",
+        "  fail('Fatal conflict between', tag1, 'and', tag2)",
+        "foo = tag_class()",
+        "ext = module_extension(implementation=_ext_impl,tag_classes={'foo':foo})");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+
+    ModuleExtensionId extensionId =
+        ModuleExtensionId.create(Label.parseCanonical("//:defs.bzl"), "ext", Optional.empty());
+    reporter.removeHandler(failFastHandler);
+    var result =
+        evaluator.<SingleExtensionEvalValue>evaluate(
+            ImmutableList.of(SingleExtensionEvalValue.key(extensionId)), evaluationContext);
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent(
+        "Fatal conflict between 'foo' tag at /ws/MODULE.bazel:2:8 and 'foo' tag at "
+            + "/ws/MODULE.bazel:3:8",
+        Set.of(EventKind.ERROR));
+    assertContainsEvent(
+        "Conflict between 'foo' tag at /ws/MODULE.bazel:2:8 and 'foo' tag at /ws/MODULE.bazel:3:8",
+        Set.of(EventKind.DEBUG));
   }
 }
