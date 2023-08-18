@@ -27,7 +27,7 @@ def _cc_library_impl(ctx):
     common = cc_internal.create_common(ctx = ctx)
     common.report_invalid_options(ctx = ctx)
 
-    cc_toolchain = common.toolchain
+    cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
 
     feature_configuration = cc_common.configure_features(
         ctx = ctx,
@@ -61,9 +61,9 @@ def _cc_library_impl(ctx):
         system_includes = common.system_include_dirs,
         copts_filter = common.copts_filter,
         purpose = "cc_library-compile",
-        srcs = common.srcs,
-        private_hdrs = common.private_hdrs,
-        public_hdrs = common.public_hdrs,
+        srcs = cc_helper.get_srcs(ctx),
+        private_hdrs = cc_helper.get_private_hdrs(ctx),
+        public_hdrs = cc_helper.get_public_hdrs(ctx),
         code_coverage_enabled = cc_helper.is_code_coverage_enabled(ctx),
         compilation_contexts = compilation_contexts,
         implementation_compilation_contexts = implementation_compilation_contexts,
