@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.rules.android.AndroidStarlarkTest.WithoutPl
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.util.List;
 import java.util.Map;
-import net.starlark.java.eval.Starlark;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -153,9 +152,9 @@ public abstract class AndroidStarlarkTest extends AndroidBuildViewTestCase {
               getMyInfoFromTarget(target).getValue("split_attr_deps");
 
       // Split transition isn't in effect, so the deps are compiled normally (i.e. using --cpu).
-      assertThat(splitDeps.get(Starlark.NONE)).hasSize(2);
-      assertThat(getConfiguration(splitDeps.get(Starlark.NONE).get(0)).getCpu()).isEqualTo("k8");
-      assertThat(getConfiguration(splitDeps.get(Starlark.NONE).get(1)).getCpu()).isEqualTo("k8");
+      assertThat(splitDeps.get("k8")).hasSize(2);
+      assertThat(getConfiguration(splitDeps.get("k8").get(0)).getCpu()).isEqualTo("k8");
+      assertThat(getConfiguration(splitDeps.get("k8").get(1)).getCpu()).isEqualTo("k8");
     }
   }
 

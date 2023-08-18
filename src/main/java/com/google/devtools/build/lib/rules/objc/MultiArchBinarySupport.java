@@ -708,9 +708,12 @@ public class MultiArchBinarySupport {
    *     their target triplet (architecture, platform, environment)
    */
   public static Dict<String, StructImpl> getSplitTargetTripletFromCtads(
-      Map<Optional<String>, List<ConfiguredTargetAndData>> ctads) {
+      Map<Optional<String>, List<ConfiguredTargetAndData>> ctads) throws EvalException {
     Dict.Builder<String, StructImpl> result = Dict.builder();
     for (Optional<String> splitTransitionKey : ctads.keySet()) {
+      if (!splitTransitionKey.isPresent()) {
+        throw new EvalException("unexpected empty key in split transition");
+      }
       TargetTriplet targetTriplet =
           getTargetTriplet(
               Iterables.getOnlyElement(ctads.get(splitTransitionKey)).getConfiguration());
