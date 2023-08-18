@@ -49,10 +49,11 @@ public class SkyframeErrorProcessorTest {
         ConfiguredTargetKey.builder()
             .setLabel(Label.parseCanonicalUnchecked("//analysis_err"))
             .build();
+    TargetAndConfiguration mockTargetAndConfiguration =
+        new TargetAndConfiguration(mock(Target.class), /* configuration= */ null);
     ConfiguredValueCreationException analysisException =
         new ConfiguredValueCreationException(
-            new TargetAndConfiguration(mock(Target.class), /* configuration= */ null),
-            "analysis exception");
+            mockTargetAndConfiguration.getTarget(), "analysis exception");
     ErrorInfo analysisErrorInfo =
         ErrorInfo.fromException(
             new ReifiedSkyFunctionException(

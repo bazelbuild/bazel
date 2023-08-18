@@ -906,7 +906,7 @@ public class BuildConfigurationValue
     return starlarkVisibleFragments.keySet();
   }
 
-  private BuildEventId getEventId() {
+  public BuildEventId getEventId() {
     return BuildEventIdUtil.configurationId(checksum());
   }
 

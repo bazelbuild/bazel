@@ -839,7 +839,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
         getConfiguration(getConfiguredTarget("//test:toplevel_target")).getOptions();
     PatchTransition transition =
         new ConfigFeatureFlagTaggedTrimmingTransitionFactory(BaseRuleClasses.TAGGED_TRIMMING_ATTR)
-            .create(RuleTransitionData.create((Rule) getTarget("//test:dep")));
+            .create(RuleTransitionData.create((Rule) getTarget("//test:dep"), null, ""));
     BuildOptions depOptions =
         transition.patch(
             new BuildOptionsView(topLevelOptions, transition.requiresOptionFragments()),

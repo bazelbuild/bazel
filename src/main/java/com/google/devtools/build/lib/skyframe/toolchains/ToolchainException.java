@@ -15,12 +15,20 @@ package com.google.devtools.build.lib.skyframe.toolchains;
 
 import com.google.common.base.Strings;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
+import com.google.devtools.build.lib.causes.AnalysisFailedCause;
+import com.google.devtools.build.lib.causes.Cause;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import javax.annotation.Nullable;
 
 /** Base class for exceptions that happen during toolchain resolution. */
 public abstract class ToolchainException extends Exception implements DetailedException {
@@ -67,12 +75,38 @@ public abstract class ToolchainException extends Exception implements DetailedEx
         return (ConfiguredValueCreationException) cause;
       }
     }
+    Cause cause =
+        new AnalysisFailedCause(
+            targetAndConfiguration.getLabel(),
+            configurationIdMessage(targetAndConfiguration.getConfiguration()),
+            createDetailedExitCode(
+                String.format(
+                    "While resolving toolchains for target %s: %s",
+                    targetAndConfiguration.getLabel(), getMessage())));
     return new ConfiguredValueCreationException(
-        targetAndConfiguration,
+        targetAndConfiguration.getTarget(),
+        targetAndConfiguration.getConfiguration().getEventId(),
         String.format(
             "While resolving toolchains for target %s: %s",
             targetAndConfiguration.getLabel(), getMessage()),
-        null,
+        NestedSetBuilder.create(Order.STABLE_ORDER, cause),
         getDetailedExitCode());
+  }
+
+  public static ConfigurationId configurationIdMessage(
+      @Nullable BuildConfigurationValue configuration) {
+    if (configuration == null) {
+      return ConfigurationId.newBuilder().setId("none").build();
+    }
+    return ConfigurationId.newBuilder().setId(configuration.checksum()).build();
+  }
+
+  private static DetailedExitCode createDetailedExitCode(String message) {
+    return DetailedExitCode.of(
+        FailureDetail.newBuilder()
+            .setMessage(message)
+            .setAnalysis(
+                Analysis.newBuilder().setCode(Analysis.Code.CONFIGURED_VALUE_CREATION_FAILED))
+            .build());
   }
 }

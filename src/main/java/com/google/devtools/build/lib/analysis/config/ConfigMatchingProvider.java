@@ -58,11 +58,11 @@ public abstract class ConfigMatchingProvider implements TransitiveInfoProvider {
   /** The target's label. */
   public abstract Label label();
 
-  abstract ImmutableMultimap<String, String> settingsMap();
+  public abstract ImmutableMultimap<String, String> settingsMap();
 
-  abstract ImmutableMap<Label, String> flagSettingsMap();
+  public abstract ImmutableMap<Label, String> flagSettingsMap();
 
-  abstract ImmutableSet<Label> constraintValuesSetting();
+  public abstract ImmutableSet<Label> constraintValuesSetting();
 
   /**
    * Whether or not the configuration criteria defined by this target match its actual

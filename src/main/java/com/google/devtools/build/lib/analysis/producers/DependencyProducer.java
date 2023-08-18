@@ -376,9 +376,10 @@ final class DependencyProducer
           DependencyError.of(
               new DependencyEvaluationException(
                   new ConfiguredValueCreationException(
+                      parameters.target(),
                       parameters.location(),
                       message,
-                      toLabel,
+                      parameters.label(),
                       parameters.eventId(),
                       /* rootCauses= */ null,
                       /* detailedExitCode= */ null),

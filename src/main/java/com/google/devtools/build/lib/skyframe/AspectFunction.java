@@ -407,6 +407,7 @@ final class AspectFunction implements SkyFunction {
               new DependencyContextProducer(
                   unloadedToolchainContextsInputs,
                   targetAndConfiguration,
+                  key.getConfigurationKey(),
                   state.transitiveState,
                   (DependencyContextProducer.ResultSink) state));
     }
