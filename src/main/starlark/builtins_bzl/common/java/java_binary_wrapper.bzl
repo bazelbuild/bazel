@@ -18,13 +18,13 @@ This is needed since the `executable` nature of the target must be computed from
 the supplied value of the `create_executable` attribute.
 """
 
+load(":common/java/java_semantics.bzl", "semantics")
+
 _DEPLOY_JAR_RULE_NAME_SUFFIX = "_deployjars_internal_rule"
 
 def register_java_binary_rules(
         rule_exec,
         rule_nonexec,
-        rule_nolauncher,
-        rule_customlauncher,
         rule_deploy_jars = None,
         rule_deploy_jars_nonexec = None,
         is_test_rule_class = False,
@@ -34,10 +34,6 @@ def register_java_binary_rules(
     Args:
         rule_exec: (Rule) The executable java_binary rule
         rule_nonexec: (Rule) The non-executable java_binary rule
-        rule_nolauncher: (Rule) The executable java_binary rule without launcher flag resolution
-        rule_customlauncher: (Rule) The executable java_binary rule with a custom launcher attr set
-        rule_deploy_jars: (Rule) The auxiliary deploy jars rule for create_executable = True
-        rule_deploy_jars_nonexec: (Rule) The auxiliary deploy jars rule for create_executable = False
         is_test_rule_class: (bool) If this is a test rule
         **kwargs: Actual args to instantiate the rule
     """
@@ -49,11 +45,13 @@ def register_java_binary_rules(
         kwargs["stamp"] = 1 if kwargs["stamp"] else 0
     if not create_executable:
         rule_nonexec(**kwargs)
-    elif "use_launcher" in kwargs and not kwargs["use_launcher"]:
-        rule_nolauncher(**kwargs)
-    elif "launcher" in kwargs and type(kwargs["launcher"]) == type(""):
-        rule_customlauncher(**kwargs)
     else:
+        if "use_launcher" in kwargs and not kwargs["use_launcher"]:
+            kwargs["launcher"] = None
+        else:
+            # If launcher is not set or None, set it to config flag
+            if "launcher" not in kwargs or not kwargs["launcher"]:
+                kwargs["launcher"] = semantics.LAUNCHER_FLAG_LABEL
         rule_exec(**kwargs)
 
     if not create_executable:
