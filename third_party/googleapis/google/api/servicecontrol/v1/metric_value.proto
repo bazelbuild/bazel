@@ -19,7 +19,6 @@ package google.api.servicecontrol.v1;
 import "google/api/annotations.proto";
 import "google/api/servicecontrol/v1/distribution.proto";
 import "google/protobuf/timestamp.proto";
-import "google/type/money.proto";
 
 option cc_enable_arenas = true;
 option go_package = "google.golang.org/genproto/googleapis/api/servicecontrol/v1;servicecontrol";
