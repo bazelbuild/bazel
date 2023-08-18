@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
@@ -378,8 +379,8 @@ public final class SpawnActionTest extends BuildViewTestCase {
                     Runfiles.EMPTY,
                     manifest,
                     /* repoMappingManifest= */ null,
-                    /* buildRunfileLinks= */ false,
-                    /* runfileLinksEnabled= */ false))
+                    RunfileSymlinksMode.SKIP,
+                    /* buildRunfileLinks= */ false))
             .addOutput(getBinArtifactWithNoOwner("output"))
             .setExecutable(scratch.file("/bin/xxx").asFragment())
             .setProgressMessage("Test")
@@ -590,8 +591,8 @@ public final class SpawnActionTest extends BuildViewTestCase {
         Runfiles.EMPTY,
         manifest,
         /* repoMappingManifest= */ null,
-        /* buildRunfileLinks= */ false,
-        /* runfileLinksEnabled= */ false);
+        RunfileSymlinksMode.SKIP,
+        /* buildRunfileLinks= */ false);
   }
 
   private ActionOwner nullOwnerWithTargetConfig() {

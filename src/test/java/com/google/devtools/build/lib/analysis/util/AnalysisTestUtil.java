@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Key;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Options;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
@@ -544,10 +545,10 @@ public final class AnalysisTestUtil {
     return new SingleRunfilesSupplier(
         runfilesDir,
         runfiles,
-        /*manifest=*/ null,
-        /*repoMappingManifest=*/ null,
-        /*buildRunfileLinks=*/ false,
-        /*runfileLinksEnabled=*/ false);
+        /* manifest= */ null,
+        /* repoMappingManifest= */ null,
+        RunfileSymlinksMode.SKIP,
+        /* buildRunfileLinks= */ false);
   }
 
   public static BuildOptions execOptions(BuildOptions targetOptions, EventHandler handler)

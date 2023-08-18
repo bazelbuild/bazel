@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.common.options.TriState;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -638,13 +639,13 @@ public class BuildConfigurationValue
   }
 
   /** Returns true if we are building runfiles manifests for this configuration. */
-  public boolean buildRunfilesManifests() {
-    return options.buildRunfilesManifests;
+  public boolean buildRunfileManifests() {
+    return options.buildRunfileManifests;
   }
 
   /** Returns true if we are building runfile links for this configuration. */
   public boolean buildRunfileLinks() {
-    return options.buildRunfilesManifests && options.buildRunfiles;
+    return options.buildRunfileManifests && options.buildRunfileLinks;
   }
 
   /** Returns if we are building external runfiles symlinks using the old-style structure. */
@@ -807,30 +808,49 @@ public class BuildConfigurationValue
     return options.hostCpu;
   }
 
-  // TODO(buchgr): Revisit naming and functionality of this flag. See #9248 for details.
-  public static boolean runfilesEnabled(CoreOptions options) {
-    switch (options.enableRunfiles) {
-      case YES:
-        return true;
-      case NO:
-        return false;
-      default:
-        return OS.getCurrent() != OS.WINDOWS;
+  /**
+   * Describes how to create runfile symlink trees.
+   *
+   * <p>May be overridden if an {@link OutputService} capable of creating symlink trees is
+   * available.
+   */
+  public enum RunfileSymlinksMode {
+    /** Do not create. */
+    SKIP,
+    /** Use the out-of-process implementation. */
+    EXTERNAL,
+    /** Use the in-process implementation. */
+    INTERNAL
+  }
+
+  @VisibleForTesting
+  public static RunfileSymlinksMode getRunfileSymlinksMode(CoreOptions options) {
+    // TODO(buchgr): Revisit naming and functionality of this flag. See #9248 for details.
+    if (options.enableRunfiles == TriState.YES
+        || (options.enableRunfiles == TriState.AUTO && OS.getCurrent() != OS.WINDOWS)) {
+      return options.inProcessSymlinkCreation
+          ? RunfileSymlinksMode.INTERNAL
+          : RunfileSymlinksMode.EXTERNAL;
     }
+    return RunfileSymlinksMode.SKIP;
+  }
+
+  public RunfileSymlinksMode getRunfileSymlinksMode() {
+    return getRunfileSymlinksMode(options);
+  }
+
+  public static boolean runfilesEnabled(CoreOptions options) {
+    return getRunfileSymlinksMode(options) != RunfileSymlinksMode.SKIP;
   }
 
   public boolean runfilesEnabled() {
-    return runfilesEnabled(this.options);
+    return runfilesEnabled(options);
   }
 
   @Override
   public boolean runfilesEnabledForStarlark(StarlarkThread thread) throws EvalException {
     BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
-    return runfilesEnabled(this.options);
-  }
-
-  public boolean inprocessSymlinkCreation() {
-    return options.inprocessSymlinkCreation;
+    return runfilesEnabled();
   }
 
   public boolean remotableSourceManifestActions() {

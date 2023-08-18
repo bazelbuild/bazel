@@ -387,8 +387,8 @@ public final class TestActionBuilder {
               runfilesSupport.getRunfilesDirectoryExecPath(),
               runfilesSupport.getRunfiles(),
               runfilesSupport.getRepoMappingManifest(),
-              runfilesSupport.isBuildRunfileLinks(),
-              runfilesSupport.isRunfilesEnabled());
+              runfilesSupport.getRunfileSymlinksMode(),
+              runfilesSupport.isBuildRunfileLinks());
     } else {
       testRunfilesSupplier = runfilesSupport;
     }

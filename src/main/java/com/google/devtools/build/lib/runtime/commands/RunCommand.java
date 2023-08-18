@@ -421,7 +421,7 @@ public class RunCommand implements BlazeCommand {
       configuration = result.getBuildConfiguration();
     }
 
-    if (!configuration.buildRunfilesManifests()) {
+    if (!configuration.buildRunfileManifests()) {
       throw new RunCommandException(
           reportAndCreateFailureResult(
               env,
@@ -530,7 +530,7 @@ public class RunCommand implements BlazeCommand {
       // ensureRunfilesBuilt does build the runfiles, but an extra consistency check won't hurt.
       Preconditions.checkState(
           settings.getRunfilesSymlinksCreated()
-              == options.getOptions(CoreOptions.class).buildRunfiles);
+              == options.getOptions(CoreOptions.class).buildRunfileLinks);
 
       ExecutionOptions executionOptions = options.getOptions(ExecutionOptions.class);
       Path tmpDirRoot =
