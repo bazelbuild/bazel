@@ -604,6 +604,10 @@ public final class ConfiguredTargetFactory {
             ruleClassProvider.getToolsRepository());
     if (configuredAspect == null) {
       return erroredConfiguredAspect(ruleContext, null);
+    } else if (configuredAspect.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR) != null) {
+      // this was created by #erroredConfiguredAspect, return early to skip validating advertised
+      // providers
+      return configuredAspect;
     }
 
     validateAdvertisedProviders(
