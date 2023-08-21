@@ -48,7 +48,7 @@ import net.starlark.java.eval.StarlarkSemantics;
 public abstract class AbstractConfiguredTarget implements ConfiguredTarget, VisibilityProvider {
   // This should really never be null, but is null in two cases.
   // 1. MergedConfiguredTarget: these are ephemeral and never added to the Skyframe graph.
-  // 2. TestActionBuilder.EmptyPackageProvider: it is used here only to inject an empty
+  // 2. PackageSpecificationProvider.EMPTY: it is used here only to inject an empty
   //    PackageSpecificationProvider.
   // TODO(b/281522692): The existence of these cases suggest that there should be some additional
   // abstraction that does not have a key.

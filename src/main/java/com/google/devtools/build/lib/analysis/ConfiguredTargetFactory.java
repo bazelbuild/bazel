@@ -139,7 +139,7 @@ public final class ConfiguredTargetFactory {
       // ConfiguredTargetGraph, but for now, this is the minimally invasive way of providing a sane
       // error message in case a cycle is created by a visibility attribute.
       if (group != null) {
-        provider = group.get(PackageGroupConfiguredTarget.PROVIDER);
+        provider = group.get(PackageSpecificationProvider.PROVIDER);
       }
       if (provider != null) {
         result.addTransitive(provider.getPackageSpecifications());

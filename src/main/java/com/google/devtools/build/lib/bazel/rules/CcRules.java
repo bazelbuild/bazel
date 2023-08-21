@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.bazel.rules;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
+import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
-import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcImportRule;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcLibraryRule;
@@ -110,7 +110,7 @@ public class CcRules implements RuleSet {
         "PropellerOptimizeInfo", PropellerOptimizeProvider.PROVIDER);
     builder.addStarlarkBuiltinsInternal("MemProfProfileInfo", MemProfProfileProvider.PROVIDER);
     builder.addStarlarkBuiltinsInternal(
-        "PackageSpecificationInfo", PackageGroupConfiguredTarget.PROVIDER);
+        "PackageSpecificationInfo", PackageSpecificationProvider.PROVIDER);
     builder.addStarlarkBuiltinsInternal("cc_common", bazelCcModule);
     builder.addStarlarkBootstrap(
         new CcBootstrap(

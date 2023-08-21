@@ -74,7 +74,7 @@ def make_proto_lang_toolchain(custom_proto_compiler):
                 "allowlist_different_package": attr.label(
                     default = semantics.allowlist_different_package,
                     cfg = "exec",
-                    providers = ["PackageSpecificationProvider"],
+                    providers = ["PackageSpecificationInfo"],
                 ),
             },
             **({

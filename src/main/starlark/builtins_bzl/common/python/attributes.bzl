@@ -87,7 +87,7 @@ NATIVE_RULES_ALLOWLIST_ATTRS = {
             fragment = "py",
             name = "native_rules_allowlist",
         ),
-        providers = ["PackageSpecificationProvider"],
+        providers = ["PackageSpecificationInfo"],
     ),
 }
 

@@ -20,11 +20,11 @@ import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
-import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -45,7 +45,7 @@ public class JavaPackageConfigurationRule implements RuleDefinition {
             attr("packages", LABEL_LIST)
                 .cfg(ExecutionTransitionFactory.createFactory())
                 .allowedFileTypes()
-                .mandatoryProviders(ImmutableList.of(PackageGroupConfiguredTarget.PROVIDER.id())))
+                .mandatoryBuiltinProviders(ImmutableList.of(PackageSpecificationProvider.class)))
         /* <!-- #BLAZE_RULE(java_package_configuration).ATTRIBUTE(javacopts) -->
         Java compiler flags.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
