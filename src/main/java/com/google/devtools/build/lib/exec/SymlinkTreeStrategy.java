@@ -103,9 +103,8 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
           createOutput(action, actionExecutionContext, inputManifest);
         } else if (action.getRunfileSymlinksMode() == RunfileSymlinksMode.SKIP) {
           createSymlinkTreeHelper(action, actionExecutionContext).copyManifest();
-        } else if (action.getInputManifest() == null
-            || (action.getRunfileSymlinksMode() == RunfileSymlinksMode.INTERNAL
-                && !action.isFilesetTree())) {
+        } else if (action.getRunfileSymlinksMode() == RunfileSymlinksMode.INTERNAL
+            && !action.isFilesetTree()) {
           try {
             Map<PathFragment, Artifact> runfiles = runfilesToMap(action);
             createSymlinkTreeHelper(action, actionExecutionContext)
@@ -116,10 +115,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
                 new EnvironmentalExecException(e, Code.SYMLINK_TREE_CREATION_IO_EXCEPTION), action);
           }
 
-          Path inputManifest =
-              action.getInputManifest() == null
-                  ? null
-                  : actionExecutionContext.getInputPath(action.getInputManifest());
+          Path inputManifest = actionExecutionContext.getInputPath(action.getInputManifest());
           createOutput(action, actionExecutionContext, inputManifest);
         } else {
           Map<String, String> resolvedEnv = new LinkedHashMap<>();
@@ -138,10 +134,8 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
   }
 
   private static Map<PathFragment, Artifact> runfilesToMap(SymlinkTreeAction action) {
-    // This call outputs warnings about overlapping symlinks. However, this is already called by the
-    // SourceManifestAction, so it can happen that we generate the warning twice. If the input
-    // manifest is null, then we print the warning. Otherwise we assume that the
-    // SourceManifestAction already printed it.
+    // This call outputs warnings about overlapping symlinks. However, since this has already been
+    // called by the SourceManifestAction, we silence the warnings here.
     return action
         .getRunfiles()
         .getRunfilesInputs(
