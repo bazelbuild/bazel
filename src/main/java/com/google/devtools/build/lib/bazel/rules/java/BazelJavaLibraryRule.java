@@ -22,7 +22,6 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses.JavaRule;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -41,9 +40,7 @@ import com.google.devtools.build.lib.rules.java.ProguardLibraryRule;
 public final class BazelJavaLibraryRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, final RuleDefinitionEnvironment env) {
-
-    return ConfigAwareRuleClassBuilder.of(builder)
-        .originalBuilder()
+    return builder
         .requiresConfigurationFragments(JavaConfiguration.class, CppConfiguration.class)
         /* <!-- #BLAZE_RULE(java_library).IMPLICIT_OUTPUTS -->
         <ul>

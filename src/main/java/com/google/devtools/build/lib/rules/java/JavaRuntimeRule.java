@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
-import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
@@ -35,8 +34,7 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 public final class JavaRuntimeRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-    return ConfigAwareRuleClassBuilder.of(builder)
-        .originalBuilder()
+    return builder
         .requiresConfigurationFragments(JavaConfiguration.class)
         .advertiseProvider(TemplateVariableInfo.class)
         .advertiseStarlarkProvider(JavaRuntimeInfo.PROVIDER.id())

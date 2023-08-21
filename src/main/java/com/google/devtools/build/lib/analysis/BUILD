@@ -219,7 +219,6 @@ java_library(
         "actions/SymlinkTreeAction.java",
         "actions/SymlinkTreeActionContext.java",
         "buildinfo/BuildInfoFactory.java",
-        "config/ConfigAwareRuleClassBuilder.java",
         "config/DependencyEvaluationException.java",
         "config/FragmentCollection.java",
         "config/RequiredFragmentsUtil.java",
