@@ -103,7 +103,9 @@ public final class StarlarkRuleTransitionProvider implements TransitionFactory<R
     for (Attribute attribute : rule.getAttributes()) {
       Object val = attributeMapper.getRawAttributeValue(rule, attribute);
       boolean shouldResolveSelect = true;
-      if (val instanceof BuildType.SelectorList && configConditions != null) {
+      // TODO @aranguyen b/296918741
+      boolean isValidConfigConditions = configConditions != null && !configConditions.isEmpty();
+      if (val instanceof BuildType.SelectorList && isValidConfigConditions) {
         for (Object label : ((SelectorList) val).getKeyLabels()) {
           ConfigMatchingProvider configMatchingProvider = configConditions.get(label);
           if (checkIfAttributeSelectOnAFlagTransitionChanges(
