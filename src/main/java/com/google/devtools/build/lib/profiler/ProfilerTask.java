@@ -28,6 +28,7 @@ public enum ProfilerTask {
   ACTION_RELEASE("action resource release", Threshold.TEN_MILLIS),
   ACTION_UPDATE("update action information", Threshold.TEN_MILLIS),
   ACTION_COMPLETE("complete action execution"),
+  BZLMOD("bazel module processing"),
   INFO("general information"),
   CREATE_PACKAGE("package creation"),
   REMOTE_EXECUTION("remote action execution"),
