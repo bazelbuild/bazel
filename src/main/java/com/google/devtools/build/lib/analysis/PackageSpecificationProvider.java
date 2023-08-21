@@ -24,13 +24,15 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.starlarkbuildapi.PackageSpecificationProviderApi;
 import java.util.Optional;
 
 /**
  * A {@link TransitiveInfoProvider} that describes a set of transitive package specifications used
  * in package groups.
  */
-public class PackageSpecificationProvider extends NativeInfo implements TransitiveInfoProvider {
+public class PackageSpecificationProvider extends NativeInfo
+    implements TransitiveInfoProvider, PackageSpecificationProviderApi {
 
   private static final String STARLARK_NAME = "PackageSpecificationInfo";
 

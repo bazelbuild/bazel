@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
+import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.ShellConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -522,6 +523,14 @@ public class BazelRuleClassProvider {
         }
       };
 
+  static final RuleSet PACKAGING_RULES =
+      new RuleSet() {
+        @Override
+        public void init(ConfiguredRuleClassProvider.Builder builder) {
+          builder.addBzlToplevel("PackageSpecificationInfo", PackageSpecificationProvider.PROVIDER);
+        }
+      };
+
   private static final ImmutableSet<RuleSet> RULE_SETS =
       ImmutableSet.of(
           BAZEL_SETUP,
@@ -542,6 +551,7 @@ public class BazelRuleClassProvider {
           J2ObjcRules.INSTANCE,
           TestingSupportRules.INSTANCE,
           VARIOUS_WORKSPACE_RULES,
+          PACKAGING_RULES,
           // This rule set is a little special: it needs to depend on every configuration fragment
           // that has Make variables, so we put it last.
           ToolchainRules.INSTANCE);

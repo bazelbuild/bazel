@@ -19,7 +19,7 @@ load(":common/cc/semantics.bzl", "semantics")
 FdoProfileInfo = _builtins.internal.FdoProfileInfo
 FdoPrefetchHintsInfo = _builtins.internal.FdoPrefetchHintsInfo
 PropellerOptimizeInfo = _builtins.internal.PropellerOptimizeInfo
-PackageSpecificationInfo = _builtins.internal.PackageSpecificationInfo
+PackageSpecificationInfo = _builtins.toplevel.PackageSpecificationInfo
 CcToolchainConfigInfo = _builtins.toplevel.CcToolchainConfigInfo
 MemProfProfileInfo = _builtins.internal.MemProfProfileInfo
 
