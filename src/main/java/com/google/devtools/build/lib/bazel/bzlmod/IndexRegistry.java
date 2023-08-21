@@ -50,6 +50,7 @@ public class IndexRegistry implements Registry {
   private final DownloadManager downloadManager;
   private final Map<String, String> clientEnv;
   private final Gson gson;
+  private volatile Optional<BazelRegistryJson> bazelRegistryJson;
 
   public IndexRegistry(URI uri, DownloadManager downloadManager, Map<String, String> clientEnv) {
     this.uri = uri;
@@ -141,9 +142,6 @@ public class IndexRegistry implements Registry {
   public RepoSpec getRepoSpec(
       ModuleKey key, RepositoryName repoName, ExtendedEventHandler eventHandler)
       throws IOException, InterruptedException {
-    Optional<BazelRegistryJson> bazelRegistryJson =
-        grabJson(
-            constructUrl(getUrl(), "bazel_registry.json"), BazelRegistryJson.class, eventHandler);
     Optional<SourceJson> sourceJson =
         grabJson(
             constructUrl(
@@ -158,12 +156,30 @@ public class IndexRegistry implements Registry {
     String type = sourceJson.get().type;
     switch (type) {
       case "archive":
-        return createArchiveRepoSpec(sourceJson, bazelRegistryJson, key, repoName);
+        return createArchiveRepoSpec(sourceJson, getBazelRegistryJson(eventHandler), key, repoName);
       case "local_path":
-        return createLocalPathRepoSpec(sourceJson, bazelRegistryJson, key, repoName);
+        return createLocalPathRepoSpec(
+            sourceJson, getBazelRegistryJson(eventHandler), key, repoName);
       default:
         throw new IOException(String.format("Invalid source type for module %s", key));
     }
+  }
+
+  @SuppressWarnings("OptionalAssignedToNull")
+  private Optional<BazelRegistryJson> getBazelRegistryJson(ExtendedEventHandler eventHandler)
+      throws IOException, InterruptedException {
+    if (bazelRegistryJson == null) {
+      synchronized (this) {
+        if (bazelRegistryJson == null) {
+          bazelRegistryJson =
+              grabJson(
+                  constructUrl(getUrl(), "bazel_registry.json"),
+                  BazelRegistryJson.class,
+                  eventHandler);
+        }
+      }
+    }
+    return bazelRegistryJson;
   }
 
   private RepoSpec createLocalPathRepoSpec(
