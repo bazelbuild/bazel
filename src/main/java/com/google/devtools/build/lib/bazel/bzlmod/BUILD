@@ -25,6 +25,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:auto_value",
         "//third_party:gson",
@@ -131,6 +132,7 @@ java_library(
         "MultipleVersionOverride.java",
         "NonRegistryOverride.java",
         "RegistryOverride.java",
+        "RepoSpecKey.java",
         "SingleExtensionEvalValue.java",
         "SingleExtensionUsagesValue.java",
         "SingleVersionOverride.java",
@@ -173,6 +175,7 @@ java_library(
         "ModuleExtensionContext.java",
         "ModuleFileFunction.java",
         "ModuleFileGlobals.java",
+        "RepoSpecFunction.java",
         "Selection.java",
         "SingleExtensionEvalFunction.java",
         "SingleExtensionUsagesFunction.java",

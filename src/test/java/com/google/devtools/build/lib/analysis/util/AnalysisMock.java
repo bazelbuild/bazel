@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
+import com.google.devtools.build.lib.bazel.bzlmod.RepoSpecFunction;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryFunction;
@@ -146,6 +147,8 @@ public abstract class AnalysisMock extends LoadingMock {
         new BazelLockFileFunction(directories.getWorkspace()),
         SkyFunctions.BAZEL_MODULE_RESOLUTION,
         new BazelModuleResolutionFunction(),
+        SkyFunctions.REPO_SPEC,
+        new RepoSpecFunction(FakeRegistry.DEFAULT_FACTORY),
         SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE,
         new ClientEnvironmentFunction(new AtomicReference<>(ImmutableMap.of())));
   }
