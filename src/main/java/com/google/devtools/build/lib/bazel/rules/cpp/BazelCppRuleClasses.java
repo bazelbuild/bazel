@@ -313,6 +313,18 @@ public class BazelCppRuleClasses {
           </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("linkopts", STRING_LIST))
+          /*<!-- #BLAZE_RULE($cc_rule).ATTRIBUTE(additional_linker_inputs) -->
+           Pass these files to the C++ linker command.
+           <p>
+             For example, compiled Windows .res files can be provided here to be embedded in
+             the binary target.
+           </p>
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(
+              attr("additional_linker_inputs", LABEL_LIST)
+                  .orderIndependent()
+                  .direct_compile_time_input()
+                  .allowedFileTypes(FileTypeSet.ANY_FILE))
           /*<!-- #BLAZE_RULE($cc_rule).ATTRIBUTE(nocopts) -->
           Remove matching options from the C++ compilation command.
           Subject to <a href="${link make-variables}">"Make" variable</a> substitution.
@@ -496,18 +508,6 @@ public class BazelCppRuleClasses {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          /*<!-- #BLAZE_RULE($cc_binary_base).ATTRIBUTE(additional_linker_inputs) -->
-           Pass these files to the C++ linker command.
-           <p>
-           For example, compiled Windows .res files can be provided here to be embedded in
-           the binary target.
-           </p>
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(
-              attr("additional_linker_inputs", LABEL_LIST)
-                  .orderIndependent()
-                  .direct_compile_time_input()
-                  .allowedFileTypes(FileTypeSet.ANY_FILE))
           .override(
               attr("deps", LABEL_LIST)
                   .allowedRuleClasses(DEPS_ALLOWED_RULES)
