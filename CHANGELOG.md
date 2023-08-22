@@ -1,3 +1,17 @@
+## Release 7.0.0-pre.20230810.1 (2023-08-22)
+
+```
+Baseline: c279c7b2f125fcb5a7e67595c0044c32fe944aa9
+
+Cherry picks:
+
+   + 4d157ee3530762c9392ccc08a0073103293a6391:
+     Cherry-pick required commits into 7.0.0-pre.20230810.1rc1
+     (#19298)
+```
+
+Initial release.
+
 ## Release 6.3.2 (2023-08-08)
 
 ```
