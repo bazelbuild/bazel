@@ -118,14 +118,15 @@ def _check_collocated(label, proto_info, proto_lang_toolchain_info):
       proto_lang_toolchain_info: (ProtoLangToolchainInfo) The proto lang toolchain info.
         Obtained from a `proto_lang_toolchain` target.
     """
+    PackageSpecificationInfo = _builtins.toplevel.PackageSpecificationInfo
     if (proto_info.direct_descriptor_set.owner.package != label.package and
         proto_lang_toolchain_info.allowlist_different_package):
-        if not proto_lang_toolchain_info.allowlist_different_package.isAvailableFor(label):
+        if not proto_lang_toolchain_info.allowlist_different_package[PackageSpecificationInfo].contains(label):
             fail(("lang_proto_library '%s' may only be created in the same package " +
                   "as proto_library '%s'") % (label, proto_info.direct_descriptor_set.owner))
     if (proto_info.direct_descriptor_set.owner.package != label.package and
         hasattr(proto_info, "allow_exports")):
-        if not proto_info.allow_exports.isAvailableFor(label):
+        if not proto_info.allow_exports[PackageSpecificationInfo].contains(label):
             fail(("lang_proto_library '%s' may only be created in the same package " +
                   "as proto_library '%s'") % (label, proto_info.direct_descriptor_set.owner))
 

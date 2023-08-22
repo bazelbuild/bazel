@@ -15,25 +15,17 @@
 package com.google.devtools.build.lib.analysis.configuredtargets;
 
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.TargetContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
 import javax.annotation.Nullable;
-import net.starlark.java.annot.Param;
-import net.starlark.java.annot.ParamType;
-import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.StarlarkThread;
 
 /**
  * Dummy ConfiguredTarget for package groups. Contains no functionality, since package groups are
@@ -83,19 +75,5 @@ public class PackageGroupConfiguredTarget extends AbstractConfiguredTarget {
   @Nullable
   protected Object rawGetStarlarkProvider(String providerKey) {
     return null;
-  }
-
-  @StarlarkMethod(
-      name = "isAvailableFor",
-      documented = false,
-      parameters = {
-        @Param(
-            name = "label",
-            allowedTypes = {@ParamType(type = Label.class)})
-      },
-      useStarlarkThread = true)
-  public boolean starlarkMatches(Label label, StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
-    return Allowlist.isAvailableFor(packageSpecificationProvider.getPackageSpecifications(), label);
   }
 }
