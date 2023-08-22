@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -40,7 +41,7 @@ import org.junit.runners.JUnit4;
 public class ObjcProviderTest {
 
   private static ObjcProvider.StarlarkBuilder objcProviderBuilder() {
-    return new ObjcProvider.StarlarkBuilder();
+    return new ObjcProvider.StarlarkBuilder(StarlarkSemantics.DEFAULT);
   }
 
   private static ImmutableList<ObjcProvider.Key<?>> getAllKeys() throws Exception {

@@ -1309,6 +1309,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
 
   @Test
   public void testStaticFrameworkApi() throws Exception {
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_linking_info=false");
     scratch.file(
         "fx/defs.bzl",
         "def _custom_static_framework_import_impl(ctx):",
@@ -1338,6 +1339,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
 
   @Test
   public void testDynamicFrameworkApi() throws Exception {
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_linking_info=false");
     scratch.file(
         "fx/defs.bzl",
         "def _custom_dynamic_framework_import_impl(ctx):",
@@ -1363,6 +1365,576 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         .containsExactly("fx/fx1.framework/fx1", "fx/fx2.framework/fx2");
     assertThat(objc.dynamicFrameworkNames().toList()).containsExactly("fx1", "fx2");
     assertThat(objc.dynamicFrameworkPaths().toList()).containsExactly("fx");
+  }
+
+  private void checkLinkingApiCanCreateObjcProviderWithArtifacts(ObjcProvider.Key<Artifact> key)
+      throws Exception {
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_linking_info=false");
+    ConfiguredTarget starlarkTarget =
+        createObjcProviderStarlarkTarget(
+            "   file1 = ctx.actions.declare_file('file1')",
+            "   file2 = ctx.actions.declare_file('file2')",
+            "   ctx.actions.run_shell(outputs=[file1], command='echo')",
+            "   ctx.actions.run_shell(outputs=[file2], command='echo')",
+            "   objc = apple_common.new_objc_provider(",
+            "      " + key.getStarlarkKeyName() + " = depset([file1, file2]),",
+            "   )",
+            "   return [objc]");
+
+    ImmutableList<Artifact> artifacts =
+        starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).get(key).toList();
+
+    assertThat(ActionsTestUtil.baseArtifactNames(artifacts)).containsExactly("file1", "file2");
+  }
+
+  @Test
+  public void checkLinkingApiCanCreateObjcProviderWithDynamicFrameworkFile() throws Exception {
+    checkLinkingApiCanCreateObjcProviderWithArtifacts(ObjcProvider.DYNAMIC_FRAMEWORK_FILE);
+  }
+
+  @Test
+  public void checkLinkingApiCanCreateObjcProviderWithForceLoadLibrary() throws Exception {
+    checkLinkingApiCanCreateObjcProviderWithArtifacts(ObjcProvider.FORCE_LOAD_LIBRARY);
+  }
+
+  @Test
+  public void checkLinkingApiCanCreateObjcProviderWithImportedLibrary() throws Exception {
+    checkLinkingApiCanCreateObjcProviderWithArtifacts(ObjcProvider.IMPORTED_LIBRARY);
+  }
+
+  @Test
+  public void checkLinkingApiCanCreateObjcProviderWithLibrary() throws Exception {
+    checkLinkingApiCanCreateObjcProviderWithArtifacts(ObjcProvider.LIBRARY);
+  }
+
+  @Test
+  public void checkLinkingApiCanCreateObjcProviderWithLinkInputs() throws Exception {
+    checkLinkingApiCanCreateObjcProviderWithArtifacts(ObjcProvider.LINK_INPUTS);
+  }
+
+  @Test
+  public void checkLinkingApiCanCreateObjcProviderWithStaticFrameworkFile() throws Exception {
+    checkLinkingApiCanCreateObjcProviderWithArtifacts(ObjcProvider.STATIC_FRAMEWORK_FILE);
+  }
+
+  private void checkLinkingApiCanCreateObjcProviderWithStrings(ObjcProvider.Key<String> key)
+      throws Exception {
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_linking_info=false");
+    ConfiguredTarget starlarkTarget =
+        createObjcProviderStarlarkTarget(
+            "   objc = apple_common.new_objc_provider(",
+            "      " + key.getStarlarkKeyName() + " = depset(['foo1', 'foo2']),",
+            "   )",
+            "   return [objc]");
+
+    ImmutableList<String> strings =
+        starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).get(key).toList();
+
+    assertThat(strings).containsExactly("foo1", "foo2");
+  }
+
+  @Test
+  public void checkLinkingApiCanCreateObjcProviderWithLinkopt() throws Exception {
+    checkLinkingApiCanCreateObjcProviderWithStrings(ObjcProvider.LINKOPT);
+  }
+
+  @Test
+  public void checkLinkingApiCanCreateObjcProviderWithSdkDylib() throws Exception {
+    checkLinkingApiCanCreateObjcProviderWithStrings(ObjcProvider.SDK_DYLIB);
+  }
+
+  @Test
+  public void checkLinkingApiCanCreateObjcProviderWithSdkFramework() throws Exception {
+    checkLinkingApiCanCreateObjcProviderWithStrings(ObjcProvider.SDK_FRAMEWORK);
+  }
+
+  @Test
+  public void checkLinkingApiCanCreateObjcProviderWithWeakSdkFramework() throws Exception {
+    checkLinkingApiCanCreateObjcProviderWithStrings(ObjcProvider.WEAK_SDK_FRAMEWORK);
+  }
+
+  private void checkWithoutLinkingApiCannotCreateObjcProviderWithArtifacts(
+      ObjcProvider.Key<Artifact> key) throws Exception {
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_linking_info=true");
+    AssertionError e =
+        assertThrows(
+            AssertionError.class,
+            () ->
+                createObjcProviderStarlarkTarget(
+                    "   file1 = ctx.actions.declare_file('file1')",
+                    "   file2 = ctx.actions.declare_file('file2')",
+                    "   ctx.actions.run_shell(outputs=[file1], command='echo')",
+                    "   ctx.actions.run_shell(outputs=[file2], command='echo')",
+                    "   objc = apple_common.new_objc_provider(",
+                    "      " + key.getStarlarkKeyName() + " = depset([file1, file2]),",
+                    "   )",
+                    "   return [objc]"));
+
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            String.format(AppleStarlarkCommon.DEPRECATED_KEY_ERROR, key.getStarlarkKeyName()));
+  }
+
+  @Test
+  public void testWithoutLinkingApiCannotCreateObjcProviderWithDynamicFrameworkFile()
+      throws Exception {
+    checkWithoutLinkingApiCannotCreateObjcProviderWithArtifacts(
+        ObjcProvider.DYNAMIC_FRAMEWORK_FILE);
+  }
+
+  @Test
+  public void testWithoutLinkingApiCannotCreateObjcProviderWithForceLoadLibrary() throws Exception {
+    checkWithoutLinkingApiCannotCreateObjcProviderWithArtifacts(ObjcProvider.FORCE_LOAD_LIBRARY);
+  }
+
+  @Test
+  public void testWithoutLinkingApiCannotCreateObjcProviderWithImportedLibrary() throws Exception {
+    checkWithoutLinkingApiCannotCreateObjcProviderWithArtifacts(ObjcProvider.IMPORTED_LIBRARY);
+  }
+
+  @Test
+  public void testWithoutLinkingApiCannotCreateObjcProviderWithLibrary() throws Exception {
+    checkWithoutLinkingApiCannotCreateObjcProviderWithArtifacts(ObjcProvider.LIBRARY);
+  }
+
+  @Test
+  public void testWithoutLinkingApiCannotCreateObjcProviderWithLinkInputs() throws Exception {
+    checkWithoutLinkingApiCannotCreateObjcProviderWithArtifacts(ObjcProvider.LINK_INPUTS);
+  }
+
+  @Test
+  public void testWithoutLinkingApiCannotCreateObjcProviderWithStaticFrameworkFile()
+      throws Exception {
+    checkWithoutLinkingApiCannotCreateObjcProviderWithArtifacts(ObjcProvider.STATIC_FRAMEWORK_FILE);
+  }
+
+  private void checkWithoutLinkingApiCannotCreateObjcProviderWithStrings(
+      ObjcProvider.Key<String> key) throws Exception {
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_linking_info=true");
+    AssertionError e =
+        assertThrows(
+            AssertionError.class,
+            () ->
+                createObjcProviderStarlarkTarget(
+                    "   objc = apple_common.new_objc_provider(",
+                    "      " + key.getStarlarkKeyName() + " = depset(['foo1', 'foo2']),",
+                    "   )",
+                    "   return [objc]"));
+
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            String.format(AppleStarlarkCommon.DEPRECATED_KEY_ERROR, key.getStarlarkKeyName()));
+  }
+
+  @Test
+  public void checkWithoutLinkingApiCannotCreateObjcProviderWithLinkopt() throws Exception {
+    checkWithoutLinkingApiCannotCreateObjcProviderWithStrings(ObjcProvider.LINKOPT);
+  }
+
+  @Test
+  public void checkWithoutLinkingApiCannotCreateObjcProviderWithSdkDylib() throws Exception {
+    checkWithoutLinkingApiCannotCreateObjcProviderWithStrings(ObjcProvider.SDK_DYLIB);
+  }
+
+  @Test
+  public void checkWithoutLinkingApiCannotCreateObjcProviderWithSdkFramework() throws Exception {
+    checkWithoutLinkingApiCannotCreateObjcProviderWithStrings(ObjcProvider.SDK_FRAMEWORK);
+  }
+
+  @Test
+  public void checkWithoutLinkingApiCannotCreateObjcProviderWithWeakSdkFramework()
+      throws Exception {
+    checkWithoutLinkingApiCannotCreateObjcProviderWithStrings(ObjcProvider.WEAK_SDK_FRAMEWORK);
+  }
+
+  @Test
+  public void testExecutableBinaryProviderWithObjcLinkingApi() throws Exception {
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_linking_info=false");
+    scratch.file(
+        "a/objc_rules.bzl",
+        "def binary_impl(ctx):",
+        "   binary = ctx.actions.declare_file('bin')",
+        "   ctx.actions.run_shell(outputs=[binary], command='echo')",
+        "   provider = apple_common.new_executable_binary_provider(",
+        "      binary = binary,",
+        "      cc_info = CcInfo(),",
+        "      objc = apple_common.new_objc_provider(),",
+        "   )",
+        "   return [provider]",
+        "binary = rule(",
+        "    implementation = binary_impl,",
+        ")");
+    scratch.file("a/BUILD", "load(':objc_rules.bzl', 'binary')", "binary(", "   name='bin',", ")");
+
+    ConfiguredTarget target = getConfiguredTarget("//a:bin");
+    AppleExecutableBinaryInfo executableBinaryProvider =
+        target.get(AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR);
+
+    assertThat(executableBinaryProvider).isNotNull();
+    assertThat(executableBinaryProvider.getDepsCcInfo()).isNotNull();
+    assertThat(executableBinaryProvider.getDepsObjcProvider()).isNotNull();
+  }
+
+  @Test
+  public void testExecutableBinaryProviderWithoutObjcLinkingApi() throws Exception {
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_linking_info=true");
+    scratch.file(
+        "a/objc_rules.bzl",
+        "def binary_impl(ctx):",
+        "   binary = ctx.actions.declare_file('bin')",
+        "   ctx.actions.run_shell(outputs=[binary], command='echo')",
+        "   provider = apple_common.new_executable_binary_provider(",
+        "      binary = binary,",
+        "      cc_info = CcInfo(),",
+        "   )",
+        "   return [provider]",
+        "binary = rule(",
+        "    implementation = binary_impl,",
+        ")");
+    scratch.file("a/BUILD", "load(':objc_rules.bzl', 'binary')", "binary(", "   name='bin',", ")");
+
+    ConfiguredTarget target = getConfiguredTarget("//a:bin");
+    AppleExecutableBinaryInfo executableBinaryProvider =
+        target.get(AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR);
+
+    assertThat(executableBinaryProvider).isNotNull();
+    assertThat(executableBinaryProvider.getDepsCcInfo()).isNotNull();
+    assertThat(executableBinaryProvider.getDepsObjcProvider()).isNotNull();
+  }
+
+  @Test
+  public void testExecutableBinaryProviderDisallowsObjcProviderWithoutObjcLinkingApi()
+      throws Exception {
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_linking_info=true");
+    scratch.file(
+        "a/objc_rules.bzl",
+        "def binary_impl(ctx):",
+        "   binary = ctx.actions.declare_file('bin')",
+        "   ctx.actions.run_shell(outputs=[binary], command='echo')",
+        "   provider = apple_common.new_executable_binary_provider(",
+        "      binary = binary,",
+        "      cc_info = CcInfo(),",
+        "      objc = apple_common.new_objc_provider(),",
+        "   )",
+        "   return [provider]",
+        "binary = rule(",
+        "    implementation = binary_impl,",
+        ")");
+    scratch.file("a/BUILD", "load(':objc_rules.bzl', 'binary')", "binary(", "   name='bin',", ")");
+
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//a:bin"));
+
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            String.format(
+                AppleStarlarkCommon.DEPRECATED_OBJC_PROVIDER_ERROR, "AppleExecutableBinaryInfo"));
+  }
+
+  @Test
+  public void testExecutableBinaryProviderRequiresCcInfoWithoutObjcLinkingApi() throws Exception {
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_linking_info=true");
+    scratch.file(
+        "a/objc_rules.bzl",
+        "def binary_impl(ctx):",
+        "   binary = ctx.actions.declare_file('bin')",
+        "   ctx.actions.run_shell(outputs=[binary], command='echo')",
+        "   provider = apple_common.new_executable_binary_provider(",
+        "      binary = binary,",
+        "   )",
+        "   return [provider]",
+        "binary = rule(",
+        "    implementation = binary_impl,",
+        ")");
+    scratch.file("a/BUILD", "load(':objc_rules.bzl', 'binary')", "binary(", "   name='bin',", ")");
+
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//a:bin"));
+
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            String.format(AppleStarlarkCommon.REQUIRED_CC_INFO_ERROR, "AppleExecutableBinaryInfo"));
+  }
+
+  @Test
+  public void testDynamicFrameworkProviderWithObjcLinkingApi() throws Exception {
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_linking_info=false");
+    scratch.file(
+        "a/objc_rules.bzl",
+        "def binary_impl(ctx):",
+        "   binary = ctx.actions.declare_file('bin')",
+        "   ctx.actions.run_shell(outputs=[binary], command='echo')",
+        "   provider = apple_common.new_dynamic_framework_provider(",
+        "      binary = binary,",
+        "      cc_info = CcInfo(),",
+        "      objc = apple_common.new_objc_provider(),",
+        "   )",
+        "   return [provider]",
+        "binary = rule(",
+        "    implementation = binary_impl,",
+        ")");
+    scratch.file("a/BUILD", "load(':objc_rules.bzl', 'binary')", "binary(", "   name='bin',", ")");
+
+    ConfiguredTarget target = getConfiguredTarget("//a:bin");
+    AppleDynamicFrameworkInfo executableBinaryProvider =
+        target.get(AppleDynamicFrameworkInfo.STARLARK_CONSTRUCTOR);
+
+    assertThat(executableBinaryProvider).isNotNull();
+    assertThat(executableBinaryProvider.getDepsCcInfo()).isNotNull();
+    assertThat(executableBinaryProvider.getDepsObjcProvider()).isNotNull();
+  }
+
+  @Test
+  public void testDynamicFrameworkProviderWithoutObjcLinkingApi() throws Exception {
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_linking_info=true");
+    scratch.file(
+        "a/objc_rules.bzl",
+        "def binary_impl(ctx):",
+        "   binary = ctx.actions.declare_file('bin')",
+        "   ctx.actions.run_shell(outputs=[binary], command='echo')",
+        "   provider = apple_common.new_dynamic_framework_provider(",
+        "      binary = binary,",
+        "      cc_info = CcInfo(),",
+        "   )",
+        "   return [provider]",
+        "binary = rule(",
+        "    implementation = binary_impl,",
+        ")");
+    scratch.file("a/BUILD", "load(':objc_rules.bzl', 'binary')", "binary(", "   name='bin',", ")");
+
+    ConfiguredTarget target = getConfiguredTarget("//a:bin");
+    AppleDynamicFrameworkInfo executableBinaryProvider =
+        target.get(AppleDynamicFrameworkInfo.STARLARK_CONSTRUCTOR);
+
+    assertThat(executableBinaryProvider).isNotNull();
+    assertThat(executableBinaryProvider.getDepsCcInfo()).isNotNull();
+    assertThat(executableBinaryProvider.getDepsObjcProvider()).isNotNull();
+  }
+
+  @Test
+  public void testDynamicFrameworkProviderDisallowsObjcProviderWithoutObjcLinkingApi()
+      throws Exception {
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_linking_info=true");
+    scratch.file(
+        "a/objc_rules.bzl",
+        "def binary_impl(ctx):",
+        "   binary = ctx.actions.declare_file('bin')",
+        "   ctx.actions.run_shell(outputs=[binary], command='echo')",
+        "   provider = apple_common.new_dynamic_framework_provider(",
+        "      binary = binary,",
+        "      cc_info = CcInfo(),",
+        "      objc = apple_common.new_objc_provider(),",
+        "   )",
+        "   return [provider]",
+        "binary = rule(",
+        "    implementation = binary_impl,",
+        ")");
+    scratch.file("a/BUILD", "load(':objc_rules.bzl', 'binary')", "binary(", "   name='bin',", ")");
+
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//a:bin"));
+
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            String.format(
+                AppleStarlarkCommon.DEPRECATED_OBJC_PROVIDER_ERROR, "AppleDynamicFrameworkInfo"));
+  }
+
+  @Test
+  public void testDynamicFrameworkProviderRequiresCcInfoWithoutObjcLinkingApi() throws Exception {
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_linking_info=true");
+    scratch.file(
+        "a/objc_rules.bzl",
+        "def binary_impl(ctx):",
+        "   binary = ctx.actions.declare_file('bin')",
+        "   ctx.actions.run_shell(outputs=[binary], command='echo')",
+        "   provider = apple_common.new_dynamic_framework_provider(",
+        "      binary = binary,",
+        "   )",
+        "   return [provider]",
+        "binary = rule(",
+        "   implementation = binary_impl,",
+        ")");
+    scratch.file("a/BUILD", "load(':objc_rules.bzl', 'binary')", "binary(", "   name='bin',", ")");
+
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//a:bin"));
+
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            String.format(AppleStarlarkCommon.REQUIRED_CC_INFO_ERROR, "AppleDynamicFrameworkInfo"));
+  }
+
+  private <E> void checkLinkingApiCanReadKey(ObjcProvider.Key<E> key) throws Exception {
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_linking_info=false");
+    scratch.file(
+        "a/objc_rules.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def impl(ctx):",
+        "   objc = ctx.attr.dep[apple_common.Objc]",
+        "   return MyInfo(",
+        "       info = objc." + key.getStarlarkKeyName(),
+        "   )",
+        "library_info = rule(",
+        "   implementation = impl,",
+        "   attrs = {'dep': attr.label(providers = [[apple_common.Objc]])}",
+        ")");
+    scratch.file(
+        "a/BUILD",
+        "load(':objc_rules.bzl', 'library_info')",
+        "objc_library(",
+        "   name='lib',",
+        "   srcs=['foo.m'],",
+        ")",
+        "library_info(",
+        "   name='info',",
+        "   dep=':lib'",
+        ")");
+    scratch.file("a/foo.m");
+
+    ConfiguredTarget target = getConfiguredTarget("//a:info");
+    StructImpl myInfo = getMyInfoFromTarget(target);
+
+    assertThat(myInfo).isNotNull();
+    assertThat(myInfo.getValue("info")).isNotNull();
+  }
+
+  @Test
+  public void testLinkingApiCanReadDynamicFrameworkFile() throws Exception {
+    checkLinkingApiCanReadKey(ObjcProvider.DYNAMIC_FRAMEWORK_FILE);
+  }
+
+  @Test
+  public void testLinkingApiCanReadForceLoadLibrary() throws Exception {
+    checkLinkingApiCanReadKey(ObjcProvider.FORCE_LOAD_LIBRARY);
+  }
+
+  @Test
+  public void testLinkingApiCanReadImportedLibrary() throws Exception {
+    checkLinkingApiCanReadKey(ObjcProvider.IMPORTED_LIBRARY);
+  }
+
+  @Test
+  public void testLinkingApiCanReadLibrary() throws Exception {
+    checkLinkingApiCanReadKey(ObjcProvider.LIBRARY);
+  }
+
+  @Test
+  public void testLinkingApiCanReadLinkInputs() throws Exception {
+    checkLinkingApiCanReadKey(ObjcProvider.LINK_INPUTS);
+  }
+
+  @Test
+  public void testLinkingApiCanReadLinkopt() throws Exception {
+    checkLinkingApiCanReadKey(ObjcProvider.LINKOPT);
+  }
+
+  @Test
+  public void testLinkingApiCanReadSdkDylib() throws Exception {
+    checkLinkingApiCanReadKey(ObjcProvider.SDK_DYLIB);
+  }
+
+  @Test
+  public void testLinkingApiCanReadSdkFramework() throws Exception {
+    checkLinkingApiCanReadKey(ObjcProvider.SDK_FRAMEWORK);
+  }
+
+  @Test
+  public void testLinkingApiCanReadStaticFrameworkFile() throws Exception {
+    checkLinkingApiCanReadKey(ObjcProvider.STATIC_FRAMEWORK_FILE);
+  }
+
+  @Test
+  public void testLinkingApiCanReadWeakSdkFramework() throws Exception {
+    checkLinkingApiCanReadKey(ObjcProvider.WEAK_SDK_FRAMEWORK);
+  }
+
+  private <E> void checkWithoutLinkingApiCannotReadKey(ObjcProvider.Key<E> key) throws Exception {
+    setBuildLanguageOptions("--incompatible_objc_provider_remove_linking_info=true");
+    scratch.file(
+        "a/objc_rules.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def impl(ctx):",
+        "   objc = ctx.attr.dep[apple_common.Objc]",
+        "   return MyInfo(",
+        "       info = objc." + key.getStarlarkKeyName(),
+        "   )",
+        "library_info = rule(",
+        "   implementation = impl,",
+        "   attrs = {'dep': attr.label(providers = [[apple_common.Objc]])}",
+        ")");
+    scratch.file(
+        "a/BUILD",
+        "load(':objc_rules.bzl', 'library_info')",
+        "objc_library(",
+        "   name='lib',",
+        "   srcs=['foo.m'],",
+        ")",
+        "library_info(",
+        "   name='info',",
+        "   dep=':lib'",
+        ")");
+    scratch.file("a/foo.m");
+
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//a:info"));
+
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            String.format(
+                "ObjcProvider' value has no field or method '%s'", key.getStarlarkKeyName()));
+  }
+
+  @Test
+  public void testWithoutLinkingApiCannotReadDynamicFrameworkFile() throws Exception {
+    checkWithoutLinkingApiCannotReadKey(ObjcProvider.DYNAMIC_FRAMEWORK_FILE);
+  }
+
+  @Test
+  public void testWithoutLinkingApiCannotReadForceLoadLibrary() throws Exception {
+    checkWithoutLinkingApiCannotReadKey(ObjcProvider.FORCE_LOAD_LIBRARY);
+  }
+
+  @Test
+  public void testWithoutLinkingApiCannotReadImportedLibrary() throws Exception {
+    checkWithoutLinkingApiCannotReadKey(ObjcProvider.IMPORTED_LIBRARY);
+  }
+
+  @Test
+  public void testWithoutLinkingApiCannotReadLibrary() throws Exception {
+    checkWithoutLinkingApiCannotReadKey(ObjcProvider.LIBRARY);
+  }
+
+  @Test
+  public void testWithoutLinkingApiCannotReadLinkInputs() throws Exception {
+    checkWithoutLinkingApiCannotReadKey(ObjcProvider.LINK_INPUTS);
+  }
+
+  @Test
+  public void testWithoutLinkingApiCannotReadLinkopt() throws Exception {
+    checkWithoutLinkingApiCannotReadKey(ObjcProvider.LINKOPT);
+  }
+
+  @Test
+  public void testWithoutLinkingApiCannotReadSdkDylib() throws Exception {
+    checkWithoutLinkingApiCannotReadKey(ObjcProvider.SDK_DYLIB);
+  }
+
+  @Test
+  public void testWithoutLinkingApiCannotReadSdkFramework() throws Exception {
+    checkWithoutLinkingApiCannotReadKey(ObjcProvider.SDK_FRAMEWORK);
+  }
+
+  @Test
+  public void testWithoutLinkingApiCannotReadStaticFrameworkFile() throws Exception {
+    checkWithoutLinkingApiCannotReadKey(ObjcProvider.STATIC_FRAMEWORK_FILE);
+  }
+
+  @Test
+  public void testWithoutLinkingApiCannotReadWeakSdkFramework() throws Exception {
+    checkWithoutLinkingApiCannotReadKey(ObjcProvider.WEAK_SDK_FRAMEWORK);
   }
 
   @Test
@@ -1410,7 +1982,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testGetExperimentalShorterHeaderPathForStarlarkIsPrivateAPI() throws Exception {
+  public void testGetExperimentalShorterHeaderPathForStarlarkIsPrivateApi() throws Exception {
     scratch.file(
         "foo/rule.bzl",
         "def _impl(ctx):",
@@ -1429,7 +2001,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testGetExperimentalJ2ObjcHeaderMapForStarlarkIsPrivateAPI() throws Exception {
+  public void testGetExperimentalJ2ObjcHeaderMapForStarlarkIsPrivateApi() throws Exception {
     scratch.file(
         "foo/rule.bzl",
         "def _impl(ctx):",
@@ -1448,7 +2020,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testGetRemoveDeadCodeFromJ2ObjcConfigurationForStarlarkIsPrivateAPI()
+  public void testGetRemoveDeadCodeFromJ2ObjcConfigurationForStarlarkIsPrivateApi()
       throws Exception {
     scratch.file(
         "foo/rule.bzl",
@@ -1468,7 +2040,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testJ2objcLibraryMigrationForStarlarkIsPrivateAPI() throws Exception {
+  public void testJ2objcLibraryMigrationForStarlarkIsPrivateApi() throws Exception {
     scratch.file(
         "foo/rule.bzl",
         "def _impl(ctx):",

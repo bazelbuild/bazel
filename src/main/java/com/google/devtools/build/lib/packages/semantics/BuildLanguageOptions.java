@@ -679,6 +679,15 @@ public final class BuildLanguageOptions extends OptionsBase {
               + " specified through features configuration.")
   public boolean experimentalGetFixedConfiguredEnvironment;
 
+  @Option(
+      name = "incompatible_objc_provider_remove_linking_info",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "If set to true, the ObjcProvider's APIs for linking info will be removed.")
+  public boolean incompatibleObjcProviderRemoveLinkingInfo;
+
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
    * never accumulate a large number of these and being able to shortcut on object identity makes a
@@ -772,6 +781,9 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 EXPERIMENTAL_GET_FIXED_CONFIGURED_ACTION_ENV,
                 experimentalGetFixedConfiguredEnvironment)
+            .setBool(
+                INCOMPATIBLE_OBJC_PROVIDER_REMOVE_LINKING_INFO,
+                incompatibleObjcProviderRemoveLinkingInfo)
             .build();
     return INTERNER.intern(semantics);
   }
@@ -858,6 +870,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-incompatible_disable_starlark_host_transitions";
   public static final String EXPERIMENTAL_GET_FIXED_CONFIGURED_ACTION_ENV =
       "-experimental_get_fixed_configured_action_env";
+  public static final String INCOMPATIBLE_OBJC_PROVIDER_REMOVE_LINKING_INFO =
+      "-incompatible_objc_provider_remove_linking_info";
 
   // non-booleans
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =
