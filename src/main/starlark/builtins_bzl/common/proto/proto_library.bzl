@@ -21,8 +21,6 @@ load(":common/proto/proto_common.bzl", "get_import_path", proto_common = "proto_
 load(":common/proto/proto_info.bzl", "ProtoInfo")
 load(":common/paths.bzl", "paths")
 
-PackageSpecificationInfo = _builtins.toplevel.PackageSpecificationInfo
-
 def _check_srcs_package(target_package, srcs):
     """Check that .proto files in sources are from the same package.
 
@@ -72,7 +70,7 @@ def _proto_library_impl(ctx):
     strip_import_prefix = _get_strip_import_prefix(ctx)
     check_for_reexport = deps + exports if not srcs else exports
     for proto in check_for_reexport:
-        if hasattr(proto, "allow_exports") and not proto.allow_exports[PackageSpecificationInfo].contains(ctx.label):
+        if hasattr(proto, "allow_exports") and not proto.allow_exports.isAvailableFor(ctx.label):
             fail("proto_library '%s' can't be reexported in package '//%s'" % (proto.direct_descriptor_set.owner, ctx.label.package))
 
     proto_path, virtual_srcs = _process_srcs(ctx, srcs, import_prefix, strip_import_prefix)

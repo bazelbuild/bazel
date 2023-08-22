@@ -14,8 +14,6 @@
 
 """Definition of proto_common module, together with bazel providers for proto rules."""
 
-PackageSpecificationInfo = _builtins.toplevel.PackageSpecificationInfo
-
 ProtoLangToolchainInfo = provider(
     doc = """Specifies how to generate language-specific code from .proto files.
             Used by LANG_proto_library rules.""",
@@ -122,12 +120,12 @@ def _check_collocated(label, proto_info, proto_lang_toolchain_info):
     """
     if (proto_info.direct_descriptor_set.owner.package != label.package and
         proto_lang_toolchain_info.allowlist_different_package):
-        if not proto_lang_toolchain_info.allowlist_different_package[PackageSpecificationInfo].contains(label):
+        if not proto_lang_toolchain_info.allowlist_different_package.isAvailableFor(label):
             fail(("lang_proto_library '%s' may only be created in the same package " +
                   "as proto_library '%s'") % (label, proto_info.direct_descriptor_set.owner))
     if (proto_info.direct_descriptor_set.owner.package != label.package and
         hasattr(proto_info, "allow_exports")):
-        if not proto_info.allow_exports[PackageSpecificationInfo].contains(label):
+        if not proto_info.allow_exports.isAvailableFor(label):
             fail(("lang_proto_library '%s' may only be created in the same package " +
                   "as proto_library '%s'") % (label, proto_info.direct_descriptor_set.owner))
 
