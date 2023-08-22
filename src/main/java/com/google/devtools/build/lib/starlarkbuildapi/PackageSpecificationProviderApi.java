@@ -14,12 +14,30 @@
 package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 
 /** Provider which describes a set of transitive package specifications used in package groups. */
 @StarlarkBuiltin(
     name = "PackageSpecificationInfo",
     doc = "Information about transitive package specifications used in package groups.",
     category = DocCategory.PROVIDER)
-public interface PackageSpecificationProviderApi extends StructApi {}
+public interface PackageSpecificationProviderApi extends StructApi {
+  @StarlarkMethod(
+      name = "contains",
+      doc = "Checks if a target exists in a package group.",
+      parameters = {
+        @Param(
+            name = "target",
+            positional = true,
+            doc = "A target which is checked if it exists inside the package group.",
+            allowedTypes = {@ParamType(type = Label.class), @ParamType(type = String.class)})
+      })
+  public boolean targetInAllowlist(Object target) throws EvalException, LabelSyntaxException;
+}
