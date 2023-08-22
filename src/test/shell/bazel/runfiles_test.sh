@@ -17,9 +17,28 @@
 # Test runfiles creation
 #
 
-# Load the test setup defined in the parent directory
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${CURRENT_DIR}/../integration_test_setup.sh" \
+# --- begin runfiles.bash initialization ---
+if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+    if [[ -f "$0.runfiles_manifest" ]]; then
+      export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
+    elif [[ -f "$0.runfiles/MANIFEST" ]]; then
+      export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
+    elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+      export RUNFILES_DIR="$0.runfiles"
+    fi
+fi
+if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+  source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
+elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
+            "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
+else
+  echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.bash"
+  exit 1
+fi
+# --- end runfiles.bash initialization ---
+
+source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 # Make sure runfiles are created under a custom-named subdirectory when
@@ -44,7 +63,7 @@ public class Noise {
 }
 EOF
 
-  bazel build //foo:foo >& $TEST_log || fail "Build failed"
+  bazel build foo:foo >& $TEST_log || fail "Build failed"
   [[ -d bazel-bin/foo/foo.runfiles/$name ]] || fail "$name runfiles directory not created"
   [[ -d bazel-bin/foo/foo.runfiles/$name/foo ]] || fail "No foo subdirectory under $name"
   [[ -x bazel-bin/foo/foo.runfiles/$name/foo/foo ]] || fail "No foo executable under $name"
@@ -72,7 +91,7 @@ public class Noise {
 }
 EOF
 
-  bazel build --enable_bzlmod //foo:foo >& $TEST_log || fail "Build failed"
+  bazel build --enable_bzlmod foo:foo >& $TEST_log || fail "Build failed"
   [[ -d bazel-bin/foo/foo.runfiles/_main ]] || fail "_main runfiles directory not created"
   [[ -d bazel-bin/foo/foo.runfiles/_main/foo ]] || fail "No foo subdirectory under _main"
   [[ -x bazel-bin/foo/foo.runfiles/_main/foo/foo ]] || fail "No foo executable under _main"
@@ -99,17 +118,17 @@ EOF
   cat > thing.cc <<EOF
 int main() { return 0; }
 EOF
-  bazel build --legacy_external_runfiles //:thing &> $TEST_log \
+  bazel build --legacy_external_runfiles :thing &> $TEST_log \
     || fail "Build failed"
   [[ -d bazel-bin/thing.runfiles/foo/external/bar ]] \
     || fail "bar not found"
 
-  bazel build --nolegacy_external_runfiles //:thing &> $TEST_log \
+  bazel build --nolegacy_external_runfiles :thing &> $TEST_log \
     || fail "Build failed"
   [[ ! -d bazel-bin/thing.runfiles/foo/external/bar ]] \
     || fail "Old bar still found"
 
-  bazel build --legacy_external_runfiles //:thing &> $TEST_log \
+  bazel build --legacy_external_runfiles :thing &> $TEST_log \
     || fail "Build failed"
   [[ -d bazel-bin/thing.runfiles/foo/external/bar ]] \
     || fail "bar not recreated"
@@ -142,14 +161,14 @@ sh_test(
 )
 EOF
 
-  bazel build --spawn_strategy=local --nobuild_runfile_links //:test \
+  bazel build --spawn_strategy=local --nobuild_runfile_links :test \
     || fail "Building //:test failed"
 
   [[ ! -f bazel-bin/test.runfiles/foo/data/hello ]] || fail "expected no runfile data/hello"
   [[ ! -f bazel-bin/test.runfiles/foo/data/world ]] || fail "expected no runfile data/world"
   [[ ! -f bazel-bin/test.runfiles/MANIFEST ]] || fail "expected output manifest to not exist"
 
-  bazel test --spawn_strategy=local --nobuild_runfile_links //:test \
+  bazel test --spawn_strategy=local --nobuild_runfile_links :test \
     || fail "Testing //:foo failed"
 
   [[ -f bazel-bin/test.runfiles/foo/data/hello ]] || fail "expected runfile data/hello to exist"
@@ -191,7 +210,7 @@ sh_binary(
 )
 EOF
 
-  bazel build --spawn_strategy=local --nobuild_runfile_links //:hello //:world \
+  bazel build --spawn_strategy=local --nobuild_runfile_links :hello :world \
     || fail "Building //:hello and //:world failed"
 
   [[ ! -f bazel-bin/hello.runfiles/foo/data/hello ]] || fail "expected no runfile data/hello"
@@ -199,7 +218,7 @@ EOF
   [[ ! -f bazel-bin/world.runfiles/foo/data/world ]] || fail "expected no runfile data/world"
   [[ ! -f bazel-bin/world.runfiles/MANIFEST ]] || fail "expected output manifest world to not exist"
 
-  bazel run --spawn_strategy=local --nobuild_runfile_links --run_under //:hello //:world \
+  bazel run --spawn_strategy=local --nobuild_runfile_links --run_under :hello :world \
     || fail "Testing //:foo failed"
 
   [[ -f bazel-bin/hello.runfiles/foo/data/hello ]] || fail "expected runfile data/hello to exist"

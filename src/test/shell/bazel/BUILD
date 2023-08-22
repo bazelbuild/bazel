@@ -868,7 +868,6 @@ sh_test(
     srcs = ["runfiles_test.sh"],
     data = [":test-deps"],
     tags = [
-        "no_windows",
         "requires-network",
     ],
 )
