@@ -718,6 +718,6 @@ public interface StarlarkRuleFunctionsApi {
       },
       useStarlarkThread = true)
   ExecGroupApi execGroup(
-      Sequence<?> execCompatibleWith, Sequence<?> toolchains, StarlarkThread thread)
+      Sequence<?> toolchains, Sequence<?> execCompatibleWith, StarlarkThread thread)
       throws EvalException;
 }
