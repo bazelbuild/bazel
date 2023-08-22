@@ -14,10 +14,12 @@
 package com.google.devtools.build.lib.bazel.rules.android;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.android.AndroidBinary;
@@ -34,8 +36,18 @@ import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 public class BazelAndroidSemantics implements AndroidSemantics {
   public static final BazelAndroidSemantics INSTANCE = new BazelAndroidSemantics();
 
-  private BazelAndroidSemantics() {
-  }
+  private static final ImmutableSet<PackageIdentifier> STARLARK_MIGRATION_NATIVE_USAGE_ALLOW_LIST =
+      // Internal package identifiers that are allowed to use the native Android rules until they
+      // can be fully moved into the rules_android Starlark implementation.
+      ImmutableSet.<PackageIdentifier>builder()
+          .add(
+              PackageIdentifier.createUnchecked(
+                  "bazel_tools",
+                  "src/tools/android/java/com/google/devtools/build/android/incrementaldeployment"))
+          .add(PackageIdentifier.createUnchecked("bazel_tools", "tools/android"))
+          .build();
+
+  private BazelAndroidSemantics() {}
 
   @Override
   public String getNativeDepsFileName() {
@@ -103,6 +115,11 @@ public class BazelAndroidSemantics implements AndroidSemantics {
 
   @Override
   public void registerMigrationRuleError(RuleContext ruleContext) throws RuleErrorException {
+    if (STARLARK_MIGRATION_NATIVE_USAGE_ALLOW_LIST.contains(
+        ruleContext.getLabel().getPackageIdentifier())) {
+      return;
+    }
+
     ruleContext.attributeError(
         "tags",
         "The native Android rules are deprecated. Please use the Starlark Android rules by adding "
