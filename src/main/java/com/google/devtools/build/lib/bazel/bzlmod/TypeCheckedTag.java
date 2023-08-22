@@ -23,8 +23,11 @@ import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.Structure;
 import net.starlark.java.spelling.SpellChecker;
+import net.starlark.java.syntax.Location;
 
 /**
  * A {@link Tag} whose attribute values have been type-checked against the attribute schema define
@@ -36,10 +39,21 @@ public class TypeCheckedTag implements Structure {
   private final Object[] attrValues;
   private final boolean devDependency;
 
-  private TypeCheckedTag(TagClass tagClass, Object[] attrValues, boolean devDependency) {
+  // The properties below are only used for error reporting.
+  private final Location location;
+  private final String tagClassName;
+
+  private TypeCheckedTag(
+      TagClass tagClass,
+      Object[] attrValues,
+      boolean devDependency,
+      Location location,
+      String tagClassName) {
     this.tagClass = tagClass;
     this.attrValues = attrValues;
     this.devDependency = devDependency;
+    this.location = location;
+    this.tagClassName = tagClassName;
   }
 
   /** Creates a {@link TypeCheckedTag}. */
@@ -97,7 +111,8 @@ public class TypeCheckedTag implements Structure {
         attrValues[i] = Attribute.valueToStarlark(attr.getDefaultValueUnchecked());
       }
     }
-    return new TypeCheckedTag(tagClass, attrValues, tag.isDevDependency());
+    return new TypeCheckedTag(
+        tagClass, attrValues, tag.isDevDependency(), tag.getLocation(), tag.getTagName());
   }
 
   /**
@@ -132,5 +147,10 @@ public class TypeCheckedTag implements Structure {
   @Override
   public String getErrorMessageForUnknownField(String field) {
     return "unknown attribute " + field;
+  }
+
+  @Override
+  public void debugPrint(Printer printer, StarlarkSemantics semantics) {
+    printer.append(String.format("'%s' tag at %s", tagClassName, location));
   }
 }

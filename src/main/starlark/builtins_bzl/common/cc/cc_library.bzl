@@ -151,7 +151,7 @@ def _cc_library_impl(ctx):
             compilation_outputs = compilation_outputs,
             cc_toolchain = cc_toolchain,
             feature_configuration = feature_configuration,
-            additional_inputs = _filter_linker_scripts(ctx.files.deps),
+            additional_inputs = _filter_linker_scripts(ctx.files.deps) + ctx.files.additional_linker_inputs,
             linking_contexts = linking_contexts,
             grep_includes = ctx.executable._grep_includes,
             user_link_flags = common.linkopts,
@@ -209,11 +209,12 @@ def _cc_library_impl(ctx):
     else:
         user_link_flags = common.linkopts
         linker_scripts = _filter_linker_scripts(ctx.files.deps)
-        if len(common.linkopts) > 0 or len(linker_scripts) > 0 or not semantics.should_create_empty_archive():
+        additional_linker_inputs = ctx.files.additional_linker_inputs
+        if len(user_link_flags) > 0 or len(linker_scripts) > 0 or len(additional_linker_inputs) > 0 or not semantics.should_create_empty_archive():
             linker_input = cc_common.create_linker_input(
                 owner = ctx.label,
                 user_link_flags = common.linkopts,
-                additional_inputs = depset(linker_scripts),
+                additional_inputs = depset(linker_scripts + additional_linker_inputs),
             )
             contexts_to_merge.append(cc_common.create_linking_context(linker_inputs = depset([linker_input])))
 
@@ -583,6 +584,10 @@ attrs = {
     "linkstamp": attr.label(allow_single_file = True),
     "linkopts": attr.string_list(),
     "nocopts": attr.string(),
+    "additional_linker_inputs": attr.label_list(
+        allow_files = True,
+        flags = ["ORDER_INDEPENDENT", "DIRECT_COMPILE_TIME_INPUT"],
+    ),
     "includes": attr.string_list(),
     "defines": attr.string_list(),
     "copts": attr.string_list(),
