@@ -56,6 +56,172 @@ public interface JavaCommonApi<
     extends StarlarkValue {
 
   @StarlarkMethod(
+      name = "merge",
+      doc = "Merges the given providers into a single JavaInfo.",
+      parameters = {
+        @Param(
+            name = "providers",
+            positional = true,
+            named = false,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
+            doc = "The list of providers to merge.")
+      })
+  default JavaInfoT mergeJavaProviders(Sequence<?> providers /* <JavaInfoT> expected. */)
+      throws EvalException {
+    throw new UnsupportedOperationException();
+  }
+
+  @StarlarkMethod(
+      name = "pack_sources",
+      doc =
+          "Packs sources and source jars into a single source jar file. "
+              + "The return value is typically passed to"
+              + "<p><code><a class=\"anchor\" href=\"../providers/JavaInfo.html\">"
+              + "JavaInfo</a>#source_jar</code></p>."
+              + "At least one of parameters output_jar or output_source_jar is required.",
+      parameters = {
+        @Param(name = "actions", named = true, doc = "ctx.actions"),
+        @Param(
+            name = "output_jar",
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = FileApi.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            doc =
+                "Deprecated: The output jar of the rule. Used to name the resulting source jar. "
+                    + "The parameter sets output_source_jar parameter to `{output_jar}-src.jar`."
+                    + "Use output_source_jar parameter directly instead.",
+            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_JAVA_COMMON_PARAMETERS,
+            valueWhenDisabled = "None"),
+        @Param(
+            name = "output_source_jar",
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = FileApi.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            doc = "The output source jar."),
+        @Param(
+            name = "sources",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
+            defaultValue = "[]",
+            doc = "A list of Java source files to be packed into the source jar."),
+        @Param(
+            name = "source_jars",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
+            defaultValue = "[]",
+            doc = "A list of source jars to be packed into the source jar."),
+        @Param(
+            name = "java_toolchain",
+            positional = false,
+            named = true,
+            doc = "A JavaToolchainInfo to used to find the ijar tool."),
+        @Param(
+            name = "host_javabase",
+            positional = false,
+            named = true,
+            doc =
+                "Deprecated: You can drop this parameter (host_javabase is provided with "
+                    + "java_toolchain)",
+            defaultValue = "None",
+            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_JAVA_COMMON_PARAMETERS,
+            valueWhenDisabled = "None"),
+      })
+  default FileApi packSources(
+      StarlarkActionFactoryT actions,
+      Object outputJar,
+      Object outputSourceJar,
+      Sequence<?> sourceFiles, // <FileT> expected.
+      Sequence<?> sourceJars, // <FileT> expected.
+      JavaToolchainT javaToolchain,
+      Object hostJavabase)
+      throws EvalException {
+    throw new UnsupportedOperationException();
+  }
+
+  @StarlarkMethod(
+      name = "stamp_jar",
+      doc =
+          "Stamps a jar with a target label for <code>add_dep</code> support. "
+              + "The return value is typically passed to "
+              + "<code><a class=\"anchor\" href=\"../providers/JavaInfo.html\">"
+              + "JavaInfo</a>#compile_jar</code>. "
+              + "Prefer to use "
+              + "<code><a class=\"anchor\" href=\"#run_ijar\">run_ijar</a></code> "
+              + "when possible.",
+      parameters = {
+        @Param(name = "actions", named = true, doc = "ctx.actions"),
+        @Param(
+            name = "jar",
+            positional = false,
+            named = true,
+            doc = "The jar to run stamp_jar on."),
+        @Param(
+            name = "target_label",
+            positional = false,
+            named = true,
+            doc =
+                "A target label to stamp the jar with. Used for <code>add_dep</code> support. "
+                    + "Typically, you would pass <code>ctx.label</code> to stamp the jar "
+                    + "with the current rule's label."),
+        @Param(
+            name = "java_toolchain",
+            positional = false,
+            named = true,
+            doc = "A JavaToolchainInfo to used to find the stamp_jar tool."),
+      })
+  default FileApi stampJar(
+      StarlarkActionFactoryT actions, FileT jar, Label targetLabel, JavaToolchainT javaToolchain)
+      throws EvalException {
+    throw new UnsupportedOperationException();
+  }
+
+  @StarlarkMethod(
+      name = "run_ijar",
+      doc =
+          "Runs ijar on a jar, stripping it of its method bodies. This helps reduce rebuilding "
+              + "of dependent jars during any recompiles consisting only of simple changes to "
+              + "method implementations. The return value is typically passed to "
+              + "<code><a class=\"anchor\" href=\"../providers/JavaInfo.html\">"
+              + "JavaInfo</a>#compile_jar</code>.",
+      parameters = {
+        @Param(name = "actions", named = true, doc = "ctx.actions"),
+        @Param(name = "jar", positional = false, named = true, doc = "The jar to run ijar on."),
+        @Param(
+            name = "target_label",
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = Label.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            doc =
+                "A target label to stamp the jar with. Used for <code>add_dep</code> support. "
+                    + "Typically, you would pass <code>ctx.label</code> to stamp the jar "
+                    + "with the current rule's label."),
+        @Param(
+            name = "java_toolchain",
+            positional = false,
+            named = true,
+            doc = "A JavaToolchainInfo to used to find the ijar tool."),
+      })
+  default FileApi runIjar(
+      StarlarkActionFactoryT actions, FileT jar, Object targetLabel, JavaToolchainT javaToolchain)
+      throws EvalException {
+    throw new UnsupportedOperationException();
+  }
+
+  @StarlarkMethod(
       name = "compile",
       doc =
           "Compiles Java source files/jars from the implementation of a Starlark rule and returns "
