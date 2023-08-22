@@ -182,6 +182,8 @@ public final class JavaToolchainProvider extends NativeInfo
   private final FilesToRunProvider ijar;
   private final ImmutableListMultimap<String, String> compatibleJavacOptions;
   private final ImmutableList<String> javacOptions;
+  private final String sourceVersion;
+  private final String targetVersion;
   private final NestedSet<String> jvmOptions;
   private final boolean javacSupportsWorkers;
   private final boolean javacSupportsMultiplexWorkers;
@@ -249,6 +251,8 @@ public final class JavaToolchainProvider extends NativeInfo
     this.ijar = ijar;
     this.compatibleJavacOptions = compatibleJavacOptions;
     this.javacOptions = javacOptions;
+    this.sourceVersion = findSourceVersion(javacOptions);
+    this.targetVersion = findTargetVersion(javacOptions);
     this.jvmOptions = jvmOptions;
     this.javacSupportsWorkers = javacSupportsWorkers;
     this.javacSupportsMultiplexWorkers = javacSupportsMultiplexWorkers;
@@ -507,6 +511,10 @@ public final class JavaToolchainProvider extends NativeInfo
   // TODO(cushon): remove this API; it bakes a deprecated detail of the javac API into Bazel
   @Override
   public String getSourceVersion() {
+    return sourceVersion;
+  }
+
+  private static String findSourceVersion(ImmutableList<String> javacOptions) {
     Iterator<String> it = javacOptions.iterator();
     while (it.hasNext()) {
       if (it.next().equals("-source") && it.hasNext()) {
@@ -520,6 +528,10 @@ public final class JavaToolchainProvider extends NativeInfo
   // TODO(cushon): remove this API; it bakes a deprecated detail of the javac API into Bazel
   @Override
   public String getTargetVersion() {
+    return targetVersion;
+  }
+
+  private static String findTargetVersion(ImmutableList<String> javacOptions) {
     Iterator<String> it = javacOptions.iterator();
     while (it.hasNext()) {
       if (it.next().equals("-target") && it.hasNext()) {
