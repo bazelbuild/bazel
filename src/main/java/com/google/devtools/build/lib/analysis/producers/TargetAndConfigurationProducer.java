@@ -229,14 +229,7 @@ public final class TargetAndConfigurationProducer
       return DONE;
     }
 
-    ConfigurationTransition transition =
-        computeTransition(target.getAssociatedRule(), trimmingTransitionFactory);
-    if (transition == null) {
-      lookUpConfigurationValue(tasks);
-      return DONE;
-    }
-
-    return new RuleTransitionApplier(transition);
+    return new RuleTransitionApplier();
   }
 
   private void delegateTo(Tasks tasks, ActionLookupKey delegate) {
@@ -274,19 +267,12 @@ public final class TargetAndConfigurationProducer
           TransitionApplier.ResultSink,
           ConfigConditionsProducer.ResultSink,
           PlatformInfoProducer.ResultSink {
-    // -------------------- Input --------------------
-    private final ConfigurationTransition transition;
     // -------------------- Internal State --------------------
-    private BuildConfigurationKey configurationKey;
-
-    private RuleTransitionApplier(ConfigurationTransition transition) {
-      this.transition = transition;
-    }
-
-    private ConfigConditions configConditions;
-
     @Nullable private PlatformInfo platformInfo;
-
+    private ConfigConditions configConditions;
+    private ConfigurationTransition ruleTransition;
+    private BuildConfigurationKey configurationKey;
+        
     @Override
     public StateMachine step(Tasks tasks) throws InterruptedException {
 
@@ -316,6 +302,7 @@ public final class TargetAndConfigurationProducer
       return DONE;
     }
 
+    // TODO: @aranguyen b/297077082
     public UnloadedToolchainContextsInputs getUnloadedToolchainContextsInputs(
         Target target, @Nullable Label parentExecutionPlatformLabel) throws InterruptedException {
       if (!(target instanceof Rule)) {
@@ -450,6 +437,7 @@ public final class TargetAndConfigurationProducer
 
     @CanIgnoreReturnValue
     public StateMachine computeConfigConditions(Tasks tasks) {
+      // TODO @aranguyen b/297077082
       tasks.enqueue(
           new ConfigConditionsProducer(
               target,
@@ -488,9 +476,17 @@ public final class TargetAndConfigurationProducer
           transition = trimmingTransition;
         }
       }
+
+      if (transition == null) {
+        lookUpConfigurationValue(tasks);
+        return DONE;
+      }
+
+      this.ruleTransition = transition;
+
       return new TransitionApplier(
           preRuleTransitionKey.getConfigurationKey(),
-          transition,
+          ruleTransition,
           transitionCache,
           (TransitionApplier.ResultSink) this,
           eventHandler,
@@ -592,7 +588,7 @@ public final class TargetAndConfigurationProducer
       public StateMachine step(Tasks tasks) {
         return new TransitionApplier(
             configurationKey,
-            transition,
+            ruleTransition,
             transitionCache,
             (TransitionApplier.ResultSink) this,
             eventHandler,
@@ -683,6 +679,7 @@ public final class TargetAndConfigurationProducer
   }
 
   // Public for Cquery.
+  // TODO: @aranguyen keep cquery in sync with ConfiguredTargetFunction
   @Nullable
   public static ConfigurationTransition computeTransition(
       Rule rule, @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory) {
