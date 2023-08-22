@@ -390,6 +390,60 @@ public final class ModuleInfoExtractorTest {
   }
 
   @Test
+  public void providerInit() throws Exception {
+    Module module =
+        exec(
+            "def _my_info_init(x_value, y_value = 0):",
+            "    '''MyInfo constructor",
+            "",
+            "    Args:",
+            "        x_value: my x value",
+            "        y_value: my y value",
+            "    '''",
+            "    return {'x': x_value, 'y': y_value}",
+            "",
+            "_MyInfo, _new_my_info = provider(",
+            "    doc = '''My provider''',",
+            "    fields = ['x', 'y'],",
+            "    init = _my_info_init,",
+            ")",
+            "",
+            "namespace = struct(",
+            "    MyInfo = _MyInfo,",
+            ")");
+    ModuleInfo moduleInfo = getExtractor().extractFrom(module);
+    assertThat(moduleInfo.getProviderInfoList())
+        .containsExactly(
+            ProviderInfo.newBuilder()
+                .setProviderName("namespace.MyInfo")
+                .setDocString("My provider")
+                .addFieldInfo(ProviderFieldInfo.newBuilder().setName("x"))
+                .addFieldInfo(ProviderFieldInfo.newBuilder().setName("y"))
+                .setInit(
+                    StarlarkFunctionInfo.newBuilder()
+                        .setFunctionName("namespace.MyInfo")
+                        .setDocString("MyInfo constructor")
+                        .addParameter(
+                            FunctionParamInfo.newBuilder()
+                                .setName("x_value")
+                                .setDocString("my x value")
+                                .setMandatory(true)
+                                .build())
+                        .addParameter(
+                            FunctionParamInfo.newBuilder()
+                                .setName("y_value")
+                                .setDocString("my y value")
+                                .setDefaultValue("0")
+                                .build())
+                        .setOriginKey(
+                            OriginKey.newBuilder()
+                                .setName("_my_info_init")
+                                .setFile(fakeLabelString)))
+                .setOriginKey(OriginKey.newBuilder().setName("_MyInfo").setFile(fakeLabelString))
+                .build());
+  }
+
+  @Test
   public void ruleDocstring() throws Exception {
     Module module =
         exec(

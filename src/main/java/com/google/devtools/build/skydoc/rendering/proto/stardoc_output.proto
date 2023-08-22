@@ -241,11 +241,14 @@ message ProviderInfo {
   // The fields of the provider.
   repeated ProviderFieldInfo field_info = 3;
 
+  // Note: legacy Stardoc (0.5.x and earlier) does not set any fields below.
+
   // The module where and the name under which the provider was originally
   // declared.
-  //
-  // Note: legacy Stardoc (0.5.x and earlier) does not set this field.
   OriginKey origin_key = 4;
+
+  // The provider's init callback.
+  StarlarkFunctionInfo init = 5;
 }
 
 // Representation of a Starlark aspect definition.

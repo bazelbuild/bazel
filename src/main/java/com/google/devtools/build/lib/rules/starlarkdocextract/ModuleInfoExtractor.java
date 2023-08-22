@@ -218,7 +218,8 @@ final class ModuleInfoExtractor {
     protected void visitRule(String qualifiedName, StarlarkRuleFunction value)
         throws ExtractionException {}
 
-    protected void visitProvider(String qualifiedName, StarlarkProvider value) {}
+    protected void visitProvider(String qualifiedName, StarlarkProvider value)
+        throws ExtractionException {}
 
     protected void visitFunction(String qualifiedName, StarlarkFunction value)
         throws ExtractionException {}
@@ -376,7 +377,8 @@ final class ModuleInfoExtractor {
     }
 
     @Override
-    protected void visitProvider(String qualifiedName, StarlarkProvider provider) {
+    protected void visitProvider(String qualifiedName, StarlarkProvider provider)
+        throws ExtractionException {
       ProviderInfo.Builder providerInfoBuilder = ProviderInfo.newBuilder();
       // Record the name under which this symbol is made accessible, which may differ from the
       // symbol's exported name.
@@ -408,6 +410,22 @@ final class ModuleInfoExtractor {
           }
         }
       }
+      // TODO(b/276733504): if init is a dict-returning native method (e.g. `dict`), do we document
+      // it? (This is very unlikely to be useful at present, and would require parsing annotations
+      // on the native method.)
+      if (provider.getInit() instanceof StarlarkFunction) {
+        try {
+          providerInfoBuilder.setInit(
+              StarlarkFunctionInfoExtractor.fromNameAndFunction(
+                  qualifiedName,
+                  (StarlarkFunction) provider.getInit(),
+                  /* withOriginKey= */ true,
+                  labelRenderer));
+        } catch (DocstringParseException e) {
+          throw new ExtractionException(e);
+        }
+      }
+
       moduleInfoBuilder.addProviderInfo(providerInfoBuilder);
     }
 

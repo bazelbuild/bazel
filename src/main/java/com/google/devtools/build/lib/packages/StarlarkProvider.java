@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.packages;
 
-
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -306,8 +304,10 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
     return new RawConstructor(this);
   }
 
+  /**
+   * Returns the provider's custom initializer callback, or null if the provider doesn't have one.
+   */
   @Nullable
-  @VisibleForTesting
   public StarlarkCallable getInit() {
     return init;
   }
