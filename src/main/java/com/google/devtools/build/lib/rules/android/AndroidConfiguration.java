@@ -683,7 +683,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
     @Option(
         name = "experimental_android_databinding_v2",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
         effectTags = {
           OptionEffectTag.AFFECTS_OUTPUTS,
@@ -691,12 +691,12 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
           OptionEffectTag.LOSES_INCREMENTAL_STATE,
         },
         metadataTags = OptionMetadataTag.EXPERIMENTAL,
-        help = "Use android databinding v2")
+        help = "Use android databinding v2. This flag is a no-op.")
     public boolean dataBindingV2;
 
     @Option(
         name = "android_databinding_use_v3_4_args",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
         effectTags = {
           OptionEffectTag.AFFECTS_OUTPUTS,
@@ -704,12 +704,12 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
           OptionEffectTag.LOSES_INCREMENTAL_STATE,
         },
         metadataTags = OptionMetadataTag.EXPERIMENTAL,
-        help = "Use android databinding v2 with 3.4.0 argument")
+        help = "Use android databinding v2 with 3.4.0 argument. This flag is a no-op.")
     public boolean dataBindingUpdatedArgs;
 
     @Option(
         name = "android_databinding_use_androidx",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
         effectTags = {
           OptionEffectTag.AFFECTS_OUTPUTS,
@@ -719,7 +719,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         metadataTags = OptionMetadataTag.EXPERIMENTAL,
         help =
             "Generate AndroidX-compatible data-binding files. "
-                + "This is only used with databinding v2.")
+                + "This is only used with databinding v2. This flag is a no-op.")
     public boolean dataBindingAndroidX;
 
     @Option(
@@ -1185,9 +1185,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean fixedResourceNeverlinking;
   private final boolean checkForMigrationTag;
   private final boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
-  private final boolean dataBindingV2;
-  private final boolean dataBindingUpdatedArgs;
-  private final boolean dataBindingAndroidX;
   private final boolean persistentAarExtractor;
   private final boolean persistentBusyboxTools;
   private final boolean persistentMultiplexBusyboxTools;
@@ -1248,9 +1245,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.checkForMigrationTag = options.checkForMigrationTag || options.disableNativeAndroidRules;
     this.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
         options.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
-    this.dataBindingV2 = options.dataBindingV2;
-    this.dataBindingUpdatedArgs = options.dataBindingUpdatedArgs;
-    this.dataBindingAndroidX = options.dataBindingAndroidX;
     this.persistentAarExtractor = options.persistentAarExtractor;
     this.persistentBusyboxTools = options.persistentBusyboxTools;
     this.persistentMultiplexBusyboxTools = options.persistentMultiplexBusyboxTools;
@@ -1477,21 +1471,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public boolean getOneVersionEnforcementUseTransitiveJarsForBinaryUnderTest() {
     return oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
-  }
-
-  @Override
-  public boolean useDataBindingV2() {
-    return dataBindingV2;
-  }
-
-  @Override
-  public boolean useDataBindingUpdatedArgs() {
-    return dataBindingUpdatedArgs;
-  }
-
-  @Override
-  public boolean useDataBindingAndroidX() {
-    return dataBindingAndroidX;
   }
 
   @Override

@@ -68,11 +68,6 @@ public abstract class AndroidDataBindingV2Test extends AndroidBuildViewTestCase 
     }
   }
 
-  @Before
-  public void setDataBindingV2Flag() throws Exception {
-    useConfiguration("--experimental_android_databinding_v2");
-  }
-
   private void writeDataBindingLibrariesFiles() throws Exception {
 
     scratch.file(
@@ -298,13 +293,10 @@ public abstract class AndroidDataBindingV2Test extends AndroidBuildViewTestCase 
         .containsExactly(
             appDependentLibArtifacts
                 + "java/android/library/databinding/"
-                + "lib_with_databinding/bin-files/android.library-android.library-br.bin",
-            appDependentLibArtifacts
-                + "java/android/library/databinding/"
-                + "lib_with_databinding/bin-files/android.library-android.library-setter_store.bin",
+                + "lib_with_databinding/bin-files/android.library-br.bin",
             appDependentLibArtifacts
                 + "java/android/library2/databinding/"
-                + "lib2_with_databinding/bin-files/android.library2-android.library2-br.bin");
+                + "lib2_with_databinding/bin-files/android.library2-br.bin");
   }
 
   @Test
@@ -317,19 +309,10 @@ public abstract class AndroidDataBindingV2Test extends AndroidBuildViewTestCase 
     JavaCompileAction binCompileAction =
         (JavaCompileAction)
             getGeneratingAction(getFirstArtifactEndingWith(allArtifacts, "app.jar"));
-    String dataBindingFilesDir =
-        targetConfig
-            .getBinDirectory(RepositoryName.MAIN)
-            .getExecPath()
-            .getRelative("java/android/binary/databinding/app")
-            .getPathString();
     ImmutableList<String> expectedJavacopts =
         ImmutableList.of(
-            "-Aandroid.databinding.bindingBuildFolder=" + dataBindingFilesDir,
-            "-Aandroid.databinding.generationalFileOutDir=" + dataBindingFilesDir,
             "-Aandroid.databinding.sdkDir=/not/used",
             "-Aandroid.databinding.artifactType=APPLICATION",
-            "-Aandroid.databinding.exportClassListTo=/tmp/exported_classes",
             "-Aandroid.databinding.modulePackage=android.binary",
             "-Aandroid.databinding.minApi=14",
             "-Aandroid.databinding.enableV2=1",
@@ -347,8 +330,7 @@ public abstract class AndroidDataBindingV2Test extends AndroidBuildViewTestCase 
 
   @Test
   public void dataBindingAnnotationProcessorFlags_v3_4() throws Exception {
-    useConfiguration(
-        "--experimental_android_databinding_v2", "--android_databinding_use_v3_4_args");
+
     writeDataBindingFiles();
 
     ConfiguredTarget ctapp = getConfiguredTarget("//java/android/binary:app");
@@ -412,7 +394,7 @@ public abstract class AndroidDataBindingV2Test extends AndroidBuildViewTestCase 
     String libWithResourcesMetadataBaseDir =
         "java/android/binary/databinding/app/"
             + "dependent-lib-artifacts/java/android/lib_with_resource_files/databinding/"
-            + "lib_with_resource_files/bin-files/android.lib_with_resource_files-";
+            + "lib_with_resource_files/bin-files/";
 
     assertThat(appJarInputs)
         .containsAtLeast(
@@ -492,7 +474,7 @@ public abstract class AndroidDataBindingV2Test extends AndroidBuildViewTestCase 
   @Test
   public void dataBindingProviderIsProvided() throws Exception {
 
-    useConfiguration("--android_sdk=//sdk:sdk", "--experimental_android_databinding_v2");
+    useConfiguration("--android_sdk=//sdk:sdk");
 
     scratch.file(
         "sdk/BUILD",
@@ -543,7 +525,7 @@ public abstract class AndroidDataBindingV2Test extends AndroidBuildViewTestCase 
             dataBindingV2Provider.getSetterStores().toList().stream()
                 .map(Artifact::getRootRelativePathString)
                 .collect(Collectors.toList()))
-        .containsExactly("java/a/databinding/a/bin-files/a-a-setter_store.bin");
+        .containsExactly("java/a/databinding/a/bin-files/a-setter_store.json");
 
     assertThat(
             dataBindingV2Provider.getClassInfos().toList().stream()
@@ -555,13 +537,13 @@ public abstract class AndroidDataBindingV2Test extends AndroidBuildViewTestCase 
             dataBindingV2Provider.getTransitiveBRFiles().toList().stream()
                 .map(Artifact::getRootRelativePathString)
                 .collect(Collectors.toList()))
-        .containsExactly("java/a/databinding/a/bin-files/a-a-br.bin");
+        .containsExactly("java/a/databinding/a/bin-files/a-br.bin");
   }
 
   @Test
   public void ensureDataBindingProviderIsPropagatedThroughNonDataBindingLibs() throws Exception {
 
-    useConfiguration("--android_sdk=//sdk:sdk", "--experimental_android_databinding_v2");
+    useConfiguration("--android_sdk=//sdk:sdk");
 
     scratch.file(
         "sdk/BUILD",
@@ -606,7 +588,7 @@ public abstract class AndroidDataBindingV2Test extends AndroidBuildViewTestCase 
   @Test
   public void testDataBindingCollectedThroughExports() throws Exception {
 
-    useConfiguration("--android_sdk=//sdk:sdk", "--experimental_android_databinding_v2");
+    useConfiguration("--android_sdk=//sdk:sdk");
 
     scratch.file(
         "sdk/BUILD",
@@ -670,16 +652,15 @@ public abstract class AndroidDataBindingV2Test extends AndroidBuildViewTestCase 
                 .map(Artifact::getRootRelativePathString)
                 .collect(Collectors.toList()))
         .containsExactly(
-            "java/a/databinding/a/bin-files/a-a-setter_store.bin",
-            "java/b/databinding/b/bin-files/b-b-setter_store.bin");
+            "java/a/databinding/a/bin-files/a-setter_store.json",
+            "java/b/databinding/b/bin-files/b-setter_store.json");
 
     assertThat(
             provider.getTransitiveBRFiles().toList().stream()
                 .map(Artifact::getRootRelativePathString)
                 .collect(Collectors.toList()))
         .containsExactly(
-            "java/a/databinding/a/bin-files/a-a-br.bin",
-            "java/b/databinding/b/bin-files/b-b-br.bin");
+            "java/a/databinding/a/bin-files/a-br.bin", "java/b/databinding/b/bin-files/b-br.bin");
   }
 
   @Test
@@ -1127,26 +1108,7 @@ public abstract class AndroidDataBindingV2Test extends AndroidBuildViewTestCase 
   }
 
   @Test
-  public void dataBinding_aapt2PackageAction_withoutAndroidX_doesNotPassAndroidXFlag()
-      throws Exception {
-    useConfiguration(
-        "--experimental_android_databinding_v2", "--android_databinding_use_v3_4_args");
-    writeDataBindingFiles();
-
-    ConfiguredTarget ctapp = getConfiguredTarget("//java/android/binary:app");
-    Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ctapp));
-
-    Artifact aapt2PackageArtifact = getAapt2PackgeActionArtifact(allArtifacts);
-    assertThat(getGeneratingSpawnActionArgs(aapt2PackageArtifact))
-        .doesNotContain("--useDataBindingAndroidX");
-  }
-
-  @Test
   public void dataBinding_aapt2PackageAction_withAndroidX_passesAndroidXFlag() throws Exception {
-    useConfiguration(
-        "--experimental_android_databinding_v2",
-        "--android_databinding_use_v3_4_args",
-        "--android_databinding_use_androidx");
     writeDataBindingFiles();
 
     ConfiguredTarget ctapp = getConfiguredTarget("//java/android/binary:app");
@@ -1155,30 +1117,11 @@ public abstract class AndroidDataBindingV2Test extends AndroidBuildViewTestCase 
     Artifact aapt2PackageArtifact = getAapt2PackgeActionArtifact(allArtifacts);
     assertThat(getGeneratingSpawnActionArgs(aapt2PackageArtifact))
         .contains("--useDataBindingAndroidX");
-  }
-
-  @Test
-  public void dataBinding_processingDatabindingAction_withoutAndroidX_doesNotPassAndroidXFlag()
-      throws Exception {
-    useConfiguration(
-        "--experimental_android_databinding_v2", "--android_databinding_use_v3_4_args");
-    writeDataBindingFiles();
-
-    ConfiguredTarget ctapp = getConfiguredTarget("//java/android/binary:app");
-    Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ctapp));
-
-    Artifact processingDatabindingArtifact = getProcessingDatabindingArtifact(allArtifacts);
-    assertThat(getGeneratingSpawnActionArgs(processingDatabindingArtifact))
-        .doesNotContain("--useDataBindingAndroidX");
   }
 
   @Test
   public void dataBinding_processingDatabindingAction_withAndroidX_passesAndroidXFlag()
       throws Exception {
-    useConfiguration(
-        "--experimental_android_databinding_v2",
-        "--android_databinding_use_v3_4_args",
-        "--android_databinding_use_androidx");
     writeDataBindingFiles();
 
     ConfiguredTarget ctapp = getConfiguredTarget("//java/android/binary:app");
@@ -1190,27 +1133,8 @@ public abstract class AndroidDataBindingV2Test extends AndroidBuildViewTestCase 
   }
 
   @Test
-  public void dataBinding_compileLibraryResourcesAction_withoutAndroidX_doesNotPassAndroidXFlag()
-      throws Exception {
-    useConfiguration(
-        "--experimental_android_databinding_v2", "--android_databinding_use_v3_4_args");
-    writeDataBindingFiles();
-
-    ConfiguredTarget ctapp = getConfiguredTarget("//java/android/binary:app");
-    Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ctapp));
-
-    Artifact compileLibraryResourcesArtifact = getCompileLibraryResourcesArtifact(allArtifacts);
-    assertThat(getGeneratingSpawnActionArgs(compileLibraryResourcesArtifact))
-        .doesNotContain("--useDataBindingAndroidX");
-  }
-
-  @Test
   public void dataBinding_compileLibraryResourcesAction_withAndroidX_passesAndroidXFlag()
       throws Exception {
-    useConfiguration(
-        "--experimental_android_databinding_v2",
-        "--android_databinding_use_v3_4_args",
-        "--android_databinding_use_androidx");
     writeDataBindingFiles();
 
     ConfiguredTarget ctapp = getConfiguredTarget("//java/android/binary:app");
@@ -1222,26 +1146,7 @@ public abstract class AndroidDataBindingV2Test extends AndroidBuildViewTestCase 
   }
 
   @Test
-  public void dataBinding_shrinkAapt2Action_withoutAndroidX_doesNotPassAndroidXFlag()
-      throws Exception {
-    useConfiguration(
-        "--experimental_android_databinding_v2", "--android_databinding_use_v3_4_args");
-    writeDataBindingFilesWithShrinkage();
-
-    ConfiguredTarget ctapp = getConfiguredTarget("//java/android/binary:app");
-    Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ctapp));
-
-    Artifact shrinkAapt2Artifact = getShrinkAapt2Artifact(allArtifacts);
-    assertThat(getGeneratingSpawnActionArgs(shrinkAapt2Artifact))
-        .doesNotContain("--useDataBindingAndroidX");
-  }
-
-  @Test
   public void dataBinding_shrinkAapt2Action_withAndroidX_passesAndroidXFlag() throws Exception {
-    useConfiguration(
-        "--experimental_android_databinding_v2",
-        "--android_databinding_use_v3_4_args",
-        "--android_databinding_use_androidx");
     writeDataBindingFilesWithShrinkage();
 
     ConfiguredTarget ctapp = getConfiguredTarget("//java/android/binary:app");
@@ -1255,8 +1160,6 @@ public abstract class AndroidDataBindingV2Test extends AndroidBuildViewTestCase 
   @Test
   public void dataBinding_androidLocalTest_dataBindingDisabled_doesNotUseDataBindingFlags()
       throws Exception {
-    useConfiguration(
-        "--experimental_android_databinding_v2", "--android_databinding_use_v3_4_args");
     writeDataBindingFiles();
     writeNonDataBindingLocalTestFiles();
 
@@ -1294,8 +1197,6 @@ public abstract class AndroidDataBindingV2Test extends AndroidBuildViewTestCase 
   @Test
   public void dataBinding_androidLocalTest_dataBindingEnabled_usesDataBindingFlags()
       throws Exception {
-    useConfiguration(
-        "--experimental_android_databinding_v2", "--android_databinding_use_v3_4_args");
     writeDataBindingFiles();
     writeDataBindingLocalTestFiles();
 

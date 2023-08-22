@@ -77,7 +77,6 @@ public class ProcessedAndroidData {
                 AndroidBinary.createMainDexProguardSpec(
                     dataContext.getLabel(), dataContext.getActionConstructionContext()))
             .conditionalKeepRules(conditionalKeepRules);
-    dataBindingContext.supplyLayoutInfo(builder::setDataBindingInfoZip);
     return buildActionForBinary(
         dataContext,
         dataBindingContext,

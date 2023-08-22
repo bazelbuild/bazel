@@ -47,47 +47,35 @@ import java.util.function.Consumer;
 
 class DataBindingV2Context implements DataBindingContext {
 
+  private static final String SETTER_STORE_NAME = "setter_store.json";
+
   private final ActionConstructionContext actionContext;
-  private final boolean useUpdatedArgs;
-  private final boolean useAndroidX;
+
   /**
    * Annotation processing creates the following metadata files that describe how data binding is
    * applied. The full file paths include prefixes as implemented in {@link #getMetadataOutputs}.
    */
   private final List<String> metadataOutputSuffixes;
 
-  private final String setterStoreName;
-
   private final Artifact injectedLayoutInfoZip;
 
-  DataBindingV2Context(
-      ActionConstructionContext actionContext, boolean useUpdatedArgs, boolean useAndroidX) {
-    this(actionContext, useUpdatedArgs, useAndroidX, null);
+  DataBindingV2Context(ActionConstructionContext actionContext) {
+    this(actionContext, null);
   }
 
   DataBindingV2Context(
       ActionConstructionContext actionContext,
-      boolean useUpdatedArgs,
-      boolean useAndroidX,
       Artifact layoutInfoZip) {
     this.actionContext = actionContext;
-    this.useUpdatedArgs = useUpdatedArgs;
-    this.useAndroidX = useAndroidX;
-    this.setterStoreName = useUpdatedArgs ? "setter_store.json" : "setter_store.bin";
-    metadataOutputSuffixes = ImmutableList.of(setterStoreName, "br.bin");
+    metadataOutputSuffixes = ImmutableList.of(SETTER_STORE_NAME, "br.bin");
     injectedLayoutInfoZip = layoutInfoZip;
-  }
-
-  @Override
-  public void supplyLayoutInfo(Consumer<Artifact> consumer) {
-    // In v2, The layout info file is generated in processResources below.
   }
 
   @Override
   public void supplyJavaCoptsUsing(
       RuleContext ruleContext, boolean isBinary, Consumer<Iterable<String>> consumer) {
 
-    DataBindingProcessorArgsBuilder args = new DataBindingProcessorArgsBuilder(useUpdatedArgs);
+    DataBindingProcessorArgsBuilder args = new DataBindingProcessorArgsBuilder();
     String metadataOutputDir = DataBinding.getDataBindingExecPath(ruleContext).getPathString();
 
     args.metadataOutputDir(metadataOutputDir);
@@ -143,7 +131,7 @@ class DataBindingV2Context implements DataBindingContext {
             .get(JavaPluginInfo.PROVIDER);
 
     ImmutableList<Artifact> annotationProcessorOutputs =
-        DataBinding.getMetadataOutputs(ruleContext, useUpdatedArgs, metadataOutputSuffixes);
+        DataBinding.getMetadataOutputs(ruleContext, metadataOutputSuffixes);
 
     consumer.accept(javaPluginInfo, annotationProcessorOutputs);
   }
@@ -280,7 +268,7 @@ class DataBindingV2Context implements DataBindingContext {
   public ImmutableList<Artifact> getAnnotationSourceFiles(RuleContext ruleContext) {
     ImmutableList.Builder<Artifact> srcs = ImmutableList.builder();
 
-    srcs.addAll(DataBinding.getAnnotationFile(ruleContext, useAndroidX));
+    srcs.addAll(DataBinding.getAnnotationFile(ruleContext));
     srcs.addAll(createBaseClasses(ruleContext));
 
     return srcs.build();
@@ -304,7 +292,7 @@ class DataBindingV2Context implements DataBindingContext {
             .addFlag("--package", AndroidCommon.getJavaPackage(ruleContext))
             .addOutput("--classInfoOut", classInfoFile)
             .addOutput("--sourceOut", srcOutFile)
-            .addFlag("--useDataBindingAndroidX", useAndroidX ? "true" : "false")
+            .addFlag("--useDataBindingAndroidX", "true")
             .addTransitiveExecPathsFlagForEachAndInputs(
                 "--dependencyClassInfoList", dependencyClassInfo);
 
@@ -338,8 +326,7 @@ class DataBindingV2Context implements DataBindingContext {
         return;
       }
     }
-    Artifact setterStoreFile =
-        DataBinding.getMetadataOutput(ruleContext, useUpdatedArgs, setterStoreName);
+    Artifact setterStoreFile = DataBinding.getMetadataOutput(ruleContext, SETTER_STORE_NAME);
 
     Artifact classInfoFile;
     if (AndroidResources.definesAndroidResources(ruleContext.attributes())) {
@@ -348,7 +335,7 @@ class DataBindingV2Context implements DataBindingContext {
       classInfoFile = null;
     }
 
-    Artifact brFile = DataBinding.getMetadataOutput(ruleContext, useUpdatedArgs, "br.bin");
+    Artifact brFile = DataBinding.getMetadataOutput(ruleContext, "br.bin");
 
     String label = ruleContext.getRule().getLabel().toString();
     String javaPackage = AndroidCommon.getJavaPackage(ruleContext);
@@ -384,18 +371,9 @@ class DataBindingV2Context implements DataBindingContext {
     checkArgument(injectedLayoutInfoZip == null);
     AndroidResources databindingProcessedResources =
         AndroidDataBindingProcessorBuilder.create(
-            dataContext,
-            resources,
-            appId,
-            DataBinding.getLayoutInfoFile(actionContext),
-            useAndroidX);
+            dataContext, resources, appId, DataBinding.getLayoutInfoFile(actionContext));
 
     return databindingProcessedResources;
-  }
-
-  @Override
-  public boolean usesAndroidX() {
-    return useAndroidX;
   }
 
   private static Artifact getClassInfoFile(RuleContext context) {

@@ -346,26 +346,6 @@ java_test(
 )
 
 java_test(
-    name = "AndroidDataBindingTest",
-    srcs = ["AndroidDataBindingTest.java"],
-    deps = [
-        ":AndroidBuildViewTestCase",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/rules/android",
-        "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
-        "//src/main/protobuf:extra_actions_base_java_proto",
-        "//src/test/java/com/google/devtools/build/lib/actions/util",
-        "//src/test/java/com/google/devtools/build/lib/rules/java:java_compile_action_test_helper",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
     name = "AndroidDataBindingV2Test",
     timeout = "long",
     srcs = ["AndroidDataBindingV2Test.java"],

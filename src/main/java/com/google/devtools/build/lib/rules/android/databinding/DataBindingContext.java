@@ -27,34 +27,6 @@ import java.util.function.Consumer;
 /** Contains Android Databinding configuration and resource generation information. */
 public interface DataBindingContext {
 
-  /**
-   * Returns the file where data binding's resource processing produces binding xml. For example,
-   * given:
-   *
-   * <pre>{@code
-   * <layout>
-   *   <data>
-   *     <variable name="foo" type="String" />
-   *   </data>
-   * </layout>
-   * <LinearLayout>
-   *   ...
-   * </LinearLayout>
-   * }</pre>
-   *
-   * <p>data binding strips out and processes this part:
-   *
-   * <pre>{@code
-   * <data>
-   *   <variable name="foo" type="String" />
-   * </data>
-   * }</pre>
-   *
-   * for each layout file with data binding expressions. Since this may produce multiple files,
-   * outputs are zipped up into a single container.
-   */
-  void supplyLayoutInfo(Consumer<Artifact> consumer);
-
   /** The javac flags that are needed to configure data binding's annotation processor. */
   void supplyJavaCoptsUsing(
       RuleContext ruleContext,
@@ -109,7 +81,4 @@ public interface DataBindingContext {
       AndroidDataContext dataContext,
       AndroidResources resources,
       String appId);
-
-  /** Returns whether this context supports generating AndroidX dependencies. */
-  boolean usesAndroidX();
 }

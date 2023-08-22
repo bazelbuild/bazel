@@ -225,11 +225,7 @@ public class AndroidResourcesProcessorBuilder {
         dataContext, primaryResources, processedManifest.getPackage());
 
     createAapt2ApkAction(
-        dataContext,
-        databindingProcessedResources,
-        primaryAssets,
-        primaryManifest,
-        dataBindingContext.usesAndroidX());
+        dataContext, databindingProcessedResources, primaryAssets, primaryManifest);
 
     // Wrap the parsed resources
     ParsedAndroidResources parsedResources =
@@ -303,8 +299,7 @@ public class AndroidResourcesProcessorBuilder {
       AndroidDataContext dataContext,
       AndroidResources primaryResources,
       AndroidAssets primaryAssets,
-      StampedAndroidManifest primaryManifest,
-      boolean useDataBindingAndroidX) {
+      StampedAndroidManifest primaryManifest) {
     BusyBoxActionBuilder builder =
         BusyBoxActionBuilder.create(dataContext, "AAPT2_PACKAGE").addAapt();
 
@@ -344,7 +339,6 @@ public class AndroidResourcesProcessorBuilder {
             primaryResources,
             primaryAssets,
             primaryManifest,
-            useDataBindingAndroidX,
             builder)
         .buildAndRegister("Processing Android resources", "AndroidAapt2");
   }
@@ -354,7 +348,6 @@ public class AndroidResourcesProcessorBuilder {
       AndroidResources primaryResources,
       AndroidAssets primaryAssets,
       StampedAndroidManifest primaryManifest,
-      boolean useDataBindingAndroidX,
       BusyBoxActionBuilder builder) {
 
     return builder
@@ -388,7 +381,7 @@ public class AndroidResourcesProcessorBuilder {
         // and because its resource filtering is somewhat stricter for locales, and resource
         // processing needs access to densities to add them to the manifest.
         .maybeAddFlag("--resourceConfigs", resourceFilterFactory.getConfigurationFilterString())
-        .maybeAddFlag("--useDataBindingAndroidX", useDataBindingAndroidX)
+        .addFlag("--useDataBindingAndroidX")
         .maybeAddFlag("--densities", resourceFilterFactory.getDensityString())
         .maybeAddVectoredFlag("--uncompressedExtensions", uncompressedExtensions)
         .maybeAddFlag("--useAaptCruncher=no", !crunchPng)

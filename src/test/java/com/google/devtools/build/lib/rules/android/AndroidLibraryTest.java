@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.StreamSupport;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -2007,7 +2008,11 @@ public abstract class AndroidLibraryTest extends AndroidBuildViewTestCase {
     assertThat(compileAction).isNotNull();
 
     Iterable<String> args = paramFileArgsOrActionArgs(compileAction);
-    assertThat(args).contains("--dataBindingInfoOut");
+    assertThat(
+            StreamSupport.stream(args.spliterator(), false)
+                .anyMatch(
+                    arg -> arg.contains("java/a/databinding-processed-resources/a/java/a/res")))
+        .isTrue();
   }
 
   @Test

@@ -214,23 +214,6 @@ public interface AndroidConfigurationApi extends StarlarkValue {
       documented = false)
   boolean getOneVersionEnforcementUseTransitiveJarsForBinaryUnderTest();
 
-  @StarlarkMethod(name = "use_databinding_v2", structField = true, doc = "", documented = false)
-  boolean useDataBindingV2();
-
-  @StarlarkMethod(
-      name = "android_databinding_use_v3_4_args",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean useDataBindingUpdatedArgs();
-
-  @StarlarkMethod(
-      name = "android_databinding_use_androidx",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean useDataBindingAndroidX();
-
   @StarlarkMethod(
       name = "persistent_aar_extractor",
       structField = true,
