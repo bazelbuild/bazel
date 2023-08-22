@@ -24,6 +24,8 @@ load(
 )
 load(":common/cc/cc_info.bzl", _CcInfo = "CcInfo")
 
+PackageSpecificationInfo = _builtins.toplevel.PackageSpecificationInfo
+
 _STAMP_VALUES = [-1, 0, 1]
 
 def create_stamp_attr(**kwargs):
@@ -87,7 +89,7 @@ NATIVE_RULES_ALLOWLIST_ATTRS = {
             fragment = "py",
             name = "native_rules_allowlist",
         ),
-        providers = ["PackageSpecificationInfo"],
+        providers = [PackageSpecificationInfo],
     ),
 }
 

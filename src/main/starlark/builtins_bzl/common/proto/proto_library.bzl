@@ -232,7 +232,7 @@ proto_library = rule(
         "strip_import_prefix": attr.string(default = "/"),
         "allow_exports": attr.label(
             cfg = "exec",
-            providers = ["PackageSpecificationInfo"],
+            providers = [PackageSpecificationInfo],
         ),
         "data": attr.label_list(
             allow_files = True,

@@ -18,6 +18,8 @@ load(":common/proto/proto_info.bzl", "ProtoInfo")
 load(":common/proto/proto_common.bzl", "ProtoLangToolchainInfo")
 load(":common/proto/proto_semantics.bzl", "semantics")
 
+PackageSpecificationInfo = _builtins.toplevel.PackageSpecificationInfo
+
 def _rule_impl(ctx):
     provided_proto_sources = depset(transitive = [bp[ProtoInfo]._transitive_proto_sources for bp in ctx.attr.blacklisted_protos]).to_list()
 
@@ -74,7 +76,7 @@ def make_proto_lang_toolchain(custom_proto_compiler):
                 "allowlist_different_package": attr.label(
                     default = semantics.allowlist_different_package,
                     cfg = "exec",
-                    providers = ["PackageSpecificationInfo"],
+                    providers = [PackageSpecificationInfo],
                 ),
             },
             **({
