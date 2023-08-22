@@ -15,6 +15,8 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -25,6 +27,7 @@ import java.util.function.Supplier;
 public class RegistryFactoryImpl implements RegistryFactory {
   private final DownloadManager downloadManager;
   private final Supplier<Map<String, String>> clientEnvironmentSupplier;
+  private final Cache<String, Registry> registries = Caffeine.newBuilder().build();
 
   public RegistryFactoryImpl(
       DownloadManager downloadManager, Supplier<Map<String, String>> clientEnvironmentSupplier) {
@@ -43,7 +46,9 @@ public class RegistryFactoryImpl implements RegistryFactory {
       case "http":
       case "https":
       case "file":
-        return new IndexRegistry(uri, downloadManager, clientEnvironmentSupplier.get());
+        return registries.get(
+            url,
+            unused -> new IndexRegistry(uri, downloadManager, clientEnvironmentSupplier.get()));
       default:
         throw new URISyntaxException(uri.toString(), "Unrecognized registry URL protocol");
     }
