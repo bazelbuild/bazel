@@ -582,9 +582,8 @@ public final class RemoteModule extends BlazeModule {
     } catch (AbruptExitException e) {
       throw e; // prevent abrupt interception
     } catch (Exception e) {
-      String errorMessage =
-          "Failed to query remote execution capabilities: "
-              + Utils.grpcAwareErrorMessage(e, verboseFailures);
+      String errorMessage = remoteOptions.remoteInitFailureMessage.replace("{message}",
+          Utils.grpcAwareErrorMessage(e, verboseFailures));
       if (remoteOptions.remoteLocalFallback) {
         if (verboseFailures) {
           errorMessage += System.lineSeparator() + Throwables.getStackTraceAsString(e);

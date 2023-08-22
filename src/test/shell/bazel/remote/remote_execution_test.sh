@@ -3275,4 +3275,44 @@ EOF
       //:x  &> $TEST_log || fail "expected success"
 }
 
+function test_rewrite_connection_errors_with_local_fallback() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar\" > \$@",
+)
+EOF
+
+  bazel build \
+      --experimental_remote_init_failure_message="Do XYZ to fix (Original: {message})" \
+      --remote_local_fallback \
+      --remote_executor=grpcs://localhost:${worker_port} \
+      --tls_certificate=/nope \
+      //a:foo >& $TEST_log || fail "Expected to succeed"
+
+  expect_log "WARNING: Do XYZ to fix (Original: Failed to init TLS infrastructure using '/nope' as root certificate: File does not contain valid certificates: /nope)"
+}
+
+function test_rewrite_connection_errors_without_local_fallback() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar\" > \$@",
+)
+EOF
+
+  bazel build \
+      --experimental_remote_init_failure_message="Do XYZ to fix (Original: {message})" \
+      --noremote_local_fallback \
+      --remote_executor=grpcs://localhost:${worker_port} \
+      --tls_certificate=/nope \
+      //a:foo >& $TEST_log && fail "Expected to fail" || true
+
+  expect_log "ERROR: Do XYZ to fix (Original: Failed to init TLS infrastructure using '/nope' as root certificate: File does not contain valid certificates: /nope)"
+}
+
 run_suite "Remote execution and remote cache tests"

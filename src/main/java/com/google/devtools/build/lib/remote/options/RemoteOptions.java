@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.AssignmentConverter;
+import com.google.devtools.common.options.Converters.StringConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -614,6 +615,21 @@ public final class RemoteOptions extends CommonRemoteOptions {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help = "Maximum number of open files allowed during BEP artifact upload.")
   public int maximumOpenFiles;
+
+  @Option(
+      name = "experimental_remote_init_failure_message",
+      defaultValue = "Failed to query remote execution capabilities: {message}",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      converter = StringConverter.class,
+      help =
+          "Message to print when the connection to the remote cache or executor fails. The "
+              + "{message} placeholder is replaced with the actual error. This can be used to "
+              + "provide additional details on how to resolve the connection problem because the "
+              + "action that a user can take depends on the specific deployment of the remote "
+              + "build services."
+  )
+  public String remoteInitFailureMessage;
 
   @Option(
       name = "remote_print_execution_messages",
