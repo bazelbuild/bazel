@@ -25,6 +25,7 @@ import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -63,6 +64,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -80,6 +82,7 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
   private final PathFragment outputBase;
   private final InputMetadataProvider fileCache;
   private final ActionInputMap inputArtifactData;
+  private final TreeArtifactDirectoryCache inputTreeArtifactDirectoryCache;
   private final ImmutableMap<PathFragment, Artifact> outputMapping;
   private final RemoteActionInputFetcher inputFetcher;
   private final FileSystem localFs;
@@ -98,6 +101,107 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
     FOLLOW_NONE
   };
 
+  private static final FileStatus DIRECTORY_FILE_STATUS =
+      new FileStatus() {
+        @Override
+        public boolean isFile() {
+          return false;
+        }
+
+        @Override
+        public boolean isDirectory() {
+          return true;
+        }
+
+        @Override
+        public boolean isSymbolicLink() {
+          return false;
+        }
+
+        @Override
+        public boolean isSpecialFile() {
+          return false;
+        }
+
+        @Override
+        public long getSize() {
+          return 0;
+        }
+
+        @Override
+        public long getLastModifiedTime() {
+          throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long getLastChangeTime() {
+          throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long getNodeId() {
+          throw new UnsupportedOperationException();
+        }
+      };
+
+  /**
+   * Caches the contents of intermediate subdirectories of tree artifact inputs, to speed up {@link
+   * #stat} and {@link #readdir} operations. Note that actions are not expected to modify their
+   * inputs.
+   *
+   * <p>Safe for concurrent access.
+   */
+  private class TreeArtifactDirectoryCache {
+    private final Set<SpecialArtifact> cachedTrees = new HashSet<>();
+    private final HashMap<PathFragment, HashSet<Dirent>> dirToEntries = new HashMap<>();
+
+    @Nullable
+    public synchronized Collection<Dirent> get(PathFragment execPath) {
+      ensureCached(execPath);
+      return dirToEntries.get(execPath);
+    }
+
+    private void ensureCached(PathFragment execPath) {
+      TreeArtifactValue treeMetadata = inputArtifactData.getTreeMetadataForPrefix(execPath);
+      if (treeMetadata == null || treeMetadata.getChildren().isEmpty()) {
+        return;
+      }
+      SpecialArtifact parent = Iterables.getFirst(treeMetadata.getChildren(), null).getParent();
+      if (!cachedTrees.contains(parent)) {
+        insertTree(treeMetadata);
+        cachedTrees.add(parent);
+      }
+    }
+
+    private void insertTree(TreeArtifactValue treeMetadata) {
+      for (TreeFileArtifact child : treeMetadata.getChildren()) {
+        insertChild(child);
+      }
+    }
+
+    private void insertChild(TreeFileArtifact child) {
+      PathFragment treeRoot = child.getParent().getExecPath();
+      PathFragment path = child.getExecPath();
+
+      while (!path.equals(treeRoot)) {
+        PathFragment parentPath = path.getParentDirectory();
+        String name = path.getBaseName();
+        Dirent.Type type =
+            path.equals(child.getExecPath()) ? Dirent.Type.FILE : Dirent.Type.DIRECTORY;
+
+        HashSet<Dirent> entries =
+            dirToEntries.computeIfAbsent(parentPath, unused -> new HashSet<>());
+
+        if (!entries.add(new Dirent(name, type))) {
+          // Avoid wasted work on common prefixes.
+          break;
+        }
+
+        path = parentPath;
+      }
+    }
+  }
+
   RemoteActionFileSystem(
       FileSystem localFs,
       PathFragment execRootFragment,
@@ -110,6 +214,7 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
     this.execRoot = checkNotNull(execRootFragment, "execRootFragment");
     this.outputBase = execRoot.getRelative(checkNotNull(relativeOutputPath, "relativeOutputPath"));
     this.inputArtifactData = checkNotNull(inputArtifactData, "inputArtifactData");
+    this.inputTreeArtifactDirectoryCache = new TreeArtifactDirectoryCache();
     this.outputMapping =
         stream(outputArtifacts).collect(toImmutableMap(Artifact::getExecPath, a -> a));
     this.fileCache = checkNotNull(fileCache, "fileCache");
@@ -552,6 +657,9 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
       if (metadata != null) {
         return statFromMetadata(metadata);
       }
+      if (inputTreeArtifactDirectoryCache.get(execPath) != null) {
+        return DIRECTORY_FILE_STATUS;
+      }
     }
 
     return remoteOutputTree.statNullable(
@@ -710,14 +818,25 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
   protected ImmutableList<String> getDirectoryEntries(PathFragment path) throws IOException {
     HashSet<String> entries = new HashSet<>();
 
-    boolean existsRemotely = false;
+    boolean found = false;
+
+    if (path.startsWith(execRoot)) {
+      var execPath = path.relativeTo(execRoot);
+      Collection<Dirent> treeEntries = inputTreeArtifactDirectoryCache.get(execPath);
+      if (treeEntries != null) {
+        for (var entry : treeEntries) {
+          entries.add(entry.getName());
+        }
+        found = true;
+      }
+    }
 
     if (isOutput(path)) {
       try {
         remoteOutputTree.getPath(path).getDirectoryEntries().stream()
             .map(Path::getBaseName)
             .forEach(entries::add);
-        existsRemotely = true;
+        found = true;
       } catch (FileNotFoundException ignored) {
         // Will be rethrown below if directory exists on neither side.
       }
@@ -728,7 +847,7 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
           .map(Path::getBaseName)
           .forEach(entries::add);
     } catch (FileNotFoundException e) {
-      if (!existsRemotely) {
+      if (!found) {
         throw e;
       }
     }
@@ -742,9 +861,20 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
       throws IOException {
     HashMap<String, Dirent> entries = new HashMap<>();
 
-    boolean existsRemotely = false;
+    boolean found = false;
 
     path = resolveSymbolicLinks(path).asFragment();
+
+    if (path.startsWith(execRoot)) {
+      var execPath = path.relativeTo(execRoot);
+      Collection<Dirent> treeEntries = inputTreeArtifactDirectoryCache.get(execPath);
+      if (treeEntries != null) {
+        for (var entry : treeEntries) {
+          entries.put(entry.getName(), entry);
+        }
+        found = true;
+      }
+    }
 
     if (isOutput(path)) {
       try {
@@ -752,7 +882,7 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
           entry = maybeFollowSymlinkForDirent(path, entry, followSymlinks);
           entries.put(entry.getName(), entry);
         }
-        existsRemotely = true;
+        found = true;
       } catch (FileNotFoundException ignored) {
         // Will be rethrown below if directory exists on neither side.
       }
@@ -764,7 +894,7 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
         entries.put(entry.getName(), entry);
       }
     } catch (FileNotFoundException e) {
-      if (!existsRemotely) {
+      if (!found) {
         throw e;
       }
     }

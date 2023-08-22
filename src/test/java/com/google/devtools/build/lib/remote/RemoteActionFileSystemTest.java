@@ -365,7 +365,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   }
 
   @Test
-  public void statAndExists_fromInputArtifactData() throws Exception {
+  public void statAndExists_fromInputArtifactData_file() throws Exception {
     ActionInputMap inputs = new ActionInputMap(1);
     Artifact artifact = createLocalArtifact("local-file", "local contents", inputs);
     PathFragment path = artifact.getPath().asFragment();
@@ -378,6 +378,20 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     assertThat(st.isFile()).isTrue();
     assertThat(st).isInstanceOf(FileStatusWithDigest.class);
     assertThat(((FileStatusWithDigest) st).getDigest()).isEqualTo(metadata.getDigest());
+  }
+
+  @Test
+  public void statAndExists_fromInputArtifactData_treeSubDir() throws Exception {
+    ActionInputMap inputs = new ActionInputMap(1);
+    SpecialArtifact tree =
+        createLocalTreeArtifact("tree", ImmutableMap.of("subdir/file", ""), inputs);
+    PathFragment path = tree.getPath().getChild("subdir").asFragment();
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
+
+    assertThat(actionFs.exists(path, /* followSymlinks= */ true)).isTrue();
+
+    FileStatus st = actionFs.stat(path, /* followSymlinks= */ true);
+    assertThat(st.isDirectory()).isTrue();
   }
 
   @Test
@@ -455,13 +469,10 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   @Test
   public void readdir_fromRemoteOutputTree() throws Exception {
     RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
-    Artifact a1 = ActionsTestUtil.createArtifact(outputRoot, "dir/out1");
-    Artifact a2 = ActionsTestUtil.createArtifact(outputRoot, "dir/out2");
-    Artifact a3 = ActionsTestUtil.createArtifact(outputRoot, "dir/subdir/out3");
-    injectRemoteFile(actionFs, a1.getPath().asFragment(), "contents1");
-    injectRemoteFile(actionFs, a2.getPath().asFragment(), "contents2");
-    injectRemoteFile(actionFs, a3.getPath().asFragment(), "contents3");
-    PathFragment dirPath = a1.getPath().getParentDirectory().asFragment();
+    injectRemoteFile(actionFs, getOutputPath("dir/out1"), "contents1");
+    injectRemoteFile(actionFs, getOutputPath("dir/out2"), "contents2");
+    injectRemoteFile(actionFs, getOutputPath("dir/subdir/out3"), "contents3");
+    PathFragment dirPath = getOutputPath("dir");
 
     assertReaddir(
         actionFs,
@@ -470,18 +481,17 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
         new Dirent("out1", Dirent.Type.FILE),
         new Dirent("out2", Dirent.Type.FILE),
         new Dirent("subdir", Dirent.Type.DIRECTORY));
+
+    assertReaddirThrows(actionFs, getOutputPath("dir/out1"), /* followSymlinks= */ true);
   }
 
   @Test
   public void readdir_fromLocalFilesystem() throws Exception {
     RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
-    Artifact a1 = ActionsTestUtil.createArtifact(outputRoot, "dir/out1");
-    Artifact a2 = ActionsTestUtil.createArtifact(outputRoot, "dir/out2");
-    Artifact a3 = ActionsTestUtil.createArtifact(outputRoot, "dir/subdir/out3");
-    writeLocalFile(actionFs, a1.getPath().asFragment(), "contents1");
-    writeLocalFile(actionFs, a2.getPath().asFragment(), "contents2");
-    writeLocalFile(actionFs, a3.getPath().asFragment(), "contents3");
-    PathFragment dirPath = a1.getPath().getParentDirectory().asFragment();
+    writeLocalFile(actionFs, getOutputPath("dir/out1"), "contents1");
+    writeLocalFile(actionFs, getOutputPath("dir/out2"), "contents2");
+    writeLocalFile(actionFs, getOutputPath("dir/subdir/out3"), "contents3");
+    PathFragment dirPath = getOutputPath("dir");
 
     assertReaddir(
         actionFs,
@@ -490,21 +500,47 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
         new Dirent("out1", Dirent.Type.FILE),
         new Dirent("out2", Dirent.Type.FILE),
         new Dirent("subdir", Dirent.Type.DIRECTORY));
+
+    assertReaddirThrows(actionFs, getOutputPath("dir/out1"), /* followSymlinks= */ true);
   }
 
   @Test
-  public void readdir_fromBothFilesystems() throws Exception {
-    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
-    Artifact a1 = ActionsTestUtil.createArtifact(outputRoot, "dir/out1");
-    Artifact a2 = ActionsTestUtil.createArtifact(outputRoot, "dir/out2");
-    Artifact a3 = ActionsTestUtil.createArtifact(outputRoot, "dir/subdir/out3");
-    Artifact a4 = ActionsTestUtil.createArtifact(outputRoot, "dir/subdir/out4");
-    writeLocalFile(actionFs, a1.getPath().asFragment(), "contents1");
-    writeLocalFile(actionFs, a2.getPath().asFragment(), "contents2");
-    injectRemoteFile(actionFs, a2.getPath().asFragment(), "contents2");
-    injectRemoteFile(actionFs, a3.getPath().asFragment(), "contents3");
-    injectRemoteFile(actionFs, a4.getPath().asFragment(), "contents4");
-    PathFragment dirPath = a1.getPath().getParentDirectory().asFragment();
+  public void readdir_fromInputArtifactData() throws Exception {
+    ActionInputMap inputs = new ActionInputMap(1);
+    createLocalTreeArtifact("tree", ImmutableMap.of("file", "", "dir/subdir/subfile", ""), inputs);
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
+
+    assertReaddir(
+        actionFs,
+        getOutputPath("tree"),
+        /* followSymlinks= */ true,
+        new Dirent("dir", Dirent.Type.DIRECTORY),
+        new Dirent("file", Dirent.Type.FILE));
+
+    assertReaddir(
+        actionFs,
+        getOutputPath("tree/dir"),
+        /* followSymlinks= */ true,
+        new Dirent("subdir", Dirent.Type.DIRECTORY));
+
+    assertReaddir(
+        actionFs,
+        getOutputPath("tree/dir/subdir"),
+        /* followSymlinks= */ true,
+        new Dirent("subfile", Dirent.Type.FILE));
+
+    assertReaddirThrows(
+        actionFs, getOutputPath("tree/dir/subdir/subfile"), /* followSymlinks= */ true);
+  }
+
+  @Test
+  public void readdir_fromMultipleSources() throws Exception {
+    ActionInputMap inputs = new ActionInputMap(1);
+    createLocalTreeArtifact("dir", ImmutableMap.of("subdir/subfile", ""), inputs);
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
+    writeLocalFile(actionFs, getOutputPath("dir/out1"), "contents1");
+    injectRemoteFile(actionFs, getOutputPath("dir/out2"), "contents2");
+    PathFragment dirPath = getOutputPath("dir");
 
     assertReaddir(
         actionFs,
@@ -553,9 +589,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "dir/out");
     PathFragment path = artifact.getPath().getParentDirectory().asFragment();
 
-    assertThrows(FileNotFoundException.class, () -> actionFs.getDirectoryEntries(path));
-    assertThrows(
-        FileNotFoundException.class, () -> actionFs.readdir(path, /* followSymlinks= */ true));
+    assertReaddirThrows(actionFs, path, /* followSymlinks= */ true);
   }
 
   private void assertReaddir(
@@ -570,6 +604,13 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     assertThat(actionFs.getDirectoryEntries(dirPath))
         .containsExactlyElementsIn(stream(expected).map(Dirent::getName).collect(toImmutableList()))
         .inOrder();
+  }
+
+  private void assertReaddirThrows(
+      RemoteActionFileSystem actionFs, PathFragment dirPath, boolean followSymlinks)
+      throws Exception {
+    assertThrows(IOException.class, () -> actionFs.readdir(dirPath, followSymlinks));
+    assertThrows(IOException.class, () -> actionFs.getDirectoryEntries(dirPath));
   }
 
   @Test
@@ -955,6 +996,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   }
 
   /** Returns a local tree artifact and puts its metadata into the action input map. */
+  @CanIgnoreReturnValue
   private SpecialArtifact createLocalTreeArtifact(
       String pathFragment, Map<String, String> contentMap, ActionInputMap inputs)
       throws IOException {
