@@ -44,22 +44,27 @@ abstract class BaseCache<K, P> {
    * <p>Stream the proto to output, the first time it's generated.
    */
   int dataToIdAndStreamOutputProto(K data) throws IOException, InterruptedException {
+    int id = -1;
     K key = transformToKey(data);
+    boolean shouldOutputProto = false;
 
     // Double-checked locking here:
     // Once cache.get(key) != null it won't be changed again.
     if (cache.get(key) == null) {
       synchronized (this) {
         if (cache.get(key) == null) {
-          int id = nextId.getAndIncrement();
+          id = nextId.getAndIncrement();
           // Note that this cannot be replaced by computeIfAbsent since createProto is a recursive
           // operation for the case of nested sets which will call dataToId on the same object and
           // thus computeIfAbsent again.
           cache.put(key, id);
-          P proto = createProto(data, id);
-          toOutput(proto);
+          shouldOutputProto = true;
         }
       }
+    }
+    if (shouldOutputProto) {
+      P proto = createProto(data, id);
+      toOutput(proto);
     }
     return cache.get(key);
   }
