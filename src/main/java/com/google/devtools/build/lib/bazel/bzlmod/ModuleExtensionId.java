@@ -76,7 +76,9 @@ public abstract class ModuleExtensionId {
   }
 
   public String asTargetString() {
+    String isolationKeyPart = getIsolationKey().map(key -> "%" + key).orElse("");
     return String.format(
-        "%s%%%s", getBzlFileLabel().getUnambiguousCanonicalForm(), getExtensionName());
+        "%s%%%s%s",
+        getBzlFileLabel().getUnambiguousCanonicalForm(), getExtensionName(), isolationKeyPart);
   }
 }

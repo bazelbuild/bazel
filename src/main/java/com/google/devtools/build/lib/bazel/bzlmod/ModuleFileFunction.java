@@ -30,6 +30,9 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
@@ -130,8 +133,12 @@ public class ModuleFileFunction implements SkyFunction {
 
     ModuleFileValue.Key moduleFileKey = (ModuleFileValue.Key) skyKey;
     ModuleKey moduleKey = moduleFileKey.getModuleKey();
-    GetModuleFileResult getModuleFileResult =
-        getModuleFile(moduleKey, moduleFileKey.getOverride(), allowedYankedVersions, env);
+    GetModuleFileResult getModuleFileResult;
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.BZLMOD, () -> "fetch module file: " + moduleKey)) {
+      getModuleFileResult =
+          getModuleFile(moduleKey, moduleFileKey.getOverride(), allowedYankedVersions, env);
+    }
     if (getModuleFileResult == null) {
       return null;
     }
@@ -276,7 +283,10 @@ public class ModuleFileFunction implements SkyFunction {
 
     ModuleFileGlobals moduleFileGlobals =
         new ModuleFileGlobals(builtinModules, moduleKey, registry, ignoreDevDeps);
-    try (Mutability mu = Mutability.create("module file", moduleKey)) {
+    try (SilentCloseable c =
+            Profiler.instance()
+                .profile(ProfilerTask.BZLMOD, () -> "evaluate module file: " + moduleKey);
+        Mutability mu = Mutability.create("module file", moduleKey)) {
       net.starlark.java.eval.Module predeclaredEnv =
           getPredeclaredEnv(moduleFileGlobals, starlarkSemantics);
       Program program = Program.compileFile(starlarkFile, predeclaredEnv);

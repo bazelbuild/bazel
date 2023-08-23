@@ -22,6 +22,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -75,7 +78,7 @@ public class BazelLockFileFunction implements SkyFunction {
       return null;
     }
 
-    try {
+    try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.BZLMOD, "parse lockfile")) {
       return getLockfileValue(lockfilePath);
     } catch (IOException | JsonSyntaxException | NullPointerException e) {
       throw new BazelLockfileFunctionException(

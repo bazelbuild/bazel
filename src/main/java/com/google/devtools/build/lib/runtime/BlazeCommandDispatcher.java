@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -584,7 +585,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         // Compute the repo mapping of the main repo and re-parse options so that we get correct
         // values for label-typed options.
         env.getEventBus().post(new MainRepoMappingComputationStartingEvent());
-        try {
+        try (SilentCloseable c =
+            Profiler.instance().profile(ProfilerTask.BZLMOD, "compute main repo mapping")) {
           RepositoryMapping mainRepoMapping =
               env.getSkyframeExecutor().getMainRepoMapping(reporter);
           optionsParser = optionsParser.toBuilder().withConversionContext(mainRepoMapping).build();
@@ -605,10 +607,14 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           result = BlazeCommandResult.detailedExitCode(earlyExitCode);
           return result;
         }
-        optionHandler =
-            new BlazeOptionHandler(
-                runtime, workspace, command, commandAnnotation, optionsParser, invocationPolicy);
-        earlyExitCode = optionHandler.parseOptions(args, reporter);
+        try (SilentCloseable c =
+            Profiler.instance()
+                .profile(ProfilerTask.BZLMOD, "reparse options with main repo mapping")) {
+          optionHandler =
+              new BlazeOptionHandler(
+                  runtime, workspace, command, commandAnnotation, optionsParser, invocationPolicy);
+          earlyExitCode = optionHandler.parseOptions(args, reporter);
+        }
         if (!earlyExitCode.isSuccess()) {
           reporter.post(
               new NoBuildEvent(
@@ -619,7 +625,10 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       }
 
       // Parse starlark options.
-      earlyExitCode = optionHandler.parseStarlarkOptions(env, reporter);
+      try (SilentCloseable c =
+          Profiler.instance().profile(ProfilerTask.BZLMOD, "parse starlark options")) {
+        earlyExitCode = optionHandler.parseStarlarkOptions(env);
+      }
       if (!earlyExitCode.isSuccess()) {
         reporter.post(
             new NoBuildEvent(
