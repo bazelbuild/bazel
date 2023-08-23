@@ -17,7 +17,6 @@ Bazel community members maintain these packages. The Bazel team doesn't
 officially support them. Contact the package maintainers for support.
 
 *   [Arch Linux][arch]{: .external}
-*   [Fedora 25, 26, 27, 28, and CentOS 7](/install/redhat)
 *   [CentOS 6](https://github.com/sub-mod/bazel-builds){: .external}
 *   [Debian](https://qa.debian.org/developer.php?email=team%2Bbazel%40tracker.debian.org){: .external}
 *   [FreeBSD](https://www.freshports.org/devel/bazel){: .external}
