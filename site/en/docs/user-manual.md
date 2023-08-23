@@ -926,7 +926,6 @@ possible in the edit/build/test cycle. This argument affects the way all
 non-flag arguments are interpreted: each argument must be a
 file target label or a plain filename relative to the current working
 directory, and one rule that depends on each source filename is built. For
-
 C++ and Java
 sources, rules in the same language space are preferentially chosen. For
 multiple rules with the same preference, the one that appears first in the
