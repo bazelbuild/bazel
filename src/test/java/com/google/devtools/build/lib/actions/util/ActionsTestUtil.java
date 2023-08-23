@@ -308,9 +308,9 @@ public final class ActionsTestUtil {
   }
 
   public static SpecialArtifact createTreeArtifactWithGeneratingAction(
-      ArtifactRoot root, String path) {
+      ArtifactRoot root, String rootRelativePath) {
     return createTreeArtifactWithGeneratingAction(
-        root, root.getExecPath().getRelative(PathFragment.create(path)));
+        root, root.getExecPath().getRelative(rootRelativePath));
   }
 
   public static SpecialArtifact createUnresolvedSymlinkArtifact(
@@ -509,7 +509,7 @@ public final class ActionsTestUtil {
           NULL_LABEL,
           new Location("dummy-file", 0, 0),
           /* targetKind= */ "dummy-kind",
-          /* mnemonic= */ "dummy-configuration-mnemonic",
+          /* buildConfigurationMnemonic= */ "dummy-configuration-mnemonic",
           /* configurationChecksum= */ "dummy-configuration",
           new BuildConfigurationEvent(
               BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
