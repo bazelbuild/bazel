@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
@@ -762,12 +763,33 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         result.addCommandLine(pair);
       }
       CommandLines commandLines = result.build();
-      ActionEnvironment env =
-          actionEnvironment != null
-              ? actionEnvironment
-              : useDefaultShellEnvironment
-                  ? configuration.getActionEnvironment()
-                  : ActionEnvironment.create(environment, inheritedEnvironment);
+      ActionEnvironment env;
+      if (actionEnvironment != null) {
+        env = actionEnvironment;
+      } else if (useDefaultShellEnvironment && environment != null) {
+        // Inherited variables override fixed variables in ActionEnvironment. Since we want the
+        // fixed part of the action-provided environment to override the inherited part of the
+        // user-provided environment, we have to explicitly filter the inherited part.
+        var userFilteredInheritedEnv =
+            ImmutableSet.copyOf(
+                Sets.difference(
+                    configuration.getActionEnvironment().getInheritedEnv(), environment.keySet()));
+        // Do not create a new ActionEnvironment in the common case where no vars have been filtered
+        // out.
+        if (userFilteredInheritedEnv.equals(
+            configuration.getActionEnvironment().getInheritedEnv())) {
+          env = configuration.getActionEnvironment();
+        } else {
+          env =
+              ActionEnvironment.create(
+                  configuration.getActionEnvironment().getFixedEnv(), userFilteredInheritedEnv);
+        }
+        env = env.withAdditionalFixedVariables(environment);
+      } else if (useDefaultShellEnvironment) {
+        env = configuration.getActionEnvironment();
+      } else {
+        env = ActionEnvironment.create(environment, inheritedEnvironment);
+      }
       return buildSpawnAction(
           owner, commandLines, configuration.getCommandLineLimits(), configuration, env);
     }
@@ -1072,6 +1094,18 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       // instead, however, we can't just do that yet from within actions, so we need to go through
       // Action.executeUnconditionally() which in turn is called by ActionCacheChecker.
       this.executeUnconditionally = true;
+      return this;
+    }
+
+    /**
+     * Same as {@link #useDefaultShellEnvironment()}, but additionally sets the provided fixed
+     * environment variables, which take precedence over the variables contained in the default
+     * shell environment.
+     */
+    @CanIgnoreReturnValue
+    public Builder useDefaultShellEnvironmentWithOverrides(Map<String, String> environment) {
+      this.environment = ImmutableMap.copyOf(environment);
+      this.useDefaultShellEnvironment = true;
       return this;
     }
 
