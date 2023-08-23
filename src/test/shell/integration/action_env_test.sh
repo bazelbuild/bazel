@@ -39,6 +39,15 @@ load("//pkg:build.bzl", "environ")
 
 environ(name = "no_default_env", env = 0)
 environ(name = "with_default_env", env = 1)
+environ(
+    name = "with_default_and_fixed_env",
+    env = 1,
+    fixed_env = {
+        "ACTION_FIXED": "action",
+        "ACTION_AND_CLIENT_FIXED": "action",
+        "ACTION_AND_CLIENT_INHERITED": "action",
+    },
+)
 
 sh_test(
     name = "test_env_foo",
@@ -65,12 +74,16 @@ def _impl(ctx):
   ctx.actions.run_shell(
       inputs=[],
       outputs=[output],
+      env = ctx.attr.fixed_env,
       use_default_shell_env = ctx.attr.env,
       command="env > %s" % output.path)
 
 environ = rule(
     implementation=_impl,
-    attrs={"env": attr.bool(default=True)},
+    attrs={
+        "env": attr.bool(default=True),
+        "fixed_env": attr.string_dict(),
+    },
     outputs={"out": "%{name}.env"},
 )
 EOF
@@ -213,6 +226,52 @@ function test_use_default_shell_env {
         || fail "dynamic action environment not honored"
     (grep -q BAR bazel-bin/pkg/no_default_env.env \
          && fail "dynamic action_env used, even though requested not to") || true
+}
+
+function test_use_default_shell_env_and_fixed_env {
+    ACTION_AND_CLIENT_INHERITED=client CLIENT_INHERITED=client \
+        bazel build \
+        --noincompatible_merge_fixed_and_default_shell_env \
+        --action_env=ACTION_AND_CLIENT_FIXED=client \
+        --action_env=ACTION_AND_CLIENT_INHERITED \
+        --action_env=CLIENT_FIXED=client \
+        --action_env=CLIENT_INHERITED \
+        //pkg:with_default_and_fixed_env
+    echo
+    cat bazel-bin/pkg/with_default_and_fixed_env.env
+    echo
+    grep -q ACTION_AND_CLIENT_FIXED=client bazel-bin/pkg/with_default_and_fixed_env.env \
+        || fail "static action environment not honored"
+    grep -q ACTION_AND_CLIENT_INHERITED=client bazel-bin/pkg/with_default_and_fixed_env.env \
+        || fail "dynamic action environment not honored"
+    grep -q ACTION_FIXED bazel-bin/pkg/with_default_and_fixed_env.env \
+        && fail "fixed env provided by action should have been ignored"
+    grep -q CLIENT_FIXED=client bazel-bin/pkg/with_default_and_fixed_env.env \
+        || fail "static action environment not honored"
+    grep -q CLIENT_INHERITED=client bazel-bin/pkg/with_default_and_fixed_env.env \
+        || fail "dynamic action environment not honored"
+
+    ACTION_AND_CLIENT_INHERITED=client CLIENT_INHERITED=client \
+        bazel build \
+        --incompatible_merge_fixed_and_default_shell_env \
+        --action_env=ACTION_AND_CLIENT_FIXED=client \
+        --action_env=ACTION_AND_CLIENT_INHERITED \
+        --action_env=CLIENT_FIXED=client \
+        --action_env=CLIENT_INHERITED \
+        //pkg:with_default_and_fixed_env
+    echo
+    cat bazel-bin/pkg/with_default_and_fixed_env.env
+    echo
+    grep -q ACTION_AND_CLIENT_FIXED=action bazel-bin/pkg/with_default_and_fixed_env.env \
+        || fail "action-provided env should have overridden static --action_env"
+    grep -q ACTION_AND_CLIENT_INHERITED=action bazel-bin/pkg/with_default_and_fixed_env.env \
+        || fail "action-provided env should have overridden dynamic --action_env"
+    grep -q ACTION_FIXED=action bazel-bin/pkg/with_default_and_fixed_env.env \
+        || fail "action-provided env should have been honored"
+    grep -q CLIENT_FIXED=client bazel-bin/pkg/with_default_and_fixed_env.env \
+        || fail "static action environment not honored"
+    grep -q CLIENT_INHERITED=client bazel-bin/pkg/with_default_and_fixed_env.env \
+        || fail "dynamic action environment not honored"
 }
 
 function test_action_env_changes_honored {
