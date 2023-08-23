@@ -14,11 +14,11 @@
 package com.google.devtools.build.lib.query2.query.output;
 
 import com.google.common.hash.HashFunction;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import com.google.devtools.build.lib.query2.query.output.FormatUtils.TargetOrdering;
 import com.google.devtools.build.lib.query2.query.output.GraphOutputWriter.NodeReader;
@@ -41,9 +41,9 @@ class GraphOutputFormatter extends OutputFormatter {
         private final TargetOrdering targetOrdering = new FormatUtils.TargetOrdering();
 
         @Override
-        public String getLabel(Node<Target> node, RepositoryMapping mainRepositoryMapping) {
+        public String getLabel(Node<Target> node, LabelPrinter labelPrinter) {
           // Node payloads are Targets. Output node labels are target labels.
-          return node.getLabel().getLabel().getDisplayForm(mainRepositoryMapping);
+          return labelPrinter.toString(node.getLabel().getLabel());
         }
 
         @Override
@@ -60,7 +60,7 @@ class GraphOutputFormatter extends OutputFormatter {
       AspectResolver aspectProvider,
       EventHandler eventHandler,
       HashFunction hashFunction,
-      RepositoryMapping mainRepoMapping) {
+      LabelPrinter labelPrinter) {
     boolean sortLabels = options.orderOutput == OrderOutput.FULL;
     GraphOutputWriter<Target> graphWriter =
         new GraphOutputWriter<>(
@@ -70,7 +70,7 @@ class GraphOutputFormatter extends OutputFormatter {
             options.graphNodeStringLimit,
             options.graphConditionalEdgesLimit,
             options.graphFactored,
-            mainRepoMapping);
+            labelPrinter);
     graphWriter.write(result, new ConditionalEdges(result), out);
   }
 }

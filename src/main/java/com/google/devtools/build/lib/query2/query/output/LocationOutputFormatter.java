@@ -16,10 +16,10 @@ package com.google.devtools.build.lib.query2.query.output;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashFunction;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.engine.AggregatingQueryExpressionVisitor.ContainsFunctionQueryExpressionVisitor;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
@@ -76,7 +76,7 @@ class LocationOutputFormatter extends AbstractUnorderedFormatter {
 
   @Override
   public OutputFormatterCallback<Target> createPostFactoStreamCallback(
-      OutputStream out, final QueryOptions options, RepositoryMapping mainRepoMapping) {
+      OutputStream out, final QueryOptions options, LabelPrinter labelPrinter) {
     return new TextOutputFormatterCallback<Target>(out) {
 
       @Override
@@ -88,7 +88,7 @@ class LocationOutputFormatter extends AbstractUnorderedFormatter {
               .append(": ")
               .append(target.getTargetKind())
               .append(" ")
-              .append(target.getLabel().getDisplayForm(mainRepoMapping))
+              .append(labelPrinter.toString(target.getLabel()))
               .append(lineTerm);
         }
       }
@@ -99,6 +99,6 @@ class LocationOutputFormatter extends AbstractUnorderedFormatter {
   public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
       OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
     return new SynchronizedDelegatingOutputFormatterCallback<>(
-        createPostFactoStreamCallback(out, options, env.getMainRepoMapping()));
+        createPostFactoStreamCallback(out, options, env.getLabelPrinter()));
   }
 }

@@ -31,7 +31,6 @@ import com.google.common.collect.Maps;
 import com.google.common.hash.HashFunction;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
@@ -49,6 +48,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.compat.FakeLoadTarget;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
@@ -158,24 +158,26 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
   @Override
   public OutputFormatterCallback<Target> createPostFactoStreamCallback(
-      OutputStream out, QueryOptions options, RepositoryMapping mainRepoMapping) {
-    return new StreamedQueryResultFormatter(out);
+      OutputStream out, QueryOptions options, LabelPrinter labelPrinter) {
+    return new StreamedQueryResultFormatter(out, labelPrinter);
   }
 
   @Override
   public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
       OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
     return new SynchronizedDelegatingOutputFormatterCallback<>(
-        createPostFactoStreamCallback(out, options, env.getMainRepoMapping()));
+        createPostFactoStreamCallback(out, options, env.getLabelPrinter()));
   }
 
   /** Converts a logical {@link Target} object into a {@link Build.Target} protobuffer. */
-  public Build.Target toTargetProtoBuffer(Target target) throws InterruptedException {
-    return toTargetProtoBuffer(target, /*extraDataForAttrHash=*/ "");
+  public Build.Target toTargetProtoBuffer(Target target, LabelPrinter labelPrinter)
+      throws InterruptedException {
+    return toTargetProtoBuffer(target, labelPrinter, /* extraDataForAttrHash= */ "");
   }
 
   /** Converts a logical {@link Target} object into a {@link Build.Target} protobuffer. */
-  public Build.Target toTargetProtoBuffer(Target target, Object extraDataForAttrHash)
+  public Build.Target toTargetProtoBuffer(
+      Target target, LabelPrinter labelPrinter, Object extraDataForAttrHash)
       throws InterruptedException {
     Build.Target.Builder targetPb = Build.Target.newBuilder();
 
@@ -183,12 +185,12 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       Rule rule = (Rule) target;
       Build.Rule.Builder rulePb =
           Build.Rule.newBuilder()
-              .setName(rule.getLabel().toString())
+              .setName(labelPrinter.toString(rule.getLabel()))
               .setRuleClass(rule.getRuleClass());
       if (includeLocations) {
         rulePb.setLocation(FormatUtils.getLocation(target, relativeLocations));
       }
-      addAttributes(rulePb, rule, extraDataForAttrHash);
+      addAttributes(rulePb, rule, extraDataForAttrHash, labelPrinter);
       byte[] transitiveDigest = rule.getRuleClassObject().getRuleDefinitionEnvironmentDigest();
       if (transitiveDigest != null && includeRuleDefinitionEnvironment()) {
         // The RuleDefinitionEnvironment is always defined for Starlark rules and
@@ -224,7 +226,8 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
                     /* explicitlySpecified= */ false,
                     /* encodeBooleanAndTriStateAsIntegerAndString= */ true,
                     /* sourceAspect= */ aspect,
-                    includeAttributeSourceAspects);
+                    includeAttributeSourceAspects,
+                    labelPrinter);
             attributes.add(serializedAttribute);
           }
         }
@@ -238,16 +241,16 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
           aspectsDependencies.values().stream()
               .flatMap(m -> m.values().stream())
               .distinct()
-              .forEach(dep -> rulePb.addRuleInput(dep.toString()));
+              .forEach(dep -> rulePb.addRuleInput(labelPrinter.toString(dep)));
         }
         // Include explicit elements for all direct inputs and outputs of a rule; this goes beyond
         // what is available from the attributes above, since it may also (depending on options)
         // include implicit outputs, exec-configuration outputs, and default values.
         rule.getSortedLabels(dependencyFilter)
-            .forEach(input -> rulePb.addRuleInput(input.toString()));
+            .forEach(input -> rulePb.addRuleInput(labelPrinter.toString(input)));
         rule.getOutputFiles().stream()
             .distinct()
-            .forEach(output -> rulePb.addRuleOutput(output.getLabel().toString()));
+            .forEach(output -> rulePb.addRuleOutput(labelPrinter.toString(output.getLabel())));
       }
       for (String feature : rule.getPackage().getPackageArgs().features().toStringList()) {
         rulePb.addDefaultSetting(feature);
@@ -279,8 +282,8 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       Rule generatingRule = outputFile.getGeneratingRule();
       GeneratedFile.Builder output =
           GeneratedFile.newBuilder()
-              .setGeneratingRule(generatingRule.getLabel().toString())
-              .setName(label.toString());
+              .setGeneratingRule(labelPrinter.toString(generatingRule.getLabel()))
+              .setName(labelPrinter.toString(label));
 
       if (includeLocations) {
         output.setLocation(FormatUtils.getLocation(target, relativeLocations));
@@ -291,7 +294,8 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       InputFile inputFile = (InputFile) target;
       Label label = inputFile.getLabel();
 
-      Build.SourceFile.Builder input = Build.SourceFile.newBuilder().setName(label.toString());
+      Build.SourceFile.Builder input =
+          Build.SourceFile.newBuilder().setName(labelPrinter.toString(label));
 
       if (includeLocations) {
         input.setLocation(
@@ -305,7 +309,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
                 : aspectResolver.computeBuildFileDependencies(inputFile.getPackage());
 
         for (Label starlarkLoadLabel : starlarkLoadLabels) {
-          input.addSubinclude(starlarkLoadLabel.toString());
+          input.addSubinclude(labelPrinter.toString(starlarkLoadLabel));
         }
 
         for (String feature : inputFile.getPackage().getPackageArgs().features().toStringList()) {
@@ -316,18 +320,18 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       }
 
       for (Label visibilityDependency : target.getVisibilityDependencyLabels()) {
-        input.addPackageGroup(visibilityDependency.toString());
+        input.addPackageGroup(labelPrinter.toString(visibilityDependency));
       }
 
       for (Label visibilityDeclaration : target.getVisibilityDeclaredLabels()) {
-        input.addVisibilityLabel(visibilityDeclaration.toString());
+        input.addVisibilityLabel(labelPrinter.toString(visibilityDeclaration));
       }
 
       targetPb.setType(SOURCE_FILE);
       targetPb.setSourceFile(input);
     } else if (target instanceof FakeLoadTarget) {
       Label label = target.getLabel();
-      SourceFile.Builder input = SourceFile.newBuilder().setName(label.toString());
+      SourceFile.Builder input = SourceFile.newBuilder().setName(labelPrinter.toString(label));
 
       if (includeLocations) {
         input.setLocation(FormatUtils.getLocation(target, relativeLocations));
@@ -337,13 +341,13 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     } else if (target instanceof PackageGroup) {
       PackageGroup packageGroup = (PackageGroup) target;
       Build.PackageGroup.Builder packageGroupPb =
-          Build.PackageGroup.newBuilder().setName(packageGroup.getLabel().toString());
+          Build.PackageGroup.newBuilder().setName(labelPrinter.toString(packageGroup.getLabel()));
       for (String containedPackage :
           packageGroup.getContainedPackages(packageGroupIncludesDoubleSlash)) {
         packageGroupPb.addContainedPackage(containedPackage);
       }
       for (Label include : packageGroup.getIncludes()) {
-        packageGroupPb.addIncludedPackageGroup(include.toString());
+        packageGroupPb.addIncludedPackageGroup(labelPrinter.toString(include));
       }
 
       targetPb.setType(PACKAGE_GROUP);
@@ -351,12 +355,12 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     } else if (target instanceof EnvironmentGroup) {
       EnvironmentGroup envGroup = (EnvironmentGroup) target;
       Build.EnvironmentGroup.Builder envGroupPb =
-          Build.EnvironmentGroup.newBuilder().setName(envGroup.getLabel().toString());
+          Build.EnvironmentGroup.newBuilder().setName(labelPrinter.toString(envGroup.getLabel()));
       for (Label env : envGroup.getEnvironments()) {
-        envGroupPb.addEnvironment(env.toString());
+        envGroupPb.addEnvironment(labelPrinter.toString(env));
       }
       for (Label defaultEnv : envGroup.getDefaults()) {
-        envGroupPb.addDefault(defaultEnv.toString());
+        envGroupPb.addDefault(labelPrinter.toString(defaultEnv));
       }
       targetPb.setType(ENVIRONMENT_GROUP);
       targetPb.setEnvironmentGroup(envGroupPb);
@@ -367,7 +371,11 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     return targetPb.build();
   }
 
-  protected void addAttributes(Build.Rule.Builder rulePb, Rule rule, Object extraDataForAttrHash) {
+  protected void addAttributes(
+      Build.Rule.Builder rulePb,
+      Rule rule,
+      Object extraDataForAttrHash,
+      LabelPrinter labelPrinter) {
     Map<Attribute, Build.Attribute> serializedAttributes = Maps.newHashMap();
     AggregatingAttributeMapper attributeMapper = AggregatingAttributeMapper.of(rule);
     for (Attribute attr : rule.getAttributes()) {
@@ -387,7 +395,8 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
               rule.isAttributeValueExplicitlySpecified(attr),
               /* encodeBooleanAndTriStateAsIntegerAndString= */ true,
               /* sourceAspect= */ null,
-              includeAttributeSourceAspects);
+              includeAttributeSourceAspects,
+              labelPrinter);
       serializedAttributes.put(attr, serializedAttribute);
     }
     rulePb.addAllAttribute(
@@ -552,9 +561,11 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     private static final int OUTPUT_BUFFER_SIZE = 16384;
 
     private final CodedOutputStream codedOut;
+    private final LabelPrinter labelPrinter;
 
-    private StreamedQueryResultFormatter(OutputStream out) {
+    private StreamedQueryResultFormatter(OutputStream out, LabelPrinter labelPrinter) {
       this.codedOut = CodedOutputStream.newInstance(out, OUTPUT_BUFFER_SIZE);
+      this.labelPrinter = labelPrinter;
     }
 
     @Override
@@ -565,7 +576,8 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       // constructing and serializing a QueryResult proto are protected by test coverage and proto
       // best practices.
       for (Target target : partialResult) {
-        codedOut.writeMessage(QueryResult.TARGET_FIELD_NUMBER, toTargetProtoBuffer(target));
+        codedOut.writeMessage(
+            QueryResult.TARGET_FIELD_NUMBER, toTargetProtoBuffer(target, labelPrinter));
       }
     }
 

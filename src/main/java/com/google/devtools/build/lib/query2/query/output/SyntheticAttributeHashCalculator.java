@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -121,7 +122,8 @@ class SyntheticAttributeHashCalculator {
                 /* explicitlySpecified= */ false, // We care about value, not how it was set.
                 /* encodeBooleanAndTriStateAsIntegerAndString= */ false,
                 /* sourceAspect= */ null,
-                includeAttributeSourceAspects);
+                includeAttributeSourceAspects,
+                LabelPrinter.legacy());
       } else {
         attrPb = serializedAttributes.get(attr);
       }

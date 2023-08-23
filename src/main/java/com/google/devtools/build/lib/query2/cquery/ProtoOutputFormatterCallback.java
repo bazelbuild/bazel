@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.cquery.CqueryOptions.Transitions;
 import com.google.devtools.build.lib.query2.cquery.CqueryTransitionResolver.EvaluateException;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
@@ -114,6 +115,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
   private final RuleClassProvider ruleClassProvider;
 
   private final Map<Label, Target> partialResultMap;
+  private final LabelPrinter labelPrinter;
   private ConfiguredTarget currentTarget;
 
   ProtoOutputFormatterCallback(
@@ -124,13 +126,15 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       TargetAccessor<ConfiguredTarget> accessor,
       AspectResolver resolver,
       OutputType outputType,
-      RuleClassProvider ruleClassProvider) {
-    super(eventHandler, options, out, skyframeExecutor, accessor, /*uniquifyResults=*/ false);
+      RuleClassProvider ruleClassProvider,
+      LabelPrinter labelPrinter) {
+    super(eventHandler, options, out, skyframeExecutor, accessor, /* uniquifyResults= */ false);
     this.outputType = outputType;
     this.skyframeExecutor = skyframeExecutor;
     this.resolver = resolver;
     this.ruleClassProvider = ruleClassProvider;
     this.partialResultMap = Maps.newHashMap();
+    this.labelPrinter = labelPrinter;
   }
 
   @Override
@@ -243,7 +247,8 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       // we will want to add relevant tests.
       currentTarget = keyedConfiguredTarget;
       Target target = accessor.getTarget(keyedConfiguredTarget);
-      Build.Target.Builder targetBuilder = formatter.toTargetProtoBuffer(target).toBuilder();
+      Build.Target.Builder targetBuilder =
+          formatter.toTargetProtoBuffer(target, labelPrinter).toBuilder();
       if (target instanceof Rule && !Transitions.NONE.equals(options.transitions)) {
         try {
           for (CqueryTransitionResolver.ResolvedTransition resolvedTransition :
@@ -253,7 +258,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
                   .getRuleBuilder()
                   .addConfiguredRuleInput(
                       Build.ConfiguredRuleInput.newBuilder()
-                          .setLabel(resolvedTransition.label().toString()));
+                          .setLabel(labelPrinter.toString(resolvedTransition.label())));
             } else {
               for (BuildOptions options : resolvedTransition.options()) {
                 BuildConfigurationEvent buildConfigurationEvent =
@@ -265,7 +270,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
                     .getRuleBuilder()
                     .addConfiguredRuleInput(
                         Build.ConfiguredRuleInput.newBuilder()
-                            .setLabel(resolvedTransition.label().toString())
+                            .setLabel(labelPrinter.toString(resolvedTransition.label()))
                             .setConfigurationChecksum(options.checksum())
                             .setConfigurationId(configurationId));
               }
@@ -317,7 +322,10 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
   private class ConfiguredProtoOutputFormatter extends ProtoOutputFormatter {
     @Override
     protected void addAttributes(
-        Build.Rule.Builder rulePb, Rule rule, Object extraDataForAttrHash) {
+        Build.Rule.Builder rulePb,
+        Rule rule,
+        Object extraDataForAttrHash,
+        LabelPrinter labelPrinter) {
       // We know <code>currentTarget</code> will be either an AliasConfiguredTarget or
       // RuleConfiguredTarget,
       // because this method is only triggered in ProtoOutputFormatter.toTargetProtoBuffer when
@@ -342,7 +350,8 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
                 rule.isAttributeValueExplicitlySpecified(attr),
                 /* encodeBooleanAndTriStateAsIntegerAndString= */ true,
                 /* sourceAspect= */ null,
-                includeAttributeSourceAspects);
+                includeAttributeSourceAspects,
+                labelPrinter);
         rulePb.addAttribute(serializedAttribute);
       }
     }

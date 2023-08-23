@@ -23,10 +23,13 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPattern.Parser;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
 import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
@@ -60,6 +63,8 @@ import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.TriState;
+import net.starlark.java.eval.StarlarkSemantics;
+
 import java.util.Set;
 import java.util.function.Function;
 
@@ -155,6 +160,14 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
           Query.Code.GRAPHLESS_PREREQ_UNMET);
     }
 
+    StarlarkSemantics starlarkSemantics =
+        env.getSkyframeExecutor()
+            .getEffectiveStarlarkSemantics(env.getOptions().getOptions(BuildLanguageOptions.class));
+    LabelPrinter labelPrinter =
+        env.getOptions()
+            .getOptions(QueryOptions.class)
+            .getLabelPrinter(starlarkSemantics, mainRepoTargetParser.getRepoMapping());
+
     try (QueryRuntimeHelper queryRuntimeHelper =
         env.getRuntime().getQueryRuntimeHelperFactory().create(env)) {
       Either<BlazeCommandResult, QueryEvalResult> result;
@@ -169,7 +182,8 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
               threadsOption.threads,
               settings,
               useGraphlessQuery,
-              mainRepoTargetParser)) {
+              mainRepoTargetParser,
+              labelPrinter)) {
         result =
             doQuery(
                 query, env, queryOptions, streamResults, formatter, queryEnv, queryRuntimeHelper);
@@ -232,7 +246,8 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
       int loadingPhaseThreads,
       Set<Setting> settings,
       boolean useGraphlessQuery,
-      TargetPattern.Parser mainRepoTargetParser) {
+      TargetPattern.Parser mainRepoTargetParser,
+      LabelPrinter labelPrinter) {
 
     WalkableGraph walkableGraph =
         SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor());
@@ -258,17 +273,18 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
             mainRepoTargetParser,
             env.getRelativeWorkingDirectory(),
             keepGoing,
-            /*strictScope=*/ true,
+            /* strictScope= */ true,
             orderedResults,
             universeScope,
             loadingPhaseThreads,
-            /*labelFilter=*/ ALL_LABELS,
+            /* labelFilter= */ ALL_LABELS,
             env.getReporter(),
             settings,
             env.getRuntime().getQueryFunctions(),
             env.getPackageManager().getPackagePath(),
-            /*blockUniverseEvaluationErrors=*/ false,
-            useGraphlessQuery);
+            /* blockUniverseEvaluationErrors= */ false,
+            useGraphlessQuery,
+            labelPrinter);
   }
 
   private static BlazeCommandResult reportAndCreateInterruptResult(

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.testutil.PostAnalysisQueryHelper;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -41,7 +42,8 @@ public class ActionGraphQueryHelper extends PostAnalysisQueryHelper<ConfiguredTa
         mainRepoTargetParser,
         analysisHelper.getPackageManager().getPackagePath(),
         () -> walkableGraph,
-        settings);
+        settings,
+        LabelPrinter.legacy());
   }
 
   @Override

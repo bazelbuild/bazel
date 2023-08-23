@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultN
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultNode.NodeMetadata;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.query.output.BuildOutputFormatter.AttributeReader;
 import com.google.devtools.build.lib.query2.query.output.BuildOutputFormatter.TargetOutputter;
 import com.google.devtools.build.lib.query2.query.output.PossibleAttributeValues;
@@ -627,7 +628,8 @@ public class ModExecutor {
           new TargetOutputter(
               this.printer,
               (rule, attr) -> RawAttributeMapper.of(rule).isConfigurable(attr.getName()),
-              "\n");
+              "\n",
+              LabelPrinter.legacy());
     }
 
     private void outputRule(Rule rule) {

@@ -19,12 +19,14 @@ import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
 import com.google.devtools.build.lib.query2.aquery.ActionGraphProtoOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.aquery.ActionGraphQueryEnvironment;
 import com.google.devtools.build.lib.query2.aquery.AqueryActionFilter;
 import com.google.devtools.build.lib.query2.aquery.AqueryOptions;
+import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
 import com.google.devtools.build.lib.query2.engine.ActionFilterFunction;
 import com.google.devtools.build.lib.query2.engine.FunctionExpression;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
@@ -46,6 +48,8 @@ import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.InvalidAqueryOutputFormatException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
+import net.starlark.java.eval.StarlarkSemantics;
+
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Collection;
@@ -146,6 +150,9 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<Configured
             .build();
     AqueryOptions aqueryOptions = request.getOptions(AqueryOptions.class);
 
+    StarlarkSemantics starlarkSemantics =
+        env.getSkyframeExecutor()
+            .getEffectiveStarlarkSemantics(env.getOptions().getOptions(BuildLanguageOptions.class));
     ActionGraphQueryEnvironment queryEnvironment =
         new ActionGraphQueryEnvironment(
             request.getKeepGoing(),
@@ -155,7 +162,10 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<Configured
             mainRepoTargetParser,
             env.getPackageManager().getPackagePath(),
             () -> walkableGraph,
-            aqueryOptions);
+            aqueryOptions,
+            request
+                .getOptions(AqueryOptions.class)
+                .getLabelPrinter(starlarkSemantics, mainRepoTargetParser.getRepoMapping()));
     queryEnvironment.setActionFilters(actionFilters);
 
     return queryEnvironment;

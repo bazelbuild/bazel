@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.SkyQueryEnvironment;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.cquery.ProtoOutputFormatterCallback.OutputType;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.KeyExtractor;
@@ -119,7 +120,8 @@ public class ConfiguredTargetQueryEnvironment
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
       Set<Setting> settings,
-      TopLevelArtifactContext topLevelArtifactContext)
+      TopLevelArtifactContext topLevelArtifactContext,
+      LabelPrinter labelPrinter)
       throws InterruptedException {
     super(
         keepGoing,
@@ -129,7 +131,8 @@ public class ConfiguredTargetQueryEnvironment
         mainRepoTargetParser,
         pkgPath,
         walkableGraphSupplier,
-        settings);
+        settings,
+        labelPrinter);
     this.accessor = new ConfiguredTargetAccessor(walkableGraphSupplier.get(), this);
     this.configuredTargetKeyExtractor = ConfiguredTargetKey::fromConfiguredTarget;
     this.transitiveConfigurations =
@@ -147,7 +150,8 @@ public class ConfiguredTargetQueryEnvironment
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
       CqueryOptions cqueryOptions,
-      TopLevelArtifactContext topLevelArtifactContext)
+      TopLevelArtifactContext topLevelArtifactContext,
+      LabelPrinter labelPrinter)
       throws InterruptedException {
     this(
         keepGoing,
@@ -159,7 +163,8 @@ public class ConfiguredTargetQueryEnvironment
         pkgPath,
         walkableGraphSupplier,
         cqueryOptions.toSettings(),
-        topLevelArtifactContext);
+        topLevelArtifactContext,
+        labelPrinter);
     this.cqueryOptions = cqueryOptions;
   }
 
@@ -199,21 +204,9 @@ public class ConfiguredTargetQueryEnvironment
         cqueryOptions.aspectDeps.createResolver(packageManager, eventHandler);
     return ImmutableList.of(
         new LabelAndConfigurationOutputFormatterCallback(
-            eventHandler,
-            cqueryOptions,
-            out,
-            skyframeExecutor,
-            accessor,
-            true,
-            getMainRepoMapping()),
+            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, true, getLabelPrinter()),
         new LabelAndConfigurationOutputFormatterCallback(
-            eventHandler,
-            cqueryOptions,
-            out,
-            skyframeExecutor,
-            accessor,
-            false,
-            getMainRepoMapping()),
+            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, false, getLabelPrinter()),
         new TransitionsOutputFormatterCallback(
             eventHandler,
             cqueryOptions,
@@ -221,7 +214,7 @@ public class ConfiguredTargetQueryEnvironment
             skyframeExecutor,
             accessor,
             ruleClassProvider,
-            getMainRepoMapping()),
+            getLabelPrinter()),
         new ProtoOutputFormatterCallback(
             eventHandler,
             cqueryOptions,
@@ -230,7 +223,8 @@ public class ConfiguredTargetQueryEnvironment
             accessor,
             aspectResolver,
             OutputType.BINARY,
-            ruleClassProvider),
+            ruleClassProvider,
+            getLabelPrinter()),
         new ProtoOutputFormatterCallback(
             eventHandler,
             cqueryOptions,
@@ -239,7 +233,8 @@ public class ConfiguredTargetQueryEnvironment
             accessor,
             aspectResolver,
             OutputType.DELIMITED_BINARY,
-            ruleClassProvider),
+            ruleClassProvider,
+            labelPrinter),
         new ProtoOutputFormatterCallback(
             eventHandler,
             cqueryOptions,
@@ -248,7 +243,8 @@ public class ConfiguredTargetQueryEnvironment
             accessor,
             aspectResolver,
             OutputType.TEXT,
-            ruleClassProvider),
+            ruleClassProvider,
+            getLabelPrinter()),
         new ProtoOutputFormatterCallback(
             eventHandler,
             cqueryOptions,
@@ -257,9 +253,10 @@ public class ConfiguredTargetQueryEnvironment
             accessor,
             aspectResolver,
             OutputType.JSON,
-            ruleClassProvider),
+            ruleClassProvider,
+            getLabelPrinter()),
         new BuildOutputFormatterCallback(
-            eventHandler, cqueryOptions, out, skyframeExecutor, accessor),
+            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, getLabelPrinter()),
         new GraphOutputFormatterCallback(
             eventHandler,
             cqueryOptions,
@@ -267,7 +264,7 @@ public class ConfiguredTargetQueryEnvironment
             skyframeExecutor,
             accessor,
             kct -> getFwdDeps(ImmutableList.of(kct)),
-            getMainRepoMapping()),
+            getLabelPrinter()),
         new StarlarkOutputFormatterCallback(
             eventHandler, cqueryOptions, out, skyframeExecutor, accessor),
         new FilesOutputFormatterCallback(

@@ -37,9 +37,9 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.starlark.UnresolvedSymlinkAction;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.skyframe.RuleConfiguredTargetValue;
 import com.google.devtools.build.lib.util.CommandDescriptionForm;
@@ -60,7 +60,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
 
   private final ActionKeyContext actionKeyContext = new ActionKeyContext();
   private final AqueryActionFilter actionFilters;
-  private final RepositoryMapping mainRepoMapping;
+  private final LabelPrinter labelPrinter;
   private Map<String, String> paramFileNameToContentMap;
 
   ActionGraphTextOutputFormatterCallback(
@@ -69,10 +69,10 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       OutputStream out,
       TargetAccessor<ConfiguredTargetValue> accessor,
       AqueryActionFilter actionFilters,
-      RepositoryMapping mainRepoMapping) {
+      LabelPrinter labelPrinter) {
     super(eventHandler, options, out, accessor);
     this.actionFilters = actionFilters;
-    this.mainRepoMapping = mainRepoMapping;
+    this.labelPrinter = labelPrinter;
   }
 
   @Override
@@ -143,7 +143,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
 
       stringBuilder
           .append("  Target: ")
-          .append(actionOwner.getLabel().getDisplayForm(mainRepoMapping))
+          .append(labelPrinter.toString(actionOwner.getLabel()))
           .append('\n')
           .append("  Configuration: ")
           .append(configProto.getMnemonic())
@@ -151,7 +151,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       if (actionOwner.getExecutionPlatform() != null) {
         stringBuilder
             .append("  Execution platform: ")
-            .append(actionOwner.getExecutionPlatform().label().getDisplayForm(mainRepoMapping))
+            .append(labelPrinter.toString(actionOwner.getExecutionPlatform().label()))
             .append("\n");
       }
 
