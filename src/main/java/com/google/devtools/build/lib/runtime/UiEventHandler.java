@@ -527,7 +527,7 @@ public final class UiEventHandler implements EventHandler {
       buildRunning = true;
     }
     maybeAddDate();
-    stateTracker.buildStarted();
+    stateTracker.mainRepoMappingComputationStarted();
     // As a new phase started, inform immediately.
     ignoreRefreshLimitOnce();
     refresh();
