@@ -35,6 +35,9 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
@@ -487,7 +490,11 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
       moduleContext = createContext(env, usagesValue, starlarkSemantics, extensionId, extension);
       threadContext.storeInThread(thread);
-      try {
+      try (SilentCloseable c =
+          Profiler.instance()
+              .profile(
+                  ProfilerTask.BZLMOD,
+                  () -> "evaluate module extension: " + extensionId.asTargetString())) {
         Object returnValue =
             Starlark.fastcall(
                 thread, extension.getImplementation(), new Object[] {moduleContext}, new Object[0]);

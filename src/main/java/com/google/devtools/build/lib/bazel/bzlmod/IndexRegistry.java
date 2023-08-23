@@ -24,6 +24,9 @@ import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.gson.FieldNamingPolicy;
@@ -81,7 +84,8 @@ public class IndexRegistry implements Registry {
   /** Grabs a file from the given URL. Returns {@link Optional#empty} if the file doesn't exist. */
   private Optional<byte[]> grabFile(String url, ExtendedEventHandler eventHandler)
       throws IOException, InterruptedException {
-    try {
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.BZLMOD, () -> "download file: " + url)) {
       return Optional.of(
           downloadManager.downloadAndReadOneUrl(new URL(url), eventHandler, clientEnv));
     } catch (FileNotFoundException e) {
