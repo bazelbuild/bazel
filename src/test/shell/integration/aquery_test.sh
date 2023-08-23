@@ -1703,11 +1703,54 @@ EOF
   assert_contains "Mnemonic: FileWrite" output
   # FileWrite contents is  base64-encoded 'hello world'
   assert_contains "FileWriteContents: \[aGVsbG8gd29ybGQ=\]" output
+  assert_contains "^ *IsExecutable: false" output
 
   bazel aquery --output=textproto --include_file_write_contents "//$pkg:bar" > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
   assert_contains 'file_contents: "hello world"' output
+  assert_not_contains "^is_executable: true" output
+}
+
+function test_file_write_is_executable() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  touch "$pkg/foo.sh"
+  cat > "$pkg/write_executable_file.bzl" <<'EOF'
+def _impl(ctx):
+    out = ctx.actions.declare_symlink(ctx.label.name)
+    ctx.actions.write(
+        output = out,
+        content = "Hello",
+        is_executable = True,
+    )
+    return [
+        DefaultInfo(files = depset([out]))
+    ]
+write_executable_file = rule(
+    implementation = _impl,
+    attrs = {
+        "path": attr.string(),
+    },
+)
+EOF
+  cat > "$pkg/BUILD" <<'EOF'
+load(":write_executable_file.bzl", "write_executable_file")
+write_executable_file(
+  name = "foo",
+  path = "bar/baz.txt",
+)
+EOF
+  bazel aquery --output=textproto \
+     "//$pkg:foo" >output 2> "$TEST_log" || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_contains "^is_executable: true" output
+
+  bazel aquery --output=text "//$pkg:foo" | \
+    sed -nr '/Mnemonic: FileWrite/,/^ *$/p' >output \
+      2> "$TEST_log" || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_contains "^ *IsExecutable: true" output
 }
 
 function test_source_symlink_manifest() {

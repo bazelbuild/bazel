@@ -195,12 +195,16 @@ public class ActionGraphDump {
       actionBuilder.addAllArguments(commandAction.getArguments());
     }
 
-    if (includeFileWriteContents
-        && action instanceof AbstractFileWriteAction.FileContentsProvider) {
-      String contents =
-          ((AbstractFileWriteAction.FileContentsProvider) action).getFileContents(eventHandler);
-      actionBuilder.setFileContents(contents);
+    if (action instanceof AbstractFileWriteAction.FileContentsProvider) {
+      actionBuilder.setIsExecutable(
+          ((AbstractFileWriteAction.FileContentsProvider) action).makeExecutable());
+      if (includeFileWriteContents) {
+        String contents =
+            ((AbstractFileWriteAction.FileContentsProvider) action).getFileContents(eventHandler);
+        actionBuilder.setFileContents(contents);
+      }
     }
+
 
     if (action instanceof UnresolvedSymlinkAction) {
       actionBuilder.setUnresolvedSymlinkTarget(

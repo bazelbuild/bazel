@@ -317,14 +317,17 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       stringBuilder.append("  ]\n");
     }
 
-    if (options.includeFileWriteContents
-        && action instanceof AbstractFileWriteAction.FileContentsProvider) {
-      String contents =
-          ((AbstractFileWriteAction.FileContentsProvider) action).getFileContents(eventHandler);
-      stringBuilder
-          .append("  FileWriteContents: [")
-          .append(Base64.getEncoder().encodeToString(contents.getBytes(UTF_8)))
-          .append("]\n");
+    if (action instanceof AbstractFileWriteAction.FileContentsProvider) {
+      AbstractFileWriteAction.FileContentsProvider fileAction =
+          (AbstractFileWriteAction.FileContentsProvider) action;
+      stringBuilder.append(String.format("  IsExecutable: %b\n", fileAction.makeExecutable()));
+      if (options.includeFileWriteContents) {
+        String contents = fileAction.getFileContents(eventHandler);
+        stringBuilder
+            .append("  FileWriteContents: [")
+            .append(Base64.getEncoder().encodeToString(contents.getBytes(UTF_8)))
+            .append("]\n");
+      }
     }
 
     if (action instanceof UnresolvedSymlinkAction) {

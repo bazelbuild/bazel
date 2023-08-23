@@ -113,13 +113,17 @@ message Action {
   // to.
   repeated KeyValuePair substitutions = 16;
 
-  // The contents of the file for the actions.write() action
+  // The contents of the file for the ctx.actions.write() action
   // (guarded by the --include_file_write_contents flag).
   string file_contents = 17;
 
   // The target of the symlink created by UnresolvedSymlink actions.
   // For regular Symlink actions, the target is represented as an input.
   string unresolved_symlink_target = 18;
+
+  // If FileWrite actions should make their output executable.
+  // (ctx.actions.write(is_executable=True))
+  bool is_executable = 19;
 }
 
 // Represents a single target (without configuration information) that is
