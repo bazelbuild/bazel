@@ -268,6 +268,8 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       Dict<?, ?> tagClasses, // Dict<String, TagClass>
       String doc,
       Sequence<?> environ, // <String>
+      Boolean useOs,
+      Boolean useArch,
       StarlarkThread thread)
       throws EvalException {
     return ModuleExtension.builder()
@@ -277,6 +279,8 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
         .setDoc(doc)
         .setEnvVariables(ImmutableList.copyOf(Sequence.cast(environ, String.class, "environ")))
         .setLocation(thread.getCallerLocation())
+        .setUseOs(useOs)
+        .setUseArch(useArch)
         .build();
   }
 

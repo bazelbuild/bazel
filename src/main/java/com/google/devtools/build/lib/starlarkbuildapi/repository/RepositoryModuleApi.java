@@ -164,6 +164,18 @@ public interface RepositoryModuleApi {
                     + "re-evaluated.",
             named = true,
             positional = false),
+        @Param(
+            name = "use_os",
+            defaultValue = "False",
+            doc = "Indicates whether this extension is OS-dependent or not",
+            named = true,
+            positional = false),
+        @Param(
+            name = "use_arch",
+            defaultValue = "False",
+            doc = "Indicates whether this extension is architecture-dependent or not",
+            named = true,
+            positional = false)
       },
       useStarlarkThread = true)
   Object moduleExtension(
@@ -171,6 +183,8 @@ public interface RepositoryModuleApi {
       Dict<?, ?> tagClasses, // Dict<String, TagClassApi>
       String doc,
       Sequence<?> environ, // <String>
+      Boolean useOs,
+      Boolean useArch,
       StarlarkThread thread)
       throws EvalException;
 
