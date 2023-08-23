@@ -63,7 +63,9 @@ public class StarlarkBazelModuleTest {
         .setDefiningBzlFileLabel(Label.parseCanonicalUnchecked("//:rje.bzl"))
         .setLocation(Location.BUILTIN)
         .setImplementation(() -> "maven")
-        .setEnvVariables(ImmutableList.of());
+        .setEnvVariables(ImmutableList.of())
+        .setUseOs(false)
+        .setUseArch(false);
   }
 
   @Test
