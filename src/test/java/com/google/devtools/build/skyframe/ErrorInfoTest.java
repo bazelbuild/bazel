@@ -85,8 +85,8 @@ public final class ErrorInfoTest {
   public void testFromCycle() {
     CycleInfo cycle =
         new CycleInfo(
-            ImmutableList.of(GraphTester.toSkyKey("PATH, 1234")),
-            ImmutableList.of(GraphTester.toSkyKey("CYCLE, 4321")));
+            ImmutableList.of(GraphTester.skyKey("PATH, 1234")),
+            ImmutableList.of(GraphTester.skyKey("CYCLE, 4321")));
 
     ErrorInfo errorInfo = ErrorInfo.fromCycle(cycle);
 
@@ -99,8 +99,8 @@ public final class ErrorInfoTest {
   public void testFromChildErrors() {
     CycleInfo cycle =
         new CycleInfo(
-            ImmutableList.of(GraphTester.toSkyKey("PATH, 1234")),
-            ImmutableList.of(GraphTester.toSkyKey("CYCLE, 4321")));
+            ImmutableList.of(GraphTester.skyKey("PATH, 1234")),
+            ImmutableList.of(GraphTester.skyKey("CYCLE, 4321")));
     ErrorInfo cycleErrorInfo = ErrorInfo.fromCycle(cycle);
 
     Exception exception1 = new IOException("ehhhhh");
@@ -118,7 +118,7 @@ public final class ErrorInfoTest {
         ErrorInfo.fromException(
             new ReifiedSkyFunctionException(dummyException2), /*isTransitivelyTransient=*/ false);
 
-    SkyKey currentKey = GraphTester.toSkyKey("CURRENT, 9876");
+    SkyKey currentKey = GraphTester.skyKey("CURRENT, 9876");
 
     ErrorInfo errorInfo = ErrorInfo.fromChildErrors(
         currentKey, ImmutableList.of(cycleErrorInfo, exceptionErrorInfo1, exceptionErrorInfo2));

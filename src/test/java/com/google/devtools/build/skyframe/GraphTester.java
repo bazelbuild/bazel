@@ -176,7 +176,7 @@ public class GraphTester {
   }
 
   private static SkyValue getValue(Pair<SkyKey, SkyValue> dep, SkyFunction.Environment env)
-      throws SkyFunctionException, InterruptedException {
+      throws InterruptedException {
     SkyValue value;
     if (dep.second == null) {
       value = env.getValue(dep.first);
@@ -191,8 +191,7 @@ public class GraphTester {
   }
 
   private static SkyValue getValueUsingQueryDep(
-      Pair<SkyKey, SkyValue> dep, SkyFunction.Environment env)
-      throws SkyFunctionException, InterruptedException {
+      Pair<SkyKey, SkyValue> dep, SkyFunction.Environment env) throws InterruptedException {
     SkyValue value;
     var lookupResult = env.getValuesAndExceptions(ImmutableList.of(dep.first));
     if (dep.second == null) {
@@ -290,11 +289,6 @@ public class GraphTester {
     public TestFunction removeDependency(SkyKey key) {
       deps.remove(Pair.<SkyKey, SkyValue>of(key, null));
       return this;
-    }
-
-    @CanIgnoreReturnValue
-    public TestFunction addErrorDependency(String name, SkyValue altValue) {
-      return addErrorDependency(skyKey(name), altValue);
     }
 
     @CanIgnoreReturnValue
@@ -405,10 +399,6 @@ public class GraphTester {
       result.add(Key.create(element));
     }
     return result.build();
-  }
-
-  public static SkyKey toSkyKey(String name) {
-    return toSkyKeys(name).get(0);
   }
 
   private class DelegatingFunction implements SkyFunction {

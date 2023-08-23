@@ -45,7 +45,7 @@ import org.junit.Test;
  */
 abstract class InMemoryNodeEntryTest<V extends Version> {
 
-  private static final SkyKey REGULAR_KEY = GraphTester.toSkyKey("regular");
+  private static final SkyKey REGULAR_KEY = GraphTester.skyKey("regular");
   private static final SkyKey PARTIAL_REEVALUATION_KEY =
       new SkyKey() {
         @Override

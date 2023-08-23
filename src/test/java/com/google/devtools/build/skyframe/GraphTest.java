@@ -110,7 +110,7 @@ public abstract class GraphTest {
   }
 
   protected static SkyKey key(String name) {
-    return GraphTester.toSkyKey(name);
+    return GraphTester.skyKey(name);
   }
 
   @Test

@@ -21,6 +21,7 @@ import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.
 import static com.google.devtools.build.skyframe.GraphTester.CONCATENATE;
 import static com.google.devtools.build.skyframe.GraphTester.COPY;
 import static com.google.devtools.build.skyframe.GraphTester.NODE_TYPE;
+import static com.google.devtools.build.skyframe.GraphTester.nonHermeticKey;
 import static com.google.devtools.build.skyframe.GraphTester.skyKey;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
@@ -32,10 +33,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.testing.GcFinalization;
-import com.google.common.truth.IterableSubject;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -142,66 +141,10 @@ public abstract class MemoizingEvaluatorTest {
     return true;
   }
 
-  protected boolean preciseEvaluationStatusStored() {
-    return true;
-  }
-
-  protected void initializeReporter() {
+  private void initializeReporter() {
     eventCollector = new EventCollector();
     reporter = new Reporter(new EventBus(), eventCollector);
     tester.resetPlayedEvents();
-  }
-
-  private static SkyKey toSkyKey(String name) {
-    return GraphTester.toSkyKey(name);
-  }
-
-  /**
-   * Equips {@link #tester} with a {@link GraphInconsistencyReceiver} that tolerates and tracks
-   * inconsistencies.
-   *
-   * <p>Returns a concurrent {@link Set} containing {@link InconsistencyData}s discovered during
-   * evaluation. Callers should assert the desired properties on the returned set.
-   *
-   * <p>Calls {@code tester.initialize} under the hood, so call early in test setup!
-   */
-  protected Set<InconsistencyData> setupGraphInconsistencyReceiver(boolean allowDuplicates) {
-    Set<InconsistencyData> inconsistencies = Sets.newConcurrentHashSet();
-    tester.setGraphInconsistencyReceiver(
-        restartEnabledInconsistencyReceiver(
-            (key, otherKeys, inconsistency) -> {
-              if (otherKeys == null) {
-                Preconditions.checkState(
-                    inconsistencies.add(
-                            InconsistencyData.create(key, /*otherKey=*/ null, inconsistency))
-                        || allowDuplicates,
-                    "Duplicate inconsistency: (%s, %s, %s)\nexisting = %s",
-                    key,
-                    null,
-                    inconsistency,
-                    inconsistencies);
-              } else {
-                for (SkyKey otherKey : otherKeys) {
-                  Preconditions.checkState(
-                      inconsistencies.add(InconsistencyData.create(key, otherKey, inconsistency))
-                          || allowDuplicates,
-                      "Duplicate inconsistency: (%s, %s, %s)\nexisting = %s",
-                      key,
-                      otherKey,
-                      inconsistency,
-                      inconsistencies);
-                }
-              }
-            }));
-    // #initialize must be called after setting the GraphInconsistencyReceiver for the receiver to
-    // be registered with the test's memoizing evaluator.
-    tester.initialize();
-    return inconsistencies;
-  }
-
-  /** Calls {@code tester.initialize} under the hood, so call early in test setup! */
-  protected Set<InconsistencyData> setupGraphInconsistencyReceiver() {
-    return setupGraphInconsistencyReceiver(/*allowDuplicates=*/ false);
   }
 
   @Test
@@ -241,13 +184,13 @@ public abstract class MemoizingEvaluatorTest {
         .getOrCreate("top")
         .setBuilder(
             (skyKey, env) -> {
-              env.getValue(toSkyKey("sleepyValue"));
+              env.getValue(skyKey("sleepyValue"));
               try {
-                env.getValueOrThrow(toSkyKey("badValue"), SomeErrorException.class);
+                env.getValueOrThrow(skyKey("badValue"), SomeErrorException.class);
               } catch (SomeErrorException e) {
                 // In order to trigger this bug, we need to request a dep on an already computed
                 // value.
-                env.getValue(toSkyKey("otherValue1"));
+                env.getValue(skyKey("otherValue1"));
               }
               if (!env.valuesMissing()) {
                 throw new AssertionError("SleepyValue should always be unavailable");
@@ -265,15 +208,15 @@ public abstract class MemoizingEvaluatorTest {
     tester.getOrCreate("otherValue1").setConstantValue(new StringValue("otherVal1"));
 
     EvaluationResult<SkyValue> result = tester.eval(false, "top");
-    assertThatEvaluationResult(result).hasSingletonErrorThat(toSkyKey("top"));
+    assertThatEvaluationResult(result).hasSingletonErrorThat(skyKey("top"));
   }
 
   @Test
   public void testEnvProvidesTemporaryDirectDeps() throws Exception {
     AtomicInteger counter = new AtomicInteger();
     List<SkyKey> deps = Collections.synchronizedList(new ArrayList<>());
-    SkyKey topKey = toSkyKey("top");
-    SkyKey bottomKey = toSkyKey("bottom");
+    SkyKey topKey = skyKey("top");
+    SkyKey bottomKey = skyKey("bottom");
     SkyValue bottomValue = new StringValue("bottom");
     tester
         .getOrCreate(topKey)
@@ -295,14 +238,14 @@ public abstract class MemoizingEvaluatorTest {
   @Test
   public void cachedErrorShutsDownThreadpool() throws Exception {
     // When a node throws an error on the first build,
-    SkyKey cachedErrorKey = GraphTester.skyKey("error");
+    SkyKey cachedErrorKey = skyKey("error");
     tester.getOrCreate(cachedErrorKey).setHasError(true);
     assertThat(tester.evalAndGetError(/*keepGoing=*/ true, cachedErrorKey)).isNotNull();
     // And on the second build, it is requested as a dep,
-    SkyKey topKey = GraphTester.skyKey("top");
+    SkyKey topKey = skyKey("top");
     tester.getOrCreate(topKey).addDependency(cachedErrorKey).setComputedValue(CONCATENATE);
     // And another node throws an error, but waits to throw until the child error is thrown,
-    SkyKey newErrorKey = GraphTester.skyKey("newError");
+    SkyKey newErrorKey = skyKey("newError");
     tester
         .getOrCreate(newErrorKey)
         .setBuilder(
@@ -320,20 +263,21 @@ public abstract class MemoizingEvaluatorTest {
   }
 
   @Test
-  public void interruptBitCleared() throws Exception {
-    SkyKey interruptKey = GraphTester.skyKey("interrupt");
+  public void interruptBitCleared() {
+    SkyKey interruptKey = skyKey("interrupt");
     tester.getOrCreate(interruptKey).setBuilder(INTERRUPT_BUILDER);
-    assertThrows(InterruptedException.class, () -> tester.eval(/*keepGoing=*/ true, interruptKey));
+    assertThrows(
+        InterruptedException.class, () -> tester.eval(/* keepGoing= */ true, interruptKey));
     assertThat(Thread.interrupted()).isFalse();
   }
 
   @Test
-  public void crashAfterInterruptCrashes() throws Exception {
-    SkyKey failKey = GraphTester.skyKey("fail");
-    SkyKey badInterruptkey = GraphTester.skyKey("bad-interrupt");
+  public void crashAfterInterruptCrashes() {
+    SkyKey failKey = skyKey("fail");
+    SkyKey badInterruptkey = skyKey("bad-interrupt");
     // Given a SkyFunction implementation which is improperly coded to throw a runtime exception
     // when it is interrupted,
-    final CountDownLatch badInterruptStarted = new CountDownLatch(1);
+    CountDownLatch badInterruptStarted = new CountDownLatch(1);
     tester
         .getOrCreate(badInterruptkey)
         .setBuilder(
@@ -375,11 +319,11 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void interruptAfterFailFails() throws Exception {
-    SkyKey failKey = GraphTester.skyKey("fail");
-    SkyKey interruptedKey = GraphTester.skyKey("interrupted");
+    SkyKey failKey = skyKey("fail");
+    SkyKey interruptedKey = skyKey("interrupted");
     // Given a SkyFunction implementation that is properly coded to as not to throw a
     // runtime exception when it is interrupted,
-    final CountDownLatch interruptStarted = new CountDownLatch(1);
+    CountDownLatch interruptStarted = new CountDownLatch(1);
     tester
         .getOrCreate(interruptedKey)
         .setBuilder(
@@ -443,7 +387,7 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void deleteOldNodesTest() throws Exception {
-    SkyKey d2Key = GraphTester.nonHermeticKey("d2");
+    SkyKey d2Key = nonHermeticKey("d2");
     tester
         .getOrCreate("top")
         .setComputedValue(CONCATENATE)
@@ -479,9 +423,9 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void deleteDirtyCleanedValue() throws Exception {
-    SkyKey leafKey = GraphTester.nonHermeticKey("leafKey");
+    SkyKey leafKey = nonHermeticKey("leafKey");
     tester.getOrCreate(leafKey).setConstantValue(new StringValue("value"));
-    SkyKey topKey = GraphTester.skyKey("topKey");
+    SkyKey topKey = skyKey("topKey");
     tester.getOrCreate(topKey).addDependency(leafKey).setComputedValue(CONCATENATE);
 
     assertThat(tester.evalAndGet(/*keepGoing=*/ false, topKey)).isEqualTo(new StringValue("value"));
@@ -534,7 +478,7 @@ public abstract class MemoizingEvaluatorTest {
   @Test
   public void warningBeforeErrorOnFailFastBuild() throws Exception {
     tester.set("dep", new StringValue("dep")).setWarning("warn-dep");
-    SkyKey topKey = GraphTester.toSkyKey("top");
+    SkyKey topKey = skyKey("top");
     tester.getOrCreate(topKey).setHasError(true).addDependency("dep");
     for (int i = 0; i < 2; i++) {
       initializeReporter();
@@ -556,7 +500,7 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void warningAndErrorOnFailFastBuild() throws Exception {
-    SkyKey topKey = GraphTester.toSkyKey("top");
+    SkyKey topKey = skyKey("top");
     tester.set(topKey, new StringValue("top")).setWarning("warning msg").setHasError(true);
     for (int i = 0; i < 2; i++) {
       initializeReporter();
@@ -578,7 +522,7 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void warningAndErrorOnFailFastBuildAfterKeepGoingBuild() throws Exception {
-    SkyKey topKey = GraphTester.toSkyKey("top");
+    SkyKey topKey = skyKey("top");
     tester.set(topKey, new StringValue("top")).setWarning("warning msg").setHasError(true);
     for (int i = 0; i < 2; i++) {
       initializeReporter();
@@ -691,7 +635,7 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void invalidationWithChangeAndThenNothingChanged() throws Exception {
-    SkyKey bKey = GraphTester.nonHermeticKey("b");
+    SkyKey bKey = nonHermeticKey("b");
     tester.getOrCreate("a").addDependency(bKey).setComputedValue(COPY);
     tester.set(bKey, new StringValue("y"));
     StringValue original = (StringValue) tester.evalAndGet("a");
@@ -707,15 +651,15 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void noKeepGoingErrorAfterKeepGoingError() throws Exception {
-    SkyKey topKey = GraphTester.nonHermeticKey("top");
-    SkyKey errorKey = GraphTester.skyKey("error");
+    SkyKey topKey = nonHermeticKey("top");
+    SkyKey errorKey = skyKey("error");
     tester.getOrCreate(errorKey).setHasError(true);
     tester.getOrCreate(topKey).addDependency(errorKey).setComputedValue(CONCATENATE);
-    EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/ true, topKey);
+    EvaluationResult<StringValue> result = tester.eval(/* keepGoing= */ true, topKey);
     assertThatEvaluationResult(result).hasSingletonErrorThat(topKey);
-    tester.getOrCreate(topKey, /*markAsModified=*/ true);
+    tester.getOrCreate(topKey, /* markAsModified= */ true);
     tester.invalidate();
-    result = tester.eval(/*keepGoing=*/ false, topKey);
+    result = tester.eval(/* keepGoing= */ false, topKey);
     assertThatEvaluationResult(result).hasSingletonErrorThat(topKey);
   }
 
@@ -752,7 +696,7 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void transientPruning() throws Exception {
-    SkyKey leaf = GraphTester.nonHermeticKey("leaf");
+    SkyKey leaf = nonHermeticKey("leaf");
     tester.getOrCreate("top").setHasTransientError(true).addDependency(leaf);
     tester.set(leaf, new StringValue("leafy"));
     tester.evalAndGetError(/*keepGoing=*/ true, "top");
@@ -771,7 +715,7 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void incrementalSimpleDependency() throws Exception {
-    SkyKey aKey = GraphTester.nonHermeticKey("a");
+    SkyKey aKey = nonHermeticKey("a");
     tester.getOrCreate("ab").addDependency(aKey).setComputedValue(COPY);
     tester.set(aKey, new StringValue("me"));
     tester.evalAndGet("ab");
@@ -803,7 +747,7 @@ public abstract class MemoizingEvaluatorTest {
   }
 
   private SkyKey setupDiamondDependency() {
-    SkyKey diamondBase = GraphTester.nonHermeticKey("d");
+    SkyKey diamondBase = nonHermeticKey("d");
     tester.getOrCreate("a").addDependency("b").addDependency("c").setComputedValue(CONCATENATE);
     tester.getOrCreate("b").addDependency(diamondBase).setComputedValue(COPY);
     tester.getOrCreate("c").addDependency(diamondBase).setComputedValue(COPY);
@@ -817,8 +761,8 @@ public abstract class MemoizingEvaluatorTest {
   // should be notified that mid has been built.
   @Test
   public void alreadyAnalyzedBadTarget() throws Exception {
-    final SkyKey mid = GraphTester.toSkyKey("zzmid");
-    final CountDownLatch valueSet = new CountDownLatch(1);
+    SkyKey mid = skyKey("zzmid");
+    CountDownLatch valueSet = new CountDownLatch(1);
     injectGraphListenerForTesting(
         (key, type, order, context) -> {
           if (!key.equals(mid)) {
@@ -838,53 +782,51 @@ public abstract class MemoizingEvaluatorTest {
               break;
           }
         },
-        /*deterministic=*/ true);
-    SkyKey top = GraphTester.skyKey("aatop");
+        /* deterministic= */ true);
+    SkyKey top = skyKey("aatop");
     tester.getOrCreate(top).addDependency(mid).setComputedValue(CONCATENATE);
     tester.getOrCreate(mid).setHasError(true);
-    tester.eval(/*keepGoing=*/ false, top, mid);
+    tester.eval(/* keepGoing= */ false, top, mid);
     assertThat(valueSet.getCount()).isEqualTo(0L);
     assertThat(tester.progressReceiver.evaluated).containsExactly(mid);
   }
 
   @Test
   public void receiverToldOfVerifiedValueDependingOnCycle() throws Exception {
-    SkyKey leaf = GraphTester.nonHermeticKey("leaf");
-    SkyKey cycle = GraphTester.toSkyKey("cycle");
-    SkyKey top = GraphTester.toSkyKey("top");
+    SkyKey leaf = nonHermeticKey("leaf");
+    SkyKey cycle = skyKey("cycle");
+    SkyKey top = skyKey("top");
     tester.set(leaf, new StringValue("leaf"));
     tester.getOrCreate(cycle).addDependency(cycle);
     tester.getOrCreate(top).addDependency(leaf).addDependency(cycle);
-    tester.eval(/*keepGoing=*/ true, top);
+    tester.eval(/* keepGoing= */ true, top);
     assertThat(tester.progressReceiver.evaluated).containsExactly(leaf, top, cycle);
     tester.progressReceiver.clear();
-    tester.getOrCreate(leaf, /*markAsModified=*/ true);
+    tester.getOrCreate(leaf, /* markAsModified= */ true);
     tester.invalidate();
-    tester.eval(/*keepGoing=*/ true, top);
-    if (preciseEvaluationStatusStored()) {
-      assertThat(tester.progressReceiver.evaluated).containsExactly(leaf, top);
-    }
+    tester.eval(/* keepGoing= */ true, top);
+    assertThat(tester.progressReceiver.evaluated).containsExactly(leaf, top);
   }
 
   @Test
   public void incrementalAddedDependency() throws Exception {
-    SkyKey aKey = GraphTester.nonHermeticKey("a");
-    SkyKey bKey = GraphTester.nonHermeticKey("b");
+    SkyKey aKey = nonHermeticKey("a");
+    SkyKey bKey = nonHermeticKey("b");
     tester.getOrCreate(aKey).addDependency(bKey).setComputedValue(CONCATENATE);
     tester.set(bKey, new StringValue("first"));
     tester.set("c", new StringValue("second"));
-    tester.evalAndGet(/*keepGoing=*/ false, aKey);
+    tester.evalAndGet(/* keepGoing= */ false, aKey);
 
     tester.getOrCreate(aKey).addDependency("c");
     tester.set(bKey, new StringValue("now"));
     tester.invalidate();
-    StringValue value = (StringValue) tester.evalAndGet(/*keepGoing=*/ false, aKey);
+    StringValue value = (StringValue) tester.evalAndGet(/* keepGoing= */ false, aKey);
     assertThat(value.getValue()).isEqualTo("nowsecond");
   }
 
   @Test
   public void manyValuesDependOnSingleValue() throws Exception {
-    SkyKey leaf = GraphTester.nonHermeticKey("leaf");
+    SkyKey leaf = nonHermeticKey("leaf");
     String[] values = new String[TEST_NODE_COUNT];
     for (int i = 0; i < values.length; i++) {
       values[i] = Integer.toString(i);
@@ -894,7 +836,7 @@ public abstract class MemoizingEvaluatorTest {
 
     EvaluationResult<StringValue> result = tester.eval(/* keepGoing= */ false, values);
     for (String value : values) {
-      SkyValue actual = result.get(toSkyKey(value));
+      SkyValue actual = result.get(skyKey(value));
       assertThat(actual).isEqualTo(new StringValue("leaf"));
     }
 
@@ -903,7 +845,7 @@ public abstract class MemoizingEvaluatorTest {
       tester.invalidate();
       result = tester.eval(/* keepGoing= */ false, values);
       for (int i = 0; i < values.length; i++) {
-        SkyValue actual = result.get(toSkyKey(values[i]));
+        SkyValue actual = result.get(skyKey(values[i]));
         assertWithMessage("Run " + j + ", value " + i)
             .that(actual)
             .isEqualTo(new StringValue("other" + j));
@@ -917,11 +859,11 @@ public abstract class MemoizingEvaluatorTest {
     StringBuilder expected = new StringBuilder();
     for (int i = 0; i < values.length; i++) {
       String iString = Integer.toString(i);
-      values[i] = GraphTester.nonHermeticKey(iString);
+      values[i] = nonHermeticKey(iString);
       tester.set(values[i], new StringValue(iString));
       expected.append(iString);
     }
-    SkyKey rootKey = toSkyKey("root");
+    SkyKey rootKey = skyKey("root");
     TestFunction value = tester.getOrCreate(rootKey).setComputedValue(CONCATENATE);
     for (SkyKey skyKey : values) {
       value.addDependency(skyKey);
@@ -946,7 +888,7 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void twoRailLeftRightDependencies() throws Exception {
-    SkyKey leaf = GraphTester.nonHermeticKey("leaf");
+    SkyKey leaf = nonHermeticKey("leaf");
     String[] leftValues = new String[TEST_NODE_COUNT];
     String[] rightValues = new String[TEST_NODE_COUNT];
     for (int i = 0; i < leftValues.length; i++) {
@@ -960,12 +902,12 @@ public abstract class MemoizingEvaluatorTest {
             .getOrCreate(leftValues[i])
             .addDependency(leftValues[i - 1])
             .addDependency(rightValues[i - 1])
-            .setComputedValue(new PassThroughSelected(toSkyKey(leftValues[i - 1])));
+            .setComputedValue(new PassThroughSelected(skyKey(leftValues[i - 1])));
         tester
             .getOrCreate(rightValues[i])
             .addDependency(leftValues[i - 1])
             .addDependency(rightValues[i - 1])
-            .setComputedValue(new PassThroughSelected(toSkyKey(rightValues[i - 1])));
+            .setComputedValue(new PassThroughSelected(skyKey(rightValues[i - 1])));
       }
     }
     tester.set(leaf, new StringValue("leaf"));
@@ -974,34 +916,34 @@ public abstract class MemoizingEvaluatorTest {
     String lastRight = "right-" + (TEST_NODE_COUNT - 1);
 
     EvaluationResult<StringValue> result = tester.eval(/* keepGoing= */ false, lastLeft, lastRight);
-    assertThat(result.get(toSkyKey(lastLeft))).isEqualTo(new StringValue("leaf"));
-    assertThat(result.get(toSkyKey(lastRight))).isEqualTo(new StringValue("leaf"));
+    assertThat(result.get(skyKey(lastLeft))).isEqualTo(new StringValue("leaf"));
+    assertThat(result.get(skyKey(lastRight))).isEqualTo(new StringValue("leaf"));
 
     for (int j = 0; j < TESTED_NODES; j++) {
       String value = "other" + j;
       tester.set(leaf, new StringValue(value));
       tester.invalidate();
       result = tester.eval(/* keepGoing= */ false, lastLeft, lastRight);
-      assertThat(result.get(toSkyKey(lastLeft))).isEqualTo(new StringValue(value));
-      assertThat(result.get(toSkyKey(lastRight))).isEqualTo(new StringValue(value));
+      assertThat(result.get(skyKey(lastLeft))).isEqualTo(new StringValue(value));
+      assertThat(result.get(skyKey(lastRight))).isEqualTo(new StringValue(value));
     }
   }
 
   @Test
   public void noKeepGoingAfterKeepGoingCycle() throws Exception {
     initializeTester();
-    SkyKey aKey = GraphTester.toSkyKey("a");
-    SkyKey bKey = GraphTester.toSkyKey("b");
-    SkyKey topKey = GraphTester.toSkyKey("top");
-    SkyKey midKey = GraphTester.toSkyKey("mid");
-    SkyKey goodKey = GraphTester.toSkyKey("good");
+    SkyKey aKey = skyKey("a");
+    SkyKey bKey = skyKey("b");
+    SkyKey topKey = skyKey("top");
+    SkyKey midKey = skyKey("mid");
+    SkyKey goodKey = skyKey("good");
     StringValue goodValue = new StringValue("good");
     tester.set(goodKey, goodValue);
     tester.getOrCreate(topKey).addDependency(midKey);
     tester.getOrCreate(midKey).addDependency(aKey);
     tester.getOrCreate(aKey).addDependency(bKey);
     tester.getOrCreate(bKey).addDependency(aKey);
-    EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/ true, topKey, goodKey);
+    EvaluationResult<StringValue> result = tester.eval(/* keepGoing= */ true, topKey, goodKey);
     assertThat(result.get(goodKey)).isEqualTo(goodValue);
     assertThat(result.get(topKey)).isNull();
     ErrorInfo errorInfo = result.getError(topKey);
@@ -1024,7 +966,7 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void keepGoingCycleAlreadyPresent() throws Exception {
-    SkyKey selfEdge = GraphTester.toSkyKey("selfEdge");
+    SkyKey selfEdge = skyKey("selfEdge");
     tester.getOrCreate(selfEdge).addDependency(selfEdge).setComputedValue(CONCATENATE);
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/ true, selfEdge);
     assertThatEvaluationResult(result).hasError();
@@ -1033,7 +975,7 @@ public abstract class MemoizingEvaluatorTest {
       CycleInfoSubjectFactory.assertThat(cycleInfo).hasCycleThat().containsExactly(selfEdge);
       CycleInfoSubjectFactory.assertThat(cycleInfo).hasPathToCycleThat().isEmpty();
     }
-    SkyKey parent = GraphTester.toSkyKey("parent");
+    SkyKey parent = skyKey("parent");
     tester.getOrCreate(parent).addDependency(selfEdge).setComputedValue(CONCATENATE);
     EvaluationResult<StringValue> result2 = tester.eval(/*keepGoing=*/ true, parent);
     assertThatEvaluationResult(result).hasError();
@@ -1045,10 +987,10 @@ public abstract class MemoizingEvaluatorTest {
   }
 
   private void changeCycle(boolean keepGoing) throws Exception {
-    SkyKey aKey = GraphTester.toSkyKey("a");
-    SkyKey bKey = GraphTester.nonHermeticKey("b");
-    SkyKey topKey = GraphTester.toSkyKey("top");
-    SkyKey midKey = GraphTester.toSkyKey("mid");
+    SkyKey aKey = skyKey("a");
+    SkyKey bKey = nonHermeticKey("b");
+    SkyKey topKey = skyKey("top");
+    SkyKey midKey = skyKey("mid");
     tester.getOrCreate(topKey).addDependency(midKey).setComputedValue(COPY);
     tester.getOrCreate(midKey).addDependency(aKey).setComputedValue(COPY);
     tester.getOrCreate(aKey).addDependency(bKey).setComputedValue(COPY);
@@ -1080,14 +1022,16 @@ public abstract class MemoizingEvaluatorTest {
     changeCycle(true);
   }
 
-  /** @see ParallelEvaluatorTest#cycleAboveIndependentCycle() */
+  /**
+   * @see ParallelEvaluatorTest#cycleAboveIndependentCycle()
+   */
   @Test
   public void cycleAboveIndependentCycle() throws Exception {
     makeGraphDeterministic();
-    SkyKey aKey = GraphTester.toSkyKey("a");
-    SkyKey bKey = GraphTester.toSkyKey("b");
-    SkyKey cKey = GraphTester.nonHermeticKey("c");
-    final SkyKey leafKey = GraphTester.nonHermeticKey("leaf");
+    SkyKey aKey = skyKey("a");
+    SkyKey bKey = skyKey("b");
+    SkyKey cKey = nonHermeticKey("c");
+    SkyKey leafKey = nonHermeticKey("leaf");
     // When aKey depends on leafKey and bKey,
     tester
         .getOrCreate(aKey)
@@ -1158,15 +1102,15 @@ public abstract class MemoizingEvaluatorTest {
     // The cycle detection algorithm non-deterministically traverses into children nodes, so
     // use explicit determinism.
     makeGraphDeterministic();
-    SkyKey cycleKey1 = GraphTester.nonHermeticKey("ZcycleKey1");
-    SkyKey cycleKey2 = GraphTester.toSkyKey("AcycleKey2");
+    SkyKey cycleKey1 = nonHermeticKey("ZcycleKey1");
+    SkyKey cycleKey2 = skyKey("AcycleKey2");
     tester
         .getOrCreate(cycleKey1)
         .addDependency(cycleKey2)
         .addDependency(cycleKey1)
         .setComputedValue(CONCATENATE);
     tester.getOrCreate(cycleKey2).addDependency(cycleKey1).setComputedValue(COPY);
-    EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/ true, cycleKey1);
+    EvaluationResult<StringValue> result = tester.eval(/* keepGoing= */ true, cycleKey1);
     assertThat(result.get(cycleKey1)).isNull();
     ErrorInfo errorInfo = result.getError(cycleKey1);
     CycleInfo cycleInfo = Iterables.getOnlyElement(errorInfo.getCycleInfo());
@@ -1196,8 +1140,8 @@ public abstract class MemoizingEvaluatorTest {
   @Test
   public void cycleAndSelfEdgeWithDirtyValueInSameGroup() throws Exception {
     makeGraphDeterministic();
-    final SkyKey cycleKey1 = GraphTester.toSkyKey("ZcycleKey1");
-    final SkyKey cycleKey2 = GraphTester.toSkyKey("AcycleKey2");
+    SkyKey cycleKey1 = skyKey("ZcycleKey1");
+    SkyKey cycleKey2 = skyKey("AcycleKey2");
     tester.getOrCreate(cycleKey2).addDependency(cycleKey2).setComputedValue(CONCATENATE);
     tester
         .getOrCreate(cycleKey1)
@@ -1229,11 +1173,11 @@ public abstract class MemoizingEvaluatorTest {
   /** Regression test: "crash in cycle checker with dirty values". */
   @Test
   public void cycleWithDirtyValue() throws Exception {
-    SkyKey cycleKey1 = GraphTester.nonHermeticKey("cycleKey1");
-    SkyKey cycleKey2 = GraphTester.toSkyKey("cycleKey2");
+    SkyKey cycleKey1 = nonHermeticKey("cycleKey1");
+    SkyKey cycleKey2 = skyKey("cycleKey2");
     tester.getOrCreate(cycleKey1).addDependency(cycleKey2).setComputedValue(COPY);
     tester.getOrCreate(cycleKey2).addDependency(cycleKey1).setComputedValue(COPY);
-    EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/ true, cycleKey1);
+    EvaluationResult<StringValue> result = tester.eval(/* keepGoing= */ true, cycleKey1);
     assertThat(result.get(cycleKey1)).isNull();
     ErrorInfo errorInfo = result.getError(cycleKey1);
     CycleInfo cycleInfo = Iterables.getOnlyElement(errorInfo.getCycleInfo());
@@ -1272,10 +1216,10 @@ public abstract class MemoizingEvaluatorTest {
     if (errorsStoredAlongsideValues) {
       Preconditions.checkArgument(supportsTransientExceptions);
     }
-    SkyKey cycleKey1 = GraphTester.toSkyKey("cycleKey1");
-    SkyKey cycleKey2 = GraphTester.toSkyKey("cycleKey2");
-    SkyKey mid = GraphTester.toSkyKey("mid");
-    SkyKey errorKey = GraphTester.toSkyKey("errorKey");
+    SkyKey cycleKey1 = skyKey("cycleKey1");
+    SkyKey cycleKey2 = skyKey("cycleKey2");
+    SkyKey mid = skyKey("mid");
+    SkyKey errorKey = skyKey("errorKey");
     tester.getOrCreate(cycleKey1).addDependency(cycleKey2).setComputedValue(COPY);
     tester.getOrCreate(cycleKey2).addDependency(cycleKey1).setComputedValue(COPY);
     TestFunction errorFunction = tester.getOrCreate(errorKey);
@@ -1288,7 +1232,7 @@ public abstract class MemoizingEvaluatorTest {
         .getOrCreate(mid)
         .addErrorDependency(errorKey, new StringValue("recovered"))
         .setComputedValue(COPY);
-    SkyKey top = GraphTester.toSkyKey("top");
+    SkyKey top = skyKey("top");
     CountDownLatch topEvaluated = new CountDownLatch(2);
     tester
         .getOrCreate(top)
@@ -1335,12 +1279,9 @@ public abstract class MemoizingEvaluatorTest {
       assertThatErrorInfo(errorInfo).hasCycleInfoThat().hasSize(1);
     }
     // But the parent itself shouldn't have a direct dep on the special error transience node.
-    verifyParentDepsForParentOfCycleAndError(
-        assertThatEvaluationResult(evalResult).hasDirectDepsInGraphThat(top));
-  }
-
-  protected void verifyParentDepsForParentOfCycleAndError(IterableSubject parentDeps) {
-    parentDeps.doesNotContain(ErrorTransienceValue.KEY);
+    assertThatEvaluationResult(evalResult)
+        .hasDirectDepsInGraphThat(top)
+        .doesNotContain(ErrorTransienceValue.KEY);
   }
 
   @Test
@@ -1370,16 +1311,16 @@ public abstract class MemoizingEvaluatorTest {
   @Test
   public void cycleAndErrorAndReady() throws Exception {
     // This value will not have finished building on the second build when the error is thrown.
-    final SkyKey otherTop = GraphTester.toSkyKey("otherTop");
-    final SkyKey errorKey = GraphTester.toSkyKey("error");
+    SkyKey otherTop = skyKey("otherTop");
+    SkyKey errorKey = skyKey("error");
     // Is the graph state all set up and ready for the error to be thrown? The three values are
     // exceptionMarker, cycle2Key, and dep1 (via signaling otherTop).
-    final CountDownLatch valuesReady = new CountDownLatch(3);
+    CountDownLatch valuesReady = new CountDownLatch(3);
     // Is evaluation being shut down? This is counted down by the exceptionMarker's builder, after
     // it has waited for the threadpool's exception latch to be released.
-    final CountDownLatch errorThrown = new CountDownLatch(1);
+    CountDownLatch errorThrown = new CountDownLatch(1);
     // We don't do anything on the first build.
-    final AtomicBoolean secondBuild = new AtomicBoolean(false);
+    AtomicBoolean secondBuild = new AtomicBoolean(false);
     injectGraphListenerForTesting(
         (key, type, order, context) -> {
           if (!secondBuild.get()) {
@@ -1392,10 +1333,10 @@ public abstract class MemoizingEvaluatorTest {
             TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(errorThrown, "error not thrown");
           }
         },
-        /*deterministic=*/ true);
-    SkyKey dep1 = GraphTester.nonHermeticKey("dep1");
+        /* deterministic= */ true);
+    SkyKey dep1 = nonHermeticKey("dep1");
     tester.set(dep1, new StringValue("dep1"));
-    final SkyKey dep2 = GraphTester.toSkyKey("dep2");
+    SkyKey dep2 = skyKey("dep2");
     tester.set(dep2, new StringValue("dep2"));
     // otherTop should request the deps one at a time, so that it can be in the CHECK_DEPENDENCIES
     // state even after one dep is re-evaluated.
@@ -1411,15 +1352,15 @@ public abstract class MemoizingEvaluatorTest {
               return env.valuesMissing() ? null : new StringValue("otherTop");
             });
     // Prime the graph with otherTop, so we can dirty it next build.
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, otherTop))
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, otherTop))
         .isEqualTo(new StringValue("otherTop"));
     // Mark dep1 changed, so otherTop will be dirty and request re-evaluation of dep1.
-    tester.getOrCreate(dep1, /*markAsModified=*/ true);
-    SkyKey topKey = GraphTester.toSkyKey("top");
+    tester.getOrCreate(dep1, /* markAsModified= */ true);
+    SkyKey topKey = skyKey("top");
     // Note that since DeterministicHelper alphabetizes reverse deps, it is important that
     // "cycle2" comes before "top".
-    final SkyKey cycle1Key = GraphTester.toSkyKey("cycle1");
-    final SkyKey cycle2Key = GraphTester.toSkyKey("cycle2");
+    SkyKey cycle1Key = skyKey("cycle1");
+    SkyKey cycle2Key = skyKey("cycle2");
     tester.getOrCreate(topKey).addDependency(cycle1Key).setComputedValue(CONCATENATE);
     tester
         .getOrCreate(cycle1Key)
@@ -1430,11 +1371,11 @@ public abstract class MemoizingEvaluatorTest {
         .getOrCreate(errorKey)
         .setBuilder(
             new ChainedFunction(
-                /*notifyStart=*/ null,
-                /*waitToFinish=*/ valuesReady,
-                /*notifyFinish=*/ null,
-                /*waitForException=*/ false,
-                /*value=*/ null,
+                /* notifyStart= */ null,
+                /* waitToFinish= */ valuesReady,
+                /* notifyFinish= */ null,
+                /* waitForException= */ false,
+                /* value= */ null,
                 ImmutableList.of()));
     // Make sure cycle2Key has declared its dependence on cycle1Key before error throws.
     tester
@@ -1449,7 +1390,7 @@ public abstract class MemoizingEvaluatorTest {
                 ImmutableList.of(cycle1Key)));
     // Value that waits until an exception is thrown to finish building. We use it just to be
     // informed when the threadpool is shutting down.
-    final SkyKey exceptionMarker = GraphTester.toSkyKey("exceptionMarker");
+    SkyKey exceptionMarker = skyKey("exceptionMarker");
     tester
         .getOrCreate(exceptionMarker)
         .setBuilder(
@@ -1478,13 +1419,13 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void breakCycle() throws Exception {
-    SkyKey aKey = GraphTester.nonHermeticKey("a");
-    SkyKey bKey = GraphTester.nonHermeticKey("b");
+    SkyKey aKey = nonHermeticKey("a");
+    SkyKey bKey = nonHermeticKey("b");
     // When aKey and bKey depend on each other,
     tester.getOrCreate(aKey).addDependency(bKey);
     tester.getOrCreate(bKey).addDependency(aKey);
     // And they are evaluated,
-    EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/ true, aKey, bKey);
+    EvaluationResult<StringValue> result = tester.eval(/* keepGoing= */ true, aKey, bKey);
     // Then the evaluation is in error,
     assertThatEvaluationResult(result).hasError();
     // And each node has the expected cycle.
@@ -1524,20 +1465,20 @@ public abstract class MemoizingEvaluatorTest {
   public void nodeInvalidatedThenDoubleCycle() throws InterruptedException {
     makeGraphDeterministic();
     // When topKey depends on depKey, and both are top-level nodes in the graph,
-    SkyKey topKey = GraphTester.nonHermeticKey("bKey");
-    SkyKey depKey = GraphTester.nonHermeticKey("aKey");
+    SkyKey topKey = nonHermeticKey("bKey");
+    SkyKey depKey = nonHermeticKey("aKey");
     tester.getOrCreate(topKey).addDependency(depKey).setConstantValue(new StringValue("a"));
     tester.getOrCreate(depKey).setConstantValue(new StringValue("b"));
     // Then evaluation is as expected.
-    EvaluationResult<StringValue> result1 = tester.eval(/*keepGoing=*/ true, topKey, depKey);
+    EvaluationResult<StringValue> result1 = tester.eval(/* keepGoing= */ true, topKey, depKey);
     assertThatEvaluationResult(result1).hasEntryThat(topKey).isEqualTo(new StringValue("a"));
     assertThatEvaluationResult(result1).hasEntryThat(depKey).isEqualTo(new StringValue("b"));
     assertThatEvaluationResult(result1).hasNoError();
     // When both nodes acquire self-edges, with topKey still also depending on depKey, in the same
     // group,
-    tester.getOrCreate(depKey, /*markAsModified=*/ true).addDependency(depKey);
+    tester.getOrCreate(depKey, /* markAsModified= */ true).addDependency(depKey);
     tester
-        .getOrCreate(topKey, /*markAsModified=*/ true)
+        .getOrCreate(topKey, /* markAsModified= */ true)
         .setConstantValue(null)
         .removeDependency(depKey)
         .setBuilder(
@@ -1598,11 +1539,11 @@ public abstract class MemoizingEvaluatorTest {
     initializeTester();
 
     int numKeys = 10;
-    final Object lock = new Object();
-    final AtomicInteger inProgressCount = new AtomicInteger();
-    final int[] maxValue = {0};
+    Object lock = new Object();
+    AtomicInteger inProgressCount = new AtomicInteger();
+    int[] maxValue = {0};
 
-    SkyKey topLevel = GraphTester.toSkyKey("toplevel");
+    SkyKey topLevel = skyKey("toplevel");
     TestFunction topLevelBuilder = tester.getOrCreate(topLevel);
     for (int i = 0; i < numKeys; i++) {
       topLevelBuilder.addDependency("subKey" + i);
@@ -1632,9 +1573,9 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void nodeIsChangedWithoutBeingEvaluated() throws Exception {
-    SkyKey buildFile = GraphTester.nonHermeticKey("buildfile");
-    SkyKey top = GraphTester.skyKey("top");
-    SkyKey dep = GraphTester.nonHermeticKey("dep");
+    SkyKey buildFile = nonHermeticKey("buildfile");
+    SkyKey top = skyKey("top");
+    SkyKey dep = nonHermeticKey("dep");
     tester.set(buildFile, new StringValue("depend on dep"));
     StringValue depVal = new StringValue("this is dep");
     tester.set(dep, depVal);
@@ -1682,7 +1623,7 @@ public abstract class MemoizingEvaluatorTest {
   public void incompleteDirectDepsAreClearedBeforeInvalidation() throws Exception {
     CountDownLatch slowStart = new CountDownLatch(1);
     CountDownLatch errorFinish = new CountDownLatch(1);
-    SkyKey errorKey = GraphTester.nonHermeticKey("error");
+    SkyKey errorKey = nonHermeticKey("error");
     tester
         .getOrCreate(errorKey)
         .setBuilder(
@@ -1693,7 +1634,7 @@ public abstract class MemoizingEvaluatorTest {
                 /*waitForException=*/ false,
                 /*value=*/ null,
                 /*deps=*/ ImmutableList.of()));
-    SkyKey slowKey = GraphTester.toSkyKey("slow");
+    SkyKey slowKey = skyKey("slow");
     tester
         .getOrCreate(slowKey)
         .setBuilder(
@@ -1704,9 +1645,9 @@ public abstract class MemoizingEvaluatorTest {
                 /*waitForException=*/ true,
                 new StringValue("slow"),
                 /*deps=*/ ImmutableList.of()));
-    SkyKey midKey = GraphTester.toSkyKey("mid");
+    SkyKey midKey = skyKey("mid");
     tester.getOrCreate(midKey).addDependency(slowKey).setComputedValue(COPY);
-    SkyKey topKey = GraphTester.toSkyKey("top");
+    SkyKey topKey = skyKey("top");
     tester
         .getOrCreate(topKey)
         .addDependency(midKey)
@@ -1739,7 +1680,7 @@ public abstract class MemoizingEvaluatorTest {
     initializeTester();
     CountDownLatch slowStart = new CountDownLatch(1);
     CountDownLatch errorFinish = new CountDownLatch(1);
-    SkyKey errorKey = GraphTester.toSkyKey("error");
+    SkyKey errorKey = skyKey("error");
     tester
         .getOrCreate(errorKey)
         .setBuilder(
@@ -1750,7 +1691,7 @@ public abstract class MemoizingEvaluatorTest {
                 /*waitForException=*/ false,
                 /*value=*/ null,
                 /*deps=*/ ImmutableList.of()));
-    SkyKey slowKey = GraphTester.toSkyKey("slow");
+    SkyKey slowKey = skyKey("slow");
     tester
         .getOrCreate(slowKey)
         .setBuilder(
@@ -1761,9 +1702,9 @@ public abstract class MemoizingEvaluatorTest {
                 /*waitForException=*/ true,
                 new StringValue("slow"),
                 /*deps=*/ ImmutableList.of()));
-    SkyKey midKey = GraphTester.toSkyKey("mid");
+    SkyKey midKey = skyKey("mid");
     tester.getOrCreate(midKey).addDependency(slowKey).setComputedValue(COPY);
-    SkyKey topKey = GraphTester.toSkyKey("top");
+    SkyKey topKey = skyKey("top");
     tester
         .getOrCreate(topKey)
         .addDependency(midKey)
@@ -1793,7 +1734,7 @@ public abstract class MemoizingEvaluatorTest {
    */
   private void passThenFailToBuild(boolean successFirst) throws Exception {
     CountDownLatch blocker = new CountDownLatch(1);
-    SkyKey successKey = GraphTester.toSkyKey("success");
+    SkyKey successKey = skyKey("success");
     tester
         .getOrCreate(successKey)
         .setBuilder(
@@ -1804,7 +1745,7 @@ public abstract class MemoizingEvaluatorTest {
                 /*waitForException=*/ false,
                 new StringValue("yippee"),
                 /*deps=*/ ImmutableList.of()));
-    SkyKey slowFailKey = GraphTester.toSkyKey("slow_then_fail");
+    SkyKey slowFailKey = skyKey("slow_then_fail");
     tester
         .getOrCreate(slowFailKey)
         .setBuilder(
@@ -1838,14 +1779,14 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void incompleteDirectDepsForDirtyValue() throws Exception {
-    SkyKey topKey = GraphTester.nonHermeticKey("top");
+    SkyKey topKey = nonHermeticKey("top");
     tester.set(topKey, new StringValue("initial"));
     // Put topKey into graph so it will be dirtied on next run.
     assertThat(tester.evalAndGet(/*keepGoing=*/ false, topKey))
         .isEqualTo(new StringValue("initial"));
     CountDownLatch slowStart = new CountDownLatch(1);
     CountDownLatch errorFinish = new CountDownLatch(1);
-    SkyKey errorKey = GraphTester.toSkyKey("error");
+    SkyKey errorKey = skyKey("error");
     tester
         .getOrCreate(errorKey)
         .setBuilder(
@@ -1856,7 +1797,7 @@ public abstract class MemoizingEvaluatorTest {
                 /*waitForException=*/ false,
                 /*value=*/ null,
                 /*deps=*/ ImmutableList.of()));
-    SkyKey slowKey = GraphTester.toSkyKey("slow");
+    SkyKey slowKey = skyKey("slow");
     tester
         .getOrCreate(slowKey)
         .setBuilder(
@@ -1867,7 +1808,7 @@ public abstract class MemoizingEvaluatorTest {
                 /*waitForException=*/ true,
                 new StringValue("slow"),
                 /*deps=*/ ImmutableList.of()));
-    SkyKey midKey = GraphTester.toSkyKey("mid");
+    SkyKey midKey = skyKey("mid");
     tester.getOrCreate(midKey).addDependency(slowKey).setComputedValue(COPY);
     tester.set(topKey, null);
     tester
@@ -1897,17 +1838,17 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void continueWithErrorDep() throws Exception {
-    SkyKey afterKey = GraphTester.nonHermeticKey("after");
-    SkyKey errorKey = GraphTester.toSkyKey("my_error_value");
+    SkyKey afterKey = nonHermeticKey("after");
+    SkyKey errorKey = skyKey("my_error_value");
     tester.getOrCreate(errorKey).setHasError(true);
     tester.set(afterKey, new StringValue("after"));
-    SkyKey parentKey = GraphTester.toSkyKey("parent");
+    SkyKey parentKey = skyKey("parent");
     tester
         .getOrCreate(parentKey)
         .addErrorDependency(errorKey, new StringValue("recovered"))
         .setComputedValue(CONCATENATE)
         .addDependency(afterKey);
-    EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/ true, parentKey);
+    EvaluationResult<StringValue> result = tester.eval(/* keepGoing= */ true, parentKey);
     assertThat(result.errorMap()).isEmpty();
     assertThat(result.get(parentKey).getValue()).isEqualTo("recoveredafter");
     tester.set(afterKey, new StringValue("before"));
@@ -1919,10 +1860,10 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void continueWithErrorDepTurnedGood() throws Exception {
-    SkyKey errorKey = GraphTester.nonHermeticKey("my_error_value");
+    SkyKey errorKey = nonHermeticKey("my_error_value");
     tester.getOrCreate(errorKey).setHasError(true);
     tester.set("after", new StringValue("after"));
-    SkyKey parentKey = GraphTester.toSkyKey("parent");
+    SkyKey parentKey = skyKey("parent");
     tester
         .getOrCreate(parentKey)
         .addErrorDependency(errorKey, new StringValue("recovered"))
@@ -1940,9 +1881,9 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void errorDepAlreadyThereThenTurnedGood() throws Exception {
-    SkyKey errorKey = GraphTester.nonHermeticKey("my_error_value");
+    SkyKey errorKey = nonHermeticKey("my_error_value");
     tester.getOrCreate(errorKey).setHasError(true);
-    SkyKey parentKey = GraphTester.toSkyKey("parent");
+    SkyKey parentKey = skyKey("parent");
     tester
         .getOrCreate(parentKey)
         .addErrorDependency(errorKey, new StringValue("recovered"))
@@ -1982,11 +1923,11 @@ public abstract class MemoizingEvaluatorTest {
    */
   @Test
   public void doubleDepOnErrorTransienceValue() throws Exception {
-    SkyKey leafKey = GraphTester.nonHermeticKey("leaf");
+    SkyKey leafKey = nonHermeticKey("leaf");
     tester.set(leafKey, new StringValue("leaf"));
     // Prime the graph by putting leaf in beforehand.
     assertThat(tester.evalAndGet(/*keepGoing=*/ false, leafKey)).isEqualTo(new StringValue("leaf"));
-    SkyKey topKey = GraphTester.toSkyKey("top");
+    SkyKey topKey = skyKey("top");
     tester.getOrCreate(topKey).addDependency(leafKey).setHasError(true);
     // Build top -- it has an error.
     tester.evalAndGetError(/*keepGoing=*/ true, topKey);
@@ -1999,17 +1940,17 @@ public abstract class MemoizingEvaluatorTest {
   /** Regression test for crash bug. */
   @Test
   public void errorTransienceDepCleared() throws Exception {
-    SkyKey top = GraphTester.toSkyKey("top");
-    SkyKey leaf = GraphTester.nonHermeticKey("leaf");
+    SkyKey top = skyKey("top");
+    SkyKey leaf = nonHermeticKey("leaf");
     tester.set(leaf, new StringValue("leaf"));
     tester.getOrCreate(top).addDependency(leaf).setHasTransientError(true);
-    EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/ false, top);
+    EvaluationResult<StringValue> result = tester.eval(/* keepGoing= */ false, top);
     assertWithMessage(result.toString()).that(result.hasError()).isTrue();
-    tester.getOrCreate(leaf, /*markAsModified=*/ true);
+    tester.getOrCreate(leaf, /* markAsModified= */ true);
     tester.invalidate();
-    SkyKey irrelevant = GraphTester.toSkyKey("irrelevant");
+    SkyKey irrelevant = skyKey("irrelevant");
     tester.set(irrelevant, new StringValue("irrelevant"));
-    tester.eval(/*keepGoing=*/ true, irrelevant);
+    tester.eval(/* keepGoing= */ true, irrelevant);
     tester.invalidateTransientErrors();
     result = tester.eval(/*keepGoing=*/ true, top);
     assertWithMessage(result.toString()).that(result.hasError()).isTrue();
@@ -2018,14 +1959,14 @@ public abstract class MemoizingEvaluatorTest {
   @Test
   public void incompleteValueAlreadyThereNotUsed() throws Exception {
     initializeTester();
-    SkyKey errorKey = GraphTester.toSkyKey("my_error_value");
+    SkyKey errorKey = skyKey("my_error_value");
     tester.getOrCreate(errorKey).setHasError(true);
-    SkyKey midKey = GraphTester.toSkyKey("mid");
+    SkyKey midKey = skyKey("mid");
     tester
         .getOrCreate(midKey)
         .addErrorDependency(errorKey, new StringValue("recovered"))
         .setComputedValue(COPY);
-    SkyKey parentKey = GraphTester.toSkyKey("parent");
+    SkyKey parentKey = skyKey("parent");
     tester
         .getOrCreate(parentKey)
         .addErrorDependency(midKey, new StringValue("don't use this"))
@@ -2046,10 +1987,10 @@ public abstract class MemoizingEvaluatorTest {
    */
   @Test
   public void errorInDependencyGroup() throws Exception {
-    SkyKey topKey = GraphTester.toSkyKey("top");
+    SkyKey topKey = skyKey("top");
     CountDownLatch slowStart = new CountDownLatch(1);
     CountDownLatch errorFinish = new CountDownLatch(1);
-    SkyKey errorKey = GraphTester.nonHermeticKey("error");
+    SkyKey errorKey = nonHermeticKey("error");
     tester
         .getOrCreate(errorKey)
         .setBuilder(
@@ -2061,7 +2002,7 @@ public abstract class MemoizingEvaluatorTest {
                 // ChainedFunction throws when value is null.
                 /*value=*/ null,
                 /*deps=*/ ImmutableList.of()));
-    SkyKey slowKey = GraphTester.toSkyKey("slow");
+    SkyKey slowKey = skyKey("slow");
     tester
         .getOrCreate(slowKey)
         .setBuilder(
@@ -2072,9 +2013,9 @@ public abstract class MemoizingEvaluatorTest {
                 /*waitForException=*/ true,
                 new StringValue("slow"),
                 /*deps=*/ ImmutableList.of()));
-    final SkyKey midKey = GraphTester.toSkyKey("mid");
+    SkyKey midKey = skyKey("mid");
     tester.getOrCreate(midKey).addDependency(slowKey).setComputedValue(COPY);
-    final SkyKey mid2Key = GraphTester.toSkyKey("mid2");
+    SkyKey mid2Key = skyKey("mid2");
     tester.getOrCreate(mid2Key).addDependency(slowKey).setComputedValue(COPY);
     tester.set(topKey, null);
     tester
@@ -2107,10 +2048,10 @@ public abstract class MemoizingEvaluatorTest {
    */
   @Test
   public void valueInErrorWithGroups() throws Exception {
-    SkyKey topKey = GraphTester.toSkyKey("top");
-    final SkyKey groupDepA = GraphTester.nonHermeticKey("groupDepA");
-    final SkyKey groupDepB = GraphTester.toSkyKey("groupDepB");
-    SkyKey depC = GraphTester.nonHermeticKey("depC");
+    SkyKey topKey = skyKey("top");
+    SkyKey groupDepA = nonHermeticKey("groupDepA");
+    SkyKey groupDepB = skyKey("groupDepB");
+    SkyKey depC = nonHermeticKey("depC");
     tester.set(groupDepA, new SkyKeyValue(depC));
     tester.set(groupDepB, new StringValue(""));
     tester.getOrCreate(depC).setHasError(true);
@@ -2178,25 +2119,25 @@ public abstract class MemoizingEvaluatorTest {
    * signaling happens while dirty dependencies are being checked. We control the timing by blocking
    * "top"'s registering itself on its deps.
    */
-  private void dirtyChildEnqueuesParentDuringCheckDependencies(final boolean throwError)
+  private void dirtyChildEnqueuesParentDuringCheckDependencies(boolean throwError)
       throws Exception {
     // Value to be built. It will be signaled to rebuild before it has finished checking its deps.
-    final SkyKey top = GraphTester.toSkyKey("a_top");
+    SkyKey top = skyKey("a_top");
     // otherTop is alphabetically after top.
     SkyKey otherTop = skyKey("z_otherTop");
     // Dep that blocks before it acknowledges being added as a dep by top, so the firstKey value has
     // time to signal top. (Importantly its key is alphabetically after 'firstKey').
-    final SkyKey slowAddingDep = GraphTester.toSkyKey("slowDep");
+    SkyKey slowAddingDep = skyKey("slowDep");
     // Value that is modified on the second build. Its thread won't finish until it signals top,
     // which will wait for the signal before it enqueues its next dep. We prevent the thread from
     // finishing by having the graph listener block on the second reverse dep to signal.
-    SkyKey firstKey = GraphTester.nonHermeticKey("first");
+    SkyKey firstKey = nonHermeticKey("first");
     tester.set(firstKey, new StringValue("biding"));
     // Don't perform any blocking on the first build.
-    final AtomicBoolean delayTopSignaling = new AtomicBoolean(false);
-    final CountDownLatch topSignaled = new CountDownLatch(1);
-    final CountDownLatch topRequestedDepOrRestartedBuild = new CountDownLatch(1);
-    final CountDownLatch parentsRequested = new CountDownLatch(2);
+    AtomicBoolean delayTopSignaling = new AtomicBoolean(false);
+    CountDownLatch topSignaled = new CountDownLatch(1);
+    CountDownLatch topRequestedDepOrRestartedBuild = new CountDownLatch(1);
+    CountDownLatch parentsRequested = new CountDownLatch(2);
     injectGraphListenerForTesting(
         (key, type, order, context) -> {
           if (!delayTopSignaling.get()) {
@@ -2240,9 +2181,9 @@ public abstract class MemoizingEvaluatorTest {
                 topSignaled, "first key didn't signal top in time");
           }
         },
-        /*deterministic=*/ true);
+        /* deterministic= */ true);
     tester.set(slowAddingDep, new StringValue("dep"));
-    final AtomicInteger numTopInvocations = new AtomicInteger(0);
+    AtomicInteger numTopInvocations = new AtomicInteger(0);
     tester
         .getOrCreate(top)
         .setBuilder(
@@ -2323,17 +2264,17 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void removeReverseDepFromRebuildingNode() throws Exception {
-    SkyKey topKey = GraphTester.skyKey("top");
-    final SkyKey midKey = GraphTester.nonHermeticKey("mid");
-    final SkyKey changedKey = GraphTester.nonHermeticKey("changed");
+    SkyKey topKey = skyKey("top");
+    SkyKey midKey = nonHermeticKey("mid");
+    SkyKey changedKey = nonHermeticKey("changed");
     tester.getOrCreate(changedKey).setConstantValue(new StringValue("first"));
     // When top depends on mid,
     tester.getOrCreate(topKey).addDependency(midKey).setComputedValue(CONCATENATE);
     // And mid depends on changed,
     tester.getOrCreate(midKey).addDependency(changedKey).setComputedValue(CONCATENATE);
-    final CountDownLatch changedKeyStarted = new CountDownLatch(1);
-    final CountDownLatch changedKeyCanFinish = new CountDownLatch(1);
-    final AtomicBoolean controlTiming = new AtomicBoolean(false);
+    CountDownLatch changedKeyStarted = new CountDownLatch(1);
+    CountDownLatch changedKeyCanFinish = new CountDownLatch(1);
+    AtomicBoolean controlTiming = new AtomicBoolean(false);
     injectGraphListenerForTesting(
         (key, type, order, context) -> {
           if (!controlTiming.get()) {
@@ -2349,7 +2290,7 @@ public abstract class MemoizingEvaluatorTest {
             changedKeyCanFinish.countDown();
           }
         },
-        /*deterministic=*/ false);
+        /* deterministic= */ false);
     // Then top builds as expected.
     assertThat(tester.evalAndGet(/*keepGoing=*/ false, topKey)).isEqualTo(new StringValue("first"));
     // When changed is modified,
@@ -2372,7 +2313,7 @@ public abstract class MemoizingEvaluatorTest {
         .setComputedValue(null)
         .setConstantValue(new StringValue("mid"));
     tester.invalidate();
-    SkyKey newTopKey = GraphTester.skyKey("newTop");
+    SkyKey newTopKey = skyKey("newTop");
     // And changed will start rebuilding independently of midKey, because it's requested directly by
     // newTop
     tester.getOrCreate(newTopKey).addDependency(changedKey).setComputedValue(CONCATENATE);
@@ -2386,25 +2327,26 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void dirtyThenDeleted() throws Exception {
-    SkyKey topKey = GraphTester.nonHermeticKey("top");
-    SkyKey leafKey = GraphTester.nonHermeticKey("leaf");
+    SkyKey topKey = nonHermeticKey("top");
+    SkyKey leafKey = nonHermeticKey("leaf");
     tester.getOrCreate(topKey).addDependency(leafKey).setComputedValue(CONCATENATE);
     tester.set(leafKey, new StringValue("leafy"));
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, topKey)).isEqualTo(new StringValue("leafy"));
-    tester.getOrCreate(topKey, /*markAsModified=*/ true);
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, topKey))
+        .isEqualTo(new StringValue("leafy"));
+    tester.getOrCreate(topKey, /* markAsModified= */ true);
     tester.invalidate();
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, leafKey))
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, leafKey))
         .isEqualTo(new StringValue("leafy"));
     tester.delete("top");
-    tester.getOrCreate(leafKey, /*markAsModified=*/ true);
+    tester.getOrCreate(leafKey, /* markAsModified= */ true);
     tester.invalidate();
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, leafKey))
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, leafKey))
         .isEqualTo(new StringValue("leafy"));
   }
 
   @Test
   public void resetNodeOnRequest_smoke() throws Exception {
-    SkyKey restartingKey = GraphTester.nonHermeticKey("restart");
+    SkyKey restartingKey = nonHermeticKey("restart");
     StringValue expectedValue = new StringValue("done");
     AtomicInteger numInconsistencyCalls = new AtomicInteger(0);
     tester.setGraphInconsistencyReceiver(
@@ -2450,7 +2392,7 @@ public abstract class MemoizingEvaluatorTest {
 
   protected void runResetNodeOnRequest_withDeps(RunResetNodeOnRequestWithDepsMode mode)
       throws Exception {
-    SkyKey restartingKey = GraphTester.skyKey("restart");
+    SkyKey restartingKey = skyKey("restart");
     AtomicInteger numInconsistencyCalls = new AtomicInteger(0);
     tester.setGraphInconsistencyReceiver(
         restartEnabledInconsistencyReceiver(
@@ -2463,9 +2405,9 @@ public abstract class MemoizingEvaluatorTest {
             }));
     tester.initialize();
     StringValue expectedValue = new StringValue("done");
-    SkyKey alreadyRequestedDep = GraphTester.skyKey("alreadyRequested");
-    SkyKey newlyRequestedNotDoneDep = GraphTester.skyKey("newlyRequestedNotDone");
-    SkyKey newlyRequestedDoneDep = GraphTester.skyKey("newlyRequestedDone");
+    SkyKey alreadyRequestedDep = skyKey("alreadyRequested");
+    SkyKey newlyRequestedNotDoneDep = skyKey("newlyRequestedNotDone");
+    SkyKey newlyRequestedDoneDep = skyKey("newlyRequestedDone");
     tester
         .getOrCreate(newlyRequestedDoneDep)
         .setConstantValue(new StringValue("newlyRequestedDone"));
@@ -2553,8 +2495,8 @@ public abstract class MemoizingEvaluatorTest {
     initializeTester();
 
     // leaf4 should not built in the second build.
-    final SkyKey leaf4 = GraphTester.toSkyKey("leaf4");
-    final AtomicBoolean shouldNotBuildLeaf4 = new AtomicBoolean(false);
+    SkyKey leaf4 = skyKey("leaf4");
+    AtomicBoolean shouldNotBuildLeaf4 = new AtomicBoolean(false);
     injectGraphListenerForTesting(
         (key, type, order, context) -> {
           if (shouldNotBuildLeaf4.get()
@@ -2570,23 +2512,22 @@ public abstract class MemoizingEvaluatorTest {
                     + context);
           }
         },
-        /*deterministic=*/ false);
+        /* deterministic= */ false);
     tester.set(leaf4, new StringValue("leaf4"));
 
     // Create leaf0, leaf1 and leaf2 values with values "leaf2", "leaf3", "leaf4" respectively.
     // These will be requested as one dependency group. In the second build, leaf2 will have the
     // value "leaf5".
-    final List<SkyKey> leaves = new ArrayList<>();
+    List<SkyKey> leaves = new ArrayList<>();
     for (int i = 0; i <= 2; i++) {
-      SkyKey leaf =
-          i == 2 ? GraphTester.nonHermeticKey("leaf" + i) : GraphTester.toSkyKey("leaf" + i);
+      SkyKey leaf = i == 2 ? nonHermeticKey("leaf" + i) : skyKey("leaf" + i);
       leaves.add(leaf);
       tester.set(leaf, new StringValue("leaf" + (i + 2)));
     }
 
     // Create "top" value. It depends on all leaf values in two overlapping dependency groups.
-    SkyKey topKey = GraphTester.toSkyKey("top");
-    final SkyValue topValue = new StringValue("top");
+    SkyKey topKey = skyKey("top");
+    SkyValue topValue = new StringValue("top");
     tester
         .getOrCreate(topKey)
         .setBuilder(
@@ -2603,8 +2544,7 @@ public abstract class MemoizingEvaluatorTest {
               // In the second build it's [leaf2, leaf5]
               env.getValuesAndExceptions(
                   ImmutableList.of(
-                      leaves.get(2),
-                      GraphTester.toSkyKey(((StringValue) values.get(leaves.get(2))).getValue())));
+                      leaves.get(2), skyKey(((StringValue) values.get(leaves.get(2))).getValue())));
               if (env.valuesMissing()) {
                 return null;
               }
@@ -2616,7 +2556,7 @@ public abstract class MemoizingEvaluatorTest {
     assertThat(tester.evalAndGet(/*keepGoing=*/ false, topKey)).isEqualTo(topValue);
 
     // Second build: replace "leaf4" by "leaf5" in leaf2's value. Assert leaf4 is not requested.
-    final SkyKey leaf5 = GraphTester.toSkyKey("leaf5");
+    SkyKey leaf5 = skyKey("leaf5");
     tester.set(leaf5, new StringValue("leaf5"));
     tester.set(leaves.get(2), new StringValue("leaf5"));
     tester.invalidate();
@@ -2626,9 +2566,9 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void dirtyAndChanged() throws Exception {
-    SkyKey leaf = GraphTester.nonHermeticKey("leaf");
-    SkyKey mid = GraphTester.nonHermeticKey("mid");
-    SkyKey top = GraphTester.toSkyKey("top");
+    SkyKey leaf = nonHermeticKey("leaf");
+    SkyKey mid = nonHermeticKey("mid");
+    SkyKey top = skyKey("top");
     tester.getOrCreate(top).addDependency(mid).setComputedValue(COPY);
     tester.getOrCreate(mid).addDependency(leaf).setComputedValue(COPY);
     tester.set(leaf, new StringValue("leafy"));
@@ -2657,12 +2597,12 @@ public abstract class MemoizingEvaluatorTest {
    */
   @Test
   public void dirtyAndChangedValueIsChanged() throws Exception {
-    SkyKey parent = GraphTester.nonHermeticKey("parent");
-    final AtomicBoolean blockingEnabled = new AtomicBoolean(false);
-    final CountDownLatch waitForChanged = new CountDownLatch(1);
+    SkyKey parent = nonHermeticKey("parent");
+    AtomicBoolean blockingEnabled = new AtomicBoolean(false);
+    CountDownLatch waitForChanged = new CountDownLatch(1);
     // changed thread checks value entry once (to see if it is changed). dirty thread checks twice,
     // to see if it is changed, and if it is dirty.
-    final CountDownLatch threadsStarted = new CountDownLatch(3);
+    CountDownLatch threadsStarted = new CountDownLatch(3);
     injectGraphListenerForTesting(
         (key, type, order, context) -> {
           if (!blockingEnabled.get()) {
@@ -2697,23 +2637,23 @@ public abstract class MemoizingEvaluatorTest {
             }
           }
         },
-        /*deterministic=*/ false);
-    SkyKey leaf = GraphTester.nonHermeticKey("leaf");
+        /* deterministic= */ false);
+    SkyKey leaf = nonHermeticKey("leaf");
     tester.set(leaf, new StringValue("leaf"));
     tester.getOrCreate(parent).addDependency(leaf).setComputedValue(CONCATENATE);
     EvaluationResult<StringValue> result;
-    result = tester.eval(/*keepGoing=*/ false, parent);
+    result = tester.eval(/* keepGoing= */ false, parent);
     assertThat(result.get(parent).getValue()).isEqualTo("leaf");
     // Invalidate leaf, but don't actually change it. It will transitively dirty parent
     // concurrently with parent directly dirtying itself.
-    tester.getOrCreate(leaf, /*markAsModified=*/ true);
-    SkyKey other2 = GraphTester.toSkyKey("other2");
+    tester.getOrCreate(leaf, /* markAsModified= */ true);
+    SkyKey other2 = skyKey("other2");
     tester.set(other2, new StringValue("other2"));
     // Invalidate parent, actually changing it.
-    tester.getOrCreate(parent, /*markAsModified=*/ true).addDependency(other2);
+    tester.getOrCreate(parent, /* markAsModified= */ true).addDependency(other2);
     tester.invalidate();
     blockingEnabled.set(true);
-    result = tester.eval(/*keepGoing=*/ false, parent);
+    result = tester.eval(/* keepGoing= */ false, parent);
     assertThat(result.get(parent).getValue()).isEqualTo("leafother2");
     assertThat(waitForChanged.getCount()).isEqualTo(0);
     assertThat(threadsStarted.getCount()).isEqualTo(0);
@@ -2751,11 +2691,11 @@ public abstract class MemoizingEvaluatorTest {
     StringBuilder expected = new StringBuilder();
     for (int i = 0; i < values.length; i++) {
       String valueName = Integer.toString(i);
-      values[i] = GraphTester.nonHermeticKey(valueName);
+      values[i] = nonHermeticKey(valueName);
       tester.set(values[i], new StringValue(valueName));
       expected.append(valueName);
     }
-    SkyKey topKey = toSkyKey("top");
+    SkyKey topKey = skyKey("top");
     TestFunction value = tester.getOrCreate(topKey).setComputedValue(CONCATENATE);
     for (SkyKey skyKey : values) {
       value.addDependency(skyKey);
@@ -2786,22 +2726,22 @@ public abstract class MemoizingEvaluatorTest {
    */
   private void dirtyValueChildrenProperlyRemovedOnEarlyBuildAbort(
       boolean reevaluateMissingValue, boolean removeError) throws Exception {
-    SkyKey errorKey = GraphTester.nonHermeticKey("error");
+    SkyKey errorKey = nonHermeticKey("error");
     tester.set(errorKey, new StringValue("biding time"));
-    SkyKey slowKey = GraphTester.nonHermeticKey("slow");
+    SkyKey slowKey = nonHermeticKey("slow");
     tester.set(slowKey, new StringValue("slow"));
-    SkyKey midKey = GraphTester.toSkyKey("mid");
+    SkyKey midKey = skyKey("mid");
     tester.getOrCreate(midKey).addDependency(slowKey).setComputedValue(COPY);
-    SkyKey lastKey = GraphTester.nonHermeticKey("last");
+    SkyKey lastKey = nonHermeticKey("last");
     tester.set(lastKey, new StringValue("last"));
-    SkyKey motherKey = GraphTester.toSkyKey("mother");
+    SkyKey motherKey = skyKey("mother");
     tester
         .getOrCreate(motherKey)
         .addDependency(errorKey)
         .addDependency(midKey)
         .addDependency(lastKey)
         .setComputedValue(CONCATENATE);
-    SkyKey fatherKey = GraphTester.toSkyKey("father");
+    SkyKey fatherKey = skyKey("father");
     tester
         .getOrCreate(fatherKey)
         .addDependency(errorKey)
@@ -2917,16 +2857,16 @@ public abstract class MemoizingEvaluatorTest {
    * to them.
    */
   private void manyDirtyValuesClearChildrenOnFail(boolean interrupt) throws Exception {
-    SkyKey leafKey = GraphTester.nonHermeticKey("leaf");
+    SkyKey leafKey = nonHermeticKey("leaf");
     tester.set(leafKey, new StringValue("leafy"));
-    SkyKey lastKey = GraphTester.nonHermeticKey("last");
+    SkyKey lastKey = nonHermeticKey("last");
     tester.set(lastKey, new StringValue("last"));
-    final List<SkyKey> tops = new ArrayList<>();
+    List<SkyKey> tops = new ArrayList<>();
     // Request far more top-level values than there are threads, so some of them will block until
     // the
     // leaf child is enqueued for processing.
     for (int i = 0; i < 10000; i++) {
-      SkyKey topKey = GraphTester.toSkyKey("top" + i);
+      SkyKey topKey = skyKey("top" + i);
       tester
           .getOrCreate(topKey)
           .addDependency(leafKey)
@@ -2935,12 +2875,12 @@ public abstract class MemoizingEvaluatorTest {
       tops.add(topKey);
     }
     tester.eval(/*keepGoing=*/ false, tops.toArray(new SkyKey[0]));
-    final CountDownLatch notifyStart = new CountDownLatch(1);
+    CountDownLatch notifyStart = new CountDownLatch(1);
     tester.set(leafKey, null);
     if (interrupt) {
       // leaf will wait for an interrupt if desired. We cannot use the usual ChainedFunction
       // because we need to actually throw the interrupt.
-      final AtomicBoolean shouldSleep = new AtomicBoolean(true);
+      AtomicBoolean shouldSleep = new AtomicBoolean(true);
       tester
           .getOrCreate(leafKey, /*markAsModified=*/ true)
           .setBuilder(
@@ -3012,7 +2952,7 @@ public abstract class MemoizingEvaluatorTest {
     // Create a long chain of nodes. Most of them will not actually be dirtied, but the last one to
     // be dirtied will enqueue its parent for dirtying, so it will be in the queue for the next run.
     for (int i = 0; i < TEST_NODE_COUNT; i++) {
-      key = i == 0 ? node0 : GraphTester.toSkyKey("node" + i);
+      key = i == 0 ? node0 : skyKey("node" + i);
       if (i > 1) {
         tester.getOrCreate(key).addDependency("node" + (i - 1)).setComputedValue(COPY);
       } else if (i == 1) {
@@ -3030,7 +2970,7 @@ public abstract class MemoizingEvaluatorTest {
    */
   @Test
   public void deletingDirtyNodes() throws Exception {
-    SkyKey node0 = GraphTester.nonHermeticKey("node0");
+    SkyKey node0 = nonHermeticKey("node0");
     SkyKey key = makeTestKey(node0);
     // Seed the graph.
     assertThat(((StringValue) tester.evalAndGet(/*keepGoing=*/ false, key)).getValue())
@@ -3040,7 +2980,7 @@ public abstract class MemoizingEvaluatorTest {
     tester.invalidate();
 
     // Interrupt current thread on a next invalidate call
-    final Thread thread = Thread.currentThread();
+    Thread thread = Thread.currentThread();
     tester.progressReceiver.setNextInvalidationCallback(thread::interrupt);
 
     assertThrows(InterruptedException.class, () -> tester.eval(/*keepGoing=*/ false, key));
@@ -3056,19 +2996,19 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void changePruning() throws Exception {
-    SkyKey leaf = GraphTester.nonHermeticKey("leaf");
-    SkyKey mid = GraphTester.toSkyKey("mid");
-    SkyKey top = GraphTester.toSkyKey("top");
+    SkyKey leaf = nonHermeticKey("leaf");
+    SkyKey mid = skyKey("mid");
+    SkyKey top = skyKey("top");
     tester.getOrCreate(top).addDependency(mid).setComputedValue(COPY);
     tester.getOrCreate(mid).addDependency(leaf).setComputedValue(COPY);
     tester.set(leaf, new StringValue("leafy"));
     StringValue topValue = (StringValue) tester.evalAndGet("top");
     assertThat(topValue.getValue()).isEqualTo("leafy");
     // Mark leaf changed, but don't actually change it.
-    tester.getOrCreate(leaf, /*markAsModified=*/ true);
+    tester.getOrCreate(leaf, /* markAsModified= */ true);
     // mid will give an error if re-evaluated, but it shouldn't be because it is not marked changed,
     // and its dirty child will evaluate to the same element.
-    tester.getOrCreate(mid, /*markAsModified=*/ false).setHasError(true);
+    tester.getOrCreate(mid, /* markAsModified= */ false).setHasError(true);
     tester.invalidate();
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/ false, top);
     assertThat(result.hasError()).isFalse();
@@ -3080,10 +3020,10 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void changePruningWithDoneValue() throws Exception {
-    SkyKey leaf = GraphTester.nonHermeticKey("leaf");
-    SkyKey mid = GraphTester.toSkyKey("mid");
-    SkyKey top = GraphTester.toSkyKey("top");
-    SkyKey suffix = GraphTester.toSkyKey("suffix");
+    SkyKey leaf = nonHermeticKey("leaf");
+    SkyKey mid = skyKey("mid");
+    SkyKey top = skyKey("top");
+    SkyKey suffix = skyKey("suffix");
     StringValue suffixValue = new StringValue("suffix");
     tester.set(suffix, suffixValue);
     tester.getOrCreate(top).addDependency(mid).addDependency(suffix).setComputedValue(CONCATENATE);
@@ -3093,7 +3033,7 @@ public abstract class MemoizingEvaluatorTest {
     StringValue value = (StringValue) tester.evalAndGet("top");
     assertThat(value.getValue()).isEqualTo("leafysuffixsuffix");
     // Mark leaf changed, but don't actually change it.
-    tester.getOrCreate(leaf, /*markAsModified=*/ true);
+    tester.getOrCreate(leaf, /* markAsModified= */ true);
     // mid will give an error if re-evaluated, but it shouldn't be because it is not marked changed,
     // and its dirty child will evaluate to the same element.
     tester.getOrCreate(mid, /*markAsModified=*/ false).setHasError(true);
@@ -3112,12 +3052,12 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void changePruningAfterParentPrunes() throws Exception {
-    SkyKey leaf = GraphTester.nonHermeticKey("leaf");
-    SkyKey top = GraphTester.toSkyKey("top");
+    SkyKey leaf = nonHermeticKey("leaf");
+    SkyKey top = skyKey("top");
     tester.set(leaf, new StringValue("leafy"));
     // When top depends on leaf, but always returns the same value,
-    final StringValue fixedTopValue = new StringValue("top");
-    final AtomicBoolean topEvaluated = new AtomicBoolean(false);
+    StringValue fixedTopValue = new StringValue("top");
+    AtomicBoolean topEvaluated = new AtomicBoolean(false);
     tester
         .getOrCreate(top)
         .setBuilder(
@@ -3155,14 +3095,14 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void changePruningFromOtherNodeAfterParentPrunes() throws Exception {
-    SkyKey leaf = GraphTester.nonHermeticKey("leaf");
-    SkyKey other = GraphTester.nonHermeticKey("other");
-    SkyKey top = GraphTester.toSkyKey("top");
+    SkyKey leaf = nonHermeticKey("leaf");
+    SkyKey other = nonHermeticKey("other");
+    SkyKey top = skyKey("top");
     tester.set(leaf, new StringValue("leafy"));
     tester.set(other, new StringValue("other"));
     // When top depends on leaf and other, but always returns the same value,
-    final StringValue fixedTopValue = new StringValue("top");
-    final AtomicBoolean topEvaluated = new AtomicBoolean(false);
+    StringValue fixedTopValue = new StringValue("top");
+    AtomicBoolean topEvaluated = new AtomicBoolean(false);
     tester
         .getOrCreate(top)
         .setBuilder(
@@ -3203,17 +3143,17 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void changedChildChangesDepOfParent() throws Exception {
-    SkyKey buildFile = GraphTester.nonHermeticKey("buildFile");
+    SkyKey buildFile = nonHermeticKey("buildFile");
     ValueComputer authorDrink =
         (deps, env) -> {
           String author = ((StringValue) deps.get(buildFile)).getValue();
           StringValue beverage;
           switch (author) {
             case "hemingway":
-              beverage = (StringValue) env.getValue(GraphTester.toSkyKey("absinthe"));
+              beverage = (StringValue) env.getValue(skyKey("absinthe"));
               break;
             case "joyce":
-              beverage = (StringValue) env.getValue(GraphTester.toSkyKey("whiskey"));
+              beverage = (StringValue) env.getValue(skyKey("whiskey"));
               break;
             default:
               throw new IllegalStateException(author);
@@ -3225,11 +3165,11 @@ public abstract class MemoizingEvaluatorTest {
         };
 
     tester.set(buildFile, new StringValue("hemingway"));
-    SkyKey absinthe = GraphTester.toSkyKey("absinthe");
+    SkyKey absinthe = skyKey("absinthe");
     tester.set(absinthe, new StringValue("absinthe"));
-    SkyKey whiskey = GraphTester.toSkyKey("whiskey");
+    SkyKey whiskey = skyKey("whiskey");
     tester.set(whiskey, new StringValue("whiskey"));
-    SkyKey top = GraphTester.toSkyKey("top");
+    SkyKey top = skyKey("top");
     tester.getOrCreate(top).addDependency(buildFile).setComputedValue(authorDrink);
     StringValue topValue = (StringValue) tester.evalAndGet("top");
     assertThat(topValue.getValue()).isEqualTo("hemingway drank absinthe");
@@ -3239,17 +3179,15 @@ public abstract class MemoizingEvaluatorTest {
     tester.invalidate();
     topValue = (StringValue) tester.evalAndGet("top");
     assertThat(topValue.getValue()).isEqualTo("joyce drank whiskey");
-    if (preciseEvaluationStatusStored()) {
       assertThat(tester.getDirtyKeys()).containsExactly(buildFile, top);
       assertThat(tester.getDeletedKeys()).isEmpty();
-    }
   }
 
   @Test
   public void dirtyDepIgnoresChildren() throws Exception {
-    SkyKey leaf = GraphTester.nonHermeticKey("leaf");
-    SkyKey mid = GraphTester.toSkyKey("mid");
-    SkyKey top = GraphTester.toSkyKey("top");
+    SkyKey leaf = nonHermeticKey("leaf");
+    SkyKey mid = skyKey("mid");
+    SkyKey top = skyKey("top");
     tester.set(mid, new StringValue("ignore"));
     tester.getOrCreate(top).addDependency(mid).setComputedValue(COPY);
     tester.getOrCreate(mid).addDependency(leaf);
@@ -3263,18 +3201,14 @@ public abstract class MemoizingEvaluatorTest {
     tester.invalidate();
     topValue = (StringValue) tester.evalAndGet("top");
     assertThat(topValue.getValue()).isEqualTo("ignore");
-    if (preciseEvaluationStatusStored()) {
       assertThat(tester.getDirtyKeys()).containsExactly(leaf);
       assertThat(tester.getDeletedKeys()).isEmpty();
-    }
     tester.set(leaf, new StringValue("smushy"));
     tester.invalidate();
     topValue = (StringValue) tester.evalAndGet("top");
     assertThat(topValue.getValue()).isEqualTo("ignore");
-    if (preciseEvaluationStatusStored()) {
       assertThat(tester.getDirtyKeys()).containsExactly(leaf);
       assertThat(tester.getDeletedKeys()).isEmpty();
-    }
   }
 
   private static final SkyFunction INTERRUPT_BUILDER =
@@ -3286,13 +3220,13 @@ public abstract class MemoizingEvaluatorTest {
    * Utility function to induce a graph clean of whatever value is requested, by trying to build
    * this value and interrupting the build as soon as this value's function evaluation starts.
    */
-  private void failBuildAndRemoveValue(final SkyKey value) {
+  private void failBuildAndRemoveValue(SkyKey value) {
     tester.set(value, null);
     // Evaluator will think leaf was interrupted because it threw, so it will be cleaned from graph.
-    tester.getOrCreate(value, /*markAsModified=*/ true).setBuilder(INTERRUPT_BUILDER);
+    tester.getOrCreate(value, /* markAsModified= */ true).setBuilder(INTERRUPT_BUILDER);
     tester.invalidate();
-    assertThrows(InterruptedException.class, () -> tester.eval(/*keepGoing=*/ false, value));
-    tester.getOrCreate(value, /*markAsModified=*/ false).setBuilder(null);
+    assertThrows(InterruptedException.class, () -> tester.eval(/* keepGoing= */ false, value));
+    tester.getOrCreate(value, /* markAsModified= */ false).setBuilder(null);
   }
 
   /**
@@ -3301,8 +3235,8 @@ public abstract class MemoizingEvaluatorTest {
    */
   @Test
   public void dirtyBuildAfterFailedBuild() throws Exception {
-    SkyKey leaf = GraphTester.nonHermeticKey("leaf");
-    SkyKey top = GraphTester.toSkyKey("top");
+    SkyKey leaf = nonHermeticKey("leaf");
+    SkyKey top = skyKey("top");
     tester.getOrCreate(top).addDependency(leaf).setComputedValue(COPY);
     tester.set(leaf, new StringValue("leafy"));
     StringValue topValue = (StringValue) tester.evalAndGet("top");
@@ -3325,18 +3259,18 @@ public abstract class MemoizingEvaluatorTest {
    */
   @Test
   public void changedBuildAfterFailedThenSuccessfulBuild() throws Exception {
-    SkyKey leaf = GraphTester.nonHermeticKey("leaf");
-    SkyKey top = GraphTester.nonHermeticKey("top");
+    SkyKey leaf = nonHermeticKey("leaf");
+    SkyKey top = nonHermeticKey("top");
     tester.getOrCreate(top).addDependency(leaf).setComputedValue(COPY);
     tester.set(leaf, new StringValue("leafy"));
-    StringValue topValue = (StringValue) tester.evalAndGet(/*keepGoing=*/ false, top);
+    StringValue topValue = (StringValue) tester.evalAndGet(/* keepGoing= */ false, top);
     assertThat(topValue.getValue()).isEqualTo("leafy");
     assertThat(tester.getDirtyKeys()).isEmpty();
     assertThat(tester.getDeletedKeys()).isEmpty();
     failBuildAndRemoveValue(leaf);
     tester.set(leaf, new StringValue("crunchy"));
     tester.invalidate();
-    tester.eval(/*keepGoing=*/ false, leaf);
+    tester.eval(/* keepGoing= */ false, leaf);
     // Leaf no longer has reverse dep on top. Check that this doesn't cause problems, even if the
     // top value is evaluated unconditionally.
     tester.getOrCreate(top, /*markAsModified=*/ true);
@@ -3362,15 +3296,15 @@ public abstract class MemoizingEvaluatorTest {
    */
   @Test
   public void manyDirtyValuesClearChildrenOnSecondFail() throws Exception {
-    SkyKey leafKey = GraphTester.nonHermeticKey("leaf");
+    SkyKey leafKey = nonHermeticKey("leaf");
     tester.set(leafKey, new StringValue("leafy"));
-    SkyKey lastKey = GraphTester.toSkyKey("last");
+    SkyKey lastKey = skyKey("last");
     tester.set(lastKey, new StringValue("last"));
-    final List<SkyKey> tops = new ArrayList<>();
+    List<SkyKey> tops = new ArrayList<>();
     // Request far more top-level values than there are threads, so some of them will block until
     // the leaf child is enqueued for processing.
     for (int i = 0; i < 10000; i++) {
-      SkyKey topKey = GraphTester.toSkyKey("top" + i);
+      SkyKey topKey = skyKey("top" + i);
       tester
           .getOrCreate(topKey)
           .addDependency(leafKey)
@@ -3395,8 +3329,8 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void failedDirtyBuild() throws Exception {
-    SkyKey leaf = GraphTester.nonHermeticKey("leaf");
-    SkyKey top = GraphTester.toSkyKey("top");
+    SkyKey leaf = nonHermeticKey("leaf");
+    SkyKey top = skyKey("top");
     tester
         .getOrCreate(top)
         .addErrorDependency(leaf, new StringValue("recover"))
@@ -3407,18 +3341,18 @@ public abstract class MemoizingEvaluatorTest {
     assertThat(tester.getDirtyKeys()).isEmpty();
     assertThat(tester.getDeletedKeys()).isEmpty();
     // Change leaf.
-    tester.getOrCreate(leaf, /*markAsModified=*/ true).setHasError(true);
-    tester.getOrCreate(top, /*markAsModified=*/ false).setHasError(true);
+    tester.getOrCreate(leaf, /* markAsModified= */ true).setHasError(true);
+    tester.getOrCreate(top, /* markAsModified= */ false).setHasError(true);
     tester.invalidate();
-    EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/ false, top);
+    EvaluationResult<StringValue> result = tester.eval(/* keepGoing= */ false, top);
     assertThatEvaluationResult(result).hasSingletonErrorThat(top);
   }
 
   @Test
   public void failedDirtyBuildInBuilder() throws Exception {
-    SkyKey leaf = GraphTester.nonHermeticKey("leaf");
-    SkyKey secondError = GraphTester.nonHermeticKey("secondError");
-    SkyKey top = GraphTester.toSkyKey("top");
+    SkyKey leaf = nonHermeticKey("leaf");
+    SkyKey secondError = nonHermeticKey("secondError");
+    SkyKey top = skyKey("top");
     tester
         .getOrCreate(top)
         .addDependency(leaf)
@@ -3443,11 +3377,11 @@ public abstract class MemoizingEvaluatorTest {
   @Test
   public void dirtyErrorTransienceValue() throws Exception {
     initializeTester();
-    SkyKey error = GraphTester.toSkyKey("error");
+    SkyKey error = skyKey("error");
     tester.getOrCreate(error).setHasError(true);
     assertThat(tester.evalAndGetError(/*keepGoing=*/ true, error)).isNotNull();
     tester.invalidateTransientErrors();
-    SkyKey secondError = GraphTester.toSkyKey("secondError");
+    SkyKey secondError = skyKey("secondError");
     tester.getOrCreate(secondError).setHasError(true);
     // secondError declares a new dependence on ErrorTransienceValue, but not until it has already
     // thrown an error.
@@ -3456,9 +3390,9 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void dirtyDependsOnErrorTurningGood() throws Exception {
-    SkyKey error = GraphTester.nonHermeticKey("error");
+    SkyKey error = nonHermeticKey("error");
     tester.getOrCreate(error).setHasError(true);
-    SkyKey topKey = GraphTester.toSkyKey("top");
+    SkyKey topKey = skyKey("top");
     tester.getOrCreate(topKey).addDependency(error).setComputedValue(COPY);
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/ false, topKey);
     assertThatEvaluationResult(result).hasSingletonErrorThat(topKey);
@@ -3474,9 +3408,9 @@ public abstract class MemoizingEvaluatorTest {
   /** Regression test for crash bug. */
   @Test
   public void dirtyWithOwnErrorDependsOnTransientErrorTurningGood() throws Exception {
-    SkyKey error = GraphTester.nonHermeticKey("error");
+    SkyKey error = nonHermeticKey("error");
     tester.getOrCreate(error).setHasTransientError(true);
-    SkyKey topKey = GraphTester.toSkyKey("top");
+    SkyKey topKey = skyKey("top");
     SkyFunction errorFunction =
         (skyKey, env) -> {
           try {
@@ -3525,15 +3459,15 @@ public abstract class MemoizingEvaluatorTest {
   public void errorOnlyBubblesToRequestingParents() throws Exception {
     // We need control over the order of reverse deps, so use a deterministic graph.
     makeGraphDeterministic();
-    SkyKey errorKey = GraphTester.nonHermeticKey("error");
+    SkyKey errorKey = nonHermeticKey("error");
     tester.set(errorKey, new StringValue("biding time"));
-    SkyKey slowKey = GraphTester.nonHermeticKey("slow");
+    SkyKey slowKey = nonHermeticKey("slow");
     tester.set(slowKey, new StringValue("slow"));
-    SkyKey midKey = GraphTester.toSkyKey("mid");
+    SkyKey midKey = skyKey("mid");
     tester.getOrCreate(midKey).addDependency(slowKey).setComputedValue(COPY);
-    SkyKey topErrorFirstKey = GraphTester.toSkyKey("2nd top alphabetically");
+    SkyKey topErrorFirstKey = skyKey("2nd top alphabetically");
     tester.getOrCreate(topErrorFirstKey).addDependency(errorKey).setComputedValue(CONCATENATE);
-    SkyKey topBubbleKey = GraphTester.toSkyKey("1st top alphabetically");
+    SkyKey topBubbleKey = skyKey("1st top alphabetically");
     tester
         .getOrCreate(topBubbleKey)
         .addDependency(midKey)
@@ -3579,9 +3513,9 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void dirtyWithRecoveryErrorDependsOnErrorTurningGood() throws Exception {
-    final SkyKey error = GraphTester.nonHermeticKey("error");
+    SkyKey error = nonHermeticKey("error");
     tester.getOrCreate(error).setHasError(true);
-    SkyKey topKey = GraphTester.toSkyKey("top");
+    SkyKey topKey = skyKey("top");
     SkyFunction recoveryErrorFunction =
         (skyKey, env) -> {
           try {
@@ -3610,25 +3544,25 @@ public abstract class MemoizingEvaluatorTest {
    */
   @Test
   public void errorPropagationToTopLevelValues() throws Exception {
-    SkyKey topKey = GraphTester.toSkyKey("top");
-    SkyKey midKey = GraphTester.toSkyKey("mid");
-    SkyKey badKey = GraphTester.toSkyKey("bad");
+    SkyKey topKey = skyKey("top");
+    SkyKey midKey = skyKey("mid");
+    SkyKey badKey = skyKey("bad");
     tester.getOrCreate(topKey).addDependency(midKey).setComputedValue(CONCATENATE);
     tester.getOrCreate(midKey).addDependency(badKey).setComputedValue(CONCATENATE);
     tester.getOrCreate(badKey).setHasError(true);
-    EvaluationResult<SkyValue> result = tester.eval(/*keepGoing=*/ false, topKey, midKey);
+    EvaluationResult<SkyValue> result = tester.eval(/* keepGoing= */ false, topKey, midKey);
     assertThatEvaluationResult(result).hasErrorEntryForKeyThat(midKey);
     // Do it again with keepGoing.  We should also see an error for the top key this time.
-    result = tester.eval(/*keepGoing=*/ true, topKey, midKey);
+    result = tester.eval(/* keepGoing= */ true, topKey, midKey);
     assertThatEvaluationResult(result).hasErrorEntryForKeyThat(midKey);
     assertThatEvaluationResult(result).hasErrorEntryForKeyThat(topKey);
   }
 
   @Test
   public void breakWithInterruptibleErrorDep() throws Exception {
-    SkyKey errorKey = GraphTester.toSkyKey("my_error_value");
+    SkyKey errorKey = skyKey("my_error_value");
     tester.getOrCreate(errorKey).setHasError(true);
-    SkyKey parentKey = GraphTester.toSkyKey("parent");
+    SkyKey parentKey = skyKey("parent");
     tester
         .getOrCreate(parentKey)
         .addErrorDependency(errorKey, new StringValue("recovered"))
@@ -3655,12 +3589,12 @@ public abstract class MemoizingEvaluatorTest {
   @Test
   public void raceClearingIncompleteValues() throws Exception {
     // Make sure top is enqueued before mid, to avoid a deadlock.
-    SkyKey topKey = GraphTester.toSkyKey("aatop");
-    final SkyKey midKey = GraphTester.toSkyKey("zzmid");
-    SkyKey badKey = GraphTester.toSkyKey("bad");
-    final AtomicBoolean waitForSecondCall = new AtomicBoolean(false);
-    final CountDownLatch otherThreadWinning = new CountDownLatch(1);
-    final AtomicReference<Thread> firstThread = new AtomicReference<>();
+    SkyKey topKey = skyKey("aatop");
+    SkyKey midKey = skyKey("zzmid");
+    SkyKey badKey = skyKey("bad");
+    AtomicBoolean waitForSecondCall = new AtomicBoolean(false);
+    CountDownLatch otherThreadWinning = new CountDownLatch(1);
+    AtomicReference<Thread> firstThread = new AtomicReference<>();
     injectGraphListenerForTesting(
         (key, type, order, context) -> {
           if (!waitForSecondCall.get()) {
@@ -3686,7 +3620,7 @@ public abstract class MemoizingEvaluatorTest {
             }
           }
         },
-        /*deterministic=*/ true);
+        /* deterministic= */ true);
     tester.getOrCreate(topKey).addDependency(midKey).setComputedValue(CONCATENATE);
     tester.getOrCreate(midKey).addDependency(badKey).setComputedValue(CONCATENATE);
     tester.getOrCreate(badKey).setHasError(true);
@@ -3702,10 +3636,10 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void breakWithErrorDep() throws Exception {
-    SkyKey errorKey = GraphTester.toSkyKey("my_error_value");
+    SkyKey errorKey = skyKey("my_error_value");
     tester.getOrCreate(errorKey).setHasError(true);
     tester.set("after", new StringValue("after"));
-    SkyKey parentKey = GraphTester.toSkyKey("parent");
+    SkyKey parentKey = skyKey("parent");
     tester
         .getOrCreate(parentKey)
         .addErrorDependency(errorKey, new StringValue("recovered"))
@@ -3723,18 +3657,18 @@ public abstract class MemoizingEvaluatorTest {
   @Test
   public void raceConditionWithNoKeepGoingErrors_InflightError() throws Exception {
     // Given a graph of two nodes, errorKey and otherErrorKey,
-    final SkyKey errorKey = GraphTester.toSkyKey("errorKey");
-    final SkyKey otherErrorKey = GraphTester.toSkyKey("otherErrorKey");
+    SkyKey errorKey = skyKey("errorKey");
+    SkyKey otherErrorKey = skyKey("otherErrorKey");
 
-    final CountDownLatch errorCommitted = new CountDownLatch(1);
+    CountDownLatch errorCommitted = new CountDownLatch(1);
 
-    final CountDownLatch otherStarted = new CountDownLatch(1);
+    CountDownLatch otherStarted = new CountDownLatch(1);
 
-    final CountDownLatch otherDone = new CountDownLatch(1);
+    CountDownLatch otherDone = new CountDownLatch(1);
 
-    final AtomicInteger numOtherInvocations = new AtomicInteger(0);
-    final AtomicReference<String> bogusInvocationMessage = new AtomicReference<>(null);
-    final AtomicReference<String> nonNullValueMessage = new AtomicReference<>(null);
+    AtomicInteger numOtherInvocations = new AtomicInteger(0);
+    AtomicReference<String> bogusInvocationMessage = new AtomicReference<>(null);
+    AtomicReference<String> nonNullValueMessage = new AtomicReference<>(null);
 
     tester
         .getOrCreate(errorKey)
@@ -3806,14 +3740,14 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void absentParent() throws Exception {
-    SkyKey errorKey = GraphTester.nonHermeticKey("my_error_value");
+    SkyKey errorKey = nonHermeticKey("my_error_value");
     tester.set(errorKey, new StringValue("biding time"));
-    SkyKey absentParentKey = GraphTester.toSkyKey("absentParent");
+    SkyKey absentParentKey = skyKey("absentParent");
     tester.getOrCreate(absentParentKey).addDependency(errorKey).setComputedValue(CONCATENATE);
     assertThat(tester.evalAndGet(/*keepGoing=*/ false, absentParentKey))
         .isEqualTo(new StringValue("biding time"));
     tester.getOrCreate(errorKey, /*markAsModified=*/ true).setHasError(true);
-    SkyKey newParent = GraphTester.toSkyKey("newParent");
+    SkyKey newParent = skyKey("newParent");
     tester.getOrCreate(newParent).addDependency(errorKey).setComputedValue(CONCATENATE);
     tester.invalidate();
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/ false, newParent);
@@ -3831,25 +3765,25 @@ public abstract class MemoizingEvaluatorTest {
   }
 
   private void checkNotComparableNotPruned(boolean hasEvent) throws Exception {
-    SkyKey parent = GraphTester.toSkyKey("parent");
-    SkyKey child = GraphTester.nonHermeticKey("child");
+    SkyKey parent = skyKey("parent");
+    SkyKey child = nonHermeticKey("child");
     NotComparableStringValue notComparableString = new NotComparableStringValue("not comparable");
     if (hasEvent) {
       tester.getOrCreate(child).setConstantValue(notComparableString).setWarning("shmoop");
     } else {
       tester.getOrCreate(child).setConstantValue(notComparableString);
     }
-    final AtomicInteger parentEvaluated = new AtomicInteger();
-    final String val = "some val";
+    AtomicInteger parentEvaluated = new AtomicInteger();
+    StringValue val = new StringValue("some val");
     tester
         .getOrCreate(parent)
         .addDependency(child)
         .setComputedValue(
             (deps, env) -> {
               parentEvaluated.incrementAndGet();
-              return new StringValue(val);
+              return val;
             });
-    assertStringValue(val, tester.evalAndGet(/*keepGoing=*/ false, parent));
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, parent)).isEqualTo(val);
     assertThat(parentEvaluated.get()).isEqualTo(1);
     if (hasEvent) {
       assertThatEvents(eventCollector).containsExactly("shmoop");
@@ -3861,7 +3795,7 @@ public abstract class MemoizingEvaluatorTest {
     tester.resetPlayedEvents();
     tester.getOrCreate(child, /*markAsModified=*/ true);
     tester.invalidate();
-    assertStringValue(val, tester.evalAndGet(/*keepGoing=*/ false, parent));
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, parent)).isEqualTo(val);
     assertThat(parentEvaluated.get()).isEqualTo(2);
     if (hasEvent) {
       assertThatEvents(eventCollector).containsExactly("shmoop");
@@ -3870,14 +3804,10 @@ public abstract class MemoizingEvaluatorTest {
     }
   }
 
-  private static void assertStringValue(String expected, SkyValue val) {
-    assertThat(((StringValue) val).getValue()).isEqualTo(expected);
-  }
-
   @Test
   public void changePruningWithEvent() throws Exception {
-    SkyKey parent = GraphTester.toSkyKey("parent");
-    SkyKey child = GraphTester.nonHermeticKey("child");
+    SkyKey parent = skyKey("parent");
+    SkyKey child = nonHermeticKey("child");
     tester.getOrCreate(child).setConstantValue(new StringValue("child")).setWarning("bloop");
     // Restart once because child isn't ready.
     CountDownLatch parentEvaluated = new CountDownLatch(3);
@@ -3887,7 +3817,7 @@ public abstract class MemoizingEvaluatorTest {
         .setBuilder(
             new ChainedFunction(
                 parentEvaluated, null, null, false, parentVal, ImmutableList.of(child)));
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, parent)).isEqualTo(parentVal);
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, parent)).isEqualTo(parentVal);
     assertThat(parentEvaluated.getCount()).isEqualTo(1);
     assertThatEvents(eventCollector).containsExactly("bloop");
     eventCollector.clear();
@@ -3904,9 +3834,9 @@ public abstract class MemoizingEvaluatorTest {
     String parentEvent = "parent_event";
     String waitEvent = "wait_event";
     String childEvent = "child_event";
-    SkyKey wait = GraphTester.toSkyKey("wait_key");
-    SkyKey parent = GraphTester.toSkyKey("parent_key");
-    SkyKey child = GraphTester.nonHermeticKey("child_key");
+    SkyKey wait = skyKey("wait_key");
+    SkyKey parent = skyKey("parent_key");
+    SkyKey child = nonHermeticKey("child_key");
     StringValue parentStringValue = new StringValue("parent_value");
     StringValue waitStringValue = new StringValue("wait_value");
     CountDownLatch parentEvaluated = new CountDownLatch(2);
@@ -3964,9 +3894,9 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void depEventPredicate() throws Exception {
-    SkyKey parent = GraphTester.toSkyKey("parent");
-    SkyKey excludedDep = GraphTester.toSkyKey("excludedDep");
-    SkyKey includedDep = GraphTester.toSkyKey("includedDep");
+    SkyKey parent = skyKey("parent");
+    SkyKey excludedDep = skyKey("excludedDep");
+    SkyKey includedDep = skyKey("includedDep");
     tester.setEventFilter(
         new EventFilter() {
           @Override
@@ -4029,7 +3959,7 @@ public abstract class MemoizingEvaluatorTest {
   @Test
   public void transientErrorTurningGoodHasNoError() throws Exception {
     initializeTester();
-    SkyKey errorKey = GraphTester.toSkyKey("my_error_value");
+    SkyKey errorKey = skyKey("my_error_value");
     tester.getOrCreate(errorKey).setHasTransientError(true);
     ErrorInfo errorInfo = tester.evalAndGetError(/*keepGoing=*/ true, errorKey);
     assertThat(errorInfo).isNotNull();
@@ -4054,9 +3984,9 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void transientErrorTurnsGoodOnSecondTry() throws Exception {
-    SkyKey leafKey = toSkyKey("leaf");
-    SkyKey errorKey = toSkyKey("error");
-    SkyKey topKey = toSkyKey("top");
+    SkyKey leafKey = skyKey("leaf");
+    SkyKey errorKey = skyKey("error");
+    SkyKey topKey = skyKey("top");
     StringValue value = new StringValue("val");
     tester.getOrCreate(topKey).addDependency(errorKey).setConstantValue(value);
     tester
@@ -4065,7 +3995,7 @@ public abstract class MemoizingEvaluatorTest {
         .setConstantValue(value)
         .setHasTransientError(true);
     tester.getOrCreate(leafKey).setConstantValue(new StringValue("leaf"));
-    ErrorInfo errorInfo = tester.evalAndGetError(/*keepGoing=*/ true, topKey);
+    ErrorInfo errorInfo = tester.evalAndGetError(/* keepGoing= */ true, topKey);
     assertThat(errorInfo).isNotNull();
     assertThatErrorInfo(errorInfo).isTransient();
     tester.invalidateTransientErrors();
@@ -4079,17 +4009,17 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void deleteInvalidatedValue() throws Exception {
-    SkyKey top = GraphTester.toSkyKey("top");
-    SkyKey toDelete = GraphTester.nonHermeticKey("toDelete");
+    SkyKey top = skyKey("top");
+    SkyKey toDelete = nonHermeticKey("toDelete");
     // Must be a concatenation -- COPY doesn't actually copy.
     tester.getOrCreate(top).addDependency(toDelete).setComputedValue(CONCATENATE);
     tester.set(toDelete, new StringValue("toDelete"));
     SkyValue value = tester.evalAndGet("top");
-    SkyKey forceInvalidation = GraphTester.toSkyKey("forceInvalidation");
+    SkyKey forceInvalidation = skyKey("forceInvalidation");
     tester.set(forceInvalidation, new StringValue("forceInvalidation"));
-    tester.getOrCreate(toDelete, /*markAsModified=*/ true);
+    tester.getOrCreate(toDelete, /* markAsModified= */ true);
     tester.invalidate();
-    tester.eval(/*keepGoing=*/ false, forceInvalidation);
+    tester.eval(/* keepGoing= */ false, forceInvalidation);
     tester.delete("toDelete");
     WeakReference<SkyValue> ref = new WeakReference<>(value);
     value = null;
@@ -4108,8 +4038,8 @@ public abstract class MemoizingEvaluatorTest {
     SkyKey[] leftValues = new SkyKey[TEST_NODE_COUNT];
     SkyKey[] rightValues = new SkyKey[TEST_NODE_COUNT];
     for (int i = 0; i < TEST_NODE_COUNT; i++) {
-      leftValues[i] = GraphTester.nonHermeticKey("left-" + i);
-      rightValues[i] = GraphTester.toSkyKey("right-" + i);
+      leftValues[i] = nonHermeticKey("left-" + i);
+      rightValues[i] = skyKey("right-" + i);
       if (i == 0) {
         tester.getOrCreate(leftValues[i]).addDependency("leaf").setComputedValue(COPY);
         tester.getOrCreate(rightValues[i]).addDependency("leaf").setComputedValue(COPY);
@@ -4128,12 +4058,12 @@ public abstract class MemoizingEvaluatorTest {
     }
     tester.set("leaf", new StringValue("leaf"));
 
-    SkyKey lastLeft = GraphTester.nonHermeticKey("left-" + (TEST_NODE_COUNT - 1));
-    SkyKey lastRight = GraphTester.skyKey("right-" + (TEST_NODE_COUNT - 1));
+    SkyKey lastLeft = nonHermeticKey("left-" + (TEST_NODE_COUNT - 1));
+    SkyKey lastRight = skyKey("right-" + (TEST_NODE_COUNT - 1));
 
     for (int i = 0; i < TESTED_NODES; i++) {
       try {
-        tester.getOrCreate(leftValues[i], /*markAsModified=*/ true).setHasError(true);
+        tester.getOrCreate(leftValues[i], /* markAsModified= */ true).setHasError(true);
         tester.invalidate();
         EvaluationResult<StringValue> result =
             tester.eval(/* keepGoing= */ false, lastLeft, lastRight);
@@ -4156,7 +4086,7 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void valueInjection() throws Exception {
-    SkyKey key = GraphTester.nonHermeticKey("new_value");
+    SkyKey key = nonHermeticKey("new_value");
     Delta delta = Delta.justNew(new StringValue("val"));
 
     tester.differencer.inject(ImmutableMap.of(key, delta));
@@ -4165,7 +4095,7 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void valueInjectionOverExistingEntry() throws Exception {
-    SkyKey key = GraphTester.nonHermeticKey("key");
+    SkyKey key = nonHermeticKey("key");
     Delta delta = Delta.justNew(new StringValue("val"));
 
     tester.getOrCreate(key).setConstantValue(new StringValue("old_val"));
@@ -4175,7 +4105,7 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void valueInjectionOverExistingDirtyEntry() throws Exception {
-    SkyKey key = GraphTester.nonHermeticKey("key");
+    SkyKey key = nonHermeticKey("key");
     Delta delta = Delta.justNew(new StringValue("val"));
 
     tester.getOrCreate(key).setConstantValue(new StringValue("old_val"));
@@ -4192,7 +4122,7 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void valueInjectionOverExistingEntryMarkedForInvalidation() throws Exception {
-    SkyKey key = GraphTester.nonHermeticKey("key");
+    SkyKey key = nonHermeticKey("key");
     Delta delta = Delta.justNew(new StringValue("val"));
 
     tester.getOrCreate(key).setConstantValue(new StringValue("old_val"));
@@ -4203,7 +4133,7 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void valueInjectionOverExistingEntryMarkedForDeletion() throws Exception {
-    SkyKey key = GraphTester.nonHermeticKey("key");
+    SkyKey key = nonHermeticKey("key");
     Delta delta = Delta.justNew(new StringValue("val"));
 
     tester.getOrCreate(key).setConstantValue(new StringValue("old_val"));
@@ -4214,7 +4144,7 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void valueInjectionOverExistingEqualEntryMarkedForInvalidation() throws Exception {
-    SkyKey key = GraphTester.nonHermeticKey("key");
+    SkyKey key = nonHermeticKey("key");
     Delta delta = Delta.justNew(new StringValue("val"));
 
     tester.differencer.inject(ImmutableMap.of(key, delta));
@@ -4227,7 +4157,7 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void valueInjectionOverExistingEqualEntryMarkedForDeletion() throws Exception {
-    SkyKey key = GraphTester.nonHermeticKey("key");
+    SkyKey key = nonHermeticKey("key");
     Delta delta = Delta.justNew(new StringValue("val"));
 
     tester.differencer.inject(ImmutableMap.of(key, delta));
@@ -4240,14 +4170,14 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void valueInjectionOverValueWithDeps() throws Exception {
-    SkyKey key = GraphTester.nonHermeticKey("key");
-    SkyKey otherKey = GraphTester.nonHermeticKey("other");
+    SkyKey key = nonHermeticKey("key");
+    SkyKey otherKey = nonHermeticKey("other");
     Delta delta = Delta.justNew(new StringValue("val"));
     StringValue prevVal = new StringValue("foo");
 
     tester.getOrCreate(otherKey).setConstantValue(prevVal);
     tester.getOrCreate(key).addDependency(otherKey).setComputedValue(COPY);
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, key)).isEqualTo(prevVal);
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, key)).isEqualTo(prevVal);
     tester.differencer.inject(ImmutableMap.of(key, delta));
     StringValue depVal = new StringValue("newfoo");
     tester.getOrCreate(otherKey).setConstantValue(depVal);
@@ -4258,7 +4188,7 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void valueInjectionOverEqualValueWithDeps() throws Exception {
-    SkyKey key = GraphTester.nonHermeticKey("key");
+    SkyKey key = nonHermeticKey("key");
     Delta delta = Delta.justNew(new StringValue("val"));
 
     tester.getOrCreate("other").setConstantValue(delta.newValue());
@@ -4270,7 +4200,7 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void valueInjectionOverValueWithErrors() throws Exception {
-    SkyKey key = GraphTester.nonHermeticKey("key");
+    SkyKey key = nonHermeticKey("key");
     Delta delta = Delta.justNew(new StringValue("val"));
 
     tester.getOrCreate(key).setHasError(true);
@@ -4282,8 +4212,8 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void valueInjectionInvalidatesReverseDeps() throws Exception {
-    SkyKey childKey = GraphTester.nonHermeticKey("child");
-    SkyKey parentKey = GraphTester.toSkyKey("parent");
+    SkyKey childKey = nonHermeticKey("child");
+    SkyKey parentKey = skyKey("parent");
     StringValue oldVal = new StringValue("old_val");
 
     tester.getOrCreate(childKey).setConstantValue(oldVal);
@@ -4307,8 +4237,8 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void valueInjectionOverExistingEqualEntryDoesNotInvalidate() throws Exception {
-    SkyKey childKey = GraphTester.nonHermeticKey("child");
-    SkyKey parentKey = GraphTester.toSkyKey("parent");
+    SkyKey childKey = nonHermeticKey("child");
+    SkyKey parentKey = skyKey("parent");
     Delta delta = Delta.justNew(new StringValue("same_val"));
 
     tester.getOrCreate(parentKey).addDependency(childKey).setComputedValue(COPY);
@@ -4323,7 +4253,7 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void valueInjectionInterrupt() throws Exception {
-    SkyKey key = GraphTester.nonHermeticKey("key");
+    SkyKey key = nonHermeticKey("key");
     Delta delta = Delta.justNew(new StringValue("val"));
 
     tester.differencer.inject(ImmutableMap.of(key, delta));
@@ -4334,10 +4264,10 @@ public abstract class MemoizingEvaluatorTest {
   }
 
   protected void runTestPersistentErrorsNotRerun(boolean includeTransientError) throws Exception {
-    SkyKey topKey = GraphTester.toSkyKey("top");
-    SkyKey transientErrorKey = GraphTester.toSkyKey("transientError");
-    SkyKey persistentErrorKey1 = GraphTester.toSkyKey("persistentError1");
-    SkyKey persistentErrorKey2 = GraphTester.toSkyKey("persistentError2");
+    SkyKey topKey = skyKey("top");
+    SkyKey transientErrorKey = skyKey("transientError");
+    SkyKey persistentErrorKey1 = skyKey("persistentError1");
+    SkyKey persistentErrorKey2 = skyKey("persistentError2");
 
     TestFunction topFunction =
         tester
@@ -4396,13 +4326,13 @@ public abstract class MemoizingEvaluatorTest {
   public void shutDownBuildOnCachedError_Done() throws Exception {
     // errorKey will be invalidated due to its dependence on invalidatedKey, but later revalidated
     // since invalidatedKey re-evaluates to the same value on a subsequent build.
-    SkyKey errorKey = GraphTester.toSkyKey("error");
-    SkyKey invalidatedKey = GraphTester.nonHermeticKey("invalidated-leaf");
+    SkyKey errorKey = skyKey("error");
+    SkyKey invalidatedKey = nonHermeticKey("invalidated-leaf");
     tester.set(invalidatedKey, new StringValue("invalidated-leaf-value"));
     tester.getOrCreate(errorKey).addDependency(invalidatedKey).setHasError(true);
     // Names are alphabetized in reverse deps of errorKey.
-    SkyKey fastToRequestSlowToSetValueKey = GraphTester.toSkyKey("A-slow-set-value-parent");
-    SkyKey failingKey = GraphTester.toSkyKey("B-fast-fail-parent");
+    SkyKey fastToRequestSlowToSetValueKey = skyKey("A-slow-set-value-parent");
+    SkyKey failingKey = skyKey("B-fast-fail-parent");
     tester
         .getOrCreate(fastToRequestSlowToSetValueKey)
         .addDependency(errorKey)
@@ -4442,7 +4372,7 @@ public abstract class MemoizingEvaluatorTest {
             }
           }
         },
-        /*deterministic=*/ true);
+        /* deterministic= */ true);
     // Initialize graph.
     tester.eval(/*keepGoing=*/ true, errorKey);
     tester.getOrCreate(invalidatedKey, /*markAsModified=*/ true);
@@ -4467,14 +4397,14 @@ public abstract class MemoizingEvaluatorTest {
     initializeTester(createTrackingProgressReceiver(/* checkEvaluationResults= */ false));
     // errorKey will be invalidated due to its dependence on invalidatedKey, but later revalidated
     // since invalidatedKey re-evaluates to the same value on a subsequent build.
-    SkyKey errorKey = GraphTester.toSkyKey("error");
-    SkyKey invalidatedKey = GraphTester.nonHermeticKey("invalidated-leaf");
-    SkyKey changedKey = GraphTester.nonHermeticKey("changed-leaf");
+    SkyKey errorKey = skyKey("error");
+    SkyKey invalidatedKey = nonHermeticKey("invalidated-leaf");
+    SkyKey changedKey = nonHermeticKey("changed-leaf");
     tester.set(invalidatedKey, new StringValue("invalidated-leaf-value"));
     tester.set(changedKey, new StringValue("changed-leaf-value"));
     // Names are alphabetized in reverse deps of errorKey.
-    final SkyKey cachedParentKey = GraphTester.toSkyKey("A-cached-parent");
-    final SkyKey uncachedParentKey = GraphTester.toSkyKey("B-uncached-parent");
+    SkyKey cachedParentKey = skyKey("A-cached-parent");
+    SkyKey uncachedParentKey = skyKey("B-uncached-parent");
     tester.getOrCreate(errorKey).addDependency(invalidatedKey).setHasError(true);
     tester.getOrCreate(cachedParentKey).addDependency(errorKey).setComputedValue(CONCATENATE);
     tester
@@ -4484,8 +4414,8 @@ public abstract class MemoizingEvaluatorTest {
         .setComputedValue(CONCATENATE);
     // We only want to force a particular order of operations at some points during evaluation. In
     // particular, we don't want to force anything during error bubbling.
-    final AtomicBoolean synchronizeThreads = new AtomicBoolean(false);
-    final CountDownLatch shutdownAwaiterStarted = new CountDownLatch(1);
+    AtomicBoolean synchronizeThreads = new AtomicBoolean(false);
+    CountDownLatch shutdownAwaiterStarted = new CountDownLatch(1);
     injectGraphListenerForTesting(
         new Listener() {
           private final CountDownLatch cachedSignaled = new CountDownLatch(1);
@@ -4538,14 +4468,14 @@ public abstract class MemoizingEvaluatorTest {
             }
           }
         },
-        /*deterministic=*/ true);
+        /* deterministic= */ true);
     // Initialize graph.
     tester.eval(/*keepGoing=*/ true, cachedParentKey, uncachedParentKey);
     tester.getOrCreate(invalidatedKey, /*markAsModified=*/ true);
     tester.set(changedKey, new StringValue("new value"));
     tester.invalidate();
     synchronizeThreads.set(true);
-    SkyKey waitForShutdownKey = GraphTester.skyKey("wait-for-shutdown");
+    SkyKey waitForShutdownKey = skyKey("wait-for-shutdown");
     tester
         .getOrCreate(waitForShutdownKey)
         .setBuilder(
@@ -4587,14 +4517,14 @@ public abstract class MemoizingEvaluatorTest {
   public void cachedErrorCausesRestart() throws Exception {
     // TrackingProgressReceiver does unnecessary examination of node values.
     initializeTester(createTrackingProgressReceiver(/* checkEvaluationResults= */ false));
-    final SkyKey errorKey = GraphTester.toSkyKey("error");
-    SkyKey invalidatedKey = GraphTester.nonHermeticKey("invalidated");
-    final SkyKey topKey = GraphTester.toSkyKey("top");
+    SkyKey errorKey = skyKey("error");
+    SkyKey invalidatedKey = nonHermeticKey("invalidated");
+    SkyKey topKey = skyKey("top");
     tester.getOrCreate(errorKey).addDependency(invalidatedKey).setHasError(true);
     tester.getOrCreate(invalidatedKey).setConstantValue(new StringValue("constant"));
-    final CountDownLatch topSecondEval = new CountDownLatch(2);
-    final CountDownLatch topRequestedError = new CountDownLatch(1);
-    final CountDownLatch errorMarkedClean = new CountDownLatch(1);
+    CountDownLatch topSecondEval = new CountDownLatch(2);
+    CountDownLatch topRequestedError = new CountDownLatch(1);
+    CountDownLatch errorMarkedClean = new CountDownLatch(1);
     injectGraphListenerForTesting(
         (key, type, order, context) -> {
           if (errorKey.equals(key) && type == EventType.MARK_CLEAN) {
@@ -4614,7 +4544,7 @@ public abstract class MemoizingEvaluatorTest {
             }
           }
         },
-        /*deterministic=*/ false);
+        /* deterministic= */ false);
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/ false, errorKey);
     assertThatEvaluationResult(result).hasError();
     assertThatEvaluationResult(result)
@@ -4653,10 +4583,10 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void cachedChildErrorDepWithSiblingDepOnNoKeepGoingEval() throws Exception {
-    SkyKey parent1Key = GraphTester.toSkyKey("parent1");
-    SkyKey parent2Key = GraphTester.toSkyKey("parent2");
-    SkyKey errorKey = GraphTester.nonHermeticKey("error");
-    final SkyKey otherKey = GraphTester.toSkyKey("other");
+    SkyKey parent1Key = skyKey("parent1");
+    SkyKey parent2Key = skyKey("parent2");
+    SkyKey errorKey = nonHermeticKey("error");
+    SkyKey otherKey = skyKey("other");
     SkyFunction parentBuilder =
         (skyKey, env) -> {
           env.getValue(errorKey);
@@ -4701,20 +4631,20 @@ public abstract class MemoizingEvaluatorTest {
   }
 
   private void removedNodeComesBack() throws Exception {
-    SkyKey top = GraphTester.nonHermeticKey("top");
-    SkyKey mid = GraphTester.skyKey("mid");
-    SkyKey leaf = GraphTester.nonHermeticKey("leaf");
+    SkyKey top = nonHermeticKey("top");
+    SkyKey mid = skyKey("mid");
+    SkyKey leaf = nonHermeticKey("leaf");
     // When top depends on mid, which depends on leaf,
     tester.getOrCreate(top).addDependency(mid).setComputedValue(CONCATENATE);
     tester.getOrCreate(mid).addDependency(leaf).setComputedValue(CONCATENATE);
     StringValue leafValue = new StringValue("leaf");
     tester.set(leaf, leafValue);
     // Then when top is evaluated, its value is as expected.
-    assertThat(tester.evalAndGet(/*keepGoing=*/ true, top)).isEqualTo(leafValue);
+    assertThat(tester.evalAndGet(/* keepGoing= */ true, top)).isEqualTo(leafValue);
     // When top is changed to no longer depend on mid,
     StringValue topValue = new StringValue("top");
     tester
-        .getOrCreate(top, /*markAsModified=*/ true)
+        .getOrCreate(top, /* markAsModified= */ true)
         .removeDependency(mid)
         .setComputedValue(null)
         .setConstantValue(topValue);
@@ -4723,14 +4653,12 @@ public abstract class MemoizingEvaluatorTest {
     // Then when top is evaluated, its value is as expected,
     tester.invalidate();
     assertThat(tester.evalAndGet(/*keepGoing=*/ true, top)).isEqualTo(topValue);
-    if (preciseEvaluationStatusStored()) {
       // And there is no value for mid in the graph,
       assertThat(tester.evaluator.getExistingValue(mid)).isNull();
       assertThat(tester.evaluator.getExistingErrorForTesting(mid)).isNull();
       // Or for leaf.
       assertThat(tester.evaluator.getExistingValue(leaf)).isNull();
       assertThat(tester.evaluator.getExistingErrorForTesting(leaf)).isNull();
-    }
 
     // When top is changed to depend directly on leaf,
     tester
@@ -4741,11 +4669,9 @@ public abstract class MemoizingEvaluatorTest {
     // Then when top is evaluated, its value is as expected,
     tester.invalidate();
     assertThat(tester.evalAndGet(/*keepGoing=*/ true, top)).isEqualTo(leafValue);
-    if (preciseEvaluationStatusStored()) {
       // and there is no value for mid in the graph,
       assertThat(tester.evaluator.getExistingValue(mid)).isNull();
       assertThat(tester.evaluator.getExistingErrorForTesting(mid)).isNull();
-    }
   }
 
   // Tests that a removed and then reinstated node doesn't try to invalidate its erstwhile parent
@@ -4754,10 +4680,10 @@ public abstract class MemoizingEvaluatorTest {
   public void removedNodeComesBackAndInvalidates() throws Exception {
     removedNodeComesBack();
     // When leaf is invalidated again,
-    tester.getOrCreate(GraphTester.skyKey("leaf"), /*markAsModified=*/ true);
+    tester.getOrCreate(skyKey("leaf"), /* markAsModified= */ true);
     // Then when top is evaluated, its value is as expected.
     tester.invalidate();
-    assertThat(tester.evalAndGet(/*keepGoing=*/ true, GraphTester.nonHermeticKey("top")))
+    assertThat(tester.evalAndGet(/* keepGoing= */ true, nonHermeticKey("top")))
         .isEqualTo(new StringValue("leaf"));
   }
 
@@ -4766,31 +4692,31 @@ public abstract class MemoizingEvaluatorTest {
   @Test
   public void removedNodeComesBackAndOtherInvalidates() throws Exception {
     removedNodeComesBack();
-    SkyKey top = GraphTester.nonHermeticKey("top");
-    SkyKey mid = GraphTester.skyKey("mid");
-    SkyKey leaf = GraphTester.nonHermeticKey("leaf");
+    SkyKey top = nonHermeticKey("top");
+    SkyKey mid = skyKey("mid");
+    SkyKey leaf = nonHermeticKey("leaf");
     // When top is invalidated again,
-    tester.getOrCreate(top, /*markAsModified=*/ true).removeDependency(leaf).addDependency(mid);
+    tester.getOrCreate(top, /* markAsModified= */ true).removeDependency(leaf).addDependency(mid);
     // Then when top is evaluated, its value is as expected.
     tester.invalidate();
-    assertThat(tester.evalAndGet(/*keepGoing=*/ true, top)).isEqualTo(new StringValue("leaf"));
+    assertThat(tester.evalAndGet(/* keepGoing= */ true, top)).isEqualTo(new StringValue("leaf"));
   }
 
   // Tests that a removed and then reinstated node doesn't have a reverse dep on a former parent.
   @Test
   public void removedInvalidatedNodeComesBackAndOtherInvalidates() throws Exception {
-    SkyKey top = GraphTester.nonHermeticKey("top");
-    SkyKey leaf = GraphTester.nonHermeticKey("leaf");
+    SkyKey top = nonHermeticKey("top");
+    SkyKey leaf = nonHermeticKey("leaf");
     // When top depends on leaf,
     tester.getOrCreate(top).addDependency(leaf).setComputedValue(CONCATENATE);
     StringValue leafValue = new StringValue("leaf");
     tester.set(leaf, leafValue);
     // Then when top is evaluated, its value is as expected.
-    assertThat(tester.evalAndGet(/*keepGoing=*/ true, top)).isEqualTo(leafValue);
+    assertThat(tester.evalAndGet(/* keepGoing= */ true, top)).isEqualTo(leafValue);
     // When top is changed to no longer depend on leaf,
     StringValue topValue = new StringValue("top");
     tester
-        .getOrCreate(top, /*markAsModified=*/ true)
+        .getOrCreate(top, /* markAsModified= */ true)
         .removeDependency(leaf)
         .setComputedValue(null)
         .setConstantValue(topValue);
@@ -4799,11 +4725,9 @@ public abstract class MemoizingEvaluatorTest {
     // Then when top is evaluated, its value is as expected,
     tester.invalidate();
     assertThat(tester.evalAndGet(/*keepGoing=*/ true, top)).isEqualTo(topValue);
-    if (preciseEvaluationStatusStored()) {
       // And there is no value for leaf in the graph.
       assertThat(tester.evaluator.getExistingValue(leaf)).isNull();
       assertThat(tester.evaluator.getExistingErrorForTesting(leaf)).isNull();
-    }
     // When leaf is evaluated, so that it is present in the graph again,
     assertThat(tester.evalAndGet(/*keepGoing=*/ true, leaf)).isEqualTo(leafValue);
     // And top is changed to depend on leaf again,
@@ -4819,8 +4743,8 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void cleanReverseDepFromDirtyNodeNotInBuild() throws Exception {
-    SkyKey topKey = GraphTester.nonHermeticKey("top");
-    SkyKey inactiveKey = GraphTester.nonHermeticKey("inactive");
+    SkyKey topKey = nonHermeticKey("top");
+    SkyKey inactiveKey = nonHermeticKey("inactive");
     Thread mainThread = Thread.currentThread();
     AtomicBoolean shouldInterrupt = new AtomicBoolean(false);
     injectGraphListenerForTesting(
@@ -4839,7 +4763,7 @@ public abstract class MemoizingEvaluatorTest {
             }
           }
         },
-        /*deterministic=*/ false);
+        /* deterministic= */ false);
     // When top depends on inactive,
     tester.getOrCreate(topKey).addDependency(inactiveKey).setComputedValue(COPY);
     StringValue val = new StringValue("inactive");
@@ -4873,7 +4797,7 @@ public abstract class MemoizingEvaluatorTest {
 
   @Test
   public void errorChanged() throws Exception {
-    SkyKey error = GraphTester.nonHermeticKey("error");
+    SkyKey error = nonHermeticKey("error");
     tester.getOrCreate(error).setHasError(true);
     assertThatErrorInfo(tester.evalAndGetError(/*keepGoing=*/ true, error))
         .hasExceptionThat()
@@ -4906,9 +4830,9 @@ public abstract class MemoizingEvaluatorTest {
   }
 
   private void externalDep(int firstPassCount, int secondPassCount) throws Exception {
-    final SkyKey parentKey = toSkyKey("parentKey");
-    final CountDownLatch firstPassLatch = new CountDownLatch(1);
-    final CountDownLatch secondPassLatch = new CountDownLatch(1);
+    SkyKey parentKey = skyKey("parentKey");
+    CountDownLatch firstPassLatch = new CountDownLatch(1);
+    CountDownLatch secondPassLatch = new CountDownLatch(1);
     tester
         .getOrCreate(parentKey)
         .setBuilder(
@@ -5003,8 +4927,8 @@ public abstract class MemoizingEvaluatorTest {
   }
 
   private void runTestDuplicateUnfinishedDeps(boolean keepGoing) throws Exception {
-    SkyKey parentKey = GraphTester.skyKey("parent");
-    SkyKey childKey = GraphTester.skyKey("child");
+    SkyKey parentKey = skyKey("parent");
+    SkyKey childKey = skyKey("child");
     SkyValue childValue = new StringValue("child");
     tester
         .getOrCreate(childKey)
@@ -5125,7 +5049,7 @@ public abstract class MemoizingEvaluatorTest {
     }
 
     public void delete(String key) {
-      evaluator.delete(Predicates.equalTo(GraphTester.skyKey(key)));
+      evaluator.delete(Predicates.equalTo(skyKey(key)));
     }
 
     public void resetPlayedEvents() {
@@ -5175,7 +5099,7 @@ public abstract class MemoizingEvaluatorTest {
     }
 
     public SkyValue evalAndGet(boolean keepGoing, String key) throws InterruptedException {
-      return evalAndGet(keepGoing, toSkyKey(key));
+      return evalAndGet(keepGoing, skyKey(key));
     }
 
     public SkyValue evalAndGet(String key) throws InterruptedException {
@@ -5196,7 +5120,7 @@ public abstract class MemoizingEvaluatorTest {
     }
 
     public ErrorInfo evalAndGetError(boolean keepGoing, String key) throws InterruptedException {
-      return evalAndGetError(keepGoing, toSkyKey(key));
+      return evalAndGetError(keepGoing, skyKey(key));
     }
 
     @Nullable
@@ -5206,7 +5130,7 @@ public abstract class MemoizingEvaluatorTest {
 
     @Nullable
     public SkyValue getExistingValue(String key) throws InterruptedException {
-      return getExistingValue(toSkyKey(key));
+      return getExistingValue(skyKey(key));
     }
   }
 

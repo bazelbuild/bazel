@@ -81,20 +81,20 @@ public final class StateMachineTest {
         .eval(ImmutableList.of(root));
   }
 
-  private static final SkyKey KEY_A1 = GraphTester.toSkyKey("A1");
+  private static final SkyKey KEY_A1 = GraphTester.skyKey("A1");
   private static final SkyValue VALUE_A1 = new StringValue("A1");
-  private static final SkyKey KEY_A2 = GraphTester.toSkyKey("A2");
+  private static final SkyKey KEY_A2 = GraphTester.skyKey("A2");
   private static final SkyValue VALUE_A2 = new StringValue("A2");
-  private static final SkyKey KEY_A3 = GraphTester.toSkyKey("A3");
+  private static final SkyKey KEY_A3 = GraphTester.skyKey("A3");
   private static final SkyValue VALUE_A3 = new StringValue("A3");
-  private static final SkyKey KEY_B1 = GraphTester.toSkyKey("B1");
+  private static final SkyKey KEY_B1 = GraphTester.skyKey("B1");
   private static final SkyValue VALUE_B1 = new StringValue("B1");
-  private static final SkyKey KEY_B2 = GraphTester.toSkyKey("B2");
+  private static final SkyKey KEY_B2 = GraphTester.skyKey("B2");
   private static final SkyValue VALUE_B2 = new StringValue("B2");
-  private static final SkyKey KEY_B3 = GraphTester.toSkyKey("B3");
+  private static final SkyKey KEY_B3 = GraphTester.skyKey("B3");
   private static final SkyValue VALUE_B3 = new StringValue("B3");
 
-  private static final SkyKey ROOT_KEY = GraphTester.toSkyKey("root");
+  private static final SkyKey ROOT_KEY = GraphTester.skyKey("root");
   private static final SkyValue DONE_VALUE = new StringValue("DONE");
   private static final StringValue SUCCESS_VALUE = new StringValue("SUCCESS");
 
