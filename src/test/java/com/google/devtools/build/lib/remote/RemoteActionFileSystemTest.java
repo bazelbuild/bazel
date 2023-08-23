@@ -682,6 +682,50 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   }
 
   @Test
+  public void readSymbolicLink_fromInputArtifactData_regularFile() throws Exception {
+    ActionInputMap inputs = new ActionInputMap(1);
+    Artifact artifact = createRemoteArtifact("file", "contents", inputs);
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
+
+    assertThrows(
+        NotASymlinkException.class,
+        () -> actionFs.readSymbolicLink(artifact.getPath().asFragment()));
+  }
+
+  @Test
+  public void readSymbolicLink_fromInputArtifactData_treeSubDir() throws Exception {
+    ActionInputMap inputs = new ActionInputMap(1);
+    SpecialArtifact tree =
+        createRemoteTreeArtifact("tree", ImmutableMap.of("subdir/file", ""), inputs);
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
+
+    assertThrows(
+        NotASymlinkException.class, () -> actionFs.readSymbolicLink(tree.getPath().asFragment()));
+
+    assertThrows(
+        NotASymlinkException.class,
+        () -> actionFs.readSymbolicLink(tree.getPath().getRelative("subdir").asFragment()));
+  }
+
+  @Test
+  public void readSymbolicLink_fromInputArtifactData_unresolvedSymlink() throws Exception {
+    ActionInputMap inputs = new ActionInputMap(1);
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
+
+    Artifact symlink = ActionsTestUtil.createUnresolvedSymlinkArtifact(outputRoot, "symlink");
+    PathFragment targetPath = PathFragment.create("/some/path");
+    // Create symlink on the filesystem so we can digest it, then delete it to verify that its
+    // presence in the ActionInputMap is sufficient for readSymbolicLink to work. Note that this is
+    // an unrealistic scenario, as symlinks are always materialized even when produced remotely.
+    Path symlinkPath = getLocalFileSystem(actionFs).getPath(symlink.getPath().getPathString());
+    symlinkPath.createSymbolicLink(targetPath);
+    inputs.putWithNoDepOwner(symlink, FileArtifactValue.createForUnresolvedSymlink(symlinkPath));
+    symlinkPath.delete();
+
+    assertThat(actionFs.readSymbolicLink(getOutputPath("symlink"))).isEqualTo(targetPath);
+  }
+
+  @Test
   public void readSymbolicLink_notFound() throws Exception {
     RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
     PathFragment linkPath = getOutputPath("sym");
@@ -855,6 +899,28 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
 
     // assert
     verifyNoInteractions(metadataInjector);
+  }
+
+  @Test
+  public void createAndReadSymbolicLink_followSymlinks(@TestParameter FilesystemTestParam from)
+      throws Exception {
+    // createSymbolicLink writes to both the local and remote filesystem, so it makes no sense to
+    // parameterize on the symlink's destination filesystem.
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    FileSystem fromFs = from.getFilesystem(actionFs);
+
+    PathFragment parentLinkPath = getOutputPath("parent_link");
+    PathFragment parentTargetPath = getOutputPath("parent_target");
+    fromFs
+        .getPath(parentLinkPath)
+        .createSymbolicLink(execRoot.getRelative(parentTargetPath).asFragment());
+    actionFs.getPath(parentTargetPath).createDirectoryAndParents();
+
+    PathFragment linkPath = getOutputPath("parent_target/link");
+    PathFragment targetPath = PathFragment.create("/some/path");
+    actionFs.getPath(linkPath).createSymbolicLink(targetPath);
+
+    assertThat(actionFs.getPath(linkPath).readSymbolicLink()).isEqualTo(targetPath);
   }
 
   @Test

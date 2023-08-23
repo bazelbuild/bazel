@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.UnresolvedSymlinkArtifactValue;
 import com.google.devtools.build.lib.actions.FileStatusWithMetadata;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
@@ -549,6 +550,27 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   protected PathFragment readSymbolicLink(PathFragment path) throws IOException {
+    PathFragment parentPath = path.getParentDirectory();
+    if (parentPath != null) {
+      path = resolveSymbolicLinks(parentPath).asFragment().getChild(path.getBaseName());
+    }
+
+    if (path.startsWith(execRoot)) {
+      var execPath = path.relativeTo(execRoot);
+      var metadata = inputArtifactData.getMetadata(execPath);
+      if (metadata instanceof UnresolvedSymlinkArtifactValue) {
+        return PathFragment.create(((UnresolvedSymlinkArtifactValue) metadata).getSymlinkTarget());
+      }
+      if (metadata != null) {
+        // Other input artifacts are never symlinks.
+        throw new NotASymlinkException(path);
+      }
+      if (inputTreeArtifactDirectoryCache.get(execPath) != null) {
+        // Tree artifacts never contain symlinks.
+        throw new NotASymlinkException(path);
+      }
+    }
+
     if (isOutput(path)) {
       try {
         return remoteOutputTree.getPath(path).readSymbolicLink();
@@ -556,12 +578,18 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
         // Intentionally ignored.
       }
     }
+
     return localFs.getPath(path).readSymbolicLink();
   }
 
   @Override
   protected void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
       throws IOException {
+    PathFragment parentPath = linkPath.getParentDirectory();
+    if (parentPath != null) {
+      linkPath = resolveSymbolicLinks(parentPath).asFragment().getChild(linkPath.getBaseName());
+    }
+
     if (isOutput(linkPath)) {
       remoteOutputTree.getPath(linkPath).createSymbolicLink(targetFragment);
     }
