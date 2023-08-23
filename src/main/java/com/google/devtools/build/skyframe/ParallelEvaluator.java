@@ -399,9 +399,6 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
           case NEEDS_REBUILDING:
             maybeMarkRebuilding(parentEntry);
             break;
-          case NEEDS_FORCED_REBUILDING:
-            parentEntry.forceRebuild();
-            break;
           case REBUILDING:
             break;
           default:

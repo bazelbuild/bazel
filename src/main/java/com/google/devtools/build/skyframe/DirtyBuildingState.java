@@ -132,13 +132,22 @@ public abstract class DirtyBuildingState implements PriorityTracker {
    * Group of children to be checked next in the process of determining if this entry needs to be
    * re-evaluated. Used by {@link DirtyBuildingState#getNextDirtyDirectDeps} and {@link #signalDep}.
    */
-  protected int dirtyDirectDepIndex;
+  protected int dirtyDirectDepIndex = 0;
 
   protected DirtyBuildingState(DirtyType dirtyType) {
-    dirtyState = dirtyType.getInitialDirtyState();
-    // We need to iterate through the deps to see if they have changed, or to remove them if one
-    // has. Initialize the iterating index.
-    dirtyDirectDepIndex = 0;
+    dirtyState = initialDirtyState(dirtyType);
+  }
+
+  private static DirtyState initialDirtyState(DirtyType dirtyType) {
+    switch (dirtyType) {
+      case DIRTY:
+        return DirtyState.CHECK_DEPENDENCIES;
+      case CHANGE:
+        return DirtyState.NEEDS_REBUILDING;
+      case REWIND:
+        throw new IllegalArgumentException(dirtyType.toString());
+    }
+    throw new AssertionError(dirtyType);
   }
 
   /** Returns true if this state has information about a previously built version. */
@@ -150,27 +159,11 @@ public abstract class DirtyBuildingState implements PriorityTracker {
     dirtyState = DirtyState.NEEDS_REBUILDING;
   }
 
-  final void markForceRebuild() {
-    if (dirtyState == DirtyState.CHECK_DEPENDENCIES) {
-      dirtyState = DirtyState.NEEDS_REBUILDING;
-    }
-  }
-
-  // TODO(b/228090759): Tighten up state checks for the force rebuild lifecycle.
   final void forceRebuild(int numTemporaryDirectDeps) {
+    checkState(dirtyState == DirtyState.CHECK_DEPENDENCIES, this);
     checkState(numTemporaryDirectDeps + externalDeps == signaledDeps, this);
-    switch (dirtyState) {
-      case CHECK_DEPENDENCIES:
-        checkState(getNumOfGroupsInLastBuildDirectDeps() == dirtyDirectDepIndex, this);
-        dirtyState = DirtyState.REBUILDING;
-        break;
-      case NEEDS_REBUILDING: // Valid for NonIncrementalInMemoryNodeEntry.
-      case NEEDS_FORCED_REBUILDING: // Valid for IncrementalInMemoryNodeEntry.
-        dirtyState = DirtyState.REBUILDING;
-        break;
-      default:
-        throw new IllegalStateException("Unexpected dirty state " + dirtyState + ": " + this);
-    }
+    checkState(getNumOfGroupsInLastBuildDirectDeps() == dirtyDirectDepIndex, this);
+    dirtyState = DirtyState.REBUILDING;
   }
 
   final boolean isEvaluating() {
@@ -178,9 +171,7 @@ public abstract class DirtyBuildingState implements PriorityTracker {
   }
 
   final boolean isChanged() {
-    return dirtyState == DirtyState.NEEDS_REBUILDING
-        || dirtyState == DirtyState.NEEDS_FORCED_REBUILDING
-        || dirtyState == DirtyState.REBUILDING;
+    return dirtyState == DirtyState.NEEDS_REBUILDING || dirtyState == DirtyState.REBUILDING;
   }
 
   private void checkFinishedBuildingWhenAboutToSetValue() {

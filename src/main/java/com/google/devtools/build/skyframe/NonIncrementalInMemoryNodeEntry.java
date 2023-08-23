@@ -86,7 +86,7 @@ public class NonIncrementalInMemoryNodeEntry
         return DependencyState.DONE;
       }
       if (dirtyBuildingState == null) {
-        dirtyBuildingState = newBuildingState();
+        dirtyBuildingState = new NonIncrementalBuildingState();
       }
       if (reverseDep != null) {
         dirtyBuildingState.addReverseDep(reverseDep);
@@ -138,14 +138,11 @@ public class NonIncrementalInMemoryNodeEntry
   @Nullable
   @Override
   public final synchronized MarkedDirtyResult markDirty(DirtyType dirtyType) {
-    checkState(dirtyType == DirtyType.FORCE_REBUILD, "Unexpected dirty type: %s", dirtyType);
+    checkArgument(dirtyType == DirtyType.REWIND, "Unexpected dirty type: %s", dirtyType);
     if (!isDone()) {
-      if (dirtyBuildingState != null) {
-        dirtyBuildingState.markForceRebuild();
-      }
-      return null;
+      return null; // Tolerate concurrent requests to rewind.
     }
-    dirtyBuildingState = newBuildingState();
+    dirtyBuildingState = new NonIncrementalBuildingState();
     value = null;
     return MarkedDirtyResult.withReverseDeps(ImmutableList.of());
   }
@@ -216,12 +213,13 @@ public class NonIncrementalInMemoryNodeEntry
     throw unsupported();
   }
 
-  private UnsupportedOperationException unsupported() {
-    return new UnsupportedOperationException("Not keeping edges: " + this);
+  @Override
+  public void forceRebuild() {
+    throw unsupported();
   }
 
-  private NonIncrementalBuildingState newBuildingState() {
-    return new NonIncrementalBuildingState();
+  private UnsupportedOperationException unsupported() {
+    return new UnsupportedOperationException("Not keeping edges: " + this);
   }
 
   /**

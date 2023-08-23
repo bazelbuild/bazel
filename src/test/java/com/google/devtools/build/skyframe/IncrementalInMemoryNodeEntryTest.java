@@ -21,6 +21,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
+import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -196,6 +197,62 @@ public class IncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<IntV
         "Cannot mark entry dirty twice",
         IllegalStateException.class,
         () -> entry.markDirty(DirtyType.DIRTY));
+  }
+
+  @Test
+  public void forceRebuildAfterTransientError() throws Exception {
+    InMemoryNodeEntry entry = createEntry();
+    entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
+    entry.markRebuilding();
+    SkyKey dep = key("dep");
+    entry.addSingletonTemporaryDirectDep(dep);
+    entry.signalDep(initialVersion, dep);
+    entry.addSingletonTemporaryDirectDep(ErrorTransienceValue.KEY);
+    entry.signalDep(initialVersion, ErrorTransienceValue.KEY);
+
+    setValue(
+        entry,
+        /* value= */ null,
+        ErrorInfo.fromException(
+            new ReifiedSkyFunctionException(
+                new GenericFunctionException(
+                    new SomeErrorException("transient error"), Transience.TRANSIENT)),
+            /* isTransitivelyTransient= */ true),
+        initialVersion);
+    assertThat(entry.isDirty()).isFalse();
+    assertThat(entry.isDone()).isTrue();
+
+    entry.markDirty(DirtyType.DIRTY);
+    assertThat(entry.isDirty()).isTrue();
+    assertThat(entry.isChanged()).isFalse();
+    assertThat(entry.isDone()).isFalse();
+    assertThat(entry.getTemporaryDirectDeps() instanceof GroupedDeps.WithHashSet)
+        .isEqualTo(isPartialReevaluation);
+
+    SkyKey parent = key("parent");
+    assertThatNodeEntry(entry)
+        .addReverseDepAndCheckIfDone(parent)
+        .isEqualTo(DependencyState.NEEDS_SCHEDULING);
+    assertThat(entry.isReadyToEvaluate()).isTrue();
+    assertThat(entry.hasUnsignaledDeps()).isFalse();
+    assertThat(entry.getDirtyState()).isEqualTo(DirtyState.CHECK_DEPENDENCIES);
+    assertThat(entry.isReadyToEvaluate()).isTrue();
+    assertThat(entry.hasUnsignaledDeps()).isFalse();
+    assertThat(entry.getTemporaryDirectDeps()).isEmpty();
+
+    assertThat(entry.getNextDirtyDirectDeps()).containsExactly(dep);
+    entry.addSingletonTemporaryDirectDep(dep);
+    assertThat(entry.signalDep(initialVersion, dep)).isTrue();
+    assertThat(entry.getDirtyState()).isEqualTo(DirtyState.CHECK_DEPENDENCIES);
+
+    assertThat(entry.getNextDirtyDirectDeps()).containsExactly(ErrorTransienceValue.KEY);
+    entry.forceRebuild();
+    assertThat(entry.getDirtyState()).isEqualTo(DirtyState.REBUILDING);
+
+    assertThat(setValue(entry, new SkyValue() {}, /* errorInfo= */ null, incrementalVersion))
+        .containsExactly(parent);
+    assertThat(entry.getVersion()).isEqualTo(incrementalVersion);
+    assertThat(entry.getDirectDeps()).containsExactly(dep); // No more dep on error transience.
   }
 
   @Test

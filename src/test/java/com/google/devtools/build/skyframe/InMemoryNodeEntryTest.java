@@ -25,8 +25,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Reportable;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
-import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
-import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -234,66 +232,6 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
     assertThrows(
         IllegalStateException.class,
         () -> setValue(entry, new SkyValue() {}, /* errorInfo= */ null, initialVersion));
-  }
-
-  @Test
-  public void forceRebuildLifecycle() throws InterruptedException {
-    InMemoryNodeEntry entry = createEntry();
-    entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
-    entry.markRebuilding();
-    SkyKey dep = key("dep");
-    entry.addSingletonTemporaryDirectDep(dep);
-    entry.signalDep(initialVersion, dep);
-    setValue(entry, new SkyValue() {}, /* errorInfo= */ null, initialVersion);
-    assertThat(entry.isDirty()).isFalse();
-    assertThat(entry.isDone()).isTrue();
-
-    entry.markDirty(DirtyType.FORCE_REBUILD);
-    assertThat(entry.isDirty()).isTrue();
-    assertThat(entry.isChanged()).isTrue();
-    assertThat(entry.isDone()).isFalse();
-    assertThat(entry.getTemporaryDirectDeps() instanceof GroupedDeps.WithHashSet)
-        .isEqualTo(isPartialReevaluation);
-
-    assertThatNodeEntry(entry)
-        .addReverseDepAndCheckIfDone(null)
-        .isEqualTo(DependencyState.NEEDS_SCHEDULING);
-    assertThat(entry.isReadyToEvaluate()).isTrue();
-    assertThat(entry.hasUnsignaledDeps()).isFalse();
-
-    SkyKey parent = key("parent");
-    entry.addReverseDepAndCheckIfDone(parent);
-    // A non-incremental node that is force rebuilt acts as if it was never built.
-    // TODO(b/228090759): Better distinguish the force rebuild lifecycles.
-    assertThat(entry.getDirtyState())
-        .isEqualTo(
-            entry.keepsEdges() ? DirtyState.NEEDS_FORCED_REBUILDING : DirtyState.NEEDS_REBUILDING);
-    assertThat(entry.isReadyToEvaluate()).isTrue();
-    assertThat(entry.hasUnsignaledDeps()).isFalse();
-    assertThat(entry.getTemporaryDirectDeps()).isEmpty();
-
-    // A force-rebuilt node tolerates evaluating to different values within the same version.
-    entry.forceRebuild();
-    assertThat(entry.getDirtyState()).isEqualTo(DirtyState.REBUILDING);
-    assertThat(setValue(entry, new SkyValue() {}, /* errorInfo= */ null, initialVersion))
-        .containsExactly(parent);
-
-    assertThat(entry.getVersion()).isEqualTo(initialVersion);
-  }
-
-  @Test
-  public void allowTwiceMarkedForceRebuild() throws InterruptedException {
-    InMemoryNodeEntry entry = createEntry();
-    entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
-    entry.markRebuilding();
-    setValue(entry, new SkyValue() {}, /* errorInfo= */ null, initialVersion);
-    assertThat(entry.isDirty()).isFalse();
-    assertThat(entry.isDone()).isTrue();
-    entry.markDirty(DirtyType.FORCE_REBUILD);
-    entry.markDirty(DirtyType.FORCE_REBUILD);
-    assertThat(entry.isDirty()).isTrue();
-    assertThat(entry.isChanged()).isTrue();
-    assertThat(entry.isDone()).isFalse();
   }
 
   @Test

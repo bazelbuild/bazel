@@ -408,9 +408,6 @@ abstract class AbstractParallelEvaluator {
         case NEEDS_REBUILDING:
           nodeEntry.markRebuilding();
           return DirtyOutcome.NEEDS_EVALUATION;
-        case NEEDS_FORCED_REBUILDING:
-          nodeEntry.forceRebuild();
-          return DirtyOutcome.NEEDS_EVALUATION;
         case REBUILDING:
           return DirtyOutcome.NEEDS_EVALUATION;
         default:
@@ -943,9 +940,7 @@ abstract class AbstractParallelEvaluator {
                 childToRestart,
                 key);
 
-        // Nodes are marked "force-rebuild" to ensure that they run, and to allow them to evaluate
-        // to a different value than before, even if their versions remain the same.
-        if (childEntry.markDirty(DirtyType.FORCE_REBUILD) != null) {
+        if (childEntry.markDirty(DirtyType.REWIND) != null) {
           evaluatorContext
               .getProgressReceiver()
               .invalidated(childToRestart, EvaluationProgressReceiver.InvalidationState.DIRTY);

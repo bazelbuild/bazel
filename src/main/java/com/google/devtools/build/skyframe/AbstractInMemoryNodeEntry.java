@@ -145,13 +145,6 @@ abstract class AbstractInMemoryNodeEntry<D extends DirtyBuildingState>
   }
 
   @Override
-  public final synchronized void forceRebuild() {
-    checkNotNull(dirtyBuildingState, this);
-    checkState(isEvaluating(), this);
-    dirtyBuildingState.forceRebuild(getNumTemporaryDirectDeps());
-  }
-
-  @Override
   public final synchronized DirtyState getDirtyState() {
     checkNotNull(dirtyBuildingState, this);
     return dirtyBuildingState.getDirtyState();

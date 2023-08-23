@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -306,40 +307,41 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
   @ForOverride
   protected DirtyBuildingState createDirtyBuildingStateForDoneNode(
       DirtyType dirtyType, GroupedDeps directDeps, SkyValue value) {
-    return new IncrementalDirtyBuildingState(dirtyType, getKey(), directDeps, value);
+    return new IncrementalDirtyBuildingState(dirtyType, directDeps, value);
   }
 
   @Nullable
   @Override
   public synchronized MarkedDirtyResult markDirty(DirtyType dirtyType) {
+    checkNotNull(dirtyType, this);
+    // TODO(b/228090759): Support rewinding with incrementality.
+    checkArgument(dirtyType != DirtyType.REWIND, "Rewinding not supported with incrementality");
+
     if (isDone()) {
       GroupedDeps directDeps = GroupedDeps.decompress(getCompressedDirectDepsForDoneEntry());
+      checkState(
+          dirtyType == DirtyType.CHANGE || !directDeps.isEmpty(),
+          "%s is being marked dirty but has no children that could have dirtied it",
+          getKey());
       dirtyBuildingState = createDirtyBuildingStateForDoneNode(dirtyType, directDeps, value);
       value = null;
       this.directDeps = null;
       return MarkedDirtyResult.withReverseDeps(
           ReverseDepsUtility.getReverseDeps(this, /* checkConsistency= */ true));
     }
-    if (dirtyType.equals(DirtyType.FORCE_REBUILD)) {
-      if (dirtyBuildingState != null) {
-        dirtyBuildingState.markForceRebuild();
-      }
-      return null;
-    }
+
     // The caller may be simultaneously trying to mark this node dirty and changed, and the dirty
-    // thread may have lost the race, but it is the caller's responsibility not to try to mark
-    // this node changed twice. The end result of racing markers must be a changed node, since one
-    // of the markers is trying to mark the node changed.
-    checkState(
-        dirtyType.equals(DirtyType.CHANGE) != isChanged(),
-        "Cannot mark node dirty twice or changed twice: %s",
-        this);
+    // thread may have lost the race, but it is the caller's responsibility not to try to mark this
+    // node changed twice. The end result of racing markers must be a changed node, since one of the
+    // markers is trying to mark the node changed.
     checkState(value == null, "Value should have been reset already %s", this);
-    if (dirtyType.equals(DirtyType.CHANGE)) {
-      checkNotNull(dirtyBuildingState, this);
+    if (dirtyType == DirtyType.CHANGE) {
       // If the changed marker lost the race, we just need to mark changed in this method -- all
       // other work was done by the dirty marker.
-      dirtyBuildingState.markChanged();
+      checkState(!isChanged(), "Cannot mark node changed twice: %s", this);
+      checkNotNull(dirtyBuildingState, this).markChanged();
+    } else {
+      checkState(isChanged(), "Cannot mark node dirty twice: %s", this);
     }
     return null;
   }
@@ -375,6 +377,11 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
   }
 
   @Override
+  public final synchronized void forceRebuild() {
+    checkNotNull(dirtyBuildingState, this).forceRebuild(getNumTemporaryDirectDeps());
+  }
+
+  @Override
   final synchronized int getNumTemporaryDirectDeps() {
     return directDeps == null ? 0 : getTemporaryDirectDeps().numElements();
   }
@@ -402,14 +409,10 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
     private final SkyValue lastBuildValue;
 
     private IncrementalDirtyBuildingState(
-        DirtyType dirtyType, SkyKey key, GroupedDeps lastBuildDirectDeps, SkyValue lastBuildValue) {
+        DirtyType dirtyType, GroupedDeps lastBuildDirectDeps, SkyValue lastBuildValue) {
       super(dirtyType);
       this.lastBuildDirectDeps = lastBuildDirectDeps;
       this.lastBuildValue = lastBuildValue;
-      checkState(
-          !dirtyType.equals(DirtyType.DIRTY) || getNumOfGroupsInLastBuildDirectDeps() > 0,
-          "%s is being marked dirty but has no children that could have dirtied it",
-          key);
     }
 
     @Override

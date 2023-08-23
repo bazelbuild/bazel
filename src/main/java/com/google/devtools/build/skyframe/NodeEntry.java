@@ -71,46 +71,48 @@ public interface NodeEntry extends PriorityTracker {
      * did.
      */
     NEEDS_REBUILDING,
-    /**
-     * A forced rebuilding is required, likely because of a recoverable inconsistency in the current
-     * build.
-     */
-    NEEDS_FORCED_REBUILDING,
     /** A rebuilding is in progress. */
     REBUILDING,
   }
 
   /** Ways that a node may be dirtied. */
   enum DirtyType {
-    /**
-     * A node P dirtied with DIRTY is re-evaluated during the evaluation phase if it's requested and
-     * directly depends on some node C whose value changed since the last evaluation of P. If it's
-     * requested and there is no such node C, P is marked clean.
-     */
-    DIRTY(DirtyState.CHECK_DEPENDENCIES),
 
     /**
-     * A node dirtied with CHANGE is re-evaluated during the evaluation phase if it's requested
-     * (regardless of the state of its dependencies). Such a node is expected to evaluate to the
-     * same value if evaluated at the same graph version.
+     * Indicates that the node is being marked dirty because it has a dependency that was marked
+     * dirty.
+     *
+     * <p>A node P dirtied with {@code DIRTY} is re-evaluated during the evaluation phase if it is
+     * requested and directly depends on some node C whose value changed since the last evaluation
+     * of P. If it is requested and there is no such node C, P is {@linkplain #markClean marked
+     * clean}.
      */
-    CHANGE(DirtyState.NEEDS_REBUILDING),
+    DIRTY,
 
     /**
-     * A node dirtied with FORCE_REBUILD behaves like a {@link #CHANGE}d node, except that it may
-     * evaluate to a different value even if evaluated at the same graph version.
+     * Indicates that the node is being marked dirty because its value from a previous evaluation is
+     * no longer valid, even if none of its dependencies change.
+     *
+     * <p>This is typically used to indicate that a value produced by a {@link
+     * FunctionHermeticity#NONHERMETIC} function is no longer valid because some state outside of
+     * Skyframe has changed (e.g. a change to the filesystem).
+     *
+     * <p>A node dirtied with {@code CHANGE} is re-evaluated during the evaluation phase if it is
+     * requested, regardless of the state of its dependencies. If it re-evaluates to the same value,
+     * dirty parents are not necessarily re-evaluated.
      */
-    FORCE_REBUILD(DirtyState.NEEDS_FORCED_REBUILDING);
+    CHANGE,
 
-    private final DirtyState initialDirtyState;
-
-    DirtyType(DirtyState initialDirtyState) {
-      this.initialDirtyState = initialDirtyState;
-    }
-
-    DirtyState getInitialDirtyState() {
-      return initialDirtyState;
-    }
+    /**
+     * Similar to {@link #CHANGE} except may be used intra-evaluation to indicate that the node's
+     * value (which may be from either a previous evaluation or the current evaluation) is no longer
+     * valid.
+     *
+     * <p>A node dirtied with {@code REWIND} is re-evaluated during the evaluation phase if it is
+     * requested, regardless of the state of its dependencies. Even if it re-evaluates to the same
+     * value, dirty parents are re-evaluated.
+     */
+    REWIND
   }
 
   /** Returns whether the entry has been built and is finished evaluating. */
@@ -139,8 +141,8 @@ public interface NodeEntry extends PriorityTracker {
    * markDirty(DirtyType.CHANGE)} may only be called on a node P for which {@code P.isDone() ||
    * !P.isChanged()}. Otherwise, this will throw {@link IllegalStateException}.
    *
-   * <p>{@code markDirty(DirtyType.FORCE_REBUILD)} may be called multiple times; only the first has
-   * any effect.
+   * <p>{@code markDirty(DirtyType.REWIND)} may be called at any time (even multiple times
+   * concurrently), although it only has an effect if the node {@link #isDone}.
    *
    * @return if the node was done, a {@link MarkedDirtyResult} which may include the node's reverse
    *     deps; otherwise {@code null}
@@ -395,12 +397,11 @@ public interface NodeEntry extends PriorityTracker {
   }
 
   /**
-   * Forces this node to be re-evaluated, even if none of its dependencies are known to have
-   * changed.
+   * Called on a dirty node during {@linkplain DirtyState#CHECK_DEPENDENCIES dependency checking} to
+   * force the node to be re-evaluated, even if none of its dependencies are known to have changed.
    *
-   * <p>Used when an external caller has reason to believe that re-evaluating may yield a new
-   * result. This method should not be used if one of the normal deps of this node has changed, the
-   * usual change-pruning process should work in that case.
+   * <p>Used when a caller has reason to believe that re-evaluating may yield a new result, such as
+   * when the prior evaluation encountered a transient error.
    */
   @ThreadSafe
   void forceRebuild();
