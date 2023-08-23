@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -29,10 +28,12 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
+import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.syntax.Location;
 
 /**
  * Implementation of the {@code cc_toolchain_suite} rule.
@@ -42,6 +43,20 @@ import net.starlark.java.eval.StarlarkFunction;
  * com.google.devtools.build.lib.rules.cpp.CppConfiguration}.
  */
 public class CcToolchainSuite implements RuleConfiguredTargetFactory {
+
+  private static TemplateVariableInfo createMakeVariableProvider(
+      CcToolchainProvider toolchainProvider, Location location) {
+
+    HashMap<String, String> makeVariables =
+        new HashMap<>(toolchainProvider.getAdditionalMakeVariables());
+
+    // Add make variables from the toolchainProvider, also.
+    ImmutableMap.Builder<String, String> ccProviderMakeVariables = new ImmutableMap.Builder<>();
+    toolchainProvider.addGlobalMakeVariables(ccProviderMakeVariables);
+    makeVariables.putAll(ccProviderMakeVariables.buildOrThrow());
+
+    return new TemplateVariableInfo(ImmutableMap.copyOf(makeVariables), location);
+  }
 
   @Override
   @Nullable
@@ -103,9 +118,7 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
     CcCommon.reportInvalidOptions(ruleContext, cppConfiguration, ccToolchainProvider);
 
     TemplateVariableInfo templateVariableInfo =
-        CcToolchain.createMakeVariableProvider(
-            ccToolchainProvider,
-            ruleContext.getRule().getLocation());
+        createMakeVariableProvider(ccToolchainProvider, ruleContext.getRule().getLocation());
 
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext)
@@ -115,7 +128,7 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
             .addProvider(RunfilesProvider.simple(Runfiles.EMPTY));
 
     if (ccToolchainProvider.getLicensesProvider() != null) {
-      builder.add(LicensesProvider.class, ccToolchainProvider.getLicensesProvider());
+      builder.addNativeDeclaredProvider(ccToolchainProvider.getLicensesProvider());
     }
 
     return builder.build();

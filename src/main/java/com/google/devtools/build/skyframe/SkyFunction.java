@@ -283,9 +283,9 @@ public interface SkyFunction {
      *
      * <ul>
      *   <li>getValue[OrThrow](k[, c]) returned {@code null} for some k
-     *   <li>A call to result#next[OrThrow]([c]) returned {@code null} where result =
+     *   <li>A call to {@code result#get[OrThrow](k[, c])} returned {@code null} where result =
      *       getValuesAndExceptions(ks) for some ks
-     *   <li>A call to result#get[OrThrow](k[, c]) returned {@code null} where result =
+     *   <li>A call to {@code result#queryDep(k, cb)} returned {@code false} where result =
      *       getValuesAndExceptions(ks) for some ks
      * </ul>
      *

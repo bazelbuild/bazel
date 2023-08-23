@@ -52,7 +52,7 @@ platforms:
       - "--host_copt=-w"
       - "-c"
       - "opt"
-      - "--cpu=x64_arm64_windows"
+      - "--config=windows_arm64"
     build_targets:
       - "//src:bazel.exe"
       - "//src:bazel_nojdk.exe"

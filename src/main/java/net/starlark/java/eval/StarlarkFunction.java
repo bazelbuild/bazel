@@ -15,6 +15,7 @@ package net.starlark.java.eval;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Maps;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -144,10 +145,14 @@ public final class StarlarkFunction implements StarlarkCallable {
     return rfn.getName();
   }
 
-  /** Returns the value denoted by the function's doc string literal, or null if absent. */
+  /**
+   * Returns the value denoted by the function's doc string literal (trimmed if necessary), or null
+   * if absent.
+   */
   @Nullable
   public String getDocumentation() {
-    return rfn.getDocumentation();
+    String documentation = rfn.getDocumentation();
+    return documentation != null ? Starlark.trimDocString(documentation) : null;
   }
 
   public Module getModule() {
@@ -264,7 +269,7 @@ public final class StarlarkFunction implements StarlarkCallable {
       // To avoid Dict overhead, we populate a LinkedHashMap and then pass it to Dict.wrap()
       // afterwards. (The contract of Dict.wrap prohibits us from modifying the map once the Dict is
       // created.)
-      kwargs = new LinkedHashMap<>();
+      kwargs = Maps.newLinkedHashMapWithExpectedSize(1);
     }
     for (int i = 0; i < named.length; i += 2) {
       String keyword = (String) named[i]; // safe

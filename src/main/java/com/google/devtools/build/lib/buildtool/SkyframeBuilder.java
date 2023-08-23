@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.devtools.build.lib.skyframe.CoverageReportValue.COVERAGE_REPORT_KEY;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
@@ -142,6 +145,14 @@ public class SkyframeBuilder implements Builder {
         executionProgressReceiver, statusReporter);
     watchdog.start();
 
+    // We need to extract out artifacts for the combined coverage report; these should only be built
+    // after any exclusive tests have been run, otherwise the tests get run as part of the build.
+    ImmutableSet<Artifact> coverageReportArtifacts =
+        artifacts.stream()
+            .filter(artifact -> artifact.getArtifactOwner().equals(COVERAGE_REPORT_KEY))
+            .collect(toImmutableSet());
+    Set<Artifact> artifactsToBuild = Sets.difference(artifacts, coverageReportArtifacts);
+
     targetsToBuild = Sets.difference(targetsToBuild, targetsToSkip);
     parallelTests = Sets.difference(parallelTests, targetsToSkip);
     exclusiveTests = Sets.difference(exclusiveTests, targetsToSkip);
@@ -152,7 +163,7 @@ public class SkyframeBuilder implements Builder {
               reporter,
               resourceManager,
               executor,
-              artifacts,
+              artifactsToBuild,
               targetsToBuild,
               aspects,
               parallelTests,
@@ -202,6 +213,26 @@ public class SkyframeBuilder implements Builder {
             exclusiveTest,
             result);
 
+        if (detailedExitCode != null) {
+          detailedExitCodes.add(detailedExitCode);
+        }
+      }
+      // Build coverage report
+      if (!coverageReportArtifacts.isEmpty()) {
+        result =
+            skyframeExecutor.evaluateSkyKeysWithExecution(
+                reporter,
+                executor,
+                Artifact.keys(coverageReportArtifacts),
+                options,
+                actionCacheChecker);
+        detailedExitCode =
+            SkyframeErrorProcessor.processResult(
+                reporter,
+                result,
+                options.getOptions(KeepGoingOption.class).keepGoing,
+                skyframeExecutor.getCyclesReporter(),
+                bugReporter);
         if (detailedExitCode != null) {
           detailedExitCodes.add(detailedExitCode);
         }

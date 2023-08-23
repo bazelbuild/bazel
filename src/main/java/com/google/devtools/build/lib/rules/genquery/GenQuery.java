@@ -352,14 +352,11 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       throw new RuntimeException(e);
     }
 
-    GenQueryOutputStream outputStream =
-        new GenQueryOutputStream(
-            ruleContext
-                .getConfiguration()
-                .getFragment(GenQueryConfiguration.class)
-                .inMemoryCompressionEnabled());
-    Set<Target> result = targets.getResult();
     try {
+      boolean compressedOutputRequested =
+          ruleContext.attributes().get("compressed_output", Type.BOOLEAN);
+      GenQueryOutputStream outputStream = new GenQueryOutputStream(compressedOutputRequested);
+      Set<Target> result = targets.getResult();
       QueryOutputUtils.output(
           queryOptions,
           queryResult,
@@ -371,13 +368,12 @@ public class GenQuery implements RuleConfiguredTargetFactory {
           hashFunction,
           queryEnvironment.getMainRepoMapping());
       outputStream.close();
+      return outputStream.getResult();
     } catch (ClosedByInterruptException e) {
       throw new InterruptedException(e.getMessage());
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
-
-    return outputStream.getResult();
   }
 
   @Immutable // assuming no other reference to result

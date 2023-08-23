@@ -280,6 +280,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                         /* packageProgress= */ null,
                         PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException
                             .INSTANCE,
+                        /* shouldUseRepoDotBazel= */ true,
                         GlobbingStrategy.SKYFRAME_HYBRID,
                         k -> ThreadStateReceiver.NULL_INSTANCE))
                 .put(
@@ -305,10 +306,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                 .put(
                     SkyFunctions.ACTION_TEMPLATE_EXPANSION,
                     new DelegatingActionTemplateExpansionFunction())
-                .put(
-                    SkyFunctions.ARTIFACT_NESTED_SET,
-                    ArtifactNestedSetFunction.createInstance(
-                        /* valueBasedChangePruningEnabled= */ true))
+                .put(SkyFunctions.ARTIFACT_NESTED_SET, ArtifactNestedSetFunction.createInstance())
                 .buildOrThrow(),
             differencer,
             evaluationProgressReceiver,

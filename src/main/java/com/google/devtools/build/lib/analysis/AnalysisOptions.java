@@ -40,6 +40,17 @@ public class AnalysisOptions extends OptionsBase {
   public boolean discardAnalysisCache;
 
   @Option(
+      name = "allow_analysis_cache_discard",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
+      help =
+          "If discarding the analysis cache due to a change in the build system, setting this"
+              + " option to false will cause bazel to exit, rather than continuing with the build."
+              + " This option has no effect when 'discard_analysis_cache' is also set.")
+  public boolean allowAnalysisCacheDiscards;
+
+  @Option(
     name = "max_config_changes_to_show",
     defaultValue = "3",
     documentationCategory = OptionDocumentationCategory.LOGGING,
@@ -92,15 +103,6 @@ public class AnalysisOptions extends OptionsBase {
             + " or -1 indicating the maximum possible window."
   )
   public long versionWindowForDirtyNodeGc;
-
-  @Option(
-      name = "experimental_skyframe_prepare_analysis",
-      deprecationWarning = "This flag is a no-op and will be deleted in a future release.",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help = "Deprecated. No-op.")
-  public boolean skyframePrepareAnalysis;
 
   @Option(
       name = "experimental_skyframe_cpu_heavy_skykeys_thread_pool_size",

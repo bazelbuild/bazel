@@ -330,6 +330,62 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     getConfiguredTarget("//test/starlark:test");
   }
 
+  /**
+   * Tests that split transition key is preserved even when there's a single split with no change.
+   *
+   * <p>Starlark implementation may depend on the value of the key.
+   */
+  @Test
+  public void testStarlarkSplitTransitionSplitAttrSingleUnchanged() throws Exception {
+    writeAllowlistFile();
+    useConfiguration("--foo=stroopwafel");
+    scratch.file(
+        "test/starlark/rules.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def transition_func(settings, attr):",
+        "  return {",
+        "      'amsterdam': {'//command_line_option:foo': 'stroopwafel'},",
+        "  }",
+        "my_transition = transition(",
+        "  implementation = transition_func,",
+        "  inputs = [],",
+        "  outputs = ['//command_line_option:foo']",
+        ")",
+        "def _impl(ctx): ",
+        "  return MyInfo(split_attr_dep = ctx.split_attr.dep)",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'dep':  attr.label(cfg = my_transition),",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "  }",
+        ")",
+        "def _s_impl_e(ctx):",
+        "  return []",
+        "simple_rule = rule(_s_impl_e)");
+
+    scratch.file(
+        "test/starlark/BUILD",
+        "load('//test/starlark:rules.bzl', 'simple_rule', 'my_rule')",
+        "my_rule(name = 'test', dep = ':dep')",
+        "simple_rule(name = 'dep')");
+
+    @SuppressWarnings("unchecked")
+    Map<Object, ConfiguredTarget> splitAttr =
+        (Map<Object, ConfiguredTarget>)
+            getMyInfoFromTarget(getConfiguredTarget("//test/starlark:test"))
+                .getValue("split_attr_dep");
+    assertThat(splitAttr.keySet()).containsExactly("amsterdam");
+    assertThat(
+            getConfiguration(splitAttr.get("amsterdam"))
+                .getOptions()
+                .get(DummyTestOptions.class)
+                .foo)
+        .isEqualTo("stroopwafel");
+  }
+
   @Test
   public void testFunctionSplitTransitionCheckAttrDeps() throws Exception {
     writeBasicTestFiles();
@@ -2257,7 +2313,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         "    srcs = [],",
         "    outs = ['with_exec_tool.out'],",
         "    cmd = 'echo hi > $@',",
-        "    exec_tools = [':int_reader'])",
+        "    tools = [':int_reader'])",
         "int_flag_reading_rule(",
         "    name = 'int_reader',",
         "    out = 'int_reader.out')",

@@ -43,17 +43,21 @@ class OnDiskBlobStoreCache extends RemoteCache {
           .setSymlinkAbsolutePathStrategy(SymlinkAbsolutePathStrategy.Value.ALLOWED)
           .build();
 
-  public OnDiskBlobStoreCache(RemoteOptions options, Path cacheDir, DigestUtil digestUtil) {
+  public OnDiskBlobStoreCache(RemoteOptions options, Path cacheDir, DigestUtil digestUtil)
+      throws IOException {
     super(
         CAPABILITIES,
-        new DiskCacheClient(
-            cacheDir, /* verifyDownloads= */ true, /* checkActionResult= */ true, digestUtil),
+        new DiskCacheClient(cacheDir, /* verifyDownloads= */ true, digestUtil),
         options,
         digestUtil);
   }
 
   public boolean containsKey(Digest digest) {
     return ((DiskCacheClient) cacheProtocol).contains(digest);
+  }
+
+  public Path getPath(Digest digest) {
+    return ((DiskCacheClient) cacheProtocol).getPath(digest);
   }
 
   @SuppressWarnings("ProtoParseWithRegistry")

@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
@@ -47,7 +46,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
 
     BuildConfigurationValue config = create("--cpu=piii");
     String outputDirPrefix =
-        outputBase + "/execroot/" + config.getMainRepositoryName() + "/blaze-out/.*piii-fastbuild";
+        outputBase + "/execroot/" + config.getWorkspaceName() + "/blaze-out/.*piii-fastbuild";
 
     assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
         .matches(outputDirPrefix);
@@ -70,7 +69,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
         .matches(
             outputBase
                 + "/execroot/"
-                + config.getMainRepositoryName()
+                + config.getWorkspaceName()
                 + "/blaze-out/.*k8-fastbuild-test");
   }
 
@@ -183,21 +182,8 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   }
 
   @Test
-  public void testNormalization_definesWithSameName_collapseDuplicateDefinesDisabled()
-      throws Exception {
-    BuildConfigurationValue config =
-        create("--nocollapse_duplicate_defines", "--define", "a=1", "--define", "a=2");
-    CoreOptions options = config.getOptions().get(CoreOptions.class);
-    assertThat(ImmutableListMultimap.copyOf(options.commandLineBuildVariables))
-        .containsExactly("a", "1", "a", "2")
-        .inOrder();
-    assertThat(config).isNotEqualTo(create("--nocollapse_duplicate_defines", "--define", "a=2"));
-  }
-
-  @Test
   public void testNormalization_definesWithDifferentNames() throws Exception {
-    BuildConfigurationValue config =
-        create("--collapse_duplicate_defines", "--define", "a=1", "--define", "b=2");
+    BuildConfigurationValue config = create("--define", "a=1", "--define", "b=2");
     CoreOptions options = config.getOptions().get(CoreOptions.class);
     assertThat(ImmutableMap.copyOf(options.commandLineBuildVariables))
         .containsExactly("a", "1", "b", "2");
@@ -205,11 +191,10 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
 
   @Test
   public void testNormalization_definesWithSameName() throws Exception {
-    BuildConfigurationValue config =
-        create("--collapse_duplicate_defines", "--define", "a=1", "--define", "a=2");
+    BuildConfigurationValue config = create("--define", "a=1", "--define", "a=2");
     CoreOptions options = config.getOptions().get(CoreOptions.class);
     assertThat(ImmutableMap.copyOf(options.commandLineBuildVariables)).containsExactly("a", "2");
-    assertThat(config).isEqualTo(create("--collapse_duplicate_defines", "--define", "a=2"));
+    assertThat(config).isEqualTo(create("--define", "a=2"));
   }
 
   // This is really a test of option parsing, not command-line variable

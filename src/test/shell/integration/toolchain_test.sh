@@ -1128,12 +1128,12 @@ EOF
   bazel build \
     --platforms="//${pkg}/platform:not_a_platform" \
     "//${pkg}/demo:use" &> $TEST_log && fail "Build failure expected"
-  expect_log "While resolving toolchains for target //${pkg}/demo:use: Target //${pkg}/platform:not_a_platform was referenced as a platform, but does not provide PlatformInfo"
+  expect_log "Target //${pkg}/platform:not_a_platform was referenced as a platform, but does not provide PlatformInfo"
 
   bazel build \
     --host_platform="//${pkg}/platform:not_a_platform" \
     "//${pkg}/demo:use" &> $TEST_log && fail "Build failure expected"
-  expect_log "While resolving toolchains for target //${pkg}/demo:use: Target //${pkg}/platform:not_a_platform was referenced as a platform, but does not provide PlatformInfo"
+  expect_log "Target //${pkg}/platform:not_a_platform was referenced as a platform, but does not provide PlatformInfo"
 }
 
 
@@ -1884,10 +1884,11 @@ sh_binary(
 )
 EOF
 
+  echo "START DEBUGGING"
   bazel build \
     --platforms="//${pkg}:hello" \
     "//${pkg}:target" &> $TEST_log && fail "Build succeeded unexpectedly"
-  expect_log "While resolving toolchains for target //${pkg}:target: Target //${pkg}:hello was referenced as a platform, but does not provide PlatformInfo"
+  expect_log "Target //${pkg}:hello was referenced as a platform, but does not provide PlatformInfo"
 }
 
 
@@ -2464,7 +2465,6 @@ def _impl(ctx):
 outer_toolchain = rule(
     implementation = _impl,
     toolchains = ["//${pkg}/inner:toolchain_type"],
-    incompatible_use_toolchain_transition = True,
 )
 EOF
   cat > "${pkg}/outer/BUILD" <<EOF
@@ -2499,7 +2499,6 @@ def _impl(ctx):
 demo_rule = rule(
     implementation = _impl,
     toolchains = ["//${pkg}/outer:toolchain_type"],
-    incompatible_use_toolchain_transition = True,
 )
 EOF
   cat > "${pkg}/rule/BUILD" <<EOF

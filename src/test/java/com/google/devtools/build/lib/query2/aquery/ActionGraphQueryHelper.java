@@ -46,6 +46,6 @@ public class ActionGraphQueryHelper extends PostAnalysisQueryHelper<ConfiguredTa
 
   @Override
   public String getLabel(ConfiguredTargetValue configuredTargetValue) {
-    return configuredTargetValue.getConfiguredTarget().getLabel().toString();
+    return configuredTargetValue.getConfiguredTarget().getOriginalLabel().toString();
   }
 }

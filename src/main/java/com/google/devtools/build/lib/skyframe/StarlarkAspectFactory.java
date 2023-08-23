@@ -18,6 +18,8 @@ import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
+import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.StarlarkProviderValidationUtil;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleConfiguredTargetUtil;
@@ -28,6 +30,7 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import java.util.Map;
@@ -46,7 +49,6 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
   }
 
   @Override
-  @Nullable
   public ConfiguredAspect create(
       Label targetLabel,
       ConfiguredTarget ct,
@@ -54,40 +56,21 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
       AspectParameters parameters,
       RepositoryName toolsRepository)
       throws InterruptedException, ActionConflictException {
-    StarlarkRuleContext ctx;
+    RequiredConfigFragmentsProvider requiredConfigFragments;
+    Object aspectStarlarkObject;
     try {
-      ctx = ruleContext.initStarlarkRuleContext();
-    } catch (RuleErrorException e) {
-      // TODO(bazel-team): Doesn't this double-log the message, if the exception was created by
-      // RuleContext#throwWithRuleError?
-      ruleContext.ruleError(e.getMessage());
-      return null;
-    }
-    try {
-      Object aspectStarlarkObject =
+      StarlarkRuleContext ctx = ruleContext.initStarlarkRuleContext();
+      aspectStarlarkObject =
           Starlark.fastcall(
               ruleContext.getStarlarkThread(),
               starlarkAspect.getImplementation(),
               /* positional= */ new Object[] {ct, ctx},
               /* named= */ new Object[0]);
-
-      // If allowing analysis failures, targets should be created somewhat normally, and errors
-      // will be propagated via a hook elsewhere as AnalysisFailureInfo.
-      boolean allowAnalysisFailures = ruleContext.getConfiguration().allowAnalysisFailures();
-
-      if (ruleContext.hasErrors() && !allowAnalysisFailures) {
-        return null;
-      } else if (!(aspectStarlarkObject instanceof StructImpl)
-          && !(aspectStarlarkObject instanceof Iterable)
-          && !(aspectStarlarkObject instanceof Info)) {
-        ruleContext.ruleError(
-            String.format(
-                "Aspect implementation should return a struct, a list, or a provider "
-                    + "instance, but got %s",
-                Starlark.type(aspectStarlarkObject)));
-        return null;
-      }
-      return createAspect(aspectStarlarkObject, ruleContext);
+    } catch (RuleErrorException e) {
+      // TODO(bazel-team): Doesn't this double-log the message, if the exception was created by
+      // RuleContext#throwWithRuleError?
+      ruleContext.ruleError(e.getMessage());
+      return errorConfiguredAspect(ruleContext);
     } catch (Starlark.UncheckedEvalException ex) {
       // MissingDepException is expected to transit through Starlark execution.
       throw ex.getCause() instanceof CachingAnalysisEnvironment.MissingDepException
@@ -95,15 +78,58 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
           : ex;
     } catch (EvalException e) {
       ruleContext.ruleError("\n" + e.getMessageWithStack());
-      return null;
+      return errorConfiguredAspect(ruleContext);
+    } finally {
+      requiredConfigFragments = ruleContext.getRequiredConfigFragments();
+      // freeze mutability to allow optimizing StarlarkInfo instances
+      ruleContext.close();
+    }
+    // If allowing analysis failures, targets should be created somewhat normally, and errors
+    // will be propagated via a hook elsewhere as AnalysisFailureInfo.
+    boolean allowAnalysisFailures = ruleContext.getConfiguration().allowAnalysisFailures();
+
+    if (ruleContext.hasErrors() && !allowAnalysisFailures) {
+      return errorConfiguredAspect(ruleContext, requiredConfigFragments);
+    } else if (!(aspectStarlarkObject instanceof StructImpl)
+        && !(aspectStarlarkObject instanceof Iterable)
+        && !(aspectStarlarkObject instanceof Info)) {
+      ruleContext.ruleError(
+          String.format(
+              "Aspect implementation should return a struct, a list, or a provider "
+                  + "instance, but got %s",
+              Starlark.type(aspectStarlarkObject)));
+      return errorConfiguredAspect(ruleContext, requiredConfigFragments);
+    }
+    try {
+      return createAspect(aspectStarlarkObject, ruleContext, requiredConfigFragments);
+    } catch (EvalException e) {
+      ruleContext.ruleError("\n" + e.getMessageWithStack());
+      return errorConfiguredAspect(ruleContext, requiredConfigFragments);
     }
   }
 
-  private static ConfiguredAspect createAspect(Object aspectStarlarkObject, RuleContext ruleContext)
+  private static ConfiguredAspect errorConfiguredAspect(RuleContext ruleContext)
+      throws ActionConflictException, InterruptedException {
+    return errorConfiguredAspect(ruleContext, ruleContext.getRequiredConfigFragments());
+  }
+
+  private static ConfiguredAspect errorConfiguredAspect(
+      RuleContext ruleContext, RequiredConfigFragmentsProvider requiredConfigFragmentsProvider)
+      throws ActionConflictException, InterruptedException {
+    return ConfiguredTargetFactory.erroredConfiguredAspect(
+        ruleContext, requiredConfigFragmentsProvider);
+  }
+
+  private static ConfiguredAspect createAspect(
+      Object aspectStarlarkObject,
+      RuleContext ruleContext,
+      @Nullable RequiredConfigFragmentsProvider requiredConfigFragments)
       throws EvalException, ActionConflictException, InterruptedException {
 
     ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(ruleContext);
-
+    if (requiredConfigFragments != null) {
+      builder.addProvider(requiredConfigFragments);
+    }
     if (aspectStarlarkObject instanceof Iterable) {
       addDeclaredProviders(builder, (Iterable) aspectStarlarkObject);
     } else {
@@ -130,6 +156,9 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
           }
         }
       } else {
+        if (info instanceof StarlarkInfo) {
+          info = ((StarlarkInfo) info).unsafeOptimizeMemoryLayout();
+        }
         builder.addStarlarkDeclaredProvider(info);
       }
     }
@@ -148,6 +177,9 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
             "A return value of an aspect implementation function should be "
                 + "a sequence of declared providers, instead got a %s at index %d",
             Starlark.type(o), i);
+      }
+      if (o instanceof StarlarkInfo) {
+        o = ((StarlarkInfo) o).unsafeOptimizeMemoryLayout();
       }
       builder.addStarlarkDeclaredProvider((Info) o);
       i++;

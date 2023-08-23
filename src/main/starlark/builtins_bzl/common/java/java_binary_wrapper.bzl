@@ -18,33 +18,44 @@ This is needed since the `executable` nature of the target must be computed from
 the supplied value of the `create_executable` attribute.
 """
 
+load(":common/java/java_semantics.bzl", "semantics")
+
 _DEPLOY_JAR_RULE_NAME_SUFFIX = "_deployjars_internal_rule"
 
-def register_java_binary_rules(rule_exec, rule_nonexec, rule_nolauncher, rule_customlauncher, rule_deploy_jars = None, is_test_rule_class = False, **kwargs):
+def register_java_binary_rules(
+        rule_exec,
+        rule_nonexec,
+        rule_deploy_jars = None,
+        rule_deploy_jars_nonexec = None,
+        is_test_rule_class = False,
+        **kwargs):
     """Registers the correct java_binary rule and deploy jar rule
 
     Args:
         rule_exec: (Rule) The executable java_binary rule
         rule_nonexec: (Rule) The non-executable java_binary rule
-        rule_nolauncher: (Rule) The executable java_binary rule without launcher flag resolution
-        rule_customlauncher: (Rule) The executable java_binary rule with a custom launcher attr set
-        rule_deploy_jars: (Rule) The auxiliary deploy jars rule
         is_test_rule_class: (bool) If this is a test rule
         **kwargs: Actual args to instantiate the rule
     """
 
+    create_executable = "create_executable" not in kwargs or kwargs["create_executable"]
+
     # TODO(hvd): migrate depot to integers / maybe use decompose_select_list()
     if "stamp" in kwargs and type(kwargs["stamp"]) == type(True):
         kwargs["stamp"] = 1 if kwargs["stamp"] else 0
-    if "create_executable" in kwargs and not kwargs["create_executable"]:
+    if not create_executable:
         rule_nonexec(**kwargs)
-    elif "use_launcher" in kwargs and not kwargs["use_launcher"]:
-        rule_nolauncher(**kwargs)
-    elif "launcher" in kwargs and type(kwargs["launcher"]) == type(""):
-        rule_customlauncher(**kwargs)
     else:
+        if "use_launcher" in kwargs and not kwargs["use_launcher"]:
+            kwargs["launcher"] = None
+        else:
+            # If launcher is not set or None, set it to config flag
+            if "launcher" not in kwargs or not kwargs["launcher"]:
+                kwargs["launcher"] = semantics.LAUNCHER_FLAG_LABEL
         rule_exec(**kwargs)
 
+    if not create_executable:
+        rule_deploy_jars = rule_deploy_jars_nonexec
     if rule_deploy_jars and (
         not kwargs.get("tags", []) or "nodeployjar" not in kwargs.get("tags", [])
     ):

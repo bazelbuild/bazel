@@ -16,22 +16,15 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
-import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 
-import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
-import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
-import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Type;
 
@@ -40,105 +33,31 @@ import com.google.devtools.build.lib.packages.Type;
  */
 public final class CcToolchainRule implements RuleDefinition {
 
-  public static final String LIBC_TOP_ATTR = ":libc_top";
-  public static final String TARGET_LIBC_TOP_ATTR = ":target_libc_top";
+  public static final String TOOLCHAIN_CONFIG_ATTR = "toolchain_config";
+
+  /** Default attribute name where rules store the reference to cc_toolchain */
+  public static final String CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME = ":cc_toolchain";
+
+  public static final String CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME_FOR_STARLARK = "$cc_toolchain";
+
+  /** Default attribute name for the c++ toolchain type */
+  public static final String CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME = "$cc_toolchain_type";
+
+  public static final String ALLOWED_LAYERING_CHECK_FEATURES_ALLOWLIST =
+      "disabling_parse_headers_and_layering_check_allowed";
+  public static final String ALLOWED_LAYERING_CHECK_FEATURES_TARGET =
+      "//tools/build_defs/cc/whitelists/parse_headers_and_layering_check:"
+          + ALLOWED_LAYERING_CHECK_FEATURES_ALLOWLIST;
+  public static final String LOOSE_HEADER_CHECK_ALLOWLIST =
+      "loose_header_check_allowed_in_toolchain";
+
   public static final String FDO_OPTIMIZE_ATTR = ":fdo_optimize";
   public static final String FDO_PROFILE_ATTR = ":fdo_profile";
   public static final String CSFDO_PROFILE_ATTR = ":csfdo_profile";
   public static final String XFDO_PROFILE_ATTR = ":xfdo_profile";
-  public static final String TOOLCHAIN_CONFIG_ATTR = "toolchain_config";
-
-  private static Label getLabel(AttributeMap attributes, String attrName, Label defaultValue) {
-    if (attributes.has(attrName, LABEL)) {
-      Label value = attributes.get(attrName, LABEL);
-      if (value != null) {
-        return value;
-      }
-    }
-    return defaultValue;
-  }
-
-  private static final LabelLateBoundDefault<?> LIBC_TOP_VALUE =
-      LabelLateBoundDefault.fromTargetConfiguration(
-          CppConfiguration.class,
-          null,
-          (rule, attributes, cppConfig) -> {
-            // Is the libcTop directly set via a flag?
-            Label cppOptionLibcTop = cppConfig.getLibcTopLabel();
-            if (cppOptionLibcTop != null) {
-              return cppOptionLibcTop;
-            }
-
-            // Look up the value from the attribute.
-            // This avoids analyzing the label from the CROSSTOOL if the attribute is set.
-            return getLabel(attributes, "libc_top", /* defaultValue= */ null);
-          });
-
-  private static final LabelLateBoundDefault<?> TARGET_LIBC_TOP_VALUE =
-      LabelLateBoundDefault.fromTargetConfiguration(
-          CppConfiguration.class,
-          null,
-          (rule, attributes, cppConfig) -> {
-            // Is the libcTop directly set via a flag?
-            Label cppOptionLibcTop = cppConfig.getTargetLibcTopLabel();
-            if (cppOptionLibcTop != null) {
-              return cppOptionLibcTop;
-            }
-
-            // Look up the value from the attribute.
-            // This avoids analyzing the label from the CROSSTOOL if the attribute is set.
-            return getLabel(attributes, "libc_top", /* defaultValue= */ null);
-          });
-
-  private static final LabelLateBoundDefault<?> FDO_OPTIMIZE_VALUE =
-      LabelLateBoundDefault.fromTargetConfiguration(
-          CppConfiguration.class,
-          null,
-          (rule, attributes, cppConfig) -> cppConfig.getFdoOptimizeLabel());
-
-  private static final LabelLateBoundDefault<?> FDO_PROFILE_VALUE =
-      LabelLateBoundDefault.fromTargetConfiguration(
-          CppConfiguration.class,
-          null,
-          (rule, attributes, cppConfig) -> cppConfig.getFdoProfileLabel());
-
-  private static final LabelLateBoundDefault<?> CSFDO_PROFILE_VALUE =
-      LabelLateBoundDefault.fromTargetConfiguration(
-          CppConfiguration.class,
-          null,
-          (rule, attributes, cppConfig) -> cppConfig.getCSFdoProfileLabel());
-
-  private static final LabelLateBoundDefault<?> XFDO_PROFILE_VALUE =
-      LabelLateBoundDefault.fromTargetConfiguration(
-          CppConfiguration.class,
-          null,
-          (rule, attributes, cppConfig) -> cppConfig.getXFdoProfileLabel());
-
-  private static final LabelLateBoundDefault<?> FDO_PREFETCH_HINTS =
-      LabelLateBoundDefault.fromTargetConfiguration(
-          CppConfiguration.class,
-          null,
-          (rule, attributes, cppConfig) -> cppConfig.getFdoPrefetchHintsLabel());
-
-  private static final LabelLateBoundDefault<?> PROPELLER_OPTIMIZE =
-      LabelLateBoundDefault.fromTargetConfiguration(
-          CppConfiguration.class,
-          null,
-          (rule, attributes, cppConfig) -> cppConfig.getPropellerOptimizeLabel());
-
-  /**
-   * Returns true if zipper should be loaded. We load the zipper executable if FDO optimization is
-   * enabled through --fdo_optimize or --fdo_profile
-   */
-  private static boolean shouldIncludeZipperInToolchain(CppConfiguration cppConfiguration) {
-    return cppConfiguration.getFdoOptimizeLabel() != null
-        || cppConfiguration.getFdoProfileLabel() != null
-        || cppConfiguration.getFdoPath() != null;
-  }
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-    final Label zipper = env.getToolsLabel("//tools/zip:unzip_fdo");
     return builder
         .requiresConfigurationFragments(CppConfiguration.class, PlatformConfiguration.class)
         .advertiseProvider(TemplateVariableInfo.class)
@@ -294,35 +213,6 @@ public final class CcToolchainRule implements RuleDefinition {
         instead of having no transition (i.e. target platform by default).
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr(CcToolchainInputsTransitionFactory.ATTR_NAME, BOOLEAN).value(true))
-        .add(
-            attr("$interface_library_builder", LABEL)
-                .cfg(ExecutionTransitionFactory.createFactory())
-                .singleArtifact()
-                .value(env.getToolsLabel("//tools/cpp:interface_library_builder")))
-        .add(
-            attr("$link_dynamic_library_tool", LABEL)
-                .cfg(ExecutionTransitionFactory.createFactory())
-                .singleArtifact()
-                .value(env.getToolsLabel("//tools/cpp:link_dynamic_library")))
-        .add(
-            attr("$grep_includes", LABEL)
-                .exec()
-                .cfg(ExecutionTransitionFactory.createFactory())
-                .value(env.getToolsLabel("//tools/cpp:grep-includes")))
-        .add(
-            attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
-                .value(CppRuleClasses.ccToolchainTypeAttribute(env)))
-        .add(
-            attr(":zipper", LABEL)
-                .cfg(ExecutionTransitionFactory.createFactory())
-                .singleArtifact()
-                .value(
-                    LabelLateBoundDefault.fromTargetConfiguration(
-                        CppConfiguration.class,
-                        null,
-                        (rule, attributes, cppConfig) ->
-                            shouldIncludeZipperInToolchain(cppConfig) ? zipper : null)))
-
         // TODO(b/78578234): Make this the default and remove the late-bound versions.
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(libc_top) -->
         A collection of artifacts for libc passed as inputs to compile/linking actions.
@@ -330,55 +220,6 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(
             attr("libc_top", LABEL)
                 .allowedFileTypes()
-                // Should be in the target configuration
-                .cfg(NoTransition.createFactory()))
-        .add(
-            attr(LIBC_TOP_ATTR, LABEL)
-                .value(LIBC_TOP_VALUE)
-                // Should be in the target configuration
-                .cfg(NoTransition.createFactory()))
-        .add(
-            attr(TARGET_LIBC_TOP_ATTR, LABEL)
-                .value(TARGET_LIBC_TOP_VALUE)
-                // Should be in the target configuration
-                .cfg(NoTransition.createFactory()))
-        .add(
-            attr(FDO_OPTIMIZE_ATTR, LABEL)
-                .value(FDO_OPTIMIZE_VALUE)
-                // Should be in the target configuration
-                .cfg(NoTransition.createFactory()))
-        .add(
-            attr(XFDO_PROFILE_ATTR, LABEL)
-                .allowedRuleClasses("fdo_profile")
-                .mandatoryProviders(ImmutableList.of(FdoProfileProvider.PROVIDER.id()))
-                .value(XFDO_PROFILE_VALUE)
-                // Should be in the target configuration
-                .cfg(NoTransition.createFactory()))
-        .add(
-            attr(FDO_PROFILE_ATTR, LABEL)
-                .allowedRuleClasses("fdo_profile")
-                .mandatoryProviders(ImmutableList.of(FdoProfileProvider.PROVIDER.id()))
-                .value(FDO_PROFILE_VALUE)
-                // Should be in the target configuration
-                .cfg(NoTransition.createFactory()))
-        .add(
-            attr(CSFDO_PROFILE_ATTR, LABEL)
-                .allowedRuleClasses("fdo_profile")
-                .mandatoryProviders(ImmutableList.of(FdoProfileProvider.PROVIDER.id()))
-                .value(CSFDO_PROFILE_VALUE)
-                // Should be in the target configuration
-                .cfg(NoTransition.createFactory()))
-        .add(
-            attr(":fdo_prefetch_hints", LABEL)
-                .allowedRuleClasses("fdo_prefetch_hints")
-                .mandatoryProviders(ImmutableList.of(FdoPrefetchHintsProvider.PROVIDER.id()))
-                .value(FDO_PREFETCH_HINTS)
-                .cfg(NoTransition.createFactory()))
-        .add(
-            attr(":propeller_optimize", LABEL)
-                .allowedRuleClasses("propeller_optimize")
-                .mandatoryProviders(ImmutableList.of(PropellerOptimizeProvider.PROVIDER.id()))
-                .value(PROPELLER_OPTIMIZE)
                 // Should be in the target configuration
                 .cfg(NoTransition.createFactory()))
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(toolchain_identifier) -->
@@ -405,13 +246,6 @@ public final class CcToolchainRule implements RuleDefinition {
                 .mandatory()
                 // Should be in the target configuration
                 .cfg(NoTransition.createFactory()))
-        .add(
-            Allowlist.getAttributeFromAllowlistName(
-                    CcToolchain.ALLOWED_LAYERING_CHECK_FEATURES_ALLOWLIST)
-                .value(CcToolchain.ALLOWED_LAYERING_CHECK_FEATURES_LABEL))
-        .add(
-            Allowlist.getAttributeFromAllowlistName(CcToolchain.LOOSE_HEADER_CHECK_ALLOWLIST)
-                .value(CcToolchain.LOOSE_HEADER_CHECK_LABEL))
         .build();
   }
 
@@ -420,7 +254,7 @@ public final class CcToolchainRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("cc_toolchain")
         .ancestors(BaseRuleClasses.NativeBuildRule.class)
-        .factoryClass(CcToolchain.class)
+        .factoryClass(BaseRuleClasses.EmptyRuleConfiguredTargetFactory.class)
         .build();
   }
 }

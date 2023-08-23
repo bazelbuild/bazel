@@ -1,0 +1,59 @@
+From 6dbfdaae4015ccaefe8a7507112165c8a4ef648f Mon Sep 17 00:00:00 2001
+From: John Cater <jcater@google.com>
+Date: Wed, 2 Aug 2023 00:41:09 -0700
+Subject: [PATCH] Replace use of genrule.exec_tools with tools.
+
+Part of https://github.com/bazelbuild/bazel/issues/19132
+
+PiperOrigin-RevId: 553056621
+---
+ BUILD           | 4 ++--
+ jdk11/src/BUILD | 4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/BUILD b/BUILD
+index 5d74968..d03aa76 100644
+--- a/BUILD
++++ b/BUILD
+@@ -24,7 +24,7 @@ genrule(
+           " --version_file $(location VERSION.txt)" +
+           " --dependencies_file $(location DEPENDENCIES.txt)" +
+           " --out $@",
+-    exec_tools = [":build_maven_artifact"],
++    tools = [":build_maven_artifact"],
+ )
+ 
+ genrule(
+@@ -41,7 +41,7 @@ genrule(
+           " --version_file $(location VERSION.txt)" +
+           " --dependencies_file $(location DEPENDENCIES.txt)" +
+           " --out $@",
+-    exec_tools = [":build_maven_artifact"],
++    tools = [":build_maven_artifact"],
+ )
+ 
+ py_binary(
+diff --git a/jdk11/src/BUILD b/jdk11/src/BUILD
+index 2e7969d..aadbf22 100644
+--- a/jdk11/src/BUILD
++++ b/jdk11/src/BUILD
+@@ -20,7 +20,7 @@ genrule(
+     cmd = """
+       $(location //:tools/jdk_type_selector) $(location :java_base_all) $@
+     """,
+-    exec_tools = ["//:tools/jdk_type_selector"],
++    tools = ["//:tools/jdk_type_selector"],
+     visibility = ["//:__pkg__"],
+ )
+ 
+@@ -33,6 +33,6 @@ genrule(
+     cmd = """
+       $(location //:tools/jdk_type_selector) $(location :java_base_all) $@ "--config=android_fix_libs"
+     """,
+-    exec_tools = ["//:tools/jdk_type_selector"],
++    tools = ["//:tools/jdk_type_selector"],
+     visibility = ["//:__pkg__"],
+ )
+-- 
+2.41.0.585.gd2178a4bd4-goog
+

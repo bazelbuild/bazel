@@ -44,6 +44,7 @@ public class LabelConstants {
   public static final PathFragment WORKSPACE_DOT_BAZEL_FILE_NAME =
       PathFragment.create("WORKSPACE.bazel");
   public static final PathFragment MODULE_DOT_BAZEL_FILE_NAME = PathFragment.create("MODULE.bazel");
+  public static final PathFragment REPO_FILE_NAME = PathFragment.create("REPO.bazel");
 
   public static final PathFragment MODULE_LOCKFILE_NAME = PathFragment.create("MODULE.bazel.lock");
 

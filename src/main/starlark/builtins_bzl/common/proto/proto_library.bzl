@@ -21,6 +21,8 @@ load(":common/proto/proto_common.bzl", "get_import_path", proto_common = "proto_
 load(":common/proto/proto_info.bzl", "ProtoInfo")
 load(":common/paths.bzl", "paths")
 
+PackageSpecificationInfo = _builtins.toplevel.PackageSpecificationInfo
+
 def _check_srcs_package(target_package, srcs):
     """Check that .proto files in sources are from the same package.
 
@@ -68,6 +70,10 @@ def _proto_library_impl(ctx):
     exports = [dep[ProtoInfo] for dep in ctx.attr.exports]
     import_prefix = _get_import_prefix(ctx)
     strip_import_prefix = _get_strip_import_prefix(ctx)
+    check_for_reexport = deps + exports if not srcs else exports
+    for proto in check_for_reexport:
+        if hasattr(proto, "allow_exports") and not proto.allow_exports[PackageSpecificationInfo].contains(ctx.label):
+            fail("proto_library '%s' can't be reexported in package '//%s'" % (proto.direct_descriptor_set.owner, ctx.label.package))
 
     proto_path, virtual_srcs = _process_srcs(ctx, srcs, import_prefix, strip_import_prefix)
     descriptor_set = ctx.actions.declare_file(ctx.label.name + "-descriptor-set.proto.bin")
@@ -78,6 +84,7 @@ def _proto_library_impl(ctx):
         proto_path = proto_path,
         workspace_root = ctx.label.workspace_root,
         bin_dir = ctx.bin_dir.path,
+        allow_exports = ctx.attr.allow_exports,
     )
 
     _write_descriptor_set(ctx, proto_info, deps, exports, descriptor_set)
@@ -193,6 +200,7 @@ def _write_descriptor_set(ctx, proto_info, deps, exports, descriptor_set):
             args.add_joined("--allowed_public_imports", public_import_protos, map_each = get_import_path, join_with = ":")
     proto_lang_toolchain_info = proto_common.ProtoLangToolchainInfo(
         out_replacement_format_flag = "--descriptor_set_out=%s",
+        output_files = "single",
         mnemonic = "GenProtoDescriptorSet",
         progress_message = "Generating Descriptor Set proto_library %{label}",
         proto_compiler = ctx.executable._proto_compiler,
@@ -204,7 +212,6 @@ def _write_descriptor_set(ctx, proto_info, deps, exports, descriptor_set):
         proto_info,
         proto_lang_toolchain_info,
         generated_files = [descriptor_set],
-        plugin_output = descriptor_set,
         additional_inputs = dependencies_descriptor_sets,
         additional_args = args,
     )
@@ -223,6 +230,10 @@ proto_library = rule(
             providers = [ProtoInfo],
         ),
         "strip_import_prefix": attr.string(default = "/"),
+        "allow_exports": attr.label(
+            cfg = "exec",
+            providers = [PackageSpecificationInfo],
+        ),
         "data": attr.label_list(
             allow_files = True,
             flags = ["SKIP_CONSTRAINTS_OVERRIDE"],

@@ -1803,12 +1803,12 @@ function test_auth_from_credential_helper() {
   bazel build //:it \
       && fail "Expected failure when downloading repo without credential helper"
 
-  bazel build --experimental_credential_helper="${TEST_TMPDIR}/credhelper" //:it \
+  bazel build --credential_helper="${TEST_TMPDIR}/credhelper" //:it \
       || fail "Expected success when downloading repo with credential helper"
 
   expect_credential_helper_calls 1
 
-  bazel build --experimental_credential_helper="${TEST_TMPDIR}/credhelper" //:it \
+  bazel build --credential_helper="${TEST_TMPDIR}/credhelper" //:it \
       || fail "Expected success when downloading repo with credential helper"
 
   expect_credential_helper_calls 1 # expect credentials to have been cached
@@ -1824,7 +1824,7 @@ function test_auth_from_credential_helper_overrides_starlark() {
 
   setup_auth baduser badpass
 
-  bazel build --experimental_credential_helper="${TEST_TMPDIR}/credhelper" //:it \
+  bazel build --credential_helper="${TEST_TMPDIR}/credhelper" //:it \
       || fail "Expected success when downloading repo with credential helper overriding basic auth"
 }
 
@@ -2219,7 +2219,7 @@ genrule(
   cmd = "cp $< $@",
 )
 EOF
-  bazel build --experimental_credential_helper="${TEST_TMPDIR}/credhelper" //:it \
+  bazel build --credential_helper="${TEST_TMPDIR}/credhelper" //:it \
       || fail "Expected success despite needing a file behind credential helper"
 }
 
@@ -2266,7 +2266,7 @@ genrule(
   cmd = "cp $< $@",
 )
 EOF
-  bazel build --experimental_credential_helper="${TEST_TMPDIR}/credhelper" //:it \
+  bazel build --credential_helper="${TEST_TMPDIR}/credhelper" //:it \
       || fail "Expected success despite needing a file behind credential helper"
 }
 
@@ -2384,6 +2384,28 @@ EOF
   bazel build @foo//:bar --experimental_worker_for_repo_fetching=platform >& $TEST_log \
     || fail "Expected build to succeed"
   expect_log_n "hello world!" 1
+}
+
+function test_duplicate_value_in_environ() {
+  cat >> WORKSPACE <<EOF
+load('//:def.bzl', 'repo')
+repo(name='foo')
+EOF
+
+  touch BUILD
+  cat > def.bzl <<'EOF'
+def _impl(repository_ctx):
+  repository_ctx.file("WORKSPACE")
+  repository_ctx.file("BUILD", """filegroup(name="bar",srcs=[])""")
+
+repo = repository_rule(
+    implementation=_impl,
+    environ=["FOO", "FOO"],
+)
+EOF
+
+  FOO=bar bazel build @foo//:bar >& $TEST_log \
+    || fail "Expected build to succeed"
 }
 
 run_suite "local repository tests"

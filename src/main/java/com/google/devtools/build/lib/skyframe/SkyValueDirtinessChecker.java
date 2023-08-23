@@ -52,6 +52,15 @@ public abstract class SkyValueDirtinessChecker {
   }
 
   /**
+   * Returns whether it is ok for this {@link SkyValueDirtinessChecker} to return a null max
+   * transitive source version. If this method returns false, a null mtsv would indicate an {@link
+   * java.io.IOException} was thrown.
+   */
+  public boolean nullMaxTransitiveSourceVersionOk() {
+    return true;
+  }
+
+  /**
    * If {@code applies(key)}, returns the result of checking whether this key's value is up to date.
    */
   public DirtyResult check(

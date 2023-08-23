@@ -14,6 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.collect.ImmutableSet;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -113,7 +114,7 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public Iterable<SkyKey> getAllReverseDepsForNodeBeingDeleted() {
+  public Collection<SkyKey> getAllReverseDepsForNodeBeingDeleted() {
     return getDelegate().getAllReverseDepsForNodeBeingDeleted();
   }
 
@@ -198,7 +199,7 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public Iterable<SkyKey> getReverseDepsForDoneEntry() throws InterruptedException {
+  public Collection<SkyKey> getReverseDepsForDoneEntry() throws InterruptedException {
     return getDelegate().getReverseDepsForDoneEntry();
   }
 

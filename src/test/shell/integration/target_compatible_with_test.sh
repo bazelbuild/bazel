@@ -268,7 +268,6 @@ def _compiler_flag_impl(ctx):
 compiler_flag = rule(
     implementation = _compiler_flag_impl,
     toolchains = ["//target_skipping/custom_tools:toolchain_type"],
-    incompatible_use_toolchain_transition = True,
 )
 EOF
 }
@@ -1108,6 +1107,18 @@ EOF
 # for https://github.com/bazelbuild/bazel/issues/12897.
 function test_incompatible_with_missing_toolchain() {
   set_up_custom_toolchain
+  cat >> WORKSPACE <<'EOF'
+local_repository(name = 'build_bazel_apple_support', path = 'build_bazel_apple_support')
+EOF
+  mkdir -p build_bazel_apple_support/platforms
+  touch build_bazel_apple_support/WORKSPACE
+  cat > build_bazel_apple_support/platforms/BUILD <<'EOF'
+package(default_visibility=["//visibility:public"])
+platform(
+  name = "darwin_x86_64",
+  constraint_values = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
+)
+EOF
 
   cat >> target_skipping/BUILD <<'EOF'
 load(

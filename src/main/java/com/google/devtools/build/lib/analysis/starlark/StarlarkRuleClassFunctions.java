@@ -34,6 +34,7 @@ import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -51,12 +52,9 @@ import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.AllowlistChecker;
 import com.google.devtools.build.lib.packages.AspectsListBuilder.AspectDetails;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -65,6 +63,7 @@ import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
@@ -99,16 +98,15 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.Debug;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Tuple;
 import net.starlark.java.syntax.Identifier;
@@ -254,11 +252,15 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   public Object provider(Object doc, Object fields, Object init, StarlarkThread thread)
       throws EvalException {
     StarlarkProvider.Builder builder = StarlarkProvider.builder(thread.getCallerLocation());
-    Starlark.toJavaOptional(doc, String.class).ifPresent(builder::setDocumentation);
+    Starlark.toJavaOptional(doc, String.class)
+        .map(Starlark::trimDocString)
+        .ifPresent(builder::setDocumentation);
     if (fields instanceof Sequence) {
       builder.setSchema(Sequence.cast(fields, String.class, "fields"));
     } else if (fields instanceof Dict) {
-      builder.setSchema(Dict.cast(fields, String.class, String.class, "fields"));
+      builder.setSchema(
+          Maps.transformValues(
+              Dict.cast(fields, String.class, String.class, "fields"), Starlark::trimDocString));
     }
     if (init == Starlark.NONE) {
       return builder.build();
@@ -294,10 +296,27 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       Object buildSetting,
       Object cfg,
       Object execGroups,
-      Object name,
       StarlarkThread thread)
       throws EvalException {
+    // Ensure we're initializing a .bzl file, which also means we have a RuleDefinitionEnvironment.
+    BzlInitThreadContext bazelContext = BzlInitThreadContext.fromOrFail(thread, "rule()");
+
+    // Get the callstack, sans the last entry, which is the builtin 'rule' callable itself.
+    ImmutableList<StarlarkThread.CallStackEntry> callStack = thread.getCallStack();
+    callStack = callStack.subList(0, callStack.size() - 1);
+
+    LabelConverter labelConverter = LabelConverter.forBzlEvaluatingThread(thread);
+
     return createRule(
+        // Contextual parameters.
+        bazelContext,
+        thread.getCallerLocation(),
+        callStack,
+        bazelContext.getBzlFile(),
+        bazelContext.getTransitiveDigest(),
+        labelConverter,
+        thread.getSemantics(),
+        // rule() parameters
         implementation,
         test,
         attrs,
@@ -313,12 +332,29 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         analysisTest,
         buildSetting,
         cfg,
-        execGroups,
-        name,
-        thread);
+        execGroups);
   }
 
+  /**
+   * Returns a new function representing a Starlark-defined rule.
+   *
+   * <p>This is public for the benefit of {@link StarlarkTestingModule}, which has the unusual use
+   * case of creating new rule types to house analysis-time test assertions ({@code analysis_test}).
+   * It's probably not a good idea to add new callers of this method.
+   *
+   * <p>Note that the bzlFile and transitiveDigest params correspond to the outermost .bzl file
+   * being evaluated, not the one in which rule() is called.
+   */
   public static StarlarkRuleFunction createRule(
+      // Contextual parameters.
+      RuleDefinitionEnvironment ruleDefinitionEnvironment,
+      Location loc,
+      ImmutableList<StarlarkThread.CallStackEntry> definitionCallstack,
+      Label bzlFile,
+      byte[] transitiveDigest,
+      LabelConverter labelConverter,
+      StarlarkSemantics starlarkSemantics,
+      // Parameters that come from rule().
       StarlarkFunction implementation,
       boolean test,
       Object attrs,
@@ -334,24 +370,22 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       Object analysisTest,
       Object buildSetting,
       Object cfg,
-      Object execGroups,
-      Object name,
-      StarlarkThread thread)
+      Object execGroups)
       throws EvalException {
-    BazelStarlarkContext bazelContext = BazelStarlarkContext.from(thread);
-    bazelContext.checkLoadingOrWorkspacePhase("rule");
+
     // analysis_test=true implies test=true.
     test |= Boolean.TRUE.equals(analysisTest);
 
     RuleClassType type = test ? RuleClassType.TEST : RuleClassType.NORMAL;
     RuleClass parent =
-        test ? getTestBaseRule(bazelContext) : (executable ? binaryBaseRule : baseRule);
+        test
+            ? getTestBaseRule(ruleDefinitionEnvironment)
+            : (executable ? binaryBaseRule : baseRule);
 
     // We'll set the name later, pass the empty string for now.
     RuleClass.Builder builder = new RuleClass.Builder("", type, true, parent);
 
-    ImmutableList<StarlarkThread.CallStackEntry> callstack = thread.getCallStack();
-    builder.setCallStack(callstack.subList(0, callstack.size() - 1)); // pop 'rule' itself
+    builder.setCallStack(definitionCallstack);
 
     ImmutableList<Pair<String, StarlarkAttrModule.Descriptor>> attributes =
         attrObjectToAttributesList(attrs);
@@ -375,8 +409,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     if (implicitOutputs != Starlark.NONE) {
       if (implicitOutputs instanceof StarlarkFunction) {
         StarlarkCallbackHelper callback =
-            new StarlarkCallbackHelper(
-                (StarlarkFunction) implicitOutputs, thread.getSemantics(), bazelContext);
+            new StarlarkCallbackHelper((StarlarkFunction) implicitOutputs, starlarkSemantics);
         builder.setImplicitOutputsFunction(
             new StarlarkImplicitOutputsFunctionWithCallback(callback));
       } else {
@@ -398,22 +431,17 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     builder.requiresConfigurationFragmentsByStarlarkModuleName(
         Sequence.cast(fragments, String.class, "fragments"));
     builder.setConfiguredTargetFunction(implementation);
-    // Obtain the rule definition environment (RDE) from the .bzl module being initialized by the
-    // calling thread -- the label and transitive source digest of the .bzl module of the outermost
-    // function in the call stack.
-    //
-    // If this thread is initializing a BUILD file, then the toplevel function's Module has
-    // no BazelModuleContext. Such rules cannot be instantiated, so it's ok to use a
-    // dummy label and RDE in that case (but not to crash).
-    BazelModuleContext bzlModule =
-        BazelModuleContext.of(getModuleOfOutermostStarlarkFunction(thread));
-    builder.setRuleDefinitionEnvironmentLabelAndDigest(
-        bzlModule != null
-            ? bzlModule.label()
-            : Label.createUnvalidated(PackageIdentifier.EMPTY_PACKAGE_ID, "dummy_label"),
-        bzlModule != null ? bzlModule.bzlTransitiveDigest() : new byte[0]);
 
-    builder.addToolchainTypes(parseToolchainTypes(toolchains, thread));
+    // The rule definition's label and transitive digest typically come from the context of the .bzl
+    // file being initialized.
+    //
+    // Note that if rule() was called via a helper function (a meta-macro), the label and digest of
+    // the .bzl file of the innermost stack frame might not be the same as that of the outermost
+    // frame. In this case we really do want the outermost, in order to ensure that the digest
+    // includes the code that determines the helper function's argument values.
+    builder.setRuleDefinitionEnvironmentLabelAndDigest(bzlFile, transitiveDigest);
+
+    builder.addToolchainTypes(parseToolchainTypes(toolchains, labelConverter));
 
     if (execGroups != Starlark.NONE) {
       Map<String, ExecGroup> execGroupDict =
@@ -449,7 +477,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         StarlarkExposedRuleTransitionFactory transition =
             (StarlarkExposedRuleTransitionFactory) cfg;
         builder.cfg(transition);
-        transition.addToStarlarkRule(bazelContext, builder);
+        transition.addToStarlarkRule(ruleDefinitionEnvironment, builder);
       } else if (cfg instanceof TransitionFactory) {
         // This may be redundant with StarlarkExposedRuleTransitionFactory infra
         TransitionFactory<? extends TransitionFactory.Data> transitionFactory =
@@ -484,58 +512,16 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     }
 
     if (!execCompatibleWith.isEmpty()) {
-      builder.addExecutionPlatformConstraints(parseExecCompatibleWith(execCompatibleWith, thread));
+      builder.addExecutionPlatformConstraints(
+          parseExecCompatibleWith(execCompatibleWith, labelConverter));
     }
 
-    StarlarkRuleFunction starlarkRuleFunction =
-        new StarlarkRuleFunction(
-            builder,
-            type,
-            attributes,
-            thread.getCallerLocation(),
-            Starlark.toJavaOptional(doc, String.class));
-    // If a name= parameter is supplied (and we're currently initializing a .bzl module), export the
-    // rule immediately under that name; otherwise the rule will be exported by the postAssignHook
-    // set up in BzlLoadFunction.
-    //
-    // Because exporting can raise multiple errors, we need to accumulate them here into a single
-    // EvalException. This is a code smell because any non-ERROR events will be lost, and any
-    // location
-    // information in the events will be overwritten by the location of this rule's definition.
-    // However, this is currently fine because StarlarkRuleFunction#export only creates events that
-    // are ERRORs and that have the rule definition as their location.
-    // TODO(brandjon): Instead of accumulating events here, consider registering the rule in the
-    // BazelStarlarkContext, and exporting such rules after module evaluation in
-    // BzlLoadFunction#execAndExport.
-    if (name != Starlark.NONE && bzlModule != null) {
-      StoredEventHandler handler = new StoredEventHandler();
-      starlarkRuleFunction.export(handler, bzlModule.label(), (String) name);
-      if (handler.hasErrors()) {
-        StringBuilder errors =
-            handler.getEvents().stream()
-                .filter(e -> e.getKind() == EventKind.ERROR)
-                .reduce(
-                    new StringBuilder(),
-                    (sb, ev) -> sb.append("\n").append(ev.getMessage()),
-                    StringBuilder::append);
-        throw Starlark.errorf("Errors in exporting %s: %s", name, errors.toString());
-      }
-    }
-    return starlarkRuleFunction;
-  }
-
-  /**
-   * Returns the module (file) of the outermost enclosing Starlark function on the call stack or
-   * null if none of the active calls are functions defined in Starlark.
-   */
-  @Nullable
-  private static Module getModuleOfOutermostStarlarkFunction(StarlarkThread thread) {
-    for (Debug.Frame fr : Debug.getCallStack(thread)) {
-      if (fr.getFunction() instanceof StarlarkFunction) {
-        return ((StarlarkFunction) fr.getFunction()).getModule();
-      }
-    }
-    return null;
+    return new StarlarkRuleFunction(
+        builder,
+        type,
+        attributes,
+        loc,
+        Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString));
   }
 
   private static void checkAttributeName(String name) throws EvalException {
@@ -563,12 +549,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   }
 
   private static ImmutableSet<Label> parseExecCompatibleWith(
-      Sequence<?> inputs, StarlarkThread thread) throws EvalException {
+      Sequence<?> inputs, LabelConverter labelConverter) throws EvalException {
     ImmutableSet.Builder<Label> parsedLabels = new ImmutableSet.Builder<>();
-    LabelConverter converter = LabelConverter.forBzlEvaluatingThread(thread);
     for (String input : Sequence.cast(inputs, String.class, "exec_compatible_with")) {
       try {
-        Label label = converter.convert(input);
+        Label label = labelConverter.convert(input);
         parsedLabels.add(label);
       } catch (LabelSyntaxException e) {
         throw Starlark.errorf("Unable to parse constraint label '%s': %s", input, e.getMessage());
@@ -596,6 +581,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       Object rawExecGroups,
       StarlarkThread thread)
       throws EvalException {
+    LabelConverter labelConverter = LabelConverter.forBzlEvaluatingThread(thread);
+
     ImmutableList.Builder<String> attrAspects = ImmutableList.builder();
     for (Object attributeAspect : attributeAspects) {
       String attrName = STRING.convert(attributeAspect, "attr_aspects");
@@ -626,12 +613,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       if (!Attribute.isImplicit(nativeName) && !Attribute.isLateBound(nativeName)) {
         if (attribute.getType() == Type.STRING) {
           // isValueSet() is always true for attr.string as default value is "" by default.
-          hasDefault = !Objects.equals(attribute.getDefaultValue(), "");
+          hasDefault = !Objects.equals(attribute.getDefaultValue(null), "");
         } else if (attribute.getType() == Type.INTEGER) {
           // isValueSet() is always true for attr.int as default value is 0 by default.
-          hasDefault = !Objects.equals(attribute.getDefaultValue(), StarlarkInt.of(0));
+          hasDefault = !Objects.equals(attribute.getDefaultValue(null), StarlarkInt.of(0));
         } else if (attribute.getType() == Type.BOOLEAN) {
-          hasDefault = !Objects.equals(attribute.getDefaultValue(), false);
+          hasDefault = !Objects.equals(attribute.getDefaultValue(null), false);
         } else {
           throw Starlark.errorf(
               "Aspect parameter attribute '%s' must have type 'bool', 'int' or 'string'.",
@@ -640,7 +627,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
         if (hasDefault && attribute.checkAllowedValues()) {
           PredicateWithMessage<Object> allowed = attribute.getAllowedValues();
-          Object defaultVal = attribute.getDefaultValue();
+          Object defaultVal = attribute.getDefaultValue(null);
           if (!allowed.apply(defaultVal)) {
             throw Starlark.errorf(
                 "Aspect parameter attribute '%s' has a bad default value: %s",
@@ -695,7 +682,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
     ImmutableSet<Label> execCompatibleWith = ImmutableSet.of();
     if (!rawExecCompatibleWith.isEmpty()) {
-      execCompatibleWith = parseExecCompatibleWith(rawExecCompatibleWith, thread);
+      execCompatibleWith = parseExecCompatibleWith(rawExecCompatibleWith, labelConverter);
     }
 
     ImmutableMap<String, ExecGroup> execGroups = ImmutableMap.of();
@@ -713,7 +700,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
     return new StarlarkDefinedAspect(
         implementation,
-        Starlark.toJavaOptional(doc, String.class),
+        Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString),
         attrAspects.build(),
         attributes.build(),
         StarlarkAttrModule.buildProviderPredicate(requiredProvidersArg, "required_providers"),
@@ -723,7 +710,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         requiredParams.build(),
         ImmutableSet.copyOf(Sequence.cast(requiredAspects, StarlarkAspect.class, "requires")),
         ImmutableSet.copyOf(Sequence.cast(fragments, String.class, "fragments")),
-        parseToolchainTypes(toolchains, thread),
+        parseToolchainTypes(toolchains, labelConverter),
         applyToGeneratingRules,
         execCompatibleWith,
         execGroups);
@@ -792,9 +779,15 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
         throws EvalException, InterruptedException {
       if (!args.isEmpty()) {
-        throw new EvalException("unexpected positional arguments");
+        throw new EvalException("Unexpected positional arguments");
       }
-      BazelStarlarkContext.from(thread).checkLoadingPhase(getName());
+      try {
+        BazelStarlarkContext.from(thread).checkLoadingPhase(getName());
+      } catch (IllegalStateException unused) {
+        throw new EvalException(
+            "A rule can only be instantiated in a BUILD file, or a macro "
+                + "invoked from a BUILD file");
+      }
       if (ruleClass == null) {
         throw new EvalException("Invalid rule class hasn't been exported by a bzl file");
       }
@@ -855,9 +848,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     }
 
     /** Export a RuleFunction from a Starlark file with a given name. */
-    // To avoid losing event information in the case where the rule was defined with an explicit
-    // name= arg, all events should be created using errorf(). See the comment in rule() above for
-    // details.
     @Override
     public void export(EventHandler handler, Label starlarkLabel, String ruleClassName) {
       checkState(ruleClass == null && builder != null);
@@ -1028,8 +1018,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     // would lead to peculiarities like foo.bzl being able to call bar.bzl's `Label()` symbol to
     // resolve strings as if it were bar.bzl. It also would prevent sharing the same builtins
     // environment across .bzl files. Hence, we opt for stack inspection.
-    BazelModuleContext moduleContext =
-        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
+    BazelModuleContext moduleContext = BazelModuleContext.ofInnermostBzlOrFail(thread, "Label()");
     try {
       return Label.parseWithPackageContext((String) input, moduleContext.packageContext());
     } catch (LabelSyntaxException e) {
@@ -1041,8 +1030,10 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   public ExecGroup execGroup(
       Sequence<?> toolchains, Sequence<?> execCompatibleWith, StarlarkThread thread)
       throws EvalException {
-    ImmutableSet<ToolchainTypeRequirement> toolchainTypes = parseToolchainTypes(toolchains, thread);
-    ImmutableSet<Label> constraints = parseExecCompatibleWith(execCompatibleWith, thread);
+    LabelConverter labelConverter = LabelConverter.forBzlEvaluatingThread(thread);
+    ImmutableSet<ToolchainTypeRequirement> toolchainTypes =
+        parseToolchainTypes(toolchains, labelConverter);
+    ImmutableSet<Label> constraints = parseExecCompatibleWith(execCompatibleWith, labelConverter);
     return ExecGroup.builder()
         .toolchainTypes(toolchainTypes)
         .execCompatibleWith(constraints)
@@ -1051,12 +1042,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   }
 
   private static ImmutableSet<ToolchainTypeRequirement> parseToolchainTypes(
-      Sequence<?> rawToolchains, StarlarkThread thread) throws EvalException {
+      Sequence<?> rawToolchains, LabelConverter labelConverter) throws EvalException {
     Map<Label, ToolchainTypeRequirement> toolchainTypes = new HashMap<>();
-    LabelConverter converter = LabelConverter.forBzlEvaluatingThread(thread);
 
     for (Object rawToolchain : rawToolchains) {
-      ToolchainTypeRequirement toolchainType = parseToolchainType(converter, rawToolchain);
+      ToolchainTypeRequirement toolchainType = parseToolchainType(rawToolchain, labelConverter);
       Label typeLabel = toolchainType.toolchainType();
       ToolchainTypeRequirement previous = toolchainTypes.get(typeLabel);
       if (previous != null) {
@@ -1070,7 +1060,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   }
 
   private static ToolchainTypeRequirement parseToolchainType(
-      LabelConverter converter, Object rawToolchain) throws EvalException {
+      Object rawToolchain, LabelConverter labelConverter) throws EvalException {
     // Handle actual ToolchainTypeRequirement objects.
     if (rawToolchain instanceof ToolchainTypeRequirement) {
       return (ToolchainTypeRequirement) rawToolchain;
@@ -1082,7 +1072,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       toolchainLabel = (Label) rawToolchain;
     } else if (rawToolchain instanceof String) {
       try {
-        toolchainLabel = converter.convert((String) rawToolchain);
+        toolchainLabel = labelConverter.convert((String) rawToolchain);
       } catch (LabelSyntaxException e) {
         throw Starlark.errorf(
             "Unable to parse toolchain_type label '%s': %s", rawToolchain, e.getMessage());

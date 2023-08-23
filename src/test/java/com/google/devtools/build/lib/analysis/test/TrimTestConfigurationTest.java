@@ -22,12 +22,14 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -45,6 +47,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -137,7 +140,7 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
   }
 
   private static void assertNumberOfConfigurationsOfTargets(
-      Set<ActionLookupKey> keys, Map<String, Integer> targetsWithCounts) {
+      Set<? extends ActionLookupKey> keys, Map<String, Integer> targetsWithCounts) {
     ImmutableMultiset<Label> actualSet =
         keys.stream()
             .filter(key -> key instanceof ConfiguredTargetKey)
@@ -329,12 +332,11 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
         "//test:starlark_dep",
         "//test:native_shared_dep",
         "//test:starlark_shared_dep");
-    LinkedHashSet<ActionLookupKey> visitedTargets =
-        new LinkedHashSet<>(getSkyframeEvaluatedTargetKeys());
+    var visitedTargetKeys = new LinkedHashSet<ActionLookupKey>(getEvaluatedTargetValueKeys());
     // asserting that the top-level targets are the same as the ones in the diamond starting at
     // //test:suite
     assertNumberOfConfigurationsOfTargets(
-        visitedTargets,
+        visitedTargetKeys,
         new ImmutableMap.Builder<String, Integer>()
             .put("//test:suite", 1)
             .put("//test:native_test", 1)
@@ -354,11 +356,12 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
         "//test:starlark_dep",
         "//test:native_shared_dep",
         "//test:starlark_shared_dep");
-    visitedTargets.addAll(getSkyframeEvaluatedTargetKeys());
+    visitedTargetKeys.addAll(getEvaluatedTargetValueKeys());
+
     // asserting that our non-test rules matched between the two runs, we had to build different
     // versions of the three test targets but not the four non-test targets
     assertNumberOfConfigurationsOfTargets(
-        visitedTargets,
+        visitedTargetKeys,
         new ImmutableMap.Builder<String, Integer>()
             .put("//test:suite", 2)
             .put("//test:native_test", 2)
@@ -368,6 +371,18 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
             .put("//test:native_shared_dep", 1)
             .put("//test:starlark_shared_dep", 1)
             .build());
+  }
+
+  private ImmutableSet<ActionLookupKey> getEvaluatedTargetValueKeys() throws InterruptedException {
+    MemoizingEvaluator evaluator = skyframeExecutor.getEvaluator();
+    var result = ImmutableSet.<ActionLookupKey>builder();
+    for (ActionLookupKey key : getSkyframeEvaluatedTargetKeys()) {
+      result.add(
+          ((ConfiguredTargetValue) evaluator.getExistingValue(key))
+              .getConfiguredTarget()
+              .getLookupKey());
+    }
+    return result.build();
   }
 
   @Test
@@ -640,10 +655,10 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
     assertNumberOfConfigurationsOfTargets(
         visitedTargets,
         new ImmutableMap.Builder<String, Integer>()
-            // each target should be analyzed in two and only two configurations: target and exec
-            // there should not be a "exec trimmed" and "exec untrimmed" version
+            // Top-level and exec.
             .put("//test:native_test", 2)
             .put("//test:starlark_test", 2)
+            // Target and exec.
             .put("//test:native_dep", 2)
             .put("//test:starlark_dep", 2)
             .put("//test:native_shared_dep", 2)

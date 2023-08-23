@@ -19,7 +19,6 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
-import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
@@ -145,12 +144,6 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
           + " instead of using this, you pass another file (either predeclared or not) to the"
           + " <code>executable</code> arg of <a"
           + " href='../providers/DefaultInfo.html'><code>DefaultInfo</code></a>.</ul>";
-
-  @StarlarkMethod(
-      name = "default_provider",
-      structField = true,
-      doc = "Deprecated. Use <a href=\"../providers/DefaultInfo.html\">DefaultInfo</a> instead.")
-  ProviderApi getDefaultProvider();
 
   @StarlarkMethod(
       name = "actions",
@@ -557,8 +550,10 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
               @ParamType(type = Depset.class, generic1 = SymlinkEntryApi.class)
             },
             doc =
-                "Either a SymlinkEntry depset or the map of symlinks, prefixed by workspace name,"
-                    + " to be added to the runfiles. See <a"
+                "Either a SymlinkEntry depset or the map of symlinks to be added to the runfiles."
+                    + " Symlinks are always added under the main workspace's runfiles directory"
+                    + " (e.g. <code>&lt;runfiles_root>/_main/&lt;symlink_path></code>, <b>not</b>"
+                    + " the directory corresponding to the current target's repository. See <a"
                     + " href=\"https://bazel.build/extending/rules#runfiles_symlinks\">Runfiles"
                     + " symlinks</a> in the rules guide."),
         @Param(

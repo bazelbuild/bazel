@@ -114,13 +114,6 @@ public class CompletionContext {
     return importantInputMap.getInputMetadata(artifact);
   }
 
-  /** Returns true if the given artifact is guaranteed to be a file (and not a directory). */
-  public static boolean isGuaranteedToBeOutputFile(FileStateType type) {
-    return type == FileStateType.REGULAR_FILE
-        || type == FileStateType.SPECIAL_FILE
-        || type == FileStateType.NONEXISTENT;
-  }
-
   public void visitArtifacts(Iterable<Artifact> artifacts, ArtifactReceiver receiver) {
     for (Artifact artifact : artifacts) {
       if (artifact.isMiddlemanArtifact()) {

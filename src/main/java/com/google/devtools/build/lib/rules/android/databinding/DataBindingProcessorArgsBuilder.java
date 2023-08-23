@@ -25,29 +25,19 @@ import java.util.Set;
  * TODO: Refactor the names of the setter methods in this class to include "set".
  */
 public class DataBindingProcessorArgsBuilder {
-  private final boolean useUpdatedArgs;
-  private final ImmutableList.Builder<String> flags = ImmutableList.builder();
 
-  public DataBindingProcessorArgsBuilder(boolean useUpdatedArgs) {
-    this.useUpdatedArgs = useUpdatedArgs;
-  }
+  private final ImmutableList.Builder<String> flags = ImmutableList.builder();
 
   /** Sets directories where data binding reads its input and also writes its output */
   @CanIgnoreReturnValue
   public DataBindingProcessorArgsBuilder metadataOutputDir(String metadataOutputDir) {
-    if (useUpdatedArgs) {
-      flags.add(
-          createProcessorFlag(
-              "dependencyArtifactsDir",
-              metadataOutputDir + "/" + DataBinding.DEP_METADATA_INPUT_DIR));
-      flags.add(
-          createProcessorFlag(
-              "aarOutDir", metadataOutputDir + "/" + DataBinding.METADATA_OUTPUT_DIR));
-    } else {
-      flags.add(createProcessorFlag("bindingBuildFolder", metadataOutputDir));
-      flags.add(createProcessorFlag("generationalFileOutDir", metadataOutputDir));
-    }
-
+    flags.add(
+        createProcessorFlag(
+            "dependencyArtifactsDir",
+            metadataOutputDir + "/" + DataBinding.DEP_METADATA_INPUT_DIR));
+    flags.add(
+        createProcessorFlag(
+            "aarOutDir", metadataOutputDir + "/" + DataBinding.METADATA_OUTPUT_DIR));
     return this;
   }
 
@@ -71,11 +61,7 @@ public class DataBindingProcessorArgsBuilder {
    */
   @CanIgnoreReturnValue
   public DataBindingProcessorArgsBuilder exportClassListTo(String path) {
-    if (useUpdatedArgs) {
-      flags.add(createProcessorFlag("exportClassListOutFile", path));
-    } else {
-      flags.add(createProcessorFlag("exportClassListTo", path));
-    }
+    flags.add(createProcessorFlag("exportClassListOutFile", path));
     return this;
   }
 
@@ -136,11 +122,7 @@ public class DataBindingProcessorArgsBuilder {
    */
   @CanIgnoreReturnValue
   public DataBindingProcessorArgsBuilder layoutInfoDir(String layoutInfoDir) {
-    if (useUpdatedArgs) {
-      flags.add(createProcessorFlag("layoutInfoDir", layoutInfoDir));
-    } else {
-      flags.add(createProcessorFlag("xmlOutDir", layoutInfoDir));
-    }
+    flags.add(createProcessorFlag("layoutInfoDir", layoutInfoDir));
     return this;
   }
 

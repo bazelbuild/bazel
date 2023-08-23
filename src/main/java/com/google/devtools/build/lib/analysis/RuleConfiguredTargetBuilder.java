@@ -90,7 +90,7 @@ public final class RuleConfiguredTargetBuilder {
   public RuleConfiguredTargetBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
     // Avoid building validations in analysis tests (b/143988346)
-    add(LicensesProvider.class, LicensesProviderImpl.of(ruleContext));
+    addNativeDeclaredProvider(LicensesProviderImpl.of(ruleContext));
   }
 
   /**
@@ -431,9 +431,10 @@ public final class RuleConfiguredTargetBuilder {
       Map<Label, RemovedEnvironmentCulprit> removedEnvironmentCulprits = new LinkedHashMap<>();
       constraintSemantics.checkConstraints(ruleContext, supportedEnvironments, refinedEnvironments,
           removedEnvironmentCulprits);
-      add(SupportedEnvironmentsProvider.class,
-          new SupportedEnvironments(supportedEnvironments, refinedEnvironments.build(),
-              removedEnvironmentCulprits));
+      add(
+          SupportedEnvironmentsProvider.class,
+          SupportedEnvironments.create(
+              supportedEnvironments, refinedEnvironments.build(), removedEnvironmentCulprits));
     }
   }
 

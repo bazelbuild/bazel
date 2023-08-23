@@ -26,7 +26,14 @@ def git(*args):
                                  list(args)).decode("utf-8").strip().split("\n")
 
 
-def extract_relnotes(commit_message_lines, is_major_release):
+def extract_pr_title(commit_message_lines):
+  """Extracts first line from commit message (passed in as a list of lines)."""
+  return re.sub(
+      r"\[\d+\.\d+\.\d\]\s?", "", commit_message_lines[0].strip()
+  )
+
+
+def extract_relnotes(commit_message_lines):
   """Extracts relnotes from a commit message (passed in as a list of lines)."""
   relnote_lines = []
   in_relnote = False
@@ -45,18 +52,7 @@ def extract_relnotes(commit_message_lines, is_major_release):
   relnote = " ".join(relnote_lines)
   relnote_lower = relnote.strip().lower().rstrip(".")
   if relnote_lower == "n/a" or relnote_lower == "none" or not relnote_lower:
-    if is_major_release:
-      return None
-    relnote = re.sub(
-        r"\[\d+\.\d+\.\d\]\s?", "", commit_message_lines[0].strip()
-    )
-  else:
-    issue_id = re.search(
-        r"\(\#[0-9]+\)$", commit_message_lines[0].strip().split()[-1]
-    )
-    if issue_id:
-      relnote = relnote + " " + issue_id.group(0).strip()
-
+    return None
   return relnote
 
 
@@ -78,7 +74,9 @@ def get_relnotes_between(base, head, is_major_release):
       rolled_back_commits.add(m[1])
       # The rollback commit itself is also skipped.
       continue
-    relnote = extract_relnotes(lines, is_major_release)
+    relnote = (
+        extract_relnotes(lines) if is_major_release else extract_pr_title(lines)
+    )
     if relnote is not None:
       relnotes.append(relnote)
   return relnotes

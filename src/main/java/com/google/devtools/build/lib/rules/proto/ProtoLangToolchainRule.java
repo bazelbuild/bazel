@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
+import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Type;
 
@@ -54,6 +55,16 @@ public class ProtoLangToolchainRule implements RuleDefinition {
         </ul>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("command_line", Type.STRING).mandatory())
+
+        /* <!-- #BLAZE_RULE(proto_lang_toolchain).ATTRIBUTE(output_files) -->
+        Controls how <code>$(OUT)</code> in <code>command_line</code> is formatted, either by
+        a path to a single file or output directory in case of multiple files.
+        Possible values are: "single", "multiple".
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("output_files", Type.STRING)
+                .allowedValues(new AllowedValueSet("single", "multiple", "legacy"))
+                .value("legacy"))
 
         /* <!-- #BLAZE_RULE(proto_lang_toolchain).ATTRIBUTE(plugin_format_flag) -->
         If provided, this value will be passed to proto-compiler to use the plugin. The value must

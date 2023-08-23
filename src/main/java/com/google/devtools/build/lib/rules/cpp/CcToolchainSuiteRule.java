@@ -57,7 +57,7 @@ public final class CcToolchainSuiteRule implements RuleDefinition {
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 .nonconfigurable("Used during configuration creation"))
         .add(
-            attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
+            attr(CcToolchainRule.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
                 .value(CppRuleClasses.ccToolchainTypeAttribute(environment)))
         .build();
   }

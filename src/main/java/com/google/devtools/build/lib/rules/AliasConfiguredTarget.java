@@ -19,7 +19,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -94,13 +94,13 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
         ruleContext.getOwner(), actual, allOverrides.build(), ruleContext.getConfigConditions());
   }
 
-  private final ActionLookupKeyOrProxy actionLookupKey;
+  private final ActionLookupKey actionLookupKey;
   private final ConfiguredTarget actual;
   private final ImmutableClassToInstanceMap<TransitiveInfoProvider> overrides;
   private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
 
   private AliasConfiguredTarget(
-      ActionLookupKeyOrProxy actionLookupKey,
+      ActionLookupKey actionLookupKey,
       ConfiguredTarget actual,
       ImmutableClassToInstanceMap<TransitiveInfoProvider> overrides,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions) {
@@ -111,7 +111,7 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
   }
 
   @Override
-  public ActionLookupKeyOrProxy getKeyOrProxy() {
+  public ActionLookupKey getLookupKey() {
     return this.actionLookupKey;
   }
 
@@ -196,8 +196,8 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
   }
 
   @Override
-  public Dict<String, Object> getProvidersDict() {
-    return actual.getProvidersDict();
+  public Dict<String, Object> getProvidersDictForQuery() {
+    return actual.getProvidersDictForQuery();
   }
 
   @Override

@@ -26,10 +26,9 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
-import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleConfigurationApi;
 import com.google.devtools.build.lib.util.CPU;
@@ -37,8 +36,6 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Module;
-import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -86,7 +83,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   private final Label xcodeConfigLabel;
   private final AppleCommandLineOptions options;
   private final AppleCpus appleCpus;
-  private final boolean mandatoryMinimumVersion;
   private final String cpu;
 
   public AppleConfiguration(BuildOptions buildOptions) {
@@ -98,7 +94,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     this.configurationDistinguisher = options.configurationDistinguisher;
     this.xcodeConfigLabel =
         Preconditions.checkNotNull(options.xcodeVersionConfig, "xcodeConfigLabel");
-    this.mandatoryMinimumVersion = options.mandatoryMinimumVersion;
     // AppleConfiguration should not have this knowledge. This is a temporary workaround
     // for Starlarkification, until apple rules are toolchainized.
     this.cpu = buildOptions.get(CoreOptions.class).cpu;
@@ -113,6 +108,10 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
           (options.iosMultiCpus == null || options.iosMultiCpus.isEmpty())
               ? ImmutableList.of(iosCpuFromCpu(coreOptions.cpu))
               : ImmutableList.copyOf(options.iosMultiCpus);
+      ImmutableList<String> visionosCpus =
+          (options.visionosCpus == null || options.visionosCpus.isEmpty())
+              ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_VISIONOS_CPU)
+              : ImmutableList.copyOf(options.visionosCpus);
       ImmutableList<String> watchosCpus =
           (options.watchosCpus == null || options.watchosCpus.isEmpty())
               ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_WATCHOS_CPU)
@@ -131,12 +130,20 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
               : ImmutableList.copyOf(options.catalystCpus);
 
       return new AutoValue_AppleConfiguration_AppleCpus(
-          appleSplitCpu, iosMultiCpus, watchosCpus, tvosCpus, macosCpus, catalystCpus);
+          appleSplitCpu,
+          iosMultiCpus,
+          visionosCpus,
+          watchosCpus,
+          tvosCpus,
+          macosCpus,
+          catalystCpus);
     }
 
     abstract String appleSplitCpu();
 
     abstract ImmutableList<String> iosMultiCpus();
+
+    abstract ImmutableList<String> visionosCpus();
 
     abstract ImmutableList<String> watchosCpus();
 
@@ -145,16 +152,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     abstract ImmutableList<String> macosCpus();
 
     abstract ImmutableList<String> catalystCpus();
-  }
-
-  private static void checkPrivateAccess(StarlarkThread thread) throws EvalException {
-    RepositoryName repository =
-        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread))
-            .label()
-            .getRepository();
-    if (!"@_builtins".equals(repository.getNameWithAt())) {
-      throw Starlark.errorf("private API only for use by builtins");
-    }
   }
 
   /** Determines iOS cpu value from apple-specific toolchain identifier. */
@@ -256,6 +253,8 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     switch (applePlatformType) {
       case IOS:
         return appleCpus.iosMultiCpus().get(0);
+      case VISIONOS:
+        return appleCpus.visionosCpus().get(0);
       case WATCHOS:
         return appleCpus.watchosCpus().get(0);
       case TVOS:
@@ -304,6 +303,8 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     switch (platformType) {
       case IOS:
         return appleCpus.iosMultiCpus();
+      case VISIONOS:
+        return appleCpus.visionosCpus();
       case WATCHOS:
         return appleCpus.watchosCpus();
       case TVOS:
@@ -349,6 +350,14 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
           }
         }
         return ApplePlatform.IOS_SIMULATOR;
+      case VISIONOS:
+        for (String arch : architectures) {
+          if (ApplePlatform.forTarget(PlatformType.VISIONOS, arch)
+              == ApplePlatform.VISIONOS_DEVICE) {
+            return ApplePlatform.VISIONOS_DEVICE;
+          }
+        }
+        return ApplePlatform.VISIONOS_SIMULATOR;
       case WATCHOS:
         for (String arch : architectures) {
           if (ApplePlatform.forTarget(PlatformType.WATCHOS, arch) == ApplePlatform.WATCHOS_DEVICE) {
@@ -411,21 +420,10 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     return Joiner.on('-').join(components);
   }
 
-  /** Returns true if the minimum_os_version attribute should be mandatory on rules with linking. */
-  @Override
-  public boolean isMandatoryMinimumVersionForStarlark(StarlarkThread thread) throws EvalException {
-    checkPrivateAccess(thread);
-    return isMandatoryMinimumVersion();
-  }
-
   @Override
   public String getCpuForStarlark(StarlarkThread thread) throws EvalException {
-    checkPrivateAccess(thread);
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
     return cpu;
-  }
-
-  public boolean isMandatoryMinimumVersion() {
-    return mandatoryMinimumVersion;
   }
 
   @Override
@@ -453,6 +451,8 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     UNKNOWN("unknown"),
     /** Distinguisher for {@code apple_binary} rule with "ios" platform_type. */
     APPLEBIN_IOS("applebin_ios"),
+    /** Distinguisher for {@code apple_binary} rule with "visionos" platform_type. */
+    APPLEBIN_VISIONOS("applebin_visionos"),
     /** Distinguisher for {@code apple_binary} rule with "watchos" platform_type. */
     APPLEBIN_WATCHOS("applebin_watchos"),
     /** Distinguisher for {@code apple_binary} rule with "tvos" platform_type. */

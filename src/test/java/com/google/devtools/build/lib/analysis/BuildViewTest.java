@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FailAction;
-import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestBase;
@@ -45,7 +44,6 @@ import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
 import com.google.devtools.build.lib.skyframe.ActionLookupConflictFindingFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.TestConstants.InternalTestExecutionMode;
-import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -500,42 +498,6 @@ public class BuildViewTest extends BuildViewTestBase {
     assertThat(labels)
         .containsExactly(
             Label.parseCanonical("//package:inner"), Label.parseCanonical("//package:file"));
-  }
-
-  @Test
-  public void testGetDirectPrerequisiteDependencies() throws Exception {
-    // Override the trimming transition to not distort the results.
-    ConfiguredRuleClassProvider.Builder builder =
-        new ConfiguredRuleClassProvider.Builder();
-    TestRuleClassProvider.addStandardRules(builder);
-    builder.overrideTrimmingTransitionFactoryForTesting((rule) -> NoTransition.INSTANCE);
-    useRuleClassProvider(builder.build());
-
-    update();
-
-    scratch.file(
-        "package/BUILD",
-        "filegroup(name='top', srcs=[':inner', 'file'])",
-        "sh_binary(name='inner', srcs=['script.sh'])");
-    ConfiguredTarget top = Iterables.getOnlyElement(update("//package:top").getTargetsToBuild());
-    Iterable<PartiallyResolvedDependency> targets =
-        getView()
-            .getDirectPrerequisiteDependenciesForTesting(
-                reporter, top, /* toolchainContexts= */ null)
-            .values();
-
-    var innerDependency =
-        PartiallyResolvedDependency.builder()
-            .setLabel(Label.parseCanonical("//package:inner"))
-            .setTransition(NoTransition.INSTANCE)
-            .build();
-    var fileDependency =
-        PartiallyResolvedDependency.builder()
-            .setLabel(Label.parseCanonical("//package:file"))
-            .setTransition(NoTransition.INSTANCE)
-            .build();
-
-    assertThat(targets).containsExactly(innerDependency, fileDependency);
   }
 
   // Regression test: "output_filter broken (but in a different way)"
@@ -1405,14 +1367,5 @@ public class BuildViewTest extends BuildViewTestBase {
     reporter.setOutputFilter(RegexOutputFilter.forPattern(Pattern.compile("^//pkg")));
     update("//pkg:foo");
     assertContainsEvent("DEBUG /workspace/pkg/BUILD:5:6: [\"foo\"]");
-  }
-
-  /** Runs the same test with the Skyframe-based analysis prep. */
-  @RunWith(JUnit4.class)
-  public static class WithSkyframePrepareAnalysis extends BuildViewTest {
-    @Override
-    protected FlagBuilder defaultFlags() {
-      return super.defaultFlags().with(Flag.SKYFRAME_PREPARE_ANALYSIS);
-    }
   }
 }

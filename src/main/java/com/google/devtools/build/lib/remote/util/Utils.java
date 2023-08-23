@@ -186,7 +186,7 @@ public final class Utils {
     return builder.build();
   }
 
-  private static Instant timestampToInstant(Timestamp timestamp) {
+  public static Instant timestampToInstant(Timestamp timestamp) {
     return Instant.ofEpochSecond(timestamp.getSeconds(), timestamp.getNanos());
   }
 

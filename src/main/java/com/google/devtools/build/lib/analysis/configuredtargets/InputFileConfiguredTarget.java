@@ -14,16 +14,21 @@
 
 package com.google.devtools.build.lib.analysis.configuredtargets;
 
-import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.actions.Artifact;
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
+import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.TargetContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.License;
+import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.Target;
 import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Printer;
@@ -36,25 +41,17 @@ import net.starlark.java.eval.Printer;
  */
 @Immutable
 public final class InputFileConfiguredTarget extends FileConfiguredTarget {
-  private final SourceArtifact artifact;
+
   private final NestedSet<TargetLicense> licenses;
 
-  public InputFileConfiguredTarget(
-      TargetContext targetContext, InputFile inputFile, SourceArtifact artifact) {
-    super(
-        targetContext.getAnalysisEnvironment().getOwner(),
-        targetContext.getVisibility(),
-        artifact,
-        /* instrumentedFilesInfo= */ null,
-        /* configFragmentsProvider= */ null,
-        /* generatingRuleOutputGroupInfo= */ null);
-    Preconditions.checkArgument(getConfigurationKey() == null, getLabel());
-    Preconditions.checkArgument(targetContext.getTarget() == inputFile, getLabel());
-    this.artifact = artifact;
-    this.licenses = makeLicenses(inputFile);
+  public InputFileConfiguredTarget(TargetContext targetContext, SourceArtifact artifact) {
+    super(targetContext, artifact);
+    this.licenses = makeLicenses(targetContext.getTarget());
+    checkArgument(targetContext.getTarget() instanceof InputFile, targetContext.getTarget());
+    checkArgument(getConfigurationKey() == null, getLabel());
   }
 
-  private static NestedSet<TargetLicense> makeLicenses(InputFile inputFile) {
+  private static NestedSet<TargetLicense> makeLicenses(Target inputFile) {
     License license = inputFile.getLicense();
     return Objects.equals(license, License.NO_LICENSE)
         ? NestedSetBuilder.emptySet(Order.LINK_ORDER)
@@ -63,17 +60,26 @@ public final class InputFileConfiguredTarget extends FileConfiguredTarget {
   }
 
   @Override
-  public final Artifact getArtifact() {
-    return artifact;
+  public BuiltinProvider<LicensesProvider> getProvider() {
+    return LicensesProvider.PROVIDER;
   }
 
   @Override
-  public String toString() {
-    return "InputFileConfiguredTarget(" + getLabel() + ")";
+  public SourceArtifact getArtifact() {
+    return (SourceArtifact) super.getArtifact();
   }
 
   @Override
-  public final NestedSet<TargetLicense> getTransitiveLicenses() {
+  @Nullable
+  protected Info rawGetStarlarkProvider(Provider.Key providerKey) {
+    if (providerKey.equals(LicensesProvider.PROVIDER.getKey())) {
+      return this;
+    }
+    return null;
+  }
+
+  @Override
+  public NestedSet<TargetLicense> getTransitiveLicenses() {
     return licenses;
   }
 
@@ -93,7 +99,8 @@ public final class InputFileConfiguredTarget extends FileConfiguredTarget {
     printer.append("<input file target " + getLabel() + ">");
   }
 
-  public SourceArtifact getSourceArtifact() {
-    return artifact;
+  @Override
+  public String toString() {
+    return "InputFileConfiguredTarget(" + getLabel() + ")";
   }
 }

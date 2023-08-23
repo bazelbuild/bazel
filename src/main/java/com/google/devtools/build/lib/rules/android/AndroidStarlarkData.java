@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidBinaryDataSettingsApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidDataProcessingApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Map;
@@ -247,7 +248,7 @@ public abstract class AndroidStarlarkData
   }
 
   @Override
-  public Dict<Provider, NativeInfo> processAarImportData(
+  public Dict<Provider, StructApi> processAarImportData(
       AndroidDataContext ctx,
       SpecialArtifact resources,
       SpecialArtifact assets,
@@ -281,7 +282,7 @@ public abstract class AndroidStarlarkData
   }
 
   @Override
-  public Dict<Provider, NativeInfo> processLocalTestData(
+  public Dict<Provider, StructApi> processLocalTestData(
       AndroidDataContext ctx,
       Object manifest,
       Sequence<?> resources, // <ConfiguredTarget>
@@ -336,7 +337,7 @@ public abstract class AndroidStarlarkData
                       resourceConfigurationFilters, String.class, "resource_configuration_filters"),
                   Sequence.cast(densities, String.class, "densities")));
 
-      Dict.Builder<Provider, NativeInfo> builder = Dict.builder();
+      Dict.Builder<Provider, StructApi> builder = Dict.builder();
       builder.putAll(getNativeInfosFrom(resourceApk, ctx.getLabel()));
       builder.put(
           AndroidBinaryDataInfo.PROVIDER,
@@ -551,9 +552,8 @@ public abstract class AndroidStarlarkData
     return binaryDataInfo;
   }
 
-  public static Dict<Provider, NativeInfo> getNativeInfosFrom(
-      ResourceApk resourceApk, Label label) {
-    Dict.Builder<Provider, NativeInfo> builder = Dict.builder();
+  public static Dict<Provider, StructApi> getNativeInfosFrom(ResourceApk resourceApk, Label label) {
+    Dict.Builder<Provider, StructApi> builder = Dict.builder();
 
     builder
         .put(AndroidResourcesInfo.PROVIDER, resourceApk.toResourceInfo(label))

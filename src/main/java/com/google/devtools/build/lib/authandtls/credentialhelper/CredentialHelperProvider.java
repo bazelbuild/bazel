@@ -70,7 +70,8 @@ public final class CredentialHelperProvider {
     String host = uri.getHost();
     if (Strings.isNullOrEmpty(host)) {
       // Some URIs (e.g. unix://) legitimately have no host component.
-      return Optional.empty();
+      // Use the default helper if one is provided.
+      return defaultHelper.map(CredentialHelper::new);
     }
 
     Optional<Path> credentialHelper =

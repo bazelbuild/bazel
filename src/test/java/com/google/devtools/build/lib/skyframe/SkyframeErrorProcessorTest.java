@@ -19,7 +19,6 @@ import static org.mockito.Mockito.mock;
 
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Target;
@@ -50,10 +49,11 @@ public class SkyframeErrorProcessorTest {
         ConfiguredTargetKey.builder()
             .setLabel(Label.parseCanonicalUnchecked("//analysis_err"))
             .build();
+    TargetAndConfiguration mockTargetAndConfiguration =
+        new TargetAndConfiguration(mock(Target.class), /* configuration= */ null);
     ConfiguredValueCreationException analysisException =
         new ConfiguredValueCreationException(
-            new TargetAndConfiguration(mock(Target.class), mock(BuildConfigurationValue.class)),
-            "analysis exception");
+            mockTargetAndConfiguration.getTarget(), "analysis exception");
     ErrorInfo analysisErrorInfo =
         ErrorInfo.fromException(
             new ReifiedSkyFunctionException(
@@ -61,7 +61,7 @@ public class SkyframeErrorProcessorTest {
             /*isTransitivelyTransient=*/ false);
 
     EvaluationResult<SkyValue> result =
-        EvaluationResult.builder().addError(analysisErrorKey.toKey(), analysisErrorInfo).build();
+        EvaluationResult.builder().addError(analysisErrorKey, analysisErrorInfo).build();
 
     ViewCreationFailedException thrown =
         assertThrows(
@@ -69,11 +69,12 @@ public class SkyframeErrorProcessorTest {
             () ->
                 SkyframeErrorProcessor.processErrors(
                     result,
-                    /*cyclesReporter=*/ new CyclesReporter(),
-                    /*eventHandler=*/ mock(ExtendedEventHandler.class),
-                    /*keepGoing=*/ false,
-                    /*eventBus=*/ null,
-                    /*bugReporter=*/ null,
+                    /* cyclesReporter= */ new CyclesReporter(),
+                    /* eventHandler= */ mock(ExtendedEventHandler.class),
+                    /* keepGoing= */ false,
+                    /* keepEdges= */ true,
+                    /* eventBus= */ null,
+                    /* bugReporter= */ null,
                     includeExecutionPhase));
     assertThat(thrown).hasCauseThat().isEqualTo(analysisException);
   }

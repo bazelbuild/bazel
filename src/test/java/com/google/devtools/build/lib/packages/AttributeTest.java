@@ -52,7 +52,7 @@ import org.junit.runners.JUnit4;
 public final class AttributeTest {
 
   private static void assertDefaultValue(Object expected, Attribute attr) {
-    assertThat(attr.getDefaultValue()).isEqualTo(expected);
+    assertThat(attr.getDefaultValue(null)).isEqualTo(expected);
   }
 
   private static void assertType(Type<?> expectedType, Attribute attr) {
@@ -63,7 +63,7 @@ public final class AttributeTest {
   public void testBasics() {
     Attribute attr = attr("foo", Type.INTEGER).mandatory().value(StarlarkInt.of(3)).build();
     assertThat(attr.getName()).isEqualTo("foo");
-    assertThat(attr.getDefaultValue()).isEqualTo(StarlarkInt.of(3));
+    assertThat(attr.getDefaultValue(null)).isEqualTo(StarlarkInt.of(3));
     assertThat(attr.getType()).isEqualTo(Type.INTEGER);
     assertThat(attr.isMandatory()).isTrue();
     assertThat(attr.isDocumented()).isTrue();

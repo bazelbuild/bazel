@@ -3463,7 +3463,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "      exec_compatible_with = ['//something:extra'],",
         "    ),",
         "  },",
-        "  incompatible_use_toolchain_transition = True,",
         ")");
     scratch.file(
         "something/BUILD",
@@ -4080,9 +4079,10 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         " r['{CLIENT}'] = d['client'] + '_c'",
         " return r",
         "def _buildinfo_impl(ctx):",
-        "  output = ctx.actions.declare_file('buildinfo.h')",
         String.format(
-            "  %s(transform_func = t, template = ctx.file.template, output = output)", apiMethod),
+            "  output = %s(transform_func = t, template = ctx.file.template, output_file_name ="
+                + " 'buildinfo.h')",
+            apiMethod),
         "  return DefaultInfo(files = depset([output]))",
         "buildinfo_rule = rule(",
         "  implementation = _buildinfo_impl,",
@@ -4106,6 +4106,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertThat(buildInfoAction).isNotNull();
     assertThat(buildInfoArtifact).isNotNull();
     assertThat(buildInfoArtifact.getFilename()).isEqualTo("buildinfo.h");
+    assertThat(buildInfoArtifact.isConstantMetadata()).isEqualTo(volatileAndExcuteUnconditionally);
     assertThat(buildInfoAction.getMnemonic()).isEqualTo("TranslateBuildInfo");
     assertThat(buildInfoAction.executeUnconditionally())
         .isEqualTo(volatileAndExcuteUnconditionally);
@@ -4123,9 +4124,10 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "def t(d):",
         " pass",
         "def _buildinfo_impl(ctx):",
-        "  output = ctx.actions.declare_file('buildinfo.h')",
         String.format(
-            "  %s(transform_func = t, template = ctx.file.template, output = output)", apiMethod),
+            "  output = %s(transform_func = t, template = ctx.file.template, output_file_name ="
+                + " 'buildinfo.h')",
+            apiMethod),
         "  return DefaultInfo(files = depset([output]))",
         "buildinfo_rule = rule(",
         "  implementation = _buildinfo_impl,",
@@ -4137,7 +4139,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     checkError(
         "some_dir",
         "generating_target",
-        "Rule in 'some_dir' cannot use private API",
+        "file '//some_dir:rules.bzl' cannot use private API",
         "load(':rules.bzl', 'buildinfo_rule')",
         "buildinfo_rule(",
         "    name = 'generating_target',",

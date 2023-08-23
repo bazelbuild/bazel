@@ -84,7 +84,7 @@ on Github.
 | LTS release | Support stage | Latest version | End of support |
 | ----------- | ------------- | -------------- | -------------- |
 | Bazel 7 | Rolling| [Check GitHub release page](https://github.com/bazelbuild/bazel/releases){: .external} | N/A |
-| Bazel 6 | Active | [6.2.0](https://github.com/bazelbuild/bazel/releases/tag/6.2.0){: .external} | Dec 2025 |
+| Bazel 6 | Active | [6.3.2](https://github.com/bazelbuild/bazel/releases/tag/6.3.2){: .external} | Dec 2025 |
 | Bazel 5 | Maintenance | [5.4.1](https://github.com/bazelbuild/bazel/releases/tag/5.4.1){: .external} | Jan 2025 |
 | Bazel 4 | Maintenance | [4.2.4](https://github.com/bazelbuild/bazel/releases/tag/4.2.4){: .external} | Jan 2024 |
 

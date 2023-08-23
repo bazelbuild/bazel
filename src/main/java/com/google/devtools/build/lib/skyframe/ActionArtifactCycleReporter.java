@@ -18,7 +18,6 @@ import com.google.common.base.Predicates;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.skyframe.TestCompletionValue.TestCompletionKey;
 import com.google.devtools.build.skyframe.CycleInfo;
@@ -50,6 +49,10 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
     return prettyPrint(key.functionName(), key.argument());
   }
 
+  /**
+   * Should be kept consistent with {@link #ACTION_OR_ARTIFACT_OR_TRANSITIVE_RDEP} and {@link
+   * #shouldSkipOnPathToCycle}
+   */
   private static String prettyPrint(SkyFunctionName skyFunctionName, Object arg) {
     if (arg instanceof Artifact) {
       return prettyPrintArtifact(((Artifact) arg));
@@ -77,7 +80,9 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
   @Override
   protected boolean shouldSkipOnPathToCycle(SkyKey key) {
     // BuildDriverKeys don't provide any relevant info for the end user.
-    return SkyFunctions.BUILD_DRIVER.equals(key.functionName());
+    return SkyFunctions.BUILD_DRIVER.equals(key.functionName())
+        // ArtifactNestedSetKeys are just an implementation detail.
+        || SkyFunctions.ARTIFACT_NESTED_SET.equals(key.functionName());
   }
 
   @Override
@@ -108,6 +113,6 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
     // ArtifactNestedSetKey isn't worth reporting to the user - it is just an optimization, and will
     // always be an intermediate member of a cycle. It may contain artifacts irrelevant to the
     // cycle, and may be nested several layers deep.
-    return key instanceof ArtifactNestedSetKey;
+    return SkyFunctions.ARTIFACT_NESTED_SET.equals(key.functionName());
   }
 }

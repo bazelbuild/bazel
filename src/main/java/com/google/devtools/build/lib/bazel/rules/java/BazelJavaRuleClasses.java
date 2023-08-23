@@ -31,9 +31,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CcToolchainRequiringRule;
-import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
-import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.Rule;
@@ -42,18 +39,14 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.PackageNameConstraint;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLauncherInfo;
-import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaRuntimeBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaToolchainBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import javax.annotation.Nullable;
 
 /**
  * Rule class definitions for Java rules.
@@ -62,8 +55,6 @@ public class BazelJavaRuleClasses {
 
   public static final PredicateWithMessage<Rule> JAVA_PACKAGE_NAMES = new PackageNameConstraint(
       PackageNameConstraint.ANY_SEGMENT, "java", "javatests");
-
-  protected static final String JUNIT_TESTRUNNER = "//tools/jdk:TestRunner";
 
   public static final ImplicitOutputsFunction JAVA_BINARY_IMPLICIT_OUTPUTS =
       fromFunctions(
@@ -87,14 +78,6 @@ public class BazelJavaRuleClasses {
   public static final ImmutableList<ImmutableList<StarlarkProviderIdentifier>>
       MANDATORY_JAVA_PROVIDER_ONLY = ImmutableList.of(CONTAINS_JAVA_PROVIDER);
 
-  /**
-   * Implementation for the :java_launcher attribute. Note that the Java launcher is disabled by
-   * default, so it returns null for the configuration-independent default value.
-   */
-  @SerializationConstant
-  static final LabelLateBoundDefault<JavaConfiguration> JAVA_LAUNCHER =
-      JavaSemantics.javaLauncherAttribute(/* defaultLabel= */ null);
-
   /** Common attributes for Java rules. */
   public static final class JavaBaseRule implements RuleDefinition {
     @Override
@@ -107,7 +90,7 @@ public class BazelJavaRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$java_base_rule")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(JavaToolchainBaseRule.class, JavaRuntimeBaseRule.class)
+          .ancestors(JavaToolchainBaseRule.class)
           .build();
     }
   }
@@ -251,12 +234,6 @@ public class BazelJavaRuleClasses {
                   .cfg(ExecutionTransitionFactory.createFactory())
                   .mandatoryProviders(JavaPluginInfo.PROVIDER.id())
                   .legacyAllowAnyFileType())
-          .add(
-              attr(":java_plugins", LABEL_LIST)
-                  .cfg(ExecutionTransitionFactory.createFactory())
-                  .mandatoryProviders(JavaPluginInfo.PROVIDER.id())
-                  .silentRuleClassFilter()
-                  .value(JavaSemantics.JAVA_PLUGINS))
           /* <!-- #BLAZE_RULE($java_rule).ATTRIBUTE(javacopts) -->
           Extra compiler options for this library.
           Subject to <a href="make-variables.html">"Make variable"</a> substitution and
@@ -357,18 +334,6 @@ public class BazelJavaRuleClasses {
           are set.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("create_executable", BOOLEAN).nonconfigurable("internal").value(true))
-          .add(
-              attr("$testsupport", LABEL)
-                  .value(
-                      new Attribute.ComputedDefault("use_testrunner") {
-                        @Override
-                        @Nullable
-                        public Object getDefault(AttributeMap rule) {
-                          return rule.get("use_testrunner", Type.BOOLEAN)
-                              ? env.getToolsLabel(JUNIT_TESTRUNNER)
-                              : null;
-                        }
-                      }))
           /* <!-- #BLAZE_RULE($base_java_binary).ATTRIBUTE(deploy_manifest_lines) -->
           A list of lines to add to the <code>META-INF/manifest.mf</code> file generated for the
           <code>*_deploy.jar</code> target. The contents of this attribute are <em>not</em> subject
@@ -447,7 +412,6 @@ public class BazelJavaRuleClasses {
           will be ignored for this target.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("use_launcher", BOOLEAN).value(true))
-          .add(attr(":java_launcher", LABEL).value(JAVA_LAUNCHER)) // blaze flag
           .add(
               attr("$launcher", LABEL)
                   .cfg(ExecutionTransitionFactory.createFactory())
@@ -461,6 +425,7 @@ public class BazelJavaRuleClasses {
           .type(RuleClassType.ABSTRACT)
           .ancestors(
               JavaRule.class,
+              JavaRuntimeBaseRule.class,
               // java_binary and java_test require the crosstool C++ runtime
               // libraries (libstdc++.so, libgcc_s.so).
               // TODO(bazel-team): Add tests for Java+dynamic runtime.

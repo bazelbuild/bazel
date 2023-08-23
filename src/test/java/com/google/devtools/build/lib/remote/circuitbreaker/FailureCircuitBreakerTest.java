@@ -15,9 +15,7 @@ package com.google.devtools.build.lib.remote.circuitbreaker;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import build.bazel.remote.execution.v2.Digest;
 import com.google.devtools.build.lib.remote.Retrier.CircuitBreaker.State;
-import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -30,40 +28,37 @@ import org.junit.runners.JUnit4;
 public class FailureCircuitBreakerTest {
 
   @Test
-  public void testRecordFailure_withIgnoredErrors() throws InterruptedException {
+  public void testRecordFailure_circuitTrips() throws InterruptedException {
     final int failureRateThreshold = 10;
     final int windowInterval = 100;
     FailureCircuitBreaker failureCircuitBreaker =
         new FailureCircuitBreaker(failureRateThreshold, windowInterval);
 
-    List<Exception> listOfExceptionThrownOnFailure = new ArrayList<>();
+    List<Runnable> listOfSuccessAndFailureCalls = new ArrayList<>();
     for (int index = 0; index < failureRateThreshold; index++) {
-      listOfExceptionThrownOnFailure.add(new Exception());
-    }
-    for (int index = 0; index < failureRateThreshold * 9; index++) {
-      listOfExceptionThrownOnFailure.add(new CacheNotFoundException(Digest.newBuilder().build()));
+      listOfSuccessAndFailureCalls.add(failureCircuitBreaker::recordFailure);
     }
 
-    Collections.shuffle(listOfExceptionThrownOnFailure);
+    for (int index = 0; index < failureRateThreshold * 9; index++) {
+      listOfSuccessAndFailureCalls.add(failureCircuitBreaker::recordSuccess);
+    }
+
+    Collections.shuffle(listOfSuccessAndFailureCalls);
 
     // make calls equals to threshold number of not ignored failure calls in parallel.
-    listOfExceptionThrownOnFailure.stream()
-        .parallel()
-        .forEach(failureCircuitBreaker::recordFailure);
+    listOfSuccessAndFailureCalls.stream().parallel().forEach(Runnable::run);
     assertThat(failureCircuitBreaker.state()).isEqualTo(State.ACCEPT_CALLS);
 
     // Sleep for windowInterval + 1ms.
     Thread.sleep(windowInterval + 1 /*to compensate any delay*/);
 
     // make calls equals to threshold number of not ignored failure calls in parallel.
-    listOfExceptionThrownOnFailure.stream()
-        .parallel()
-        .forEach(failureCircuitBreaker::recordFailure);
+    listOfSuccessAndFailureCalls.stream().parallel().forEach(Runnable::run);
     assertThat(failureCircuitBreaker.state()).isEqualTo(State.ACCEPT_CALLS);
 
     // Sleep for less than windowInterval.
     Thread.sleep(windowInterval - 5);
-    failureCircuitBreaker.recordFailure(new Exception());
+    failureCircuitBreaker.recordFailure();
     assertThat(failureCircuitBreaker.state()).isEqualTo(State.REJECT_CALLS);
   }
 
@@ -80,15 +75,15 @@ public class FailureCircuitBreakerTest {
     // minCallToComputeFailure.
     IntStream.range(0, minCallToComputeFailure >> 1)
         .parallel()
-        .forEach(i -> failureCircuitBreaker.recordFailure(new Exception()));
+        .forEach(i -> failureCircuitBreaker.recordFailure());
     IntStream.range(0, minCallToComputeFailure >> 1)
         .parallel()
         .forEach(i -> failureCircuitBreaker.recordSuccess());
     assertThat(failureCircuitBreaker.state()).isEqualTo(State.ACCEPT_CALLS);
 
     // Sleep for less than windowInterval.
-    Thread.sleep(windowInterval - 20);
-    failureCircuitBreaker.recordFailure(new Exception());
+    Thread.sleep(windowInterval - 50);
+    failureCircuitBreaker.recordFailure();
     assertThat(failureCircuitBreaker.state()).isEqualTo(State.REJECT_CALLS);
   }
 }

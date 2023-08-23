@@ -22,10 +22,12 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeFalse;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.dynamic.DynamicExecutionModule;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.IntegrationTestUtils.WorkerInstance;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -60,8 +62,6 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         "--remote_download_minimal",
         "--dynamic_local_strategy=standalone",
         "--dynamic_remote_strategy=remote");
-    // (b/281655526) Skymeld is incompatible.
-    addOptions("--noexperimental_merged_skyframe_analysis_execution");
   }
 
   @Override
@@ -111,6 +111,9 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   protected boolean hasAccessToRemoteOutputs() {
     return true;
   }
+
+  @Override
+  protected void injectFile(byte[] content) {}
 
   @After
   public void tearDown() throws IOException {
@@ -194,7 +197,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   }
 
   @Test
-  public void changeOutputMode_invalidateActions() throws Exception {
+  public void changeOutputMode_notInvalidateActions() throws Exception {
     write(
         "a/BUILD",
         "genrule(",
@@ -210,232 +213,26 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         "  outs = ['foobar.txt'],",
         "  cmd = 'cat $(location :foo) > $@ && echo bar > $@',",
         ")");
+    // Download all outputs with regex so in the next build with ALL mode, the actions are not
+    // invalidated because of missing outputs.
+    addOptions("--experimental_remote_download_regex=.*");
     ActionEventCollector actionEventCollector = new ActionEventCollector();
     runtimeWrapper.registerSubscriber(actionEventCollector);
     buildTarget("//a:foobar");
+    // Add the new option here because waitDownloads below will internally create a new command
+    // which will parse the new option.
+    setDownloadAll();
+    waitDownloads();
     // 3 = workspace status action + //:foo + //:foobar
     assertThat(actionEventCollector.getNumActionNodesEvaluated()).isEqualTo(3);
     actionEventCollector.clear();
     events.clear();
 
-    setDownloadAll();
     buildTarget("//a:foobar");
 
-    // Changing output mode should invalidate SkyFrame's in-memory caching and make it re-evaluate
-    // the action nodes.
-    assertThat(actionEventCollector.getNumActionNodesEvaluated()).isEqualTo(3);
-    events.assertContainsInfo("2 processes: 2 remote cache hit");
-  }
-
-  @Test
-  public void symlinkToGeneratedFile() throws Exception {
-    write(
-        "a/defs.bzl",
-        "def _impl(ctx):",
-        "  if ctx.attr.chain_length < 1:",
-        "    fail('chain_length must be > 0')",
-        "",
-        "  file = ctx.actions.declare_file(ctx.label.name + '.file')",
-        // Use ctx.actions.run_shell instead of ctx.actions.write, so that it runs remotely.
-        "  ctx.actions.run_shell(",
-        "    outputs = [file],",
-        "    command = 'echo hello > $1',",
-        "    arguments = [file.path],",
-        "  )",
-        "",
-        "  for i in range(ctx.attr.chain_length):",
-        "    sym = ctx.actions.declare_file(ctx.label.name + '.sym' + str(i))",
-        "    ctx.actions.symlink(output = sym, target_file = file)",
-        "    file = sym",
-        "",
-        "  out = ctx.actions.declare_file(ctx.label.name + '.out')",
-        "  ctx.actions.run_shell(",
-        "    inputs = [sym],",
-        "    outputs = [out],",
-        "    command = '[[ hello == $(cat $1) ]] && touch $2',",
-        "    arguments = [sym.path, out.path],",
-        "    execution_requirements = {'no-remote': ''} if ctx.attr.local else {},",
-        "  )",
-        "",
-        "  return DefaultInfo(files = depset([out]))",
-        "",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'chain_length': attr.int(),",
-        "    'local': attr.bool(),",
-        "  },",
-        ")");
-
-    write(
-        "a/BUILD",
-        "load(':defs.bzl', 'my_rule')",
-        "",
-        "my_rule(name = 'one_local', local = True, chain_length = 1)",
-        "my_rule(name = 'two_local', local = True, chain_length = 2)",
-        "my_rule(name = 'one_remote', local = False, chain_length = 1)",
-        "my_rule(name = 'two_remote', local = False, chain_length = 2)");
-
-    buildTarget("//a:one_local", "//a:two_local", "//a:one_remote", "//a:two_remote");
-  }
-
-  @Test
-  public void symlinkToDirectory() throws Exception {
-    write(
-        "a/defs.bzl",
-        "def _impl(ctx):",
-        "  if ctx.attr.chain_length < 1:",
-        "    fail('chain_length must be > 0')",
-        "",
-        "  dir = ctx.actions.declare_directory(ctx.label.name + '.dir')",
-        "  ctx.actions.run_shell(",
-        "    outputs = [dir],",
-        "    command = 'mkdir -p $1/some/path && echo hello > $1/some/path/inside.txt',",
-        "    arguments = [dir.path],",
-        "  )",
-        "",
-        "  for i in range(ctx.attr.chain_length):",
-        "    sym = ctx.actions.declare_directory(ctx.label.name + '.sym' + str(i))",
-        "    ctx.actions.symlink(output = sym, target_file = dir)",
-        "    dir = sym",
-        "",
-        "  out = ctx.actions.declare_file(ctx.label.name + '.out')",
-        "  ctx.actions.run_shell(",
-        "    inputs = [sym],",
-        "    outputs = [out],",
-        "    command = '[[ hello == $(cat $1/some/path/inside.txt) ]] && touch $2',",
-        "    arguments = [sym.path, out.path],",
-        "    execution_requirements = {'no-remote': ''} if ctx.attr.local else {},",
-        "  )",
-        "",
-        "  return DefaultInfo(files = depset([out]))",
-        "",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'chain_length': attr.int(),",
-        "    'local': attr.bool()",
-        "  },",
-        ")");
-
-    write(
-        "a/BUILD",
-        "load(':defs.bzl', 'my_rule')",
-        "",
-        "my_rule(name = 'one_local', local = True, chain_length = 1)",
-        "my_rule(name = 'two_local', local = True, chain_length = 2)",
-        "my_rule(name = 'one_remote', local = False, chain_length = 1)",
-        "my_rule(name = 'two_remote', local = False, chain_length = 2)");
-
-    buildTarget("//a:one_local", "//a:two_local", "//a:one_remote", "//a:two_remote");
-  }
-
-  @Test
-  public void symlinkToNestedFile() throws Exception {
-    addOptions("--noincompatible_strict_conflict_checks");
-
-    write(
-        "a/defs.bzl",
-        "def _impl(ctx):",
-        "  if ctx.attr.chain_length < 1:",
-        "    fail('chain_length must be > 0')",
-        "",
-        "  dir = ctx.actions.declare_directory(ctx.label.name + '.dir')",
-        "  file = ctx.actions.declare_file(ctx.label.name + '.dir/some/path/inside.txt')",
-        "  ctx.actions.run_shell(",
-        "    outputs = [dir, file],",
-        "    command = 'mkdir -p $1/some/path && echo hello > $1/some/path/inside.txt',",
-        "    arguments = [dir.path],",
-        "  )",
-        "",
-        "  for i in range(ctx.attr.chain_length):",
-        "    sym = ctx.actions.declare_file(ctx.label.name + '.sym' + str(i))",
-        "    ctx.actions.symlink(output = sym, target_file = file)",
-        "    file = sym",
-        "",
-        "  out = ctx.actions.declare_file(ctx.label.name + '.out')",
-        "  ctx.actions.run_shell(",
-        "    inputs = [sym],",
-        "    outputs = [out],",
-        "    command = '[[ hello == $(cat $1) ]] && touch $2',",
-        "    arguments = [sym.path, out.path],",
-        "    execution_requirements = {'no-remote': ''} if ctx.attr.local else {},",
-        "  )",
-        "",
-        "  return DefaultInfo(files = depset([out]))",
-        "",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'chain_length': attr.int(),",
-        "    'local': attr.bool(),",
-        "  },",
-        ")");
-
-    write(
-        "a/BUILD",
-        "load(':defs.bzl', 'my_rule')",
-        "",
-        "my_rule(name = 'one_local', local = True, chain_length = 1)",
-        "my_rule(name = 'two_local', local = True, chain_length = 2)",
-        "my_rule(name = 'one_remote', local = False, chain_length = 1)",
-        "my_rule(name = 'two_remote', local = False, chain_length = 2)");
-
-    buildTarget("//a:one_local", "//a:two_local", "//a:one_remote", "//a:two_remote");
-  }
-
-  @Test
-  public void symlinkToNestedDirectory() throws Exception {
-    addOptions("--noincompatible_strict_conflict_checks");
-
-    write(
-        "a/defs.bzl",
-        "def _impl(ctx):",
-        "  if ctx.attr.chain_length < 1:",
-        "    fail('chain_length must be > 0')",
-        "",
-        "  dir = ctx.actions.declare_directory(ctx.label.name + '.dir')",
-        "  subdir = ctx.actions.declare_directory(ctx.label.name + '.dir/some/path')",
-        "  ctx.actions.run_shell(",
-        "    outputs = [dir, subdir],",
-        "    command = 'mkdir -p $1/some/path && echo hello > $1/some/path/inside.txt',",
-        "    arguments = [dir.path],",
-        "  )",
-        "",
-        "  for i in range(ctx.attr.chain_length):",
-        "    sym = ctx.actions.declare_directory(ctx.label.name + '.sym' + str(i))",
-        "    ctx.actions.symlink(output = sym, target_file = subdir)",
-        "    subdir = sym",
-        "",
-        "  out = ctx.actions.declare_file(ctx.label.name + '.out')",
-        "  ctx.actions.run_shell(",
-        "    inputs = [sym],",
-        "    outputs = [out],",
-        "    command = '[[ hello == $(cat $1/inside.txt) ]] && touch $2',",
-        "    arguments = [sym.path, out.path],",
-        "    execution_requirements = {'no-remote': ''} if ctx.attr.local else {},",
-        "  )",
-        "",
-        "  return DefaultInfo(files = depset([out]))",
-        "",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'chain_length': attr.int(),",
-        "    'local': attr.bool(),",
-        "  },",
-        ")");
-
-    write(
-        "a/BUILD",
-        "load(':defs.bzl', 'my_rule')",
-        "",
-        "my_rule(name = 'one_local', local = True, chain_length = 1)",
-        "my_rule(name = 'two_local', local = True, chain_length = 2)",
-        "my_rule(name = 'one_remote', local = False, chain_length = 1)",
-        "my_rule(name = 'two_remote', local = False, chain_length = 2)");
-
-    buildTarget("//a:one_local", "//a:two_local", "//a:one_remote", "//a:two_remote");
+    // Changing output mode should not invalidate SkyFrame's in-memory caching.
+    assertThat(actionEventCollector.getNumActionNodesEvaluated()).isEqualTo(0);
+    events.assertContainsInfo("0 processes");
   }
 
   @Test
@@ -688,114 +485,121 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   }
 
   @Test
-  public void downloadToplevel_symlinkFile() throws Exception {
-    // TODO(chiwang): Make metadata for downloaded symlink non-remote.
-    assumeFalse(OS.getCurrent() == OS.WINDOWS);
-
-    setDownloadToplevel();
-    writeSymlinkRule();
+  public void leaseExtension() throws Exception {
+    // Test that Bazel will extend the leases for remote output by sending FindMissingBlobs calls
+    // periodically to remote server. The test assumes remote server will set mtime of referenced
+    // blobs to `now`.
     write(
         "BUILD",
-        "load(':symlink.bzl', 'symlink')",
         "genrule(",
         "  name = 'foo',",
         "  srcs = [],",
         "  outs = ['out/foo.txt'],",
-        "  cmd = 'echo foo > $@',",
+        "  cmd = 'echo -n foo > $@',",
         ")",
-        "symlink(",
-        "  name = 'foo-link',",
-        "  target = ':foo'",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo'],",
+        "  outs = ['out/foobar.txt'],",
+        // We need the action lasts more than --experimental_remote_cache_ttl so Bazel has the
+        // chance to extend the lease
+        "  cmd = 'sleep 2 && cat $(location :foo) > $@ && echo bar >> $@',",
         ")");
+    addOptions("--experimental_remote_cache_ttl=1s", "--experimental_remote_cache_lease_extension");
+    var content = "foo".getBytes(UTF_8);
+    var hashCode = getFileSystem().getDigestFunction().getHashFunction().hashBytes(content);
+    var digest = DigestUtil.buildDigest(hashCode.asBytes(), content.length).getHash();
+    // Calculate the blob path in CAS. This is specific to the remote worker. See
+    // {@link DiskCacheClient#getPath()}.
+    var blobPath =
+        getFileSystem()
+            .getPath(worker.getCasPath())
+            .getChild("cas")
+            .getChild(digest.substring(0, 2))
+            .getChild(digest);
+    var mtimes = Sets.newConcurrentHashSet();
+    // Observe the mtime of the blob in background.
+    var thread =
+        new Thread(
+            () -> {
+              while (!Thread.currentThread().isInterrupted()) {
+                try {
+                  mtimes.add(blobPath.getLastModifiedTime());
+                } catch (IOException ignored) {
+                  // Intentionally ignored
+                }
+              }
+            });
+    thread.start();
 
-    buildTarget("//:foo-link");
+    buildTarget("//:foobar");
+    waitDownloads();
 
-    assertValidOutputFile("foo-link", "foo\n");
-
-    // Delete link, re-plant symlink
-    getOutputPath("foo-link").delete();
-
-    buildTarget("//:foo-link");
-
-    assertValidOutputFile("foo-link", "foo\n");
-
-    // Delete target, re-download it
-    getOutputPath("foo").delete();
-
-    assertValidOutputFile("foo-link", "foo\n");
+    thread.interrupt();
+    thread.join();
+    // We should be able to observe more than 1 mtime if the server extends the lease.
+    assertThat(mtimes.size()).isGreaterThan(1);
   }
 
   @Test
-  public void downloadToplevel_symlinkSourceFile() throws Exception {
-    // TODO(chiwang): Make metadata for downloaded symlink non-remote.
-    assumeFalse(OS.getCurrent() == OS.WINDOWS);
-
+  public void downloadTopLevel_deepSymlinkToFile() throws Exception {
     setDownloadToplevel();
-    writeSymlinkRule();
     write(
-        "BUILD",
-        "load(':symlink.bzl', 'symlink')",
-        "symlink(",
-        "  name = 'foo-link',",
-        "  target = ':foo.txt'",
-        ")");
-    write("foo.txt", "foo");
+        "defs.bzl",
+        "def _impl(ctx):",
+        "  file = ctx.actions.declare_file(ctx.label.name + '.file')",
+        "  ctx.actions.run_shell(",
+        "    outputs = [file],",
+        "    command = 'echo -n hello > $1',",
+        "    arguments = [file.path],",
+        "  )",
+        "",
+        "  shallow = ctx.actions.declare_file(ctx.label.name + '.shallow')",
+        "  ctx.actions.symlink(output = shallow, target_file = file)",
+        "",
+        "  deep = ctx.actions.declare_file(ctx.label.name + '.deep')",
+        "  ctx.actions.symlink(output = deep, target_file = shallow)",
+        "",
+        "  return DefaultInfo(files = depset([deep]))",
+        "",
+        "symlink = rule(_impl)");
+    write("BUILD", "load(':defs.bzl', 'symlink')", "symlink(name = 'foo')");
 
-    buildTarget("//:foo-link");
+    buildTarget("//:foo");
 
-    assertOnlyOutputContent("//:foo-link", "foo-link", "foo" + lineSeparator());
-
-    // Delete link, re-plant symlink
-    getOutputPath("foo-link").delete();
-
-    buildTarget("//:foo-link");
-
-    assertOnlyOutputContent("//:foo-link", "foo-link", "foo" + lineSeparator());
+    // Materialization skips the intermediate symlink.
+    assertSymlink("foo.deep", getOutputPath("foo.file").asFragment());
+    assertValidOutputFile("foo.deep", "hello");
   }
 
   @Test
-  public void downloadToplevel_symlinkTree() throws Exception {
-    // TODO(chiwang): Make metadata for downloaded symlink non-remote.
-    assumeFalse(OS.getCurrent() == OS.WINDOWS);
-
+  public void downloadTopLevel_deepSymlinkToDirectory() throws Exception {
     setDownloadToplevel();
-    writeSymlinkRule();
-    writeOutputDirRule();
     write(
-        "BUILD",
-        "load(':output_dir.bzl', 'output_dir')",
-        "load(':symlink.bzl', 'symlink')",
-        "output_dir(",
-        "  name = 'foo',",
-        "  content_map = {'file-1': '1', 'file-2': '2', 'file-3': '3'},",
-        ")",
-        "symlink(",
-        "  name = 'foo-link',",
-        "  target = ':foo'",
-        ")");
+        "defs.bzl",
+        "def _impl(ctx):",
+        "  dir = ctx.actions.declare_directory(ctx.label.name + '.dir')",
+        "  ctx.actions.run_shell(",
+        "    outputs = [dir],",
+        "    command = 'echo -n hello > $1/file.txt',",
+        "    arguments = [dir.path],",
+        "  )",
+        "",
+        "  shallow = ctx.actions.declare_directory(ctx.label.name + '.shallow')",
+        "  ctx.actions.symlink(output = shallow, target_file = dir)",
+        "",
+        "  deep = ctx.actions.declare_directory(ctx.label.name + '.deep')",
+        "  ctx.actions.symlink(output = deep, target_file = shallow)",
+        "",
+        "  return DefaultInfo(files = depset([deep]))",
+        "",
+        "symlink = rule(_impl)");
+    write("BUILD", "load(':defs.bzl', 'symlink')", "symlink(name = 'foo')");
 
-    buildTarget("//:foo-link");
+    buildTarget("//:foo");
 
-    assertValidOutputFile("foo-link/file-1", "1");
-    assertValidOutputFile("foo-link/file-2", "2");
-    assertValidOutputFile("foo-link/file-3", "3");
-
-    getOutputPath("foo-link").deleteTree();
-
-    // Delete link, re-plant symlink
-    buildTarget("//:foo-link");
-
-    assertValidOutputFile("foo-link/file-1", "1");
-    assertValidOutputFile("foo-link/file-2", "2");
-    assertValidOutputFile("foo-link/file-3", "3");
-
-    // Delete target, re-download them
-    getOutputPath("foo").deleteTree();
-
-    buildTarget("//:foo-link");
-
-    assertValidOutputFile("foo-link/file-1", "1");
-    assertValidOutputFile("foo-link/file-2", "2");
-    assertValidOutputFile("foo-link/file-3", "3");
+    // Materialization skips the intermediate symlink.
+    assertSymlink("foo.deep", getOutputPath("foo.dir").asFragment());
+    assertValidOutputFile("foo.deep/file.txt", "hello");
   }
 }

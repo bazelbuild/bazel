@@ -17,24 +17,32 @@ package com.google.devtools.build.lib.analysis.starlark;
 import static com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil.applyAndValidate;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.BuildType.SelectorList;
+import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Implements {@link TransitionFactory} to provide a starlark-defined transition that rules can
@@ -73,7 +81,11 @@ public final class StarlarkRuleTransitionProvider implements TransitionFactory<R
     // we wouldn't need {@code rule} in the cache key.
     return starlarkDefinedConfigTransition
         .getRuleTransitionCache()
-        .get(ruleData.rule(), this::createTransition);
+        .get(
+            ruleData,
+            x ->
+                createTransition(
+                    ruleData.rule(), ruleData.configConditions(), ruleData.configHash()));
   }
 
   @Override
@@ -81,15 +93,35 @@ public final class StarlarkRuleTransitionProvider implements TransitionFactory<R
     return TransitionType.RULE;
   }
 
-  private FunctionPatchTransition createTransition(Rule rule) {
+  private FunctionPatchTransition createTransition(
+      Rule rule, ImmutableMap<Label, ConfigMatchingProvider> configConditions, String configHash) {
     LinkedHashMap<String, Object> attributes = new LinkedHashMap<>();
     RawAttributeMapper attributeMapper = RawAttributeMapper.of(rule);
+    ConfiguredAttributeMapper configuredAttributeMapper =
+        ConfiguredAttributeMapper.of(rule, configConditions, configHash, false);
+    ImmutableList<String> transitionOutputs = this.starlarkDefinedConfigTransition.getOutputs();
     for (Attribute attribute : rule.getAttributes()) {
       Object val = attributeMapper.getRawAttributeValue(rule, attribute);
-      if (val instanceof BuildType.SelectorList) {
-        // For now, don't allow access to attributes that read selects.
-        // TODO(b/121134880): make this restriction more fine grained.
-        continue;
+      boolean shouldResolveSelect = true;
+      // TODO @aranguyen b/296918741
+      boolean isValidConfigConditions = configConditions != null && !configConditions.isEmpty();
+      if (val instanceof BuildType.SelectorList && isValidConfigConditions) {
+        for (Object label : ((SelectorList) val).getKeyLabels()) {
+          ConfigMatchingProvider configMatchingProvider = configConditions.get(label);
+          if (checkIfAttributeSelectOnAFlagTransitionChanges(
+              configMatchingProvider, transitionOutputs)) {
+            shouldResolveSelect = false;
+            break;
+          }
+        }
+        if (shouldResolveSelect) {
+          val =
+              configuredAttributeMapper.get(
+                  attribute.getName(),
+                  configuredAttributeMapper.getAttributeType(attribute.getName()));
+        } else {
+          continue;
+        }
       }
       attributes.put(
           Attribute.getStarlarkName(attribute.getPublicName()), Attribute.valueToStarlark(val));
@@ -97,10 +129,33 @@ public final class StarlarkRuleTransitionProvider implements TransitionFactory<R
     StructImpl attrObject =
         StructProvider.STRUCT.create(
             attributes,
-            "No attribute '%s'. Either this attribute does "
-                + "not exist for this rule or is set by a select. Starlark rule transitions "
-                + "currently cannot read attributes behind selects.");
+            "No attribute '%s'. Either this attribute does not exist for this rule or the attribute"
+                + " was not resolved because it is set by a select that reads flags the transition"
+                + " may set.");
     return new FunctionPatchTransition(attrObject);
+  }
+
+  private boolean checkIfAttributeSelectOnAFlagTransitionChanges(
+      ConfigMatchingProvider configMatchingProvider, ImmutableList<String> transitionOutputs) {
+    // check settingMap
+    Set<String> nativeFlagLabels = new HashSet<>();
+    for (String key : configMatchingProvider.settingsMap().keySet()) {
+      String modified = "//command_line_option:" + key;
+      nativeFlagLabels.add(modified);
+    }
+    // check flags values
+    ImmutableMap<Label, String> flagSettingsMap = configMatchingProvider.flagSettingsMap();
+    Set<String> flagLabels = new HashSet<>();
+    for (Label flag : flagSettingsMap.keySet()) {
+      flagLabels.add(flag.getCanonicalForm());
+    }
+
+    for (String output : transitionOutputs) {
+      if (nativeFlagLabels.contains(output) || flagLabels.contains(output)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** The actual transition used by the rule. */

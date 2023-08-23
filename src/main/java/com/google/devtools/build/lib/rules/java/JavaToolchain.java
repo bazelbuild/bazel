@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -81,6 +80,8 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
     FilesToRunProvider singleJar = ruleContext.getExecutablePrerequisite("singlejar");
     FilesToRunProvider oneVersion = ruleContext.getExecutablePrerequisite("oneversion");
     Artifact oneVersionAllowlist = ruleContext.getPrerequisiteArtifact("oneversion_whitelist");
+    Artifact oneVersionAllowlistForTests =
+        ruleContext.getPrerequisiteArtifact("oneversion_allowlist_for_tests");
     Artifact genClass = ruleContext.getPrerequisiteArtifact("genclass");
     Artifact depsChecker = ruleContext.getPrerequisiteArtifact("deps_checker");
     Artifact timezoneData = ruleContext.getPrerequisiteArtifact("timezone_data");
@@ -136,7 +137,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
       ImmutableList<PackageSpecificationProvider> jspecifyPackages =
           ImmutableList.copyOf(
               ruleContext.getPrerequisites(
-                  "jspecify_packages", PackageGroupConfiguredTarget.class));
+                  "jspecify_packages", PackageSpecificationProvider.class));
       jspecifyInfo =
           JspecifyInfo.create(
               jspecifyProcessor, jspecifyImplicitDeps, jspecifyJavacopts.build(), jspecifyPackages);
@@ -183,6 +184,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             singleJar,
             oneVersion,
             oneVersionAllowlist,
+            oneVersionAllowlistForTests,
             genClass,
             depsChecker,
             timezoneData,

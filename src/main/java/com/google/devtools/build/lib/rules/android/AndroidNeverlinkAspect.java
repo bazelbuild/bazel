@@ -79,7 +79,12 @@ public class AndroidNeverlinkAspect extends NativeAspectClass implements Configu
     }
 
     NestedSetBuilder<Artifact> runtimeJars = NestedSetBuilder.naiveLinkOrder();
-    runtimeJars.addAll(JavaInfo.getJavaInfo(ct).getDirectRuntimeJars());
+    try {
+      runtimeJars.addAll(JavaInfo.getJavaInfo(ct).getDirectRuntimeJars());
+    } catch (RuleErrorException e) {
+      ruleContext.ruleError(e.getMessage());
+      return null;
+    }
     AndroidLibraryResourceClassJarProvider provider =
         AndroidLibraryResourceClassJarProvider.getProvider(ct);
     if (provider != null) {

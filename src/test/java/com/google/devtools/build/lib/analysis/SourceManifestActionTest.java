@@ -148,11 +148,23 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
       return expectedSequence.size();
     }
 
-    @Override public String getMnemonic() { return null; }
-    @Override public String getRawProgressMessage() { return null; }
+    @Override
+    public String getMnemonic() {
+      return null;
+    }
+
+    @Override
+    public String getRawProgressMessage() {
+      return null;
+    }
 
     @Override
     public boolean isRemotable() {
+      return false;
+    }
+
+    @Override
+    public boolean emitsAbsolutePaths() {
       return false;
     }
   }
@@ -163,18 +175,20 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
   @Test
   public void testManifestWriterIntegration() throws Exception {
     MockManifestWriter mockWriter = new MockManifestWriter();
-    new SourceManifestAction(
-            mockWriter,
-            NULL_ACTION_OWNER,
-            manifestOutputFile,
-            new Runfiles.Builder("TESTING", false).addSymlinks(fakeManifest).build())
-        .getFileContentsAsString(reporter);
+    String manifestContents =
+        new SourceManifestAction(
+                mockWriter,
+                NULL_ACTION_OWNER,
+                manifestOutputFile,
+                new Runfiles.Builder("TESTING", false).addSymlinks(fakeManifest).build())
+            .getFileContents(reporter);
     assertThat(mockWriter.unconsumedInputs()).isEqualTo(0);
+    assertThat(manifestContents).isEmpty();
   }
 
   @Test
   public void testSimpleFileWriting() throws Exception {
-    String manifestContents = createSymlinkAction().getFileContentsAsString(reporter);
+    String manifestContents = createSymlinkAction().getFileContents(reporter);
     assertThat(manifestContents)
         .isEqualTo(
             "TESTING/trivial/BUILD /workspace/trivial/BUILD\n"
@@ -188,7 +202,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
    */
   @Test
   public void testSourceOnlyFormatting() throws Exception {
-    String manifestContents = createSourceOnlyAction().getFileContentsAsString(reporter);
+    String manifestContents = createSourceOnlyAction().getFileContents(reporter);
     assertThat(manifestContents)
         .isEqualTo(
             "TESTING/trivial/BUILD\n"
@@ -207,7 +221,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
     Path swiggedFile = scratch.file("swig/fakeLib.so");
     Artifact swigDotSO = ActionsTestUtil.createArtifact(swiggedLibPath, swiggedFile);
     fakeManifest.put(swiggedFile.relativeTo(rootDirectory), swigDotSO);
-    String manifestContents = createSymlinkAction().getFileContentsAsString(reporter);
+    String manifestContents = createSymlinkAction().getFileContents(reporter);
     assertThat(manifestContents).containsMatch(".*TESTING/swig/__init__.py .*");
     assertThat(manifestContents).containsMatch("fakeLib.so");
   }
@@ -219,7 +233,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
     Path nonPythonFile = scratch.file("not_python/blob_of_data");
     Artifact nonPython = ActionsTestUtil.createArtifact(nonPythonPath, nonPythonFile);
     fakeManifest.put(nonPythonFile.relativeTo(rootDirectory), nonPython);
-    String manifestContents = createSymlinkAction().getFileContentsAsString(reporter);
+    String manifestContents = createSymlinkAction().getFileContents(reporter);
     assertThat(manifestContents).doesNotContain("not_python/__init__.py \n");
     assertThat(manifestContents).containsMatch("blob_of_data");
   }
@@ -367,7 +381,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
     assertThat(inputs).isEqualTo(action.getInputs());
     assertThat(inputs.toList()).isEqualTo(action.getInputs().toList());
 
-    assertThat(action.getFileContentsAsString(reporter))
+    assertThat(action.getFileContents(reporter))
         .isEqualTo(
             "TESTING/BUILD /workspace/trivial/BUILD\n"
                 + "TESTING/absolute_symlink /absolute/path\n"

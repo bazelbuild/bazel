@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -26,6 +25,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
@@ -194,13 +194,13 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     }
     useConfiguration("--cpu=k8");
     scratch.file(
-        "conflict/BUILD",
+        "conflict_non_top_level/BUILD",
         "cc_library(name='x', srcs=['foo.cc'])",
         "cc_binary(name='_objs/x/foo.o', srcs=['bar.cc'])",
         "cc_binary(name='foo', deps=['x'], data=['_objs/x/foo.o'])");
     reporter.removeHandler(failFastHandler); // expect errors
-    update(defaultFlags().with(Flag.KEEP_GOING), "//conflict:foo");
-    assertContainsEvent("file 'conflict/_objs/x/foo.o' " + CONFLICT_MSG);
+    update(defaultFlags().with(Flag.KEEP_GOING), "//conflict_non_top_level:foo");
+    assertContainsEvent("file 'conflict_non_top_level/_objs/x/foo.o' " + CONFLICT_MSG);
     assertThat(getAnalysisResult().getTargetsToBuild()).isEmpty();
   }
 
@@ -491,8 +491,9 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     assertThat(oldAnalyzedTargets.size()).isAtLeast(2); // could be greater due to implicit deps
     assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:x")).isEqualTo(1);
     assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:y")).isEqualTo(1);
+
     update("//java/a:y");
-    assertNoTargetsVisited();
+    assertThat(getSkyframeEvaluatedTargetKeys()).isEmpty();
   }
 
   @Test
@@ -511,7 +512,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:y")).isEqualTo(1);
     update("//java/a:x");
     Set<?> newAnalyzedTargets = getSkyframeEvaluatedTargetKeys();
-    // Source target and rule target.
+    // Source target and x.
     assertThat(newAnalyzedTargets).hasSize(2);
     assertThat(countObjectsPartiallyMatchingRegex(newAnalyzedTargets, "//java/a:x")).isEqualTo(1);
     assertThat(countObjectsPartiallyMatchingRegex(newAnalyzedTargets, "//java/a:y")).isEqualTo(0);
@@ -651,11 +652,12 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     // as cached top-level targets. For the two tests above to work correctly, we need to ensure
     // that getSkyframeEvaluatedTargetKeys() doesn't return these.
     update("//java/a:x", "//java/a:y", "//java/a:z");
-    Set<?> newAnalyzedTargets = getSkyframeEvaluatedTargetKeys();
-    assertThat(newAnalyzedTargets).hasSize(2);
-    assertThat(countObjectsPartiallyMatchingRegex(newAnalyzedTargets, "//java/a:B.java"))
-        .isEqualTo(1);
-    assertThat(countObjectsPartiallyMatchingRegex(newAnalyzedTargets, "//java/a:y")).isEqualTo(1);
+    assertNumberOfAnalyzedConfigurationsOfTargets(
+        ImmutableMap.<String, Integer>builder()
+            .put("//java/a:y", 1) // Newly requested.
+            .put("//java/a:B.java", 1)
+            .put("//java/a:z", 0) // Fully cached.
+            .buildOrThrow());
   }
 
   /** Test options class for testing diff-based analysis cache resetting. */
@@ -870,24 +872,12 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   }
 
   @Test
-  public void cacheClearedWhenRedundantDefinesChange_collapseDuplicateDefinesDisabled()
-      throws Exception {
-    setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
-    useConfiguration("--nocollapse_duplicate_defines", "--define=a=1", "--define=a=2");
-    update("//test:top");
-    useConfiguration("--nocollapse_duplicate_defines", "--define=a=2");
-    update("//test:top");
-    assertNumberOfAnalyzedConfigurationsOfTargets(ImmutableMap.of("//test:top", 1));
-  }
-
-  @Test
   public void cacheNotClearedWhenRedundantDefinesChange() throws Exception {
     setupDiffResetTesting();
     scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
-    useConfiguration("--collapse_duplicate_defines", "--define=a=1", "--define=a=2");
+    useConfiguration("--define=a=1", "--define=a=2");
     update("//test:top");
-    useConfiguration("--collapse_duplicate_defines", "--define=a=2");
+    useConfiguration("--define=a=2");
     update("//test:top");
     assertNumberOfAnalyzedConfigurationsOfTargets(ImmutableMap.of("//test:top", 0));
   }
@@ -1173,5 +1163,17 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     assertContainsEvent("--discard_analysis_cache");
     assertDoesNotContainEvent("Build option");
     assertContainsEvent("discarding analysis cache");
+  }
+
+  @Test
+  public void throwsIfAnalysisCacheIsDiscardedWhenOptionSet() throws Exception {
+    setupDiffResetTesting();
+    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
+    useConfiguration("--definitely_relevant=old");
+    update("//test:top");
+    useConfiguration("--noallow_analysis_cache_discard", "--definitely_relevant=new");
+
+    Throwable t = assertThrows(InvalidConfigurationException.class, () -> update("//test:top"));
+    assertThat(t.getMessage().contains("analysis cache would have been discarded")).isTrue();
   }
 }

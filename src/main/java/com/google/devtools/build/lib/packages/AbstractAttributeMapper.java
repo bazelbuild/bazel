@@ -62,7 +62,7 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
     if (value instanceof Attribute.ComputedDefault) {
       value = ((Attribute.ComputedDefault) value).getDefault(this);
     } else if (value instanceof Attribute.LateBoundDefault) {
-      value = ((Attribute.LateBoundDefault<?, ?>) value).getDefault();
+      value = ((Attribute.LateBoundDefault<?, ?>) value).getDefault(rule);
     } else if (value instanceof SelectorList) {
       throw new IllegalArgumentException(
           String.format(
@@ -135,23 +135,8 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public String getPackageDefaultHdrsCheck() {
-    return rule.getPackage().getDefaultHdrsCheck();
-  }
-
-  @Override
-  public boolean isPackageDefaultHdrsCheckSet() {
-    return rule.getPackage().isDefaultHdrsCheckSet();
-  }
-
-  @Override
-  public Boolean getPackageDefaultTestOnly() {
-    return rule.getPackage().getDefaultTestOnly();
-  }
-
-  @Override
-  public String getPackageDefaultDeprecation() {
-    return rule.getPackage().getDefaultDeprecation();
+  public PackageArgs getPackageArgs() {
+    return rule.getPackage().getPackageArgs();
   }
 
   @Override

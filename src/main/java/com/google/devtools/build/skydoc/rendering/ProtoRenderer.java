@@ -59,11 +59,8 @@ public class ProtoRenderer {
       throws DocstringParseException {
     for (Map.Entry<String, StarlarkFunction> entry : funcInfosMap.entrySet()) {
       StarlarkFunctionInfo funcInfo =
-          FunctionUtil.fromNameAndFunction(
-              entry.getKey(),
-              entry.getValue(),
-              /* withOriginKey= */ false,
-              /* repositoryMapping= */ null);
+          StarlarkFunctionInfoExtractor.fromNameAndFunction(
+              entry.getKey(), entry.getValue(), /* withOriginKey= */ false, LabelRenderer.DEFAULT);
       moduleInfo.addFuncInfo(funcInfo);
     }
     return this;

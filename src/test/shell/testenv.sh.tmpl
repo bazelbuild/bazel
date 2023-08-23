@@ -92,7 +92,7 @@ distdir_bzl_file="${BAZEL_RUNFILES}/distdir.bzl"
 if [[ $PLATFORM =~ msys ]]; then
   jdk_dir="$(cygpath -m $(cd $(rlocation local_jdk/bin/java.exe)/../..; pwd))"
 else
-  jdk_dir="${TEST_SRCDIR}/local_jdk"
+  jdk_dir="$(dirname $(dirname $(rlocation local_jdk/bin/java)))"
 fi
 
 # Tools directory location

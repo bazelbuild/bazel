@@ -18,7 +18,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
@@ -208,15 +207,13 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
                         .build())
             .collect(toImmutableList());
 
-    SkyframeLookupResult values =
-        env.getValuesAndExceptions(Lists.transform(keys, ConfiguredTargetKey::toKey));
+    SkyframeLookupResult values = env.getValuesAndExceptions(keys);
     ImmutableList.Builder<ConfiguredTargetKey> validPlatformKeys = new ImmutableList.Builder<>();
     boolean valuesMissing = false;
     for (ConfiguredTargetKey platformKey : keys) {
       Label platformLabel = platformKey.getLabel();
       try {
-        SkyValue value =
-            values.getOrThrow(platformKey.toKey(), ConfiguredValueCreationException.class);
+        SkyValue value = values.getOrThrow(platformKey, ConfiguredValueCreationException.class);
         if (value == null) {
           valuesMissing = true;
           continue;

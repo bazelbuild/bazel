@@ -20,20 +20,13 @@ import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
-import com.google.devtools.build.lib.remote.options.RemoteOptions;
-import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.java.JavaCompileActionContext;
-import com.google.devtools.build.lib.rules.java.JavaOptions;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
-import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
-import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.Converters.BooleanConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -51,6 +44,23 @@ public final class BazelRulesModule extends BlazeModule {
    */
   @SuppressWarnings("deprecation") // These fields have no JavaDoc by design
   public static class BuildGraveyardOptions extends OptionsBase {
+    @Option(
+        name = "use_top_level_targets_for_symlinks",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help = "Deprecated. No-op.")
+    public boolean useTopLevelTargetsForSymlinks;
+
+    @Option(
+        name = "experimental_skyframe_prepare_analysis",
+        deprecationWarning = "This flag is a no-op and will be deleted in a future release.",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+        help = "Deprecated. No-op.")
+    public boolean skyframePrepareAnalysis;
+
     @Option(
         name = "incompatible_use_platforms_repo_for_constraints",
         defaultValue = "true",
@@ -361,6 +371,158 @@ public final class BazelRulesModule extends BlazeModule {
         converter = Converters.CommaSeparatedOptionListConverter.class,
         help = "Deprecated no-op.")
     public List<String> availabilityInfoExempt;
+
+    @Option(
+        name = "experimental_collect_local_action_metrics",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.EXECUTION},
+        help = "Deprecated no-op.")
+    public boolean collectLocalExecutionStatistics;
+
+    @Option(
+        name = "experimental_collect_local_sandbox_action_metrics",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.LOGGING,
+        effectTags = {OptionEffectTag.EXECUTION},
+        help = "Deprecated no-op.")
+    public boolean collectLocalSandboxExecutionStatistics;
+
+    @Option(
+        name = "experimental_enable_starlark_doc_extract",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+        help = "Deprecated no-op.")
+    public boolean enableBzlDocDump;
+
+    // TODO(b/274595070): Remove this option.
+    @Option(
+        name = "experimental_parallel_aquery_output",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.QUERY,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "No-op.")
+    public boolean parallelAqueryOutput;
+
+    @Option(
+        name = "experimental_show_artifacts",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help = "Deprecated no-op.")
+    public boolean showArtifacts;
+
+    @Option(
+        name = "announce",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help = "Deprecated. No-op.",
+        deprecationWarning = "This option is now deprecated and is a no-op")
+    public boolean announce;
+
+    @Option(
+        name = "print_workspace_in_output_paths_if_needed",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+        help = "Deprecated no-op.")
+    public boolean printWorkspaceInOutputPathsIfNeeded;
+
+    @Option(
+        name = "experimental_multi_cpu",
+        deprecationWarning = "This flag is a no-op and will be deleted in a future release.",
+        converter = Converters.CommaSeparatedOptionListConverter.class,
+        allowMultiple = true,
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+        help = "Deprecated. No-op.")
+    public List<String> multiCpus;
+
+    @Option(
+        name = "action_cache_store_output_metadata",
+        oldName = "experimental_action_cache_store_output_metadata",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+          OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
+        },
+        help = "no-op")
+    public boolean actionCacheStoreOutputMetadata;
+
+    @Option(
+        name = "discard_actions_after_execution",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
+        help = "This option is deprecated and has no effect.")
+    public boolean discardActionsAfterExecution;
+
+    @Option(
+        name = "defer_param_files",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+          OptionEffectTag.EXECUTION,
+          OptionEffectTag.ACTION_COMMAND_LINES
+        },
+        help = "This option is deprecated and has no effect and will be removed in the future.")
+    public boolean deferParamFiles;
+
+    @Option(
+        name = "experimental_throttle_action_cache_check",
+        defaultValue = "true",
+        converter = BooleanConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        metadataTags = OptionMetadataTag.EXPERIMENTAL,
+        effectTags = {OptionEffectTag.EXECUTION},
+        help = "no-op")
+    public boolean throttleActionCacheCheck;
+
+    @Option(
+        name = "check_fileset_dependencies_recursively",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        deprecationWarning =
+            "This flag is a no-op and fileset dependencies are always checked "
+                + "to ensure correctness of builds.",
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS})
+    public boolean checkFilesetDependenciesRecursively;
+
+    @Option(
+        name = "experimental_skyframe_native_filesets",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+        deprecationWarning = "This flag is a no-op and skyframe-native-filesets is always true.")
+    public boolean skyframeNativeFileset;
+
+    @Option(
+        name = "collapse_duplicate_defines",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        },
+        help = "no-op")
+    public boolean collapseDuplicateDefines;
+
+    @Option(
+        name = "incompatible_require_javaplugininfo_in_javacommon",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "When enabled java_common.compile only accepts JavaPluginInfo for plugins.")
+    public boolean requireJavaPluginInfo;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */
@@ -588,6 +750,38 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help = "This flag is a noop and scheduled for removal.")
     public boolean experimentalJavaProtoAddAllowedPublicImports;
+
+    @Option(
+        name = "watchos_simulator_version",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public String watchosSimulatorVersion;
+
+    @Option(
+        name = "watchos_simulator_device",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public String watchosSimulatorDevice;
+
+    @Option(
+        name = "tvos_simulator_version",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public String tvosSimulatorVersion;
+
+    @Option(
+        name = "tvos_simulator_device",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public String tvosSimulatorDevice;
   }
 
   @Override
@@ -614,11 +808,6 @@ public final class BazelRulesModule extends BlazeModule {
   }
 
   @Override
-  public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
-    validateRemoteOutputsMode(env);
-  }
-
-  @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
     return "build".equals(command.name())
         ? ImmutableList.of(BazelBuildGraveyardOptions.class, AllCommandGraveyardOptions.class)
@@ -631,38 +820,5 @@ public final class BazelRulesModule extends BlazeModule {
       CommandEnvironment env,
       BuildRequest buildRequest) {
     registryBuilder.register(JavaCompileActionContext.class, new JavaCompileActionContext());
-  }
-
-  private static void validateRemoteOutputsMode(CommandEnvironment env) throws AbruptExitException {
-    RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
-    if (remoteOptions == null) {
-      return;
-    }
-    if (!remoteOptions.remoteOutputsMode.downloadAllOutputs()) {
-      JavaOptions javaOptions = env.getOptions().getOptions(JavaOptions.class);
-      if (javaOptions != null && !javaOptions.inmemoryJdepsFiles) {
-        throw createRemoteExecutionExitException(
-            "--experimental_remote_download_outputs=minimal requires"
-                + " --experimental_inmemory_jdeps_files to be enabled",
-            Code.REMOTE_DOWNLOAD_OUTPUTS_MINIMAL_WITHOUT_INMEMORY_JDEPS);
-      }
-      CppOptions cppOptions = env.getOptions().getOptions(CppOptions.class);
-      if (cppOptions != null && !cppOptions.inmemoryDotdFiles) {
-        throw createRemoteExecutionExitException(
-            "--experimental_remote_download_outputs=minimal requires"
-                + " --experimental_inmemory_dotd_files to be enabled",
-            Code.REMOTE_DOWNLOAD_OUTPUTS_MINIMAL_WITHOUT_INMEMORY_DOTD);
-      }
-    }
-  }
-
-  private static AbruptExitException createRemoteExecutionExitException(
-      String message, Code remoteExecutionCode) {
-    return new AbruptExitException(
-        DetailedExitCode.of(
-            FailureDetail.newBuilder()
-                .setMessage(message)
-                .setRemoteExecution(RemoteExecution.newBuilder().setCode(remoteExecutionCode))
-                .build()));
   }
 }

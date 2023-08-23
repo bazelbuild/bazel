@@ -120,6 +120,12 @@ public final class CcCompilationHelper {
       }
     }
 
+    if (fdoContext.getMemProfProfileArtifact() != null) {
+      variablesBuilder.put(
+          CompileBuildVariables.MEMPROF_PROFILE_PATH.getVariableName(),
+          fdoContext.getMemProfProfileArtifact().getExecPathString());
+    }
+
     FdoContext.BranchFdoProfile branchFdoProfile = fdoContext.getBranchFdoProfile();
     // Optimization phase
     if (branchFdoProfile != null) {
@@ -172,6 +178,9 @@ public final class CcCompilationHelper {
       if (fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
         auxiliaryInputs.add(fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
       }
+    }
+    if (fdoContext.getMemProfProfileArtifact() != null) {
+      auxiliaryInputs.add(fdoContext.getMemProfProfileArtifact());
     }
     FdoContext.BranchFdoProfile branchFdoProfile = fdoContext.getBranchFdoProfile();
     // If --fdo_optimize was not specified, we don't have any additional inputs.
@@ -1398,10 +1407,12 @@ public final class CcCompilationHelper {
                     source,
                     outputName,
                     builder,
+                    result,
                     ImmutableList.of(
                         ArtifactCategory.GENERATED_HEADER, ArtifactCategory.PROCESSED_HEADER),
                     // If we generate pic actions, we prefer the header actions to use the pic mode.
-                    generatePicAction);
+                    generatePicAction,
+                    bitcodeOutput);
             result.addHeaderTokenFile(headerTokenFile);
             break;
           case SOURCE:
@@ -1412,8 +1423,10 @@ public final class CcCompilationHelper {
                       source,
                       outputName,
                       builder,
+                      result,
                       ImmutableList.of(ArtifactCategory.OBJECT_FILE),
-                      /* usePic= */ false);
+                      /* usePic= */ false,
+                      featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO));
               result.addObjectFile(objectFile);
             }
 
@@ -1424,8 +1437,10 @@ public final class CcCompilationHelper {
                       source,
                       outputName,
                       builder,
+                      result,
                       ImmutableList.of(ArtifactCategory.PIC_OBJECT_FILE),
-                      /* usePic= */ true);
+                      /* usePic= */ true,
+                      featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO));
               result.addPicObjectFile(picObjectFile);
             }
             break;
@@ -1463,8 +1478,10 @@ public final class CcCompilationHelper {
       CppSource source,
       String outputName,
       CppCompileActionBuilder builder,
+      CcCompilationOutputs.Builder result,
       ImmutableList<ArtifactCategory> outputCategories,
-      boolean usePic)
+      boolean usePic,
+      boolean bitcodeOutput)
       throws RuleErrorException, InterruptedException {
     if (usePic) {
       builder = new CppCompileActionBuilder(builder).setPicMode(true);
@@ -1504,6 +1521,24 @@ public final class CcCompilationHelper {
               actionConstructionContext, label, sourceArtifact, outputName, usePic);
     }
 
+    // Currently we do not generate minimized bitcode files for tree artifacts because of issues
+    // with the indexing step.
+    // If ltoIndexTreeArtifact is set to a tree artifact, the minimized bitcode files will be
+    // properly generated and will be an input to the indexing step. However, the lto indexing step
+    // fails. The indexing step finds the full bitcode file by replacing the suffix of the
+    // minimized bitcode file, therefore they have to be in the same directory.
+    // Since the files are in the same directory, the command line artifact expander expands the
+    // tree artifact to both the minimized bitcode files and the full bitcode files, causing an
+    // error that functions are defined twice.
+    // TODO(b/289071777): support for minimized bitcode files.
+    SpecialArtifact ltoIndexTreeArtifact = null;
+
+    if (bitcodeOutput) {
+      Label sourceLabel = source.getLabel();
+      result.addLtoBitcodeFile(
+          outputFiles, ltoIndexTreeArtifact, getCopts(sourceArtifact, sourceLabel));
+    }
+
     ActionOwner actionOwner = null;
     if (actionConstructionContext instanceof RuleContext
         && ((RuleContext) actionConstructionContext).useAutoExecGroups()) {
@@ -1515,6 +1550,7 @@ public final class CcCompilationHelper {
             outputFiles,
             dotdTreeArtifact,
             diagnosticsTreeArtifact,
+            ltoIndexTreeArtifact,
             builder,
             ccToolchain,
             outputCategories,
@@ -1873,7 +1909,7 @@ public final class CcCompilationHelper {
               picBuilder,
               sourceLabel,
               /* usePic= */ true,
-              /* needsFdoBuildVariables= */ ccRelativeName != null,
+              /* needsFdoBuildVariables= */ ccRelativeName != null && addObject,
               cppModuleMap,
               gcnoFile,
               generateDwo,

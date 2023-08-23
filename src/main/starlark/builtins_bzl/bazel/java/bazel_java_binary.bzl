@@ -13,16 +13,15 @@
 # limitations under the License.
 
 load(":common/rule_util.bzl", "merge_attrs")
-load(":common/java/java_util.bzl", "shell_quote")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/cc/cc_helper.bzl", "cc_helper")
-load(":common/java/java_helper.bzl", helper = "util")
+load(":common/java/java_helper.bzl", "helper")
 load(":common/java/java_binary.bzl", "BASE_TEST_ATTRIBUTES", "BASIC_JAVA_BINARY_ATTRIBUTES", "basic_java_binary")
 load(":common/paths.bzl", "paths")
 load(":common/java/java_info.bzl", "JavaInfo")
 
 def _bazel_java_binary_impl(ctx):
-    return _bazel_base_binary_impl(ctx, is_test_rule_class = False)
+    return _bazel_base_binary_impl(ctx, is_test_rule_class = False) + helper.executable_providers(ctx)
 
 def _bazel_java_test_impl(ctx):
     return _bazel_base_binary_impl(ctx, is_test_rule_class = True) + helper.test_providers(ctx)
@@ -33,7 +32,7 @@ def _bazel_base_binary_impl(ctx, is_test_rule_class):
 
     main_class = _check_and_get_main_class(ctx)
     coverage_main_class = main_class
-    coverage_config = helper.get_coverage_config(ctx)
+    coverage_config = helper.get_coverage_config(ctx, _get_coverage_runner(ctx))
     if coverage_config:
         main_class = coverage_config.main_class
 
@@ -69,7 +68,7 @@ def _bazel_base_binary_impl(ctx, is_test_rule_class):
             fail("cannot determine test class")
         jvm_flags.extend([
             "-ea",
-            "-Dbazel.test_suite=" + shell_quote(test_class),
+            "-Dbazel.test_suite=" + helper.shell_quote(test_class),
         ])
 
     java_attrs = providers["InternalDeployJarInfo"].java_attrs
@@ -78,6 +77,10 @@ def _bazel_base_binary_impl(ctx, is_test_rule_class):
         _create_stub(ctx, java_attrs, launcher_info.launcher, executable, jvm_flags, main_class, coverage_main_class)
 
     runfiles = default_info.runfiles
+
+    if executable:
+        runtime_toolchain = semantics.find_java_runtime_toolchain(ctx)
+        runfiles = runfiles.merge(ctx.runfiles(transitive_files = runtime_toolchain.files))
 
     test_support = helper.get_test_support(ctx)
     if test_support:
@@ -90,6 +93,19 @@ def _bazel_base_binary_impl(ctx, is_test_rule_class):
     )
 
     return providers.values()
+
+def _get_coverage_runner(ctx):
+    if ctx.configuration.coverage_enabled and ctx.attr.create_executable:
+        toolchain = semantics.find_java_toolchain(ctx)
+        runner = toolchain.jacocorunner
+        if not runner:
+            fail("jacocorunner not set in java_toolchain: %s" % toolchain.label)
+        runner_jar = runner.executable
+
+        # wrap the jar in JavaInfo so we can add it to deps for java_common.compile()
+        return JavaInfo(output_jar = runner_jar, compile_jar = runner_jar)
+
+    return None
 
 def _collect_all_targets_as_deps(ctx, classpath_type = "all"):
     deps = helper.collect_all_targets_as_deps(ctx, classpath_type = classpath_type)
@@ -206,7 +222,7 @@ def _create_stub(ctx, java_attrs, launcher, executable, jvm_flags, main_class, c
             "%set_jacoco_metadata%": "",
             "%set_jacoco_main_class%": "export JACOCO_MAIN_CLASS=" + coverage_main_class if coverage_enabled else "",
             "%set_jacoco_java_runfiles_root%": "export JACOCO_JAVA_RUNFILES_ROOT=${JAVA_RUNFILES}/" + workspace_prefix if coverage_enabled else "",
-            "%java_start_class%": shell_quote(main_class),
+            "%java_start_class%": helper.shell_quote(main_class),
             "%jvm_flags%": " ".join(jvm_flags),
         },
         computed_substitutions = td,
@@ -231,6 +247,8 @@ def _create_windows_exe_launcher(ctx, java_executable, classpath, main_class, jv
     launch_info.add_joined(jvm_flags_for_launcher, join_with = "\t", format_joined = "jvm_flags=%s", omit_if_empty = False)
     jar_bin_path = semantics.find_java_runtime_toolchain(ctx).java_home + "/bin/jar.exe"
     launch_info.add(jar_bin_path, format = "jar_bin_path=%s")
+
+    # TODO(b/295221112): Change to use the "launcher" attribute (only windows use a fixed _launcher attribute)
     launcher_artifact = ctx.executable._launcher
     ctx.actions.run(
         executable = ctx.executable._windows_launcher_maker,
@@ -258,7 +276,9 @@ def _make_binary_rule(implementation, attrs, executable = False, test = False):
         test = test,
         fragments = ["cpp", "java"],
         provides = [JavaInfo],
-        toolchains = [semantics.JAVA_TOOLCHAIN, semantics.JAVA_RUNTIME_TOOLCHAIN] + cc_helper.use_cpp_toolchain(),
+        toolchains = [semantics.JAVA_TOOLCHAIN] + cc_helper.use_cpp_toolchain() + (
+            [semantics.JAVA_RUNTIME_TOOLCHAIN] if executable or test else []
+        ),
         # TODO(hvd): replace with filegroups?
         outputs = {
             "classjar": "%{name}.jar",
@@ -288,43 +308,32 @@ _BASE_BINARY_ATTRS = merge_attrs(
     },
 )
 
-def make_java_binary(executable, resolve_launcher_flag, has_launcher = False):
+def make_java_binary(executable):
     return _make_binary_rule(
         _bazel_java_binary_impl,
         merge_attrs(
             _BASE_BINARY_ATTRS,
             {
-                "_java_launcher": attr.label(
-                    default = configuration_field(
-                        fragment = "java",
-                        name = "launcher",
-                    ) if resolve_launcher_flag else (_compute_launcher_attr if has_launcher else None),
-                ),
                 "_use_auto_exec_groups": attr.bool(default = True),
             },
             ({} if executable else {
                 "args": attr.string_list(),
                 "output_licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
             }),
+            remove_attrs = [] if executable else ["_java_runtime_toolchain_type"],
         ),
         executable = executable,
     )
 
-java_binary = make_java_binary(executable = True, resolve_launcher_flag = True)
+java_binary = make_java_binary(executable = True)
 
-def make_java_test(resolve_launcher_flag, has_launcher = False):
+def make_java_test():
     return _make_binary_rule(
         _bazel_java_test_impl,
         merge_attrs(
             BASE_TEST_ATTRIBUTES,
             _BASE_BINARY_ATTRS,
             {
-                "_java_launcher": attr.label(
-                    default = configuration_field(
-                        fragment = "java",
-                        name = "launcher",
-                    ) if resolve_launcher_flag else (_compute_launcher_attr if has_launcher else None),
-                ),
                 "_lcov_merger": attr.label(
                     cfg = "exec",
                     default = configuration_field(
@@ -347,4 +356,4 @@ def make_java_test(resolve_launcher_flag, has_launcher = False):
         test = True,
     )
 
-java_test = make_java_test(True)
+java_test = make_java_test()

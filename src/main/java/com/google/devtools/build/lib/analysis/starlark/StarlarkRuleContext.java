@@ -34,16 +34,15 @@ import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.BashCommandConstructor;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
-import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.LocationExpander;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.Runfiles.SymlinkEntry;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.ShToolchain;
+import com.google.devtools.build.lib.analysis.SymlinkEntry;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -52,7 +51,6 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
-import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -65,10 +63,10 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -94,7 +92,6 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Dict.ImmutableKeyTrackingDict;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -116,9 +113,8 @@ import net.starlark.java.eval.Tuple;
  */
 public final class StarlarkRuleContext implements StarlarkRuleContextApi<ConstraintValueInfo> {
 
-  private static final ImmutableSet<PackageIdentifier> PRIVATE_STARLARKIFICATION_ALLOWLIST =
+  static final ImmutableSet<PackageIdentifier> PRIVATE_STARLARKIFICATION_ALLOWLIST =
       ImmutableSet.of(
-          PackageIdentifier.createUnchecked("_builtins", ""),
           PackageIdentifier.createInMainRepo("test"), // for tests
           PackageIdentifier.createInMainRepo("third_party/bazel_rules/rules_android"),
           PackageIdentifier.createUnchecked("build_bazel_rules_android", ""),
@@ -270,7 +266,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       StarlarkAttributesCollection.Builder aspectBuilder =
           StarlarkAttributesCollection.builder(this);
       for (Attribute attribute : attributes) {
-        Object defaultValue = attribute.getDefaultValue();
+        Object defaultValue = attribute.getDefaultValue(null);
         if (defaultValue instanceof ComputedDefault) {
           defaultValue = ((ComputedDefault) defaultValue).getDefault(ruleContext.attributes());
         }
@@ -291,7 +287,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
           continue;
         }
         for (Attribute attribute : aspect.getDefinition().getAttributes().values()) {
-          Object defaultValue = attribute.getDefaultValue();
+          Object defaultValue = attribute.getDefaultValue(null);
           if (defaultValue instanceof ComputedDefault) {
             defaultValue = ((ComputedDefault) defaultValue).getDefault(ruleContext.attributes());
           }
@@ -522,11 +518,6 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   /** Returns the wrapped ruleContext. */
   public RuleContext getRuleContext() {
     return ruleContext;
-  }
-
-  @Override
-  public Provider getDefaultProvider() {
-    return DefaultInfo.PROVIDER;
   }
 
   @Override
@@ -951,22 +942,8 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     }
   }
 
-  static void checkPrivateAccess(ImmutableSet<PackageIdentifier> allowlist, StarlarkThread thread)
-      throws EvalException {
-    Label label =
-        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
-            .label();
-    if (allowlist.stream()
-        .noneMatch(
-            allowedPrefix ->
-                label.getRepository().equals(allowedPrefix.getRepository())
-                    && label.getPackageFragment().startsWith(allowedPrefix.getPackageFragment()))) {
-      throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
-    }
-  }
-
-  static void checkPrivateAccess(StarlarkThread thread) throws EvalException {
-    checkPrivateAccess(PRIVATE_STARLARKIFICATION_ALLOWLIST, thread);
+  private static void checkPrivateAccess(StarlarkThread thread) throws EvalException {
+    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, PRIVATE_STARLARKIFICATION_ALLOWLIST);
   }
 
   @Override

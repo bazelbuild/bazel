@@ -825,7 +825,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   @Test
   public void testPackageSpecMinimal() throws Exception {
     Package pkg = expectEvalSuccess("package(default_visibility=[])");
-    assertThat(pkg.getDefaultVisibility()).isNotNull();
+    assertThat(pkg.getPackageArgs().defaultVisibility()).isNotNull();
   }
 
   @Test
@@ -854,14 +854,14 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   @Test
   public void testDefaultTestonly() throws Exception {
     Package pkg = expectEvalSuccess("package(default_testonly = 1)");
-    assertThat(pkg.getDefaultTestOnly()).isTrue();
+    assertThat(pkg.getPackageArgs().defaultTestOnly()).isTrue();
   }
 
   @Test
   public void testDefaultDeprecation() throws Exception {
     String testMessage = "OMG PONIES!";
     Package pkg = expectEvalSuccess("package(default_deprecation = \"" + testMessage + "\")");
-    assertThat(pkg.getDefaultDeprecation()).isEqualTo(testMessage);
+    assertThat(pkg.getPackageArgs().defaultDeprecation()).isEqualTo(testMessage);
   }
 
   @Test
@@ -930,7 +930,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         "package(features=['b', 'c'])",
         "sh_library(name='after')");
     Package pkg = loadPackage("a");
-    assertThat(pkg.getFeatures()).isEqualTo(FeatureSet.parse(ImmutableList.of("b", "c")));
+    assertThat(pkg.getPackageArgs().features())
+        .isEqualTo(FeatureSet.parse(ImmutableList.of("b", "c")));
   }
 
   @Test
@@ -1129,26 +1130,28 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
             "    default_compatible_with=['//foo'],",
             "    default_restricted_to=['//bar'],",
             ")");
-    assertThat(pkg.getDefaultCompatibleWith()).containsExactly(Label.parseCanonical("//foo"));
-    assertThat(pkg.getDefaultRestrictedTo()).containsExactly(Label.parseCanonical("//bar"));
+    assertThat(pkg.getPackageArgs().defaultCompatibleWith())
+        .containsExactly(Label.parseCanonical("//foo"));
+    assertThat(pkg.getPackageArgs().defaultRestrictedTo())
+        .containsExactly(Label.parseCanonical("//bar"));
   }
 
   @Test
   public void testPackageDefaultCompatibilityDuplicates() throws Exception {
     expectEvalError(
-        "'//foo:foo' is duplicated in the 'default_compatible_with' list",
+        "duplicate label(s) in default_compatible_with: //foo:foo",
         "package(default_compatible_with=['//foo', '//bar', '//foo'])");
   }
 
   @Test
   public void testPackageDefaultRestrictionDuplicates() throws Exception {
     expectEvalError(
-        "'//foo:foo' is duplicated in the 'default_restricted_to' list",
+        "duplicate label(s) in default_restricted_to: //foo:foo",
         "package(default_restricted_to=['//foo', '//bar', '//foo'])");
   }
 
   @Test
-  public void testGlobPatternExtractor() {
+  public void testGlobPatternExtractor() throws Exception {
     StarlarkFile file =
         StarlarkFile.parse(
             ParserInput.fromLines(
@@ -1163,8 +1166,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     List<String> globs = new ArrayList<>();
     List<String> globsWithDirs = new ArrayList<>();
     List<String> subpackages = new ArrayList<>();
-    PackageFactory.checkBuildSyntax(
-        file, globs, globsWithDirs, subpackages, new HashMap<>(), /* errors= */ null);
+    PackageFactory.checkBuildSyntax(file, globs, globsWithDirs, subpackages, new HashMap<>());
     assertThat(globs).containsExactly("ab", "a", "**/*");
     assertThat(globsWithDirs).containsExactly("c");
     assertThat(subpackages).isEmpty();
@@ -1190,14 +1192,14 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   public void testForStatementForbiddenInBuild() throws Exception {
     checkBuildDialectError(
         "for _ in []: pass", //
-        "for statements are not allowed in BUILD files");
+        "`for` statements are not allowed in BUILD files");
   }
 
   @Test
   public void testIfStatementForbiddenInBuild() throws Exception {
     checkBuildDialectError(
         "if False: pass", //
-        "if statements are not allowed in BUILD files");
+        "`if` statements are not allowed in BUILD files");
   }
 
   @Test

@@ -70,6 +70,7 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossReposit
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.RepoFileFunction;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction;
@@ -416,6 +417,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
 
   protected abstract ActionOnIOExceptionReadingBuildFile getActionOnIOExceptionReadingBuildFile();
 
+  protected abstract boolean shouldUseRepoDotBazel();
+
   private ImmutableMap<SkyFunctionName, SkyFunction> makeFreshSkyFunctions() {
     TimestampGranularityMonitor tsgm = new TimestampGranularityMonitor(BlazeClock.instance());
     DefaultSyscallCache syscallCache =
@@ -476,6 +479,10 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             WorkspaceFileValue.WORKSPACE_FILE,
             new WorkspaceFileFunction(
                 ruleClassProvider, pkgFactory, directories, /* bzlLoadFunctionForInlining= */ null))
+        .put(
+            SkyFunctions.REPO_FILE,
+            new RepoFileFunction(
+                ruleClassProvider.getBazelStarlarkEnvironment(), directories.getWorkspace()))
         .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction(getExternalPackageHelper()))
         .put(
             BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
@@ -491,6 +498,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
                 /* bzlLoadFunctionForInlining= */ null,
                 /* packageProgress= */ null,
                 getActionOnIOExceptionReadingBuildFile(),
+                shouldUseRepoDotBazel(),
                 // Tell PackageFunction to optimize for our use-case of no incrementality.
                 GlobbingStrategy.NON_SKYFRAME,
                 k -> ThreadStateReceiver.NULL_INSTANCE))

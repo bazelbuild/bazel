@@ -27,26 +27,19 @@ import javax.annotation.Nullable;
 import sun.misc.Unsafe;
 
 /**
- * State for a node that has been dirtied, and will be checked to see if it needs re-evaluation, and
- * either marked clean or re-evaluated.
+ * State for a node that either has not been built yet or has been dirtied.
+ *
+ * <p>If the node has previously been built, {@link #isIncremental} returns true. Deps are checked
+ * to see if re-evaluation is needed, and the node will either marked clean or re-evaluated.
+ *
+ * <p>This class does not attempt to synchronize operations. It is assumed that the calling {@link
+ * InMemoryNodeEntry} performs the appropriate synchronization when necessary.
  *
  * <p>This class is public only for the benefit of alternative graph implementations outside of the
  * package.
  */
 public abstract class DirtyBuildingState implements PriorityTracker {
   private static final int NOT_EVALUATING_SENTINEL = -1;
-
-  static DirtyBuildingState create(
-      DirtyType dirtyType,
-      GroupedDeps lastBuildDirectDeps,
-      SkyValue lastBuildValue,
-      boolean hasLowFanout) {
-    return new FullDirtyBuildingState(dirtyType, lastBuildDirectDeps, lastBuildValue, hasLowFanout);
-  }
-
-  static DirtyBuildingState createNew(boolean hasLowFanout) {
-    return new FullDirtyBuildingState(DirtyType.CHANGE, null, null, hasLowFanout);
-  }
 
   /**
    * The state of a dirty node. A node is marked dirty in the DirtyBuildingState constructor, and
@@ -71,11 +64,11 @@ public abstract class DirtyBuildingState implements PriorityTracker {
    * needs to be re-scheduled, and ensures that only one thread gets a true return value.
    *
    * <p>The second problem is solved by first adding the newly discovered deps to a node's {@link
-   * InMemoryNodeEntry#directDeps}, and then looping through the direct deps and registering this
-   * node as a reverse dependency. This ensures that the signaledDeps counter can only reach {@link
-   * GroupedDeps#numElements} on the very last iteration of the loop, i.e., the thread is not
-   * working on the node anymore. Note that this requires that there is no code after the loop in
-   * {@link ParallelEvaluator.Evaluate#run}.
+   * IncrementalInMemoryNodeEntry#directDeps}, and then looping through the direct deps and
+   * registering this node as a reverse dependency. This ensures that the signaledDeps counter can
+   * only reach {@link GroupedDeps#numElements} on the very last iteration of the loop, i.e., the
+   * thread is not working on the node anymore. Note that this requires that there is no code after
+   * the loop in {@link ParallelEvaluator.Evaluate#run}.
    */
   private int signaledDeps = NOT_EVALUATING_SENTINEL;
 
@@ -96,25 +89,23 @@ public abstract class DirtyBuildingState implements PriorityTracker {
   /**
    * Priority information packed into 32-bits.
    *
-   * <p>Packing is used because Java lacks support for native short operations and masking
-   * operations are needed to fit 1-bit of information about whether the {@link SkyKey} has low
-   * fanout. This field has the following layout.
+   * <p>Packing is used because Java lacks support for native short operations. This field has the
+   * following layout.
    *
    * <ol>
-   *   <li><i>Has Low Fanout</i> (1-bit) - 1 if {@link SkyKey#hasLowFanout} is true for the
-   *       underlying key.
    *   <li><i>Depth</i> (15-bits) - the current estimated depth.
    *   <li><i>Restart Count</i> (16-bits, unsigned) - incremented when this node restarts.
    * </ol>
    */
-  private volatile int priority = HAS_LOW_FANOUT_MASK;
+  private volatile int priority = 0;
 
   /**
-   * The dependencies requested (with group markers) last time the node was built (and below, the
-   * value last time the node was built). They will be compared to dependencies requested on this
-   * build to check whether this node has changed in {@link NodeEntry#setValue}. If they are null,
-   * it means that this node is being built for the first time. See {@link
-   * InMemoryNodeEntry#directDeps} for more on dependency group storage.
+   * Returns the {@link GroupedDeps} requested last time the node was built, or {@code null} if on
+   * its initial build.
+   *
+   * <p>Dependencies from the last build are be compared to dependencies requested on this build to
+   * check whether this node has changed in {@link NodeEntry#setValue}. See {@link
+   * IncrementalInMemoryNodeEntry#directDeps} for more on dependency group storage.
    *
    * <p>Public only for the use of alternative graph implementations.
    */
@@ -122,17 +113,15 @@ public abstract class DirtyBuildingState implements PriorityTracker {
   public abstract GroupedDeps getLastBuildDirectDeps() throws InterruptedException;
 
   /**
-   * The number of groups of the dependencies requested last time when the node was built.
+   * The number of groups of the dependencies requested last time when the node was built, or {@code
+   * 0} if on its initial build.
    *
    * <p>Getting the number of last-built dependencies should not throw {@link InterruptedException}.
    */
   protected abstract int getNumOfGroupsInLastBuildDirectDeps();
 
-  /** The number of total dependencies requested the last time the node was built. */
-  public abstract int getNumElementsInLastBuildDirectDeps();
-
   /**
-   * The value of the node the last time it was built.
+   * The value of the node the last time it was built, or {@code null} if on its initial build.
    *
    * <p>Public only for the use of alternative graph implementations.
    */
@@ -145,24 +134,15 @@ public abstract class DirtyBuildingState implements PriorityTracker {
    */
   protected int dirtyDirectDepIndex;
 
-  /**
-   * Constructor.
-   *
-   * @param hasLowFanout indicates that this node is not expected to have high dependency fanout.
-   *     Satisfied by by {@link SkyKey#hasLowFanout}.
-   */
-  protected DirtyBuildingState(DirtyType dirtyType, boolean hasLowFanout) {
+  protected DirtyBuildingState(DirtyType dirtyType) {
     dirtyState = dirtyType.getInitialDirtyState();
     // We need to iterate through the deps to see if they have changed, or to remove them if one
     // has. Initialize the iterating index.
     dirtyDirectDepIndex = 0;
-    if (!hasLowFanout) {
-      this.priority = 0;
-    }
   }
 
-  /** Returns true if this state does have information about a previously built version. */
-  protected abstract boolean isDirty();
+  /** Returns true if this state has information about a previously built version. */
+  protected abstract boolean isIncremental();
 
   final void markChanged() {
     checkState(dirtyState == DirtyState.CHECK_DEPENDENCIES, this);
@@ -176,14 +156,21 @@ public abstract class DirtyBuildingState implements PriorityTracker {
     }
   }
 
+  // TODO(b/228090759): Tighten up state checks for the force rebuild lifecycle.
   final void forceRebuild(int numTemporaryDirectDeps) {
     checkState(numTemporaryDirectDeps + externalDeps == signaledDeps, this);
-    checkState(
-        (dirtyState == DirtyState.CHECK_DEPENDENCIES
-                && getNumOfGroupsInLastBuildDirectDeps() == dirtyDirectDepIndex)
-            || dirtyState == DirtyState.NEEDS_FORCED_REBUILDING,
-        this);
-    dirtyState = DirtyState.FORCED_REBUILDING;
+    switch (dirtyState) {
+      case CHECK_DEPENDENCIES:
+        checkState(getNumOfGroupsInLastBuildDirectDeps() == dirtyDirectDepIndex, this);
+        dirtyState = DirtyState.REBUILDING;
+        break;
+      case NEEDS_REBUILDING: // Valid for NonIncrementalInMemoryNodeEntry.
+      case NEEDS_FORCED_REBUILDING: // Valid for IncrementalInMemoryNodeEntry.
+        dirtyState = DirtyState.REBUILDING;
+        break;
+      default:
+        throw new IllegalStateException("Unexpected dirty state " + dirtyState + ": " + this);
+    }
   }
 
   final boolean isEvaluating() {
@@ -193,15 +180,12 @@ public abstract class DirtyBuildingState implements PriorityTracker {
   final boolean isChanged() {
     return dirtyState == DirtyState.NEEDS_REBUILDING
         || dirtyState == DirtyState.NEEDS_FORCED_REBUILDING
-        || dirtyState == DirtyState.REBUILDING
-        || dirtyState == DirtyState.FORCED_REBUILDING;
+        || dirtyState == DirtyState.REBUILDING;
   }
 
   private void checkFinishedBuildingWhenAboutToSetValue() {
     checkState(
-        dirtyState == DirtyState.VERIFIED_CLEAN
-            || dirtyState == DirtyState.REBUILDING
-            || dirtyState == DirtyState.FORCED_REBUILDING,
+        dirtyState == DirtyState.VERIFIED_CLEAN || dirtyState == DirtyState.REBUILDING,
         "not done building %s",
         this);
   }
@@ -216,9 +200,10 @@ public abstract class DirtyBuildingState implements PriorityTracker {
    * DirtyBuildingState#getNumOfGroupsInLastBuildDirectDeps()}.
    */
   final void signalDep(
-      InMemoryNodeEntry entry, Version childVersion, @Nullable SkyKey childForDebugging) {
-    // Synchronization isn't needed here because the only caller is InMemoryNodeEntry, which does it
-    // through the synchronized method signalDep.
+      AbstractInMemoryNodeEntry<?> entry,
+      NodeVersion version,
+      Version childVersion,
+      @Nullable SkyKey childForDebugging) {
     checkState(isEvaluating(), "%s %s", entry, childForDebugging);
     signaledDeps++;
     if (isChanged()) {
@@ -226,7 +211,7 @@ public abstract class DirtyBuildingState implements PriorityTracker {
     }
 
     // childVersion > version.lastEvaluated() means the child has changed since the last evaluation.
-    boolean childChanged = !childVersion.atMost(entry.version.lastEvaluated());
+    boolean childChanged = !childVersion.atMost(version.lastEvaluated());
     if (childChanged) {
       dirtyState = DirtyState.NEEDS_REBUILDING;
     } else if (dirtyState == DirtyState.CHECK_DEPENDENCIES
@@ -291,7 +276,7 @@ public abstract class DirtyBuildingState implements PriorityTracker {
    * true, this method is non-mutating. If {@code preservePosition} is false, the caller must
    * process the returned set, and so subsequent calls to this method will return the empty set.
    */
-  ImmutableSet<SkyKey> getAllRemainingDirtyDirectDeps(boolean preservePosition)
+  final ImmutableSet<SkyKey> getAllRemainingDirtyDirectDeps(boolean preservePosition)
       throws InterruptedException {
     if (getLastBuildDirectDeps() == null) {
       return ImmutableSet.of();
@@ -312,8 +297,7 @@ public abstract class DirtyBuildingState implements PriorityTracker {
    * race.
    */
   final void resetForRestartFromScratch() {
-    checkState(
-        dirtyState == DirtyState.REBUILDING || dirtyState == DirtyState.FORCED_REBUILDING, this);
+    checkState(dirtyState == DirtyState.REBUILDING, this);
     signaledDeps = 0;
     externalDeps = 0;
     dirtyDirectDepIndex = 0;
@@ -331,13 +315,13 @@ public abstract class DirtyBuildingState implements PriorityTracker {
     dirtyState = DirtyState.REBUILDING;
   }
 
-  void startEvaluating() {
+  final void startEvaluating() {
     checkState(!isEvaluating(), this);
     signaledDeps = 0;
   }
 
   /** Returns whether all known children of this node have signaled that they are done. */
-  boolean isReady(int numDirectDeps) {
+  final boolean isReady(int numDirectDeps) {
     // Avoids calling Preconditions.checkState because it showed up in garbage profiles due to
     // boxing of the int format args.
     if (signaledDeps > numDirectDeps + externalDeps) {
@@ -361,28 +345,24 @@ public abstract class DirtyBuildingState implements PriorityTracker {
   @VisibleForTesting static final int EVALUATION_COUNT_SATURATION_BOUND = 32;
 
   @Override
-  public int getPriority() {
+  public final int getPriority() {
     int snapshot = priority;
 
-    // Fanout occupies the top-most bit. Shifts it over one bit so later computations don't need to
-    // consider negative priority values. Since this is the highest set bit, low-fanout nodes
-    // always have higher priority than high-fanout nodes.
-    int fanoutAdjustment = (snapshot & HAS_LOW_FANOUT_MASK) >>> 1;
     int depth = min((snapshot & DEPTH_MASK) >> DEPTH_BIT_OFFSET, DEPTH_SATURATION_BOUND);
     int evaluationCount = min(snapshot & EVALUATION_COUNT_MASK, EVALUATION_COUNT_SATURATION_BOUND);
 
     // This formula was found to produce good results in our benchmark. There's no deep rationale
     // behind it. It's likely possible to improve it, but iterating is slow.
-    return fanoutAdjustment + depth + evaluationCount * evaluationCount;
+    return depth + evaluationCount * evaluationCount;
   }
 
   @Override
-  public int depth() {
+  public final int depth() {
     return (priority & DEPTH_MASK) >> DEPTH_BIT_OFFSET;
   }
 
   @Override
-  public void updateDepthIfGreater(int proposedDepth) {
+  public final void updateDepthIfGreater(int proposedDepth) {
     // Shifts the input for comparison instead of the snapshot, which might otherwise need to be
     // shifted repeatedly.
     proposedDepth = (proposedDepth << DEPTH_BIT_OFFSET) & DEPTH_MASK;
@@ -397,7 +377,7 @@ public abstract class DirtyBuildingState implements PriorityTracker {
   }
 
   @Override
-  public void incrementEvaluationCount() {
+  public final void incrementEvaluationCount() {
     UNSAFE.getAndAddInt(this, PRIORITY_OFFSET, ONE_EVALUATION);
   }
 
@@ -408,70 +388,16 @@ public abstract class DirtyBuildingState implements PriorityTracker {
         .add("signaledDeps", signaledDeps)
         .add("externalDeps", externalDeps)
         .add("dirtyDirectDepIndex", dirtyDirectDepIndex)
-        .add("has low fanout", (snapshot & HAS_LOW_FANOUT_MASK) != 0)
         .add("depth", (snapshot & DEPTH_MASK) >> DEPTH_BIT_OFFSET)
         .add("evaluation count", (snapshot & EVALUATION_COUNT_MASK));
   }
 
   @Override
-  public String toString() {
+  public final String toString() {
     return getStringHelper().toString();
   }
 
-  private static class FullDirtyBuildingState extends DirtyBuildingState {
-    private final GroupedDeps lastBuildDirectDeps;
-    private final SkyValue lastBuildValue;
-
-    private FullDirtyBuildingState(
-        DirtyType dirtyType,
-        GroupedDeps lastBuildDirectDeps,
-        SkyValue lastBuildValue,
-        boolean hasLowFanout) {
-      super(dirtyType, hasLowFanout);
-      this.lastBuildDirectDeps = lastBuildDirectDeps;
-      checkState(
-          !dirtyType.equals(DirtyType.DIRTY) || getNumOfGroupsInLastBuildDirectDeps() > 0,
-          "%s is being marked dirty but has no children that could have dirtied it",
-          this);
-      this.lastBuildValue = lastBuildValue;
-    }
-
-    @Override
-    protected boolean isDirty() {
-      return lastBuildDirectDeps != null;
-    }
-
-    @Override
-    public SkyValue getLastBuildValue() {
-      return lastBuildValue;
-    }
-
-    @Override
-    public GroupedDeps getLastBuildDirectDeps() {
-      return lastBuildDirectDeps;
-    }
-
-    @Override
-    protected int getNumOfGroupsInLastBuildDirectDeps() {
-      return lastBuildDirectDeps == null ? 0 : lastBuildDirectDeps.numGroups();
-    }
-
-    @Override
-    public int getNumElementsInLastBuildDirectDeps() {
-      return lastBuildDirectDeps.numElements();
-    }
-
-    @Override
-    protected MoreObjects.ToStringHelper getStringHelper() {
-      return super.getStringHelper()
-          .add("lastBuildDirectDeps", lastBuildDirectDeps)
-          .add("lastBuildValue", lastBuildValue);
-    }
-  }
-
   // Masks for `priority`.
-  private static final int HAS_LOW_FANOUT_MASK = 0x8000_0000;
-
   private static final int DEPTH_MASK = 0x7FFF_0000;
   private static final int DEPTH_BIT_OFFSET = 16;
 

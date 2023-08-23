@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
@@ -184,6 +185,7 @@ public final class SkyframeErrorProcessor {
       CyclesReporter cyclesReporter,
       ExtendedEventHandler eventHandler,
       boolean keepGoing,
+      boolean keepEdges,
       @Nullable EventBus eventBus,
       BugReporter bugReporter)
       throws InterruptedException, ViewCreationFailedException {
@@ -193,9 +195,10 @@ public final class SkyframeErrorProcessor {
           cyclesReporter,
           eventHandler,
           keepGoing,
+          keepEdges,
           eventBus,
           bugReporter,
-          /*includeExecutionPhase=*/ false);
+          /* includeExecutionPhase= */ false);
     } catch (BuildFailedException | TestExecException unexpected) {
       throw new IllegalStateException("Unexpected execution phase exception: ", unexpected);
     }
@@ -231,10 +234,13 @@ public final class SkyframeErrorProcessor {
       CyclesReporter cyclesReporter,
       ExtendedEventHandler eventHandler,
       boolean keepGoing,
+      boolean keepEdges,
       @Nullable EventBus eventBus,
       @Nullable BugReporter bugReporter,
       boolean includeExecutionPhase)
-      throws InterruptedException, ViewCreationFailedException, BuildFailedException,
+      throws InterruptedException,
+          ViewCreationFailedException,
+          BuildFailedException,
           TestExecException {
     boolean inBuildViewTest = eventBus == null;
     ViewCreationFailedException noKeepGoingAnalysisExceptionAspect = null;
@@ -259,9 +265,10 @@ public final class SkyframeErrorProcessor {
 
       SkyKey errorKey = getEffectiveErrorKey(errorEntry);
       if (includeExecutionPhase) {
-        assertValidAnalysisOrExecutionException(errorInfo, errorKey, result.getWalkableGraph());
+        assertValidAnalysisOrExecutionException(
+            errorInfo, errorKey, result.getWalkableGraph(), keepEdges);
       } else {
-        assertValidAnalysisException(errorInfo, errorKey, result.getWalkableGraph());
+        assertValidAnalysisException(errorInfo, errorKey, result.getWalkableGraph(), keepEdges);
       }
       Exception cause = errorInfo.getException();
       Preconditions.checkState(cause != null || !errorInfo.getCycleInfo().isEmpty(), errorInfo);
@@ -509,14 +516,14 @@ public final class SkyframeErrorProcessor {
     } else if (exception instanceof ActionConflictException) {
       ((ActionConflictException) exception).reportTo(eventHandler);
       analysisRootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    } else if (exception instanceof NoSuchPackageException) {
+    } else if (exception instanceof NoSuchThingException) {
       // This branch is only taken in --nokeep_going builds. In a --keep_going build, the
       // AnalysisFailedCause is properly reported through the ConfiguredValueCreationException.
       AnalysisFailedCause analysisFailedCause =
           new AnalysisFailedCause(
               topLevelLabel,
               configurationIdMessage(ctKey.getConfigurationKey()),
-              ((NoSuchPackageException) exception).getDetailedExitCode());
+              ((NoSuchThingException) exception).getDetailedExitCode());
       analysisRootCauses = NestedSetBuilder.create(Order.STABLE_ORDER, analysisFailedCause);
     } else if (exception instanceof TargetCompatibilityCheckException) {
       analysisRootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
@@ -593,11 +600,11 @@ public final class SkyframeErrorProcessor {
   /** Peel away the wrapper layers to get to the ActionLookupKey of the top level target. */
   private static SkyKey getEffectiveErrorKey(Entry<SkyKey, ErrorInfo> errorEntry) {
     if (errorEntry.getKey().argument() instanceof BuildDriverKey) {
-      return ((BuildDriverKey) errorEntry.getKey().argument()).getActionLookupKey().toKey();
+      return ((BuildDriverKey) errorEntry.getKey().argument()).getActionLookupKey();
     }
     // For exclusive tests.
     if (errorEntry.getKey().argument() instanceof TestCompletionKey) {
-      return ((TestCompletionKey) errorEntry.getKey().argument()).configuredTargetKey().toKey();
+      return ((TestCompletionKey) errorEntry.getKey().argument()).configuredTargetKey();
     }
     return errorEntry.getKey();
   }
@@ -662,7 +669,8 @@ public final class SkyframeErrorProcessor {
   }
 
   private static void assertValidAnalysisException(
-      ErrorInfo errorInfo, SkyKey key, WalkableGraph walkableGraph) throws InterruptedException {
+      ErrorInfo errorInfo, SkyKey key, WalkableGraph walkableGraph, boolean keepEdges)
+      throws InterruptedException {
     Throwable cause = errorInfo.getException();
     if (cause == null) {
       // Cycle.
@@ -674,11 +682,12 @@ public final class SkyframeErrorProcessor {
       return;
     }
 
-    logUnexpectedExceptionOrigin(errorInfo, key, walkableGraph, cause);
+    logUnexpectedExceptionOrigin(errorInfo, key, walkableGraph, cause, keepEdges);
   }
 
   private static void assertValidAnalysisOrExecutionException(
-      ErrorInfo errorInfo, SkyKey key, WalkableGraph walkableGraph) throws InterruptedException {
+      ErrorInfo errorInfo, SkyKey key, WalkableGraph walkableGraph, boolean keepEdges)
+      throws InterruptedException {
     Throwable cause = errorInfo.getException();
     if (cause == null) {
       // Cycle.
@@ -692,7 +701,7 @@ public final class SkyframeErrorProcessor {
       return;
     }
 
-    logUnexpectedExceptionOrigin(errorInfo, key, walkableGraph, cause);
+    logUnexpectedExceptionOrigin(errorInfo, key, walkableGraph, cause, keepEdges);
   }
 
   /**
@@ -700,8 +709,17 @@ public final class SkyframeErrorProcessor {
    * it.
    */
   private static void logUnexpectedExceptionOrigin(
-      ErrorInfo errorInfo, SkyKey key, WalkableGraph walkableGraph, Throwable cause)
+      ErrorInfo errorInfo,
+      SkyKey key,
+      WalkableGraph walkableGraph,
+      Throwable cause,
+      boolean keepEdges)
       throws InterruptedException {
+    if (!keepEdges) {
+      // Can't traverse the graph to find the origin.
+      logUnexpectedException(key, errorInfo, "direct deps not stored");
+      return;
+    }
     List<SkyKey> path = new ArrayList<>();
     try {
       SkyKey currentKey = key;
@@ -727,8 +745,12 @@ public final class SkyframeErrorProcessor {
         }
       } while (foundDep);
     } finally {
-      BugReport.logUnexpected("Unexpected analysis error: %s -> %s, (%s)", key, errorInfo, path);
+      logUnexpectedException(key, errorInfo, path);
     }
+  }
+
+  private static void logUnexpectedException(SkyKey key, ErrorInfo errorInfo, Object extraInfo) {
+    BugReport.logUnexpected("Unexpected analysis error: %s -> %s, (%s)", key, errorInfo, extraInfo);
   }
 
   @Nullable

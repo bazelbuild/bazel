@@ -62,7 +62,7 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
     Rule rule = scratchRule("a", "empty", "feature_flag_setter(name = 'empty', flag_values = {})");
     PatchTransition transition =
         new ConfigFeatureFlagTransitionFactory("flag_values")
-            .create(RuleTransitionData.create(rule));
+            .create(RuleTransitionData.create(rule, null, ""));
 
     BuildOptions original = getOptionsWithoutFlagFragment();
     BuildOptions converted =
@@ -88,7 +88,7 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
             "    default_value = 'a')");
     PatchTransition transition =
         new ConfigFeatureFlagTransitionFactory("flag_values")
-            .create(RuleTransitionData.create(rule));
+            .create(RuleTransitionData.create(rule, null, ""));
 
     BuildOptions original = getOptionsWithoutFlagFragment();
     BuildOptions converted =
@@ -104,7 +104,7 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
     Rule rule = scratchRule("a", "empty", "feature_flag_setter(name = 'empty', flag_values = {})");
     PatchTransition transition =
         new ConfigFeatureFlagTransitionFactory("flag_values")
-            .create(RuleTransitionData.create(rule));
+            .create(RuleTransitionData.create(rule, null, ""));
     Map<Label, String> originalFlagMap = ImmutableMap.of(Label.parseCanonical("//a:flag"), "value");
 
     BuildOptions original = getOptionsWithFlagFragment(originalFlagMap);
@@ -133,7 +133,7 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
             "    default_value = 'a')");
     PatchTransition transition =
         new ConfigFeatureFlagTransitionFactory("flag_values")
-            .create(RuleTransitionData.create(rule));
+            .create(RuleTransitionData.create(rule, null, ""));
     Map<Label, String> originalFlagMap = ImmutableMap.of(Label.parseCanonical("//a:old"), "value");
     Map<Label, String> expectedFlagMap = ImmutableMap.of(Label.parseCanonical("//a:flag"), "a");
 
@@ -201,34 +201,34 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
     new EqualsTester()
         .addEqualityGroup(
             // transition for non flags target
-            factory.create(RuleTransitionData.create(nonflag)), NoTransition.INSTANCE)
+            factory.create(RuleTransitionData.create(nonflag, null, "")), NoTransition.INSTANCE)
         .addEqualityGroup(
             // transition with empty map
-            factory.create(RuleTransitionData.create(empty)),
+            factory.create(RuleTransitionData.create(empty, null, "")),
             // transition produced by same factory on same rule
-            factory.create(RuleTransitionData.create(empty)),
+            factory.create(RuleTransitionData.create(empty, null, "")),
             // transition produced by similar factory on same rule
-            factory2.create(RuleTransitionData.create(empty)),
+            factory2.create(RuleTransitionData.create(empty, null, "")),
             // transition produced by same factory on similar rule
-            factory.create(RuleTransitionData.create(empty2)),
+            factory.create(RuleTransitionData.create(empty2, null, "")),
             // transition produced by similar factory on similar rule
-            factory2.create(RuleTransitionData.create(empty2)))
+            factory2.create(RuleTransitionData.create(empty2, null, "")))
         .addEqualityGroup(
             // transition with flag -> a
-            factory.create(RuleTransitionData.create(flagSetterA)),
+            factory.create(RuleTransitionData.create(flagSetterA, null, "")),
             // same map, different rule
-            factory.create(RuleTransitionData.create(flagSetterA2)),
+            factory.create(RuleTransitionData.create(flagSetterA2, null, "")),
             // same map, different factory
-            factory2.create(RuleTransitionData.create(flagSetterA)))
+            factory2.create(RuleTransitionData.create(flagSetterA, null, "")))
         .addEqualityGroup(
             // transition with flag set to different value
-            factory.create(RuleTransitionData.create(flagSetterB)))
+            factory.create(RuleTransitionData.create(flagSetterB, null, "")))
         .addEqualityGroup(
             // transition with different flag set to same value
-            factory.create(RuleTransitionData.create(flag2Setter)))
+            factory.create(RuleTransitionData.create(flag2Setter, null, "")))
         .addEqualityGroup(
             // transition with more flags set
-            factory.create(RuleTransitionData.create(bothSetter)))
+            factory.create(RuleTransitionData.create(bothSetter, null, "")))
         .testEquals();
   }
 

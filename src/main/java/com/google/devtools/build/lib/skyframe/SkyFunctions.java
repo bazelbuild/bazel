@@ -71,7 +71,7 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("TEST_SUITE_EXPANSION");
   static final SkyFunctionName TESTS_IN_SUITE = SkyFunctionName.createHermetic("TESTS_IN_SUITE");
   // Non-hermetic because accesses package locator
-  static final SkyFunctionName TARGET_PATTERN_PHASE =
+  public static final SkyFunctionName TARGET_PATTERN_PHASE =
       SkyFunctionName.createNonHermetic("TARGET_PATTERN_PHASE");
   static final SkyFunctionName PREPARE_ANALYSIS_PHASE =
       SkyFunctionName.createNonHermetic("PREPARE_ANALYSIS_PHASE");
@@ -141,6 +141,7 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("RESOLVED_HASH_VALUES");
   public static final SkyFunctionName MODULE_FILE =
       SkyFunctionName.createNonHermetic("MODULE_FILE");
+  public static final SkyFunctionName REPO_FILE = SkyFunctionName.createHermetic("REPO_FILE");
   public static final SkyFunctionName BUILD_DRIVER =
       SkyFunctionName.createNonHermetic("BUILD_DRIVER");
   public static final SkyFunctionName BAZEL_MODULE_RESOLUTION =

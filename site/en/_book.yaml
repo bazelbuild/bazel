@@ -130,6 +130,12 @@ upper_tabs:
         path: /external/registry
       - title: Module extensions
         path: /external/extension
+      - title: Module lockfile
+        path: /external/lockfile
+      - title: '`mod` command'
+        path: /external/mod-command
+      - title: Bzlmod migration guide
+        path: /external/migration
       - title: Advanced topics
         path: /external/advanced
       - heading: Querying your build

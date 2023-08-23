@@ -321,6 +321,16 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_aquery_test",
+    size = "large",
+    srcs = ["bazel_aquery_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "bazel_command_log_test",
     size = "medium",
     srcs = ["bazel_command_log_test.sh"],
@@ -358,6 +368,7 @@ sh_test(
     data = [
         ":rules_proto_stanza.txt",
         ":test-deps",
+        "//third_party/zlib",
         "@bazel_tools//tools/bash/runfiles",
     ],
 )
@@ -849,6 +860,20 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    tags = ["no_windows"],
+)
+
+sh_test(
+    name = "unicode_test",
+    srcs = ["unicode_test.sh"],
+    data = [
+        "unicode_test.bzl",
+        "unicode_test_BUILD",
+        "unicode_test_expected.txt",
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    # TODO(arostovtsev): figure out how to make this test Windows-compatible.
     tags = ["no_windows"],
 )
 

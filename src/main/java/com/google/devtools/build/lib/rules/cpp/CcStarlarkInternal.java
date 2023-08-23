@@ -50,6 +50,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
 
@@ -72,6 +73,20 @@ public class CcStarlarkInternal implements StarlarkValue {
     return Dict.cast(d, String.class, String.class, "tool_paths").entrySet().stream()
         .map(p -> Pair.of(p.getKey(), PathFragment.create(p.getValue())))
         .collect(toImmutableMap(Pair::getFirst, Pair::getSecond));
+  }
+
+  @StarlarkMethod(
+      name = "construct_cc_toolchain_attributes_info",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "is_apple", positional = false, named = true),
+        @Param(name = "build_vars_func", positional = false, named = true),
+      })
+  public CcToolchainAttributesProvider constructCcToolchainAttributesInfo(
+      StarlarkRuleContext ruleContext, boolean isApple, Object buildVarsFunc) throws EvalException {
+    return new CcToolchainAttributesProvider(
+        ruleContext.getRuleContext(), isApple, (StarlarkFunction) buildVarsFunc);
   }
 
   @StarlarkMethod(
@@ -343,7 +358,12 @@ public class CcStarlarkInternal implements StarlarkValue {
       parameters = {@Param(name = "ctx", positional = false, named = true)})
   public boolean isPackageHeadersCheckingModeSetForStarlark(
       StarlarkRuleContext starlarkRuleContext) {
-    return starlarkRuleContext.getRuleContext().getRule().getPackage().isDefaultHdrsCheckSet();
+    return starlarkRuleContext
+        .getRuleContext()
+        .getRule()
+        .getPackage()
+        .getPackageArgs()
+        .isDefaultHdrsCheckSet();
   }
 
   @StarlarkMethod(
@@ -351,7 +371,12 @@ public class CcStarlarkInternal implements StarlarkValue {
       documented = false,
       parameters = {@Param(name = "ctx", positional = false, named = true)})
   public String getPackageHeadersCheckingModeForStarlark(StarlarkRuleContext starlarkRuleContext) {
-    return starlarkRuleContext.getRuleContext().getRule().getPackage().getDefaultHdrsCheck();
+    return starlarkRuleContext
+        .getRuleContext()
+        .getRule()
+        .getPackage()
+        .getPackageArgs()
+        .getDefaultHdrsCheck();
   }
 
   @StarlarkMethod(
@@ -360,7 +385,12 @@ public class CcStarlarkInternal implements StarlarkValue {
       parameters = {@Param(name = "ctx", positional = false, named = true)})
   public boolean isPackageHeadersCheckingModeSetForStarlarkAspect(
       StarlarkRuleContext starlarkRuleContext) {
-    return starlarkRuleContext.getRuleContext().getTarget().getPackage().isDefaultHdrsCheckSet();
+    return starlarkRuleContext
+        .getRuleContext()
+        .getTarget()
+        .getPackage()
+        .getPackageArgs()
+        .isDefaultHdrsCheckSet();
   }
 
   @StarlarkMethod(
@@ -369,7 +399,12 @@ public class CcStarlarkInternal implements StarlarkValue {
       parameters = {@Param(name = "ctx", positional = false, named = true)})
   public String getPackageHeadersCheckingModeForStarlarkAspect(
       StarlarkRuleContext starlarkRuleContext) {
-    return starlarkRuleContext.getRuleContext().getTarget().getPackage().getDefaultHdrsCheck();
+    return starlarkRuleContext
+        .getRuleContext()
+        .getTarget()
+        .getPackage()
+        .getPackageArgs()
+        .getDefaultHdrsCheck();
   }
 
   @StarlarkMethod(
@@ -418,7 +453,9 @@ public class CcStarlarkInternal implements StarlarkValue {
       implements NativeComputedDefaultApi {
     @Override
     public Object getDefault(AttributeMap rule) {
-      return rule.isPackageDefaultHdrsCheckSet() ? rule.getPackageDefaultHdrsCheck() : "";
+      return rule.getPackageArgs().isDefaultHdrsCheckSet()
+          ? rule.getPackageArgs().getDefaultHdrsCheck()
+          : "";
     }
 
     @Override
@@ -430,36 +467,6 @@ public class CcStarlarkInternal implements StarlarkValue {
   @StarlarkMethod(name = "default_hdrs_check_computed_default", documented = false)
   public ComputedDefault getDefaultHdrsCheckComputedDefault() {
     return new DefaultHdrsCheckBuiltinComputedDefault();
-  }
-
-  static class DefParserComputedDefault extends ComputedDefault
-      implements NativeComputedDefaultApi {
-    @Override
-    @Nullable
-    public Object getDefault(AttributeMap rule) {
-      // Every cc_rule depends implicitly on the def_parser tool.
-      // The only exceptions are the rules for building def_parser itself.
-      // To avoid cycles in the dependency graph, return null for rules under
-      // @bazel_tools//third_party/def_parser and @bazel_tools//tools/cpp
-      String label = rule.getLabel().toString();
-      return label.startsWith("@bazel_tools//third_party/def_parser")
-              // @bazel_tools//tools/cpp:malloc and @bazel_tools//tools/cpp:stl
-              // are implicit dependencies of all cc rules,
-              // thus a dependency of the def_parser.
-              || label.startsWith("@bazel_tools//tools/cpp")
-          ? null
-          : Label.parseCanonicalUnchecked("@bazel_tools//tools/def_parser:def_parser");
-    }
-
-    @Override
-    public boolean resolvableWithRawAttributes() {
-      return true;
-    }
-  }
-
-  @StarlarkMethod(name = "def_parser_computed_default", documented = false)
-  public ComputedDefault getDefParserComputedDefault() {
-    return new DefParserComputedDefault();
   }
 
   /**

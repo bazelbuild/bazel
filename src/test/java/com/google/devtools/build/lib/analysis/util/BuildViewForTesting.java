@@ -13,9 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.util;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.devtools.build.lib.skyframe.PrerequisiteProducer.getDependencyContext;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Collections2;
@@ -34,46 +32,31 @@ import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
-import com.google.devtools.build.lib.analysis.AnalysisUtils;
-import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
-import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
-import com.google.devtools.build.lib.analysis.DependencyKey;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.DependencyKind;
-import com.google.devtools.build.lib.analysis.DependencyResolver;
-import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyLabels;
-import com.google.devtools.build.lib.analysis.DuplicateException;
+import com.google.devtools.build.lib.analysis.DependencyResolutionHelpers;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
-import com.google.devtools.build.lib.analysis.PartiallyResolvedDependency;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
-import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
-import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
-import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
-import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
-import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
-import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
-import com.google.devtools.build.lib.analysis.producers.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.bugreport.BugReporter;
-import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -82,23 +65,20 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
-import com.google.devtools.build.lib.packages.RawAttributeMapper;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
-import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.ReportedException;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.UnreportedException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
-import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
-import com.google.devtools.build.lib.skyframe.PrerequisiteProducer;
+import com.google.devtools.build.lib.skyframe.DependencyResolver;
 import com.google.devtools.build.lib.skyframe.SkyFunctionEnvironmentForTesting;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
@@ -107,18 +87,16 @@ import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
+import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.Version;
-import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.Collection;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
-import javax.annotation.Nullable;
 import net.starlark.java.eval.Mutability;
 
 /**
@@ -134,6 +112,26 @@ public class BuildViewForTesting {
   private final ConfiguredRuleClassProvider ruleClassProvider;
 
   private ImmutableMap<ActionLookupKey, Version> currentActionLookupKeys = ImmutableMap.of();
+
+  /**
+   * Tracks keys that mismatched at a previous diff computation.
+   *
+   * <p>{@link #populateActionLookupKeyMapAndGetDiff} scans the entire graph and computes a diff
+   * against the previous {@link #currentActionLookupKeys} value. For this to be consistent with
+   * {@link SkyframeExecutor#getEvaluatedCounts} it needs to filter out {@link
+   * SkyFunctions#CONFIGURED_TARGET} nodes that do not own the underlying {@link
+   * ConfiguredTargetValue}s. The owners have {@link ConfiguredTargetKey#getConfigurationKey} values
+   * matching the {@link ConfiguredTarget#getConfigurationKey} values.
+   *
+   * <p>The problem is that the Skyframe graph may contain entries that are not done at the time of
+   * graph inspection. This may occur when there's an incremental evaluation that doesn't require a
+   * previously computed value.
+   *
+   * <p>If the {@link ConfiguredTargetValue} is unavailable and can't be compared, the diff still
+   * needs to decide whether to skip it. If it was skipped previously, it needs to be skipped again.
+   * Otherwise it'll show up as a newly evaluated node.
+   */
+  private ImmutableSet<ConfiguredTargetKey> previousProxyNodeKeys = ImmutableSet.of();
 
   public BuildViewForTesting(
       BlazeDirectories directories,
@@ -161,10 +159,49 @@ public class BuildViewForTesting {
   }
 
   private Set<ActionLookupKey> populateActionLookupKeyMapAndGetDiff() {
+    InMemoryGraph graph = skyframeExecutor.getEvaluator().getInMemoryGraph();
+    var proxyNodeKeys = ImmutableSet.<ConfiguredTargetKey>builder();
     ImmutableMap<ActionLookupKey, Version> newMap =
-        skyframeExecutor.getEvaluator().getInMemoryGraph().getAllNodeEntries().stream()
-            .filter(e -> e.getKey() instanceof ActionLookupKey)
+        graph.getAllNodeEntries().stream()
+            .filter(
+                entry -> {
+                  SkyKey key = entry.getKey();
+                  if (!(key instanceof ActionLookupKey)) {
+                    return false;
+                  }
+                  if (!key.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
+                    return true;
+                  }
+
+                  var ctKey = (ConfiguredTargetKey) key;
+
+                  if (!entry.isDone()) {
+                    if (previousProxyNodeKeys.contains(ctKey)) {
+                      // The node is dirty and was a proxy previously. Filters the entry as long as
+                      // it remains not done.
+                      proxyNodeKeys.add(ctKey);
+                      return false;
+                    }
+                    return true;
+                  }
+
+                  var value = (ConfiguredTargetValue) entry.getValue();
+                  if (value == null) {
+                    // The node has an error. No filtering is applied in this case.
+                    return true;
+                  }
+                  if (!Objects.equals(
+                      ctKey.getConfigurationKey(),
+                      value.getConfiguredTarget().getConfigurationKey())) {
+                    // The configurations are not equal so the node is only performing delegation
+                    // and doesn't own the configured target.
+                    proxyNodeKeys.add(ctKey);
+                    return false;
+                  }
+                  return true;
+                })
             .collect(toImmutableMap(e -> (ActionLookupKey) e.getKey(), NodeEntry::getVersion));
+    previousProxyNodeKeys = proxyNodeKeys.build();
     MapDifference<ActionLookupKey, Version> difference =
         Maps.difference(newMap, currentActionLookupKeys);
     currentActionLookupKeys = newMap;
@@ -221,31 +258,22 @@ public class BuildViewForTesting {
   /** Sets the configuration. Not thread-safe. */
   public void setConfigurationForTesting(
       EventHandler eventHandler, BuildConfigurationValue configuration) {
-    skyframeBuildView.setConfiguration(eventHandler, configuration, /* maxDifferencesToShow= */ -1);
+    try {
+      skyframeBuildView.setConfiguration(
+          eventHandler,
+          configuration,
+          /* maxDifferencesToShow= */ -1, /* allowAnalysisCacheDiscards */
+          true);
+    } catch (InvalidConfigurationException e) {
+      throw new UnsupportedOperationException(
+          "InvalidConfigurationException was thrown and caught during a test, "
+              + "this case is not yet handled",
+          e);
+    }
   }
 
   public ArtifactFactory getArtifactFactory() {
     return skyframeBuildView.getArtifactFactory();
-  }
-
-  /**
-   * Gets a configuration for the given target.
-   *
-   * <p>Unconditionally includes all fragments.
-   */
-  public BuildConfigurationValue getConfigurationForTesting(
-      Target target, BuildConfigurationValue config, ExtendedEventHandler eventHandler)
-      throws InvalidConfigurationException, InterruptedException {
-    List<TargetAndConfiguration> node =
-        ImmutableList.of(new TargetAndConfiguration(target, config));
-    Collection<TargetAndConfiguration> configs =
-        ConfigurationResolver.getConfigurationsFromExecutor(
-                node,
-                AnalysisUtils.targetsToDeps(new LinkedHashSet<>(node), ruleClassProvider),
-                eventHandler,
-                skyframeExecutor)
-            .getTargetsAndConfigs();
-    return configs.iterator().next().getConfiguration();
   }
 
   /**
@@ -259,7 +287,7 @@ public class BuildViewForTesting {
   public Collection<ConfiguredTarget> getDirectPrerequisitesForTesting(
       ExtendedEventHandler eventHandler, ConfiguredTarget ct)
       throws InterruptedException,
-          DependencyResolver.Failure,
+          DependencyResolutionHelpers.Failure,
           InvalidConfigurationException,
           InconsistentAspectOrderException,
           StarlarkTransition.TransitionException {
@@ -272,153 +300,14 @@ public class BuildViewForTesting {
       getConfiguredTargetAndDataDirectPrerequisitesForTesting(
           ExtendedEventHandler eventHandler, ConfiguredTarget configuredTarget)
           throws InterruptedException,
-              DependencyResolver.Failure,
+              DependencyResolutionHelpers.Failure,
               InvalidConfigurationException,
               InconsistentAspectOrderException,
               StarlarkTransition.TransitionException {
-    PrerequisiteProducer.State state = prepareDependencyContext(eventHandler, configuredTarget);
-    ToolchainCollection<UnloadedToolchainContext> unloadedToolchainCollection =
-        state.dependencyContext.unloadedToolchainContexts();
-    return getPrerequisiteMapForTesting(
-            eventHandler,
-            configuredTarget,
-            // Cast is safe because prepareDependencyContext always populates this with a Rule.
-            (Rule) state.targetAndConfiguration.getTarget(),
-            unloadedToolchainCollection.asToolchainContexts())
-        .values();
-  }
-
-  // Helper method to find the aspects needed for a target and merge them.
-  protected static ConfiguredTargetAndData mergeAspects(
-      WalkableGraph graph, ConfiguredTargetAndData ctd, @Nullable DependencyKey dependencyKey) {
-    if (dependencyKey == null || dependencyKey.getAspects().getUsedAspects().isEmpty()) {
-      return ctd;
-    }
-
-    ConfiguredTargetKey ctKey =
-        ConfiguredTargetKey.builder()
-            .setLabel(dependencyKey.getLabel())
-            .setConfiguration(ctd.getConfiguration())
-            .build();
-    List<SkyKey> aspectKeys =
-        dependencyKey.getAspects().getUsedAspects().stream()
-            .map(aspect -> AspectKeyCreator.createAspectKey(aspect.getAspect(), ctKey))
-            .collect(toImmutableList());
-
-    try {
-      ImmutableList<ConfiguredAspect> configuredAspects =
-          graph.getSuccessfulValues(aspectKeys).values().stream()
-              .map(value -> (AspectValue) value)
-              .map(AspectValue::getConfiguredAspect)
-              .collect(toImmutableList());
-
-      return ctd.fromConfiguredTarget(
-          MergedConfiguredTarget.of(ctd.getConfiguredTarget(), configuredAspects));
-    } catch (InterruptedException | DuplicateException e) {
-      throw new IllegalStateException("Unexpected exception while finding prerequisites", e);
-    }
-  }
-
-  public OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency>
-      getDirectPrerequisiteDependenciesForTesting(
-          final ExtendedEventHandler eventHandler,
-          final ConfiguredTarget ct,
-          @Nullable ToolchainCollection<ToolchainContext> toolchainContexts)
-          throws DependencyResolver.Failure,
-              InterruptedException,
-              InconsistentAspectOrderException,
-              StarlarkTransition.TransitionException,
-              InvalidConfigurationException {
-    Target target;
-    try {
-      target = skyframeExecutor.getPackageManager().getTarget(eventHandler, ct.getLabel());
-    } catch (NoSuchPackageException | NoSuchTargetException | InterruptedException e) {
-      eventHandler.handle(
-          Event.error("Failed to get target from package during prerequisite analysis." + e));
-      return OrderedSetMultimap.create();
-    }
-
-    if (!(target instanceof Rule)) {
-      return OrderedSetMultimap.create();
-    }
-
-    BuildConfigurationValue configuration =
-        skyframeExecutor.getConfiguration(eventHandler, ct.getConfigurationKey());
-    TargetAndConfiguration ctgNode = new TargetAndConfiguration(target, configuration);
-
-    DependencyLabels dependencyLabels =
-        DependencyResolver.computeDependencyLabels(
-            ctgNode,
-            /* aspects= */ ImmutableList.of(),
-            getConfigurableAttributeKeysForTesting(
-                eventHandler,
-                ctgNode,
-                toolchainContexts == null ? null : toolchainContexts.getTargetPlatform()),
-            toolchainContexts);
-    return DependencyResolver.partiallyResolveDependencies(
-        dependencyLabels.labels(),
-        target.getAssociatedRule(),
-        dependencyLabels.attributeMap(),
-        toolchainContexts,
-        /* aspects= */ ImmutableList.of());
-  }
-
-  /**
-   * Returns ConfigMatchingProvider instances corresponding to the configurable attribute keys
-   * present in this rule's attributes.
-   */
-  private ImmutableMap<Label, ConfigMatchingProvider> getConfigurableAttributeKeysForTesting(
-      ExtendedEventHandler eventHandler,
-      TargetAndConfiguration ctg,
-      @Nullable PlatformInfo platformInfo)
-      throws StarlarkTransition.TransitionException, InvalidConfigurationException,
-          InterruptedException {
-    if (!(ctg.getTarget() instanceof Rule)) {
-      return ImmutableMap.of();
-    }
-    Rule rule = (Rule) ctg.getTarget();
-    Map<Label, ConfigMatchingProvider> keys = new LinkedHashMap<>();
-    RawAttributeMapper mapper = RawAttributeMapper.of(rule);
-    for (Attribute attribute : rule.getAttributes()) {
-      for (Label label : mapper.getConfigurabilityKeys(attribute.getName(), attribute.getType())) {
-        if (BuildType.Selector.isDefaultConditionLabel(label)) {
-          continue;
-        }
-        ConfiguredTarget ct =
-            getConfiguredTargetForTesting(eventHandler, label, ctg.getConfiguration());
-        ConfigMatchingProvider matchProvider = ct.getProvider(ConfigMatchingProvider.class);
-        ConstraintValueInfo constraintValueInfo = ct.get(ConstraintValueInfo.PROVIDER);
-        if (matchProvider != null) {
-          keys.put(label, matchProvider);
-        } else if (constraintValueInfo != null && platformInfo != null) {
-          keys.put(label, constraintValueInfo.configMatchingProvider(platformInfo));
-        } else {
-          throw new InvalidConfigurationException(
-              String.format("%s isn't a valid select() condition", label));
-        }
-      }
-    }
-    return ImmutableMap.copyOf(keys);
-  }
-
-  private OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> getPrerequisiteMapForTesting(
-      final ExtendedEventHandler eventHandler,
-      ConfiguredTarget target,
-      @Nullable Rule associatedRule,
-      @Nullable ToolchainCollection<ToolchainContext> toolchainContexts)
-      throws DependencyResolver.Failure,
-          InvalidConfigurationException,
-          InterruptedException,
-          InconsistentAspectOrderException,
-          StarlarkTransition.TransitionException {
-    OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> depNodeNames =
-        getDirectPrerequisiteDependenciesForTesting(eventHandler, target, toolchainContexts);
-
-    return skyframeExecutor.getConfiguredTargetMapForTesting(
-        eventHandler,
-        ConfiguredTargetKey.fromConfiguredTarget(target),
-        associatedRule,
-        depNodeNames);
+    DependencyResolver.State state =
+        initializeDependencyResolverState(eventHandler, configuredTarget);
+    DependencyResolver producer = runDependencyResolver(eventHandler, configuredTarget, state);
+    return producer.getDepValueMap().values();
   }
 
   /**
@@ -445,7 +334,7 @@ public class BuildViewForTesting {
    */
   public RuleContext getRuleContextForTesting(
       ConfiguredTarget target, StoredEventHandler eventHandler)
-      throws DependencyResolver.Failure,
+      throws DependencyResolutionHelpers.Failure,
           InvalidConfigurationException,
           InterruptedException,
           InconsistentAspectOrderException,
@@ -481,29 +370,25 @@ public class BuildViewForTesting {
    */
   public RuleContext getRuleContextForTesting(
       ExtendedEventHandler eventHandler, ConfiguredTarget configuredTarget, AnalysisEnvironment env)
-      throws DependencyResolver.Failure,
+      throws DependencyResolutionHelpers.Failure,
           InvalidConfigurationException,
           InterruptedException,
           InconsistentAspectOrderException,
           ToolchainException,
           StarlarkTransition.TransitionException,
           InvalidExecGroupException {
-    PrerequisiteProducer.State state = prepareDependencyContext(eventHandler, configuredTarget);
-
-    TargetAndConfiguration targetAndConfiguration = state.targetAndConfiguration;
-    Target target = targetAndConfiguration.getTarget();
-    BuildConfigurationValue configuration = targetAndConfiguration.getConfiguration();
-    ToolchainCollection<UnloadedToolchainContext> unloadedToolchainCollection =
-        state.dependencyContext.unloadedToolchainContexts();
+    DependencyResolver.State state =
+        initializeDependencyResolverState(eventHandler, configuredTarget);
+    DependencyResolver producer = runDependencyResolver(eventHandler, configuredTarget, state);
 
     OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap =
-        getPrerequisiteMapForTesting(
-            eventHandler,
-            configuredTarget,
-            // Cast is safe because prepareDependencyContext always populates this with a Rule.
-            (Rule) target,
-            unloadedToolchainCollection.asToolchainContexts());
+        producer.getDepValueMap();
+
+    Target target = state.targetAndConfiguration.getTarget();
     String targetDescription = target.toString();
+
+    ToolchainCollection<UnloadedToolchainContext> unloadedToolchainCollection =
+        producer.getUnloadedToolchainContexts();
 
     ToolchainCollection.Builder<ResolvedToolchainContext> resolvedToolchainContext =
         ToolchainCollection.builder();
@@ -519,7 +404,11 @@ public class BuildViewForTesting {
       resolvedToolchainContext.addContext(unloadedToolchainContext.getKey(), toolchainContext);
     }
 
-    return new RuleContext.Builder(env, target, /* aspects= */ ImmutableList.of(), configuration)
+    return new RuleContext.Builder(
+            env,
+            target,
+            /* aspects= */ ImmutableList.of(),
+            state.targetAndConfiguration.getConfiguration())
         .setRuleClassProvider(ruleClassProvider)
         .setConfigurationFragmentPolicy(
             target.getAssociatedRule().getRuleClassObject().getConfigurationFragmentPolicy())
@@ -536,7 +425,30 @@ public class BuildViewForTesting {
         .unsafeBuild();
   }
 
-  private PrerequisiteProducer.State prepareDependencyContext(
+  private DependencyResolver runDependencyResolver(
+      ExtendedEventHandler eventHandler,
+      ConfiguredTarget configuredTarget,
+      DependencyResolver.State state)
+      throws InterruptedException {
+    DependencyResolver producer = new DependencyResolver(state.targetAndConfiguration);
+    try {
+      if (!producer.evaluate(
+          state,
+          ConfiguredTargetKey.fromConfiguredTarget(configuredTarget),
+          ruleClassProvider,
+          skyframeBuildView.getStarlarkTransitionCache(),
+          /* semaphoreLocker= */ () -> {},
+          new SkyFunctionEnvironmentForTesting(eventHandler, skyframeExecutor),
+          eventHandler)) {
+        throw new IllegalStateException(configuredTarget + " should be already evaluated");
+      }
+    } catch (ReportedException | UnreportedException | IncompatibleTargetException e) {
+      throw new IllegalStateException(e); // Should not be possible for done ConfiguredTarget.
+    }
+    return producer;
+  }
+
+  private DependencyResolver.State initializeDependencyResolverState(
       ExtendedEventHandler eventHandler, ConfiguredTarget configuredTarget)
       throws InterruptedException {
     // In production, the TargetAndConfiguration value is based on final configuration of the
@@ -552,34 +464,8 @@ public class BuildViewForTesting {
           Event.error("Failed to get target when trying to get rule context for testing"));
       throw new IllegalStateException(e);
     }
-
-    SkyFunctionEnvironmentForTesting skyfunctionEnvironment =
-        new SkyFunctionEnvironmentForTesting(eventHandler, skyframeExecutor);
-    var state = new PrerequisiteProducer.State();
-    state.targetAndConfiguration =
-        new TargetAndConfiguration(target.getAssociatedRule(), configuration);
-    NestedSetBuilder<Cause> transitiveRootCauses = NestedSetBuilder.stableOrder();
-
-    try {
-      // Callers read this value from `state`.
-      var unused =
-          getDependencyContext(
-              state,
-              ConfiguredTargetKey.fromConfiguredTarget(configuredTarget),
-              ruleClassProvider,
-              TransitiveDependencyState.createForTesting(
-                  transitiveRootCauses, /* transitivePackages= */ null),
-              skyfunctionEnvironment);
-    } catch (ConfiguredValueCreationException
-        | IncompatibleTargetException
-        | ToolchainException
-        | DependencyEvaluationException e) {
-      throw new IllegalStateException(e);
-    }
-    if (!transitiveRootCauses.isEmpty()) {
-      throw new IllegalStateException("expected empty: " + transitiveRootCauses.build().toList());
-    }
-    return state;
+    return DependencyResolver.State.createForTesting(
+        new TargetAndConfiguration(target.getAssociatedRule(), configuration));
   }
 
   /** Clears the analysis cache as in --discard_analysis_cache. */

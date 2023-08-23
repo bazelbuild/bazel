@@ -38,8 +38,8 @@ repository.
 
 ## Lifecycle of an Issue {:#lifecycle-issue}
 
-1. A user creates an issue using the [Issue
-   Template](https://github.com/bazelbuild/bazel/blob/master/ISSUE_TEMPLATE.md){: .external}
+1. A user creates an issue by choosing one of the
+[issue templates](https://github.com/bazelbuild/bazel/issues/new/choose){: .external}
    and it enters the pool of [unreviewed open
    issues](https://github.com/bazelbuild/bazel/issues?utf8=%E2%9C%93&q=is%3Aissue+is%3Aopen+-label%3Auntriaged+-label%3Ap2+-label%3Ap1+-label%3Ap3+-label%3Ap4+-label%3Ateam-Starlark+-label%3Ateam-Rules-CPP+-label%3Ateam-Rules-Java+-label%3Ateam-XProduct+-label%3Ateam-Android+-label%3Ateam-Apple+-label%3Ateam-Configurability++-label%3Ateam-Performance+-label%3Ateam-Rules-Server+-label%3Ateam-Core+-label%3Ateam-Rules-Python+-label%3Ateam-Remote-Exec+-label%3Ateam-Local-Exec+-label%3Ateam-Bazel){: .external}.
 1. A member on the Developer Experience (DevEx) subteam rotation reviews the
@@ -55,8 +55,9 @@ repository.
       to the correct repository.
    1. If the issue is vague or has missing information, the DevEx member will
       assign the issue back to the user to request for more information before
-      continuing. This usually occurs when the user does not follow the [Issue
-      Template](https://github.com/bazelbuild/bazel/blob/master/ISSUE_TEMPLATE.md){: .external}.
+      continuing. This usually occurs when the user does not choose the right
+      [issue template](https://github.com/bazelbuild/bazel/issues/new/choose)
+      {: .external} or provides incomplete information.
 1. After reviewing the issue, the DevEx member decides if the issue requires
    immediate attention. If it does, they will assign the **P0**
    [priority](#priority) label and an owner from the list of team leads.
@@ -69,7 +70,7 @@ repository.
 1. If the issue is low priority and can be worked on by a new community
    contributor, the DevEx member assigns the `good first issue` label.
 At this stage, the issue enters the pool of [untriaged open
-issues](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+is%3Aopen+label%3Auntriaged){: .external}.
+issues](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+is%3Aopen+label%3Auntriaged).
 
 Each Bazel subteam will triage all issues under labels they own, preferably on a
 weekly basis. The subteam will review and evaluate the issue and provide a
@@ -195,7 +196,7 @@ issues.
     * Contact: [coeuvre](https://github.com/coeuvre){: .external}
 *   [`team-Rules-API`](https://github.com/bazelbuild/bazel/labels/team-Rules-API){: .external}: API for writing rules/aspects: providers, runfiles, actions, artifacts
     * Contact: [comius](https://github.com/comius){: .external}
-*   [`team-Rules-CPP`](https://github.com/bazelbuild/bazel/labels/team-Rules-CPP){: .external}: Issues for C++ rules, including native Apple rule logic
+*   [`team-Rules-CPP`](https://github.com/bazelbuild/bazel/labels/team-Rules-CPP){: .external} / [`team-Rules-ObjC`](https://github.com/bazelbuild/bazel/labels/team-Rules-ObjC){: .external}: Issues for C++/Objective-C rules, including native Apple rule logic
     * Contact: [oquenchil](https://github.com/oquenchil){: .external}
 *   [`team-Rules-Java`](https://github.com/bazelbuild/bazel/labels/team-Rules-Java){: .external}: Issues for Java rules
     * Contact: [hvadehra](https://github.com/hvadehra){: .external}

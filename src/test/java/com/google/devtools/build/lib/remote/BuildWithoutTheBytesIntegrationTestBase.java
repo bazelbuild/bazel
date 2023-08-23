@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.writeContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assume.assumeFalse;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -55,9 +57,16 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
   protected abstract boolean hasAccessToRemoteOutputs();
 
+  protected abstract void injectFile(byte[] content);
+
   protected void waitDownloads() throws Exception {
     // Trigger afterCommand of modules so that downloads are waited.
     runtimeWrapper.newCommand();
+  }
+
+  // TODO(b/281655526) incompatible with Skymeld.
+  protected void setIncompatibleWithSkymeld() {
+    addOptions("--noexperimental_merged_skyframe_analysis_execution");
   }
 
   @Test
@@ -340,19 +349,12 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
-  public void symlinkToSourceFile() throws Exception {
+  public void localAction_inputSymlinkToSourceFile() throws Exception {
     write(
         "a/defs.bzl",
         "def _impl(ctx):",
-        "  if ctx.attr.chain_length < 1:",
-        "    fail('chain_length must be > 0')",
-        "",
-        "  file = ctx.file.target",
-        "",
-        "  for i in range(ctx.attr.chain_length):",
-        "    sym = ctx.actions.declare_file(ctx.label.name + '.sym' + str(i))",
-        "    ctx.actions.symlink(output = sym, target_file = file)",
-        "    file = sym",
+        "  sym = ctx.actions.declare_file(ctx.label.name + '.sym')",
+        "  ctx.actions.symlink(output = sym, target_file = ctx.file.target)",
         "",
         "  out = ctx.actions.declare_file(ctx.label.name + '.out')",
         "  ctx.actions.run_shell(",
@@ -360,7 +362,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         "    outputs = [out],",
         "    command = '[[ hello == $(cat $1) ]] && touch $2',",
         "    arguments = [sym.path, out.path],",
-        "    execution_requirements = {'no-remote': ''} if ctx.attr.local else {},",
+        "    execution_requirements = {'no-remote': ''},",
         "  )",
         "",
         "  return DefaultInfo(files = depset([out]))",
@@ -369,23 +371,157 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         "  implementation = _impl,",
         "  attrs = {",
         "    'target': attr.label(allow_single_file = True),",
-        "    'chain_length': attr.int(),",
-        "    'local': attr.bool(),",
         "  },",
         ")");
 
-    write(
-        "a/BUILD",
-        "load(':defs.bzl', 'my_rule')",
-        "",
-        "my_rule(name = 'one_local', target = 'src.txt', local = True, chain_length = 1)",
-        "my_rule(name = 'two_local', target = 'src.txt', local = True, chain_length = 2)",
-        "my_rule(name = 'one_remote', target = 'src.txt', local = False, chain_length = 1)",
-        "my_rule(name = 'two_remote', target = 'src.txt', local = False, chain_length = 2)");
+    write("a/BUILD", "load(':defs.bzl', 'my_rule')", "my_rule(name = 'my', target = 'src.txt')");
 
     write("a/src.txt", "hello");
 
-    buildTarget("//a:one_local", "//a:two_local", "//a:one_remote", "//a:two_remote");
+    buildTarget("//a:my");
+  }
+
+  @Test
+  public void localAction_inputSymlinkToGeneratedFile() throws Exception {
+    injectFile("hello".getBytes(UTF_8));
+    write(
+        "a/defs.bzl",
+        "def _impl(ctx):",
+        "  file = ctx.actions.declare_file(ctx.label.name + '.file')",
+        // Use ctx.actions.run_shell instead of ctx.actions.write, so that it runs remotely.
+        "  ctx.actions.run_shell(",
+        "    outputs = [file],",
+        "    command = 'echo -n hello > $1',",
+        "    arguments = [file.path],",
+        "  )",
+        "",
+        "  sym = ctx.actions.declare_file(ctx.label.name + '.sym')",
+        "  ctx.actions.symlink(output = sym, target_file = file)",
+        "",
+        "  out = ctx.actions.declare_file(ctx.label.name + '.out')",
+        "  ctx.actions.run_shell(",
+        "    inputs = [sym],",
+        "    outputs = [out],",
+        "    command = '[[ hello == $(cat $1) ]] && touch $2',",
+        "    arguments = [sym.path, out.path],",
+        "    execution_requirements = {'no-remote': ''},",
+        "  )",
+        "",
+        "  return DefaultInfo(files = depset([out]))",
+        "",
+        "my_rule = rule(_impl)");
+
+    write("a/BUILD", "load(':defs.bzl', 'my_rule')", "my_rule(name = 'my')");
+
+    buildTarget("//a:my");
+  }
+
+  @Test
+  public void localAction_inputSymlinkToDirectory() throws Exception {
+    injectFile("hello".getBytes(UTF_8));
+    write(
+        "a/defs.bzl",
+        "def _impl(ctx):",
+        "  dir = ctx.actions.declare_directory(ctx.label.name + '.dir')",
+        "  ctx.actions.run_shell(",
+        "    outputs = [dir],",
+        "    command = 'mkdir -p $1/some/path && echo -n hello > $1/some/path/inside.txt',",
+        "    arguments = [dir.path],",
+        "  )",
+        "",
+        "  sym = ctx.actions.declare_directory(ctx.label.name + '.sym')",
+        "  ctx.actions.symlink(output = sym, target_file = dir)",
+        "",
+        "  out = ctx.actions.declare_file(ctx.label.name + '.out')",
+        "  ctx.actions.run_shell(",
+        "    inputs = [sym],",
+        "    outputs = [out],",
+        "    command = '[[ hello == $(cat $1/some/path/inside.txt) ]] && touch $2',",
+        "    arguments = [sym.path, out.path],",
+        "    execution_requirements = {'no-remote': ''},",
+        "  )",
+        "",
+        "  return DefaultInfo(files = depset([out]))",
+        "",
+        "my_rule = rule(_impl)");
+
+    write("a/BUILD", "load(':defs.bzl', 'my_rule')", "my_rule(name = 'my')");
+
+    buildTarget("//a:my");
+  }
+
+  @Test
+  public void localAction_inputSymlinkToNestedFile() throws Exception {
+    injectFile("hello".getBytes(UTF_8));
+    addOptions("--noincompatible_strict_conflict_checks");
+
+    write(
+        "a/defs.bzl",
+        "def _impl(ctx):",
+        "  dir = ctx.actions.declare_directory(ctx.label.name + '.dir')",
+        "  file = ctx.actions.declare_file(ctx.label.name + '.dir/some/path/inside.txt')",
+        "  ctx.actions.run_shell(",
+        "    outputs = [dir, file],",
+        "    command = 'mkdir -p $1/some/path && echo -n hello > $1/some/path/inside.txt',",
+        "    arguments = [dir.path],",
+        "  )",
+        "",
+        "  sym = ctx.actions.declare_file(ctx.label.name + '.sym')",
+        "  ctx.actions.symlink(output = sym, target_file = file)",
+        "",
+        "  out = ctx.actions.declare_file(ctx.label.name + '.out')",
+        "  ctx.actions.run_shell(",
+        "    inputs = [sym],",
+        "    outputs = [out],",
+        "    command = '[[ hello == $(cat $1) ]] && touch $2',",
+        "    arguments = [sym.path, out.path],",
+        "    execution_requirements = {'no-remote': ''},",
+        "  )",
+        "",
+        "  return DefaultInfo(files = depset([out]))",
+        "",
+        "my_rule = rule(_impl)");
+
+    write("a/BUILD", "load(':defs.bzl', 'my_rule')", "my_rule(name = 'my')");
+
+    buildTarget("//a:my");
+  }
+
+  @Test
+  public void localAction_inputSymlinkToNestedDirectory() throws Exception {
+    injectFile("hello".getBytes(UTF_8));
+    addOptions("--noincompatible_strict_conflict_checks");
+
+    write(
+        "a/defs.bzl",
+        "def _impl(ctx):",
+        "  dir = ctx.actions.declare_directory(ctx.label.name + '.dir')",
+        "  subdir = ctx.actions.declare_directory(ctx.label.name + '.dir/some/path')",
+        "  ctx.actions.run_shell(",
+        "    outputs = [dir, subdir],",
+        "    command = 'mkdir -p $1/some/path && echo -n hello > $1/some/path/inside.txt',",
+        "    arguments = [dir.path],",
+        "  )",
+        "",
+        "  sym = ctx.actions.declare_directory(ctx.label.name + '.sym')",
+        "  ctx.actions.symlink(output = sym, target_file = subdir)",
+        "",
+        "  out = ctx.actions.declare_file(ctx.label.name + '.out')",
+        "  ctx.actions.run_shell(",
+        "    inputs = [sym],",
+        "    outputs = [out],",
+        "    command = '[[ hello == $(cat $1/inside.txt) ]] && touch $2',",
+        "    arguments = [sym.path, out.path],",
+        "    execution_requirements = {'no-remote': ''},",
+        "  )",
+        "",
+        "  return DefaultInfo(files = depset([out]))",
+        "",
+        "my_rule = rule(_impl)");
+
+    write("a/BUILD", "load(':defs.bzl', 'my_rule')", "my_rule(name = 'my')");
+
+    buildTarget("//a:my");
   }
 
   @Test
@@ -825,6 +961,151 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
+  public void downloadToplevel_symlinkToGeneratedFile() throws Exception {
+    // TODO(chiwang): Make metadata for downloaded symlink non-remote.
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
+
+    setDownloadToplevel();
+    writeSymlinkRule();
+    write(
+        "BUILD",
+        "load(':symlink.bzl', 'symlink')",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = [],",
+        "  outs = ['out/foo.txt'],",
+        "  cmd = 'echo foo > $@',",
+        ")",
+        "symlink(",
+        "  name = 'foo-link',",
+        "  target_artifact = ':foo',",
+        ")");
+
+    buildTarget("//:foo-link");
+
+    assertSymlink("foo-link", getOutputPath("out/foo.txt").asFragment());
+    assertValidOutputFile("foo-link", "foo\n");
+
+    // Delete link, re-plant symlink
+    getOutputPath("foo-link").delete();
+    buildTarget("//:foo-link");
+
+    assertSymlink("foo-link", getOutputPath("out/foo.txt").asFragment());
+    assertValidOutputFile("foo-link", "foo\n");
+
+    // Delete target, re-download it
+    getOutputPath("out/foo.txt").delete();
+    buildTarget("//:foo-link");
+
+    assertSymlink("foo-link", getOutputPath("out/foo.txt").asFragment());
+    assertValidOutputFile("foo-link", "foo\n");
+  }
+
+  @Test
+  public void downloadToplevel_symlinkToSourceFile() throws Exception {
+    // TODO(chiwang): Make metadata for downloaded symlink non-remote.
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
+
+    setDownloadToplevel();
+    writeSymlinkRule();
+    write(
+        "BUILD",
+        "load(':symlink.bzl', 'symlink')",
+        "symlink(",
+        "  name = 'foo-link',",
+        "  target_artifact = ':foo.txt',",
+        ")");
+    write("foo.txt", "foo");
+
+    buildTarget("//:foo-link");
+
+    assertSymlink("foo-link", getSourcePath("foo.txt").asFragment());
+    assertOnlyOutputContent("//:foo-link", "foo-link", "foo" + lineSeparator());
+
+    // Delete link, re-plant symlink
+    getOutputPath("foo-link").delete();
+    buildTarget("//:foo-link");
+
+    assertOnlyOutputContent("//:foo-link", "foo-link", "foo" + lineSeparator());
+  }
+
+  @Test
+  public void downloadToplevel_symlinkToDirectory() throws Exception {
+    // TODO(chiwang): Make metadata for downloaded symlink non-remote.
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
+
+    setDownloadToplevel();
+    writeSymlinkRule();
+    writeOutputDirRule();
+    write(
+        "BUILD",
+        "load(':output_dir.bzl', 'output_dir')",
+        "load(':symlink.bzl', 'symlink')",
+        "output_dir(",
+        "  name = 'foo',",
+        "  content_map = {'file-1': '1', 'file-2': '2', 'file-3': '3'},",
+        ")",
+        "symlink(",
+        "  name = 'foo-link',",
+        "  target_artifact = ':foo',",
+        ")");
+
+    buildTarget("//:foo-link");
+
+    assertSymlink("foo-link", getOutputPath("foo").asFragment());
+    assertValidOutputFile("foo-link/file-1", "1");
+    assertValidOutputFile("foo-link/file-2", "2");
+    assertValidOutputFile("foo-link/file-3", "3");
+
+    // Delete link, re-plant symlink
+    getOutputPath("foo-link").deleteTree();
+    buildTarget("//:foo-link");
+
+    assertSymlink("foo-link", getOutputPath("foo").asFragment());
+    assertValidOutputFile("foo-link/file-1", "1");
+    assertValidOutputFile("foo-link/file-2", "2");
+    assertValidOutputFile("foo-link/file-3", "3");
+
+    // Delete target, re-download them
+    getOutputPath("foo").deleteTree();
+
+    buildTarget("//:foo-link");
+
+    assertSymlink("foo-link", getOutputPath("foo").asFragment());
+    assertValidOutputFile("foo-link/file-1", "1");
+    assertValidOutputFile("foo-link/file-2", "2");
+    assertValidOutputFile("foo-link/file-3", "3");
+  }
+
+  @Test
+  public void downloadToplevel_unresolvedSymlink() throws Exception {
+    // TODO(tjgq): Enable this on Windows.
+    if (OS.getCurrent() == OS.WINDOWS) {
+      return;
+    }
+
+    setDownloadToplevel();
+    writeSymlinkRule();
+    write(
+        "BUILD",
+        "load(':symlink.bzl', 'symlink')",
+        "symlink(",
+        "  name = 'foo-link',",
+        "  target_path = '/some/path',",
+        ")");
+
+    buildTarget("//:foo-link");
+
+    assertSymlink("foo-link", PathFragment.create("/some/path"));
+
+    // Delete link, re-plant symlink
+    getOutputPath("foo-link").delete();
+    buildTarget("//:foo-link");
+
+    assertSymlink("foo-link", PathFragment.create("/some/path"));
+  }
+
+  @Test
   public void treeOutputsFromLocalFileSystem_works() throws Exception {
     // Disable on Windows since it fails for unknown reasons.
     // TODO(chiwang): Enable it on windows.
@@ -1047,6 +1328,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
   @Test
   public void incrementalBuild_intermediateOutputDeleted_nothingIsReEvaluated() throws Exception {
+    setIncompatibleWithSkymeld();
     // Arrange: Prepare workspace and run a clean build
     write(
         "BUILD",
@@ -1200,6 +1482,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   @Test
   public void remoteCacheEvictBlobs_whenPrefetchingInputFile_incrementalBuildCanContinue()
       throws Exception {
+    setIncompatibleWithSkymeld();
     // Arrange: Prepare workspace and populate remote cache
     write(
         "a/BUILD",
@@ -1224,6 +1507,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     getOutputPath("a/bar.out").delete();
     getOutputBase().getRelative("action_cache").deleteTreesBelow();
     restartServer();
+    setIncompatibleWithSkymeld();
 
     // Clean build, foo.out isn't downloaded
     buildTarget("//a:bar");
@@ -1248,6 +1532,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   @Test
   public void remoteCacheEvictBlobs_whenPrefetchingInputTree_incrementalBuildCanContinue()
       throws Exception {
+    setIncompatibleWithSkymeld();
     // Arrange: Prepare workspace and populate remote cache
     write("BUILD");
     writeOutputDirRule();
@@ -1272,6 +1557,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     getOutputPath("a/bar.out").delete();
     getOutputBase().getRelative("action_cache").deleteTreesBelow();
     restartServer();
+    setIncompatibleWithSkymeld();
 
     // Clean build, foo.out isn't downloaded
     buildTarget("//a:bar");
@@ -1385,6 +1671,36 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     assertValidOutputFile("a/bar.out", "file-inside\nupdated bar" + lineSeparator());
   }
 
+  @Test
+  public void nonDeclaredSymlinksFromLocalActions() throws Exception {
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = [],",
+        "  outs = ['foo.txt'],",
+        "  cmd = 'echo foo > $@',",
+        ")",
+        "genrule(",
+        "  name = 'foo-link',",
+        "  srcs = [':foo'],",
+        "  outs = ['foo.link'],",
+        "  cmd = 'ln -s foo.txt $@',",
+        "  local = True,",
+        ")",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo-link'],",
+        "  outs = ['foobar.txt'],",
+        "  cmd = 'cat $(location :foo-link) > $@ && echo bar >> $@',",
+        "  local = True,",
+        ")");
+
+    buildTarget("//:foobar");
+
+    assertValidOutputFile("foobar.txt", "foo\nbar\n");
+  }
+
   protected void assertOutputsDoNotExist(String target) throws Exception {
     for (Artifact output : getArtifacts(target)) {
       assertWithMessage(
@@ -1394,11 +1710,12 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     }
   }
 
+  protected Path getSourcePath(String relativePath) {
+    return getDirectories().getWorkspace().getRelative(relativePath);
+  }
+
   protected Path getOutputPath(String binRelativePath) {
-    return getDirectories()
-        .getWorkspace()
-        .getRelative(getDirectories().getProductName() + "-bin")
-        .getRelative(binRelativePath);
+    return getTargetConfiguration().getBinDir().getRoot().getRelative(binRelativePath);
   }
 
   protected void assertOutputDoesNotExist(String binRelativePath) {
@@ -1422,23 +1739,40 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     assertThat(output.isExecutable()).isTrue();
   }
 
+  protected void assertSymlink(String binRelativePath, PathFragment absoluteTargetPath)
+      throws Exception {
+    // On Windows, symlinks might be implemented as a file copy.
+    if (OS.getCurrent() != OS.WINDOWS) {
+      Path output = getOutputPath(binRelativePath);
+      assertThat(output.isSymbolicLink()).isTrue();
+      assertThat(output.readSymbolicLink()).isEqualTo(absoluteTargetPath);
+    }
+  }
+
   protected void writeSymlinkRule() throws IOException {
     write(
         "symlink.bzl",
         "def _symlink_impl(ctx):",
-        "  target = ctx.file.target",
-        "  if target.is_directory:",
-        "    link = ctx.actions.declare_directory(ctx.attr.name)",
+        "  if ctx.file.target_artifact and not ctx.attr.target_path:",
+        "    if ctx.file.target_artifact.is_directory:",
+        "      link = ctx.actions.declare_directory(ctx.attr.name)",
+        "    else:",
+        "      link = ctx.actions.declare_file(ctx.attr.name)",
+        "    ctx.actions.symlink(output = link, target_file = ctx.file.target_artifact)",
+        "  elif ctx.attr.target_path and not ctx.file.target_artifact:",
+        "    link = ctx.actions.declare_symlink(ctx.attr.name)",
+        "    ctx.actions.symlink(output = link, target_path = ctx.attr.target_path)",
         "  else:",
-        "    link = ctx.actions.declare_file(ctx.attr.name)",
-        "  ctx.actions.symlink(output = link, target_file = target)",
+        "    fail('exactly one of target_artifact or target_path must be set')",
+        "",
         "  return DefaultInfo(files = depset([link]))",
         "",
         "symlink = rule(",
         "  implementation = _symlink_impl,",
         "  attrs = {",
-        "    'target': attr.label(mandatory = True, allow_single_file = True),",
-        "  }",
+        "    'target_artifact': attr.label(allow_single_file = True),",
+        "    'target_path': attr.string(),",
+        "  },",
         ")");
   }
 

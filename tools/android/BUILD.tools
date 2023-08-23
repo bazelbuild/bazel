@@ -352,6 +352,7 @@ py_binary(
     deps = [
         ":junction_lib",
         "//third_party/py/abseil",
+        ":json_worker_wrapper",
     ],
 )
 
@@ -371,6 +372,7 @@ py_binary(
     deps = [
         ":junction_lib",
         "//third_party/py/abseil",
+        ":json_worker_wrapper",
     ],
 )
 
@@ -381,6 +383,7 @@ py_binary(
     deps = [
         ":junction_lib",
         "//third_party/py/abseil",
+        ":json_worker_wrapper",
     ],
 )
 
@@ -391,6 +394,7 @@ py_binary(
     deps = [
         ":junction_lib",
         "//third_party/py/abseil",
+        ":json_worker_wrapper",
     ],
 )
 
@@ -406,6 +410,13 @@ py_library(
     # TODO(bazel-team): remove srcs_version = "PY2AND3" while fixing https://github.com/bazelbuild/bazel/issues/10127.
     srcs_version = "PY2AND3",
     visibility = ["//visibility:private"],
+)
+
+py_library(
+    name = "json_worker_wrapper",
+    srcs = ["json_worker_wrapper.py"],
+    visibility = ["//visibility:private"],
+    srcs_version = "PY3",
 )
 
 alias(
@@ -443,9 +454,14 @@ java_binary(
     ],
 )
 
-alias(
+java_plugin(
     name = "databinding_annotation_processor",
-    actual = "//external:databinding_annotation_processor",
+    generates_api = True,
+    processor_class = "android.databinding.annotationprocessor.ProcessDataBinding",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@bazel_tools//src/tools/android/java/com/google/devtools/build/android:all_android_tools",
+    ],
 )
 
 # This is the default value of databinding_annotation_processor if the user does

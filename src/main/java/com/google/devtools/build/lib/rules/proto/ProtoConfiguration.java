@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.starlarkbuildapi.ProtoConfigurationApi;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
@@ -209,7 +210,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
       documented = false)
   public boolean experimentalProtoDescriptorSetsIncludeSourceInfoForStarlark(StarlarkThread thread)
       throws EvalException {
-    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
     return experimentalProtoDescriptorSetsIncludeSourceInfo();
   }
 
@@ -268,13 +269,13 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
   @StarlarkMethod(name = "strict_proto_deps", useStarlarkThread = true, documented = false)
   public String strictProtoDepsForStarlark(StarlarkThread thread) throws EvalException {
-    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
     return strictProtoDeps().toString();
   }
 
   @StarlarkMethod(name = "strict_public_imports", useStarlarkThread = true, documented = false)
   public String strictPublicImportsForStarlark(StarlarkThread thread) throws EvalException {
-    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
     return options.strictPublicImports.toString();
   }
 
@@ -288,7 +289,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
       documented = false)
   public List<String> ccProtoLibraryHeaderSuffixesForStarlark(StarlarkThread thread)
       throws EvalException {
-    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
     return ccProtoLibraryHeaderSuffixes();
   }
 
@@ -302,7 +303,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
       documented = false)
   public List<String> ccProtoLibrarySourceSuffixesForStarlark(StarlarkThread thread)
       throws EvalException {
-    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
     return ccProtoLibrarySourceSuffixes();
   }
 

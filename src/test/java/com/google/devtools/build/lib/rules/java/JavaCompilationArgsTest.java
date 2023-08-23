@@ -63,7 +63,6 @@ public class JavaCompilationArgsTest extends BuildViewTestCase {
     JavaCompilationArgsProvider javaCompilationArgs =
         collectJavaCompilationArgs(
             /* isNeverLink= */ false,
-            /* srcLessDepsExport= */ false,
             getJavaCompilationArtifacts(),
             /* deps= */ ImmutableList.of(),
             /* runtimeDeps= */ ImmutableList.of(),
@@ -81,7 +80,6 @@ public class JavaCompilationArgsTest extends BuildViewTestCase {
     JavaCompilationArgsProvider javaCompilationArgs =
         collectJavaCompilationArgs(
             /* isNeverLink= */ false,
-            /* srcLessDepsExport= */ false,
             /* compilationArtifacts= */ getJavaCompilationArtifacts(),
             /* deps= */ ImmutableList.of(),
             /* runtimeDeps= */ ImmutableList.of(),
@@ -111,7 +109,6 @@ public class JavaCompilationArgsTest extends BuildViewTestCase {
     JavaCompilationArgsProvider javaCompilationArgs =
         collectJavaCompilationArgs(
             /* isNeverLink= */ true,
-            /* srcLessDepsExport= */ false,
             /* compilationArtifacts= */ getJavaCompilationArtifacts(),
             /* deps= */ ImmutableList.of(),
             /* runtimeDeps= */ ImmutableList.of(),
@@ -135,7 +132,6 @@ public class JavaCompilationArgsTest extends BuildViewTestCase {
     JavaCompilationArgsProvider javaCompilationArgs =
         collectJavaCompilationArgs(
             /* isNeverLink= */ false,
-            /* srcLessDepsExport= */ false,
             /* compilationArtifacts= */ getJavaCompilationArtifacts(),
             /* deps= */ getDeps(),
             /* runtimeDeps= */ ImmutableList.of(),
@@ -159,7 +155,6 @@ public class JavaCompilationArgsTest extends BuildViewTestCase {
     JavaCompilationArgsProvider javaCompilationArgs =
         collectJavaCompilationArgs(
             /* isNeverLink= */ false,
-            /* srcLessDepsExport= */ false,
             /* compilationArtifacts= */ getJavaCompilationArtifacts(),
             /* deps= */ getDeps(),
             /* runtimeDeps= */ ImmutableList.of(),
@@ -181,7 +176,6 @@ public class JavaCompilationArgsTest extends BuildViewTestCase {
     JavaCompilationArgsProvider javaCompilationArgs =
         collectJavaCompilationArgs(
             /* isNeverLink= */ true,
-            /* srcLessDepsExport= */ false,
             /* compilationArtifacts= */ getJavaCompilationArtifacts(),
             /* deps= */ getDeps(),
             /* runtimeDeps= */ ImmutableList.of(),
@@ -201,7 +195,6 @@ public class JavaCompilationArgsTest extends BuildViewTestCase {
     JavaCompilationArgsProvider javaCompilationArgs =
         collectJavaCompilationArgs(
             /* isNeverLink= */ false,
-            /* srcLessDepsExport= */ false,
             /* compilationArtifacts= */ getJavaCompilationArtifacts(),
             /* deps= */ ImmutableList.of(),
             /* runtimeDeps= */ getDeps(),
@@ -222,7 +215,6 @@ public class JavaCompilationArgsTest extends BuildViewTestCase {
     JavaCompilationArgsProvider javaCompilationArgs =
         collectJavaCompilationArgs(
             /* isNeverLink= */ true,
-            /* srcLessDepsExport= */ false,
             /* compilationArtifacts= */ getJavaCompilationArtifacts(),
             /* deps= */ ImmutableList.of(),
             /* runtimeDeps= */ getDeps(),

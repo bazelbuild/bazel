@@ -24,6 +24,8 @@ load(
 )
 load(":common/cc/cc_info.bzl", _CcInfo = "CcInfo")
 
+PackageSpecificationInfo = _builtins.toplevel.PackageSpecificationInfo
+
 _STAMP_VALUES = [-1, 0, 1]
 
 def create_stamp_attr(**kwargs):
@@ -87,7 +89,7 @@ NATIVE_RULES_ALLOWLIST_ATTRS = {
             fragment = "py",
             name = "native_rules_allowlist",
         ),
-        providers = ["PackageSpecificationProvider"],
+        providers = [PackageSpecificationInfo],
     ),
 }
 
@@ -174,6 +176,7 @@ environment when the test is executed by bazel test.
                 PLATFORMS_LOCATION + "/os:ios",
                 PLATFORMS_LOCATION + "/os:macos",
                 PLATFORMS_LOCATION + "/os:tvos",
+                PLATFORMS_LOCATION + "/os:visionos",
                 PLATFORMS_LOCATION + "/os:watchos",
             ],
         ),

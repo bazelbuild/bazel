@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.analysis.configuredtargets;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
@@ -28,7 +28,7 @@ import javax.annotation.Nullable;
 @Immutable
 public final class EnvironmentGroupConfiguredTarget extends AbstractConfiguredTarget {
 
-  public EnvironmentGroupConfiguredTarget(ActionLookupKeyOrProxy actionLookupKey) {
+  public EnvironmentGroupConfiguredTarget(ActionLookupKey actionLookupKey) {
     super(actionLookupKey);
     Preconditions.checkState(actionLookupKey.getConfigurationKey() == null, actionLookupKey);
   }

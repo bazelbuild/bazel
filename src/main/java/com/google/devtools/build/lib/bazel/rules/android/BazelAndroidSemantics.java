@@ -14,19 +14,19 @@
 package com.google.devtools.build.lib.bazel.rules.android;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.android.AndroidBinary;
-import com.google.devtools.build.lib.rules.android.AndroidCommon;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.android.AndroidDataContext;
 import com.google.devtools.build.lib.rules.android.AndroidSemantics;
 import com.google.devtools.build.lib.rules.android.ProguardHelper.ProguardOutput;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 
@@ -36,8 +36,18 @@ import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 public class BazelAndroidSemantics implements AndroidSemantics {
   public static final BazelAndroidSemantics INSTANCE = new BazelAndroidSemantics();
 
-  private BazelAndroidSemantics() {
-  }
+  private static final ImmutableSet<PackageIdentifier> STARLARK_MIGRATION_NATIVE_USAGE_ALLOW_LIST =
+      // Internal package identifiers that are allowed to use the native Android rules until they
+      // can be fully moved into the rules_android Starlark implementation.
+      ImmutableSet.<PackageIdentifier>builder()
+          .add(
+              PackageIdentifier.createUnchecked(
+                  "bazel_tools",
+                  "src/tools/android/java/com/google/devtools/build/android/incrementaldeployment"))
+          .add(PackageIdentifier.createUnchecked("bazel_tools", "tools/android"))
+          .build();
+
+  private BazelAndroidSemantics() {}
 
   @Override
   public String getNativeDepsFileName() {
@@ -68,12 +78,7 @@ public class BazelAndroidSemantics implements AndroidSemantics {
 
   @Override
   public void addCoverageSupport(
-      RuleContext ruleContext,
-      AndroidCommon common,
-      JavaSemantics javaSemantics,
-      boolean forAndroidTest,
-      JavaTargetAttributes.Builder attributes,
-      JavaCompilationArtifacts.Builder artifactsBuilder) {}
+      RuleContext ruleContext, boolean forAndroidTest, JavaTargetAttributes.Builder attributes) {}
 
   @Override
   public ImmutableList<String> getAttributesWithJavaRuntimeDeps(RuleContext ruleContext) {
@@ -110,6 +115,11 @@ public class BazelAndroidSemantics implements AndroidSemantics {
 
   @Override
   public void registerMigrationRuleError(RuleContext ruleContext) throws RuleErrorException {
+    if (STARLARK_MIGRATION_NATIVE_USAGE_ALLOW_LIST.contains(
+        ruleContext.getLabel().getPackageIdentifier())) {
+      return;
+    }
+
     ruleContext.attributeError(
         "tags",
         "The native Android rules are deprecated. Please use the Starlark Android rules by adding "
@@ -122,7 +132,44 @@ public class BazelAndroidSemantics implements AndroidSemantics {
   /* Bazel does not currently support baseline profiles in the final apk.  */
   @Override
   public Artifact getArtProfileForApk(
-      RuleContext ruleContext, Artifact finalClassesDex, Artifact proguardOutputMap) {
+      RuleContext ruleContext,
+      Artifact finalClassesDex,
+      Artifact proguardOutputMap,
+      String baselineProfileDir) {
+    return null;
+  }
+
+  /* Bazel does not currently support baseline profiles in the final apk.  */
+  @Override
+  public Artifact compileBaselineProfile(
+      RuleContext ruleContext,
+      Artifact finalClassesDex,
+      Artifact proguardOutputMap,
+      Artifact mergedStaticProfile,
+      String baselineProfileDir) {
+    return null;
+  }
+
+  /* Bazel does not currently support baseline profiles in the final apk.  */
+  @Override
+  public Artifact mergeBaselineProfiles(
+      RuleContext ruleContext, String baselineProfileDir, boolean includeStartupProfiles) {
+    return null;
+  }
+
+  /* Bazel does not currently support baseline profiles in the final apk.  */
+  @Override
+  public Artifact mergeStartupProfiles(RuleContext ruleContext, String baselineProfileDir) {
+    return null;
+  }
+
+  /* Bazel does not currently support baseline profiles in the final apk.  */
+  @Override
+  public Artifact expandBaselineProfileWildcards(
+      RuleContext ruleContext,
+      Artifact deployJar,
+      Artifact mergedStaticProfile,
+      String baselineProfileDir) {
     return null;
   }
 }

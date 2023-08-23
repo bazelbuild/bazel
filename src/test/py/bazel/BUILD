@@ -1,5 +1,6 @@
 load("//:distdir_deps.bzl", "gen_workspace_stanza")
 load("@rules_python//python:defs.bzl", "py_library", "py_test")
+load("@bazel_pip_dev_deps//:requirements.bzl", "requirement")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -35,6 +36,7 @@ py_library(
         "//tools/ctexplain:__pkg__",
         "//tools/python:__pkg__",
     ],
+    deps = [requirement("bazel-runfiles")],
 )
 
 gen_workspace_stanza(
@@ -338,6 +340,19 @@ py_test(
     name = "bzlmod_query_test",
     size = "large",
     srcs = ["bzlmod/bzlmod_query_test.py"],
+    tags = [
+        "requires-network",
+    ],
+    deps = [
+        ":bzlmod_test_utils",
+        ":test_base",
+    ],
+)
+
+py_test(
+    name = "mod_command_test",
+    size = "large",
+    srcs = ["bzlmod/mod_command_test.py"],
     tags = [
         "requires-network",
     ],

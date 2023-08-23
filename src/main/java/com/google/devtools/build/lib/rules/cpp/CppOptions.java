@@ -531,6 +531,21 @@ public class CppOptions extends FragmentOptions {
   }
 
   @Option(
+      name = "memprof_profile",
+      defaultValue = "null",
+      converter = LabelConverter.class,
+      category = "flags",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Use memprof profile.")
+  public Label memprofProfileLabel;
+
+  /** Returns the --memprof_profile value. */
+  public Label getMemProfProfileLabel() {
+    return memprofProfileLabel;
+  }
+
+  @Option(
       name = "save_temps",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
@@ -961,14 +976,6 @@ public class CppOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.ACTION_COMMAND_LINES},
       help = "Whether to generate debug symbol(.dSYM) file(s).")
   public boolean appleGenerateDsym;
-
-  @Option(
-      name = "apple_enable_auto_dsym_dbg",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.ACTION_COMMAND_LINES},
-      help = "Whether to force enable generating debug symbol(.dSYM) file(s) for dbg builds.")
-  public boolean appleEnableAutoDsymDbg;
 
   @Option(
       name = "objc_generate_linkmap",

@@ -85,6 +85,14 @@ public interface CcCompilationContextApi<FileT extends FileApi> extends Starlark
   Depset getStarlarkIncludeDirs();
 
   @StarlarkMethod(
+      name = "external_includes",
+      doc =
+          "Returns the set of search paths (as strings) for external header files referenced by"
+              + " angle bracket. Usually passed with -isystem.",
+      structField = true)
+  Depset getStarlarkExternalIncludeDirs();
+
+  @StarlarkMethod(
       name = "quote_includes",
       doc =
           "Returns the set of search paths (as strings) for header files referenced by quotes,"

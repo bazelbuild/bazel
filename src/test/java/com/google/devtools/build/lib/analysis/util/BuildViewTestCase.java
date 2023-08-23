@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
@@ -74,7 +73,7 @@ import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.DependencyResolver.Failure;
+import com.google.devtools.build.lib.analysis.DependencyResolutionHelpers.Failure;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -527,7 +526,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         QuiescingExecutorsImpl.forTesting(),
         tsgm);
     skyframeExecutor.setActionEnv(ImmutableMap.of());
-    skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageOptions.getDeletedPackages()));
+    skyframeExecutor.setDeletedPackages(packageOptions.getDeletedPackages());
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
@@ -556,11 +555,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return parser.getOptions(PackageOptions.class);
   }
 
-  private static BuildLanguageOptions parseBuildLanguageOptions(String... options)
-      throws Exception {
+  private BuildLanguageOptions parseBuildLanguageOptions(String... options) throws Exception {
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
-    parser.parse("--experimental_google_legacy_api"); // For starlark java_binary;
+    if (!analysisMock.isThisBazel()) {
+      parser.parse("--experimental_google_legacy_api"); // For starlark java_binary;
+    }
     parser.parse(options);
     return parser.getOptions(BuildLanguageOptions.class);
   }
@@ -1146,16 +1146,13 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * finer grained selection for different configurations, you'll need to expand this method.
    */
   protected ConfiguredAspect getAspect(String label) throws Exception {
-    AspectValue aspect =
-        (AspectValue)
-            skyframeExecutor.getEvaluator().getDoneValues().entrySet().stream()
-                .filter(
-                    entry ->
-                        entry.getKey() instanceof AspectKey
-                            && ((AspectKey) entry.getKey()).getAspectName().equals(label))
-                .map(Map.Entry::getValue)
-                .collect(onlyElement());
-    return aspect.getConfiguredAspect();
+    return skyframeExecutor.getEvaluator().getDoneValues().entrySet().stream()
+        .filter(
+            e ->
+                e.getKey() instanceof AspectKey
+                    && ((AspectKey) e.getKey()).getAspectName().equals(label))
+        .map(e -> (AspectValue) e.getValue())
+        .collect(onlyElement());
   }
 
   /**
@@ -1447,13 +1444,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected final Artifact.DerivedArtifact getDerivedArtifact(
       PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
-    if (owner instanceof ActionLookupKeyOrProxy) {
+    if (owner instanceof ActionLookupKey) {
       SkyValue skyValue;
       try {
-        skyValue =
-            skyframeExecutor
-                .getEvaluator()
-                .getExistingValue(((ActionLookupKeyOrProxy) owner).toKey());
+        skyValue = skyframeExecutor.getEvaluator().getExistingValue(((ActionLookupKey) owner));
       } catch (InterruptedException e) {
         throw new IllegalStateException(e);
       }
@@ -1480,7 +1474,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * "foo.o".
    */
   protected final Artifact getTreeArtifact(String packageRelativePath, ConfiguredTarget owner) {
-    ActionLookupKeyOrProxy actionLookupKey = ConfiguredTargetKey.fromConfiguredTarget(owner);
+    ActionLookupKey actionLookupKey = ConfiguredTargetKey.fromConfiguredTarget(owner);
     return getDerivedArtifact(
         owner.getLabel().getPackageFragment().getRelative(packageRelativePath),
         getConfiguration(owner).getBinDirectory(RepositoryName.MAIN),
@@ -1573,7 +1567,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         packageRelativePath,
         getConfiguration(owner).getBinDirectory(RepositoryName.MAIN),
         AspectKeyCreator.createAspectKey(
-            new AspectDescriptor(creatingAspectFactory, parameters),
+            AspectDescriptor.of(creatingAspectFactory, parameters),
             ConfiguredTargetKey.builder()
                 .setLabel(owner.getLabel())
                 .setConfiguration(getConfiguration(owner))
@@ -1665,7 +1659,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected AspectKey getOwnerForAspect(
       ConfiguredTarget owner, AspectClass creatingAspectFactory, AspectParameters params) {
     return AspectKeyCreator.createAspectKey(
-        new AspectDescriptor(creatingAspectFactory, params),
+        AspectDescriptor.of(creatingAspectFactory, params),
         ConfiguredTargetKey.builder()
             .setLabel(owner.getLabel())
             .setConfiguration(getConfiguration(owner))
@@ -2005,17 +1999,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   private BuildConfigurationValue getConfiguration(String label) {
-    BuildConfigurationValue config;
     try {
-      config = getConfiguration(getConfiguredTarget(label));
-      config = view.getConfigurationForTesting(getTarget(label), config, reporter);
+      return getConfiguration(getConfiguredTarget(label));
     } catch (LabelSyntaxException e) {
       throw new IllegalArgumentException(e);
-    } catch (Exception e) {
-      // TODO(b/36585204): Clean this up
-      throw new RuntimeException(e);
     }
-    return config;
   }
 
   protected final BuildConfigurationValue getConfiguration(BuildConfigurationKey configurationKey) {

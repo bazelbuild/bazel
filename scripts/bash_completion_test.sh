@@ -16,7 +16,16 @@
 #
 # bash_completion_test.sh: tests of bash command completion.
 
-set -euo pipefail
+# --- begin runfiles.bash initialization v3 ---
+# Copy-pasted from the Bazel Bash runfiles library v3.
+set -uo pipefail; set +e; f=bazel_tools/tools/bash/runfiles/runfiles.bash
+source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$0.runfiles/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
+# --- end runfiles.bash initialization v3 ---
 
 : ${DIR:=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}
 source ${DIR}/testenv.sh || { echo "testenv.sh not found!" >&2; exit 1; }
@@ -25,7 +34,7 @@ source ${DIR}/testenv.sh || { echo "testenv.sh not found!" >&2; exit 1; }
 : ${COMMAND_ALIASES:=bazel}
 
 # Completion script
-: ${COMPLETION:="$TEST_SRCDIR/io_bazel/scripts/bazel-complete.bash"}
+: ${COMPLETION:="$(rlocation io_bazel/scripts/bazel-complete.bash)"}
 
 # Set this to test completion with package path (if enabled)
 : ${PACKAGE_PATH_PREFIX:=}
@@ -757,6 +766,32 @@ test_info() {
                      'info install_base '
     assert_expansion 'info --show_m' \
                      'info --show_make_env '
+}
+
+test_workspace_boundary() {
+    # "Test that workspace boundary files are recognized"
+    # this test only works for Bazel
+    if [[ ! " ${COMMAND_ALIASES[*]} " =~ " bazel " ]]; then return; fi
+
+    mkdir -p sub_repo/some/pkg
+    touch sub_repo/some/pkg/BUILD
+    cd sub_repo 2>/dev/null
+
+    touch WORKSPACE.bazel
+    assert_expansion 'build //s' \
+                     'build //some/'
+
+    mv WORKSPACE.bazel MODULE.bazel
+    assert_expansion 'build //s' \
+                     'build //some/'
+
+    mv MODULE.bazel REPO.bazel
+    assert_expansion 'build //s' \
+                     'build //some/'
+
+    rm REPO.bazel
+    assert_expansion 'build //s' \
+                     'build //sub_repo/'
 }
 
 run_suite "Tests of bash completion of 'blaze' command."

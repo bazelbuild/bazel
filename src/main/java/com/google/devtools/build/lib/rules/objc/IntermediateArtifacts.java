@@ -22,12 +22,15 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap.UmbrellaHeaderStrategy;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Factory class for generating artifacts which are used as intermediate output. */
@@ -214,6 +217,12 @@ public final class IntermediateArtifacts implements StarlarkValue {
     return scopedArtifact(
         PathFragment.create(
             String.format("lib%s%s%s", basename, archiveFileNameSuffix, extension)));
+  }
+
+  @StarlarkMethod(name = "archive", documented = false, useStarlarkThread = true)
+  public Artifact archiveForStarlark(StarlarkThread thread) throws EvalException {
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    return archive();
   }
 
   /**

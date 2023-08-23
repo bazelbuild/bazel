@@ -39,7 +39,7 @@ import net.starlark.java.eval.Tuple;
 
 /** Utilites related to C++ support. */
 @StarlarkBuiltin(
-    name = "cc_common_internal_do_not_use",
+    name = "cc_common",
     category = DocCategory.TOP_LEVEL_MODULE,
     doc = "Utilities for C++ compilation, linking, and command line generation.")
 public interface CcModuleApi<
@@ -1688,6 +1688,7 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             documented = false),
+        @Param(name = "lto_obj_root_prefix", positional = false, named = true, documented = false),
         @Param(name = "bitcode_file", positional = false, named = true, documented = false),
         @Param(
             name = "feature_configuration",
@@ -1707,6 +1708,7 @@ public interface CcModuleApi<
   LtoBackendArtifactsT createLtoBackendArtifacts(
       StarlarkRuleContextT starlarkRuleContext,
       String ltoOutputRootPrefixString,
+      String ltoObjRootPrefixString,
       FileT bitcodeFile,
       FeatureConfigurationT featureConfigurationForStarlark,
       CcToolchainProviderT ccToolchain,

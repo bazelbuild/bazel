@@ -19,8 +19,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
@@ -99,11 +102,12 @@ public class RemoteOutputService implements OutputService {
 
   @Override
   public void updateActionFileSystemContext(
+      ActionExecutionMetadata action,
       FileSystem actionFileSystem,
       Environment env,
       MetadataInjector injector,
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {
-    ((RemoteActionFileSystem) actionFileSystem).updateContext(injector);
+    ((RemoteActionFileSystem) actionFileSystem).updateContext(action, injector);
   }
 
   @Override
@@ -131,8 +135,12 @@ public class RemoteOutputService implements OutputService {
 
   @Subscribe
   public void onExecutionPhaseCompleteEvent(ExecutionPhaseCompleteEvent event) {
-    if (leaseService != null && actionInputFetcher != null) {
-      leaseService.handleMissingInputs(actionInputFetcher.getMissingActionInputs());
+    if (leaseService != null) {
+      var missingActionInputs = ImmutableSet.<ActionInput>of();
+      if (actionInputFetcher != null) {
+        missingActionInputs = actionInputFetcher.getMissingActionInputs();
+      }
+      leaseService.finalizeExecution(missingActionInputs);
     }
   }
 
@@ -148,6 +156,15 @@ public class RemoteOutputService implements OutputService {
     if (actionInputFetcher != null) {
       actionInputFetcher.finalizeAction(action, outputMetadataStore);
     }
+
+    if (leaseService != null) {
+      leaseService.finalizeAction();
+    }
+  }
+
+  @Override
+  public boolean shouldStoreRemoteOutputMetadataInActionCache() {
+    return true;
   }
 
   @Override

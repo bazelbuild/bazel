@@ -127,6 +127,8 @@ public enum CompileBuildVariables {
   PROPELLER_OPTIMIZE_CC_PATH("propeller_optimize_cc_path"),
   /** Path to the Propeller Optimize linker profile artifact */
   PROPELLER_OPTIMIZE_LD_PATH("propeller_optimize_ld_path"),
+  /** Path to the memprof profile artifact */
+  MEMPROF_PROFILE_PATH("memprof_profile_path"),
   /** Variable for includes that compiler needs to include into sources. */
   INCLUDES("includes");
 

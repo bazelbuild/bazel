@@ -1153,4 +1153,60 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     assertThat(Iterables.transform(provider.getDirectSources(), s -> s.getExecPathString()))
         .containsExactly(genfiles + "/x/generated.proto", "x/a.proto");
   }
+
+  @Test
+  public void protoLibrary_reexport_allowed() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "proto_library(name='foo', srcs=['foo.proto'], allow_exports = ':test')",
+        "package_group(",
+        "    name='test',",
+        "    packages=['//allowed'],",
+        ")");
+    scratch.file(
+        "allowed/BUILD",
+        "proto_library(name='test1', deps = ['//x:foo'])",
+        "proto_library(name='test2', srcs = ['A.proto'], exports = ['//x:foo'])");
+
+    getConfiguredTarget("//allowed:test1");
+    getConfiguredTarget("//allowed:test2");
+
+    assertNoEvents();
+  }
+
+  @Test
+  public void protoLibrary_implcitReexport_fails() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "proto_library(name='foo', srcs=['foo.proto'], allow_exports = ':test')",
+        "package_group(",
+        "    name='test',",
+        "    packages=['//allowed'],",
+        ")");
+    scratch.file("notallowed/BUILD", "proto_library(name='test', deps = ['//x:foo'])");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//notallowed:test");
+
+    assertContainsEvent("proto_library '@//x:foo' can't be reexported in package '//notallowed'");
+  }
+
+  @Test
+  public void protoLibrary_explicitExport_fails() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "proto_library(name='foo', srcs=['foo.proto'], allow_exports = ':test')",
+        "package_group(",
+        "    name='test',",
+        "    packages=['//allowed'],",
+        ")");
+    scratch.file(
+        "notallowed/BUILD",
+        "proto_library(name='test', srcs = ['A.proto'], exports = ['//x:foo'])");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//notallowed:test");
+
+    assertContainsEvent("proto_library '@//x:foo' can't be reexported in package '//notallowed'");
+  }
 }

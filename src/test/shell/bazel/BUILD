@@ -22,14 +22,6 @@ gen_workspace_stanza(
     ],
 )
 
-gen_workspace_stanza(
-    name = "rules_proto_stanza",
-    out = "rules_proto_stanza.txt",
-    repos = [
-        "rules_proto",
-    ],
-)
-
 filegroup(
     name = "test-deps",
     testonly = 1,
@@ -50,6 +42,7 @@ filegroup(
     testonly = 1,
     srcs = [
         "cc_api_rules.bzl",
+        "coverage_helpers.sh",
         "remote_helpers.sh",
         "testing_server.py",
         ":hamcrest_jar",
@@ -345,10 +338,7 @@ sh_test(
     name = "bazel_proto_library_test",
     size = "large",  # Downloads and compiles protobuf for *every* *test* *case*
     srcs = ["bazel_proto_library_test.sh"],
-    data = [
-        ":rules_proto_stanza.txt",
-        ":test-deps",
-    ],
+    data = [":test-deps"],
     exec_compatible_with = ["//:highcpu_machine"],
     tags = ["no_windows"],  # Doesn't work on Windows for unknown reason
 )
@@ -600,6 +590,16 @@ sh_test(
     srcs = ["bazel_thinlto_test.sh"],
     data = [":test-deps"],
     tags = [
+        "no_windows",
+    ],
+)
+
+sh_test(
+    name = "bazel_thinlto_obj_dir_test",
+    srcs = ["bazel_thinlto_obj_dir_test.sh"],
+    data = [":test-deps"],
+    tags = [
+        "no_1804",
         "no_windows",
     ],
 )

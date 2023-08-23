@@ -20,6 +20,15 @@ the generating actions, so that the runfiles symlink tree is staged for the depl
 
 load(":common/java/java_binary_deploy_jar.bzl", "create_deploy_archives", "make_deploy_jars_rule")
 load(":common/java/java_binary.bzl", "InternalDeployJarInfo")
+load(":common/java/java_common_internal_for_builtins.bzl", "get_build_info")
+
+def _stamping_enabled(ctx, stamp):
+    if ctx.configuration.is_tool_configuration():
+        stamp = 0
+    return (stamp == 1) or (stamp == -1 and ctx.configuration.stamp_binaries())
+
+def _get_build_info(ctx, stamp):
+    return get_build_info(ctx, _stamping_enabled(ctx, stamp))
 
 def _bazel_deploy_jars_impl(ctx):
     info = ctx.attr.binary[InternalDeployJarInfo]
@@ -33,6 +42,8 @@ def _bazel_deploy_jars_impl(ctx):
     else:
         runfiles = depset()
 
+    build_info_files = _get_build_info(ctx, info.stamp)
+
     create_deploy_archives(
         ctx,
         info.java_attrs,
@@ -41,7 +52,7 @@ def _bazel_deploy_jars_impl(ctx):
         info.main_class,
         info.coverage_main_class,
         info.strip_as_default,
-        info.stamp,
+        build_info_files,
         str(ctx.attr.binary.label),
         manifest_lines = info.manifest_lines,
     )
@@ -49,3 +60,5 @@ def _bazel_deploy_jars_impl(ctx):
     return []
 
 deploy_jars = make_deploy_jars_rule(implementation = _bazel_deploy_jars_impl)
+
+deploy_jars_nonexec = make_deploy_jars_rule(implementation = _bazel_deploy_jars_impl, create_executable = False)

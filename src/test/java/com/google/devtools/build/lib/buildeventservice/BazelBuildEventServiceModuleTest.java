@@ -729,7 +729,7 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     testOom(
         () -> {
           OutOfMemoryError oom = new OutOfMemoryError();
-          // Simulates an OOM coming from RetainedHeapLimiter, which reports the error by calling
+          // Simulates an OOM coming from GcThrashingDetector, which reports the error by calling
           // handleCrash. Uses keepAlive() to avoid exiting the JVM and aborting the test, then
           // throw the original oom to ensure control flow terminates.
           BugReport.handleCrash(Crash.from(oom), CrashContext.keepAlive());

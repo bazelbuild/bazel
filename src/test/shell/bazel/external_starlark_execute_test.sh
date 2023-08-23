@@ -66,40 +66,56 @@ test_interrupted_children_waited() {
     WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
     cd "${WRKDIR}"
 
+    mkfifo fifo
+
+    cat > waiter.sh <<EOF
+#!/bin/sh
+
+cd "${WRKDIR}"
+
+echo \$\$ > repo_pid
+echo started > status
+cat fifo > /dev/null  # Signal that repo_pid is written
+sleep 30  # This gets interrupted early if the test case passes
+echo finished > status
+EOF
+    chmod +x waiter.sh
+
     cat > repo.bzl <<EOF
 def _impl(ctx):
   ctx.file("BUILD", "exports_files(['data.txt'])")
-  ctx.execute(["/bin/sh", "-c", "echo foo > data.txt"])
-  ctx.execute(["/bin/sh", "-c", "(sleep 30; echo after > ${WRKDIR}/side.txt) & wait \$!"])
+  ctx.execute(["${WRKDIR}/waiter.sh"])
 
-changing_repo = repository_rule(_impl)
+waiting_repo = repository_rule(_impl)
 EOF
+
     cat > WORKSPACE <<'EOF'
-load("//:repo.bzl", "changing_repo")
+load("//:repo.bzl", "waiting_repo")
 
-changing_repo(name="change")
+waiting_repo(name="wait")
 EOF
+
     cat > BUILD <<'EOF'
 genrule(
   name = "it",
-  srcs = ["@change//:data.txt"],
+  srcs = ["@wait//:data.txt"],
   outs = ["it.txt"],
-  cmd = "cp $< $@",
+  cmd = "exit 1",
 )
 EOF
-    echo before > side.txt
-    bazel build //:it > "${TEST_log}" 2>&1 &
+    bazel build --nobuild //:it > "$TEST_log" 2>&1 &
     bazel_pid="$!"
-    sleep 15 && kill "${bazel_pid}"
-    cp side.txt side1.txt
-    sleep 30
-    cp side.txt side2.txt
-    echo; echo before wait:; echo
-    cat side1.txt
-    echo; echo after wait:; echo
-    cat side2.txt
-    echo
-    diff side1.txt side2.txt || fail "found delayed side effects"
+    echo start > fifo  # Wait until repo_pid is written
+    repo_pid="$(cat repo_pid)"
+
+    kill "${bazel_pid}"
+    wait "${bazel_pid}" && fail "Bazel should have been interrupted"
+    if kill -0 "${repo_pid}"; then
+      kill -9 "${repo_pid}"  # Let's not leave it alive
+      fail "repo process still running"
+    fi
+
+    grep -sq started "${WRKDIR}/status" || fail "repo ran to completion"
 }
 
 run_suite "Starlark execute tests"

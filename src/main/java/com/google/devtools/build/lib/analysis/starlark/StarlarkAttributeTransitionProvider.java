@@ -37,6 +37,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Starlark.InvalidStarlarkValueException;
 
 /**
  * This class implements {@link TransitionFactory} to provide a starlark-defined transition that
@@ -53,7 +54,7 @@ public class StarlarkAttributeTransitionProvider
     implements TransitionFactory<AttributeTransitionData>, SplitTransitionProviderApi {
   private final StarlarkDefinedConfigTransition starlarkDefinedConfigTransition;
 
-  StarlarkAttributeTransitionProvider(
+  public StarlarkAttributeTransitionProvider(
       StarlarkDefinedConfigTransition starlarkDefinedConfigTransition) {
     this.starlarkDefinedConfigTransition = starlarkDefinedConfigTransition;
   }
@@ -101,7 +102,16 @@ public class StarlarkAttributeTransitionProvider
       LinkedHashMap<String, Object> attributes = new LinkedHashMap<>();
       for (String attribute : attributeMap.getAttributeNames()) {
         Object val = attributeMap.get(attribute, attributeMap.getAttributeType(attribute));
-        attributes.put(Attribute.getStarlarkName(attribute), Attribute.valueToStarlark(val));
+        try {
+          Object starlarkVal = Attribute.valueToStarlark(val);
+          attributes.put(Attribute.getStarlarkName(attribute), starlarkVal);
+        } catch (InvalidStarlarkValueException e) {
+          // This is only possible for native targets, since Starlark targets by definition have
+          // Starlark-readable attributes. The only Starlark transition that can apply to native
+          // targets is the exec transition (ExecutionTransitionFactory). Since that's experimental
+          // we don't need to do anything further.
+          // TODO(b/288258583): encode this more cleanly than a universally swallowed exception.
+        }
       }
       attrObject = StructProvider.STRUCT.create(attributes, ERROR_MESSAGE_FOR_NO_ATTR);
       this.hashCode = Objects.hash(attrObject, super.hashCode());

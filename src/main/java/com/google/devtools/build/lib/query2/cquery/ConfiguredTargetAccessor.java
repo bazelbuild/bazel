@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
-import static com.google.devtools.build.lib.skyframe.PrerequisiteProducer.getExecutionPlatformConstraints;
-
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -23,17 +21,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimaps;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
-import com.google.devtools.build.lib.analysis.PlatformConfiguration;
-import com.google.devtools.build.lib.analysis.ToolchainCollection;
-import com.google.devtools.build.lib.analysis.ToolchainContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
-import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
-import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -43,14 +35,12 @@ import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryVisibility;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
-import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextKey;
-import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
+import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
+import com.google.devtools.build.skyframe.state.EnvironmentForUtilities;
 import java.util.List;
-import java.util.Map;
-import javax.annotation.Nullable;
 
 /**
  * A {@link TargetAccessor} for {@link ConfiguredTarget} objects.
@@ -61,11 +51,26 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
 
   private final WalkableGraph walkableGraph;
   private final ConfiguredTargetQueryEnvironment queryEnvironment;
+  private final SkyFunction.LookupEnvironment lookupEnvironment;
 
   public ConfiguredTargetAccessor(
       WalkableGraph walkableGraph, ConfiguredTargetQueryEnvironment queryEnvironment) {
     this.walkableGraph = walkableGraph;
     this.queryEnvironment = queryEnvironment;
+    this.lookupEnvironment =
+        new EnvironmentForUtilities(
+            key -> {
+              try {
+                SkyValue value = walkableGraph.getValue(key);
+                if (value != null) {
+                  return value;
+                }
+                return walkableGraph.getException(key);
+              } catch (InterruptedException e) {
+                throw new IllegalStateException(
+                    "Thread interrupted in the middle of looking up: " + key, e);
+              }
+            });
   }
 
   @Override
@@ -180,6 +185,10 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
     }
   }
 
+  SkyFunction.LookupEnvironment getLookupEnvironment() {
+    return lookupEnvironment;
+  }
+
   /** Returns the rule that generates the given output file. */
   RuleConfiguredTarget getGeneratingConfiguredTarget(ConfiguredTarget kct)
       throws InterruptedException {
@@ -190,76 +199,7 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
                     ConfiguredTargetKey.builder()
                         .setLabel(((OutputFileConfiguredTarget) kct).getGeneratingRule().getLabel())
                         .setConfigurationKey(kct.getConfigurationKey())
-                        .build()
-                        .toKey()))
+                        .build()))
             .getConfiguredTarget();
-  }
-
-  @Nullable
-  ToolchainCollection<ToolchainContext> getToolchainContexts(
-      Target target, BuildConfigurationValue config) {
-    return getToolchainContexts(target, config, walkableGraph);
-  }
-
-  @Nullable
-  private static ToolchainCollection<ToolchainContext> getToolchainContexts(
-      Target target, BuildConfigurationValue config, WalkableGraph walkableGraph) {
-    if (!(target instanceof Rule)) {
-      return null;
-    }
-
-    Rule rule = ((Rule) target);
-    if (!rule.useToolchainResolution()) {
-      return null;
-    }
-
-    ImmutableSet<ToolchainTypeRequirement> toolchainTypes =
-        rule.getRuleClassObject().getToolchainTypes();
-    // Collect local (target, rule) constraints for filtering out execution platforms.
-    ImmutableSet<Label> execConstraintLabels =
-        getExecutionPlatformConstraints(rule, config.getFragment(PlatformConfiguration.class));
-    ImmutableMap<String, ExecGroup> execGroups = rule.getRuleClassObject().getExecGroups();
-    // Check if this specific target should be debugged for toolchain resolution.
-    boolean debugTarget =
-        config.getFragment(PlatformConfiguration.class).debugToolchainResolution(target.getLabel());
-
-    ToolchainCollection.Builder<UnloadedToolchainContext> toolchainContexts =
-        ToolchainCollection.builder();
-    BuildConfigurationKey configurationKey = config.getKey();
-    try {
-      for (Map.Entry<String, ExecGroup> group : execGroups.entrySet()) {
-        ExecGroup execGroup = group.getValue();
-        UnloadedToolchainContext context =
-            (UnloadedToolchainContext)
-                walkableGraph.getValue(
-                    ToolchainContextKey.key()
-                        .configurationKey(configurationKey)
-                        .toolchainTypes(execGroup.toolchainTypes())
-                        .execConstraintLabels(execGroup.execCompatibleWith())
-                        .debugTarget(debugTarget)
-                        .build());
-        if (context == null) {
-          return null;
-        }
-        toolchainContexts.addContext(group.getKey(), context);
-      }
-      UnloadedToolchainContext defaultContext =
-          (UnloadedToolchainContext)
-              walkableGraph.getValue(
-                  ToolchainContextKey.key()
-                      .configurationKey(configurationKey)
-                      .toolchainTypes(toolchainTypes)
-                      .execConstraintLabels(execConstraintLabels)
-                      .debugTarget(debugTarget)
-                      .build());
-      if (defaultContext == null) {
-        return null;
-      }
-      toolchainContexts.addDefaultContext(defaultContext);
-      return toolchainContexts.build().asToolchainContexts();
-    } catch (InterruptedException e) {
-      throw new IllegalStateException(
-          "Thread interrupted in the middle of getting a ToolchainContext.", e);
-    }
   }
 }

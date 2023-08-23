@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.runtime;
 
-import static com.google.devtools.build.lib.actions.CompletionContext.isGuaranteedToBeOutputFile;
 import static com.google.devtools.build.lib.analysis.TargetCompleteEvent.newFileFromArtifact;
 
 import com.google.common.collect.ImmutableList;
@@ -78,14 +77,10 @@ class NamedArtifactGroup implements BuildEvent {
       if (expandedArtifact.relPath == null) {
         FileArtifactValue fileMetadata =
             completionContext.getFileArtifactValue(expandedArtifact.artifact);
-        LocalFileType outputType =
-            fileMetadata != null && isGuaranteedToBeOutputFile(fileMetadata.getType())
-                ? LocalFileType.OUTPUT_FILE
-                : LocalFileType.OUTPUT;
         artifacts.add(
             new LocalFile(
                 completionContext.pathResolver().toPath(expandedArtifact.artifact),
-                outputType,
+                getOutputType(fileMetadata),
                 fileMetadata == null ? null : expandedArtifact.artifact,
                 fileMetadata));
       } else {
@@ -101,6 +96,20 @@ class NamedArtifactGroup implements BuildEvent {
     return artifacts.build();
   }
 
+  private static LocalFileType getOutputType(@Nullable FileArtifactValue fileMetadata) {
+    if (fileMetadata == null) {
+      return LocalFileType.OUTPUT;
+    }
+    switch (fileMetadata.getType()) {
+      case DIRECTORY:
+        return LocalFileType.OUTPUT_DIRECTORY;
+      case SYMLINK:
+        return LocalFileType.OUTPUT_SYMLINK;
+      default:
+        return LocalFileType.OUTPUT_FILE;
+    }
+  }
+
   @Override
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
     PathConverter pathConverter = converters.pathConverter();
@@ -113,19 +122,27 @@ class NamedArtifactGroup implements BuildEvent {
       if (expandedArtifact.relPath == null) {
         String uri =
             pathConverter.apply(completionContext.pathResolver().toPath(expandedArtifact.artifact));
-        if (uri != null) {
-          builder.addFiles(
-              newFileFromArtifact(expandedArtifact.artifact, completionContext).setUri(uri));
+        BuildEventStreamProtos.File file =
+            newFileFromArtifact(
+                /* name= */ null, expandedArtifact.artifact, completionContext, uri);
+        // Omit files with unknown contents (e.g. if uploading failed).
+        if (file.getFileCase() != BuildEventStreamProtos.File.FileCase.FILE_NOT_SET) {
+          builder.addFiles(file);
         }
       } else {
         String uri =
             pathConverter.apply(
                 completionContext.pathResolver().convertPath(expandedArtifact.target));
-        if (uri != null) {
-          builder.addFiles(
-              newFileFromArtifact(
-                      null, expandedArtifact.artifact, expandedArtifact.relPath, completionContext)
-                  .setUri(uri));
+        BuildEventStreamProtos.File file =
+            newFileFromArtifact(
+                /* name= */ null,
+                expandedArtifact.artifact,
+                expandedArtifact.relPath,
+                completionContext,
+                uri);
+        // Omit files with unknown contents (e.g. if uploading failed).
+        if (file.getFileCase() != BuildEventStreamProtos.File.FileCase.FILE_NOT_SET) {
+          builder.addFiles(file);
         }
       }
     }

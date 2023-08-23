@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
@@ -270,30 +269,6 @@ public class JavaTargetAttributes {
     }
 
     @CanIgnoreReturnValue
-    public Builder addNativeLibrary(Artifact nativeLibrary) {
-      Preconditions.checkArgument(!built);
-      String name = nativeLibrary.getFilename();
-      if (CppFileTypes.INTERFACE_SHARED_LIBRARY.matches(name)) {
-        return this;
-      }
-      if (!(CppFileTypes.SHARED_LIBRARY.matches(name)
-          || CppFileTypes.VERSIONED_SHARED_LIBRARY.matches(name))) {
-        throw new IllegalArgumentException("not a shared library :" + nativeLibrary.prettyPrint());
-      }
-      nativeLibraries.add(nativeLibrary);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addNativeLibraries(Iterable<Artifact> nativeLibraries) {
-      Preconditions.checkArgument(!built);
-      for (Artifact nativeLibrary : nativeLibraries) {
-        addNativeLibrary(nativeLibrary);
-      }
-      return this;
-    }
-
-    @CanIgnoreReturnValue
     public Builder addMessages(Collection<Artifact> messages) {
       Preconditions.checkArgument(!built);
       this.messages.addAll(messages);
@@ -332,13 +307,6 @@ public class JavaTargetAttributes {
     public Builder addClassPathResources(List<Artifact> classPathResources) {
       Preconditions.checkArgument(!built);
       this.classPathResources.addAll(classPathResources);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addClassPathResource(Artifact classPathResource) {
-      Preconditions.checkArgument(!built);
-      this.classPathResources.add(classPathResource);
       return this;
     }
 
@@ -595,10 +563,6 @@ public class JavaTargetAttributes {
         || !messages.isEmpty()
         || !classPathResources.isEmpty()
         || !resourceJars.isEmpty();
-  }
-
-  public boolean hasMessages() {
-    return !messages.isEmpty();
   }
 
   public Label getTargetLabel() {

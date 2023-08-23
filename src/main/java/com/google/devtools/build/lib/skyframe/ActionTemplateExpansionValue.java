@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
@@ -33,8 +32,7 @@ public final class ActionTemplateExpansionValue extends BasicActionLookupValue {
     super(generatingActions);
   }
 
-  public static ActionTemplateExpansionKey key(
-      ActionLookupKeyOrProxy actionLookupKey, int actionIndex) {
+  public static ActionTemplateExpansionKey key(ActionLookupKey actionLookupKey, int actionIndex) {
     return ActionTemplateExpansionKey.of(actionLookupKey, actionIndex);
   }
 
@@ -44,18 +42,17 @@ public final class ActionTemplateExpansionValue extends BasicActionLookupValue {
     private static final Interner<ActionTemplateExpansionKey> interner =
         BlazeInterners.newWeakInterner();
 
-    private final ActionLookupKeyOrProxy actionLookupKey;
+    private final ActionLookupKey actionLookupKey;
     private final int actionIndex;
 
-    private ActionTemplateExpansionKey(ActionLookupKeyOrProxy actionLookupKey, int actionIndex) {
+    private ActionTemplateExpansionKey(ActionLookupKey actionLookupKey, int actionIndex) {
       this.actionLookupKey = actionLookupKey;
       this.actionIndex = actionIndex;
     }
 
     @VisibleForTesting
     @AutoCodec.Instantiator
-    public static ActionTemplateExpansionKey of(
-        ActionLookupKeyOrProxy actionLookupKey, int actionIndex) {
+    public static ActionTemplateExpansionKey of(ActionLookupKey actionLookupKey, int actionIndex) {
       return interner.intern(new ActionTemplateExpansionKey(actionLookupKey, actionIndex));
     }
 
@@ -74,7 +71,7 @@ public final class ActionTemplateExpansionValue extends BasicActionLookupValue {
       return actionLookupKey.getConfigurationKey();
     }
 
-    public ActionLookupKeyOrProxy getActionLookupKey() {
+    public ActionLookupKey getActionLookupKey() {
       return actionLookupKey;
     }
 

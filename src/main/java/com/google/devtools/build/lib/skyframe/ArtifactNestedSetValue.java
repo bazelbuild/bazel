@@ -15,12 +15,19 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.NotComparableSkyValue;
 
 /**
  * Represent a "promise" that the Artifacts under a NestedSet are evaluated by Skyframe and are
- * available in {@link ArtifactNestedSetFunction#artifactSkyKeyToSkyValue}.
+ * available from {@link ArtifactNestedSetFunction#getValueForKey}.
+ *
+ * <p>Implements {@link NotComparableSkyValue} to prohibit value-based change pruning.
  */
 @Immutable
 @ThreadSafe
-public final class ArtifactNestedSetValue implements SkyValue {}
+final class ArtifactNestedSetValue implements NotComparableSkyValue {
+
+  static final ArtifactNestedSetValue INSTANCE = new ArtifactNestedSetValue();
+
+  private ArtifactNestedSetValue() {}
+}

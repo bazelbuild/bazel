@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -1023,7 +1024,13 @@ public abstract class AbstractQueryTest<T> {
 
     // Implicit dependencies:
     String hostDepsExpr = helper.getToolsRepository() + "//tools/cpp:malloc";
-    hostDepsExpr += " + " + helper.getToolsRepository() + "//tools/cpp:link_extra_lib";
+    hostDepsExpr +=
+        " + "
+            + helper.getToolsRepository()
+            + "//tools/cpp:link_extra_lib"
+            + " + "
+            + helper.getToolsRepository()
+            + "//tools/cpp:linkextra.cc";
     if (!analysisMock.isThisBazel()) {
       hostDepsExpr += " + //tools/cpp:malloc.cc";
     }
@@ -2292,6 +2299,27 @@ public abstract class AbstractQueryTest<T> {
     assertThat(evalToString("@my_repo//a/b/...")).isEqualTo(REPO_AB_RULES);
   }
 
+  @Test
+  public void testLabelFlagDefaultAppearsInDepsQuery() throws Exception {
+    writeFile(
+        "donut/BUILD",
+        "sh_binary(name = 'thief', srcs = ['thief.sh'])",
+        "label_flag(name = 'myflag', build_setting_default = ':thief')");
+
+    assertThat(evalToString("deps(//donut:myflag, 1)")).isEqualTo("//donut:myflag //donut:thief");
+  }
+
+  @Test
+  public void testLabelSettingDefaultAppearsInDepsQuery() throws Exception {
+    writeFile(
+        "donut/BUILD",
+        "sh_binary(name = 'thief', srcs = ['thief.sh'])",
+        "label_setting(name = 'mysetting', build_setting_default = ':thief')");
+
+    assertThat(evalToString("deps(//donut:mysetting, 1)"))
+        .isEqualTo("//donut:mysetting //donut:thief");
+  }
+
   /**
    * A helper interface that allows creating a bunch of BUILD files and running queries against
    * them. We use this rather than the existing FoundationTestCase / BuildTestCase infrastructure to
@@ -2409,5 +2437,7 @@ public abstract class AbstractQueryTest<T> {
     Path getModuleRoot();
 
     void setMainRepoTargetParser(RepositoryMapping mapping);
+
+    void maybeHandleDiffs() throws AbruptExitException, InterruptedException;
   }
 }

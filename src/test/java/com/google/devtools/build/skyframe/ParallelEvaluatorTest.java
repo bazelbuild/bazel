@@ -125,12 +125,11 @@ public class ParallelEvaluatorTest {
       ProcessableGraph graph,
       ImmutableMap<SkyFunctionName, SkyFunction> builders,
       boolean keepGoing,
-      EventFilter storedEventFilter) {
-    Version oldGraphVersion = graphVersion;
-    graphVersion = graphVersion.next();
+      EventFilter storedEventFilter,
+      Version evaluationVersion) {
     return new ParallelEvaluator(
         graph,
-        oldGraphVersion,
+        evaluationVersion,
         Version.minimal(),
         builders,
         reportedEvents,
@@ -144,6 +143,16 @@ public class ParallelEvaluatorTest {
         new SimpleCycleDetector(),
         /* mergingSkyframeAnalysisExecutionPhases= */ false,
         UnnecessaryTemporaryStateDropperReceiver.NULL);
+  }
+
+  private ParallelEvaluator makeEvaluator(
+      ProcessableGraph graph,
+      ImmutableMap<SkyFunctionName, SkyFunction> builders,
+      boolean keepGoing,
+      EventFilter storedEventFilter) {
+    Version oldGraphVersion = graphVersion;
+    graphVersion = graphVersion.next();
+    return makeEvaluator(graph, builders, keepGoing, storedEventFilter, oldGraphVersion);
   }
 
   private ParallelEvaluator makeEvaluator(
@@ -387,7 +396,7 @@ public class ParallelEvaluatorTest {
     // thread, aka the main Skyframe evaluation thread),
     CountDownLatch keyAStartedComputingLatch = new CountDownLatch(1);
     CountDownLatch keyBAddReverseDepAndCheckIfDoneLatch = new CountDownLatch(1);
-    InMemoryNodeEntry nodeEntryB = spy(new InMemoryNodeEntry(keyB));
+    InMemoryNodeEntry nodeEntryB = spy(new IncrementalInMemoryNodeEntry(keyB));
     AtomicBoolean keyBAddReverseDepAndCheckIfDoneInterrupted = new AtomicBoolean(false);
     doAnswer(
             invocation -> {
@@ -995,7 +1004,16 @@ public class ParallelEvaluatorTest {
 
     SkyKey topKey = GraphTester.toSkyKey("top");
     tester.getOrCreate(topKey).addDependency(catastropheKey).setComputedValue(CONCATENATE);
-    EvaluationResult<StringValue> result = eval(keepGoing, topKey, otherKey);
+
+    ParallelEvaluator evaluator =
+        makeEvaluator(
+            graph,
+            tester.getSkyFunctionMap(),
+            keepGoing,
+            EventFilter.FULL_STORAGE,
+            keepEdges ? graphVersion : Version.constant());
+
+    EvaluationResult<StringValue> result = evaluator.eval(ImmutableList.of(topKey, otherKey));
     assertThatEvaluationResult(result).hasErrorEntryForKeyThat(topKey);
     if (keepGoing) {
       assertThat(result.getCatastrophe()).isSameInstanceAs(catastrophe);

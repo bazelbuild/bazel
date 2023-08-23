@@ -57,6 +57,9 @@ public final class RewindingTest extends BuildIntegrationTestCase {
         "--experimental_remote_include_extraction_size_threshold=0",
         "--keep_going=" + keepGoing);
     runtimeWrapper.registerSubscriber(actionEventRecorder);
+    // Tell Skyframe to ignore RepositoryHelpersHolder so that we don't trigger
+    // RepoMappingManifestAction to preserve the expected order of Actions.
+    this.getSkyframeExecutor().ignoreRepositoryHelpersHolderForTesting();
   }
 
   /**
@@ -83,12 +86,6 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   @Test
   public void dependentActionsReevaluated() throws Exception {
     helper.runDependentActionsReevaluated_spawnFailed();
-  }
-
-  @Test
-  public void inputDiscoveringActionNoticesMissingDep() throws Exception {
-    skipIfBazel();
-    helper.runInputDiscoveringActionNoticesMissingDep();
   }
 
   @Test

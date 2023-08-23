@@ -39,17 +39,6 @@ import java.util.List;
 /** Command-line options for building for Apple platforms. */
 public class AppleCommandLineOptions extends FragmentOptions {
   @Option(
-      name = "experimental_apple_mandatory_minimum_version",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      help =
-          "No-op. Kept here for backwards compatibility. This field will be removed in a "
-              + "future release.")
-  // TODO(b/37096178): This flag should be removed.
-  public boolean mandatoryMinimumVersion;
-
-  @Option(
       name = "experimental_objc_provider_from_linked",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -187,6 +176,10 @@ public class AppleCommandLineOptions extends FragmentOptions {
   @VisibleForTesting public static final String DEFAULT_TVOS_SDK_VERSION = "9.0";
   @VisibleForTesting static final String DEFAULT_IOS_CPU = "x86_64";
 
+  /** The default visionOS CPU value. */
+  public static final String DEFAULT_VISIONOS_CPU =
+      CPU.getCurrent() == CPU.AARCH64 ? "sim_arm64" : "x86_64";
+
   /** The default watchos CPU value. */
   public static final String DEFAULT_WATCHOS_CPU =
       CPU.getCurrent() == CPU.AARCH64 ? "arm64" : "x86_64";
@@ -201,34 +194,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
 
   /** The default Catalyst CPU value. */
   public static final String DEFAULT_CATALYST_CPU = "x86_64";
-
-  @Option(
-    name = "apple_compiler",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {
-      OptionEffectTag.AFFECTS_OUTPUTS,
-      OptionEffectTag.LOADING_AND_ANALYSIS,
-      OptionEffectTag.LOSES_INCREMENTAL_STATE,
-    },
-    help = "The Apple target compiler. Useful for selecting variants of a toolchain "
-               + "(e.g. xcode-beta)."
-  )
-  public String cppCompiler;
-
-  @Option(
-    name = "apple_grte_top",
-    defaultValue = "null",
-    converter = LabelConverter.class,
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {
-      OptionEffectTag.CHANGES_INPUTS,
-      OptionEffectTag.LOADING_AND_ANALYSIS,
-      OptionEffectTag.LOSES_INCREMENTAL_STATE,
-    },
-    help = "The Apple target grte_top."
-  )
-  public Label appleLibcTop;
 
   @Option(
     name = "apple_crosstool_top",
@@ -291,6 +256,16 @@ public class AppleCommandLineOptions extends FragmentOptions {
           "Comma-separated list of architectures to build an ios_application with. The result "
               + "is a universal binary containing all specified architectures.")
   public List<String> iosMultiCpus;
+
+  @Option(
+      name = "visionos_cpus",
+      allowMultiple = true,
+      converter = CommaSeparatedOptionListConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS},
+      help = "Comma-separated list of architectures for which to build Apple visionOS binaries.")
+  public List<String> visionosCpus;
 
   @Option(
       name = "watchos_cpus",
@@ -398,6 +373,10 @@ public class AppleCommandLineOptions extends FragmentOptions {
         break;
       case TVOS:
         option = tvosMinimumOs;
+        break;
+      case VISIONOS:
+        // TODO: Replace with CppOptions.minimumOsVersion
+        option = DottedVersion.option(DottedVersion.fromStringUnchecked("1.0"));
         break;
       case WATCHOS:
         option = watchosMinimumOs;

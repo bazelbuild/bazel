@@ -50,7 +50,6 @@ java_test(
 java_test(
     name = "LabelInternerIntegrationTest",
     srcs = ["LabelInternerIntegrationTest.java"],
-    jvm_flags = ["-DBAZEL_USE_POOLED_LABEL_INTERNER=1"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",

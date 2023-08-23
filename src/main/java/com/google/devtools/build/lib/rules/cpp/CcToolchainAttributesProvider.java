@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
-import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 
 import com.google.common.base.Preconditions;
@@ -67,7 +66,6 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
   private final NestedSet<Artifact> arFiles;
   private final NestedSet<Artifact> linkerFiles;
   private final NestedSet<Artifact> dwpFiles;
-  private final Label libcTopAttribute;
   private final NestedSet<Artifact> libc;
   private final TransitiveInfoCollection libcTop;
   private final NestedSet<Artifact> targetLibc;
@@ -84,9 +82,11 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
   private final ImmutableList<Artifact> fdoOptimizeArtifacts;
   private final FdoPrefetchHintsProvider fdoPrefetch;
   private final PropellerOptimizeProvider propellerOptimize;
+  private final MemProfProfileProvider memprofProfileProvider;
   private final TransitiveInfoCollection moduleMap;
   private final Artifact moduleMapArtifact;
   private final Artifact zipper;
+  private final Artifact defaultZipper;
   private final String purposePrefix;
   private final String runtimeSolibDirBase;
   private final LicensesProvider licensesProvider;
@@ -103,6 +103,8 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
   private final PackageSpecificationProvider allowlistForLayeringCheck;
   private final PackageSpecificationProvider allowlistForLooseHeaderCheck;
   private final StarlarkFunction ccToolchainBuildVariablesFunc;
+  private final String lateBoundLibc;
+  private final String lateBoundTargetLibc;
 
   public CcToolchainAttributesProvider(
       RuleContext ruleContext,
@@ -139,13 +141,14 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     this.linkerFiles = getFiles(ruleContext, "linker_files");
     this.dwpFiles = getFiles(ruleContext, "dwp_files");
 
-    this.libc = getOptionalFiles(ruleContext, CcToolchainRule.LIBC_TOP_ATTR);
-    this.libcTop = ruleContext.getPrerequisite(CcToolchainRule.LIBC_TOP_ATTR);
+    this.lateBoundLibc = getLateBoundLibc(ruleContext, "libc_top", ":libc_top");
+    this.lateBoundTargetLibc = getLateBoundLibc(ruleContext, "libc_top", ":target_libc_top");
 
-    this.targetLibc = getOptionalFiles(ruleContext, CcToolchainRule.TARGET_LIBC_TOP_ATTR);
-    this.targetLibcTop = ruleContext.getPrerequisite(CcToolchainRule.TARGET_LIBC_TOP_ATTR);
+    this.libc = getOptionalFiles(ruleContext, lateBoundLibc);
+    this.libcTop = ruleContext.getPrerequisite(lateBoundLibc);
 
-    this.libcTopAttribute = ruleContext.attributes().get("libc_top", BuildType.LABEL);
+    this.targetLibc = getOptionalFiles(ruleContext, lateBoundTargetLibc);
+    this.targetLibcTop = ruleContext.getPrerequisite(lateBoundTargetLibc);
 
     this.fullInputsForCrosstool =
         NestedSetBuilder.<Artifact>stableOrder()
@@ -177,9 +180,12 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
         ruleContext.getPrerequisite(":fdo_prefetch_hints", FdoPrefetchHintsProvider.PROVIDER);
     this.propellerOptimize =
         ruleContext.getPrerequisite(":propeller_optimize", PropellerOptimizeProvider.PROVIDER);
+    this.memprofProfileProvider =
+        ruleContext.getPrerequisite(":memprof_profile", MemProfProfileProvider.PROVIDER);
     this.moduleMap = ruleContext.getPrerequisite("module_map");
     this.moduleMapArtifact = ruleContext.getPrerequisiteArtifact("module_map");
     this.zipper = ruleContext.getPrerequisiteArtifact(":zipper");
+    this.defaultZipper = ruleContext.getPrerequisiteArtifact(":default_zipper");
     this.purposePrefix = Actions.escapeLabel(ruleContext.getLabel()) + "_";
     this.runtimeSolibDirBase = "_solib_" + "_" + Actions.escapeLabel(ruleContext.getLabel());
     this.staticRuntimeLib = ruleContext.getPrerequisite("static_runtime_lib");
@@ -209,19 +215,34 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
       this.licensesProvider = null;
     }
     // TODO(b/65835260): Remove this conditional once j2objc can learn the toolchain type.
-    if (ruleContext.attributes().has(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME)) {
+    if (ruleContext.attributes().has(CcToolchainRule.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME)) {
       this.toolchainType =
-          ruleContext.attributes().get(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL);
+          ruleContext
+              .attributes()
+              .get(CcToolchainRule.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, BuildType.LABEL);
     } else {
       this.toolchainType = null;
     }
     this.allowlistForLayeringCheck =
         Allowlist.fetchPackageSpecificationProvider(
-            ruleContext, CcToolchain.ALLOWED_LAYERING_CHECK_FEATURES_ALLOWLIST);
+            ruleContext, CcToolchainRule.ALLOWED_LAYERING_CHECK_FEATURES_ALLOWLIST);
     this.allowlistForLooseHeaderCheck =
         Allowlist.fetchPackageSpecificationProvider(
-            ruleContext, CcToolchain.LOOSE_HEADER_CHECK_ALLOWLIST);
+            ruleContext, CcToolchainRule.LOOSE_HEADER_CHECK_ALLOWLIST);
     this.ccToolchainBuildVariablesFunc = ccToolchainBuildVariablesFunc;
+  }
+
+  // This is to avoid Starlark limitation of not being able to have complex logic in configuration
+  // field. The logic here was encapsulated in native cc_toolchain rule's :libc_top's and
+  // :target_libc_top's LateBoundDefault attributes.
+  // In case :libc_top or :target_libc_top were not specified from command line, i.e. grte_top was
+  // not set we will try to use public attributes instead.
+  private static String getLateBoundLibc(
+      RuleContext ruleContext, String attribute, String implicitAttribute) {
+    if (ruleContext.getPrerequisite(implicitAttribute) == null) {
+      return attribute;
+    }
+    return implicitAttribute;
   }
 
   @Override
@@ -274,6 +295,10 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     return propellerOptimize;
   }
 
+  public MemProfProfileProvider getMemProfProfileProvider() {
+    return memprofProfileProvider;
+  }
+
   public String getToolchainIdentifier() {
     return toolchainIdentifier;
   }
@@ -295,6 +320,18 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
 
   public ImmutableList<Artifact> getFdoOptimizeArtifacts() {
     return fdoOptimizeArtifacts;
+  }
+
+  @StarlarkMethod(
+      name = "licenses_provider",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  public LicensesProvider getLicensesProviderForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getLicensesProvider();
   }
 
   public LicensesProvider getLicensesProvider() {
@@ -432,8 +469,14 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     return xfdoProfileProvider;
   }
 
+  /* Get the FDO-specific zipper. */
   public Artifact getZipper() {
     return zipper;
+  }
+
+  /* Get the non FDO-specific zipper. */
+  public Artifact getDefaultZipper() {
+    return defaultZipper;
   }
 
   public NestedSet<Artifact> getFullInputsForLink() {
@@ -513,10 +556,6 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
   @Nullable
   public Label getTargetLibcTopLabel() {
     return getTargetLibcTop() == null ? null : getTargetLibcTop().getLabel();
-  }
-
-  public Label getLibcTopAttribute() {
-    return libcTopAttribute;
   }
 
   public String getCompiler() {

@@ -124,7 +124,7 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
                 .put(
                     BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
                     new BzlmodRepoRuleFunction(ruleClassProvider, directories))
-                .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction(rootDirectory))
+                .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
                 .put(SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(rootDirectory))
                 .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
                 .put(
@@ -140,12 +140,12 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
-    BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
+    YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
     BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
         differencer, CheckDirectDepsMode.WARNING);
     BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE.set(
         differencer, BazelCompatibilityMode.ERROR);
-    BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.OFF);
+    BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.UPDATE);
   }
 
   @Test
@@ -176,50 +176,6 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
     assertThat(repoRule.getRuleClass()).isEqualTo("local_repository");
     assertThat(repoRule.getName()).isEqualTo("ccc~2.0");
     assertThat(repoRule.getAttr("path", Type.STRING)).isEqualTo("/usr/local/modules/ccc~2.0");
-  }
-
-  @Test
-  public void testRepoSpec_lockfile() throws Exception {
-    scratch.file(
-        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
-        "bazel_dep(name='bbb',version='2.0')");
-
-    FakeRegistry registry =
-        registryFactory
-            .newFakeRegistry("/usr/local/modules")
-            .addModule(createModuleKey("bbb", "2.0"), "module(name='bbb', version='2.0')");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
-
-    BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.UPDATE);
-
-    RepositoryName repo = RepositoryName.create("bbb~2.0");
-    EvaluationResult<BzlmodRepoRuleValue> result =
-        evaluator.evaluate(ImmutableList.of(BzlmodRepoRuleValue.key(repo)), evaluationContext);
-    if (result.hasError()) {
-      fail(result.getError().toString());
-    }
-    BzlmodRepoRuleValue bzlmodRepoRuleValue = result.get(BzlmodRepoRuleValue.key(repo));
-    Rule repoRule = bzlmodRepoRuleValue.getRule();
-    assertThat(repoRule.getName()).isEqualTo("bbb~2.0");
-
-    /* Rerun the setup to:
-     1.Reset evaluator to remove the sky values cache.
-     2.Reset registry factory to be empty (now "bbb" doesn't exist at all)
-     without the lockfile "bbb" should not be found and this should fail
-    */
-    setup();
-    BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.UPDATE);
-    registry = registryFactory.newFakeRegistry("/usr/local/modules");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
-
-    // Calling again should read from lockfile and still find ccc
-    result = evaluator.evaluate(ImmutableList.of(BzlmodRepoRuleValue.key(repo)), evaluationContext);
-    if (result.hasError()) {
-      fail(result.getError().toString());
-    }
-    bzlmodRepoRuleValue = result.get(BzlmodRepoRuleValue.key(repo));
-    repoRule = bzlmodRepoRuleValue.getRule();
-    assertThat(repoRule.getName()).isEqualTo("bbb~2.0");
   }
 
   @Test

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
@@ -186,10 +187,16 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
       // project files, as in runtime.commands.ProjectFileSupport. To properly report this, we would
       // need to let the command customize how the residual is listed. This catch-all could serve
       // as a default in this case.
-      return CommandLineSection.newBuilder()
-          .setSectionLabel("residual")
-          .setChunkList(ChunkList.newBuilder().addAllChunk(commandOptions.getResidue()))
-          .build();
+      CommandLineSection.Builder builder =
+          CommandLineSection.newBuilder().setSectionLabel("residual");
+      if (commandName.equals("run")
+          && !commandOptions.getOptions(BuildEventProtocolOptions.class)
+              .includeResidueInRunBepEvent) {
+        builder.setChunkList(ChunkList.newBuilder().addChunk("REDACTED"));
+      } else {
+        builder.setChunkList(ChunkList.newBuilder().addAllChunk(commandOptions.getResidue()));
+      }
+      return builder.build();
     }
   }
 

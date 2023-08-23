@@ -15,13 +15,11 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.testutil.Scratch;
 import java.io.IOException;
@@ -67,11 +65,6 @@ public class ObjcImportTest extends ObjcRuleTestCase {
         "    name = 'lib',",
         "    deps = ['//imp:imp'],",
         ")");
-
-    ObjcProvider provider = objcProviderForTarget("//lib:lib");
-    assertThat(Artifact.asExecPaths(provider.get(ObjcProvider.IMPORTED_LIBRARY)))
-        .containsExactly("imp/precomp_lib.a")
-        .inOrder();
 
     Artifact library =
         ccInfoForTarget("//lib:lib")
@@ -204,9 +197,6 @@ public class ObjcImportTest extends ObjcRuleTestCase {
         "    sdk_dylibs = ['libdy1', 'libdy2'],",
         ")");
 
-    ObjcProvider provider = objcProviderForTarget("//imp:imp");
-    assertThat(provider.get(ObjcProvider.SDK_DYLIB).toList()).containsExactly("libdy1", "libdy2");
-
     CcLinkingContext ccLinkingContext = ccInfoForTarget("//imp:imp").getCcLinkingContext();
     assertThat(ccLinkingContext.getFlattenedUserLinkFlags()).containsExactly("-ldy1", "-ldy2");
   }
@@ -253,17 +243,9 @@ public class ObjcImportTest extends ObjcRuleTestCase {
         "    deps = [':imp_dep'],",
         ")");
 
-    assertThat(getArifactPaths(getConfiguredTarget("//imp:imp"), IMPORTED_LIBRARY))
-        .containsExactly("imp/precomp_lib.a", "imp/precomp_dep.a");
     assertThat(getArifactPathsOfLibraries(getConfiguredTarget("//imp:imp")))
         .containsExactly("imp/precomp_lib.a", "imp/precomp_dep.a");
     assertThat(getArifactPathsOfHeaders(getConfiguredTarget("//imp:imp")))
         .containsExactly("imp/precomp_dep.h");
-  }
-
-  private static Iterable<String> getArifactPaths(
-      ConfiguredTarget target, ObjcProvider.Key<Artifact> artifactKey) {
-    return Artifact.toRootRelativePaths(
-        target.get(ObjcProvider.STARLARK_CONSTRUCTOR).get(artifactKey));
   }
 }

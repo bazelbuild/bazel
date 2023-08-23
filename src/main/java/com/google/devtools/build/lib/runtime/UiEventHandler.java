@@ -155,7 +155,11 @@ public final class UiEventHandler implements EventHandler {
   }
 
   public UiEventHandler(
-      OutErr outErr, UiOptions options, Clock clock, @Nullable PathFragment workspacePathFragment) {
+      OutErr outErr,
+      UiOptions options,
+      Clock clock,
+      @Nullable PathFragment workspacePathFragment,
+      boolean skymeldMode) {
     this.terminalWidth = (options.terminalColumns > 0 ? options.terminalColumns : 80);
     this.maxStdoutErrBytes = options.maxStdoutErrBytes;
     this.outErr =
@@ -178,7 +182,7 @@ public final class UiEventHandler implements EventHandler {
     // additional character is written. Another column is lost for the continuation character
     // in the wrapping process.
 
-    if (options.skymeldUi) {
+    if (skymeldMode) {
       this.stateTracker =
           this.cursorControl
               ? new SkymeldUiStateTracker(clock, /*targetWidth=*/ this.terminalWidth - 2)
@@ -672,7 +676,11 @@ public final class UiEventHandler implements EventHandler {
   public void downloadProgress(FetchProgress event) {
     maybeAddDate();
     stateTracker.downloadProgress(event);
-    refresh();
+    if (!event.isFinished()) {
+      refresh();
+    } else {
+      checkActivities();
+    }
   }
 
   @Subscribe

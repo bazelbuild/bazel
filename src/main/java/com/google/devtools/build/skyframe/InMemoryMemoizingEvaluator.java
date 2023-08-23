@@ -37,7 +37,8 @@ import javax.annotation.Nullable;
  * the returned graphs. However, it is allowed to access the graph from multiple threads as long as
  * that does not happen in parallel with an {@link #evaluate} call.
  *
- * <p>This memoizing evaluator uses a monotonically increasing {@link IntVersion}.
+ * <p>This memoizing evaluator uses a monotonically increasing {@link IntVersion} for incremental
+ * evaluations and {@link Version#constant} for non-incremental evaluations.
  */
 public final class InMemoryMemoizingEvaluator
     extends AbstractIncrementalInMemoryMemoizingEvaluator {
@@ -126,7 +127,14 @@ public final class InMemoryMemoizingEvaluator
       Iterable<? extends SkyKey> roots, EvaluationContext evaluationContext)
       throws InterruptedException {
     // NOTE: Performance critical code. See bug "Null build performance parity".
-    IntVersion graphVersion = lastGraphVersion == null ? IntVersion.of(0) : lastGraphVersion.next();
+    Version graphVersion;
+    if (!keepEdges) {
+      graphVersion = Version.constant();
+    } else if (lastGraphVersion == null) {
+      graphVersion = IntVersion.of(0);
+    } else {
+      graphVersion = lastGraphVersion.next();
+    }
     setAndCheckEvaluateState(true, roots);
     try {
       // Mark for removal any inflight nodes from the previous evaluation.
@@ -181,7 +189,9 @@ public final class InMemoryMemoizingEvaluator
           .setWalkableGraph(new DelegatingWalkableGraph(graph))
           .build();
     } finally {
-      lastGraphVersion = graphVersion;
+      if (keepEdges) {
+        lastGraphVersion = (IntVersion) graphVersion;
+      }
       setAndCheckEvaluateState(false, roots);
     }
   }

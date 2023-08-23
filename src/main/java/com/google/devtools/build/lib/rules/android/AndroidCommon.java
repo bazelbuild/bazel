@@ -526,8 +526,7 @@ public class AndroidCommon {
     }
 
     if (addCoverageSupport) {
-      androidSemantics.addCoverageSupport(
-          ruleContext, this, javaSemantics, true, attributesBuilder, artifactsBuilder);
+      androidSemantics.addCoverageSupport(ruleContext, true, attributesBuilder);
       if (ruleContext.hasErrors()) {
         return null;
       }
@@ -596,7 +595,7 @@ public class AndroidCommon {
               ruleContext, javaCommon.getDependencies(), runtimeJars.build());
       this.jarsProducedForRuntime = jarsProducedForRuntime.add(classJar).build();
       if (collectJavaCompilationArgs) {
-        this.javaCompilationArgs = collectJavaCompilationArgs(asNeverLink, attributes.hasSources());
+        this.javaCompilationArgs = javaCommon.collectJavaCompilationArgs(asNeverLink);
       }
     }
     return attributes;
@@ -605,7 +604,8 @@ public class AndroidCommon {
   private JavaCompilationHelper initAttributes(
       JavaTargetAttributes.Builder attributes,
       JavaSemantics semantics,
-      ImmutableList<Artifact> additionalArtifacts) {
+      ImmutableList<Artifact> additionalArtifacts)
+      throws RuleErrorException {
     JavaCompilationHelper helper =
         new JavaCompilationHelper(
             ruleContext, semantics, javaCommon.getJavacOpts(), attributes, additionalArtifacts);
@@ -688,8 +688,7 @@ public class AndroidCommon {
                 .addAll(javaCommon.getJavaCompilationArtifacts().getRuntimeJars())
                 .build());
     if (collectJavaCompilationArgs) {
-      boolean hasSources = attributes.hasSources();
-      this.javaCompilationArgs = collectJavaCompilationArgs(asNeverLink, hasSources);
+      this.javaCompilationArgs = javaCommon.collectJavaCompilationArgs(asNeverLink);
     }
   }
 
@@ -701,7 +700,8 @@ public class AndroidCommon {
       Iterable<Artifact> apksUnderTest,
       NativeLibs nativeLibs,
       boolean isNeverlink,
-      boolean isLibrary) {
+      boolean isLibrary)
+      throws RuleErrorException {
 
     idlHelper.addTransitiveInfoProviders(builder, classJar, outputs.manifestProto());
 
@@ -772,7 +772,7 @@ public class AndroidCommon {
 
     return builder
         .setFilesToBuild(filesToBuild)
-        .addNativeDeclaredProvider(javaInfo)
+        .addStarlarkDeclaredProvider(javaInfo)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(getRunfiles()))
         .addNativeDeclaredProvider(
             createAndroidIdeInfoProvider(
@@ -809,22 +809,6 @@ public class AndroidCommon {
         asNeverLink);
   }
 
-  /**
-   * Collects Java compilation arguments for this target.
-   *
-   * @param isNeverLink Whether the target has the 'neverlink' attr.
-   * @param hasSrcs If false, deps are exported (deprecated behaviour)
-   */
-  private JavaCompilationArgsProvider collectJavaCompilationArgs(
-      boolean isNeverLink, boolean hasSrcs) {
-    boolean exportDeps =
-        !hasSrcs
-            && ruleContext
-                .getFragment(AndroidConfiguration.class)
-                .allowSrcsLessAndroidLibraryDeps(ruleContext);
-    return javaCommon.collectJavaCompilationArgs(isNeverLink, exportDeps);
-  }
-
   public ImmutableList<String> getJavacOpts() {
     return javaCommon.getJavacOpts();
   }
@@ -854,7 +838,7 @@ public class AndroidCommon {
     return asNeverLink;
   }
 
-  CcInfo getCcInfo() {
+  CcInfo getCcInfo() throws RuleErrorException {
     return getCcInfo(
         javaCommon.targetsTreatedAsDeps(ClasspathType.BOTH),
         ImmutableList.of(),
@@ -866,7 +850,8 @@ public class AndroidCommon {
       final Collection<? extends TransitiveInfoCollection> deps,
       final ImmutableList<String> linkOpts,
       Label label,
-      SymbolGenerator<?> symbolGenerator) {
+      SymbolGenerator<?> symbolGenerator)
+      throws RuleErrorException {
 
     CcLinkingContext ccLinkingContext =
         CcLinkingContext.builder()
@@ -879,7 +864,7 @@ public class AndroidCommon {
     ImmutableList<CcInfo> ccInfos =
         Streams.concat(
                 Stream.of(linkoptsCcInfo),
-                deps.stream().map(JavaInfo::ccInfo),
+                JavaInfo.ccInfos(deps).stream(),
                 AnalysisUtils.getProviders(deps, AndroidCcLinkParamsProvider.PROVIDER).stream()
                     .map(AndroidCcLinkParamsProvider::getLinkParams),
                 AnalysisUtils.getProviders(deps, CcInfo.PROVIDER).stream())

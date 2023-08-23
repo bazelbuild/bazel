@@ -44,6 +44,15 @@ public interface JavaConfigurationApi extends StarlarkValue {
       doc = "The value of the strict_java_deps flag.")
   String getStrictJavaDepsName();
 
+  @StarlarkMethod(name = "use_header_compilation", useStarlarkThread = true, documented = false)
+  boolean useHeaderCompilationStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "generate_java_deps", useStarlarkThread = true, documented = false)
+  boolean getGenerateJavaDepsStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "reduce_java_classpath", useStarlarkThread = true, documented = false)
+  String getReduceJavaClasspathStarlark(StarlarkThread thread) throws EvalException;
+
   @StarlarkMethod(
       name = "default_jvm_opts",
       structField = true,

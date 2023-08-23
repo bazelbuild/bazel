@@ -65,7 +65,6 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -652,10 +651,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
                     /* forciblyRunRemotely= */ false,
                     /* catastrophe= */ false);
               } else {
-                String testName =
-                    OS.getCurrent() == OS.WINDOWS
-                        ? "standalone/failing_test.exe"
-                        : "standalone/failing_test";
+                String testName = "standalone/failing_test";
                 assertThat(spawn.getEnvironment()).containsEntry("TEST_BINARY", testName);
                 return ImmutableList.of(xmlGeneratorSpawnResult);
               }

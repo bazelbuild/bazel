@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 
@@ -95,21 +94,6 @@ public class SkymeldModule extends BlazeModule {
               Event.warn(
                   "--experimental_merged_skyframe_analysis_execution is incompatible with"
                       + " generating an aquery dump after builds and its value will be ignored."));
-      effectiveValue = false;
-    }
-
-    if (effectiveValue
-        && env.getOptions().getOptions(RemoteOptions.class) != null
-        && !env.getOptions()
-            .getOptions(RemoteOptions.class)
-            .remoteOutputsMode
-            .downloadAllOutputs()) {
-      env.getReporter()
-          .handle(
-              Event.warn(
-                  "--experimental_merged_skyframe_analysis_execution is incompatible with"
-                      + " --remote_download_outputs=(minimal|toplevel) and its value will be"
-                      + " ignored."));
       effectiveValue = false;
     }
 

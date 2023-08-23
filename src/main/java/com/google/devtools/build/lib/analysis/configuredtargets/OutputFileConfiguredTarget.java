@@ -14,92 +14,135 @@
 
 package com.google.devtools.build.lib.analysis.configuredtargets;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.LicensesProviderImpl;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.TargetContext;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.OutputFile;
+import com.google.devtools.build.lib.packages.Provider;
+import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Printer;
 
 /** A ConfiguredTarget for an OutputFile. */
 @Immutable
-public class OutputFileConfiguredTarget extends FileConfiguredTarget {
+public final class OutputFileConfiguredTarget extends FileConfiguredTarget {
 
-  private final Artifact artifact;
-  private final ConfiguredTarget generatingRule;
+  private final RuleConfiguredTarget generatingRule;
 
   public OutputFileConfiguredTarget(
-      TargetContext targetContext,
-      OutputFile outputFile,
-      ConfiguredTarget generatingRule,
-      Artifact outputArtifact) {
-    super(
-        targetContext.getAnalysisEnvironment().getOwner(),
-        targetContext.getVisibility(),
-        outputArtifact,
-        instrumentedFilesInfo(generatingRule),
-        generatingRule.getProvider(RequiredConfigFragmentsProvider.class),
-        Preconditions.checkNotNull(generatingRule).get(OutputGroupInfo.STARLARK_CONSTRUCTOR));
-    Preconditions.checkArgument(targetContext.getTarget() == outputFile);
-    this.artifact = outputArtifact;
-    this.generatingRule = Preconditions.checkNotNull(generatingRule);
+      TargetContext targetContext, Artifact outputArtifact, RuleConfiguredTarget generatingRule) {
+    super(targetContext, outputArtifact);
+    this.generatingRule = checkNotNull(generatingRule);
+    checkArgument(targetContext.getTarget() instanceof OutputFile, targetContext.getTarget());
   }
 
-  private static InstrumentedFilesInfo instrumentedFilesInfo(
-      TransitiveInfoCollection generatingRule) {
-    Preconditions.checkNotNull(generatingRule);
-    InstrumentedFilesInfo provider = generatingRule.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
-    return provider == null ? InstrumentedFilesInfo.EMPTY : provider;
-  }
-
-  public ConfiguredTarget getGeneratingRule() {
+  public RuleConfiguredTarget getGeneratingRule() {
     return generatingRule;
   }
 
   @Override
-  public final Artifact getArtifact() {
-    return artifact;
+  public BuiltinProvider<LicensesProvider> getProvider() {
+    return LicensesProvider.PROVIDER;
+  }
+
+  @Override
+  @Nullable
+  public <P extends TransitiveInfoProvider> P getProvider(Class<P> providerClass) {
+    P provider = super.getProvider(providerClass);
+    if (provider != null) {
+      return provider;
+    }
+    if (providerClass == RequiredConfigFragmentsProvider.class) {
+      return generatingRule.getProvider(providerClass);
+    }
+    return null;
+  }
+
+  @Nullable
+  @Override
+  protected Info rawGetStarlarkProvider(Provider.Key providerKey) {
+    // The following Starlark providers do not implement TransitiveInfoProvider and thus may only be
+    // requested via this method using a Provider.Key, not via getProvider(Class) above.
+
+    if (providerKey.equals(LicensesProvider.PROVIDER.getKey())) {
+      return generatingRule.get(LicensesProvider.PROVIDER);
+    }
+
+    if (providerKey.equals(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR.getKey())) {
+      return firstNonNull(
+          generatingRule.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR),
+          InstrumentedFilesInfo.EMPTY);
+    }
+
+    if (providerKey.equals(OutputGroupInfo.STARLARK_CONSTRUCTOR.getKey())) {
+      // We have an OutputFileConfiguredTarget, so the generating rule must have OutputGroupInfo.
+      NestedSet<Artifact> validationOutputs =
+          generatingRule
+              .get(OutputGroupInfo.STARLARK_CONSTRUCTOR)
+              .getOutputGroup(OutputGroupInfo.VALIDATION);
+      if (!validationOutputs.isEmpty()) {
+        return OutputGroupInfo.singleGroup(OutputGroupInfo.VALIDATION, validationOutputs);
+      }
+    }
+
+    return null;
+  }
+
+  @Override
+  public Dict<String, Object> getProvidersDictForQuery() {
+    Dict.Builder<String, Object> dict = Dict.builder();
+    dict.putAll(super.getProvidersDictForQuery());
+    addStarlarkProviderIfPresent(dict, InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
+    addStarlarkProviderIfPresent(dict, OutputGroupInfo.STARLARK_CONSTRUCTOR);
+    addNativeProviderFromRuleIfPresent(dict, RequiredConfigFragmentsProvider.class);
+    return dict.buildImmutable();
+  }
+
+  private void addStarlarkProviderIfPresent(Dict.Builder<String, Object> dict, Provider provider) {
+    Info info = rawGetStarlarkProvider(provider.getKey());
+    if (info != null) {
+      tryAddProviderForQuery(dict, provider.getKey(), info);
+    }
+  }
+
+  private void addNativeProviderFromRuleIfPresent(
+      Dict.Builder<String, Object> dict, Class<? extends TransitiveInfoProvider> providerClass) {
+    TransitiveInfoProvider provider = generatingRule.getProvider(providerClass);
+    if (provider != null) {
+      tryAddProviderForQuery(dict, providerClass, provider);
+    }
   }
 
   @Override
   public NestedSet<TargetLicense> getTransitiveLicenses() {
-    return getProvider(LicensesProvider.class, LicensesProviderImpl.EMPTY)
-        .getTransitiveLicenses();
+    return getLicencesProviderFromGeneratingRule().getTransitiveLicenses();
   }
 
   @Override
   public TargetLicense getOutputLicenses() {
-    return getProvider(LicensesProvider.class, LicensesProviderImpl.EMPTY)
-        .getOutputLicenses();
+    return getLicencesProviderFromGeneratingRule().getOutputLicenses();
   }
 
   @Override
   public boolean hasOutputLicenses() {
-    return getProvider(LicensesProvider.class, LicensesProviderImpl.EMPTY)
-        .hasOutputLicenses();
+    return getLicencesProviderFromGeneratingRule().hasOutputLicenses();
   }
 
-  /**
-   * Returns the corresponding provider from the generating rule, if it is non-null, or {@code
-   * defaultValue} otherwise.
-   */
-  private <T extends TransitiveInfoProvider> T getProvider(Class<T> clazz, T defaultValue) {
-    if (generatingRule != null) {
-      T result = generatingRule.getProvider(clazz);
-      if (result != null) {
-        return result;
-      }
-    }
-    return defaultValue;
+  private LicensesProvider getLicencesProviderFromGeneratingRule() {
+    return firstNonNull(generatingRule.get(LicensesProvider.PROVIDER), LicensesProviderImpl.EMPTY);
   }
 
   @Override

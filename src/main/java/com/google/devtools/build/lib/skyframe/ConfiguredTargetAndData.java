@@ -105,11 +105,9 @@ public class ConfiguredTargetAndData {
           configuredTarget,
           target);
     } else {
-      BuildConfigurationKey configurationKey = configuration.getKey();
       Preconditions.checkState(
-          innerConfigurationKey.equals(configurationKey),
-          "Configurations don't match: %s %s %s (%s %s)",
-          configurationKey,
+          innerConfigurationKey.getOptions().equals(configuration.getOptions()),
+          "Configurations don't match: %s %s (%s %s)",
           innerConfigurationKey,
           configuration,
           configuredTarget,

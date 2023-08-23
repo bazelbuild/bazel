@@ -66,7 +66,7 @@ public abstract class FileTarget implements Target, FileType.HasFileType {
 
   @Override
   public Set<DistributionType> getDistributions() {
-    return getPackage().getDefaultDistribs();
+    return getPackage().getPackageArgs().distribs();
   }
 
   /**
@@ -83,6 +83,6 @@ public abstract class FileTarget implements Target, FileType.HasFileType {
    */
   @Override
   public License getLicense() {
-    return getPackage().getDefaultLicense();
+    return getPackage().getPackageArgs().license();
   }
 }

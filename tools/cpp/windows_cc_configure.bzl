@@ -232,15 +232,10 @@ def find_vc_path(repository_ctx):
     # 5. Check default directories for VC installation
     auto_configure_warning_maybe(repository_ctx, "Looking for default Visual C++ installation directory")
     for path in [
-        "Microsoft Visual Studio\\2019\\Preview\\VC",
-        "Microsoft Visual Studio\\2019\\BuildTools\\VC",
-        "Microsoft Visual Studio\\2019\\Community\\VC",
-        "Microsoft Visual Studio\\2019\\Professional\\VC",
-        "Microsoft Visual Studio\\2019\\Enterprise\\VC",
-        "Microsoft Visual Studio\\2017\\BuildTools\\VC",
-        "Microsoft Visual Studio\\2017\\Community\\VC",
-        "Microsoft Visual Studio\\2017\\Professional\\VC",
-        "Microsoft Visual Studio\\2017\\Enterprise\\VC",
+        "Microsoft Visual Studio\\%s\\%s\\VC" % (year, edition)
+        for year in (2022, 2019, 2017)
+        for edition in ("Preview", "BuildTools", "Community", "Professional", "Enterprise")
+    ] + [
         "Microsoft Visual Studio 14.0\\VC",
     ]:
         path = program_files_dir + "\\" + path
@@ -254,17 +249,11 @@ def find_vc_path(repository_ctx):
     auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools found at %s" % vc_dir)
     return vc_dir
 
-def _is_vs_2017_or_2019(repository_ctx, vc_path):
-    """Check if the installed VS version is Visual Studio 2017 or 2019."""
+def _is_vs_2017_or_newer(repository_ctx, vc_path):
+    """Check if the installed VS version is Visual Studio 2017 or newer."""
 
-    # The layout of VC folder in VS 2017 and 2019 is different from that in VS 2015 and older versions.
-    # In VS 2017 and 2019, it contains only three directories:
-    # "Auxiliary", "Redist", "Tools"
-
-    vc_2017_or_2019_contents = ["auxiliary", "redist", "tools"]
-    vc_path_contents = [d.basename.lower() for d in repository_ctx.path(vc_path).readdir()]
-    vc_path_contents = sorted(vc_path_contents)
-    return vc_path_contents == vc_2017_or_2019_contents
+    # For VS 2017 and later, a `Tools` directory should exist under `BAZEL_VC`
+    return repository_ctx.path(vc_path).get_child("Tools").exists
 
 def _is_msbuildtools(vc_path):
     """Check if the installed VC version is from MSBuildTools."""
@@ -275,7 +264,7 @@ def _is_msbuildtools(vc_path):
 
 def _find_vcvars_bat_script(repository_ctx, vc_path):
     """Find batch script to set up environment variables for VC. Doesn't %-escape the result."""
-    if _is_vs_2017_or_2019(repository_ctx, vc_path):
+    if _is_vs_2017_or_newer(repository_ctx, vc_path):
         vcvars_script = vc_path + "\\Auxiliary\\Build\\VCVARSALL.BAT"
     else:
         vcvars_script = vc_path + "\\VCVARSALL.BAT"
@@ -293,7 +282,7 @@ def _is_support_vcvars_ver(vc_full_version):
 
 def _is_support_winsdk_selection(repository_ctx, vc_path):
     """Windows SDK selection is supported with VC 2017 / 2019 or with full VS 2015 installation."""
-    if _is_vs_2017_or_2019(repository_ctx, vc_path):
+    if _is_vs_2017_or_newer(repository_ctx, vc_path):
         return True
 
     # By checking the source code of VCVARSALL.BAT in VC 2015, we know that
@@ -319,7 +308,7 @@ def _get_vc_env_vars(repository_ctx, vc_path, msvc_vars_x64, target_arch):
         dictionary of envvars
     """
     env = {}
-    if _is_vs_2017_or_2019(repository_ctx, vc_path):
+    if _is_vs_2017_or_newer(repository_ctx, vc_path):
         lib = msvc_vars_x64["%{msvc_env_lib_x64}"]
         full_version = _get_vc_full_version(repository_ctx, vc_path)
         tools_path = "%s\\Tools\\MSVC\\%s\\bin\\HostX64\\%s" % (vc_path, full_version, target_arch)
@@ -367,7 +356,7 @@ def setup_vc_env_vars(repository_ctx, vc_path, envvars = [], allow_empty = False
 
     # Get VC version set by user. Only supports VC 2017 & 2019.
     vcvars_ver = ""
-    if _is_vs_2017_or_2019(repository_ctx, vc_path):
+    if _is_vs_2017_or_newer(repository_ctx, vc_path):
         full_version = _get_vc_full_version(repository_ctx, vc_path)
 
         # Because VCVARSALL.BAT is from the latest VC installed, so we check if the latest
@@ -448,7 +437,7 @@ def _find_msvc_tools(repository_ctx, vc_path, target_arch = "x64"):
 def find_msvc_tool(repository_ctx, vc_path, tool, target_arch = "x64"):
     """Find the exact path of a specific build tool in MSVC. Doesn't %-escape the result."""
     tool_path = None
-    if _is_vs_2017_or_2019(repository_ctx, vc_path) or _is_msbuildtools(vc_path):
+    if _is_vs_2017_or_newer(repository_ctx, vc_path) or _is_msbuildtools(vc_path):
         full_version = _get_vc_full_version(repository_ctx, vc_path)
         if full_version:
             tool_path = "%s\\Tools\\MSVC\\%s\\bin\\HostX64\\%s\\%s" % (vc_path, full_version, target_arch, tool)

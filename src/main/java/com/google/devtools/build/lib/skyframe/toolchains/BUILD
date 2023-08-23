@@ -254,12 +254,17 @@ java_library(
     name = "toolchain_exception",
     srcs = ["ToolchainException.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:target_and_configuration",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/causes",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_value_creation_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 

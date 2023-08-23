@@ -59,6 +59,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/actions:thread_state_receiver",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/config_matching_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/feature_set",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_class_set",

@@ -1,7 +1,7 @@
 workspace(name = "io_bazel")
 
 load("//tools/build_defs/repo:http.bzl", "http_archive")
-load("//:distdir.bzl", "dist_http_archive", "distdir_tar", "dist_http_jar")
+load("//:distdir.bzl", "dist_http_archive", "dist_http_jar", "distdir_tar")
 load("//:distdir_deps.bzl", "DIST_DEPS")
 load("//:repositories.bzl", "embedded_jdk_repositories")
 
@@ -125,22 +125,22 @@ distdir_tar(
     name = "additional_distfiles",
     # Keep in sync with the archives fetched as part of building bazel.
     archives = [
-        "android_tools_pkg-0.28.0.tar",
+        "android_tools_pkg-0.29.0.tar",
         # for android_gmaven_r8
-        "r8-8.0.40.jar",
+        "r8-8.1.56.jar",
     ],
     dirname = "derived/distdir",
     dist_deps = {dep: attrs for dep, attrs in DIST_DEPS.items() if "additional_distfiles" in attrs["used_in"]},
     sha256 = {
-        "android_tools_pkg-0.28.0.tar": "db3b02421ae974e0b33573f3e4f658d5f89cc9a0b42baae0ba2ac08e25c0720a",
-        "r8-8.0.40.jar": "ab1379835c7d3e5f21f80347c3c81e2f762e0b9b02748ae5232c3afa14adf702",
+        "android_tools_pkg-0.29.0.tar": "d7223664ca5b0de490f2a918c31f35cdf4f23a1446fe261d7470b8a22bd7bcf1",
+        "r8-8.1.56.jar": "57a696749695a09381a87bc2f08c3a8ed06a717a5caa3ef878a3077e0d3af19d",
     },
     urls = {
-        "android_tools_pkg-0.28.0.tar": [
-            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.28.0.tar",
+        "android_tools_pkg-0.29.0.tar": [
+            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.29.0.tar",
         ],
-        "r8-8.0.40.jar": [
-            "https://maven.google.com/com/android/tools/r8/8.0.40/r8-8.0.40.jar",
+        "r8-8.1.56.jar": [
+            "https://maven.google.com/com/android/tools/r8/8.1.56/r8-8.1.56.jar",
         ],
     },
 )
@@ -182,10 +182,6 @@ dist_http_archive(
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
 )
 
-load("@rules_python//python:repositories.bzl", "py_repositories")
-
-py_repositories()
-
 dist_http_archive(
     name = "zstd-jni",
     build_file = "//third_party:zstd-jni/zstd-jni.BUILD",
@@ -194,46 +190,12 @@ dist_http_archive(
     strip_prefix = "zstd-jni-1.5.2-3",
 )
 
-http_archive(
-    name = "org_snakeyaml",
-    build_file_content = """
-java_library(
-    name = "snakeyaml",
-    srcs = glob(["src/main/**/*.java"]),
-    visibility = [
-        "@io_bazel//src/main/java/com/google/devtools/build/docgen/release:__pkg__",
-        "@com_google_testparameterinjector//:__pkg__",
-    ],
-)
-""",
-    sha256 = "fd0e0cc6c5974fc8f08be3a15fb4a59954c7dd958b5b68186a803de6420b6e40",
-    strip_prefix = "asomov-snakeyaml-b28f0b4d87c6",
-    urls = ["https://mirror.bazel.build/bitbucket.org/asomov/snakeyaml/get/snakeyaml-1.28.tar.gz"],
-)
-
-http_archive(
-    name = "com_google_testparameterinjector",
-    build_file_content = """
-java_library(
-    name = "testparameterinjector",
-    testonly = True,
-    srcs = glob(["src/main/**/*.java"]),
-    deps = [
-      "@org_snakeyaml//:snakeyaml",
-      "@//third_party:auto_value",
-      "@//third_party:guava",
-      "@//third_party:junit4",
-      "@//third_party/protobuf:protobuf_java",
-    ],
-    visibility = ["//visibility:public"],
-)
-""",
-    sha256 = "562a0e87eb413a7dcad29ebc8d578f6f97503473943585b051c1398a58189b06",
-    strip_prefix = "TestParameterInjector-1.0",
-    urls = [
-        "https://mirror.bazel.build/github.com/google/TestParameterInjector/archive/v1.0.tar.gz",
-        "https://github.com/google/TestParameterInjector/archive/v1.0.tar.gz",
-    ],
+dist_http_archive(
+    name = "blake3",
+    build_file = "//third_party:blake3/blake3.BUILD",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
+    strip_prefix = "BLAKE3-1.3.3",
 )
 
 dist_http_archive(
@@ -244,8 +206,6 @@ dist_http_archive(
 
 dist_http_archive(
     name = "rules_java",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
 )
 
 dist_http_archive(
@@ -274,8 +234,8 @@ http_archive(
     name = "android_tools_for_testing",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "db3b02421ae974e0b33573f3e4f658d5f89cc9a0b42baae0ba2ac08e25c0720a",  # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER
-    url = "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.28.0.tar",
+    sha256 = "d7223664ca5b0de490f2a918c31f35cdf4f23a1446fe261d7470b8a22bd7bcf1",  # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER
+    url = "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.29.0.tar",
 )
 
 # This is here to override the android_gmaven_r8 rule from
@@ -294,7 +254,9 @@ dist_http_archive(
 )
 
 load("@rules_java//java:repositories.bzl", "rules_java_dependencies", "rules_java_toolchains")
+
 rules_java_dependencies()
+
 rules_java_toolchains()
 
 load("@io_bazel_skydoc//:setup.bzl", "stardoc_repositories")
@@ -411,11 +373,11 @@ maven_install(
         "com.google.code.findbugs:jsr305:3.0.2",
         "com.google.code.gson:gson:2.9.0",
         "com.google.code.java-allocation-instrumenter:java-allocation-instrumenter:3.3.0",
-        "com.google.errorprone:error_prone_annotation:2.19.0",
-        "com.google.errorprone:error_prone_annotations:2.19.0",
-        "com.google.errorprone:error_prone_check_api:2.19.0",
-        "com.google.errorprone:error_prone_core:2.19.0",
-        "com.google.errorprone:error_prone_type_annotations:2.19.0",
+        "com.google.errorprone:error_prone_annotation:2.20.0",
+        "com.google.errorprone:error_prone_annotations:2.20.0",
+        "com.google.errorprone:error_prone_check_api:2.20.0",
+        "com.google.errorprone:error_prone_core:2.20.0",
+        "com.google.errorprone:error_prone_type_annotations:2.20.0",
         "com.google.flogger:flogger-system-backend:0.5.1",
         "com.google.flogger:flogger:0.5.1",
         "com.google.flogger:google-extensions:0.5.1",
@@ -465,14 +427,13 @@ maven_install(
         "io.netty:netty-transport-native-unix-common:jar:linux-x86_64:4.1.93.Final",
         "io.netty:netty-transport-native-unix-common:jar:osx-aarch_64:4.1.93.Final",
         "io.netty:netty-transport-native-unix-common:jar:osx-x86_64:4.1.93.Final",
-        "io.netty:netty-transport-sctp:4.1.93.Final",
         "io.netty:netty-transport:4.1.93.Final",
         "io.reactivex.rxjava3:rxjava:3.1.2",
         "javax.activation:javax.activation-api:1.2.0",
         "javax.annotation:javax.annotation-api:1.3.2",
         "javax.inject:javax.inject:1",
-        "net.bytebuddy:byte-buddy-agent:1.11.13",
-        "net.bytebuddy:byte-buddy:1.11.13",
+        "net.bytebuddy:byte-buddy-agent:1.14.5",
+        "net.bytebuddy:byte-buddy:1.14.5",
         "org.apache.commons:commons-compress:1.19",
         "org.apache.commons:commons-pool2:2.8.0",
         "org.apache.tomcat:tomcat-annotations-api:8.0.5",
@@ -486,6 +447,7 @@ maven_install(
         "org.pcollections:pcollections:3.1.4",
         "org.threeten:threeten-extra:1.5.0",
         "org.tukaani:xz:1.9",
+        "org.yaml:snakeyaml:1.28",
         "tools.profiler:async-profiler:2.9",
         # The following jars are for testing.
         # junit is not test only due to //src/java_tools/junitrunner/java/com/google/testing/junit/junit4:runner,
@@ -508,6 +470,12 @@ maven_install(
             "com.google.testing.compile",
             "compile-testing",
             "0.18",
+            testonly = True,
+        ),
+        maven.artifact(
+            "com.google.testparameterinjector",
+            "test-parameter-injector",
+            "1.0",
             testonly = True,
         ),
         maven.artifact(
@@ -537,7 +505,7 @@ maven_install(
         maven.artifact(
             "org.mockito",
             "mockito-core",
-            "3.12.4",
+            "5.4.0",
             testonly = True,
         ),
     ],
@@ -551,7 +519,8 @@ maven_install(
         "com.google.protobuf:protobuf-java",
         "com.google.protobuf:protobuf-javalite",
     ],
-    fail_if_repin_required = False,
+    # Don't forget to change this to back to True before submitting your change.
+    fail_if_repin_required = True,
     maven_install_json = "//:maven_install.json",
     repositories = [
         "https://repo1.maven.org/maven2",
@@ -575,6 +544,7 @@ maven_install(
         "com.android.tools:common:30.1.3",
         "com.android.tools:repository:30.1.3",
     ],
+    # Don't forget to change this to back to True before submitting your change.
     fail_if_repin_required = True,
     maven_install_json = "//src/tools/android:maven_android_install.json",
     repositories = [
@@ -586,3 +556,23 @@ maven_install(
 load("@maven_android//:defs.bzl", pinned_maven_install_android = "pinned_maven_install")
 
 pinned_maven_install_android()
+
+load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_toolchains")
+
+py_repositories()
+
+python_register_toolchains(
+    name = "python_3_8",
+    python_version = "3.8",
+)
+
+load("@python_3_8//:defs.bzl", "interpreter")
+
+load("@rules_python//python:pip.bzl", "pip_parse")
+pip_parse(
+   name = "bazel_pip_dev_deps",
+   requirements_lock = "//:requirements.txt",
+   python_interpreter_target = interpreter,
+)
+load("@bazel_pip_dev_deps//:requirements.bzl", "install_deps")
+install_deps()

@@ -16,11 +16,11 @@ package com.google.devtools.build.lib.analysis.producers;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
+import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetProducer;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper.ValidationException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
@@ -38,7 +38,6 @@ import javax.annotation.Nullable;
  * <p>See <a href="https://bazel.build/extending/platforms#skipping-incompatible-targets">Skipping
  * Incompatible Targets</a> for more details on platform compatibility.
  */
-// TODO(b/278878321): unify this and DependencyContextProducer.
 public final class DependencyContextProducerWithCompatibilityCheck
     implements StateMachine,
         PlatformInfoProducer.ResultSink,
@@ -76,13 +75,15 @@ public final class DependencyContextProducerWithCompatibilityCheck
   }
 
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     var defaultToolchainContextKey = unloadedToolchainContextsInputs.targetToolchainContextKey();
     if (defaultToolchainContextKey == null) {
       // If `defaultToolchainContextKey` is null, there's no platform info, incompatibility check
       // or toolchain resolution. Short-circuits and computes only the ConfigConditions.
       return new ConfigConditionsProducer(
-          targetAndConfiguration,
+          targetAndConfiguration.getTarget(),
+          targetAndConfiguration.getTarget().getLabel(),
+          configuredTargetKey.getConfigurationKey(),
           /* targetPlatformInfo= */ null,
           transitiveState,
           (ConfigConditionsProducer.ResultSink) this,
@@ -114,13 +115,15 @@ public final class DependencyContextProducerWithCompatibilityCheck
     sink.acceptDependencyContextError(DependencyContextError.of(error));
   }
 
-  private StateMachine computeConfigConditions(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine computeConfigConditions(Tasks tasks) {
     if (hasError) {
       return DONE;
     }
 
     return new ConfigConditionsProducer(
-        targetAndConfiguration,
+        targetAndConfiguration.getTarget(),
+        targetAndConfiguration.getTarget().getLabel(),
+        configuredTargetKey.getConfigurationKey(),
         targetPlatformInfo,
         transitiveState,
         (ConfigConditionsProducer.ResultSink) this,
@@ -139,7 +142,7 @@ public final class DependencyContextProducerWithCompatibilityCheck
     sink.acceptDependencyContextError(DependencyContextError.of(error));
   }
 
-  private StateMachine checkCompatibility(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine checkCompatibility(Tasks tasks) {
     if (hasError) {
       return DONE;
     }
@@ -149,7 +152,7 @@ public final class DependencyContextProducerWithCompatibilityCheck
         configuredTargetKey,
         configConditions,
         targetPlatformInfo,
-        transitiveState.transitivePackages(),
+        transitiveState,
         (IncompatibleTargetProducer.ResultSink) this,
         /* runAfter= */ this::computeUnloadedToolchainContexts);
   }
@@ -169,8 +172,7 @@ public final class DependencyContextProducerWithCompatibilityCheck
     sink.acceptDependencyContextError(DependencyContextError.of(e));
   }
 
-  private StateMachine computeUnloadedToolchainContexts(
-      Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine computeUnloadedToolchainContexts(Tasks tasks) {
     if (hasError) {
       return DONE;
     }
@@ -193,7 +195,7 @@ public final class DependencyContextProducerWithCompatibilityCheck
     sink.acceptDependencyContextError(DependencyContextError.of(error));
   }
 
-  private StateMachine constructResult(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine constructResult(Tasks tasks) {
     if (hasError) {
       return DONE;
     }

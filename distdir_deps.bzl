@@ -25,16 +25,16 @@ DIST_DEPS = {
     #
     ########################################
     "platforms": {
-        "archive": "platforms-0.0.6.tar.gz",
-        "sha256": "5308fc1d8865406a49427ba24a9ab53087f17f5266a7aabbfc28823f3916e1ca",
+        "archive": "platforms-0.0.7.tar.gz",
+        "sha256": "3a561c99e7bdbe9173aa653fd579fe849f1d8d67395780ab4770b1f381431d51",
         "urls": [
-            "https://mirror.bazel.build/github.com/bazelbuild/platforms/releases/download/0.0.6/platforms-0.0.6.tar.gz",
-            "https://github.com/bazelbuild/platforms/releases/download/0.0.6/platforms-0.0.6.tar.gz",
+            "https://mirror.bazel.build/github.com/bazelbuild/platforms/releases/download/0.0.7/platforms-0.0.7.tar.gz",
+            "https://github.com/bazelbuild/platforms/releases/download/0.0.7/platforms-0.0.7.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
         ],
-        "package_version": "0.0.6",
+        "package_version": "0.0.7",
     },
     "bazelci_rules": {
         "archive": "bazelci_rules-1.0.0.tar.gz",
@@ -53,30 +53,31 @@ DIST_DEPS = {
     # Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
     # Used in src/test/java/com/google/devtools/build/lib/blackbox/framework/blackbox.WORKSAPCE
     "rules_cc": {
-        "archive": "rules_cc-0.0.6.tar.gz",
-        "sha256": "3d9e271e2876ba42e114c9b9bc51454e379cbf0ec9ef9d40e2ae4cec61a31b40",
-        "urls": ["https://github.com/bazelbuild/rules_cc/releases/download/0.0.6/rules_cc-0.0.6.tar.gz"],
+        "archive": "rules_cc-0.0.8.tar.gz",
+        "sha256": "ae46b722a8b8e9b62170f83bfb040cbf12adb732144e689985a66b26410a7d6f",
+        "urls": ["https://github.com/bazelbuild/rules_cc/releases/download/0.0.8/rules_cc-0.0.8.tar.gz"],
         "used_in": [
             "additional_distfiles",
         ],
-        "package_version": "0.0.6",
-        "strip_prefix": "rules_cc-0.0.6",
+        "package_version": "0.0.8",
+        "strip_prefix": "rules_cc-0.0.8",
     },
     "rules_java": {
         "aliases": [
             "rules_java_builtin",
             "rules_java_builtin_for_testing",
         ],
-        "archive": "rules_java-6.1.0.tar.gz",
-        "sha256": "78e3c24f05cffed529bfcafd1f7a8d1a7b97b4a411f25d8d3b4d47d9bb980394",
-        "urls": ["https://github.com/bazelbuild/rules_java/releases/download/6.1.0/rules_java-6.1.0.tar.gz"],
+        "archive": "rules_java-6.3.0.tar.gz",
+        "sha256": "29ba147c583aaf5d211686029842c5278e12aaea86f66bd4a9eb5e525b7f2701",
+        "urls": ["https://github.com/bazelbuild/rules_java/releases/download/6.3.0/rules_java-6.3.0.tar.gz"],
+        "workspace_file_content": "",
         "used_in": [
             "additional_distfiles",
         ],
         "license_kinds": [
             "@rules_license//licenses/spdx:Apache-2.0",
         ],
-        "package_version": "6.0.0",
+        "package_version": "6.1.1",
     },
     # Used in src/test/java/com/google/devtools/build/lib/blackbox/framework/blackbox.WORKSAPCE
     "rules_proto": {
@@ -270,16 +271,31 @@ DIST_DEPS = {
         "license_text": "LICENSE",
         "package_version": "1.5.2-3",
     },
+    "blake3": {
+        "archive": "1.3.3.zip",
+        "sha256": "bb529ba133c0256df49139bd403c17835edbf60d2ecd6463549c6a5fe279364d",
+        "urls": [
+            "https://github.com/BLAKE3-team/BLAKE3/archive/refs/tags/1.3.3.zip",
+        ],
+        "used_in": [
+            "additional_distfiles",
+        ],
+        "license_kinds": [
+            "@rules_license//licenses/spdx:Apache-2.0",
+        ],
+        "license_text": "LICENSE",
+        "package_version": "1.3.3",
+    },
     ###################################################
     #
     # Build time dependencies for testing and packaging
     #
     ###################################################
     "android_gmaven_r8": {
-        "archive": "r8-8.0.40.jar",
-        "sha256": "ab1379835c7d3e5f21f80347c3c81e2f762e0b9b02748ae5232c3afa14adf702",
+        "archive": "r8-8.1.56.jar",
+        "sha256": "57a696749695a09381a87bc2f08c3a8ed06a717a5caa3ef878a3077e0d3af19d",
         "urls": [
-            "https://maven.google.com/com/android/tools/r8/8.0.40/r8-8.0.40.jar",
+            "https://maven.google.com/com/android/tools/r8/8.1.56/r8-8.1.56.jar",
         ],
         "used_in": [
         ],
@@ -310,16 +326,16 @@ DIST_DEPS = {
         "strip_prefix": "stardoc-1ef781ced3b1443dca3ed05dec1989eca1a4e1cd",
     },
     "rules_license": {
-        "archive": "rules_license-0.0.3.tar.gz",
-        "sha256": "00ccc0df21312c127ac4b12880ab0f9a26c1cff99442dc6c5a331750360de3c3",
+        "archive": "rules_license-0.0.7.tar.gz",
+        "sha256": "4531deccb913639c30e5c7512a054d5d875698daeb75d8cf90f284375fe7c360",
         "urls": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_license/releases/download/0.0.3/rules_license-0.0.3.tar.gz",
-            "https://github.com/bazelbuild/rules_license/releases/download/0.0.3/rules_license-0.0.3.tar.gz",
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_license/releases/download/0.0.7/rules_license-0.0.7.tar.gz",
+            "https://github.com/bazelbuild/rules_license/releases/download/0.0.7/rules_license-0.0.7.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
         ],
-        "package_version": "0.0.3",
+        "package_version": "0.0.7",
     },
     "rules_pkg": {
         "archive": "rules_pkg-0.8.0.tar.gz",
@@ -334,20 +350,20 @@ DIST_DEPS = {
         "package_version": "0.8.0",
     },
     "rules_jvm_external": {
-        "archive": "4.5.zip",
-        "sha256": "b17d7388feb9bfa7f2fa09031b32707df529f26c91ab9e5d909eb1676badd9a6",
-        "strip_prefix": "rules_jvm_external-4.5",
+        "archive": "rules_jvm_external-5.2.tar.gz",
+        "sha256": "f86fd42a809e1871ca0aabe89db0d440451219c3ce46c58da240c7dcdc00125f",
+        "strip_prefix": "rules_jvm_external-5.2",
         "patches": [
-            "//third_party:rules_jvm_external.patch",
+            "//third_party:rules_jvm_external_5.2.patch",
         ],
         "patch_args": ["-p1"],
         "urls": [
-            "https://github.com/bazelbuild/rules_jvm_external/archive/4.5.zip",
+            "https://github.com/bazelbuild/rules_jvm_external/releases/download/5.2/rules_jvm_external-5.2.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
         ],
-        "package_version": "4.5",
+        "package_version": "5.2",
     },
     "rules_python": {
         "sha256": "ffc7b877c95413c82bfd5482c017edcf759a6250d8b24e82f41f3c8b8d9e287e",
@@ -372,6 +388,8 @@ DIST_DEPS = {
         "archive": "5847d6a06302136d95a14b4cbd4b55a9c9f1436e.zip",
         "sha256": "299452e6f4a4981b2e6d22357f7332713382a63e4c137f5fd6b89579f6d610cb",
         "strip_prefix": "desugar_jdk_libs-5847d6a06302136d95a14b4cbd4b55a9c9f1436e",
+        "patch_args": ["-p1"],
+        "patches": ["//third_party:desugar_jdk_libs-exec_tools.patch"],
         "urls": [
             "https://mirror.bazel.build/github.com/google/desugar_jdk_libs/archive/5847d6a06302136d95a14b4cbd4b55a9c9f1436e.zip",
             "https://github.com/google/desugar_jdk_libs/archive/5847d6a06302136d95a14b4cbd4b55a9c9f1436e.zip",
@@ -391,88 +409,90 @@ DIST_DEPS = {
         "package_version": "2.6",
     },
     "openjdk_linux_vanilla": {
-        "archive": "zulu17.38.21-ca-jdk17.0.5-linux_x64.tar.gz",
-        "sha256": "20c91a922eec795f3181eaa70def8b99d8eac56047c9a14bfb257c85b991df1b",
-        "strip_prefix": "zulu17.38.21-ca-jdk17.0.5-linux_x64",
+        "archive": "zulu20.30.11-ca-jdk20.0.1-linux_x64.tar.gz",
+        "sha256": "ec5c0426a0eb2b0460968a044665ed4603b224acd5e20c379e9d7890511da683",
+        "strip_prefix": "zulu20.30.11-ca-jdk20.0.1-linux_x64",
         "urls": [
-            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-linux_x64.tar.gz",
-            "https://cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-linux_x64.tar.gz",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu20.30.11-ca-jdk20.0.1-linux_x64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu20.30.11-ca-jdk20.0.1-linux_x64.tar.gz",
         ],
         "used_in": [
         ],
     },
     "openjdk_linux_aarch64_vanilla": {
-        "archive": "zulu17.38.21-ca-jdk17.0.5-linux_aarch64.tar.gz",
-        "sha256": "dbc6ae9163e7ff469a9ab1f342cd1bc1f4c1fb78afc3c4f2228ee3b32c4f3e43",
-        "strip_prefix": "zulu17.38.21-ca-jdk17.0.5-linux_aarch64",
+        "archive": "zulu20.30.11-ca-jdk20.0.1-linux_aarch64.tar.gz",
+        "sha256": "2487cf315d1f56291c1f41fb56a34a7f863ce5bf85cadd284c79ea3f848d707c",
+        "strip_prefix": "zulu20.30.11-ca-jdk20.0.1-linux_aarch64",
         "urls": [
-            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-linux_aarch64.tar.gz",
-            "https://cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-linux_aarch64.tar.gz",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu20.30.11-ca-jdk20.0.1-linux_aarch64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu20.30.11-ca-jdk20.0.1-linux_aarch64.tar.gz",
         ],
         "used_in": [
         ],
     },
+    # JDK20 unavailable so use JDK19 instead for linux s390x.
     "openjdk_linux_s390x_vanilla": {
-        "archive": "OpenJDK17U-jdk_s390x_linux_hotspot_17.0.4.1_1.tar.gz",
-        "sha256": "fdc82f4b06c880762503b0cb40e25f46cf8190d06011b3b768f4091d3334ef7f",
-        "strip_prefix": "jdk-17.0.4.1+1",
+        "archive": "OpenJDK19U-jdk_s390x_linux_hotspot_19.0.2_7.tar.gz",
+        "sha256": "f2512f9a8e9847dd5d3557c39b485a8e7a1ef37b601dcbcb748d22e49f44815c",
+        "strip_prefix": "jdk-19.0.2+7",
         "urls": [
-            "https://mirror.bazel.build/github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.4.1%2B1/OpenJDK17U-jdk_s390x_linux_hotspot_17.0.4.1_1.tar.gz",
-            "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.4.1%2B1/OpenJDK17U-jdk_s390x_linux_hotspot_17.0.4.1_1.tar.gz",
+            "https://mirror.bazel.build/github.com/adoptium/temurin19-binaries/releases/download/jdk-19.0.2%2B7/OpenJDK19U-jdk_s390x_linux_hotspot_19.0.2_7.tar.gz",
+            "https://github.com/adoptium/temurin19-binaries/releases/download/jdk-19.0.2%2B7/OpenJDK19U-jdk_s390x_linux_hotspot_19.0.2_7.tar.gz",
         ],
         "used_in": [
         ],
     },
     "openjdk_linux_ppc64le_vanilla": {
-        "archive": "OpenJDK17U-jdk_ppc64le_linux_hotspot_17.0.4.1_1.tar.gz",
-        "sha256": "cbedd0a1428b3058d156e99e8e9bc8769e0d633736d6776a4c4d9136648f2fd1",
-        "strip_prefix": "jdk-17.0.4.1+1",
+        "archive": "OpenJDK20U-jdk_ppc64le_linux_hotspot_20_36.tar.gz",
+        "sha256": "45dde71faf8cbb78fab3c976894259655c8d3de827347f23e0ebe5710921dded",
+        "strip_prefix": "jdk-20+36",
         "urls": [
-            "https://mirror.bazel.build/github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.4.1%2B1/OpenJDK17U-jdk_ppc64le_linux_hotspot_17.0.4.1_1.tar.gz",
-            "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.4.1%2B1/OpenJDK17U-jdk_ppc64le_linux_hotspot_17.0.4.1_1.tar.gz",
+            "https://mirror.bazel.build/github.com/adoptium/temurin20-binaries/releases/download/jdk-20%2B36/OpenJDK20U-jdk_ppc64le_linux_hotspot_20_36.tar.gz",
+            "https://github.com/adoptium/temurin20-binaries/releases/download/jdk-20%2B36/OpenJDK20U-jdk_ppc64le_linux_hotspot_20_36.tar.gz",
         ],
         "used_in": [],
     },
     "openjdk_macos_x86_64_vanilla": {
-        "archive": "zulu17.38.21-ca-jdk17.0.5-macosx_x64.tar.gz",
-        "sha256": "e6317cee4d40995f0da5b702af3f04a6af2bbd55febf67927696987d11113b53",
-        "strip_prefix": "zulu17.38.21-ca-jdk17.0.5-macosx_x64",
+        "archive": "zulu20.30.11-ca-jdk20.0.1-macosx_x64.tar.gz",
+        "sha256": "befee9db92345d5146945061b721d3a6c6e182471c1536f87dbadfd5aab0e241",
+        "strip_prefix": "zulu20.30.11-ca-jdk20.0.1-macosx_x64",
         "urls": [
-            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-macosx_x64.tar.gz",
-            "https://cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-macosx_x64.tar.gz",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu20.30.11-ca-jdk20.0.1-macosx_x64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu20.30.11-ca-jdk20.0.1-macosx_x64.tar.gz",
         ],
         "used_in": [
         ],
     },
     "openjdk_macos_aarch64_vanilla": {
-        "archive": "zulu17.38.21-ca-jdk17.0.5-macosx_aarch64",
-        "sha256": "515dd56ec99bb5ae8966621a2088aadfbe72631818ffbba6e4387b7ee292ab09",
-        "strip_prefix": "zulu17.38.21-ca-jdk17.0.5-macosx_aarch64",
+        "archive": "zulu20.30.11-ca-jdk20.0.1-macosx_aarch64.tar.gz",
+        "sha256": "01e59f0160d051524bb16d865652d25d00a85390581737a8f35f89057c80892d",
+        "strip_prefix": "zulu20.30.11-ca-jdk20.0.1-macosx_aarch64",
         "urls": [
-            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-macosx_aarch64.tar.gz",
-            "https://cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-macosx_aarch64.tar.gz",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu20.30.11-ca-jdk20.0.1-macosx_aarch64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu20.30.11-ca-jdk20.0.1-macosx_aarch64.tar.gz",
         ],
         "used_in": [
         ],
     },
     "openjdk_win_vanilla": {
-        "archive": "zulu17.38.21-ca-jdk17.0.5-win_x64.zip",
-        "sha256": "9972c5b62a61b45785d3d956c559e079d9e91f144ec46225f5deeda214d48f27",
-        "strip_prefix": "zulu17.38.21-ca-jdk17.0.5-win_x64",
+        "archive": "zulu20.30.11-ca-jdk20.0.1-win_x64.zip",
+        "sha256": "8a97ee11da578292f7c9e772f3edd3f083fa4f34f47a98e3abefb625ab2225ba",
+        "strip_prefix": "zulu20.30.11-ca-jdk20.0.1-win_x64",
         "urls": [
-            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-win_x64.zip",
-            "https://cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-win_x64.zip",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu20.30.11-ca-jdk20.0.1-win_x64.zip",
+            "https://cdn.azul.com/zulu/bin/zulu20.30.11-ca-jdk20.0.1-win_x64.zip",
         ],
         "used_in": [
         ],
     },
+    # JDK20 unavailable so use JDK19 instead for win aarch64.
     "openjdk_win_arm64_vanilla": {
-        "archive": "zulu17.38.21-ca-jdk17.0.5-win_aarch64.zip",
-        "sha256": "bc3476f2161bf99bc9a243ff535b8fc033b34ce9a2fa4b62fb8d79b6bfdc427f",
-        "strip_prefix": "zulu17.38.21-ca-jdk17.0.5-win_aarch64",
+        "archive": "zulu19.28.81-ca-jdk19.0.0-win_aarch64.zip",
+        "sha256": "e73e851638066c48421a60e01ce7d956c1de0935620e1b66d8bbbd6cdd4f815e",
+        "strip_prefix": "zulu19.28.81-ca-jdk19.0.0-win_aarch64",
         "urls": [
-            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-win_aarch64.zip",
-            "https://cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-win_aarch64.zip",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu19.28.81-ca-jdk19.0.0-win_aarch64.zip",
+            "https://cdn.azul.com/zulu/bin/zulu19.28.81-ca-jdk19.0.0-win_aarch64.zip",
         ],
         "used_in": [
         ],

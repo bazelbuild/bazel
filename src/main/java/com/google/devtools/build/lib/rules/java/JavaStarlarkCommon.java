@@ -14,8 +14,9 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ascii;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -23,35 +24,33 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
-import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkInfoNoSchema;
+import com.google.devtools.build.lib.packages.StarlarkInfoWithSchema;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
-import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCommonApi;
-import com.google.devtools.build.lib.starlarkbuildapi.java.JavaToolchainStarlarkApiProviderApi;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
@@ -64,213 +63,188 @@ public class JavaStarlarkCommon
         Artifact,
         JavaInfo,
         JavaToolchainProvider,
+        BootClassPathInfo.Provider,
         ConstraintValueInfo,
         StarlarkRuleContext,
         StarlarkActionFactory> {
 
-  private static final ImmutableSet<String> PRIVATE_STARLARKIFACTION_ALLOWLIST =
-      ImmutableSet.of("bazel_internal/test");
+  private static final ImmutableSet<PackageIdentifier> PRIVATE_STARLARKIFACTION_ALLOWLIST =
+      ImmutableSet.of(PackageIdentifier.createInMainRepo("bazel_internal/test_rules"));
   private final JavaSemantics javaSemantics;
+
+  private static StrictDepsMode getStrictDepsMode(String strictDepsMode) {
+    switch (strictDepsMode) {
+      case "OFF":
+        return StrictDepsMode.OFF;
+      case "ERROR":
+      case "DEFAULT":
+        return StrictDepsMode.ERROR;
+      case "WARN":
+        return StrictDepsMode.WARN;
+      default:
+        throw new IllegalArgumentException(
+            "StrictDepsMode "
+                + strictDepsMode
+                + " not allowed."
+                + " Only OFF and ERROR values are accepted.");
+    }
+  }
+
+  private void checkJavaToolchainIsDeclaredOnRule(RuleContext ruleContext)
+      throws EvalException, LabelSyntaxException {
+    ToolchainInfo toolchainInfo =
+        ruleContext.getToolchainInfo(Label.parseCanonical(javaSemantics.getJavaToolchainType()));
+    if (toolchainInfo == null) {
+      String ruleLocation = ruleContext.getRule().getLocation().toString();
+      String ruleClass = ruleContext.getRule().getRuleClassObject().getName();
+      throw Starlark.errorf(
+          "Rule '%s' in '%s' must declare '%s' toolchain in order to use java_common. See"
+              + " https://github.com/bazelbuild/bazel/issues/18970.",
+          ruleClass, ruleLocation, javaSemantics.getJavaToolchainType());
+    }
+  }
+
+  @Override
+  public void checkJavaToolchainIsDeclaredOnRuleForStarlark(
+      StarlarkActionFactory actions, StarlarkThread thread)
+      throws EvalException, LabelSyntaxException {
+    checkPrivateAccess(thread);
+    checkJavaToolchainIsDeclaredOnRule(actions.getRuleContext());
+  }
 
   public JavaStarlarkCommon(JavaSemantics javaSemantics) {
     this.javaSemantics = javaSemantics;
   }
 
   @Override
-  public Provider getJavaProvider() {
-    return JavaInfo.PROVIDER;
-  }
-
-  @Override
-  public JavaInfo createJavaCompileAction(
-      StarlarkRuleContext starlarkRuleContext,
-      Sequence<?> sourceJars, // <Artifact> expected
-      Sequence<?> sourceFiles, // <Artifact> expected
-      Artifact outputJar,
-      Object outputSourceJar,
-      Sequence<?> javacOpts, // <String> expected
-      Sequence<?> deps, // <JavaInfo> expected
-      Sequence<?> runtimeDeps, // <JavaInfo> expected
-      Sequence<?> exports, // <JavaInfo> expected
-      Sequence<?> plugins, // <JavaPluginInfo> expected
-      Sequence<?> exportedPlugins, // <JavaPluginInfo> expected
-      Sequence<?> nativeLibraries, // <CcInfo> expected.
-      Sequence<?> annotationProcessorAdditionalInputs, // <Artifact> expected
-      Sequence<?> annotationProcessorAdditionalOutputs, // <Artifact> expected
+  public void createHeaderCompilationAction(
+      StarlarkRuleContext ctx,
+      JavaToolchainProvider toolchain,
+      Artifact headerJar,
+      Artifact headerDepsProto,
+      Info pluginInfo,
+      Depset sourceFiles,
+      Sequence<?> sourceJars,
+      Depset compileTimeClasspath,
+      Depset directJars,
+      Object bootClassPath,
+      Depset compileTimeJavaDeps,
+      Sequence<?> javacOpts,
       String strictDepsMode,
-      JavaToolchainProvider javaToolchain,
-      Object hostJavabase,
-      Sequence<?> sourcepathEntries, // <Artifact> expected
-      Sequence<?> resources, // <Artifact> expected
-      Sequence<?> resourceJars, // <Artifact> expected
-      Sequence<?> classpathResources, // <Artifact> expected
-      Boolean neverlink,
-      Boolean enableAnnotationProcessing,
-      Boolean enableCompileJarAction,
-      Boolean enableJSpecify,
-      boolean includeCompilationInfo,
-      Object injectingRuleKind,
-      Sequence<?> addExports, // <String> expected
-      Sequence<?> addOpens, // <String> expected
-      StarlarkThread thread)
-      throws EvalException, InterruptedException {
-
-    boolean acceptJavaInfo =
-        !starlarkRuleContext
-            .getRuleContext()
-            .getFragment(JavaConfiguration.class)
-            .requireJavaPluginInfo();
-
-    final ImmutableList<JavaPluginInfo> pluginsParam;
-    if (acceptJavaInfo && !plugins.isEmpty() && plugins.get(0) instanceof JavaInfo) {
-      // Handle deprecated case where plugins is given a list of JavaInfos
-      pluginsParam =
-          Sequence.cast(plugins, JavaInfo.class, "plugins").stream()
-              .map(JavaInfo::getJavaPluginInfo)
-              .filter(Objects::nonNull)
-              .collect(toImmutableList());
-    } else {
-      pluginsParam = Sequence.cast(plugins, JavaPluginInfo.class, "plugins").getImmutableList();
-    }
-
-    final ImmutableList<JavaPluginInfo> exportedPluginsParam;
-    if (acceptJavaInfo
-        && !exportedPlugins.isEmpty()
-        && exportedPlugins.get(0) instanceof JavaInfo) {
-      // Handle deprecated case where exported_plugins is given a list of JavaInfos
-      exportedPluginsParam =
-          Sequence.cast(exportedPlugins, JavaInfo.class, "exported_plugins").stream()
-              .map(JavaInfo::getJavaPluginInfo)
-              .filter(Objects::nonNull)
-              .collect(toImmutableList());
-    } else {
-      exportedPluginsParam =
-          Sequence.cast(exportedPlugins, JavaPluginInfo.class, "exported_plugins")
-              .getImmutableList();
-    }
-    // checks for private API access
-    if (!enableCompileJarAction
-        || !enableJSpecify
-        || !includeCompilationInfo
-        || !classpathResources.isEmpty()
-        || !resourceJars.isEmpty()
-        || injectingRuleKind != Starlark.NONE) {
-      checkPrivateAccess(thread);
-    }
-
-    if (starlarkRuleContext.getRuleContext().useAutoExecGroups()) {
-      String javaToolchainType = javaSemantics.getJavaToolchainType();
-      if (!starlarkRuleContext.getRuleContext().hasToolchainContext(javaToolchainType)) {
-        throw Starlark.errorf(
-            "Action declared for non-existent toolchain '%s'.", javaToolchainType);
-      }
-    }
-
-    return JavaInfoBuildHelper.getInstance()
-        .createJavaCompileAction(
-            starlarkRuleContext,
-            Sequence.cast(sourceJars, Artifact.class, "source_jars"),
-            Sequence.cast(sourceFiles, Artifact.class, "source_files"),
-            outputJar,
-            outputSourceJar == Starlark.NONE ? null : (Artifact) outputSourceJar,
-            Sequence.cast(javacOpts, String.class, "javac_opts"),
-            Sequence.cast(deps, JavaInfo.class, "deps"),
-            Sequence.cast(runtimeDeps, JavaInfo.class, "runtime_deps"),
-            Sequence.cast(exports, JavaInfo.class, "exports"),
-            pluginsParam,
-            exportedPluginsParam,
-            Sequence.cast(nativeLibraries, CcInfo.class, "native_libraries"),
-            Sequence.cast(
-                annotationProcessorAdditionalInputs,
-                Artifact.class,
-                "annotation_processor_additional_inputs"),
-            Sequence.cast(
-                annotationProcessorAdditionalOutputs,
-                Artifact.class,
-                "annotation_processor_additional_outputs"),
-            strictDepsMode,
-            javaToolchain,
-            ImmutableList.copyOf(Sequence.cast(sourcepathEntries, Artifact.class, "sourcepath")),
-            Sequence.cast(resources, Artifact.class, "resources"),
-            Sequence.cast(resourceJars, Artifact.class, "resource_jars"),
-            Sequence.cast(classpathResources, Artifact.class, "classpath_resources"),
-            neverlink,
-            enableAnnotationProcessing,
-            enableCompileJarAction,
-            enableJSpecify,
-            includeCompilationInfo,
-            javaSemantics,
-            injectingRuleKind,
-            Sequence.cast(addExports, String.class, "add_exports"),
-            Sequence.cast(addOpens, String.class, "add_opens"),
-            thread);
-  }
-
-  private String getExecGroup(boolean useAutoExecGroups) {
-    if (useAutoExecGroups) {
-      return javaSemantics.getJavaToolchainType();
-    } else {
-      return DEFAULT_EXEC_GROUP_NAME;
-    }
-  }
-
-  @Override
-  public Artifact runIjar(
-      StarlarkActionFactory actions,
-      Artifact jar,
-      Object output,
-      Object targetLabel,
-      JavaToolchainProvider javaToolchain,
-      StarlarkThread thread)
-      throws EvalException {
-    if (output != Starlark.NONE) {
-      checkPrivateAccess(thread);
-    }
-    return JavaInfoBuildHelper.getInstance()
-        .buildIjar(
-            actions,
-            jar,
-            output != Starlark.NONE ? (Artifact) output : null,
-            targetLabel != Starlark.NONE ? (Label) targetLabel : null,
-            javaToolchain,
-            getExecGroup(actions.getRuleContext().useAutoExecGroups()));
-  }
-
-  @Override
-  public Artifact stampJar(
-      StarlarkActionFactory actions,
-      Artifact jar,
       Label targetLabel,
-      JavaToolchainProvider javaToolchain)
-      throws EvalException {
-    return JavaInfoBuildHelper.getInstance()
-        .stampJar(
-            actions,
-            jar,
-            targetLabel,
-            javaToolchain,
-            getExecGroup(actions.getRuleContext().useAutoExecGroups()));
+      Object injectingRuleKind,
+      boolean enableDirectClasspath,
+      Sequence<?> additionalInputs)
+      throws EvalException, TypeException, RuleErrorException, LabelSyntaxException {
+    checkJavaToolchainIsDeclaredOnRule(ctx.getRuleContext());
+    JavaTargetAttributes.Builder attributesBuilder =
+        new JavaTargetAttributes.Builder(javaSemantics)
+            .addSourceJars(Sequence.cast(sourceJars, Artifact.class, "source_jars"))
+            .addSourceFiles(sourceFiles.toList(Artifact.class))
+            .addDirectJars(directJars.getSet(Artifact.class))
+            .addCompileTimeClassPathEntries(compileTimeClasspath.getSet(Artifact.class))
+            .setStrictJavaDeps(getStrictDepsMode(Ascii.toUpperCase(strictDepsMode)))
+            .setTargetLabel(targetLabel)
+            .setInjectingRuleKind(
+                injectingRuleKind == Starlark.NONE ? null : (String) injectingRuleKind)
+            .addPlugin(JavaPluginInfo.PROVIDER.wrap(pluginInfo))
+            .addCompileTimeDependencyArtifacts(compileTimeJavaDeps.getSet(Artifact.class));
+    if (bootClassPath instanceof BootClassPathInfo
+        && !((BootClassPathInfo) bootClassPath).isEmpty()) {
+      attributesBuilder.setBootClassPath((BootClassPathInfo) bootClassPath);
+    }
+    JavaCompilationHelper compilationHelper =
+        new JavaCompilationHelper(
+            ctx.getRuleContext(),
+            javaSemantics,
+            Sequence.cast(javacOpts, String.class, "javac_opts").getImmutableList(),
+            attributesBuilder,
+            toolchain,
+            Sequence.cast(additionalInputs, Artifact.class, "additional_inputs")
+                .getImmutableList());
+    compilationHelper.enableDirectClasspath(enableDirectClasspath);
+    compilationHelper.createHeaderCompilationAction(headerJar, headerDepsProto);
   }
 
   @Override
-  public Artifact packSources(
-      StarlarkActionFactory actions,
-      Object outputJar,
-      Object outputSourceJar,
-      Sequence<?> sourceFiles, // <Artifact> expected.
-      Sequence<?> sourceJars, // <Artifact> expected.
+  public void createCompilationAction(
+      StarlarkRuleContext ctx,
       JavaToolchainProvider javaToolchain,
-      Object hostJavabase)
-      throws EvalException {
-    return JavaInfoBuildHelper.getInstance()
-        .packSourceFiles(
-            actions,
-            outputJar instanceof Artifact ? (Artifact) outputJar : null,
-            outputSourceJar instanceof Artifact ? (Artifact) outputSourceJar : null,
-            Sequence.cast(sourceFiles, Artifact.class, "sources"),
-            Sequence.cast(sourceJars, Artifact.class, "source_jars"),
+      Artifact output,
+      Object depsProto,
+      Object genClass,
+      Object genSource,
+      Artifact manifestProto,
+      Artifact nativeHeader,
+      Info pluginInfo,
+      Depset sourceFiles,
+      Sequence<?> sourceJars,
+      Sequence<?> resources,
+      Depset resourceJars,
+      Depset compileTimeClasspath,
+      Sequence<?> classpathResources,
+      Sequence<?> sourcepath,
+      Depset directJars,
+      Object bootClassPath,
+      Depset compileTimeJavaDeps,
+      Sequence<?> javacOpts,
+      String strictDepsMode,
+      Label targetLabel,
+      Object injectingRuleKind,
+      boolean enableJSpecify,
+      boolean enableDirectClasspath,
+      Sequence<?> additionalInputs,
+      Sequence<?> additionalOutputs)
+      throws EvalException, TypeException, RuleErrorException, LabelSyntaxException {
+    checkJavaToolchainIsDeclaredOnRule(ctx.getRuleContext());
+    JavaCompileOutputs<Artifact> outputs =
+        JavaCompileOutputs.builder()
+            .output(output)
+            .depsProto(depsProto == Starlark.NONE ? null : (Artifact) depsProto)
+            .genClass(genClass == Starlark.NONE ? null : (Artifact) genClass)
+            .genSource(genSource == Starlark.NONE ? null : (Artifact) genSource)
+            .manifestProto(manifestProto)
+            .nativeHeader(nativeHeader)
+            .build();
+    JavaTargetAttributes.Builder attributesBuilder =
+        new JavaTargetAttributes.Builder(javaSemantics)
+            .addSourceJars(Sequence.cast(sourceJars, Artifact.class, "source_jars"))
+            .addSourceFiles(sourceFiles.toList(Artifact.class))
+            .addDirectJars(directJars.getSet(Artifact.class))
+            .addCompileTimeClassPathEntries(compileTimeClasspath.getSet(Artifact.class))
+            .addClassPathResources(
+                Sequence.cast(classpathResources, Artifact.class, "classpath_resources"))
+            .setStrictJavaDeps(getStrictDepsMode(Ascii.toUpperCase(strictDepsMode)))
+            .setTargetLabel(targetLabel)
+            .setInjectingRuleKind(
+                injectingRuleKind == Starlark.NONE ? null : (String) injectingRuleKind)
+            .setSourcePath(
+                Sequence.cast(sourcepath, Artifact.class, "source_path").getImmutableList())
+            .addPlugin(JavaPluginInfo.PROVIDER.wrap(pluginInfo))
+            .addAdditionalOutputs(
+                Sequence.cast(additionalOutputs, Artifact.class, "additional_outputs"));
+    if (bootClassPath instanceof BootClassPathInfo
+        && !((BootClassPathInfo) bootClassPath).isEmpty()) {
+      attributesBuilder.setBootClassPath((BootClassPathInfo) bootClassPath);
+    }
+    for (Artifact resource : Sequence.cast(resources, Artifact.class, "resources")) {
+      attributesBuilder.addResource(
+          JavaHelper.getJavaResourcePath(javaSemantics, ctx.getRuleContext(), resource), resource);
+    }
+    attributesBuilder.addResourceJars(resourceJars.getSet(Artifact.class));
+    attributesBuilder.addCompileTimeDependencyArtifacts(compileTimeJavaDeps.getSet(Artifact.class));
+    JavaCompilationHelper compilationHelper =
+        new JavaCompilationHelper(
+            ctx.getRuleContext(),
+            javaSemantics,
+            Sequence.cast(javacOpts, String.class, "javac_opts").getImmutableList(),
+            attributesBuilder,
             javaToolchain,
-            getExecGroup(actions.getRuleContext().useAutoExecGroups()));
+            Sequence.cast(additionalInputs, Artifact.class, "additional_inputs")
+                .getImmutableList());
+    compilationHelper.enableJspecify(enableJSpecify);
+    compilationHelper.enableDirectClasspath(enableDirectClasspath);
+    compilationHelper.createCompileAction(outputs);
   }
 
   @Override
@@ -283,36 +257,6 @@ public class JavaStarlarkCommon
   }
 
   @Override
-  public JavaInfo mergeJavaProviders(
-      Sequence<?> providers, /* <JavaInfo> expected. */
-      boolean mergeJavaOutputs,
-      boolean mergeSourceJars,
-      StarlarkThread thread)
-      throws EvalException {
-    if (!mergeJavaOutputs || !mergeSourceJars) {
-      checkPrivateAccess(thread);
-    }
-    return JavaInfo.merge(
-        Sequence.cast(providers, JavaInfo.class, "providers"), mergeJavaOutputs, mergeSourceJars);
-  }
-
-  // TODO(b/65113771): Remove this method because it's incorrect.
-  @Override
-  public JavaInfo makeNonStrict(JavaInfo javaInfo) {
-    return JavaInfo.Builder.copyOf(javaInfo)
-        // Overwrites the old provider.
-        .javaCompilationArgs(
-            JavaCompilationArgsProvider.makeNonStrict(
-                javaInfo.getProvider(JavaCompilationArgsProvider.class)))
-        .build();
-  }
-
-  @Override
-  public ProviderApi getJavaPluginProvider() {
-    return JavaPluginInfo.PROVIDER;
-  }
-
-  @Override
   public Provider getJavaToolchainProvider() {
     return JavaToolchainProvider.PROVIDER;
   }
@@ -320,52 +264,6 @@ public class JavaStarlarkCommon
   @Override
   public Provider getJavaRuntimeProvider() {
     return JavaRuntimeInfo.PROVIDER;
-  }
-
-  @Override
-  public ProviderApi getMessageBundleInfo() {
-    // No implementation in Bazel. This method not callable in Starlark except through
-    // (discouraged) use of --experimental_google_legacy_api.
-    return null;
-  }
-
-  @Override
-  public JavaInfo addConstraints(JavaInfo javaInfo, Sequence<?> constraints) throws EvalException {
-    List<String> constraintStrings = Sequence.cast(constraints, String.class, "constraints");
-    ImmutableList<String> mergedConstraints =
-        Stream.concat(javaInfo.getJavaConstraints().stream(), constraintStrings.stream())
-            .distinct()
-            .collect(toImmutableList());
-    return JavaInfo.Builder.copyOf(javaInfo).setJavaConstraints(mergedConstraints).build();
-  }
-
-  @Override
-  public Sequence<String> getConstraints(JavaInfo javaInfo) {
-    // No implementation in Bazel. This method not callable in Starlark except through
-    // (discouraged) use of --experimental_google_legacy_api.
-    return StarlarkList.empty();
-  }
-
-  @Override
-  public JavaInfo setAnnotationProcessing(
-      JavaInfo javaInfo,
-      boolean enabled,
-      Sequence<?> processorClassnames,
-      Object processorClasspath,
-      Object classJar,
-      Object sourceJar)
-      throws EvalException {
-    // No implementation in Bazel. This method not callable in Starlark except through
-    // (discouraged) use of --experimental_google_legacy_api.
-    return null;
-  }
-
-  @Override
-  public Label getJavaToolchainLabel(JavaToolchainStarlarkApiProviderApi toolchain)
-      throws EvalException {
-    // No implementation in Bazel. This method not callable in Starlark except through
-    // (discouraged) use of --experimental_google_legacy_api.
-    return null;
   }
 
   @Override
@@ -390,56 +288,7 @@ public class JavaStarlarkCommon
   }
 
   protected static void checkPrivateAccess(StarlarkThread thread) throws EvalException {
-    Label label =
-        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
-            .label();
-    if (!PRIVATE_STARLARKIFACTION_ALLOWLIST.contains(label.getPackageName())
-        && !label.getPackageIdentifier().getRepository().getName().equals("_builtins")) {
-      throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
-    }
-  }
-
-  @Override
-  public JavaInfo toJavaBinaryInfo(JavaInfo javaInfo, StarlarkThread thread) throws EvalException {
-    checkPrivateAccess(thread);
-    JavaRuleOutputJarsProvider ruleOutputs =
-        JavaRuleOutputJarsProvider.builder()
-            .addJavaOutput(
-                javaInfo.getJavaOutputs().stream()
-                    .map(
-                        output ->
-                            JavaOutput.create(
-                                output.getClassJar(),
-                                null,
-                                null,
-                                output.getGeneratedClassJar(),
-                                output.getGeneratedSourceJar(),
-                                output.getNativeHeadersJar(),
-                                output.getManifestProto(),
-                                output.getJdeps(),
-                                output.getSourceJars()))
-                    .collect(Collectors.toList()))
-            .build();
-    JavaInfo.Builder builder = JavaInfo.Builder.create();
-    if (javaInfo.getProvider(JavaCompilationInfoProvider.class) != null) {
-      builder.javaCompilationInfo(javaInfo.getCompilationInfoProvider());
-    } else if (javaInfo.getProvider(JavaCompilationArgsProvider.class) != null) {
-      JavaCompilationArgsProvider compilationArgsProvider =
-          javaInfo.getProvider(JavaCompilationArgsProvider.class);
-      builder.javaCompilationInfo(
-          new JavaCompilationInfoProvider.Builder()
-              .setCompilationClasspath(compilationArgsProvider.getTransitiveCompileTimeJars())
-              .setRuntimeClasspath(compilationArgsProvider.getRuntimeJars())
-              .build());
-    }
-    if (javaInfo.getProvider(JavaGenJarsProvider.class) != null) {
-      builder.javaGenJars(javaInfo.getGenJarsProvider());
-    }
-    return builder
-        .javaCcInfo(javaInfo.getProvider(JavaCcInfoProvider.class))
-        .javaSourceJars(javaInfo.getProvider(JavaSourceJarsProvider.class))
-        .javaRuleOutputs(ruleOutputs)
-        .build();
+    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, PRIVATE_STARLARKIFACTION_ALLOWLIST);
   }
 
   @Override
@@ -463,14 +312,13 @@ public class JavaStarlarkCommon
   }
 
   @Override
-  public Sequence<String> collectNativeLibsDirs(
-      Sequence<? extends TransitiveInfoCollectionApi> deps, StarlarkThread thread)
-      throws EvalException {
+  public Sequence<String> collectNativeLibsDirs(Depset libraries, StarlarkThread thread)
+      throws EvalException, TypeException {
     checkPrivateAccess(thread);
-    ImmutableList<Artifact> nativeLibs =
-        JavaCommon.collectNativeLibraries(
-                Sequence.cast(deps, TransitiveInfoCollection.class, "deps"))
-            .stream()
+    ImmutableList<Artifact> nativeLibraries =
+        LibraryToLink.getDynamicLibrariesForLinking(libraries.getSet(LibraryToLink.class));
+    ImmutableList<String> uniqueDirs =
+        nativeLibraries.stream()
             .filter(
                 nativeLibrary -> {
                   String name = nativeLibrary.getFilename();
@@ -484,12 +332,9 @@ public class JavaStarlarkCommon
                   }
                   return true;
                 })
+            .map(artifact -> artifact.getRootRelativePath().getParentDirectory().getPathString())
+            .distinct()
             .collect(toImmutableList());
-
-    Set<String> uniqueDirs = new LinkedHashSet<>();
-    for (Artifact nativeLib : nativeLibs) {
-      uniqueDirs.add(nativeLib.getRootRelativePath().getParentDirectory().getPathString());
-    }
     return StarlarkList.immutableCopyOf(uniqueDirs);
   }
 
@@ -509,5 +354,75 @@ public class JavaStarlarkCommon
                   runtimeClasspath.toList(Artifact.class),
                   Predicates.not(Predicates.in(excludedArtifacts.getSet().toSet())))));
     }
+  }
+
+  @Override
+  public void checkProviderInstances(
+      Sequence<?> providers, String what, ProviderApi providerType, StarlarkThread thread)
+      throws EvalException {
+    checkPrivateAccess(thread);
+    if (providerType instanceof Provider) {
+      for (int i = 0; i < providers.size(); i++) {
+        Object elem = providers.get(i);
+        if (!isInstanceOfProvider(elem, (Provider) providerType)) {
+          throw Starlark.errorf(
+              "at index %d of %s, got element of type %s, want %s",
+              i, what, printableType(elem), ((Provider) providerType).getPrintableName());
+        }
+      }
+    } else {
+      throw Starlark.errorf("wanted Provider, got %s", Starlark.type(providerType));
+    }
+  }
+
+  @VisibleForTesting
+  static String printableType(Object elem) {
+    if (elem instanceof StarlarkInfoWithSchema) {
+      return ((StarlarkInfoWithSchema) elem).getProvider().getPrintableName();
+    } else if (elem instanceof NativeInfo) {
+      return ((NativeInfo) elem).getProvider().getPrintableName();
+    }
+    return Starlark.type(elem);
+  }
+
+  @Override
+  public boolean isLegacyGoogleApiEnabled(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API);
+  }
+
+  @Override
+  public boolean isDepsetForJavaOutputSourceJarsEnabled(StarlarkThread thread)
+      throws EvalException {
+    checkPrivateAccess(thread);
+    return thread
+        .getSemantics()
+        .getBool(BuildLanguageOptions.INCOMPATIBLE_DEPSET_FOR_JAVA_OUTPUT_SOURCE_JARS);
+  }
+
+  @Override
+  public JavaInfo wrapJavaInfo(Info javaInfo, StarlarkThread thread)
+      throws EvalException, RuleErrorException {
+    checkPrivateAccess(thread);
+    return JavaInfo.PROVIDER.wrap(javaInfo);
+  }
+
+  @Override
+  public Sequence<String> internJavacOpts(Object javacOpts) throws EvalException {
+    ImmutableList<String> interned =
+        JavaCompilationHelper.internJavacOpts(
+            Sequence.cast(javacOpts, String.class, "javac_opts").getImmutableList());
+    return StarlarkList.lazyImmutable(() -> interned);
+  }
+
+  static boolean isInstanceOfProvider(Object obj, Provider provider) {
+    if (obj instanceof NativeInfo) {
+      return ((NativeInfo) obj).getProvider().getKey().equals(provider.getKey());
+    } else if (obj instanceof StarlarkInfoWithSchema) {
+      return ((StarlarkInfoWithSchema) obj).getProvider().getKey().equals(provider.getKey());
+    } else if (obj instanceof StarlarkInfoNoSchema) {
+      return ((StarlarkInfoNoSchema) obj).getProvider().getKey().equals(provider.getKey());
+    }
+    return false;
   }
 }

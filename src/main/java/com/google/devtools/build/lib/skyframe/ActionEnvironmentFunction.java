@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
@@ -23,9 +25,8 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -45,7 +46,7 @@ public final class ActionEnvironmentFunction implements SkyFunction {
     return env.getValue(ClientEnvironmentFunction.key(key));
   }
 
-  /** @return the SkyKey to invoke this function for the environment variable {@code variable}. */
+  /** Returns the SkyKey to invoke this function for the environment variable {@code variable}. */
   public static Key key(String variable) {
     return Key.create(variable);
   }
@@ -81,19 +82,15 @@ public final class ActionEnvironmentFunction implements SkyFunction {
    * if and only if some dependencies from Skyframe still need to be resolved.
    */
   @Nullable
-  public static Map<String, String> getEnvironmentView(Environment env, Iterable<String> keys)
+  public static ImmutableMap<String, String> getEnvironmentView(Environment env, Set<String> keys)
       throws InterruptedException {
-    ImmutableList.Builder<SkyKey> skyframeKeysBuilder = ImmutableList.builder();
-    for (String key : keys) {
-      skyframeKeysBuilder.add(key(key));
-    }
-    ImmutableList<SkyKey> skyframeKeys = skyframeKeysBuilder.build();
+    var skyframeKeys = keys.stream().map(ActionEnvironmentFunction::key).collect(toImmutableSet());
     SkyframeLookupResult values = env.getValuesAndExceptions(skyframeKeys);
     if (env.valuesMissing()) {
       return null;
     }
-    // To return the initial order and support null values, we use a LinkedHashMap.
-    LinkedHashMap<String, String> result = new LinkedHashMap<>();
+
+    ImmutableMap.Builder<String, String> result = ImmutableMap.builder();
     for (SkyKey key : skyframeKeys) {
       ClientEnvironmentValue value = (ClientEnvironmentValue) values.get(key);
       if (value == null) {
@@ -102,8 +99,10 @@ public final class ActionEnvironmentFunction implements SkyFunction {
                 "ClientEnvironmentValue " + key + " was missing, this should never happen"));
         return null;
       }
-      result.put(key.argument().toString(), value.getValue());
+      if (value.getValue() != null) {
+        result.put(key.argument().toString(), value.getValue());
+      }
     }
-    return Collections.unmodifiableMap(result);
+    return result.buildOrThrow();
   }
 }

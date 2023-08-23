@@ -112,6 +112,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       // false is the safe thing to do.
       return false;
     }
+
     return describeSemantics(starlarkSemantics).equals(markerData.get(SEMANTICS));
   }
 
@@ -158,7 +159,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
               () -> {
                 try {
                   return fetchInternal(
-                      rule, outputDirectory, directories, workerEnv, markerData, key);
+                      rule, outputDirectory, directories, workerEnv, state.markerData, key);
                 } finally {
                   state.signalQueue.put(Signal.DONE);
                 }
@@ -174,7 +175,9 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
         return null;
       case DONE:
         try {
-          return workerFuture.get();
+          RepositoryDirectoryValue.Builder result = workerFuture.get();
+          markerData.putAll(state.markerData);
+          return result;
         } catch (ExecutionException e) {
           Throwables.throwIfInstanceOf(e.getCause(), RepositoryFunctionException.class);
           Throwables.throwIfUnchecked(e.getCause());
@@ -250,15 +253,10 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
       thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
 
-      // The fetch phase does not need the tools repository
-      // or the fragment map because it happens before analysis.
       new BazelStarlarkContext(
               BazelStarlarkContext.Phase.LOADING, // ("fetch")
-              /*toolsRepository=*/ null,
-              /*fragmentNameToClass=*/ null,
               new SymbolGenerator<>(key),
-              /*analysisRuleLabel=*/ null,
-              /*networkAllowlistForTests=*/ null)
+              /* analysisRuleLabel= */ null)
           .storeInThread(thread);
 
       StarlarkRepositoryContext starlarkRepositoryContext =
@@ -377,8 +375,8 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
   }
 
   @SuppressWarnings("unchecked")
-  private static Iterable<String> getEnviron(Rule rule) {
-    return (Iterable<String>) rule.getAttr("$environ");
+  private static ImmutableSet<String> getEnviron(Rule rule) {
+    return ImmutableSet.copyOf((Iterable<String>) rule.getAttr("$environ"));
   }
 
   @Override

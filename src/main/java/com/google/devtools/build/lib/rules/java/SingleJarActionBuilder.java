@@ -29,8 +29,6 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import java.util.function.Consumer;
 
@@ -81,7 +79,7 @@ public final class SingleJarActionBuilder {
    * @param outputJar the Jar to create
    * @param toolchainProvider is used to retrieve jvm options
    */
-  public static void createSourceJarAction(
+  private static void createSourceJarAction(
       ActionRegistry actionRegistry,
       ActionConstructionContext actionConstructionContext,
       JavaSemantics semantics,
@@ -104,39 +102,11 @@ public final class SingleJarActionBuilder {
             .addCommandLine(
                 sourceJarCommandLine(outputJar, semantics, resources, resourceJars),
                 ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).setUseAlways(true).build())
-            .setProgressMessage("Building source jar %s", outputJar.prettyPrint())
+            .setProgressMessage("Building source jar %{output}")
             .setMnemonic("JavaSourceJar")
             .setExecGroup(execGroup);
 
     actionRegistry.registerAction(builder.build(actionConstructionContext));
-  }
-
-  /**
-   * Creates an Action that merges jars into a single archive.
-   *
-   * @param jars the jars to merge.
-   * @param output the output jar to create
-   */
-  public static void createSingleJarAction(
-      RuleContext ruleContext, NestedSet<Artifact> jars, Artifact output) {
-    requireNonNull(ruleContext);
-    requireNonNull(jars);
-    requireNonNull(output);
-    SpawnAction.Builder builder =
-        new SpawnAction.Builder()
-            .setExecutable(JavaToolchainProvider.from(ruleContext).getSingleJar())
-            .addOutput(output)
-            .addTransitiveInputs(jars)
-            .addCommandLine(
-                sourceJarCommandLine(
-                    output,
-                    /* semantics= */ null,
-                    /* resources= */ NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-                    jars),
-                ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).setUseAlways(true).build())
-            .setProgressMessage("Building singlejar jar %s", output.prettyPrint())
-            .setMnemonic("JavaSingleJar");
-    ruleContext.registerAction(builder.build(ruleContext));
   }
 
   private static CommandLine sourceJarCommandLine(

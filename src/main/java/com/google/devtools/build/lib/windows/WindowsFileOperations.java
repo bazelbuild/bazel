@@ -77,8 +77,6 @@ public class WindowsFileOperations {
     }
   }
 
-  private static final int MAX_PATH = 260;
-
   // Keep IS_SYMLINK_OR_JUNCTION_* values in sync with src/main/native/windows/file.cc.
   private static final int IS_SYMLINK_OR_JUNCTION_SUCCESS = 0;
   // IS_SYMLINK_OR_JUNCTION_ERROR = 1;

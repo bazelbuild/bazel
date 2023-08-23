@@ -95,6 +95,13 @@ public interface AndroidConfigurationApi extends StarlarkValue {
   ImmutableList<String> getDexoptsSupportedInDexMerger();
 
   @StarlarkMethod(
+      name = "get_dexopts_supported_in_dex_sharder",
+      structField = true,
+      doc = "",
+      documented = false)
+  ImmutableList<String> getDexoptsSupportedInDexSharder();
+
+  @StarlarkMethod(
       name = "get_target_dexopts_that_prevent_incremental_dexing",
       structField = true,
       doc = "",
@@ -207,22 +214,12 @@ public interface AndroidConfigurationApi extends StarlarkValue {
       documented = false)
   boolean getOneVersionEnforcementUseTransitiveJarsForBinaryUnderTest();
 
-  @StarlarkMethod(name = "use_databinding_v2", structField = true, doc = "", documented = false)
-  boolean useDataBindingV2();
-
   @StarlarkMethod(
-      name = "android_databinding_use_v3_4_args",
+      name = "persistent_aar_extractor",
       structField = true,
       doc = "",
       documented = false)
-  boolean useDataBindingUpdatedArgs();
-
-  @StarlarkMethod(
-      name = "android_databinding_use_androidx",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean useDataBindingAndroidX();
+  boolean persistentAarExtractor();
 
   @StarlarkMethod(
       name = "persistent_busybox_tools",

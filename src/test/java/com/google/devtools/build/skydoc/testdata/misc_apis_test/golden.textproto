@@ -1,0 +1,63 @@
+rule_info {
+  rule_name: "my_rule"
+  doc_string: "This rule exercises some of the build API."
+  attribute {
+    name: "name"
+    doc_string: "A unique name for this target."
+    type: NAME
+    mandatory: true
+  }
+  attribute {
+    name: "deps"
+    doc_string: "A list of dependencies."
+    type: LABEL_LIST
+    provider_name_group {
+      provider_name: "MyInfo"
+    }
+    default_value: "[]"
+  }
+  attribute {
+    name: "extra_arguments"
+    type: STRING_LIST
+    default_value: "[]"
+  }
+  attribute {
+    name: "out"
+    doc_string: "The output file."
+    type: OUTPUT
+    mandatory: true
+  }
+  attribute {
+    name: "src"
+    doc_string: "The source file."
+    type: LABEL
+    default_value: "None"
+  }
+  attribute {
+    name: "tool"
+    doc_string: "The location of the tool to use."
+    type: LABEL
+    default_value: "//foo/bar/baz:target"
+  }
+}
+provider_info {
+  provider_name: "MyInfo"
+  field_info {
+    name: "foo"
+    doc_string: "Something foo-related."
+  }
+  field_info {
+    name: "bar"
+    doc_string: "Something bar-related."
+  }
+}
+func_info {
+  function_name: "exercise_the_api"
+}
+func_info {
+  function_name: "my_rule_impl"
+  parameter {
+    name: "ctx"
+    mandatory: true
+  }
+}

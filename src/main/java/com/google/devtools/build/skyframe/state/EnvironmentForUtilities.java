@@ -140,6 +140,9 @@ public final class EnvironmentForUtilities
       resultCallback.acceptValue(key, (SkyValue) result);
       return true;
     }
-    return resultCallback.tryHandleException(key, (Exception) result);
+    if (resultCallback.tryHandleException(key, (Exception) result)) {
+      return true;
+    }
+    return false;
   }
 }

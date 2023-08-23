@@ -79,10 +79,12 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -306,10 +308,7 @@ public final class SkyframeActionExecutor {
     freeDiscoveredInputsAfterExecution =
         !trackIncrementalState && options.getOptions(CoreOptions.class).actionListeners.isEmpty();
 
-    this.cacheHitSemaphore =
-        options.getOptions(CoreOptions.class).throttleActionCacheCheck
-            ? new Semaphore(ResourceUsage.getAvailableProcessors())
-            : null;
+    this.cacheHitSemaphore = new Semaphore(ResourceUsage.getAvailableProcessors());
 
     this.actionExecutionSemaphore =
         buildRequestOptions.useSemaphoreForJobs ? new Semaphore(buildRequestOptions.jobs) : null;
@@ -381,11 +380,13 @@ public final class SkyframeActionExecutor {
   }
 
   private void updateActionFileSystemContext(
+      Action action,
       FileSystem actionFileSystem,
       Environment env,
       MetadataInjector metadataInjector,
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {
-    outputService.updateActionFileSystemContext(actionFileSystem, env, metadataInjector, filesets);
+    outputService.updateActionFileSystemContext(
+        action, actionFileSystem, env, metadataInjector, filesets);
   }
 
   void executionOver() {
@@ -488,7 +489,8 @@ public final class SkyframeActionExecutor {
       boolean hasDiscoveredInputs)
       throws ActionExecutionException, InterruptedException {
     if (actionFileSystem != null) {
-      updateActionFileSystemContext(actionFileSystem, env, metadataHandler, expandedFilesets);
+      updateActionFileSystemContext(
+          action, actionFileSystem, env, metadataHandler, expandedFilesets);
     }
 
     ActionExecutionContext actionExecutionContext =
@@ -669,7 +671,8 @@ public final class SkyframeActionExecutor {
         boolean eventPosted = false;
         // Notify BlazeRuntimeStatistics about the action middleman 'execution'.
         if (action.getActionType().isMiddleman()) {
-          eventHandler.post(new ActionMiddlemanEvent(action, actionStartTime));
+          eventHandler.post(
+              new ActionMiddlemanEvent(action, actionStartTime, BlazeClock.nanoTime()));
           eventPosted = true;
         }
 
@@ -719,7 +722,7 @@ public final class SkyframeActionExecutor {
                 /* filesetOutputSymlinksForMetrics= */ null,
                 /* isActionCacheHitForMetrics= */ true);
         if (!eventPosted) {
-          eventHandler.post(new CachedActionEvent(action, actionStartTime));
+          eventHandler.post(new CachedActionEvent(action, actionStartTime, BlazeClock.nanoTime()));
         }
       }
     } catch (UserExecException e) {
@@ -833,6 +836,7 @@ public final class SkyframeActionExecutor {
             threadStateReceiverFactory.apply(actionLookupData));
     if (actionFileSystem != null) {
       updateActionFileSystemContext(
+          action,
           actionFileSystem,
           env,
           THROWING_METADATA_INJECTOR_FOR_ACTIONFS,
@@ -948,7 +952,7 @@ public final class SkyframeActionExecutor {
   private final class ActionRunner extends ActionStep {
     private final Action action;
     private final ActionMetadataHandler metadataHandler;
-    private final long actionStartTime;
+    private final long actionStartTimeNanos;
     private final ActionExecutionContext actionExecutionContext;
     private final ActionLookupData actionLookupData;
     @Nullable private final ActionExecutionStatusReporter statusReporter;
@@ -957,13 +961,13 @@ public final class SkyframeActionExecutor {
     ActionRunner(
         Action action,
         ActionMetadataHandler metadataHandler,
-        long actionStartTime,
+        long actionStartTimeNanos,
         ActionExecutionContext actionExecutionContext,
         ActionLookupData actionLookupData,
         ActionPostprocessing postprocessing) {
       this.action = action;
       this.metadataHandler = metadataHandler;
-      this.actionStartTime = actionStartTime;
+      this.actionStartTimeNanos = actionStartTimeNanos;
       this.actionExecutionContext = actionExecutionContext;
       this.actionLookupData = actionLookupData;
       this.statusReporter = statusReporterRef.get();
@@ -1003,7 +1007,7 @@ public final class SkyframeActionExecutor {
         boolean lostInputs = false;
 
         try {
-          ActionStartedEvent event = new ActionStartedEvent(action, actionStartTime);
+          ActionStartedEvent event = new ActionStartedEvent(action, actionStartTimeNanos);
           if (statusReporter != null) {
             statusReporter.updateStatus(event);
           }
@@ -1069,7 +1073,9 @@ public final class SkyframeActionExecutor {
         statusReporter.remove(action);
       }
       if (postActionCompletionEvent) {
-        eventHandler.post(new ActionCompletionEvent(actionStartTime, action, actionLookupData));
+        eventHandler.post(
+            new ActionCompletionEvent(
+                actionStartTimeNanos, BlazeClock.nanoTime(), action, actionLookupData));
       }
       String message = action.getProgressMessage();
       if (message != null) {
@@ -1504,7 +1510,7 @@ public final class SkyframeActionExecutor {
    * Validates that all action outputs were created or intentionally omitted. This can result in
    * chmod calls on the output files; see {@link ActionMetadataHandler}.
    *
-   * @return false if some outputs are missing, true - otherwise.
+   * @return false if some outputs are missing or invalid, true - otherwise.
    */
   private boolean checkOutputs(
       Action action,
@@ -1522,7 +1528,9 @@ public final class SkyframeActionExecutor {
           try {
             FileArtifactValue metadata = outputMetadataStore.getOutputMetadata(output);
 
-            checkForUnsoundDirectoryOutput(action, output, metadata);
+            if (!checkForUnsoundDirectoryOutput(action, output, metadata)) {
+              return false;
+            }
 
             addOutputToMetrics(
                 output,
@@ -1634,19 +1642,26 @@ public final class SkyframeActionExecutor {
     }
   }
 
-  private void checkForUnsoundDirectoryOutput(
+  private boolean checkForUnsoundDirectoryOutput(
       Action action, Artifact output, FileArtifactValue metadata) {
+    boolean success = true;
     if (!output.isDirectory() && !output.isSymlink() && metadata.getType().isDirectory()) {
+      boolean asError = options.getOptions(CoreOptions.class).disallowUnsoundDirectoryOutputs;
       String ownerString = action.getOwner().getLabel().toString();
       reporter.handle(
-          Event.warn(
+          Event.of(
+                  asError ? EventKind.ERROR : EventKind.WARNING,
                   action.getOwner().getLocation(),
                   String.format(
                       "output '%s' of %s is a directory; "
                           + "dependency checking of directories is unsound",
                       output.prettyPrint(), ownerString))
               .withTag(ownerString));
+      if (asError) {
+        success = false;
+      }
     }
+    return success;
   }
 
   /**

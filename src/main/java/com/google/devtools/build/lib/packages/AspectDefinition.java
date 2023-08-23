@@ -236,7 +236,7 @@ public final class AspectDefinition {
 
   private static <T> void visitSingleAttribute(
       Attribute attribute, Type<T> type, LabelVisitor labelVisitor) {
-    type.visitLabels(labelVisitor, type.cast(attribute.getDefaultValue()), attribute);
+    type.visitLabels(labelVisitor, type.cast(attribute.getDefaultValue(null)), attribute);
   }
 
   public static Builder builder(AspectClass aspectClass) {

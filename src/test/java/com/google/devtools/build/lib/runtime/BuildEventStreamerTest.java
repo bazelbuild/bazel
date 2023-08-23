@@ -69,7 +69,6 @@ import com.google.devtools.build.lib.buildeventstream.transports.BuildEventStrea
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.NoAnalyzeEvent;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -946,13 +945,13 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
     BuildConfigurationValue configuration =
         BuildConfigurationValue.create(
             defaultBuildOptions,
-            RepositoryName.createUnvalidated("workspace"),
-            /*siblingRepositoryLayout=*/ false,
-            /*transitionDirectoryNameFragment=*/ "",
+            "workspace",
+            /* siblingRepositoryLayout= */ false,
+            /* transitionDirectoryNameFragment= */ "",
             new BlazeDirectories(
                 new ServerDirectories(outputBase, outputBase, outputBase),
                 rootDirectory,
-                /*defaultSystemJavabase=*/ null,
+                /* defaultSystemJavabase= */ null,
                 "productName"),
             new BuildConfigurationValue.GlobalStateProvider() {
               @Override

@@ -17,16 +17,44 @@ package com.google.devtools.build.lib.packages;
 import static com.google.common.base.MoreObjects.firstNonNull;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
-import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 
+/*
+ * TODO(b/236456122): We should break this class up into separate classes for each kind of Starlark
+ * evaluation environment, as opposed to storing possibly inapplicable nullable fields on this
+ * class. Then we can use static methods with signatures like fromOrFail(StarlarkThread, String) in
+ * place of the Phase enum and its associated check* methods.
+ *
+ * Some kinds of evaluation environments include:
+ *   - .bzl loading
+ *   - BUILD evaluation (should absorb PackageFactory.PackageContext -- no need to store multiple
+ *     thread-locals in StarlarkThread)
+ *   - WORKSPACE evaluation (shares logic with BUILD)
+ *   - rule and aspect analysis implementation (can/should we store the RuleContext here?)
+ *   - implicit outputs
+ *   - computed defaults
+ *   - transition implementation
+ *   - Args.map_each
+ *   - probably others
+ *
+ * BazelStarlarkContext itself could probably be deleted. The only thing common to almost all Bazel
+ * Starlark environments is SymbolGenerator, which in principle could be used to uniquely identify
+ * depsets or even StarlarkFunction, though in practice it doesn't have nearly that widespread usage
+ * yet. SymbolGenerator could be promoted to a core feature of StarlarkThread if it reaches that
+ * point. If we do keep BazelStarlarkContext around as a common base class of the other context
+ * classes, it should be renamed BazelThreadContext for symmetry with BazelModuleContext.
+ *
+ * Even if we can otherwise get rid of BazelStarlarkContext, it may still be handy to retain this
+ * class as a static namespace for helper methods for storing and retrieving contexts on
+ * StarlarkThreads. In particular, it'd avoid the very likely bug of a storeInThread
+ * implementation in one of the context classes forgetting to setUncheckedExceptionContext(this). It
+ * also would give us a place to keep javadoc about the proper way to use these context objects in
+ * Bazel.
+ */
 /**
  * Bazel-specific contextual information associated with a Starlark evaluation thread.
  *
@@ -34,30 +62,10 @@ import net.starlark.java.eval.StarlarkThread;
  * used for certain kinds of Starlark evaluations; in that case it is still keyed in the
  * thread-locals under {@code BazelStarlarkContext.class}.
  *
- * <p>This object is mutable and should not be reused for more than one Starlark thread.
+ * <p>This object is mutable and should not be accessed simultaneously or reused for more than one
+ * Starlark thread.
  */
-// TODO(b/236456122): rename BazelThreadContext, for symmetry with BazelModuleContext.
-// TODO(b/236456122): We should break this class up into subclasses for each kind of evaluation, as
-// opposed to storing specialized fields on this class and setting them to null for inapplicable
-// environments. Subclasses should define {@code from(StarlarkThread)} and {@code
-// fromOrFailFunction(StarlarkThread, String)} methods to be used in place of the {@code
-// check*Phase} methods in this class. Kinds of evaluation include:
-//   - .bzl loading
-//   - BUILD evaluation (should absorb PackageFactory.PackageContext -- no need to store multiple
-//     thread-locals in StarlarkThread)
-//   - WORKSPACE evaluation (shares logic with BUILD)
-//   - rule and aspect analysis implementation (can/should we store the RuleContext here?)
-//   - implicit outputs
-//   - computed defaults
-//   - transition implementation
-//   - Args.map_each
-//   - probably others
-// TODO(b/236456122): The inheritance of RuleDefinitionEnvironment should be replaced by
-// composition, in an appropriate subclass of this class. Things like the tools repository, network
-// allowlist, etc. can be accessed from the RDE. (If any info needs to be duplicated between RDE and
-// here, we should assert consistency with a precondition check.)
-public class BazelStarlarkContext
-    implements RuleDefinitionEnvironment, StarlarkThread.UncheckedExceptionContext {
+public class BazelStarlarkContext implements StarlarkThread.UncheckedExceptionContext {
 
   /** The phase to which this Starlark thread belongs. */
   // TODO(b/236456122): Eliminate.
@@ -86,64 +94,38 @@ public class BazelStarlarkContext
   public void storeInThread(StarlarkThread thread) {
     Preconditions.checkState(thread.getThreadLocal(BazelStarlarkContext.class) == null);
     thread.setThreadLocal(BazelStarlarkContext.class, this);
+    // TODO(b/236456122): We can probably replace the concept of setUncheckedExceptionContext with a
+    // string parameter to StarlarkThread construction. In that case, storeInThread() becomes more
+    // superfluous, and there's one less reason to keep the inheritance hierarchy of
+    // BazelStarlarkContext and its children.
     thread.setUncheckedExceptionContext(this);
   }
 
   // A generic counter for uniquely identifying symbols created in this Starlark evaluation.
   private final SymbolGenerator<?> symbolGenerator;
 
-  // TODO(b/236456122): Migrate the below fields to subclasses.
+  // TODO(b/236456122): Eliminate Phase, migrate analysisRuleLabel to a separate context class.
   private final Phase phase;
-  // Only necessary for loading phase threads.
-  @Nullable private final RepositoryName toolsRepository;
-  // Only necessary for loading phase threads to construct configuration_field.
-  @Nullable private final ImmutableMap<String, Class<?>> fragmentNameToClass;
   @Nullable private final Label analysisRuleLabel;
-  // TODO(b/192694287): Remove once we migrate all tests from the allowlist
-  @Nullable private final Label networkAllowlistForTests;
 
   /**
    * @param phase the phase to which this Starlark thread belongs
-   * @param toolsRepository the name of the tools repository, such as "@bazel_tools" for loading
-   *     phase threads, null for other threads.
-   * @param fragmentNameToClass a map from configuration fragment name to configuration fragment
-   *     class, such as "apple" to AppleConfiguration.class for loading phase threads, null for
-   *     other threads.
    * @param symbolGenerator a {@link SymbolGenerator} to be used when creating objects to be
    *     compared using reference equality.
    * @param analysisRuleLabel is the label of the rule for an analysis phase (rule or aspect
    */
+  // TODO(b/236456122): Consider taking an owner in place of a SymbolGenerator, and constructing
+  // the latter ourselves. Seems like we don't want to tempt anyone into sharing a SymbolGenerator.
   public BazelStarlarkContext(
-      Phase phase,
-      @Nullable RepositoryName toolsRepository,
-      @Nullable ImmutableMap<String, Class<?>> fragmentNameToClass,
-      SymbolGenerator<?> symbolGenerator,
-      @Nullable Label analysisRuleLabel,
-      @Nullable Label networkAllowlistForTests) {
+      Phase phase, SymbolGenerator<?> symbolGenerator, @Nullable Label analysisRuleLabel) {
     this.phase = Preconditions.checkNotNull(phase);
-    this.toolsRepository = toolsRepository;
-    this.fragmentNameToClass = fragmentNameToClass;
     this.symbolGenerator = Preconditions.checkNotNull(symbolGenerator);
     this.analysisRuleLabel = analysisRuleLabel;
-    this.networkAllowlistForTests = networkAllowlistForTests;
   }
 
   /** Returns the phase associated with this context. */
   public Phase getPhase() {
     return phase;
-  }
-
-  /** Returns the name of the tools repository, such as "@bazel_tools". */
-  @Nullable
-  @Override
-  public RepositoryName getToolsRepository() {
-    return toolsRepository;
-  }
-
-  /** Returns a map from configuration fragment name to configuration fragment class. */
-  @Nullable
-  public ImmutableMap<String, Class<?>> getFragmentNameToClass() {
-    return fragmentNameToClass;
   }
 
   public SymbolGenerator<?> getSymbolGenerator() {
@@ -162,11 +144,6 @@ public class BazelStarlarkContext
   @Override
   public String getContextForUncheckedException() {
     return firstNonNull(analysisRuleLabel, phase).toString();
-  }
-
-  @Override
-  public Optional<Label> getNetworkAllowlistForTests() {
-    return Optional.ofNullable(networkAllowlistForTests);
   }
 
   /**

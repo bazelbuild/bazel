@@ -279,7 +279,7 @@ def PruneSourceFiles(input_files, output_files, dependency_mapping_files,
              file_shutil)
 
 
-def MatchObjectNamesInArchive(xcrunwrapper, archive, object_names):
+def MatchObjectNamesInArchive(archive, object_names):
   """Returns object names matching their identity in an archive file.
 
   The linker that blaze uses appends an md5 hash to object file
@@ -288,14 +288,13 @@ def MatchObjectNamesInArchive(xcrunwrapper, archive, object_names):
   the archive file, such as 'foo_<hash>.o'.
 
   Args:
-    xcrunwrapper: A wrapper script over xcrun.
     archive: The location of the archive file.
     object_names: The expected basenames of object files to match,
         sans extension. For example 'foo' (not 'foo.o').
   Returns:
     A list of basenames of matching members of the given archive
   """
-  ar_contents_cmd = [xcrunwrapper, 'ar', '-t', archive]
+  ar_contents_cmd = ['/usr/bin/xcrun', 'ar', '-t', archive]
   real_object_names_output = subprocess.check_output(ar_contents_cmd)
   real_object_names = real_object_names_output.decode('utf-8')
   expected_object_name_regex = r'^(?:%s)(?:_[0-9a-f]{32}(?:-[0-9]+)?)?\.o$' % (
@@ -306,10 +305,16 @@ def MatchObjectNamesInArchive(xcrunwrapper, archive, object_names):
       flags=re.MULTILINE)
 
 
-def PruneArchiveFile(input_archive, output_archive, dummy_archive,
-                     dependency_mapping_files, header_mapping_files,
-                     archive_source_mapping_files, entry_classes, xcrunwrapper,
-                     file_open=open):
+def PruneArchiveFile(
+    input_archive,
+    output_archive,
+    dummy_archive,
+    dependency_mapping_files,
+    header_mapping_files,
+    archive_source_mapping_files,
+    entry_classes,
+    file_open=open,
+):
   """Remove unreachable objects from archive file.
 
   Args:
@@ -323,7 +328,6 @@ def PruneArchiveFile(input_archive, output_archive, dummy_archive,
     archive_source_mapping_files: A comma separated list of J2ObjC-generated
         mapping between archive files and their associated source files.
     entry_classes: A comma separated list of Java entry classes.
-    xcrunwrapper: A wrapper script over xcrun.
     file_open: Reference to the builtin open function so it may be
         overridden for testing.
   """
@@ -337,8 +341,7 @@ def PruneArchiveFile(input_archive, output_archive, dummy_archive,
                                               header_map,
                                               archive_source_file_mapping)
 
-  # Copy the current processes' environment, as xcrunwrapper depends on these
-  # variables.
+  # Copy the current processes' environment.
   cmd_env = dict(os.environ)
   j2objc_cmd = ''
   if input_archive in archive_source_file_mapping:
@@ -367,14 +370,14 @@ def PruneArchiveFile(input_archive, output_archive, dummy_archive,
         j2objc_cmd += 'chmod +w %s && ' % (shlex.quote(output_archive))
         # Remove the unreachable objects from the archive
         unreachable_object_names = MatchObjectNamesInArchive(
-            xcrunwrapper, input_archive, unreachable_object_names)
-        j2objc_cmd += '%s ar -d -s %s %s && ' % (
-            shlex.quote(xcrunwrapper),
+            input_archive, unreachable_object_names
+        )
+        j2objc_cmd += '/usr/bin/xcrun ar -d -s %s %s && ' % (
             shlex.quote(output_archive),
-            ' '.join(shlex.quote(uon) for uon in unreachable_object_names))
+            ' '.join(shlex.quote(uon) for uon in unreachable_object_names),
+        )
         # Update the table of content of the archive file
-        j2objc_cmd += '%s ranlib %s' % (shlex.quote(xcrunwrapper),
-                                        shlex.quote(output_archive))
+        j2objc_cmd += '/usr/bin/xcrun ranlib %s' % shlex.quote(output_archive)
     # There are no unreachable objects, we just copy over the original archive
     else:
       j2objc_cmd = 'cp %s %s' % (shlex.quote(input_archive),
@@ -473,9 +476,6 @@ if __name__ == '__main__':
       '--entry_classes',
       help=('The comma-separated list of Java entry classes to be used as entry'
             ' point of the dead code analysis.'))
-  parser.add_argument(
-      '--xcrunwrapper',
-      help=('The xcrun wrapper script.'))
 
   args = parser.parse_args()
 
@@ -492,7 +492,7 @@ if __name__ == '__main__':
         args.header_mapping_files,
         args.archive_source_mapping_files,
         args.entry_classes,
-        args.xcrunwrapper)
+    )
   else:
     # TODO(rduan): Remove once J2ObjC compile actions are fully moved to the
     # edges.

@@ -41,9 +41,6 @@ import org.junit.runner.RunWith;
 public final class PriorityTest {
   private static final long POLL_MS = 100;
 
-  /** Low fanout occupies the highest bit that can be set without creating a negative number. */
-  private static final int LOW_FANOUT_PRIORITY = 0x4000_0000;
-
   private final ProcessableGraph graph = new InMemoryGraphImpl();
   private final GraphTester tester = new GraphTester();
 
@@ -88,11 +85,8 @@ public final class PriorityTest {
       return new AutoValue_PriorityTest_PriorityInfo(node.getPriority(), node.depth());
     }
 
-    private static PriorityInfo of(boolean hasLowFanout, int depth, int evaluationCount) {
+    private static PriorityInfo of(int depth, int evaluationCount) {
       int priority = depth + evaluationCount * evaluationCount;
-      if (hasLowFanout) {
-        priority += LOW_FANOUT_PRIORITY;
-      }
       return new AutoValue_PriorityTest_PriorityInfo(priority, depth);
     }
 
@@ -127,14 +121,9 @@ public final class PriorityTest {
         .containsExactly(
             rootKey,
                 ImmutableList.of(
-                    PriorityInfo.of(
-                        /* hasLowFanout= */ false, /* depth= */ 0, /* evaluationCount= */ 0),
-                    PriorityInfo.of(
-                        /* hasLowFanout= */ false, /* depth= */ 0, /* evaluationCount= */ 1)),
-            depKey,
-                ImmutableList.of(
-                    PriorityInfo.of(
-                        /* hasLowFanout= */ false, /* depth= */ 1, /* evaluationCount= */ 0)));
+                    PriorityInfo.of(/* depth= */ 0, /* evaluationCount= */ 0),
+                    PriorityInfo.of(/* depth= */ 0, /* evaluationCount= */ 1)),
+            depKey, ImmutableList.of(PriorityInfo.of(/* depth= */ 1, /* evaluationCount= */ 0)));
   }
 
   private static class EvaluationPriorityListener implements Listener {
@@ -169,7 +158,7 @@ public final class PriorityTest {
 
     // b1 is a child of a1 that causes a1 to restart. b1's SkyFunction holds until a2 has had a
     // chance to re-request a1, so a1's increased depth at re-evaluation can be observed.
-    CPUHeavySkyKey b1 = Key.createWithLowFanout("b1");
+    CPUHeavySkyKey b1 = Key.create("b1");
 
     var nodeA1 = new AtomicReference<NodeEntry>();
 
@@ -250,44 +239,41 @@ public final class PriorityTest {
 
     assertThat(priorities.get(rootKey))
         .containsExactly(
-            PriorityInfo.of(/* hasLowFanout= */ false, /* depth= */ 0, /* evaluationCount= */ 0),
-            PriorityInfo.of(/* hasLowFanout= */ false, /* depth= */ 0, /* evaluationCount= */ 1))
+            PriorityInfo.of(/* depth= */ 0, /* evaluationCount= */ 0),
+            PriorityInfo.of(/* depth= */ 0, /* evaluationCount= */ 1))
         .inOrder();
     assertThat(priorities.get(a1)).hasSize(2);
     assertThat(priorities.get(a1).get(0))
         .isAnyOf(
             // The common case where a1 starts evaluating before a2 requests it.
-            PriorityInfo.of(/* hasLowFanout= */ false, /* depth= */ 1, /* evaluationCount= */ 0),
+            PriorityInfo.of(/* depth= */ 1, /* evaluationCount= */ 0),
             // Sometimes a2 requests a1 before a1 starts evaluating.
-            PriorityInfo.of(/* hasLowFanout= */ false, /* depth= */ 2, /* evaluationCount= */ 0));
+            PriorityInfo.of(/* depth= */ 2, /* evaluationCount= */ 0));
     assertThat(priorities.get(a1).get(1))
-        .isEqualTo(
-            PriorityInfo.of(/* hasLowFanout= */ false, /* depth= */ 2, /* evaluationCount= */ 1));
+        .isEqualTo(PriorityInfo.of(/* depth= */ 2, /* evaluationCount= */ 1));
     assertThat(priorities.get(a2))
         .containsExactly(
-            PriorityInfo.of(/* hasLowFanout= */ false, /* depth= */ 1, /* evaluationCount= */ 0),
-            PriorityInfo.of(/* hasLowFanout= */ false, /* depth= */ 1, /* evaluationCount= */ 1))
+            PriorityInfo.of(/* depth= */ 1, /* evaluationCount= */ 0),
+            PriorityInfo.of(/* depth= */ 1, /* evaluationCount= */ 1))
         .inOrder();
     assertThat(priorities.get(b1))
         .containsAnyOf(
             // If a1 requests b1 first.
-            PriorityInfo.of(/* hasLowFanout= */ true, /* depth= */ 2, /* evaluationCount= */ 0),
+            PriorityInfo.of(/* depth= */ 2, /* evaluationCount= */ 0),
             // If a2 requests a1 first.
-            PriorityInfo.of(/* hasLowFanout= */ true, /* depth= */ 3, /* evaluationCount= */ 0));
+            PriorityInfo.of(/* depth= */ 3, /* evaluationCount= */ 0));
   }
 
   @Test
-  public void basicPriorityCalculation(@TestParameter boolean hasLowFanout)
-      throws InterruptedException {
-    var state = DirtyBuildingState.createNew(hasLowFanout);
+  public void basicPriorityCalculation() throws InterruptedException {
+    var state = new InitialBuildingState();
     state.updateDepthIfGreater(5);
     state.incrementEvaluationCount();
     state.incrementEvaluationCount();
 
     assertThat(state.depth()).isEqualTo(5);
     assertThat(state.getPriority())
-        .isEqualTo(
-            PriorityInfo.of(hasLowFanout, /* depth= */ 5, /* evaluationCount= */ 2).priority());
+        .isEqualTo(PriorityInfo.of(/* depth= */ 5, /* evaluationCount= */ 2).priority());
   }
 
   private static final int MAX_DEPTH = 0x7FFF;
@@ -322,7 +308,7 @@ public final class PriorityTest {
 
   @Test
   public void updateDepth(@TestParameter DepthTestCases testCase) {
-    var state = DirtyBuildingState.createNew(/* hasLowFanout= */ false);
+    var state = new InitialBuildingState();
 
     state.updateDepthIfGreater(testCase.proposedDepth());
     assertThat(state.depth()).isEqualTo(testCase.resultingDepth());
@@ -363,7 +349,7 @@ public final class PriorityTest {
 
   @Test
   public void updateEvaluationCount(@TestParameter EvaluationCountTestCases testCase) {
-    var state = DirtyBuildingState.createNew(/* hasLowFanout= */ false);
+    var state = new InitialBuildingState();
 
     for (int i = 0; i < testCase.evaluationCount(); ++i) {
       state.incrementEvaluationCount();
@@ -375,19 +361,13 @@ public final class PriorityTest {
     private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
 
     private final String arg;
-    private final boolean hasLowFanout;
 
     static Key create(String arg) {
-      return interner.intern(new Key(arg, /* hasLowFanout= */ false));
+      return interner.intern(new Key(arg));
     }
 
-    static Key createWithLowFanout(String arg) {
-      return interner.intern(new Key(arg, /* hasLowFanout= */ true));
-    }
-
-    private Key(String arg, boolean hasLowFanout) {
+    private Key(String arg) {
       this.arg = arg;
-      this.hasLowFanout = hasLowFanout;
     }
 
     @Override
@@ -401,11 +381,6 @@ public final class PriorityTest {
     }
 
     @Override
-    public boolean hasLowFanout() {
-      return hasLowFanout;
-    }
-
-    @Override
     public int hashCode() {
       return 31 * functionName().hashCode() + arg.hashCode();
     }
@@ -416,12 +391,12 @@ public final class PriorityTest {
         return false;
       }
       Key that = (Key) obj;
-      return arg.equals(that.arg) && hasLowFanout == that.hasLowFanout;
+      return arg.equals(that.arg);
     }
 
     @Override
     public String toString() {
-      return toStringHelper(this).add("arg", arg).add("hasLowFanout", hasLowFanout).toString();
+      return toStringHelper(this).add("arg", arg).toString();
     }
   }
 }

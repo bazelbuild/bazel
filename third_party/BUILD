@@ -1,6 +1,7 @@
 load("@rules_java//java:defs.bzl", "java_import", "java_library", "java_plugin")
 load("@rules_license//rules:license.bzl", "license")
 load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup", "distrib_java_import")
+load(":compiler_config_setting.bzl", "create_compiler_config_setting")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -9,23 +10,23 @@ filegroup(
     srcs = glob(["**"]) + [
         "//third_party/allocation_instrumenter:srcs",
         "//third_party/android_dex:srcs",
+        "//third_party/cncf_udpa:srcs",
         "//third_party/def_parser:srcs",
         "//third_party/grpc:srcs",
-        "//third_party/cncf_udpa:srcs",
-        "//third_party/protoc_gen_validate:srcs",
         "//third_party/grpc-java:srcs",
         "//third_party/ijar:srcs",
         "//third_party/jarjar:srcs",
         "//third_party/java/android_databinding:srcs",
         "//third_party/java/aosp_gradle_core:srcs",
-        "//third_party/java/j2objc-annotations:srcs",
         "//third_party/java/j2objc:srcs",
+        "//third_party/java/j2objc-annotations:srcs",
         "//third_party/java/jacoco:srcs",
         "//third_party/java/javapoet:srcs",
         "//third_party/java/jcommander:srcs",
         "//third_party/java/proguard:srcs",
         "//third_party/pprof:srcs",
         "//third_party/protobuf:srcs",
+        "//third_party/protoc_gen_validate:srcs",
         "//third_party/py/abseil:srcs",
         "//third_party/py/concurrent:srcs",
         "//third_party/py/dataclasses:srcs",
@@ -127,8 +128,8 @@ java_import(
 java_library(
     name = "auth",
     exports = [
-        "@maven//:com_google_auth_google_auth_library_oauth2_http",
         "@maven//:com_google_auth_google_auth_library_credentials",
+        "@maven//:com_google_auth_google_auth_library_oauth2_http",
     ],
     runtime_deps = [
         ":api_client",
@@ -248,8 +249,8 @@ java_library(
 distrib_jar_filegroup(
     name = "auto_value-jars",
     srcs = [
-        "@maven//:com_google_auto_value_auto_value_file",
         "@maven//:com_google_auto_value_auto_value_annotations_file",
+        "@maven//:com_google_auto_value_auto_value_file",
     ],
     enable_distributions = ["debian"],
 )
@@ -347,11 +348,11 @@ filegroup(
 # in test-runner, the guava target can be reverted back to java_library
 java_import(
     name = "guava",
+    applicable_licenses = [":guava_license"],
     jars = [
         "@maven//:com_google_guava_guava_file",
         "@maven//:com_google_guava_failureaccess_file",
     ],
-    applicable_licenses = [":guava_license"],
     exports = [
         ":error_prone_annotations",
         ":jcip_annotations",
@@ -419,8 +420,8 @@ alias(
 # see: http://openjdk.java.net/jeps/320.
 java_library(
     name = "javax_annotations",
-    exports = ["@maven//:javax_annotation_javax_annotation_api"],
     neverlink = 1,  # @Generated is source-retention
+    exports = ["@maven//:javax_annotation_javax_annotation_api"],
 )
 
 alias(
@@ -486,19 +487,18 @@ distrib_java_import(
     name = "netty",
     enable_distributions = ["debian"],
     jars = [
-       "@maven//:io_netty_netty_buffer_file",
-       "@maven//:io_netty_netty_codec_file",
-       "@maven//:io_netty_netty_codec_http2_file",
-       "@maven//:io_netty_netty_codec_http_file",
-       "@maven//:io_netty_netty_common_file",
-       "@maven//:io_netty_netty_handler_file",
-       "@maven//:io_netty_netty_handler_proxy_file",
-       "@maven//:io_netty_netty_resolver_file",
-       "@maven//:io_netty_netty_resolver_dns_file",
-       "@maven//:io_netty_netty_transport_file",
-       "@maven//:io_netty_netty_transport_classes_epoll_file",
-       "@maven//:io_netty_netty_transport_classes_kqueue_file",
-       "@maven//:io_netty_netty_transport_sctp_file",
+        "@maven//:io_netty_netty_buffer_file",
+        "@maven//:io_netty_netty_codec_file",
+        "@maven//:io_netty_netty_codec_http2_file",
+        "@maven//:io_netty_netty_codec_http_file",
+        "@maven//:io_netty_netty_common_file",
+        "@maven//:io_netty_netty_handler_file",
+        "@maven//:io_netty_netty_handler_proxy_file",
+        "@maven//:io_netty_netty_resolver_file",
+        "@maven//:io_netty_netty_resolver_dns_file",
+        "@maven//:io_netty_netty_transport_file",
+        "@maven//:io_netty_netty_transport_classes_epoll_file",
+        "@maven//:io_netty_netty_transport_classes_kqueue_file",
     ] + select({
         "//src/conditions:darwin_arm64": ["@maven//:io_netty_netty_transport_native_unix_common_osx_aarch_64_file"],
         "//src/conditions:darwin_x86_64": ["@maven//:io_netty_netty_transport_native_unix_common_osx_x86_64_file"],
@@ -552,14 +552,14 @@ alias(
 
 alias(
     name = "compile_testing",
-    actual = "@maven//:com_google_testing_compile_compile_testing",
     testonly = 1,
+    actual = "@maven//:com_google_testing_compile_compile_testing",
 )
 
 alias(
     name = "guava-testlib",
-    actual = "@maven//:com_google_guava_guava_testlib",
     testonly = 1,
+    actual = "@maven//:com_google_guava_guava_testlib",
 )
 
 # Not test_only due to //src/java_tools/junitrunner/java/com/google/testing/junit/junit4:runner
@@ -573,14 +573,14 @@ java_library(
 
 alias(
     name = "jimfs",
-    actual = "@maven//:com_google_jimfs_jimfs",
     testonly = 1,
+    actual = "@maven//:com_google_jimfs_jimfs",
 )
 
 alias(
     name = "mockito",
-    actual = "@maven//:org_mockito_mockito_core",
     testonly = 1,
+    actual = "@maven//:org_mockito_mockito_core",
 )
 
 filegroup(
@@ -595,12 +595,12 @@ java_import(
 
 java_library(
     name = "truth",
+    testonly = 1,
     exports = [
-        "@maven//:com_google_truth_truth",
         "@maven//:com_google_truth_extensions_truth_java8_extension",
         "@maven//:com_google_truth_extensions_truth_proto_extension",
+        "@maven//:com_google_truth_truth",
     ],
-    testonly = 1,
 )
 
 alias(
@@ -608,7 +608,7 @@ alias(
     actual = "@maven//:org_tukaani_xz",
 )
 
-# To be used by the skylark example.
+# To be used by the starlark example.
 filegroup(
     name = "junit4-jars",
     srcs = [
@@ -616,8 +616,6 @@ filegroup(
         "@maven//:org_hamcrest_hamcrest_core_file",
     ],
 )
-
-load(":compiler_config_setting.bzl", "create_compiler_config_setting")
 
 create_compiler_config_setting(
     name = "windows_mingw",

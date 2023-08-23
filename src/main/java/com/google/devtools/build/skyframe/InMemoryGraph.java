@@ -92,8 +92,17 @@ public interface InMemoryGraph extends ProcessableGraph {
   void removeIfDone(SkyKey key);
 
   /**
-   * Cleans up the {@link com.google.devtools.build.lib.concurrent.PooledInterner.Pool} by moving
-   * instances back to weak interner and uninstall current pool.
+   * Cleans up {@linkplain com.google.devtools.build.lib.concurrent.PooledInterner.Pool interning
+   * pools} by moving objects to weak interners and uninstalling the current pools.
+   *
+   * <p>May destroy this graph. Only call when the graph is about to be thrown away.
    */
-  void cleanupInterningPool();
+  void cleanupInterningPools();
+
+  /**
+   * Returns the {@link InMemoryNodeEntry} for a given {@link SkyKey} if present in the graph.
+   * Otherwise, returns null.
+   */
+  @Nullable
+  InMemoryNodeEntry getIfPresent(SkyKey key);
 }

@@ -29,6 +29,7 @@ import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -45,6 +46,7 @@ import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.RxUtils;
 import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
 import com.google.devtools.build.lib.remote.util.TempPathGenerator;
+import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
@@ -263,6 +265,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    * @param tempPath the temporary path which the input should be written to.
    */
   protected abstract ListenableFuture<Void> doDownloadFile(
+      ActionExecutionMetadata action,
       Reporter reporter,
       Path tempPath,
       PathFragment execPath,
@@ -285,6 +288,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    */
   @Override
   public ListenableFuture<Void> prefetchFiles(
+      ActionExecutionMetadata action,
       Iterable<? extends ActionInput> inputs,
       MetadataSupplier metadataSupplier,
       Priority priority) {
@@ -308,7 +312,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
     Flowable<TransferResult> transfers =
         Flowable.fromIterable(files)
-            .flatMapSingle(input -> prefetchFile(dirCtx, metadataSupplier, input, priority));
+            .flatMapSingle(
+                input -> prefetchFile(action, dirCtx, metadataSupplier, input, priority));
 
     Completable prefetch =
         Completable.using(
@@ -318,6 +323,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   private Single<TransferResult> prefetchFile(
+      ActionExecutionMetadata action,
       DirectoryContext dirCtx,
       MetadataSupplier metadataSupplier,
       ActionInput input,
@@ -347,6 +353,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
       Completable result =
           downloadFileNoCheckRx(
+              action,
               dirCtx,
               execRoot.getRelative(execPath),
               treeRootExecPath != null ? execRoot.getRelative(treeRootExecPath) : null,
@@ -420,21 +427,61 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     return null;
   }
 
+  private Path resolveOneSymlink(Path path) throws IOException {
+    var targetPathFragment = path.readSymbolicLink();
+    if (targetPathFragment.isAbsolute()) {
+      return path.getFileSystem().getPath(targetPathFragment);
+    } else {
+      return checkNotNull(path.getParentDirectory()).getRelative(targetPathFragment);
+    }
+  }
+
+  private Path maybeResolveSymlink(Path path) throws IOException {
+    // Potentially resolves a symlink to its target path. This differs from
+    // Path#resolveSymbolicLinks() that:
+    //   1. Path#resolveSymbolicLinks() checks each segment of the path, but we assume there is no
+    //      intermediate symlink because they should've been already normalized for outputs.
+    //   2. In case of dangling symlink, we return the target path instead of throwing
+    //      FileNotFoundException because we want to download output to that target path.
+    var maxAttempt = 32;
+    while (path.isSymbolicLink() && maxAttempt-- > 0) {
+      var resolvedPath = resolveOneSymlink(path);
+      if (resolvedPath.asFragment().equals(path.asFragment())) {
+        throw new FileSymlinkLoopException(path.asFragment());
+      }
+      path = resolvedPath;
+    }
+    if (maxAttempt <= 0) {
+      throw new FileSymlinkLoopException(path.asFragment());
+    }
+    return path;
+  }
+
   private Completable downloadFileNoCheckRx(
+      ActionExecutionMetadata action,
       DirectoryContext dirCtx,
       Path path,
       @Nullable Path treeRoot,
       ActionInput actionInput,
       FileArtifactValue metadata,
       Priority priority) {
-    if (path.isSymbolicLink()) {
-      try {
-        path = path.getRelative(path.readSymbolicLink());
-      } catch (IOException e) {
-        return Completable.error(e);
+    // If the path to be prefetched is a non-dangling symlink, prefetch its target path instead.
+    // Note that this only applies to symlinks created by spawns (or, currently, with the internal
+    // version of BwoB); symlinks created in-process through an ActionFileSystem should have already
+    // been resolved into their materializationExecPath in maybeGetSymlink.
+    try {
+      if (treeRoot != null) {
+        var treeRootRelativePath = path.relativeTo(treeRoot);
+        treeRoot = maybeResolveSymlink(treeRoot);
+        path = treeRoot.getRelative(treeRootRelativePath);
+      } else {
+        path = maybeResolveSymlink(path);
       }
+    } catch (IOException e) {
+      return Completable.error(e);
     }
 
+    Path finalTreeRoot = treeRoot;
     Path finalPath = path;
 
     AtomicBoolean completed = new AtomicBoolean(false);
@@ -445,6 +492,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                     toCompletable(
                             () ->
                                 doDownloadFile(
+                                    action,
                                     reporter,
                                     tempPath,
                                     finalPath.relativeTo(execRoot),
@@ -453,7 +501,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                             directExecutor())
                         .doOnComplete(
                             () -> {
-                              finalizeDownload(dirCtx, treeRoot, tempPath, finalPath);
+                              finalizeDownload(dirCtx, finalTreeRoot, tempPath, finalPath);
                               completed.set(true);
                             }),
                 tempPath -> {
@@ -603,7 +651,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       try (var s = Profiler.instance().profile(ProfilerTask.REMOTE_DOWNLOAD, "Download outputs")) {
         getFromFuture(
             prefetchFiles(
-                outputsToDownload, outputMetadataStore::getOutputMetadata, Priority.HIGH));
+                action, outputsToDownload, outputMetadataStore::getOutputMetadata, Priority.HIGH));
       }
     }
   }

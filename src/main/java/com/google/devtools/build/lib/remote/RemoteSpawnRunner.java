@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.devtools.build.lib.profiler.ProfilerTask.PROCESS_TIME;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_DOWNLOAD;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_EXECUTION;
+import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_PROCESS_TIME;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_QUEUE;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_SETUP;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.UPLOAD_TIME;
@@ -66,7 +66,6 @@ import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.ExitCode;
-import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.longrunning.Operation;
@@ -237,6 +236,22 @@ public class RemoteSpawnRunner implements SpawnRunner {
       return execLocallyAndUploadOrFail(action, spawn, context, uploadLocalResults, e);
     }
 
+    if (remoteOptions.remoteRequireCached) {
+      return new SpawnResult.Builder()
+          .setStatus(SpawnResult.Status.EXECUTION_DENIED)
+          .setExitCode(1)
+          .setFailureMessage(
+              "Action must be cached due to --experimental_remote_require_cached but it is not")
+          .setFailureDetail(
+              FailureDetail.newBuilder()
+                  .setSpawn(
+                      FailureDetails.Spawn.newBuilder()
+                          .setCode(FailureDetails.Spawn.Code.EXECUTION_DENIED))
+                  .build())
+          .setRunnerName("remote")
+          .build();
+    }
+
     AtomicBoolean useCachedResult = new AtomicBoolean(acceptCachedResult);
     AtomicBoolean forceUploadInput = new AtomicBoolean(false);
     try {
@@ -274,7 +289,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
             // It's already late at this stage, but we should at least report once.
             reporter.reportExecutingIfNot();
 
-            maybePrintExecutionMessages(context, result.getMessage(), result.success());
+            maybePrintExecutionMessages(spawn, result.getMessage(), result.success());
 
             profileAccounting(result.getExecutionMetadata());
             spawnMetricsAccounting(spawnMetrics, result.getExecutionMetadata());
@@ -327,7 +342,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
         converter,
         executedActionMetadata.getExecutionStartTimestamp(),
         executedActionMetadata.getExecutionCompletedTimestamp(),
-        PROCESS_TIME,
+        REMOTE_PROCESS_TIME,
         "execute");
     logProfileTask(
         converter,
@@ -445,14 +460,16 @@ public class RemoteSpawnRunner implements SpawnRunner {
     return true;
   }
 
-  private void maybePrintExecutionMessages(
-      SpawnExecutionContext context, String message, boolean success) {
-    FileOutErr outErr = context.getFileOutErr();
+  private void maybePrintExecutionMessages(Spawn spawn, String message, boolean success) {
     boolean printMessage =
         remoteOptions.remotePrintExecutionMessages.shouldPrintMessages(success)
             && !message.isEmpty();
     if (printMessage) {
-      outErr.printErr(message + "\n");
+      report(
+          Event.info(
+              String.format(
+                  "Remote execution message for %s %s: %s",
+                  spawn.getMnemonic(), spawn.getTargetLabel(), message)));
     }
   }
 
@@ -511,41 +528,57 @@ public class RemoteSpawnRunner implements SpawnRunner {
     if (remoteOptions.remoteLocalFallback && !RemoteRetrierUtils.causedByExecTimeout(cause)) {
       return execLocallyAndUpload(action, spawn, context, uploadLocalResults);
     }
-    return handleError(action, cause, context);
+    return handleError(action, cause);
   }
 
-  private SpawnResult handleError(
-      RemoteAction action, IOException exception, SpawnExecutionContext context)
+  private SpawnResult handleError(RemoteAction action, IOException exception)
       throws ExecException, InterruptedException, IOException {
     boolean remoteCacheFailed = BulkTransferException.allCausedByCacheNotFoundException(exception);
     if (exception.getCause() instanceof ExecutionStatusException) {
       ExecutionStatusException e = (ExecutionStatusException) exception.getCause();
+      RemoteActionResult result = null;
       if (e.getResponse() != null) {
         ExecuteResponse resp = e.getResponse();
         maybeDownloadServerLogs(action, resp);
         if (resp.hasResult()) {
+          result = RemoteActionResult.createFromResponse(resp);
           try {
-            remoteExecutionService.downloadOutputs(
-                action, RemoteActionResult.createFromResponse(resp));
+            remoteExecutionService.downloadOutputs(action, result);
           } catch (BulkTransferException bulkTransferEx) {
             exception.addSuppressed(bulkTransferEx);
           }
         }
       }
       if (e.isExecutionTimeout()) {
-        maybePrintExecutionMessages(context, e.getResponse().getMessage(), /* success = */ false);
-        return new SpawnResult.Builder()
-            .setRunnerName(getName())
-            .setStatus(Status.TIMEOUT)
-            .setExitCode(SpawnResult.POSIX_TIMEOUT_EXIT_CODE)
-            .setFailureDetail(
-                FailureDetail.newBuilder()
-                    .setMessage("remote spawn timed out")
-                    .setSpawn(
-                        FailureDetails.Spawn.newBuilder()
-                            .setCode(FailureDetails.Spawn.Code.TIMEOUT))
-                    .build())
-            .build();
+        maybePrintExecutionMessages(
+            action.getSpawn(), e.getResponse().getMessage(), /* success= */ false);
+        SpawnResult.Builder resultBuilder =
+            new SpawnResult.Builder()
+                .setRunnerName(getName())
+                .setStatus(Status.TIMEOUT)
+                .setExitCode(SpawnResult.POSIX_TIMEOUT_EXIT_CODE)
+                .setFailureDetail(
+                    FailureDetail.newBuilder()
+                        .setMessage("remote spawn timed out")
+                        .setSpawn(
+                            FailureDetails.Spawn.newBuilder()
+                                .setCode(FailureDetails.Spawn.Code.TIMEOUT))
+                        .build());
+        if (result != null) {
+          resultBuilder
+              .setWallTimeInMs(
+                  (int)
+                      Duration.between(
+                              Utils.timestampToInstant(
+                                  result.getExecutionMetadata().getExecutionStartTimestamp()),
+                              Utils.timestampToInstant(
+                                  result.getExecutionMetadata().getExecutionCompletedTimestamp()))
+                          .toMillis())
+              .setStartTime(
+                  Utils.timestampToInstant(
+                      result.getExecutionMetadata().getExecutionStartTimestamp()));
+        }
+        return resultBuilder.build();
       }
     }
     final Status status;

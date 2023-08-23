@@ -230,6 +230,18 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public boolean remoteAcceptCached;
 
   @Option(
+      name = "experimental_remote_require_cached",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If set to true, enforce that all actions that can run remotely are cached, or else "
+              + "fail the build. This is useful to troubleshoot non-determinism issues as it "
+              + "allows checking whether actions that should be cached are actually cached "
+              + "without spuriously injecting new results into the cache.")
+  public boolean remoteRequireCached;
+
+  @Option(
       name = "remote_local_fallback",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.REMOTE,
@@ -300,16 +312,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, --noremote_upload_local_results and --noremote_accept_cached will not"
-              + " apply to the disk cache. If both --disk_cache and --remote_cache are set"
-              + " (combined cache):\n"
-              + "\t--noremote_upload_local_results will cause results to be written to the disk"
-              + " cache, but not uploaded to the remote cache.\n"
-              + "\t--noremote_accept_cached will result in Bazel checking for results in the disk"
-              + " cache, but not in the remote cache.\n"
-              + "\tno-remote-exec actions can hit the disk cache.\n"
-              + "See #8216 for details.")
+      help = "No-op")
   public boolean incompatibleRemoteResultsIgnoreDisk;
 
   @Option(
@@ -448,7 +451,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
   @Option(
       name = "remote_download_outputs",
       oldName = "experimental_remote_download_outputs",
-      defaultValue = "all",
+      defaultValue = "toplevel",
       category = "remote",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
@@ -472,35 +475,40 @@ public final class RemoteOptions extends CommonRemoteOptions {
       name = "remote_download_minimal",
       oldName = "experimental_remote_download_minimal",
       defaultValue = "null",
-      expansion = {
-        "--nobuild_runfile_links",
-        "--action_cache_store_output_metadata",
-        "--remote_download_outputs=minimal"
-      },
+      expansion = {"--nobuild_runfile_links", "--remote_download_outputs=minimal"},
       category = "remote",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "Does not download any remote build outputs to the local machine. This flag is a shortcut"
-              + " for flags: --action_cache_store_output_metadata,"
-              + " --experimental_inmemory_jdeps_files, --experimental_inmemory_dotd_files, and "
-              + "--remote_download_outputs=minimal.")
+              + " for flags: --nobuild_runfile_links and"
+              + " --remote_download_outputs=minimal.")
   public Void remoteOutputsMinimal;
 
   @Option(
       name = "remote_download_toplevel",
       oldName = "experimental_remote_download_toplevel",
       defaultValue = "null",
-      expansion = {"--action_cache_store_output_metadata", "--remote_download_outputs=toplevel"},
+      expansion = {"--remote_download_outputs=toplevel"},
       category = "remote",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Only downloads remote outputs of top level targets to the local machine. This flag is a"
-              + " shortcut for flags: --action_cache_store_output_metadata,"
-              + " --experimental_inmemory_jdeps_files, --experimental_inmemory_dotd_files, and "
-              + "--remote_download_outputs=toplevel.")
+          "Only downloads remote outputs of top level targets to the local machine. This flag is an"
+              + " alias for flag --remote_download_outputs=toplevel.")
   public Void remoteOutputsToplevel;
+
+  @Option(
+      name = "remote_download_all",
+      defaultValue = "null",
+      expansion = {"--remote_download_outputs=all"},
+      category = "remote",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Downloads all remote outputs to the local machine. This flag is an alias for flag"
+              + " --remote_download_outputs=all.")
+  public Void remoteOutputsAll;
 
   @Option(
       name = "remote_result_cache_priority",
@@ -690,6 +698,17 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + " (s), and milliseconds (ms). If the unit is omitted, the value is interpreted as"
               + " seconds.")
   public Duration remoteFailureWindowInterval;
+
+  @Option(
+      name = "experimental_remote_cache_lease_extension",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If set to true, Bazel will extend the lease for outputs of remote actions during the"
+              + " build by sending `FindMissingBlobs` calls periodically to remote cache. The"
+              + " frequency is based on the value of `--experimental_remote_cache_ttl`.")
+  public boolean remoteCacheLeaseExtension;
 
   // The below options are not configurable by users, only tests.
   // This is part of the effort to reduce the overall number of flags.

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.devtools.build.lib.remote.util.DigestUtil.isOldStyleDigestFunction;
 
 import build.bazel.remote.execution.v2.ActionCacheGrpc;
 import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheFutureStub;
@@ -22,6 +23,7 @@ import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageFutureStub;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.FindMissingBlobsRequest;
 import build.bazel.remote.execution.v2.FindMissingBlobsResponse;
 import build.bazel.remote.execution.v2.GetActionResultRequest;
@@ -107,7 +109,8 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
             callCredentialsProvider,
             options.remoteTimeout.getSeconds(),
             retrier,
-            options.maximumOpenFiles);
+            options.maximumOpenFiles,
+            digestUtil.getDigestFunction());
     maxMissingBlobsDigestsPerMessage = computeMaxMissingBlobsDigestsPerMessage();
     Preconditions.checkState(
         maxMissingBlobsDigestsPerMessage > 0, "Error: gRPC message size too small.");
@@ -352,12 +355,16 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
         MoreExecutors.directExecutor());
   }
 
-  public static String getResourceName(String instanceName, Digest digest, boolean compressed) {
+  public static String getResourceName(
+      String instanceName, Digest digest, boolean compressed, DigestFunction.Value digestFunction) {
     String resourceName = "";
     if (!instanceName.isEmpty()) {
       resourceName += instanceName + "/";
     }
     resourceName += compressed ? "compressed-blobs/zstd/" : "blobs/";
+    if (!isOldStyleDigestFunction(digestFunction)) {
+      resourceName += Ascii.toLowerCase(digestFunction.getValueDescriptor().getName()) + "/";
+    }
     return resourceName + DigestUtil.toString(digest);
   }
 
@@ -369,7 +376,11 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
       @Nullable Supplier<Digest> digestSupplier,
       Channel channel) {
     String resourceName =
-        getResourceName(options.remoteInstanceName, digest, options.cacheCompression);
+        getResourceName(
+            options.remoteInstanceName,
+            digest,
+            options.cacheCompression,
+            digestUtil.getDigestFunction());
     SettableFuture<Long> future = SettableFuture.create();
     OutputStream out;
     try {

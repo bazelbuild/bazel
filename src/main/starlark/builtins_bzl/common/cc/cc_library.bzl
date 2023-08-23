@@ -73,6 +73,7 @@ def _cc_library_impl(ctx):
         textual_hdrs = ctx.files.textual_hdrs,
         include_prefix = ctx.attr.include_prefix,
         strip_include_prefix = ctx.attr.strip_include_prefix,
+        additional_inputs = ctx.files.additional_compiler_inputs,
     )
 
     precompiled_objects = cc_common.create_compilation_outputs(
@@ -147,7 +148,7 @@ def _cc_library_impl(ctx):
             compilation_outputs = compilation_outputs,
             cc_toolchain = cc_toolchain,
             feature_configuration = feature_configuration,
-            additional_inputs = _filter_linker_scripts(ctx.files.deps),
+            additional_inputs = _filter_linker_scripts(ctx.files.deps) + ctx.files.additional_linker_inputs,
             linking_contexts = linking_contexts,
             grep_includes = ctx.executable._grep_includes,
             user_link_flags = cc_helper.linkopts(ctx, additional_make_variable_substitutions, cc_toolchain),
@@ -205,11 +206,12 @@ def _cc_library_impl(ctx):
     else:
         user_link_flags = cc_helper.linkopts(ctx, additional_make_variable_substitutions, cc_toolchain)
         linker_scripts = _filter_linker_scripts(ctx.files.deps)
-        if len(user_link_flags) > 0 or len(linker_scripts) > 0 or not semantics.should_create_empty_archive():
+        additional_linker_inputs = ctx.files.additional_linker_inputs
+        if len(user_link_flags) > 0 or len(linker_scripts) > 0 or len(additional_linker_inputs) > 0 or not semantics.should_create_empty_archive():
             linker_input = cc_common.create_linker_input(
                 owner = ctx.label,
                 user_link_flags = user_link_flags,
-                additional_inputs = depset(linker_scripts),
+                additional_inputs = depset(linker_scripts + additional_linker_inputs),
             )
             contexts_to_merge.append(cc_common.create_linking_context(linker_inputs = depset([linker_input])))
 
@@ -574,6 +576,10 @@ attrs = {
     ),
     "linkstamp": attr.label(allow_single_file = True),
     "linkopts": attr.string_list(),
+    "additional_linker_inputs": attr.label_list(
+        allow_files = True,
+        flags = ["ORDER_INDEPENDENT", "DIRECT_COMPILE_TIME_INPUT"],
+    ),
     "includes": attr.string_list(),
     "defines": attr.string_list(),
     "copts": attr.string_list(),
@@ -592,6 +598,10 @@ attrs = {
     "win_def_file": attr.label(allow_single_file = [".def"]),
     # buildifier: disable=attr-license
     "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
+    "additional_compiler_inputs": attr.label_list(
+        allow_files = True,
+        flags = ["ORDER_INDEPENDENT", "DIRECT_COMPILE_TIME_INPUT"],
+    ),
     "_stl": semantics.get_stl(),
     "_grep_includes": attr.label(
         allow_files = True,
@@ -614,7 +624,6 @@ cc_library = rule(
     toolchains = cc_helper.use_cpp_toolchain() +
                  semantics.get_runtimes_toolchain(),
     fragments = ["cpp"] + semantics.additional_fragments(),
-    incompatible_use_toolchain_transition = True,
     provides = [CcInfo],
     exec_groups = {
         "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),

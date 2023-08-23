@@ -144,6 +144,8 @@ public class TestRunnerAction extends AbstractAction
   private final int runNumber;
   private final String workspaceName;
 
+  private final boolean isExecutedOnWindows;
+
   /**
    * Cached test result status used to minimize disk accesses. This field is set when test status is
    * retrieved from disk or saved to disk. This field is null if it has not been set yet. This field
@@ -211,7 +213,8 @@ public class TestRunnerAction extends AbstractAction
       boolean splitCoveragePostProcessing,
       NestedSetBuilder<Artifact> lcovMergerFilesToRun,
       RunfilesSupplier lcovMergerRunfilesSupplier,
-      PackageSpecificationProvider networkAllowlist) {
+      PackageSpecificationProvider networkAllowlist,
+      boolean isExecutedOnWindows) {
     super(
         owner,
         inputs,
@@ -302,6 +305,12 @@ public class TestRunnerAction extends AbstractAction
             getUndeclaredOutputsDir(),
             undeclaredOutputsAnnotationsDir,
             baseDir.getRelative("test_attempts"));
+
+    this.isExecutedOnWindows = isExecutedOnWindows;
+  }
+
+  public boolean isExecutedOnWindows() {
+    return isExecutedOnWindows;
   }
 
   @Override
@@ -962,12 +971,23 @@ public class TestRunnerAction extends AbstractAction
                 : AttemptGroup.NOOP;
         try {
           attemptGroup.register();
-          return executeAllAttempts(
-              testRunnerSpawn,
-              testActionContext.isTestKeepGoing(),
-              attemptGroup,
-              spawnResults,
-              failedAttempts);
+          var result =
+              executeAllAttempts(
+                  testRunnerSpawn,
+                  testActionContext.isTestKeepGoing(),
+                  attemptGroup,
+                  spawnResults,
+                  failedAttempts);
+
+          // If the current test attempt is requested to be cancelled after it has finished, we need
+          // to handle the interruption here and clear the interrupted status. Otherwise, the
+          // interrupted status will be propagated to skyframe and the whole invocation will be
+          // cancelled.
+          if (Thread.interrupted()) {
+            throw new InterruptedException();
+          }
+
+          return result;
         } finally {
           attemptGroup.unregister();
         }

@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
+import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -54,6 +55,7 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
@@ -122,6 +124,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private boolean trackIncrementalState = true;
 
   private boolean evaluatorNeedsReset = false;
+  private boolean lastCommandKeptState = false;
+  private boolean needGcAfterResettingEvaluator = false;
 
   private final AtomicInteger outputDirtyFiles = new AtomicInteger();
   private final ArrayBlockingQueue<String> outputDirtyFilesExecPathSample =
@@ -149,6 +153,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       ExternalPackageHelper externalPackageHelper,
       @Nullable SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
+      boolean shouldUseRepoDotBazel,
       SkyKeyStateReceiver skyKeyStateReceiver,
       BugReporter bugReporter) {
     super(
@@ -166,6 +171,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         buildFilesByPriority,
         externalPackageHelper,
         actionOnIOExceptionReadingBuildFile,
+        shouldUseRepoDotBazel,
         /* shouldUnblockCpuWorkWhenFetchingDeps= */ false,
         new PackageProgressReceiver(),
         new ConfiguredTargetProgressReceiver(),
@@ -236,20 +242,36 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       throws InterruptedException, AbruptExitException {
     if (evaluatorNeedsReset) {
       if (rewindingPermitted(options)) {
+        // Currently incompatible with Skymeld i.e. this code path won't be run in Skymeld mode. We
+        // may need to combine these GraphInconsistencyReceiver implementations in the future.
         var rewindableReceiver = new RewindableGraphInconsistencyReceiver();
         rewindableReceiver.setHeuristicallyDropNodes(heuristicallyDropNodes);
-        this.inconsistencyReceiver = rewindableReceiver;
+        inconsistencyReceiver = rewindableReceiver;
+      } else if (isMergedSkyframeAnalysisExecution()
+          && ((options.getOptions(AnalysisOptions.class) != null
+                  && options.getOptions(AnalysisOptions.class).discardAnalysisCache)
+              || !tracksStateForIncrementality()
+              || heuristicallyDropNodes)) {
+        inconsistencyReceiver = new SkymeldInconsistencyReceiver(heuristicallyDropNodes);
+      } else if (heuristicallyDropNodes) {
+        inconsistencyReceiver = new NodeDroppingInconsistencyReceiver();
       } else {
-        inconsistencyReceiver =
-            heuristicallyDropNodes
-                ? new NodeDroppingInconsistencyReceiver()
-                : GraphInconsistencyReceiver.THROWING;
+        inconsistencyReceiver = GraphInconsistencyReceiver.THROWING;
       }
 
       // Recreate MemoizingEvaluator so that graph is recreated with correct edge-clearing status,
       // or if the graph doesn't have edges, so that a fresh graph can be used.
       resetEvaluator();
       evaluatorNeedsReset = false;
+      if (needGcAfterResettingEvaluator) {
+        // Collect weakly reachable objects to avoid resurrection. See b/291641466.
+        try (var profiler =
+            GoogleAutoProfilerUtils.logged(
+                "manual GC to clean up from --keep_state_after_build command")) {
+          System.gc();
+        }
+        needGcAfterResettingEvaluator = false;
+      }
     }
     super.sync(
         eventHandler,
@@ -299,8 +321,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     invalidate(SkyFunctionName.functionIsIn(PACKAGE_LOCATOR_DEPENDENT_VALUES));
   }
 
-  @Override
-  protected void invalidate(Predicate<SkyKey> pred) {
+  void invalidate(Predicate<SkyKey> pred) {
     recordingDiffer.invalidate(Iterables.filter(memoizingEvaluator.getValues().keySet(), pred));
   }
 
@@ -381,13 +402,17 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     }
 
     // Now check if it is necessary to wipe the previous state. We do this if either the previous
-    // or current incrementalStateRetentionStrategy requires the build to have been isolated.
+    // or current command requires the build to have been isolated.
     if (oldValueOfTrackIncrementalState != trackIncrementalState) {
       logger.atInfo().log("Set incremental state to %b", trackIncrementalState);
       evaluatorNeedsReset = true;
     } else if (!trackIncrementalState) {
       evaluatorNeedsReset = true;
     }
+    if (evaluatorNeedsReset && lastCommandKeptState) {
+      needGcAfterResettingEvaluator = true;
+    }
+    lastCommandKeptState = keepStateAfterBuild;
   }
 
   @Override
@@ -503,7 +528,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         if (skyValue instanceof RuleConfiguredTargetValue) {
           tasks.add(
               () -> {
-                actionGraphDump.dumpConfiguredTarget((RuleConfiguredTargetValue) skyValue);
+                var configuredTarget = (RuleConfiguredTargetValue) skyValue;
+                // Only dumps the value for non-delegating keys.
+                if (configuredTarget.getConfiguredTarget().getLookupKey().equals(key)) {
+                  actionGraphDump.dumpConfiguredTarget(configuredTarget);
+                }
                 return null;
               });
         } else if (key.functionName().equals(SkyFunctions.ASPECT)) {
@@ -511,8 +540,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
           AspectKey aspectKey = (AspectKey) key;
           ConfiguredTargetValue configuredTargetValue =
               (ConfiguredTargetValue)
-                  memoizingEvaluator.getExistingValue(
-                      aspectKey.getBaseConfiguredTargetKey().toKey());
+                  memoizingEvaluator.getExistingValue(aspectKey.getBaseConfiguredTargetKey());
           tasks.add(
               () -> {
                 actionGraphDump.dumpAspect(aspectValue, configuredTargetValue);
@@ -562,14 +590,17 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       }
       try {
         if (skyValue instanceof RuleConfiguredTargetValue) {
-          actionGraphDump.dumpConfiguredTarget((RuleConfiguredTargetValue) skyValue);
+          var configuredTarget = (RuleConfiguredTargetValue) skyValue;
+          // Only dumps the value for non-delegating keys.
+          if (configuredTarget.getConfiguredTarget().getLookupKey().equals(key)) {
+            actionGraphDump.dumpConfiguredTarget(configuredTarget);
+          }
         } else if (key.functionName().equals(SkyFunctions.ASPECT)) {
           AspectValue aspectValue = (AspectValue) skyValue;
           AspectKey aspectKey = (AspectKey) key;
           ConfiguredTargetValue configuredTargetValue =
               (ConfiguredTargetValue)
-                  memoizingEvaluator.getExistingValue(
-                      aspectKey.getBaseConfiguredTargetKey().toKey());
+                  memoizingEvaluator.getExistingValue(aspectKey.getBaseConfiguredTargetKey());
           actionGraphDump.dumpAspect(aspectValue, configuredTargetValue);
         }
       } catch (InterruptedException e) {
@@ -648,7 +679,9 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   public void deleteOldNodes(long versionWindowForDirtyGc) {
     // TODO(bazel-team): perhaps we should come up with a separate GC class dedicated to maintaining
     // value garbage. If we ever do so, this logic should be moved there.
-    memoizingEvaluator.deleteDirty(versionWindowForDirtyGc);
+    if (trackIncrementalState) {
+      memoizingEvaluator.deleteDirty(versionWindowForDirtyGc);
+    }
   }
 
   @Override
@@ -690,6 +723,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     private ImmutableList<BuildFileName> buildFilesByPriority;
     private ExternalPackageHelper externalPackageHelper;
     private ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile;
+    private boolean shouldUseRepoDotBazel = true;
 
     // Fields with default values.
     private ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions = ImmutableMap.of();
@@ -736,6 +770,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
               externalPackageHelper,
               repositoryHelpersHolder,
               actionOnIOExceptionReadingBuildFile,
+              shouldUseRepoDotBazel,
               skyKeyStateReceiver,
               bugReporter);
       skyframeExecutor.init();
@@ -835,6 +870,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     public Builder setActionOnIOExceptionReadingBuildFile(
         ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile) {
       this.actionOnIOExceptionReadingBuildFile = actionOnIOExceptionReadingBuildFile;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setShouldUseRepoDotBazel(boolean shouldUseRepoDotBazel) {
+      this.shouldUseRepoDotBazel = shouldUseRepoDotBazel;
       return this;
     }
 

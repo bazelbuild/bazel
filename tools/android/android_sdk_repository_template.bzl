@@ -83,7 +83,13 @@ def create_android_sdk_rules(
         "build-tools/%s/zipalign.exe" % build_tools_directory,
         "platform-tools/adb.exe",
     ] + native.glob(
-        ["build-tools/%s/aapt2.exe" % build_tools_directory],
+        [
+            "build-tools/%s/aapt2.exe" % build_tools_directory,
+            # This should exist, but until cl/553941342 is in the bazel that's
+            # used to run android_sdk_integration, it won't get put into the
+            # test sandbox, and hence the test will fail.
+            "build-tools/%s/dexdump.exe" % build_tools_directory,
+        ],
         allow_empty = True,
     )
 
@@ -93,7 +99,14 @@ def create_android_sdk_rules(
         "build-tools/%s/zipalign" % build_tools_directory,
         "platform-tools/adb",
     ] + native.glob(
-        ["extras", "build-tools/%s/aapt2" % build_tools_directory],
+        [
+            "extras",
+            "build-tools/%s/aapt2" % build_tools_directory,
+            # This should exist, but until cl/553941342 is in the bazel that's
+            # used to run android_sdk_integration, it won't get put into the
+            # test sandbox, and hence the test will fail.
+            "build-tools/%s/dexdump" % build_tools_directory,
+        ],
         allow_empty = True,
         exclude_directories = 0,
     )

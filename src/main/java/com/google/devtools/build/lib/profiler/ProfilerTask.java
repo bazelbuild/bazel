@@ -38,7 +38,7 @@ public enum ProfilerTask {
       Threshold.FIFTY_MILLIS,
       /* collectsSlowestInstances= */ true),
   UPLOAD_TIME("Remote execution upload time", Threshold.FIFTY_MILLIS),
-  PROCESS_TIME("Remote execution process wall time", Threshold.FIFTY_MILLIS),
+  REMOTE_PROCESS_TIME("Remote execution process wall time", Threshold.FIFTY_MILLIS),
   REMOTE_QUEUE("Remote execution queuing time", Threshold.FIFTY_MILLIS),
   REMOTE_SETUP("Remote execution setup", Threshold.FIFTY_MILLIS),
   FETCH("Remote execution file fetching", Threshold.FIFTY_MILLIS),

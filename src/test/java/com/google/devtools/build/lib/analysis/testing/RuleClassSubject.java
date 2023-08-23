@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertAbout;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.truth.FailureMetadata;
-import com.google.common.truth.MapSubject;
 import com.google.common.truth.Subject;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -35,19 +34,10 @@ public class RuleClassSubject extends Subject {
     return assertAbout(RuleClassSubject::new).that(ruleClass);
   }
 
-  /** Static method for getting the subject factory (for use with assertAbout()). */
-  public static Subject.Factory<RuleClassSubject, RuleClass> ruleClasses() {
-    return RuleClassSubject::new;
-  }
-
-  // Instance fields.
-
-  private final RuleClass actual;
   private final Map<Label, ToolchainTypeRequirement> toolchainTypesMap;
 
   protected RuleClassSubject(FailureMetadata failureMetadata, RuleClass subject) {
     super(failureMetadata, subject);
-    this.actual = subject;
     this.toolchainTypesMap = makeToolchainTypesMap(subject);
   }
 
@@ -55,10 +45,6 @@ public class RuleClassSubject extends Subject {
       RuleClass subject) {
     return subject.getToolchainTypes().stream()
         .collect(toImmutableMap(ToolchainTypeRequirement::toolchainType, Functions.identity()));
-  }
-
-  public MapSubject toolchainTypes() {
-    return check("toolchainTypes()").that(toolchainTypesMap);
   }
 
   public ToolchainTypeRequirementSubject toolchainType(String toolchainTypeLabel) {

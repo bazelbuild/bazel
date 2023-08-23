@@ -399,8 +399,11 @@ EOF
     cat <<EOF > BUILD
 sh_test(name = "test$i", srcs = [ "test$i.sh" ])
 EOF
-    bazel test --spawn_strategy=standalone --jobs=1 \
-        --runs_per_test=5 --runs_per_test_detects_flakes \
+    bazel test --spawn_strategy=standalone \
+        --jobs=1 \
+        --experimental_use_semaphore_for_jobs \
+        --runs_per_test=5 \
+        --runs_per_test_detects_flakes \
         //:test$i &> $TEST_log || fail "should have succeeded"
     expect_log "FLAKY"
   done
@@ -646,7 +649,7 @@ EOF
   expect_log "name=\"dir/fail\""
 }
 
-function test_detailed_test_summary() {
+function test_detailed_test_summary_for_failed_test() {
   copy_examples
   create_workspace_with_default_repos WORKSPACE
   setup_javatest_support
@@ -657,6 +660,19 @@ function test_detailed_test_summary() {
     && fail "Test $* succeed while expecting failure" \
     || true
   expect_log 'FAILED.*com\.example\.myproject\.Fail\.testFail'
+}
+
+function test_detailed_test_summary_for_passed_test() {
+  copy_examples
+  create_workspace_with_default_repos WORKSPACE
+  setup_javatest_support
+
+  local java_native_tests=//examples/java-native/src/test/java/com/example/myproject
+
+  bazel test --test_summary=detailed "${java_native_tests}:hello" >& $TEST_log \
+    || fail "expected success"
+  expect_log 'PASSED.*com\.example\.myproject\.TestHello\.testNoArgument'
+  expect_log 'PASSED.*com\.example\.myproject\.TestHello\.testWithArgument'
 }
 
 # This test uses "--ignore_all_rc_files" since outside .bazelrc files can pollute

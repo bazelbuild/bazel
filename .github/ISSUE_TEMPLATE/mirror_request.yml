@@ -4,17 +4,17 @@ labels: ["mirror request", "type: process", "P2", "team-OSS"]
 assignees:
   - sgowroji
   - pavank1992
+  - iancha1992
 title: "[Mirror] "
 body:
   - type: markdown
     attributes:
       value: >
-        **Attention:** if the archive you're trying to mirror is a GitHub release archive,
-        please use URLs of the form `https://github.com/$USER/$REPO/archive/refs/tags/$TAG`,
-        instead of the form without the `refs/tags/` part. The latter is *not* guaranteed to
-        have a stable hash (see
-        https://github.com/bazel-contrib/SIG-rules-authors/issues/11#issuecomment-1029861300
-        for more details).
+        **Attention:** if the archive you're trying to mirror is from GitHub,
+        please use URLs in the form of `https://github.com/$USER/$REPO/releases/download/...` if available.
+        If you are the project maintainer, you should create and upload such an release archive.
+        GitHub doesn't guarantee a stable checksum of source archives in the form of `https://github.com/<org>/<repo>/archive/...`, which are generated on demand.
+        Check [GitHub Archive Checksum Outage](https://blog.bazel.build/2023/02/15/github-archive-checksum.html) for more details.
   - type: textarea
     id: urls
     attributes:

@@ -29,6 +29,7 @@ _testing = _builtins.toplevel.testing
 _platform_common = _builtins.toplevel.platform_common
 _coverage_common = _builtins.toplevel.coverage_common
 _py_builtins = _builtins.internal.py_builtins
+PackageSpecificationInfo = _builtins.toplevel.PackageSpecificationInfo
 
 TOOLCHAIN_TYPE = "@" + TOOLS_REPO + "//tools/python:toolchain_type"
 
@@ -491,7 +492,7 @@ def check_native_allowed(ctx):
         ))
     allowlist = ctx.attr._native_rules_allowlist
     if allowlist:
-        allowed = ctx.attr._native_rules_allowlist.isAvailableFor(check_label)
+        allowed = ctx.attr._native_rules_allowlist[PackageSpecificationInfo].contains(check_label)
         allowlist_help = str(allowlist.label).replace("@//", "//")
     else:
         allowed = False

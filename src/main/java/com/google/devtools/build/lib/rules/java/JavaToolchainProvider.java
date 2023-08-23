@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.java.JavaToolchainStarlark
 import java.util.Iterator;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 
 /** Information about the JDK used by the <code>java_*</code> rules. */
@@ -112,6 +113,7 @@ public final class JavaToolchainProvider extends NativeInfo
       FilesToRunProvider singleJar,
       @Nullable FilesToRunProvider oneVersion,
       @Nullable Artifact oneVersionAllowlist,
+      @Nullable Artifact oneVersionAllowlistForTests,
       Artifact genClass,
       @Nullable Artifact depsChecker,
       @Nullable Artifact timezoneData,
@@ -139,6 +141,7 @@ public final class JavaToolchainProvider extends NativeInfo
         singleJar,
         oneVersion,
         oneVersionAllowlist,
+        oneVersionAllowlistForTests,
         genClass,
         depsChecker,
         timezoneData,
@@ -172,12 +175,15 @@ public final class JavaToolchainProvider extends NativeInfo
   private final FilesToRunProvider singleJar;
   @Nullable private final FilesToRunProvider oneVersion;
   @Nullable private final Artifact oneVersionAllowlist;
+  @Nullable private final Artifact oneVersionAllowlistForTests;
   private final Artifact genClass;
   @Nullable private final Artifact depsChecker;
   @Nullable private final Artifact timezoneData;
   private final FilesToRunProvider ijar;
   private final ImmutableListMultimap<String, String> compatibleJavacOptions;
   private final ImmutableList<String> javacOptions;
+  private final String sourceVersion;
+  private final String targetVersion;
   private final NestedSet<String> jvmOptions;
   private final boolean javacSupportsWorkers;
   private final boolean javacSupportsMultiplexWorkers;
@@ -205,6 +211,7 @@ public final class JavaToolchainProvider extends NativeInfo
       FilesToRunProvider singleJar,
       @Nullable FilesToRunProvider oneVersion,
       @Nullable Artifact oneVersionAllowlist,
+      @Nullable Artifact oneVersionAllowlistForTests,
       Artifact genClass,
       @Nullable Artifact depsChecker,
       @Nullable Artifact timezoneData,
@@ -237,12 +244,15 @@ public final class JavaToolchainProvider extends NativeInfo
     this.singleJar = singleJar;
     this.oneVersion = oneVersion;
     this.oneVersionAllowlist = oneVersionAllowlist;
+    this.oneVersionAllowlistForTests = oneVersionAllowlistForTests;
     this.genClass = genClass;
     this.depsChecker = depsChecker;
     this.timezoneData = timezoneData;
     this.ijar = ijar;
     this.compatibleJavacOptions = compatibleJavacOptions;
     this.javacOptions = javacOptions;
+    this.sourceVersion = findSourceVersion(javacOptions);
+    this.targetVersion = findTargetVersion(javacOptions);
     this.jvmOptions = jvmOptions;
     this.javacSupportsWorkers = javacSupportsWorkers;
     this.javacSupportsMultiplexWorkers = javacSupportsMultiplexWorkers;
@@ -326,6 +336,25 @@ public final class JavaToolchainProvider extends NativeInfo
     return forciblyDisableHeaderCompilation;
   }
 
+  @Override
+  public boolean getForciblyDisableHeaderCompilationStarlark(StarlarkThread thread)
+      throws EvalException {
+    checkPrivateAccess(thread);
+    return getForciblyDisableHeaderCompilation();
+  }
+
+  @Override
+  public boolean hasHeaderCompiler(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return getHeaderCompiler() != null;
+  }
+
+  @Override
+  public boolean hasHeaderCompilerDirect(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return getHeaderCompilerDirect() != null;
+  }
+
   /** Returns the {@link FilesToRunProvider} of the SingleJar tool. */
   @Override
   public FilesToRunProvider getSingleJar() {
@@ -347,6 +376,22 @@ public final class JavaToolchainProvider extends NativeInfo
   @Override
   public Artifact getOneVersionAllowlist() {
     return oneVersionAllowlist;
+  }
+
+  /**
+   * Return the {@link Artifact} of the one-version allowlist for tests used by the one-version
+   * compliance checker.
+   */
+  @Nullable
+  public Artifact oneVersionAllowlistForTests() {
+    return oneVersionAllowlistForTests;
+  }
+
+  @Override
+  @Nullable
+  public Artifact getOneVersionAllowlistForTests(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return oneVersionAllowlistForTests();
   }
 
   /** Returns the {@link Artifact} of the GenClass deploy jar */
@@ -376,6 +421,7 @@ public final class JavaToolchainProvider extends NativeInfo
   }
 
   /** Returns the ijar executable */
+  @Override
   public FilesToRunProvider getIjar() {
     return ijar;
   }
@@ -438,6 +484,13 @@ public final class JavaToolchainProvider extends NativeInfo
     return proguardAllowlister;
   }
 
+  @Override
+  public StarlarkList<JavaPackageConfigurationProvider> getPackageConfigurationStarlark(
+      StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return StarlarkList.immutableCopyOf(packageConfiguration);
+  }
+
   public JavaSemantics getJavaSemantics() {
     return javaSemantics;
   }
@@ -458,6 +511,10 @@ public final class JavaToolchainProvider extends NativeInfo
   // TODO(cushon): remove this API; it bakes a deprecated detail of the javac API into Bazel
   @Override
   public String getSourceVersion() {
+    return sourceVersion;
+  }
+
+  private static String findSourceVersion(ImmutableList<String> javacOptions) {
     Iterator<String> it = javacOptions.iterator();
     while (it.hasNext()) {
       if (it.next().equals("-source") && it.hasNext()) {
@@ -471,6 +528,10 @@ public final class JavaToolchainProvider extends NativeInfo
   // TODO(cushon): remove this API; it bakes a deprecated detail of the javac API into Bazel
   @Override
   public String getTargetVersion() {
+    return targetVersion;
+  }
+
+  private static String findTargetVersion(ImmutableList<String> javacOptions) {
     Iterator<String> it = javacOptions.iterator();
     while (it.hasNext()) {
       if (it.next().equals("-target") && it.hasNext()) {

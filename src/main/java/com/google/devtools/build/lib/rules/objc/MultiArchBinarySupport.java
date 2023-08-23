@@ -38,6 +38,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -49,17 +52,22 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkerInput;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
+import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
+import com.google.devtools.build.lib.rules.cpp.UserVariablesExtension;
 import com.google.devtools.build.lib.rules.objc.AppleLinkingOutputs.TargetTriplet;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkList;
 
 /** Support utility for creating multi-arch Apple binaries. */
 public class MultiArchBinarySupport {
@@ -72,7 +80,7 @@ public class MultiArchBinarySupport {
     static DependencySpecificConfiguration create(
         BuildConfigurationValue config,
         CcToolchainProvider toolchain,
-        Object linkingInfoProvider,
+        CcLinkingContext linkingInfoProvider,
         ObjcProvider objcProviderWithAvoidDepsSymbols,
         CcInfo ccInfoWithAvoidDepsSymbols) {
       return new AutoValue_MultiArchBinarySupport_DependencySpecificConfiguration(
@@ -90,10 +98,10 @@ public class MultiArchBinarySupport {
     abstract CcToolchainProvider toolchain();
 
     /**
-     * Returns the {@link Object} that has most of the information used for linking. This is either
-     * an ObjcProvider or a CcInfo whose avoid deps symbols have been subtracted.
+     * Returns the {@link CcLinkingContext} that has most of the information used for linking, whose
+     * avoid deps symbols have been subtracted.
      */
-    abstract Object linkingInfoProvider();
+    abstract CcLinkingContext linkingInfoProvider();
 
     /**
      * Returns the {@link ObjcProvider} to propagate up to dependers; this will not have avoid deps
@@ -114,6 +122,28 @@ public class MultiArchBinarySupport {
     this.cppSemantics = cppSemantics;
   }
 
+  private StarlarkInfo getStarlarkUnionedJ2objcProvider(
+      String providerName,
+      String unionFunctionName,
+      Iterable<? extends TransitiveInfoCollection> infoCollections)
+      throws RuleErrorException, InterruptedException {
+    ImmutableList<StarlarkInfo> providers =
+        getTypedProviders(
+            infoCollections,
+            StarlarkProviderIdentifier.forKey(
+                new StarlarkProvider.Key(
+                    Label.parseCanonicalUnchecked("@_builtins//:common/objc/providers.bzl"),
+                    providerName)));
+
+    Object starlarkFunc = ruleContext.getStarlarkDefinedBuiltin(unionFunctionName);
+    ruleContext.initStarlarkRuleContext();
+    return (StarlarkInfo)
+        ruleContext.callStarlarkOrThrowRuleError(
+            starlarkFunc,
+            ImmutableList.of(StarlarkList.immutableCopyOf(providers)),
+            new HashMap<>());
+  }
+
   /**
    * Registers actions to link a single-platform/architecture Apple binary in a specific
    * configuration.
@@ -125,6 +155,7 @@ public class MultiArchBinarySupport {
    *     binaries together
    * @param extraLinkInputs the extra linker inputs to be made available during link actions
    * @param isStampingEnabled whether linkstamping is enabled
+   * @param userVariablesExtension the UserVariablesExtension to pass to the linker actions
    * @param infoCollections a list of provider collections which are propagated from the
    *     dependencies in the requested configuration
    * @param outputMapCollector a map to which output groups created by compile action generation are
@@ -136,19 +167,23 @@ public class MultiArchBinarySupport {
       DependencySpecificConfiguration dependencySpecificConfiguration,
       ExtraLinkArgs extraLinkArgs,
       Iterable<Artifact> extraLinkInputs,
+      Iterable<String> extraRequestedFeatures,
+      Iterable<String> extraDisabledFeatures,
       boolean isStampingEnabled,
+      UserVariablesExtension userVariablesExtension,
       Iterable<? extends TransitiveInfoCollection> infoCollections,
       Map<String, NestedSet<Artifact>> outputMapCollector)
-      throws RuleErrorException, InterruptedException {
+      throws RuleErrorException, InterruptedException, EvalException {
     IntermediateArtifacts intermediateArtifacts =
         new IntermediateArtifacts(ruleContext, dependencySpecificConfiguration.config());
-    J2ObjcMappingFileProvider j2ObjcMappingFileProvider =
-        J2ObjcMappingFileProvider.union(
-            getTypedProviders(infoCollections, J2ObjcMappingFileProvider.PROVIDER));
-    J2ObjcEntryClassProvider j2ObjcEntryClassProvider =
-        new J2ObjcEntryClassProvider.Builder()
-            .addTransitive(getTypedProviders(infoCollections, J2ObjcEntryClassProvider.PROVIDER))
-            .build();
+
+    StarlarkInfo j2ObjcEntryClassProvider =
+        getStarlarkUnionedJ2objcProvider(
+            "J2ObjcEntryClassInfo", "j2objc_entry_class_info_union", infoCollections);
+
+    StarlarkInfo j2ObjcMappingFileProvider =
+        getStarlarkUnionedJ2objcProvider(
+            "J2ObjcMappingFileInfo", "j2objc_mapping_file_info_union", infoCollections);
 
     CompilationSupport compilationSupport =
         new CompilationSupport.Builder(ruleContext, cppSemantics)
@@ -160,12 +195,14 @@ public class MultiArchBinarySupport {
         .registerLinkActions(
             dependencySpecificConfiguration.linkingInfoProvider(),
             dependencySpecificConfiguration.objcProviderWithAvoidDepsSymbols(),
-            dependencySpecificConfiguration.ccInfoWithAvoidDepsSymbols().getCcLinkingContext(),
             j2ObjcMappingFileProvider,
             j2ObjcEntryClassProvider,
             extraLinkArgs,
             extraLinkInputs,
-            isStampingEnabled)
+            extraRequestedFeatures,
+            extraDisabledFeatures,
+            isStampingEnabled,
+            userVariablesExtension)
         .validateAttributes();
     ruleContext.assertNoErrors();
 
@@ -245,10 +282,6 @@ public class MultiArchBinarySupport {
           throws RuleErrorException, InterruptedException {
     Iterable<ObjcProvider> avoidDepsObjcProviders = getAvoidDepsObjcProviders(avoidDepsProviders);
     Iterable<CcInfo> avoidDepsCcInfos = getAvoidDepsCcInfos(avoidDepsProviders);
-    ImmutableList<CcLinkingContext> avoidDepsCcLinkingContexts =
-        getTypedProviders(avoidDepsProviders, CcInfo.PROVIDER).stream()
-            .map(CcInfo::getCcLinkingContext)
-            .collect(toImmutableList());
 
     ImmutableMap.Builder<Optional<String>, DependencySpecificConfiguration> childInfoBuilder =
         ImmutableMap.builder();
@@ -256,8 +289,6 @@ public class MultiArchBinarySupport {
       ConfiguredTargetAndData ctad =
           Iterables.getOnlyElement(splitToolchains.get(splitTransitionKey));
       BuildConfigurationValue childToolchainConfig = ctad.getConfiguration();
-      IntermediateArtifacts intermediateArtifacts =
-          new IntermediateArtifacts(ruleContext, childToolchainConfig);
 
       List<? extends TransitiveInfoCollection> propagatedDeps =
           getProvidersFromCtads(splitDeps.get(splitTransitionKey));
@@ -266,7 +297,6 @@ public class MultiArchBinarySupport {
           common(
               ruleContext,
               childToolchainConfig,
-              intermediateArtifacts,
               propagatedDeps,
               avoidDepsCcInfos,
               avoidDepsObjcProviders);
@@ -274,20 +304,11 @@ public class MultiArchBinarySupport {
       ObjcProvider objcProviderWithAvoidDepsSymbols = common.getObjcProvider();
       CcInfo ccInfoWithAvoidDepsSymbols = common.createCcInfo();
 
-      Object linkingInfoProvider;
-      if (!childToolchainConfig.getFragment(ObjcConfiguration.class).linkingInfoMigration()) {
-        linkingInfoProvider =
-            objcProviderWithAvoidDepsSymbols.subtractSubtrees(
-                avoidDepsObjcProviders, avoidDepsCcLinkingContexts);
-      } else {
-        linkingInfoProvider =
-            ccLinkingContextSubtractSubtrees(
-                ruleContext,
-                ImmutableList.of(ccInfoWithAvoidDepsSymbols.getCcLinkingContext()),
-                stream(avoidDepsCcInfos)
-                    .map(CcInfo::getCcLinkingContext)
-                    .collect(toImmutableList()));
-      }
+      CcLinkingContext linkingInfoProvider =
+          ccLinkingContextSubtractSubtrees(
+              ruleContext,
+              ImmutableList.of(ccInfoWithAvoidDepsSymbols.getCcLinkingContext()),
+              stream(avoidDepsCcInfos).map(CcInfo::getCcLinkingContext).collect(toImmutableList()));
 
       CcToolchainProvider toolchainProvider =
           ctad.getConfiguredTarget().get(CcToolchainProvider.PROVIDER);
@@ -316,6 +337,8 @@ public class MultiArchBinarySupport {
         return ConfigurationDistinguisher.APPLEBIN_IOS;
       case CATALYST:
         return ConfigurationDistinguisher.APPLEBIN_CATALYST;
+      case VISIONOS:
+        return ConfigurationDistinguisher.APPLEBIN_VISIONOS;
       case WATCHOS:
         return ConfigurationDistinguisher.APPLEBIN_WATCHOS;
       case TVOS:
@@ -350,6 +373,10 @@ public class MultiArchBinarySupport {
       case IOS:
       case CATALYST:
         option = buildOptions.get(AppleCommandLineOptions.class).iosMinimumOs;
+        break;
+      case VISIONOS:
+        // TODO: Replace with CppOptions.minimumOsVersion
+        option = DottedVersion.option(DottedVersion.fromStringUnchecked("1.0"));
         break;
       case WATCHOS:
         option = buildOptions.get(AppleCommandLineOptions.class).watchosMinimumOs;
@@ -398,6 +425,9 @@ public class MultiArchBinarySupport {
       case MACOS:
         appleCommandLineOptions.macosMinimumOs = minimumOsVersionOption;
         break;
+      case VISIONOS:
+        // TODO: use CppOptions.minimumOsVersion
+        break;
     }
     return splitOptions;
   }
@@ -435,15 +465,7 @@ public class MultiArchBinarySupport {
 
       // The cpu flag will be set by platform mapping if a mapping exists.
       splitOptions.get(PlatformOptions.class).platforms = ImmutableList.of(platform);
-      if (splitOptions.get(ObjcCommandLineOptions.class).enableCcDeps) {
-        // Only set the (CC-compilation) configs for dependencies if explicitly required by the
-        // user.
-        // This helps users of the iOS rules who do not depend on CC rules as these config values
-        // require additional flags to work (e.g. a custom crosstool) which now only need to be
-        // set if this feature is explicitly requested.
-        AppleCrosstoolTransition.setAppleCrosstoolTransitionPlatformConfiguration(
-            buildOptions, splitOptions, platform);
-      }
+      setAppleCrosstoolTransitionPlatformConfiguration(splitOptions, platform);
       AppleCommandLineOptions appleCommandLineOptions =
           splitOptions.get(AppleCommandLineOptions.class);
       // Set the configuration distinguisher last, as the method
@@ -526,6 +548,13 @@ public class MultiArchBinarySupport {
         }
         cpus = supportedAppleCpusFromMinimumOs(minimumOsVersionOption, cpus, platformType);
         break;
+      case VISIONOS:
+        cpus = buildOptions.get(AppleCommandLineOptions.class).visionosCpus;
+        if (cpus.isEmpty()) {
+          cpus = ImmutableList.of(AppleCommandLineOptions.DEFAULT_VISIONOS_CPU);
+        }
+        cpus = supportedAppleCpusFromMinimumOs(minimumOsVersionOption, cpus, platformType);
+        break;
       case WATCHOS:
         cpus = buildOptions.get(AppleCommandLineOptions.class).watchosCpus;
         if (cpus.isEmpty()) {
@@ -568,14 +597,7 @@ public class MultiArchBinarySupport {
       appleCommandLineOptions.appleSplitCpu = cpu;
 
       String platformCpu = ApplePlatform.cpuStringForTarget(platformType, cpu);
-      if (splitOptions.get(ObjcCommandLineOptions.class).enableCcDeps) {
-        // Only set the (CC-compilation) CPU for dependencies if explicitly required by the user.
-        // This helps users of the iOS rules who do not depend on CC rules as these CPU values
-        // require additional flags to work (e.g. a custom crosstool) which now only need to be
-        // set if this feature is explicitly requested.
-        AppleCrosstoolTransition.setAppleCrosstoolTransitionCpuConfiguration(
-            buildOptions, splitOptions, platformCpu);
-      }
+      setAppleCrosstoolTransitionCpuConfiguration(buildOptions, splitOptions, platformCpu);
       // Set the configuration distinguisher last, as setAppleCrosstoolTransitionCpuConfiguration
       // will set this value to the Apple CROSSTOOL configuration distinguisher, and we want to make
       // sure it's set for the right platform instead in this split transition.
@@ -588,21 +610,7 @@ public class MultiArchBinarySupport {
 
   private static Iterable<ObjcProvider> getAvoidDepsObjcProviders(
       ImmutableList<TransitiveInfoCollection> transitiveInfoCollections) {
-    ImmutableList<ObjcProvider> frameworkObjcProviders =
-        getTypedProviders(transitiveInfoCollections, AppleDynamicFrameworkInfo.STARLARK_CONSTRUCTOR)
-            .stream()
-            .map(frameworkProvider -> frameworkProvider.getDepsObjcProvider())
-            .collect(toImmutableList());
-    ImmutableList<ObjcProvider> executableObjcProviders =
-        getTypedProviders(transitiveInfoCollections, AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR)
-            .stream()
-            .map(frameworkProvider -> frameworkProvider.getDepsObjcProvider())
-            .collect(toImmutableList());
-
-    return Iterables.concat(
-        frameworkObjcProviders,
-        executableObjcProviders,
-        getTypedProviders(transitiveInfoCollections, ObjcProvider.STARLARK_CONSTRUCTOR));
+    return getTypedProviders(transitiveInfoCollections, ObjcProvider.STARLARK_CONSTRUCTOR);
   }
 
   private static Iterable<CcInfo> getAvoidDepsCcInfos(
@@ -626,21 +634,18 @@ public class MultiArchBinarySupport {
   private ObjcCommon common(
       RuleContext ruleContext,
       BuildConfigurationValue buildConfiguration,
-      IntermediateArtifacts intermediateArtifacts,
       List<? extends TransitiveInfoCollection> propagatedDeps,
       Iterable<CcInfo> additionalDepCcInfos,
       Iterable<ObjcProvider> additionalDepObjcProviders)
       throws InterruptedException {
 
     ObjcCommon.Builder commonBuilder =
-        new ObjcCommon.Builder(ObjcCommon.Purpose.LINK_ONLY, ruleContext, buildConfiguration)
+        new ObjcCommon.Builder(ruleContext, buildConfiguration)
             .setCompilationAttributes(
                 CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
             .addDeps(propagatedDeps)
             .addCcLinkingContexts(additionalDepCcInfos)
-            .addObjcProviders(additionalDepObjcProviders)
-            .setIntermediateArtifacts(intermediateArtifacts)
-            .setAlwayslink(false);
+            .addObjcProviders(additionalDepObjcProviders);
 
     return commonBuilder.build();
   }
@@ -651,6 +656,15 @@ public class MultiArchBinarySupport {
     return stream(infoCollections)
         .filter(infoCollection -> infoCollection.get(providerClass) != null)
         .map(infoCollection -> infoCollection.get(providerClass))
+        .collect(toImmutableList());
+  }
+
+  private static ImmutableList<StarlarkInfo> getTypedProviders(
+      Iterable<? extends TransitiveInfoCollection> infoCollections,
+      StarlarkProviderIdentifier identifier) {
+    return stream(infoCollections)
+        .filter(infoCollection -> infoCollection.get(identifier) != null)
+        .map(infoCollection -> (StarlarkInfo) infoCollection.get(identifier))
         .collect(toImmutableList());
   }
 
@@ -694,14 +708,102 @@ public class MultiArchBinarySupport {
    *     their target triplet (architecture, platform, environment)
    */
   public static Dict<String, StructImpl> getSplitTargetTripletFromCtads(
-      Map<Optional<String>, List<ConfiguredTargetAndData>> ctads) {
+      Map<Optional<String>, List<ConfiguredTargetAndData>> ctads) throws EvalException {
     Dict.Builder<String, StructImpl> result = Dict.builder();
     for (Optional<String> splitTransitionKey : ctads.keySet()) {
+      if (!splitTransitionKey.isPresent()) {
+        throw new EvalException("unexpected empty key in split transition");
+      }
       TargetTriplet targetTriplet =
           getTargetTriplet(
               Iterables.getOnlyElement(ctads.get(splitTransitionKey)).getConfiguration());
       result.put(splitTransitionKey.get(), targetTriplet.toStarlarkStruct());
     }
     return result.buildImmutable();
+  }
+
+  /**
+   * Sets configuration fields required for a transition that uses apple_crosstool_top in place of
+   * the default CROSSTOOL.
+   *
+   * @param from options from the originating configuration
+   * @param to options for the destination configuration. This instance will be modified to so the
+   *     destination configuration uses the apple crosstool
+   * @param cpu {@code --cpu} value for toolchain selection in the destination configuration
+   */
+  private static void setAppleCrosstoolTransitionCpuConfiguration(
+      BuildOptionsView from, BuildOptionsView to, String cpu) {
+    AppleCommandLineOptions appleOptions = from.get(AppleCommandLineOptions.class);
+
+    CoreOptions toOptions = to.get(CoreOptions.class);
+    CppOptions toCppOptions = to.get(CppOptions.class);
+
+    if (toOptions.cpu.equals(cpu)
+        && toCppOptions.crosstoolTop.equals(appleOptions.appleCrosstoolTop)) {
+      // If neither the CPU nor the Crosstool changes, do nothing. This is so that C++ to
+      // Objective-C dependencies work if the top-level configuration is already an Apple one.
+      // Removing the configuration distinguisher (which can't be set from the command line) and
+      // putting the platform type in the output directory name, which would obviate the need for
+      // this hack.
+      // TODO(b/112834725): Remove this branch by unifying the distinguisher and the platform type.
+      return;
+    }
+
+    toOptions.cpu = cpu;
+    toCppOptions.crosstoolTop = appleOptions.appleCrosstoolTop;
+
+    setAppleCrosstoolTransitionSharedConfiguration(to);
+
+    // Ensure platforms aren't set so that platform mapping can take place.
+    to.get(PlatformOptions.class).platforms = ImmutableList.of();
+  }
+
+  /**
+   * Sets configuration fields required for a transition that uses apple_platforms in place of the
+   * default platforms to find the appropriate CROSSTOOL and C++ configuration options.
+   *
+   * @param to options for the destination configuration. This instance will be modified to so the
+   *     destination configuration uses the apple crosstool
+   * @param platform {@code --platforms} value for toolchain selection in the destination
+   *     configuration
+   */
+  private static void setAppleCrosstoolTransitionPlatformConfiguration(
+      BuildOptionsView to, Label platform) {
+    PlatformOptions toPlatformOptions = to.get(PlatformOptions.class);
+    ImmutableList<Label> incomingPlatform = ImmutableList.of(platform);
+
+    if (toPlatformOptions.platforms.equals(incomingPlatform)) {
+      // If the incoming platform doesn't change, do nothing. This is so that C++ to Objective-C
+      // dependencies work if the top-level configuration is already an Apple one.
+      // Removing the configuration distinguisher (which can't be set from the command line) and
+      // putting the platform type in the output directory name, which would obviate the need for
+      // this hack.
+      // TODO(b/112834725): Remove this branch by unifying the distinguisher and the platform type.
+      return;
+    }
+
+    // The cpu flag will be set by platform mapping if a mapping exists.
+    to.get(PlatformOptions.class).platforms = incomingPlatform;
+
+    setAppleCrosstoolTransitionSharedConfiguration(to);
+  }
+
+  /**
+   * Sets a common set of configuration fields required for a transition that needs to find the
+   * appropriate CROSSTOOL and C++ configuration options.
+   *
+   * @param to options for the destination configuration. This instance will be modified to so the
+   *     destination configuration uses the apple crosstool
+   */
+  private static void setAppleCrosstoolTransitionSharedConfiguration(BuildOptionsView to) {
+    to.get(AppleCommandLineOptions.class).configurationDistinguisher =
+        ConfigurationDistinguisher.APPLE_CROSSTOOL;
+
+    CppOptions toCppOptions = to.get(CppOptions.class);
+    toCppOptions.cppCompiler = null;
+    toCppOptions.libcTopLabel = null;
+
+    // OSX toolchains do not support fission.
+    toCppOptions.fissionModes = ImmutableList.of();
   }
 }

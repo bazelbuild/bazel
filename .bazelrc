@@ -27,6 +27,14 @@ build:remote --config=ubuntu1804_java11
 
 build:macos --macos_minimum_os=10.11
 
+# On Windows, we need pywin32 pip package, which doesn't work with the Python hermetic toolchain.
+# See https://github.com/bazelbuild/rules_python/issues/1356
+# Therefore, use the local detected Python toolchain on Windows.
+build:windows --extra_toolchains=@bazel_tools//tools/python:autodetecting_toolchain
+
+build:windows_arm64 --platforms=//:windows_arm64
+build:windows_arm64 --extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows
+
 # Enable Bzlmod
 build:bzlmod --enable_bzlmod
 build:bzlmod --check_direct_dependencies=error
@@ -37,6 +45,12 @@ build --tool_java_language_version=11
 
 # Fail if a glob doesn't match anything (https://github.com/bazelbuild/bazel/issues/8195)
 build --incompatible_disallow_empty_glob
+
+# Manually enable cc toolchain resolution before it is flipped. https://github.com/bazelbuild/bazel/issues/7260
+build --incompatible_enable_cc_toolchain_resolution
+
+# Fix non-deterministic Java compilation failures (https://github.com/bazelbuild/bazel/issues/3236)
+build --incompatible_sandbox_hermetic_tmp
 
 # User-specific .bazelrc
 try-import %workspace%/user.bazelrc

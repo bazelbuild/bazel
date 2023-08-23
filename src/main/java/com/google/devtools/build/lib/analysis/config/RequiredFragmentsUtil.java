@@ -106,7 +106,12 @@ public final class RequiredFragmentsUtil {
           .addRuleImplSpecificRequiredConfigFragments(requiredFragments, attributes, configuration);
     }
     addRequiredFragmentsFromRuleTransitions(
-        requiredFragments, target, attributes, configuration.getBuildOptionDetails());
+        configConditions,
+        configuration.checksum(),
+        requiredFragments,
+        target,
+        attributes,
+        configuration.getBuildOptionDetails());
 
     // We consider build settings (which are both targets and configuration) to require themselves.
     if (target.isBuildSetting()) {
@@ -216,6 +221,8 @@ public final class RequiredFragmentsUtil {
    * because the child's properties determine that dependency.
    */
   private static void addRequiredFragmentsFromRuleTransitions(
+      ConfigConditions configConditions,
+      String configHash,
       RequiredConfigFragmentsProvider.Builder requiredFragments,
       Rule target,
       ConfiguredAttributeMapper attributeMap,
@@ -224,7 +231,7 @@ public final class RequiredFragmentsUtil {
       target
           .getRuleClassObject()
           .getTransitionFactory()
-          .create(RuleTransitionData.create(target))
+          .create(RuleTransitionData.create(target, configConditions.asProviders(), configHash))
           .addRequiredFragments(requiredFragments, optionDetails);
     }
     // We don't set the execution platform in this data because a) that doesn't affect which

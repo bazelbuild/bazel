@@ -33,11 +33,11 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
-import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.BuildConfigurationApi;
@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.common.options.TriState;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,8 +56,6 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Module;
-import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 
 /**
@@ -100,7 +99,7 @@ public class BuildConfigurationValue
   private final ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments;
 
   private final ImmutableMap<String, Class<? extends Fragment>> starlarkVisibleFragments;
-  private final RepositoryName mainRepositoryName;
+  private final String workspaceName;
   private final ImmutableSet<String> reservedActionMnemonics;
   private final CommandLineLimits commandLineLimits;
 
@@ -162,7 +161,7 @@ public class BuildConfigurationValue
   // Only BuildConfigurationFunction (and tests for mocking purposes) should instantiate this.
   public static BuildConfigurationValue create(
       BuildOptions buildOptions,
-      RepositoryName mainRepositoryName,
+      String workspaceName,
       boolean siblingRepositoryLayout,
       String transitionDirectoryNameFragment,
       // Arguments below this are server-global.
@@ -180,7 +179,7 @@ public class BuildConfigurationValue
 
     return new BuildConfigurationValue(
         buildOptions,
-        mainRepositoryName,
+        workspaceName,
         siblingRepositoryLayout,
         transitionDirectoryNameFragment,
         directories,
@@ -206,7 +205,7 @@ public class BuildConfigurationValue
   // Package-visible for serialization purposes.
   BuildConfigurationValue(
       BuildOptions buildOptions,
-      RepositoryName mainRepositoryName,
+      String workspaceName,
       boolean siblingRepositoryLayout,
       String transitionDirectoryNameFragment,
       // Arguments below this are either server-global and constant or completely dependent values.
@@ -232,10 +231,10 @@ public class BuildConfigurationValue
             options,
             platformOptions,
             this.fragments,
-            mainRepositoryName,
+            workspaceName,
             siblingRepositoryLayout,
             transitionDirectoryNameFragment);
-    this.mainRepositoryName = mainRepositoryName;
+    this.workspaceName = workspaceName;
     this.siblingRepositoryLayout = siblingRepositoryLayout;
 
     // We can't use an ImmutableMap.Builder here; we need the ability to add entries with keys that
@@ -280,7 +279,7 @@ public class BuildConfigurationValue
     // Only considering arguments that are non-dependent and non-server-global.
     BuildConfigurationValue otherVal = (BuildConfigurationValue) other;
     return this.buildOptions.equals(otherVal.buildOptions)
-        && this.mainRepositoryName.equals(otherVal.mainRepositoryName)
+        && this.workspaceName.equals(otherVal.workspaceName)
         && this.siblingRepositoryLayout == otherVal.siblingRepositoryLayout
         && this.transitionDirectoryNameFragment.equals(otherVal.transitionDirectoryNameFragment);
   }
@@ -288,7 +287,7 @@ public class BuildConfigurationValue
   @Override
   public int hashCode() {
     return Objects.hash(
-        buildOptions, mainRepositoryName, siblingRepositoryLayout, transitionDirectoryNameFragment);
+        buildOptions, workspaceName, siblingRepositoryLayout, transitionDirectoryNameFragment);
   }
 
   private ImmutableMap<String, Class<? extends Fragment>> buildIndexOfStarlarkVisibleFragments() {
@@ -391,7 +390,7 @@ public class BuildConfigurationValue
   @Override
   public boolean hasSeparateGenfilesDirectoryForStarlark(StarlarkThread thread)
       throws EvalException {
-    checkPrivateAccess(thread);
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
     return hasSeparateGenfilesDirectory();
   }
 
@@ -456,8 +455,8 @@ public class BuildConfigurationValue
     return options.strictFilesetOutput;
   }
 
-  public String getMainRepositoryName() {
-    return mainRepositoryName.getName();
+  public String getWorkspaceName() {
+    return workspaceName;
   }
 
   @Override
@@ -500,18 +499,8 @@ public class BuildConfigurationValue
 
   @Override
   public boolean isSiblingRepositoryLayoutForStarlark(StarlarkThread thread) throws EvalException {
-    checkPrivateAccess(thread);
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
     return isSiblingRepositoryLayout();
-  }
-
-  private static void checkPrivateAccess(StarlarkThread thread) throws EvalException {
-    RepositoryName repository =
-        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread))
-            .label()
-            .getRepository();
-    if (!"@_builtins".equals(repository.getNameWithAt())) {
-      throw Starlark.errorf("private API only for use in builtins");
-    }
   }
 
   /**
@@ -564,6 +553,11 @@ public class BuildConfigurationValue
    */
   public boolean shouldInstrumentTestTargets() {
     return options.instrumentTestTargets;
+  }
+
+  /** Returns a boolean of whether to collect code coverage for generated files or not. */
+  public boolean shouldCollectCodeCoverageForGeneratedFiles() {
+    return options.collectCodeCoverageForGeneratedFiles;
   }
 
   /**
@@ -635,7 +629,7 @@ public class BuildConfigurationValue
 
   @Override
   public boolean stampBinariesForStarlark(StarlarkThread thread) throws EvalException {
-    checkPrivateAccess(thread);
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
     return stampBinaries();
   }
 
@@ -645,13 +639,13 @@ public class BuildConfigurationValue
   }
 
   /** Returns true if we are building runfiles manifests for this configuration. */
-  public boolean buildRunfilesManifests() {
-    return options.buildRunfilesManifests;
+  public boolean buildRunfileManifests() {
+    return options.buildRunfileManifests;
   }
 
   /** Returns true if we are building runfile links for this configuration. */
   public boolean buildRunfileLinks() {
-    return options.buildRunfilesManifests && options.buildRunfiles;
+    return options.buildRunfileManifests && options.buildRunfileLinks;
   }
 
   /** Returns if we are building external runfiles symlinks using the old-style structure. */
@@ -712,7 +706,7 @@ public class BuildConfigurationValue
 
   @Override
   public boolean isToolConfigurationForStarlark(StarlarkThread thread) throws EvalException {
-    checkPrivateAccess(thread);
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
     return isToolConfiguration();
   }
 
@@ -814,34 +808,49 @@ public class BuildConfigurationValue
     return options.hostCpu;
   }
 
-  // TODO(buchgr): Revisit naming and functionality of this flag. See #9248 for details.
-  public static boolean runfilesEnabled(CoreOptions options) {
-    switch (options.enableRunfiles) {
-      case YES:
-        return true;
-      case NO:
-        return false;
-      default:
-        return OS.getCurrent() != OS.WINDOWS;
+  /**
+   * Describes how to create runfile symlink trees.
+   *
+   * <p>May be overridden if an {@link OutputService} capable of creating symlink trees is
+   * available.
+   */
+  public enum RunfileSymlinksMode {
+    /** Do not create. */
+    SKIP,
+    /** Use the out-of-process implementation. */
+    EXTERNAL,
+    /** Use the in-process implementation. */
+    INTERNAL
+  }
+
+  @VisibleForTesting
+  public static RunfileSymlinksMode getRunfileSymlinksMode(CoreOptions options) {
+    // TODO(buchgr): Revisit naming and functionality of this flag. See #9248 for details.
+    if (options.enableRunfiles == TriState.YES
+        || (options.enableRunfiles == TriState.AUTO && OS.getCurrent() != OS.WINDOWS)) {
+      return options.inProcessSymlinkCreation
+          ? RunfileSymlinksMode.INTERNAL
+          : RunfileSymlinksMode.EXTERNAL;
     }
+    return RunfileSymlinksMode.SKIP;
+  }
+
+  public RunfileSymlinksMode getRunfileSymlinksMode() {
+    return getRunfileSymlinksMode(options);
+  }
+
+  public static boolean runfilesEnabled(CoreOptions options) {
+    return getRunfileSymlinksMode(options) != RunfileSymlinksMode.SKIP;
   }
 
   public boolean runfilesEnabled() {
-    return runfilesEnabled(this.options);
+    return runfilesEnabled(options);
   }
 
   @Override
   public boolean runfilesEnabledForStarlark(StarlarkThread thread) throws EvalException {
-    checkPrivateAccess(thread);
-    return runfilesEnabled(this.options);
-  }
-
-  public boolean inprocessSymlinkCreation() {
-    return options.inprocessSymlinkCreation;
-  }
-
-  public boolean skipRunfilesManifests() {
-    return options.skipRunfilesManifests;
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    return runfilesEnabled();
   }
 
   public boolean remotableSourceManifestActions() {

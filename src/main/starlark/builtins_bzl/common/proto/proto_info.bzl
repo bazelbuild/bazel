@@ -44,7 +44,7 @@ def _from_root(root, repo, relpath):
         #   - with sibling layout: `{root}/package/path`
         return _join(root, "" if repo.startswith("../") else repo, relpath)
 
-def _create_proto_info(*, srcs, deps, descriptor_set, proto_path = "", workspace_root = "", bin_dir = None):
+def _create_proto_info(*, srcs, deps, descriptor_set, proto_path = "", workspace_root = "", bin_dir = None, allow_exports = None):
     """Constructs ProtoInfo.
 
     Args:
@@ -124,7 +124,7 @@ def _create_proto_info(*, srcs, deps, descriptor_set, proto_path = "", workspace
     else:
         proto_source_root = _empty_to_dot(_join(workspace_root, proto_path))
 
-    return dict(
+    proto_info = dict(
         direct_sources = srcs,
         transitive_sources = transitive_sources,
         direct_descriptor_set = descriptor_set,
@@ -137,6 +137,9 @@ def _create_proto_info(*, srcs, deps, descriptor_set, proto_path = "", workspace
         _transitive_proto_sources = transitive_proto_sources,
         _exported_sources = exported_sources,
     )
+    if allow_exports:
+        proto_info["allow_exports"] = allow_exports
+    return proto_info
 
 ProtoInfo, _ = provider(
     doc = "Encapsulates information provided by a `proto_library.`",
@@ -172,6 +175,7 @@ ProtoInfo, _ = provider(
         "check_deps_sources": """(depset[File]) The `.proto` sources from the 'srcs' attribute.
             If the library is a proxy library that has no sources, it contains the
             `check_deps_sources` from this library's direct deps.""",
+        "allow_exports": """(Target) The packages where this proto_library can be exported.""",
 
         # Deprecated fields:
         "transitive_imports": """(depset[File]) Deprecated: use `transitive_sources` instead.""",

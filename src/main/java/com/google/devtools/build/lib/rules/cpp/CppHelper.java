@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -72,6 +73,9 @@ public class CppHelper {
   static final PathFragment PIC_DOTD_FILES = PathFragment.create("_pic_dotd");
   static final PathFragment DIA_FILES = PathFragment.create("_dia");
   static final PathFragment PIC_DIA_FILES = PathFragment.create("_pic_dia");
+
+  public static final PathFragment SHARED_NONLTO_BACKEND_ROOT_PREFIX =
+      PathFragment.create("shared.nonlto");
 
   // TODO(bazel-team): should this use Link.SHARED_LIBRARY_FILETYPES?
   public static final FileTypeSet SHARED_LIBRARY_FILETYPES =
@@ -145,13 +149,13 @@ public class CppHelper {
   @Nullable
   public static CcToolchainProvider getToolchainUsingDefaultCcToolchainAttribute(
       RuleContext ruleContext) throws RuleErrorException {
-    if (ruleContext.attributes().has(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME)) {
-      return getToolchain(ruleContext, CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
+    if (ruleContext.attributes().has(CcToolchainRule.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME)) {
+      return getToolchain(ruleContext, CcToolchainRule.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
     } else if (ruleContext
         .attributes()
-        .has(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME_FOR_STARLARK)) {
+        .has(CcToolchainRule.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME_FOR_STARLARK)) {
       return getToolchain(
-          ruleContext, CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME_FOR_STARLARK);
+          ruleContext, CcToolchainRule.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME_FOR_STARLARK);
     }
     return null;
   }
@@ -197,12 +201,18 @@ public class CppHelper {
   public static Label getToolchainTypeFromRuleClass(RuleContext ruleContext) {
     Label toolchainType;
     // TODO(b/65835260): Remove this conditional once j2objc can learn the toolchain type.
-    if (ruleContext.attributes().has(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)) {
+    if (ruleContext
+        .attributes()
+        .has(CcToolchainRule.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)) {
       toolchainType =
-          ruleContext.attributes().get(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL);
-    } else if (ruleContext.attributes().has(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, LABEL)) {
+          ruleContext
+              .attributes()
+              .get(CcToolchainRule.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL);
+    } else if (ruleContext
+        .attributes()
+        .has(CcToolchainRule.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, LABEL)) {
       toolchainType =
-          ruleContext.getPrerequisite(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME).getLabel();
+          ruleContext.getPrerequisite(CcToolchainRule.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME).getLabel();
     } else {
       toolchainType = null;
     }
@@ -262,6 +272,23 @@ public class CppHelper {
       Label ruleLabel, boolean usePic, boolean siblingRepositoryLayout) {
     return AnalysisUtils.getUniqueDirectory(
         ruleLabel, usePic ? PIC_DIA_FILES : DIA_FILES, siblingRepositoryLayout);
+  }
+
+  /**
+   * Given the output file path, returns the directory where the results of thinlto indexing will be
+   * created: output_file.lto/
+   */
+  public static PathFragment getLtoOutputRootPrefix(PathFragment outputRootRelativePath) {
+    return FileSystemUtils.appendExtension(outputRootRelativePath, ".lto");
+  }
+
+  /**
+   * Given the lto output root directory path, returns the directory where thinlto native object
+   * files are created: output_file.lto-obj/
+   */
+  public static PathFragment getThinLtoNativeObjectDirectoryFromLtoOutputRoot(
+      PathFragment ltoOutputRootRelativePath) {
+    return FileSystemUtils.appendExtension(ltoOutputRootRelativePath, "-obj");
   }
 
   public static Artifact getLinkedArtifact(

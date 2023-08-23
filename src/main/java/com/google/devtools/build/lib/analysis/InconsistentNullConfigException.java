@@ -19,6 +19,4 @@ package com.google.devtools.build.lib.analysis;
  * <p>Thrown if a rule is requested with a null configuration or a non-configurable target is
  * requested with a non-null configuration.
  */
-// TODO(b/261521010): this should be removed after rule transitions are removed from dependency
-// resolution as it will become unreachable.
 public final class InconsistentNullConfigException extends Exception {}

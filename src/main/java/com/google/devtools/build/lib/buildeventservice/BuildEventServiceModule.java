@@ -290,7 +290,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
   }
 
   @Override
-  public void beforeCommand(CommandEnvironment cmdEnv) {
+  public void beforeCommand(CommandEnvironment cmdEnv) throws AbruptExitException {
     this.invocationId = cmdEnv.getCommandId().toString();
     this.buildRequestId = cmdEnv.getBuildRequestId();
     this.reporter = cmdEnv.getReporter();

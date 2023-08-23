@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.util.StringUtil.decodeBytestringUtf8
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -31,11 +30,11 @@ import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
-import com.google.devtools.build.lib.analysis.SourceManifestAction;
-import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
+import com.google.devtools.build.lib.analysis.starlark.UnresolvedSymlinkAction;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -52,7 +51,6 @@ import java.io.PrintStream;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import net.starlark.java.eval.EvalException;
@@ -246,23 +244,6 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
                     .collect(Collectors.joining(", ")))
             .append("]\n");
       }
-      ImmutableSet<Entry<String, String>> executionInfoSpecifiers =
-          abstractAction.getExecutionInfo().entrySet();
-      if (!executionInfoSpecifiers.isEmpty()) {
-        stringBuilder
-            .append("  ExecutionInfo: {")
-            .append(
-                executionInfoSpecifiers.stream()
-                    .sorted(Map.Entry.comparingByKey())
-                    .map(
-                        e ->
-                            String.format(
-                                "%s: %s",
-                                ShellEscaper.escapeString(e.getKey()),
-                                ShellEscaper.escapeString(e.getValue())))
-                    .collect(Collectors.joining(", ")))
-            .append("}\n");
-      }
     }
     if (options.includeCommandline && action instanceof CommandAction) {
       stringBuilder
@@ -336,23 +317,21 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       stringBuilder.append("  ]\n");
     }
 
-    if (options.includeFileWriteContents && action instanceof FileWriteAction) {
-      FileWriteAction fileWriteAction = (FileWriteAction) action;
+    if (options.includeFileWriteContents
+        && action instanceof AbstractFileWriteAction.FileContentsProvider) {
+      String contents =
+          ((AbstractFileWriteAction.FileContentsProvider) action).getFileContents(eventHandler);
       stringBuilder
           .append("  FileWriteContents: [")
-          .append(
-              Base64.getEncoder().encodeToString(fileWriteAction.getFileContents().getBytes(UTF_8)))
+          .append(Base64.getEncoder().encodeToString(contents.getBytes(UTF_8)))
           .append("]\n");
     }
-    if (options.includeFileWriteContents && action instanceof SourceManifestAction) {
-      SourceManifestAction sourceManifestAction = (SourceManifestAction) action;
+
+    if (action instanceof UnresolvedSymlinkAction) {
       stringBuilder
-          .append("  FileWriteContents: [")
-          .append(
-              Base64.getEncoder()
-                  .encodeToString(
-                      sourceManifestAction.getFileContentsAsString(eventHandler).getBytes(UTF_8)))
-          .append("]\n");
+          .append("  UnresolvedSymlinkTarget: ")
+          .append(((UnresolvedSymlinkAction) action).getTarget())
+          .append("\n");
     }
 
     stringBuilder.append('\n');

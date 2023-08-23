@@ -57,8 +57,6 @@ public class MergedAndroidResources extends ParsedAndroidResources {
             .setOmitTransitiveDependenciesFromAndroidRClasses(
                 dataContext.omitTransitiveResourcesFromAndroidRClasses());
 
-    parsed.asDataBindingContext().supplyLayoutInfo(builder::setDataBindingInfoZip);
-
     if (dataContext.getAndroidConfig().useRTxtFromMergedResources()) {
       builder.setAapt2RTxtOut(
           dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_R_TXT));

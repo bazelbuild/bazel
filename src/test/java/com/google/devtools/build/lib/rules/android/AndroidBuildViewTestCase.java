@@ -232,7 +232,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
         : info.getDirectAndroidResources().getSingleton();
   }
 
-  protected Artifact getResourceClassJar(final ConfiguredTargetAndData target) {
+  protected Artifact getResourceClassJar(final ConfiguredTargetAndData target) throws Exception {
     JavaRuleOutputJarsProvider jarProvider =
         JavaInfo.getProvider(JavaRuleOutputJarsProvider.class, target.getConfiguredTarget());
     assertThat(jarProvider).isNotNull();

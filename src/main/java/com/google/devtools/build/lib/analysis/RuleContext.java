@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.OS_TO_CONSTRAINTS;
 import static com.google.devtools.build.lib.analysis.test.ExecutionInfo.DEFAULT_TEST_RUNNER_EXEC_GROUP;
 import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
@@ -36,7 +37,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -81,6 +82,7 @@ import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -109,6 +111,7 @@ import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Identifier;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -170,7 +173,7 @@ public final class RuleContext extends TargetContext
   /** Map of exec group names to ActionOwners. */
   private final Map<String, ActionOwner> actionOwners = new HashMap<>();
 
-  private final SymbolGenerator<ActionLookupKeyOrProxy> actionOwnerSymbolGenerator;
+  private final SymbolGenerator<ActionLookupKey> actionOwnerSymbolGenerator;
 
   /* lazily computed cache for Make variables, computed from the above. See get... method */
   private transient ConfigurationMakeVariableContext configurationMakeVariableContext = null;
@@ -223,7 +226,7 @@ public final class RuleContext extends TargetContext
   }
 
   private FeatureSet computeFeatures() {
-    FeatureSet pkg = rule.getPackage().getFeatures();
+    FeatureSet pkg = rule.getPackage().getPackageArgs().features();
     FeatureSet rule =
         attributes().has("features", Type.STRING_LIST)
             ? FeatureSet.parse(attributes().get("features", Type.STRING_LIST))
@@ -235,7 +238,7 @@ public final class RuleContext extends TargetContext
   public boolean isAllowTagsPropagation() {
     return getAnalysisEnvironment()
         .getStarlarkSemantics()
-        .getBool(BuildLanguageOptions.EXPERIMENTAL_ALLOW_TAGS_PROPAGATION);
+        .getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION);
   }
 
   public RepositoryName getRepository() {
@@ -491,7 +494,7 @@ public final class RuleContext extends TargetContext
   }
 
   @Override
-  public ActionLookupKeyOrProxy getOwner() {
+  public ActionLookupKey getOwner() {
     return getAnalysisEnvironment().getOwner();
   }
 
@@ -597,10 +600,8 @@ public final class RuleContext extends TargetContext
    */
   public Artifact createOutputArtifactScript() {
     Target target = getTarget();
-    // TODO(laszlocsomor): Use the execution platform, not the host platform.
-    boolean isExecutedOnWindows = OS.getCurrent() == OS.WINDOWS;
 
-    String fileExtension = isExecutedOnWindows ? ".cmd" : ".sh";
+    String fileExtension = isExecutedOnWindows() ? ".cmd" : ".sh";
 
     PathFragment rootRelativePath =
         getPackageDirectory().getRelative(PathFragment.create(target.getName() + fileExtension));
@@ -971,6 +972,15 @@ public final class RuleContext extends TargetContext
   }
 
   /**
+   * Returns all the declared Starlark wrapped providers for the specified constructor under the
+   * specified attribute of this target in the BUILD file.
+   */
+  public <T extends Info> ImmutableList<T> getPrerequisites(
+      String attributeName, StarlarkProviderWrapper<T> starlarkKey) throws RuleErrorException {
+    return AnalysisUtils.getProviders(getPrerequisites(attributeName), starlarkKey);
+  }
+
+  /**
    * Returns all the declared providers (native and Starlark) for the specified constructor under
    * the specified attribute of this target in the BUILD file.
    */
@@ -1080,11 +1090,8 @@ public final class RuleContext extends TargetContext
     thread.setPrintHandler(Event.makeDebugPrintHandler(env.getEventHandler()));
     new BazelStarlarkContext(
             BazelStarlarkContext.Phase.ANALYSIS,
-            ruleClassProvider.getToolsRepository(),
-            /* fragmentNameToClass= */ null,
             getSymbolGenerator(),
-            getLabel(),
-            /* networkAllowlistForTests= */ null)
+            /* analysisRuleLabel= */ getLabel())
         .storeInThread(thread);
     return thread;
   }
@@ -1215,6 +1222,37 @@ public final class RuleContext extends TargetContext
     return toolchainContexts == null ? null : toolchainContexts.getToolchainContext(execGroup);
   }
 
+  private boolean isAutomaticExecGroup(String execGroupName) {
+    return !Identifier.isValid(execGroupName) && !execGroupName.equals(DEFAULT_EXEC_GROUP_NAME);
+  }
+
+  @Nullable
+  private ResolvedToolchainContext getToolchainContextForToolchainType(Label toolchainType) {
+    ResolvedToolchainContext toolchainContext =
+        toolchainContexts.getToolchainContext(toolchainType.toString());
+    if (toolchainContext != null && toolchainContext.forToolchainType(toolchainType) != null) {
+      // Return early if name of the Automatic Exec Group (AEG) and toolchain type matches.
+      return toolchainContext;
+    }
+
+    // Alias can be used for toolchains, in which case name of AEG will not match with the toolchain
+    // type in its ResolvedToolchainContext (AEGs are created before toolchain context is resolved).
+    String aliasName =
+        toolchainContexts.getExecGroupNames().stream()
+            .filter(this::isAutomaticExecGroup)
+            .filter(
+                name -> {
+                  ResolvedToolchainContext context = toolchainContexts.getToolchainContext(name);
+                  return (context != null
+                      && context
+                          .requestedToolchainTypeLabels()
+                          .containsKey(Label.parseCanonicalUnchecked(name)));
+                })
+            .findFirst()
+            .orElse(null);
+    return aliasName == null ? null : toolchainContexts.getToolchainContext(aliasName);
+  }
+
   /**
    * Returns the toolchain info from the default exec group in case automatic exec groups are not
    * enabled. If they are enabled, retrieves toolchain info from the corresponding automatic exec
@@ -1224,7 +1262,7 @@ public final class RuleContext extends TargetContext
   public ToolchainInfo getToolchainInfo(Label toolchainType) {
     ResolvedToolchainContext toolchainContext;
     if (useAutoExecGroups()) {
-      toolchainContext = toolchainContexts.getToolchainContext(toolchainType.toString());
+      toolchainContext = getToolchainContextForToolchainType(toolchainType);
     } else {
       toolchainContext = getToolchainContext();
     }
@@ -1587,6 +1625,13 @@ public final class RuleContext extends TargetContext
     return attributes().has("testonly", Type.BOOLEAN) && attributes().get("testonly", Type.BOOLEAN);
   }
 
+  /** Returns true if the execution platform is Windows. */
+  public boolean isExecutedOnWindows() {
+    return getExecutionPlatform()
+        .constraints()
+        .hasConstraintValue(OS_TO_CONSTRAINTS.get(OS.WINDOWS));
+  }
+
   /**
    * Returns true if {@code label} is visible from {@code prerequisite}.
    *
@@ -1656,7 +1701,7 @@ public final class RuleContext extends TargetContext
     private final RuleErrorConsumer reporter;
     private ConfiguredRuleClassProvider ruleClassProvider;
     private ConfigurationFragmentPolicy configurationFragmentPolicy;
-    private ActionLookupKeyOrProxy actionOwnerSymbol;
+    private ActionLookupKey actionOwnerSymbol;
     private OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap;
     private ConfigConditions configConditions;
     private Mutability mutability;
@@ -1788,7 +1833,7 @@ public final class RuleContext extends TargetContext
     }
 
     @CanIgnoreReturnValue
-    public Builder setActionOwnerSymbol(ActionLookupKeyOrProxy actionOwnerSymbol) {
+    public Builder setActionOwnerSymbol(ActionLookupKey actionOwnerSymbol) {
       this.actionOwnerSymbol = actionOwnerSymbol;
       return this;
     }

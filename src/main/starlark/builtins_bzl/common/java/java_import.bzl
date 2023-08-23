@@ -16,14 +16,16 @@
 Definition of java_import rule.
 """
 
-load(":common/java/java_common.bzl", "construct_defaultinfo")
+load(":common/java/basic_java_library.bzl", "construct_defaultinfo")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/java/proguard_validation.bzl", "validate_proguard_specs")
 load(":common/java/import_deps_check.bzl", "import_deps_check")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/java/java_info.bzl", "JavaInfo")
+load(":common/java/java_common.bzl", "java_common")
+load(":common/java/java_common_internal_for_builtins.bzl", _run_ijar_private_for_builtins = "run_ijar")
 
-java_common = _builtins.toplevel.java_common
+PackageSpecificationInfo = _builtins.toplevel.PackageSpecificationInfo
 
 def _filter_provider(provider, *attrs):
     return [dep[provider] for attr in attrs for dep in attr if provider in dep]
@@ -50,7 +52,7 @@ def _process_with_ijars_if_needed(jars, ctx):
             interface_jar_directory = "_ijar/" + ctx.label.name + "/" + ijar_basename
 
             interface_jar = ctx.actions.declare_file(interface_jar_directory)
-            java_common.run_ijar(
+            _run_ijar_private_for_builtins(
                 ctx.actions,
                 target_label = ctx.label,
                 jar = jar,
@@ -62,13 +64,18 @@ def _process_with_ijars_if_needed(jars, ctx):
     return file_dict
 
 def _check_export_error(ctx, exports):
-    if len(exports) != 0 and (ctx.fragments.java.disallow_java_import_exports() or
-                              (hasattr(ctx.attr, "_allowlist_java_import_exports") and not getattr(ctx.attr, "_allowlist_java_import_exports").isAvailableFor(ctx.label))):
+    not_in_allowlist = hasattr(ctx.attr, "_allowlist_java_import_exports") and not getattr(ctx.attr, "_allowlist_java_import_exports")[PackageSpecificationInfo].contains(ctx.label)
+    disallow_java_import_exports = ctx.fragments.java.disallow_java_import_exports()
+
+    if len(exports) != 0 and (disallow_java_import_exports or not_in_allowlist):
         fail("java_import.exports is no longer supported; use java_import.deps instead")
 
 def _check_empty_jars_error(ctx, jars):
     # TODO(kotlaja): Remove temporary incompatible flag [disallow_java_import_empty_jars] once migration is done.
-    if len(jars) == 0 and ctx.fragments.java.disallow_java_import_empty_jars() and hasattr(ctx.attr, "_allowlist_java_import_empty_jars") and not getattr(ctx.attr, "_allowlist_java_import_empty_jars").isAvailableFor(ctx.label):
+    not_in_allowlist = hasattr(ctx.attr, "_allowlist_java_import_empty_jars") and not getattr(ctx.attr, "_allowlist_java_import_empty_jars")[PackageSpecificationInfo].contains(ctx.label)
+    disallow_java_import_empty_jars = ctx.fragments.java.disallow_java_import_empty_jars()
+
+    if len(jars) == 0 and disallow_java_import_empty_jars and not_in_allowlist:
         fail("empty java_import.jars is no longer supported " + ctx.label.package)
 
 def _create_java_info_with_dummy_output_file(ctx, srcjar, all_deps, exports, runtime_deps_list, neverlink, cc_info_list):
@@ -97,7 +104,6 @@ def bazel_java_import_rule(
         runtime_deps = [],
         exports = [],
         neverlink = False,
-        constraints = [],
         proguard_specs = []):
     """Implements java_import.
 
@@ -127,7 +133,8 @@ def bazel_java_import_rule(
 
     jdeps_artifact = None
     merged_java_info = java_common.merge(all_deps)
-    if len(collected_jars) > 0 and hasattr(ctx.attr, "_allowlist_java_import_deps_checking") and not ctx.attr._allowlist_java_import_deps_checking.isAvailableFor(ctx.label) and "incomplete-deps" not in ctx.attr.tags:
+    not_in_allowlist = hasattr(ctx.attr, "_allowlist_java_import_deps_checking") and not ctx.attr._allowlist_java_import_deps_checking[PackageSpecificationInfo].contains(ctx.label)
+    if len(collected_jars) > 0 and not_in_allowlist and "incomplete-deps" not in ctx.attr.tags:
         jdeps_artifact = import_deps_check(
             ctx,
             collected_jars,
@@ -157,9 +164,6 @@ def bazel_java_import_rule(
     else:
         # TODO(kotlaja): Remove next line once all java_import targets with empty jars attribute are cleaned from depot (b/246559727).
         java_info = _create_java_info_with_dummy_output_file(ctx, srcjar, all_deps, exports, runtime_deps_list, neverlink, cc_info_list)
-
-    if len(constraints):
-        java_info = semantics.add_constraints(java_info, constraints)
 
     target = {"JavaInfo": java_info}
 
@@ -202,7 +206,6 @@ def _proxy(ctx):
         ctx.attr.runtime_deps,
         ctx.attr.exports,
         ctx.attr.neverlink,
-        ctx.attr.constraints,
         ctx.files.proguard_specs,
     ).values()
 

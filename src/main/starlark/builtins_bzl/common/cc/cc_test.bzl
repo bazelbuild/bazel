@@ -103,6 +103,7 @@ def make_cc_test(with_linkstatic = False, with_aspects = False):
                 "@" + paths.join(semantics.get_platforms_root(), "os:ios"),
                 "@" + paths.join(semantics.get_platforms_root(), "os:macos"),
                 "@" + paths.join(semantics.get_platforms_root(), "os:tvos"),
+                "@" + paths.join(semantics.get_platforms_root(), "os:visionos"),
                 "@" + paths.join(semantics.get_platforms_root(), "os:watchos"),
             ],
         ),
@@ -139,6 +140,5 @@ def make_cc_test(with_linkstatic = False, with_aspects = False):
         toolchains = [] +
                      cc_helper.use_cpp_toolchain() +
                      semantics.get_runtimes_toolchain(),
-        incompatible_use_toolchain_transition = True,
         test = True,
     )

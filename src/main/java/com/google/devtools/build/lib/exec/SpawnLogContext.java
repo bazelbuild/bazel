@@ -31,6 +31,8 @@ import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.exec.Protos.File;
 import com.google.devtools.build.lib.exec.Protos.SpawnExec;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.util.io.MessageOutputStream;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -100,7 +102,7 @@ public class SpawnLogContext implements ActionContext {
       builder.addEnvironmentVariablesBuilder().setName(var).setValue(env.get(var));
     }
 
-    try {
+    try (SilentCloseable c = Profiler.instance().profile("logSpawn/inputs")) {
       for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
         ActionInput input = e.getValue();
         if (input instanceof VirtualActionInput.EmptyActionInput) {
@@ -117,24 +119,26 @@ public class SpawnLogContext implements ActionContext {
     } catch (IOException e) {
       logger.atWarning().withCause(e).log("Error computing spawn inputs");
     }
-    ArrayList<String> outputPaths = new ArrayList<>();
-    for (ActionInput output : spawn.getOutputFiles()) {
-      outputPaths.add(output.getExecPathString());
-    }
-    Collections.sort(outputPaths);
-    builder.addAllListedOutputs(outputPaths);
-    for (Map.Entry<Path, ActionInput> e : existingOutputs.entrySet()) {
-      Path path = e.getKey();
-      if (path.isDirectory()) {
-        listDirectoryContents(path, builder::addActualOutputs, inputMetadataProvider);
-      } else {
-        File.Builder outputBuilder = builder.addActualOutputsBuilder();
-        outputBuilder.setPath(path.relativeTo(execRoot).toString());
-        try {
-          outputBuilder.setDigest(
-              computeDigest(e.getValue(), path, inputMetadataProvider, xattrProvider));
-        } catch (IOException ex) {
-          logger.atWarning().withCause(ex).log("Error computing spawn event output properties");
+    try (SilentCloseable c = Profiler.instance().profile("logSpawn/outputs")) {
+      ArrayList<String> outputPaths = new ArrayList<>();
+      for (ActionInput output : spawn.getOutputFiles()) {
+        outputPaths.add(output.getExecPathString());
+      }
+      Collections.sort(outputPaths);
+      builder.addAllListedOutputs(outputPaths);
+      for (Map.Entry<Path, ActionInput> e : existingOutputs.entrySet()) {
+        Path path = e.getKey();
+        if (path.isDirectory()) {
+          listDirectoryContents(path, builder::addActualOutputs, inputMetadataProvider);
+        } else {
+          File.Builder outputBuilder = builder.addActualOutputsBuilder();
+          outputBuilder.setPath(path.relativeTo(execRoot).toString());
+          try {
+            outputBuilder.setDigest(
+                computeDigest(e.getValue(), path, inputMetadataProvider, xattrProvider));
+          } catch (IOException ex) {
+            logger.atWarning().withCause(ex).log("Error computing spawn event output properties");
+          }
         }
       }
     }
@@ -219,7 +223,9 @@ public class SpawnLogContext implements ActionContext {
       }
     }
 
-    executionLog.write(builder.build());
+    try (SilentCloseable c = Profiler.instance().profile("logSpawn/write")) {
+      executionLog.write(builder.build());
+    }
   }
 
   private static com.google.protobuf.Duration millisToProto(int t) {

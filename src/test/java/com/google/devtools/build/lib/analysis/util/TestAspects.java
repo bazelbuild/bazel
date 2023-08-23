@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -36,7 +37,6 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -435,7 +435,7 @@ public class TestAspects {
           .add(
               attr("$dep", LABEL)
                   .value(Label.parseCanonicalUnchecked("//extra:extra"))
-                  .mandatoryProviders(ImmutableList.of(PackageGroupConfiguredTarget.PROVIDER.id())))
+                  .mandatoryBuiltinProviders(ImmutableList.of(PackageSpecificationProvider.class)))
           .build();
 
   public static final ComputedAttributeAspect COMPUTED_ATTRIBUTE_ASPECT =

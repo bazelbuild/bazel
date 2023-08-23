@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -20,7 +21,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -439,8 +439,8 @@ public abstract class PackageSpecification {
    * <p>For modeling a {@code package_group}'s transitive contents (i.e., via the {@code includes}
    * attribute), see {@link PackageSpecificationProvider}.
    */
-  @Immutable
-  public static final class PackageGroupContents {
+  @AutoValue
+  public abstract static class PackageGroupContents {
     // This class is optimized for memory and cpu.
     // TODO(b/279784354): Further improvements are possible.
     //
@@ -454,18 +454,26 @@ public abstract class PackageSpecification {
     // Both of these cpu optimizations combine well in practice since there are some package_group
     // targets with very large lists of negative single package specifications.
 
-    private final ImmutableSet<PackageIdentifier> singlePackagePositives;
-    private final ImmutableList<PackageIdentifier> allPackagesBeneathPositives;
+    abstract ImmutableSet<PackageIdentifier> singlePackagePositives();
 
-    private final boolean hasPositiveAllPackages;
+    abstract ImmutableList<PackageIdentifier> allPackagesBeneathPositives();
 
-    private final ImmutableSet<PackageIdentifier> singlePackageNegatives;
-    private final ImmutableList<PackageIdentifier> allPackagesBeneathNegatives;
+    abstract boolean hasPositiveAllPackages();
 
-    private final boolean hasPrivate;
-    private final boolean hasNegativeAllPackages;
+    abstract ImmutableSet<PackageIdentifier> singlePackageNegatives();
 
-    private PackageGroupContents(ImmutableList<PackageSpecification> packageSpecifications) {
+    abstract ImmutableList<PackageIdentifier> allPackagesBeneathNegatives();
+
+    abstract boolean hasPrivate();
+
+    abstract boolean hasNegativeAllPackages();
+
+    /**
+     * Creates a {@link PackageGroupContents} representing a collection of {@link
+     * PackageSpecification}s.
+     */
+    public static PackageGroupContents create(
+        ImmutableList<PackageSpecification> packageSpecifications) {
       var singlePackagePositivesBuilder = ImmutableSet.<PackageIdentifier>builder();
       var allPackagesBeneathPositivesBuilder = ImmutableList.<PackageIdentifier>builder();
       boolean hasPositiveAllPackages = false;
@@ -516,47 +524,43 @@ public abstract class PackageSpecification {
         throw new IllegalStateException(spec.toString());
       }
 
-      this.singlePackagePositives = singlePackagePositivesBuilder.build();
-      this.allPackagesBeneathPositives = allPackagesBeneathPositivesBuilder.build();
-      this.hasPositiveAllPackages = hasPositiveAllPackages;
-      this.singlePackageNegatives = singlePackageNegativesBuilder.build();
-      this.allPackagesBeneathNegatives = allPackagesBeneathNegativesBuilder.build();
-      this.hasPrivate = hasPrivate;
-      this.hasNegativeAllPackages = hasNegativeAllPackages;
-    }
-
-    /**
-     * Creates a {@link PackageGroupContents} representing a collection of {@link
-     * PackageSpecification}s.
-     */
-    public static PackageGroupContents create(
-        ImmutableList<PackageSpecification> packageSpecifications) {
-      return new PackageGroupContents(packageSpecifications);
+      return new AutoValue_PackageSpecification_PackageGroupContents(
+          singlePackagePositivesBuilder.build(),
+          allPackagesBeneathPositivesBuilder.build(),
+          hasPositiveAllPackages,
+          singlePackageNegativesBuilder.build(),
+          allPackagesBeneathNegativesBuilder.build(),
+          hasPrivate,
+          hasNegativeAllPackages);
     }
 
     /**
      * Returns true if the given package matches at least one of this {@code PackageGroupContents}'
      * positive specifications and none of its negative specifications.
      */
-    public boolean containsPackage(PackageIdentifier packageIdentifier) {
+    public final boolean containsPackage(PackageIdentifier packageIdentifier) {
       // DO NOT use streams or iterators here as they create excessive garbage.
-      if (hasNegativeAllPackages) {
+      if (hasNegativeAllPackages()) {
         return false;
       }
-      if (singlePackageNegatives.contains(packageIdentifier)) {
+      if (singlePackageNegatives().contains(packageIdentifier)) {
         return false;
       }
+      // The following line is just so that we don't call the method inside the loop (which may or
+      // may not be optimized away... better be on the safe side).
+      var allPackagesBeneathNegatives = allPackagesBeneathNegatives();
       for (int i = 0; i < allPackagesBeneathNegatives.size(); i++) {
         if (matchesAllPackagesBeneath(packageIdentifier, allPackagesBeneathNegatives.get(i))) {
           return false;
         }
       }
-      if (hasPositiveAllPackages) {
+      if (hasPositiveAllPackages()) {
         return true;
       }
-      if (singlePackagePositives.contains(packageIdentifier)) {
+      if (singlePackagePositives().contains(packageIdentifier)) {
         return true;
       }
+      var allPackagesBeneathPositives = allPackagesBeneathPositives();
       for (int i = 0; i < allPackagesBeneathPositives.size(); i++) {
         if (matchesAllPackagesBeneath(packageIdentifier, allPackagesBeneathPositives.get(i))) {
           return true;
@@ -582,27 +586,27 @@ public abstract class PackageSpecification {
      * includeDoubleSlash} is true, and {@code "//..."} otherwise. The private constant will always
      * serialize as {@code "private"},
      */
-    public ImmutableList<String> packageStrings(boolean includeDoubleSlash) {
+    public final ImmutableList<String> packageStrings(boolean includeDoubleSlash) {
       ImmutableList.Builder<String> resultBuilder = ImmutableList.builder();
-      for (PackageIdentifier pkgId : singlePackagePositives) {
+      for (PackageIdentifier pkgId : singlePackagePositives()) {
         resultBuilder.add(stringForSinglePackage(pkgId, includeDoubleSlash));
       }
-      for (PackageIdentifier pkgId : allPackagesBeneathPositives) {
+      for (PackageIdentifier pkgId : allPackagesBeneathPositives()) {
         resultBuilder.add(stringForAllPackagesBeneath(pkgId, includeDoubleSlash));
       }
-      for (PackageIdentifier pkgId : singlePackageNegatives) {
+      for (PackageIdentifier pkgId : singlePackageNegatives()) {
         resultBuilder.add("-" + stringForSinglePackage(pkgId, includeDoubleSlash));
       }
-      for (PackageIdentifier pkgId : allPackagesBeneathNegatives) {
+      for (PackageIdentifier pkgId : allPackagesBeneathNegatives()) {
         resultBuilder.add("-" + stringForAllPackagesBeneath(pkgId, includeDoubleSlash));
       }
-      if (hasPositiveAllPackages) {
+      if (hasPositiveAllPackages()) {
         resultBuilder.add(stringForAllPackages(includeDoubleSlash));
       }
-      if (hasPrivate) {
+      if (hasPrivate()) {
         resultBuilder.add("private");
       }
-      if (hasNegativeAllPackages) {
+      if (hasNegativeAllPackages()) {
         resultBuilder.add("-" + stringForAllPackages(includeDoubleSlash));
       }
       return resultBuilder.build();
@@ -661,25 +665,25 @@ public abstract class PackageSpecification {
      * <p>The special public and private constants will serialize as {@code "public"} and {@code
      * "private"} respectively.
      */
-    public ImmutableList<String> packageStringsWithDoubleSlashAndWithoutRepository() {
+    public final ImmutableList<String> packageStringsWithDoubleSlashAndWithoutRepository() {
       ImmutableList.Builder<String> resultBuilder = ImmutableList.builder();
-      for (PackageIdentifier pkgId : singlePackagePositives) {
+      for (PackageIdentifier pkgId : singlePackagePositives()) {
         resultBuilder.add(stringForSinglePackageWithDoubleSlashAndWithoutRepository(pkgId));
       }
-      for (PackageIdentifier pkgId : allPackagesBeneathPositives) {
+      for (PackageIdentifier pkgId : allPackagesBeneathPositives()) {
         resultBuilder.add(stringForAllPackagesBeneathWithDoubleSlashAndWithoutRepository(pkgId));
       }
-      for (PackageIdentifier pkgId : singlePackageNegatives) {
+      for (PackageIdentifier pkgId : singlePackageNegatives()) {
         resultBuilder.add("-" + stringForSinglePackageWithDoubleSlashAndWithoutRepository(pkgId));
       }
-      for (PackageIdentifier pkgId : allPackagesBeneathNegatives) {
+      for (PackageIdentifier pkgId : allPackagesBeneathNegatives()) {
         resultBuilder.add(
             "-" + stringForAllPackagesBeneathWithDoubleSlashAndWithoutRepository(pkgId));
       }
-      if (hasPositiveAllPackages) {
+      if (hasPositiveAllPackages()) {
         resultBuilder.add("public");
       }
-      if (hasPrivate) {
+      if (hasPrivate()) {
         resultBuilder.add("private");
       }
       return resultBuilder.build();

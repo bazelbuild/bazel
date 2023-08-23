@@ -19,9 +19,10 @@ These may change at any time and are closely coupled to the rule implementation.
 """
 
 _py_builtins = _builtins.internal.py_builtins
+PackageSpecificationInfo = _builtins.toplevel.PackageSpecificationInfo
 
 def _is_available_for(package_group_target, label):
-    return package_group_target.isAvailableFor(label)
+    return package_group_target[PackageSpecificationInfo].contains(label)
 
 # This replaces the Java-defined name using exports.bzl toplevels mapping.
 py_internal = struct(

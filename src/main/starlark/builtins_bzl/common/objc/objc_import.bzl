@@ -30,7 +30,6 @@ def _objc_import_impl(ctx):
         deps = ctx.attr.deps,
         toolchain = cc_toolchain,
         alwayslink = alwayslink,
-        extra_import_libraries = ctx.files.archives,
         empty_compilation_artifacts = True,
     )
 
@@ -92,5 +91,4 @@ objc_import = rule(
     ),
     fragments = ["objc", "apple", "cpp"],
     toolchains = cc_helper.use_cpp_toolchain(),
-    incompatible_use_toolchain_transition = True,
 )

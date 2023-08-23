@@ -20,6 +20,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableBiMap;
@@ -35,14 +36,12 @@ import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentValue;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import javax.annotation.Nullable;
@@ -54,16 +53,12 @@ import javax.annotation.Nullable;
  */
 public class BazelDepGraphFunction implements SkyFunction {
 
-  private final Path rootDirectory;
-
-  public BazelDepGraphFunction(Path rootDirectory) {
-    this.rootDirectory = rootDirectory;
-  }
+  public BazelDepGraphFunction() {}
 
   @Override
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
-      throws SkyFunctionException, InterruptedException {
+      throws BazelDepGraphFunctionException, InterruptedException {
     RootModuleFileValue root =
         (RootModuleFileValue) env.getValue(ModuleFileValue.KEY_FOR_ROOT_MODULE);
     if (root == null) {
@@ -74,12 +69,13 @@ public class BazelDepGraphFunction implements SkyFunction {
     ImmutableMap<String, String> localOverrideHashes = null;
     ImmutableMap<ModuleKey, Module> depGraph = null;
     BzlmodFlagsAndEnvVars flags = null;
+    BazelLockFileValue lockfile = null;
 
     // If the module has not changed (has the same contents and flags as the lockfile),
     // read the dependency graph from the lock file, else run resolution and update lockfile
     if (!lockfileMode.equals(LockfileMode.OFF)) {
-      BazelLockFileValue lockFile = (BazelLockFileValue) env.getValue(BazelLockFileValue.KEY);
-      if (lockFile == null) {
+      lockfile = (BazelLockFileValue) env.getValue(BazelLockFileValue.KEY);
+      if (lockfile == null) {
         return null;
       }
       flags = getFlagsAndEnvVars(env);
@@ -87,17 +83,17 @@ public class BazelDepGraphFunction implements SkyFunction {
         return null;
       }
       localOverrideHashes = getLocalOverridesHashes(root.getOverrides(), env);
-      if (localOverrideHashes == null) { // trying to read override module
+      if (localOverrideHashes == null) { // still reading an override "module"
         return null;
       }
 
-      if (root.getModuleFileHash().equals(lockFile.getModuleFileHash())
-          && flags.equals(lockFile.getFlags())
-          && localOverrideHashes.equals(lockFile.getLocalOverrideHashes())) {
-        depGraph = lockFile.getModuleDepGraph();
+      if (root.getModuleFileHash().equals(lockfile.getModuleFileHash())
+          && flags.equals(lockfile.getFlags())
+          && localOverrideHashes.equals(lockfile.getLocalOverrideHashes())) {
+        depGraph = lockfile.getModuleDepGraph();
       } else if (lockfileMode.equals(LockfileMode.ERROR)) {
-        List<String> diffLockfile =
-            lockFile.getDiffLockfile(root.getModuleFileHash(), localOverrideHashes, flags);
+        ImmutableList<String> diffLockfile =
+            lockfile.getModuleAndFlagsDiff(root.getModuleFileHash(), localOverrideHashes, flags);
         throw new BazelDepGraphFunctionException(
             ExternalDepsException.withMessage(
                 Code.BAD_MODULE,
@@ -114,21 +110,34 @@ public class BazelDepGraphFunction implements SkyFunction {
         return null;
       }
       depGraph = selectionResult.getResolvedDepGraph();
-      if (lockfileMode.equals(LockfileMode.UPDATE)) {
-        BazelLockFileFunction.updateLockedModule(
-            rootDirectory, root.getModuleFileHash(), flags, localOverrideHashes, depGraph);
-      }
     }
 
     ImmutableMap<RepositoryName, ModuleKey> canonicalRepoNameLookup =
         depGraph.keySet().stream()
             .collect(toImmutableMap(ModuleKey::getCanonicalRepoName, key -> key));
 
-    ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesById =
-        getExtensionUsagesById(depGraph);
+    ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesById;
+    try {
+      extensionUsagesById = getExtensionUsagesById(depGraph);
+    } catch (ExternalDepsException e) {
+      throw new BazelDepGraphFunctionException(e, Transience.PERSISTENT);
+    }
 
     ImmutableBiMap<String, ModuleExtensionId> extensionUniqueNames =
         calculateUniqueNameForUsedExtensionId(extensionUsagesById);
+
+    if (!lockfileMode.equals(LockfileMode.OFF)) {
+      BazelLockFileValue updateLockfile =
+          lockfile.toBuilder()
+              .setLockFileVersion(BazelLockFileValue.LOCK_FILE_VERSION)
+              .setModuleFileHash(root.getModuleFileHash())
+              .setFlags(flags)
+              .setLocalOverrideHashes(localOverrideHashes)
+              .setModuleDepGraph(depGraph)
+              .build();
+      env.getListener()
+          .post(BazelModuleResolutionEvent.create(updateLockfile, extensionUsagesById));
+    }
 
     return BazelDepGraphValue.create(
         depGraph,
@@ -166,7 +175,7 @@ public class BazelDepGraphFunction implements SkyFunction {
         (ClientEnvironmentValue)
             env.getValue(
                 ClientEnvironmentFunction.key(
-                    BazelModuleResolutionFunction.BZLMOD_ALLOWED_YANKED_VERSIONS_ENV));
+                    YankedVersionsUtil.BZLMOD_ALLOWED_YANKED_VERSIONS_ENV));
     if (allowedYankedVersionsFromEnv == null) {
       return null;
     }
@@ -175,10 +184,10 @@ public class BazelDepGraphFunction implements SkyFunction {
     ImmutableMap<String, String> moduleOverrides =
         ModuleFileFunction.MODULE_OVERRIDES.get(env).entrySet().stream()
             .collect(
-                toImmutableMap(e -> e.getKey(), e -> ((LocalPathOverride) e.getValue()).getPath()));
+                toImmutableMap(Entry::getKey, e -> ((LocalPathOverride) e.getValue()).getPath()));
 
     ImmutableList<String> yankedVersions =
-        ImmutableList.copyOf(BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.get(env));
+        ImmutableList.copyOf(YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.get(env));
     Boolean ignoreDevDeps = ModuleFileFunction.IGNORE_DEV_DEPS.get(env);
     String compatabilityMode =
         BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE.get(env).name();
@@ -200,8 +209,9 @@ public class BazelDepGraphFunction implements SkyFunction {
    * For each extension usage, we resolve (i.e. canonicalize) its bzl file label. Then we can group
    * all usages by the label + name (the ModuleExtensionId).
    */
-  private ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> getExtensionUsagesById(
-      ImmutableMap<ModuleKey, Module> depGraph) throws BazelDepGraphFunctionException {
+  public static ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage>
+      getExtensionUsagesById(ImmutableMap<ModuleKey, Module> depGraph)
+          throws ExternalDepsException {
     ImmutableTable.Builder<ModuleExtensionId, ModuleKey, ModuleExtensionUsage>
         extensionUsagesTableBuilder = ImmutableTable.builder();
     for (Module module : depGraph.values()) {
@@ -214,24 +224,22 @@ public class BazelDepGraphFunction implements SkyFunction {
         try {
           moduleExtensionId =
               ModuleExtensionId.create(
-                  labelConverter.convert(usage.getExtensionBzlFile()), usage.getExtensionName());
+                  labelConverter.convert(usage.getExtensionBzlFile()),
+                  usage.getExtensionName(),
+                  usage.getIsolationKey());
         } catch (LabelSyntaxException e) {
-          throw new BazelDepGraphFunctionException(
-              ExternalDepsException.withCauseAndMessage(
-                  Code.BAD_MODULE,
-                  e,
-                  "invalid label for module extension found at %s",
-                  usage.getLocation()),
-              Transience.PERSISTENT);
+          throw ExternalDepsException.withCauseAndMessage(
+              Code.BAD_MODULE,
+              e,
+              "invalid label for module extension found at %s",
+              usage.getLocation());
         }
         if (!moduleExtensionId.getBzlFileLabel().getRepository().isVisible()) {
-          throw new BazelDepGraphFunctionException(
-              ExternalDepsException.withMessage(
-                  Code.BAD_MODULE,
-                  "invalid label for module extension found at %s: no repo visible as '@%s' here",
-                  usage.getLocation(),
-                  moduleExtensionId.getBzlFileLabel().getRepository().getName()),
-              Transience.PERSISTENT);
+          throw ExternalDepsException.withMessage(
+              Code.BAD_MODULE,
+              "invalid label for module extension found at %s: no repo visible as '@%s' here",
+              usage.getLocation(),
+              moduleExtensionId.getBzlFileLabel().getRepository().getName());
         }
         extensionUsagesTableBuilder.put(moduleExtensionId, module.getKey(), usage);
       }
@@ -241,23 +249,43 @@ public class BazelDepGraphFunction implements SkyFunction {
 
   private ImmutableBiMap<String, ModuleExtensionId> calculateUniqueNameForUsedExtensionId(
       ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesById) {
-    // Calculate a unique name for each used extension id.
+    // Calculate a unique name for each used extension id with the following property that is
+    // required for BzlmodRepoRuleFunction to unambiguously identify the extension that generates a
+    // given repo:
+    // After appending a single `~` to each such name, none of the resulting strings is a prefix of
+    // any other such string.
     BiMap<String, ModuleExtensionId> extensionUniqueNames = HashBiMap.create();
     for (ModuleExtensionId id : extensionUsagesById.rowKeySet()) {
-      // Ensure that the resulting extension name (and thus the repository names derived from it) do
-      // not start with a tilde.
-      RepositoryName repository = id.getBzlFileLabel().getRepository();
-      String nonEmptyRepoPart = repository.isMain() ? "_main" : repository.getName();
-      String bestName = nonEmptyRepoPart + "~" + id.getExtensionName();
-      if (extensionUniqueNames.putIfAbsent(bestName, id) == null) {
-        continue;
-      }
-      int suffix = 2;
-      while (extensionUniqueNames.putIfAbsent(bestName + suffix, id) != null) {
-        suffix++;
+      int attempt = 1;
+      while (extensionUniqueNames.putIfAbsent(makeUniqueNameCandidate(id, attempt), id) != null) {
+        attempt++;
       }
     }
     return ImmutableBiMap.copyOf(extensionUniqueNames);
+  }
+
+  private static String makeUniqueNameCandidate(ModuleExtensionId id, int attempt) {
+    // Ensure that the resulting extension name (and thus the repository names derived from it) do
+    // not start with a tilde.
+    RepositoryName repository = id.getBzlFileLabel().getRepository();
+    String nonEmptyRepoPart = repository.isMain() ? "_main" : repository.getName();
+    // When using a namespace, prefix the extension name with "_" to distinguish the prefix from
+    // those generated by non-namespaced extension usages. Extension names are identified by their
+    // Starlark identifier, which in the case of an exported symbol cannot start with "_".
+    Preconditions.checkArgument(attempt >= 1);
+    String extensionNameDisambiguator = attempt == 1 ? "" : String.valueOf(attempt);
+    return id.getIsolationKey()
+        .map(
+            namespace ->
+                String.format(
+                    "%s~_%s%s~%s~%s~%s",
+                    nonEmptyRepoPart,
+                    id.getExtensionName(),
+                    extensionNameDisambiguator,
+                    namespace.getModule().getName(),
+                    namespace.getModule().getVersion(),
+                    namespace.getUsageExportedName()))
+        .orElse(nonEmptyRepoPart + "~" + id.getExtensionName() + extensionNameDisambiguator);
   }
 
   static class BazelDepGraphFunctionException extends SkyFunctionException {

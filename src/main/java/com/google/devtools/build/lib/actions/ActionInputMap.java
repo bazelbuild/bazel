@@ -261,6 +261,16 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
     return ((TrieArtifact) value).treeArtifactValue;
   }
 
+  /**
+   * Returns the {@link TreeArtifactValue} for the shortest prefix of the given path, possibly the
+   * path itself, that corresponds to a tree artifact; or {@code null} if no such tree artifact
+   * exists.
+   */
+  @Nullable
+  public TreeArtifactValue getTreeMetadataForPrefix(PathFragment execPath) {
+    return treeArtifactsRoot.findTreeArtifactNodeAtPrefix(execPath);
+  }
+
   @Nullable
   @Override
   public ActionInput getInput(String execPathString) {

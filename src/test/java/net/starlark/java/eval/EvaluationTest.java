@@ -791,7 +791,8 @@ public final class EvaluationTest {
     assertThat(module.getDocumentation()).isNull();
     ParserInput input =
         ParserInput.fromLines(
-            "\"\"\"Module doc header", //
+            "\"\"\"",
+            "Module doc header", //
             "",
             "Module doc details",
             "\"\"\"",
@@ -805,7 +806,7 @@ public final class EvaluationTest {
       StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
       Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
     }
-    assertThat(module.getDocumentation()).isEqualTo("Module doc header\n\nModule doc details\n");
+    assertThat(module.getDocumentation()).isEqualTo("Module doc header\n\nModule doc details");
   }
 
   @Test

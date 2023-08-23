@@ -188,7 +188,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//third_party:junit4",
         "//third_party:truth",
-        "@com_google_testparameterinjector//:testparameterinjector",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )
 
@@ -199,6 +199,7 @@ java_test(
         "no_windows",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//third_party:junit4",
     ],
@@ -232,7 +233,7 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-        "@com_google_testparameterinjector//:testparameterinjector",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )
 
@@ -252,7 +253,8 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-        "@com_google_testparameterinjector//:testparameterinjector",
+        "//third_party/protobuf:protobuf_java",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )
 
@@ -408,7 +410,7 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-        "@com_google_testparameterinjector//:testparameterinjector",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )
 
@@ -480,7 +482,7 @@ java_test(
         "//third_party:junit4",
         "//third_party:truth",
         "//third_party/protobuf:protobuf_java",
-        "@com_google_testparameterinjector//:testparameterinjector",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )
 
@@ -656,7 +658,26 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-        "@com_google_testparameterinjector//:testparameterinjector",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+    ],
+)
+
+java_test(
+    name = "SkymeldOutputServiceBuildIntegrationTest",
+    srcs = ["SkymeldOutputServiceBuildIntegrationTest.java"],
+    tags = [
+        "no_windows",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:output_service",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//third_party:junit4",
+        "//third_party:truth",
     ],
 )
 
@@ -673,6 +694,40 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//third_party:junit4",
         "//third_party:truth",
-        "@com_google_testparameterinjector//:testparameterinjector",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+    ],
+)
+
+java_test(
+    name = "ConvenienceSymlinkTest",
+    srcs = [
+        "ConvenienceSymlinkTest.java",
+    ],
+    tags = ["no_windows"],  # Creates symbolic links.
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/analysis:actions/file_write_action_context",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/transition_factories",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/patch_transition",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/transition_factory",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/exec:file_write_strategy",
+        "//src/main/java/com/google/devtools/build/lib/exec:module_action_context_registry",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )

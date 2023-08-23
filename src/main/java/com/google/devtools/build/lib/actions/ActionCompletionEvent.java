@@ -19,13 +19,18 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 /** An event that is fired after an action completes (either successfully or not). */
 public final class ActionCompletionEvent implements Postable {
 
-  private final long relativeActionStartTime;
+  private final long relativeActionStartTimeNanos;
+  private final long finishTimeNanos;
   private final Action action;
   private final ActionLookupData actionLookupData;
 
   public ActionCompletionEvent(
-      long relativeActionStartTime, Action action, ActionLookupData actionLookupData) {
-    this.relativeActionStartTime = relativeActionStartTime;
+      long relativeActionStartTimeNanos,
+      long finishTimeNanos,
+      Action action,
+      ActionLookupData actionLookupData) {
+    this.relativeActionStartTimeNanos = relativeActionStartTimeNanos;
+    this.finishTimeNanos = finishTimeNanos;
     this.action = action;
     this.actionLookupData = actionLookupData;
   }
@@ -37,8 +42,12 @@ public final class ActionCompletionEvent implements Postable {
     return action;
   }
 
-  public long getRelativeActionStartTime() {
-    return relativeActionStartTime;
+  public long getRelativeActionStartTimeNanos() {
+    return relativeActionStartTimeNanos;
+  }
+
+  public long getFinishTimeNanos() {
+    return finishTimeNanos;
   }
 
   public ActionLookupData getActionLookupData() {
@@ -48,7 +57,8 @@ public final class ActionCompletionEvent implements Postable {
   @Override
   public String toString() {
     return MoreObjects.toStringHelper("ActionCompletionEvent")
-        .add("relativeActionStartTime", relativeActionStartTime)
+        .add("relativeActionStartTimeNanos", relativeActionStartTimeNanos)
+        .add("finishTimeNanos", finishTimeNanos)
         .add("action", action)
         .add("actionLookupData", actionLookupData)
         .toString();

@@ -119,6 +119,7 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
             null,
             /*packageProgress=*/ null,
             PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException.INSTANCE,
+            /* shouldUseRepoDotBazel= */ true,
             GlobbingStrategy.SKYFRAME_HYBRID,
             k -> ThreadStateReceiver.NULL_INSTANCE));
     skyFunctions.put(

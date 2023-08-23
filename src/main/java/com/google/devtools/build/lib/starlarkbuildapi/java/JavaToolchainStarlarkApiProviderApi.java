@@ -27,6 +27,7 @@ import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -53,6 +54,18 @@ public interface JavaToolchainStarlarkApiProviderApi extends StructApi {
   @StarlarkMethod(name = "label", doc = "The toolchain label.", structField = true)
   Label getToolchainLabel();
 
+  @StarlarkMethod(
+      name = "forcibly_disable_header_compilation",
+      documented = false,
+      useStarlarkThread = true)
+  boolean getForciblyDisableHeaderCompilationStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "has_header_compiler", documented = false, useStarlarkThread = true)
+  boolean hasHeaderCompiler(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "has_header_compiler_direct", documented = false, useStarlarkThread = true)
+  boolean hasHeaderCompilerDirect(StarlarkThread thread) throws EvalException;
+
   @StarlarkMethod(name = "single_jar", doc = "The SingleJar deploy jar.", structField = true)
   FilesToRunProviderApi<? extends FileApi> getSingleJar();
 
@@ -73,6 +86,14 @@ public interface JavaToolchainStarlarkApiProviderApi extends StructApi {
   FileApi getOneVersionAllowlist();
 
   @StarlarkMethod(
+      name = "one_version_allowlist_for_tests",
+      doc = "The allowlist used by the One-Version compliance checker to disable enforcement",
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  FileApi getOneVersionAllowlistForTests(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
       name = "bootclasspath",
       doc = "The Java target bootclasspath entries. Corresponds to javac's -bootclasspath flag.",
       structField = true)
@@ -83,6 +104,12 @@ public interface JavaToolchainStarlarkApiProviderApi extends StructApi {
       doc = "The default options for the JVM running the java compiler and associated tools.",
       structField = true)
   Depset getStarlarkJvmOptions();
+
+  @StarlarkMethod(
+      name = "ijar",
+      doc = "A FilesToRunProvider representing the ijar executable.",
+      structField = true)
+  FilesToRunProviderApi<?> getIjar();
 
   @StarlarkMethod(
       name = "jacocorunner",
@@ -146,4 +173,7 @@ public interface JavaToolchainStarlarkApiProviderApi extends StructApi {
       structField = true,
       allowReturnNones = true)
   FilesToRunProviderApi<? extends FileApi> getProguardAllowlister();
+
+  @StarlarkMethod(name = "package_configuration", documented = false, useStarlarkThread = true)
+  Sequence<?> getPackageConfigurationStarlark(StarlarkThread thread) throws EvalException;
 }

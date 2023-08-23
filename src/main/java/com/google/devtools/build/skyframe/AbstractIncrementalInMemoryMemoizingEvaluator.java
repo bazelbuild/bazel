@@ -50,9 +50,11 @@ public abstract class AbstractIncrementalInMemoryMemoizingEvaluator
   protected final GraphInconsistencyReceiver graphInconsistencyReceiver;
   protected final EventFilter eventFilter;
 
-  // Keep edges in graph. Can be false to save memory, in which case incremental builds are
-  // not possible.
-  private final boolean keepEdges;
+  /**
+   * Whether to store edges in the graph. Can be false to save memory, in which case incremental
+   * builds are not possible, and all evaluations will be at {@link Version#constant}.
+   */
+  final boolean keepEdges;
 
   // Values that the caller explicitly specified are assumed to be changed -- they will be
   // re-evaluated even if none of their children are changed.
@@ -60,7 +62,8 @@ public abstract class AbstractIncrementalInMemoryMemoizingEvaluator
 
   protected final EmittedEventState emittedEventState;
 
-  protected IntVersion lastGraphVersion = null;
+  // Null until the first incremental evaluation completes. Always null when not keeping edges.
+  @Nullable protected IntVersion lastGraphVersion = null;
 
   protected AbstractIncrementalInMemoryMemoizingEvaluator(
       ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
@@ -128,7 +131,7 @@ public abstract class AbstractIncrementalInMemoryMemoizingEvaluator
   }
 
   /** Injects values in {@code valuesToInject} into the graph. */
-  protected void injectValues(IntVersion version) {
+  protected void injectValues(Version version) {
     if (valuesToInject.isEmpty()) {
       return;
     }

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.actions.AnalysisGraphStatsEvent;
 import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
+import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseStartedEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
@@ -98,6 +99,7 @@ class MetricsCollector {
   // TopLevelTargetExecutionStartedEvent. This AtomicBoolean is so that we only account for the
   // build once.
   private final AtomicBoolean buildAccountedFor;
+  private long executionStartMillis;
 
   @CanIgnoreReturnValue
   private MetricsCollector(
@@ -156,6 +158,10 @@ class MetricsCollector {
     }
   }
 
+  private void markExecutionPhaseStarted() {
+    executionStartMillis = BlazeClock.instance().currentTimeMillis();
+  }
+
   @SuppressWarnings("unused")
   @Subscribe
   public synchronized void logAnalysisGraphStats(AnalysisGraphStatsEvent event) {
@@ -174,13 +180,17 @@ class MetricsCollector {
   @SuppressWarnings("unused")
   @Subscribe
   public synchronized void logExecutionStartingEvent(ExecutionStartingEvent event) {
+    markExecutionPhaseStarted();
     numBuilds.getAndIncrement();
   }
 
+  // Skymeld-specific: we don't have an ExecutionStartingEvent for skymeld, so we have to use
+  // TopLevelTargetExecutionStartedEvent
   @Subscribe
-  public synchronized void accountForBuild(
+  public synchronized void handleExecutionPhaseStart(
       @SuppressWarnings("unused") TopLevelTargetPendingExecutionEvent event) {
     if (buildAccountedFor.compareAndSet(/*expectedValue=*/ false, /*newValue=*/ true)) {
+      markExecutionPhaseStarted();
       numBuilds.getAndIncrement();
     }
   }
@@ -230,7 +240,7 @@ class MetricsCollector {
     ActionStats actionStats =
         actionStatsMap.computeIfAbsent(event.getAction().getMnemonic(), ActionStats::new);
     actionStats.numActions.incrementAndGet();
-    actionStats.firstStarted.accumulate(event.getRelativeActionStartTime());
+    actionStats.firstStarted.accumulate(event.getRelativeActionStartTimeNanos());
     actionStats.lastEnded.accumulate(BlazeClock.nanoTime());
     spawnStats.incrementActionCount();
   }
@@ -254,6 +264,8 @@ class MetricsCollector {
   @SuppressWarnings("unused")
   @Subscribe
   public void onExecutionComplete(ExecutionFinishedEvent event) {
+    timingMetrics.setExecutionPhaseTimeInMs(
+        BlazeClock.instance().currentTimeMillis() - executionStartMillis);
     artifactMetrics
         .setSourceArtifactsRead(event.sourceArtifactsRead())
         .setOutputArtifactsSeen(event.outputArtifactsSeen())
@@ -281,6 +293,12 @@ class MetricsCollector {
 
   private void postBuildMetricsEvent() {
     env.getEventBus().post(new BuildMetricsEvent(createBuildMetrics()));
+  }
+
+  @SuppressWarnings("unused")
+  @Subscribe
+  private void logActionCacheStatistics(ActionCacheStatistics stats) {
+    actionSummary.setActionCacheStatistics(stats);
   }
 
   private BuildMetrics createBuildMetrics() {

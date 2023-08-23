@@ -260,7 +260,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         .build();
   }
 
-  protected void beforeEvaluateQuery(QueryExpression expr)
+  protected void beforeEvaluateQuery(
+      QueryExpression expr, ThreadSafeOutputFormatterCallback<Target> callback)
       throws QueryException, InterruptedException {
     UniverseSkyKey universeKey = universeScope.getUniverseKey(expr, parserPrefix);
     ImmutableList<String> universeScopeListToUse = universeKey.getPatterns();
@@ -295,10 +296,11 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
                   /* workQueue= */ new BlockingStack<>(),
                   new ThreadFactoryBuilder().setNameFormat("QueryEnvironment %d").build()));
     }
-    resolver = makeNewTargetPatternResolver();
+    resolver = makeNewTargetPatternResolver(expr, callback);
   }
 
-  protected TargetPatternResolver<Target> makeNewTargetPatternResolver() {
+  protected TargetPatternResolver<Target> makeNewTargetPatternResolver(
+      QueryExpression expr, ThreadSafeOutputFormatterCallback<Target> callback) {
     return new RecursivePackageProviderBackedTargetPatternResolver(
         graphBackedRecursivePackageProvider,
         eventHandler,
@@ -458,7 +460,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   public QueryEvalResult evaluateQuery(
       QueryExpression expr, ThreadSafeOutputFormatterCallback<Target> callback)
       throws QueryException, InterruptedException, IOException {
-    beforeEvaluateQuery(expr);
+    beforeEvaluateQuery(expr, callback);
 
     // SkyQueryEnvironment batches callback invocations using a BatchStreamedCallback, created here
     // so that there's one per top-level evaluateQuery call. The batch size is large enough that

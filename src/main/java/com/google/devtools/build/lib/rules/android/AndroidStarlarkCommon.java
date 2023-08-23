@@ -14,14 +14,24 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidSplitTransitionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidStarlarkCommonApi;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 
 /** Common utilities for Starlark rules related to Android. */
-public class AndroidStarlarkCommon implements AndroidStarlarkCommonApi<Artifact, JavaInfo> {
+public class AndroidStarlarkCommon
+    implements AndroidStarlarkCommonApi<
+        Artifact, JavaInfo, FilesToRunProvider, ConstraintValueInfo, StarlarkRuleContext> {
 
   @Override
   public AndroidDeviceBrokerInfo createDeviceBrokerInfo(String deviceBrokerType) {
@@ -52,19 +62,36 @@ public class AndroidStarlarkCommon implements AndroidStarlarkCommonApi<Artifact,
    * fixed.
    */
   @Override
-  public JavaInfo enableImplicitSourcelessDepsExportsCompatibility(
-      JavaInfo javaInfo, boolean neverlink) {
+  public JavaInfo enableImplicitSourcelessDepsExportsCompatibility(Info javaInfo, boolean neverlink)
+      throws RuleErrorException {
     JavaCompilationArgsProvider.ClasspathType type =
         neverlink
             ? JavaCompilationArgsProvider.ClasspathType.COMPILE_ONLY
             : JavaCompilationArgsProvider.ClasspathType.BOTH;
     JavaInfo.Builder builder = JavaInfo.Builder.create();
-    javaInfo
+    JavaInfo.PROVIDER
+        .wrap(javaInfo)
         .compilationArgsProvider()
         .ifPresent(
             args ->
                 builder.javaCompilationArgs(
                     JavaCompilationArgsProvider.builder().addExports(args, type).build()));
     return builder.setNeverlink(neverlink).build();
+  }
+
+  @Override
+  public void createDexMergerActions(
+      StarlarkRuleContext starlarkRuleContext,
+      Artifact output,
+      Artifact input,
+      Sequence<?> dexopts, // <String> expected.
+      FilesToRunProvider dexmerger)
+      throws EvalException, RuleErrorException {
+    AndroidBinary.createTemplatedMergerActions(
+        starlarkRuleContext.getRuleContext(),
+        (SpecialArtifact) output,
+        (SpecialArtifact) input,
+        Sequence.cast(dexopts, String.class, "dexopts"),
+        dexmerger);
   }
 }

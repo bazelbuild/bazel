@@ -595,7 +595,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     StarlarkDefinedAspect aspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
     Attribute attribute = Iterables.getOnlyElement(aspect.getAttributes());
     assertThat(attribute.getName()).isEqualTo("$extra_deps");
-    assertThat(attribute.getDefaultValue())
+    assertThat(attribute.getDefaultValue(null))
         .isEqualTo(Label.parseCanonicalUnchecked("//foo/bar:baz"));
   }
 
@@ -870,6 +870,11 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     Attribute documented =
         buildAttribute("documented", String.format("attr.%s(doc='foo')", attrType));
     assertThat(documented.getDoc()).isEqualTo("foo");
+    Attribute documentedNeedingDedent =
+        buildAttribute(
+            "documented",
+            String.format("attr.%s(doc='''foo\n\n    More details.\n    ''')", attrType));
+    assertThat(documentedNeedingDedent.getDoc()).isEqualTo("foo\n\nMore details.");
     Attribute undocumented = buildAttribute("undocumented", String.format("attr.%s()", attrType));
     assertThat(undocumented.getDoc()).isNull();
   }
@@ -899,11 +904,21 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         ev,
         "def impl(ctx):",
         "    return None",
-        "documented_rule = rule(impl, doc='My doc string')",
+        "documented_rule = rule(impl, doc = 'My doc string')",
+        "long_documented_rule = rule(",
+        "    impl,",
+        "    doc = '''Long doc",
+        "",
+        "             With details",
+        "''',",
+        ")",
         "undocumented_rule = rule(impl)");
     StarlarkRuleFunction documentedRule = (StarlarkRuleFunction) ev.lookup("documented_rule");
+    StarlarkRuleFunction longDocumentedRule =
+        (StarlarkRuleFunction) ev.lookup("long_documented_rule");
     StarlarkRuleFunction undocumentedRule = (StarlarkRuleFunction) ev.lookup("undocumented_rule");
     assertThat(documentedRule.getDocumentation()).hasValue("My doc string");
+    assertThat(longDocumentedRule.getDocumentation()).hasValue("Long doc\n\nWith details");
     assertThat(undocumentedRule.getDocumentation()).isEmpty();
   }
 
@@ -990,73 +1005,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     String fooName = ((StarlarkRuleFunction) ev.lookup("foo")).getRuleClass().getName();
     assertThat(dName).isEqualTo("d");
     assertThat(fooName).isEqualTo("d");
-  }
-
-  @Test
-  public void testExportWithSpecifiedName() throws Exception {
-    setBuildLanguageOptions("--noincompatible_remove_rule_name_parameter");
-    evalAndExport(
-        ev, //
-        "def _impl(ctx): pass",
-        "a = rule(implementation = _impl, name = 'r')",
-        "z = a");
-
-    String aName = ((StarlarkRuleFunction) ev.lookup("a")).getRuleClass().getName();
-    assertThat(aName).isEqualTo("r");
-    String zName = ((StarlarkRuleFunction) ev.lookup("z")).getRuleClass().getName();
-    assertThat(zName).isEqualTo("r");
-  }
-
-  @Test
-  public void testExportWithSpecifiedNameFailure() throws Exception {
-    setBuildLanguageOptions("--noincompatible_remove_rule_name_parameter");
-    ev.setFailFast(false);
-
-    evalAndExport(
-        ev, //
-        "def _impl(ctx): pass",
-        "rule(implementation = _impl, name = '1a')");
-
-    ev.assertContainsError("Invalid rule name: 1a");
-  }
-
-  @Test
-  public void testExportWithNonStringNameFailsCleanly() throws Exception {
-    setBuildLanguageOptions("--noincompatible_remove_rule_name_parameter");
-    ev.setFailFast(false);
-
-    evalAndExport(
-        ev, //
-        "def _impl(ctx): pass",
-        "rule(implementation = _impl, name = {'not_a_string': True})");
-
-    ev.assertContainsError("got value of type 'dict', want 'string or NoneType'");
-  }
-
-  @Test
-  public void testExportWithMultipleErrors() throws Exception {
-    setBuildLanguageOptions("--noincompatible_remove_rule_name_parameter");
-    ev.setFailFast(false);
-
-    evalAndExport(
-        ev,
-        "def _impl(ctx): pass",
-        "rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'name' : attr.string(),",
-        "    'tags' : attr.string_list(),",
-        "  },",
-        "  name = '1a',",
-        ")");
-
-    ev.assertContainsError(
-        "Error in rule: Errors in exporting 1a: \n"
-            + "cannot add attribute: There is already a built-in attribute 'name' which cannot be"
-            + " overridden.\n"
-            + "cannot add attribute: There is already a built-in attribute 'tags' which cannot be"
-            + " overridden.\n"
-            + "Invalid rule name: 1a");
   }
 
   @Test
@@ -1787,10 +1735,13 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     evalAndExport(
         ev,
         "UndocumentedInfo = provider()",
-        "DocumentedInfo = provider(doc = 'My documented provider')",
+        "DocumentedInfo = provider(doc = '''",
+        "    My documented provider",
+        "",
+        "    Details''')",
         // Note fields below are not alphabetized
         "SchemafulWithoutDocsInfo = provider(fields = ['b', 'a'])",
-        "SchemafulWithDocsInfo = provider(fields = {'b': 'Field b', 'a': 'Field a'})");
+        "SchemafulWithDocsInfo = provider(fields = {'b': 'Field b', 'a': 'Field\\n    a'})");
 
     StarlarkProvider undocumentedInfo = (StarlarkProvider) ev.lookup("UndocumentedInfo");
     StarlarkProvider documentedInfo = (StarlarkProvider) ev.lookup("DocumentedInfo");
@@ -1799,11 +1750,11 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     StarlarkProvider schemafulWithDocsInfo = (StarlarkProvider) ev.lookup("SchemafulWithDocsInfo");
 
     assertThat(undocumentedInfo.getDocumentation()).isEmpty();
-    assertThat(documentedInfo.getDocumentation()).hasValue("My documented provider");
+    assertThat(documentedInfo.getDocumentation()).hasValue("My documented provider\n\nDetails");
     assertThat(schemafulWithoutDocsInfo.getSchema())
         .containsExactly("b", Optional.empty(), "a", Optional.empty());
     assertThat(schemafulWithDocsInfo.getSchema())
-        .containsExactly("b", Optional.of("Field b"), "a", Optional.of("Field a"));
+        .containsExactly("b", Optional.of("Field b"), "a", Optional.of("Field\na"));
   }
 
   @Test
@@ -2266,10 +2217,20 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "def _impl(target, ctx):", //
         "   pass",
         "documented_aspect = aspect(_impl, doc='My doc string')",
+        "long_documented_aspect = aspect(",
+        "    _impl,",
+        "    doc='''",
+        "           My doc string",
+        "           ",
+        "           With details''',",
+        ")",
         "undocumented_aspect = aspect(_impl)");
 
     StarlarkDefinedAspect documentedAspect = (StarlarkDefinedAspect) ev.lookup("documented_aspect");
     assertThat(documentedAspect.getDocumentation()).hasValue("My doc string");
+    StarlarkDefinedAspect longDocumentedAspect =
+        (StarlarkDefinedAspect) ev.lookup("long_documented_aspect");
+    assertThat(longDocumentedAspect.getDocumentation()).hasValue("My doc string\n\nWith details");
     StarlarkDefinedAspect undocumentedAspect =
         (StarlarkDefinedAspect) ev.lookup("undocumented_aspect");
     assertThat(undocumentedAspect.getDocumentation()).isEmpty();
@@ -2716,7 +2677,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     getConfiguredTarget("//r:r");
 
     ev.assertContainsError(
-        "Error in unexported rule: Invalid rule class hasn't been exported by a bzl file");
+        "rule() can only be used during .bzl initialization (top-level evaluation)");
   }
 
   @Test

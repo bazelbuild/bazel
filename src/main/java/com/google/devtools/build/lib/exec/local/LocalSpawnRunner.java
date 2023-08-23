@@ -59,13 +59,13 @@ import com.google.devtools.build.lib.util.NetUtil;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
 import java.io.File;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
+import java.nio.file.Files;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -93,7 +93,6 @@ public class LocalSpawnRunner implements SpawnRunner {
   private final String hostName;
 
   private final LocalExecutionOptions localExecutionOptions;
-  private final XattrProvider xattrProvider;
 
   @Nullable private final ProcessWrapper processWrapper;
 
@@ -109,12 +108,10 @@ public class LocalSpawnRunner implements SpawnRunner {
       LocalEnvProvider localEnvProvider,
       BinTools binTools,
       ProcessWrapper processWrapper,
-      XattrProvider xattrProvider,
       RunfilesTreeUpdater runfilesTreeUpdater) {
     this.execRoot = execRoot;
     this.processWrapper = processWrapper;
     this.localExecutionOptions = Preconditions.checkNotNull(localExecutionOptions);
-    this.xattrProvider = xattrProvider;
     this.hostName = NetUtil.getCachedShortHostName();
     this.resourceManager = resourceManager;
     this.localEnvProvider = localEnvProvider;
@@ -134,13 +131,8 @@ public class LocalSpawnRunner implements SpawnRunner {
     SpawnMetrics.Builder spawnMetrics = SpawnMetrics.Builder.forLocalExec();
     Stopwatch totalTimeStopwatch = Stopwatch.createStarted();
     Stopwatch setupTimeStopwatch = Stopwatch.createStarted();
-    runfilesTreeUpdater.updateRunfilesDirectory(
-        execRoot,
-        spawn.getRunfilesSupplier(),
-        binTools,
-        spawn.getEnvironment(),
-        context.getFileOutErr(),
-        xattrProvider);
+    runfilesTreeUpdater.updateRunfiles(
+        spawn.getRunfilesSupplier(), spawn.getEnvironment(), context.getFileOutErr());
     if (Spawns.shouldPrefetchInputsForLocalExecution(spawn)) {
       context.prefetchInputsAndWait();
     }
@@ -193,7 +185,7 @@ public class LocalSpawnRunner implements SpawnRunner {
 
   protected Path createActionTemp(Path execRoot) throws IOException {
     return execRoot.getRelative(
-        java.nio.file.Files.createTempDirectory(
+        Files.createTempDirectory(
                 java.nio.file.Paths.get(execRoot.getPathString()), "local-spawn-runner.")
             .getFileName()
             .toString());
@@ -410,10 +402,8 @@ public class LocalSpawnRunner implements SpawnRunner {
                   .commandLineBuilder(spawn.getArguments())
                   .addExecutionInfo(spawn.getExecutionInfo())
                   .setTimeout(context.getTimeout());
-          if (localExecutionOptions.collectLocalExecutionStatistics) {
-            statisticsPath = tmpDir.getRelative("stats.out");
-            commandLineBuilder.setStatisticsPath(statisticsPath);
-          }
+          statisticsPath = tmpDir.getRelative("stats.out");
+          commandLineBuilder.setStatisticsPath(statisticsPath);
           args = ImmutableList.copyOf(commandLineBuilder.build());
         } else {
           subprocessBuilder.setTimeoutMillis(context.getTimeout().toMillis());
@@ -435,7 +425,8 @@ public class LocalSpawnRunner implements SpawnRunner {
         TerminationStatus terminationStatus;
         try (SilentCloseable c =
             Profiler.instance()
-                .profile(ProfilerTask.PROCESS_TIME, spawn.getResourceOwner().getMnemonic())) {
+                .profile(
+                    ProfilerTask.REMOTE_PROCESS_TIME, spawn.getResourceOwner().getMnemonic())) {
           needCleanup = true;
           Subprocess subprocess = subprocessBuilder.start();
           try {
@@ -489,7 +480,7 @@ public class LocalSpawnRunner implements SpawnRunner {
         if (status != Status.SUCCESS) {
           spawnResultBuilder.setFailureDetail(makeFailureDetail(exitCode, status, actionType));
         }
-        if (statisticsPath != null) {
+        if (statisticsPath != null && statisticsPath.exists()) {
           ExecutionStatistics.getResourceUsage(statisticsPath)
               .ifPresent(
                   resourceUsage -> {

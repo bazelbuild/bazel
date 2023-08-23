@@ -15,9 +15,19 @@ package com.google.devtools.build.lib.analysis.producers;
 
 import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.configurationId;
 
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.ToolchainCollection;
+import com.google.devtools.build.lib.analysis.ToolchainContext;
+import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
+import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.Aspect;
+import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import javax.annotation.Nullable;
@@ -26,26 +36,50 @@ import net.starlark.java.syntax.Location;
 /** Common parameters for computing prerequisites. */
 public final class PrerequisiteParameters {
   private final ConfiguredTargetKey configuredTargetKey;
-  @Nullable private final Rule associatedRule;
+  private final Target target;
 
+  private final ImmutableList<Aspect> aspects;
+  @Nullable private final StarlarkAttributeTransitionProvider starlarkTransitionProvider;
+  private final StarlarkTransitionCache transitionCache;
+  @Nullable private final ToolchainCollection<ToolchainContext> toolchainContexts;
+
+  @Nullable private final ConfiguredAttributeMapper attributeMap;
   private final TransitiveDependencyState transitiveState;
+
+  private final ExtendedEventHandler eventHandler;
 
   public PrerequisiteParameters(
       ConfiguredTargetKey configuredTargetKey,
-      @Nullable Rule associatedRule,
-      TransitiveDependencyState transitiveState) {
+      Target target,
+      Iterable<Aspect> aspects,
+      @Nullable StarlarkAttributeTransitionProvider starlarkTransitionProvider,
+      StarlarkTransitionCache transitionCache,
+      @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
+      @Nullable ConfiguredAttributeMapper attributeMap,
+      TransitiveDependencyState transitiveState,
+      ExtendedEventHandler eventHandler) {
     this.configuredTargetKey = configuredTargetKey;
-    this.associatedRule = associatedRule;
+    this.target = target;
+    this.aspects = ImmutableList.copyOf(aspects);
+    this.starlarkTransitionProvider = starlarkTransitionProvider;
+    this.transitionCache = transitionCache;
+    this.toolchainContexts = toolchainContexts;
+    this.attributeMap = attributeMap;
     this.transitiveState = transitiveState;
+    this.eventHandler = eventHandler;
   }
 
   public Label label() {
     return configuredTargetKey.getLabel();
   }
 
+  public Target target() {
+    return target;
+  }
+
   @Nullable
   public Rule associatedRule() {
-    return associatedRule;
+    return target.getAssociatedRule();
   }
 
   @Nullable
@@ -53,19 +87,51 @@ public final class PrerequisiteParameters {
     return configuredTargetKey.getConfigurationKey();
   }
 
+  public ImmutableList<Aspect> aspects() {
+    return aspects;
+  }
+
   @Nullable
+  public StarlarkAttributeTransitionProvider starlarkTransitionProvider() {
+    return starlarkTransitionProvider;
+  }
+
+  public StarlarkTransitionCache transitionCache() {
+    return transitionCache;
+  }
+
+  @Nullable
+  public ToolchainCollection<ToolchainContext> toolchainContexts() {
+    return toolchainContexts;
+  }
+
+  @Nullable // Non-null for rules, and output files when there are aspects that apply to files.
+  public ConfiguredAttributeMapper attributeMap() {
+    return attributeMap;
+  }
+
   public Location location() {
-    if (associatedRule == null) {
-      return null;
-    }
-    return associatedRule.getLocation();
+    return target.getLocation();
   }
 
   public BuildEventId eventId() {
     return configurationId(configurationKey());
   }
 
+  @Nullable
+  public Label getExecutionPlatformLabel(String execGroup) {
+    var platform = toolchainContexts.getToolchainContext(execGroup).executionPlatform();
+    if (platform == null) {
+      return null;
+    }
+    return platform.label();
+  }
+
   public TransitiveDependencyState transitiveState() {
     return transitiveState;
+  }
+
+  public ExtendedEventHandler eventHandler() {
+    return eventHandler;
   }
 }

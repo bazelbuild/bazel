@@ -25,11 +25,11 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST_DICT;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
@@ -257,6 +257,16 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
                 .cfg(ExecutionTransitionFactory.createFactory())
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .exec())
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(oneversion_allowlist_for_tests) -->
+        Label of the one-version allowlist for tests.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("oneversion_allowlist_for_tests", LABEL)
+                .singleArtifact()
+                // This needs to be in the execution configuration.
+                .cfg(ExecutionTransitionFactory.createFactory())
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .exec())
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(forcibly_disable_header_compilation) -->
         Overrides --java_header_compilation to disable header compilation on platforms that do not
         support it, e.g. JDK 7 Bazel.
@@ -360,7 +370,7 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
             attr("jspecify_packages", LABEL_LIST)
                 .cfg(ExecutionTransitionFactory.createFactory())
                 .allowedFileTypes()
-                .mandatoryProviders(ImmutableList.of(PackageGroupConfiguredTarget.PROVIDER.id()))
+                .mandatoryBuiltinProviders(ImmutableList.of(PackageSpecificationProvider.class))
                 .undocumented("experimental"))
         .add(
             attr(":bytecode_optimizer", LABEL)

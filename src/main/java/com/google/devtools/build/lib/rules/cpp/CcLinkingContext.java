@@ -47,7 +47,8 @@ import net.starlark.java.eval.StarlarkThread;
 
 /** Structure of CcLinkingContext. */
 public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
-  public static final CcLinkingContext EMPTY = builder().build();
+  public static final CcLinkingContext EMPTY =
+      builder().setExtraLinkTimeLibraries(ExtraLinkTimeLibraries.EMPTY).build();
 
   /** A list of link options contributed by a single configured target/aspect. */
   @Immutable
@@ -400,6 +401,9 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   }
 
   public static CcLinkingContext merge(List<CcLinkingContext> ccLinkingContexts) {
+    if (ccLinkingContexts.isEmpty()) {
+      return EMPTY;
+    }
     Builder mergedCcLinkingContext = CcLinkingContext.builder();
     ExtraLinkTimeLibraries.Builder mergedExtraLinkTimeLibraries = ExtraLinkTimeLibraries.builder();
     for (CcLinkingContext ccLinkingContext : ccLinkingContexts) {

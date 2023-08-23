@@ -62,11 +62,13 @@ java_test(
     data = ["//tools/build_defs/inspect:defs"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/net/starlark/java/eval",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
+        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
     ],
@@ -77,12 +79,15 @@ java_test(
     srcs = ["JavaInfoStarlarkApiTest.java"],
     deps = [
         ":java_toolchain_test_util",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/net/starlark/java/eval",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
@@ -99,6 +104,21 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//third_party:junit4",
         "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "JavaCompilationInfoProviderTest",
+    srcs = ["JavaCompilationInfoProviderTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//third_party:guava-testlib",
+        "//third_party:junit4",
     ],
 )
 
@@ -164,15 +184,16 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/template_expansion_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
-        "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/instrumented_files_info",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/java",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
@@ -180,6 +201,7 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )
 

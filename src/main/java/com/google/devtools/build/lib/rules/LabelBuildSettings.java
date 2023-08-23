@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.BuildSetting;
+import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.rules.LateBoundAlias.AbstractAliasRule;
@@ -49,13 +50,16 @@ import net.starlark.java.eval.Starlark;
  * we'd have to be able to load and configure potentially arbitrary labels on the fly. This is not
  * possible today and could easily introduce large performance issues.
  */
-public class LabelBuildSettings {
+public final class LabelBuildSettings {
   @SerializationConstant @VisibleForSerialization
   // TODO(b/65746853): find a way to do this without passing the entire BuildConfigurationValue
   static final LabelLateBoundDefault<BuildConfigurationValue> ACTUAL =
-      LabelLateBoundDefault.fromTargetConfiguration(
+      LabelLateBoundDefault.fromTargetConfigurationWithRuleBasedDefault(
           BuildConfigurationValue.class,
-          null,
+          (rule) ->
+              // RawAttributeMapper means this attribute can't be select()able (which it isn't).
+              RawAttributeMapper.of(rule)
+                  .get(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, NODEP_LABEL),
           (rule, attributes, configuration) -> {
             if (rule == null || configuration == null) {
               return attributes.get(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, NODEP_LABEL);
@@ -110,4 +114,6 @@ public class LabelBuildSettings {
       return buildRuleClass(builder, /*flag=*/ true);
     }
   }
+
+  private LabelBuildSettings() {}
 }

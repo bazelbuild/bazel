@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
+import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.ShellConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -86,6 +87,7 @@ import com.google.devtools.build.lib.rules.android.AndroidManifestInfo;
 import com.google.devtools.build.lib.rules.android.AndroidNativeLibsInfo;
 import com.google.devtools.build.lib.rules.android.AndroidNeverLinkLibrariesProvider;
 import com.google.devtools.build.lib.rules.android.AndroidNeverlinkAspect;
+import com.google.devtools.build.lib.rules.android.AndroidOptimizationInfo;
 import com.google.devtools.build.lib.rules.android.AndroidOptimizedJarInfo;
 import com.google.devtools.build.lib.rules.android.AndroidPreDexJarProvider;
 import com.google.devtools.build.lib.rules.android.AndroidProguardInfo;
@@ -115,7 +117,6 @@ import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainRule;
 import com.google.devtools.build.lib.rules.python.PyRuleClasses.PySymlink;
 import com.google.devtools.build.lib.rules.python.PyRuntimeRule;
-import com.google.devtools.build.lib.rules.python.PyStarlarkTransitions;
 import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
 import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryRule;
@@ -437,7 +438,8 @@ public class BazelRuleClassProvider {
                   BaselineProfileProvider.PROVIDER,
                   AndroidNeverLinkLibrariesProvider.PROVIDER,
                   AndroidOptimizedJarInfo.PROVIDER,
-                  AndroidDexInfo.PROVIDER);
+                  AndroidDexInfo.PROVIDER,
+                  AndroidOptimizationInfo.PROVIDER);
           builder.addStarlarkBootstrap(bootstrap);
 
           try {
@@ -479,7 +481,7 @@ public class BazelRuleClassProvider {
               ContextGuardedValue.onlyInAllowedRepos(
                   Starlark.NONE, PyBootstrap.allowedRepositories));
           builder.addStarlarkBuiltinsInternal(BazelPyBuiltins.NAME, new BazelPyBuiltins());
-          builder.addStarlarkBootstrap(new PyBootstrap(PyStarlarkTransitions.INSTANCE));
+          builder.addStarlarkBootstrap(new PyBootstrap());
           builder.addSymlinkDefinition(PySymlink.PY2);
           builder.addSymlinkDefinition(PySymlink.PY3);
 
@@ -523,6 +525,14 @@ public class BazelRuleClassProvider {
         }
       };
 
+  static final RuleSet PACKAGING_RULES =
+      new RuleSet() {
+        @Override
+        public void init(ConfiguredRuleClassProvider.Builder builder) {
+          builder.addBzlToplevel("PackageSpecificationInfo", PackageSpecificationProvider.PROVIDER);
+        }
+      };
+
   private static final ImmutableSet<RuleSet> RULE_SETS =
       ImmutableSet.of(
           BAZEL_SETUP,
@@ -543,6 +553,7 @@ public class BazelRuleClassProvider {
           J2ObjcRules.INSTANCE,
           TestingSupportRules.INSTANCE,
           VARIOUS_WORKSPACE_RULES,
+          PACKAGING_RULES,
           // This rule set is a little special: it needs to depend on every configuration fragment
           // that has Make variables, so we put it last.
           ToolchainRules.INSTANCE);

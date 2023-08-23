@@ -228,17 +228,20 @@ public final class AspectCollection {
       AspectDeps aspectDeps,
       Map<AspectDescriptor, AspectKey> visited,
       ConfiguredTargetKey baseKey) {
-    if (visited.containsKey(aspectDeps.getAspect())) {
-      return (AspectKey) visited.get(aspectDeps.getAspect()).argument();
+    AspectDescriptor aspect = aspectDeps.getAspect();
+    AspectKey aspectKey = visited.get(aspect);
+    if (aspectKey != null) {
+      return aspectKey;
     }
 
-    ImmutableList.Builder<AspectKey> dependentAspects = ImmutableList.builder();
-    for (AspectCollection.AspectDeps path : aspectDeps.getUsedAspects()) {
-      dependentAspects.add(buildAspectKey(path, visited, baseKey));
+    ImmutableList<AspectDeps> usedAspects = aspectDeps.getUsedAspects();
+    var usedAspectKeys = ImmutableList.<AspectKey>builderWithExpectedSize(usedAspects.size());
+    for (AspectCollection.AspectDeps usedAspect : usedAspects) {
+      usedAspectKeys.add(buildAspectKey(usedAspect, visited, baseKey));
     }
-    AspectKey aspectKey =
-        AspectKeyCreator.createAspectKey(aspectDeps.getAspect(), dependentAspects.build(), baseKey);
-    visited.put(aspectKey.getAspectDescriptor(), aspectKey);
+
+    aspectKey = AspectKeyCreator.createAspectKey(aspect, usedAspectKeys.build(), baseKey);
+    visited.put(aspect, aspectKey);
     return aspectKey;
   }
 

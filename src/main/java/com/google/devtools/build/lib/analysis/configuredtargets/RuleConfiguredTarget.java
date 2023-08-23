@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -88,7 +88,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   @Instantiator
   @VisibleForSerialization
   RuleConfiguredTarget(
-      ActionLookupKeyOrProxy actionLookupKey,
+      ActionLookupKey actionLookupKey,
       NestedSet<PackageGroupContents> visibility,
       TransitiveInfoProviderMap providers,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
@@ -154,7 +154,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
 
   /** Use this constructor for creating incompatible ConfiguredTarget instances. */
   public RuleConfiguredTarget(
-      ActionLookupKeyOrProxy actionLookupKey,
+      ActionLookupKey actionLookupKey,
       NestedSet<PackageGroupContents> visibility,
       TransitiveInfoProviderMap providers,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
@@ -290,7 +290,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  public Dict<String, Object> getProvidersDict() {
-    return ConfiguredTargetsUtil.getProvidersDict(this, providers);
+  public Dict<String, Object> getProvidersDictForQuery() {
+    return toProvidersDictForQuery(providers);
   }
 }

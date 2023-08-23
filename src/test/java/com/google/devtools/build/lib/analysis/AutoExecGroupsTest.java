@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.analysis.actions.LazyWritePathsFileAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
@@ -594,6 +593,37 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         /* execCompatibleWith= */ "");
     useConfiguration("--incompatible_auto_exec_groups");
 
+    getConfiguredTarget("//test:custom_rule_name");
+
+    assertNoEvents();
+  }
+
+  @Test
+  public void execGroupSetOnAction_noToolchainParameter_noError() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('test_' + ctx.label.name + '.jar')",
+        "  ctx.actions.run(",
+        "    outputs = [output_jar],",
+        "    executable = ctx.toolchains['//rule:toolchain_type_2'].tool,",
+        "    exec_group = 'custom_exec_group',",
+        "  )",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  exec_groups = { ",
+        "    'custom_exec_group': exec_group(toolchains = ['//rule:toolchain_type_2']),",
+        "  },",
+        "  toolchains = ['//rule:toolchain_type_2'],",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'custom_rule')",
+        "custom_rule(name = 'custom_rule_name')");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:custom_rule_name");
 
     assertNoEvents();
@@ -1247,7 +1277,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     useConfiguration("--incompatible_auto_exec_groups");
 
     ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
-    JavaInfo javaInfo = (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
+    JavaInfo javaInfo = target.get(JavaInfo.PROVIDER);
     Action genSrcOutputAction =
         getGeneratingAction(javaInfo.getOutputJars().getAllSrcOutputJars().get(0));
     JavaGenJarsProvider javaGenJarsProvider = javaInfo.getGenJarsProvider();
@@ -1297,7 +1327,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "custom_rule(name = 'custom_rule_name')");
 
     ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
-    JavaInfo javaInfo = (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
+    JavaInfo javaInfo = target.get(JavaInfo.PROVIDER);
     Action genSrcOutputAction =
         getGeneratingAction(javaInfo.getOutputJars().getAllSrcOutputJars().get(0));
     JavaGenJarsProvider javaGenJarsProvider = javaInfo.getGenJarsProvider();
@@ -1391,7 +1421,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
       javaCommonCompile_automaticExecGroupsEnabled_javaResourceActionsExecuteOnFirstPlatform()
           throws Exception {
     scratch.file(
-        "bazel_internal/test/defs.bzl",
+        "bazel_internal/test_rules/defs.bzl",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
         "  java_info = java_common.compile(",
@@ -1399,8 +1429,6 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "    output = output_jar,",
         "    java_toolchain = ctx.toolchains['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'].java,",
         "    resources = ctx.files.resources,",
-        "    resource_jars = ctx.files.resource_jars,",
-        "    classpath_resources = ctx.files.classpath_resources,",
         "  )",
         "  return [java_info, DefaultInfo(files = depset([output_jar]))]",
         "custom_rule = rule(",
@@ -1408,21 +1436,18 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "  toolchains = ['//rule:toolchain_type_2', '" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  attrs = {",
         "    'resources': attr.label_list(allow_files = True),",
-        "    'resource_jars': attr.label_list(allow_files = True),",
-        "    'classpath_resources': attr.label_list(allow_files = True),",
         "  },",
         "  provides = [JavaInfo],",
         "  fragments = ['java']",
         ")");
     scratch.file(
-        "bazel_internal/test/BUILD",
-        "load('//bazel_internal/test:defs.bzl', 'custom_rule')",
-        "custom_rule(name = 'custom_rule_name', resources = ['Resources.java'], resource_jars ="
-            + " ['ResourceJars.java'], classpath_resources = ['ClasspathResources.java'])");
+        "bazel_internal/test_rules/BUILD",
+        "load('//bazel_internal/test_rules:defs.bzl', 'custom_rule')",
+        "custom_rule(name = 'custom_rule_name', resources = ['Resources.java'])");
     useConfiguration(
         "--incompatible_auto_exec_groups", "--experimental_turbine_annotation_processing");
 
-    ImmutableList<Action> actions = getActions("//bazel_internal/test:custom_rule_name");
+    ImmutableList<Action> actions = getActions("//bazel_internal/test_rules:custom_rule_name");
     ImmutableList<Action> javaResourceActions =
         actions.stream()
             .filter(action -> action.getMnemonic().equals("JavaResourceJar"))
@@ -1438,7 +1463,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
       javaCommonCompile_automaticExecGroupsDisabled_javaResourceActionsExecuteOnSecondPlatform()
           throws Exception {
     scratch.file(
-        "bazel_internal/test/defs.bzl",
+        "bazel_internal/test_rules/defs.bzl",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
         "  java_info = java_common.compile(",
@@ -1446,8 +1471,6 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "    output = output_jar,",
         "    java_toolchain = ctx.toolchains['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'].java,",
         "    resources = ctx.files.resources,",
-        "    resource_jars = ctx.files.resource_jars,",
-        "    classpath_resources = ctx.files.classpath_resources,",
         "  )",
         "  return [java_info, DefaultInfo(files = depset([output_jar]))]",
         "custom_rule = rule(",
@@ -1455,20 +1478,17 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "  toolchains = ['//rule:toolchain_type_2', '" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  attrs = {",
         "    'resources': attr.label_list(allow_files = True),",
-        "    'resource_jars': attr.label_list(allow_files = True),",
-        "    'classpath_resources': attr.label_list(allow_files = True),",
         "  },",
         "  provides = [JavaInfo],",
         "  fragments = ['java']",
         ")");
     scratch.file(
-        "bazel_internal/test/BUILD",
-        "load('//bazel_internal/test:defs.bzl', 'custom_rule')",
-        "custom_rule(name = 'custom_rule_name', resources = ['Resources.java'], resource_jars ="
-            + " ['ResourceJars.java'], classpath_resources = ['ClasspathResources.java'])");
+        "bazel_internal/test_rules/BUILD",
+        "load('//bazel_internal/test_rules:defs.bzl', 'custom_rule')",
+        "custom_rule(name = 'custom_rule_name', resources = ['Resources.java'])");
     useConfiguration("--experimental_turbine_annotation_processing");
 
-    ImmutableList<Action> actions = getActions("//bazel_internal/test:custom_rule_name");
+    ImmutableList<Action> actions = getActions("//bazel_internal/test_rules:custom_rule_name");
     ImmutableList<Action> javaResourceActions =
         actions.stream()
             .filter(action -> action.getMnemonic().equals("JavaResourceJar"))
@@ -1508,10 +1528,12 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "custom_rule(name = 'custom_rule_name')");
     useConfiguration("--incompatible_auto_exec_groups");
 
-    ImmutableList<Action> actions = getActions("//test:custom_rule_name", SpawnAction.class);
+    ImmutableList<Action> actions =
+        getActions("//test:custom_rule_name").stream()
+            .filter(action -> action.getMnemonic().equals("JavaIjar"))
+            .collect(toImmutableList());
 
     assertThat(actions).hasSize(1);
-    assertThat(actions.get(0).getMnemonic()).isEqualTo("JavaIjar");
     assertThat(actions.get(0).getOwner().getExecutionPlatform().label())
         .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
   }
@@ -1540,10 +1562,12 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "custom_rule(name = 'custom_rule_name')");
     useConfiguration("--incompatible_auto_exec_groups");
 
-    ImmutableList<Action> actions = getActions("//test:custom_rule_name", SpawnAction.class);
+    ImmutableList<Action> actions =
+        getActions("//test:custom_rule_name").stream()
+            .filter(action -> action.getMnemonic().equals("JavaSourceJar"))
+            .collect(toImmutableList());
 
     assertThat(actions).hasSize(1);
-    assertThat(actions.get(0).getMnemonic()).isEqualTo("JavaSourceJar");
     assertThat(actions.get(0).getOwner().getExecutionPlatform().label())
         .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
   }
@@ -1578,11 +1602,15 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "custom_rule(name = 'custom_rule_name')");
     useConfiguration("--incompatible_auto_exec_groups");
 
-    ImmutableList<Action> actions = getActions("//test:custom_rule_name", SpawnAction.class);
+    ImmutableList<Action> actions =
+        getActions("//test:custom_rule_name").stream()
+            .filter(action -> action.getMnemonic().equals("JavaIjar"))
+            .collect(toImmutableList());
+    ;
 
     assertThat(actions).hasSize(1);
     assertThat(actions.get(0).getProgressMessage())
-        .isEqualTo("Stamping target label into jar lib_custom_rule_name.jar");
+        .matches("Stamping target label into jar .*/lib_custom_rule_name.jar");
     assertThat(actions.get(0).getOwner().getExecutionPlatform().label())
         .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
   }
@@ -2184,5 +2212,46 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     assertThat(actions).hasSize(1);
     assertThat(actions.get(0).getOwner().getExecutionPlatform().label())
         .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
+  }
+
+  @Test
+  public void testToolchainAsAlias() throws Exception {
+    scratch.file(
+        "test/alias/BUILD",
+        "alias(",
+        "    name = 'alias_toolchain_type',",
+        "    actual = '//rule:toolchain_type_1',",
+        ")");
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  toolchains = ['//test/alias:alias_toolchain_type'],",
+        "  exec_groups = { ",
+        "    'custom_exec_group': exec_group(",
+        "         toolchains = ['//rule:toolchain_type_1']",
+        "    ),",
+        "  }",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "package(default_visibility = ['//visibility:public'])",
+        "load('//test:defs.bzl', 'custom_rule')",
+        "custom_rule(",
+        "  name = 'custom_rule_name',",
+        ")");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
+    RuleContext ruleContext = getRuleContext(target);
+    ToolchainInfo realToolchainInfo =
+        ruleContext.getToolchainInfo(Label.parseCanonical("//rule:toolchain_type_1"));
+    ToolchainInfo aliasToolchainInfo =
+        ruleContext.getToolchainInfo(Label.parseCanonical("//test/alias:alias_toolchain_type"));
+
+    assertThat(realToolchainInfo).isNotNull();
+    assertThat(realToolchainInfo).isEqualTo(aliasToolchainInfo);
   }
 }

@@ -13,13 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
+
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -34,53 +37,70 @@ import net.starlark.java.syntax.Location;
 public final class ConfiguredValueCreationException extends Exception
     implements SaneAnalysisException {
 
+  private final Target target;
+  private final Label label;
   @Nullable private final Location location;
-  @Nullable private final BuildEventId configuration;
+  private final BuildEventId configuration;
   private final NestedSet<Cause> rootCauses;
   // TODO(b/138456686): if warranted by a need for finer-grained details, replace the constructors
   //  that specify the general Code.CONFIGURED_VALUE_CREATION_FAILED
   private final DetailedExitCode detailedExitCode;
 
   public ConfiguredValueCreationException(
+      @Nullable Target target,
       @Nullable Location location,
       String message,
       Label label,
-      @Nullable BuildEventId configuration,
+      BuildEventId configuration,
       @Nullable NestedSet<Cause> rootCauses,
       @Nullable DetailedExitCode detailedExitCode) {
     super(message);
+    this.target = target;
+    this.label = label;
     this.location = location;
     this.configuration = configuration;
-    this.detailedExitCode =
+    DetailedExitCode exitCode =
         detailedExitCode != null ? detailedExitCode : createDetailedExitCode(message);
+    this.detailedExitCode = exitCode;
     this.rootCauses =
         rootCauses != null
             ? rootCauses
-            : NestedSetBuilder.<Cause>stableOrder()
-                .add(
-                    new AnalysisFailedCause(
-                        label,
-                        configuration == null ? null : configuration.getConfiguration(),
-                        this.detailedExitCode))
-                .build();
+            : NestedSetBuilder.create(
+                Order.STABLE_ORDER, createRootCause(label, configuration, exitCode));
   }
 
   public ConfiguredValueCreationException(
-      TargetAndConfiguration ctgValue,
+      Target target,
+      @Nullable BuildEventId configuration,
       String message,
       @Nullable NestedSet<Cause> rootCauses,
       @Nullable DetailedExitCode detailedExitCode) {
     this(
-        ctgValue.getTarget().getLocation(),
+        target,
+        target.getLocation(),
         message,
-        ctgValue.getLabel(),
-        ctgValue.getConfiguration() == null ? null : ctgValue.getConfiguration().getEventId(),
+        target.getLabel(),
+        configuration,
         rootCauses,
         detailedExitCode);
   }
 
-  public ConfiguredValueCreationException(TargetAndConfiguration ctgValue, String message) {
-    this(ctgValue, message, /*rootCauses=*/ null, /*detailedExitCode=*/ null);
+  public ConfiguredValueCreationException(@Nullable Target target, String message) {
+    this(
+        target,
+        /* configuration= */ null,
+        message,
+        /* rootCauses= */ null,
+        /* detailedExitCode= */ null);
+  }
+
+  @Nullable
+  public Target getTarget() {
+    return target;
+  }
+
+  public Label getLabel() {
+    return label;
   }
 
   @Nullable
@@ -108,5 +128,15 @@ public final class ConfiguredValueCreationException extends Exception
             .setMessage(message)
             .setAnalysis(Analysis.newBuilder().setCode(Code.CONFIGURED_VALUE_CREATION_FAILED))
             .build());
+  }
+
+  private static AnalysisFailedCause createRootCause(
+      Label label, BuildEventId configuration, DetailedExitCode detailedExitCode) {
+    return new AnalysisFailedCause(
+        label,
+        configuration == null
+            ? ConfigurationId.newBuilder().setId("none").build()
+            : configuration.getConfiguration(),
+        detailedExitCode);
   }
 }

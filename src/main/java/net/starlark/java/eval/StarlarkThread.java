@@ -340,6 +340,8 @@ public final class StarlarkThread {
    * Supplies additional context to append to the message of {@link Starlark.UncheckedEvalException}
    * or {@link Starlark.UncheckedEvalError}.
    */
+  // TODO(brandjon): This seems unnecessary. Instead of implementing a hook that is mutated after
+  // thread is constructed, we should be able to just attach this information at construction time.
   public interface UncheckedExceptionContext {
     String getContextForUncheckedException();
   }

@@ -176,4 +176,9 @@ public class BazelPackageLoader extends AbstractPackageLoader {
   protected ActionOnIOExceptionReadingBuildFile getActionOnIOExceptionReadingBuildFile() {
     return BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE;
   }
+
+  @Override
+  protected boolean shouldUseRepoDotBazel() {
+    return BazelSkyframeExecutorConstants.USE_REPO_DOT_BAZEL;
+  }
 }

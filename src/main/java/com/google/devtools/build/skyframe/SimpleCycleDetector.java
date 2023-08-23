@@ -150,7 +150,7 @@ public class SimpleCycleDetector implements CycleDetector {
         // Find out which children have errors. Similar logic to that in Evaluate#run().
         List<ErrorInfo> errorDeps =
             getChildrenErrorsForCycle(
-                key, directDeps.getAllElementsAsIterable(), entry, evaluatorContext);
+                key, directDeps.getAllElementsAsIterable(), entry, evaluatorContext, removedDeps);
         checkState(
             !errorDeps.isEmpty(),
             "Node %s was not successfully evaluated, but had no child errors. NodeEntry: %s",
@@ -366,7 +366,8 @@ public class SimpleCycleDetector implements CycleDetector {
       SkyKey parent,
       Iterable<SkyKey> children,
       NodeEntry entryForDebugging,
-      ParallelEvaluatorContext evaluatorContext)
+      ParallelEvaluatorContext evaluatorContext,
+      Set<SkyKey> removedDepsForDebugging)
       throws InterruptedException {
     List<ErrorInfo> allErrors = new ArrayList<>();
     boolean foundCycle = false;
@@ -388,10 +389,11 @@ public class SimpleCycleDetector implements CycleDetector {
     }
     checkState(
         foundCycle,
-        "Key %s with entry %s had no cycle beneath it: %s",
+        "Key %s with entry %s had no cycle beneath it: %s; Removed deps: %s",
         parent,
         entryForDebugging,
-        allErrors);
+        allErrors,
+        removedDepsForDebugging);
     return allErrors;
   }
 
