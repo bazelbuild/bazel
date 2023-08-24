@@ -18,16 +18,15 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.skydoc.rendering.LabelRenderer;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
-import net.starlark.java.eval.StarlarkInt;
 
 /**
  * A class storing a rule attribute documentation along with some meta information. The class
@@ -77,7 +76,6 @@ public class RuleDocumentationAttribute
   private String fileName;
   private Set<String> flags;
   private Attribute attribute;
-
 
   /**
    * Creates common RuleDocumentationAttribute such as deps or data.
@@ -178,29 +176,27 @@ public class RuleDocumentationAttribute
     return attribute.isMandatory();
   }
 
+  private static String formatDefaultValue(String value) {
+    return String.format("; default is <code>%s</code>", value);
+  }
+
   private String getDefaultValue() {
     if (attribute == null) {
       return "";
     }
-    String prefix = "; default is ";
     Object value = attribute.getDefaultValueUnchecked();
-    if (value instanceof Boolean) {
-      return prefix + ((Boolean) value ? "True" : "False");
-    } else if (value instanceof StarlarkInt) {
-      return prefix + value;
-    } else if (value instanceof String && !((String) value).isEmpty()) {
-      return prefix + "\"" + value + "\"";
-    } else if (value instanceof TriState) {
+    if (value instanceof TriState) {
       switch ((TriState) value) {
         case AUTO:
-          return prefix + "-1";
+          return formatDefaultValue("-1");
         case NO:
-          return prefix + "0";
+          return formatDefaultValue("0");
         case YES:
-          return prefix + "1";
+          return formatDefaultValue("1");
       }
-    } else if (value instanceof Label) {
-      return prefix + "<code>" + value + "</code>";
+    } else {
+      return formatDefaultValue(
+          LabelRenderer.DEFAULT.reprWithoutLabelConstructor(Attribute.valueToStarlark(value)));
     }
     return "";
   }
@@ -214,15 +210,15 @@ public class RuleDocumentationAttribute
     StringBuilder sb =
         new StringBuilder()
             .append(rawType == null ? null : tryExpand(rawType))
-            .append("; ")
-            .append(attribute.isMandatory() ? "required" : "optional")
             .append(
                 !attribute.isConfigurable()
                     ? String.format(
                         "; <a href=\"%s#configurable-attributes\">nonconfigurable</a>",
                         RuleDocumentation.COMMON_DEFINITIONS_PAGE)
                     : "");
-    if (!attribute.isMandatory()) {
+    if (attribute.isMandatory()) {
+      sb.append("; required");
+    } else {
       sb.append(getDefaultValue());
     }
     return sb.toString();

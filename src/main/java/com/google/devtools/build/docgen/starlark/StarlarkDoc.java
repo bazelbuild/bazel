@@ -76,7 +76,7 @@ public abstract class StarlarkDoc {
     } else if (type.equals(Sequence.class)) {
       return "<a class=\"anchor\" href=\"../core/list.html\">sequence</a>";
     } else if (type.equals(Void.TYPE) || type.equals(NoneType.class)) {
-      return "None";
+      return "<code>None</code>";
     } else if (type.equals(NestedSet.class)) {
       return "<a class=\"anchor\" href=\"../builtins/depset.html\">depset</a>";
     } else if (StarlarkAnnotations.getStarlarkBuiltin(type) != null) {

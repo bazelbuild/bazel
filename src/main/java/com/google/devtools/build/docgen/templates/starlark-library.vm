@@ -58,10 +58,10 @@ ${page.documentation}
             </td>
             <td>
             #if (!$param.type.isEmpty())
-              <code>${param.type}</code>;
+              ${param.type};
             #end
             #if (!$param.defaultValue.isEmpty())
-             default = ${param.defaultValue}<br/>
+             default is <code>${param.defaultValue}</code><br/>
             #else
              required<br/>
             #end

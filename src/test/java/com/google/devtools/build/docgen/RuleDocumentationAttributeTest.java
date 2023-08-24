@@ -113,7 +113,7 @@ public class RuleDocumentationAttributeTest {
         TestRule.class, "testrule", "", 0, "", NO_FLAGS);
     attributeDoc.setAttribute(attribute);
     String doc = attributeDoc.getSynopsis();
-    assertThat(doc).isEqualTo("String; optional; default is \"" + defaultValue + "\"");
+    assertThat(doc).isEqualTo("String; default is <code>\"" + defaultValue + "\"</code>");
   }
 
   @Test
@@ -125,7 +125,7 @@ public class RuleDocumentationAttributeTest {
         TestRule.class, "testrule", "", 0, "", NO_FLAGS);
     attributeDoc.setAttribute(attribute);
     String doc = attributeDoc.getSynopsis();
-    assertThat(doc).isEqualTo("Integer; optional; default is " + defaultValue);
+    assertThat(doc).isEqualTo("Integer; default is <code>" + defaultValue + "</code>");
   }
 
   @Test
@@ -138,7 +138,9 @@ public class RuleDocumentationAttributeTest {
         TestRule.class, "testrule", "", 0, "", NO_FLAGS);
     attributeDoc.setAttribute(attribute);
     String doc = attributeDoc.getSynopsis();
-    assertThat(doc).isEqualTo("List of <a href=\"${link build-ref#labels}\">labels</a>; optional");
+    assertThat(doc)
+        .isEqualTo(
+            "List of <a href=\"${link build-ref#labels}\">labels</a>; default is <code>[]</code>");
   }
 
   @Test
