@@ -519,8 +519,12 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
       }
 
       Path parentDir = path.getParentDirectory();
-      if (!parentDir.isWritable() && root.contains(parentDir)) {
-        parentDir.setWritable(true);
+      if (root.contains(parentDir)) {
+        try {
+          parentDir.setWritable(true);
+        } catch (IOException ignored) {
+          // Intentionally ignored because we will fail below anyway.
+        }
       }
 
       // Retry deleting after making the parent writable.
