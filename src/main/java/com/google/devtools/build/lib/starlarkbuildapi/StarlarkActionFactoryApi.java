@@ -258,14 +258,23 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             named = true,
             positional = false,
             defaultValue = "None",
-            doc = "Progress message to show to the user during the build.")
-      })
+            doc = "Progress message to show to the user during the build."),
+        @Param(
+            name = "use_exec_root_for_source",
+            named = true,
+            positional = false,
+            defaultValue = "unbound",
+            documented = false)
+      },
+      useStarlarkThread = true)
   void symlink(
       FileApi output,
       Object targetFile,
       Object targetPath,
       Boolean isExecutable,
-      Object progressMessage)
+      Object progressMessage,
+      Object useExecRootForSourceObject,
+      StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(

@@ -40,6 +40,7 @@ load("@_builtins//:common/cc/cc_helper.bzl", "cc_helper")
 load(":common/objc/objc_common.bzl", "objc_common")
 load(":common/java/java_info.bzl", "JavaInfo", "JavaPluginInfo")
 load(":common/java/java_common.bzl", "java_common")
+load("@_builtins//:common/cc/cc_compilation_helper.bzl", "cc_compilation_helper")
 
 exported_toplevels = {
     # This dummy symbol is not part of the public API; it is only used to test
@@ -96,4 +97,5 @@ exported_to_java = {
     "apple_cc_toolchain_build_variables": objc_common.apple_cc_toolchain_build_variables,
     "j2objc_mapping_file_info_union": objc_common.j2objc_mapping_file_info_union,
     "j2objc_entry_class_info_union": objc_common.j2objc_entry_class_info_union,
+    "init_cc_compilation_context": cc_compilation_helper.init_cc_compilation_context,
 }

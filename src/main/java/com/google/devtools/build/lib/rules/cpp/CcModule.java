@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.base.StandardSystemProperty.LINE_SEPARATOR;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
@@ -831,13 +833,43 @@ public abstract class CcModule
       Sequence<?> directPrivateHdrs,
       Object purposeNoneable,
       Object moduleMap,
+      Object actionFactoryForMiddlemanOwnerAndConfiguration,
+      Object labelForMiddlemanNameObject,
+      Object externalIncludes,
+      Object virtualToOriginalHeaders,
+      Sequence<?> dependentCcCompilationContexts,
+      Sequence<?> nonCodeInputs,
+      Sequence<?> looseHdrsDirsObject,
+      String headersCheckingMode,
+      Boolean propagateModuleMapToCompileAction,
+      Object picHeaderModule,
+      Object headerModule,
+      Sequence<?> separateModuleHeaders,
+      Object separateModule,
+      Object separatePicModule,
+      Object addPublicHeadersToModularHeaders,
       StarlarkThread thread)
       throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
+
+    Label label = convertFromNoneable(labelForMiddlemanNameObject, null);
     CcCompilationContext.Builder ccCompilationContext =
         CcCompilationContext.builder(
-            /* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null);
+            /* actionConstructionContext= */ actionFactoryForMiddlemanOwnerAndConfiguration
+                    == Starlark.NONE
+                ? null
+                : ((StarlarkActionFactory) actionFactoryForMiddlemanOwnerAndConfiguration)
+                    .getActionConstructionContext(),
+            /* configuration= */ actionFactoryForMiddlemanOwnerAndConfiguration == Starlark.NONE
+                ? null
+                : ((StarlarkActionFactory) actionFactoryForMiddlemanOwnerAndConfiguration)
+                    .getActionConstructionContext()
+                    .getConfiguration(),
+            /* label= */ label);
+
+    // Public parameters.
     ImmutableList<Artifact> headerList = toNestedSetOfArtifacts(headers, "headers").toList();
+    ccCompilationContext.addDeclaredIncludeSrcs(headerList);
     ImmutableList<Artifact> textualHdrsList =
         Sequence.cast(directTextualHdrs, Artifact.class, "direct_textual_headers")
             .getImmutableList();
@@ -846,37 +878,80 @@ public abstract class CcModule
     ImmutableList<Artifact> modularPrivateHdrsList =
         Sequence.cast(directPrivateHdrs, Artifact.class, "direct_private_headers")
             .getImmutableList();
-    ccCompilationContext.addDeclaredIncludeSrcs(headerList);
-    ccCompilationContext.addModularPublicHdrs(headerList);
+
     ccCompilationContext.addSystemIncludeDirs(
         toNestedSetOfStrings(systemIncludes, "system_includes").toList().stream()
             .map(x -> PathFragment.create(x))
-            .collect(ImmutableList.toImmutableList()));
+            .collect(toImmutableList()));
     ccCompilationContext.addIncludeDirs(
         toNestedSetOfStrings(includes, "includes").toList().stream()
             .map(x -> PathFragment.create(x))
-            .collect(ImmutableList.toImmutableList()));
+            .collect(toImmutableList()));
     ccCompilationContext.addQuoteIncludeDirs(
         toNestedSetOfStrings(quoteIncludes, "quote_includes").toList().stream()
             .map(x -> PathFragment.create(x))
-            .collect(ImmutableList.toImmutableList()));
+            .collect(toImmutableList()));
     ccCompilationContext.addFrameworkIncludeDirs(
         toNestedSetOfStrings(frameworkIncludes, "framework_includes").toList().stream()
             .map(x -> PathFragment.create(x))
-            .collect(ImmutableList.toImmutableList()));
+            .collect(toImmutableList()));
     ccCompilationContext.addDefines(toNestedSetOfStrings(defines, "defines").toList());
     ccCompilationContext.addNonTransitiveDefines(
         toNestedSetOfStrings(localDefines, "local_defines").toList());
     ccCompilationContext.addTextualHdrs(textualHdrsList);
     ccCompilationContext.addModularPublicHdrs(modularPublicHdrsList);
     ccCompilationContext.addModularPrivateHdrs(modularPrivateHdrsList);
+
+    // Private parameters.
     if (purposeNoneable != null
         && purposeNoneable != Starlark.UNBOUND
         && purposeNoneable != Starlark.NONE) {
       ccCompilationContext.setPurpose((String) purposeNoneable);
     }
+
     if (moduleMap != null && moduleMap != Starlark.UNBOUND && moduleMap != Starlark.NONE) {
       ccCompilationContext.setCppModuleMap((CppModuleMap) moduleMap);
+    }
+
+    ccCompilationContext.addExternalIncludeDirs(
+        toNestedSetOfStrings(externalIncludes, "external_includes").toList().stream()
+            .map(PathFragment::create)
+            .collect(toImmutableList()));
+
+    ccCompilationContext.addVirtualToOriginalHeaders(
+        Depset.cast(virtualToOriginalHeaders, Tuple.class, "virtual_to_original_headers"));
+
+    ccCompilationContext.addDependentCcCompilationContexts(
+        Sequence.cast(
+                dependentCcCompilationContexts,
+                CcCompilationContext.class,
+                "dependent_cc_compilation_contexts")
+            .getImmutableList());
+
+    ccCompilationContext.addNonCodeInputs(
+        Sequence.cast(nonCodeInputs, Artifact.class, "non_code_inputs").getImmutableList());
+
+    ImmutableList<PathFragment> looseHdrsDirs =
+        Sequence.cast(looseHdrsDirsObject, String.class, "loose_hdrs_dirs").stream()
+            .map(PathFragment::create)
+            .collect(toImmutableList());
+    for (PathFragment looseHdrDir : looseHdrsDirs) {
+      ccCompilationContext.addLooseHdrsDir(looseHdrDir);
+    }
+
+    ccCompilationContext.setHeadersCheckingMode(HeadersCheckingMode.getValue(headersCheckingMode));
+    ccCompilationContext.setPropagateCppModuleMapAsActionInput(propagateModuleMapToCompileAction);
+    ccCompilationContext.setPicHeaderModule(
+        picHeaderModule == Starlark.NONE ? null : (Artifact.DerivedArtifact) picHeaderModule);
+    ccCompilationContext.setHeaderModule(
+        headerModule == Starlark.NONE ? null : (Artifact.DerivedArtifact) headerModule);
+    ccCompilationContext.setSeparateModuleHdrs(
+        Sequence.cast(separateModuleHeaders, Artifact.class, "separate_module_headers"),
+        convertFromNoneable(separateModule, null),
+        convertFromNoneable(separatePicModule, null));
+
+    if ((Boolean) addPublicHeadersToModularHeaders) {
+      ccCompilationContext.addModularPublicHdrs(headerList);
     }
 
     return ccCompilationContext.build();
@@ -1212,9 +1287,7 @@ public abstract class CcModule
     ImmutableList<Feature> featureList = featureBuilder.build();
 
     ImmutableSet<String> featureNames =
-        featureList.stream()
-            .map(feature -> feature.getName())
-            .collect(ImmutableSet.toImmutableSet());
+        featureList.stream().map(Feature::getName).collect(toImmutableSet());
 
     ImmutableList.Builder<ActionConfig> actionConfigBuilder = ImmutableList.builder();
     for (Object actionConfig : actionConfigs) {
@@ -1226,7 +1299,7 @@ public abstract class CcModule
     ImmutableSet<String> actionConfigNames =
         actionConfigList.stream()
             .map(actionConfig -> actionConfig.getActionName())
-            .collect(ImmutableSet.toImmutableSet());
+            .collect(toImmutableSet());
 
     CcToolchainFeatures.ArtifactNamePatternMapper.Builder artifactNamePatternBuilder =
         new CcToolchainFeatures.ArtifactNamePatternMapper.Builder();
@@ -1315,7 +1388,7 @@ public abstract class CcModule
           featureList.stream()
               .filter(feature -> !feature.getName().equals(CppRuleClasses.LEGACY_COMPILE_FLAGS))
               .filter(feature -> !feature.getName().equals(CppRuleClasses.DEFAULT_COMPILE_FLAGS))
-              .collect(ImmutableList.toImmutableList()));
+              .collect(toImmutableList()));
       for (CToolchain.Feature feature :
           CppActionConfigs.getFeaturesToAppearLastInFeaturesList(featureNames)) {
         legacyFeaturesBuilder.add(new Feature(feature));
@@ -2068,7 +2141,7 @@ public abstract class CcModule
             // TODO(bazel-team): This probably doesn't work with bzlmod since there's no repo
             // mapping applied.
             .map(p -> PackageIdentifier.createUnchecked((String) p.get(0), (String) p.get(1)))
-            .collect(ImmutableList.toImmutableList());
+            .collect(toImmutableList());
     BuiltinRestriction.failIfLabelOutsideAllowlist(label, allowlist);
   }
 
@@ -2583,20 +2656,19 @@ public abstract class CcModule
             Sequence.cast(
                 ccCompilationContexts, CcCompilationContext.class, "compilation_contexts"))
         .addImplementationDepsCcCompilationContexts(implementationContexts)
-        .addIncludeDirs(
-            includes.stream().map(PathFragment::create).collect(ImmutableList.toImmutableList()))
+        .addIncludeDirs(includes.stream().map(PathFragment::create).collect(toImmutableList()))
         .addQuoteIncludeDirs(
             Sequence.cast(quoteIncludes, String.class, "quote_includes").stream()
                 .map(PathFragment::create)
-                .collect(ImmutableList.toImmutableList()))
+                .collect(toImmutableList()))
         .addSystemIncludeDirs(
             Sequence.cast(systemIncludes, String.class, "system_includes").stream()
                 .map(PathFragment::create)
-                .collect(ImmutableList.toImmutableList()))
+                .collect(toImmutableList()))
         .addFrameworkIncludeDirs(
             Sequence.cast(frameworkIncludes, String.class, "framework_includes").stream()
                 .map(PathFragment::create)
-                .collect(ImmutableList.toImmutableList()))
+                .collect(toImmutableList()))
         .addDefines(Sequence.cast(defines, String.class, "defines"))
         .addNonTransitiveDefines(Sequence.cast(localDefines, String.class, "local_defines"))
         .setCopts(
@@ -2608,15 +2680,13 @@ public abstract class CcModule
         .addAdditionalIncludeScanningRoots(includeScanningRoots)
         .setPurpose(common.getPurpose(getSemantics(language)))
         .addAdditionalExportedHeaders(
-            additionalExportedHeaders.stream()
-                .map(PathFragment::create)
-                .collect(ImmutableList.toImmutableList()))
+            additionalExportedHeaders.stream().map(PathFragment::create).collect(toImmutableList()))
         .setPropagateModuleMapToCompileAction(propagateModuleMapToCompileAction)
         .setCodeCoverageEnabled(codeCoverageEnabled)
         .setHeadersCheckingMode(HeadersCheckingMode.getValue(hdrsCheckingMode));
 
     ImmutableList<PathFragment> looseIncludeDirs =
-        looseIncludes.stream().map(PathFragment::create).collect(ImmutableList.toImmutableList());
+        looseIncludes.stream().map(PathFragment::create).collect(toImmutableList());
     if (!looseIncludeDirs.isEmpty()) {
       helper.setLooseIncludeDirs(ImmutableSet.copyOf(looseIncludeDirs));
     }
@@ -3022,6 +3092,6 @@ public abstract class CcModule
       throws EvalException {
     return Sequence.cast(sequenceTuple, Tuple.class, "files").stream()
         .map(p -> Pair.of((Artifact) p.get(0), (Label) p.get(1)))
-        .collect(ImmutableList.toImmutableList());
+        .collect(toImmutableList());
   }
 }

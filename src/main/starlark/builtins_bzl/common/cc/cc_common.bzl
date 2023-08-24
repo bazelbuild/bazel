@@ -422,14 +422,74 @@ def _create_compilation_context(
         direct_public_headers = [],
         direct_private_headers = [],
         purpose = _UNBOUND,
-        module_map = _UNBOUND):
+        module_map = _UNBOUND,
+        actions = _UNBOUND,
+        label = _UNBOUND,
+        external_includes = _UNBOUND,
+        virtual_to_original_headers = _UNBOUND,
+        dependent_cc_compilation_contexts = _UNBOUND,
+        non_code_inputs = _UNBOUND,
+        loose_hdrs_dirs = _UNBOUND,
+        headers_checking_mode = _UNBOUND,
+        propagate_module_map_to_compile_action = _UNBOUND,
+        pic_header_module = _UNBOUND,
+        header_module = _UNBOUND,
+        separate_module_headers = _UNBOUND,
+        separate_module = _UNBOUND,
+        separate_pic_module = _UNBOUND,
+        add_public_headers_to_modular_headers = _UNBOUND):
     if purpose != _UNBOUND or \
-       module_map != _UNBOUND:
+       module_map != _UNBOUND or \
+       actions != _UNBOUND or \
+       external_includes != _UNBOUND or \
+       virtual_to_original_headers != _UNBOUND or \
+       dependent_cc_compilation_contexts != _UNBOUND or \
+       non_code_inputs != _UNBOUND or \
+       loose_hdrs_dirs != _UNBOUND or \
+       headers_checking_mode != _UNBOUND or \
+       propagate_module_map_to_compile_action != _UNBOUND or \
+       pic_header_module != _UNBOUND or \
+       header_module != _UNBOUND or \
+       separate_module_headers != _UNBOUND or \
+       separate_module != _UNBOUND or \
+       separate_pic_module != _UNBOUND or \
+       add_public_headers_to_modular_headers != _UNBOUND or \
+       label != _UNBOUND:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     if purpose == _UNBOUND:
         purpose = None
     if module_map == _UNBOUND:
         module_map = None
+    if actions == _UNBOUND:
+        actions = None
+    if label == _UNBOUND:
+        label = None
+    if external_includes == _UNBOUND:
+        external_includes = depset()
+    if virtual_to_original_headers == _UNBOUND:
+        virtual_to_original_headers = depset()
+    if dependent_cc_compilation_contexts == _UNBOUND:
+        dependent_cc_compilation_contexts = []
+    if non_code_inputs == _UNBOUND:
+        non_code_inputs = []
+    if loose_hdrs_dirs == _UNBOUND:
+        loose_hdrs_dirs = []
+    if headers_checking_mode == _UNBOUND:
+        headers_checking_mode = "STRICT"
+    if propagate_module_map_to_compile_action == _UNBOUND:
+        propagate_module_map_to_compile_action = True
+    if pic_header_module == _UNBOUND:
+        pic_header_module = None
+    if header_module == _UNBOUND:
+        header_module = None
+    if separate_module_headers == _UNBOUND:
+        separate_module_headers = []
+    if separate_module == _UNBOUND:
+        separate_module = None
+    if separate_pic_module == _UNBOUND:
+        separate_pic_module = None
+    if add_public_headers_to_modular_headers == _UNBOUND:
+        add_public_headers_to_modular_headers = True
     return cc_common_internal.create_compilation_context(
         headers = headers,
         system_includes = system_includes,
@@ -443,6 +503,21 @@ def _create_compilation_context(
         direct_private_headers = direct_private_headers,
         purpose = purpose,
         module_map = module_map,
+        actions = actions,
+        label = label,
+        external_includes = external_includes,
+        virtual_to_original_headers = virtual_to_original_headers,
+        dependent_cc_compilation_contexts = dependent_cc_compilation_contexts,
+        non_code_inputs = non_code_inputs,
+        loose_hdrs_dirs = loose_hdrs_dirs,
+        headers_checking_mode = headers_checking_mode,
+        propagate_module_map_to_compile_action = propagate_module_map_to_compile_action,
+        pic_header_module = pic_header_module,
+        header_module = header_module,
+        separate_module_headers = separate_module_headers,
+        separate_module = separate_module,
+        separate_pic_module = separate_pic_module,
+        add_public_headers_to_modular_headers = add_public_headers_to_modular_headers,
     )
 
 def _legacy_cc_flags_make_variable_do_not_use(*, cc_toolchain):

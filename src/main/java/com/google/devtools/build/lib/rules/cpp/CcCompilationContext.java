@@ -64,7 +64,7 @@ import net.starlark.java.eval.Tuple;
  * Immutable store of information needed for C++ compilation that is aggregated across dependencies.
  */
 @Immutable
-public final class CcCompilationContext implements CcCompilationContextApi<Artifact> {
+public final class CcCompilationContext implements CcCompilationContextApi<Artifact, CppModuleMap> {
   /** An empty {@code CcCompilationContext}. */
   public static final CcCompilationContext EMPTY =
       builder(/* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null)
@@ -266,6 +266,20 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   public Depset getStarlarkVirtualToOriginalHeaders(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return Depset.of(Tuple.class, getVirtualToOriginalHeaders());
+  }
+
+  @Override
+  @Nullable
+  public CppModuleMap getStarlarkModuleMap(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getCppModuleMap();
+  }
+
+  @Override
+  public StarlarkList<CppModuleMap> getStarlarkExportingModuleMaps(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return StarlarkList.immutableCopyOf(getExportingModuleMaps());
   }
 
   /**

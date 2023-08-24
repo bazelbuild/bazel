@@ -282,9 +282,18 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Object /* Artifact or None */ targetFile,
       Object /* String or None */ targetPath,
       Boolean isExecutable,
-      Object /* String or None */ progressMessageUnchecked)
+      Object /* String or None */ progressMessageUnchecked,
+      Object useExecRootForSourceObject,
+      StarlarkThread thread)
       throws EvalException {
     context.checkMutable("actions.symlink");
+    if (useExecRootForSourceObject != Starlark.UNBOUND) {
+      BuiltinRestriction.failIfCalledOutsideAllowlist(thread, PRIVATE_STARLARKIFICATION_ALLOWLIST);
+    }
+    boolean useExecRootForSource =
+        !Starlark.UNBOUND.equals(useExecRootForSourceObject)
+            && (Boolean) useExecRootForSourceObject;
+
     RuleContext ruleContext = getRuleContext();
 
     if ((targetFile == Starlark.NONE) == (targetPath == Starlark.NONE)) {
@@ -326,7 +335,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       } else {
         action =
             SymlinkAction.toArtifact(
-                ruleContext.getActionOwner(), inputArtifact, outputArtifact, progressMessage);
+                ruleContext.getActionOwner(),
+                inputArtifact,
+                outputArtifact,
+                progressMessage,
+                useExecRootForSource);
       }
     } else {
       if (!outputArtifact.isSymlink()) {

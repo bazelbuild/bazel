@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
@@ -526,5 +527,108 @@ public class CcStarlarkInternal implements StarlarkValue {
   @StarlarkMethod(name = "CcTestRunnerInfo", documented = false, structField = true)
   public StarlarkProvider ccTestRunnerInfo() throws EvalException {
     return starlarkCcTestRunnerInfo;
+  }
+
+  // This looks ugly, however it is necessary. Good thing is we are planning to get rid of genfiles
+  // directory altogether so this method has a bright future(of being removed).
+  @StarlarkMethod(
+      name = "bin_or_genfiles_relative_to_unique_directory",
+      documented = false,
+      parameters = {
+        @Param(name = "actions", positional = false, named = true),
+        @Param(name = "unique_directory", positional = false, named = true),
+      })
+  public String binOrGenfilesRelativeToUniqueDirectory(
+      StarlarkActionFactory actions, String uniqueDirectory) {
+    ActionConstructionContext actionConstructionContext = actions.getActionConstructionContext();
+    return actionConstructionContext
+        .getBinOrGenfilesDirectory()
+        .getExecPath()
+        .getRelative(
+            actionConstructionContext.getUniqueDirectory(PathFragment.create(uniqueDirectory)))
+        .getPathString();
+  }
+
+  @StarlarkMethod(
+      name = "create_umbrella_header_action",
+      documented = false,
+      parameters = {
+        @Param(name = "actions", positional = false, named = true),
+        @Param(name = "umbrella_header", positional = false, named = true),
+        @Param(name = "public_headers", positional = false, named = true),
+        @Param(name = "additional_exported_headers", positional = false, named = true),
+      })
+  public void createUmbrellaHeaderAction(
+      StarlarkActionFactory actions,
+      Artifact umbrellaHeader,
+      Sequence<?> publicHeaders,
+      Sequence<?> additionalExportedHeaders)
+      throws EvalException {
+    ActionConstructionContext actionConstructionContext = actions.getActionConstructionContext();
+    actions
+        .asActionRegistry(actions)
+        .registerAction(
+            new UmbrellaHeaderAction(
+                actionConstructionContext.getActionOwner(),
+                umbrellaHeader,
+                Sequence.cast(publicHeaders, Artifact.class, "public_headers"),
+                Sequence.cast(
+                        additionalExportedHeaders, String.class, "additional_exported_headers")
+                    .stream()
+                    .map(PathFragment::create)
+                    .collect(toImmutableList())));
+  }
+
+  @StarlarkMethod(
+      name = "create_module_map_action",
+      documented = false,
+      parameters = {
+        @Param(name = "actions", positional = false, named = true),
+        @Param(name = "feature_configuration", positional = false, named = true),
+        @Param(name = "module_map", positional = false, named = true),
+        @Param(name = "private_headers", positional = false, named = true),
+        @Param(name = "public_headers", positional = false, named = true),
+        @Param(name = "dependent_module_maps", positional = false, named = true),
+        @Param(name = "additional_exported_headers", positional = false, named = true),
+        @Param(name = "separate_module_headers", positional = false, named = true),
+        @Param(name = "compiled_module", positional = false, named = true),
+        @Param(name = "module_map_home_is_cwd", positional = false, named = true),
+        @Param(name = "generate_submodules", positional = false, named = true),
+        @Param(name = "without_extern_dependencies", positional = false, named = true),
+      })
+  public void createModuleMapAction(
+      StarlarkActionFactory actions,
+      FeatureConfigurationForStarlark featureConfigurationForStarlark,
+      CppModuleMap moduleMap,
+      Sequence<?> privateHeaders,
+      Sequence<?> publicHeaders,
+      Sequence<?> dependentModuleMaps,
+      Sequence<?> additionalExportedHeaders,
+      Sequence<?> separateModuleHeaders,
+      Boolean compiledModule,
+      Boolean moduleMapHomeIsCwd,
+      Boolean generateSubmodules,
+      Boolean withoutExternDependencies)
+      throws EvalException {
+    ActionConstructionContext actionConstructionContext = actions.getActionConstructionContext();
+    actions
+        .asActionRegistry(actions)
+        .registerAction(
+            new CppModuleMapAction(
+                actionConstructionContext.getActionOwner(),
+                moduleMap,
+                Sequence.cast(privateHeaders, Artifact.class, "private_headers"),
+                Sequence.cast(publicHeaders, Artifact.class, "public_headers"),
+                Sequence.cast(dependentModuleMaps, CppModuleMap.class, "dependent_module_maps"),
+                Sequence.cast(
+                        additionalExportedHeaders, String.class, "additional_exported_headers")
+                    .stream()
+                    .map(PathFragment::create)
+                    .collect(toImmutableList()),
+                Sequence.cast(separateModuleHeaders, Artifact.class, "separate_module_headers"),
+                compiledModule,
+                moduleMapHomeIsCwd,
+                generateSubmodules,
+                withoutExternDependencies));
   }
 }
