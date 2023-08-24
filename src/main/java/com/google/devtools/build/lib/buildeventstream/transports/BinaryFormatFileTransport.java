@@ -56,4 +56,9 @@ public final class BinaryFormatFileTransport extends FileTransport {
     }
     return bos.toByteArray();
   }
+
+  @Override
+  public boolean shouldWaitForUploadComplete() {
+    return true;
+  }
 }

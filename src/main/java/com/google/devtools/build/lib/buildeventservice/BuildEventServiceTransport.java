@@ -191,4 +191,9 @@ public class BuildEventServiceTransport implements BuildEventTransport {
           checkNotNull(commandStartTime));
     }
   }
+
+  @Override
+  public boolean shouldWaitForUploadComplete() {
+    return false;
+  }
 }

@@ -49,4 +49,9 @@ public final class TextFormatFileTransport extends FileTransport {
     String protoTextRepresentation = TextFormat.printer().printToString(buildEvent);
     return ("event {\n" + protoTextRepresentation + "}\n\n").getBytes(UTF_8);
   }
+
+  @Override
+  public boolean shouldWaitForUploadComplete() {
+    return false;
+  }
 }

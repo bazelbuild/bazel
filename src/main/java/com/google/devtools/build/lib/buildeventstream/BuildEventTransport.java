@@ -87,6 +87,13 @@ public interface BuildEventTransport {
    */
   boolean mayBeSlow();
 
+  /**
+   * Returns true if Bazel should wait for the transport upload to complete. Example of this type of
+   * transports includes JSON/Binary BEP file which is often read by tools after the invocation.
+   * Bazel should complete writing them before turns the control back to command line.
+   */
+  boolean shouldWaitForUploadComplete();
+
   @VisibleForTesting
   @Nullable
   BuildEventArtifactUploader getUploader();

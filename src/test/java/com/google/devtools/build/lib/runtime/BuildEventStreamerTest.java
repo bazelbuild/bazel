@@ -171,6 +171,11 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
     }
 
     @Override
+    public boolean shouldWaitForUploadComplete() {
+      return true;
+    }
+
+    @Override
     public synchronized void sendBuildEvent(BuildEvent event) {
       events.add(event);
       try {

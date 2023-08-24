@@ -46,7 +46,6 @@ public class BuildEventStreamOptions extends OptionsBase {
       name = "build_event_binary_file",
       oldName = "experimental_build_event_binary_file",
       defaultValue = "",
-      implicitRequirements = {"--bes_upload_mode=wait_for_upload_complete"},
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
@@ -59,7 +58,6 @@ public class BuildEventStreamOptions extends OptionsBase {
       name = "build_event_json_file",
       oldName = "experimental_build_event_json_file",
       defaultValue = "",
-      implicitRequirements = {"--bes_upload_mode=wait_for_upload_complete"},
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =

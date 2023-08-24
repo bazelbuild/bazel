@@ -57,4 +57,9 @@ public final class JsonFormatFileTransport extends FileTransport {
     }
     return protoJsonRepresentation.getBytes(UTF_8);
   }
+
+  @Override
+  public boolean shouldWaitForUploadComplete() {
+    return true;
+  }
 }

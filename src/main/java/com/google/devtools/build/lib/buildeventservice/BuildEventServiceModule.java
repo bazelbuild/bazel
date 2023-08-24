@@ -104,18 +104,21 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
    * TargetComplete BEP events scale with the value of --runs_per_tests, thus setting a very large
    * value for can result in BEP events that are too big for BES to handle.
    */
-  @VisibleForTesting static final int RUNS_PER_TEST_LIMIT = 100000;
+  @VisibleForTesting
+  static final int RUNS_PER_TEST_LIMIT = 100000;
 
   private BuildEventProtocolOptions bepOptions;
   private AuthAndTLSOptions authTlsOptions;
   private BuildEventStreamOptions besStreamOptions;
   private boolean isRunsPerTestOverTheLimit;
   private BuildEventArtifactUploaderFactory uploaderFactoryToCleanup;
+  private BuildEventOutputStreamFactory buildEventOutputStreamFactory = file -> new BufferedOutputStream(
+      Files.newOutputStream(Paths.get(file)));
 
   /**
    * Holds the close futures for the upload of each transport with timeouts attached to them using
-   * {@link #constructCloseFuturesMapWithTimeouts(ImmutableMap)} obtained from {@link
-   * BuildEventTransport#getTimeout()}.
+   * {@link #constructCloseFuturesMapWithTimeouts(ImmutableMap)} obtained from
+   * {@link BuildEventTransport#getTimeout()}.
    */
   private ImmutableMap<BuildEventTransport, ListenableFuture<Void>> closeFuturesWithTimeoutsMap =
       ImmutableMap.of();
@@ -592,7 +595,8 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     for (Map.Entry<BuildEventTransport, ListenableFuture<Void>> entry :
         closeFuturesWithTimeoutsMap.entrySet()) {
       BuildEventTransport bepTransport = entry.getKey();
-      if (!bepTransport.mayBeSlow() || besUploadModeIsSynchronous) {
+      if (bepTransport.shouldWaitForUploadComplete() || !bepTransport.mayBeSlow()
+          || besUploadModeIsSynchronous) {
         blockingTransportFutures.put(bepTransport, entry.getValue());
       } else {
         // When running asynchronously notify the UI immediately since we won't wait for the
@@ -752,9 +756,8 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
 
     if (!Strings.isNullOrEmpty(besStreamOptions.buildEventTextFile)) {
       try {
-        BufferedOutputStream bepTextOutputStream =
-            new BufferedOutputStream(
-                Files.newOutputStream(Paths.get(besStreamOptions.buildEventTextFile)));
+        BufferedOutputStream bepTextOutputStream = buildEventOutputStreamFactory.create(
+            besStreamOptions.buildEventTextFile);
 
         BuildEventArtifactUploader localFileUploader =
             besStreamOptions.buildEventTextFilePathConversion
@@ -779,9 +782,8 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
 
     if (!Strings.isNullOrEmpty(besStreamOptions.buildEventBinaryFile)) {
       try {
-        BufferedOutputStream bepBinaryOutputStream =
-            new BufferedOutputStream(
-                Files.newOutputStream(Paths.get(besStreamOptions.buildEventBinaryFile)));
+        BufferedOutputStream bepBinaryOutputStream = buildEventOutputStreamFactory.create(
+            besStreamOptions.buildEventBinaryFile);
 
         BuildEventArtifactUploader localFileUploader =
             besStreamOptions.buildEventBinaryFilePathConversion
@@ -806,9 +808,8 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
 
     if (!Strings.isNullOrEmpty(besStreamOptions.buildEventJsonFile)) {
       try {
-        BufferedOutputStream bepJsonOutputStream =
-            new BufferedOutputStream(
-                Files.newOutputStream(Paths.get(besStreamOptions.buildEventJsonFile)));
+        BufferedOutputStream bepJsonOutputStream = buildEventOutputStreamFactory.create(
+            besStreamOptions.buildEventJsonFile);
         BuildEventArtifactUploader localFileUploader =
             besStreamOptions.buildEventJsonFilePathConversion
                 ? uploaderSupplier.get()
@@ -878,7 +879,9 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
   /** A prefix used when printing the invocation ID in the command line */
   protected abstract String getInvocationIdPrefix();
 
-  /** A prefix used when printing the build request ID in the command line */
+  /**
+   * A prefix used when printing the build request ID in the command line
+   */
   protected abstract String getBuildRequestIdPrefix();
 
   // TODO(b/115961387): This method shouldn't exist. It only does because some tests are relying on
@@ -888,10 +891,18 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     return bepTransports;
   }
 
+  @VisibleForTesting
+  void setBuildEventOutputStreamFactory(BuildEventOutputStreamFactory factory) {
+    this.buildEventOutputStreamFactory = factory;
+  }
+
   private static class ThrowingBuildEventArtifactUploaderSupplier {
+
     private final Callable<BuildEventArtifactUploader> callable;
-    @Nullable private BuildEventArtifactUploader memoizedValue;
-    @Nullable private IOException exception;
+    @Nullable
+    private BuildEventArtifactUploader memoizedValue;
+    @Nullable
+    private IOException exception;
 
     ThrowingBuildEventArtifactUploaderSupplier(Callable<BuildEventArtifactUploader> callable) {
       this.callable = callable;
@@ -917,5 +928,11 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
       }
       throw exception;
     }
+  }
+
+  @VisibleForTesting
+  interface BuildEventOutputStreamFactory {
+
+    BufferedOutputStream create(String file) throws IOException;
   }
 }
