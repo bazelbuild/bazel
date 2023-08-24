@@ -30,12 +30,15 @@ def _include_dir(directory, repo_path, sibling_repo_layout):
 
 def _repo_relative_path(artifact):
     relative_path = artifact.path
-    if artifact.owner.workspace_root == "external":
-        relative_path = relative_path.split("/")[-2]
+    if artifact.is_source:
+        if artifact.owner.workspace_root:
+            relative_path = "/".join(relative_path.split("/")[2:])
+    else:
+        relative_path = paths.relativize(relative_path, artifact.root.path)
 
     if (artifact.owner.workspace_root.startswith("external/") or artifact.owner.workspace_root.startswith("../")) and \
        relative_path.startswith("external"):
-        relative_path = relative_path.split("/")[-2]
+        relative_path = "/".join(relative_path.split("/")[2:])
 
     return relative_path
 
@@ -73,7 +76,7 @@ def _compute_public_headers(
             strip_prefix = strip_prefix[strip_driver_length:]
         else:
             strip_prefix = paths.get_relative(label.package, strip_prefix)
-    elif include_prefix != None:
+    elif include_prefix:
         strip_prefix = label.package
     else:
         strip_prefix = None
@@ -84,7 +87,7 @@ def _compute_public_headers(
     if include_prefix and include_prefix.startswith("/"):
         include_prefix = include_prefix[1:]
 
-    if strip_prefix and include_prefix:
+    if not strip_prefix and not include_prefix:
         return struct(
             headers = public_headers_artifacts + non_module_map_headers,
             module_map_headers = public_headers_artifacts,
@@ -392,7 +395,7 @@ def _init_cc_compilation_context(
         includes = depset(include_dirs_for_context),
         virtual_to_original_headers = virtual_to_original_headers,
         dependent_cc_compilation_contexts = dependent_cc_compilation_contexts,
-        additional_inputs = additional_inputs,
+        non_code_inputs = additional_inputs,
         defines = depset(defines),
         local_defines = depset(local_defines),
         headers = depset(declared_include_srcs),
@@ -423,7 +426,7 @@ def _init_cc_compilation_context(
             includes = depset(include_dirs_for_context),
             virtual_to_original_headers = virtual_to_original_headers,
             dependent_cc_compilation_contexts = dependent_cc_compilation_contexts + implementation_deps,
-            additional_inputs = additional_inputs,
+            non_code_inputs = additional_inputs,
             defines = depset(defines),
             local_defines = depset(local_defines),
             headers = depset(declared_include_srcs),
