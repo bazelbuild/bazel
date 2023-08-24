@@ -32,11 +32,17 @@ public class AndroidDexInfo extends NativeInfo implements AndroidDexInfoApi<Arti
 
   private final Artifact deployJar;
   private final Artifact finalClassesDexZip;
+  private final Artifact finalProguardOutputMap;
   private final Artifact javaResourceJar;
 
-  public AndroidDexInfo(Artifact deployJar, Artifact finalClassesDexZip, Artifact javaResourceJar) {
+  public AndroidDexInfo(
+      Artifact deployJar,
+      Artifact finalClassesDexZip,
+      Artifact finalProguardOutputMap,
+      Artifact javaResourceJar) {
     this.deployJar = deployJar;
     this.finalClassesDexZip = finalClassesDexZip;
+    this.finalProguardOutputMap = finalProguardOutputMap;
     this.javaResourceJar = javaResourceJar;
   }
 
@@ -61,6 +67,12 @@ public class AndroidDexInfo extends NativeInfo implements AndroidDexInfoApi<Arti
     return javaResourceJar;
   }
 
+  @Override
+  @Nullable
+  public Artifact getFinalProguardOutputMap() {
+    return finalProguardOutputMap;
+  }
+
   /** Provider for {@link AndroidDexInfo}. */
   public static class Provider extends BuiltinProvider<AndroidDexInfo>
       implements AndroidDexInfoApi.Provider<Artifact> {
@@ -75,11 +87,17 @@ public class AndroidDexInfo extends NativeInfo implements AndroidDexInfoApi<Arti
 
     @Override
     public AndroidDexInfo createInfo(
-        Artifact deployJar, Artifact finalClassesDexZip, Object javaResourceJar)
+        Artifact deployJar,
+        Artifact finalClassesDexZip,
+        Object finalProguardOutputMap,
+        Object javaResourceJar)
         throws EvalException {
 
       return new AndroidDexInfo(
-          deployJar, finalClassesDexZip, fromNoneable(javaResourceJar, Artifact.class));
+          deployJar,
+          finalClassesDexZip,
+          fromNoneable(finalProguardOutputMap, Artifact.class),
+          fromNoneable(javaResourceJar, Artifact.class));
     }
   }
 }
