@@ -21,8 +21,6 @@ public interface QuiescingExecutors {
 
   int globbingParallelism();
 
-  boolean usePrioritizationForAnalysis();
-
   QuiescingExecutor getAnalysisExecutor();
 
   QuiescingExecutor getExecutionExecutor();

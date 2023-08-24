@@ -734,6 +734,15 @@ public final class BazelRulesModule extends BlazeModule {
     public boolean useForkJoinPool;
 
     @Option(
+        name = "experimental_use_priority_in_analysis",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        metadataTags = OptionMetadataTag.DEPRECATED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean usePrioritization;
+
+    @Option(
         name = "incompatible_generated_protos_in_virtual_imports",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

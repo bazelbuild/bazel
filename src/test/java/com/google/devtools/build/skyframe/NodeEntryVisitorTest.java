@@ -48,7 +48,7 @@ public class NodeEntryVisitorTest {
         new NodeEntryVisitor(executor, receiver, runnableMaker, stateCache);
     SkyKey nonCPUHeavyKey = mock(SkyKey.class);
 
-    nodeEntryVisitor.enqueueEvaluation(nonCPUHeavyKey, Integer.MAX_VALUE, null);
+    nodeEntryVisitor.enqueueEvaluation(nonCPUHeavyKey, null);
 
     verify(executor).execute(any(), eq(ThreadPoolType.REGULAR), anyBoolean());
   }
@@ -59,7 +59,7 @@ public class NodeEntryVisitorTest {
         new NodeEntryVisitor(executor, receiver, runnableMaker, stateCache);
     CPUHeavySkyKey cpuHeavyKey = mock(CPUHeavySkyKey.class);
 
-    nodeEntryVisitor.enqueueEvaluation(cpuHeavyKey, Integer.MAX_VALUE, null);
+    nodeEntryVisitor.enqueueEvaluation(cpuHeavyKey, null);
 
     verify(executor).execute(any(), eq(ThreadPoolType.CPU_HEAVY), anyBoolean());
   }

@@ -14,17 +14,13 @@
 package com.google.devtools.build.skyframe;
 
 import static com.google.common.base.Preconditions.checkState;
-import static java.lang.Math.min;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.unsafe.UnsafeProvider;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import java.util.List;
 import javax.annotation.Nullable;
-import sun.misc.Unsafe;
 
 /**
  * State for a node that either has not been built yet or has been dirtied.
@@ -38,7 +34,7 @@ import sun.misc.Unsafe;
  * <p>This class is public only for the benefit of alternative graph implementations outside of the
  * package.
  */
-public abstract class DirtyBuildingState implements PriorityTracker {
+public abstract class DirtyBuildingState {
   private static final int NOT_EVALUATING_SENTINEL = -1;
 
   /**
@@ -85,19 +81,6 @@ public abstract class DirtyBuildingState implements PriorityTracker {
   // dirtyState field, e.g., by adding a REBUILDING_WAITING_FOR_EXTERNAL_DEPS enum value, as this
   // can only happen during evaluation.
   private int externalDeps;
-
-  /**
-   * Priority information packed into 32-bits.
-   *
-   * <p>Packing is used because Java lacks support for native short operations. This field has the
-   * following layout.
-   *
-   * <ol>
-   *   <li><i>Depth</i> (15-bits) - the current estimated depth.
-   *   <li><i>Restart Count</i> (16-bits, unsigned) - incremented when this node restarts.
-   * </ol>
-   */
-  private volatile int priority = 0;
 
   /**
    * Returns the {@link GroupedDeps} requested last time the node was built, or {@code null} if on
@@ -302,97 +285,16 @@ public abstract class DirtyBuildingState implements PriorityTracker {
     return signaledDeps == numDirectDeps + externalDeps;
   }
 
-  /**
-   * A bound on depth to avoid overflow.
-   *
-   * <p>The maximum observed depth in our benchmark is ~150.
-   */
-  @VisibleForTesting static final int DEPTH_SATURATION_BOUND = 512;
-
-  /**
-   * A bound on evaluation count to avoid overflow.
-   *
-   * <p>The maximum observed evaluation count in our benchmark is 4.
-   */
-  @VisibleForTesting static final int EVALUATION_COUNT_SATURATION_BOUND = 32;
-
-  @Override
-  public final int getPriority() {
-    int snapshot = priority;
-
-    int depth = min((snapshot & DEPTH_MASK) >> DEPTH_BIT_OFFSET, DEPTH_SATURATION_BOUND);
-    int evaluationCount = min(snapshot & EVALUATION_COUNT_MASK, EVALUATION_COUNT_SATURATION_BOUND);
-
-    // This formula was found to produce good results in our benchmark. There's no deep rationale
-    // behind it. It's likely possible to improve it, but iterating is slow.
-    return depth + evaluationCount * evaluationCount;
-  }
-
-  @Override
-  public final int depth() {
-    return (priority & DEPTH_MASK) >> DEPTH_BIT_OFFSET;
-  }
-
-  @Override
-  public final void updateDepthIfGreater(int proposedDepth) {
-    // Shifts the input for comparison instead of the snapshot, which might otherwise need to be
-    // shifted repeatedly.
-    proposedDepth = (proposedDepth << DEPTH_BIT_OFFSET) & DEPTH_MASK;
-    int snapshot;
-    do {
-      snapshot = priority;
-      if (proposedDepth <= (snapshot & DEPTH_MASK)) {
-        return;
-      }
-    } while (!UNSAFE.compareAndSwapInt(
-        this, PRIORITY_OFFSET, snapshot, (snapshot & ~DEPTH_MASK) | proposedDepth));
-  }
-
-  @Override
-  public final void incrementEvaluationCount() {
-    UNSAFE.getAndAddInt(this, PRIORITY_OFFSET, ONE_EVALUATION);
-  }
-
   protected MoreObjects.ToStringHelper getStringHelper() {
-    int snapshot = priority;
     return MoreObjects.toStringHelper(this)
         .add("dirtyState", dirtyState)
         .add("signaledDeps", signaledDeps)
         .add("externalDeps", externalDeps)
-        .add("dirtyDirectDepIndex", dirtyDirectDepIndex)
-        .add("depth", (snapshot & DEPTH_MASK) >> DEPTH_BIT_OFFSET)
-        .add("evaluation count", (snapshot & EVALUATION_COUNT_MASK));
+        .add("dirtyDirectDepIndex", dirtyDirectDepIndex);
   }
 
   @Override
   public final String toString() {
     return getStringHelper().toString();
-  }
-
-  // Masks for `priority`.
-  private static final int DEPTH_MASK = 0x7FFF_0000;
-  private static final int DEPTH_BIT_OFFSET = 16;
-
-  private static final int EVALUATION_COUNT_MASK = 0xFFFF;
-  private static final int ONE_EVALUATION = 1;
-
-  static {
-    checkState(Integer.numberOfTrailingZeros(DEPTH_MASK) == DEPTH_BIT_OFFSET);
-    checkState(
-        Integer.numberOfTrailingZeros(EVALUATION_COUNT_MASK)
-            == Integer.numberOfTrailingZeros(ONE_EVALUATION));
-  }
-
-  private static final Unsafe UNSAFE = UnsafeProvider.unsafe();
-
-  private static final long PRIORITY_OFFSET;
-
-  static {
-    try {
-      PRIORITY_OFFSET =
-          UNSAFE.objectFieldOffset(DirtyBuildingState.class.getDeclaredField("priority"));
-    } catch (ReflectiveOperationException e) {
-      throw new ExceptionInInitializerError(e);
-    }
   }
 }

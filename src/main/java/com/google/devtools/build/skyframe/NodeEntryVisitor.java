@@ -21,7 +21,6 @@ import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.lib.concurrent.ComparableRunnable;
 import com.google.devtools.build.lib.concurrent.MultiThreadPoolsQuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.MultiThreadPoolsQuiescingExecutor.ThreadPoolType;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
@@ -88,35 +87,27 @@ class NodeEntryVisitor {
 
   private class PartialReevaluationRunnableMaker implements RunnableMaker {
     @Override
-    public ComparableRunnable make(SkyKey key, int evaluationPriority) {
-      ComparableRunnable inner = runnableMaker.make(key, evaluationPriority);
-      return new ComparableRunnable() {
-        @Override
-        public int compareTo(ComparableRunnable o) {
-          return inner.compareTo(o);
-        }
-
-        @Override
-        public void run() {
-          PartialReevaluationState state = PartialReevaluationState.EVALUATING;
-          while (state == PartialReevaluationState.EVALUATING) {
-            inner.run();
-            state =
-                partialReevaluationStates.compute(
-                    key,
-                    (k, s) -> {
-                      checkNotNull(s, "Null state during evaluation: %s", k);
-                      switch (s) {
-                        case EVALUATING:
-                          // Note that returning null from this compute function causes the entry to
-                          // be removed from the map.
-                          return null;
-                        case EVALUATING_SIGNALED:
-                          return PartialReevaluationState.EVALUATING;
-                      }
-                      throw new AssertionError(s);
-                    });
-          }
+    public Runnable make(SkyKey key) {
+      Runnable inner = runnableMaker.make(key);
+      return () -> {
+        PartialReevaluationState state = PartialReevaluationState.EVALUATING;
+        while (state == PartialReevaluationState.EVALUATING) {
+          inner.run();
+          state =
+              partialReevaluationStates.compute(
+                  key,
+                  (k, s) -> {
+                    checkNotNull(s, "Null state during evaluation: %s", k);
+                    switch (s) {
+                      case EVALUATING:
+                        // Note that returning null from this compute function causes the entry to
+                        // be removed from the map.
+                        return null;
+                      case EVALUATING_SIGNALED:
+                        return PartialReevaluationState.EVALUATING;
+                    }
+                    throw new AssertionError(s);
+                  });
         }
       };
     }
@@ -139,42 +130,25 @@ class NodeEntryVisitor {
   }
 
   /**
-   * Enqueue {@code key} for evaluation, at {@code evaluationPriority} if this visitor is using a
-   * priority queue.
+   * Enqueue {@code key} for evaluation.
    *
    * <p>This won't immediately enqueue {@code key} if {@code key.supportsPartialReevaluation()} and
    * a partial reevaluation is currently running, but that reevaluation will be immediately followed
    * by another reevaluation.
-   *
-   * <p>{@code evaluationPriority} is used to minimize evaluation "sprawl": inefficiencies coming
-   * from incompletely evaluating many nodes, versus focusing on finishing the evaluation of nodes
-   * that have already started evaluating. Sprawl can be expensive because an incompletely evaluated
-   * node keeps state in Skyframe, and often in external caches, that uses memory.
-   *
-   * <p>In general, {@code evaluationPriority} should be higher when restarting a node that has
-   * already started evaluation, and lower when enqueueing a node that no other tasks depend on.
-   * Setting {@code evaluationPriority} to the same value for all children of a parent has good
-   * results experimentally, since it prioritizes batches of work that can be used together.
-   * Similarly, prioritizing deeper nodes (depth-first search of the evaluation graph) also has good
-   * results experimentally, since it minimizes sprawl.
    */
-  void enqueueEvaluation(SkyKey key, int evaluationPriority, @Nullable SkyKey signalingDep) {
+  void enqueueEvaluation(SkyKey key, @Nullable SkyKey signalingDep) {
     if (key.supportsPartialReevaluation()) {
-      enqueuePartialReevaluation(key, evaluationPriority, signalingDep);
+      enqueuePartialReevaluation(key, signalingDep);
     } else {
-      innerEnqueueEvaluation(key, evaluationPriority, runnableMaker);
+      innerEnqueueEvaluation(key, runnableMaker);
     }
   }
 
   /**
-   * Registers a listener with all passed futures that causes the node to be re-enqueued (at the
-   * given {@code evaluationPriority}) when all futures are completed.
+   * Registers a listener with all passed futures that causes the node to be re-enqueued when all
+   * futures are completed.
    */
-  void registerExternalDeps(
-      SkyKey skyKey,
-      NodeEntry entry,
-      List<ListenableFuture<?>> externalDeps,
-      int evaluationPriority)
+  void registerExternalDeps(SkyKey skyKey, NodeEntry entry, List<ListenableFuture<?>> externalDeps)
       throws InterruptedException {
     // Generally speaking, there is no ordering guarantee for listeners registered with a single
     // listenable future. If we used a listener here, there would be a potential race condition
@@ -188,7 +162,7 @@ class NodeEntryVisitor {
             .run(
                 () -> {
                   if (entry.signalDep(entry.getVersion(), null)) {
-                    enqueueEvaluation(skyKey, evaluationPriority, null);
+                    enqueueEvaluation(skyKey, null);
                   }
                 },
                 MoreExecutors.directExecutor());
@@ -229,8 +203,7 @@ class NodeEntryVisitor {
     return quiescingExecutor.getExceptionLatchForTestingOnly();
   }
 
-  private void enqueuePartialReevaluation(
-      SkyKey key, int evaluationPriority, @Nullable SkyKey signalingDep) {
+  private void enqueuePartialReevaluation(SkyKey key, @Nullable SkyKey signalingDep) {
     PartialReevaluationMailbox mailbox = getMailbox(key);
     if (signalingDep != null) {
       mailbox.signal(signalingDep);
@@ -246,7 +219,7 @@ class NodeEntryVisitor {
                     ? PartialReevaluationState.EVALUATING
                     : PartialReevaluationState.EVALUATING_SIGNALED);
     if (reevaluationState.equals(PartialReevaluationState.EVALUATING)) {
-      innerEnqueueEvaluation(key, evaluationPriority, partialReevaluationRunnableMaker);
+      innerEnqueueEvaluation(key, partialReevaluationRunnableMaker);
     }
   }
 
@@ -256,8 +229,7 @@ class NodeEntryVisitor {
             stateCache.get(key, k -> new ClassToInstanceMapSkyKeyComputeState()));
   }
 
-  private void innerEnqueueEvaluation(
-      SkyKey key, int evaluationPriority, RunnableMaker runnableMakerToUse) {
+  private void innerEnqueueEvaluation(SkyKey key, RunnableMaker runnableMakerToUse) {
     if (shouldPreventNewEvaluations()) {
       // If an error happens in nokeep_going mode, we still want to mark these nodes as inflight,
       // otherwise cleanup will not happen properly.
@@ -266,7 +238,7 @@ class NodeEntryVisitor {
     }
     progressReceiver.enqueueing(key);
 
-    var runnable = runnableMakerToUse.make(key, evaluationPriority);
+    var runnable = runnableMakerToUse.make(key);
     if (quiescingExecutor instanceof MultiThreadPoolsQuiescingExecutor) {
       MultiThreadPoolsQuiescingExecutor multiThreadPoolsQuiescingExecutor =
           (MultiThreadPoolsQuiescingExecutor) quiescingExecutor;

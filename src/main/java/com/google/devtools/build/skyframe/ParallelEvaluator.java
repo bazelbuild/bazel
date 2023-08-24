@@ -144,7 +144,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
         // in order to be thread-safe.
         switch (entry.addReverseDepAndCheckIfDone(null)) {
           case NEEDS_SCHEDULING:
-            evaluatorContext.getVisitor().enqueueEvaluation(skyKey, entry.getPriority(), null);
+            evaluatorContext.getVisitor().enqueueEvaluation(skyKey, null);
             break;
           case DONE:
             informProgressReceiverThatValueIsDone(skyKey, entry);

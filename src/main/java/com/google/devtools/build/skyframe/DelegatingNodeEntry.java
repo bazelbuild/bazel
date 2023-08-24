@@ -223,24 +223,4 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   public void addExternalDep() {
     getDelegate().addExternalDep();
   }
-
-  @Override
-  public int getPriority() {
-    return getDelegate().getPriority();
-  }
-
-  @Override
-  public int depth() {
-    return getDelegate().depth();
-  }
-
-  @Override
-  public void updateDepthIfGreater(int proposedDepth) {
-    getDelegate().updateDepthIfGreater(proposedDepth);
-  }
-
-  @Override
-  public void incrementEvaluationCount() {
-    getDelegate().incrementEvaluationCount();
-  }
 }

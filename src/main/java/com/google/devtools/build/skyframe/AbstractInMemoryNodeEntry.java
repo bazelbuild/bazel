@@ -230,42 +230,6 @@ abstract class AbstractInMemoryNodeEntry<D extends DirtyBuildingState>
     getTemporaryDirectDeps().appendGroups(deps, groupSizes);
   }
 
-  @Override
-  public final int getPriority() {
-    var snapshot = dirtyBuildingState;
-    if (snapshot == null) {
-      return Integer.MAX_VALUE;
-    }
-    return snapshot.getPriority();
-  }
-
-  @Override
-  public final int depth() {
-    var snapshot = dirtyBuildingState;
-    if (snapshot == null) {
-      return 0;
-    }
-    return snapshot.depth();
-  }
-
-  @Override
-  public final void updateDepthIfGreater(int proposedDepth) {
-    var snapshot = dirtyBuildingState;
-    if (snapshot == null) {
-      return;
-    }
-    snapshot.updateDepthIfGreater(proposedDepth);
-  }
-
-  @Override
-  public final void incrementEvaluationCount() {
-    var snapshot = dirtyBuildingState;
-    if (snapshot == null) {
-      return;
-    }
-    snapshot.incrementEvaluationCount();
-  }
-
   protected synchronized MoreObjects.ToStringHelper toStringHelper() {
     return MoreObjects.toStringHelper(this)
         .add("key", key)

@@ -136,18 +136,4 @@ public class AnalysisOptions extends OptionsBase {
               + " be used. Example value: \"HOST_CPUS*0.5\".",
       converter = CpuResourceConverter.class)
   public int oomSensitiveSkyFunctionsSemaphoreSize;
-
-  @Option(
-      name = "experimental_use_priority_in_analysis",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION
-      },
-      help =
-          "If true, runs the analysis phase with priority queuing for SkyFunctions, improving large"
-              + " build performance. This option is ignored unless"
-              + " experimental_skyframe_cpu_heavy_skykeys_thread_pool_size has a positive value.")
-  public boolean usePrioritization;
 }
