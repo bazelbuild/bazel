@@ -681,7 +681,7 @@ public final class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_merge_fixed_and_default_shell_env",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -887,7 +887,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String EXPERIMENTAL_GET_FIXED_CONFIGURED_ACTION_ENV =
       "-experimental_get_fixed_configured_action_env";
   public static final String INCOMPATIBLE_MERGE_FIXED_AND_DEFAULT_SHELL_ENV =
-      "-experimental_merge_fixed_and_default_shell_env";
+      "+experimental_merge_fixed_and_default_shell_env";
   public static final String INCOMPATIBLE_OBJC_PROVIDER_REMOVE_LINKING_INFO =
       "-incompatible_objc_provider_remove_linking_info";
 
