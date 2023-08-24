@@ -627,7 +627,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       // Parse starlark options.
       try (SilentCloseable c =
           Profiler.instance().profile(ProfilerTask.BZLMOD, "parse starlark options")) {
-        earlyExitCode = optionHandler.parseStarlarkOptions(env);
+        earlyExitCode = optionHandler.parseStarlarkOptions(env, reporter);
       }
       if (!earlyExitCode.isSuccess()) {
         reporter.post(
