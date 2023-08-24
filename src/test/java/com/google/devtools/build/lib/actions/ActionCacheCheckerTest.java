@@ -1321,8 +1321,7 @@ public class ActionCacheCheckerTest {
   }
 
   @Test
-  public void saveOutputMetadata_treeMetadataWithSameLocalFileMetadata_cached(
-      @TestParameter({"", "/target/path"}) String materializationExecPathParam) throws Exception {
+  public void saveOutputMetadata_treeMetadataWithSameLocalFileMetadata_cached() throws Exception {
     cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
     SpecialArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
@@ -1330,18 +1329,11 @@ public class ActionCacheCheckerTest {
         ImmutableMap.of(
             "file1", createRemoteFileMetadata("content1"),
             "file2", createRemoteFileMetadata("content2"));
-    Optional<PathFragment> materializationExecPath =
-        materializationExecPathParam.isEmpty()
-            ? Optional.empty()
-            : Optional.of(PathFragment.create("/target/path"));
     Action action =
         new InjectOutputTreeMetadataAction(
             output,
             createTreeMetadata(
-                output,
-                children,
-                /* archivedArtifactValue= */ Optional.empty(),
-                materializationExecPath));
+                output, children, /* archivedArtifactValue= */ Optional.empty(), Optional.empty()));
     FakeInputMetadataHandler metadataHandler = new FakeInputMetadataHandler();
 
     runAction(action);
@@ -1368,7 +1360,8 @@ public class ActionCacheCheckerTest {
     assertThat(entry.getOutputTree(output))
         .isEqualTo(
             SerializableTreeArtifactValue.create(
-                children, /* archivedFileValue= */ Optional.empty(), materializationExecPath));
+                children, /* archivedFileValue= */ Optional.empty(), Optional.empty()));
+
     assertThat(metadataHandler.getTreeArtifactValue(output))
         .isEqualTo(
             createTreeMetadata(
@@ -1379,7 +1372,7 @@ public class ActionCacheCheckerTest {
                     "file2",
                     createRemoteFileMetadata("content2")),
                 /* archivedArtifactValue= */ Optional.empty(),
-                materializationExecPath));
+                /* materializationExecPath= */ Optional.empty()));
   }
 
   @Test
@@ -1405,17 +1398,22 @@ public class ActionCacheCheckerTest {
 
     assertStatistics(1, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
     assertThat(output.getPath().exists()).isFalse();
-    TreeArtifactValue expectedMetadata =
-        createTreeMetadata(
-            output,
-            ImmutableMap.of(),
-            Optional.of(createRemoteFileMetadata("content")),
-            /* materializationExecPath= */ Optional.empty());
     ActionCache.Entry entry = cache.get(output.getExecPathString());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputTree(output))
-        .isEqualTo(SerializableTreeArtifactValue.createSerializable(expectedMetadata).get());
-    assertThat(metadataHandler.getTreeArtifactValue(output)).isEqualTo(expectedMetadata);
+        .isEqualTo(
+            SerializableTreeArtifactValue.create(
+                ImmutableMap.of(),
+                /* archivedFileValue= */ Optional.of(createRemoteFileMetadata("content")),
+                /* materializationExecPath= */ Optional.empty()));
+    assertThat(metadataHandler.getTreeArtifactValue(output))
+        .isEqualTo(
+            createTreeMetadata(
+                output,
+                ImmutableMap.of(),
+                Optional.of(
+                    FileArtifactValue.createForTesting(ArchivedTreeArtifact.createForTree(output))),
+                /* materializationExecPath= */ Optional.empty()));
   }
 
   @Test
@@ -1506,6 +1504,10 @@ public class ActionCacheCheckerTest {
                 /* archivedFileValue= */ Optional.empty(),
                 /* materializationExecPath= */ Optional.empty()));
   }
+
+  // TODO(tjgq): Add tests for cached tree artifacts with a materialization path. They should take
+  // into account every combination of entirely/partially remote metadata and symlink present/not
+  // present in the filesystem.
 
   /** An {@link ActionCache} that allows injecting corruption for testing. */
   private static final class CorruptibleActionCache implements ActionCache {
