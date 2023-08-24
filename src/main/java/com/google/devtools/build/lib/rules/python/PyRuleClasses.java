@@ -16,21 +16,13 @@ package com.google.devtools.build.lib.rules.python;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.base.Ascii;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.SymlinkDefinition;
-import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
-import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.RawAttributeMapper;
-import com.google.devtools.build.lib.packages.RuleTransitionData;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Set;
@@ -53,72 +45,13 @@ public class PyRuleClasses {
         }
       };
 
-  /**
-   * Returns a rule transition factory for Python binary rules and other rules that may change the
-   * Python version.
-   *
-   * <p>The factory reads the version specified by the target's {@code python_version} attribute (if
-   * given), which must exist on the rule class. If a value was read successfully, the factory
-   * returns a transition that sets the version to that value. Otherwise, the factory returns {@code
-   * defaultTransition} instead.
-   *
-   * <p>If the attribute has an unparseable value, then the factory returns {@code
-   * defaultTransition} and it is up to the rule's analysis phase ({@link
-   * PyCommon#validatePythonVersionAttr}) to report an attribute error to the user. This case should
-   * be prevented by attribute validation if the rule class is defined correctly.
-   */
-  public static TransitionFactory<RuleTransitionData> makeVersionTransition(
-      PythonVersionTransition defaultTransition) {
-    return (ruleData) -> {
-      AttributeMap attrs = RawAttributeMapper.of(ruleData.rule());
-      // Fail fast if we're used on an ill-defined rule class.
-      Preconditions.checkArgument(
-          attrs.has(PyCommon.PYTHON_VERSION_ATTRIBUTE, Type.STRING),
-          "python version transitions require that the RuleClass define a "
-              + "'python_version' attribute");
-      // Attribute validation should enforce that the attribute string value is either a target
-      // value ("PY2" or "PY3") or the sentinel value ("_INTERNAL_SENTINEL"). But just in case,
-      // we'll, treat an invalid value as the default value rather than propagate an unchecked
-      // exception in this context. That way the user can at least get a clean error message
-      // instead of a crash.
-      PythonVersionTransition transition;
-      try {
-        PythonVersion versionFromAttribute = PyCommon.readPythonVersionFromAttribute(attrs);
-        if (versionFromAttribute == null) {
-          transition = defaultTransition;
-        } else {
-          transition = PythonVersionTransition.toConstant(versionFromAttribute);
-        }
-      } catch (IllegalArgumentException ex) {
-        transition = defaultTransition;
-      }
-      return transition;
-    };
-  }
-
-  /**
-   * A Python version transition that sets the version as specified by the target's attributes, with
-   * a default determined by {@link PythonOptions#getDefaultPythonVersion}.
-   */
-  public static final TransitionFactory<RuleTransitionData> VERSION_TRANSITION =
-      makeVersionTransition(PythonVersionTransition.toDefault());
-
-  /** The py2 and py3 symlinks. */
-  public enum PySymlink implements SymlinkDefinition {
-    PY2(PythonVersion.PY2),
-    PY3(PythonVersion.PY3);
-
-    private final String versionString;
-    private final PythonVersionTransition transition;
-
-    PySymlink(PythonVersion version) {
-      this.versionString = Ascii.toLowerCase(version.toString());
-      this.transition = PythonVersionTransition.toConstant(version);
-    }
+  /** The py3 symlinks. */
+  public static final class Py3Symlink implements SymlinkDefinition {
+    public static final Py3Symlink INSTANCE = new Py3Symlink();
 
     @Override
     public String getLinkName(String symlinkPrefix, String productName, String workspaceBaseName) {
-      return symlinkPrefix + versionString;
+      return symlinkPrefix + Ascii.toLowerCase(PythonVersion.PY3.toString());
     }
 
     @Override
@@ -132,23 +65,21 @@ public class PyRuleClasses {
       if (!buildRequestOptions.experimentalCreatePySymlinks) {
         return ImmutableSet.of();
       }
-      EventHandler e =
-          event -> {
-            throw new UnsupportedOperationException(
-                "This transition shouldn't do anything that could fail.\n"
-                    + "TODO(bazel-team): refactor this to not call patch(). Blaze code should"
-                    + " not apply transitions unless it absolutely has to, since that requires"
-                    + " sequencing (like supporting Starlark flags and handling exceptions)"
-                    + " that's easy to get wrong.");
-          };
+
       return targetConfigs.stream()
           .map(
-              config ->
-                  configGetter.apply(
-                      transition.patch(
-                          new BuildOptionsView(
-                              config.getOptions(), transition.requiresOptionFragments()),
-                          e)))
+              config -> {
+                BuildOptions options = config.getOptions();
+                PythonOptions opts =
+                    options.hasNoConfig() ? null : options.get(PythonOptions.class);
+                if (opts == null || !opts.canTransitionPythonVersion(PythonVersion.PY3)) {
+                  return config;
+                } else {
+                  BuildOptions newOptions = options.clone();
+                  newOptions.get(PythonOptions.class).setPythonVersion(PythonVersion.PY3);
+                  return configGetter.apply(newOptions);
+                }
+              })
           .map(config -> config.getOutputDirectory(repositoryName).getRoot().asPath())
           .distinct()
           .collect(toImmutableSet());

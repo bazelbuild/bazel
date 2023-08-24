@@ -115,7 +115,7 @@ import com.google.devtools.build.lib.rules.proto.BazelProtoCommon;
 import com.google.devtools.build.lib.rules.proto.BazelProtoLibraryRule;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainRule;
-import com.google.devtools.build.lib.rules.python.PyRuleClasses.PySymlink;
+import com.google.devtools.build.lib.rules.python.PyRuleClasses.Py3Symlink;
 import com.google.devtools.build.lib.rules.python.PyRuntimeRule;
 import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
@@ -482,8 +482,7 @@ public class BazelRuleClassProvider {
                   Starlark.NONE, PyBootstrap.allowedRepositories));
           builder.addStarlarkBuiltinsInternal(BazelPyBuiltins.NAME, new BazelPyBuiltins());
           builder.addStarlarkBootstrap(new PyBootstrap());
-          builder.addSymlinkDefinition(PySymlink.PY2);
-          builder.addSymlinkDefinition(PySymlink.PY3);
+          builder.addSymlinkDefinition(Py3Symlink.INSTANCE);
 
           try {
             builder.addWorkspaceFileSuffix(

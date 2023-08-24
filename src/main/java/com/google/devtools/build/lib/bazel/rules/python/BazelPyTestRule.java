@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses.PyBin
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TriState;
-import com.google.devtools.build.lib.rules.python.PyRuleClasses;
 import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 
 /**
@@ -36,7 +35,6 @@ public final class BazelPyTestRule implements RuleDefinition {
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
         .requiresConfigurationFragments(PythonConfiguration.class, BazelPythonConfiguration.class)
-        .cfg(PyRuleClasses.VERSION_TRANSITION)
         .override(
             attr("testonly", BOOLEAN)
                 .value(true)
