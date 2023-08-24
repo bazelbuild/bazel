@@ -516,10 +516,29 @@ public interface NodeEntry extends PriorityTracker {
   void removeUnfinishedDeps(Set<SkyKey> unfinishedDeps);
 
   /**
-   * Erases all stored work during this evaluation from this entry, namely all temporary direct
-   * deps. The entry will be as if it had never evaluated at this version. Called after the {@link
-   * SkyFunction} for this entry returns {@link SkyFunction.Restart}, indicating that something went
-   * wrong in external state and the evaluation has to be restarted.
+   * Prepares this node for a restart of its evaluation to recover from an inconsistency.
+   *
+   * <p>Called on a {@link DirtyState#REBUILDING} node when one of the following scenarios is
+   * observed:
+   *
+   * <ol>
+   *   <li>One or more already requested dependencies are not done. This may happen when a
+   *       dependency's node was dropped from the graph to save memory, or if a dependency was
+   *       {@linkplain DirtyType#REWIND rewound} by another node.
+   *   <li>The corresponding {@link SkyFunction} for this node returned {@link SkyFunction.Restart}
+   *       to indicate that one or more dependencies were done but are in need of {@linkplain
+   *       DirtyType#REWIND rewinding} to regenerate their values.
+   * </ol>
+   *
+   * <p>This method is similar to calling {@link #markDirty} with {@link DirtyType#REWIND} with an
+   * important distinction: rewinding is initiated on a <em>done</em> node because of an issue with
+   * its <em>value</em>, while this method is called on a <em>building</em> node because of an issue
+   * with a <em>dependency</em>. The dependency will be rewound if we are in scenario 2 above.
+   *
+   * <p>Temporary direct deps are cleared by this call, as they will be added again when requested
+   * during the restarted evaluation of this node. Reverse deps on the other hand are preserved -
+   * parents waiting on this node are unaware that it is being restarted and will not register
+   * themselves again, yet they still need to be signaled when this node is done.
    */
   @ThreadSafe
   void resetForRestartFromScratch();

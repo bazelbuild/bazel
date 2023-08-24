@@ -122,8 +122,11 @@ public class NonIncrementalInMemoryNodeEntry
   @Override
   public final synchronized void resetForRestartFromScratch() {
     checkState(!hasUnsignaledDeps(), this);
-    dirtyBuildingState.directDeps = null;
-    dirtyBuildingState.resetForRestartFromScratch();
+    var newBuildingState = new NonIncrementalBuildingState();
+    newBuildingState.reverseDeps = dirtyBuildingState.reverseDeps;
+    newBuildingState.markRebuilding();
+    newBuildingState.startEvaluating();
+    dirtyBuildingState = newBuildingState;
   }
 
   @Override

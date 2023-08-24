@@ -16,6 +16,7 @@ package com.google.devtools.build.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.NodeEntrySubjectFactory.assertThatNodeEntry;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
@@ -88,5 +89,52 @@ public class NonIncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<C
     assertThat(entry.isDirty()).isTrue();
     assertThat(entry.isChanged()).isTrue();
     assertThat(entry.isDone()).isFalse();
+  }
+
+  @Test
+  public void resetLifecycle() throws Exception {
+    InMemoryNodeEntry entry = createEntry();
+    entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
+    entry.markRebuilding();
+
+    // Rdep added before reset.
+    SkyKey parent1 = key("parent1");
+    assertThatNodeEntry(entry)
+        .addReverseDepAndCheckIfDone(parent1)
+        .isEqualTo(DependencyState.ALREADY_EVALUATING);
+
+    // Dep added before reset.
+    SkyKey dep1 = key("dep1");
+    entry.addSingletonTemporaryDirectDep(dep1);
+    assertThat(entry.signalDep(initialVersion, dep1)).isTrue();
+
+    // Reset clears temporary direct deps.
+    entry.resetForRestartFromScratch();
+    assertThat(entry.getDirtyState()).isEqualTo(DirtyState.REBUILDING);
+    assertThat(entry.getTemporaryDirectDeps()).isEmpty();
+    assertThat(entry.getTemporaryDirectDeps() instanceof GroupedDeps.WithHashSet)
+        .isEqualTo(isPartialReevaluation);
+
+    // Rdep added after reset.
+    SkyKey parent2 = key("parent2");
+    assertThatNodeEntry(entry)
+        .addReverseDepAndCheckIfDone(parent2)
+        .isEqualTo(DependencyState.ALREADY_EVALUATING);
+
+    // Add back same dep.
+    entry.addSingletonTemporaryDirectDep(dep1);
+    assertThat(entry.signalDep(initialVersion, dep1)).isTrue();
+    assertThat(entry.getTemporaryDirectDeps()).containsExactly(ImmutableList.of(dep1));
+
+    // Dep added after reset.
+    SkyKey dep2 = key("dep2");
+    entry.addSingletonTemporaryDirectDep(dep2);
+    assertThat(entry.signalDep(initialVersion, dep2)).isTrue();
+    assertThat(entry.getTemporaryDirectDeps())
+        .containsExactly(ImmutableList.of(dep1), ImmutableList.of(dep2));
+
+    // Set value and check that both parents will be signaled.
+    assertThat(setValue(entry, new IntegerValue(1), /* errorInfo= */ null, initialVersion))
+        .containsExactly(parent1, parent2);
   }
 }

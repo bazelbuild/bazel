@@ -387,10 +387,9 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
   }
 
   @Override
-  public synchronized void resetForRestartFromScratch() {
-    checkState(!hasUnsignaledDeps(), this);
-    directDeps = null;
-    dirtyBuildingState.resetForRestartFromScratch();
+  public final void resetForRestartFromScratch() {
+    // TODO(b/228090759): Implement to support rewinding with incrementality.
+    throw new UnsupportedOperationException();
   }
 
   @Override

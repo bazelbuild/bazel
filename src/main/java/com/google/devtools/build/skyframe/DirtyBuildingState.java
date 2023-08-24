@@ -282,25 +282,6 @@ public abstract class DirtyBuildingState implements PriorityTracker {
     return result.build();
   }
 
-  /**
-   * Resets counters that track evaluation state. May only be called when its corresponding node has
-   * no outstanding unsignaled deps, because otherwise this resetting and that signalling would
-   * race.
-   */
-  final void resetForRestartFromScratch() {
-    checkState(dirtyState == DirtyState.REBUILDING, this);
-    signaledDeps = 0;
-    externalDeps = 0;
-    dirtyDirectDepIndex = 0;
-
-    // Resets the evaluation count.
-    int snapshot;
-    do {
-      snapshot = priority;
-    } while (!UNSAFE.compareAndSwapInt(
-        this, PRIORITY_OFFSET, snapshot, snapshot & ~EVALUATION_COUNT_MASK));
-  }
-
   protected void markRebuilding() {
     checkState(dirtyState == DirtyState.NEEDS_REBUILDING, this);
     dirtyState = DirtyState.REBUILDING;

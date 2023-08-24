@@ -54,13 +54,11 @@ import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.NotifyingHelper.EventType;
 import com.google.devtools.build.skyframe.NotifyingHelper.Listener;
 import com.google.devtools.build.skyframe.NotifyingHelper.Order;
-import com.google.devtools.build.skyframe.SkyFunction.Restart;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
 import com.google.errorprone.annotations.ForOverride;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -2342,148 +2340,6 @@ public abstract class MemoizingEvaluatorTest {
     tester.invalidate();
     assertThat(tester.evalAndGet(/* keepGoing= */ false, leafKey))
         .isEqualTo(new StringValue("leafy"));
-  }
-
-  @Test
-  public void resetNodeOnRequest_smoke() throws Exception {
-    SkyKey restartingKey = nonHermeticKey("restart");
-    StringValue expectedValue = new StringValue("done");
-    AtomicInteger numInconsistencyCalls = new AtomicInteger(0);
-    tester.setGraphInconsistencyReceiver(
-        restartEnabledInconsistencyReceiver(
-            (key, otherKey, inconsistency) -> {
-              Preconditions.checkState(otherKey == null, otherKey);
-              Preconditions.checkState(
-                  inconsistency == Inconsistency.RESET_REQUESTED, inconsistency);
-              Preconditions.checkState(restartingKey.equals(key), key);
-              numInconsistencyCalls.incrementAndGet();
-            }));
-    tester.initialize();
-    AtomicInteger numFunctionCalls = new AtomicInteger(0);
-    tester
-        .getOrCreate(restartingKey)
-        .setBuilder(
-            (skyKey, env) -> numFunctionCalls.getAndIncrement() < 2 ? Restart.SELF : expectedValue);
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, restartingKey)).isEqualTo(expectedValue);
-    assertThat(numInconsistencyCalls.get()).isEqualTo(2);
-    assertThat(numFunctionCalls.get()).isEqualTo(3);
-    tester.getOrCreate(restartingKey, /*markAsModified=*/ true);
-    tester.invalidate();
-    numInconsistencyCalls.set(0);
-    numFunctionCalls.set(0);
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, restartingKey)).isEqualTo(expectedValue);
-    assertThat(numInconsistencyCalls.get()).isEqualTo(2);
-    assertThat(numFunctionCalls.get()).isEqualTo(3);
-  }
-
-  /** Mode in which to run {@link #runResetNodeOnRequest_withDeps}. */
-  protected enum RunResetNodeOnRequestWithDepsMode {
-    /** Do a second evaluation of the top node. */
-    REEVALUATE_TOP_NODE,
-    /**
-     * On the second evaluation, only evaluate a leaf node. This will detect reverse dep
-     * inconsistencies in that node from the clean evaluation, but does not require handling
-     * resetting dirty nodes.
-     */
-    REEVALUATE_LEAF_NODE_TO_FORCE_DIRTY,
-    /** Run the clean build without keeping edges. Incremental builds are therefore not possible. */
-    NO_KEEP_EDGES_SO_NO_REEVALUATION
-  }
-
-  protected void runResetNodeOnRequest_withDeps(RunResetNodeOnRequestWithDepsMode mode)
-      throws Exception {
-    SkyKey restartingKey = skyKey("restart");
-    AtomicInteger numInconsistencyCalls = new AtomicInteger(0);
-    tester.setGraphInconsistencyReceiver(
-        restartEnabledInconsistencyReceiver(
-            (key, otherKey, inconsistency) -> {
-              Preconditions.checkState(otherKey == null, otherKey);
-              Preconditions.checkState(
-                  inconsistency == Inconsistency.RESET_REQUESTED, inconsistency);
-              Preconditions.checkState(restartingKey.equals(key), key);
-              numInconsistencyCalls.incrementAndGet();
-            }));
-    tester.initialize();
-    StringValue expectedValue = new StringValue("done");
-    SkyKey alreadyRequestedDep = skyKey("alreadyRequested");
-    SkyKey newlyRequestedNotDoneDep = skyKey("newlyRequestedNotDone");
-    SkyKey newlyRequestedDoneDep = skyKey("newlyRequestedDone");
-    tester
-        .getOrCreate(newlyRequestedDoneDep)
-        .setConstantValue(new StringValue("newlyRequestedDone"));
-    tester
-        .getOrCreate(alreadyRequestedDep)
-        .addDependency(newlyRequestedDoneDep)
-        .setConstantValue(new StringValue("alreadyRequested"));
-    tester
-        .getOrCreate(newlyRequestedNotDoneDep)
-        .setConstantValue(new StringValue("newlyRequestedNotDone"));
-    AtomicInteger numFunctionCalls = new AtomicInteger(0);
-    AtomicBoolean cleanBuild = new AtomicBoolean(true);
-    tester
-        .getOrCreate(restartingKey)
-        .setBuilder(
-            (skyKey, env) -> {
-              numFunctionCalls.getAndIncrement();
-              SkyValue dep1 = env.getValue(alreadyRequestedDep);
-              if (dep1 == null) {
-                return null;
-              }
-              env.getValuesAndExceptions(
-                  ImmutableList.of(newlyRequestedDoneDep, newlyRequestedNotDoneDep));
-              if (numFunctionCalls.get() < 4) {
-                return Restart.SELF;
-              } else if (numFunctionCalls.get() == 4) {
-                if (cleanBuild.get()) {
-                  Preconditions.checkState(
-                      env.valuesMissing(), "Not done dep should never have been enqueued");
-                }
-                return null;
-              }
-              return expectedValue;
-            });
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, restartingKey)).isEqualTo(expectedValue);
-    assertThat(numInconsistencyCalls.get()).isEqualTo(2);
-    assertThat(numFunctionCalls.get()).isEqualTo(5);
-    switch (mode) {
-      case REEVALUATE_TOP_NODE:
-        tester
-            .getOrCreate(newlyRequestedDoneDep, /*markAsModified=*/ true)
-            .setConstantValue(new StringValue("new value"));
-        tester.invalidate();
-        numInconsistencyCalls.set(0);
-        // The dirty restartingKey's deps are checked for a changed dep before it is actually
-        // evaluated. It picks up dep1 as a dep during that checking phase, so to keep the
-        // SkyFunction in sync, we start numFunctionCalls at 1 instead of 0.
-        numFunctionCalls.set(1);
-        cleanBuild.set(false);
-        assertThat(tester.evalAndGet(/*keepGoing=*/ false, restartingKey)).isEqualTo(expectedValue);
-        assertThat(numInconsistencyCalls.get()).isEqualTo(2);
-        assertThat(numFunctionCalls.get()).isEqualTo(5);
-        return;
-      case REEVALUATE_LEAF_NODE_TO_FORCE_DIRTY:
-        // Confirm that when a node is marked dirty and its reverse deps are consolidated, we don't
-        // crash due to inconsistencies.
-        tester.getOrCreate(alreadyRequestedDep, /*markAsModified=*/ true);
-        tester.invalidate();
-        assertThat(tester.evalAndGet(/*keepGoing=*/ false, alreadyRequestedDep))
-            .isEqualTo(new StringValue("alreadyRequested"));
-        return;
-      case NO_KEEP_EDGES_SO_NO_REEVALUATION:
-        return;
-    }
-    throw new IllegalStateException("Unknown mode " + mode);
-  }
-
-  // TODO(mschaller): Enable test with other modes.
-  // TODO(janakr): Test would actually pass if there was no invalidation/subsequent re-evaluation
-  // because duplicate reverse deps aren't detected until the child is dirtied, which isn't awesome.
-  // REEVALUATE_LEAF_NODE_TO_FORCE_DIRTY allows us to check that even clean evaluations with
-  // keepEdges are still poisoned.
-  @Test
-  public void resetNodeOnRequest_withDeps() throws Exception {
-    runResetNodeOnRequest_withDeps(
-        RunResetNodeOnRequestWithDepsMode.NO_KEEP_EDGES_SO_NO_REEVALUATION);
   }
 
   /**
@@ -5132,21 +4988,5 @@ public abstract class MemoizingEvaluatorTest {
     public SkyValue getExistingValue(String key) throws InterruptedException {
       return getExistingValue(skyKey(key));
     }
-  }
-
-  private static GraphInconsistencyReceiver restartEnabledInconsistencyReceiver(
-      GraphInconsistencyReceiver delegate) {
-    return new GraphInconsistencyReceiver() {
-      @Override
-      public void noteInconsistencyAndMaybeThrow(
-          SkyKey key, @Nullable Collection<SkyKey> otherKeys, Inconsistency inconsistency) {
-        delegate.noteInconsistencyAndMaybeThrow(key, otherKeys, inconsistency);
-      }
-
-      @Override
-      public boolean restartPermitted() {
-        return true;
-      }
-    };
   }
 }
