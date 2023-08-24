@@ -56,6 +56,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
 
 /** A module that contains Starlark utilities for Java support. */
 public class JavaStarlarkCommon
@@ -250,10 +251,15 @@ public class JavaStarlarkCommon
   @Override
   // TODO(b/78512644): migrate callers to passing explicit javacopts or using custom toolchains, and
   // delete
-  public ImmutableList<String> getDefaultJavacOpts(JavaToolchainProvider javaToolchain)
+  public StarlarkValue getDefaultJavacOpts(JavaToolchainProvider javaToolchain, boolean asDepset)
       throws EvalException {
     // We don't have a rule context if the default_javac_opts.java_toolchain parameter is set
-    return ((JavaToolchainProvider) javaToolchain).getJavacOptions(/* ruleContext= */ null);
+    if (asDepset) {
+      return Depset.of(String.class, javaToolchain.getJavacOptions(/* ruleContext= */ null));
+    } else {
+      return StarlarkList.immutableCopyOf(
+          javaToolchain.getJavacOptionsAsList(/* ruleContext= */ null));
+    }
   }
 
   @Override

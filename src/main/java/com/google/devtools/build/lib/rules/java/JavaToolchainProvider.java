@@ -20,7 +20,9 @@ import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
@@ -31,6 +33,8 @@ import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
@@ -180,8 +184,8 @@ public final class JavaToolchainProvider extends NativeInfo
   @Nullable private final Artifact depsChecker;
   @Nullable private final Artifact timezoneData;
   private final FilesToRunProvider ijar;
-  private final ImmutableListMultimap<String, String> compatibleJavacOptions;
-  private final ImmutableList<String> javacOptions;
+  private final ImmutableMap<String, NestedSet<String>> compatibleJavacOptions;
+  private final NestedSet<String> javacOptions;
   private final String sourceVersion;
   private final String targetVersion;
   private final NestedSet<String> jvmOptions;
@@ -249,8 +253,11 @@ public final class JavaToolchainProvider extends NativeInfo
     this.depsChecker = depsChecker;
     this.timezoneData = timezoneData;
     this.ijar = ijar;
-    this.compatibleJavacOptions = compatibleJavacOptions;
-    this.javacOptions = javacOptions;
+    this.compatibleJavacOptions =
+        ImmutableMap.copyOf(
+            Maps.transformValues(
+                compatibleJavacOptions.asMap(), JavaHelper::detokenizeJavaOptions));
+    this.javacOptions = JavaHelper.detokenizeJavaOptions(javacOptions);
     this.sourceVersion = findSourceVersion(javacOptions);
     this.targetVersion = findTargetVersion(javacOptions);
     this.jvmOptions = jvmOptions;
@@ -426,22 +433,36 @@ public final class JavaToolchainProvider extends NativeInfo
     return ijar;
   }
 
-  ImmutableListMultimap<String, String> getCompatibleJavacOptions() {
-    return compatibleJavacOptions;
+  /** Returns the map of target environment-specific javacopts. */
+  public NestedSet<String> getCompatibleJavacOptions(String key) {
+    return compatibleJavacOptions.getOrDefault(
+        key, NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER));
   }
 
-  /** Returns the map of target environment-specific javacopts. */
-  public ImmutableList<String> getCompatibleJavacOptions(String key) {
-    return getCompatibleJavacOptions().get(key);
+  public ImmutableList<String> getCompatibleJavacOptionsAsList(String key) {
+    return JavaHelper.tokenizeJavaOptions(getCompatibleJavacOptions(key));
   }
 
   /** Returns the list of default options for the java compiler. */
-  public ImmutableList<String> getJavacOptions(RuleContext ruleContext) {
-    ImmutableList.Builder<String> result = ImmutableList.<String>builder().addAll(javacOptions);
+  public NestedSet<String> getJavacOptions(RuleContext ruleContext) {
+    NestedSetBuilder<String> result = NestedSetBuilder.naiveLinkOrder();
+    result.addTransitive(javacOptions);
     if (ruleContext != null) {
       // TODO(b/78512644): require ruleContext to be non-null after java_common.default_javac_opts
       // is turned down
-      result.addAll(ruleContext.getFragment(JavaConfiguration.class).getDefaultJavacFlags());
+      result.addTransitive(ruleContext.getFragment(JavaConfiguration.class).getDefaultJavacFlags());
+    }
+    return result.build();
+  }
+
+  public ImmutableList<String> getJavacOptionsAsList(RuleContext ruleContext) {
+    ImmutableList.Builder<String> result =
+        ImmutableList.<String>builder().addAll(JavaHelper.tokenizeJavaOptions(javacOptions));
+    if (ruleContext != null) {
+      // TODO(b/78512644): require ruleContext to be non-null after java_common.default_javac_opts
+      // is turned down
+      result.addAll(
+          ruleContext.getFragment(JavaConfiguration.class).getDefaultJavacFlagsForStarlarkAsList());
     }
     return result.build();
   }
@@ -569,10 +590,14 @@ public final class JavaToolchainProvider extends NativeInfo
   }
 
   @Override
-  public ImmutableList<String> getCompatibleJavacOptionsForStarlark(
-      String key, StarlarkThread thread) throws EvalException {
+  public Object getCompatibleJavacOptionsForStarlark(
+      String key, boolean asDepset, StarlarkThread thread) throws EvalException {
     checkPrivateAccess(thread);
-    return getCompatibleJavacOptions(key);
+    if (asDepset) {
+      return Depset.of(String.class, getCompatibleJavacOptions(key));
+    } else {
+      return getCompatibleJavacOptionsAsList(key);
+    }
   }
 
   @AutoValue

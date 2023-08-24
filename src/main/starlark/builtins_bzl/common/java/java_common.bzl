@@ -169,6 +169,21 @@ def _default_javac_opts(java_toolchain):
     """
     return _java_common_internal.default_javac_opts(java_toolchain = java_toolchain)
 
+# temporary for migration
+def _default_javac_opts_depset(java_toolchain):
+    """Experimental! Get default javacopts from a java toolchain
+
+    Args:
+        java_toolchain: (JavaToolchainInfo) the toolchain from which to get the javac options.
+
+    Returns:
+        (depset[str]) A depset of javac options that should be tokenized before passing to javac
+    """
+    return _java_common_internal.default_javac_opts(
+        java_toolchain = java_toolchain,
+        as_depset = True,
+    )
+
 def _merge(providers):
     """Merges the given providers into a single JavaInfo.
 
@@ -276,6 +291,7 @@ def _make_java_common():
         "stamp_jar": _stamp_jar,
         "pack_sources": _pack_sources,
         "default_javac_opts": _default_javac_opts,
+        "default_javac_opts_depset": _default_javac_opts_depset,
         "merge": _merge,
         "make_non_strict": _make_non_strict,
         "JavaPluginInfo": JavaPluginInfo,

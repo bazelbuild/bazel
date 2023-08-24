@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.java;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -36,7 +37,15 @@ public interface JavaConfigurationApi extends StarlarkValue {
       doc = "The default flags for the Java compiler.")
   // TODO(bazel-team): this is the command-line passed options, we should remove from Starlark
   // probably.
-  ImmutableList<String> getDefaultJavacFlags();
+  ImmutableList<String> getDefaultJavacFlagsForStarlarkAsList();
+
+  @StarlarkMethod(
+      name = "default_javac_flags_depset",
+      structField = true,
+      doc = "The default flags for the Java compiler.")
+  // TODO(bazel-team): this is the command-line passed options, we should remove from Starlark
+  // probably.
+  Depset getDefaultJavacFlagsStarlark();
 
   @StarlarkMethod(
       name = "strict_java_deps",

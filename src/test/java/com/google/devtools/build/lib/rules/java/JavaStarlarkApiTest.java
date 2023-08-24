@@ -2954,6 +2954,33 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
+  public void defaultJavacOpts_asDepset() throws Exception {
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    scratch.file(
+        "a/rule.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _impl(ctx):",
+        "  return MyInfo(",
+        "    javac_opts = java_common.default_javac_opts_depset(",
+        "        java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
+        "    ))",
+        "get_javac_opts = rule(",
+        "  _impl,",
+        "  attrs = {",
+        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
+        "  }",
+        ");");
+
+    scratch.file("a/BUILD", "load(':rule.bzl', 'get_javac_opts')", "get_javac_opts(name='r')");
+
+    ConfiguredTarget r = getConfiguredTarget("//a:r");
+    NestedSet<String> javacopts =
+        Depset.cast(getMyInfoFromTarget(r).getValue("javac_opts"), String.class, "javac_opts");
+
+    assertThat(String.join(" ", javacopts.toList())).contains("-source 6 -target 6");
+  }
+
+  @Test
   public void defaultJavacOpts_toolchainProvider() throws Exception {
     JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(

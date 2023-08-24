@@ -260,7 +260,7 @@ public class JavaCommon {
       throws InterruptedException {
     ImmutableList.Builder<String> javacOpts =
         ImmutableList.<String>builder()
-            .addAll(javaToolchain.getJavacOptions(ruleContext))
+            .addAll(javaToolchain.getJavacOptionsAsList(ruleContext))
             .addAll(extraRuleJavacOpts);
     if (activePlugins
         .plugins()
@@ -287,7 +287,7 @@ public class JavaCommon {
     ImmutableList.Builder<String> result = ImmutableList.builder();
     for (JavaPackageConfigurationProvider provider : toolchain.packageConfiguration()) {
       if (provider.matches(ruleContext.getLabel())) {
-        result.addAll(provider.javacopts());
+        result.addAll(provider.javacoptsAsList());
       }
     }
     return result.build();

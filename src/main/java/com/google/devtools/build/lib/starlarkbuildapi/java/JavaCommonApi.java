@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.java;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -604,10 +603,17 @@ public interface JavaCommonApi<
             doc =
                 "A JavaToolchainInfo to be used for retrieving the ijar "
                     + "tool. Only set when use_ijar is True."),
+        @Param(
+            name = "as_depset",
+            positional = false,
+            named = true,
+            documented = false,
+            defaultValue = "False")
       })
   // TODO(b/78512644): migrate callers to passing explicit javacopts or using custom toolchains, and
   // delete
-  ImmutableList<String> getDefaultJavacOpts(JavaToolchainT javaToolchain) throws EvalException;
+  StarlarkValue getDefaultJavacOpts(JavaToolchainT javaToolchain, boolean asDepset)
+      throws EvalException;
 
   @StarlarkMethod(
       name = "JavaToolchainInfo",

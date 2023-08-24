@@ -222,8 +222,10 @@ java_test(
     name = "JavaUtilTest",
     srcs = ["JavaUtilTest.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
     ],
