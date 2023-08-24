@@ -348,6 +348,22 @@ def _create_single_jar(
 def _shell_quote(s):
     return "'" + s.replace("'", "'\\''") + "'"
 
+def _tokenize_javacopts(ctx, opts):
+    """Tokenizes a depset of options to a list.
+
+    Args:
+        ctx: (RuleContext) the rule context
+        opts: (depset[str]) the javac options to tokenize
+
+    Returns:
+        [str] list of tokenized options
+    """
+    return [
+        token
+        for opt in opts.to_list()
+        for token in ctx.tokenize(opt)
+    ]
+
 helper = struct(
     collect_all_targets_as_deps = _collect_all_targets_as_deps,
     filter_launcher_for_target = _filter_launcher_for_target,
@@ -371,4 +387,5 @@ helper = struct(
     executable_providers = _executable_providers,
     create_single_jar = _create_single_jar,
     shell_quote = _shell_quote,
+    tokenize_javacopts = _tokenize_javacopts,
 )

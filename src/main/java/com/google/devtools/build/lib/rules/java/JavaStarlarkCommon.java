@@ -130,7 +130,7 @@ public class JavaStarlarkCommon
       Depset directJars,
       Object bootClassPath,
       Depset compileTimeJavaDeps,
-      Sequence<?> javacOpts,
+      Depset javacOpts,
       String strictDepsMode,
       Label targetLabel,
       Object injectingRuleKind,
@@ -158,7 +158,7 @@ public class JavaStarlarkCommon
         new JavaCompilationHelper(
             ctx.getRuleContext(),
             javaSemantics,
-            Sequence.cast(javacOpts, String.class, "javac_opts").getImmutableList(),
+            JavaHelper.tokenizeJavaOptions(Depset.cast(javacOpts, String.class, "javac_opts")),
             attributesBuilder,
             toolchain,
             Sequence.cast(additionalInputs, Artifact.class, "additional_inputs")
@@ -188,7 +188,7 @@ public class JavaStarlarkCommon
       Depset directJars,
       Object bootClassPath,
       Depset compileTimeJavaDeps,
-      Sequence<?> javacOpts,
+      Depset javacOpts,
       String strictDepsMode,
       Label targetLabel,
       Object injectingRuleKind,
@@ -238,7 +238,7 @@ public class JavaStarlarkCommon
         new JavaCompilationHelper(
             ctx.getRuleContext(),
             javaSemantics,
-            Sequence.cast(javacOpts, String.class, "javac_opts").getImmutableList(),
+            JavaHelper.tokenizeJavaOptions(Depset.cast(javacOpts, String.class, "javac_opts")),
             attributesBuilder,
             javaToolchain,
             Sequence.cast(additionalInputs, Artifact.class, "additional_inputs")

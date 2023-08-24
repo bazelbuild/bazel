@@ -38,7 +38,7 @@ def _get_default_resource_path(path, segment_extractor):
     return "/".join(java_segments) if java_segments != None else path
 
 def _compatible_javac_options(*_args):
-    return []
+    return depset()
 
 semantics = struct(
     JAVA_TOOLCHAIN_LABEL = "@bazel_tools//tools/jdk:current_java_toolchain",

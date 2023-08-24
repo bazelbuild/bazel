@@ -143,21 +143,42 @@ def compile(
 
     plugin_info = merge_plugin_info_without_outputs(plugins + deps)
 
-    all_javac_opts = []
-    all_javac_opts.extend(_java_common_internal.default_javac_opts(java_toolchain = java_toolchain))
+    all_javac_opts = []  # [depset[str]]
+    all_javac_opts.append(_java_common_internal.default_javac_opts(
+        java_toolchain = java_toolchain,
+        as_depset = True,
+    ))
 
-    all_javac_opts.extend(ctx.fragments.java.default_javac_flags)
-    all_javac_opts.extend(semantics.compatible_javac_options(ctx, java_toolchain, _java_common_internal))
+    all_javac_opts.append(ctx.fragments.java.default_javac_flags_depset)
+    all_javac_opts.append(semantics.compatible_javac_options(
+        ctx,
+        java_toolchain,
+        _java_common_internal,
+    ))
 
-    if "com.google.devtools.build.runfiles.AutoBazelRepositoryProcessor" in plugin_info.plugins.processor_classes.to_list():
-        all_javac_opts.append("-Abazel.repository=" + ctx.label.workspace_name)
+    if ("com.google.devtools.build.runfiles.AutoBazelRepositoryProcessor" in
+        plugin_info.plugins.processor_classes.to_list()):
+        all_javac_opts.append(depset(
+            ["-Abazel.repository=" + ctx.label.workspace_name],
+            order = "preorder",
+        ))
     for package_config in java_toolchain.package_configuration():
         if package_config.matches(ctx.label):
-            all_javac_opts.extend(package_config.javac_opts())
+            all_javac_opts.append(package_config.javac_opts(as_depset = True))
 
-    all_javac_opts.extend(["--add-exports=%s=ALL-UNNAMED" % x for x in add_exports])
-    all_javac_opts.extend(["--add-opens=%s=ALL-UNNAMED" % x for x in add_opens])
-    all_javac_opts.extend([token for x in javac_opts for token in ctx.tokenize(x)])
+    all_javac_opts.append(depset(
+        ["--add-exports=%s=ALL-UNNAMED" % x for x in add_exports],
+        order = "preorder",
+    ))
+    all_javac_opts.append(depset(
+        ["--add-opens=%s=ALL-UNNAMED" % x for x in add_opens],
+        order = "preorder",
+    ))
+
+    # detokenize target's javacopts, it will be tokenized before compilation
+    all_javac_opts.append(depset([" ".join(javac_opts)], order = "preorder"))
+
+    all_javac_opts = depset(order = "preorder", transitive = all_javac_opts)
 
     # Optimization: skip this if there are no annotation processors, to avoid unnecessarily
     # disabling the direct classpath optimization if `enable_annotation_processor = False`
@@ -167,8 +188,9 @@ def compile(
         plugin_info = disable_plugin_info_annotation_processing(plugin_info)
         enable_direct_classpath = False
 
+    all_javac_opts_list = helper.tokenize_javacopts(ctx, all_javac_opts)
     uses_annotation_processing = False
-    if "-processor" in all_javac_opts or plugin_info.plugins.processor_classes:
+    if "-processor" in all_javac_opts_list or plugin_info.plugins.processor_classes:
         uses_annotation_processing = True
 
     has_sources = source_files or source_jars
@@ -291,7 +313,7 @@ def compile(
         direct_runtime_jars = []
 
     compilation_info = struct(
-        javac_options = all_javac_opts,
+        javac_options = all_javac_opts_list,
         # needs to be flattened because the public API is a list
         boot_classpath = (bootclasspath.bootclasspath if bootclasspath else java_toolchain.bootclasspath).to_list(),
         # we only add compile time jars from deps, and not exports
