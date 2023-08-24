@@ -120,7 +120,7 @@ public class NonIncrementalInMemoryNodeEntry
   }
 
   @Override
-  public final void resetForRestartFromScratch() {
+  public final synchronized void resetForRestartFromScratch() {
     checkState(!hasUnsignaledDeps(), this);
     dirtyBuildingState.directDeps = null;
     dirtyBuildingState.resetForRestartFromScratch();
