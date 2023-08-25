@@ -61,9 +61,10 @@ public class JavaCommon {
           .withDependencyAttributes(
               "deps", "data", "resources", "resource_jars", "exports", "runtime_deps", "jars");
 
+  private boolean isInitialized = false;
   private ClasspathConfiguredFragment classpathFragment = new ClasspathConfiguredFragment();
   private JavaCompilationArtifacts javaArtifacts = JavaCompilationArtifacts.EMPTY;
-  private ImmutableList<String> javacOpts;
+  private ImmutableList<String> javacOpts = ImmutableList.of();
 
   // Targets treated as deps in compilation time, runtime time and both
   private final ImmutableMap<ClasspathType, ImmutableList<TransitiveInfoCollection>>
@@ -430,7 +431,8 @@ public class JavaCommon {
   public JavaTargetAttributes.Builder initCommon(
       Collection<Artifact> extraSrcs, Iterable<String> extraJavacOpts)
       throws RuleErrorException, InterruptedException {
-    Preconditions.checkState(javacOpts == null);
+    Preconditions.checkState(!isInitialized);
+    isInitialized = true;
     activePlugins = collectPlugins();
     javacOpts = computeJavacOpts(ImmutableList.copyOf(extraJavacOpts));
 
