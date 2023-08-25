@@ -31,6 +31,10 @@ load(":common/java/java_helper.bzl", "helper")
 
 _java_common_internal = _builtins.internal.java_common_internal_do_not_use
 JavaToolchainInfo = _java_common_internal.JavaToolchainInfo
+JavaRuntimeClasspathInfo = provider(
+    "Provider for the runtime classpath contributions of a Java binary.",
+    fields = ["runtime_classpath"],
+)
 
 def _compile(
         ctx,
@@ -298,6 +302,7 @@ def _make_java_common():
         "JavaToolchainInfo": JavaToolchainInfo,
         "JavaRuntimeInfo": _java_common_internal.JavaRuntimeInfo,
         "BootClassPathInfo": _java_common_internal.BootClassPathInfo,
+        "JavaRuntimeClasspathInfo": JavaRuntimeClasspathInfo,
         "experimental_java_proto_library_default_has_services": _java_common_internal.experimental_java_proto_library_default_has_services,
     }
     if _java_common_internal._google_legacy_api_enabled():
