@@ -535,13 +535,38 @@ public interface NodeEntry {
    * its <em>value</em>, while this method is called on a <em>building</em> node because of an issue
    * with a <em>dependency</em>. The dependency will be rewound if we are in scenario 2 above.
    *
-   * <p>Temporary direct deps are cleared by this call, as they will be added again when requested
-   * during the restarted evaluation of this node. Reverse deps on the other hand are preserved -
-   * parents waiting on this node are unaware that it is being restarted and will not register
-   * themselves again, yet they still need to be signaled when this node is done.
+   * <p>Temporary direct deps should be cleared by this call, as they will be added again when
+   * requested during the restarted evaluation of this node. If the graph keeps dependency edges,
+   * however, the temporary direct deps must be accounted for in {@link #getResetDirectDeps}.
+   *
+   * <p>Reverse deps on the other hand should be preserved - parents waiting on this node are
+   * unaware that it is being restarted and will not register themselves again, yet they still need
+   * to be signaled when this node is done.
    */
   @ThreadSafe
   void resetForRestartFromScratch();
+
+  /**
+   * If the graph keeps dependency edges and {@link #resetForRestartFromScratch} has been called on
+   * this node since it was last done, returns the set of temporary direct deps that were registered
+   * prior to the restart. Otherwise, returns an empty set.
+   *
+   * <p>Called on a {@link DirtyState#REBUILDING} node when it is about to finish evaluating. Used
+   * to determine which of its {@linkplain #getTemporaryDirectDeps temporary direct deps} have
+   * already registered a corresponding reverse dep, in order to avoid creating duplicate rdep
+   * edges.
+   *
+   * <p>Like {@link #getAllRemainingDirtyDirectDeps}, keys in the returned set are assumed to have
+   * already registered an rdep on this node. Unlike {@link #getAllRemainingDirtyDirectDeps},
+   * however, deps in the returned set may have only been registered at the current evaluation
+   * version, not a previous one.
+   *
+   * <p>If this node was reset multiple times since it was last done, must return deps requested
+   * prior to <em>any</em> of those restarts, not just the most recent one.
+   */
+  // TODO(b/228090759): These need to be added to getAllDirectDepsForIncompleteNode.
+  @ThreadSafe
+  ImmutableSet<SkyKey> getResetDirectDeps();
 
   /**
    * Adds a temporary direct dep in its own group.

@@ -265,6 +265,10 @@ public abstract class DirtyBuildingState {
     return result.build();
   }
 
+  ImmutableSet<SkyKey> getResetDirectDeps() {
+    return ImmutableSet.of();
+  }
+
   protected void markRebuilding() {
     checkState(dirtyState == DirtyState.NEEDS_REBUILDING, this);
     dirtyState = DirtyState.REBUILDING;
