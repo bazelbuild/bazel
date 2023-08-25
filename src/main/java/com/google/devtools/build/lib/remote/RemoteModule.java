@@ -106,6 +106,7 @@ import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
+import io.netty.handler.codec.DecoderException;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.reactivex.rxjava3.plugins.RxJavaPlugins;
 import java.io.IOException;
@@ -242,6 +243,13 @@ public final class RemoteModule extends BlazeModule {
           if (msg.contains("connection reset by peer")) {
             retry = true;
           } else if (msg.contains("operation timed out")) {
+            retry = true;
+          }
+        } else {
+          // Workaround for a netty bug: https://github.com/netty/netty/issues/11815. Remove this
+          // once it is fixed in the upstream.
+          if (e instanceof DecoderException
+              && e.getMessage().endsWith("functions:OPENSSL_internal:BAD_DECRYPT")) {
             retry = true;
           }
         }
