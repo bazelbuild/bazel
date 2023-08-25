@@ -63,6 +63,14 @@ public class AspectConfiguredEvent implements BuildEventWithConfiguration {
             target, configurationId(configuration), aspectDescription));
   }
 
+  public String getAspectClassName() {
+    return aspectClassName;
+  }
+
+  public Label getTarget() {
+    return target;
+  }
+
   @Override
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
     BuildEventStreamProtos.TargetConfigured.Builder builder =
