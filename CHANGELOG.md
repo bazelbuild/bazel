@@ -1,3 +1,48 @@
+## Release 7.0.0-pre.20230816.3 (2023-08-25)
+
+```
+Baseline: 27aaccccb674090493d52d3340b7df69f5ed43f8
+
+Cherry picks:
+
+   + baace69c0c7cb2fe927214dae78c43bd10865c43:
+     Automated rollback of commit
+     37268de708224bba900036b8b3fe9e123d2eae6d.
+```
+
+Incompatible changes:
+
+  - The --android_include_proguard_location_references flag is not
+    supported anymore.
+  - The --apple_compiler command line option is not available anymore.
+  - --no_proguard_location_reference is now added unconditionally to
+    the command line of aapt2.
+  - The command line flag --apple_enable_auto_dsym_dbg is not
+    supported anymore.
+
+Important changes:
+
+  - `rule()` and `attr.*` can no longer be (pointlessly) called
+    during WORKSPACE evaluation and repository rule evaluation.
+  - Expands baseline profile wildcards before optimizer tools see
+    them.
+
+This release contains contributions from many people at Google, as well as Chirag Ramani, Fabian Meumertzheim, Keith Smiley, nglevin, Tyler Williams.
+
+## Release 7.0.0-pre.20230810.1 (2023-08-22)
+
+```
+Baseline: c279c7b2f125fcb5a7e67595c0044c32fe944aa9
+
+Cherry picks:
+
+   + 4d157ee3530762c9392ccc08a0073103293a6391:
+     Cherry-pick required commits into 7.0.0-pre.20230810.1rc1
+     (#19298)
+```
+
+Initial release.
+
 ## Release 6.3.2 (2023-08-08)
 
 ```
