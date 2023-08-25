@@ -31,6 +31,9 @@ import javax.annotation.Nullable;
 class TransitiveInfoProviderMapImpl extends ImmutableSharedKeyMap<Object, Object>
     implements TransitiveInfoProviderMap {
 
+  private static final TransitiveInfoProviderMapImpl EMPTY_TRANSITIVE_INFO_PROVIDER_MAP =
+      new TransitiveInfoProviderMapImpl(new Object[0], new Object[0]);
+
   @AutoCodec.Instantiator
   @VisibleForSerialization
   TransitiveInfoProviderMapImpl(Object[] keys, Object[] values) {
@@ -39,6 +42,9 @@ class TransitiveInfoProviderMapImpl extends ImmutableSharedKeyMap<Object, Object
 
   static TransitiveInfoProviderMapImpl create(Map<Object, Object> map) {
     int count = map.size();
+    if (count == 0) {
+      return EMPTY_TRANSITIVE_INFO_PROVIDER_MAP;
+    }
     Object[] keys = new Object[count];
     Object[] values = new Object[count];
     int i = 0;

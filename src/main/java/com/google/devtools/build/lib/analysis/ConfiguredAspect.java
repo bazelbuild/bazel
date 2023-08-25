@@ -174,8 +174,12 @@ public interface ConfiguredAspect extends ProviderCollection {
         addDeclaredProvider(OutputGroupInfo.fromBuilders(outputGroupBuilders));
       }
 
-      addProvider(
-          createExtraActionProvider(/*actionsWithoutExtraAction=*/ ImmutableSet.of(), ruleContext));
+      // Only add {@link ExtraActionProvider} if extra action listeners are applied
+      if (!ruleContext.getConfiguration().getActionListeners().isEmpty()) {
+        addProvider(
+            createExtraActionProvider(
+                /* actionsWithoutExtraAction= */ ImmutableSet.of(), ruleContext));
+      }
 
       AnalysisEnvironment analysisEnvironment = ruleContext.getAnalysisEnvironment();
       ImmutableList<ActionAnalysisMetadata> actions = analysisEnvironment.getRegisteredActions();
