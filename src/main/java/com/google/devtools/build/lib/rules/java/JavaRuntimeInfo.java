@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -79,12 +80,8 @@ public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfo
     return JavaToolchainProvider.from(ruleContext).getJavaRuntime();
   }
 
-  public static JavaRuntimeInfo from(RuleContext ruleContext) {
-    ToolchainInfo toolchainInfo =
-        ruleContext.getToolchainInfo(
-            ruleContext
-                .getPrerequisite(JavaRuleClasses.JAVA_RUNTIME_TOOLCHAIN_TYPE_ATTRIBUTE_NAME)
-                .getLabel());
+  public static JavaRuntimeInfo from(RuleContext ruleContext, Label javaRuntimeToolchainType) {
+    ToolchainInfo toolchainInfo = ruleContext.getToolchainInfo(javaRuntimeToolchainType);
     return from(ruleContext, toolchainInfo);
   }
 

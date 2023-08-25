@@ -543,7 +543,6 @@ BASIC_JAVA_BINARY_ATTRIBUTES = merge_attrs(
         "_cc_toolchain": attr.label(default = "@" + cc_semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
         "_grep_includes": cc_semantics.get_grep_includes(),
         "_java_toolchain_type": attr.label(default = semantics.JAVA_TOOLCHAIN_TYPE),
-        "_java_runtime_toolchain_type": attr.label(default = semantics.JAVA_RUNTIME_TOOLCHAIN_TYPE),
     },
 )
 

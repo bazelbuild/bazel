@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.Util;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -315,8 +316,9 @@ public class JavaCommon {
     return javaRuntime.javaBinaryExecPathFragment();
   }
 
-  public static PathFragment getJavaExecutable(RuleContext ruleContext) {
-    return JavaRuntimeInfo.from(ruleContext).javaBinaryExecPathFragment();
+  public static PathFragment getJavaExecutable(
+      RuleContext ruleContext, Label javaRuntimeToolchainType) {
+    return JavaRuntimeInfo.from(ruleContext, javaRuntimeToolchainType).javaBinaryExecPathFragment();
   }
 
   /**
@@ -324,11 +326,11 @@ public class JavaCommon {
    *
    * @param launcher if non-null, the cc_binary used to launch the Java Virtual Machine
    */
-  public static String getJavaExecutableForStub(
-      RuleContext ruleContext, @Nullable Artifact launcher) {
+  public String getJavaExecutableForStub(RuleContext ruleContext, @Nullable Artifact launcher) {
     Preconditions.checkState(ruleContext.getConfiguration().hasFragment(JavaConfiguration.class));
     PathFragment javaExecutable;
-    JavaRuntimeInfo javaRuntime = JavaRuntimeInfo.from(ruleContext);
+    JavaRuntimeInfo javaRuntime =
+        JavaRuntimeInfo.from(ruleContext, semantics.getJavaRuntimeToolchainType());
 
     if (launcher != null) {
       javaExecutable = launcher.getRootRelativePath();
@@ -362,8 +364,7 @@ public class JavaCommon {
   }
 
   /** Returns the string that the stub should use to determine the JVM binary (java) path */
-  public static String getJavaBinSubstitution(
-      RuleContext ruleContext, @Nullable Artifact launcher) {
+  public String getJavaBinSubstitution(RuleContext ruleContext, @Nullable Artifact launcher) {
     return getJavaBinSubstitutionFromJavaExecutable(
         ruleContext, getJavaExecutableForStub(ruleContext, launcher));
   }

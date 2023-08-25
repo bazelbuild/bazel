@@ -320,7 +320,6 @@ def make_java_binary(executable):
                 "args": attr.string_list(),
                 "output_licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
             }),
-            remove_attrs = [] if executable else ["_java_runtime_toolchain_type"],
         ),
         executable = executable,
     )
