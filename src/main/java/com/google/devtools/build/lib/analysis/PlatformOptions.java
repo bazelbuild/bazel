@@ -116,25 +116,6 @@ public class PlatformOptions extends FragmentOptions {
   public List<String> extraToolchains;
 
   @Option(
-      name = "toolchain_resolution_override",
-      allowMultiple = true,
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.AFFECTS_OUTPUTS,
-        OptionEffectTag.CHANGES_INPUTS,
-        OptionEffectTag.LOADING_AND_ANALYSIS
-      },
-      deprecationWarning =
-          "toolchain_resolution_override is now a no-op and will be removed in"
-              + " an upcoming release",
-      help =
-          "Override toolchain resolution for a toolchain type with a specific toolchain. "
-              + "Example: --toolchain_resolution_override=@io_bazel_rules_go//:toolchain="
-              + "@io_bazel_rules_go//:linux-arm64-toolchain")
-  public List<String> toolchainResolutionOverrides;
-
-  @Option(
       name = "toolchain_resolution_debug",
       defaultValue = "-.*", // By default, exclude everything.
       converter = RegexFilter.RegexFilterConverter.class,
@@ -202,7 +183,6 @@ public class PlatformOptions extends FragmentOptions {
     exec.extraExecutionPlatforms = this.extraExecutionPlatforms;
     exec.extraToolchains = this.extraToolchains;
     exec.toolchainResolutionDebug = this.toolchainResolutionDebug;
-    exec.toolchainResolutionOverrides = this.toolchainResolutionOverrides;
     exec.useToolchainResolutionForJavaRules = this.useToolchainResolutionForJavaRules;
     return exec;
   }
