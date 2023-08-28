@@ -152,13 +152,6 @@ public interface AndroidConfigurationApi extends StarlarkValue {
       documented = false)
   boolean useAndroidResourceNameObfuscation();
 
-  @StarlarkMethod(
-      name = "use_single_jar_apk_builder",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean useSingleJarApkBuilder();
-
   @StarlarkMethod(name = "use_parallel_dex2oat", structField = true, doc = "", documented = false)
   boolean useParallelDex2Oat();
 

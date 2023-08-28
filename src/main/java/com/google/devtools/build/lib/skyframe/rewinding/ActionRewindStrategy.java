@@ -34,7 +34,6 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.graph.EndpointPair;
-import com.google.common.graph.GraphBuilder;
 import com.google.common.graph.ImmutableGraph;
 import com.google.common.graph.MutableGraph;
 import com.google.common.graph.Traverser;
@@ -122,8 +121,7 @@ public final class ActionRewindStrategy {
 
     // This graph tracks which Skyframe nodes must be restarted and the dependency relationships
     // between them.
-    MutableGraph<SkyKey> rewindGraph = GraphBuilder.directed().allowsSelfLoops(false).build();
-    rewindGraph.addNode(actionLookupData);
+    MutableGraph<SkyKey> rewindGraph = Restart.newRewindGraphFor(actionLookupData);
 
     // SkyframeActionExecutor must re-execute the actions being restarted, so we must tell it to
     // evict its cached results for those actions. This collection tracks those actions (aside from
@@ -178,8 +176,7 @@ public final class ActionRewindStrategy {
             lostInputRecordsCount,
             lostInputRecordsThisAction.subList(
                 0, Math.min(lostInputRecordsCount, MAX_LOST_INPUTS_RECORDED))));
-    return new RewindPlan(
-        Restart.selfAnd(ImmutableGraph.copyOf(rewindGraph)), additionalActionsToRestart.build());
+    return new RewindPlan(Restart.of(rewindGraph), additionalActionsToRestart.build());
   }
 
   /**

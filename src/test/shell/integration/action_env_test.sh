@@ -253,7 +253,6 @@ function test_use_default_shell_env_and_fixed_env {
 
     ACTION_AND_CLIENT_INHERITED=client CLIENT_INHERITED=client \
         bazel build \
-        --incompatible_merge_fixed_and_default_shell_env \
         --action_env=ACTION_AND_CLIENT_FIXED=client \
         --action_env=ACTION_AND_CLIENT_INHERITED \
         --action_env=CLIENT_FIXED=client \

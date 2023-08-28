@@ -13,10 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import net.starlark.java.eval.EvalException;
@@ -47,6 +46,37 @@ public final class BuiltinRestriction {
   }
 
   /**
+   * An entry in an allowlist that can be checked using {@link #failIfCalledOutsideAllowlist} or
+   * {@link #failIfModuleOutsideAllowlist}.
+   */
+  @AutoValue
+  public abstract static class AllowlistEntry {
+    abstract String apparentRepoName();
+
+    abstract PathFragment packagePrefix();
+
+    static AllowlistEntry create(String apparentRepoName, PathFragment packagePrefix) {
+      return new AutoValue_BuiltinRestriction_AllowlistEntry(apparentRepoName, packagePrefix);
+    }
+
+    final boolean allows(BazelModuleContext moduleContext) {
+      return moduleContext
+              .label()
+              .getRepository()
+              .equals(moduleContext.repoMapping().get(apparentRepoName()))
+          && moduleContext.label().getPackageFragment().startsWith(packagePrefix());
+    }
+  }
+
+  /**
+   * Creates an {@link AllowlistEntry}. This is essentially an unresolved package identifier; that
+   * is, a package identifier that has an apparent repo name in place of a canonical repo name.
+   */
+  public static AllowlistEntry allowlistEntry(String apparentRepoName, String packagePrefix) {
+    return AllowlistEntry.create(apparentRepoName, PathFragment.create(packagePrefix));
+  }
+
+  /**
    * Throws {@code EvalException} if the innermost Starlark function in the given thread's call
    * stack is not defined within either 1) the builtins repository, or 2) a package or subpackage of
    * an entry in the given allowlist.
@@ -55,30 +85,22 @@ public final class BuiltinRestriction {
    *     innermost Starlark function's module is not a .bzl file
    */
   public static void failIfCalledOutsideAllowlist(
-      StarlarkThread thread, Collection<PackageIdentifier> allowlist) throws EvalException {
-    Label currentFile = BazelModuleContext.ofInnermostBzlOrThrow(thread).label();
-    failIfLabelOutsideAllowlist(currentFile, allowlist);
+      StarlarkThread thread, Collection<AllowlistEntry> allowlist) throws EvalException {
+    failIfModuleOutsideAllowlist(BazelModuleContext.ofInnermostBzlOrThrow(thread), allowlist);
   }
 
   /**
-   * Throws {@code EvalException} if the given label is not within either 1) the builtins
-   * repository, or 2) a package or subpackage of an entry in the given allowlist.
-   *
-   * <p>The error message identifies label as a file.
+   * Throws {@code EvalException} if the given {@link BazelModuleContext} is not within either 1)
+   * the builtins repository, or 2) a package or subpackage of an entry in the given allowlist.
    */
-  public static void failIfLabelOutsideAllowlist(
-      Label label, Collection<PackageIdentifier> allowlist) throws EvalException {
-    if (label.getRepository().getNameWithAt().equals("@_builtins")) {
+  public static void failIfModuleOutsideAllowlist(
+      BazelModuleContext moduleContext, Collection<AllowlistEntry> allowlist) throws EvalException {
+    if (moduleContext.label().getRepository().getNameWithAt().equals("@_builtins")) {
       return;
     }
-    if (allowlist.stream().noneMatch(allowedPkg -> isInPackageOrSubpackage(label, allowedPkg))) {
-      throw Starlark.errorf("file '%s' cannot use private API", label.getCanonicalForm());
+    if (allowlist.stream().noneMatch(e -> e.allows(moduleContext))) {
+      throw Starlark.errorf(
+          "file '%s' cannot use private API", moduleContext.label().getCanonicalForm());
     }
-  }
-
-  private static boolean isInPackageOrSubpackage(Label label, PackageIdentifier packageId) {
-    RepositoryName repo = label.getRepository();
-    PathFragment pkg = label.getPackageFragment();
-    return repo.equals(packageId.getRepository()) && pkg.startsWith(packageId.getPackageFragment());
   }
 }

@@ -130,6 +130,11 @@ public class NonIncrementalInMemoryNodeEntry
   }
 
   @Override
+  public final ImmutableSet<SkyKey> getResetDirectDeps() {
+    return ImmutableSet.of(); // No accounting necessary since rdeps are not stored.
+  }
+
+  @Override
   final synchronized int getNumTemporaryDirectDeps() {
     if (dirtyBuildingState == null) {
       return 0;

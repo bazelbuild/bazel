@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -62,13 +61,6 @@ public final class CppConfiguration extends Fragment
 
   /** String constant for CC_FLAGS make variable name */
   public static final String CC_FLAGS_MAKE_VARIABLE_NAME = "CC_FLAGS";
-
-  /**
-   * Packages that can use the extended parameters in CppConfiguration See javadoc for {@link
-   * com.google.devtools.build.lib.rules.cpp.CcModule}
-   */
-  public static final ImmutableList<PackageIdentifier> EXPANDED_CC_CONFIGURATION_API_ALLOWLIST =
-      ImmutableList.of();
 
   /** An enumeration of all the tools that comprise a toolchain. */
   public enum Tool {
@@ -893,8 +885,7 @@ public final class CppConfiguration extends Fragment
   private static void checkInExpandedApiAllowlist(StarlarkThread thread, String feature)
       throws EvalException {
     try {
-      BuiltinRestriction.failIfCalledOutsideAllowlist(
-          thread, EXPANDED_CC_CONFIGURATION_API_ALLOWLIST);
+      BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
     } catch (EvalException e) {
       throw Starlark.errorf("%s (feature '%s' in CppConfiguration)", e.getMessage(), feature);
     }

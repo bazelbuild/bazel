@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Reportable;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
+import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -340,6 +341,111 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
         () ->
             entry.addTemporaryDirectDepsInGroups(
                 ImmutableSet.of(key("1"), key("2"), key("3")), ImmutableList.of(1, 1, 2)));
+  }
+
+  @Test
+  public void resetLifecycle() throws Exception {
+    InMemoryNodeEntry entry = createEntry();
+    entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
+    entry.markRebuilding();
+
+    // Rdep added before reset.
+    SkyKey parent1 = key("parent1");
+    assertThatNodeEntry(entry)
+        .addReverseDepAndCheckIfDone(parent1)
+        .isEqualTo(DependencyState.ALREADY_EVALUATING);
+
+    // Dep added before reset.
+    SkyKey dep1 = key("dep1");
+    entry.addSingletonTemporaryDirectDep(dep1);
+    assertThat(entry.signalDep(initialVersion, dep1)).isTrue();
+    assertThat(entry.getResetDirectDeps()).isEmpty();
+
+    // Reset clears temporary direct deps.
+    entry.resetForRestartFromScratch();
+    assertThat(entry.getDirtyState()).isEqualTo(DirtyState.REBUILDING);
+    assertThat(entry.getTemporaryDirectDeps()).isEmpty();
+    assertThat(entry.getTemporaryDirectDeps() instanceof GroupedDeps.WithHashSet)
+        .isEqualTo(isPartialReevaluation);
+
+    // Rdep added after reset.
+    SkyKey parent2 = key("parent2");
+    assertThatNodeEntry(entry)
+        .addReverseDepAndCheckIfDone(parent2)
+        .isEqualTo(DependencyState.ALREADY_EVALUATING);
+
+    // Add back same dep.
+    entry.addSingletonTemporaryDirectDep(dep1);
+    assertThat(entry.signalDep(initialVersion, dep1)).isTrue();
+    assertThat(entry.getTemporaryDirectDeps()).containsExactly(ImmutableList.of(dep1));
+
+    // Dep added after reset.
+    SkyKey dep2 = key("dep2");
+    entry.addSingletonTemporaryDirectDep(dep2);
+    assertThat(entry.signalDep(initialVersion, dep2)).isTrue();
+    assertThat(entry.getTemporaryDirectDeps())
+        .containsExactly(ImmutableList.of(dep1), ImmutableList.of(dep2));
+
+    // Deps registered before the reset must be tracked if keeping edges.
+    if (entry.keepsEdges()) {
+      assertThat(entry.getResetDirectDeps()).containsExactly(dep1);
+    }
+
+    // Set value and check that both parents will be signaled.
+    assertThat(setValue(entry, new IntegerValue(1), /* errorInfo= */ null, initialVersion))
+        .containsExactly(parent1, parent2);
+  }
+
+  @Test
+  public void resetTwice_moreDepsRequestedBeforeFirstReset() throws Exception {
+    InMemoryNodeEntry entry = createEntry();
+    entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
+    entry.markRebuilding();
+
+    // Rdep added before any reset.
+    SkyKey parent = key("parent");
+    assertThatNodeEntry(entry)
+        .addReverseDepAndCheckIfDone(parent)
+        .isEqualTo(DependencyState.ALREADY_EVALUATING);
+
+    // Two deps added before first reset.
+    SkyKey dep1 = key("dep1");
+    entry.addSingletonTemporaryDirectDep(dep1);
+    assertThat(entry.signalDep(initialVersion, dep1)).isTrue();
+    SkyKey dep2 = key("dep2");
+    entry.addSingletonTemporaryDirectDep(dep2);
+    assertThat(entry.signalDep(initialVersion, dep2)).isTrue();
+
+    // First reset.
+    entry.resetForRestartFromScratch();
+    assertThat(entry.getTemporaryDirectDeps()).isEmpty();
+
+    // Add back only one dep.
+    entry.addSingletonTemporaryDirectDep(dep1);
+    assertThat(entry.signalDep(initialVersion, dep1)).isTrue();
+    assertThat(entry.getTemporaryDirectDeps()).containsExactly(ImmutableList.of(dep1));
+
+    // Second reset.
+    entry.resetForRestartFromScratch();
+    assertThat(entry.getTemporaryDirectDeps()).isEmpty();
+
+    // Both deps added back.
+    entry.addSingletonTemporaryDirectDep(dep1);
+    assertThat(entry.signalDep(initialVersion, dep1)).isTrue();
+    entry.addSingletonTemporaryDirectDep(dep2);
+    assertThat(entry.signalDep(initialVersion, dep2)).isTrue();
+    assertThat(entry.getTemporaryDirectDeps())
+        .containsExactly(ImmutableList.of(dep1), ImmutableList.of(dep2));
+
+    // If tracking of reset deps is required, make sure both deps are reported for even though only
+    // dep1 was registered during the most recent restarted evaluation.
+    if (entry.keepsEdges()) {
+      assertThat(entry.getResetDirectDeps()).containsExactly(dep1, dep2);
+    }
+
+    // Set value and check that parent will be signaled.
+    assertThat(setValue(entry, new IntegerValue(1), /* errorInfo= */ null, initialVersion))
+        .containsExactly(parent);
   }
 
   @CanIgnoreReturnValue

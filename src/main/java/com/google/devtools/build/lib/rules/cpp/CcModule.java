@@ -36,9 +36,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.Label.RepoContext;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -143,45 +141,22 @@ public abstract class CcModule
   private static final ImmutableList<String> SUPPORTED_OUTPUT_TYPES =
       ImmutableList.of("executable", "dynamic_library", "archive");
 
-  /**
-   * Returns a list of allowed packages, based on a hardcoded set of package paths that is resolved
-   * in the context of a particular .bzl module.
-   */
-  private static ImmutableList<PackageIdentifier> getPrivateStarlarkificationAllowlist(
-      BazelModuleContext bazelModuleContext) {
-    ImmutableList<String> allowlistStrings =
-        ImmutableList.of(
-            // Paths that are relevant within Google's monorepo.
-            "//bazel_internal/test_rules/cc",
-            "//tools/build_defs/android",
-            "//third_party/bazel_rules/rules_android",
-            "//third_party/bazel_rules/rules_rust/rust/private",
-            // Paths that are relevant to OSS Bazel and which require a repo mapping to resolve.
-            "@build_bazel_rules_android//", //
-            "@rules_android//",
-            "@rules_rust//rust/private");
-
-    RepoContext repoContext =
-        RepoContext.of(
-            bazelModuleContext.label().getRepository(), bazelModuleContext.repoMapping());
-    ImmutableList.Builder<PackageIdentifier> allowlist = ImmutableList.builder();
-    for (String p : allowlistStrings) {
-      Label resolved;
-      try {
-        resolved = Label.parseWithRepoContext(p + ":UNUSED", repoContext);
-      } catch (LabelSyntaxException e) {
-        // Shouldn't happen, values are hardcoded above.
-        throw new AssertionError(e);
-      }
-      allowlist.add(resolved.getPackageIdentifier());
-    }
-    return allowlist.build();
-  }
+  private static final ImmutableList<BuiltinRestriction.AllowlistEntry>
+      PRIVATE_STARLARKIFICATION_ALLOWLIST =
+          ImmutableList.of(
+              BuiltinRestriction.allowlistEntry("", "bazel_internal/test_rules/cc"),
+              BuiltinRestriction.allowlistEntry("", "tools/build_defs/android"),
+              BuiltinRestriction.allowlistEntry("", "third_party/bazel_rules/rules_android"),
+              BuiltinRestriction.allowlistEntry(
+                  "", "rust/private"),
+              BuiltinRestriction.allowlistEntry("build_bazel_rules_android", ""),
+              BuiltinRestriction.allowlistEntry("rules_android", ""),
+              BuiltinRestriction.allowlistEntry("rules_rust", "rust/private"));
 
   // TODO(bazel-team): This only makes sense for the parameter in cc_common.compile()
   //  additional_include_scanning_roots which is technical debt and should go away.
-  private static final PackageIdentifier MATCH_CLIF_ALLOWLISTED_LOCATION =
-      PackageIdentifier.createInMainRepo("tools/build_defs/clif");
+  private static final BuiltinRestriction.AllowlistEntry MATCH_CLIF_ALLOWLISTED_LOCATION =
+      BuiltinRestriction.allowlistEntry("", "tools/build_defs/clif");
 
   public abstract CppSemantics getSemantics();
 
@@ -2090,11 +2065,7 @@ public abstract class CcModule
 
   public static void checkPrivateStarlarkificationAllowlist(StarlarkThread thread)
       throws EvalException {
-    BazelModuleContext bazelModuleContext =
-        (BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData();
-    ImmutableList<PackageIdentifier> allowlist =
-        getPrivateStarlarkificationAllowlist(bazelModuleContext);
-    BuiltinRestriction.failIfLabelOutsideAllowlist(bazelModuleContext.label(), allowlist);
+    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, PRIVATE_STARLARKIFICATION_ALLOWLIST);
   }
 
   public static boolean isStarlarkCcCommonCalledFromBuiltins(StarlarkThread thread) {
@@ -2133,16 +2104,13 @@ public abstract class CcModule
     isCalledFromStarlarkCcCommon(thread);
     BazelModuleContext bazelModuleContext =
         (BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread, 1).getClientData();
-    Label label = bazelModuleContext.label();
-    ImmutableList<PackageIdentifier> allowlist =
+    ImmutableList<BuiltinRestriction.AllowlistEntry> allowlist =
         Sequence.cast(allowlistObject, Tuple.class, "allowlist").stream()
             // TODO(bazel-team): Avoid unchecked indexing and casts on values obtained from
             // Starlark, even though it is allowlisted.
-            // TODO(bazel-team): This probably doesn't work with bzlmod since there's no repo
-            // mapping applied.
-            .map(p -> PackageIdentifier.createUnchecked((String) p.get(0), (String) p.get(1)))
+            .map(p -> BuiltinRestriction.allowlistEntry((String) p.get(0), (String) p.get(1)))
             .collect(toImmutableList());
-    BuiltinRestriction.failIfLabelOutsideAllowlist(label, allowlist);
+    BuiltinRestriction.failIfModuleOutsideAllowlist(bazelModuleContext, allowlist);
   }
 
   protected Language parseLanguage(String string) throws EvalException {
@@ -2747,9 +2715,8 @@ public abstract class CcModule
       BazelModuleContext bazelModuleContext =
           (BazelModuleContext)
               Module.ofInnermostEnclosingStarlarkFunction(thread, 1).getClientData();
-      Label label = bazelModuleContext.label();
-      BuiltinRestriction.failIfLabelOutsideAllowlist(
-          label, ImmutableList.of(MATCH_CLIF_ALLOWLISTED_LOCATION));
+      BuiltinRestriction.failIfModuleOutsideAllowlist(
+          bazelModuleContext, ImmutableList.of(MATCH_CLIF_ALLOWLISTED_LOCATION));
     }
     return Sequence.cast(
         additionalIncludeScanningRoots, Artifact.class, "additional_include_scanning_roots");

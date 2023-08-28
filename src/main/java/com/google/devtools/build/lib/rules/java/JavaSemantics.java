@@ -71,7 +71,7 @@ public interface JavaSemantics {
   FileType JAR = FileType.of(".jar");
   FileType PROPERTIES = FileType.of(".properties");
   FileType SOURCE_JAR = FileType.of(".srcjar");
-
+  
   /** The java_toolchain.compatible_javacopts key for Android javacopts */
   public static final String ANDROID_JAVACOPTS_KEY = "android";
   /** The java_toolchain.compatible_javacopts key for testonly compilations. */
@@ -92,6 +92,8 @@ public interface JavaSemantics {
       OutputGroupInfo.HIDDEN_OUTPUT_GROUP_PREFIX + "direct_source_jars";
 
   public String getJavaToolchainType();
+
+  public Label getJavaRuntimeToolchainType();
 
   @SerializationConstant
   LabelListLateBoundDefault<JavaConfiguration> JAVA_PLUGINS =

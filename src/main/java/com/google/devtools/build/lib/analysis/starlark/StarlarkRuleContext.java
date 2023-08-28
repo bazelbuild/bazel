@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -113,13 +112,13 @@ import net.starlark.java.eval.Tuple;
  */
 public final class StarlarkRuleContext implements StarlarkRuleContextApi<ConstraintValueInfo> {
 
-  static final ImmutableSet<PackageIdentifier> PRIVATE_STARLARKIFICATION_ALLOWLIST =
+  static final ImmutableSet<BuiltinRestriction.AllowlistEntry> PRIVATE_STARLARKIFICATION_ALLOWLIST =
       ImmutableSet.of(
-          PackageIdentifier.createInMainRepo("test"), // for tests
-          PackageIdentifier.createInMainRepo("third_party/bazel_rules/rules_android"),
-          PackageIdentifier.createUnchecked("build_bazel_rules_android", ""),
-          PackageIdentifier.createUnchecked("rules_android", ""),
-          PackageIdentifier.createInMainRepo("tools/build_defs/android"));
+          BuiltinRestriction.allowlistEntry("", "test"), // for tests
+          BuiltinRestriction.allowlistEntry("", "third_party/bazel_rules/rules_android"),
+          BuiltinRestriction.allowlistEntry("build_bazel_rules_android", ""),
+          BuiltinRestriction.allowlistEntry("rules_android", ""),
+          BuiltinRestriction.allowlistEntry("", "tools/build_defs/android"));
 
   private static final String EXECUTABLE_OUTPUT_NAME = "executable";
 

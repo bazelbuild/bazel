@@ -102,7 +102,12 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
 
           createOutput(action, actionExecutionContext, inputManifest);
         } else if (action.getRunfileSymlinksMode() == RunfileSymlinksMode.SKIP) {
-          createSymlinkTreeHelper(action, actionExecutionContext).copyManifest();
+          // Delete symlinks possibly left over by a previous invocation with a different mode.
+          // This is required because only the output manifest is considered an action output, so
+          // Skyframe does not clear the directory for us.
+          var helper = createSymlinkTreeHelper(action, actionExecutionContext);
+          helper.clearRunfilesDirectory();
+          helper.copyManifest();
         } else if (action.getRunfileSymlinksMode() == RunfileSymlinksMode.INTERNAL
             && !action.isFilesetTree()) {
           try {
