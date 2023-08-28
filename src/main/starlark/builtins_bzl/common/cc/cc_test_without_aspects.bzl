@@ -16,4 +16,4 @@
 
 load(":common/cc/cc_test.bzl", "make_cc_test")
 
-cc_test = make_cc_test(with_linkstatic = True, with_aspects = True)
+cc_test = make_cc_test(with_aspects = False)

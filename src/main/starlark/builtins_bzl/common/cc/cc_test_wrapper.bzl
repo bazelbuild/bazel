@@ -15,10 +15,9 @@
 """cc_test Starlark implementation."""
 
 load(":common/cc/cc_helper.bzl", "cc_helper")
-load(":common/cc/cc_test_no_linkstatic.bzl", _cc_test_no_linkstatic = "cc_test")
-load(":common/cc/cc_test_with_linkstatic.bzl", _cc_test_with_linkstatic = "cc_test")
-load(":common/cc/cc_test_no_linkstatic_aspects.bzl", _cc_test_no_linkstatic_aspects = "cc_test")
-load(":common/cc/cc_test_with_linkstatic_aspects.bzl", _cc_test_with_linkstatic_aspects = "cc_test")
+load(":common/cc/cc_test_with_aspects.bzl", _cc_test_with_aspects = "cc_test")
+load(":common/cc/cc_test_without_aspects.bzl", _cc_test_without_aspects = "cc_test")
+load(":common/cc/semantics.bzl", "semantics")
 
 def cc_test(**kwargs):
     """Entry point for cc_test rules.
@@ -33,13 +32,11 @@ def cc_test(**kwargs):
         **kwargs: Arguments suitable for cc_test.
     """
 
+    if "linkstatic" not in kwargs:
+        kwargs["linkstatic"] = semantics.get_linkstatic_default_for_test()
+
     # Propagate an aspect if dynamic_deps attribute is specified.
     if "dynamic_deps" in kwargs and cc_helper.is_non_empty_list_or_select(kwargs["dynamic_deps"], "dynamic_deps"):
-        if "linkstatic" in kwargs:
-            _cc_test_with_linkstatic_aspects(**kwargs)
-        else:
-            _cc_test_no_linkstatic_aspects(**kwargs)
-    elif "linkstatic" in kwargs:
-        _cc_test_with_linkstatic(**kwargs)
+        _cc_test_with_aspects(**kwargs)
     else:
-        _cc_test_no_linkstatic(**kwargs)
+        _cc_test_without_aspects(**kwargs)

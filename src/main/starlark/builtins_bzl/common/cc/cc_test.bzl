@@ -77,13 +77,12 @@ def _impl(ctx):
     providers.extend(test_providers)
     return providers
 
-def make_cc_test(with_linkstatic = False, with_aspects = False):
+def make_cc_test(with_aspects = False):
     """Makes one of the cc_test rule variants.
 
     This function shall only be used internally in CC ruleset.
 
     Args:
-      with_linkstatic: sets value _linkstatic_explicitly_set attribute
       with_aspects: Attaches graph_structure_aspect to `deps` attribute and
         implicit deps.
     Returns:
@@ -107,11 +106,6 @@ def make_cc_test(with_linkstatic = False, with_aspects = False):
                 "@" + paths.join(semantics.get_platforms_root(), "os:watchos"),
             ],
         ),
-        _windows_constraints = attr.label_list(
-            default = [
-                "@" + paths.join(semantics.get_platforms_root(), "os:windows"),
-            ],
-        ),
         # Starlark tests don't get `env_inherit` by default.
         env_inherit = attr.string_list(),
         stamp = attr.int(values = [-1, 0, 1], default = 0),
@@ -120,9 +114,6 @@ def make_cc_test(with_linkstatic = False, with_aspects = False):
     _cc_test_attrs.update(semantics.get_test_malloc_attr())
     _cc_test_attrs.update(semantics.get_coverage_attrs())
 
-    _cc_test_attrs.update(
-        _linkstatic_explicitly_set = attr.bool(default = with_linkstatic),
-    )
     return rule(
         implementation = _impl,
         attrs = _cc_test_attrs,

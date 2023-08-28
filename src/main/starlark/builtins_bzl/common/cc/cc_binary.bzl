@@ -532,16 +532,9 @@ def _collect_linking_context(ctx):
     return cc_common.merge_cc_infos(direct_cc_infos = cc_infos, cc_infos = cc_infos).linking_context
 
 def _get_link_staticness(ctx, cpp_config):
-    linkstatic_attr = None
-    if hasattr(ctx.attr, "_linkstatic_explicitly_set") and not ctx.attr._linkstatic_explicitly_set:
-        # If we know that linkstatic is not explicitly set, use computed default:
-        linkstatic_attr = semantics.get_linkstatic_default(ctx)
-    else:
-        linkstatic_attr = ctx.attr.linkstatic
-
     if cpp_config.dynamic_mode() == "FULLY":
         return linker_mode.LINKING_DYNAMIC
-    elif cpp_config.dynamic_mode() == "OFF" or linkstatic_attr:
+    elif cpp_config.dynamic_mode() == "OFF" or ctx.attr.linkstatic:
         return linker_mode.LINKING_STATIC
     else:
         return linker_mode.LINKING_DYNAMIC

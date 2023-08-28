@@ -14,8 +14,6 @@
 
 """Semantics for Bazel cc rules"""
 
-load(":common/cc/cc_helper.bzl", "cc_helper")
-
 def _get_proto_aspects():
     return []
 
@@ -145,16 +143,13 @@ def _check_can_use_implementation_deps(ctx):
     if (not experimental_cc_implementation_deps and ctx.attr.implementation_deps):
         fail("requires --experimental_cc_implementation_deps", attr = "implementation_deps")
 
-def _get_linkstatic_default(ctx):
-    if ctx.attr._is_test:
-        # By default Tests do not link statically. Except on Windows.
-        if cc_helper.has_target_constraints(ctx, ctx.attr._windows_constraints):
-            return True
-        else:
-            return False
-    else:
-        # Binaries link statically.
-        return True
+_WINDOWS_PLATFORM = Label("@platforms//os:windows")  # Resolve the label within builtins context
+
+def _get_linkstatic_default_for_test():
+    return select({
+        _WINDOWS_PLATFORM: True,
+        "//conditions:default": False,
+    })
 
 def _get_nocopts_attr():
     return {}
@@ -194,7 +189,7 @@ semantics = struct(
     get_grep_includes = _get_grep_includes,
     get_implementation_deps_allowed_attr = _get_implementation_deps_allowed_attr,
     check_can_use_implementation_deps = _check_can_use_implementation_deps,
-    get_linkstatic_default = _get_linkstatic_default,
+    get_linkstatic_default_for_test = _get_linkstatic_default_for_test,
     get_runtimes_toolchain = _get_runtimes_toolchain,
     get_test_malloc_attr = _get_test_malloc_attr,
     get_cc_runtimes = _get_cc_runtimes,
