@@ -31,7 +31,7 @@ The available subcommands and their respective required arguments are:
 
 *   `all_paths <arg>...`: Displays all existing paths from the root to the
     specified `<arg>...`. If one or more modules are specified in `--from`,
-    these modules are shown directly under the root, and the graph contains any
+    these modules are shown directly under the root, and the graph contains
     any existing path from the `--from` modules to the argument modules (see
     [example](#mod-example4)).
 
