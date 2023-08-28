@@ -33,7 +33,6 @@ output_paths = [
     ('*tools/build_defs/repo/BUILD.repo',
      lambda x: 'tools/build_defs/repo/BUILD'),
     ('*tools/j2objc/BUILD.tools', lambda x: 'tools/j2objc/BUILD'),
-    ('*tools/platforms/BUILD.tools', lambda x: 'platforms/BUILD'),
     ('*tools/platforms/*', lambda x: 'platforms/' + os.path.basename(x)),
     ('*tools/cpp/BUILD.tools', lambda x: 'tools/cpp/BUILD'),
     ('*tools/cpp/runfiles/generated_*',

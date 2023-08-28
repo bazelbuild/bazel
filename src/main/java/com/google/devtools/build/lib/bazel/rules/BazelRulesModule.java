@@ -62,15 +62,6 @@ public final class BazelRulesModule extends BlazeModule {
     public boolean skyframePrepareAnalysis;
 
     @Option(
-        name = "incompatible_use_platforms_repo_for_constraints",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help = "Deprecated no-op.")
-    public boolean usePlatformsRepoForConstraints;
-
-    @Option(
         name = "experimental_replay_action_out_err",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

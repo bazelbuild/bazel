@@ -304,10 +304,6 @@ EOF
   link_children "${PWD}" tools/python "${BAZEL_TOOLS_REPO}"
   link_children "${PWD}" tools "${BAZEL_TOOLS_REPO}"
 
-  # Set up @bazel_tools//platforms properly
-  mkdir -p ${BAZEL_TOOLS_REPO}/platforms
-  cp tools/platforms/BUILD.tools ${BAZEL_TOOLS_REPO}/platforms/BUILD
-
   # Set up @maven properly
   cp maven/BUILD.vendor maven/BUILD
 
