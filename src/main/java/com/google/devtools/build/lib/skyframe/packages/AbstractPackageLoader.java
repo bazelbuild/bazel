@@ -376,10 +376,6 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     return ruleClassProvider;
   }
 
-  public PackageFactory getPackageFactory() {
-    return pkgFactory;
-  }
-
   private static NoSuchPackageException exceptionFromErrorInfo(
       ErrorInfo error, PackageIdentifier pkgId) {
     if (!error.getCycleInfo().isEmpty()) {
