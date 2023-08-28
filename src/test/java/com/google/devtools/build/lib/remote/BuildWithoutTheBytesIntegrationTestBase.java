@@ -97,9 +97,8 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   public void disableRunfiles_buildSuccessfully() throws Exception {
     // Disable on Windows since it fails for unknown reasons.
     // TODO(chiwang): Enable it on windows.
-    if (OS.getCurrent() == OS.WINDOWS) {
-      return;
-    }
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
+
     write(
         "BUILD",
         "genrule(",
@@ -240,11 +239,6 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
   @Test
   public void downloadOutputsWithRegex_treeOutput_regexMatchesTreeFile() throws Exception {
-    // Disable on Windows since it fails for unknown reasons.
-    // TODO(chiwang): Enable it on windows.
-    if (OS.getCurrent() == OS.WINDOWS) {
-      return;
-    }
     writeOutputDirRule();
     write(
         "BUILD",
@@ -526,11 +520,6 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
   @Test
   public void localAction_stdoutIsReported() throws Exception {
-    // Disable on Windows since it fails for unknown reasons.
-    // TODO(chiwang): Enable it on windows.
-    if (OS.getCurrent() == OS.WINDOWS) {
-      return;
-    }
     write(
         "BUILD",
         "genrule(",
@@ -557,11 +546,6 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
   @Test
   public void localAction_stderrIsReported() throws Exception {
-    // Disable on Windows since it fails for unknown reasons.
-    // TODO(chiwang): Enable it on windows.
-    if (OS.getCurrent() == OS.WINDOWS) {
-      return;
-    }
     write(
         "BUILD",
         "genrule(",
@@ -587,11 +571,6 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
   @Test
   public void dynamicExecution_stdoutIsReported() throws Exception {
-    // Disable on Windows since it fails for unknown reasons.
-    // TODO(chiwang): Enable it on windows.
-    if (OS.getCurrent() == OS.WINDOWS) {
-      return;
-    }
     addOptions("--internal_spawn_scheduler");
     addOptions("--strategy=Genrule=dynamic");
     addOptions("--experimental_local_execution_delay=9999999");
@@ -621,11 +600,6 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
   @Test
   public void dynamicExecution_stderrIsReported() throws Exception {
-    // Disable on Windows since it fails for unknown reasons.
-    // TODO(chiwang): Enable it on windows.
-    if (OS.getCurrent() == OS.WINDOWS) {
-      return;
-    }
     addOptions("--internal_spawn_scheduler");
     addOptions("--strategy=Genrule=dynamic");
     addOptions("--experimental_local_execution_delay=9999999");
@@ -843,11 +817,6 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
   @Test
   public void downloadToplevel_treeArtifacts() throws Exception {
-    // Disable on Windows since it fails for unknown reasons.
-    // TODO(chiwang): Enable it on windows.
-    if (OS.getCurrent() == OS.WINDOWS) {
-      return;
-    }
     setDownloadToplevel();
     writeOutputDirRule();
     write(
@@ -962,9 +931,6 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
   @Test
   public void downloadToplevel_symlinkToGeneratedFile() throws Exception {
-    // TODO(chiwang): Make metadata for downloaded symlink non-remote.
-    assumeFalse(OS.getCurrent() == OS.WINDOWS);
-
     setDownloadToplevel();
     writeSymlinkRule();
     write(
@@ -1003,9 +969,6 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
   @Test
   public void downloadToplevel_symlinkToSourceFile() throws Exception {
-    // TODO(chiwang): Make metadata for downloaded symlink non-remote.
-    assumeFalse(OS.getCurrent() == OS.WINDOWS);
-
     setDownloadToplevel();
     writeSymlinkRule();
     write(
@@ -1031,9 +994,6 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
   @Test
   public void downloadToplevel_symlinkToDirectory() throws Exception {
-    // TODO(chiwang): Make metadata for downloaded symlink non-remote.
-    assumeFalse(OS.getCurrent() == OS.WINDOWS);
-
     setDownloadToplevel();
     writeSymlinkRule();
     writeOutputDirRule();
@@ -1079,10 +1039,8 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
   @Test
   public void downloadToplevel_unresolvedSymlink() throws Exception {
-    // TODO(tjgq): Enable this on Windows.
-    if (OS.getCurrent() == OS.WINDOWS) {
-      return;
-    }
+    // Dangling symlink would require developer mode to be enabled in the CI environment.
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
 
     setDownloadToplevel();
     writeSymlinkRule();
@@ -1107,11 +1065,6 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
   @Test
   public void treeOutputsFromLocalFileSystem_works() throws Exception {
-    // Disable on Windows since it fails for unknown reasons.
-    // TODO(chiwang): Enable it on windows.
-    if (OS.getCurrent() == OS.WINDOWS) {
-      return;
-    }
     // Test that tree artifact generated locally can be consumed by other actions.
     // See https://github.com/bazelbuild/bazel/issues/16789
 
@@ -1212,11 +1165,6 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
   @Test
   public void incrementalBuild_treeArtifacts_correctlyProducesNewTree() throws Exception {
-    // Disable on Windows since it fails for unknown reasons.
-    // TODO(chiwang): Enable it on windows.
-    if (OS.getCurrent() == OS.WINDOWS) {
-      return;
-    }
     writeOutputDirRule();
     write(
         "BUILD",

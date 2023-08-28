@@ -143,10 +143,6 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   @Test
   public void intermediateOutputsAreInputForInternalActions_prefetchIntermediateOutputs()
       throws Exception {
-    // Disable on Windows since it seems that template is not supported there.
-    if (OS.getCurrent() == OS.WINDOWS) {
-      return;
-    }
     // Test that a remotely stored output that's an input to a internal action
     // (ctx.actions.expand_template) is staged lazily for action execution.
     write(
@@ -238,8 +234,9 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
   @Test
   public void outputSymlinkHandledGracefully() throws Exception {
-    // Symlinks may not be supported on Windows
+    // Dangling symlink would require developer mode to be enabled in the CI environment.
     assumeFalse(OS.getCurrent() == OS.WINDOWS);
+
     write(
         "a/defs.bzl",
         "def _impl(ctx):",
