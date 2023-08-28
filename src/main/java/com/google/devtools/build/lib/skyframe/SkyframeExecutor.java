@@ -589,7 +589,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         SkyFunctions.STARLARK_BUILTINS,
         new StarlarkBuiltinsFunction(ruleClassProvider.getBazelStarlarkEnvironment()));
     map.put(SkyFunctions.BZL_LOAD, newBzlLoadFunction(ruleClassProvider));
-    GlobFunction globFunction = newGlobFunction();
+    GlobFunction globFunction = new GlobFunction();
     map.put(SkyFunctions.GLOB, globFunction);
     this.globFunction = globFunction;
     map.put(SkyFunctions.TARGET_PATTERN, new TargetPatternFunction());
@@ -767,10 +767,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected SkyFunction newDirectoryListingStateFunction() {
     return new DirectoryListingStateFunction(externalFilesHelper, syscallCache);
-  }
-
-  protected GlobFunction newGlobFunction() {
-    return new GlobFunction(/*alwaysUseDirListing=*/ false);
   }
 
   protected SkyFunction newCollectPackagesUnderDirectoryFunction(BlazeDirectories directories) {
