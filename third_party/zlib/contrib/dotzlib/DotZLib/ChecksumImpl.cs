@@ -61,7 +61,7 @@ namespace DotZLib
         /// <exception cref="ArgumentException">The sum of offset and count is larger than the length of <c>data</c></exception>
         /// <exception cref="NullReferenceException"><c>data</c> is a null reference</exception>
         /// <exception cref="ArgumentOutOfRangeException">Offset or count is negative.</exception>
-        /// <remarks>All the other <c>Update</c> methods are implmeneted in terms of this one.
+        /// <remarks>All the other <c>Update</c> methods are implemented in terms of this one.
         /// This is therefore the only method a derived class has to implement</remarks>
         public abstract void Update(byte[] data, int offset, int count);
 
