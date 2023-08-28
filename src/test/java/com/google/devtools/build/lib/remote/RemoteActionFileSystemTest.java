@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.stream;
@@ -27,7 +26,6 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import com.google.common.collect.ImmutableList;
@@ -48,7 +46,6 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
-import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
@@ -75,7 +72,6 @@ import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
 
 /** Tests for {@link RemoteActionFileSystem} */
@@ -90,7 +86,6 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   private static final String RELATIVE_OUTPUT_PATH = "out";
 
   private final RemoteActionInputFetcher inputFetcher = mock(RemoteActionInputFetcher.class);
-  private final MetadataInjector metadataInjector = mock(MetadataInjector.class);
   private final FileSystem fs = new InMemoryFileSystem(HASH_FUNCTION);
   private final Path execRoot = fs.getPath("/exec");
   private final ArtifactRoot sourceRoot = ArtifactRoot.asSourceRoot(Root.fromPath(execRoot));
@@ -131,7 +126,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
             outputs,
             fileCache,
             inputFetcher);
-    remoteActionFileSystem.updateContext(mock(ActionExecutionMetadata.class), metadataInjector);
+    remoteActionFileSystem.updateContext(mock(ActionExecutionMetadata.class));
     remoteActionFileSystem.createDirectoryAndParents(outputRoot.getRoot().asPath().asFragment());
     return remoteActionFileSystem;
   }
@@ -755,12 +750,6 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
         .isEqualTo(targetPath);
     assertThat(getLocalFileSystem(actionFs).getPath(linkPath).readSymbolicLink())
         .isEqualTo(targetPath);
-
-    // act
-    ((RemoteActionFileSystem) actionFs).flush();
-
-    // assert
-    verifyNoInteractions(metadataInjector);
   }
 
   @Test
@@ -786,18 +775,6 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
         .isEqualTo(targetPath);
     assertThat(getLocalFileSystem(actionFs).getPath(linkPath).readSymbolicLink())
         .isEqualTo(targetPath);
-
-    // act
-    ((RemoteActionFileSystem) actionFs).flush();
-
-    // assert
-    ArgumentCaptor<FileArtifactValue> metadataCaptor =
-        ArgumentCaptor.forClass(FileArtifactValue.class);
-    verify(metadataInjector).injectFile(eq(outputArtifact), metadataCaptor.capture());
-    assertThat(metadataCaptor.getValue()).isInstanceOf(RemoteFileArtifactValue.class);
-    assertThat(metadataCaptor.getValue().getMaterializationExecPath())
-        .hasValue(targetPath.relativeTo(execRoot.asFragment()));
-    verifyNoMoreInteractions(metadataInjector);
   }
 
   @Test
@@ -825,12 +802,6 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
         .isEqualTo(targetPath);
     assertThat(getLocalFileSystem(actionFs).getPath(linkPath).readSymbolicLink())
         .isEqualTo(targetPath);
-
-    // act
-    ((RemoteActionFileSystem) actionFs).flush();
-
-    // assert
-    verifyNoInteractions(metadataInjector);
   }
 
   @Test
@@ -858,17 +829,6 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
         .isEqualTo(targetPath);
     assertThat(getLocalFileSystem(actionFs).getPath(linkPath).readSymbolicLink())
         .isEqualTo(targetPath);
-
-    // act
-    ((RemoteActionFileSystem) actionFs).flush();
-
-    // assert
-    ArgumentCaptor<TreeArtifactValue> metadataCaptor =
-        ArgumentCaptor.forClass(TreeArtifactValue.class);
-    verify(metadataInjector).injectTree(eq(outputArtifact), metadataCaptor.capture());
-    assertThat(metadataCaptor.getValue().getMaterializationExecPath())
-        .hasValue(targetPath.relativeTo(execRoot.asFragment()));
-    verifyNoMoreInteractions(metadataInjector);
   }
 
   @Test
@@ -893,12 +853,6 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
         .isEqualTo(targetPath);
     assertThat(getLocalFileSystem(actionFs).getPath(linkPath).readSymbolicLink())
         .isEqualTo(targetPath);
-
-    // act
-    ((RemoteActionFileSystem) actionFs).flush();
-
-    // assert
-    verifyNoInteractions(metadataInjector);
   }
 
   @Test

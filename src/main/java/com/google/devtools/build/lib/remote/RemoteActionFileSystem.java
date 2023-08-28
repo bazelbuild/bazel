@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.stream;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
@@ -39,7 +38,6 @@ import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifac
 import com.google.devtools.build.lib.actions.FileArtifactValue.UnresolvedSymlinkArtifactValue;
 import com.google.devtools.build.lib.actions.FileStatusWithMetadata;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.AbstractFileSystemWithCustomStat;
@@ -64,7 +62,6 @@ import java.nio.channels.SeekableByteChannel;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -90,7 +87,6 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
   private final RemoteInMemoryFileSystem remoteOutputTree;
 
   @Nullable private ActionExecutionMetadata action = null;
-  @Nullable private MetadataInjector metadataInjector = null;
 
   /** Describes how to handle symlinks when calling {@link #statUnchecked}. */
   private enum FollowMode {
@@ -203,7 +199,7 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
     }
   }
 
-  RemoteActionFileSystem(
+  public RemoteActionFileSystem(
       FileSystem localFs,
       PathFragment execRootFragment,
       String relativeOutputPath,
@@ -265,9 +261,8 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
         && ((FileStatusWithMetadata) status).getMetadata().isRemote();
   }
 
-  public void updateContext(ActionExecutionMetadata action, MetadataInjector metadataInjector) {
+  public void updateContext(ActionExecutionMetadata action) {
     this.action = action;
-    this.metadataInjector = metadataInjector;
   }
 
   void injectRemoteFile(PathFragment path, byte[] digest, long size, long expireAtEpochMilli)
@@ -278,108 +273,6 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
     var metadata =
         RemoteFileArtifactValue.create(digest, size, /* locationIndex= */ 1, expireAtEpochMilli);
     remoteOutputTree.injectFile(path, metadata);
-  }
-
-  void flush() throws IOException, InterruptedException {
-    checkNotNull(metadataInjector, "metadataInjector is null");
-
-    for (Map.Entry<PathFragment, Artifact> entry : outputMapping.entrySet()) {
-      PathFragment path = execRoot.getRelative(entry.getKey());
-      Artifact output = entry.getValue();
-
-      maybeInjectMetadataForSymlinkOrDownload(path, output);
-    }
-  }
-
-  /**
-   * Inject metadata for non-symlink outputs that were materialized as a symlink to a remote
-   * artifact, and download the target artifact if required by the remote output mode.
-   *
-   * <p>If a non-symlink output is materialized as a symlink, the symlink has "copy" semantics,
-   * i.e., the output metadata is identical to that of the symlink target. For these artifacts, we
-   * inject their metadata instead of collecting it from the filesystem. This is done for two
-   * reasons:
-   *
-   * <ul>
-   *   <li>It avoids implementing filesystem operations for resolving symlinks and (in the case of a
-   *       tree artifact) listing directories, which are especially tricky since the symlink and its
-   *       target may reside on different filesystems;
-   *   <li>It lets us add a special field to the output metadata to tell the input prefetcher that
-   *       the output should be materialized as a symlink to the original location, which avoids
-   *       fetching multiple copies when multiple symlinks to the same artifact are created in the
-   *       same build.
-   */
-  private void maybeInjectMetadataForSymlinkOrDownload(PathFragment linkPath, Artifact output)
-      throws IOException {
-    if (output.isSymlink()) {
-      return;
-    }
-
-    Path outputTreePath = remoteOutputTree.getPath(linkPath);
-
-    if (!outputTreePath.exists(Symlinks.NOFOLLOW)) {
-      return;
-    }
-
-    PathFragment targetPath;
-    try {
-      targetPath = outputTreePath.readSymbolicLink();
-    } catch (NotASymlinkException e) {
-      return;
-    }
-
-    checkState(
-        targetPath.isAbsolute(),
-        "non-symlink artifact materialized as symlink must point to absolute path");
-
-    if (output.isTreeArtifact()) {
-      TreeArtifactValue metadata =
-          inputArtifactData.getTreeMetadata(targetPath.relativeTo(execRoot));
-
-      // TODO: Handle partially remote tree artifacts.
-      if (metadata == null || !metadata.isEntirelyRemote()) {
-        return;
-      }
-
-      SpecialArtifact parent = (SpecialArtifact) output;
-      TreeArtifactValue.Builder injectedTree = TreeArtifactValue.newBuilder(parent);
-      // Avoid a double indirection when the target is already materialized as a symlink.
-      injectedTree.setMaterializationExecPath(
-          metadata.getMaterializationExecPath().orElse(targetPath.relativeTo(execRoot)));
-      // TODO: Check directory content on the local fs to support mixed tree.
-      for (Map.Entry<TreeFileArtifact, FileArtifactValue> entry :
-          metadata.getChildValues().entrySet()) {
-        TreeFileArtifact child =
-            TreeFileArtifact.createTreeOutput(parent, entry.getKey().getParentRelativePath());
-        RemoteFileArtifactValue childMetadata = (RemoteFileArtifactValue) entry.getValue();
-        injectedTree.putChild(child, childMetadata);
-      }
-
-      metadataInjector.injectTree(parent, injectedTree.build());
-    } else {
-      RemoteFileArtifactValue metadata = null;
-
-      var status = statInMemory(targetPath, FollowMode.FOLLOW_ALL);
-      if (status instanceof FileStatusWithMetadata
-          && ((FileStatusWithMetadata) status).getMetadata().isRemote()) {
-        metadata = (RemoteFileArtifactValue) ((FileStatusWithMetadata) status).getMetadata();
-      }
-
-      if (metadata == null) {
-        return;
-      }
-
-      RemoteFileArtifactValue injectedMetadata =
-          RemoteFileArtifactValue.create(
-              metadata.getDigest(),
-              metadata.getSize(),
-              metadata.getLocationIndex(),
-              metadata.getExpireAtEpochMilli(),
-              // Avoid a double indirection when the target is already materialized as a symlink.
-              metadata.getMaterializationExecPath().orElse(targetPath.relativeTo(execRoot)));
-
-      metadataInjector.injectFile(output, injectedMetadata);
-    }
   }
 
   @Override

@@ -38,7 +38,7 @@ import java.io.IOException;
  * <p>This is necessary when a locally executed action consumes outputs produced by a remotely
  * executed action and {@code --experimental_remote_download_outputs=minimal} is specified.
  */
-class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
+public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
 
   private final String buildRequestId;
   private final String commandId;

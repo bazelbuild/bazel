@@ -1739,13 +1739,13 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     assertThat(output.isExecutable()).isTrue();
   }
 
-  protected void assertSymlink(String binRelativePath, PathFragment absoluteTargetPath)
+  protected void assertSymlink(String binRelativeLinkPath, PathFragment targetPath)
       throws Exception {
     // On Windows, symlinks might be implemented as a file copy.
     if (OS.getCurrent() != OS.WINDOWS) {
-      Path output = getOutputPath(binRelativePath);
+      Path output = getOutputPath(binRelativeLinkPath);
       assertThat(output.isSymbolicLink()).isTrue();
-      assertThat(output.readSymbolicLink()).isEqualTo(absoluteTargetPath);
+      assertThat(output.readSymbolicLink()).isEqualTo(targetPath);
     }
   }
 

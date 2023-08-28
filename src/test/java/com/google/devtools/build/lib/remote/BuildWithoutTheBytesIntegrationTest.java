@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.standalone.StandaloneModule;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import org.junit.After;
@@ -601,5 +602,81 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     // Materialization skips the intermediate symlink.
     assertSymlink("foo.deep", getOutputPath("foo.dir").asFragment());
     assertValidOutputFile("foo.deep/file.txt", "hello");
+  }
+
+  @Test
+  public void downloadTopLevel_genruleSymlinkToInput() throws Exception {
+    setDownloadToplevel();
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  outs = ['foo'],",
+        "  cmd = 'echo hello > $@',",
+        ")",
+        "genrule(",
+        "  name = 'gen',",
+        "  srcs = ['foo'],",
+        "  outs = ['foo-link'],",
+        "  cmd = 'cd $(RULEDIR) && ln -s foo foo-link',",
+        // In Blaze, heuristic label expansion defaults to True and will cause `foo` to be expanded
+        // into `blaze-out/.../bin/foo` in the genrule command line.
+        "  heuristic_label_expansion = False,",
+        ")");
+
+    buildTarget("//:gen");
+
+    assertSymlink("foo-link", getOutputPath("foo").asFragment());
+    assertValidOutputFile("foo-link", "hello\n");
+
+    // Delete link, re-plant symlink
+    getOutputPath("foo").delete();
+    buildTarget("//:gen");
+
+    assertSymlink("foo-link", getOutputPath("foo").asFragment());
+    assertValidOutputFile("foo-link", "hello\n");
+
+    // Delete target, re-download it
+    getOutputPath("foo").delete();
+
+    buildTarget("//:gen");
+
+    assertSymlink("foo-link", getOutputPath("foo").asFragment());
+    assertValidOutputFile("foo-link", "hello\n");
+  }
+
+  @Test
+  public void downloadTopLevel_genruleSymlinkToOutput() throws Exception {
+    setDownloadToplevel();
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'gen',",
+        "  outs = ['foo', 'foo-link'],",
+        "  cmd = 'cd $(RULEDIR) && echo hello > foo && ln -s foo foo-link',",
+        // In Blaze, heuristic label expansion defaults to True and will cause `foo` to be expanded
+        // into `blaze-out/.../bin/foo` in the genrule command line.
+        "  heuristic_label_expansion = False,",
+        ")");
+
+    buildTarget("//:gen");
+
+    assertSymlink("foo-link", PathFragment.create("foo"));
+    assertValidOutputFile("foo-link", "hello\n");
+
+    // Delete link, re-plant symlink
+    getOutputPath("foo").delete();
+    buildTarget("//:gen");
+
+    assertSymlink("foo-link", PathFragment.create("foo"));
+    assertValidOutputFile("foo-link", "hello\n");
+
+    // Delete target, re-download it
+    getOutputPath("foo").delete();
+
+    buildTarget("//:gen");
+
+    assertSymlink("foo-link", PathFragment.create("foo"));
+    assertValidOutputFile("foo-link", "hello\n");
   }
 }

@@ -107,7 +107,7 @@ public class RemoteOutputService implements OutputService {
       Environment env,
       MetadataInjector injector,
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {
-    ((RemoteActionFileSystem) actionFileSystem).updateContext(action, injector);
+    ((RemoteActionFileSystem) actionFileSystem).updateContext(action);
   }
 
   @Override
@@ -142,12 +142,6 @@ public class RemoteOutputService implements OutputService {
       }
       leaseService.finalizeExecution(missingActionInputs);
     }
-  }
-
-  @Override
-  public void flushActionFileSystem(FileSystem actionFileSystem)
-      throws InterruptedException, IOException {
-    ((RemoteActionFileSystem) actionFileSystem).flush();
   }
 
   @Override

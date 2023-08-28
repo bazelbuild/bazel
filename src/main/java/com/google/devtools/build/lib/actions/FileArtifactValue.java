@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -548,6 +549,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
           digest, size, locationIndex, expireAtEpochMilli, /* materializationExecPath= */ null);
     }
 
+    @VisibleForTesting
     public static RemoteFileArtifactValue create(
         byte[] digest,
         long size,
@@ -558,6 +560,24 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
           ? new RemoteFileArtifactValue(digest, size, locationIndex, materializationExecPath)
           : new RemoteFileArtifactValueWithExpiration(
               digest, size, locationIndex, materializationExecPath, expireAtEpochMilli);
+    }
+
+    /**
+     * Returns a {@link RemoteFileArtifactValue} identical to the given one, except that its
+     * materialization path is set to the given value unless already present.
+     */
+    public static RemoteFileArtifactValue createFromExistingWithMaterializationPath(
+        RemoteFileArtifactValue metadata, PathFragment materializationExecPath) {
+      checkNotNull(materializationExecPath);
+      if (metadata.materializationExecPath != null) {
+        return metadata;
+      }
+      return create(
+          metadata.getDigest(),
+          metadata.getSize(),
+          metadata.getLocationIndex(),
+          metadata.getExpireAtEpochMilli(),
+          metadata.getMaterializationExecPath().orElse(materializationExecPath));
     }
 
     @Override
