@@ -931,7 +931,7 @@ cc_common = struct(
     create_lto_backend_artifacts = _create_lto_backend_artifacts,
     # Google internal methods.
     create_cc_launcher_info = _create_cc_launcher_info,
-    # TODO(b/295221112): Remove after migrating launchers to Starlark flags
+    # TODO: b/295221112 - Remove after migrating launchers to Starlark flags
     launcher_provider = _builtins.internal.cc_internal.launcher_provider,
     objcopy = _objcopy,
     objcopy_tool_path = _objcopy_tool_path,
