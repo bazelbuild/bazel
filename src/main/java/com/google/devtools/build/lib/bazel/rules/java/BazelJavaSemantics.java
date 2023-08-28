@@ -84,10 +84,17 @@ public class BazelJavaSemantics implements JavaSemantics {
   }
 
   private static final String JAVA_TOOLCHAIN_TYPE = "@bazel_tools//tools/jdk:toolchain_type";
+  private static final Label JAVA_RUNITME_TOOLCHAIN_TYPE =
+      Label.parseCanonicalUnchecked("@bazel_tools//tools/jdk:runtime_toolchain_type");
 
   @Override
   public String getJavaToolchainType() {
     return JAVA_TOOLCHAIN_TYPE;
+  }
+
+  @Override
+  public Label getJavaRuntimeToolchainType() {
+    return JAVA_RUNITME_TOOLCHAIN_TYPE;
   }
 
   @Override
@@ -201,8 +208,12 @@ public class BazelJavaSemantics implements JavaSemantics {
         Substitution.of(
             "%javabin%",
             JavaCommon.getJavaBinSubstitutionFromJavaExecutable(ruleContext, javaExecutable)));
-    arguments.add(Substitution.of("%needs_runfiles%",
-        JavaCommon.getJavaExecutable(ruleContext).isAbsolute() ? "0" : "1"));
+    arguments.add(
+        Substitution.of(
+            "%needs_runfiles%",
+            JavaCommon.getJavaExecutable(ruleContext, getJavaRuntimeToolchainType()).isAbsolute()
+                ? "0"
+                : "1"));
 
     TransitiveInfoCollection testSupport = JavaSemantics.getTestSupport(ruleContext);
     NestedSet<Artifact> testSupportJars =
@@ -288,7 +299,7 @@ public class BazelJavaSemantics implements JavaSemantics {
     return executable;
   }
 
-  private static Artifact createWindowsExeLauncher(
+  private Artifact createWindowsExeLauncher(
       RuleContext ruleContext,
       String javaExecutable,
       NestedSet<Artifact> classpath,
@@ -305,7 +316,7 @@ public class BazelJavaSemantics implements JavaSemantics {
             .addKeyValuePair("java_bin_path", javaExecutable)
             .addKeyValuePair(
                 "jar_bin_path",
-                JavaCommon.getJavaExecutable(ruleContext)
+                JavaCommon.getJavaExecutable(ruleContext, getJavaRuntimeToolchainType())
                     .getParentDirectory()
                     .getRelative("jar.exe")
                     .getPathString())

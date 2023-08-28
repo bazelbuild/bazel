@@ -660,15 +660,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         help = "Implementation to use to sign APKs")
     public ApkSigningMethod apkSigningMethod;
 
-    // TODO(b/36023617): Remove this option.
-    @Option(
-        name = "use_singlejar_apkbuilder",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-        effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
-        help = "This option is a deprecated. It is now a no-op and will be removed soon.")
-    public boolean useSingleJarApkBuilder;
-
     @Option(
         name = "experimental_android_compress_java_resources",
         defaultValue = "false",
@@ -1176,7 +1167,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final AndroidManifestMerger manifestMerger;
   private final ManifestMergerOrder manifestMergerOrder;
   private final ApkSigningMethod apkSigningMethod;
-  private final boolean useSingleJarApkBuilder;
   private final boolean compressJavaResources;
   private final boolean exportsManifestDefault;
   private final boolean useParallelDex2Oat;
@@ -1231,7 +1221,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.manifestMerger = options.manifestMerger;
     this.manifestMergerOrder = options.manifestMergerOrder;
     this.apkSigningMethod = options.apkSigningMethod;
-    this.useSingleJarApkBuilder = options.useSingleJarApkBuilder;
     this.useRexToCompressDexFiles = options.useRexToCompressDexFiles;
     this.compressJavaResources = options.compressJavaResources;
     this.exportsManifestDefault = options.exportsManifestDefault;
@@ -1426,11 +1415,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Nullable
   public Boolean apkSigningMethodV4() {
     return apkSigningMethod.signV4();
-  }
-
-  @Override
-  public boolean useSingleJarApkBuilder() {
-    return useSingleJarApkBuilder;
   }
 
   @Override

@@ -115,30 +115,57 @@ EOF
     || fail "bar not recreated"
 }
 
+function test_enable_runfiles_change() {
+  create_workspace_with_default_repos WORKSPACE foo
+
+  mkdir data && echo "hello" > data/hello && echo "world" > data/world
+
+  touch bin.sh
+  chmod 755 bin.sh
+
+  cat > BUILD <<'EOF'
+sh_binary(
+  name = "bin",
+  srcs = ["bin.sh"],
+  data = glob(["data/*"]),
+)
+EOF
+
+  bazel build --enable_runfiles //:bin || fail "Building //:bin failed"
+
+  [[ -f bazel-bin/bin.runfiles/foo/data/hello ]] || fail "expected runfile data/hello"
+  [[ -f bazel-bin/bin.runfiles/foo/data/world ]] || fail "expected runfile data/world"
+  [[ -f bazel-bin/bin.runfiles/MANIFEST ]] || fail "expected output manifest to exist"
+
+  bazel build --noenable_runfiles //:bin || fail "Building //:bin failed"
+
+  [[ ! -f bazel-bin/bin.runfiles/foo/data/hello ]] || fail "expected no runfile data/hello"
+  [[ ! -f bazel-bin/bin.runfiles/foo/data/world ]] || fail "expected no runfile data/world"
+  [[ -f bazel-bin/bin.runfiles/MANIFEST ]] || fail "expected output manifest to exist"
+}
+
 # Test that the local strategy creates a runfiles tree during test if no --nobuild_runfile_links
 # is specified.
 function test_nobuild_runfile_links() {
-  mkdir data && echo "hello" > data/hello && echo "world" > data/world
   create_workspace_with_default_repos WORKSPACE foo
 
-cat > test.sh <<'EOF'
+  mkdir data && echo "hello" > data/hello && echo "world" > data/world
+
+  cat > test.sh <<'EOF'
 #!/bin/bash
 set -e
 [[ -f ${RUNFILES_DIR}/foo/data/hello ]]
 [[ -f ${RUNFILES_DIR}/foo/data/world ]]
 exit 0
 EOF
-  chmod 755 test.sh
-  cat > BUILD <<'EOF'
-filegroup(
-  name = "runfiles",
-  srcs = ["data/hello", "data/world"],
-)
 
+  chmod 755 test.sh
+
+  cat > BUILD <<'EOF'
 sh_test(
   name = "test",
   srcs = ["test.sh"],
-  data = [":runfiles"],
+  data = glob(["data/*"]),
 )
 EOF
 
@@ -150,7 +177,7 @@ EOF
   [[ ! -f bazel-bin/test.runfiles/MANIFEST ]] || fail "expected output manifest to not exist"
 
   bazel test --spawn_strategy=local --nobuild_runfile_links //:test \
-    || fail "Testing //:foo failed"
+    || fail "Testing //:test failed"
 
   [[ -f bazel-bin/test.runfiles/foo/data/hello ]] || fail "expected runfile data/hello to exist"
   [[ -f bazel-bin/test.runfiles/foo/data/world ]] || fail "expected runfile data/world to exist"
@@ -161,22 +188,26 @@ EOF
 # attempt to create the runfiles directory both for the target to run and the
 # --run_under target.
 function test_nobuild_runfile_links_with_run_under() {
-  mkdir data && echo "hello" > data/hello && echo "world" > data/world
   create_workspace_with_default_repos WORKSPACE foo
 
-cat > hello.sh <<'EOF'
+  mkdir data && echo "hello" > data/hello && echo "world" > data/world
+
+  cat > hello.sh <<'EOF'
 #!/bin/bash
 set -ex
 [[ -f $0.runfiles/foo/data/hello ]]
 exec "$@"
 EOF
-cat > world.sh <<'EOF'
+
+  cat > world.sh <<'EOF'
 #!/bin/bash
 set -ex
 [[ -f $0.runfiles/foo/data/world ]]
 exit 0
 EOF
+
   chmod 755 hello.sh world.sh
+
   cat > BUILD <<'EOF'
 sh_binary(
   name = "hello",
@@ -200,7 +231,7 @@ EOF
   [[ ! -f bazel-bin/world.runfiles/MANIFEST ]] || fail "expected output manifest world to not exist"
 
   bazel run --spawn_strategy=local --nobuild_runfile_links --run_under //:hello //:world \
-    || fail "Testing //:foo failed"
+    || fail "Running //:hello and //:world failed"
 
   [[ -f bazel-bin/hello.runfiles/foo/data/hello ]] || fail "expected runfile data/hello to exist"
   [[ -f bazel-bin/hello.runfiles/MANIFEST ]] || fail "expected output manifest hello to exist"

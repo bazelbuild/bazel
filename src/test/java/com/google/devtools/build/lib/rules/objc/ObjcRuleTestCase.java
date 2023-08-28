@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
-import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputDirectoryNamingScheme;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -146,8 +145,10 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     String modeSegment = compilationModeFlag(compilationMode);
 
     String hash = "";
-    if (targetConfig.getOptions().get(CoreOptions.class).outputDirectoryNamingScheme
-        == OutputDirectoryNamingScheme.DIFF_AGAINST_BASELINE) {
+    if (targetConfig
+        .getOptions()
+        .get(CoreOptions.class)
+        .useBaselineForOutputDirectoryNamingScheme()) {
       PlatformType platformType = null;
       switch (configurationDistinguisher) {
         case APPLEBIN_IOS:

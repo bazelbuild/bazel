@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -69,8 +68,9 @@ public class JavaStarlarkCommon
         StarlarkRuleContext,
         StarlarkActionFactory> {
 
-  private static final ImmutableSet<PackageIdentifier> PRIVATE_STARLARKIFACTION_ALLOWLIST =
-      ImmutableSet.of(PackageIdentifier.createInMainRepo("bazel_internal/test_rules"));
+  private static final ImmutableSet<BuiltinRestriction.AllowlistEntry>
+      PRIVATE_STARLARKIFACTION_ALLOWLIST =
+          ImmutableSet.of(BuiltinRestriction.allowlistEntry("", "bazel_internal/test_rules"));
   private final JavaSemantics javaSemantics;
 
   private static StrictDepsMode getStrictDepsMode(String strictDepsMode) {

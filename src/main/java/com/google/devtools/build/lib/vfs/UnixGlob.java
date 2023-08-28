@@ -737,15 +737,25 @@ public final class UnixGlob {
      */
     private void reallyGlob(Path base, boolean baseIsDir, int idx, GlobTaskContext context)
         throws IOException {
-
-      if (baseIsDir && !context.pathDiscriminator.shouldTraverseDirectory(base)) {
+      if (idx == context.patternParts.length) { // Base case.
         maybeAddResult(context, base, baseIsDir);
         return;
       }
 
-      if (idx == context.patternParts.length) { // Base case.
-        maybeAddResult(context, base, baseIsDir);
+      // Do an early readdir() call here if the pattern contains a wildcard (* or ?). The reason is
+      // that we'll do so later anyway and doing this early avoids an additional stat to determine
+      // the existence of a build file as part of the shouldTraverseDirectory() call below (globs
+      // will no recurse into sub-packages, i.e. directories that contain a build file). This
+      // optimizes for the common case where there is no build file in the sub directory.
+      String pattern = context.patternParts[idx];
+      boolean patternContainsWildcard = pattern.contains("*") || pattern.contains("?");
+      Collection<Dirent> dents = null;
+      if (baseIsDir && patternContainsWildcard) {
+        dents = context.syscalls.readdir(base);
+      }
 
+      if (baseIsDir && !context.pathDiscriminator.shouldTraverseDirectory(base)) {
+        maybeAddResult(context, base, baseIsDir);
         return;
       }
 
@@ -754,15 +764,13 @@ public final class UnixGlob {
         return;
       }
 
-      String pattern = context.patternParts[idx];
-
       // ** is special: it can match nothing at all.
       // For example, x/** matches x, **/y matches y, and x/**/y matches x/y.
       if (isRecursivePattern(pattern)) {
         context.queueGlob(base, baseIsDir, idx + 1);
       }
 
-      if (!pattern.contains("*") && !pattern.contains("?")) {
+      if (!patternContainsWildcard) {
         // We do not need to do a readdir in this case, just a stat.
         Path child = base.getChild(pattern);
         FileStatus status = context.syscalls.statIfFound(child, Symlinks.FOLLOW);
@@ -775,7 +783,6 @@ public final class UnixGlob {
         return;
       }
 
-      Collection<Dirent> dents = context.syscalls.readdir(base);
       for (Dirent dent : dents) {
         Dirent.Type childType = dent.getType();
         if (childType == Dirent.Type.UNKNOWN) {

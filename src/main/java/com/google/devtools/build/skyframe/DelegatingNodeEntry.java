@@ -144,6 +144,11 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
+  public ImmutableSet<SkyKey> getResetDirectDeps() {
+    return getDelegate().getResetDirectDeps();
+  }
+
+  @Override
   public void addSingletonTemporaryDirectDep(SkyKey dep) {
     getDelegate().addSingletonTemporaryDirectDep(dep);
   }

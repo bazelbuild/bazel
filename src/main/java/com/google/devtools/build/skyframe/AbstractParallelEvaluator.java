@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -862,18 +861,14 @@ abstract class AbstractParallelEvaluator {
   private void dirtyRewindGraphAndResetEntry(SkyKey key, NodeEntry entry, Restart restart)
       throws InterruptedException {
     ImmutableGraph<SkyKey> rewindGraph = restart.rewindGraph();
-    if (rewindGraph.nodes().isEmpty()) {
-      resetEntry(key, entry);
-      return;
-    }
-    checkArgument(
+    checkState(
         rewindGraph.nodes().contains(key),
-        "rewindGraph must contain the key for the failed evaluation if it's not empty. key: %s, "
-            + "rewindGraph: %s",
+        "Rewind graph missing evaluating key %s: %s",
         key,
         rewindGraph);
 
-    ImmutableList.Builder<SkyKey> builder = ImmutableList.builder();
+    ImmutableList.Builder<SkyKey> builder =
+        ImmutableList.builderWithExpectedSize(rewindGraph.nodes().size() - 1);
     for (SkyKey k : Traverser.forGraph(rewindGraph).depthFirstPostOrder(key)) {
       if (!k.equals(key)) {
         builder.add(k);

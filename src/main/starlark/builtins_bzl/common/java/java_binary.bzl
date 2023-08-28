@@ -50,11 +50,6 @@ InternalDeployJarInfo = provider(
     ],
 )
 
-JavaRuntimeClasspathInfo = provider(
-    "Provider for the runtime classpath contributions of a Java binary.",
-    fields = ["runtime_classpath"],
-)
-
 def basic_java_binary(
         ctx,
         deps,
@@ -281,7 +276,7 @@ def basic_java_binary(
         "OutputGroupInfo": OutputGroupInfo(**output_groups),
         "JavaInfo": java_binary_info,
         "InstrumentedFilesInfo": target["InstrumentedFilesInfo"],
-        "JavaRuntimeClasspathInfo": JavaRuntimeClasspathInfo(runtime_classpath = java_info.transitive_runtime_jars),
+        "JavaRuntimeClasspathInfo": java_common.JavaRuntimeClasspathInfo(runtime_classpath = java_info.transitive_runtime_jars),
         "InternalDeployJarInfo": InternalDeployJarInfo(
             java_attrs = java_attrs,
             launcher_info = struct(
@@ -303,7 +298,7 @@ def basic_java_binary(
 
 def _collect_attrs(ctx, runtime_classpath, classpath_resources):
     deploy_env_jars = depset(transitive = [
-        dep[JavaRuntimeClasspathInfo].runtime_classpath
+        dep[java_common.JavaRuntimeClasspathInfo].runtime_classpath
         for dep in ctx.attr.deploy_env
     ]) if hasattr(ctx.attr, "deploy_env") else depset()
 
@@ -515,7 +510,7 @@ BASIC_JAVA_BINARY_ATTRIBUTES = merge_attrs(
             cfg = "exec",
         ),
         "deploy_env": attr.label_list(
-            allow_rules = ["java_binary"],
+            providers = [java_common.JavaRuntimeClasspathInfo],
             allow_files = False,
         ),
         "launcher": attr.label(
@@ -543,7 +538,6 @@ BASIC_JAVA_BINARY_ATTRIBUTES = merge_attrs(
         "_cc_toolchain": attr.label(default = "@" + cc_semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
         "_grep_includes": cc_semantics.get_grep_includes(),
         "_java_toolchain_type": attr.label(default = semantics.JAVA_TOOLCHAIN_TYPE),
-        "_java_runtime_toolchain_type": attr.label(default = semantics.JAVA_RUNTIME_TOOLCHAIN_TYPE),
     },
 )
 

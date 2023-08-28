@@ -13,11 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.common.base.Preconditions;
+import com.google.common.graph.Graph;
 import com.google.common.graph.GraphBuilder;
 import com.google.common.graph.ImmutableGraph;
+import com.google.common.graph.MutableGraph;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -121,21 +123,36 @@ public interface SkyFunction {
    * true. If restarting is not permitted, {@link #compute} should throw an appropriate {@link
    * SkyFunctionException}.
    */
-  interface Restart extends SkyValue {
-    ImmutableGraph<SkyKey> EMPTY_SKYKEY_GRAPH =
-        ImmutableGraph.copyOf(GraphBuilder.directed().allowsSelfLoops(false).build());
+  final class Restart implements SkyValue {
 
-    Restart SELF = () -> EMPTY_SKYKEY_GRAPH;
-
-    static Restart selfAnd(ImmutableGraph<SkyKey> rewindGraph) {
-      Preconditions.checkArgument(
-          rewindGraph.isDirected(), "rewindGraph undirected: %s", rewindGraph);
-      Preconditions.checkArgument(
-          !rewindGraph.allowsSelfLoops(), "rewindGraph allows self loops: %s", rewindGraph);
-      return () -> rewindGraph;
+    /**
+     * Convenience method that creates a {@link MutableGraph} that fulfills the basic requirements
+     * of a {@link Restart}.
+     *
+     * <p>Additional edges may be added to the graph before passing to {@link #of}.
+     */
+    public static MutableGraph<SkyKey> newRewindGraphFor(SkyKey keyToRestart) {
+      MutableGraph<SkyKey> rewindGraph = GraphBuilder.directed().allowsSelfLoops(false).build();
+      rewindGraph.addNode(keyToRestart);
+      return rewindGraph;
     }
 
-    ImmutableGraph<SkyKey> rewindGraph();
+    public static Restart of(Graph<SkyKey> rewindGraph) {
+      checkArgument(rewindGraph.isDirected(), "Undirected: %s", rewindGraph);
+      checkArgument(!rewindGraph.allowsSelfLoops(), "Allows self loops: %s", rewindGraph);
+      checkArgument(!rewindGraph.nodes().isEmpty(), "Rewind graph must include key to restart");
+      return new Restart(ImmutableGraph.copyOf(rewindGraph));
+    }
+
+    private final ImmutableGraph<SkyKey> rewindGraph;
+
+    private Restart(ImmutableGraph<SkyKey> rewindGraph) {
+      this.rewindGraph = rewindGraph;
+    }
+
+    ImmutableGraph<SkyKey> rewindGraph() {
+      return rewindGraph;
+    }
   }
 
   /**

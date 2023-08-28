@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.skyframe.KeyToConsolidate.Op;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.ForOverride;
@@ -387,9 +388,25 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
   }
 
   @Override
-  public final void resetForRestartFromScratch() {
-    // TODO(b/228090759): Implement to support rewinding with incrementality.
-    throw new UnsupportedOperationException();
+  public final synchronized void resetForRestartFromScratch() {
+    checkState(!hasUnsignaledDeps(), this);
+
+    // TODO(b/228090759): Handle a reset on an incremental build.
+    checkState(!dirtyBuildingState.isIncremental(), this);
+
+    ImmutableSet<SkyKey> resetDeps =
+        ImmutableSet.<SkyKey>builder()
+            .addAll(getResetDirectDeps()) // In case this isn't the first reset.
+            .addAll(getTemporaryDirectDeps().getAllElementsAsIterable())
+            .build();
+
+    dirtyBuildingState = new ResetInitialBuildingState(resetDeps);
+    directDeps = null;
+  }
+
+  @Override
+  public final ImmutableSet<SkyKey> getResetDirectDeps() {
+    return checkNotNull(dirtyBuildingState, this).getResetDirectDeps();
   }
 
   @Override
@@ -439,6 +456,30 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
       return super.getStringHelper()
           .add("lastBuildDirectDeps", lastBuildDirectDeps)
           .add("lastBuildValue", lastBuildValue);
+    }
+  }
+
+  /**
+   * Used to track already registered deps when there is a {@linkplain #resetForRestartFromScratch
+   * reset} on a node's initial build.
+   */
+  private static final class ResetInitialBuildingState extends InitialBuildingState {
+    private final ImmutableSet<SkyKey> resetDeps;
+
+    ResetInitialBuildingState(ImmutableSet<SkyKey> resetDeps) {
+      this.resetDeps = resetDeps;
+      markRebuilding();
+      startEvaluating();
+    }
+
+    @Override
+    ImmutableSet<SkyKey> getResetDirectDeps() {
+      return resetDeps;
+    }
+
+    @Override
+    protected MoreObjects.ToStringHelper getStringHelper() {
+      return super.getStringHelper().add("resetDeps", resetDeps);
     }
   }
 }

@@ -104,7 +104,8 @@ public interface AndroidDexInfoApi<FileT extends FileApi> extends StructApi {
                 @ParamType(type = NoneType.class),
               },
               named = true,
-              doc = "The final proguard output map."),
+              doc = "The final proguard output map.",
+              defaultValue = "None"),
           @Param(
               name = "java_resource_jar",
               allowedTypes = {
@@ -112,7 +113,8 @@ public interface AndroidDexInfoApi<FileT extends FileApi> extends StructApi {
                 @ParamType(type = NoneType.class),
               },
               named = true,
-              doc = "The final Java resource jar."),
+              doc = "The final Java resource jar.",
+              defaultValue = "None")
         },
         selfCall = true)
     @StarlarkConstructor

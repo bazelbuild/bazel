@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -111,10 +110,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   // TODO(gnish): This is a temporary allowlist while new BuildInfo API becomes stable enough to
   // become public.
   // After at least some of the builtin rules have been switched to the new API delete this.
-  private static final ImmutableSet<PackageIdentifier> PRIVATE_BUILDINFO_API_ALLOWLIST =
-      ImmutableSet.of(
-          PackageIdentifier.createInMainRepo("test"), // for tests
-          PackageIdentifier.createInMainRepo("tools/build_defs/build_info"));
+  private static final ImmutableSet<BuiltinRestriction.AllowlistEntry>
+      PRIVATE_BUILDINFO_API_ALLOWLIST =
+          ImmutableSet.of(
+              BuiltinRestriction.allowlistEntry("", "test"), // for tests
+              BuiltinRestriction.allowlistEntry("", "tools/build_defs/build_info"));
 
   public StarlarkActionFactory(StarlarkRuleContext context) {
     this.context = context;
