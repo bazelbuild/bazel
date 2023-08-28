@@ -720,4 +720,7 @@ public interface StarlarkRuleFunctionsApi {
   ExecGroupApi execGroup(
       Sequence<?> toolchains, Sequence<?> execCompatibleWith, StarlarkThread thread)
       throws EvalException;
+
+  @StarlarkMethod(name = "subrule", doc = "experimental, DO NOT USE!", useStarlarkThread = true)
+  StarlarkSubruleApi subrule(StarlarkThread thread) throws EvalException;
 }

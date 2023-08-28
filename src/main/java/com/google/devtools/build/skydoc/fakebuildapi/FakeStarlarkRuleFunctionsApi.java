@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.starlarkbuildapi.ExecGroupApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAspectApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleFunctionsApi;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
 import com.google.devtools.build.skydoc.rendering.AspectInfoWrapper;
 import com.google.devtools.build.skydoc.rendering.ProviderInfoWrapper;
 import com.google.devtools.build.skydoc.rendering.RuleInfoWrapper;
@@ -241,6 +242,11 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi {
   public ExecGroupApi execGroup(
       Sequence<?> toolchains, Sequence<?> execCompatibleWith, StarlarkThread thread) {
     return new FakeExecGroup();
+  }
+
+  @Override
+  public StarlarkSubruleApi subrule(StarlarkThread thread) {
+    return new FakeStarlarkSubrule();
   }
 
   /**

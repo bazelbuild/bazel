@@ -58,12 +58,24 @@ import net.starlark.java.syntax.SyntaxError;
 // which the client provides files, flags, and arguments like a command-line tool, and all our tests
 // should be ported to use that API.
 public final class BazelEvaluationTestCase {
+
+  private static final String DEFAULT_LABEL = "//test:label";
   private final EventCollectionApparatus eventCollectionApparatus =
       new EventCollectionApparatus(EventKind.ALL_EVENTS);
+
+  private final Label label;
 
   private StarlarkSemantics semantics = StarlarkSemantics.DEFAULT;
   private StarlarkThread thread = null; // created lazily by getStarlarkThread
   private Module module = null; // created lazily by getModule
+
+  public BazelEvaluationTestCase() {
+    this(DEFAULT_LABEL);
+  }
+
+  public BazelEvaluationTestCase(String label) {
+    this.label = Label.parseCanonicalUnchecked(label);
+  }
 
   /**
    * Parses the semantics flags and updates the semantics used to filter predeclared bindings, and
@@ -128,14 +140,14 @@ public final class BazelEvaluationTestCase {
         .storeInThread(thread);
   }
 
-  private static Object newModule(ImmutableMap.Builder<String, Object> predeclared) {
+  private Object newModule(ImmutableMap.Builder<String, Object> predeclared) {
     predeclared.putAll(StarlarkGlobalsImpl.INSTANCE.getFixedBzlToplevels());
     predeclared.put("platform_common", new PlatformCommon());
     predeclared.put("config_common", new ConfigStarlarkCommon());
 
     // Return the module's client data. (This one uses dummy values for tests.)
     return BazelModuleContext.create(
-        Label.parseCanonicalUnchecked("//test:label"),
+        label,
         RepositoryMapping.ALWAYS_FALLBACK,
         "test/label.bzl",
         /* loads= */ ImmutableList.of(),

@@ -24,6 +24,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
+import static com.google.devtools.build.lib.packages.BuiltinRestriction.allowlistEntry;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
@@ -63,6 +64,8 @@ import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
+import com.google.devtools.build.lib.packages.BuiltinRestriction.AllowlistEntry;
 import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.ExecGroup;
@@ -90,6 +93,7 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleFunctionsApi;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.errorprone.annotations.FormatMethod;
@@ -155,6 +159,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
           .add(attr("args", STRING_LIST))
           .add(attr("output_licenses", LICENSE))
           .build();
+
+  private static final ImmutableSet<AllowlistEntry> ALLOWLIST_SUBRULES =
+      ImmutableSet.of(allowlistEntry("", "subrule_testing"));
 
   /** Parent rule class for test Starlark rules. */
   public static RuleClass getTestBaseRule(RuleDefinitionEnvironment env) {
@@ -1039,6 +1046,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         .execCompatibleWith(constraints)
         .copyFrom(null)
         .build();
+  }
+
+  @Override
+  public StarlarkSubruleApi subrule(StarlarkThread thread) throws EvalException {
+    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_SUBRULES);
+    return new StarlarkSubrule();
   }
 
   private static ImmutableSet<ToolchainTypeRequirement> parseToolchainTypes(

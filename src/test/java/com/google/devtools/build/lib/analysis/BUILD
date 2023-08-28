@@ -40,6 +40,7 @@ java_library(
             "SourceManifestActionTest.java",
             "AnalysisFailureInfoTest.java",
             "config/FeatureSetTest.java",
+            "starlark/StarlarkSubruleTest.java",
         ],
     ),
     deps = [
@@ -472,5 +473,18 @@ test_suite(
         ":PackageGroupBuildViewTest",
         ":RuleConfiguredTargetTest",
         ":SourceManifestActionTest",
+    ],
+)
+
+java_test(
+    name = "StarlarkSubruleTest",
+    srcs = ["starlark/StarlarkSubruleTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/starlark/util",
+        "//third_party:junit4",
+        "//third_party:truth",
     ],
 )
