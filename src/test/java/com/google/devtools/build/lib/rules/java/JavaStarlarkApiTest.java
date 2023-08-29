@@ -2166,7 +2166,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         "load(':extension.bzl', 'my_rule')",
-        "java_library(name = 'my_java_lib_a', srcs = ['java/A.java'])",
+        "java_library(name = 'my_java_lib_a', srcs = ['java/A.java'], javacopts = ['opt1'])",
         "my_rule(name = 'my_starlark_rule', dep = ':my_java_lib_a')");
     assertNoEvents();
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_starlark_rule");
@@ -2182,6 +2182,35 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
             prettyArtifactNames(
                 javaCompilationInfoProvider.getRuntimeClasspath().getSet(Artifact.class)))
         .containsExactly("foo/libmy_java_lib_a.jar");
+    assertThat(javaCompilationInfoProvider.getJavacOpts()).contains("opt1");
+    assertThat(javaCompilationInfoProvider.getJavacOptsList()).contains("opt1");
+  }
+
+  @Test
+  public void javaInfoStarlarkCompilationInfoJavacOpts() throws Exception {
+    scratch.file(
+        "foo/extension.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  return [result(property = ctx.attr.dep[JavaInfo].compilation_info.javac_options_list)]",
+        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "java_library(name = 'my_java_lib_a', srcs = ['java/A.java'], javacopts = ['opt1',"
+            + " 'opt2'])",
+        "my_rule(name = 'my_starlark_rule', dep = ':my_java_lib_a')");
+    assertNoEvents();
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_starlark_rule");
+
+    StructImpl info =
+        (StructImpl)
+            myRuleTarget.get(
+                new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "result"));
+    Sequence<String> javacOptionsList =
+        Sequence.cast(info.getValue("property"), String.class, "javac_options_list");
+
+    assertThat(javacOptionsList).containsAtLeast("opt1", "opt2").inOrder();
   }
 
   /* Test inspired by {@link AbstractJavaLibraryConfiguredTargetTest#testNeverlink}.*/

@@ -159,7 +159,7 @@ def compile_action(
         runfiles = [output_class_jar] if source_files or source_jars or resources else [],
         # TODO(ilist): collect compile_jars from JavaInfo in deps & exports
         compilation_classpath = java_info.compilation_info.compilation_classpath,
-        javac_options = java_info.compilation_info.javac_options,
+        javac_options = java_info.compilation_info.javac_options_list,
         plugins = _collect_plugins(deps, plugins),
     )
 

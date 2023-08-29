@@ -33,6 +33,17 @@ public interface JavaCompilationInfoProviderApi<FileT extends FileApi> extends S
   ImmutableList<String> getJavacOpts();
 
   @StarlarkMethod(
+      name = "javac_options_list",
+      structField = true,
+      doc =
+          "A list of options to java compiler. This exists temporarily for migration purposes. "
+              + "javac_options will return a depset in the future, and this method will be dropped "
+              + "once all usages have been updated to handle depsets.")
+  default ImmutableList<String> getJavacOptsList() {
+    return getJavacOpts();
+  }
+
+  @StarlarkMethod(
       name = "runtime_classpath",
       structField = true,
       doc = "Run-time classpath for this Java target.")

@@ -314,6 +314,7 @@ def compile(
 
     compilation_info = struct(
         javac_options = all_javac_opts_list,
+        javac_options_list = all_javac_opts_list,
         # needs to be flattened because the public API is a list
         boot_classpath = (bootclasspath.bootclasspath if bootclasspath else java_toolchain.bootclasspath).to_list(),
         # we only add compile time jars from deps, and not exports
