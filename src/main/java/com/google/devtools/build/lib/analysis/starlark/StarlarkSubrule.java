@@ -15,8 +15,33 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.Tuple;
 
 /** Represents a subrule which can be invoked in a Starlark rule's implementation function. */
-public class StarlarkSubrule implements StarlarkSubruleApi {
+public class StarlarkSubrule implements StarlarkCallable, StarlarkSubruleApi {
   // TODO(hvd) this class is a WIP, will be implemented over many commits
+
+  private final StarlarkFunction implementation;
+
+  public StarlarkSubrule(StarlarkFunction implementation) {
+    this.implementation = implementation;
+  }
+
+  @Override
+  public String getName() {
+    return String.format("subrule(%s)", implementation.getName());
+  }
+
+  @Override
+  public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
+      throws EvalException, InterruptedException {
+    // TODO(hvd): inject SubruleContext as first positional arg
+    return Starlark.call(thread, implementation, args, kwargs);
+  }
 }

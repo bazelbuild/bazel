@@ -1052,7 +1052,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   public StarlarkSubruleApi subrule(StarlarkFunction implementation, StarlarkThread thread)
       throws EvalException {
     BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_SUBRULES);
-    return new StarlarkSubrule();
+    return new StarlarkSubrule(implementation);
   }
 
   private static ImmutableSet<ToolchainTypeRequirement> parseToolchainTypes(

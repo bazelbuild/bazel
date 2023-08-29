@@ -57,6 +57,16 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testSubrule_isCallable() throws Exception {
+    ev.exec("x = subrule(implementation = lambda : 'dummy result' )");
+
+    Object result = ev.eval("x()");
+
+    assertThat(result).isNotNull();
+    assertThat(result).isEqualTo("dummy result");
+  }
+
+  @Test
   public void testSubruleInstantiation_outsideAllowlist_failsWithPrivateAPIError()
       throws Exception {
     evOutsideAllowlist.checkEvalErrorContains(
