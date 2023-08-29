@@ -331,7 +331,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "    for tag in mod.tags.tag:",
         "      data_repo(name=tag.name,data=tag.data)",
         "ext = module_extension(implementation=_ext_impl, tag_classes={'tag':tag}, "
-            + "use_os=True, use_arch=True)");
+            + "os_dependent=True, arch_dependent=True)");
     scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
     scratch.file(
         workspaceRoot.getRelative("data.bzl").getPathString(),

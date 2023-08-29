@@ -174,13 +174,13 @@ public interface RepositoryModuleApi {
             named = true,
             positional = false),
         @Param(
-            name = "use_os",
+            name = "os_dependent",
             defaultValue = "False",
             doc = "Indicates whether this extension is OS-dependent or not",
             named = true,
             positional = false),
         @Param(
-            name = "use_arch",
+            name = "arch_dependent",
             defaultValue = "False",
             doc = "Indicates whether this extension is architecture-dependent or not",
             named = true,
@@ -192,8 +192,8 @@ public interface RepositoryModuleApi {
       Dict<?, ?> tagClasses, // Dict<String, TagClassApi>
       Object doc, // <String> or Starlark.NONE
       Sequence<?> environ, // <String>
-      Boolean useOs,
-      Boolean useArch,
+      boolean osDependent,
+      boolean archDependent,
       StarlarkThread thread)
       throws EvalException;
 
