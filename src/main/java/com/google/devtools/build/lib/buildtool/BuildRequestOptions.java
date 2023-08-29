@@ -115,7 +115,9 @@ public class BuildRequestOptions extends OptionsBase {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Only shows warnings for rules with a name matching the provided regular expression.")
+      help =
+          "Only shows warnings and action outputs for rules with a name matching the provided "
+              + "regular expression.")
   @Nullable
   public RegexPatternOption outputFilter;
 
