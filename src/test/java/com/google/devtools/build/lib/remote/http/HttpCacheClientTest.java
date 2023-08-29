@@ -27,13 +27,18 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.auth.Credentials;
-import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.remote.RemoteRetrier;
+import com.google.devtools.build.lib.remote.Retrier;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -44,6 +49,7 @@ import com.google.protobuf.ByteString;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandler;
@@ -66,9 +72,13 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.unix.DomainSocketAddress;
 import io.netty.handler.codec.TooLongFrameException;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
+import io.netty.handler.codec.http.DefaultHttpContent;
+import io.netty.handler.codec.http.DefaultHttpResponse;
+import io.netty.handler.codec.http.DefaultLastHttpContent;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpHeaderNames;
+import io.netty.handler.codec.http.HttpHeaderValues;
 import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpServerCodec;
@@ -82,14 +92,16 @@ import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.URI;
+import java.nio.channels.ClosedChannelException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
 import java.util.function.IntFunction;
 import javax.annotation.Nullable;
 import org.junit.Before;
@@ -155,6 +167,7 @@ public class HttpCacheClientTest {
 
   private static final class InetTestServer implements TestServer {
 
+    @Override
     public ServerChannel start(ChannelInboundHandler handler) {
       return createServer(
           NioServerSocketChannel.class,
@@ -163,6 +176,7 @@ public class HttpCacheClientTest {
           handler);
     }
 
+    @Override
     public void stop(ServerChannel serverChannel) {
       try {
         serverChannel.close();
@@ -207,12 +221,14 @@ public class HttpCacheClientTest {
       }
     }
 
+    @Override
     public ServerChannel start(ChannelInboundHandler handler) {
       reset(this.serverChannel);
       this.handler = handler;
       return this.serverChannel;
     }
 
+    @Override
     public void stop(ServerChannel serverChannel) {
       // Note: In the tests, we expect that connecting to a closed server channel results
       // in a channel connection error. Netty doesn't seem to handle closing domain socket
@@ -230,7 +246,7 @@ public class HttpCacheClientTest {
   }
 
   @Parameters
-  public static Collection<Object[]> createInputValues() {
+  public static List<Object[]> createInputValues() {
     ArrayList<Object[]> parameters =
         new ArrayList<Object[]>(Arrays.asList(new Object[][] {{new InetTestServer()}}));
 
@@ -262,9 +278,21 @@ public class HttpCacheClientTest {
       int timeoutSeconds,
       boolean remoteVerifyDownloads,
       @Nullable final Credentials creds,
-      AuthAndTLSOptions authAndTlsOptions)
+      AuthAndTLSOptions authAndTlsOptions,
+      Optional<RemoteRetrier> optRetrier)
       throws Exception {
     SocketAddress socketAddress = serverChannel.localAddress();
+    RemoteRetrier retrier =
+        optRetrier.orElseGet(
+            () -> {
+              ListeningScheduledExecutorService retryScheduler =
+                  MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
+              return new RemoteRetrier(
+                  () -> RemoteRetrier.RETRIES_DISABLED,
+                  (e) -> false,
+                  retryScheduler,
+                  Retrier.ALLOW_ALL_CALLS);
+            });
     if (socketAddress instanceof DomainSocketAddress) {
       DomainSocketAddress domainSocketAddress = (DomainSocketAddress) socketAddress;
       URI uri = new URI("http://localhost");
@@ -276,6 +304,7 @@ public class HttpCacheClientTest {
           remoteVerifyDownloads,
           ImmutableList.of(),
           DIGEST_UTIL,
+          retrier,
           creds,
           authAndTlsOptions);
     } else if (socketAddress instanceof InetSocketAddress) {
@@ -288,6 +317,7 @@ public class HttpCacheClientTest {
           remoteVerifyDownloads,
           ImmutableList.of(),
           DIGEST_UTIL,
+          retrier,
           creds,
           authAndTlsOptions);
     } else {
@@ -303,7 +333,12 @@ public class HttpCacheClientTest {
       AuthAndTLSOptions authAndTlsOptions)
       throws Exception {
     return createHttpBlobStore(
-        serverChannel, timeoutSeconds, /* remoteVerifyDownloads= */ true, creds, authAndTlsOptions);
+        serverChannel,
+        timeoutSeconds,
+        /* remoteVerifyDownloads= */ true,
+        creds,
+        authAndTlsOptions,
+        Optional.empty());
   }
 
   @Before
@@ -373,7 +408,7 @@ public class HttpCacheClientTest {
       AuthAndTLSOptions authAndTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
       HttpCacheClient blobStore =
           createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials, authAndTlsOptions);
-      byte[] data = "File Contents".getBytes(Charsets.US_ASCII);
+      byte[] data = "File Contents".getBytes(StandardCharsets.US_ASCII);
       assertThrows(
           UploadTimeoutException.class,
           () ->
@@ -443,7 +478,7 @@ public class HttpCacheClientTest {
       AuthAndTLSOptions authAndTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
       HttpCacheClient blobStore =
           createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials, authAndTlsOptions);
-      ByteString data = ByteString.copyFrom("File Contents", Charsets.US_ASCII);
+      ByteString data = ByteString.copyFrom("File Contents", StandardCharsets.US_ASCII);
       IOException e =
           assertThrows(
               IOException.class,
@@ -489,8 +524,9 @@ public class HttpCacheClientTest {
               /* timeoutSeconds= */ 1,
               /* remoteVerifyDownloads= */ true,
               credentials,
-              authAndTlsOptions);
-      Digest fooDigest = DIGEST_UTIL.compute("foo".getBytes(Charsets.UTF_8));
+              authAndTlsOptions,
+              Optional.empty());
+      Digest fooDigest = DIGEST_UTIL.compute("foo".getBytes(StandardCharsets.UTF_8));
       try (OutputStream out = new ByteArrayOutputStream()) {
         IOException e =
             assertThrows(
@@ -536,12 +572,139 @@ public class HttpCacheClientTest {
               /* timeoutSeconds= */ 1,
               /* remoteVerifyDownloads= */ false,
               credentials,
-              authAndTlsOptions);
-      Digest fooDigest = DIGEST_UTIL.compute("foo".getBytes(Charsets.UTF_8));
+              authAndTlsOptions,
+              Optional.empty());
+      Digest fooDigest = DIGEST_UTIL.compute("foo".getBytes(StandardCharsets.UTF_8));
       try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
         getFromFuture(blobStore.downloadBlob(remoteActionExecutionContext, fooDigest, out));
-        assertThat(out.toByteArray()).isEqualTo("bar".getBytes(Charsets.UTF_8));
+        assertThat(out.toByteArray()).isEqualTo("bar".getBytes(StandardCharsets.UTF_8));
       }
+    } finally {
+      testServer.stop(server);
+    }
+  }
+
+  @Test
+  public void partialDownloadFailsWithoutRetry() throws Exception {
+    ServerChannel server = null;
+    try {
+      ByteBuf chunk1 = Unpooled.wrappedBuffer("File ".getBytes(StandardCharsets.US_ASCII));
+      ByteBuf chunk2 = Unpooled.wrappedBuffer("Contents".getBytes(StandardCharsets.US_ASCII));
+      server = testServer.start(new IntermittentFailureHandler(chunk1, chunk2));
+      Credentials credentials = newCredentials();
+      AuthAndTLSOptions authAndTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
+
+      HttpCacheClient blobStore =
+          createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials, authAndTlsOptions);
+      assertThrows(
+          ClosedChannelException.class,
+          () ->
+              getFromFuture(
+                  blobStore.downloadBlob(
+                      remoteActionExecutionContext, DIGEST, new ByteArrayOutputStream())));
+    } finally {
+      testServer.stop(server);
+    }
+  }
+
+  @Test
+  public void partialDownloadSucceedsWithRetry() throws Exception {
+    ServerChannel server = null;
+    try {
+      ByteBuf chunk1 = Unpooled.wrappedBuffer("File ".getBytes(StandardCharsets.US_ASCII));
+      // Replace first chunk to test that the client skips the redundant prefix on retry.
+      ByteBuf chunk1Attempt2 = Unpooled.wrappedBuffer("abcde".getBytes(StandardCharsets.US_ASCII));
+      ByteBuf chunk2 = Unpooled.wrappedBuffer("Contents".getBytes(StandardCharsets.US_ASCII));
+      server = testServer.start(new IntermittentFailureHandler(chunk1, chunk1Attempt2, chunk2));
+      Credentials credentials = newCredentials();
+      AuthAndTLSOptions authAndTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
+
+      ListeningScheduledExecutorService retryScheduler =
+          MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
+      RemoteRetrier retrier =
+          new RemoteRetrier(
+              () -> new Retrier.ZeroBackoff(1),
+              (e) -> {
+                return e instanceof ClosedChannelException;
+              },
+              retryScheduler,
+              Retrier.ALLOW_ALL_CALLS);
+      HttpCacheClient blobStore =
+          createHttpBlobStore(
+              server,
+              /* timeoutSeconds= */ 1,
+              /* remoteVerifyDownloads= */ false,
+              credentials,
+              authAndTlsOptions,
+              Optional.of(retrier));
+
+      ByteArrayOutputStream download = new ByteArrayOutputStream();
+      getFromFuture(blobStore.downloadBlob(remoteActionExecutionContext, DIGEST, download));
+      assertThat(download.toByteArray())
+          .isEqualTo("File Contents".getBytes(StandardCharsets.US_ASCII));
+    } finally {
+      testServer.stop(server);
+    }
+  }
+
+  @Test
+  public void actionResultRetryReadsFromStart() throws Exception {
+    ServerChannel server = null;
+    try {
+      ActionResult.Builder builder1 = ActionResult.newBuilder();
+      builder1
+          .addOutputFilesBuilder()
+          .setPath("attempt1/filename")
+          .setDigest(DIGEST_UTIL.computeAsUtf8("digest1"))
+          .setIsExecutable(true);
+      ActionResult action1 = builder1.build();
+      ByteArrayOutputStream buffer1 = new ByteArrayOutputStream();
+      action1.writeTo(buffer1);
+      int splitAt = buffer1.size() / 2;
+      ByteBuf chunk1 = Unpooled.copiedBuffer(buffer1.toByteArray(), 0, splitAt);
+
+      // Replace first chunk to test that the client starts a fresh ActionResult download on retry.
+      ActionResult.Builder builder2 = ActionResult.newBuilder();
+      builder2
+          .addOutputFilesBuilder()
+          .setPath("attempt2/filename")
+          .setDigest(DIGEST_UTIL.computeAsUtf8("digest2"))
+          .setIsExecutable(false);
+      ActionResult action2 = builder2.build();
+      ByteArrayOutputStream buffer2 = new ByteArrayOutputStream();
+      action2.writeTo(buffer2);
+      ByteBuf chunk1Attempt2 = Unpooled.copiedBuffer(buffer2.toByteArray(), 0, splitAt);
+      ByteBuf chunk2 =
+          Unpooled.copiedBuffer(buffer2.toByteArray(), splitAt, buffer2.size() - splitAt);
+
+      server = testServer.start(new IntermittentFailureHandler(chunk1, chunk1Attempt2, chunk2));
+      Credentials credentials = newCredentials();
+      AuthAndTLSOptions authAndTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
+
+      ListeningScheduledExecutorService retryScheduler =
+          MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
+      RemoteRetrier retrier =
+          new RemoteRetrier(
+              () -> new Retrier.ZeroBackoff(1),
+              (e) -> {
+                return e instanceof ClosedChannelException;
+              },
+              retryScheduler,
+              Retrier.ALLOW_ALL_CALLS);
+      HttpCacheClient blobStore =
+          createHttpBlobStore(
+              server,
+              /* timeoutSeconds= */ 1,
+              /* remoteVerifyDownloads= */ false,
+              credentials,
+              authAndTlsOptions,
+              Optional.of(retrier));
+
+      RemoteCacheClient.CachedActionResult download =
+          getFromFuture(
+              blobStore.downloadActionResult(
+                  remoteActionExecutionContext, new RemoteCacheClient.ActionKey(DIGEST), false));
+      assertThat(download.actionResult()).isEqualTo(action2);
     } finally {
       testServer.stop(server);
     }
@@ -567,7 +730,7 @@ public class HttpCacheClientTest {
           createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials, authAndTlsOptions);
       ByteArrayOutputStream out = Mockito.spy(new ByteArrayOutputStream());
       getFromFuture(blobStore.downloadBlob(remoteActionExecutionContext, DIGEST, out));
-      assertThat(out.toString(Charsets.US_ASCII.name())).isEqualTo("File Contents");
+      assertThat(out.toString(StandardCharsets.US_ASCII.name())).isEqualTo("File Contents");
       verify(credentials, times(1)).refresh();
       verify(credentials, times(2)).getRequestMetadata(any(URI.class));
       verify(credentials, times(2)).hasRequestMetadata();
@@ -597,7 +760,7 @@ public class HttpCacheClientTest {
       AuthAndTLSOptions authAndTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
       HttpCacheClient blobStore =
           createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials, authAndTlsOptions);
-      byte[] data = "File Contents".getBytes(Charsets.US_ASCII);
+      byte[] data = "File Contents".getBytes(StandardCharsets.US_ASCII);
       blobStore
           .uploadBlob(
               remoteActionExecutionContext, DIGEST_UTIL.compute(data), ByteString.copyFrom(data))
@@ -753,7 +916,7 @@ public class HttpCacheClientTest {
           return;
         }
         ByteBuf content = ctx.alloc().buffer();
-        content.writeCharSequence("File Contents", Charsets.US_ASCII);
+        content.writeCharSequence("File Contents", StandardCharsets.US_ASCII);
         FullHttpResponse response =
             new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK, content);
         HttpUtil.setKeepAlive(response, true);
@@ -767,6 +930,46 @@ public class HttpCacheClientTest {
                     HttpVersion.HTTP_1_1, HttpResponseStatus.INTERNAL_SERVER_ERROR))
             .addListener(ChannelFutureListener.CLOSE);
       }
+    }
+  }
+
+  /**
+   * {@link ChannelHandler} that on the first request returns a partial response and then closes the
+   * stream, and on any further requests returns a full response.
+   */
+  @Sharable
+  static class IntermittentFailureHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
+    private final ByteBuf attempt1Chunk1;
+    private final ByteBuf attempt2Chunk1;
+    private final ByteBuf attempt2Chunk2;
+    private int messageCount;
+
+    public IntermittentFailureHandler(
+        ByteBuf attempt1Chunk1, ByteBuf attempt2Chunk1, ByteBuf attempt2Chunk2) {
+      this.attempt1Chunk1 = attempt1Chunk1;
+      this.attempt2Chunk1 = attempt2Chunk1;
+      this.attempt2Chunk2 = attempt2Chunk2;
+    }
+
+    public IntermittentFailureHandler(ByteBuf chunk1, ByteBuf chunk2) {
+      this(chunk1.copy(), chunk1, chunk2);
+    }
+
+    @Override
+    protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest request) {
+      DefaultHttpResponse response =
+          new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
+      response.headers().set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED);
+      ctx.write(response);
+      if (messageCount == 0) {
+        ctx.writeAndFlush(new DefaultHttpContent(attempt1Chunk1))
+            .addListener(ChannelFutureListener.CLOSE);
+      } else {
+        ctx.writeAndFlush(new DefaultHttpContent(attempt2Chunk1));
+        ctx.writeAndFlush(new DefaultLastHttpContent(attempt2Chunk2))
+            .addListener(ChannelFutureListener.CLOSE);
+      }
+      ++messageCount;
     }
   }
 }
