@@ -269,6 +269,18 @@ class OptionsTest(test_base.TestBase):
         stderr,
     )
 
+  def testCommonPseudoCommand_allowResidueFalseCommandIgnoresStarlarkOptions(self):
+    self.ScratchFile("WORKSPACE.bazel")
+    self.ScratchFile(
+      ".bazelrc",
+      [
+        "common --@foo//bar:flag",
+      ],
+    )
+
+    # Check that version doesn't fail.
+    self.RunBazel(["version"])
+
 
 if __name__ == "__main__":
   unittest.main()
