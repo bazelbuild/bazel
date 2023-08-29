@@ -129,7 +129,7 @@ public class RuleLinkExpander {
 
       // The name is not the name of a rule but is the name of a static page, such as
       // common-definitions. Generate a link to that page.
-      String mapping = linkMap.values.get(name);
+      String mapping = linkMap.beReferences.get(name);
       if (mapping != null) {
         String link =
             singlePage && STATIC_PAGES_REPLACED_BY_SINGLE_PAGE_BE.contains(name)
@@ -194,9 +194,9 @@ public class RuleLinkExpander {
       // heading or the entire page has to be redirected.
 
       // Not-null if page#heading has a mapping (other headings on the page are unaffected):
-      String headingMapping = linkMap.values.get(ref);
+      String headingMapping = linkMap.beReferences.get(ref);
       // Not-null if the entire page has a mapping, i.e. all headings should be redirected:
-      String pageMapping = linkMap.values.get(name);
+      String pageMapping = linkMap.beReferences.get(name);
 
       if (headingMapping != null || pageMapping != null) {
         String link;

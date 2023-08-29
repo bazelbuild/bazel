@@ -48,13 +48,44 @@ public class DocLinkMapTest {
   @Test
   public void testCreateFromFile() throws IOException {
     String content =
-        "{ \"beRoot\": \"/be_root\", \"values\": { \"build-ref\": \"build-ref.html\" } }";
+        "{"
+            + "\"beRoot\": \"/be_root\","
+            + "\"beReferences\": {"
+            + "    \"build-ref1\": \"build-ref1.html\","
+            + "    \"build-ref2\": \"build-ref2.html\","
+            + "    \"build-ref3\": \"build-ref3.html\""
+            + "},"
+            + "\"sourceUrlRoot\": \"https://example.com/\","
+            + "\"labelRewrites\": {"
+            + "    \"@_builtins//:common/\": \"//common/builtins_bzl:\","
+            + "    \"@_builtins//:uncommon/\": \"//uncommon/builtins_bzl:\","
+            + "    \"@_builtins//:\": \"//main/builtins_bzl:\""
+            + "}"
+            + "}";
 
     Path path = tmp.newFile("map.json").toPath();
     Files.write(path, content.getBytes(UTF_8));
 
     DocLinkMap map = DocLinkMap.createFromFile(path.toString());
     assertThat(map.beRoot).isEqualTo("/be_root");
-    assertThat(map.values).containsExactly("build-ref", "build-ref.html");
+    assertThat(map.beReferences)
+        .containsExactly(
+            "build-ref1",
+            "build-ref1.html",
+            "build-ref2",
+            "build-ref2.html",
+            "build-ref3",
+            "build-ref3.html")
+        .inOrder();
+    assertThat(map.sourceUrlRoot).isEqualTo("https://example.com/");
+    assertThat(map.labelRewrites)
+        .containsExactly(
+            "@_builtins//:common/",
+            "//common/builtins_bzl:",
+            "@_builtins//:uncommon/",
+            "//uncommon/builtins_bzl:",
+            "@_builtins//:",
+            "//main/builtins_bzl:")
+        .inOrder();
   }
 }

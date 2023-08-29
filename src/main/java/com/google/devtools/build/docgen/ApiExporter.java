@@ -307,11 +307,12 @@ public class ApiExporter {
 
   private static void printUsage(OptionsParser parser) {
     System.err.println(
-        "Usage: api_exporter_bin -m link_map_path -p rule_class_provider (-i input_dir)+\n"
-            + "   -f outputFile [-b denylist] [-h]\n\n"
+        "Usage: api_exporter_bin -m link_map_path -p rule_class_provider\n"
+            + "    [-r input_root] (-i input_dir)+ (--input_stardoc_proto binproto)+\n"
+            + "    -f outputFile [-b denylist] [-h]\n\n"
             + "Exports all Starlark builtins to a file including the embedded native rules.\n"
-            + "The link map path (-m), rule class provider (-p), output file (-f) and at least \n"
-            + " one input_dir (-i) must be specified.\n");
+            + "The link map path (-m), rule class provider (-p), output file (-f), and at least\n"
+            + " one input_dir (-i) or binproto (--input_stardoc_proto) must be specified.\n");
     System.err.println(
         parser.describeOptionsWithDeprecatedCategories(
             Collections.<String, String>emptyMap(), OptionsParser.HelpVerbosity.LONG));
@@ -329,7 +330,7 @@ public class ApiExporter {
     }
 
     if (options.linkMapPath.isEmpty()
-        || options.inputDirs.isEmpty()
+        || (options.inputJavaDirs.isEmpty() && options.inputStardocProtos.isEmpty())
         || options.provider.isEmpty()
         || options.outputFile.isEmpty()) {
       printUsage(parser);
@@ -339,11 +340,14 @@ public class ApiExporter {
     try {
       DocLinkMap linkMap = DocLinkMap.createFromFile(options.linkMapPath);
       RuleLinkExpander ruleExpander = new RuleLinkExpander(true, linkMap);
+      SourceUrlMapper urlMapper = new SourceUrlMapper(linkMap, options.inputRoot);
       SymbolFamilies symbols =
           new SymbolFamilies(
               new StarlarkDocExpander(ruleExpander),
+              urlMapper,
               options.provider,
-              options.inputDirs,
+              options.inputJavaDirs,
+              options.inputStardocProtos,
               options.denylist);
       ImmutableMap<Category, ImmutableList<StarlarkDocPage>> allDocPages = symbols.getAllDocPages();
       Builtins.Builder builtins = Builtins.newBuilder();

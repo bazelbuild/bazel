@@ -29,7 +29,9 @@ public class BuildEncyclopediaOptions extends OptionsBase {
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Path to a JSON file that specifies link mappings (page name to URL).")
+      help =
+          "Path to a JSON file that specifies link mappings (page name to URL and input file/label"
+              + " to source code repository URL).")
   public String linkMapPath;
 
   @Option(
@@ -39,8 +41,31 @@ public class BuildEncyclopediaOptions extends OptionsBase {
       allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "An input directory to read source files")
-  public List<String> inputDirs;
+      help = "An input directory to read Java source files")
+  public List<String> inputJavaDirs;
+
+  // The source tree root must be passed on the command line, instead of in link_map_path json
+  // content, because its schema varies wildly depending on execution platform (e.g. RBE vs. local).
+  @Option(
+      name = "input_root",
+      abbrev = 'r',
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Directory of the source tree root")
+  public String inputRoot;
+
+  @Option(
+      name = "input_stardoc_proto",
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "A stardoc_output.ModuleInfo binary proto file generated from a Build Encyclopedia entry"
+              + " point .bzl file; documentation from input_stardoc_proto takes precedence over"
+              + " documentation from input_dir")
+  public List<String> inputStardocProtos;
 
   @Option(
     name = "provider",

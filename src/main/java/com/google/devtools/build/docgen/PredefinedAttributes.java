@@ -92,7 +92,7 @@ public class PredefinedAttributes {
           throw new IllegalStateException("Resource " + filename + " not found");
         }
         String content = new String(ByteStreams.toByteArray(stream), StandardCharsets.UTF_8);
-        builder.put(name, RuleDocumentationAttribute.create(name, commonType, content));
+        builder.put(name, RuleDocumentationAttribute.createCommon(name, commonType, content));
       } catch (IOException e) {
         throw new IllegalStateException("Exception while reading " + filename, e);
       }

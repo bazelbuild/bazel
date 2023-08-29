@@ -531,6 +531,7 @@ genrule(
         "$(location //src/main/java/com/google/devtools/build/docgen:docgen_bin)" +
         " --link_map_path=$(location //src/main/java/com/google/devtools/build/docgen:bazel_link_map)" +
         " --provider=com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider" +
+        " --input_root=$$PWD" +
         " --input_dir=$$PWD/src/main/java/com/google/devtools/build/lib" +
         " --output_dir=$(@D)/be" +
         " --create_toc=true &&" +
@@ -620,6 +621,7 @@ genrule(
         " --output_file=$@" +
         " --link_map_path=$(location //src/main/java/com/google/devtools/build/docgen:bazel_link_map) " +
         " --provider=com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider" +
+        " --input_root=$$PWD" +
         " --input_dir=$$PWD/src/main/java/com/google/devtools/build/lib"
     ),
     tools = [

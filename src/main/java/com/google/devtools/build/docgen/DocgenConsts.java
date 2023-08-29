@@ -161,6 +161,40 @@ public class DocgenConsts {
   /** e.g. "[DEPRECATED]" in &lt;!-- #BLAZE_RULE(...).ATTRIBUTE(...)[DEPRECATED] --&gt; */
   public static final Pattern BLAZE_RULE_FLAGS = Pattern.compile("^.*\\[(.*)\\].*$");
 
+  /**
+   * Example:
+   *
+   * <pre>
+   * """
+   * FooLang
+   *
+   * Note that native FooLang rules are experimental.
+   * """
+   * </pre>
+   *
+   * where "FooLang" is the family name and "Note that ..." is the summary.
+   */
+  public static final Pattern STARDOC_OUTPUT_FAMILY_NAME_AND_SUMMARY =
+      Pattern.compile("^(?<family>[^\n]+)(?:\n\n(?<summary>[^\n].*))?$");
+
+  /**
+   * Example: "library_rules.java_import", where "library" is the rule type and "java_import" is the
+   * rule name.
+   */
+  public static final Pattern STARDOC_OUTPUT_RULE_NAME =
+      Pattern.compile("^(?<type>[^.\\s]+)_rules\\.(?<name>[^.\\s]+)$");
+
+  /**
+   * Examples:
+   *
+   * <ul>
+   *   <li>"Deprecated: Use <code>other_attribute</code> instead."
+   *   <li>"(File|str) Deprecated: Use <code>other_field</code> instead."
+   * </ul>
+   */
+  public static final Pattern STARDOC_OUTPUT_DEPRECATED_DOCSTRING =
+      Pattern.compile("^(?:\\(.*\\) )?Deprecated: (?<reason>.+)$");
+
   public static final ImmutableMap<String, Integer> ATTRIBUTE_ORDERING =
       ImmutableMap.<String, Integer>builder()
           .put("name", -99)

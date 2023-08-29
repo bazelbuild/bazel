@@ -14,9 +14,11 @@
 package com.google.devtools.build.docgen;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.docgen.DocgenConsts.RuleType;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -26,16 +28,16 @@ import java.util.TreeSet;
  * A class representing the documentation of a rule along with some meta-data. The sole ruleName
  * field is used as a key for comparison, equals and hashcode.
  *
- * <p> The class contains meta information about the rule:
+ * <p>The class contains meta information about the rule:
+ *
  * <ul>
- * <li> Rule type: categorizes the rule based on it's general (language independent) purpose,
- * see {@link RuleType}.
- * <li> Rule family: categorizes the rule based on language.
+ *   <li>Rule type: categorizes the rule based on it's general (language independent) purpose, such
+ *       as "binary" or "library"; see {@link RuleType}.
+ *   <li>Rule family: categorizes the rule based on language, such as "Java" or "C / C++".
  * </ul>
  *
- * <p> The class also contains physical information about the documentation,
- * such as declaring file name and the first line of the raw documentation. This can be useful for
- * proper error signaling during documentation processing.
+ * <p>For generating error messages, the class also stores the location where raw documentation was
+ * retrieved.
  */
 public class RuleDocumentation implements Comparable<RuleDocumentation> {
   private final String ruleName;
@@ -43,9 +45,8 @@ public class RuleDocumentation implements Comparable<RuleDocumentation> {
   private final String ruleFamily;
   private final String familySummary;
   private final String htmlDocumentation;
-  // Store these information for error messages
-  private final int startLineCount;
-  private final String fileName;
+  private final String location; // for error messages
+  private final String sourceUrl; // for linking in rendered docs
   private final ImmutableSet<String> flags;
 
   private final Map<String, String> docVariables = new HashMap<>();
@@ -60,12 +61,6 @@ public class RuleDocumentation implements Comparable<RuleDocumentation> {
   static final String COMMON_DEFINITIONS_PAGE = "common-definitions.html";
 
   /**
-   * Name of Bazel's own workspace. This is a bit of a hack - ideally the docgen tool would pass the
-   * workspace name to this class.
-   */
-  private static final String WORKSPACE_NAME = "io_bazel";
-
-  /**
    * Creates a RuleDocumentation from the rule's name, type, family and raw html documentation
    * (meaning without expanding the variables in the doc).
    */
@@ -74,8 +69,8 @@ public class RuleDocumentation implements Comparable<RuleDocumentation> {
       String ruleType,
       String ruleFamily,
       String htmlDocumentation,
-      int startLineCount,
-      String fileName,
+      String location,
+      String sourceUrl,
       ImmutableSet<String> flags,
       String familySummary)
       throws BuildEncyclopediaDocException {
@@ -87,14 +82,13 @@ public class RuleDocumentation implements Comparable<RuleDocumentation> {
       try {
         this.ruleType = RuleType.valueOf(ruleType);
       } catch (IllegalArgumentException e) {
-        throw new BuildEncyclopediaDocException(
-            fileName, startLineCount, "Invalid rule type " + ruleType);
+        throw new BuildEncyclopediaDocException(location, "Invalid rule type " + ruleType);
       }
     }
     this.ruleFamily = ruleFamily;
     this.htmlDocumentation = htmlDocumentation;
-    this.startLineCount = startLineCount;
-    this.fileName = fileName;
+    this.location = location;
+    this.sourceUrl = sourceUrl;
     this.flags = flags;
     this.familySummary = familySummary;
   }
@@ -104,19 +98,21 @@ public class RuleDocumentation implements Comparable<RuleDocumentation> {
       String ruleType,
       String ruleFamily,
       String htmlDocumentation,
-      int startLineCount,
       String fileName,
-      ImmutableSet<String> flags)
+      int line,
+      String sourceUrl,
+      ImmutableSet<String> flags,
+      String familySummary)
       throws BuildEncyclopediaDocException {
     this(
         ruleName,
         ruleType,
         ruleFamily,
         htmlDocumentation,
-        startLineCount,
-        fileName,
+        BuildEncyclopediaDocException.formatLocation(fileName, line),
+        sourceUrl,
         flags,
-        "");
+        familySummary);
   }
 
   /**
@@ -157,18 +153,11 @@ public class RuleDocumentation implements Comparable<RuleDocumentation> {
    */
   @VisibleForTesting
   static String normalize(String s) {
-    return s.toLowerCase()
-        .replace("+", "p")
+    return Ascii.toLowerCase(s)
+        .replace('+', 'p')
         .replaceAll("[()]", "")
         .replaceAll("[\\s/]", "-")
         .replaceAll("[-]+", "-");
-  }
-
-  /**
-   * Returns the number of first line of the rule documentation in its declaration file.
-   */
-  int getStartLineCount() {
-    return startLineCount;
   }
 
   /**
@@ -201,6 +190,11 @@ public class RuleDocumentation implements Comparable<RuleDocumentation> {
    */
   void addAttribute(RuleDocumentationAttribute attribute) {
     attributes.add(attribute);
+  }
+
+  /** Adds multiple rule documentation attributes to this rule documentation. */
+  void addAttributes(Collection<RuleDocumentationAttribute> attribute) {
+    attributes.addAll(attribute);
   }
 
   /**
@@ -237,7 +231,7 @@ public class RuleDocumentation implements Comparable<RuleDocumentation> {
       try {
         expandedDoc = linkExpander.expand(expandedDoc);
       } catch (IllegalArgumentException e) {
-        throw new BuildEncyclopediaDocException(fileName, startLineCount, e.getMessage());
+        throw new BuildEncyclopediaDocException(location, e.getMessage());
       }
     }
     return expandedDoc;
@@ -262,7 +256,7 @@ public class RuleDocumentation implements Comparable<RuleDocumentation> {
       try {
         expandedDoc = linkExpander.expand(expandedDoc);
       } catch (IllegalArgumentException e) {
-        throw new BuildEncyclopediaDocException(fileName, startLineCount, e.getMessage());
+        throw new BuildEncyclopediaDocException(location, e.getMessage());
       }
     }
     return expandedDoc;
@@ -275,13 +269,9 @@ public class RuleDocumentation implements Comparable<RuleDocumentation> {
     return hasFlag(DocgenConsts.FLAG_DEPRECATED);
   }
 
-  /** Returns the path of the rule's source file, relative to the workspace. */
-  public String getWorkspaceRelativeFileName() {
-    String[] parts = fileName.split(WORKSPACE_NAME, -1);
-    if (parts.length < 2) {
-      return "";
-    }
-    return parts[1].substring(1);
+  /** Returns the URL of the rule's source file in its source code repository. */
+  public String getSourceUrl() {
+    return sourceUrl;
   }
 
   /**
@@ -296,16 +286,18 @@ public class RuleDocumentation implements Comparable<RuleDocumentation> {
       String attrName = attributeDoc.getAttributeName();
       // Generate the link for the attribute documentation
       if (attributeDoc.isCommonType()) {
-        sb.append(String.format("<a href=\"%s#%s.%s\">%s</a>",
-            COMMON_DEFINITIONS_PAGE,
-            attributeDoc.getGeneratedInRule(ruleName).toLowerCase(),
-            attrName,
-            attrName));
+        sb.append(
+            String.format(
+                "<a href=\"%s#%s.%s\">%s</a>",
+                COMMON_DEFINITIONS_PAGE,
+                Ascii.toLowerCase(attributeDoc.getGeneratedInRule(ruleName)),
+                attrName,
+                attrName));
       } else {
-        sb.append(String.format("<a href=\"#%s.%s\">%s</a>",
-            attributeDoc.getGeneratedInRule(ruleName).toLowerCase(),
-            attrName,
-            attrName));
+        sb.append(
+            String.format(
+                "<a href=\"#%s.%s\">%s</a>",
+                Ascii.toLowerCase(attributeDoc.getGeneratedInRule(ruleName)), attrName, attrName));
       }
       if (i < attributes.size() - 1) {
         sb.append(", ");
@@ -321,8 +313,9 @@ public class RuleDocumentation implements Comparable<RuleDocumentation> {
     // Some built in BLAZE variables need special handling, e.g. adding headers
     switch (key) {
       case DocgenConsts.VAR_IMPLICIT_OUTPUTS:
-        return String.format("<h4 id=\"%s_implicit_outputs\">Implicit output targets</h4>\n%s",
-            ruleName.toLowerCase(), value);
+        return String.format(
+            "<h4 id=\"%s_implicit_outputs\">Implicit output targets</h4>\n%s",
+            Ascii.toLowerCase(ruleName), value);
       default:
         return value;
     }
@@ -334,7 +327,7 @@ public class RuleDocumentation implements Comparable<RuleDocumentation> {
    * general BuildEncyclopediaDocExceptions about this rule.
    */
   BuildEncyclopediaDocException createException(String msg) {
-    return new BuildEncyclopediaDocException(fileName, startLineCount, msg);
+    return new BuildEncyclopediaDocException(location, msg);
   }
 
   @Override

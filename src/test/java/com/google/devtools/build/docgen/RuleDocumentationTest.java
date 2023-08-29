@@ -24,9 +24,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * A test class for RuleDocumentation.
- */
+/** A test class for RuleDocumentation. */
 @RunWith(JUnit4.class)
 public class RuleDocumentationTest {
 
@@ -38,8 +36,8 @@ public class RuleDocumentationTest {
         .isTrue();
   }
 
-  private void checkAttributeForRule(RuleDocumentation rule, RuleDocumentationAttribute attr,
-      boolean isCommonAttribute) {
+  private void checkAttributeForRule(
+      RuleDocumentation rule, RuleDocumentationAttribute attr, boolean isCommonAttribute) {
     rule.addAttribute(attr);
     String signature = rule.getAttributeSignature();
     StringBuilder sb = new StringBuilder();
@@ -53,53 +51,67 @@ public class RuleDocumentationTest {
     assertContains(signature, sb.toString());
   }
 
+  private static RuleDocumentation createRuleDocumentation(
+      String ruleName, String ruleType, String ruleFamily, String htmlDocumentation)
+      throws BuildEncyclopediaDocException {
+    return new RuleDocumentation(
+        ruleName,
+        ruleType,
+        ruleFamily,
+        htmlDocumentation,
+        "Test.java",
+        0,
+        "https://example.com/src/Test.java",
+        NO_FLAGS,
+        "");
+  }
+
+  private static RuleDocumentation createRuleDocumentation(
+      String ruleName, String ruleType, String ruleFamily) throws BuildEncyclopediaDocException {
+    return createRuleDocumentation(ruleName, ruleType, ruleFamily, "");
+  }
+
   @Test
   public void testVariableSubstitution() throws BuildEncyclopediaDocException {
     RuleDocumentation ruleDoc =
-        new RuleDocumentation(
-            "rule",
-            "OTHER",
-            "FOO",
-            Joiner.on("\n").join(new String[] {"x", "${VAR}", "z"}),
-            0,
-            "",
-            ImmutableSet.<String>of());
+        createRuleDocumentation(
+            "rule", "OTHER", "FOO", Joiner.on("\n").join(new String[] {"x", "${VAR}", "z"}));
     ruleDoc.addDocVariable("VAR", "y");
     assertThat(ruleDoc.getHtmlDocumentation()).isEqualTo("x\ny\nz");
   }
 
   @Test
   public void testSignatureContainsCommonAttribute() throws Exception {
-    RuleDocumentationAttribute licensesAttr = RuleDocumentationAttribute.create(
-        "licenses", "common", "attribute doc");
+    RuleDocumentationAttribute licensesAttr =
+        RuleDocumentationAttribute.createCommon("licenses", "common", "attribute doc");
     checkAttributeForRule(
-        new RuleDocumentation(
-            "java_binary", "BINARY", "JAVA", "", 0, "", ImmutableSet.<String>of()),
-        licensesAttr,
-        true);
+        createRuleDocumentation("java_binary", "BINARY", "JAVA"), licensesAttr, true);
   }
 
   @Test
   public void testInheritedAttributeGeneratesSignature() throws Exception {
-    RuleDocumentationAttribute runtimeDepsAttr = RuleDocumentationAttribute.create(TestRule.class,
-        "runtime_deps", "attribute doc", 0, "", NO_FLAGS);
+    RuleDocumentationAttribute runtimeDepsAttr =
+        RuleDocumentationAttribute.create(
+            TestRule.class, "runtime_deps", "attribute doc", "Test.java", 0, NO_FLAGS);
     checkAttributeForRule(
-        new RuleDocumentation(
-            "java_binary", "BINARY", "JAVA", "", 0, "", ImmutableSet.<String>of()),
-        runtimeDepsAttr,
-        false);
+        createRuleDocumentation("java_binary", "BINARY", "JAVA"), runtimeDepsAttr, false);
     checkAttributeForRule(
-        new RuleDocumentation(
-            "java_library", "LIBRARY", "JAVA", "", 0, "", ImmutableSet.<String>of()),
-        runtimeDepsAttr,
-        false);
+        createRuleDocumentation("java_library", "LIBRARY", "JAVA"), runtimeDepsAttr, false);
   }
 
   @Test
   public void testRuleDocFlagSubstitution() throws BuildEncyclopediaDocException {
     RuleDocumentation ruleDoc =
         new RuleDocumentation(
-            "rule", "OTHER", "FOO", "x", 0, "", ImmutableSet.<String>of("DEPRECATED"));
+            "rule",
+            "OTHER",
+            "FOO",
+            "x",
+            "Test.java",
+            0,
+            "https://example.com/src/Test.java",
+            ImmutableSet.of("DEPRECATED"),
+            "");
     ruleDoc.addDocVariable("VAR", "y");
     assertThat(ruleDoc.getHtmlDocumentation()).isEqualTo("x");
   }
@@ -107,17 +119,15 @@ public class RuleDocumentationTest {
   @Test
   public void testCommandLineDocumentation() throws BuildEncyclopediaDocException {
     RuleDocumentation ruleDoc =
-        new RuleDocumentation(
+        createRuleDocumentation(
             "foo_binary",
             "OTHER",
             "FOO",
-            Joiner.on("\n").join(new String[] {"x", "y", "z", "${VAR}"}),
-            0,
-            "",
-            ImmutableSet.<String>of());
+            Joiner.on("\n").join(new String[] {"x", "y", "z", "${VAR}"}));
     ruleDoc.addDocVariable("VAR", "w");
-    RuleDocumentationAttribute attributeDoc = RuleDocumentationAttribute.create(TestRule.class,
-        "srcs", "attribute doc", 0, "", NO_FLAGS);
+    RuleDocumentationAttribute attributeDoc =
+        RuleDocumentationAttribute.create(
+            TestRule.class, "srcs", "attribute doc", "Test.java", 0, NO_FLAGS);
     ruleDoc.addAttribute(attributeDoc);
     assertThat(ruleDoc.getCommandLineDocumentation()).isEqualTo("\nx\ny\nz\n\n");
   }
@@ -125,71 +135,113 @@ public class RuleDocumentationTest {
   @Test
   public void testCreateExceptions() throws BuildEncyclopediaDocException {
     RuleDocumentation ruleDoc =
-        new RuleDocumentation("foo_binary", "OTHER", "FOO", "", 10, "foo.txt", NO_FLAGS);
+        new RuleDocumentation(
+            "foo_binary",
+            "OTHER",
+            "FOO",
+            "",
+            "Foo.java",
+            10,
+            "https://example.com/src/Foo.java",
+            NO_FLAGS,
+            "");
     BuildEncyclopediaDocException e = ruleDoc.createException("msg");
-    assertThat(e).hasMessageThat().isEqualTo("Error in foo.txt:10: msg");
+    assertThat(e).hasMessageThat().isEqualTo("Error in Foo.java:10: msg");
+  }
+
+  @Test
+  public void getSourceUrl() throws BuildEncyclopediaDocException {
+    RuleDocumentation ruleDoc =
+        new RuleDocumentation(
+            "foo_binary",
+            "OTHER",
+            "FOO",
+            "",
+            "Foo.java",
+            10,
+            "https://example.com/src/Foo.java",
+            NO_FLAGS,
+            "");
+    assertThat(ruleDoc.getSourceUrl()).isEqualTo("https://example.com/src/Foo.java");
   }
 
   @Test
   public void testEquals() throws BuildEncyclopediaDocException {
-    assertThat(new RuleDocumentation("rule", "OTHER", "FOO", "y", 0, "", NO_FLAGS))
-        .isEqualTo(new RuleDocumentation("rule", "OTHER", "FOO", "x", 0, "", NO_FLAGS));
+    // Expect equality purely based on name
+    assertThat(
+            new RuleDocumentation(
+                "rule",
+                "BINARY",
+                "FOO",
+                "x",
+                "Foo.java",
+                0,
+                "https://example.com/src/Foo.java",
+                NO_FLAGS,
+                ""))
+        .isEqualTo(
+            new RuleDocumentation(
+                "rule",
+                "OTHER",
+                "BAR",
+                "y",
+                "Bar.java",
+                10,
+                "https://example.com/src/Bar.java",
+                ImmutableSet.of("DEPRECATED"),
+                "Blah blah blah"));
   }
 
   @Test
   public void testNotEquals() throws BuildEncyclopediaDocException {
+    // Expect inequality purely based on name
     assertThat(
-            new RuleDocumentation("rule1", "OTHER", "FOO", "x", 0, "", NO_FLAGS)
-                .equals(new RuleDocumentation("rule2", "OTHER", "FOO", "y", 0, "", NO_FLAGS)))
+            createRuleDocumentation("rule1", "OTHER", "FOO", "x")
+                .equals(createRuleDocumentation("rule2", "OTHER", "FOO", "x")))
         .isFalse();
   }
 
   @Test
   public void testCompareTo() throws BuildEncyclopediaDocException {
     assertThat(
-            new RuleDocumentation("rule1", "OTHER", "FOO", "x", 0, "", NO_FLAGS)
-                .compareTo(new RuleDocumentation("rule2", "OTHER", "FOO", "x", 0, "", NO_FLAGS)))
+            createRuleDocumentation("rule1", "OTHER", "FOO", "x")
+                .compareTo(createRuleDocumentation("rule2", "OTHER", "FOO", "x")))
         .isEqualTo(-1);
   }
 
   @Test
   public void testHashCode() throws BuildEncyclopediaDocException {
-    assertThat(new RuleDocumentation("rule", "OTHER", "FOO", "y", 0, "", NO_FLAGS).hashCode())
-        .isEqualTo(new RuleDocumentation("rule", "OTHER", "FOO", "x", 0, "", NO_FLAGS).hashCode());
+    assertThat(createRuleDocumentation("rule", "OTHER", "FOO", "y").hashCode())
+        .isEqualTo(createRuleDocumentation("rule", "OTHER", "FOO", "x").hashCode());
   }
 
   @Test
   public void testRuleTypeIsOtherForGenericRules() throws Exception {
     assertThat(
             new RuleDocumentation(
-                    "rule", "BINARY", "FOO", "y", 0, "", ImmutableSet.of("GENERIC_RULE"))
+                    "rule",
+                    "BINARY",
+                    "FOO",
+                    "y",
+                    "Test.java",
+                    0,
+                    "https://example.com/src/Test.java",
+                    ImmutableSet.of("GENERIC_RULE"),
+                    "")
                 .getRuleType())
         .isEqualTo(RuleType.OTHER);
     assertThat(
-            new RuleDocumentation("rule", null, "FOO", "y", 0, "", ImmutableSet.of("GENERIC_RULE"))
+            new RuleDocumentation(
+                    "rule",
+                    null,
+                    "FOO",
+                    "y",
+                    "Test.java",
+                    0,
+                    "https://example.com/src/Test.java",
+                    ImmutableSet.of("GENERIC_RULE"),
+                    "")
                 .getRuleType())
         .isEqualTo(RuleType.OTHER);
-  }
-
-  @Test
-  public void testGetWorkspaceRelativeFileName() throws Exception {
-    String path =
-        "/usr/local/home/abc/.cache/bazel/_bazel_abc/"
-            + "363be6ddf2d5bd85e1ce3646ca0b8c6a/sandbox/linux-sandbox/2040/execroot/"
-            + "io_bazel/src/main/java/com/google/devtools/build/lib/rules/Alias.java";
-    assertThat(
-            new RuleDocumentation(
-                    "rule", "BINARY", "FOO", "", 0, path, ImmutableSet.of("GENERIC_RULE"))
-                .getWorkspaceRelativeFileName())
-        .isEqualTo("src/main/java/com/google/devtools/build/lib/rules/Alias.java");
-  }
-
-  @Test
-  public void testGetWorkspaceRelativeFileNameWithInvalidWorkspace() throws Exception {
-    assertThat(
-            new RuleDocumentation(
-                    "rule", "BINARY", "FOO", "", 0, "/tmp/foo/bar", ImmutableSet.of("GENERIC_RULE"))
-                .getWorkspaceRelativeFileName())
-        .isEmpty();
   }
 }
