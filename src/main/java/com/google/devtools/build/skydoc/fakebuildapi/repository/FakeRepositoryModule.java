@@ -121,8 +121,8 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
       Dict<?, ?> tagClasses,
       String doc,
       Sequence<?> environ,
-      Boolean useOs,
-      Boolean useArch,
+      boolean osDependent,
+      boolean archDependent,
       StarlarkThread thread)
       throws EvalException {
     return new Object();
