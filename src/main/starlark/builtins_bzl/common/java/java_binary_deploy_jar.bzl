@@ -249,6 +249,7 @@ def create_deploy_archive(
         outputs = [output],
         arguments = [args] + extra_args,
         use_default_shell_env = True,
+        toolchain = semantics.JAVA_TOOLCHAIN_TYPE,
     )
 
 def _implicit_outputs(binary):
