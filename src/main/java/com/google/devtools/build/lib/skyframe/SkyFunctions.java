@@ -155,6 +155,7 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("BAZEL_DEP_GRAPH");
   public static final SkyFunctionName BAZEL_LOCK_FILE =
       SkyFunctionName.createHermetic("BAZEL_LOCK_FILE");
+  public static final SkyFunctionName REPO_SPEC = SkyFunctionName.createNonHermetic("REPO_SPEC");
 
   public static Predicate<SkyKey> isSkyFunction(SkyFunctionName functionName) {
     return key -> key.functionName().equals(functionName);
