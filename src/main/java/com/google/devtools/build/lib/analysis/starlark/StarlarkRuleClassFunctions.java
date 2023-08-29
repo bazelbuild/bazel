@@ -1049,7 +1049,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   }
 
   @Override
-  public StarlarkSubruleApi subrule(StarlarkThread thread) throws EvalException {
+  public StarlarkSubruleApi subrule(StarlarkFunction implementation, StarlarkThread thread)
+      throws EvalException {
     BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_SUBRULES);
     return new StarlarkSubrule();
   }

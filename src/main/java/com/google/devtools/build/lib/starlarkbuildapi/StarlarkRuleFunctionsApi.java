@@ -721,6 +721,18 @@ public interface StarlarkRuleFunctionsApi {
       Sequence<?> toolchains, Sequence<?> execCompatibleWith, StarlarkThread thread)
       throws EvalException;
 
-  @StarlarkMethod(name = "subrule", doc = "experimental, DO NOT USE!", useStarlarkThread = true)
-  StarlarkSubruleApi subrule(StarlarkThread thread) throws EvalException;
+  @StarlarkMethod(
+      name = "subrule",
+      doc = "experimental, DO NOT USE!",
+      parameters = {
+        @Param(
+            name = "implementation",
+            doc = "The Starlark function implementing this subrule",
+            named = true,
+            positional = false,
+            allowedTypes = {@ParamType(type = StarlarkFunction.class)})
+      },
+      useStarlarkThread = true)
+  StarlarkSubruleApi subrule(StarlarkFunction implementation, StarlarkThread thread)
+      throws EvalException;
 }

@@ -28,6 +28,8 @@ import org.junit.runners.JUnit4;
 public class StarlarkSubruleTest extends BuildViewTestCase {
 
   private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase("//subrule_testing:label");
+  private final BazelEvaluationTestCase evOutsideAllowlist =
+      new BazelEvaluationTestCase("//foo:bar");
 
   @Test
   public void testSubruleFunctionSymbol_notVisibleInBUILD() throws Exception {
@@ -47,16 +49,17 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSubruleInstantiation_succeeds() throws Exception {
-    Object subrule = ev.eval("subrule()");
+  public void testSubruleInstantiation_inAllowlistedPackage_succeeds() throws Exception {
+    Object subrule = ev.eval("subrule(implementation = lambda : 0 )");
 
     assertThat(subrule).isNotNull();
     assertThat(subrule).isInstanceOf(StarlarkSubruleApi.class);
   }
 
   @Test
-  public void testSubruleInstantiation_isPrivateAPI() throws Exception {
-    new BazelEvaluationTestCase("//foo:bar")
-        .checkEvalErrorContains("'//foo:bar' cannot use private API", "subrule()");
+  public void testSubruleInstantiation_outsideAllowlist_failsWithPrivateAPIError()
+      throws Exception {
+    evOutsideAllowlist.checkEvalErrorContains(
+        "'//foo:bar' cannot use private API", "subrule(implementation = lambda: 0 )");
   }
 }

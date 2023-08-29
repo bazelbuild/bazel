@@ -245,7 +245,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi {
   }
 
   @Override
-  public StarlarkSubruleApi subrule(StarlarkThread thread) {
+  public StarlarkSubruleApi subrule(StarlarkFunction implementation, StarlarkThread thread) {
     return new FakeStarlarkSubrule();
   }
 
