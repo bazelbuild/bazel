@@ -1219,10 +1219,13 @@ static map<string, EnvVarValue> PrepareEnvironmentForJvm() {
     result["LD_PRELOAD"] = EnvVarValue(EnvVarAction::UNSET, "");
   }
 
-  if (blaze::ExistsEnv("_JAVA_OPTIONS")) {
-    // This would override --host_jvm_args
-    BAZEL_LOG(WARNING) << "ignoring _JAVA_OPTIONS in environment.";
-    result["_JAVA_OPTIONS"] = EnvVarValue(EnvVarAction::UNSET, "");
+  // These would override --host_jvm_args
+  for (const auto &var :
+       {"_JAVA_OPTIONS", "JDK_JAVA_OPTIONS", "JAVA_TOOL_OPTIONS"}) {
+    if (blaze::ExistsEnv(var)) {
+      BAZEL_LOG(WARNING) << "ignoring " << var << " in environment.";
+      result[var] = EnvVarValue(EnvVarAction::UNSET, "");
+    }
   }
 
   // TODO(bazel-team):  We've also seen a failure during loading (creating

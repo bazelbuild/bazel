@@ -397,8 +397,16 @@ function test_macos_qos_class() {
       && fail "Expected failure with invalid QoS class name"
     expect_log "Invalid argument.*qos_class.*${class}"
   done
+}
 
+function test_ignores_jdk_option_environment_variables() {
+  bazel shutdown  # Environment variables are only checked on server startup
+  _JAVA_OPTIONS=--wat1 JDK_JAVA_OPTIONS=--wat2 JAVA_TOOL_OPTIONS=--wat3 \
+    bazel version >&$TEST_log || fail "_JAVA_OPTIONS not ignored"
 
+  expect_log ".*ignoring _JAVA_OPTIONS"
+  expect_log ".*ignoring JDK_JAVA_OPTIONS"
+  expect_log ".*ignoring JAVA_TOOL_OPTIONS"
 }
 
 run_suite "Tests of the bazel client."
