@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -135,16 +134,21 @@ public final class Profiler {
 
     long durationNanos;
 
-    TaskData(long startTimeNanos, long durationNanos, ProfilerTask eventType, String description) {
-      this.threadId = Thread.currentThread().getId();
+    TaskData(
+        long threadId,
+        long startTimeNanos,
+        long durationNanos,
+        ProfilerTask eventType,
+        String description) {
+      this.threadId = threadId;
       this.startTimeNanos = startTimeNanos;
       this.durationNanos = durationNanos;
       this.type = eventType;
       this.description = Preconditions.checkNotNull(description);
     }
 
-    TaskData(long startTimeNanos, ProfilerTask eventType, String description) {
-      this(startTimeNanos, /* durationNanos= */ -1, eventType, description);
+    TaskData(long threadId, long startTimeNanos, ProfilerTask eventType, String description) {
+      this(threadId, startTimeNanos, /* durationNanos= */ -1, eventType, description);
     }
 
     TaskData(long threadId, long startTimeNanos, long durationNanos, String description) {
@@ -227,6 +231,7 @@ public final class Profiler {
     @Nullable final String mnemonic;
 
     ActionTaskData(
+        long threadId,
         long startTimeNanos,
         long durationNanos,
         ProfilerTask eventType,
@@ -234,7 +239,7 @@ public final class Profiler {
         String description,
         @Nullable String primaryOutputPath,
         @Nullable String targetLabel) {
-      super(startTimeNanos, durationNanos, eventType, description);
+      super(threadId, startTimeNanos, durationNanos, eventType, description);
       this.primaryOutputPath = primaryOutputPath;
       this.targetLabel = targetLabel;
       this.mnemonic = mnemonic;
@@ -611,7 +616,8 @@ public final class Profiler {
    * @param type task type
    * @param description task description. May be stored until end of build.
    */
-  private void logTask(long startTimeNanos, long duration, ProfilerTask type, String description) {
+  private void logTask(
+      long threadId, long startTimeNanos, long duration, ProfilerTask type, String description) {
     Preconditions.checkNotNull(description);
     Preconditions.checkState(!"".equals(description), "No description -> not helpful");
     if (duration < 0) {
@@ -629,7 +635,7 @@ public final class Profiler {
       // #clear.
       JsonTraceFileWriter currentWriter = writerRef.get();
       if (wasTaskSlowEnoughToRecord(type, duration)) {
-        TaskData data = new TaskData(startTimeNanos, type, description);
+        TaskData data = new TaskData(threadId, startTimeNanos, type, description);
         data.durationNanos = duration;
         if (currentWriter != null) {
           currentWriter.enqueue(data);
@@ -655,7 +661,12 @@ public final class Profiler {
    */
   public void logSimpleTask(long startTimeNanos, ProfilerTask type, String description) {
     if (clock != null) {
-      logTask(startTimeNanos, clock.nanoTime() - startTimeNanos, type, description);
+      logTask(
+          Thread.currentThread().getId(),
+          startTimeNanos,
+          clock.nanoTime() - startTimeNanos,
+          type,
+          description);
     }
   }
 
@@ -673,7 +684,12 @@ public final class Profiler {
    */
   public void logSimpleTask(
       long startTimeNanos, long stopTimeNanos, ProfilerTask type, String description) {
-    logTask(startTimeNanos, stopTimeNanos - startTimeNanos, type, description);
+    logTask(
+        Thread.currentThread().getId(),
+        startTimeNanos,
+        stopTimeNanos - startTimeNanos,
+        type,
+        description);
   }
 
   /**
@@ -688,12 +704,12 @@ public final class Profiler {
    */
   public void logSimpleTaskDuration(
       long startTimeNanos, Duration duration, ProfilerTask type, String description) {
-    logTask(startTimeNanos, duration.toNanos(), type, description);
+    logTask(Thread.currentThread().getId(), startTimeNanos, duration.toNanos(), type, description);
   }
 
   /** Used to log "events" happening at a specific time - tasks with zero duration. */
   public void logEventAtTime(long atTimeNanos, ProfilerTask type, String description) {
-    logTask(atTimeNanos, 0, type, description);
+    logTask(Thread.currentThread().getId(), atTimeNanos, 0, type, description);
   }
 
   /** Used to log "events" - tasks with zero duration. */
@@ -777,6 +793,7 @@ public final class Profiler {
       final long startTimeNanos = clock.nanoTime();
       return () ->
           completeAction(
+              Thread.currentThread().getId(),
               startTimeNanos,
               type,
               description,
@@ -807,12 +824,15 @@ public final class Profiler {
       long duration = endTimeNanos - startTimeNanos;
       boolean shouldRecordTask = wasTaskSlowEnoughToRecord(type, duration);
       if (shouldRecordTask) {
-        recordTask(new TaskData(startTimeNanos, duration, type, description));
+        recordTask(
+            new TaskData(
+                Thread.currentThread().getId(), startTimeNanos, duration, type, description));
       }
     }
   }
 
   private void completeAction(
+      long threadId,
       long startTimeNanos,
       ProfilerTask type,
       String description,
@@ -826,7 +846,14 @@ public final class Profiler {
       if (shouldRecordTask) {
         recordTask(
             new ActionTaskData(
-                startTimeNanos, duration, type, mnemonic, description, primaryOutput, targetLabel));
+                threadId,
+                startTimeNanos,
+                duration,
+                type,
+                mnemonic,
+                description,
+                primaryOutput,
+                targetLabel));
       }
     }
   }
