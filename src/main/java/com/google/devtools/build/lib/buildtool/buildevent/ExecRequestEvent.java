@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool.buildevent;
 
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
@@ -33,11 +34,12 @@ import java.util.Collection;
 public class ExecRequestEvent implements BuildEvent {
 
   private final ExecRequest execRequest;
-  private final boolean includeResidue;
 
-  public ExecRequestEvent(ExecRequest execRequest, boolean includeResidue) {
+  private final ImmutableList<ByteString> argv;
+
+  public ExecRequestEvent(ExecRequest execRequest, ImmutableList<ByteString> argv) {
     this.execRequest = execRequest;
-    this.includeResidue = includeResidue;
+    this.argv = argv;
   }
 
   @Override
@@ -45,11 +47,7 @@ public class ExecRequestEvent implements BuildEvent {
     BuildEventStreamProtos.ExecRequestConstructed.Builder builder =
         BuildEventStreamProtos.ExecRequestConstructed.newBuilder();
     builder.setWorkingDirectory(execRequest.getWorkingDirectory());
-    if (includeResidue) {
-      for (ByteString argv : execRequest.getArgvList()) {
-        builder.addArgv(argv);
-      }
-    }
+    builder.addAllArgv(argv);
     for (CommandProtos.EnvironmentVariable environmentVariable :
         execRequest.getEnvironmentVariableList()) {
       builder.addEnvironmentVariable(

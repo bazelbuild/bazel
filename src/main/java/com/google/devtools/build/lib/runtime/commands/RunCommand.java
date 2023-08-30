@@ -172,12 +172,8 @@ public class RunCommand implements BlazeCommand {
   @Override
   public void editOptions(OptionsParser optionsParser) {}
 
-  /**
-   * Compute the arguments the binary should be run with by concatenating the arguments in its
-   * {@code args} attribute and the arguments on the Blaze command line.
-   */
-  private static List<String> computeArgs(
-      ConfiguredTarget targetToRun, List<String> commandLineArgs)
+  /** Returns the arguments in a {@link ConfiguredTarget}'s {@code args} attribute. */
+  private static ImmutableList<String> getBinaryArgs(ConfiguredTarget targetToRun)
       throws InterruptedException, CommandLineExpansionException {
     List<String> args = Lists.newArrayList();
 
@@ -187,8 +183,16 @@ public class RunCommand implements BlazeCommand {
       CommandLine targetArgs = runfilesSupport.getArgs();
       Iterables.addAll(args, targetArgs.arguments());
     }
-    args.addAll(commandLineArgs);
-    return args;
+    return ImmutableList.copyOf(args);
+  }
+
+  /**
+   * Compute the arguments the binary should be run with by concatenating the arguments in a {@link
+   * ConfiguredTarget}'s {@code args} attribute and the arguments on the Blaze command line.
+   */
+  private static ImmutableList<String> getAllCommandLineArgs(
+      ImmutableList<String> argsFromBinary, ImmutableList<String> argsFromResidue) {
+    return ImmutableList.<String>builder().addAll(argsFromBinary).addAll(argsFromResidue).build();
   }
 
   @Override
@@ -230,11 +234,11 @@ public class RunCommand implements BlazeCommand {
                     BuildEventIdUtil.buildToolLogs(),
                     BuildEventIdUtil.buildMetrics(),
                     BuildEventIdUtil.execRequestId())));
-    ImmutableList<String> commandLineArgs =
+    ImmutableList<String> argsFromResidue =
         ImmutableList.copyOf(targetAndArgs.subList(1, targetAndArgs.size()));
     RunCommandLine runCommandLine;
     try {
-      runCommandLine = getCommandLineInfo(env, builtTargets, options, commandLineArgs, testPolicy);
+      runCommandLine = getCommandLineInfo(env, builtTargets, options, argsFromResidue, testPolicy);
     } catch (RunCommandException e) {
       return e.result;
     }
@@ -299,9 +303,17 @@ public class RunCommand implements BlazeCommand {
               ENV_VARIABLES_TO_CLEAR,
               builtTargets.configuration,
               builtTargets.stopTime);
-      boolean includeResidueInExecRequest =
-          options.getOptions(BuildEventProtocolOptions.class).includeResidueInRunBepEvent;
-      env.getReporter().post(new ExecRequestEvent(execRequest, includeResidueInExecRequest));
+      env.getReporter()
+          .post(
+              new ExecRequestEvent(
+                  execRequest,
+                  options.getOptions(BuildEventProtocolOptions.class).includeResidueInRunBepEvent
+                      ? ImmutableList.copyOf(execRequest.getArgvList())
+                      : transformArgvsForExecRequest(
+                          env,
+                          runCommandLine.argsWithoutResidue,
+                          builtTargets.configuration,
+                          builtTargets.stopTime)));
       return BlazeCommandResult.execute(execRequest);
     } catch (RunCommandException e) {
       return e.result;
@@ -480,16 +492,19 @@ public class RunCommand implements BlazeCommand {
   private static class RunCommandLine {
     private final ImmutableList<String> args;
     private final ImmutableList<String> prettyPrintArgs;
+    private final ImmutableList<String> argsWithoutResidue;
     private final ImmutableSortedMap<String, String> runEnvironment;
     private final Path workingDir;
 
     private RunCommandLine(
         ImmutableList<String> args,
         ImmutableList<String> prettyPrintArgs,
+        ImmutableList<String> argsWithoutResidue,
         ImmutableSortedMap<String, String> runEnvironment,
         Path workingDir) {
       this.args = args;
       this.prettyPrintArgs = prettyPrintArgs;
+      this.argsWithoutResidue = argsWithoutResidue;
       this.runEnvironment = runEnvironment;
       this.workingDir = workingDir;
     }
@@ -499,12 +514,13 @@ public class RunCommand implements BlazeCommand {
       CommandEnvironment env,
       BuiltTargets builtTargets,
       OptionsParsingResult options,
-      ImmutableList<String> commandLineArgs,
+      ImmutableList<String> argsFromResidue,
       TestPolicy testPolicy)
       throws RunCommandException {
     Map<String, String> runEnvironment = new TreeMap<>();
     List<String> cmdLine = new ArrayList<>();
     List<String> prettyCmdLine = new ArrayList<>();
+    List<String> redactedCmdLine = new ArrayList<>();
     Path workingDir;
 
     runEnvironment.put("BUILD_WORKSPACE_DIRECTORY", env.getWorkspace().getPathString());
@@ -578,7 +594,7 @@ public class RunCommand implements BlazeCommand {
 
       try {
         cmdLine.addAll(TestStrategy.getArgs(testAction));
-        cmdLine.addAll(commandLineArgs);
+        cmdLine.addAll(argsFromResidue);
         prettyCmdLine.addAll(cmdLine);
       } catch (ExecException e) {
         throw new RunCommandException(
@@ -612,15 +628,20 @@ public class RunCommand implements BlazeCommand {
       }
       actionEnvironment.resolve(runEnvironment, env.getClientEnv());
       try {
-        List<String> args = computeArgs(builtTargets.targetToRun, commandLineArgs);
+        ImmutableList<String> argsFromBinary = getBinaryArgs(builtTargets.targetToRun);
+        ImmutableList<String> allCommandLineArgs =
+            getAllCommandLineArgs(argsFromBinary, argsFromResidue);
+
         constructCommandLine(
             cmdLine,
             prettyCmdLine,
+            redactedCmdLine,
             env,
             builtTargets.configuration,
             builtTargets.targetToRun,
             builtTargets.runUnderTarget,
-            args,
+            argsFromBinary,
+            allCommandLineArgs,
             builtTargets.stopTime);
       } catch (InterruptedException e) {
         String message = "run: command line expansion interrupted";
@@ -640,6 +661,7 @@ public class RunCommand implements BlazeCommand {
     return new RunCommandLine(
         ImmutableList.copyOf(cmdLine),
         ImmutableList.copyOf(prettyCmdLine),
+        ImmutableList.copyOf(redactedCmdLine),
         ImmutableSortedMap.copyOf(runEnvironment),
         workingDir);
   }
@@ -647,11 +669,13 @@ public class RunCommand implements BlazeCommand {
   private static void constructCommandLine(
       List<String> cmdLine,
       List<String> prettyCmdLine,
+      List<String> redactedCmdLine,
       CommandEnvironment env,
       BuildConfigurationValue configuration,
       ConfiguredTarget targetToRun,
       ConfiguredTarget runUnderTarget,
-      List<String> args,
+      ImmutableList<String> argsFromBinary,
+      ImmutableList<String> allCommandLineArgs,
       long stopTime)
       throws RunCommandException {
     BlazeRuntime runtime = env.getRuntime();
@@ -707,25 +731,42 @@ public class RunCommand implements BlazeCommand {
 
       cmdLine.add(shellExecutable.getPathString());
       cmdLine.add("-c");
-      cmdLine.add(
+      String cmdLineArgs =
           runUnderValue
               + " "
               + executablePath.getPathString()
               + " "
-              + ShellEscaper.escapeJoinAll(args));
+              + ShellEscaper.escapeJoinAll(allCommandLineArgs);
+      cmdLine.add(cmdLineArgs);
+
       prettyCmdLine.add(shellExecutable.getPathString());
       prettyCmdLine.add("-c");
-      prettyCmdLine.add(
+      String prettyCommandLineArgs =
           runUnderValue
               + " "
               + prettyExecutablePath.getPathString()
               + " "
-              + ShellEscaper.escapeJoinAll(args));
+              + ShellEscaper.escapeJoinAll(allCommandLineArgs);
+      prettyCmdLine.add(prettyCommandLineArgs);
+
+      redactedCmdLine.add(shellExecutable.getPathString());
+      redactedCmdLine.add("-c");
+      String redactedCommandLineArgs =
+          runUnderValue
+              + " "
+              + executablePath.getPathString()
+              + " "
+              + ShellEscaper.escapeJoinAll(argsFromBinary);
+      redactedCmdLine.add(redactedCommandLineArgs);
     } else {
       cmdLine.add(executablePath.getPathString());
-      cmdLine.addAll(args);
+      cmdLine.addAll(allCommandLineArgs);
+
       prettyCmdLine.add(prettyExecutablePath.getPathString());
-      prettyCmdLine.addAll(args);
+      prettyCmdLine.addAll(allCommandLineArgs);
+
+      redactedCmdLine.add(executablePath.getPathString());
+      redactedCmdLine.addAll(argsFromBinary);
     }
   }
 
@@ -741,7 +782,29 @@ public class RunCommand implements BlazeCommand {
     ExecRequest.Builder execDescription =
         ExecRequest.newBuilder()
             .setWorkingDirectory(ByteString.copyFrom(workingDir.getPathString(), ISO_8859_1));
+    execDescription.addAllArgv(transformArgvsForExecRequest(env, args, configuration, stopTime));
 
+    for (Map.Entry<String, String> variable : runEnv.entrySet()) {
+      execDescription.addEnvironmentVariable(
+          EnvironmentVariable.newBuilder()
+              .setName(ByteString.copyFrom(variable.getKey(), ISO_8859_1))
+              .setValue(ByteString.copyFrom(variable.getValue(), ISO_8859_1))
+              .build());
+    }
+    execDescription.addAllEnvironmentVariableToClear(
+        runEnvToClear.stream()
+            .map(s -> ByteString.copyFrom(s, ISO_8859_1))
+            .collect(toImmutableList()));
+    return execDescription.build();
+  }
+
+  private static ImmutableList<ByteString> transformArgvsForExecRequest(
+      CommandEnvironment env,
+      List<String> args,
+      BuildConfigurationValue configuration,
+      long stopTime)
+      throws RunCommandException {
+    List<ByteString> execDescription = Lists.newArrayList();
     if (OS.getCurrent() == OS.WINDOWS) {
       boolean isBinary = true;
       for (String arg : args) {
@@ -750,7 +813,7 @@ public class RunCommand implements BlazeCommand {
           // binary, which must not be escaped.
           arg = ShellUtils.windowsEscapeArg(arg);
         }
-        execDescription.addArgv(ByteString.copyFrom(arg, ISO_8859_1));
+        execDescription.add(ByteString.copyFrom(arg, ISO_8859_1));
         isBinary = false;
       }
     } else {
@@ -777,22 +840,10 @@ public class RunCommand implements BlazeCommand {
           ImmutableList.<String>of(shExecutable.getPathString(), "-c", shellEscaped);
 
       for (String arg : shellCmdLine) {
-        execDescription.addArgv(ByteString.copyFrom(arg, ISO_8859_1));
+        execDescription.add(ByteString.copyFrom(arg, ISO_8859_1));
       }
     }
-
-    for (Map.Entry<String, String> variable : runEnv.entrySet()) {
-      execDescription.addEnvironmentVariable(
-          EnvironmentVariable.newBuilder()
-              .setName(ByteString.copyFrom(variable.getKey(), ISO_8859_1))
-              .setValue(ByteString.copyFrom(variable.getValue(), ISO_8859_1))
-              .build());
-    }
-    execDescription.addAllEnvironmentVariableToClear(
-        runEnvToClear.stream()
-            .map(s -> ByteString.copyFrom(s, ISO_8859_1))
-            .collect(toImmutableList()));
-    return execDescription.build();
+    return ImmutableList.copyOf(execDescription);
   }
 
   private static class RunCommandException extends Exception {
