@@ -517,6 +517,17 @@ public final class BuildLanguageOptions extends OptionsBase {
       help = "If set to true, disables the function `attr.license`.")
   public boolean incompatibleNoAttrLicense;
 
+  // TODO(aiuto): Short lived flag to guard removal of package(distribs)
+  // The code base cleanup should be quick, then this can go to graveyard quickly.
+  @Option(
+      name = "incompatible_no_package_distribs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "If set to true, disables the `package(distribs=...)`.")
+  public boolean incompatibleNoPackageDistribs;
+
   @Option(
       name = "incompatible_no_implicit_file_export",
       defaultValue = "false",
@@ -762,6 +773,7 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(INCOMPATIBLE_NEW_ACTIONS_API, incompatibleNewActionsApi)
             .setBool(INCOMPATIBLE_NO_ATTR_LICENSE, incompatibleNoAttrLicense)
             .setBool(INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT, incompatibleNoImplicitFileExport)
+            .setBool(INCOMPATIBLE_NO_PACKAGE_DISTRIBS, incompatibleNoPackageDistribs)
             .setBool(INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM, incompatibleNoRuleOutputsParam)
             .setBool(INCOMPATIBLE_RUN_SHELL_COMMAND_STRING, incompatibleRunShellCommandString)
             .setBool(INCOMPATIBLE_STRUCT_HAS_NO_METHODS, incompatibleStructHasNoMethods)
@@ -864,6 +876,7 @@ public final class BuildLanguageOptions extends OptionsBase {
       "+incompatible_java_common_parameters";
   public static final String INCOMPATIBLE_NEW_ACTIONS_API = "+incompatible_new_actions_api";
   public static final String INCOMPATIBLE_NO_ATTR_LICENSE = "+incompatible_no_attr_license";
+  public static final String INCOMPATIBLE_NO_PACKAGE_DISTRIBS = "-incompatible_no_package_distribs";
   public static final String INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT =
       "-incompatible_no_implicit_file_export";
   public static final String INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM =
