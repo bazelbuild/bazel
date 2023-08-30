@@ -1,3 +1,29 @@
+## Release 7.0.0-pre.20230823.4 (2023-08-30)
+
+```
+Baseline: d55c11b658255a4574e0b3eb50d76dd6123866e6
+
+Cherry picks:
+
+   + 34c5ef22e88eba60238ad3735b74ea71db1c993e:
+     make sure IdempotencyChecker use the correct rule transition and
+     remove redundant computeTransition calls.
+   + 32d018ea402a5acbb574b7f4bf600b3cc040778c:
+     Make targets in analysis completed events visible.
+```
+
+Incompatible changes:
+
+  - The --apple_compiler command line option is not available anymore.
+  - py_transitions top-level was removed.
+
+Important changes:
+
+  - Android resources will no longer propagate through neverlinked
+    libraries by default.
+
+This release contains contributions from many people at Google, as well as Alex Eagle, arun.sampathkumar, Benjamin Lee, Fabian Meumertzheim, Gunnar Wagenknecht, Julio Merino, Keith Smiley, Nicholas Junge.
+
 ## Release 7.0.0-pre.20230816.3 (2023-08-25)
 
 ```
