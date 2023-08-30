@@ -136,6 +136,7 @@ public final class BuildDocCollectorTest {
     assertThat(ruleDoc.getRuleName()).isEqualTo("my_binary");
     assertThat(ruleDoc.getRuleType()).isEqualTo(DocgenConsts.RuleType.BINARY);
     assertThat(ruleDoc.getRuleFamily()).isEqualTo("My Language");
+    assertThat(ruleDoc.getFamilySummary()).isEmpty();
     assertThat(ruleDoc.getSourceUrl())
         .isEqualTo("https://example.com/src/main/starlark/builtins_bzl/my_lang/my_binary.bzl");
     assertThat(ruleDoc.getHtmlDocumentation()).isEqualTo("My language binary");
@@ -256,5 +257,52 @@ public final class BuildDocCollectorTest {
     assertThat(ruleDocEntries.get("my_plugin").getFamilySummary()).isEmpty();
     assertThat(ruleDocEntries.get("my_test").getRuleFamily()).isEqualTo("My Language");
     assertThat(ruleDocEntries.get("my_test").getFamilySummary()).isEmpty();
+  }
+
+  @Test
+  public void collectModuleInfoDocs_linksCommonAttrsWithEmptyDocstringToCommonType()
+      throws Exception {
+    ModuleInfo moduleInfo =
+        ModuleInfo.newBuilder()
+            .setModuleDocstring("My Language")
+            .setFile("//:test.bzl")
+            .addRuleInfo(
+                RuleInfo.newBuilder()
+                    .setRuleName("library_rules.my_library")
+                    .setDocString("My language library")
+                    .setOriginKey(
+                        OriginKey.newBuilder().setName("_my_library").setFile("//:my_library.bzl"))
+                    .addAttribute(
+                        AttributeInfo.newBuilder()
+                            // Empty docstring
+                            .setName("srcs")
+                            .setType(AttributeType.LABEL_LIST)
+                            .setDefaultValue("[]"))
+                    .addAttribute(
+                        AttributeInfo.newBuilder()
+                            // Empty docstring
+                            .setName("deps")
+                            .setType(AttributeType.LABEL_LIST)
+                            .setDefaultValue("[]"))
+                    .addAttribute(
+                        AttributeInfo.newBuilder()
+                            // Empty docstring
+                            .setName("uncommonly_named_attr")
+                            .setType(AttributeType.LABEL_LIST)
+                            .setDefaultValue("[]")))
+            .build();
+
+    assertThat(collectModuleInfoDocs(moduleInfo)).isEqualTo(1);
+
+    Set<RuleDocumentationAttribute> attributes = ruleDocEntries.get("my_library").getAttributes();
+    assertThat(getAttribute(attributes, "srcs").isCommonType()).isTrue();
+    assertThat(getAttribute(attributes, "srcs").getGeneratedInRule("my_library"))
+        .isEqualTo(DocgenConsts.TYPICAL_ATTRIBUTES);
+    assertThat(getAttribute(attributes, "deps").isCommonType()).isTrue();
+    assertThat(getAttribute(attributes, "deps").getGeneratedInRule("my_library"))
+        .isEqualTo(DocgenConsts.TYPICAL_ATTRIBUTES);
+    assertThat(getAttribute(attributes, "uncommonly_named_attr").isCommonType()).isFalse();
+    assertThat(getAttribute(attributes, "uncommonly_named_attr").getGeneratedInRule("my_library"))
+        .isEqualTo("my_library");
   }
 }

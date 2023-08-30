@@ -19,6 +19,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
+import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.Type;
@@ -220,9 +222,14 @@ public class RuleDocumentationAttribute
     this.nonconfigurable = nonconfigurable;
   }
 
+  @Nullable
   private static String reprDefaultValue(Attribute attribute) {
     Object value = attribute.getDefaultValueUnchecked();
-    if (value instanceof TriState) {
+    if (value instanceof ComputedDefault || value instanceof StarlarkComputedDefaultTemplate) {
+      // We cannot print anything useful here other than "optional". Let's assume the doc string for
+      // the attribute explains the details.
+      return null;
+    } else if (value instanceof TriState) {
       switch ((TriState) value) {
         case AUTO:
           return "-1";
@@ -304,11 +311,11 @@ public class RuleDocumentationAttribute
                     : "");
     if (isMandatory()) {
       sb.append("; required");
-    } else {
-      Preconditions.checkState(
-          defaultValue != null && !defaultValue.isEmpty(),
-          "Optional attributes must have a default value");
+    } else if (defaultValue != null && !defaultValue.isEmpty()) {
       sb.append("; default is <code>").append(defaultValue).append("</code>");
+    } else {
+      // Computed default or other non-representable value
+      sb.append("; optional");
     }
     return sb.toString();
   }

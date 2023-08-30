@@ -20,6 +20,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Splitter;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
@@ -380,7 +381,7 @@ public class BuildDocCollector {
               + "`\"\"\"C / C++\"\"\"`");
     }
     String ruleFamily = familyMatcher.group("family");
-    String ruleFamilySummary = familyMatcher.group("summary");
+    String ruleFamilySummary = Strings.nullToEmpty(familyMatcher.group("summary"));
 
     int numRulesCollected = 0;
     for (RuleInfo ruleInfo : moduleInfo.getRuleInfoList()) {
@@ -433,21 +434,34 @@ public class BuildDocCollector {
         }
 
         for (AttributeInfo attributeInfo : ruleInfo.getAttributeList()) {
-          if (attributeInfo.getName().equals("name")) {
+          String attributeName = attributeInfo.getName();
+          if (attributeName.equals("name")) {
             // We do not want the implicit "name" attribute injected into proto output by
             // starlark_doc_extract because we inject "name" at the template level in
             // templates/be/rules.vm
             continue;
           }
-          boolean deprecated =
-              DocgenConsts.STARDOC_OUTPUT_DEPRECATED_DOCSTRING
-                  .matcher(attributeInfo.getDocString())
-                  .find();
-          ruleDoc.addAttribute(
-              RuleDocumentationAttribute.createFromAttributeInfo(
-                  attributeInfo,
-                  ruleOriginFileLabel,
-                  deprecated ? ImmutableSet.of(DocgenConsts.FLAG_DEPRECATED) : ImmutableSet.of()));
+          if (attributeInfo.getDocString().isEmpty()
+              && PredefinedAttributes.TYPICAL_ATTRIBUTES.containsKey(attributeName)) {
+            // We link empty-docstring attributes to the common table based purely on attribute name
+            // (same as processJavaSourceRuleAttributeDocs does for native rule attributes).
+            // TODO(arostovtsev): should we verify attribute type and default value too? That would
+            // require moving the definition of common attributes from a free-text velocity template
+            // to a structured format.
+            ruleDoc.addAttribute(PredefinedAttributes.TYPICAL_ATTRIBUTES.get(attributeName));
+          } else {
+            boolean deprecated =
+                DocgenConsts.STARDOC_OUTPUT_DEPRECATED_DOCSTRING
+                    .matcher(attributeInfo.getDocString())
+                    .find();
+            ruleDoc.addAttribute(
+                RuleDocumentationAttribute.createFromAttributeInfo(
+                    attributeInfo,
+                    ruleOriginFileLabel,
+                    deprecated
+                        ? ImmutableSet.of(DocgenConsts.FLAG_DEPRECATED)
+                        : ImmutableSet.of()));
+          }
         }
 
         ruleDocOrigin.put(
