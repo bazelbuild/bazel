@@ -144,6 +144,9 @@ def _check_experimental_cc_shared_library(ctx):
     if not cc_common.check_experimental_cc_shared_library():
         fail("Pass --experimental_cc_shared_library to use cc_shared_library")
 
+def _incompatible_disable_objc_library_transition():
+    return cc_common.incompatible_disable_objc_library_transition()
+
 def _get_linkstatic_default(ctx):
     if ctx.attr._is_test:
         # By default Tests do not link statically. Except on Windows.
@@ -194,4 +197,5 @@ semantics = struct(
     get_coverage_attrs = _get_coverage_attrs,
     get_coverage_env = _get_coverage_env,
     get_proto_aspects = _get_proto_aspects,
+    incompatible_disable_objc_library_transition = _incompatible_disable_objc_library_transition,
 )
