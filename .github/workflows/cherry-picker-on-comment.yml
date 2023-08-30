@@ -12,10 +12,8 @@ jobs:
     if: startsWith(github.event.issue.body, 'Forked from')
     runs-on: ubuntu-latest
     steps:
-      - name: Logging github event
-        run: echo '${{ toJSON(github.event) }}' | jq
       - name: Run cherrypicker on comment
-        uses: iancha1992/continuous-integration/actions/cherry-picker@feature-cherrypick
+        uses: bazelbuild/continuous-integration/actions/cherry-picker@master
         with:
           triggered-on: commented
           pr-number: ${{ github.event.issue.body }}
