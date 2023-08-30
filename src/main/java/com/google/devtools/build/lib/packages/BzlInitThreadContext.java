@@ -66,7 +66,7 @@ public final class BzlInitThreadContext extends BazelStarlarkContext
       Optional<Label> networkAllowlistForTests,
       ImmutableMap<String, Class<?>> fragmentNameToClass,
       SymbolGenerator<?> symbolGenerator) {
-    super(BazelStarlarkContext.Phase.LOADING, symbolGenerator, /* analysisRuleLabel= */ null);
+    super(BazelStarlarkContext.Phase.LOADING, symbolGenerator);
     this.bzlFile = bzlFile;
     this.transitiveDigest = transitiveDigest;
     this.toolsRepository = toolsRepository;

@@ -14,11 +14,8 @@
 
 package com.google.devtools.build.lib.packages;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.cmdline.Label;
-import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
@@ -34,7 +31,6 @@ import net.starlark.java.eval.StarlarkThread;
  *   - BUILD evaluation (should absorb PackageFactory.PackageContext -- no need to store multiple
  *     thread-locals in StarlarkThread)
  *   - WORKSPACE evaluation (shares logic with BUILD)
- *   - rule and aspect analysis implementation (can/should we store the RuleContext here?)
  *   - implicit outputs
  *   - computed defaults
  *   - transition implementation
@@ -106,21 +102,17 @@ public class BazelStarlarkContext implements StarlarkThread.UncheckedExceptionCo
 
   // TODO(b/236456122): Eliminate Phase, migrate analysisRuleLabel to a separate context class.
   private final Phase phase;
-  @Nullable private final Label analysisRuleLabel;
 
   /**
    * @param phase the phase to which this Starlark thread belongs
    * @param symbolGenerator a {@link SymbolGenerator} to be used when creating objects to be
    *     compared using reference equality.
-   * @param analysisRuleLabel is the label of the rule for an analysis phase (rule or aspect
    */
   // TODO(b/236456122): Consider taking an owner in place of a SymbolGenerator, and constructing
   // the latter ourselves. Seems like we don't want to tempt anyone into sharing a SymbolGenerator.
-  public BazelStarlarkContext(
-      Phase phase, SymbolGenerator<?> symbolGenerator, @Nullable Label analysisRuleLabel) {
+  public BazelStarlarkContext(Phase phase, SymbolGenerator<?> symbolGenerator) {
     this.phase = Preconditions.checkNotNull(phase);
     this.symbolGenerator = Preconditions.checkNotNull(symbolGenerator);
-    this.analysisRuleLabel = analysisRuleLabel;
   }
 
   /** Returns the phase associated with this context. */
@@ -132,18 +124,9 @@ public class BazelStarlarkContext implements StarlarkThread.UncheckedExceptionCo
     return symbolGenerator;
   }
 
-  /**
-   * Returns the label of the rule, if this is an analysis-phase (rule or aspect 'implementation')
-   * thread, or null otherwise.
-   */
-  @Nullable
-  public Label getAnalysisRuleLabel() {
-    return analysisRuleLabel;
-  }
-
   @Override
   public String getContextForUncheckedException() {
-    return firstNonNull(analysisRuleLabel, phase).toString();
+    return phase.toString();
   }
 
   /**

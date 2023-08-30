@@ -72,8 +72,7 @@ public final class StarlarkCallbackHelper {
               // should have a unique owner object to associate it with for distinguishing
               // reference-equality objects. But I don't think implicit outputs or computed defaults
               // care about identity.
-              new SymbolGenerator<>(new Object()),
-              /* analysisRuleLabel= */ null)
+              new SymbolGenerator<>(new Object()))
           .storeInThread(thread);
       return Starlark.call(
           thread, callback, buildArgumentList(struct, arguments), /*kwargs=*/ ImmutableMap.of());

@@ -170,6 +170,7 @@ java_library(
         "AspectValue.java",
         "BaseRuleClasses.java",
         "BashCommandConstructor.java",
+        "BazelRuleAnalysisThreadContext.java",
         "CachingAnalysisEnvironment.java",
         "CommandConstructor.java",
         "CommandHelper.java",

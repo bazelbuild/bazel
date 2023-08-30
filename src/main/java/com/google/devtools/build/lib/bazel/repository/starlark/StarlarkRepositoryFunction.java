@@ -255,8 +255,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
 
       new BazelStarlarkContext(
               BazelStarlarkContext.Phase.LOADING, // ("fetch")
-              new SymbolGenerator<>(key),
-              /* analysisRuleLabel= */ null)
+              new SymbolGenerator<>(key))
           .storeInThread(thread);
 
       StarlarkRepositoryContext starlarkRepositoryContext =

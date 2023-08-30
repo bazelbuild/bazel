@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.starlark;
 
+import com.google.devtools.build.lib.analysis.BazelRuleAnalysisThreadContext;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -41,6 +42,7 @@ public class StarlarkSubrule implements StarlarkCallable, StarlarkSubruleApi {
   @Override
   public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
       throws EvalException, InterruptedException {
+    BazelRuleAnalysisThreadContext.fromOrFail(thread, getName());
     // TODO(hvd): inject SubruleContext as first positional arg
     return Starlark.call(thread, implementation, args, kwargs);
   }

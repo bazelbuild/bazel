@@ -441,8 +441,7 @@ public final class PackageFactory {
 
       new BazelStarlarkContext(
               BazelStarlarkContext.Phase.LOADING,
-              new SymbolGenerator<>(pkgBuilder.getPackageIdentifier()),
-              /* analysisRuleLabel= */ null)
+              new SymbolGenerator<>(pkgBuilder.getPackageIdentifier()))
           .storeInThread(thread);
 
       // TODO(adonovan): save this as a field in BazelStarlarkContext.

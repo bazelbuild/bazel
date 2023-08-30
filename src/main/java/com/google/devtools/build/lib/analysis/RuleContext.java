@@ -66,7 +66,6 @@ import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy;
@@ -1088,11 +1087,7 @@ public final class RuleContext extends TargetContext
     AnalysisEnvironment env = getAnalysisEnvironment();
     StarlarkThread thread = new StarlarkThread(mutability, env.getStarlarkSemantics());
     thread.setPrintHandler(Event.makeDebugPrintHandler(env.getEventHandler()));
-    new BazelStarlarkContext(
-            BazelStarlarkContext.Phase.ANALYSIS,
-            getSymbolGenerator(),
-            /* analysisRuleLabel= */ getLabel())
-        .storeInThread(thread);
+    new BazelRuleAnalysisThreadContext(getSymbolGenerator(), this).storeInThread(thread);
     return thread;
   }
 

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.analysis.BazelRuleAnalysisThreadContext;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
@@ -25,7 +26,6 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.Provider;
@@ -78,7 +78,9 @@ public abstract class AndroidStarlarkData
       StarlarkThread thread)
       throws EvalException {
     // We assume this is an analysis-phase thread.
-    Label label = BazelStarlarkContext.from(thread).getAnalysisRuleLabel();
+    Label label =
+        BazelRuleAnalysisThreadContext.fromOrFail(thread, "assets_from_deps")
+            .getAnalysisRuleLabel();
     return AssetDependencies.fromProviders(
             Sequence.cast(deps, AndroidAssetsInfo.class, "deps"), neverlink)
         .toInfo(label);

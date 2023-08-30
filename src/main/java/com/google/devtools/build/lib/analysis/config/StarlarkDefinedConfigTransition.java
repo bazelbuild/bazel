@@ -482,9 +482,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         // Create a new {@link BazelStarlarkContext} for the new thread. We need to
         // create a new context every time because {@link BazelStarlarkContext}s
         // should be confined to a single thread.
-        new BazelStarlarkContext(
-                Phase.ANALYSIS, dummySymbolGenerator, /* analysisRuleLabel= */ parentLabel)
-            .storeInThread(thread);
+        new BazelStarlarkContext(Phase.ANALYSIS, dummySymbolGenerator).storeInThread(thread);
 
         result =
             Starlark.fastcall(
