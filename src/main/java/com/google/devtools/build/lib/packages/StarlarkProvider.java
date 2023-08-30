@@ -105,6 +105,7 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
    * replaced by stronger type information in the provider's Starlark declaration. However, this
    * optimization would remain relevant for provider declarations that do not supply such type info.
    */
+  // TODO(b/297857068): should this be made non-transient?
   @Nullable private transient AtomicReferenceArray<Class<?>> depsetTypePredictor;
 
   /**
