@@ -889,7 +889,6 @@ public final class DependencyResolver {
             createDetailedExitCode(message));
     return new DependencyEvaluationException(
         new ConfiguredValueCreationException(
-            targetAndConfiguration.getTarget(),
             location,
             message,
             label,

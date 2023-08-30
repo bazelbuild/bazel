@@ -653,7 +653,6 @@ public final class TargetAndConfigurationProducer
     sink.acceptTargetAndConfigurationError(
         TargetAndConfigurationError.of(
             new ConfiguredValueCreationException(
-                target,
                 location,
                 message,
                 target.getLabel(),

@@ -376,7 +376,6 @@ final class DependencyProducer
           DependencyError.of(
               new DependencyEvaluationException(
                   new ConfiguredValueCreationException(
-                      parameters.target(),
                       parameters.location(),
                       message,
                       parameters.label(),

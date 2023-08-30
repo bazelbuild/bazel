@@ -242,7 +242,6 @@ final class PrerequisitesProducer
     sink.acceptPrerequisitesAspectError(
         new DependencyEvaluationException(
             new ConfiguredValueCreationException(
-                parameters.target(),
                 parameters.location(),
                 error.getMessage(),
                 parameters.label(),

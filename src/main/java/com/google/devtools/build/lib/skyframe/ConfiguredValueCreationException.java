@@ -37,8 +37,6 @@ import net.starlark.java.syntax.Location;
 public final class ConfiguredValueCreationException extends Exception
     implements SaneAnalysisException {
 
-  private final Target target;
-  private final Label label;
   @Nullable private final Location location;
   private final BuildEventId configuration;
   private final NestedSet<Cause> rootCauses;
@@ -47,7 +45,6 @@ public final class ConfiguredValueCreationException extends Exception
   private final DetailedExitCode detailedExitCode;
 
   public ConfiguredValueCreationException(
-      @Nullable Target target,
       @Nullable Location location,
       String message,
       Label label,
@@ -55,8 +52,6 @@ public final class ConfiguredValueCreationException extends Exception
       @Nullable NestedSet<Cause> rootCauses,
       @Nullable DetailedExitCode detailedExitCode) {
     super(message);
-    this.target = target;
-    this.label = label;
     this.location = location;
     this.configuration = configuration;
     DetailedExitCode exitCode =
@@ -76,7 +71,6 @@ public final class ConfiguredValueCreationException extends Exception
       @Nullable NestedSet<Cause> rootCauses,
       @Nullable DetailedExitCode detailedExitCode) {
     this(
-        target,
         target.getLocation(),
         message,
         target.getLabel(),
@@ -92,15 +86,6 @@ public final class ConfiguredValueCreationException extends Exception
         message,
         /* rootCauses= */ null,
         /* detailedExitCode= */ null);
-  }
-
-  @Nullable
-  public Target getTarget() {
-    return target;
-  }
-
-  public Label getLabel() {
-    return label;
   }
 
   @Nullable

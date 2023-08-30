@@ -33,7 +33,6 @@ public final class ConfiguredTargetEvaluationExceptions {
     private static ConfiguredValueCreationException withoutMessage(
         ConfiguredValueCreationException orig) {
       return new ConfiguredValueCreationException(
-          /* target= */ null,
           orig.getLocation(),
           "",
           /* label= */ null,
