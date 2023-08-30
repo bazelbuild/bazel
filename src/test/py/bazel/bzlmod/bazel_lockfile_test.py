@@ -964,6 +964,48 @@ class BazelLockfileTest(test_base.TestBase):
         stderr,
     )
 
+  def testLockfileRecreatedAfterDeletion(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'lockfile_ext = use_extension("extension.bzl", "lockfile_ext")',
+            'use_repo(lockfile_ext, "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("WORKSPACE")',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            '',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            '',
+            'def _module_ext_impl(ctx):',
+            '    repo_rule(name="hello")',
+            '',
+            'lockfile_ext = module_extension(',
+            '    implementation=_module_ext_impl,',
+            ')',
+        ],
+    )
+
+    self.RunBazel(['build', '@hello//:all'])
+
+    # Return the lockfile to the state it had before the
+    # previous build: it didn't exist.
+    with open('MODULE.bazel.lock', 'r') as lock_file:
+      old_data = lock_file.read()
+    os.remove('MODULE.bazel.lock')
+
+    self.RunBazel(['build', '@hello//:all'])
+
+    with open('MODULE.bazel.lock', 'r') as lock_file:
+      new_data = lock_file.read()
+
+    self.assertEqual(old_data, new_data)
+
 
 if __name__ == '__main__':
   unittest.main()
