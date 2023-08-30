@@ -148,6 +148,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi {
       Object buildSetting,
       Object cfg,
       Object execGroups,
+      Sequence<?> subrules,
       StarlarkThread thread)
       throws EvalException {
     ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();
@@ -204,6 +205,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi {
       Boolean applyToFiles,
       Sequence<?> execCompatibleWith,
       Object execGroups,
+      Sequence<?> subrules,
       StarlarkThread thread)
       throws EvalException {
     FakeStarlarkAspect fakeAspect = new FakeStarlarkAspect();

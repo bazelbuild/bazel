@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BazelRuleAnalysisThreadContext;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
 import net.starlark.java.eval.Dict;
@@ -43,11 +44,31 @@ public class StarlarkSubrule implements StarlarkCallable, StarlarkSubruleApi {
   @Override
   public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
       throws EvalException, InterruptedException {
-    BazelRuleAnalysisThreadContext.fromOrFail(thread, getName());
+    StarlarkRuleContext ruleContext =
+        BazelRuleAnalysisThreadContext.fromOrFail(thread, getName())
+            .getRuleContext()
+            .getStarlarkRuleContext();
+    ImmutableSet<? extends StarlarkSubruleApi> declaredSubrules = ruleContext.getSubrules();
+    if (!declaredSubrules.contains(this)) {
+      throw getUndeclaredSubruleError(ruleContext);
+    }
     SubruleContext subruleContext = new SubruleContext();
     ImmutableList<Object> positionals =
         ImmutableList.builder().add(subruleContext).addAll(args).build();
     return Starlark.call(thread, implementation, positionals, kwargs);
+  }
+
+  private EvalException getUndeclaredSubruleError(StarlarkRuleContext starlarkRuleContext) {
+    if (starlarkRuleContext.isForAspect()) {
+      return Starlark.errorf(
+          "aspect '%s' must declare '%s' in 'subrules'",
+          starlarkRuleContext.getRuleContext().getMainAspect().getAspectClass().getName(),
+          this.getName());
+    } else {
+      return Starlark.errorf(
+          "rule '%s' must declare '%s' in 'subrules'",
+          starlarkRuleContext.getRuleContext().getRule().getRuleClass(), this.getName());
+    }
   }
 
   private static class SubruleContext {}

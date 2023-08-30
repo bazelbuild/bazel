@@ -76,6 +76,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainContextApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -295,6 +296,15 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       }
 
       this.ruleAttributesCollection = ruleBuilder.build();
+    }
+  }
+
+  /** Returns the subrules declared by the rule or aspect represented by this context. */
+  ImmutableSet<? extends StarlarkSubruleApi> getSubrules() {
+    if (isForAspect()) {
+      return getRuleContext().getMainAspect().getDefinition().getSubrules();
+    } else {
+      return getRuleContext().getRule().getRuleClassObject().getSubrules();
     }
   }
 

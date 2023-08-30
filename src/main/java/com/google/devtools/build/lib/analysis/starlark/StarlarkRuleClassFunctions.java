@@ -303,6 +303,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       Object buildSetting,
       Object cfg,
       Object execGroups,
+      Sequence<?> subrules,
       StarlarkThread thread)
       throws EvalException {
     // Ensure we're initializing a .bzl file, which also means we have a RuleDefinitionEnvironment.
@@ -313,6 +314,10 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     callStack = callStack.subList(0, callStack.size() - 1);
 
     LabelConverter labelConverter = LabelConverter.forBzlEvaluatingThread(thread);
+
+    if (!subrules.isEmpty()) {
+      BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_SUBRULES);
+    }
 
     return createRule(
         // Contextual parameters.
@@ -339,7 +344,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         analysisTest,
         buildSetting,
         cfg,
-        execGroups);
+        execGroups,
+        subrules);
   }
 
   /**
@@ -377,7 +383,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       Object analysisTest,
       Object buildSetting,
       Object cfg,
-      Object execGroups)
+      Object execGroups,
+      Sequence<?> subrules)
       throws EvalException {
 
     // analysis_test=true implies test=true.
@@ -523,6 +530,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
           parseExecCompatibleWith(execCompatibleWith, labelConverter));
     }
 
+    builder.setSubrules(
+        Sequence.cast(subrules, StarlarkSubruleApi.class, "subrules").getImmutableList());
+
     return new StarlarkRuleFunction(
         builder,
         type,
@@ -586,6 +596,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       Boolean applyToGeneratingRules,
       Sequence<?> rawExecCompatibleWith,
       Object rawExecGroups,
+      Sequence<?> subrules,
       StarlarkThread thread)
       throws EvalException {
     LabelConverter labelConverter = LabelConverter.forBzlEvaluatingThread(thread);
@@ -705,6 +716,10 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       }
     }
 
+    if (!subrules.isEmpty()) {
+      BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_SUBRULES);
+    }
+
     return new StarlarkDefinedAspect(
         implementation,
         Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString),
@@ -720,7 +735,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         parseToolchainTypes(toolchains, labelConverter),
         applyToGeneratingRules,
         execCompatibleWith,
-        execGroups);
+        execGroups,
+        ImmutableSet.copyOf(Sequence.cast(subrules, StarlarkSubruleApi.class, "subrules")));
   }
 
   /**

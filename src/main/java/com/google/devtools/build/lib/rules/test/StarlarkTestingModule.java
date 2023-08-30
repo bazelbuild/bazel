@@ -124,7 +124,8 @@ public class StarlarkTestingModule implements TestingModuleApi {
             /* analysisTest= */ Boolean.TRUE,
             /* buildSetting= */ Starlark.NONE,
             /* cfg= */ Starlark.NONE,
-            /* execGroups= */ Starlark.NONE);
+            /* execGroups= */ Starlark.NONE,
+            /* subrules= */ StarlarkList.empty());
 
     // Export the rule.
     //

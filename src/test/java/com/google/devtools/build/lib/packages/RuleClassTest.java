@@ -1058,7 +1058,8 @@ public final class RuleClassTest extends PackageLoadingTestCase {
                 .add(RuleClass.NAME_ATTRIBUTE)
                 .add(attributes)
                 .build(),
-        /* buildSetting= */ null);
+        /* buildSetting= */ null,
+        /* subrules= */ ImmutableList.of());
   }
 
   private static RuleClass createParentRuleClass() {

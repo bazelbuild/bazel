@@ -441,6 +441,15 @@ public interface StarlarkRuleFunctionsApi {
                     + " allows rules to run actions on multiple execution platforms within a"
                     + " single target. See <a href='${link exec-groups}'>execution groups"
                     + " documentation</a> for more info."),
+        @Param(
+            name = "subrules",
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = StarlarkSubruleApi.class),
+            },
+            named = true,
+            defaultValue = "[]",
+            positional = false,
+            doc = "Experimental, DO NOT USE!"),
       },
       useStarlarkThread = true)
   StarlarkCallable rule(
@@ -462,6 +471,7 @@ public interface StarlarkRuleFunctionsApi {
       Object buildSetting,
       Object cfg,
       Object execGroups,
+      Sequence<?> subrules,
       StarlarkThread thread)
       throws EvalException;
 
@@ -648,7 +658,16 @@ public interface StarlarkRuleFunctionsApi {
                     + " href='../globals/bzl.html#exec_group'><code>exec_group</code>s</a>. If set,"
                     + " allows aspects to run actions on multiple execution platforms within a"
                     + " single instance. See <a href='${link exec-groups}'>execution groups"
-                    + " documentation</a> for more info.")
+                    + " documentation</a> for more info."),
+        @Param(
+            name = "subrules",
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = StarlarkSubruleApi.class),
+            },
+            named = true,
+            defaultValue = "[]",
+            positional = false,
+            doc = "Experimental, DO NOT USE!")
       },
       useStarlarkThread = true)
   StarlarkAspectApi aspect(
@@ -667,6 +686,7 @@ public interface StarlarkRuleFunctionsApi {
       Boolean applyToGeneratingRules,
       Sequence<?> execCompatibleWith,
       Object execGroups,
+      Sequence<?> subrules,
       StarlarkThread thread)
       throws EvalException;
 

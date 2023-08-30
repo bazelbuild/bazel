@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
 import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -769,6 +770,8 @@ public class RuleClass {
         AdvertisedProviderSet.builder();
     private StarlarkCallable configuredTargetFunction = null;
     private BuildSetting buildSetting = null;
+
+    private ImmutableList<? extends StarlarkSubruleApi> subrules = ImmutableList.of();
     private Function<? super Rule, Map<String, Label>> externalBindingsFunction =
         NO_EXTERNAL_BINDINGS;
     private Function<? super Rule, ? extends List<String>> toolchainsToRegisterFunction =
@@ -946,7 +949,8 @@ public class RuleClass {
           execGroups,
           outputFileKind,
           ImmutableList.copyOf(attributes.values()),
-          buildSetting);
+          buildSetting,
+          subrules);
     }
 
     private static void checkAttributes(
@@ -1266,6 +1270,12 @@ public class RuleClass {
     @CanIgnoreReturnValue
     public Builder setBuildSetting(BuildSetting buildSetting) {
       this.buildSetting = buildSetting;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setSubrules(ImmutableList<? extends StarlarkSubruleApi> subrules) {
+      this.subrules = subrules;
       return this;
     }
 
@@ -1622,8 +1632,12 @@ public class RuleClass {
   @Nullable private final BuildSetting buildSetting;
 
   /**
-   * Returns the extra bindings a workspace function adds to the WORKSPACE file.
+   * The subrules associated with this rule. Empty for all rule classes except Starlark-defined
+   * rules that explicitly pass {@code subrules = [...]} to their {@code rule()} declaration
    */
+  private final ImmutableSet<? extends StarlarkSubruleApi> subrules;
+
+  /** Returns the extra bindings a workspace function adds to the WORKSPACE file. */
   private final Function<? super Rule, Map<String, Label>> externalBindingsFunction;
 
   /** Returns the toolchains a workspace function wants to have registered in the WORKSPACE file. */
@@ -1715,7 +1729,8 @@ public class RuleClass {
       Map<String, ExecGroup> execGroups,
       OutputFile.Kind outputFileKind,
       ImmutableList<Attribute> attributes,
-      @Nullable BuildSetting buildSetting) {
+      @Nullable BuildSetting buildSetting,
+      ImmutableList<? extends StarlarkSubruleApi> subrules) {
     this.name = name;
     this.callstack = callstack;
     this.key = key;
@@ -1751,7 +1766,7 @@ public class RuleClass {
     this.executionPlatformConstraints = ImmutableSet.copyOf(executionPlatformConstraints);
     this.execGroups = ImmutableMap.copyOf(execGroups);
     this.buildSetting = buildSetting;
-
+    this.subrules = ImmutableSet.copyOf(subrules);
     // Create the index and collect non-configurable attributes while doing some validation checks.
     Preconditions.checkState(
         !attributes.isEmpty() && attributes.get(0).equals(NAME_ATTRIBUTE),
@@ -2648,5 +2663,10 @@ public class RuleClass {
     }
     // END-INTERNAL
     return false;
+  }
+
+  public ImmutableSet<? extends StarlarkSubruleApi> getSubrules() {
+    Preconditions.checkState(isStarlark());
+    return subrules;
   }
 }

@@ -52,6 +52,10 @@ public class BazelRuleAnalysisThreadContext extends BazelStarlarkContext {
     return ruleContext.getLabel().toString();
   }
 
+  public RuleContext getRuleContext() {
+    return ruleContext;
+  }
+
   /**
    * Retrieves this context from a Starlark thread.
    *

@@ -72,7 +72,7 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSubrule_implementationMustAcceptSubruleContext() throws Exception {
+  public void testSubrule_ruleMustDeclareSubrule() throws Exception {
     scratch.file(
         "subrule_testing/myrule.bzl",
         "_my_subrule = subrule(implementation = lambda : '')",
@@ -81,6 +81,64 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
         "  _my_subrule()",
         "",
         "my_rule = rule(implementation = _rule_impl)");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo')");
+
+    AssertionError error =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//subrule_testing:foo"));
+
+    assertThat(error)
+        .hasMessageThat()
+        .contains(
+            "Error in subrule(lambda): rule 'my_rule' must declare 'subrule(lambda)' in"
+                + " 'subrules'");
+  }
+
+  @Test
+  public void testSubrule_aspectMustDeclareSubrule() throws Exception {
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "_my_subrule = subrule(implementation = lambda ctx: 'dummy aspect result')",
+        "",
+        "def _aspect_impl(ctx,target):",
+        "  res = _my_subrule()",
+        "",
+        "_my_aspect = aspect(implementation = _aspect_impl)",
+        "",
+        "my_rule = rule(",
+        "  implementation = lambda ctx: [],",
+        "  attrs = {'dep' : attr.label(mandatory = True, aspects = [_my_aspect])},",
+        ")");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "java_library(name = 'bar')",
+        "my_rule(name = 'foo', dep = 'bar')");
+
+    AssertionError error =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//subrule_testing:foo"));
+
+    assertThat(error)
+        .hasMessageThat()
+        .contains(
+            "Error in subrule(lambda): aspect '//subrule_testing:myrule.bzl%_my_aspect' must"
+                + " declare 'subrule(lambda)' in 'subrules'");
+  }
+
+  @Test
+  public void testSubrule_implementationMustAcceptSubruleContext() throws Exception {
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "_my_subrule = subrule(implementation = lambda : '')",
+        "",
+        "def _rule_impl(ctx):",
+        "  _my_subrule()",
+        "",
+        "my_rule = rule(implementation = _rule_impl, subrules = [_my_subrule])");
     scratch.file(
         "subrule_testing/BUILD",
         //
@@ -106,7 +164,7 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
         "  res = _my_subrule()",
         "  return MyInfo(result = res)",
         "",
-        "my_rule = rule(implementation = _rule_impl)");
+        "my_rule = rule(implementation = _rule_impl, subrules = [_my_subrule])");
     scratch.file(
         "subrule_testing/BUILD",
         //
@@ -131,7 +189,7 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
         "  res = _my_subrule()",
         "  return MyInfo(result = res)",
         "",
-        "_my_aspect = aspect(implementation = _aspect_impl)",
+        "_my_aspect = aspect(implementation = _aspect_impl, subrules = [_my_subrule])",
         "",
         "my_rule = rule(",
         "  implementation = lambda ctx: [ctx.attr.dep[MyInfo]],",
@@ -156,6 +214,18 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
       throws Exception {
     evOutsideAllowlist.checkEvalErrorContains(
         "'//foo:bar' cannot use private API", "subrule(implementation = lambda: 0 )");
+  }
+
+  @Test
+  public void testSubrulesParamForRule_isPrivateAPI() throws Exception {
+    evOutsideAllowlist.checkEvalErrorContains(
+        "'//foo:bar' cannot use private API", "rule(implementation = lambda: 0, subrules = [1])");
+  }
+
+  @Test
+  public void testSubrulesParamForAspect_isPrivateAPI() throws Exception {
+    evOutsideAllowlist.checkEvalErrorContains(
+        "'//foo:bar' cannot use private API", "aspect(implementation = lambda: 0, subrules = [1])");
   }
 
   private StructImpl getProvider(String targetLabel, String providerLabel, String providerName)
