@@ -367,14 +367,6 @@ public class JavaOptions extends FragmentOptions {
   public boolean enforceProguardFileExtension;
 
   @Option(
-      name = "java_optimization_mode",
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Do not use.")
-  public String javaOptimizationMode;
-
-  @Option(
       name = "legacy_bazel_java_test",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

@@ -782,6 +782,14 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op")
     public String tvosSimulatorDevice;
+
+    @Option(
+        name = "java_optimization_mode",
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Do not use.")
+    public String javaOptimizationMode;
   }
 
   @Override
