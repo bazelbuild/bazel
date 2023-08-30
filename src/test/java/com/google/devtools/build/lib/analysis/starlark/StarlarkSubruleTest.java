@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -71,10 +72,34 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testSubrule_implementationMustAcceptSubruleContext() throws Exception {
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "_my_subrule = subrule(implementation = lambda : '')",
+        "",
+        "def _rule_impl(ctx):",
+        "  _my_subrule()",
+        "",
+        "my_rule = rule(implementation = _rule_impl)");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo')");
+
+    AssertionError error =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//subrule_testing:foo"));
+
+    assertThat(error)
+        .hasMessageThat()
+        .contains("Error: lambda() does not accept positional arguments, but got 1");
+  }
+
+  @Test
   public void testSubrule_isCallableFromRule() throws Exception {
     scratch.file(
         "subrule_testing/myrule.bzl",
-        "_my_subrule = subrule(implementation = lambda : 'dummy rule result')",
+        "_my_subrule = subrule(implementation = lambda ctx: 'dummy rule result')",
         "",
         "MyInfo = provider()",
         "def _rule_impl(ctx):",
@@ -99,7 +124,7 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
   public void testSubrule_isCallableFromAspect() throws Exception {
     scratch.file(
         "subrule_testing/myrule.bzl",
-        "_my_subrule = subrule(implementation = lambda : 'dummy aspect result')",
+        "_my_subrule = subrule(implementation = lambda ctx: 'dummy aspect result')",
         "",
         "MyInfo = provider()",
         "def _aspect_impl(ctx,target):",
