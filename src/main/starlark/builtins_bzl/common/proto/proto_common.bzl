@@ -78,15 +78,18 @@ def _remove_repo(file):
         return short_path.removeprefix(workspace_root + "/")
     return short_path
 
-def get_import_path(proto_source):
-    """Returns the import path of a .proto file, i.e. clean path without any repo or strip_prefixes remapping
+def _get_import_path(proto_file):
+    """Returns the import path of a .proto file
+
+    This is the path as used for the the file that can be used in an `import` statement in another
+    .proto file.
 
     Args:
-      proto_source: (ProtoSourceInfo) The .proto file
+      proto_file: (File) The .proto file
     Returns:
       (str) import path
     """
-    repo_path = _remove_repo(proto_source)
+    repo_path = _remove_repo(proto_file)
     index = repo_path.find("_virtual_imports/")
     if index >= 0:
         index = repo_path.find("/", index + len("_virtual_imports/"))
@@ -353,5 +356,6 @@ proto_common_do_not_use = struct(
     check_collocated = _check_collocated,
     experimental_should_generate_code = _experimental_should_generate_code,
     experimental_filter_sources = _experimental_filter_sources,
+    get_import_path = _get_import_path,
     ProtoLangToolchainInfo = ProtoLangToolchainInfo,
 )
