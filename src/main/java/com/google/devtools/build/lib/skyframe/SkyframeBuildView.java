@@ -112,7 +112,6 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.OptionDefinition;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -438,7 +437,7 @@ public final class SkyframeBuildView {
     // Sometimes there are action conflicts, but the actions aren't actually required to run by the
     // build. In such cases, the conflict should still be reported to the user.
     // See OutputArtifactConflictTest#unusedActionsStillConflict.
-    Collection<Exception> reportedExceptions = Sets.newHashSet();
+    Set<String> reportedArtifactPrefixConflictExceptions = Sets.newHashSet();
     for (Entry<ActionAnalysisMetadata, ConflictException> bad : actionConflicts.entrySet()) {
       ConflictException ex = bad.getValue();
       DetailedExitCode detailedExitCode;
@@ -456,7 +455,7 @@ public final class SkyframeBuildView {
         }
       } catch (ArtifactPrefixConflictException apce) {
         detailedExitCode = apce.getDetailedExitCode();
-        if (reportedExceptions.add(apce)) {
+        if (reportedArtifactPrefixConflictExceptions.add(apce.getMessage())) {
           eventHandler.handle(Event.error(apce.getMessage()));
         }
       }
@@ -952,7 +951,7 @@ public final class SkyframeBuildView {
       boolean keepGoing)
       throws ViewCreationFailedException, InterruptedException {
     // ArtifactPrefixConflictExceptions come in pairs, and only one should be reported.
-    Set<ArtifactPrefixConflictException> reportedExceptions = Sets.newHashSet();
+    Set<String> reportedArtifactPrefixConflictExceptions = Sets.newHashSet();
 
     // Sometimes a conflicting action can't be traced to a top level target via
     // TopLevelActionConflictReport. We therefore need to print the errors from the conflicts
@@ -971,7 +970,7 @@ public final class SkyframeBuildView {
                           + "': it will not be built")));
         }
       } catch (ArtifactPrefixConflictException apce) {
-        if (reportedExceptions.add(apce)) {
+        if (reportedArtifactPrefixConflictExceptions.add(apce.getMessage())) {
           eventHandler.handle(Event.error(apce.getMessage()));
         }
       }
