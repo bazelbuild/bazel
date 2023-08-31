@@ -308,7 +308,7 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
   @ForOverride
   protected DirtyBuildingState createDirtyBuildingStateForDoneNode(
       DirtyType dirtyType, GroupedDeps directDeps, SkyValue value) {
-    return new IncrementalDirtyBuildingState(dirtyType, directDeps, value);
+    return new IncrementalBuildingState(dirtyType, directDeps, value);
   }
 
   @Nullable
@@ -391,16 +391,23 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
   public final synchronized void resetForRestartFromScratch() {
     checkState(!hasUnsignaledDeps(), this);
 
-    // TODO(b/228090759): Handle a reset on an incremental build.
-    checkState(!dirtyBuildingState.isIncremental(), this);
-
     ImmutableSet<SkyKey> resetDeps =
         ImmutableSet.<SkyKey>builder()
             .addAll(getResetDirectDeps()) // In case this isn't the first reset.
             .addAll(getTemporaryDirectDeps().getAllElementsAsIterable())
             .build();
 
-    dirtyBuildingState = new ResetInitialBuildingState(resetDeps);
+    if (dirtyBuildingState.isIncremental()) {
+      var incrementalBuildingState = (IncrementalBuildingState) dirtyBuildingState;
+      dirtyBuildingState =
+          new ResetIncrementalBuildingState(
+              incrementalBuildingState.lastBuildDirectDeps,
+              incrementalBuildingState.lastBuildValue,
+              incrementalBuildingState.dirtyDirectDepIndex,
+              resetDeps);
+    } else {
+      dirtyBuildingState = new ResetInitialBuildingState(resetDeps);
+    }
     directDeps = null;
   }
 
@@ -420,11 +427,11 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
   }
 
   /** {@link DirtyBuildingState} for a node on an incremental build. */
-  private static final class IncrementalDirtyBuildingState extends DirtyBuildingState {
+  private static class IncrementalBuildingState extends DirtyBuildingState {
     private final GroupedDeps lastBuildDirectDeps;
     private final SkyValue lastBuildValue;
 
-    private IncrementalDirtyBuildingState(
+    private IncrementalBuildingState(
         DirtyType dirtyType, GroupedDeps lastBuildDirectDeps, SkyValue lastBuildValue) {
       super(dirtyType);
       this.lastBuildDirectDeps = lastBuildDirectDeps;
@@ -432,22 +439,22 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
     }
 
     @Override
-    protected boolean isIncremental() {
+    protected final boolean isIncremental() {
       return true;
     }
 
     @Override
-    public SkyValue getLastBuildValue() {
+    public final SkyValue getLastBuildValue() {
       return lastBuildValue;
     }
 
     @Override
-    public GroupedDeps getLastBuildDirectDeps() {
+    public final GroupedDeps getLastBuildDirectDeps() {
       return lastBuildDirectDeps;
     }
 
     @Override
-    protected int getNumOfGroupsInLastBuildDirectDeps() {
+    protected final int getNumOfGroupsInLastBuildDirectDeps() {
       return lastBuildDirectDeps.numGroups();
     }
 
@@ -467,6 +474,37 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
     private final ImmutableSet<SkyKey> resetDeps;
 
     ResetInitialBuildingState(ImmutableSet<SkyKey> resetDeps) {
+      this.resetDeps = resetDeps;
+      markRebuilding();
+      startEvaluating();
+    }
+
+    @Override
+    ImmutableSet<SkyKey> getResetDirectDeps() {
+      return resetDeps;
+    }
+
+    @Override
+    protected MoreObjects.ToStringHelper getStringHelper() {
+      return super.getStringHelper().add("resetDeps", resetDeps);
+    }
+  }
+
+  /**
+   * Used to track already registered deps when there is a {@linkplain #resetForRestartFromScratch
+   * reset} on a node's incremental build.
+   */
+  private static final class ResetIncrementalBuildingState extends IncrementalBuildingState {
+    private final ImmutableSet<SkyKey> resetDeps;
+
+    private ResetIncrementalBuildingState(
+        GroupedDeps lastBuildDirectDeps,
+        SkyValue lastBuildValue,
+        int dirtyDirectDepIndex,
+        ImmutableSet<SkyKey> resetDeps) {
+      // CHANGE (not DIRTY) since we already know it needs rebuilding.
+      super(DirtyType.CHANGE, lastBuildDirectDeps, lastBuildValue);
+      this.dirtyDirectDepIndex = dirtyDirectDepIndex;
       this.resetDeps = resetDeps;
       markRebuilding();
       startEvaluating();

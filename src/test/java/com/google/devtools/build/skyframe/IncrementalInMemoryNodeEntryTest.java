@@ -25,6 +25,7 @@ import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,7 +36,7 @@ import org.junit.runner.RunWith;
 @RunWith(TestParameterInjector.class)
 public class IncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<IntVersion> {
 
-  protected final Version incrementalVersion = initialVersion.next();
+  protected final IntVersion incrementalVersion = initialVersion.next();
 
   @Override
   protected IncrementalInMemoryNodeEntry createEntry(SkyKey key) {
@@ -628,5 +629,84 @@ public class IncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<IntV
     entry.addTemporaryDirectDepGroup(ImmutableList.of());
     entry.setValue(new IntegerValue(1), initialVersion, null);
     assertThat(entry.hasAtLeastOneDep()).isFalse();
+  }
+
+  @Test
+  public void resetOnDirtyNode(@TestParameter boolean valueChanges) throws Exception {
+    InMemoryNodeEntry entry = createEntry();
+    entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
+    entry.markRebuilding();
+
+    // Rdep added on initial build that stays on incremental build.
+    SkyKey oldAndNewParent = key("oldAndNewParent");
+    entry.addReverseDepAndCheckIfDone(oldAndNewParent);
+
+    // Rdep added on initial build that is removed on incremental build.
+    SkyKey oldParent = key("oldParent");
+    entry.addReverseDepAndCheckIfDone(oldParent);
+
+    // Dep added on initial build that stays on incremental build.
+    SkyKey oldAndNewDep = key("oldAndNewDep");
+    entry.addSingletonTemporaryDirectDep(oldAndNewDep);
+    entry.signalDep(initialVersion, oldAndNewDep);
+
+    // Dep added on initial build that is removed on incremental build.
+    SkyKey oldDep = key("oldDep");
+    entry.addSingletonTemporaryDirectDep(oldDep);
+    entry.signalDep(initialVersion, oldDep);
+
+    // Initial build completes.
+    SkyValue oldValue = new IntegerValue(1);
+    setValue(entry, oldValue, /* errorInfo= */ null, initialVersion);
+
+    // Start of incremental build.
+    entry.markDirty(DirtyType.DIRTY);
+
+    // One rdep added, one rdep stays, one rdep removed.
+    SkyKey newParent = key("newParent");
+    entry.addReverseDepAndCheckIfDone(newParent);
+    entry.checkIfDoneForDirtyReverseDep(oldAndNewParent);
+    entry.removeReverseDep(oldParent);
+
+    // Old dep added before reset, triggers rebuild.
+    assertThat(entry.getNextDirtyDirectDeps()).containsExactly(oldAndNewDep);
+    entry.addSingletonTemporaryDirectDep(oldAndNewDep);
+    entry.signalDep(incrementalVersion, oldAndNewDep);
+    entry.markRebuilding();
+    assertThat(entry.getResetDirectDeps()).isEmpty();
+
+    // Reset clears temporary direct deps.
+    entry.resetForRestartFromScratch();
+    assertThat(entry.getDirtyState()).isEqualTo(DirtyState.REBUILDING);
+    assertThat(entry.getTemporaryDirectDeps()).isEmpty();
+    assertThat(entry.getTemporaryDirectDeps() instanceof GroupedDeps.WithHashSet)
+        .isEqualTo(isPartialReevaluation);
+
+    // Add back same dep.
+    entry.addSingletonTemporaryDirectDep(oldAndNewDep);
+    assertThat(entry.signalDep(incrementalVersion, oldAndNewDep)).isTrue();
+    assertThat(entry.getTemporaryDirectDeps()).containsExactly(ImmutableList.of(oldAndNewDep));
+
+    // New dep added after reset.
+    SkyKey newDep = key("newDep");
+    entry.addSingletonTemporaryDirectDep(newDep);
+    assertThat(entry.signalDep(incrementalVersion, newDep)).isTrue();
+    assertThat(entry.getTemporaryDirectDeps())
+        .containsExactly(ImmutableList.of(oldAndNewDep), ImmutableList.of(newDep));
+
+    // Check dep accounting.
+    assertThat(entry.getResetDirectDeps()).containsExactly(oldAndNewDep);
+    assertThat(entry.getAllRemainingDirtyDirectDeps()).containsExactly(oldDep);
+
+    // Set value and check that new parents will be signaled.
+    SkyValue newValue = valueChanges ? new IntegerValue(2) : oldValue;
+    assertThat(setValue(entry, newValue, /* errorInfo= */ null, incrementalVersion))
+        .containsExactly(oldAndNewParent, newParent);
+
+    if (valueChanges) {
+      assertThat(entry.getVersion()).isEqualTo(incrementalVersion);
+    } else {
+      assertThat(entry.getVersion()).isEqualTo(initialVersion); // Change pruning.
+    }
   }
 }
