@@ -130,12 +130,13 @@ public final class SymlinkTreeHelper {
     }
   }
 
-  /** Copies the input manifest to the output manifest. */
-  public void copyManifest() throws ExecException {
+  /** Links the output manifest to the input manifest. */
+  public void linkManifest() throws ExecException {
     // Pretend we created the runfiles tree by symlinking the output manifest to the input manifest.
     Path outputManifest = getOutputManifest();
     try {
       symlinkTreeRoot.createDirectoryAndParents();
+      outputManifest.delete();
       outputManifest.createSymbolicLink(inputManifest);
     } catch (IOException e) {
       throw new EnvironmentalExecException(e, Code.SYMLINK_TREE_MANIFEST_LINK_IO_EXCEPTION);

@@ -156,7 +156,7 @@ public class RunfilesTreeUpdater {
 
     switch (runfileSymlinksMode) {
       case SKIP:
-        helper.copyManifest();
+        helper.linkManifest();
         break;
       case EXTERNAL:
         helper.createSymlinksUsingCommand(execRoot, binTools, env, outErr);

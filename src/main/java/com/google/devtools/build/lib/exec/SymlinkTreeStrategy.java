@@ -107,7 +107,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
           // Skyframe does not clear the directory for us.
           var helper = createSymlinkTreeHelper(action, actionExecutionContext);
           helper.clearRunfilesDirectory();
-          helper.copyManifest();
+          helper.linkManifest();
         } else if (action.getRunfileSymlinksMode() == RunfileSymlinksMode.INTERNAL
             && !action.isFilesetTree()) {
           try {
