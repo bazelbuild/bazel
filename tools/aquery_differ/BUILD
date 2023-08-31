@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 load("//tools/python:private/py_test_alias.bzl", "py_test_alias")
 
 package(default_visibility = ["//visibility:public"])
