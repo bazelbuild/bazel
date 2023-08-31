@@ -57,6 +57,9 @@ cc_library(
             # lacking the headers to compile AVX512.
 	    "-DBLAKE3_NO_AVX512",
 	],
+	"@bazel_tools//src/conditions:linux_arm64": [
+            "-DBLAKE3_USE_NEON=0",
+        ],
         "@bazel_tools//src/conditions:windows_x64": [],
         "@bazel_tools//src/conditions:windows_arm64": [
             "-DBLAKE3_USE_NEON=0",
