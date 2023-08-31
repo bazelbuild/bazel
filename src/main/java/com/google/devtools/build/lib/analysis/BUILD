@@ -364,6 +364,7 @@ java_library(
         ":transitive_info_provider_map",
         ":transitive_info_provider_map_builder",
         ":visibility_provider",
+        "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:runtime/build_event_streamer_utils",
         "//src/main/java/com/google/devtools/build/lib/actions",

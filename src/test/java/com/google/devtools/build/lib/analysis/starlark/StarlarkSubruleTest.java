@@ -210,6 +210,33 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testSubrule_subruleContextExposesRuleLabel() throws Exception {
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "def _subrule_impl(ctx):",
+        "  return 'called in: ' + str(ctx.label)",
+        "_my_subrule = subrule(implementation = _subrule_impl)",
+        "",
+        "MyInfo = provider()",
+        "def _rule_impl(ctx):",
+        "  res = _my_subrule()",
+        "  return MyInfo(result = res)",
+        "",
+        "my_rule = rule(implementation = _rule_impl, subrules = [_my_subrule])");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo')");
+
+    StructImpl provider =
+        getProvider("//subrule_testing:foo", "//subrule_testing:myrule.bzl", "MyInfo");
+
+    assertThat(provider).isNotNull();
+    assertThat(provider.getValue("result")).isEqualTo("called in: @//subrule_testing:foo");
+  }
+
+  @Test
   public void testSubruleInstantiation_outsideAllowlist_failsWithPrivateAPIError()
       throws Exception {
     evOutsideAllowlist.checkEvalErrorContains(
