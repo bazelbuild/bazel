@@ -13,12 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ResourceEstimator;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.Clock;
@@ -40,9 +45,12 @@ import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.zip.GZIPOutputStream;
@@ -144,7 +152,7 @@ public final class Profiler {
       this.startTimeNanos = startTimeNanos;
       this.durationNanos = durationNanos;
       this.type = eventType;
-      this.description = Preconditions.checkNotNull(description);
+      this.description = checkNotNull(description);
     }
 
     TaskData(long threadId, long startTimeNanos, ProfilerTask eventType, String description) {
@@ -448,7 +456,7 @@ public final class Profiler {
       WorkerMetricsCollector workerMetricsCollector,
       BugReporter bugReporter)
       throws IOException {
-    Preconditions.checkState(!isActive(), "Profiler already active");
+    checkState(!isActive(), "Profiler already active");
     initHistograms();
 
     this.profiledTasks = profiledTasks.isEmpty() ? profiledTasks : EnumSet.copyOf(profiledTasks);
@@ -618,8 +626,8 @@ public final class Profiler {
    */
   private void logTask(
       long threadId, long startTimeNanos, long duration, ProfilerTask type, String description) {
-    Preconditions.checkNotNull(description);
-    Preconditions.checkState(!"".equals(description), "No description -> not helpful");
+    checkNotNull(description);
+    checkState(!description.isEmpty(), "No description -> not helpful");
     if (duration < 0) {
       // See note in Clock#nanoTime, which is used by Profiler#nanoTimeMaybe.
       duration = 0;
@@ -718,9 +726,9 @@ public final class Profiler {
     logEventAtTime(clock.nanoTime(), type, description);
   }
 
-  private SilentCloseable reallyProfile(ProfilerTask type, String description) {
+  private SilentCloseable reallyProfile(long laneId, ProfilerTask type, String description) {
     final long startTimeNanos = clock.nanoTime();
-    return () -> completeTask(startTimeNanos, type, description);
+    return () -> completeTask(laneId, startTimeNanos, type, description);
   }
 
   /**
@@ -743,7 +751,11 @@ public final class Profiler {
    * @param description task description. May be stored until the end of the build.
    */
   public SilentCloseable profile(ProfilerTask type, String description) {
-    return (isActive() && isProfiling(type)) ? reallyProfile(type, description) : NOP;
+    return profile(Thread.currentThread().getId(), type, description);
+  }
+
+  private SilentCloseable profile(long laneId, ProfilerTask type, String description) {
+    return (isActive() && isProfiling(type)) ? reallyProfile(laneId, type, description) : NOP;
   }
 
   /**
@@ -751,7 +763,11 @@ public final class Profiler {
    * profiling.
    */
   public SilentCloseable profile(ProfilerTask type, Supplier<String> description) {
-    return (isActive() && isProfiling(type)) ? reallyProfile(type, description.get()) : NOP;
+    return profile(Thread.currentThread().getId(), type, description);
+  }
+
+  private SilentCloseable profile(long laneId, ProfilerTask type, Supplier<String> description) {
+    return (isActive() && isProfiling(type)) ? reallyProfile(laneId, type, description.get()) : NOP;
   }
 
   /**
@@ -788,7 +804,7 @@ public final class Profiler {
       String description,
       String primaryOutput,
       String targetLabel) {
-    Preconditions.checkNotNull(description);
+    checkNotNull(description);
     if (isActive() && isProfiling(type)) {
       final long startTimeNanos = clock.nanoTime();
       return () ->
@@ -818,15 +834,14 @@ public final class Profiler {
   }
 
   /** Records the end of the task. */
-  private void completeTask(long startTimeNanos, ProfilerTask type, String description) {
+  private void completeTask(
+      long laneId, long startTimeNanos, ProfilerTask type, String description) {
     if (isActive()) {
       long endTimeNanos = clock.nanoTime();
       long duration = endTimeNanos - startTimeNanos;
       boolean shouldRecordTask = wasTaskSlowEnoughToRecord(type, duration);
       if (shouldRecordTask) {
-        recordTask(
-            new TaskData(
-                Thread.currentThread().getId(), startTimeNanos, duration, type, description));
+        recordTask(new TaskData(laneId, startTimeNanos, duration, type, description));
       }
     }
   }
@@ -887,6 +902,139 @@ public final class Profiler {
     MemoryProfiler.instance().markPhase(phase);
     if (isActive() && isProfiling(ProfilerTask.PHASE)) {
       logEvent(ProfilerTask.PHASE, phase.description);
+    }
+  }
+
+  static class ProfilerTaskType {
+    private final String format;
+
+    public ProfilerTaskType(String format) {
+      this.format = format;
+    }
+
+    public String getName(long index) {
+      return String.format(format, index);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (!(obj instanceof ProfilerTaskType)) {
+        return false;
+      }
+
+      if (this == obj) {
+        return true;
+      }
+
+      var that = (ProfilerTaskType) obj;
+      return Objects.equals(this.format, that.format);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(format);
+    }
+  }
+
+  public ProfilerTaskType createTaskType(String format) {
+    return new ProfilerTaskType(format);
+  }
+
+  /**
+   * A profiler has a specific lane id. All trace events emitted by it are associated with its lane
+   * id instead of Thread.currentThread().getId().
+   */
+  public static class ScopedProfiler {
+    private final boolean active;
+    private final long laneId;
+
+    public ScopedProfiler(boolean active, long laneId) {
+      this.active = active;
+      this.laneId = laneId;
+    }
+
+    public SilentCloseable profile(String description) {
+      if (!active) {
+        return () -> {};
+      }
+      return Profiler.instance().profile(laneId, ProfilerTask.INFO, description);
+    }
+  }
+
+  /**
+   * An interface used to supply a {@link ListenableFuture} with the given {@link ScopedProfiler}.
+   */
+  public interface FutureSupplier<T> {
+    ListenableFuture<T> get(ScopedProfiler profiler);
+  }
+
+  public <T> ListenableFuture<T> profileAsync(
+      ProfilerTaskType type, String description, FutureSupplier<T> futureSupplier) {
+    if (!(isActive() && isProfiling(ProfilerTask.INFO))) {
+      return futureSupplier.get(new ScopedProfiler(/* active= */ false, 0));
+    }
+
+    long laneId = laneIdGenerator.acquire(type);
+    final long startTimeNanos = clock.nanoTime();
+    var scopedProfiler = new ScopedProfiler(/* active= */ true, laneId);
+    var future = futureSupplier.get(scopedProfiler);
+    future.addListener(
+        () -> {
+          long endTimeNanos = clock.nanoTime();
+          long duration = endTimeNanos - startTimeNanos;
+          recordTask(
+              new TaskData(laneId, startTimeNanos, duration, ProfilerTask.INFO, description));
+          laneIdGenerator.release(type, laneId);
+        },
+        MoreExecutors.directExecutor());
+    return future;
+  }
+
+  private static final long LANE_ID_BASE = 1_000_000;
+  private final AtomicLong nextLaneId = new AtomicLong(LANE_ID_BASE);
+  private final TaskTypeLaneIdGenerator laneIdGenerator = new TaskTypeLaneIdGenerator();
+
+  private class TaskTypeLaneIdGenerator {
+    private final Map<ProfilerTaskType, LaneIdGenerator> typeToLaneIdGenerator =
+        Maps.newConcurrentMap();
+
+    public long acquire(ProfilerTaskType type) {
+      var laneIdGenerator =
+          typeToLaneIdGenerator.computeIfAbsent(type, unused -> new LaneIdGenerator(type));
+      return laneIdGenerator.acquire();
+    }
+
+    public void release(ProfilerTaskType type, long laneId) {
+      var laneIdGenerator = checkNotNull(typeToLaneIdGenerator.get(type));
+      laneIdGenerator.release(laneId);
+    }
+  }
+
+  private class LaneIdGenerator {
+    private final ProfilerTaskType type;
+    private final PriorityQueue<Long> availableLaneIds = new PriorityQueue<>();
+
+    private int count = 0;
+
+    private LaneIdGenerator(ProfilerTaskType type) {
+      this.type = type;
+    }
+
+    public synchronized long acquire() {
+      if (!availableLaneIds.isEmpty()) {
+        return availableLaneIds.poll();
+      }
+      var newLaneId = Profiler.this.nextLaneId.getAndIncrement();
+      var threadMetadata = new ThreadMetadata(type.getName(count++), newLaneId, LANE_ID_BASE);
+      var writer = Profiler.this.writerRef.get();
+      if (writer != null) {
+        writer.enqueue(threadMetadata);
+      }
+      return newLaneId;
+    }
+
+    public synchronized void release(long laneId) {
+      availableLaneIds.add(laneId);
     }
   }
 }
