@@ -96,10 +96,12 @@ import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Provides a Starlark interface for all action creation needs. */
 public class StarlarkActionFactory implements StarlarkActionFactoryApi {
-  private final StarlarkRuleContext context;
+  private final StarlarkActionContext context;
+
   /** Counter for actions.run_shell helper scripts. Every script must have a unique name. */
   private int runShellOutputCounter = 0;
 
@@ -116,14 +118,12 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
               BuiltinRestriction.allowlistEntry("", "test"), // for tests
               BuiltinRestriction.allowlistEntry("", "tools/build_defs/build_info"));
 
-  public StarlarkActionFactory(StarlarkRuleContext context) {
+  public StarlarkActionFactory(StarlarkActionContext context) {
     this.context = context;
   }
 
   ArtifactRoot newFileRoot() {
-    return context.isForAspect()
-        ? getRuleContext().getBinDirectory()
-        : getRuleContext().getBinOrGenfilesDirectory();
+    return context.newFileRoot();
   }
 
   /**
@@ -1084,5 +1084,24 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   public void repr(Printer printer) {
     printer.append("actions for");
     context.repr(printer);
+  }
+
+  /** The analysis context for {@code Starlark} actions */
+  // For now, this contains methods necessary for SubruleContext to begin using
+  // StarlarkActionFactory without any invasive changes to the latter. It will be improved once the
+  // subrule implementation approaches maturity.
+  // TODO(hvd): clean up this interface to only contain general-purpose methods
+  interface StarlarkActionContext extends StarlarkValue {
+    ArtifactRoot newFileRoot();
+
+    void checkMutable(String attrName) throws EvalException;
+
+    FilesToRunProvider getExecutableRunfiles(Artifact executable);
+
+    boolean areRunfilesFromDeps(FilesToRunProvider executable);
+
+    RuleContext getRuleContext();
+
+    StarlarkSemantics getStarlarkSemantics();
   }
 }

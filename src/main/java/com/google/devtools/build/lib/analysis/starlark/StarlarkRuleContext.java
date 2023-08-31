@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory.StarlarkActionContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
@@ -111,7 +112,8 @@ import net.starlark.java.eval.Tuple;
  * object and makes it impossible to accidentally use this object where it's not supposed to be used
  * (such attempts will result in {@link EvalException}s).
  */
-public final class StarlarkRuleContext implements StarlarkRuleContextApi<ConstraintValueInfo> {
+public final class StarlarkRuleContext
+    implements StarlarkRuleContextApi<ConstraintValueInfo>, StarlarkActionContext {
 
   static final ImmutableSet<BuiltinRestriction.AllowlistEntry> PRIVATE_STARLARKIFICATION_ALLOWLIST =
       ImmutableSet.of(
@@ -438,7 +440,16 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     outputsObject = null;
   }
 
+  /** Returns the {@link ArtifactRoot} for newly declared artifacts for use in actions. */
+  @Override
+  public ArtifactRoot newFileRoot() {
+    return isForAspect()
+        ? getRuleContext().getBinDirectory()
+        : getRuleContext().getBinOrGenfilesDirectory();
+  }
+
   /** Throws an EvalException mentioning {@code attrName} if we've already been nullified. */
+  @Override
   public void checkMutable(String attrName) throws EvalException {
     if (isImmutable()) {
       throw Starlark.errorf(
@@ -525,6 +536,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   }
 
   /** Returns the wrapped ruleContext. */
+  @Override
   public RuleContext getRuleContext() {
     return ruleContext;
   }
@@ -903,11 +915,18 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     return ruleContext.getExpander(makeVariableContext).expand(attributeName, command);
   }
 
-  FilesToRunProvider getExecutableRunfiles(Artifact executable) {
+  /** Returns the {@link FilesToRunProvider} corresponding to the supplied {@code executable} */
+  @Override
+  public FilesToRunProvider getExecutableRunfiles(Artifact executable) {
     return attributesCollection.getExecutableRunfilesMap().get(executable);
   }
 
-  boolean areRunfilesFromDeps(FilesToRunProvider executable) {
+  /**
+   * Returns true iff the supplied {@link FilesToRunProvider} is from an executable attribute of
+   * this rule.
+   */
+  @Override
+  public boolean areRunfilesFromDeps(FilesToRunProvider executable) {
     return attributesCollection.getExecutableRunfilesMap().containsValue(executable);
   }
 
@@ -1105,6 +1124,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
         Depset.of(Artifact.class, helper.getResolvedTools()), helper.getToolsRunfilesSuppliers());
   }
 
+  @Override
   public StarlarkSemantics getStarlarkSemantics() {
     return ruleContext.getAnalysisEnvironment().getStarlarkSemantics();
   }
