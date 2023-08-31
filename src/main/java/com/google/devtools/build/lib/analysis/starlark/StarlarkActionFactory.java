@@ -404,6 +404,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Object toolchainUnchecked)
       throws EvalException {
     context.checkMutable("actions.run");
+    execGroupUnchecked = context.maybeOverrideExecGroup(execGroupUnchecked);
+    toolchainUnchecked = context.maybeOverrideToolchain(toolchainUnchecked);
 
     RuleContext ruleContext = getRuleContext();
     boolean useAutoExecGroups = ruleContext.useAutoExecGroups();
@@ -598,6 +600,9 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Object toolchainUnchecked)
       throws EvalException {
     context.checkMutable("actions.run_shell");
+    execGroupUnchecked = context.maybeOverrideExecGroup(execGroupUnchecked);
+    toolchainUnchecked = context.maybeOverrideToolchain(toolchainUnchecked);
+
     RuleContext ruleContext = getRuleContext();
 
     StarlarkAction.Builder builder = new StarlarkAction.Builder();
@@ -1103,5 +1108,13 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     RuleContext getRuleContext();
 
     StarlarkSemantics getStarlarkSemantics();
+
+    default Object maybeOverrideExecGroup(Object execGroupUnchecked) throws EvalException {
+      return execGroupUnchecked;
+    }
+
+    default Object maybeOverrideToolchain(Object toolchainUnchecked) throws EvalException {
+      return toolchainUnchecked;
+    }
   }
 }

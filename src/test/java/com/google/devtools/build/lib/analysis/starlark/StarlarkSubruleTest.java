@@ -17,7 +17,9 @@ package com.google.devtools.build.lib.analysis.starlark;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -234,6 +236,93 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
 
     assertThat(provider).isNotNull();
     assertThat(provider.getValue("result")).isEqualTo("called in: @//subrule_testing:foo");
+  }
+
+  @Test
+  public void testSubrule_subruleContextExposesActionsApi() throws Exception {
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "def _subrule_impl(ctx):",
+        "  out = ctx.actions.declare_file(ctx.label.name + '.out')",
+        "  ctx.actions.write(out, 'subrule file content')",
+        "  return out",
+        "_my_subrule = subrule(implementation = _subrule_impl)",
+        "",
+        "MyInfo = provider()",
+        "def _rule_impl(ctx):",
+        "  res = _my_subrule()",
+        "  return MyInfo(result = res)",
+        "",
+        "my_rule = rule(implementation = _rule_impl, subrules = [_my_subrule])");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo')");
+
+    Artifact artifact =
+        (Artifact)
+            getProvider("//subrule_testing:foo", "//subrule_testing:myrule.bzl", "MyInfo")
+                .getValue("result");
+
+    assertThat(artifact).isNotNull();
+    assertThat(artifact.getFilename()).isEqualTo("foo.out");
+    assertThat(((FileWriteAction) getGeneratingAction(artifact)).getFileContents())
+        .isEqualTo("subrule file content");
+  }
+
+  @Test
+  public void testSubruleActions_run_doesNotAllowSettingToolchain() throws Exception {
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "def _subrule_impl(ctx):",
+        "  out = ctx.actions.declare_file(ctx.label.name + '.out')",
+        "  ctx.actions.run(toolchain = 'foo', executable = '/path/to/tool', outputs = [out])",
+        "",
+        "_my_subrule = subrule(implementation = _subrule_impl)",
+        "",
+        "MyInfo = provider()",
+        "def _rule_impl(ctx):",
+        "  _my_subrule()",
+        "",
+        "my_rule = rule(implementation = _rule_impl, subrules = [_my_subrule])");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo')");
+
+    AssertionError error =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//subrule_testing:foo"));
+
+    assertThat(error).hasMessageThat().contains("'toolchain' may not be specified in subrules");
+  }
+
+  @Test
+  public void testSubruleActions_run_doesNotAllowSettingExecGroup() throws Exception {
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "def _subrule_impl(ctx):",
+        "  out = ctx.actions.declare_file(ctx.label.name + '.out')",
+        "  ctx.actions.run(exec_group = 'foo', executable = '/path/to/tool', outputs = [out])",
+        "",
+        "_my_subrule = subrule(implementation = _subrule_impl)",
+        "",
+        "MyInfo = provider()",
+        "def _rule_impl(ctx):",
+        "  _my_subrule()",
+        "",
+        "my_rule = rule(implementation = _rule_impl, subrules = [_my_subrule])");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo')");
+
+    AssertionError error =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//subrule_testing:foo"));
+
+    assertThat(error).hasMessageThat().contains("'exec_group' may not be specified in subrules");
   }
 
   @Test
