@@ -15,13 +15,18 @@ package com.google.devtools.build.skyframe;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DeletingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -29,6 +34,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
@@ -37,6 +43,7 @@ import javax.annotation.Nullable;
  */
 public abstract class AbstractIncrementalInMemoryMemoizingEvaluator
     extends AbstractInMemoryMemoizingEvaluator {
+  private static final Duration MIN_TIME_TO_LOG_DELETION = Duration.ofMillis(10);
 
   protected final ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions;
   protected final DirtyTrackingProgressReceiver progressReceiver;
@@ -80,6 +87,37 @@ public abstract class AbstractIncrementalInMemoryMemoizingEvaluator
     this.eventFilter = checkNotNull(eventFilter);
     this.graphInconsistencyReceiver = checkNotNull(graphInconsistencyReceiver);
     this.keepEdges = keepEdges;
+  }
+
+  @Override
+  public void delete(Predicate<SkyKey> deletePredicate) {
+    try (AutoProfiler ignored =
+        GoogleAutoProfilerUtils.logged("deletion marking", MIN_TIME_TO_LOG_DELETION)) {
+      Set<SkyKey> toDelete = Sets.newConcurrentHashSet();
+      getInMemoryGraph()
+          .parallelForEach(
+              e -> {
+                if (e.isDirty() || deletePredicate.test(e.getKey())) {
+                  toDelete.add(e.getKey());
+                }
+              });
+      valuesToDelete.addAll(toDelete);
+    }
+  }
+
+  @Override
+  public void deleteDirty(long versionAgeLimit) {
+    Preconditions.checkArgument(versionAgeLimit >= 0, versionAgeLimit);
+    Version threshold = IntVersion.of(lastGraphVersion.getVal() - versionAgeLimit);
+    valuesToDelete.addAll(
+        Sets.filter(
+            progressReceiver.getUnenqueuedDirtyKeys(),
+            skyKey -> {
+              NodeEntry entry = getInMemoryGraph().get(null, Reason.OTHER, skyKey);
+              Preconditions.checkNotNull(entry, skyKey);
+              Preconditions.checkState(entry.isDirty(), skyKey);
+              return entry.getVersion().atMost(threshold);
+            }));
   }
 
   protected void invalidate(Iterable<SkyKey> diff) {

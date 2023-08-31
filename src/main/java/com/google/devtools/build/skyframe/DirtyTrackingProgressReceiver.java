@@ -141,12 +141,11 @@ public class DirtyTrackingProgressReceiver implements EvaluationProgressReceiver
   }
 
   /**
-   * Returns the set of all dirty keys that have not been enqueued.
-   * This is useful for garbage collection, where we would not want to remove dirty nodes that are
-   * needed for evaluation (in the downward transitive closure of the set of the evaluation's
-   * top level nodes).
+   * Returns the set of all dirty keys that have not been enqueued. This is useful for garbage
+   * collection, where we would not want to remove dirty nodes that are needed for evaluation (in
+   * the downward transitive closure of the set of the evaluation's top level nodes).
    */
-  protected Set<SkyKey> getUnenqueuedDirtyKeys(){
+  protected Set<SkyKey> getUnenqueuedDirtyKeys() {
     return ImmutableSet.copyOf(dirtyKeys);
   }
 

@@ -197,11 +197,11 @@ public class NotifyingHelper {
   }
 
   /** {@link NodeEntry} that informs a {@link Listener} of various method calls. */
-  class NotifyingNodeEntry extends DelegatingNodeEntry {
+  public class NotifyingNodeEntry extends DelegatingNodeEntry {
     private final SkyKey myKey;
     private final NodeEntry delegate;
 
-    NotifyingNodeEntry(SkyKey key, NodeEntry delegate) {
+    protected NotifyingNodeEntry(SkyKey key, NodeEntry delegate) {
       myKey = key;
       this.delegate = delegate;
     }

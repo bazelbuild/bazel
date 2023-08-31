@@ -31,7 +31,8 @@ public final class IntVersion implements Version {
     this.val = val;
   }
 
-  long getVal() {
+  /** Returns the integer value as a long. */
+  public long getVal() {
     return val;
   }
 
