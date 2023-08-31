@@ -25,6 +25,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
@@ -285,6 +286,33 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     ev.setFailFast(false);
     evalAndExport(ev, "def impl(ctx): return", "r = rule(impl, attrs = {'2_foo': attr.int()})");
     ev.assertContainsError("attribute name `2_foo` is not a valid identifier");
+  }
+
+  @Test
+  public void testAttrEquality() throws Exception {
+    new EqualsTester()
+        .addEqualityGroup(
+            buildAttribute("foo", "attr.string_list(default = [])"),
+            buildAttribute("foo", "attr.string_list(default = [])"))
+        .addEqualityGroup(
+            buildAttribute("bar", "attr.string_list(default = [])"),
+            buildAttribute("bar", "attr.string_list(default = [])"))
+        .addEqualityGroup(
+            buildAttribute("bar", "attr.label_list(default = [])"),
+            buildAttribute("bar", "attr.label_list(default = [])"))
+        .addEqualityGroup(
+            buildAttribute("foo", "attr.string_list(default = ['hello'])"),
+            buildAttribute("foo", "attr.string_list(default = ['hello'])"))
+        .addEqualityGroup(
+            buildAttribute("foo", "attr.string_list(doc = 'Blah blah blah', default = [])"),
+            buildAttribute("foo", "attr.string_list(doc = 'Blah blah blah', default = [])"))
+        .addEqualityGroup(
+            buildAttribute("foo", "attr.string_list(mandatory = True, default = [])"),
+            buildAttribute("foo", "attr.string_list(mandatory = True, default = [])"))
+        .addEqualityGroup(
+            buildAttribute("foo", "attr.string_list(allow_empty = False, default = [])"),
+            buildAttribute("foo", "attr.string_list(allow_empty = False, default = [])"))
+        .testEquals();
   }
 
   @Test

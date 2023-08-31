@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -789,6 +790,25 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
     @Override
     public void repr(Printer printer) {
       printer.append("<attr." + name + ">");
+    }
+
+    // Value equality semantics - same as for native Attribute.
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof Descriptor)) {
+        return false;
+      }
+      Descriptor that = (Descriptor) o;
+      return Objects.equals(name, that.name)
+          && Objects.equals(attributeFactory, that.attributeFactory);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(name, attributeFactory);
     }
   }
 

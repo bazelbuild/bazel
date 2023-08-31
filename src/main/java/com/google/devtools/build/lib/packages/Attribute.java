@@ -265,6 +265,7 @@ public final class Attribute implements Comparable<Attribute> {
     private final PredicateWithMessage<Object> allowedValues;
     private final RequiredProviders requiredProviders;
     private final ImmutableList<AspectDetails<?>> aspects;
+    private final int hashCode;
 
     private ImmutableAttributeFactory(
         Type<?> type,
@@ -295,6 +296,22 @@ public final class Attribute implements Comparable<Attribute> {
       this.allowedValues = allowedValues;
       this.requiredProviders = requiredProviders;
       this.aspects = aspects;
+      this.hashCode =
+          Objects.hash(
+              type,
+              doc,
+              transitionFactory,
+              allowedRuleClassesForLabels,
+              allowedRuleClassesForLabelsWarning,
+              allowedFileTypesForLabels,
+              validityPredicate,
+              value,
+              valueSource,
+              valueSet,
+              propertyFlags,
+              allowedValues,
+              requiredProviders,
+              aspects);
     }
 
     public AttributeValueSource getValueSource() {
@@ -343,6 +360,39 @@ public final class Attribute implements Comparable<Attribute> {
           allowedValues,
           requiredProviders,
           aspects);
+    }
+
+    // Value equality semantics - same as for Attribute.
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof ImmutableAttributeFactory)) {
+        return false;
+      }
+      ImmutableAttributeFactory that = (ImmutableAttributeFactory) o;
+      return hashCode == that.hashCode
+          && Objects.equals(type, that.type)
+          && Objects.equals(doc, that.doc)
+          && Objects.equals(transitionFactory, that.transitionFactory)
+          && Objects.equals(allowedRuleClassesForLabels, that.allowedRuleClassesForLabels)
+          && Objects.equals(
+              allowedRuleClassesForLabelsWarning, that.allowedRuleClassesForLabelsWarning)
+          && Objects.equals(allowedFileTypesForLabels, that.allowedFileTypesForLabels)
+          && Objects.equals(validityPredicate, that.validityPredicate)
+          && Objects.equals(value, that.value)
+          && Objects.equals(valueSource, that.valueSource)
+          && valueSet == that.valueSet
+          && Objects.equals(propertyFlags, that.propertyFlags)
+          && Objects.equals(allowedValues, that.allowedValues)
+          && Objects.equals(requiredProviders, that.requiredProviders)
+          && Objects.equals(aspects, that.aspects);
+    }
+
+    @Override
+    public int hashCode() {
+      return hashCode;
     }
   }
 
