@@ -95,6 +95,7 @@ public enum ProfilerTask {
   CREDENTIAL_HELPER("calling credential helper"),
   PRESSURE_STALL_IO("I/O pressure stall level"),
   PRESSURE_STALL_MEMORY("Memory pressure stall level"),
+  CONFLICT_CHECK("Conflict checking"),
   DYNAMIC_LOCK("Acquiring dynamic execution output lock", Threshold.FIFTY_MILLIS),
   UNKNOWN("Unknown event");
 

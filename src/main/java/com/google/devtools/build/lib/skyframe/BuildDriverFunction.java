@@ -611,19 +611,15 @@ public class BuildDriverFunction implements SkyFunction {
     if (localRef == null) {
       return ImmutableMap.of();
     }
-    ActionLookupValuesCollectionResult transitiveValueCollectionResult =
-        transitiveActionLookupValuesHelper.collect(actionLookupKey);
-
-    ImmutableMap<ActionAnalysisMetadata, ConflictException> conflicts =
-        localRef
-            .findArtifactConflicts(
-                transitiveValueCollectionResult.collectedValues(), strictConflictCheck)
-            .getConflicts();
-    if (conflicts.isEmpty()) {
-      transitiveActionLookupValuesHelper.registerConflictFreeKeys(
-          transitiveValueCollectionResult.visitedKeys());
+    if (transitiveActionLookupValuesHelper.trackingStateForIncrementality()) {
+      return localRef.findArtifactConflicts(actionLookupKey, strictConflictCheck).getConflicts();
     }
-    return conflicts;
+    ActionLookupValuesCollectionResult transitiveValueCollectionResult =
+        transitiveActionLookupValuesHelper.collect();
+    return localRef
+        .findArtifactConflictsNoIncrementality(
+            transitiveValueCollectionResult.collectedValues(), strictConflictCheck)
+        .getConflicts();
   }
 
   private void addExtraActionsIfRequested(
@@ -667,13 +663,13 @@ public class BuildDriverFunction implements SkyFunction {
   interface TransitiveActionLookupValuesHelper {
 
     /**
-     * Perform the traversal of the transitive closure of the {@code key} and collect the
-     * corresponding ActionLookupValues.
+     * Collect the evaluated ActionLookupValues accumulated since the last time this method was
+     * called. Only used when we're not tracking for incrementality.
      */
-    ActionLookupValuesCollectionResult collect(ActionLookupKey key) throws InterruptedException;
+    ActionLookupValuesCollectionResult collect() throws InterruptedException;
 
-    /** Register with the helper that the {@code keys} are conflict-free. */
-    void registerConflictFreeKeys(ImmutableSet<ActionLookupKey> keys);
+    /** Whether we're tracking state for incrementality in the current invocation. */
+    boolean trackingStateForIncrementality();
   }
 
   interface TestTypeResolver {
