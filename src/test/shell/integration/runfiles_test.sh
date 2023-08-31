@@ -474,4 +474,35 @@ EOF
   assert_contains "${TEST_FOLDER_2}" "${MANIFEST_PATH}"
 }
 
+function test_removal_of_old_tempfiles() {
+  cat > BUILD << EOF
+sh_binary(
+    name = "foo",
+    srcs = ["foo.sh"],
+)
+EOF
+  touch foo.sh
+  chmod +x foo.sh
+
+  # Build once to create a runfiles directory.
+  bazel build //:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "build failed"
+
+  # Remove the MANIFEST file that was created by the previous build.
+  # Create an inaccessible file in the place where build-runfiles writes
+  # its temporary results.
+  #
+  # This simulates the case where the runfiles creation process is
+  # interrupted and leaves the temporary file behind. The temporary file
+  # may become read-only if it was stored in a snapshot.
+  rm ${PRODUCT_NAME}-bin/foo${EXT}.runfiles/MANIFEST
+  touch ${PRODUCT_NAME}-bin/foo${EXT}.runfiles/MANIFEST.tmp
+  chmod 0 ${PRODUCT_NAME}-bin/foo${EXT}.runfiles/MANIFEST.tmp
+
+  # Even with the inaccessible temporary file in place, build-runfiles
+  # should complete successfully. The MANIFEST file should be recreated.
+  bazel build //:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "build failed"
+  [[ -f ${PRODUCT_NAME}-bin/foo${EXT}.runfiles/MANIFEST ]] \
+    || fail "MANIFEST file not recreated"
+}
+
 run_suite "runfiles"
