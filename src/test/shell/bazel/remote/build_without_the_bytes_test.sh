@@ -2049,4 +2049,43 @@ EOF
   expect_log "Hello World"
 }
 
+function test_remove_directory_of_nested_output_file() {
+  nested_file=some/very/very/very/deeply/nested/file
+  cat > BUILD << EOF
+genrule(
+    name = "script",
+    outs = ["${nested_file}"],
+    cmd = "echo true > \$@",
+)
+
+sh_test(
+    name = "test",
+    srcs = [":script"],
+    tags = ["no-remote"],
+)
+EOF
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_minimal \
+    --test_env=TEST_ITERATION=1 \
+    //:test >& $TEST_log || fail "Failed to run test"
+  if ! [[ -f "bazel-bin/${nested_file}" ]]; then
+    fail "Nested file must be present to be able to execute the test"
+  fi
+
+  # Throw away the directory containing the deeply nested file.
+  # Rerunning the test should cause the file to be downloaded once
+  # again, as it's needed to satisfy the test's execution.
+  rm -rf bazel-bin/some
+
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_minimal \
+    --test_env=TEST_ITERATION=2 \
+    //:test >& $TEST_log || fail "Failed to run test"
+  if ! [[ -f "bazel-bin/${nested_file}" ]]; then
+    fail "Nested file must be present to be able to execute the test"
+  fi
+}
+
 run_suite "Build without the Bytes tests"

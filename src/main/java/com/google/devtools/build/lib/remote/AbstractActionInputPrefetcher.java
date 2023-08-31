@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Single;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -144,9 +145,13 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                         // Otherwise, it must belong to a tree artifact, since the directory for a
                         // tree is created in a non-writable state before prefetching begins, and
                         // this is the first time the prefetcher is seeing it.
-                        state.mustSetOutputPermissions = !dir.isWritable();
-                        if (state.mustSetOutputPermissions) {
-                          dir.setWritable(true);
+                        try {
+                          state.mustSetOutputPermissions = !dir.isWritable();
+                          if (state.mustSetOutputPermissions) {
+                            dir.setWritable(true);
+                          }
+                        } catch (FileNotFoundException e) {
+                          dir.createDirectoryAndParents();
                         }
                       }
                     } catch (IOException e) {
