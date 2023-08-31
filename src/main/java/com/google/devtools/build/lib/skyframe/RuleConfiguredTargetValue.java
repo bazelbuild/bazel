@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -24,29 +26,29 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
 
 /** A configured target in the context of a Skyframe graph. */
 @Immutable
 @ThreadSafe
-@AutoCodec(explicitlyAllowClass = RuleConfiguredTarget.class)
 public final class RuleConfiguredTargetValue
     implements RuleConfiguredObjectValue, ConfiguredTargetValue {
 
   // This variable is non-final because it may be clear()ed to save memory. It is null only after
   // clear(true) is called.
   @Nullable private RuleConfiguredTarget configuredTarget;
-  private final ImmutableList<ActionAnalysisMetadata> actions;
 
-  // May be null either after clearing or because transitive packages are not tracked.
-  @Nullable private NestedSet<Package> transitivePackages;
+  /**
+   * Operations accessing actions, for example, executing them, should be performed in the same
+   * Bazel instance that constructs the {@code RuleConfiguredTargetValue} instance and not on a
+   * Bazel instance that retrieves it remotely using deserialization.
+   */
+  @Nullable // Null if deserialized.
+  private final transient ImmutableList<ActionAnalysisMetadata> actions;
 
-  // Transitive packages are not serialized.
-  @AutoCodec.Instantiator
-  RuleConfiguredTargetValue(RuleConfiguredTarget configuredTarget) {
-    this(configuredTarget, /*transitivePackages=*/ null);
-  }
+  // May be null after clearing; because transitive packages are not tracked; or after
+  // deserialization.
+  @Nullable private transient NestedSet<Package> transitivePackages;
 
   public RuleConfiguredTargetValue(
       RuleConfiguredTarget configuredTarget, @Nullable NestedSet<Package> transitivePackages) {
@@ -64,7 +66,7 @@ public final class RuleConfiguredTargetValue
 
   @Override
   public ImmutableList<ActionAnalysisMetadata> getActions() {
-    return actions;
+    return checkNotNull(actions, "actions are not available on deserialized instances");
   }
 
   @Nullable

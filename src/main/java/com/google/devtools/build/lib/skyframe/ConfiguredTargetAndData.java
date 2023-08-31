@@ -64,7 +64,8 @@ public class ConfiguredTargetAndData {
       new SplitDependencyComparator();
 
   private final ConfiguredTarget configuredTarget;
-  private final Target target;
+  // TODO(b/297857068): add a proxy to serialize the essential fields needed from this object.
+  private final transient Target target;
   @Nullable // Null iff configuredTarget's configuration key is null.
   private final BuildConfigurationValue configuration;
   private final ImmutableList<String> transitionKeys;
