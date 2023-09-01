@@ -36,6 +36,7 @@ public class AndroidOptimizationInfo extends NativeInfo
   @Nullable private final Artifact seeds;
   @Nullable private final Artifact libraryJar;
   @Nullable private final Artifact config;
+  @Nullable private final Artifact protoMapping;
   @Nullable private final Artifact rewrittenStartupProfile;
   @Nullable private final Artifact rewrittenMergedBaselineProfile;
   @Nullable private final Artifact optimizedResourceApk;
@@ -51,6 +52,7 @@ public class AndroidOptimizationInfo extends NativeInfo
       Artifact seeds,
       Artifact libraryJar,
       Artifact config,
+      Artifact protoMapping,
       Artifact rewrittenStartupProfile,
       Artifact rewrittenMergedBaselineProfile,
       Artifact optimizedResourceApk,
@@ -64,6 +66,7 @@ public class AndroidOptimizationInfo extends NativeInfo
     this.seeds = seeds;
     this.libraryJar = libraryJar;
     this.config = config;
+    this.protoMapping = protoMapping;
     this.rewrittenStartupProfile = rewrittenStartupProfile;
     this.rewrittenMergedBaselineProfile = rewrittenMergedBaselineProfile;
     this.optimizedResourceApk = optimizedResourceApk;
@@ -107,6 +110,12 @@ public class AndroidOptimizationInfo extends NativeInfo
   @Nullable
   public Artifact getConfig() {
     return config;
+  }
+
+  @Override
+  @Nullable
+  public Artifact getProtoMapping() {
+    return protoMapping;
   }
 
   @Override
@@ -176,6 +185,7 @@ public class AndroidOptimizationInfo extends NativeInfo
         Object seeds,
         Object libraryJar,
         Object config,
+        Object protoMapping,
         Object rewrittenStartupProfile,
         Object rewrittenMergedBaselineProfile,
         Object optimizedResourceApk,
@@ -191,6 +201,7 @@ public class AndroidOptimizationInfo extends NativeInfo
           fromNoneable(seeds, Artifact.class),
           fromNoneable(libraryJar, Artifact.class),
           fromNoneable(config, Artifact.class),
+          fromNoneable(protoMapping, Artifact.class),
           fromNoneable(rewrittenStartupProfile, Artifact.class),
           fromNoneable(rewrittenMergedBaselineProfile, Artifact.class),
           fromNoneable(optimizedResourceApk, Artifact.class),

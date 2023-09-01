@@ -82,6 +82,15 @@ public interface AndroidOptimizationInfoApi<FileT extends FileApi> extends Struc
   FileT getConfig();
 
   @StarlarkMethod(
+      name = "proto_mapping",
+      structField = true,
+      doc = "Returns the proguard proto mapping.",
+      allowReturnNones = true,
+      documented = false)
+  @Nullable
+  FileT getProtoMapping();
+
+  @StarlarkMethod(
       name = "rewritten_startup_profile",
       structField = true,
       doc = "Returns the rewritten startup profile.",
@@ -174,7 +183,8 @@ public interface AndroidOptimizationInfoApi<FileT extends FileApi> extends Struc
                 @ParamType(type = NoneType.class),
               },
               named = true,
-              doc = "The optimized jar."),
+              doc = "The optimized jar.",
+              defaultValue = "None"),
           @Param(
               name = "mapping",
               allowedTypes = {
@@ -182,7 +192,8 @@ public interface AndroidOptimizationInfoApi<FileT extends FileApi> extends Struc
                 @ParamType(type = NoneType.class),
               },
               named = true,
-              doc = "The proguard mapping."),
+              doc = "The proguard mapping.",
+              defaultValue = "None"),
           @Param(
               name = "seeds",
               allowedTypes = {
@@ -190,7 +201,8 @@ public interface AndroidOptimizationInfoApi<FileT extends FileApi> extends Struc
                 @ParamType(type = NoneType.class),
               },
               named = true,
-              doc = "The proguard seeds."),
+              doc = "The proguard seeds.",
+              defaultValue = "None"),
           @Param(
               name = "library_jar",
               allowedTypes = {
@@ -198,7 +210,8 @@ public interface AndroidOptimizationInfoApi<FileT extends FileApi> extends Struc
                 @ParamType(type = NoneType.class),
               },
               named = true,
-              doc = "The proguard library jar."),
+              doc = "The proguard library jar.",
+              defaultValue = "None"),
           @Param(
               name = "config",
               allowedTypes = {
@@ -206,7 +219,17 @@ public interface AndroidOptimizationInfoApi<FileT extends FileApi> extends Struc
                 @ParamType(type = NoneType.class),
               },
               named = true,
-              doc = "The proguard config."),
+              doc = "The proguard config.",
+              defaultValue = "None"),
+          @Param(
+              name = "proto_mapping",
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
+              named = true,
+              doc = "The proguard proto mapping.",
+              defaultValue = "None"),
           @Param(
               name = "rewritten_startup_profile",
               allowedTypes = {
@@ -214,7 +237,8 @@ public interface AndroidOptimizationInfoApi<FileT extends FileApi> extends Struc
                 @ParamType(type = NoneType.class),
               },
               named = true,
-              doc = "The rewritten startup profile."),
+              doc = "The rewritten startup profile.",
+              defaultValue = "None"),
           @Param(
               name = "rewriten_merged_baseline_profile",
               allowedTypes = {
@@ -222,7 +246,8 @@ public interface AndroidOptimizationInfoApi<FileT extends FileApi> extends Struc
                 @ParamType(type = NoneType.class),
               },
               named = true,
-              doc = "The rewritten merged baseline profile."),
+              doc = "The rewritten merged baseline profile.",
+              defaultValue = "None"),
           @Param(
               name = "optimized_resource_apk",
               allowedTypes = {
@@ -230,7 +255,8 @@ public interface AndroidOptimizationInfoApi<FileT extends FileApi> extends Struc
                 @ParamType(type = NoneType.class),
               },
               named = true,
-              doc = "The optimized resource apk."),
+              doc = "The optimized resource apk.",
+              defaultValue = "None"),
           @Param(
               name = "shrunk_resource_apk",
               allowedTypes = {
@@ -238,7 +264,8 @@ public interface AndroidOptimizationInfoApi<FileT extends FileApi> extends Struc
                 @ParamType(type = NoneType.class),
               },
               named = true,
-              doc = "The shrunk resource apk."),
+              doc = "The shrunk resource apk.",
+              defaultValue = "None"),
           @Param(
               name = "shrunk_resource_zip",
               allowedTypes = {
@@ -246,7 +273,8 @@ public interface AndroidOptimizationInfoApi<FileT extends FileApi> extends Struc
                 @ParamType(type = NoneType.class),
               },
               named = true,
-              doc = "The shrunk resource zip."),
+              doc = "The shrunk resource zip.",
+              defaultValue = "None"),
           @Param(
               name = "resource_shrinker_log",
               allowedTypes = {
@@ -254,7 +282,8 @@ public interface AndroidOptimizationInfoApi<FileT extends FileApi> extends Struc
                 @ParamType(type = NoneType.class),
               },
               named = true,
-              doc = "The resource shrinker log."),
+              doc = "The resource shrinker log.",
+              defaultValue = "None"),
           @Param(
               name = "resource_optimization_config",
               allowedTypes = {
@@ -262,7 +291,8 @@ public interface AndroidOptimizationInfoApi<FileT extends FileApi> extends Struc
                 @ParamType(type = NoneType.class),
               },
               named = true,
-              doc = "The resource optimization config."),
+              doc = "The resource optimization config.",
+              defaultValue = "None"),
           @Param(
               name = "resource_path_shortening_map",
               allowedTypes = {
@@ -270,7 +300,8 @@ public interface AndroidOptimizationInfoApi<FileT extends FileApi> extends Struc
                 @ParamType(type = NoneType.class),
               },
               named = true,
-              doc = "The resource path shortening map."),
+              doc = "The resource path shortening map.",
+              defaultValue = "None"),
         },
         selfCall = true)
     @StarlarkConstructor
@@ -280,6 +311,7 @@ public interface AndroidOptimizationInfoApi<FileT extends FileApi> extends Struc
         Object seeds,
         Object libraryJar,
         Object config,
+        Object protoMapping,
         Object rewrittenStartupProfile,
         Object rewrittenMergedBaselineProfile,
         Object optimizedResourceApk,
