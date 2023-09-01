@@ -66,7 +66,11 @@ public class StarlarkSubrule implements StarlarkCallable, StarlarkSubruleApi {
     SubruleContext subruleContext = new SubruleContext(ruleContext);
     ImmutableList<Object> positionals =
         ImmutableList.builder().add(subruleContext).addAll(args).build();
-    return Starlark.call(thread, implementation, positionals, kwargs);
+    try {
+      return Starlark.call(thread, implementation, positionals, kwargs);
+    } finally {
+      subruleContext.nullify();
+    }
   }
 
   private EvalException getUndeclaredSubruleError(StarlarkRuleContext starlarkRuleContext) {
@@ -95,8 +99,10 @@ public class StarlarkSubrule implements StarlarkCallable, StarlarkSubruleApi {
       category = DocCategory.BUILTIN,
       doc = "A context object passed to the implementation function of a subrule.")
   private static class SubruleContext implements StarlarkActionContext {
-    private final StarlarkRuleContext ruleContext;
-    private final StarlarkActionFactory actions;
+    // these fields are effectively final, set to null once this instance is no longer usable by
+    // Starlark
+    private StarlarkRuleContext ruleContext;
+    private StarlarkActionFactory actions;
 
     private SubruleContext(StarlarkRuleContext ruleContext) {
       this.ruleContext = ruleContext;
@@ -108,6 +114,7 @@ public class StarlarkSubrule implements StarlarkCallable, StarlarkSubruleApi {
         doc = "The label of the target currently being analyzed",
         structField = true)
     public Label getLabel() throws EvalException {
+      checkMutable("label");
       return ruleContext.getLabel();
     }
 
@@ -118,6 +125,7 @@ public class StarlarkSubrule implements StarlarkCallable, StarlarkSubruleApi {
         doc = "Contains methods for declaring output files and the actions that produce them",
         structField = true)
     public StarlarkActionFactoryApi actions() throws EvalException {
+      checkMutable("actions");
       return actions;
     }
 
@@ -128,7 +136,18 @@ public class StarlarkSubrule implements StarlarkCallable, StarlarkSubruleApi {
 
     @Override
     public void checkMutable(String attrName) throws EvalException {
-      // TODO b/293304174 - implement this check
+      // TODO: b/293304174 - check if subrule is locked once subrules can call other subrules
+      if (isImmutable()) {
+        throw Starlark.errorf(
+            "cannot access field or method '%s' of subrule context outside of its own"
+                + " implementation function",
+            attrName);
+      }
+    }
+
+    @Override
+    public boolean isImmutable() {
+      return ruleContext == null;
     }
 
     @Override
@@ -169,6 +188,11 @@ public class StarlarkSubrule implements StarlarkCallable, StarlarkSubruleApi {
       }
       // TODO: b/293304174 - return the correct toolchain
       return toolchainUnchecked;
+    }
+
+    private void nullify() {
+      this.ruleContext = null;
+      this.actions = null;
     }
   }
 }

@@ -326,6 +326,36 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testSubruleContext_cannotBeUsedOutsideImplementationFunction() throws Exception {
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "def _subrule_impl(ctx):",
+        "  return ctx",
+        "",
+        "_my_subrule = subrule(implementation = _subrule_impl)",
+        "",
+        "def _rule_impl(ctx):",
+        "  subrule_ctx = _my_subrule()",
+        "  subrule_ctx.label",
+        "",
+        "my_rule = rule(implementation = _rule_impl, subrules = [_my_subrule])");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo')");
+
+    AssertionError error =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//subrule_testing:foo"));
+
+    assertThat(error)
+        .hasMessageThat()
+        .contains(
+            "Error: cannot access field or method 'label' of subrule context outside of its own"
+                + " implementation function");
+  }
+
+  @Test
   public void testSubruleInstantiation_outsideAllowlist_failsWithPrivateAPIError()
       throws Exception {
     evOutsideAllowlist.checkEvalErrorContains(
