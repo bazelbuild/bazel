@@ -415,21 +415,16 @@ def run_ijar(
     )
     return output
 
-def target_kind(target, dereference_aliases = False):
+def target_kind(target):
     """Get the rule class string for a target
 
     Args:
         target: (Target)
-        dereference_aliases: (bool) resolve the actual target rule class if an
-            alias
 
     Returns:
         (str) The rule class string of the target
     """
-    return _java_common_internal.target_kind(
-        target,
-        dereference_aliases = dereference_aliases,
-    )
+    return _java_common_internal.target_kind(target)
 
 def get_build_info(ctx, is_stamping_enabled):
     """Get the artifacts representing the workspace status for this build

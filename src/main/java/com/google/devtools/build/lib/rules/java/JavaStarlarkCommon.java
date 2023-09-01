@@ -278,13 +278,12 @@ public class JavaStarlarkCommon
   }
 
   @Override
-  public String getTargetKind(Object target, boolean dereferenceAliases, StarlarkThread thread)
-      throws EvalException {
+  public String getTargetKind(Object target, StarlarkThread thread) throws EvalException {
     checkPrivateAccess(thread);
     if (target instanceof MergedConfiguredTarget) {
       target = ((MergedConfiguredTarget) target).getBaseConfiguredTarget();
     }
-    if (dereferenceAliases && target instanceof ConfiguredTarget) {
+    if (target instanceof ConfiguredTarget) {
       target = ((ConfiguredTarget) target).getActual();
     }
     if (target instanceof AbstractConfiguredTarget) {
