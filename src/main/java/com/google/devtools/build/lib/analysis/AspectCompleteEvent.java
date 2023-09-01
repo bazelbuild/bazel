@@ -65,22 +65,22 @@ public final class AspectCompleteEvent
 
   /** Construct a successful target completion event. */
   public static AspectCompleteEvent createSuccessful(
-      AspectValue value,
+      AspectKey key,
       CompletionContext completionContext,
       ImmutableMap<String, ArtifactsInOutputGroup> artifacts) {
-    return new AspectCompleteEvent(value.getKey(), null, completionContext, artifacts);
+    return new AspectCompleteEvent(key, null, completionContext, artifacts);
   }
 
   /**
    * Construct a target completion event for a failed target, with the given non-empty root causes.
    */
   public static AspectCompleteEvent createFailed(
-      AspectValue value,
+      AspectKey key,
       CompletionContext ctx,
       NestedSet<Cause> rootCauses,
       ImmutableMap<String, ArtifactsInOutputGroup> outputs) {
     Preconditions.checkArgument(!rootCauses.isEmpty());
-    return new AspectCompleteEvent(value.getKey(), rootCauses, ctx, outputs);
+    return new AspectCompleteEvent(key, rootCauses, ctx, outputs);
   }
 
   /** Returns the key of the completed aspect. */

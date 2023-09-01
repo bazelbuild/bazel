@@ -1934,8 +1934,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       if (value == null) {
         continue; // Skip aspects that couldn't be applied to targets.
       }
-      for (AspectValue aspectValue : value.getTopLevelAspectsValues()) {
-        AspectKey aspectKey = aspectValue.getKey();
+      for (Map.Entry<AspectKey, AspectValue> entry : value.getTopLevelAspectsMap().entrySet()) {
+        AspectKey aspectKey = entry.getKey();
+        AspectValue aspectValue = entry.getValue();
         aspects.put(aspectKey, aspectValue);
         BuildConfigurationValue configuration =
             getConfigurationFromGraph(graph, aspectKey.getConfigurationKey());

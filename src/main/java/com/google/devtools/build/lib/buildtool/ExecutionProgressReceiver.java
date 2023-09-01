@@ -149,8 +149,9 @@ public final class ExecutionProgressReceiver
 
       if (buildDriverKey.isTopLevelAspectDriver()) {
         ((TopLevelAspectsValue) buildDriverValue.getWrappedSkyValue())
-            .getTopLevelAspectsValues()
-            .forEach(x -> eventBus.post(AspectBuiltEvent.create(x.getKey())));
+            .getTopLevelAspectsMap()
+            .keySet()
+            .forEach(x -> eventBus.post(AspectBuiltEvent.create(x)));
         return;
       }
 

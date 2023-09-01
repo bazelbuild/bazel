@@ -2671,6 +2671,7 @@ java_library(
     name = "top_level_aspects_value",
     srcs = ["TopLevelAspectsValue.java"],
     deps = [
+        ":aspect_key_creator",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//third_party:guava",

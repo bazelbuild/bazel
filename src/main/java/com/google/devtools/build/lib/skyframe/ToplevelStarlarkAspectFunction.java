@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
@@ -85,16 +86,16 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null; // some aspects keys are not evaluated
     }
-    ImmutableList.Builder<AspectValue> values =
-        ImmutableList.builderWithExpectedSize(aspectsKeys.size());
-    for (SkyKey aspectKey : aspectsKeys) {
+    ImmutableMap.Builder<AspectKey, AspectValue> valuesMap =
+        ImmutableMap.builderWithExpectedSize(aspectsKeys.size());
+    for (AspectKey aspectKey : aspectsKeys) {
       AspectValue value = (AspectValue) result.get(aspectKey);
       if (value == null) {
         return null;
       }
-      values.add(value);
+      valuesMap.put(aspectKey, value);
     }
-    return new TopLevelAspectsValue(values.build());
+    return new TopLevelAspectsValue(valuesMap.buildOrThrow());
   }
 
   private static Collection<AspectKey> getTopLevelAspectsKeys(

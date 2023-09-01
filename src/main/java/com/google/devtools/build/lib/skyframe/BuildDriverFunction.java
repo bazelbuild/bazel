@@ -369,8 +369,9 @@ public class BuildDriverFunction implements SkyFunction {
     if (!postedEventsTypes.add(TopLevelStatusEvents.Type.ASPECT_ANALYZED)) {
       return;
     }
-    for (AspectValue aspectValue : topLevelAspectsValue.getTopLevelAspectsValues()) {
-      AspectKey aspectKey = aspectValue.getKey();
+    for (Map.Entry<AspectKey, AspectValue> entry :
+        topLevelAspectsValue.getTopLevelAspectsMap().entrySet()) {
+      AspectKey aspectKey = entry.getKey();
       env.getListener()
           .post(
               new AspectConfiguredEvent(
@@ -378,7 +379,7 @@ public class BuildDriverFunction implements SkyFunction {
                   /* aspectClassName= */ aspectKey.getAspectClass().getName(),
                   aspectKey.getAspectDescriptor().getDescription(),
                   getConfigurationValue(env, aspectKey.getConfigurationKey())));
-      env.getListener().post(AspectAnalyzedEvent.create(aspectKey, aspectValue));
+      env.getListener().post(AspectAnalyzedEvent.create(aspectKey, entry.getValue()));
     }
   }
 
@@ -556,8 +557,10 @@ public class BuildDriverFunction implements SkyFunction {
     boolean symlinkPlantingEventsSent =
         !postedEventsTypes.add(
             TopLevelStatusEvents.Type.TOP_LEVEL_TARGET_READY_FOR_SYMLINK_PLANTING);
-    for (AspectValue aspectValue : topLevelAspectsValue.getTopLevelAspectsValues()) {
-      AspectKey aspectKey = aspectValue.getKey();
+    for (Map.Entry<AspectKey, AspectValue> entry :
+        topLevelAspectsValue.getTopLevelAspectsMap().entrySet()) {
+      AspectKey aspectKey = entry.getKey();
+      AspectValue aspectValue = entry.getValue();
       addExtraActionsIfRequested(
           aspectValue.getProvider(ExtraActionArtifactsProvider.class),
           artifactsToBuild,

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Aspect;
@@ -35,7 +36,7 @@ public class AspectValue extends BasicActionLookupValue
       ConfiguredAspect configuredAspect,
       @Nullable NestedSet<Package> transitivePackages) {
     return transitivePackages == null
-        ? new AspectValue(key, aspect, location, configuredAspect)
+        ? new AspectValue(aspect, location, configuredAspect)
         : new AspectValueWithTransitivePackages(
             key, aspect, location, configuredAspect, transitivePackages);
   }
@@ -45,15 +46,9 @@ public class AspectValue extends BasicActionLookupValue
   @Nullable private Aspect aspect;
   @Nullable private Location location;
   @Nullable private TransitiveInfoProviderMap providers;
-  // Normally the key used to evaluate this value in AspectFunction#compute. But in the case of a
-  // top-level StarlarkAspectKey, the AspectValue will be this value but the key will be the
-  // associated aspect key from StarlarkAspectKey#toAspectkey.
-  @Nullable private AspectKey key;
 
-  private AspectValue(
-      AspectKey key, Aspect aspect, Location location, ConfiguredAspect configuredAspect) {
+  private AspectValue(Aspect aspect, Location location, ConfiguredAspect configuredAspect) {
     super(configuredAspect.getActions());
-    this.key = checkNotNull(key);
     this.aspect = checkNotNull(aspect);
     this.location = checkNotNull(location);
     this.providers = configuredAspect.getProviders();
@@ -63,8 +58,8 @@ public class AspectValue extends BasicActionLookupValue
     return checkNotNull(location);
   }
 
-  public final AspectKey getKey() {
-    return checkNotNull(key);
+  public AspectKey getKeyForTransitivePackageTracking() {
+    throw new UnsupportedOperationException("Only supported if transitive packages are tracked.");
   }
 
   public final Aspect getAspect() {
@@ -82,7 +77,6 @@ public class AspectValue extends BasicActionLookupValue
       aspect = null;
       location = null;
       providers = null;
-      key = null;
     }
   }
 
@@ -98,17 +92,21 @@ public class AspectValue extends BasicActionLookupValue
   }
 
   @Override
-  public final String toString() {
-    return getStringHelper()
-        .add("key", key)
+  protected ToStringHelper getStringHelper() {
+    return super.getStringHelper()
         .add("location", location)
         .add("aspect", aspect)
-        .add("providers", providers)
-        .toString();
+        .add("providers", providers);
+  }
+
+  @Override
+  public String toString() {
+    return getStringHelper().toString();
   }
 
   private static final class AspectValueWithTransitivePackages extends AspectValue {
     @Nullable private transient NestedSet<Package> transitivePackages; // Null after clear().
+    @Nullable private AspectKey key;
 
     private AspectValueWithTransitivePackages(
         AspectKey key,
@@ -116,8 +114,9 @@ public class AspectValue extends BasicActionLookupValue
         Location location,
         ConfiguredAspect configuredAspect,
         NestedSet<Package> transitivePackages) {
-      super(key, aspect, location, configuredAspect);
+      super(aspect, location, configuredAspect);
       this.transitivePackages = checkNotNull(transitivePackages);
+      this.key = checkNotNull(key);
     }
 
     @Override
@@ -126,9 +125,20 @@ public class AspectValue extends BasicActionLookupValue
     }
 
     @Override
+    public AspectKey getKeyForTransitivePackageTracking() {
+      return checkNotNull(key);
+    }
+
+    @Override
     public void clear(boolean clearEverything) {
       super.clear(clearEverything);
       transitivePackages = null;
+      key = null;
+    }
+
+    @Override
+    protected ToStringHelper getStringHelper() {
+      return super.getStringHelper().add("key", key).add("transitivePackages", transitivePackages);
     }
   }
 }

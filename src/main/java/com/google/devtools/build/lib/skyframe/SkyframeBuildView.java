@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.AnalysisOperationWatcher;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
-import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -1079,9 +1078,7 @@ public final class SkyframeBuildView {
         TopLevelAspectsValue topLevelAspectsValue =
             (TopLevelAspectsValue)
                 skyframeExecutor.getDoneSkyValueForIntrospection(topLevelAspectsKey);
-        topLevelAspectsValue
-            .getTopLevelAspectsValues()
-            .forEach(aspectValue -> aspectKeysBuilder.add(aspectValue.getKey()));
+        aspectKeysBuilder.addAll(topLevelAspectsValue.getTopLevelAspectsMap().keySet());
       } catch (FailureToRetrieveIntrospectedValueException e) {
         // It could happen that the analysis of TopLevelAspectKey wasn't complete: either its own
         // analysis failed, or another error was raise in --nokeep_going mode. In that case, it
@@ -1148,9 +1145,7 @@ public final class SkyframeBuildView {
         continue;
       }
       TopLevelAspectsValue topLevelAspectsValue = (TopLevelAspectsValue) value.getWrappedSkyValue();
-      for (AspectValue aspectValue : topLevelAspectsValue.getTopLevelAspectsValues()) {
-        aspects.put(aspectValue.getKey(), aspectValue);
-      }
+      aspects.putAll(topLevelAspectsValue.getTopLevelAspectsMap());
     }
     return aspects.buildOrThrow();
   }

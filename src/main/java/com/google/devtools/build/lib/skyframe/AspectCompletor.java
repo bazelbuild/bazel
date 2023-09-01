@@ -84,12 +84,12 @@ class AspectCompletor
 
   @Override
   public ExtendedEventHandler.Postable createFailed(
-      AspectValue value,
+      AspectCompletionKey skyKey,
       NestedSet<Cause> rootCauses,
       CompletionContext ctx,
       ImmutableMap<String, ArtifactsInOutputGroup> outputs,
       BuildEventId configurationEventId) {
-    return AspectCompleteEvent.createFailed(value, ctx, rootCauses, outputs);
+    return AspectCompleteEvent.createFailed(skyKey.actionLookupKey(), ctx, rootCauses, outputs);
   }
 
   @Nullable
@@ -102,6 +102,8 @@ class AspectCompletor
       Environment env)
       throws InterruptedException {
     return AspectCompleteEvent.createSuccessful(
-        value, completionContext, artifactsToBuild.getAllArtifactsByOutputGroup());
+        skyKey.actionLookupKey(),
+        completionContext,
+        artifactsToBuild.getAllArtifactsByOutputGroup());
   }
 }
