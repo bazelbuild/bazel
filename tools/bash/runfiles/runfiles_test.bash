@@ -58,14 +58,14 @@ function find_runfiles_lib() {
       export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
     elif [[ -f "$0.runfiles/MANIFEST" ]]; then
       export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
-    elif [[ -f "$0.runfiles/io_bazel/tools/bash/runfiles/runfiles.bash" ]]; then
+    elif [[ -f "$0.runfiles/_main/tools/bash/runfiles/runfiles.bash" ]]; then
       export RUNFILES_DIR="$0.runfiles"
     fi
   fi
-  if [[ -f "${RUNFILES_DIR:-/dev/null}/io_bazel/tools/bash/runfiles/runfiles.bash" ]]; then
-    echo "${RUNFILES_DIR}/io_bazel/tools/bash/runfiles/runfiles.bash"
+  if [[ -f "${RUNFILES_DIR:-/dev/null}/_main/tools/bash/runfiles/runfiles.bash" ]]; then
+    echo "${RUNFILES_DIR}/_main/tools/bash/runfiles/runfiles.bash"
   elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
-    grep -m1 "^io_bazel/tools/bash/runfiles/runfiles.bash " \
+    grep -m1 "^_main/tools/bash/runfiles/runfiles.bash " \
         "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-
   else
     echo >&2 "ERROR: cannot find //tools/bash/runfiles:runfiles.bash"

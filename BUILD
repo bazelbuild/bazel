@@ -1,6 +1,8 @@
 # Bazel - Google's Build System
 
 load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup")
+load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@rules_python//python:defs.bzl", "py_binary")
 load("@rules_license//rules:license.bzl", "license")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
@@ -24,14 +26,14 @@ filegroup(
     srcs = glob(
         ["*"],
         exclude = [
-            "WORKSPACE",  # Needs to be filtered.
+            "WORKSPACE.bzlmod",  # Needs to be filtered.
             "bazel-*",  # convenience symlinks
             "out",  # IntelliJ with setup-intellij.sh
             "output",  # output of compile.sh
             ".*",  # mainly .git* files
         ],
     ) + [
-        "//:WORKSPACE.filtered",
+        "//:WORKSPACE.bzlmod.filtered",
         "//examples:srcs",
         "//scripts:srcs",
         "//site:srcs",
@@ -84,8 +86,8 @@ filegroup(
 
 genrule(
     name = "filtered_WORKSPACE",
-    srcs = ["WORKSPACE"],
-    outs = ["WORKSPACE.filtered"],
+    srcs = ["WORKSPACE.bzlmod"],
+    outs = ["WORKSPACE.bzlmod.filtered"],
     cmd = "\n".join([
         "cp $< $@",
         # Comment out the android repos if they exist.
@@ -148,10 +150,10 @@ pkg_tar(
     ],
     # TODO(aiuto): Replace with pkg_filegroup when that is available.
     remap_paths = {
-        "WORKSPACE.filtered": "WORKSPACE",
+        "WORKSPACE.bzlmod.filtered": "WORKSPACE.bzlmod",
         # Rewrite paths coming from local repositories back into third_party.
-        "external/googleapis": "third_party/googleapis",
-        "external/remoteapis": "third_party/remoteapis",
+        "external/googleapis~override": "third_party/googleapis",
+        "external/remoteapis~override": "third_party/remoteapis",
     },
     strip_prefix = ".",
     # Public but bazel-only visibility.
@@ -172,12 +174,19 @@ pkg_tar(
     visibility = ["//:__subpackages__"],
 )
 
+write_file(
+    name = "gen_maven_repo_name",
+    out = "MAVEN_CANONICAL_REPO_NAME",
+    content = [get_canonical_repo_name("@maven")],
+)
+
 # The @maven repository is created by maven_install from rules_jvm_external.
 # `@maven//:srcs` contains all jar files downloaded and BUILD files created by maven_install.
 pkg_tar(
     name = "maven-srcs",
-    srcs = ["@maven//:srcs"],
-    strip_prefix = "external",
+    srcs = ["@maven//:srcs"] + ["MAVEN_CANONICAL_REPO_NAME"],
+    strip_prefix = "external/" + get_canonical_repo_name("@maven"),
+    package_dir = "derived/maven",
     visibility = ["//:__subpackages__"],
 )
 
@@ -198,12 +207,10 @@ genrule(
     srcs = [
         ":bazel-srcs",
         ":bootstrap-jars",
-        ":platforms-srcs",
-        ":rules_java-srcs",
         ":maven-srcs",
         "//src:derived_java_srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:bootstrap_autocodec.tar",
-        "@additional_distfiles//:archives.tar",
+        "@bootstrap_repo_cache//:archives.tar",
     ],
     outs = ["bazel-distfile.zip"],
     cmd = "$(location :combine_distfiles) $@ $(SRCS)",
@@ -222,7 +229,7 @@ genrule(
         ":maven-srcs",
         "//src:derived_java_srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:bootstrap_autocodec.tar",
-        "@additional_distfiles//:archives.tar",
+        "@bootstrap_repo_cache//:archives.tar",
     ],
     outs = ["bazel-distfile.tar"],
     cmd = "$(location :combine_distfiles_to_tar.sh) $@ $(SRCS)",

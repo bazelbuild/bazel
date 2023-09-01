@@ -75,7 +75,6 @@ def _test_repo_extension_impl(ctx):
             integrity = artifact["integrity"] if "integrity" in artifact else None,
         )
         cnt += 1
-
     # write a repo rule that depends on all the http_file rules
     hub_test_repo(name = "test_repos", repos = [(name + str(i)) for i in range(1, cnt)])
 

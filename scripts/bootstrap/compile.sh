@@ -28,7 +28,7 @@ GOOGLE_API_PROTOS="$(grep -o '".*\.proto"' third_party/googleapis/BUILD.bazel | 
 PROTO_FILES=$(find third_party/remoteapis ${GOOGLE_API_PROTOS} third_party/pprof src/main/protobuf src/main/java/com/google/devtools/build/lib/buildeventstream/proto src/main/java/com/google/devtools/build/skyframe src/main/java/com/google/devtools/build/lib/skyframe/proto src/main/java/com/google/devtools/build/lib/bazel/debug src/main/java/com/google/devtools/build/lib/starlarkdebug/proto src/main/java/com/google/devtools/build/lib/packages/metrics/package_load_metrics.proto -name "*.proto")
 # For protobuf jars, derived/jars/com_google_protobuf/java/core/libcore.jar must be in front of derived/jars/com_google_protobuf/java/core/liblite.jar, so we sort jars here
 LIBRARY_JARS=$(find $ADDITIONAL_JARS -name '*.jar' | sort | grep -Fv JavaBuilder | tr "\n" " ")
-MAVEN_JARS=$(find maven -name '*.jar' | grep -Fv netty-tcnative | tr "\n" " ")
+MAVEN_JARS=$(find "derived/maven" -name '*.jar' | grep -Fv netty-tcnative | tr "\n" " ")
 LIBRARY_JARS="${LIBRARY_JARS} ${MAVEN_JARS}"
 
 DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/java,tools/starlark/java} tools/java/runfiles ${OUTPUT_DIR}/src)
@@ -244,11 +244,13 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
   done
 
   # Create the bazel_tools repository.
-  BAZEL_TOOLS_REPO=${OUTPUT_DIR}/embedded_tools
+  BAZEL_TOOLS_REPO=${OUTPUT_DIR}/archive/embedded_tools
   mkdir -p ${BAZEL_TOOLS_REPO}
   cat <<EOF >${BAZEL_TOOLS_REPO}/WORKSPACE
 workspace(name = 'bazel_tools')
 EOF
+
+  link_file "${PWD}/src/MODULE.tools" "${BAZEL_TOOLS_REPO}/MODULE.bazel"
 
   mkdir -p "${BAZEL_TOOLS_REPO}/src/conditions"
   link_file "${PWD}/src/conditions/BUILD.tools" \
@@ -305,15 +307,7 @@ EOF
   link_children "${PWD}" tools "${BAZEL_TOOLS_REPO}"
 
   # Set up @maven properly
-  cp maven/BUILD.vendor maven/BUILD
-
-  # Overwrite tools.WORKSPACE, this is only for the bootstrap binary
-  chmod u+w "${OUTPUT_DIR}/classes/com/google/devtools/build/lib/bazel/rules/tools.WORKSPACE"
-  cat <<EOF >${OUTPUT_DIR}/classes/com/google/devtools/build/lib/bazel/rules/tools.WORKSPACE
-local_repository(name = 'bazel_tools', path = '${BAZEL_TOOLS_REPO}')
-bind(name = "cc_toolchain", actual = "@bazel_tools//tools/cpp:default-toolchain")
-local_config_platform(name = 'local_config_platform')
-EOF
+  cp derived/maven/BUILD.vendor derived/maven/BUILD
 
   create_deploy_jar "libblaze" "com.google.devtools.build.lib.bazel.Bazel" \
       ${OUTPUT_DIR}
@@ -322,12 +316,6 @@ fi
 log "Creating Bazel install base..."
 ARCHIVE_DIR=${OUTPUT_DIR}/archive
 mkdir -p ${ARCHIVE_DIR}
-
-# Prepare @platforms local repository
-link_dir ${PWD}/platforms ${ARCHIVE_DIR}/platforms
-
-# Prepare @rules_java_builtin local repository
-link_dir ${PWD}/rules_java ${ARCHIVE_DIR}/rules_java
 
 # Dummy build-runfiles (we can't compile C++ yet, so we can't have the real one)
 if [ "${PLATFORM}" = "windows" ]; then

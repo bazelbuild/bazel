@@ -127,7 +127,6 @@ class TestBase(unittest.TestCase):
       shared_repo_cache = os.environ.get('REPOSITORY_CACHE')
       if shared_repo_cache:
         f.write('common --repository_cache={}\n'.format(shared_repo_cache))
-        f.write('common --experimental_repository_cache_hardlinks\n')
     os.chdir(self._test_cwd)
 
   def tearDown(self):

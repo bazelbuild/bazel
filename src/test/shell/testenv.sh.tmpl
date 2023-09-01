@@ -82,7 +82,7 @@ export PATH="$PATH_TO_BAZEL_WRAPPER:$PATH"
 # Setting up the environment for Bazel integration tests.
 #
 [ -z "$TEST_SRCDIR" ] && log_fatal "TEST_SRCDIR not set!"
-BAZEL_RUNFILES="$TEST_SRCDIR/io_bazel"
+BAZEL_RUNFILES="$TEST_SRCDIR/_main"
 
 # WORKSPACE file
 workspace_file="${BAZEL_RUNFILES}/WORKSPACE"
@@ -324,7 +324,7 @@ EOF
   if [[ -n ${REPOSITORY_CACHE:-} ]]; then
     echo "testenv.sh: Using repository cache at $REPOSITORY_CACHE."
     cat >>$TEST_TMPDIR/bazelrc <<EOF
-common --repository_cache=$REPOSITORY_CACHE --experimental_repository_cache_hardlinks
+common --repository_cache=$REPOSITORY_CACHE
 EOF
   fi
 

@@ -109,11 +109,10 @@ def _repo_cache_tar_impl(ctx):
 
     ctx.file("README.md", readme_content)
     ctx.file(
-        "BUILD",
-        _BUILD.format(
+        "BUILD", _BUILD.format(
             srcs = archive_files + ["README.md"],
             strip_prefix = "external/" + ctx.attr.name,
-            dirname = ctx.attr.dirname,
+            dirname = ctx.attr.dirname
         ),
     )
 

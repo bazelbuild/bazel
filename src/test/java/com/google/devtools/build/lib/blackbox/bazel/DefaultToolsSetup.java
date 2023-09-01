@@ -77,7 +77,6 @@ public class DefaultToolsSetup implements ToolsSetup {
     String sharedRepoCache = System.getenv("REPOSITORY_CACHE");
     if (sharedRepoCache != null) {
       lines.add("common --repository_cache=" + sharedRepoCache);
-      lines.add("common --experimental_repository_cache_hardlinks");
     }
 
     context.write(".bazelrc", lines);
