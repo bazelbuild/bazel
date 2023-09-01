@@ -1,7 +1,7 @@
 # [Bazel](https://bazel.build)
 
 *{Fast, Correct} - Choose two*
-#testing 2
+#testing 2.1
 Build and test software of any size, quickly and reliably.
 
 * **Speed up your builds and tests**:
