@@ -177,6 +177,9 @@ public final class StarlarkRuleContext
    */
   private int resolveCommandScriptCounter = 0;
 
+  // for temporarily freezing mutability, such as while evaluating a subrule
+  private boolean lockedForSubruleEvaluation = false;
+
   /**
    * Creates a new StarlarkRuleContext wrapping ruleContext.
    *
@@ -308,6 +311,10 @@ public final class StarlarkRuleContext
     } else {
       return getRuleContext().getRule().getRuleClassObject().getSubrules();
     }
+  }
+
+  void setLockedForSubrule(boolean isLocked) {
+    this.lockedForSubruleEvaluation = isLocked;
   }
 
   /**
@@ -523,7 +530,7 @@ public final class StarlarkRuleContext
 
   @Override
   public boolean isImmutable() {
-    return ruleContext == null;
+    return ruleContext == null || lockedForSubruleEvaluation;
   }
 
   @Override

@@ -67,9 +67,11 @@ public class StarlarkSubrule implements StarlarkCallable, StarlarkSubruleApi {
     ImmutableList<Object> positionals =
         ImmutableList.builder().add(subruleContext).addAll(args).build();
     try {
+      ruleContext.setLockedForSubrule(true);
       return Starlark.call(thread, implementation, positionals, kwargs);
     } finally {
       subruleContext.nullify();
+      ruleContext.setLockedForSubrule(false);
     }
   }
 
@@ -115,7 +117,9 @@ public class StarlarkSubrule implements StarlarkCallable, StarlarkSubruleApi {
         structField = true)
     public Label getLabel() throws EvalException {
       checkMutable("label");
-      return ruleContext.getLabel();
+      // we use the underlying RuleContext to bypass the mutability check in
+      // StarlarkRuleContext.getLabel() since it's locked
+      return ruleContext.getRuleContext().getLabel();
     }
 
     // This is identical to the StarlarkActionFactory used by StarlarkRuleContext, and subrule
