@@ -45,6 +45,9 @@ cc_library(
             "c/blake3_sse2_x86-64_windows_msvc.asm",
             "c/blake3_sse41_x86-64_windows_msvc.asm",
         ],
+        "@bazel_tools//src/conditions:windows_arm64": [
+            "c/blake3_neon.c",
+        ],
         "@bazel_tools//src/conditions:darwin_arm64": [
             "c/blake3_neon.c",
         ],
@@ -65,7 +68,7 @@ cc_library(
         ],
         "@bazel_tools//src/conditions:windows_x64": [],
         "@bazel_tools//src/conditions:windows_arm64": [
-            "-DBLAKE3_USE_NEON=0",
+            "-DBLAKE3_USE_NEON=1",
         ],
         "@bazel_tools//src/conditions:darwin_arm64": [
             "-DBLAKE3_USE_NEON=1",
