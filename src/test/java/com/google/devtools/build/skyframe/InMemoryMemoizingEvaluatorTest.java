@@ -14,11 +14,11 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link InMemoryMemoizingEvaluator}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class InMemoryMemoizingEvaluatorTest extends MemoizingEvaluatorTest {
 
   @Override

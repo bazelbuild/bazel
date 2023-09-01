@@ -735,6 +735,13 @@ abstract class AbstractParallelEvaluator {
         InterruptibleSupplier<NodeBatch> newDepsThatWerentInTheLastEvaluationNodes =
             graph.createIfAbsentBatchAsync(
                 skyKey, Reason.RDEP_ADDITION, newDepsThatWerentInTheLastEvaluation);
+        ImmutableSet<SkyKey> resetDeps = nodeEntry.getResetDirectDeps();
+
+        // Due to multi-threading, either the following call to handleKnownChildrenForDirtyNode or
+        // the enqueueChild loop may cause the current node to be re-enqueued (and evaluated) if all
+        // new children of this node are already done. Therefore, the rest of this method cannot
+        // assume that the node is dirty.
+
         handleKnownChildrenForDirtyNode(
             newDepsThatWereInTheLastEvaluation,
             graph.getBatch(skyKey, Reason.ENQUEUING_CHILD, newDepsThatWereInTheLastEvaluation),
@@ -742,9 +749,6 @@ abstract class AbstractParallelEvaluator {
             /* enqueueParentIfReady= */ true,
             env);
 
-        // Due to multi-threading, this can potentially cause the current node to be re-enqueued if
-        // all 'new' children of this node are already done. Therefore, there should not be any code
-        // after this loop, as it would potentially race with the re-evaluation in another thread.
         NodeBatch newNodes = newDepsThatWerentInTheLastEvaluationNodes.get();
         for (SkyKey newDirectDep : newDepsThatWerentInTheLastEvaluation) {
           enqueueChild(
@@ -752,7 +756,7 @@ abstract class AbstractParallelEvaluator {
               nodeEntry,
               newDirectDep,
               newNodes.get(newDirectDep),
-              /* depAlreadyExists= */ false,
+              /* depAlreadyExists= */ resetDeps.contains(newDirectDep),
               /* enqueueParentIfReady= */ true,
               env);
         }
@@ -900,13 +904,6 @@ abstract class AbstractParallelEvaluator {
       }
     }
 
-    // TODO(b/19539699): rdeps of children have to be handled here. If the graph does not keep
-    // edges, nothing has to be done, since there are no reverse deps to keep consistent. If the
-    // graph keeps edges, it's a harder problem. The reverse deps could just be removed, but in the
-    // case that this node is dirty, the deps shouldn't be removed, they should just be transformed
-    // back to "known reverse deps" from "reverse deps declared during this evaluation" (the inverse
-    // of NodeEntry#checkIfDoneForDirtyReverseDep). Such a method doesn't currently exist, but
-    // could.
     resetEntry(key, entry);
   }
 
@@ -976,14 +973,27 @@ abstract class AbstractParallelEvaluator {
     }
 
     env.addTemporaryDirectDepsTo(entry);
+
+    // Reset deps is usually empty. Avoid an unnecessary allocation from Sets.union if possible.
+    ImmutableSet<SkyKey> resetDeps = entry.getResetDirectDeps();
+    Set<SkyKey> alreadyRegisteredDeps;
+    if (resetDeps.isEmpty()) {
+      alreadyRegisteredDeps = oldDeps;
+    } else if (oldDeps.isEmpty()) {
+      alreadyRegisteredDeps = resetDeps;
+    } else {
+      alreadyRegisteredDeps = Sets.union(oldDeps, resetDeps);
+    }
+
     Collection<SkyKey> newlyAddedNewDeps;
     ImmutableCollection<SkyKey> previouslyRegisteredNewDeps;
-    if (oldDeps.isEmpty()) {
+    if (alreadyRegisteredDeps.isEmpty()) {
       newlyAddedNewDeps = newDeps;
       previouslyRegisteredNewDeps = ImmutableSet.of();
     } else {
-      newlyAddedNewDeps = ImmutableList.copyOf(Sets.difference(newDeps, oldDeps));
-      previouslyRegisteredNewDeps = ImmutableList.copyOf(Sets.intersection(newDeps, oldDeps));
+      newlyAddedNewDeps = ImmutableList.copyOf(Sets.difference(newDeps, alreadyRegisteredDeps));
+      previouslyRegisteredNewDeps =
+          ImmutableList.copyOf(Sets.intersection(newDeps, alreadyRegisteredDeps));
     }
 
     InterruptibleSupplier<NodeBatch> newlyAddedNewDepNodes =
