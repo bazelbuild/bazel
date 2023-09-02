@@ -46,6 +46,7 @@ import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.OutputSymlink;
 import build.bazel.remote.execution.v2.Platform;
 import build.bazel.remote.execution.v2.RequestMetadata;
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.SymlinkNode;
 import build.bazel.remote.execution.v2.Tree;
 import com.github.benmanes.caffeine.cache.Cache;
@@ -220,30 +221,37 @@ public class RemoteExecutionService {
   }
 
   static Command buildCommand(
+      boolean useOutputPaths,
       Collection<? extends ActionInput> outputs,
       List<String> arguments,
       ImmutableMap<String, String> env,
       @Nullable Platform platform,
       RemotePathResolver remotePathResolver) {
     Command.Builder command = Command.newBuilder();
-    ArrayList<String> outputFiles = new ArrayList<>();
-    ArrayList<String> outputDirectories = new ArrayList<>();
-    ArrayList<String> outputPaths = new ArrayList<>();
-    for (ActionInput output : outputs) {
-      String pathString = decodeBytestringUtf8(remotePathResolver.localPathToOutputPath(output));
-      if (output.isDirectory()) {
-        outputDirectories.add(pathString);
-      } else {
-        outputFiles.add(pathString);
+    if (useOutputPaths) {
+      var outputPaths = new ArrayList<String>();
+      for (ActionInput output : outputs) {
+        String pathString = decodeBytestringUtf8(remotePathResolver.localPathToOutputPath(output));
+        outputPaths.add(pathString);
       }
-      outputPaths.add(pathString);
+      Collections.sort(outputPaths);
+      command.addAllOutputPaths(outputPaths);
+    } else {
+      var outputFiles = new ArrayList<String>();
+      var outputDirectories = new ArrayList<String>();
+      for (ActionInput output : outputs) {
+        String pathString = decodeBytestringUtf8(remotePathResolver.localPathToOutputPath(output));
+        if (output.isDirectory()) {
+          outputDirectories.add(pathString);
+        } else {
+          outputFiles.add(pathString);
+        }
+      }
+      Collections.sort(outputFiles);
+      Collections.sort(outputDirectories);
+      command.addAllOutputFiles(outputFiles);
+      command.addAllOutputDirectories(outputDirectories);
     }
-    Collections.sort(outputFiles);
-    Collections.sort(outputDirectories);
-    Collections.sort(outputPaths);
-    command.addAllOutputFiles(outputFiles);
-    command.addAllOutputDirectories(outputDirectories);
-    command.addAllOutputPaths(outputPaths);
 
     if (platform != null) {
       command.setPlatform(platform);
@@ -328,6 +336,10 @@ public class RemoteExecutionService {
     return remoteCache instanceof RemoteExecutionCache
         && remoteExecutor != null
         && Spawns.mayBeExecutedRemotely(spawn);
+  }
+
+  public boolean mayBeCachedRemotely(Spawn spawn) {
+    return remoteCache instanceof RemoteExecutionCache && Spawns.mayBeCachedRemotely(spawn);
   }
 
   @VisibleForTesting
@@ -502,6 +514,31 @@ public class RemoteExecutionService {
         : null;
   }
 
+  private boolean shouldUseOutputPaths(Spawn spawn) {
+    var isRemoteExec = mayBeExecutedRemotely(spawn);
+    var isRemoteCached = mayBeCachedRemotely(spawn);
+    if (!isRemoteExec || !isRemoteCached) {
+      return true;
+    }
+
+    ServerCapabilities serverCapabilities;
+    if (isRemoteExec) {
+      serverCapabilities = remoteExecutor.getServerCapabilities();
+    } else {
+      serverCapabilities = remoteCache.getServerCapabilities();
+    }
+    if (serverCapabilities == null) {
+      return true;
+    }
+
+    var supportStatus = ClientApiVersion.current.checkServerSupportedVersions(serverCapabilities);
+    if (supportStatus.isUnsupported()) {
+      return true;
+    }
+
+    return supportStatus.getHighestSupportedVersion().compareTo(ApiVersion.twoPointOne) >= 0;
+  }
+
   /** Creates a new {@link RemoteAction} instance from spawn. */
   public RemoteAction buildRemoteAction(Spawn spawn, SpawnExecutionContext context)
       throws IOException, ExecException, ForbiddenActionInputException, InterruptedException {
@@ -522,6 +559,7 @@ public class RemoteExecutionService {
 
       Command command =
           buildCommand(
+              shouldUseOutputPaths(spawn),
               spawn.getOutputFiles(),
               spawn.getArguments(),
               spawn.getEnvironment(),
