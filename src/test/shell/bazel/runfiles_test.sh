@@ -239,4 +239,26 @@ EOF
   [[ -f bazel-bin/world.runfiles/MANIFEST ]] || fail "expected output manifest world to exist"
 }
 
+function test_switch_runfiles_from_enabled_to_disabled {
+    echo '#!/bin/bash' > cmd.sh
+    chmod 755 cmd.sh
+    cat > BUILD <<'EOF'
+sh_binary(
+  name = "cmd",
+  srcs = ["cmd.sh"],
+  data = glob(["data-*"]),
+)
+genrule(
+  name = "g",
+  cmd = "$(location :cmd) > $@",
+  outs = ["out"],
+  tools = [":cmd"],
+)
+EOF
+
+    bazel build --spawn_strategy=local --nobuild_runfile_links //:out
+    touch data-1
+    bazel build --spawn_strategy=local --nobuild_runfile_links --enable_runfiles=false //:out
+}
+
 run_suite "runfiles tests"
