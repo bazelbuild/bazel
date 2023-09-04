@@ -141,6 +141,7 @@ public final class RemoteModule extends BlazeModule {
   @Nullable private RemoteActionContextProvider actionContextProvider;
   @Nullable private RemoteActionInputFetcher actionInputFetcher;
   @Nullable private RemoteOptions remoteOptions;
+  @Nullable private CommandEnvironment env;
   @Nullable private RemoteOutputService remoteOutputService;
   @Nullable private TempPathGenerator tempPathGenerator;
   @Nullable private BlockWaitingModule blockWaitingModule;
@@ -303,6 +304,7 @@ public final class RemoteModule extends BlazeModule {
     Preconditions.checkState(actionContextProvider == null, "actionContextProvider must be null");
     Preconditions.checkState(actionInputFetcher == null, "actionInputFetcher must be null");
     Preconditions.checkState(remoteOptions == null, "remoteOptions must be null");
+    Preconditions.checkState(this.env == null, "env must be null");
     Preconditions.checkState(tempPathGenerator == null, "tempPathGenerator must be null");
     Preconditions.checkState(remoteOutputChecker == null, "remoteOutputChecker must be null");
 
@@ -313,6 +315,7 @@ public final class RemoteModule extends BlazeModule {
     }
 
     this.remoteOptions = remoteOptions;
+    this.env = env;
 
     AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
     DigestHashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
@@ -914,6 +917,7 @@ public final class RemoteModule extends BlazeModule {
     actionContextProvider = null;
     actionInputFetcher = null;
     remoteOptions = null;
+    env = null;
     remoteOutputService = null;
     tempPathGenerator = null;
     rpcLogFile = null;
@@ -1067,7 +1071,7 @@ public final class RemoteModule extends BlazeModule {
   public OutputService getOutputService() {
     Preconditions.checkState(remoteOutputService == null, "remoteOutputService must be null");
     if (actionContextProvider.getRemoteCache() != null) {
-      remoteOutputService = new RemoteOutputService();
+      remoteOutputService = new RemoteOutputService(env);
     }
     return remoteOutputService;
   }

@@ -34,11 +34,17 @@ import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.server.FailureDetails.Execution;
+import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -51,10 +57,16 @@ import javax.annotation.Nullable;
 /** Output service implementation for the remote module */
 public class RemoteOutputService implements OutputService {
 
+  private final CommandEnvironment env;
+
   @Nullable private RemoteOutputChecker remoteOutputChecker;
   @Nullable private RemoteActionInputFetcher actionInputFetcher;
   @Nullable private LeaseService leaseService;
   @Nullable private Supplier<InputMetadataProvider> fileCacheSupplier;
+
+  public RemoteOutputService(CommandEnvironment env) {
+    this.env = checkNotNull(env);
+  }
 
   void setRemoteOutputChecker(RemoteOutputChecker remoteOutputChecker) {
     this.remoteOutputChecker = remoteOutputChecker;
@@ -118,6 +130,26 @@ public class RemoteOutputService implements OutputService {
   @Override
   public ModifiedFileSet startBuild(
       EventHandler eventHandler, UUID buildId, boolean finalizeActions) throws AbruptExitException {
+    // One of the responsibilities of OutputService.startBuild() is that
+    // it ensures the output path is valid. If the previous
+    // OutputService redirected the output path to a remote location, we
+    // must undo this.
+    Path outputPath = env.getDirectories().getOutputPath(env.getWorkspaceName());
+    if (outputPath.isSymbolicLink()) {
+      try {
+        outputPath.delete();
+      } catch (IOException e) {
+        throw new AbruptExitException(
+            DetailedExitCode.of(
+                FailureDetail.newBuilder()
+                    .setMessage(
+                        String.format("Couldn't remove output path symlink: %s", e.getMessage()))
+                    .setExecution(
+                        Execution.newBuilder().setCode(Code.LOCAL_OUTPUT_DIRECTORY_SYMLINK_FAILURE))
+                    .build()),
+            e);
+      }
+    }
     return ModifiedFileSet.EVERYTHING_MODIFIED;
   }
 

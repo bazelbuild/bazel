@@ -2049,4 +2049,35 @@ EOF
   expect_log "Hello World"
 }
 
+function test_output_path_is_symlink() {
+  cat > BUILD << 'EOF'
+genrule(
+  name = "foo",
+  outs = ["bar"],
+  cmd = "touch $@",
+)
+EOF
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_minimal \
+    //:foo >& $TEST_log || fail "Failed to build //:foo"
+
+  # --remote_download_minimal and --remote_download_toplevel install an
+  # OutputService. One of the responsibilities of an OutputService is
+  # that it ensures a valid output path is present.
+  #
+  # Simulate the case where another OutputService replaced the output
+  # path with a symbolic link. If Bazel is rerun with
+  # --remote_download_minimal, it should remove the symbolic link, so
+  # that builds can take place on the local file system.
+  output_path=$(bazel info output_path)
+  rm -rf $output_path
+  ln -s /nonexistent $output_path
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_minimal \
+    //:foo >& $TEST_log || fail "Failed to build //:foo"
+}
+
 run_suite "Build without the Bytes tests"
