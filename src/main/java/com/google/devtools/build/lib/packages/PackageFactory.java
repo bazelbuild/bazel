@@ -414,6 +414,9 @@ public final class PackageFactory {
             context.pkgBuilder,
             ruleClass,
             new BuildLangTypedAttributeValuesMap(kwargs),
+            thread
+                .getSemantics()
+                .getBool(BuildLanguageOptions.INCOMPATIBLE_FAIL_ON_UNKNOWN_ATTRIBUTES),
             context.eventHandler,
             thread.getSemantics(),
             thread.getCallStack());

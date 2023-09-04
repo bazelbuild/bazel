@@ -69,6 +69,7 @@ public class RuleFactory {
       Package.Builder pkgBuilder,
       RuleClass ruleClass,
       BuildLangTypedAttributeValuesMap attributeValues,
+      boolean failOnUnknownAttributes,
       EventHandler eventHandler,
       StarlarkSemantics semantics,
       ImmutableList<StarlarkThread.CallStackEntry> callstack)
@@ -111,6 +112,7 @@ public class RuleFactory {
           pkgBuilder,
           label,
           generator.attributes,
+          failOnUnknownAttributes,
           eventHandler,
           generator.location, // see b/23974287 for rationale
           callstack);
@@ -143,12 +145,13 @@ public class RuleFactory {
       Package.Builder pkgBuilder,
       RuleClass ruleClass,
       BuildLangTypedAttributeValuesMap attributeValues,
+      boolean failOnUnknownAttributes,
       EventHandler eventHandler,
       StarlarkSemantics semantics,
       ImmutableList<StarlarkThread.CallStackEntry> callstack)
       throws InvalidRuleException, NameConflictException, InterruptedException {
     Rule rule =
-        createRule(pkgBuilder, ruleClass, attributeValues, eventHandler, semantics, callstack);
+        createRule(pkgBuilder, ruleClass, attributeValues, failOnUnknownAttributes, eventHandler, semantics, callstack);
     pkgBuilder.addRule(rule);
     return rule;
   }

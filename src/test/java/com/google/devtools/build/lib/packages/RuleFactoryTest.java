@@ -84,6 +84,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
             pkgBuilder,
             ruleClass,
             new BuildLangTypedAttributeValuesMap(attributeValues),
+            true,
             new Reporter(new EventBus()),
             StarlarkSemantics.DEFAULT,
             DUMMY_STACK);
@@ -144,6 +145,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
             pkgBuilder,
             ruleClass,
             new BuildLangTypedAttributeValuesMap(attributeValues),
+            true,
             new Reporter(new EventBus()),
             StarlarkSemantics.DEFAULT,
             DUMMY_STACK);
@@ -168,6 +170,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
                     pkgBuilder,
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
+                    true,
                     new Reporter(new EventBus()),
                     StarlarkSemantics.DEFAULT,
                     DUMMY_STACK));
@@ -192,6 +195,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
                     pkgBuilder,
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
+                    true,
                     new Reporter(new EventBus()),
                     StarlarkSemantics.DEFAULT,
                     DUMMY_STACK));
@@ -228,6 +232,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
                     pkgBuilder,
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
+                    true,
                     new Reporter(new EventBus()),
                     StarlarkSemantics.DEFAULT,
                     DUMMY_STACK));
