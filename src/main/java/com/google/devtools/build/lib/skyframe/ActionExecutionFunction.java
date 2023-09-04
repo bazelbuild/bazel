@@ -269,7 +269,8 @@ public final class ActionExecutionFunction implements SkyFunction {
     }
 
     if (!state.hasArtifactData()) {
-      Iterable<SkyKey> depKeys = getInputDepKeys(allInputs, state);
+      Iterable<SkyKey> depKeys =
+          getInputDepKeys(allInputs, action.getSchedulingDependencies(), state);
       SkyframeLookupResult inputDeps = env.getValuesAndExceptions(depKeys);
       if (previousExecution == null) {
         // Do we actually need to find our metadata?
@@ -342,7 +343,7 @@ public final class ActionExecutionFunction implements SkyFunction {
           actionStartTime,
           env,
           allInputs,
-          getInputDepKeys(allInputs, state),
+          getInputDepKeys(allInputs, action.getSchedulingDependencies(), state),
           state);
     } catch (ActionExecutionException e) {
       // In this case we do not report the error to the action reporter because we have already
@@ -363,7 +364,9 @@ public final class ActionExecutionFunction implements SkyFunction {
   }
 
   private static Iterable<SkyKey> getInputDepKeys(
-      NestedSet<Artifact> allInputs, InputDiscoveryState state) {
+      NestedSet<Artifact> allInputs,
+      NestedSet<Artifact> schedulingDependencies,
+      InputDiscoveryState state) {
     // We "unwrap" the NestedSet and evaluate the first layer of direct Artifacts here in order to
     // save memory:
     // - This top layer costs 1 extra ArtifactNestedSetKey node.
@@ -372,10 +375,14 @@ public final class ActionExecutionFunction implements SkyFunction {
     // More details: b/143205147.
     List<SkyKey> directKeys = Artifact.keys(allInputs.getLeaves());
     if (state.requestedArtifactNestedSetKeys == null) {
-      state.requestedArtifactNestedSetKeys =
-          CompactHashSet.create(
-              Lists.transform(allInputs.getNonLeaves(), ArtifactNestedSetKey::create));
+      state.requestedArtifactNestedSetKeys = CompactHashSet.create();
+      for (NestedSet<Artifact> nonLeaf : allInputs.getNonLeaves()) {
+        state.requestedArtifactNestedSetKeys.add(ArtifactNestedSetKey.create(nonLeaf));
+      }
+
+      state.requestedArtifactNestedSetKeys.add(ArtifactNestedSetKey.create(schedulingDependencies));
     }
+
     return Iterables.concat(directKeys, state.requestedArtifactNestedSetKeys);
   }
 
@@ -578,7 +585,6 @@ public final class ActionExecutionFunction implements SkyFunction {
     }
     return new AllInputs(
         allKnownInputs,
-        action.getSchedulingDependencies(),
         actionCacheInputs,
         action.getAllowedDerivedInputs(),
         resolver.packageLookupsRequested);
@@ -586,14 +592,12 @@ public final class ActionExecutionFunction implements SkyFunction {
 
   static class AllInputs {
     final NestedSet<Artifact> defaultInputs;
-    final NestedSet<Artifact> schedulingDependencies;
     @Nullable final NestedSet<Artifact> allowedDerivedInputs;
     @Nullable final List<Artifact> actionCacheInputs;
     @Nullable final List<ContainingPackageLookupValue.Key> packageLookupsRequested;
 
     AllInputs(NestedSet<Artifact> defaultInputs) {
       this.defaultInputs = checkNotNull(defaultInputs);
-      this.schedulingDependencies = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
       this.actionCacheInputs = null;
       this.allowedDerivedInputs = null;
       this.packageLookupsRequested = null;
@@ -601,12 +605,10 @@ public final class ActionExecutionFunction implements SkyFunction {
 
     AllInputs(
         NestedSet<Artifact> defaultInputs,
-        NestedSet<Artifact> schedulingDependencies,
         List<Artifact> actionCacheInputs,
         NestedSet<Artifact> allowedDerivedInputs,
         List<ContainingPackageLookupValue.Key> packageLookupsRequested) {
       this.defaultInputs = checkNotNull(defaultInputs);
-      this.schedulingDependencies = checkNotNull(schedulingDependencies);
       this.allowedDerivedInputs = checkNotNull(allowedDerivedInputs);
       this.actionCacheInputs = checkNotNull(actionCacheInputs);
       this.packageLookupsRequested = packageLookupsRequested;
@@ -623,7 +625,6 @@ public final class ActionExecutionFunction implements SkyFunction {
     NestedSet<Artifact> getAllInputs(boolean prune) {
       NestedSetBuilder<Artifact> builder = new NestedSetBuilder<>(Order.STABLE_ORDER);
       builder.addTransitive(defaultInputs);
-      builder.addTransitive(schedulingDependencies);
 
       if (actionCacheInputs == null) {
         return builder.build();
