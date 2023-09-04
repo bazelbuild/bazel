@@ -73,10 +73,11 @@ public class AbstractContainerizingSandboxedSpawnTest {
     Path execRoot = testRoot.getRelative("execroot");
     execRoot.createDirectory();
 
-    Path outputFile = execRoot.getRelative("very/output.txt");
-    Path outputLink = execRoot.getRelative("very/output.link");
-    Path outputDangling = execRoot.getRelative("very/output.dangling");
-    Path outputDir = execRoot.getRelative("very/output.dir");
+    Path veryDir = execRoot.getRelative("very");
+    Path outputFile = veryDir.getRelative("very/output.txt");
+    Path outputLink = veryDir.getRelative("output.link");
+    Path outputDangling = veryDir.getRelative("very/output.dangling");
+    Path outputDir = veryDir.getRelative("output.dir");
     Path outputInUncreatedTargetDir = execRoot.getRelative("uncreated/output.txt");
 
     ImmutableSet<PathFragment> outputs =
