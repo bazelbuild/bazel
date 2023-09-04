@@ -563,6 +563,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     GrpcCacheClient cacheClient =
         spy(
             new GrpcCacheClient(
+                CacheCapabilities.getDefaultInstance(),
                 channel,
                 CallCredentialsProvider.NO_CREDENTIALS,
                 remoteOptions,
@@ -575,8 +576,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         .when(cacheClient)
         .findMissingDigests(any(), any());
 
-    return new RemoteCache(
-        CacheCapabilities.getDefaultInstance(), cacheClient, remoteOptions, DIGEST_UTIL);
+    return new RemoteCache(cacheClient, remoteOptions, DIGEST_UTIL);
   }
 
   private ByteStreamBuildEventArtifactUploader newArtifactUploader(RemoteCache remoteCache) {

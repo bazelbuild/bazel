@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.remote.util.DigestUtil.isOldStyleDig
 import build.bazel.remote.execution.v2.ActionCacheGrpc;
 import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheFutureStub;
 import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageFutureStub;
 import build.bazel.remote.execution.v2.Digest;
@@ -80,6 +81,7 @@ import javax.annotation.Nullable;
 public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
+  private final CacheCapabilities cacheCapabilities;
   private final CallCredentialsProvider callCredentialsProvider;
   private final ReferenceCountedChannel channel;
   private final RemoteOptions options;
@@ -92,11 +94,13 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
 
   @VisibleForTesting
   public GrpcCacheClient(
+      CacheCapabilities cacheCapabilities,
       ReferenceCountedChannel channel,
       CallCredentialsProvider callCredentialsProvider,
       RemoteOptions options,
       RemoteRetrier retrier,
       DigestUtil digestUtil) {
+    this.cacheCapabilities = cacheCapabilities;
     this.callCredentialsProvider = callCredentialsProvider;
     this.channel = channel;
     this.options = options;
@@ -258,6 +262,11 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
                 ? Futures.immediateFuture(null)
                 : Futures.immediateFailedFuture(new IOException(sre)),
         MoreExecutors.directExecutor());
+  }
+
+  @Override
+  public CacheCapabilities getCacheCapabilities() {
+    return cacheCapabilities;
   }
 
   @Override

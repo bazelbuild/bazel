@@ -16,11 +16,8 @@ package com.google.devtools.build.lib.remote;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-import build.bazel.remote.execution.v2.ActionCacheUpdateCapabilities;
-import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.ServerCapabilities;
-import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.google.auth.Credentials;
 import com.google.common.annotations.VisibleForTesting;
@@ -126,13 +123,6 @@ import javax.annotation.Nullable;
 
 /** RemoteModule provides distributed cache and remote execution for Bazel. */
 public final class RemoteModule extends BlazeModule {
-  private static final CacheCapabilities HTTP_AND_DISK_CACHE_CAPABILITIES =
-      CacheCapabilities.newBuilder()
-          .setActionCacheUpdateCapabilities(
-              ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
-          .setSymlinkAbsolutePathStrategy(SymlinkAbsolutePathStrategy.Value.ALLOWED)
-          .build();
-
   private final ListeningScheduledExecutorService retryScheduler =
       MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
 
@@ -277,8 +267,7 @@ public final class RemoteModule extends BlazeModule {
       handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
       return;
     }
-    RemoteCache remoteCache =
-        new RemoteCache(HTTP_AND_DISK_CACHE_CAPABILITIES, cacheClient, remoteOptions, digestUtil);
+    RemoteCache remoteCache = new RemoteCache(cacheClient, remoteOptions, digestUtil);
     actionContextProvider =
         RemoteActionContextProvider.createForRemoteCaching(
             executorService,
@@ -631,7 +620,12 @@ public final class RemoteModule extends BlazeModule {
 
     RemoteCacheClient cacheClient =
         new GrpcCacheClient(
-            cacheChannel.retain(), callCredentialsProvider, remoteOptions, retrier, digestUtil);
+            cacheCapabilities.getCacheCapabilities(),
+            cacheChannel.retain(),
+            callCredentialsProvider,
+            remoteOptions,
+            retrier,
+            digestUtil);
     cacheChannel.release();
 
     if (enableRemoteExecution) {
@@ -678,8 +672,7 @@ public final class RemoteModule extends BlazeModule {
       }
       execChannel.release();
       RemoteExecutionCache remoteCache =
-          new RemoteExecutionCache(
-              cacheCapabilities.getCacheCapabilities(), cacheClient, remoteOptions, digestUtil);
+          new RemoteExecutionCache(cacheClient, remoteOptions, digestUtil);
       actionContextProvider =
           RemoteActionContextProvider.createForRemoteExecution(
               executorService,
@@ -715,9 +708,7 @@ public final class RemoteModule extends BlazeModule {
         }
       }
 
-      RemoteCache remoteCache =
-          new RemoteCache(
-              cacheCapabilities.getCacheCapabilities(), cacheClient, remoteOptions, digestUtil);
+      RemoteCache remoteCache = new RemoteCache(cacheClient, remoteOptions, digestUtil);
       actionContextProvider =
           RemoteActionContextProvider.createForRemoteCaching(
               executorService, env, remoteCache, retryScheduler, digestUtil, remoteOutputChecker);

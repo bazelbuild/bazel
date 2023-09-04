@@ -84,24 +84,21 @@ public class RemoteCache extends AbstractReferenceCounted {
   private final CountDownLatch closeCountDownLatch = new CountDownLatch(1);
   protected final AsyncTaskCache.NoResult<Digest> casUploadCache = AsyncTaskCache.NoResult.create();
 
-  protected final CacheCapabilities cacheCapabilities;
   protected final RemoteCacheClient cacheProtocol;
   protected final RemoteOptions options;
   protected final DigestUtil digestUtil;
 
   public RemoteCache(
-      CacheCapabilities cacheCapabilities,
       RemoteCacheClient cacheProtocol,
       RemoteOptions options,
       DigestUtil digestUtil) {
-    this.cacheCapabilities = cacheCapabilities;
     this.cacheProtocol = cacheProtocol;
     this.options = options;
     this.digestUtil = digestUtil;
   }
 
   public CacheCapabilities getCacheCapabilities() {
-    return cacheCapabilities;
+    return cacheProtocol.getCacheCapabilities();
   }
 
   public CachedActionResult downloadActionResult(
@@ -124,7 +121,7 @@ public class RemoteCache extends AbstractReferenceCounted {
 
   /** Returns whether the action cache supports updating action results. */
   public boolean actionCacheSupportsUpdate() {
-    return cacheCapabilities.getActionCacheUpdateCapabilities().getUpdateEnabled();
+    return getCacheCapabilities().getActionCacheUpdateCapabilities().getUpdateEnabled();
   }
 
   /** Upload the action result to the remote cache. */

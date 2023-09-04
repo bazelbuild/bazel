@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
+import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.api.client.json.GenericJson;
@@ -172,7 +173,12 @@ class GrpcCacheClientTestBase {
             });
     channels.add(channel);
     return new GrpcCacheClient(
-        channel, callCredentialsProvider, remoteOptions, retrier, DIGEST_UTIL);
+        CacheCapabilities.getDefaultInstance(),
+        channel,
+        callCredentialsProvider,
+        remoteOptions,
+        retrier,
+        DIGEST_UTIL);
   }
 
   protected static byte[] downloadBlob(
