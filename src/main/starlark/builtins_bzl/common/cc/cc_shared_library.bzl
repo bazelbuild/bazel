@@ -706,7 +706,6 @@ def _cc_shared_library_impl(ctx):
         linking_contexts = [linking_context],
         user_link_flags = user_link_flags,
         additional_inputs = additional_inputs,
-        grep_includes = ctx.executable._grep_includes,
         name = ctx.label.name,
         output_type = "dynamic_library",
         main_output = main_output,

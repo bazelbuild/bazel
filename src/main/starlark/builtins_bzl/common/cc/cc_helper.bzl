@@ -73,11 +73,6 @@ def _build_linking_context_from_libraries(ctx, libraries):
 
     return linking_context
 
-def _grep_includes_executable(grep_includes):
-    if grep_includes == None:
-        return None
-    return grep_includes.files_to_run.executable
-
 def _check_file_extension(file, allowed_extensions, allow_versioned_shared_libraries):
     extension = "." + file.extension
     if _matches_extension(extension, allowed_extensions) or (allow_versioned_shared_libraries and _is_versioned_shared_library_extension_valid(file.path)):
@@ -1246,7 +1241,6 @@ cc_helper = struct(
     get_expanded_env = _get_expanded_env,
     has_target_constraints = _has_target_constraints,
     is_non_empty_list_or_select = _is_non_empty_list_or_select,
-    grep_includes_executable = _grep_includes_executable,
     expand_make_variables_for_copts = _expand_make_variables_for_copts,
     build_linking_context_from_libraries = _build_linking_context_from_libraries,
     is_stamping_enabled = _is_stamping_enabled,

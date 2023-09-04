@@ -494,7 +494,6 @@ def _create_transitive_linking_actions(
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
         compilation_outputs = cc_compilation_outputs_with_only_objects,
-        grep_includes = cc_helper.grep_includes_executable(ctx.attr._grep_includes),
         stamp = cc_helper.is_stamping_enabled(ctx),
         additional_inputs = additional_linker_inputs,
         linking_contexts = [cc_linking_context],
@@ -641,7 +640,6 @@ def cc_binary_impl(ctx, additional_linkopts):
         copts_filter = cc_helper.copts_filter(ctx, additional_make_variable_substitutions),
         srcs = cc_helper.get_srcs(ctx),
         compilation_contexts = compilation_context_deps,
-        grep_includes = cc_helper.grep_includes_executable(ctx.attr._grep_includes),
         code_coverage_enabled = cc_helper.is_code_coverage_enabled(ctx = ctx),
         hdrs_checking_mode = semantics.determine_headers_checking_mode(ctx),
     )
@@ -677,7 +675,6 @@ def cc_binary_impl(ctx, additional_linkopts):
             cc_toolchain = cc_toolchain,
             compilation_outputs = cc_compilation_outputs,
             name = ctx.label.name,
-            grep_includes = cc_helper.grep_includes_executable(ctx.attr._grep_includes),
             linking_contexts = cc_helper.get_linking_contexts_from_deps(all_deps),
             stamp = cc_helper.is_stamping_enabled(ctx),
             alwayslink = True,

@@ -69,7 +69,6 @@ def _cc_library_impl(ctx):
         compilation_contexts = compilation_contexts,
         implementation_compilation_contexts = implementation_compilation_contexts,
         hdrs_checking_mode = semantics.determine_headers_checking_mode(ctx),
-        grep_includes = ctx.executable._grep_includes,
         textual_hdrs = ctx.files.textual_hdrs,
         include_prefix = ctx.attr.include_prefix,
         strip_include_prefix = ctx.attr.strip_include_prefix,
@@ -150,7 +149,6 @@ def _cc_library_impl(ctx):
             feature_configuration = feature_configuration,
             additional_inputs = _filter_linker_scripts(ctx.files.deps) + ctx.files.additional_linker_inputs,
             linking_contexts = linking_contexts,
-            grep_includes = ctx.executable._grep_includes,
             user_link_flags = cc_helper.linkopts(ctx, additional_make_variable_substitutions, cc_toolchain),
             alwayslink = ctx.attr.alwayslink,
             disallow_dynamic_library = not create_dynamic_library or is_windows_enabled and win_def_file == None,
@@ -171,7 +169,6 @@ def _cc_library_impl(ctx):
             cc_toolchain = cc_toolchain,
             compilation_outputs = cc_common.create_compilation_outputs(),
             feature_configuration = feature_configuration,
-            grep_includes = ctx.executable._grep_includes,
             disallow_dynamic_library = True,
             alwayslink = ctx.attr.alwayslink,
         )

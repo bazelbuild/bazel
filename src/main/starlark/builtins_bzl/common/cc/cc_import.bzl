@@ -160,7 +160,6 @@ def _cc_import_impl(ctx):
         public_hdrs = ctx.files.hdrs,
         includes = ctx.attr.includes,
         name = ctx.label.name,
-        grep_includes = ctx.attr._grep_includes.files_to_run.executable,
     )
 
     this_cc_info = CcInfo(compilation_context = compilation_context, linking_context = linking_context)

@@ -163,7 +163,6 @@ def _compile(
         compilation_contexts = objc_compilation_context.cc_compilation_contexts,
         implementation_compilation_contexts = objc_compilation_context.implementation_cc_compilation_contexts,
         user_compile_flags = user_compile_flags,
-        grep_includes = _get_grep_includes(common_variables.ctx),
         module_map = module_map,
         propagate_module_map_to_compile_action = True,
         variables_extension = extension,
@@ -304,16 +303,6 @@ def _map_to_list(m):
         result.append((k, v))
     return result
 
-def _get_grep_includes(ctx):
-    if hasattr(ctx.executable, "_grep_includes"):
-        return ctx.executable._grep_includes
-    elif hasattr(ctx.file, "_grep_includes"):
-        return ctx.file._grep_includes
-    elif hasattr(ctx.files, "_grep_includes"):
-        return ctx.files._grep_includes[0]
-
-    return None
-
 def _cc_compile_and_link(
         srcs,
         non_arc_srcs,
@@ -431,7 +420,6 @@ def _cc_compile_and_link(
             language = "c++",
             alwayslink = common_variables.alwayslink,
             disallow_dynamic_library = True,
-            grep_includes = _get_grep_includes(ctx),
             variables_extension = non_arc_extensions,
         )
     else:
@@ -529,7 +517,6 @@ def _generate_extra_module_map(
         module_map = module_map,
         purpose = purpose,
         name = common_variables.ctx.label.name,
-        grep_includes = _get_grep_includes(common_variables.ctx),
     )
 
 def _build_fully_linked_variable_extensions(archive, libs):

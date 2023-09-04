@@ -513,7 +513,6 @@ def _get_native_deps_details(ctx, *, semantics, cc_details, is_test):
         cc_toolchain = cc_details.cc_toolchain,
         test_only_target = is_test,
         stamp = 1 if is_stamping_enabled(ctx, semantics) else 0,
-        grep_includes = ctx.file._grep_includes,
         main_output = linked_lib,
         use_shareable_artifact_factory = True,
         # NOTE: Only flags not captured by cc_info.linking_context need to
