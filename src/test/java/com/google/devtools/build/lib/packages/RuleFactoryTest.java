@@ -90,6 +90,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
             pkgBuilder,
             ruleClass,
             new BuildLangTypedAttributeValuesMap(attributeValues),
+            true,
             new Reporter(new EventBus()),
             DUMMY_STACK);
 
@@ -149,6 +150,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
             pkgBuilder,
             ruleClass,
             new BuildLangTypedAttributeValuesMap(attributeValues),
+            true,
             new Reporter(new EventBus()),
             DUMMY_STACK);
     assertThat(rule.containsErrors()).isFalse();
@@ -172,6 +174,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
                     pkgBuilder,
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
+                    true,
                     new Reporter(new EventBus()),
                     DUMMY_STACK));
     assertThat(e).hasMessageThat().contains("must be in the WORKSPACE file");
@@ -195,6 +198,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
                     pkgBuilder,
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
+                    true,
                     new Reporter(new EventBus()),
                     DUMMY_STACK));
     assertThat(e).hasMessageThat().contains("cannot be in the WORKSPACE file");
@@ -230,6 +234,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
                     pkgBuilder,
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
+                    true,
                     new Reporter(new EventBus()),
                     DUMMY_STACK));
     assertWithMessage(e.getMessage())

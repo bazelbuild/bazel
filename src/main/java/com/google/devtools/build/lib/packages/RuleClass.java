@@ -1982,11 +1982,13 @@ public class RuleClass {
       Package.Builder pkgBuilder,
       Label ruleLabel,
       AttributeValues<T> attributeValues,
+      boolean failOnUnknownAttributes,
       EventHandler eventHandler,
       List<StarlarkThread.CallStackEntry> callstack)
       throws LabelSyntaxException, InterruptedException, CannotPrecomputeDefaultsException {
     Rule rule = pkgBuilder.createRule(ruleLabel, this, callstack);
-    populateRuleAttributeValues(rule, pkgBuilder, attributeValues, eventHandler);
+    populateRuleAttributeValues(
+        rule, pkgBuilder, attributeValues, failOnUnknownAttributes, eventHandler);
     checkAspectAllowedValues(rule, eventHandler);
     rule.populateOutputFiles(eventHandler, pkgBuilder);
     checkForDuplicateLabels(rule, eventHandler);
@@ -2009,7 +2011,7 @@ public class RuleClass {
       ImplicitOutputsFunction implicitOutputsFunction)
       throws InterruptedException, CannotPrecomputeDefaultsException {
     Rule rule = pkgBuilder.createRule(ruleLabel, this, callstack.toLocation(), callstack.next());
-    populateRuleAttributeValues(rule, pkgBuilder, attributeValues, NullEventHandler.INSTANCE);
+    populateRuleAttributeValues(rule, pkgBuilder, attributeValues, true, NullEventHandler.INSTANCE);
     rule.populateOutputFilesUnchecked(pkgBuilder, implicitOutputsFunction);
     return rule;
   }
@@ -2025,6 +2027,7 @@ public class RuleClass {
       Rule rule,
       Package.Builder pkgBuilder,
       AttributeValues<T> attributeValues,
+      boolean failOnUnknownAttributes,
       EventHandler eventHandler)
       throws InterruptedException, CannotPrecomputeDefaultsException {
 
@@ -2033,6 +2036,7 @@ public class RuleClass {
             rule,
             pkgBuilder.getLabelConverter(),
             attributeValues,
+            failOnUnknownAttributes,
             pkgBuilder.getListInterner(),
             eventHandler);
     populateDefaultRuleAttributeValues(rule, pkgBuilder, definedAttrIndices, eventHandler);
@@ -2055,6 +2059,7 @@ public class RuleClass {
       Rule rule,
       LabelConverter labelConverter,
       AttributeValues<T> attributeValues,
+      boolean failOnUnknownAttributes,
       Interner<ImmutableList<?>> listInterner,
       EventHandler eventHandler) {
     BitSet definedAttrIndices = new BitSet();
@@ -2062,7 +2067,7 @@ public class RuleClass {
       String attributeName = attributeValues.getName(attributeAccessor);
       Object attributeValue = attributeValues.getValue(attributeAccessor);
       // Ignore all None values.
-      if (attributeValue == Starlark.NONE) {
+      if (attributeValue == Starlark.NONE && !failOnUnknownAttributes) {
         continue;
       }
 
@@ -2084,10 +2089,15 @@ public class RuleClass {
             eventHandler);
         continue;
       }
+      // Ignore all None values (after reporting an error)
+      if (attributeValue == Starlark.NONE) {
+        continue;
+      }
+
       Attribute attr = getAttribute(attrIndex);
 
       if (attributeName.equals("licenses") && ignoreLicenses) {
-        rule.setAttributeValue(attr, License.NO_LICENSE, /*explicit=*/ false);
+        rule.setAttributeValue(attr, License.NO_LICENSE, /* explicit= */ false);
         definedAttrIndices.set(attrIndex);
         continue;
       }

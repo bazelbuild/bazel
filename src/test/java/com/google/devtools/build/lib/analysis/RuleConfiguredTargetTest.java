@@ -454,4 +454,62 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
                 .getPathString())
         .isEqualTo("foo/out");
   }
+
+  @Test
+  public void testNativeRuleAttrSetToNoneFails() throws Exception {
+    setBuildLanguageOptions("--incompatible_fail_on_unknown_attributes");
+    scratch.file(
+        "p/BUILD", //
+        "genrule(name = 'genrule', srcs = ['a.java'], outs = ['b'], cmd = '', bat = None)");
+
+    reporter.removeHandler(failFastHandler);
+    getTarget("//p:genrule");
+
+    assertContainsEvent("no such attribute 'bat' in 'genrule' rule");
+  }
+
+  @Test
+  public void testNativeRuleAttrSetToNoneDoesntFails() throws Exception {
+    setBuildLanguageOptions("--noincompatible_fail_on_unknown_attributes");
+    scratch.file(
+        "p/BUILD", //
+        "genrule(name = 'genrule', srcs = ['a.java'], outs = ['b'], cmd = '', bat = None)");
+
+    getTarget("//p:genrule");
+  }
+
+  @Test
+  public void testStarlarkRuleAttrSetToNoneFails() throws Exception {
+    setBuildLanguageOptions("--incompatible_fail_on_unknown_attributes");
+    scratch.file(
+        "p/rule.bzl", //
+        "def _impl(ctx):",
+        "  pass",
+        "my_rule = rule(_impl)");
+    scratch.file(
+        "p/BUILD", //
+        "load(':rule.bzl', 'my_rule')",
+        "my_rule(name = 'my_target',  bat = None)");
+
+    reporter.removeHandler(failFastHandler);
+    getTarget("//p:my_target");
+
+    assertContainsEvent("no such attribute 'bat' in 'my_rule' rule");
+  }
+
+  @Test
+  public void testStarlarkRuleAttrSetToNoneDoesntFail() throws Exception {
+    setBuildLanguageOptions("--noincompatible_fail_on_unknown_attributes");
+    scratch.file(
+        "p/rule.bzl", //
+        "def _impl(ctx):",
+        "  pass",
+        "my_rule = rule(_impl)");
+    scratch.file(
+        "p/BUILD", //
+        "load(':rule.bzl', 'my_rule')",
+        "my_rule(name = 'my_target',  bat = None)");
+
+    getTarget("//p:my_target");
+  }
 }

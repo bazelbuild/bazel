@@ -712,6 +712,16 @@ public final class BuildLanguageOptions extends OptionsBase {
               + "from the top level target instead")
   public boolean incompatibleDisableObjcLibraryTransition;
 
+  // cleanup, flip, remove after Bazel LTS in Nov 2023
+  @Option(
+      name = "incompatible_fail_on_unknown_attributes",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "If enabled, targets that have unknown attributes set to None fail.")
+  public boolean incompatibleFailOnUnknownAttributes;
+
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
    * never accumulate a large number of these and being able to shortcut on object identity makes a
@@ -812,6 +822,7 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 INCOMPATIBLE_DISABLE_OBJC_LIBRARY_TRANSITION,
                 incompatibleDisableObjcLibraryTransition)
+            .setBool(INCOMPATIBLE_FAIL_ON_UNKNOWN_ATTRIBUTES, incompatibleFailOnUnknownAttributes)
             .build();
     return INTERNER.intern(semantics);
   }
@@ -903,6 +914,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-incompatible_objc_provider_remove_linking_info";
   public static final String INCOMPATIBLE_DISABLE_OBJC_LIBRARY_TRANSITION =
       "-incompatible_disable_objc_library_transition";
+  public static final String INCOMPATIBLE_FAIL_ON_UNKNOWN_ATTRIBUTES =
+      "-incompatible_fail_on_unknown_attributes";
 
   // non-booleans
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =

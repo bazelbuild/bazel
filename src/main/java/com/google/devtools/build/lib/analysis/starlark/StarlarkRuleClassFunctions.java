@@ -91,6 +91,7 @@ import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleFunctionsApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
@@ -830,6 +831,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
             pkgContext.getBuilder(),
             ruleClass,
             attributeValues,
+            thread
+                .getSemantics()
+                .getBool(BuildLanguageOptions.INCOMPATIBLE_FAIL_ON_UNKNOWN_ATTRIBUTES),
             pkgContext.getEventHandler(),
             thread.getCallStack());
       } catch (InvalidRuleException | NameConflictException e) {

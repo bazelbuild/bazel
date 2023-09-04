@@ -933,6 +933,7 @@ public final class RuleClassTest extends PackageLoadingTestCase {
         pkgBuilder,
         ruleLabel,
         new BuildLangTypedAttributeValuesMap(attributeValues),
+        true,
         reporter,
         ImmutableList.of(
             StarlarkThread.callStackEntry(StarlarkThread.TOP_LEVEL, testRuleLocation)));
