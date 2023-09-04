@@ -565,6 +565,18 @@ def _get_clang_version(repository_ctx, clang_cl):
         auto_configure_fail("Failed to get clang version by running \"%s -v\"" % clang_cl)
     return first_line.split(" ")[-1]
 
+def _get_clang_dir(repository_ctx, llvm_path, clang_version):
+    """Get the clang installation directory."""
+
+    # The clang_version string format is "X.X.X"
+    clang_dir = llvm_path + "\\lib\\clang\\" + clang_version
+    if repository_ctx.path(clang_dir).exists:
+        return clang_dir
+
+    # Clang 16 changed the install path to use just the major number.
+    clang_major_version = clang_version.split(".")[0]
+    return llvm_path + "\\lib\\clang\\" + clang_major_version
+
 def _get_msys_mingw_vars(repository_ctx):
     """Get the variables we need to populate the msys/mingw toolchains."""
     tool_paths, tool_bin_path, inc_dir_msys = _get_escaped_windows_msys_starlark_content(repository_ctx)
@@ -658,7 +670,7 @@ def _get_msvc_vars(repository_ctx, paths, target_arch = "x64", msvc_vars_x64 = N
             escaped_cxx_include_directories.append("\"%s\"" % path)
     if llvm_path:
         clang_version = _get_clang_version(repository_ctx, build_tools["CL"])
-        clang_dir = llvm_path + "\\lib\\clang\\" + clang_version
+        clang_dir = _get_clang_dir(repository_ctx, llvm_path, clang_version)
         clang_include_path = (clang_dir + "\\include").replace("\\", "\\\\")
         escaped_cxx_include_directories.append("\"%s\"" % clang_include_path)
         clang_lib_path = (clang_dir + "\\lib\\windows").replace("\\", "\\\\")
@@ -734,7 +746,7 @@ def _get_clang_cl_vars(repository_ctx, paths, msvc_vars, target_arch):
     llvm_lib_path = find_llvm_tool(repository_ctx, llvm_path, "llvm-lib.exe")
 
     clang_version = _get_clang_version(repository_ctx, clang_cl_path)
-    clang_dir = llvm_path + "\\lib\\clang\\" + clang_version
+    clang_dir = _get_clang_dir(repository_ctx, llvm_path, clang_version)
     clang_include_path = (clang_dir + "\\include").replace("\\", "\\\\")
     clang_lib_path = (clang_dir + "\\lib\\windows").replace("\\", "\\\\")
 
