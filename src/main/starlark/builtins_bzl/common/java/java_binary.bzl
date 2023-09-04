@@ -95,7 +95,7 @@ def basic_java_binary(
     """
     if not ctx.attr.create_executable and (ctx.attr.launcher and cc_common.launcher_provider in ctx.attr.launcher):
         fail("launcher specified but create_executable is false")
-    if not ctx.attr.use_launcher and (ctx.attr.launcher and cc_common.launcher_provider in ctx.attr.launcher):
+    if not ctx.attr.use_launcher and (ctx.attr.launcher and ctx.attr.launcher.label != semantics.LAUNCHER_FLAG_LABEL):
         fail("launcher specified but use_launcher is false")
 
     if not ctx.attr.srcs and ctx.attr.deps:
