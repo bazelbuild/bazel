@@ -62,15 +62,6 @@ _COMPILE_DEPENDENCY_RULE = {
     ),
 }
 
-_INCLUDE_SCANNING_RULE = {
-    "_grep_includes": attr.label(
-        allow_single_file = True,
-        cfg = "exec",
-        default = "@" + semantics.get_repo() + "//tools/cpp:grep-includes",
-        executable = True,
-    ),
-}
-
 _SDK_FRAMEWORK_DEPENDER_RULE = {
     "sdk_frameworks": attr.string_list(),
     "weak_sdk_frameworks": attr.string_list(),
@@ -98,7 +89,6 @@ common_attrs = struct(
     COMPILING_RULE = _COMPILING_RULE,
     COMPILE_DEPENDENCY_RULE = _COMPILE_DEPENDENCY_RULE,
     COPTS_RULE = _COPTS_RULE,
-    INCLUDE_SCANNING_RULE = _INCLUDE_SCANNING_RULE,
     LICENSES = semantics.get_licenses_attr(),
     SDK_FRAMEWORK_DEPENDER_RULE = _SDK_FRAMEWORK_DEPENDER_RULE,
 )

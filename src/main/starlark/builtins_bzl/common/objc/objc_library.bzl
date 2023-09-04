@@ -129,7 +129,6 @@ objc_library = rule(
         common_attrs.COMPILING_RULE,
         common_attrs.COMPILE_DEPENDENCY_RULE,
         common_attrs.COPTS_RULE,
-        common_attrs.INCLUDE_SCANNING_RULE,
         common_attrs.LICENSES,
         common_attrs.SDK_FRAMEWORK_DEPENDER_RULE,
     ),

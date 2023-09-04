@@ -90,7 +90,6 @@ def _aspect_impl(target, ctx):
 
     # shouldProcessHeaders is set to true everytime, however java implementation of
     # compile gets this value from cc_toolchain.
-    # Missing grep_includes, should not be necessary.
     # Missing stl compilation context, should not be necessary.
 
     outputs = []

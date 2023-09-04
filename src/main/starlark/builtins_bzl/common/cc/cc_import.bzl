@@ -199,12 +199,6 @@ cc_import = rule(
             allow_files = True,
             flags = ["SKIP_CONSTRAINTS_OVERRIDE"],
         ),
-        "_grep_includes": attr.label(
-            allow_files = True,
-            executable = True,
-            cfg = "exec",
-            default = Label("@" + semantics.get_repo() + "//tools/cpp:grep-includes"),
-        ),
         "_cc_toolchain": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
         "_use_auto_exec_groups": attr.bool(default = True),
     },

@@ -85,7 +85,6 @@ objc_import = rule(
         common_attrs.ALWAYSLINK_RULE,
         common_attrs.CC_TOOLCHAIN_RULE,
         common_attrs.COMPILE_DEPENDENCY_RULE,
-        common_attrs.INCLUDE_SCANNING_RULE,
         common_attrs.LICENSES,
         common_attrs.SDK_FRAMEWORK_DEPENDER_RULE,
     ),

@@ -600,12 +600,6 @@ attrs = {
         flags = ["ORDER_INDEPENDENT", "DIRECT_COMPILE_TIME_INPUT"],
     ),
     "_stl": semantics.get_stl(),
-    "_grep_includes": attr.label(
-        allow_files = True,
-        executable = True,
-        cfg = "exec",
-        default = Label("@" + semantics.get_repo() + "//tools/cpp:grep-includes"),
-    ),
     "_def_parser": semantics.get_def_parser(),
     "_cc_toolchain": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
     "_use_auto_exec_groups": attr.bool(default = True),
