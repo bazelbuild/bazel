@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.configurationId;
 
 import com.google.common.collect.ImmutableMap;
@@ -20,6 +21,7 @@ import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFactory;
 import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
 import com.google.devtools.build.lib.analysis.AspectValue;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
 import com.google.devtools.build.lib.bugreport.BugReporter;
@@ -55,10 +57,22 @@ class AspectCompletor
 
   @Override
   public Event getRootCauseError(
-      AspectValue value, AspectCompletionKey key, LabelCause rootCause, Environment env) {
+      AspectValue value, AspectCompletionKey key, LabelCause rootCause, Environment env)
+      throws InterruptedException {
     AspectKey aspectKey = key.actionLookupKey();
+    // Skyframe lookups here should not have large effect on the number of dependency edges as
+    // they are only needed for failed top-level aspects.
+    ConfiguredTargetValue baseTargetValue =
+        (ConfiguredTargetValue) env.getValue(aspectKey.getBaseConfiguredTargetKey());
+    checkNotNull(baseTargetValue, "Base configured target value should be ready!");
+
+    ConfiguredTargetAndData configuredTargetAndData =
+        ConfiguredTargetAndData.fromConfiguredTargetInSkyframe(
+            baseTargetValue.getConfiguredTarget(), env);
+    checkNotNull(configuredTargetAndData, "Configured target and data should be ready!");
+
     return Event.error(
-        value.getLocation(),
+        configuredTargetAndData.getLocation(),
         String.format(
             "%s, aspect %s: %s",
             aspectKey.getLabel(), aspectKey.getAspectClass().getName(), rootCause.getMessage()));

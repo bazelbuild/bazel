@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import javax.annotation.Nullable;
-import net.starlark.java.syntax.Location;
 
 /** An aspect in the context of the Skyframe graph. */
 public class AspectValue extends BasicActionLookupValue
@@ -32,30 +31,22 @@ public class AspectValue extends BasicActionLookupValue
   public static AspectValue create(
       AspectKey key,
       Aspect aspect,
-      Location location,
       ConfiguredAspect configuredAspect,
       @Nullable NestedSet<Package> transitivePackages) {
     return transitivePackages == null
-        ? new AspectValue(aspect, location, configuredAspect)
-        : new AspectValueWithTransitivePackages(
-            key, aspect, location, configuredAspect, transitivePackages);
+        ? new AspectValue(aspect, configuredAspect)
+        : new AspectValueWithTransitivePackages(key, aspect, configuredAspect, transitivePackages);
   }
 
   // These variables are only non-final because they may be clear()ed to save memory. They are null
   // only after they are cleared except for transitivePackagesForPackageRootResolution.
   @Nullable private Aspect aspect;
-  @Nullable private Location location;
   @Nullable private TransitiveInfoProviderMap providers;
 
-  private AspectValue(Aspect aspect, Location location, ConfiguredAspect configuredAspect) {
+  private AspectValue(Aspect aspect, ConfiguredAspect configuredAspect) {
     super(configuredAspect.getActions());
     this.aspect = checkNotNull(aspect);
-    this.location = checkNotNull(location);
     this.providers = configuredAspect.getProviders();
-  }
-
-  public final Location getLocation() {
-    return checkNotNull(location);
   }
 
   public AspectKey getKeyForTransitivePackageTracking() {
@@ -75,7 +66,6 @@ public class AspectValue extends BasicActionLookupValue
   public void clear(boolean clearEverything) {
     if (clearEverything) {
       aspect = null;
-      location = null;
       providers = null;
     }
   }
@@ -93,10 +83,7 @@ public class AspectValue extends BasicActionLookupValue
 
   @Override
   protected ToStringHelper getStringHelper() {
-    return super.getStringHelper()
-        .add("location", location)
-        .add("aspect", aspect)
-        .add("providers", providers);
+    return super.getStringHelper().add("aspect", aspect).add("providers", providers);
   }
 
   @Override
@@ -111,10 +98,9 @@ public class AspectValue extends BasicActionLookupValue
     private AspectValueWithTransitivePackages(
         AspectKey key,
         Aspect aspect,
-        Location location,
         ConfiguredAspect configuredAspect,
         NestedSet<Package> transitivePackages) {
-      super(aspect, location, configuredAspect);
+      super(aspect, configuredAspect);
       this.transitivePackages = checkNotNull(transitivePackages);
       this.key = checkNotNull(key);
     }
