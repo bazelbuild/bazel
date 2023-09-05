@@ -58,7 +58,6 @@ import com.google.devtools.build.skyframe.NotifyingHelper.Order;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
 import com.google.errorprone.annotations.ForOverride;
-import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -2363,20 +2362,73 @@ public abstract class MemoizingEvaluatorTest {
    * <p>Ensures that {@link NodeEntry#getResetDirectDeps} is used correctly by Skyframe to avoid
    * registering duplicate rdep edges when {@code dep} is requested both before and after a restart.
    *
-   * <p>A {@link TestParameter} is used to cover both of the following cases, which take different
-   * code paths in {@link AbstractParallelEvaluator}:
-   *
-   * <ol>
-   *   <li>{@code requestExtraDep=false}: {@code dep} is newly requested post-restart during a
-   *       {@link SkyFunction#compute} invocation that returns a {@link SkyValue}.
-   *   <li>{@code requestExtraDep=true}: {@code dep} is newly requested post-restart in a {@link
-   *       SkyFunction#compute} invocation that returns {@code null} (because {@code extraDep} is
-   *       missing).
-   * </ol>
+   * <p>This test covers the case where {@code dep} is newly requested post-restart during a {@link
+   * SkyFunction#compute} invocation that returns a {@link SkyValue}, which exercises a different
+   * {@link AbstractParallelEvaluator} code path than the scenario covered by {@link
+   * #restartSelfOnly_extraDepMissingAfterRestart}.
    */
   // TODO(b/228090759): Similarly test a restart on an incremental build.
   @Test
-  public void restartSelfOnly(@TestParameter boolean requestExtraDep) throws Exception {
+  public void restartSelfOnly_singleDep() throws Exception {
+    assume().that(restartSupported()).isTrue();
+
+    var inconsistencyReceiver = new RecordingInconsistencyReceiver();
+    tester.setGraphInconsistencyReceiver(inconsistencyReceiver);
+    tester.initialize();
+
+    SkyKey top = skyKey("top");
+    SkyKey dep = skyKey("dep");
+
+    tester
+        .getOrCreate(top)
+        .setBuilder(
+            new SkyFunction() {
+              private boolean restarted = false;
+
+              @Nullable
+              @Override
+              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+                var depValue = env.getValue(dep);
+                if (depValue == null) {
+                  return null;
+                }
+                if (!restarted) {
+                  restarted = true;
+                  return Restart.of(Restart.newRewindGraphFor(top));
+                }
+                return new StringValue("topVal");
+              }
+            });
+    tester.getOrCreate(dep).setConstantValue(new StringValue("depVal"));
+
+    var result = tester.eval(/* keepGoing= */ false, top);
+
+    assertThatEvaluationResult(result).hasEntryThat(top).isEqualTo(new StringValue("topVal"));
+    assertThat(inconsistencyReceiver.inconsistencies)
+        .containsExactly(InconsistencyData.resetRequested(top));
+
+    if (!incrementalitySupported()) {
+      return; // Skip assertions on dependency edges when they aren't kept.
+    }
+
+    assertThatEvaluationResult(result).hasReverseDepsInGraphThat(dep).containsExactly(top);
+    assertThatEvaluationResult(result).hasDirectDepsInGraphThat(top).containsExactly(dep);
+  }
+
+  /**
+   * Test for a restart with no rewinding of dependencies, with a missing dependency requested
+   * post-restart.
+   *
+   * <p>Ensures that {@link NodeEntry#getResetDirectDeps} is used correctly by Skyframe to avoid
+   * registering duplicate rdep edges when {@code dep} is requested both before and after a restart.
+   *
+   * <p>This test covers the case where {@code dep} is newly requested post-restart in a {@link
+   * SkyFunction#compute} invocation that returns {@code null} (because {@code extraDep} is
+   * missing), which exercises a different {@link AbstractParallelEvaluator} code path than the
+   * scenario covered by {@link #restartSelfOnly_singleDep}.
+   */
+  @Test
+  public void restartSelfOnly_extraDepMissingAfterRestart() throws Exception {
     assume().that(restartSupported()).isTrue();
 
     var inconsistencyReceiver = new RecordingInconsistencyReceiver();
@@ -2404,11 +2456,9 @@ public abstract class MemoizingEvaluatorTest {
                   restarted = true;
                   return Restart.of(Restart.newRewindGraphFor(top));
                 }
-                if (requestExtraDep) {
-                  var extraDepValue = env.getValue(extraDep);
-                  if (extraDepValue == null) {
-                    return null;
-                  }
+                var extraDepValue = env.getValue(extraDep);
+                if (extraDepValue == null) {
+                  return null;
                 }
                 return new StringValue("topVal");
               }
@@ -2427,15 +2477,11 @@ public abstract class MemoizingEvaluatorTest {
     }
 
     assertThatEvaluationResult(result).hasReverseDepsInGraphThat(dep).containsExactly(top);
-    if (requestExtraDep) {
-      assertThatEvaluationResult(result)
-          .hasDirectDepsInGraphThat(top)
-          .containsExactly(dep, extraDep)
-          .inOrder();
-      assertThatEvaluationResult(result).hasReverseDepsInGraphThat(extraDep).containsExactly(top);
-    } else {
-      assertThatEvaluationResult(result).hasDirectDepsInGraphThat(top).containsExactly(dep);
-    }
+    assertThatEvaluationResult(result)
+        .hasDirectDepsInGraphThat(top)
+        .containsExactly(dep, extraDep)
+        .inOrder();
+    assertThatEvaluationResult(result).hasReverseDepsInGraphThat(extraDep).containsExactly(top);
   }
 
   private static final class RecordingInconsistencyReceiver implements GraphInconsistencyReceiver {
