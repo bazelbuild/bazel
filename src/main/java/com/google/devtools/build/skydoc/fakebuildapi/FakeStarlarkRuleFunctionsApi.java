@@ -132,7 +132,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi {
   public StarlarkCallable rule(
       StarlarkFunction implementation,
       Boolean test,
-      Object attrs,
+      Dict<?, ?> attrs,
       Object implicitOutputs,
       Boolean executable,
       Boolean outputToGenfiles,
@@ -152,9 +152,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi {
       StarlarkThread thread)
       throws EvalException {
     ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();
-    if (attrs != null && attrs != Starlark.NONE) {
-      attrsMapBuilder.putAll(Dict.cast(attrs, String.class, FakeDescriptor.class, "attrs"));
-    }
+    attrsMapBuilder.putAll(Dict.cast(attrs, String.class, FakeDescriptor.class, "attrs"));
 
     attrsMapBuilder.put("name", IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR);
     List<AttributeInfo> attrInfos =
@@ -192,7 +190,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi {
   public StarlarkAspectApi aspect(
       StarlarkFunction implementation,
       Sequence<?> attributeAspects,
-      Object attrs,
+      Dict<?, ?> attrs,
       Sequence<?> requiredProvidersArg,
       Sequence<?> requiredAspectProvidersArg,
       Sequence<?> providesArg,
@@ -210,9 +208,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi {
       throws EvalException {
     FakeStarlarkAspect fakeAspect = new FakeStarlarkAspect();
     ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();
-    if (attrs != null && attrs != Starlark.NONE) {
-      attrsMapBuilder.putAll(Dict.cast(attrs, String.class, FakeDescriptor.class, "attrs"));
-    }
+    attrsMapBuilder.putAll(Dict.cast(attrs, String.class, FakeDescriptor.class, "attrs"));
 
     attrsMapBuilder.put("name", IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR);
     List<AttributeInfo> attrInfos =

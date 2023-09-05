@@ -24,7 +24,6 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkThread;
@@ -106,10 +105,9 @@ public interface TestingModuleApi extends StarlarkValue {
             name = "attrs",
             allowedTypes = {
               @ParamType(type = Dict.class),
-              @ParamType(type = NoneType.class),
             },
             named = true,
-            defaultValue = "None",
+            defaultValue = "{}",
             doc =
                 "Dictionary declaring the attributes. See the <a"
                     + " href=\"../globals/bzl.html#rule\">rule</a> call. Attributes are allowed to"
@@ -143,7 +141,7 @@ public interface TestingModuleApi extends StarlarkValue {
   void analysisTest(
       String name,
       StarlarkFunction implementation,
-      Object attrs,
+      Dict<?, ?> attrs,
       Sequence<?> fragments,
       Sequence<?> toolchains,
       Object argsValue,

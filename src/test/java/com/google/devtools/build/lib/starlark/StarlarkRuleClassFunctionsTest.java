@@ -1116,7 +1116,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void testRuleBadTypeForAdd() throws Exception {
     registerDummyStarlarkFunction();
     ev.checkEvalErrorContains(
-        "in call to rule(), parameter 'attrs' got value of type 'string', want 'dict or NoneType'",
+        "in call to rule(), parameter 'attrs' got value of type 'string', want 'dict'",
         "rule(impl, attrs = 'some text')");
   }
 

@@ -226,10 +226,9 @@ public interface StarlarkRuleFunctionsApi {
             name = "attrs",
             allowedTypes = {
               @ParamType(type = Dict.class),
-              @ParamType(type = NoneType.class),
             },
             named = true,
-            defaultValue = "None",
+            defaultValue = "{}",
             doc =
                 "dictionary to declare all the attributes of the rule. It maps from an attribute"
                     + " name to an attribute object (see <a href=\"../toplevel/attr.html\">attr</a>"
@@ -455,7 +454,7 @@ public interface StarlarkRuleFunctionsApi {
   StarlarkCallable rule(
       StarlarkFunction implementation,
       Boolean test,
-      Object attrs,
+      Dict<?, ?> attrs,
       Object implicitOutputs,
       Boolean executable,
       Boolean outputToGenfiles,
@@ -507,10 +506,9 @@ public interface StarlarkRuleFunctionsApi {
             name = "attrs",
             allowedTypes = {
               @ParamType(type = Dict.class),
-              @ParamType(type = NoneType.class),
             },
             named = true,
-            defaultValue = "None",
+            defaultValue = "{}",
             doc =
                 "A dictionary declaring all the attributes of the aspect. It maps from an attribute"
                     + " name to an attribute object, like `attr.label` or `attr.string` (see <a"
@@ -673,7 +671,7 @@ public interface StarlarkRuleFunctionsApi {
   StarlarkAspectApi aspect(
       StarlarkFunction implementation,
       Sequence<?> attributeAspects,
-      Object attrs,
+      Dict<?, ?> attrs,
       Sequence<?> requiredProvidersArg,
       Sequence<?> requiredAspectProvidersArg,
       Sequence<?> providesArg,

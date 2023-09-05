@@ -61,7 +61,7 @@ public class StarlarkTestingModule implements TestingModuleApi {
   public void analysisTest(
       String name,
       StarlarkFunction implementation,
-      Object attrs,
+      Dict<?, ?> attrs,
       Sequence<?> fragments,
       Sequence<?> toolchains,
       Object attrValuesApi,

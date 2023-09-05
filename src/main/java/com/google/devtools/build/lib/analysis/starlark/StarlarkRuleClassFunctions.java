@@ -289,7 +289,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   public StarlarkRuleFunction rule(
       StarlarkFunction implementation,
       Boolean test,
-      Object attrs,
+      Dict<?, ?> attrs,
       Object implicitOutputs,
       Boolean executable,
       Boolean outputToGenfiles,
@@ -372,7 +372,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       // Parameters that come from rule().
       StarlarkFunction implementation,
       boolean test,
-      Object attrs,
+      Dict<?, ?> attrs,
       Object implicitOutputs,
       boolean executable,
       boolean outputToGenfiles,
@@ -550,19 +550,17 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   }
 
   private static ImmutableList<Pair<String, StarlarkAttrModule.Descriptor>>
-      attrObjectToAttributesList(Object attrs) throws EvalException {
+      attrObjectToAttributesList(Dict<?, ?> attrs) throws EvalException {
     ImmutableList.Builder<Pair<String, StarlarkAttrModule.Descriptor>> attributes =
         ImmutableList.builder();
 
-    if (attrs != Starlark.NONE) {
-      for (Map.Entry<String, Descriptor> attr :
-          Dict.cast(attrs, String.class, Descriptor.class, "attrs").entrySet()) {
-        Descriptor attrDescriptor = attr.getValue();
-        AttributeValueSource source = attrDescriptor.getValueSource();
-        checkAttributeName(attr.getKey());
-        String attrName = source.convertToNativeName(attr.getKey());
-        attributes.add(Pair.of(attrName, attrDescriptor));
-      }
+    for (Map.Entry<String, Descriptor> attr :
+        Dict.cast(attrs, String.class, Descriptor.class, "attrs").entrySet()) {
+      Descriptor attrDescriptor = attr.getValue();
+      AttributeValueSource source = attrDescriptor.getValueSource();
+      checkAttributeName(attr.getKey());
+      String attrName = source.convertToNativeName(attr.getKey());
+      attributes.add(Pair.of(attrName, attrDescriptor));
     }
     return attributes.build();
   }
@@ -585,7 +583,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   public StarlarkAspect aspect(
       StarlarkFunction implementation,
       Sequence<?> attributeAspects,
-      Object attrs,
+      Dict<?, ?> attrs,
       Sequence<?> requiredProvidersArg,
       Sequence<?> requiredAspectProvidersArg,
       Sequence<?> providesArg,
