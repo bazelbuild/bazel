@@ -112,6 +112,36 @@ public abstract class OutputFile extends FileTarget {
     return generatingRule.getLocation();
   }
 
+  @Override
+  public final boolean isOutputFile() {
+    return true;
+  }
+
+  @Override
+  public final Label getGeneratingRuleLabel() {
+    return generatingRule.getLabel();
+  }
+
+  @Override
+  public final String getDeprecationWarning() {
+    return generatingRule.getDeprecationWarning();
+  }
+
+  @Override
+  public final boolean isTestOnly() {
+    return generatingRule.isTestOnly();
+  }
+
+  @Override
+  public final boolean satisfies(RequiredProviders required) {
+    return generatingRule.satisfies(required);
+  }
+
+  @Override
+  public final TestTimeout getTestTimeout() {
+    return TestTimeout.getTestTimeout(generatingRule);
+  }
+
   /**
    * Returns this output file's output key.
    *

@@ -60,6 +60,11 @@ public abstract class FileTarget implements Target, FileType.HasFileType {
   }
 
   @Override
+  public boolean isFile() {
+    return true;
+  }
+
+  @Override
   public String toString() {
     return getTargetKind() + "(" + label + ")"; // Just for debugging
   }

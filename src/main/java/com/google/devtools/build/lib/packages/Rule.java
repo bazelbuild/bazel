@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkPositionIndex;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper.attributeOrNull;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -1212,6 +1213,36 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
       }
     }
     return ruleTags;
+  }
+
+  @Override
+  public boolean isRule() {
+    return true;
+  }
+
+  @Override
+  @Nullable
+  public String getDeprecationWarning() {
+    return attributeOrNull(this, "deprecation", Type.STRING);
+  }
+
+  @Override
+  public boolean isTestOnly() {
+    Boolean value = attributeOrNull(this, "testonly", Type.BOOLEAN);
+    if (value == null) {
+      return false;
+    }
+    return value;
+  }
+
+  @Override
+  public boolean satisfies(RequiredProviders required) {
+    return required.isSatisfiedBy(getRuleClassObject().getAdvertisedProviders());
+  }
+
+  @Override
+  public TestTimeout getTestTimeout() {
+    return TestTimeout.getTestTimeout(this);
   }
 
   /**
