@@ -142,6 +142,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
   @Nullable private Reporter reporter;
   @Nullable private BuildEventStreamer streamer;
   @Nullable private ConnectivityStatusProvider connectivityProvider;
+  @Nullable private String commandName;
   private static final String CONNECTIVITY_CACHE_KEY = "BES";
 
   protected OptionsT besOptions;
@@ -292,6 +293,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
   @Override
   public void beforeCommand(CommandEnvironment cmdEnv) throws AbruptExitException {
     this.invocationId = cmdEnv.getCommandId().toString();
+    this.commandName = cmdEnv.getCommandName();
     this.buildRequestId = cmdEnv.getBuildRequestId();
     this.reporter = cmdEnv.getReporter();
 
@@ -641,12 +643,14 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     this.buildRequestId = null;
     this.reporter = null;
     this.streamer = null;
+    this.commandName = null;
   }
 
   private void constructAndMaybeReportInvocationIdUrl() {
-    if (!getInvocationIdPrefix().isEmpty()) {
+    if (!getInvocationIdPrefix(commandName).isEmpty()) {
       reporter.handle(
-          Event.info("Streaming build results to: " + getInvocationIdPrefix() + invocationId));
+          Event.info(
+              "Streaming build results to: " + getInvocationIdPrefix(commandName) + invocationId));
     }
   }
 
@@ -876,7 +880,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
   }
 
   /** A prefix used when printing the invocation ID in the command line */
-  protected abstract String getInvocationIdPrefix();
+  protected abstract String getInvocationIdPrefix(String commandName);
 
   /** A prefix used when printing the build request ID in the command line */
   protected abstract String getBuildRequestIdPrefix();
