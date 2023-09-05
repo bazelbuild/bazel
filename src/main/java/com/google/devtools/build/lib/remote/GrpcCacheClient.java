@@ -81,7 +81,6 @@ import javax.annotation.Nullable;
 public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  private final CacheCapabilities cacheCapabilities;
   private final CallCredentialsProvider callCredentialsProvider;
   private final ReferenceCountedChannel channel;
   private final RemoteOptions options;
@@ -94,13 +93,11 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
 
   @VisibleForTesting
   public GrpcCacheClient(
-      CacheCapabilities cacheCapabilities,
       ReferenceCountedChannel channel,
       CallCredentialsProvider callCredentialsProvider,
       RemoteOptions options,
       RemoteRetrier retrier,
       DigestUtil digestUtil) {
-    this.cacheCapabilities = cacheCapabilities;
     this.callCredentialsProvider = callCredentialsProvider;
     this.channel = channel;
     this.options = options;
@@ -266,7 +263,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
 
   @Override
   public CacheCapabilities getCacheCapabilities() {
-    return cacheCapabilities;
+    return channel.getServerCapabilities().getCacheCapabilities();
   }
 
   @Override

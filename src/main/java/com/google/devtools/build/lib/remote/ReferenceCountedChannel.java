@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -35,6 +37,7 @@ import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.functions.Function;
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
+import javax.annotation.Nullable;
 
 /**
  * A wrapper around a {@link DynamicConnectionPool} exposing {@link Channel} and a reference count.
@@ -62,14 +65,24 @@ public class ReferenceCountedChannel implements ReferenceCounted {
         }
       };
 
+  @Nullable private ServerCapabilities serverCapabilities;
+
   public ReferenceCountedChannel(ChannelConnectionFactory connectionFactory) {
-    this(connectionFactory, /*maxConnections=*/ 0);
+    this(connectionFactory, /* maxConnections= */ 0);
   }
 
   public ReferenceCountedChannel(ChannelConnectionFactory connectionFactory, int maxConnections) {
     this.dynamicConnectionPool =
         new DynamicConnectionPool(
             connectionFactory, connectionFactory.maxConcurrency(), maxConnections);
+  }
+
+  public void setServerCapabilities(ServerCapabilities serverCapabilities) {
+    this.serverCapabilities = serverCapabilities;
+  }
+
+  public ServerCapabilities getServerCapabilities() {
+    return checkNotNull(serverCapabilities);
   }
 
   public boolean isShutdown() {

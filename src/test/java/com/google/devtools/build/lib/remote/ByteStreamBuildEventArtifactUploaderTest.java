@@ -23,8 +23,8 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.collect.ImmutableList;
@@ -558,12 +558,12 @@ public class ByteStreamBuildEventArtifactUploaderTest {
       ReferenceCountedChannel channel,
       RemoteRetrier retrier,
       MissingDigestsFinder missingDigestsFinder) {
+    channel.setServerCapabilities(ServerCapabilities.getDefaultInstance());
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     remoteOptions.remoteInstanceName = "instance";
     GrpcCacheClient cacheClient =
         spy(
             new GrpcCacheClient(
-                CacheCapabilities.getDefaultInstance(),
                 channel,
                 CallCredentialsProvider.NO_CREDENTIALS,
                 remoteOptions,

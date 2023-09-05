@@ -432,10 +432,6 @@ public final class RemoteModule extends BlazeModule {
       loggingInterceptor = new LoggingInterceptor(rpcLogFile, env.getRuntime().getClock());
     }
 
-    ReferenceCountedChannel execChannel = null;
-    ReferenceCountedChannel cacheChannel = null;
-    ReferenceCountedChannel downloaderChannel = null;
-
     // The number of concurrent requests for one connection to a gRPC server is limited by
     // MAX_CONCURRENT_STREAMS which is normally being 100+. We assume 50 concurrent requests for
     // each connection should be fairly well. The number of connections opened by one channel is
@@ -445,75 +441,6 @@ public final class RemoteModule extends BlazeModule {
     int maxConnections = 0;
     if (remoteOptions.remoteMaxConnections > 0) {
       maxConnections = remoteOptions.remoteMaxConnections;
-    }
-
-    if (enableRemoteExecution) {
-      try (var s = Profiler.instance().profile("init exec channel")) {
-        ImmutableList.Builder<ClientInterceptor> interceptors = ImmutableList.builder();
-        interceptors.add(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions));
-        if (loggingInterceptor != null) {
-          interceptors.add(loggingInterceptor);
-        }
-        execChannel =
-            new ReferenceCountedChannel(
-                new GoogleChannelConnectionFactory(
-                    channelFactory,
-                    remoteOptions.remoteExecutor,
-                    remoteOptions.remoteProxy,
-                    authAndTlsOptions,
-                    interceptors.build(),
-                    maxConcurrencyPerConnection),
-                maxConnections);
-
-        // Create a separate channel if --remote_executor and --remote_cache point to different
-        // endpoints.
-        if (remoteOptions.remoteCache.equals(remoteOptions.remoteExecutor)) {
-          cacheChannel = execChannel.retain();
-        }
-      }
-    }
-
-    if (cacheChannel == null) {
-      try (var s = Profiler.instance().profile("init cache channel")) {
-        ImmutableList.Builder<ClientInterceptor> interceptors = ImmutableList.builder();
-        interceptors.add(TracingMetadataUtils.newCacheHeadersInterceptor(remoteOptions));
-        if (loggingInterceptor != null) {
-          interceptors.add(loggingInterceptor);
-        }
-        cacheChannel =
-            new ReferenceCountedChannel(
-                new GoogleChannelConnectionFactory(
-                    channelFactory,
-                    remoteOptions.remoteCache,
-                    remoteOptions.remoteProxy,
-                    authAndTlsOptions,
-                    interceptors.build(),
-                    maxConcurrencyPerConnection),
-                maxConnections);
-      }
-    }
-
-    if (enableRemoteDownloader) {
-      // Create a separate channel if --remote_downloader and --remote_cache point to different
-      // endpoints.
-      if (remoteOptions.remoteDownloader.equals(remoteOptions.remoteCache)) {
-        downloaderChannel = cacheChannel.retain();
-      } else {
-        ImmutableList.Builder<ClientInterceptor> interceptors = ImmutableList.builder();
-        if (loggingInterceptor != null) {
-          interceptors.add(loggingInterceptor);
-        }
-        downloaderChannel =
-            new ReferenceCountedChannel(
-                new GoogleChannelConnectionFactory(
-                    channelFactory,
-                    remoteOptions.remoteDownloader,
-                    remoteOptions.remoteProxy,
-                    authAndTlsOptions,
-                    interceptors.build(),
-                    maxConcurrencyPerConnection),
-                maxConnections);
-      }
     }
 
     CallCredentialsProvider callCredentialsProvider =
@@ -526,6 +453,8 @@ public final class RemoteModule extends BlazeModule {
         new RemoteRetrier(
             remoteOptions, RemoteRetrier.RETRIABLE_GRPC_ERRORS, retryScheduler, circuitBreaker);
 
+    ReferenceCountedChannel execChannel = null;
+    ReferenceCountedChannel cacheChannel = null;
     // We only check required capabilities for a given endpoint.
     //
     // If --remote_executor and --remote_cache point to the same endpoint, we require that
@@ -533,31 +462,21 @@ public final class RemoteModule extends BlazeModule {
     //
     // If they point to different endpoints, we check the endpoint with execution or cache
     // capabilities respectively.
-    ServerCapabilities executionCapabilities = null;
-    ServerCapabilities cacheCapabilities = null;
-    try (var s = Profiler.instance().profile("check server capabilities")) {
-      if (execChannel != null) {
-        if (cacheChannel != execChannel) {
-          executionCapabilities =
-              getAndVerifyServerCapabilities(
-                  remoteOptions,
-                  execChannel,
-                  callCredentials,
-                  retrier,
-                  env,
-                  digestUtil,
-                  ServerCapabilitiesRequirement.EXECUTION);
-          cacheCapabilities =
-              getAndVerifyServerCapabilities(
-                  remoteOptions,
-                  cacheChannel,
-                  callCredentials,
-                  retrier,
-                  env,
-                  digestUtil,
-                  ServerCapabilitiesRequirement.CACHE);
-        } else {
-          cacheCapabilities =
+    try (var s = Profiler.instance().profile("init channel and check server capabilities")) {
+      if (enableRemoteExecution) {
+        execChannel =
+            createExecChannel(
+                remoteOptions,
+                authAndTlsOptions,
+                loggingInterceptor,
+                channelFactory,
+                maxConcurrencyPerConnection,
+                maxConnections);
+
+        // Create a separate channel if --remote_executor and --remote_cache point to different
+        // endpoints.
+        if (remoteOptions.remoteCache.equals(remoteOptions.remoteExecutor)) {
+          var serverCapabilities =
               getAndVerifyServerCapabilities(
                   remoteOptions,
                   execChannel,
@@ -566,10 +485,32 @@ public final class RemoteModule extends BlazeModule {
                   env,
                   digestUtil,
                   ServerCapabilitiesRequirement.EXECUTION_AND_CACHE);
-          executionCapabilities = cacheCapabilities;
+          execChannel.setServerCapabilities(serverCapabilities);
+          cacheChannel = execChannel.retain();
+        } else {
+          var executionCapabilities =
+              getAndVerifyServerCapabilities(
+                  remoteOptions,
+                  execChannel,
+                  callCredentials,
+                  retrier,
+                  env,
+                  digestUtil,
+                  ServerCapabilitiesRequirement.EXECUTION);
+          execChannel.setServerCapabilities(executionCapabilities);
         }
-      } else {
-        cacheCapabilities =
+      }
+
+      if (cacheChannel == null) {
+        cacheChannel =
+            createCacheChannel(
+                remoteOptions,
+                authAndTlsOptions,
+                loggingInterceptor,
+                channelFactory,
+                maxConcurrencyPerConnection,
+                maxConnections);
+        var cacheCapabilities =
             getAndVerifyServerCapabilities(
                 remoteOptions,
                 cacheChannel,
@@ -578,6 +519,7 @@ public final class RemoteModule extends BlazeModule {
                 env,
                 digestUtil,
                 ServerCapabilitiesRequirement.CACHE);
+        cacheChannel.setServerCapabilities(cacheCapabilities);
       }
     } catch (AbruptExitException e) {
       throw e; // prevent abrupt interception
@@ -620,12 +562,7 @@ public final class RemoteModule extends BlazeModule {
 
     RemoteCacheClient cacheClient =
         new GrpcCacheClient(
-            cacheCapabilities.getCacheCapabilities(),
-            cacheChannel.retain(),
-            callCredentialsProvider,
-            remoteOptions,
-            retrier,
-            digestUtil);
+            cacheChannel.retain(), callCredentialsProvider, remoteOptions, retrier, digestUtil);
     cacheChannel.release();
 
     if (enableRemoteExecution) {
@@ -654,11 +591,7 @@ public final class RemoteModule extends BlazeModule {
                 circuitBreaker);
         remoteExecutor =
             new ExperimentalGrpcRemoteExecutor(
-                executionCapabilities,
-                remoteOptions,
-                execChannel.retain(),
-                callCredentialsProvider,
-                execRetrier);
+                remoteOptions, execChannel.retain(), callCredentialsProvider, execRetrier);
       } else {
         RemoteRetrier execRetrier =
             new RemoteRetrier(
@@ -667,8 +600,7 @@ public final class RemoteModule extends BlazeModule {
                 retryScheduler,
                 circuitBreaker);
         remoteExecutor =
-            new GrpcRemoteExecutor(
-                executionCapabilities, execChannel.retain(), callCredentialsProvider, execRetrier);
+            new GrpcRemoteExecutor(execChannel.retain(), callCredentialsProvider, execRetrier);
       }
       execChannel.release();
       RemoteExecutionCache remoteCache =
@@ -726,6 +658,29 @@ public final class RemoteModule extends BlazeModule {
             remoteOptions.remoteBuildEventUploadMode));
 
     if (enableRemoteDownloader) {
+      ReferenceCountedChannel downloaderChannel;
+      // Create a separate channel if --remote_downloader and --remote_cache point to different
+      // endpoints.
+      if (remoteOptions.remoteDownloader.equals(remoteOptions.remoteCache)) {
+        downloaderChannel = cacheChannel.retain();
+      } else {
+        ImmutableList.Builder<ClientInterceptor> interceptors = ImmutableList.builder();
+        if (loggingInterceptor != null) {
+          interceptors.add(loggingInterceptor);
+        }
+        downloaderChannel =
+            new ReferenceCountedChannel(
+                new GoogleChannelConnectionFactory(
+                    channelFactory,
+                    remoteOptions.remoteDownloader,
+                    remoteOptions.remoteProxy,
+                    authAndTlsOptions,
+                    interceptors.build(),
+                    maxConcurrencyPerConnection),
+                maxConnections);
+        downloaderChannel.setServerCapabilities(ServerCapabilities.getDefaultInstance());
+      }
+
       Downloader fallbackDownloader = null;
       if (remoteOptions.remoteDownloaderLocalFallback) {
         fallbackDownloader = new HttpDownloader();
@@ -743,6 +698,52 @@ public final class RemoteModule extends BlazeModule {
               fallbackDownloader));
       downloaderChannel.release();
     }
+  }
+
+  private static ReferenceCountedChannel createExecChannel(
+      RemoteOptions remoteOptions,
+      AuthAndTLSOptions authAndTlsOptions,
+      @Nullable ClientInterceptor loggingInterceptor,
+      ChannelFactory channelFactory,
+      int maxConcurrencyPerConnection,
+      int maxConnections) {
+    ImmutableList.Builder<ClientInterceptor> interceptors = ImmutableList.builder();
+    interceptors.add(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions));
+    if (loggingInterceptor != null) {
+      interceptors.add(loggingInterceptor);
+    }
+    return new ReferenceCountedChannel(
+        new GoogleChannelConnectionFactory(
+            channelFactory,
+            remoteOptions.remoteExecutor,
+            remoteOptions.remoteProxy,
+            authAndTlsOptions,
+            interceptors.build(),
+            maxConcurrencyPerConnection),
+        maxConnections);
+  }
+
+  private static ReferenceCountedChannel createCacheChannel(
+      RemoteOptions remoteOptions,
+      AuthAndTLSOptions authAndTlsOptions,
+      @Nullable ClientInterceptor loggingInterceptor,
+      ChannelFactory channelFactory,
+      int maxConcurrencyPerConnection,
+      int maxConnections) {
+    ImmutableList.Builder<ClientInterceptor> interceptors = ImmutableList.builder();
+    interceptors.add(TracingMetadataUtils.newCacheHeadersInterceptor(remoteOptions));
+    if (loggingInterceptor != null) {
+      interceptors.add(loggingInterceptor);
+    }
+    return new ReferenceCountedChannel(
+        new GoogleChannelConnectionFactory(
+            channelFactory,
+            remoteOptions.remoteCache,
+            remoteOptions.remoteProxy,
+            authAndTlsOptions,
+            interceptors.build(),
+            maxConcurrencyPerConnection),
+        maxConnections);
   }
 
   private static void handleInitFailure(
