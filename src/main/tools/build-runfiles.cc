@@ -117,6 +117,12 @@ class RunfilesCreator {
 
   void ReadManifest(const std::string &manifest_file, bool allow_relative,
                     bool use_metadata) {
+    // Remove file left over from previous invocation. This ensures that
+    // opening succeeds if the existing file is read-only.
+    if (unlink(temp_filename_.c_str()) != 0 && errno != ENOENT) {
+      PDIE("removing temporary file at '%s/%s'", output_base_.c_str(),
+           temp_filename_.c_str());
+    }
     FILE *outfile = fopen(temp_filename_.c_str(), "w");
     if (!outfile) {
       PDIE("opening '%s/%s' for writing", output_base_.c_str(),
