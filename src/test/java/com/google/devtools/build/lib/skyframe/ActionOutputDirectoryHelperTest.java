@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testing.common.DirectoryListingHelper.leafDirectoryEntries;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
 import com.github.benmanes.caffeine.cache.CaffeineSpec;
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.DelegateFileSystem;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -136,9 +138,45 @@ public class ActionOutputDirectoryHelperTest {
 
     outputDirectoryHelper.createOutputDirectories(ImmutableSet.of(fileOutput));
 
+    assertThat(parentDir.isDirectory()).isTrue();
     assertThat(parentDir.isReadable()).isTrue();
     assertThat(parentDir.isWritable()).isTrue();
     assertThat(parentDir.isExecutable()).isTrue();
+  }
+
+  @Test
+  public void createOutputDirectories_overwritesExistingFileAtParentPath() throws Exception {
+    ActionOutputDirectoryHelper outputDirectoryHelper = createActionOutputDirectoryHelper();
+    Artifact fileOutput = createOutput("dir/file");
+    Path parentPath = fileOutput.getPath().getParentDirectory();
+    parentPath.getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContent(parentPath, UTF_8, "garbage");
+    parentPath.setWritable(false);
+
+    outputDirectoryHelper.createOutputDirectories(ImmutableSet.of(fileOutput));
+
+    assertThat(parentPath.isDirectory()).isTrue();
+    assertThat(parentPath.isReadable()).isTrue();
+    assertThat(parentPath.isWritable()).isTrue();
+    assertThat(parentPath.isExecutable()).isTrue();
+  }
+
+  @Test
+  public void createOutputDirectories_overwritesExistingFileAtGrandparentPath() throws Exception {
+    ActionOutputDirectoryHelper outputDirectoryHelper = createActionOutputDirectoryHelper();
+    Artifact fileOutput = createOutput("dir/subdir/file");
+    Path parentPath = fileOutput.getPath().getParentDirectory();
+    Path grandparentPath = parentPath.getParentDirectory();
+    grandparentPath.getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContent(grandparentPath, UTF_8, "garbage");
+    grandparentPath.setWritable(false);
+
+    outputDirectoryHelper.createOutputDirectories(ImmutableSet.of(fileOutput));
+
+    assertThat(parentPath.isDirectory()).isTrue();
+    assertThat(parentPath.isReadable()).isTrue();
+    assertThat(parentPath.isWritable()).isTrue();
+    assertThat(parentPath.isExecutable()).isTrue();
   }
 
   @Test
