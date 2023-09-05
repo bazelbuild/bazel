@@ -339,7 +339,7 @@ public abstract class AndroidDataBindingV2Test extends AndroidBuildViewTestCase 
         (JavaCompileAction)
             getGeneratingAction(getFirstArtifactEndingWith(allArtifacts, "app.jar"));
     String dataBindingFilesDir =
-        targetConfig
+        getConfiguration(ctapp)
             .getBinDirectory(RepositoryName.MAIN)
             .getExecPath()
             .getRelative("java/android/binary/databinding/app")
@@ -1214,7 +1214,7 @@ public abstract class AndroidDataBindingV2Test extends AndroidBuildViewTestCase 
             getGeneratingAction(
                 getFirstArtifactEndingWith(allArtifacts, "databinding_enabled_test-class.jar"));
     String dataBindingFilesDir =
-        targetConfig
+        getConfiguration(testTarget)
             .getBinDirectory(RepositoryName.MAIN)
             .getExecPath()
             .getRelative("javatests/android/test/databinding/databinding_enabled_test")
