@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.longrunning.Operation;
@@ -289,7 +290,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
             // It's already late at this stage, but we should at least report once.
             reporter.reportExecutingIfNot();
 
-            maybePrintExecutionMessages(spawn, result.getMessage(), result.success());
+            maybePrintExecutionMessages(context, result.getMessage(), result.success());
 
             profileAccounting(result.getExecutionMetadata());
             spawnMetricsAccounting(spawnMetrics, result.getExecutionMetadata());
@@ -460,16 +461,14 @@ public class RemoteSpawnRunner implements SpawnRunner {
     return true;
   }
 
-  private void maybePrintExecutionMessages(Spawn spawn, String message, boolean success) {
+  private void maybePrintExecutionMessages(
+      SpawnExecutionContext context, String message, boolean success) {
+    FileOutErr outErr = context.getFileOutErr();
     boolean printMessage =
         remoteOptions.remotePrintExecutionMessages.shouldPrintMessages(success)
             && !message.isEmpty();
     if (printMessage) {
-      report(
-          Event.info(
-              String.format(
-                  "Remote execution message for %s %s: %s",
-                  spawn.getMnemonic(), spawn.getTargetLabel(), message)));
+      outErr.printErr(message + "\n");
     }
   }
 
@@ -528,10 +527,11 @@ public class RemoteSpawnRunner implements SpawnRunner {
     if (remoteOptions.remoteLocalFallback && !RemoteRetrierUtils.causedByExecTimeout(cause)) {
       return execLocallyAndUpload(action, spawn, context, uploadLocalResults);
     }
-    return handleError(action, cause);
+    return handleError(action, cause, context);
   }
 
-  private SpawnResult handleError(RemoteAction action, IOException exception)
+  private SpawnResult handleError(
+      RemoteAction action, IOException exception, SpawnExecutionContext context)
       throws ExecException, InterruptedException, IOException {
     boolean remoteCacheFailed = BulkTransferException.allCausedByCacheNotFoundException(exception);
     if (exception.getCause() instanceof ExecutionStatusException) {
@@ -550,8 +550,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
         }
       }
       if (e.isExecutionTimeout()) {
-        maybePrintExecutionMessages(
-            action.getSpawn(), e.getResponse().getMessage(), /* success= */ false);
+        maybePrintExecutionMessages(context, e.getResponse().getMessage(), /* success= */ false);
         SpawnResult.Builder resultBuilder =
             new SpawnResult.Builder()
                 .setRunnerName(getName())
