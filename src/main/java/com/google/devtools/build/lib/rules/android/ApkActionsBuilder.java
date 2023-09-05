@@ -77,7 +77,8 @@ public class ApkActionsBuilder {
   @CanIgnoreReturnValue
   public ApkActionsBuilder setClassesDex(Artifact classesDex) {
     Preconditions.checkArgument(
-        classesDex.getFilename().endsWith(".zip")
+        classesDex == null
+            || classesDex.getFilename().endsWith(".zip")
             || classesDex.getFilename().equals("classes.dex"));
     this.classesDex = classesDex;
     return this;

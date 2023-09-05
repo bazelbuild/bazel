@@ -44,11 +44,13 @@ public interface AndroidDexInfoApi<FileT extends FileApi> extends StructApi {
       structField = true)
   FileT getDeployJar();
 
+  @Nullable
   @StarlarkMethod(
       name = "final_classes_dex_zip",
       doc = "The zip file containing the final dex classes.",
       documented = false,
-      structField = true)
+      structField = true,
+      allowReturnNones = true)
   FileT getFinalClassesDexZip();
 
   @Nullable
@@ -94,6 +96,7 @@ public interface AndroidDexInfoApi<FileT extends FileApi> extends StructApi {
               name = "final_classes_dex_zip",
               allowedTypes = {
                 @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
               },
               named = true,
               doc = "The zip file containing the final dex classes."),
@@ -120,7 +123,7 @@ public interface AndroidDexInfoApi<FileT extends FileApi> extends StructApi {
     @StarlarkConstructor
     AndroidDexInfoApi<FileT> createInfo(
         FileT deployJar,
-        FileT finalClassesDexZip,
+        Object finalClassesDexZip,
         Object finalProguardOutputMap,
         Object javaResourceJar)
         throws EvalException;

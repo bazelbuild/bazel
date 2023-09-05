@@ -57,6 +57,7 @@ public class AndroidDexInfo extends NativeInfo implements AndroidDexInfoApi<Arti
   }
 
   @Override
+  @Nullable
   public Artifact getFinalClassesDexZip() {
     return finalClassesDexZip;
   }
@@ -88,14 +89,14 @@ public class AndroidDexInfo extends NativeInfo implements AndroidDexInfoApi<Arti
     @Override
     public AndroidDexInfo createInfo(
         Artifact deployJar,
-        Artifact finalClassesDexZip,
+        Object finalClassesDexZip,
         Object finalProguardOutputMap,
         Object javaResourceJar)
         throws EvalException {
 
       return new AndroidDexInfo(
           deployJar,
-          finalClassesDexZip,
+          fromNoneable(finalClassesDexZip, Artifact.class),
           fromNoneable(finalProguardOutputMap, Artifact.class),
           fromNoneable(javaResourceJar, Artifact.class));
     }
