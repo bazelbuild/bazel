@@ -652,6 +652,16 @@ public final class BuildLanguageOptions extends OptionsBase {
               + " specified through features configuration.")
   public boolean experimentalGetFixedConfiguredEnvironment;
 
+  // cleanup, flip, remove after Bazel LTS in Nov 2023
+  @Option(
+      name = "incompatible_fail_on_unknown_attributes",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "If enabled, targets that have unknown attributes set to None fail.")
+  public boolean incompatibleFailOnUnknownAttributes;
+
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
    * never accumulate a large number of these and being able to shortcut on object identity makes a
@@ -743,6 +753,7 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 EXPERIMENTAL_GET_FIXED_CONFIGURED_ACTION_ENV,
                 experimentalGetFixedConfiguredEnvironment)
+            .setBool(INCOMPATIBLE_FAIL_ON_UNKNOWN_ATTRIBUTES, incompatibleFailOnUnknownAttributes)
             .build();
     return INTERNER.intern(semantics);
   }
@@ -831,6 +842,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-incompatible_disable_starlark_host_transitions";
   public static final String EXPERIMENTAL_GET_FIXED_CONFIGURED_ACTION_ENV =
       "-experimental_get_fixed_configured_action_env";
+  public static final String INCOMPATIBLE_FAIL_ON_UNKNOWN_ATTRIBUTES =
+      "-incompatible_fail_on_unknown_attributes";
 
   // non-booleans
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =

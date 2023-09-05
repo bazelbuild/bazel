@@ -48,7 +48,7 @@ public class WorkspaceFactoryHelper {
     StoredEventHandler eventHandler = new StoredEventHandler();
     BuildLangTypedAttributeValuesMap attributeValues = new BuildLangTypedAttributeValuesMap(kwargs);
     Rule rule =
-        RuleFactory.createRule(pkg, ruleClass, attributeValues, eventHandler, semantics, callstack);
+        RuleFactory.createRule(pkg, ruleClass, attributeValues, true, eventHandler, semantics, callstack);
     pkg.addEvents(eventHandler.getEvents());
     pkg.addPosts(eventHandler.getPosts());
     overwriteRule(pkg, rule);
@@ -166,7 +166,7 @@ public class WorkspaceFactoryHelper {
     BuildLangTypedAttributeValuesMap attributeValues =
         new BuildLangTypedAttributeValuesMap(attributes);
     Rule rule =
-        RuleFactory.createRule(pkg, bindRuleClass, attributeValues, handler, semantics, callstack);
+        RuleFactory.createRule(pkg, bindRuleClass, attributeValues, true, handler, semantics, callstack);
     overwriteRule(pkg, rule);
     rule.setVisibility(ConstantRuleVisibility.PUBLIC);
   }

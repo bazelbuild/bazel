@@ -958,6 +958,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         pkgBuilder,
         ruleLabel,
         new BuildLangTypedAttributeValuesMap(attributeValues),
+        true,
         reporter,
         location,
         callstack);
