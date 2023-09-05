@@ -34,6 +34,8 @@ import javax.annotation.Nullable;
 public interface RemoteCacheClient extends MissingDigestsFinder {
   CacheCapabilities getCacheCapabilities();
 
+  ListenableFuture<String> getAuthority();
+
   /**
    * A key in the remote action cache. The type wraps around a {@link Digest} of an {@link Action}.
    * Action keys are special in that they aren't content-addressable but refer to action results.

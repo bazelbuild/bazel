@@ -267,6 +267,11 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   }
 
   @Override
+  public ListenableFuture<String> getAuthority() {
+    return channel.withChannelFuture(ch -> Futures.immediateFuture(ch.authority()));
+  }
+
+  @Override
   public ListenableFuture<CachedActionResult> downloadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
     GetActionResultRequest request =
@@ -520,5 +525,9 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
 
   Retrier getRetrier() {
     return this.retrier;
+  }
+
+  public ReferenceCountedChannel getChannel() {
+    return channel;
   }
 }

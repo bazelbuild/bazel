@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.DigestUtil.isOldStyleDigestFunction;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toListenableFuture;
@@ -24,6 +25,7 @@ import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -76,7 +78,8 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
   private final RemoteCache remoteCache;
   private final String buildRequestId;
   private final String commandId;
-  private final String remoteServerInstanceName;
+  private final String remoteInstanceName;
+  private final String remoteBytestreamUriPrefix;
 
   private final AtomicBoolean shutdown = new AtomicBoolean();
   private final Scheduler scheduler;
@@ -93,7 +96,8 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       ExtendedEventHandler reporter,
       boolean verboseFailures,
       RemoteCache remoteCache,
-      String remoteServerInstanceName,
+      String remoteInstanceName,
+      String remoteBytestreamUriPrefix,
       String buildRequestId,
       String commandId,
       XattrProvider xattrProvider,
@@ -104,7 +108,8 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     this.remoteCache = remoteCache;
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
-    this.remoteServerInstanceName = remoteServerInstanceName;
+    this.remoteInstanceName = remoteInstanceName;
+    this.remoteBytestreamUriPrefix = remoteBytestreamUriPrefix;
     this.scheduler = Schedulers.from(executor);
     this.xattrProvider = xattrProvider;
     this.remoteBuildEventUploadMode = remoteBuildEventUploadMode;
@@ -367,6 +372,21 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
         .collect(Collectors.toList());
   }
 
+  private Single<String> getRemoteServerInstanceName(RemoteCache remoteCache) {
+    if (!Strings.isNullOrEmpty(remoteBytestreamUriPrefix)) {
+      return Single.just(remoteBytestreamUriPrefix);
+    }
+
+    return toSingle(remoteCache.cacheProtocol::getAuthority, directExecutor())
+        .map(
+            a -> {
+              if (!Strings.isNullOrEmpty(remoteInstanceName)) {
+                return a + "/" + remoteInstanceName;
+              }
+              return a;
+            });
+  }
+
   private Single<PathConverter> doUpload(Map<Path, LocalFile> files) {
     if (files.isEmpty()) {
       return Single.just(PathConverter.NO_CONVERSION);
@@ -403,10 +423,15 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
                 .collect(Collectors.toList())
                 .flatMap(paths -> queryRemoteCache(remoteCache, context, paths))
                 .flatMap(paths -> uploadLocalFiles(remoteCache, context, paths))
-                .map(
+                .flatMap(
                     paths ->
-                        new PathConverterImpl(
-                            remoteServerInstanceName, paths, remoteBuildEventUploadMode)),
+                        getRemoteServerInstanceName(remoteCache)
+                            .map(
+                                remoteServerInstanceName ->
+                                    new PathConverterImpl(
+                                        remoteServerInstanceName,
+                                        paths,
+                                        remoteBuildEventUploadMode))),
         RemoteCache::release);
   }
 

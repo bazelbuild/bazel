@@ -112,6 +112,11 @@ public class InMemoryCacheClient implements RemoteCacheClient {
   }
 
   @Override
+  public ListenableFuture<String> getAuthority() {
+    return Futures.immediateFuture("");
+  }
+
+  @Override
   public ListenableFuture<CachedActionResult> downloadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
     ActionResult actionResult = ac.get(actionKey);
