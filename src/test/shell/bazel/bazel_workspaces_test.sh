@@ -451,7 +451,10 @@ function test_extract_rename_files() {
   ensure_output_contains_exactly_once "external/repo/out_dir/renamed-A.txt" "Second file: A"
 }
 
-function test_extract_pax_tar_non_ascii_file_names() {
+# Regression test for https://github.com/bazelbuild/bazel/issues/12986
+# Verifies that tar entries with PAX headers, which are always encoded in UTF-8, are extracted
+# correctly.
+function test_extract_pax_tar_non_ascii_utf8_file_names() {
   local archive_tar="${TEST_TMPDIR}/pax.tar"
 
   pushd "${TEST_TMPDIR}"
@@ -472,7 +475,9 @@ function test_extract_pax_tar_non_ascii_file_names() {
   ensure_output_contains_exactly_once "external/repo/out_dir/Ä_foo_∅.txt" "bar"
 }
 
-function test_extract_ustar_tar_non_ascii_file_names() {
+# Verifies that tar entries with USTAR headers, for which an encoding isn't specified, are extracted
+# correctly if that encoding happens to be UTF-8.
+function test_extract_ustar_tar_non_ascii_utf8_file_names() {
   local archive_tar="${TEST_TMPDIR}/ustar.tar"
 
   pushd "${TEST_TMPDIR}"
@@ -493,7 +498,35 @@ function test_extract_ustar_tar_non_ascii_file_names() {
   ensure_output_contains_exactly_once "external/repo/out_dir/Ä_foo_∅.txt" "bar"
 }
 
-function test_extract_default_zip_non_ascii_file_names() {
+# Verifies that tar entries with USTAR headers, for which an encoding isn't specified, are extracted
+# correctly if that encoding is not UTF-8.
+function test_extract_ustar_tar_non_ascii_non_utf8_file_names() {
+  if is_darwin; then
+    echo "Skipping test on macOS due to lack of support for non-UTF-8 filenames"
+    return
+  fi
+
+  local archive_tar="${TEST_TMPDIR}/ustar.tar"
+
+  pushd "${TEST_TMPDIR}"
+  mkdir "Ä_ustar_latin1_∅"
+  echo "bar" > "$(echo -e 'Ä_ustar_latin1_∅/\xC4_foo_latin1_\xD6.txt')"
+  tar --format=ustar -cvf ustar.tar "Ä_ustar_latin1_∅"
+  popd
+
+  set_workspace_command "
+  repository_ctx.extract('${archive_tar}', 'out_dir', 'Ä_ustar_latin1_∅/')"
+
+  build_and_process_log --exclude_rule "repository @local_config_cc"
+
+  ensure_contains_exactly 'location: .*repos.bzl:3:25' 1
+  ensure_contains_atleast 'context: "repository @repo"' 2
+  ensure_contains_exactly 'extract_event' 1
+
+  ensure_output_contains_exactly_once "$(echo -e 'external/repo/out_dir/\xC4_foo_latin1_\xD6.txt')" "bar"
+}
+
+function test_extract_default_zip_non_ascii_utf8_file_names() {
   local archive_tar="${TEST_TMPDIR}/default.zip"
 
   pushd "${TEST_TMPDIR}"

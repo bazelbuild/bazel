@@ -66,10 +66,10 @@ public class DecompressorValue implements SkyValue {
           return Optional.empty();
         }
         String rawFirstSegment = pathFragment.getSegment(0);
-        // Users can only specify prefixes from Starlark, where strings always use UTF-8, so we
-        // optimistically decode with it here even though we do not know the original encoding.
+        // Users can only specify prefixes from Starlark, which is planned to use UTF-8 for all
+        // strings, but currently still collects the raw bytes in a latin-1 string. We thus
+        // optimistically decode the raw bytes with UTF-8 here for display purposes.
         return Optional.of(new String(rawFirstSegment.getBytes(ISO_8859_1), UTF_8));
-//        return Optional.of(rawFirstSegment);
       }
     }
 
