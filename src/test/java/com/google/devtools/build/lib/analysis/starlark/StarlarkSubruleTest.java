@@ -385,6 +385,93 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testSubruleAttrs_publicAttributesAreNotPermitted() throws Exception {
+    ev.checkEvalErrorContains(
+        "illegal attribute name 'foo': subrules may only define private attributes",
+        "subrule(implementation = lambda: None, attrs = {'foo': attr.string()})");
+  }
+
+  @Test
+  public void testSubruleAttrs_computedDefaultsAreNotPermitted() throws Exception {
+    ev.checkEvalErrorContains(
+        "for attribute '_foo': subrules cannot define computed defaults.",
+        "subrule(",
+        "  implementation = lambda: None,",
+        "  attrs = {'_foo': attr.label(default = lambda: '')}",
+        ")");
+  }
+
+  @Test
+  public void testSubruleAttrs_attributeMustHaveDefaultValue() throws Exception {
+    ev.checkEvalErrorContains(
+        "for attribute '_foo': no default value specified",
+        "subrule(",
+        "  implementation = lambda: None,",
+        "  attrs = {'_foo': attr.label()}",
+        ")");
+  }
+
+  @Test
+  public void testSubruleAttrs_overridingImplicitAttributeValueFails() throws Exception {
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "def _subrule_impl(ctx, _foo):",
+        "  return ",
+        "_my_subrule = subrule(",
+        "  implementation = _subrule_impl,",
+        "  attrs = {'_foo' : attr.string(default = 'default value')},",
+        ")",
+        "",
+        "def _rule_impl(ctx):",
+        "  res = _my_subrule(_foo = 'override')",
+        "  return []",
+        "",
+        "my_rule = rule(implementation = _rule_impl, subrules = [_my_subrule])");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo')");
+
+    AssertionError error =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//subrule_testing:foo"));
+
+    assertThat(error)
+        .hasMessageThat()
+        .contains("Error in subrule(_subrule_impl): got invalid named argument: '_foo'");
+  }
+
+  @Test
+  public void testSubruleAttrs_implicitDepsArePassedToImplementation() throws Exception {
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "def _subrule_impl(ctx, _foo):",
+        "  return _foo",
+        "_my_subrule = subrule(",
+        "  implementation = _subrule_impl,",
+        "  attrs = {'_foo' : attr.string(default = 'my attribute value')},",
+        ")",
+        "",
+        "MyInfo = provider()",
+        "def _rule_impl(ctx):",
+        "  res = _my_subrule()",
+        "  return MyInfo(result = res)",
+        "",
+        "my_rule = rule(implementation = _rule_impl, subrules = [_my_subrule])");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo')");
+
+    StructImpl provider =
+        getProvider("//subrule_testing:foo", "//subrule_testing:myrule.bzl", "MyInfo");
+
+    assertThat(provider).isNotNull();
+    assertThat(provider.getValue("result")).isEqualTo("my attribute value");
+  }
+
+  @Test
   public void testSubruleInstantiation_outsideAllowlist_failsWithPrivateAPIError()
       throws Exception {
     evOutsideAllowlist.checkEvalErrorContains(

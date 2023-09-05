@@ -100,6 +100,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -1069,10 +1070,32 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   }
 
   @Override
-  public StarlarkSubruleApi subrule(StarlarkFunction implementation, StarlarkThread thread)
+  public StarlarkSubruleApi subrule(
+      StarlarkFunction implementation, Dict<?, ?> attrsUnchecked, StarlarkThread thread)
       throws EvalException {
     BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_SUBRULES);
-    return new StarlarkSubrule(implementation);
+    ImmutableMap<String, Descriptor> attrs =
+        ImmutableMap.copyOf(Dict.cast(attrsUnchecked, String.class, Descriptor.class, "attrs"));
+    for (Entry<String, Descriptor> attr : attrs.entrySet()) {
+      // TODO: b/293304174 - only permit label/label-list typed attributes
+      // TODO: b/293304174 - add support for late bound defaults (will require declaring fragments)
+      String attrName = attr.getKey();
+      Descriptor descriptor = attr.getValue();
+      checkAttributeName(attrName);
+      if (!attrName.startsWith("_")) {
+        throw Starlark.errorf(
+            "illegal attribute name '%s': subrules may only define private attributes (whose names"
+                + " begin with '_').",
+            attrName);
+      } else if (descriptor.getValueSource() == AttributeValueSource.COMPUTED_DEFAULT) {
+        throw Starlark.errorf(
+            "illegal default value for attribute '%s': subrules cannot define computed defaults.",
+            attrName);
+      } else if (!descriptor.hasDefault()) {
+        throw Starlark.errorf("for attribute '%s': no default value specified", attrName);
+      }
+    }
+    return new StarlarkSubrule(implementation, attrs);
   }
 
   private static ImmutableSet<ToolchainTypeRequirement> parseToolchainTypes(

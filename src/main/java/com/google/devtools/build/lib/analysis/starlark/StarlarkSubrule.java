@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.analysis.starlark;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -23,9 +25,11 @@ import com.google.devtools.build.lib.analysis.BazelRuleAnalysisThreadContext;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory.StarlarkActionContext;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule.Descriptor;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
+import java.util.Map.Entry;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
@@ -42,9 +46,23 @@ public class StarlarkSubrule implements StarlarkCallable, StarlarkSubruleApi {
   // TODO(hvd) this class is a WIP, will be implemented over many commits
 
   private final StarlarkFunction implementation;
+  private final ImmutableList<SubruleAttribute> attributes;
 
-  public StarlarkSubrule(StarlarkFunction implementation) {
+  public StarlarkSubrule(
+      StarlarkFunction implementation, ImmutableMap<String, Descriptor> attributes) {
     this.implementation = implementation;
+    this.attributes = createSubruleAttributeList(attributes);
+  }
+
+  private ImmutableList<SubruleAttribute> createSubruleAttributeList(
+      ImmutableMap<String, Descriptor> attributes) {
+    ImmutableList.Builder<SubruleAttribute> builder = ImmutableList.builder();
+    for (Entry<String, Descriptor> attr : attributes.entrySet()) {
+      String attrName = attr.getKey();
+      Descriptor descriptor = attr.getValue();
+      builder.add(new SubruleAttribute(attrName, descriptor));
+    }
+    return builder.build();
   }
 
   @Override
@@ -66,9 +84,20 @@ public class StarlarkSubrule implements StarlarkCallable, StarlarkSubruleApi {
     SubruleContext subruleContext = new SubruleContext(ruleContext);
     ImmutableList<Object> positionals =
         ImmutableList.builder().add(subruleContext).addAll(args).build();
+    ImmutableMap.Builder<String, Object> namedArgs = ImmutableMap.builder();
+    namedArgs.putAll(kwargs);
+    for (SubruleAttribute attr : attributes) {
+      // TODO: b/293304174 - maybe permit overriding?
+      if (kwargs.containsKey(attr.attrName)) {
+        throw Starlark.errorf("got invalid named argument: '%s'", attr.attrName);
+      }
+      // TODO: b/293304174 - fetch value from rule context
+      namedArgs.put(attr.attrName, attr.descriptor.build(attr.attrName).getDefaultValue(null));
+    }
     try {
       ruleContext.setLockedForSubrule(true);
-      return Starlark.call(thread, implementation, positionals, kwargs);
+      return Starlark.call(
+          thread, implementation, positionals, Dict.immutableCopyOf(namedArgs.buildOrThrow()));
     } finally {
       subruleContext.nullify();
       ruleContext.setLockedForSubrule(false);
@@ -86,6 +115,11 @@ public class StarlarkSubrule implements StarlarkCallable, StarlarkSubruleApi {
           "rule '%s' must declare '%s' in 'subrules'",
           starlarkRuleContext.getRuleContext().getRule().getRuleClass(), this.getName());
     }
+  }
+
+  @VisibleForTesting
+  ImmutableList<SubruleAttribute> getAttributes() {
+    return attributes;
   }
 
   /**
@@ -197,6 +231,18 @@ public class StarlarkSubrule implements StarlarkCallable, StarlarkSubruleApi {
     private void nullify() {
       this.ruleContext = null;
       this.actions = null;
+    }
+  }
+
+  @VisibleForTesting
+  static class SubruleAttribute {
+
+    final String attrName;
+    final Descriptor descriptor;
+
+    private SubruleAttribute(String attrName, Descriptor descriptor) {
+      this.attrName = attrName;
+      this.descriptor = descriptor;
     }
   }
 }

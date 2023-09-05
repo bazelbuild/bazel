@@ -750,9 +750,17 @@ public interface StarlarkRuleFunctionsApi {
             doc = "The Starlark function implementing this subrule",
             named = true,
             positional = false,
-            allowedTypes = {@ParamType(type = StarlarkFunction.class)})
+            allowedTypes = {@ParamType(type = StarlarkFunction.class)}),
+        @Param(
+            name = "attrs",
+            allowedTypes = {@ParamType(type = Dict.class)},
+            named = true,
+            positional = false,
+            defaultValue = "{}",
+            doc = "dictionary to declare all the (private) attributes of the subrule.")
       },
       useStarlarkThread = true)
-  StarlarkSubruleApi subrule(StarlarkFunction implementation, StarlarkThread thread)
+  StarlarkSubruleApi subrule(
+      StarlarkFunction implementation, Dict<?, ?> attrs, StarlarkThread thread)
       throws EvalException;
 }
