@@ -2357,7 +2357,7 @@ public abstract class MemoizingEvaluatorTest {
   }
 
   /**
-   * Basic test for a restart with no rewinding of dependencies.
+   * Basic test for a {@link SkyFunction.Restart} with no rewinding of dependencies.
    *
    * <p>Ensures that {@link NodeEntry#getResetDirectDeps} is used correctly by Skyframe to avoid
    * registering duplicate rdep edges when {@code dep} is requested both before and after a restart.
@@ -2416,8 +2416,8 @@ public abstract class MemoizingEvaluatorTest {
   }
 
   /**
-   * Test for a restart with no rewinding of dependencies, with a missing dependency requested
-   * post-restart.
+   * Test for a {@link SkyFunction.Restart} with no rewinding of dependencies, with a missing
+   * dependency requested post-restart.
    *
    * <p>Ensures that {@link NodeEntry#getResetDirectDeps} is used correctly by Skyframe to avoid
    * registering duplicate rdep edges when {@code dep} is requested both before and after a restart.
@@ -2482,6 +2482,66 @@ public abstract class MemoizingEvaluatorTest {
         .containsExactly(dep, extraDep)
         .inOrder();
     assertThatEvaluationResult(result).hasReverseDepsInGraphThat(extraDep).containsExactly(top);
+  }
+
+  /**
+   * Tests that if a dependency is requested prior to a {@link SkyFunction.Restart} but not after,
+   * then the corresponding reverse dep edge is removed.
+   *
+   * <p>This happens in practice with input-discovering actions, which use mutable state to track
+   * input discovery, resulting in unstable dependencies.
+   */
+  @Test
+  public void restartSelfOnly_depNotRequestedAgainAfterRestart() throws Exception {
+    assume().that(restartSupported()).isTrue();
+
+    var inconsistencyReceiver = new RecordingInconsistencyReceiver();
+    tester.setGraphInconsistencyReceiver(inconsistencyReceiver);
+    tester.initialize();
+
+    SkyKey top = skyKey("top");
+    SkyKey flakyDep = skyKey("flakyDep");
+    SkyKey stableDep = skyKey("stableDep");
+
+    tester
+        .getOrCreate(top)
+        .setBuilder(
+            new SkyFunction() {
+              private boolean restarted = false;
+
+              @Nullable
+              @Override
+              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+                env.getValuesAndExceptions(
+                    restarted
+                        ? ImmutableList.of(stableDep)
+                        : ImmutableList.of(stableDep, flakyDep));
+                if (env.valuesMissing()) {
+                  return null;
+                }
+                if (!restarted) {
+                  restarted = true;
+                  return Restart.of(Restart.newRewindGraphFor(top));
+                }
+                return new StringValue("topVal");
+              }
+            });
+    tester.getOrCreate(stableDep).setConstantValue(new StringValue("stableDepVal"));
+    tester.getOrCreate(flakyDep).setConstantValue(new StringValue("flakyDepVal"));
+
+    var result = tester.eval(/* keepGoing= */ false, top);
+
+    assertThatEvaluationResult(result).hasEntryThat(top).isEqualTo(new StringValue("topVal"));
+    assertThat(inconsistencyReceiver.inconsistencies)
+        .containsExactly(InconsistencyData.resetRequested(top));
+
+    if (!incrementalitySupported()) {
+      return; // Skip assertions on dependency edges when they aren't kept.
+    }
+
+    assertThatEvaluationResult(result).hasDirectDepsInGraphThat(top).containsExactly(stableDep);
+    assertThatEvaluationResult(result).hasReverseDepsInGraphThat(stableDep).containsExactly(top);
+    assertThatEvaluationResult(result).hasReverseDepsInGraphThat(flakyDep).isEmpty();
   }
 
   private static final class RecordingInconsistencyReceiver implements GraphInconsistencyReceiver {
