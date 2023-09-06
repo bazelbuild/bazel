@@ -105,7 +105,6 @@ java_library(
         ":no_build_event",
         ":no_build_request_finished_event",
         ":options_diff_predicate",
-        ":package_specification_provider",
         ":platform_configuration",
         ":platform_options",
         ":print_action_visitor",
@@ -190,6 +189,7 @@ java_library(
         "LocationExpander.java",
         "LocationTemplateContext.java",
         "OutputGroupInfo.java",
+        "PackageSpecificationProvider.java",
         "PrerequisiteArtifacts.java",
         "PseudoAction.java",
         "RuleConfiguredTargetBuilder.java",
@@ -332,7 +332,6 @@ java_library(
         ":licenses_provider",
         ":make_variable_supplier",
         ":options_diff_predicate",
-        ":package_specification_provider",
         ":platform_options",
         ":provider_collection",
         ":repo_mapping_manifest_action",
@@ -919,15 +918,6 @@ java_library(
     deps = [
         ":config/build_options",
         "//src/main/java/com/google/devtools/common/options",
-    ],
-)
-
-java_library(
-    name = "package_specification_provider",
-    srcs = ["PackageSpecificationProvider.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/packages",
     ],
 )
 
