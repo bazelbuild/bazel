@@ -62,6 +62,7 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -2404,8 +2405,7 @@ public abstract class MemoizingEvaluatorTest {
     var result = tester.eval(/* keepGoing= */ false, top);
 
     assertThatEvaluationResult(result).hasEntryThat(top).isEqualTo(new StringValue("topVal"));
-    assertThat(inconsistencyReceiver.inconsistencies)
-        .containsExactly(InconsistencyData.resetRequested(top));
+    assertThat(inconsistencyReceiver).containsExactly(InconsistencyData.resetRequested(top));
 
     if (!incrementalitySupported()) {
       return; // Skip assertions on dependency edges when they aren't kept.
@@ -2469,8 +2469,7 @@ public abstract class MemoizingEvaluatorTest {
     var result = tester.eval(/* keepGoing= */ false, top);
 
     assertThatEvaluationResult(result).hasEntryThat(top).isEqualTo(new StringValue("topVal"));
-    assertThat(inconsistencyReceiver.inconsistencies)
-        .containsExactly(InconsistencyData.resetRequested(top));
+    assertThat(inconsistencyReceiver).containsExactly(InconsistencyData.resetRequested(top));
 
     if (!incrementalitySupported()) {
       return; // Skip assertions on dependency edges when they aren't kept.
@@ -2532,8 +2531,7 @@ public abstract class MemoizingEvaluatorTest {
     var result = tester.eval(/* keepGoing= */ false, top);
 
     assertThatEvaluationResult(result).hasEntryThat(top).isEqualTo(new StringValue("topVal"));
-    assertThat(inconsistencyReceiver.inconsistencies)
-        .containsExactly(InconsistencyData.resetRequested(top));
+    assertThat(inconsistencyReceiver).containsExactly(InconsistencyData.resetRequested(top));
 
     if (!incrementalitySupported()) {
       return; // Skip assertions on dependency edges when they aren't kept.
@@ -2544,7 +2542,65 @@ public abstract class MemoizingEvaluatorTest {
     assertThatEvaluationResult(result).hasReverseDepsInGraphThat(flakyDep).isEmpty();
   }
 
-  private static final class RecordingInconsistencyReceiver implements GraphInconsistencyReceiver {
+  /**
+   * Tests that reset nodes are properly handled during invalidation after an aborted evaluation.
+   *
+   * <p>Invalidation deletes any nodes that are incomplete from the prior evaluation (in this case
+   * {@code top}). It should also remove the corresponding reverse dep edge from {@code dep} even
+   * though {@code top} does not have {@code dep} as a temporary direct dep when the evaluation is
+   * aborted.
+   *
+   * <p>An aborted evaluation can happen in practice when there is an error on a {@code
+   * --nokeep_going} build or if the user hits ctrl+c.
+   */
+  @Test
+  public void restartSelfOnly_evaluationAborted() throws Exception {
+    assume().that(restartSupported()).isTrue();
+    assume().that(incrementalitySupported()).isTrue();
+
+    var inconsistencyReceiver = new RecordingInconsistencyReceiver();
+    tester.setGraphInconsistencyReceiver(inconsistencyReceiver);
+    tester.initialize();
+
+    SkyKey top = skyKey("top");
+    SkyKey dep = skyKey("dep");
+
+    tester
+        .getOrCreate(top)
+        .setBuilder(
+            new SkyFunction() {
+              private boolean restarted = false;
+
+              @Nullable
+              @Override
+              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+                if (restarted) {
+                  throw new InterruptedException("Evaluation aborted");
+                }
+                var depValue = env.getValue(dep);
+                if (depValue == null) {
+                  return null;
+                }
+                restarted = true;
+                return Restart.of(Restart.newRewindGraphFor(top));
+              }
+            });
+    tester.getOrCreate(dep).setConstantValue(new StringValue("depVal"));
+
+    assertThrows(InterruptedException.class, () -> tester.eval(/* keepGoing= */ false, top));
+    assertThat(inconsistencyReceiver).containsExactly(InconsistencyData.resetRequested(top));
+    inconsistencyReceiver.clear();
+
+    var result = tester.eval(/* keepGoing= */ false, dep);
+
+    assertThatEvaluationResult(result).hasEntryThat(dep).isEqualTo(new StringValue("depVal"));
+    assertThat(inconsistencyReceiver).isEmpty();
+    assertThatEvaluationResult(result).hasEntryThat(top).isNull();
+    assertThatEvaluationResult(result).hasReverseDepsInGraphThat(dep).isEmpty();
+  }
+
+  private static final class RecordingInconsistencyReceiver
+      implements GraphInconsistencyReceiver, Iterable<InconsistencyData> {
     private final List<InconsistencyData> inconsistencies = new ArrayList<>();
 
     @Override
@@ -2556,6 +2612,15 @@ public abstract class MemoizingEvaluatorTest {
     @Override
     public boolean restartPermitted() {
       return true;
+    }
+
+    @Override
+    public Iterator<InconsistencyData> iterator() {
+      return inconsistencies.iterator();
+    }
+
+    void clear() {
+      inconsistencies.clear();
     }
   }
 

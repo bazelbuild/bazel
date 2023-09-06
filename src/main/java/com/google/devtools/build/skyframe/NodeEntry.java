@@ -452,12 +452,18 @@ public interface NodeEntry {
 
   /**
    * Returns all deps of a node that has not yet finished evaluating. In other words, if a node has
-   * a reverse dep on this node, its key will be in the returned set here. If this node was freshly
-   * created, this is just any elements that were added using one of the methods to add temporary
-   * direct deps (so it is the same as {@link #getTemporaryDirectDeps}). If this node is marked
-   * dirty, this includes all the elements that would have been returned by successive calls to
-   * {@link #getNextDirtyDirectDeps} (or, equivalently, one call to {@link
-   * #getAllRemainingDirtyDirectDeps}).
+   * a reverse dep on this node, its key will be in the returned set here.
+   *
+   * <p>The returned set is the union of:
+   *
+   * <ul>
+   *   <li>This node's {@linkplain #getTemporaryDirectDeps temporary direct deps}.
+   *   <li>Deps from a previous evaluation, if this this node was {@linkplain #markDirty marked
+   *       dirty} (all the elements that would have been returned by successive calls to {@link
+   *       #getNextDirtyDirectDeps} or, equivalently, one call to {@link
+   *       #getAllRemainingDirtyDirectDeps}).
+   *   <li>This node's {@linkplain #getResetDirectDeps reset direct deps}.
+   * </ul>
    *
    * <p>This method should only be called when this node is about to be deleted after an aborted
    * evaluation. After such an evaluation, any nodes that did not finish evaluating are deleted, as
@@ -564,7 +570,6 @@ public interface NodeEntry {
    * <p>If this node was reset multiple times since it was last done, must return deps requested
    * prior to <em>any</em> of those restarts, not just the most recent one.
    */
-  // TODO(b/228090759): These need to be added to getAllDirectDepsForIncompleteNode.
   @ThreadSafe
   ImmutableSet<SkyKey> getResetDirectDeps();
 

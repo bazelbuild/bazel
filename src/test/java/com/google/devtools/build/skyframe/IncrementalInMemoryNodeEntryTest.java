@@ -688,6 +688,20 @@ public class IncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<IntV
   }
 
   @Test
+  public void getAllDirectDepsForIncompleteNode_afterReset() throws Exception {
+    InMemoryNodeEntry entry = createEntry();
+    entry.addReverseDepAndCheckIfDone(null);
+    entry.markRebuilding();
+
+    SkyKey dep = key("dep");
+    entry.addSingletonTemporaryDirectDep(dep);
+    entry.signalDep(initialVersion, dep);
+    entry.resetForRestartFromScratch();
+
+    assertThat(entry.getAllDirectDepsForIncompleteNode()).containsExactly(dep);
+  }
+
+  @Test
   public void resetOnDirtyNode(@TestParameter boolean valueChanges) throws Exception {
     InMemoryNodeEntry entry = createEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
