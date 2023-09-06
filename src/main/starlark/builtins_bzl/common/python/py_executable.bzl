@@ -498,7 +498,7 @@ def _get_native_deps_details(ctx, *, semantics, cc_details, is_test):
         ctx.actions.symlink(
             output = dso,
             target_file = linked_lib,
-            progress_message = "Symlinking shared native deps for %(label)",
+            progress_message = "Symlinking shared native deps for %{label}",
         )
     else:
         linked_lib = dso
