@@ -2,6 +2,8 @@
 
 *{Fast, Correct} - Choose two*
 
+# testing
+
 Build and test software of any size, quickly and reliably.
 
 * **Speed up your builds and tests**:
