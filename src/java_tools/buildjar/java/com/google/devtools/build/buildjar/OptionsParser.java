@@ -190,10 +190,6 @@ public final class OptionsParser {
         case "--processors":
           collectProcessorArguments(processorNames, argQueue, "-");
           break;
-        case "--builtin_processors":
-          // TODO(b/294594306): remove once Blaze no longer passes this flag
-          collectProcessorArguments(new ArrayList<>(), argQueue, "-");
-          break;
         case "--output":
           outputJar = getArgument(argQueue, arg);
           break;
