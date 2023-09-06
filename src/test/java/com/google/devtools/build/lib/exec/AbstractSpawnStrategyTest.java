@@ -331,7 +331,7 @@ public class AbstractSpawnStrategyTest {
 
   @Test
   public void testLogSpawn() throws Exception {
-    setUpExecutionContext(/* executionOptions= */ null, /* remoteOptions= */ null);
+    setUpExecutionContext(/* remoteOptions= */ null);
 
     Artifact input = ActionsTestUtil.createArtifact(rootDir, scratch.file("/execroot/foo", "1"));
     scratch.file("/execroot/out1", "123");
@@ -402,13 +402,14 @@ public class AbstractSpawnStrategyTest {
             .setRunner("runner")
             .setWalltime(Duration.getDefaultInstance())
             .setTargetLabel("//dummy:label")
+            .setMetrics(Protos.SpawnMetrics.getDefaultInstance())
             .build();
     verify(messageOutput).write(expectedSpawnLog);
   }
 
   @Test
   public void testLogSpawn_noPlatform_noLoggedPlatform() throws Exception {
-    setUpExecutionContext(/* executionOptions= */ null, /* remoteOptions= */ null);
+    setUpExecutionContext(/* remoteOptions= */ null);
 
     Spawn spawn = new SpawnBuilder("cmd").build();
 
@@ -435,7 +436,7 @@ public class AbstractSpawnStrategyTest {
             " value: \"1\"",
             "}");
 
-    setUpExecutionContext(/* executionOptions= */ null, remoteOptions);
+    setUpExecutionContext(remoteOptions);
     Spawn spawn = new SpawnBuilder("cmd").build();
     assertThrows(
         SpawnExecException.class,
@@ -452,10 +453,7 @@ public class AbstractSpawnStrategyTest {
 
   @Test
   public void testLogSpawn_spawnMetrics() throws Exception {
-    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
-    executionOptions.executionLogSpawnMetrics = true;
-
-    setUpExecutionContext(executionOptions, /* remoteOptions= */ null);
+    setUpExecutionContext(/* remoteOptions= */ null);
 
     assertThrows(
         SpawnExecException.class,
@@ -480,7 +478,7 @@ public class AbstractSpawnStrategyTest {
             " name: \"a\"",
             " value: \"1\"",
             "}");
-    setUpExecutionContext(/* executionOptions= */ null, remoteOptions);
+    setUpExecutionContext(remoteOptions);
 
     PlatformInfo platformInfo =
         PlatformInfo.builder()
@@ -514,14 +512,17 @@ public class AbstractSpawnStrategyTest {
     verify(messageOutput).write(expected); // output will reflect default properties
   }
 
-  private void setUpExecutionContext(ExecutionOptions executionOptions, RemoteOptions remoteOptions)
-      throws Exception {
+  private void setUpExecutionContext(RemoteOptions remoteOptions) throws Exception {
     when(actionExecutionContext.getContext(eq(SpawnCache.class))).thenReturn(SpawnCache.NO_CACHE);
     when(actionExecutionContext.getExecRoot()).thenReturn(execRoot);
     when(actionExecutionContext.getContext(eq(SpawnLogContext.class)))
         .thenReturn(
             new SpawnLogContext(
-                execRoot, messageOutput, executionOptions, remoteOptions, SyscallCache.NO_CACHE));
+                execRoot,
+                messageOutput,
+                Options.getDefaults(ExecutionOptions.class),
+                remoteOptions,
+                SyscallCache.NO_CACHE));
     when(spawnRunner.exec(any(Spawn.class), any(SpawnExecutionContext.class)))
         .thenReturn(
             new SpawnResult.Builder()
@@ -547,6 +548,7 @@ public class AbstractSpawnStrategyTest {
         .setExitCode(23)
         .setRemoteCacheable(true)
         .setWalltime(Duration.getDefaultInstance())
-        .setTargetLabel("//dummy:label");
+        .setTargetLabel("//dummy:label")
+        .setMetrics(Protos.SpawnMetrics.getDefaultInstance());
   }
 }
