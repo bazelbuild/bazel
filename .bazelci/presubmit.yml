@@ -1,6 +1,5 @@
 ---
 
-
 tasks:
   centos7_java11_devtoolset10:
     shards: 4

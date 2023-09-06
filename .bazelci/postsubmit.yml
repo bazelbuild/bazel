@@ -1,44 +1,31 @@
 ---
-matrix:
-  bzlmod_platforms: ["centos7_java11_devtoolset10", "ubuntu2004", "macos", "windows"]
 
 tasks:
-  bzlmod_builds:
-    name: "Bazel Bzlmod build"
-    platform: ${{ bzlmod_platforms }}
-    build_flags:
-      - "--config=bzlmod"
-    build_targets:
-      - "//src:bazel"
-    test_targets:
-      - "//src/test/cpp/..."
   centos7_java11_devtoolset10:
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
-        android_ndk_repository/android_ndk_repository/' WORKSPACE
-      - rm -f WORKSPACE.bak
+        android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
+      - rm -f WORKSPACE.bzlmod.bak
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
     build_flags:
-      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
-      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
-      - "--noremote_accept_cached"
+      - "--config=ci-linux"
     build_targets:
       - "//:bazel-distfile.zip"
       - "//scripts/packages/debian:bazel-debian.deb"
       - "//scripts/packages:with-jdk/install.sh"
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
-      - "//src:test_repos"
       - "//src/main/java/..."
+      - "@test_repos//:srcs"
     test_flags:
-      - "--sandbox_default_allow_network=false"
-      - "--sandbox_writable_path=$HOME/bazeltest"
-      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
-      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
+      - "--config=ci-linux"
+      # Override REMOTE_NETWORK_ADDRESS since bazel_sandboxing_networking_test doesn't work on this platform
+      - "--test_env=REMOTE_NETWORK_ADDRESS="
     test_targets:
       - "//scripts/..."
       - "//src/java_tools/..."
+      - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
       - "//src/tools/singlejar/..."
@@ -46,7 +33,9 @@ tasks:
       - "//third_party/ijar/..."
       - "//tools/android/..."
       - "//tools/aquery_differ/..."
+      - "//tools/compliance/..."
       - "//tools/python/..."
+      - "//tools/bash/..."
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
       - "-//src/java_tools/buildjar/..."
       - "-//src/java_tools/import_deps_checker/..."
@@ -68,31 +57,24 @@ tasks:
   ubuntu1804:
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
-        android_ndk_repository/android_ndk_repository/' WORKSPACE
-      - rm -f WORKSPACE.bak
+        android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
+      - rm -f WORKSPACE.bzlmod.bak
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
     build_flags:
-      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
-      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
-      - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
-      - "--noremote_accept_cached"
+      - "--config=ci-linux"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
-      - "//src:test_repos"
       - "//src/main/java/..."
+      - "@test_repos//:srcs"
     test_flags:
-      - "--sandbox_default_allow_network=false"
-      - "--sandbox_writable_path=$HOME/bazeltest"
-      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
-      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
+      - "--config=ci-linux"
       - "--test_tag_filters=-no_1804"
-      # Configure and enable tests that require access to the network.
-      - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
     test_targets:
       - "//scripts/..."
       - "//src/java_tools/..."
+      - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
       - "//src/tools/singlejar/..."
@@ -101,6 +83,7 @@ tasks:
       - "//tools/android/..."
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
+      - "//tools/bash/..."
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
       - "-//src/java_tools/import_deps_checker/..."
       # https://github.com/bazelbuild/bazel/issues/18776
@@ -121,25 +104,22 @@ tasks:
     name: "Clang"
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
-        android_ndk_repository/android_ndk_repository/' WORKSPACE
-      - rm -f WORKSPACE.bak
+        android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
+      - rm -f WORKSPACE.bzlmod.bak
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
     build_flags:
-      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
-      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
-      - "--noremote_accept_cached"
+      - "--config=ci-linux"
+      - "--features=-layering_check"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
-      - "//src:test_repos"
       - "//src/main/java/..."
+      - "@test_repos//:srcs"
     test_flags:
-      - "--sandbox_default_allow_network=false"
-      - "--sandbox_writable_path=$HOME/bazeltest"
-      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
-      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
+      - "--config=ci-linux"
       - "--test_tag_filters=-no_1804"
+      - "--features=-layering_check"
     test_targets:
       - "//src/test/shell/bazel:cc_integration_test"
     include_json_profile:
@@ -148,30 +128,23 @@ tasks:
   ubuntu2004:
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
-        android_ndk_repository/android_ndk_repository/' WORKSPACE
-      - rm -f WORKSPACE.bak
+        android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
+      - rm -f WORKSPACE.bzlmod.bak
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
     build_flags:
-      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
-      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
-      - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
-      - "--noremote_accept_cached"
+      - "--config=ci-linux"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
-      - "//src:test_repos"
       - "//src/main/java/..."
+      - "@test_repos//:srcs"
     test_flags:
-      - "--sandbox_default_allow_network=false"
-      - "--sandbox_writable_path=$HOME/bazeltest"
-      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
-      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
-      # Configure and enable tests that require access to the network.
-      - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
+      - "--config=ci-linux"
     test_targets:
       - "//scripts/..."
       - "//src/java_tools/..."
+      - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
       - "//src/tools/singlejar/..."
@@ -180,6 +153,7 @@ tasks:
       - "//tools/android/..."
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
+      - "//tools/bash/..."
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
       - "-//src/java_tools/import_deps_checker/..."
       # https://github.com/bazelbuild/bazel/issues/18776
@@ -195,33 +169,25 @@ tasks:
   macos:
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
-        android_ndk_repository/android_ndk_repository/' WORKSPACE
-      - rm -f WORKSPACE.bak
+        android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
+      - rm -f WORKSPACE.bzlmod.bak
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
       - ln -sf $OUTPUT_BASE/external $HOME/bazeltest/external
     build_flags:
-      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
-      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
-      - "--test_env=TEST_REPOSITORY_HOME=$HOME/bazeltest/external"
-      - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
-      - "--noremote_accept_cached"
+      - "--config=ci-macos"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
-      - "//src:test_repos"
       - "//src/main/java/..."
+      - "@test_repos//:srcs"
     test_flags:
-      - "--sandbox_default_allow_network=false"
-      - "--sandbox_writable_path=$HOME/bazeltest"
-      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
-      - "--test_env=TEST_REPOSITORY_HOME=$HOME/bazeltest/external"
-      # Configure and enable tests that require access to the network.
-      - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
+      - "--config=ci-macos"
       # Fine tune the number of test jobs running in parallel to avoid timeout
       - "--local_test_jobs=8"
     test_targets:
       - "//scripts/..."
+      - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
       - "//src/tools/singlejar/..."
@@ -230,6 +196,10 @@ tasks:
       - "//tools/android/..."
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
+      - "//tools/bash/..."
+      # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
+      - "-//src/java_tools/buildjar/..."
+      - "-//src/java_tools/import_deps_checker/..."
       # C++ coverage is not supported on macOS yet.
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
       # MacOS does not have cgroups so it can't support hardened sandbox
@@ -263,31 +233,23 @@ tasks:
   macos_arm64:
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
-        android_ndk_repository/android_ndk_repository/' WORKSPACE
-      - rm -f WORKSPACE.bak
+        android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
+      - rm -f WORKSPACE.bzlmod.bak
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
       - ln -sf $OUTPUT_BASE/external $HOME/bazeltest/external
     build_flags:
-      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
-      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
-      - "--test_env=TEST_REPOSITORY_HOME=$HOME/bazeltest/external"
-      - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
-      - "--noremote_accept_cached"
+      - "--config=ci-macos"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
-      - "//src:test_repos"
       - "//src/main/java/..."
+      - "@test_repos//:srcs"
     test_flags:
-      - "--sandbox_default_allow_network=false"
-      - "--sandbox_writable_path=$HOME/bazeltest"
-      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
-      - "--test_env=TEST_REPOSITORY_HOME=$HOME/bazeltest/external"
-      # Configure and enable tests that require access to the network.
-      - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
+      - "--config=ci-macos"
     test_targets:
       - "//scripts/..."
+      - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
       - "//src/tools/singlejar/..."
@@ -296,6 +258,10 @@ tasks:
       - "//tools/android/..."
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
+      - "//tools/bash/..."
+      # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
+      - "-//src/java_tools/buildjar/..."
+      - "-//src/java_tools/import_deps_checker/..."
       # C++ coverage is not supported on macOS yet.
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
       # MacOS does not have cgroups so it can't support hardened sandbox
@@ -319,32 +285,23 @@ tasks:
       - build
       - test
   windows:
-    batch_commands:
-      - powershell -Command "(Get-Content WORKSPACE) -Replace '# android_', 'android_' | Set-Content WORKSPACE"
+    setup:
       - mkdir C:\b
       - mklink /J C:\b\bazeltest_external %OUTPUT_BASE:/=\%\external
+    batch_commands:
+      - powershell -Command "(Get-Content WORKSPACE.bzlmod) -Replace '# android_', 'android_' | Set-Content WORKSPACE.bzlmod"
     build_flags:
-      - "--copt=-w"
-      - "--host_copt=-w"
-      - "--test_env=JAVA_HOME"
-      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest_install_base"
-      - "--test_env=TEST_REPOSITORY_HOME=C:/b/bazeltest_external"
-      - "--noremote_accept_cached"
+      - "--config=ci-windows"
     build_targets:
       - "//src:bazel.exe"
       - "//src:bazel_jdk_minimal"
-      - "//src:test_repos"
       - "//src/main/java/..."
+      - "@test_repos//:srcs"
     test_flags:
-      - "--copt=-w"
-      - "--host_copt=-w"
-      - "--test_tag_filters=-no_windows,-slow"
-      - "--test_env=JAVA_HOME"
-      - "--test_env=BAZEL_VC"
-      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest_install_base"
-      - "--test_env=TEST_REPOSITORY_HOME=C:/b/bazeltest_external"
+      - "--config=ci-windows"
     test_targets:
       - "//src:embedded_tools_size_test"
+      - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/cpp/..."
       - "//src/test/java/com/google/devtools/build/android/..."
       - "//src/test/java/com/google/devtools/build/lib/..."
@@ -381,18 +338,19 @@ tasks:
       - test
   rbe_ubuntu1804:
     platform: ubuntu1804
+    name: "RBE"
     shell_commands:
       - sed -i.bak
         -e 's/^# android_sdk_repository/android_sdk_repository/'
-        -e 's/^# android_ndk_repository/android_ndk_repository/' WORKSPACE
-      - rm -f WORKSPACE.bak
+        -e 's/^# android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
+      - rm -f WORKSPACE.bzlmod.bak
     build_flags:
       - "--config=ubuntu1804_java11"
       - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
       - "--jobs=200"
-      - "--experimental_remote_download_outputs=minimal"
-      - "--experimental_inmemory_jdeps_files"
-      - "--experimental_inmemory_dotd_files"
+      - "--experimental_remote_cache_async"
+      - "--experimental_remote_merkle_tree_cache"
+      - "--remote_download_minimal"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
@@ -401,13 +359,14 @@ tasks:
       - "--config=ubuntu1804_java11"
       - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
       - "--jobs=200"
-      - "--experimental_remote_download_outputs=minimal"
-      - "--experimental_inmemory_jdeps_files"
-      - "--experimental_inmemory_dotd_files"
+      - "--experimental_remote_cache_async"
+      - "--experimental_remote_merkle_tree_cache"
+      - "--remote_download_minimal"
       - "--test_tag_filters=-no_1804"
     test_targets:
       - "//scripts/..."
       - "//src/java_tools/..."
+      - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
       - "//src/tools/singlejar/..."
@@ -415,6 +374,7 @@ tasks:
       - "//third_party/ijar/..."
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
+      - "//tools/bash/..."
       - "//tools/android/..."
       # See https://github.com/bazelbuild/bazel/issues/8033
       - "-//src/tools/singlejar:output_jar_simple_test"
@@ -445,8 +405,8 @@ tasks:
   kythe_ubuntu2004:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/'
-      -e 's/^# android_ndk_repository/android_ndk_repository/' WORKSPACE
-    - rm -f WORKSPACE.bak
+      -e 's/^# android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
+    - rm -f WORKSPACE.bzlmod.bak
     index_flags:
     - "--define=kythe_corpus=github.com/bazelbuild/bazel"
     index_targets_query: "kind(\"cc_(binary|library|test|proto_library) rule\", ...) union kind(\"java_(binary|import|library|plugin|test|proto_library) rule\", ...) union kind(\"proto_library rule\", ...)"
