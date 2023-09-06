@@ -22,7 +22,7 @@ import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
-import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -40,13 +40,14 @@ import org.junit.runners.JUnit4;
 public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestCase {
 
   private static BuildOptions getOptionsWithoutFlagFragment() throws Exception {
-    return BuildOptions.of(ImmutableList.<Class<? extends FragmentOptions>>of());
+    return BuildOptions.of(ImmutableList.of(CoreOptions.class));
   }
 
   private static BuildOptions getOptionsWithFlagFragment(Map<Label, String> values)
       throws Exception {
     return FeatureFlagValue.replaceFlagValues(
-        BuildOptions.of(ImmutableList.of(ConfigFeatureFlagOptions.class)), values);
+        BuildOptions.of(ImmutableList.of(CoreOptions.class, ConfigFeatureFlagOptions.class)),
+        values);
   }
 
   @Override
