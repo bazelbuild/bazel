@@ -1016,7 +1016,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testAppleSdkVersionEnv() throws Exception {
-    useConfiguration("--apple_platform_type=ios");
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_x86_64");
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setAndCreateFiles("hdrs", "c.h")
@@ -1028,7 +1028,9 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testNonDefaultAppleSdkVersionEnv() throws Exception {
-    useConfiguration("--apple_platform_type=ios", "--ios_sdk_version=8.1");
+    useConfiguration(
+        "--apple_platform_type=ios", "--ios_sdk_version=8.1",
+        "--cpu=ios_x86_64");
 
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
@@ -1109,7 +1111,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCompilationActionsWithPch() throws Exception {
-    useConfiguration("--apple_platform_type=ios");
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_x86_64");
     scratch.file("objc/foo.pch");
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
@@ -1411,7 +1413,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testAppleSdkDefaultPlatformEnv() throws Exception {
-    useConfiguration("--apple_platform_type=ios");
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_x86_64");
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setAndCreateFiles("hdrs", "c.h")
@@ -1567,6 +1569,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testDefaultEnabledFeatureIsUsed() throws Exception {
     // Although using --cpu=ios_x86_64, it transitions to darwin_x86_64, so the actual
     // cc_toolchain in use will be the darwin_x86_64 one.
+    setBuildLanguageOptions("--incompatible_disable_objc_library_transition=false");
     MockObjcSupport.setupCcToolchainConfig(
         mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures("default_feature"));
     useConfiguration("--cpu=ios_x86_64");
@@ -2075,7 +2078,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                     .flatMap(List::stream)
                     .map(LibraryToLink::getStaticLibrary)
                     .collect(toImmutableList())))
-        .contains("/ x/libbaz.a");
+        .containsExactly("bin x/libbar.a", "bin x/libfoo.a", "bin x/libbaz.a");
   }
 
   @Test

@@ -690,6 +690,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
   @Test
   public void testJ2ObjcInformationExportedFromObjcLibrary() throws Exception {
+    setBuildLanguageOptions("--incompatible_disable_objc_library_transition=false");
     scratch.file("app/lib.m");
     scratch.file(
         "app/BUILD",
@@ -720,6 +721,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
   @Test
   public void testJ2ObjcInfoExportedInObjcLibraryFromRuntimeDeps() throws Exception {
+    setBuildLanguageOptions("--incompatible_disable_objc_library_transition=false");
     scratch.file("app/lib.m");
     scratch.file(
         "app/BUILD",
