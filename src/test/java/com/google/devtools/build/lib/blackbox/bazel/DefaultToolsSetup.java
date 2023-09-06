@@ -28,6 +28,7 @@ public class DefaultToolsSetup implements ToolsSetup {
 
   private static ImmutableList<String> repos =
       ImmutableList.<String>builder()
+          .add("bazel_skylib")
           .add("rules_cc")
           .add("rules_proto")
           .add("rules_java")

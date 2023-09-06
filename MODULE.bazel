@@ -6,12 +6,16 @@ module(
     repo_name = "io_bazel",
 )
 
+# =========================================
+# Bazel module dependencies
+# =========================================
+
 bazel_dep(name = "rules_license", version = "0.0.7")
 bazel_dep(name = "bazel_skylib", version = "1.4.1")
 bazel_dep(name = "protobuf", version = "21.7", repo_name = "com_google_protobuf")
 bazel_dep(name = "grpc", version = "1.48.1.bcr.1", repo_name = "com_github_grpc_grpc")
 bazel_dep(name = "platforms", version = "0.0.7")
-bazel_dep(name = "rules_pkg", version = "0.7.0")
+bazel_dep(name = "rules_pkg", version = "0.9.1")
 bazel_dep(name = "stardoc", version = "0.5.3", repo_name = "io_bazel_skydoc")
 bazel_dep(name = "zstd-jni", version = "1.5.2-3.bcr.1")
 bazel_dep(name = "blake3", version = "1.3.3")
@@ -22,6 +26,7 @@ bazel_dep(name = "rules_proto", version = "5.3.0-21.7")
 bazel_dep(name = "rules_jvm_external", version = "5.2")
 bazel_dep(name = "rules_python", version = "0.24.0")
 bazel_dep(name = "rules_testing", version = "0.0.4")
+bazel_dep(name = "googletest", version = "1.12.1", repo_name = "com_google_googletest")
 
 # TODO(pcloudy): Add remoteapis and googleapis as Bazel modules in the BCR.
 bazel_dep(name = "remoteapis", version = "")
@@ -43,6 +48,14 @@ local_path_override(
     path = "./third_party/googleapis",
 )
 
+# The following Bazel modules are not direct dependencies for building Bazel,
+# but are required for visibility from DIST_ARCHIVE_REPOS in distdir_deps.bzl
+bazel_dep(name = "apple_support", version = "1.5.0")
+bazel_dep(name = "abseil-cpp", version = "20220623.1")
+bazel_dep(name = "c-ares", version = "1.15.0")
+bazel_dep(name = "rules_go", version = "0.39.1")
+bazel_dep(name = "upb", version = "0.0.0-20220923-a547704")
+
 # =========================================
 # Java dependencies
 # =========================================
@@ -60,39 +73,33 @@ maven.install(
 use_repo(maven, "maven")
 
 java_toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains")
-use_repo(java_toolchains, "local_jdk")
-
-# =========================================
-# Other Bazel internal dependencies
-#   - embedded JDKs
-#   - repos for Debian build
-# =========================================
-
-bazel_internal_deps = use_extension("//:extensions.bzl", "bazel_internal_deps")
-use_repo(
-    bazel_internal_deps,
-    "debian_cc_deps",
-    "openjdk_linux_aarch64_vanilla",
-    "openjdk_linux_ppc64le_vanilla",
-    "openjdk_linux_s390x_vanilla",
-    "openjdk_linux_vanilla",
-    "openjdk_macos_aarch64_vanilla",
-    "openjdk_macos_x86_64_vanilla",
-    "openjdk_win_arm64_vanilla",
-    "openjdk_win_vanilla",
+use_repo(java_toolchains,
+    "local_jdk",
+    # The following are required for visibility from TEST_REPOS in distdir_deps.bzl
+    "remote_java_tools",
+    "remote_java_tools_darwin_x86_64",
+    "remote_java_tools_darwin_arm64",
+    "remote_java_tools_linux",
+    "remote_java_tools_windows",
+    "remotejdk11_linux",
+    "remotejdk11_linux_aarch64",
+    "remotejdk11_linux_ppc64le",
+    "remotejdk11_linux_s390x",
+    "remotejdk11_macos",
+    "remotejdk11_macos_aarch64",
+    "remotejdk11_win",
+    "remotejdk11_win_arm64",
+    "remotejdk17_linux",
+    "remotejdk17_linux_s390x",
+    "remotejdk17_macos",
+    "remotejdk17_macos_aarch64",
+    "remotejdk17_win",
+    "remotejdk17_win_arm64",
+    "remotejdk20_linux",
+    "remotejdk20_macos",
+    "remotejdk20_macos_aarch64",
+    "remotejdk20_win",
 )
-
-# =========================================
-# Register platforms & toolchains
-# =========================================
-
-register_execution_platforms("//:default_host_platform")
-
-register_toolchains("@bazel_tools//tools/python:autodetecting_toolchain")
-
-register_toolchains("@local_config_winsdk//:all")
-
-register_toolchains("//src/main/res:empty_rc_toolchain")
 
 # =========================================
 # Python dependencies
@@ -110,24 +117,63 @@ pip.parse(
 use_repo(pip, "bazel_pip_dev_deps")
 
 # =========================================
-# Other dev dependencies
+# Other Bazel build dependencies
 # =========================================
 
-bazel_dep(name = "googletest", version = "1.12.1", repo_name = "com_google_googletest")
-
-bazel_dev_deps = use_extension("//:extensions.bzl", "bazel_dev_deps")
+bazel_build_deps = use_extension("//:extensions.bzl", "bazel_build_deps")
 use_repo(
-    bazel_dev_deps,
+    bazel_build_deps,
+    "bootstrap_repo_cache",
+    "debian_cc_deps",
+    "openjdk_linux_aarch64_vanilla",
+    "openjdk_linux_ppc64le_vanilla",
+    "openjdk_linux_s390x_vanilla",
+    "openjdk_linux_vanilla",
+    "openjdk_macos_aarch64_vanilla",
+    "openjdk_macos_x86_64_vanilla",
+    "openjdk_win_arm64_vanilla",
+    "openjdk_win_vanilla",
+)
+
+# Required only by `--extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows` from .bazelrc
+cc_configure = use_extension("@bazel_tools//tools/cpp:cc_configure.bzl", "cc_configure_extension")
+use_repo(cc_configure, "local_config_cc")
+
+# =========================================
+# Other Bazel testing dependencies
+# =========================================
+
+bazel_test_deps = use_extension("//:extensions.bzl", "bazel_test_deps")
+use_repo(
+    bazel_test_deps,
     "local_bazel_source_list",
     "local_config_winsdk",
     "bazelci_rules",
 )
 
+test_repo_extension = use_extension("//:extensions.bzl", "test_repo_extension")
+use_repo(test_repo_extension, "test_repos")
+
 bazel_rbe_deps = use_extension("//:rbe_extension.bzl", "bazel_rbe_deps")
 use_repo(bazel_rbe_deps, "rbe_ubuntu1804_java11")
 
+remote_coverage_tools_extension = use_extension("//tools/test:extensions.bzl", "remote_coverage_tools_extension")
+use_repo(remote_coverage_tools_extension, "remote_coverage_tools")
+
 # =========================================
-# Android tools Java dependencies
+# Register platforms & toolchains
+# =========================================
+
+register_execution_platforms("//:default_host_platform")
+
+register_toolchains("@bazel_tools//tools/python:autodetecting_toolchain")
+
+register_toolchains("@local_config_winsdk//:all")
+
+register_toolchains("//src/main/res:empty_rc_toolchain")
+
+# =========================================
+# Android tools dependencies
 # =========================================
 
 maven_android = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
@@ -145,8 +191,7 @@ maven_android.install(
 use_repo(maven_android, "maven_android")
 
 bazel_android_deps = use_extension("//:extensions.bzl", "bazel_android_deps")
-use_repo(
-    bazel_android_deps,
-    "android_gmaven_r8",
-    "desugar_jdk_libs",
-)
+use_repo(bazel_android_deps, "desugar_jdk_libs")
+
+remote_android_extensions = use_extension("//tools/android:android_extensions.bzl", "remote_android_tools_extensions")
+use_repo(remote_android_extensions, "android_gmaven_r8", "android_tools")

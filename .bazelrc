@@ -36,8 +36,9 @@ build:windows_arm64 --platforms=//:windows_arm64
 build:windows_arm64 --extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows
 
 # Enable Bzlmod
-build:bzlmod --enable_bzlmod
-build:bzlmod --check_direct_dependencies=error
+common:bzlmod --enable_bzlmod
+common:bzlmod --check_direct_dependencies=error
+common:bzlmod --experimental_downloader_config=bazel_downloader.cfg
 
 # Enable Java 11 language features (https://github.com/bazelbuild/bazel/issues/14592)
 build --java_language_version=11

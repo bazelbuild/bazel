@@ -90,6 +90,7 @@ gen_workspace_stanza(
     urls = {urls},
     """,
     repos = [
+        "bazel_skylib",
         "rules_cc",
         "rules_java",
         "rules_proto",

@@ -18,6 +18,84 @@ This is internal source and is not intended to tell you what version
 you should use for each dependency.
 """
 
+load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
+
+##################################################################################
+#
+# The list of repositories required while bootstrapping Bazel offline
+#
+##################################################################################
+DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
+    "abseil-cpp",
+    "apple_support",
+    "bazel_skylib",
+    "blake3",
+    "c-ares",
+    "com_github_grpc_grpc",
+    "com_google_protobuf",
+    "io_bazel_skydoc",
+    "platforms",
+    "rules_cc",
+    "rules_go",
+    "rules_java",
+    "rules_jvm_external",
+    "rules_license",
+    "rules_pkg",
+    "rules_proto",
+    "rules_python",
+    "upb",
+    "zlib",
+    "zstd-jni",
+]] + [(get_canonical_repo_name("com_github_grpc_grpc") + suffix) for suffix in [
+    # Extra grpc dependencies introduced via its module extension
+    "~grpc_repo_deps_ext~bazel_gazelle",  # TODO: Should be a bazel_dep
+    "~grpc_repo_deps_ext~bazel_skylib",  # TODO: Should be removed
+    "~grpc_repo_deps_ext~com_envoyproxy_protoc_gen_validate",
+    "~grpc_repo_deps_ext~com_github_cncf_udpa",
+    "~grpc_repo_deps_ext~com_google_googleapis",
+    "~grpc_repo_deps_ext~envoy_api",
+    "~grpc_repo_deps_ext~rules_cc",  # TODO: Should be removed
+]]
+
+##################################################################################
+#
+# The list of repositories required while running Bazel integration tests offline
+#
+##################################################################################
+TEST_REPOS = [get_canonical_repo_name(repo) for repo in [
+    "android_tools",
+    "android_gmaven_r8",
+    "bazel_skylib",
+    "com_google_protobuf",
+    "remote_coverage_tools",
+    "remote_java_tools",
+    "remote_java_tools_darwin_x86_64",
+    "remote_java_tools_darwin_arm64",
+    "remote_java_tools_linux",
+    "remote_java_tools_windows",
+    "remotejdk11_linux",
+    "remotejdk11_linux_aarch64",
+    "remotejdk11_macos",
+    "remotejdk11_macos_aarch64",
+    "remotejdk11_win",
+    "remotejdk17_linux",
+    "remotejdk17_linux_s390x",
+    "remotejdk17_macos",
+    "remotejdk17_macos_aarch64",
+    "remotejdk17_win",
+    "remotejdk20_linux",
+    "remotejdk20_macos",
+    "remotejdk20_macos_aarch64",
+    "remotejdk20_win",
+    "rules_cc",
+    "rules_java",
+    "rules_license",
+    "rules_proto",
+    "rules_python",
+    "rules_pkg",
+    "rules_testing",
+]]
+
 DIST_DEPS = {
     ########################################
     #
@@ -100,12 +178,11 @@ DIST_DEPS = {
     #
     #################################################
     "com_google_protobuf": {
-        "archive": "v21.7.tar.gz",
-        "sha256": "75be42bd736f4df6d702a0e4e4d30de9ee40eac024c4b845d17ae4cc831fe4ae",
+        "archive": "protobuf-all-21.7.zip",
+        "sha256": "5493a21f5ed3fc502e66fec6b9449c06a551ced63002fa48903c40dfa8de7a4a",
         "strip_prefix": "protobuf-21.7",
         "urls": [
-            "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v21.7.tar.gz",
-            "https://github.com/protocolbuffers/protobuf/archive/v21.7.tar.gz",
+            "https://github.com/protocolbuffers/protobuf/releases/download/v21.7/protobuf-all-21.7.zip",
         ],
         "patch_args": ["-p1"],
         "patches": ["//third_party/protobuf:21.7.patch"],
@@ -116,7 +193,7 @@ DIST_DEPS = {
             "@rules_license//licenses/generic:notice",
         ],
         "license_text": "LICENSE",
-        "package_version": "3.19.6",
+        "package_version": "21.7",
     },
     "com_github_grpc_grpc": {
         "archive": "v1.48.1.tar.gz",
@@ -302,16 +379,16 @@ DIST_DEPS = {
         "package_version": "8.0.40",
     },
     "bazel_skylib": {
-        "archive": "bazel-skylib-1.3.0.tar.gz",
-        "sha256": "74d544d96f4a5bb630d465ca8bbcfe231e3594e5aae57e1edbf17a6eb3ca2506",
+        "archive": "bazel-skylib-1.4.1.tar.gz",
+        "sha256": "b8a1527901774180afc798aeb28c4634bdccf19c4d98e7bdd1ce79d1fe9aaad7",
         "urls": [
-            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.3.0/bazel-skylib-1.3.0.tar.gz",
-            "https://github.com/bazelbuild/bazel-skylib/releases/download/1.3.0/bazel-skylib-1.3.0.tar.gz",
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.4.1/bazel-skylib-1.4.1.tar.gz",
+            "https://github.com/bazelbuild/bazel-skylib/releases/download/1.4.1/bazel-skylib-1.4.1.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
         ],
-        "package_version": "1.3.0",
+        "package_version": "1.4.1",
     },
     "io_bazel_skydoc": {
         "archive": "1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
@@ -338,16 +415,16 @@ DIST_DEPS = {
         "package_version": "0.0.7",
     },
     "rules_pkg": {
-        "archive": "rules_pkg-0.8.0.tar.gz",
-        "sha256": "eea0f59c28a9241156a47d7a8e32db9122f3d50b505fae0f33de6ce4d9b61834",
+        "archive": "rules_pkg-0.9.1.tar.gz",
+        "sha256": "8f9ee2dc10c1ae514ee599a8b42ed99fa262b757058f65ad3c384289ff70c4b8",
         "urls": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/0.8.0/rules_pkg-0.8.0.tar.gz",
-            "https://github.com/bazelbuild/rules_pkg/releases/download/0.8.0/rules_pkg-0.8.0.tar.gz",
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/0.9.1/rules_pkg-0.9.1.tar.gz",
+            "https://github.com/bazelbuild/rules_pkg/releases/download/0.9.1/rules_pkg-0.9.1.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
         ],
-        "package_version": "0.8.0",
+        "package_version": "0.9.1",
     },
     "rules_jvm_external": {
         "archive": "rules_jvm_external-5.2.tar.gz",
@@ -366,10 +443,10 @@ DIST_DEPS = {
         "package_version": "5.2",
     },
     "rules_python": {
-        "sha256": "ffc7b877c95413c82bfd5482c017edcf759a6250d8b24e82f41f3c8b8d9e287e",
-        "strip_prefix": "rules_python-0.19.0",
-        "urls": ["https://github.com/bazelbuild/rules_python/releases/download/0.19.0/rules_python-0.19.0.tar.gz"],
-        "archive": "rules_python-0.19.0.tar.gz",
+        "sha256": "0a8003b044294d7840ac7d9d73eef05d6ceb682d7516781a4ec62eeb34702578",
+        "strip_prefix": "rules_python-0.24.0",
+        "urls": ["https://github.com/bazelbuild/rules_python/releases/download/0.24.0/rules_python-0.24.0.tar.gz"],
+        "archive": "rules_python-0.24.0.tar.gz",
         "used_in": ["additional_distfiles"],
     },
     "rules_testing": {
