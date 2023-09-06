@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AspectsListBuilder.AspectDetails;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault.Resolver;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
@@ -2181,6 +2180,10 @@ public final class Attribute implements Comparable<Attribute> {
   boolean hasComputedDefault() {
     return defaultValue instanceof ComputedDefault
         || defaultValue instanceof StarlarkComputedDefaultTemplate;
+  }
+
+  public boolean isPublic() {
+    return !isPrivateAttribute(name);
   }
 
   /**

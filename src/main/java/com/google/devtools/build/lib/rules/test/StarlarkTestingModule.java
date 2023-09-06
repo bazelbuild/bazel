@@ -110,6 +110,7 @@ public class StarlarkTestingModule implements TestingModuleApi {
             thread.getSemantics(),
             // rule() parameters.
             implementation,
+            /* initializer= */ null,
             /* test= */ true,
             attrs,
             /* implicitOutputs= */ Starlark.NONE,

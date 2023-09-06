@@ -131,6 +131,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi {
   @Override
   public StarlarkCallable rule(
       StarlarkFunction implementation,
+      Object initializer,
       Boolean test,
       Dict<?, ?> attrs,
       Object implicitOutputs,
