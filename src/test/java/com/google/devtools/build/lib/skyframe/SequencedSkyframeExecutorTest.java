@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.ActionTemplate;
@@ -829,6 +830,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         new MissingOutputAction(
             NestedSetBuilder.emptySet(Order.STABLE_ORDER), output2, MiddlemanType.NORMAL);
     ActionLookupValue ctValue2 = createActionLookupValue(action2, lc2);
+    skyframeExecutor.configureActionExecutor(
+        /* fileCache= */ null,
+        ActionInputPrefetcher.NONE,
+        ActionOutputDirectoryHelper.createForTesting());
     // Inject the "configured targets" into the graph.
     skyframeExecutor
         .getDifferencerForTesting()
@@ -908,7 +913,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     // is running. This way, both actions will check the action cache beforehand and try to update
     // the action cache post-build.
     final CountDownLatch inputsRequested = new CountDownLatch(2);
-    skyframeExecutor.configureActionExecutor(/* fileCache= */ null, ActionInputPrefetcher.NONE);
+    skyframeExecutor.configureActionExecutor(
+        /* fileCache= */ null,
+        ActionInputPrefetcher.NONE,
+        ActionOutputDirectoryHelper.createForTesting());
     skyframeExecutor
         .getEvaluator()
         .injectGraphTransformerForTesting(
@@ -1036,6 +1044,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
     Thread mainThread = Thread.currentThread();
     CountDownLatch cStarted = new CountDownLatch(1);
+    skyframeExecutor.configureActionExecutor(
+        /* fileCache= */ null,
+        ActionInputPrefetcher.NONE,
+        ActionOutputDirectoryHelper.createForTesting());
     skyframeExecutor
         .getEvaluator()
         .injectGraphTransformerForTesting(
@@ -1165,6 +1177,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Action action2 =
         new TreeArtifactAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), output2, children);
     ActionLookupValue ctValue2 = createActionLookupValue(action2, lc2);
+    skyframeExecutor.configureActionExecutor(
+        /* fileCache= */ null,
+        ActionInputPrefetcher.NONE,
+        ActionOutputDirectoryHelper.createForTesting());
     // Inject the "configured targets" into the graph.
     skyframeExecutor
         .getDifferencerForTesting()
@@ -1272,7 +1288,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionTemplate<DummyAction> template2 =
         new DummyActionTemplate(baseOutput, sharedOutput2, ActionOwner.SYSTEM_ACTION_OWNER);
     ActionLookupValue shared2Ct = createActionLookupValue(template2, shared2);
-    skyframeExecutor.configureActionExecutor(/* fileCache= */ null, ActionInputPrefetcher.NONE);
+    skyframeExecutor.configureActionExecutor(
+        /* fileCache= */ null,
+        ActionInputPrefetcher.NONE,
+        ActionOutputDirectoryHelper.createForTesting());
     // Inject the "configured targets" into the graph.
     skyframeExecutor
         .getDifferencerForTesting()
@@ -1586,6 +1605,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             createActionLookupValue(slowAction, lc2),
             null,
             NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+    skyframeExecutor.configureActionExecutor(
+        /* fileCache= */ null,
+        ActionInputPrefetcher.NONE,
+        ActionOutputDirectoryHelper.createForTesting());
     skyframeExecutor
         .getEvaluator()
         .injectGraphTransformerForTesting(
@@ -1710,7 +1733,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             createActionLookupValue(action2, lc2),
             null,
             NestedSetBuilder.create(Order.STABLE_ORDER, Event.warn("analysis warning 2")));
-    skyframeExecutor.configureActionExecutor(/* fileCache= */ null, ActionInputPrefetcher.NONE);
+    skyframeExecutor.configureActionExecutor(
+        /* fileCache= */ null,
+        ActionInputPrefetcher.NONE,
+        ActionOutputDirectoryHelper.createForTesting());
     skyframeExecutor
         .getDifferencerForTesting()
         .inject(ImmutableMap.of(lc1, Delta.justNew(ctValue1), lc2, Delta.justNew(ctValue2)));
@@ -1907,6 +1933,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
+            ActionOutputDirectoryHelper.createForTesting(),
             BugReporter.defaultInstance());
     // Note that since ImmutableSet iterates through its elements in the order they are passed in
     // here, we are guaranteed that output will be built before output2, throwing an exception and
@@ -2046,6 +2073,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
+            ActionOutputDirectoryHelper.createForTesting(),
             BugReporter.defaultInstance());
     Set<Artifact> normalArtifacts = ImmutableSet.of(topArtifact);
     try {
@@ -2169,6 +2197,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
+            ActionOutputDirectoryHelper.createForTesting(),
             BugReporter.defaultInstance());
     try {
       BuildFailedException e =
@@ -2290,6 +2319,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
+            ActionOutputDirectoryHelper.createForTesting(),
             BugReporter.defaultInstance());
     // Note that since ImmutableSet iterates through its elements in the order they are passed in
     // here, we are guaranteed that failedOutput will be built before catastrophicOutput is
@@ -2400,6 +2430,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
+            ActionOutputDirectoryHelper.createForTesting(),
             BugReporter.defaultInstance());
     Set<Artifact> normalArtifacts = ImmutableSet.of(succeededOutput, failedOutput);
     BuildFailedException e =
@@ -2496,6 +2527,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
+            ActionOutputDirectoryHelper.createForTesting(),
             BugReporter.defaultInstance());
     Set<Artifact> normalArtifacts = ImmutableSet.of(failedOutput1, failedOutput2);
     BuildFailedException e =
@@ -2577,6 +2609,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
+            ActionOutputDirectoryHelper.createForTesting(),
             BugReporter.defaultInstance());
     builder.buildArtifacts(
         reporter,

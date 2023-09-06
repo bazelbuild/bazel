@@ -264,6 +264,18 @@ java_library(
 )
 
 java_library(
+    name = "action_output_directory_helper",
+    srcs = ["ActionOutputDirectoryHelper.java"],
+    deps = [
+        ":artifacts",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:caffeine",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "analysis_graph_stats_event",
     srcs = ["AnalysisGraphStatsEvent.java"],
     deps = ["//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto"],

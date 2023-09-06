@@ -43,6 +43,8 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionMiddlemanEvent;
+import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
+import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper.CreateOutputDirectoryException;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
@@ -99,7 +101,6 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ActionExecutionState.ActionStep;
 import com.google.devtools.build.lib.skyframe.ActionExecutionState.ActionStepOrResult;
 import com.google.devtools.build.lib.skyframe.ActionExecutionState.SharedActionCallback;
-import com.google.devtools.build.lib.skyframe.ActionOutputDirectoryHelper.CreateOutputDirectoryException;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ResourceUsage;
@@ -300,9 +301,6 @@ public final class SkyframeActionExecutor {
     this.finalizeActions = buildRequestOptions.finalizeActions;
     this.outputService = outputService;
 
-    this.outputDirectoryHelper =
-        new ActionOutputDirectoryHelper(buildRequestOptions.directoryCreationCacheSpec);
-
     // Retaining discovered inputs is only worthwhile for incremental builds or builds with extra
     // actions, which consume their shadowed action's discovered inputs.
     freeDiscoveredInputsAfterExecution =
@@ -401,7 +399,6 @@ public final class SkyframeActionExecutor {
     this.completedAndResetActions = null;
     this.lostDiscoveredInputsMap = null;
     this.actionCacheChecker = null;
-    this.outputDirectoryHelper = null;
   }
 
   /**
@@ -929,9 +926,11 @@ public final class SkyframeActionExecutor {
   public void configure(
       InputMetadataProvider fileCache,
       ActionInputPrefetcher actionInputPrefetcher,
+      ActionOutputDirectoryHelper outputDirectoryHelper,
       DiscoveredModulesPruner discoveredModulesPruner) {
     this.perBuildFileCache = fileCache;
     this.actionInputPrefetcher = actionInputPrefetcher;
+    this.outputDirectoryHelper = outputDirectoryHelper;
     this.discoveredModulesPruner = discoveredModulesPruner;
   }
 
@@ -1339,7 +1338,7 @@ public final class SkyframeActionExecutor {
     } catch (CreateOutputDirectoryException e) {
       throw toActionExecutionException(
           String.format(
-              "failed to create output directory '%s': %s", e.directoryPath, e.getMessage()),
+              "failed to create output directory '%s': %s", e.getDirectoryPath(), e.getMessage()),
           e,
           action,
           null,
@@ -1353,7 +1352,7 @@ public final class SkyframeActionExecutor {
     } catch (CreateOutputDirectoryException e) {
       throw toActionExecutionException(
           String.format(
-              "failed to create output directory '%s': %s", e.directoryPath, e.getMessage()),
+              "failed to create output directory '%s': %s", e.getDirectoryPath(), e.getMessage()),
           e,
           action,
           /* actionOutput= */ null,

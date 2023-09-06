@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.skyframe;
+package com.google.devtools.build.lib.actions;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
@@ -22,13 +22,10 @@ import static org.junit.Assert.assertThrows;
 import com.github.benmanes.caffeine.cache.CaffeineSpec;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper.CreateOutputDirectoryException;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.ArtifactPathResolver;
-import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.skyframe.ActionOutputDirectoryHelper.CreateOutputDirectoryException;
 import com.google.devtools.build.lib.testing.common.DirectoryListingHelper;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.DelegateFileSystem;
@@ -72,21 +69,21 @@ public class ActionOutputDirectoryHelperTest {
 
   private enum OutputSet {
     SINGLE_FILE(
-        /*fileOutputs=*/ ImmutableSet.of("a/b"),
-        /*treeOutputs=*/ ImmutableSet.of(),
-        /*expectedDirectories=*/ ImmutableList.of("a")),
+        /* fileOutputs= */ ImmutableSet.of("a/b"),
+        /* treeOutputs= */ ImmutableSet.of(),
+        /* expectedDirectories= */ ImmutableList.of("a")),
     DEEP_DIRECTORY_STRUCTURE(
-        /*fileOutputs=*/ ImmutableSet.of("a/b/c/d/e/f/g/h/i/j/k/l/m"),
-        /*treeOutputs=*/ ImmutableSet.of(),
-        /*expectedDirectories=*/ ImmutableList.of("a/b/c/d/e/f/g/h/i/j/k/l")),
+        /* fileOutputs= */ ImmutableSet.of("a/b/c/d/e/f/g/h/i/j/k/l/m"),
+        /* treeOutputs= */ ImmutableSet.of(),
+        /* expectedDirectories= */ ImmutableList.of("a/b/c/d/e/f/g/h/i/j/k/l")),
     MULTIPLE_FILES(
-        /*fileOutputs=*/ ImmutableSet.of("a/b/c", "a/c", "a/d/1", "a/d/2"),
-        /*treeOutputs=*/ ImmutableSet.of(),
-        /*expectedDirectories=*/ ImmutableList.of("a/b", "a/d")),
+        /* fileOutputs= */ ImmutableSet.of("a/b/c", "a/c", "a/d/1", "a/d/2"),
+        /* treeOutputs= */ ImmutableSet.of(),
+        /* expectedDirectories= */ ImmutableList.of("a/b", "a/d")),
     TREE_OUTPUT(
-        /*fileOutputs=*/ ImmutableSet.of(),
-        /*treeOutputs=*/ ImmutableSet.of("a/b"),
-        /*expectedDirectories=*/ ImmutableList.of("a/b"));
+        /* fileOutputs= */ ImmutableSet.of(),
+        /* treeOutputs= */ ImmutableSet.of("a/b"),
+        /* expectedDirectories= */ ImmutableList.of("a/b"));
 
     OutputSet(
         ImmutableSet<String> fileOutputs,
@@ -211,7 +208,7 @@ public class ActionOutputDirectoryHelperTest {
             CreateOutputDirectoryException.class,
             () -> outputDirectoryHelper.createOutputDirectories(outputs));
 
-    assertThat(e.directoryPath).isEqualTo(outputRootPath.getRelative("dir"));
+    assertThat(e.getDirectoryPath()).isEqualTo(outputRootPath.getRelative("dir"));
     assertThat(e).hasCauseThat().isSameInstanceAs(injectedException);
   }
 
@@ -233,7 +230,7 @@ public class ActionOutputDirectoryHelperTest {
             CreateOutputDirectoryException.class,
             () -> outputDirectoryHelper.createActionFsOutputDirectories(outputs, pathResolver));
 
-    assertThat(e.directoryPath).isEqualTo(outputRootPath.getRelative("dir"));
+    assertThat(e.getDirectoryPath()).isEqualTo(outputRootPath.getRelative("dir"));
     assertThat(e).hasCauseThat().isSameInstanceAs(injectedException);
   }
 

@@ -326,7 +326,9 @@ public class ExecutionTool {
         buildRequestOptions.fsvcThreads);
     try (SilentCloseable c = Profiler.instance().profile("configureActionExecutor")) {
       skyframeExecutor.configureActionExecutor(
-          skyframeBuilder.getFileCache(), skyframeBuilder.getActionInputPrefetcher());
+          skyframeBuilder.getFileCache(),
+          skyframeBuilder.getActionInputPrefetcher(),
+          skyframeBuilder.getActionOutputDirectoryHelper());
     }
 
     skyframeExecutor.deleteActionsIfRemoteOptionsChanged(request);
@@ -976,6 +978,7 @@ public class ExecutionTool {
         modifiedOutputFiles,
         env.getFileCache(),
         prefetcher,
+        env.getOutputDirectoryHelper(),
         env.getRuntime().getBugReporter());
   }
 

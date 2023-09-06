@@ -11,14 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.skyframe;
+package com.google.devtools.build.lib.actions;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.CaffeineSpec;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Striped;
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -51,7 +50,7 @@ public final class ActionOutputDirectoryHelper {
     CREATED
   }
 
-  ActionOutputDirectoryHelper(CaffeineSpec cacheBuilderSpec) {
+  public ActionOutputDirectoryHelper(CaffeineSpec cacheBuilderSpec) {
     knownDirectories =
         Caffeine.from(cacheBuilderSpec)
             .initialCapacity(Runtime.getRuntime().availableProcessors())
@@ -59,13 +58,25 @@ public final class ActionOutputDirectoryHelper {
             .asMap();
   }
 
+  @VisibleForTesting
+  public static ActionOutputDirectoryHelper createForTesting() {
+    // Matches the --directory_creation_cache default.
+    return new ActionOutputDirectoryHelper(CaffeineSpec.parse("maximumSize=10000"));
+  }
+
   /**
-   * Creates output directories for an action file system. The action file system uses an in-memory
-   * filesystem and sometimes it mixes a local filesystem, e.g. Build without the Bytes, ({@link
-   * com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType}). In the latter case,
-   * creating output directories could fail for the same reason as {@link #createOutputDirectories}.
+   * Creates output directories, including missing ancestor directories, for the given set of action
+   * outputs.
+   *
+   * <p>This method should only be used with an action filesystem ({@link
+   * com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType}). Otherwise, please use
+   * call {@link #createOutputDirectories} to avoid recreating output directories shared by multiple
+   * actions.
+   *
+   * @throws CreateOutputDirectoryException if one of the output directories or one of its ancestor
+   *     directories fails to be created
    */
-  void createActionFsOutputDirectories(
+  public void createActionFsOutputDirectories(
       Collection<Artifact> actionOutputs, ArtifactPathResolver artifactPathResolver)
       throws CreateOutputDirectoryException {
     Set<Path> done = new HashSet<>(); // avoid redundant calls for the same directory.
@@ -92,8 +103,8 @@ public final class ActionOutputDirectoryHelper {
   }
 
   /**
-   * Called to invalidate the cached creation of tree artifact directories when an action is going
-   * to be rewound.
+   * Invalidates the cached creation of tree artifact directories when an action is going to be
+   * rewound.
    *
    * <p>We use {@link #knownDirectories} to only create an output directory once per build. With
    * rewinding, actions that output tree artifacts need to recreate the directories because they are
@@ -102,7 +113,7 @@ public final class ActionOutputDirectoryHelper {
    * <p>Note that this does not need to be called if using an in-memory action file system ({@link
    * com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType#inMemoryFileSystem}).
    */
-  void invalidateTreeArtifactDirectoryCreation(Collection<Artifact> actionOutputs) {
+  public void invalidateTreeArtifactDirectoryCreation(Collection<Artifact> actionOutputs) {
     for (Artifact output : actionOutputs) {
       if (output.isTreeArtifact()) {
         knownDirectories.remove(output.getPath().asFragment());
@@ -111,18 +122,27 @@ public final class ActionOutputDirectoryHelper {
   }
 
   /**
-   * Creates output directories, with ancestors, for all action outputs.
+   * Creates output directories, including missing ancestor directories, for the given set of action
+   * outputs.
    *
-   * <p>For regular file outputs, creates the parent directories, for tree outputs creates the tree
-   * directory (with ancestors in both cases).
+   * <p>For a non-tree output, the parent directory is created; for a tree output, the root
+   * directory for the tree is created.
    *
-   * <p>It is only valid to use this method when not using an action file system, in which case
-   * please use {@link #createActionFsOutputDirectories} instead. In particular, {@linkplain
-   * #knownDirectories the cache of directories}, shared across actions will cause common
-   * directories to be created in action file system for only one of the actions as opposed to all
-   * of them.
+   * <p>If a path to be created already exists but is not a directory, it is recursively deleted and
+   * an empty directory is created in its place. If the path exists but is a non-writable directory,
+   * it is made writable.
+   *
+   * <p>Already created directories are recorded in {@link #knownDirectories} to avoid recreating
+   * them; calling this method a second time for the same directory is a no-op. For this reason,
+   * this method should not be used with an action file system ({@link
+   * com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType}), as an output directory
+   * shared by multiple actions would only be created in the action filesystem for one of them.
+   * Please use {@link #createActionFsOutputDirectories} instead.
+   *
+   * @throws CreateOutputDirectoryException if one of the output directories or one of its ancestor
+   *     directories fails to be created
    */
-  void createOutputDirectories(Collection<Artifact> actionOutputs)
+  public void createOutputDirectories(Collection<Artifact> actionOutputs)
       throws CreateOutputDirectoryException {
     Set<Path> done = new HashSet<>(); // avoid redundant calls for the same directory.
     for (Artifact outputFile : actionOutputs) {
@@ -256,12 +276,18 @@ public final class ActionOutputDirectoryHelper {
     }
   }
 
-  static final class CreateOutputDirectoryException extends IOException {
-    final PathFragment directoryPath;
+  /** An exception that occurred while attempting to create an output directory. */
+  public static final class CreateOutputDirectoryException extends IOException {
+    private final PathFragment directoryPath;
 
     private CreateOutputDirectoryException(PathFragment directoryPath, IOException cause) {
       super(cause.getMessage(), cause);
       this.directoryPath = directoryPath;
+    }
+
+    /** Returns the path to the output directory for which the exception occurred. */
+    public PathFragment getDirectoryPath() {
+      return directoryPath;
     }
   }
 }
