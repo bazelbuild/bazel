@@ -469,7 +469,7 @@ public interface NodeEntry {
    * <p>This method must not be called twice: the next thing done to this node after this method is
    * called should be the removal of the node from the graph.
    */
-  Iterable<SkyKey> getAllDirectDepsForIncompleteNode() throws InterruptedException;
+  ImmutableSet<SkyKey> getAllDirectDepsForIncompleteNode() throws InterruptedException;
 
   /**
    * If an entry {@link #isDirty}, returns all direct deps that were present last build, but have

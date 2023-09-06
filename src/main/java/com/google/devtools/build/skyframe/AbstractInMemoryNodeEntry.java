@@ -159,24 +159,6 @@ abstract class AbstractInMemoryNodeEntry<D extends DirtyBuildingState>
   }
 
   @Override
-  public final synchronized Iterable<SkyKey> getAllDirectDepsForIncompleteNode()
-      throws InterruptedException {
-    checkState(!isDone(), this);
-    if (!isDirty()) {
-      return getTemporaryDirectDeps().getAllElementsAsIterable();
-    } else {
-      // There may be duplicates here. Make sure everything is unique.
-      ImmutableSet.Builder<SkyKey> result = ImmutableSet.builder();
-      for (List<SkyKey> group : getTemporaryDirectDeps()) {
-        result.addAll(group);
-      }
-      result.addAll(
-          dirtyBuildingState.getAllRemainingDirtyDirectDeps(/* preservePosition= */ false));
-      return result.build();
-    }
-  }
-
-  @Override
   public final synchronized ImmutableSet<SkyKey> getAllRemainingDirtyDirectDeps()
       throws InterruptedException {
     checkNotNull(dirtyBuildingState, this);

@@ -368,6 +368,19 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
   }
 
   @Override
+  public final synchronized ImmutableSet<SkyKey> getAllDirectDepsForIncompleteNode()
+      throws InterruptedException {
+    checkState(!isDone(), this);
+    if (dirtyBuildingState == null) {
+      return ImmutableSet.of();
+    }
+    return ImmutableSet.<SkyKey>builder()
+        .addAll(getTemporaryDirectDeps().getAllElementsAsIterable())
+        .addAll(dirtyBuildingState.getAllRemainingDirtyDirectDeps(/* preservePosition= */ false))
+        .build();
+  }
+
+  @Override
   public synchronized GroupedDeps getTemporaryDirectDeps() {
     checkState(!isDone(), "temporary shouldn't be done: %s", this);
     if (directDeps == null) {

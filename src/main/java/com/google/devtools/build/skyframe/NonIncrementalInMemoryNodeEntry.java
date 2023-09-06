@@ -192,6 +192,11 @@ public class NonIncrementalInMemoryNodeEntry
   }
 
   @Override
+  public final ImmutableSet<SkyKey> getAllDirectDepsForIncompleteNode() {
+    throw unsupported();
+  }
+
+  @Override
   public final boolean hasAtLeastOneDep() {
     throw unsupported();
   }

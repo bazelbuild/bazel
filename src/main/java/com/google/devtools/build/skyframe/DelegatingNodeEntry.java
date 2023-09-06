@@ -104,7 +104,7 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public Iterable<SkyKey> getAllDirectDepsForIncompleteNode() throws InterruptedException {
+  public ImmutableSet<SkyKey> getAllDirectDepsForIncompleteNode() throws InterruptedException {
     return getDelegate().getAllDirectDepsForIncompleteNode();
   }
 

@@ -632,6 +632,62 @@ public class IncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<IntV
   }
 
   @Test
+  public void getAllDirectDepsForIncompleteNode_notYetEvaluating() throws Exception {
+    InMemoryNodeEntry entry = createEntry();
+    assertThat(entry.getAllDirectDepsForIncompleteNode()).isEmpty();
+  }
+
+  @Test
+  public void getAllDirectDepsForIncompleteNode_initialBuild() throws Exception {
+    InMemoryNodeEntry entry = createEntry();
+    entry.addReverseDepAndCheckIfDone(null);
+    entry.markRebuilding();
+
+    SkyKey dep1 = key("dep1");
+    SkyKey dep2 = key("dep2");
+    entry.addTemporaryDirectDepGroup(ImmutableList.of(dep1, dep2));
+
+    assertThat(entry.getAllDirectDepsForIncompleteNode()).containsExactly(dep1, dep2);
+  }
+
+  @Test
+  public void getAllDirectDepsForIncompleteNode_incrementalBuild() throws Exception {
+    InMemoryNodeEntry entry = createEntry();
+    entry.addReverseDepAndCheckIfDone(null);
+    entry.markRebuilding();
+
+    // Dep added on initial build that stays on incremental build.
+    SkyKey oldAndNewDep = key("oldAndNewDep");
+    entry.addSingletonTemporaryDirectDep(oldAndNewDep);
+    entry.signalDep(initialVersion, oldAndNewDep);
+
+    // Dep added on initial build that is removed on incremental build.
+    SkyKey oldDep = key("oldDep");
+    entry.addSingletonTemporaryDirectDep(oldDep);
+    entry.signalDep(initialVersion, oldDep);
+
+    // Initial build completes.
+    setValue(entry, new IntegerValue(1), /* errorInfo= */ null, initialVersion);
+
+    // Start of incremental build.
+    entry.markDirty(DirtyType.DIRTY);
+    entry.addReverseDepAndCheckIfDone(null);
+
+    // First dep changed, causes rebuild.
+    assertThat(entry.getNextDirtyDirectDeps()).containsExactly(oldAndNewDep);
+    entry.addSingletonTemporaryDirectDep(oldAndNewDep);
+    entry.signalDep(incrementalVersion, oldAndNewDep);
+    entry.markRebuilding();
+
+    // New dep requested.
+    SkyKey newDep = key("newDep");
+    entry.addSingletonTemporaryDirectDep(newDep);
+
+    assertThat(entry.getAllDirectDepsForIncompleteNode())
+        .containsExactly(oldDep, oldAndNewDep, newDep);
+  }
+
+  @Test
   public void resetOnDirtyNode(@TestParameter boolean valueChanges) throws Exception {
     InMemoryNodeEntry entry = createEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
