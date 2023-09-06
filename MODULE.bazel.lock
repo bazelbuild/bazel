@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 1,
-  "moduleFileHash": "3d262fe4b987ffe1cd2d8fc0fe554b8fb589ba397cfffe280c52d32b8e0e9806",
+  "moduleFileHash": "9fb6a1cae7b4ba80e7c23282cd0949ec31318c6cc33a5c5130ba3df61b523213",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -42,13 +42,15 @@
           },
           "imports": {
             "maven": "maven",
-            "maven_android": "maven_android"
+            "unpinned_maven": "unpinned_maven",
+            "maven_android": "maven_android",
+            "unpinned_maven_android": "unpinned_maven_android"
           },
           "devImports": [],
           "tags": [
             {
               "tagName": "install",
-              "attributeValues": {"lock_file":"--//:maven_install.json","repositories":["--https://repo1.maven.org/maven2"]},
+              "attributeValues": {"artifacts":["--com.beust:jcommander:1.82","--com.github.ben-manes.caffeine:caffeine:3.0.5","--com.github.kevinstern:software-and-algorithms:1.0","--com.github.stephenc.jcip:jcip-annotations:1.0-1","--com.google.api-client:google-api-client-gson:1.35.2","--com.google.api-client:google-api-client:1.35.2","--com.google.auth:google-auth-library-credentials:1.6.0","--com.google.auth:google-auth-library-oauth2-http:1.6.0","--com.google.auto.service:auto-service-annotations:1.0.1","--com.google.auto.service:auto-service:1.0","--com.google.auto.value:auto-value-annotations:1.9","--com.google.auto.value:auto-value:1.8.2","--com.google.auto:auto-common:1.2.1","--com.google.code.findbugs:jsr305:3.0.2","--com.google.code.gson:gson:2.9.0","--com.google.code.java-allocation-instrumenter:java-allocation-instrumenter:3.3.0","--com.google.errorprone:error_prone_annotation:2.20.0","--com.google.errorprone:error_prone_annotations:2.20.0","--com.google.errorprone:error_prone_check_api:2.20.0","--com.google.errorprone:error_prone_core:2.20.0","--com.google.errorprone:error_prone_type_annotations:2.20.0","--com.google.flogger:flogger-system-backend:0.5.1","--com.google.flogger:flogger:0.5.1","--com.google.flogger:google-extensions:0.5.1","--com.google.guava:failureaccess:1.0.1","--com.google.guava:guava:31.1-jre","--com.google.http-client:google-http-client-gson:1.42.0","--com.google.http-client:google-http-client:1.42.0","--com.google.j2objc:j2objc-annotations:1.3","--com.ryanharter.auto.value:auto-value-gson-extension:1.3.1","--com.ryanharter.auto.value:auto-value-gson-runtime:1.3.1","--com.ryanharter.auto.value:auto-value-gson-factory:1.3.1","--com.squareup:javapoet:1.12.0","--commons-collections:commons-collections:3.2.2","--commons-lang:commons-lang:2.6","--io.github.java-diff-utils:java-diff-utils:4.0","--io.grpc:grpc-api:1.48.1","--io.grpc:grpc-auth:1.48.1","--io.grpc:grpc-context:1.48.1","--io.grpc:grpc-core:1.48.1","--io.grpc:grpc-netty:1.48.1","--io.grpc:grpc-protobuf-lite:1.48.1","--io.grpc:grpc-protobuf:1.48.1","--io.grpc:grpc-stub:1.48.1","--io.netty:netty-buffer:4.1.93.Final","--io.netty:netty-codec-http2:4.1.93.Final","--io.netty:netty-codec-http:4.1.93.Final","--io.netty:netty-codec:4.1.93.Final","--io.netty:netty-common:4.1.93.Final","--io.netty:netty-handler-proxy:4.1.93.Final","--io.netty:netty-handler:4.1.93.Final","--io.netty:netty-resolver-dns:4.1.93.Final","--io.netty:netty-resolver:4.1.93.Final","--io.netty:netty-tcnative-boringssl-static:jar:linux-aarch_64:2.0.56.Final","--io.netty:netty-tcnative-boringssl-static:jar:linux-x86_64:2.0.56.Final","--io.netty:netty-tcnative-boringssl-static:jar:osx-aarch_64:2.0.56.Final","--io.netty:netty-tcnative-boringssl-static:jar:osx-x86_64:2.0.56.Final","--io.netty:netty-tcnative-boringssl-static:jar:windows-x86_64:2.0.56.Final","--io.netty:netty-tcnative-classes:2.0.56.Final","--io.netty:netty-transport-classes-epoll:4.1.93.Final","--io.netty:netty-transport-classes-kqueue:4.1.93.Final","--io.netty:netty-transport-native-epoll:jar:linux-aarch_64:4.1.93.Final","--io.netty:netty-transport-native-epoll:jar:linux-x86_64:4.1.93.Final","--io.netty:netty-transport-native-kqueue:jar:osx-aarch_64:4.1.93.Final","--io.netty:netty-transport-native-kqueue:jar:osx-x86_64:4.1.93.Final","--io.netty:netty-transport-native-unix-common:4.1.93.Final","--io.netty:netty-transport-native-unix-common:jar:linux-aarch_64:4.1.93.Final","--io.netty:netty-transport-native-unix-common:jar:linux-x86_64:4.1.93.Final","--io.netty:netty-transport-native-unix-common:jar:osx-aarch_64:4.1.93.Final","--io.netty:netty-transport-native-unix-common:jar:osx-x86_64:4.1.93.Final","--io.netty:netty-transport:4.1.93.Final","--io.reactivex.rxjava3:rxjava:3.1.2","--javax.activation:javax.activation-api:1.2.0","--javax.annotation:javax.annotation-api:1.3.2","--javax.inject:javax.inject:1","--net.bytebuddy:byte-buddy-agent:1.14.5","--net.bytebuddy:byte-buddy:1.14.5","--org.apache.commons:commons-compress:1.19","--org.apache.commons:commons-pool2:2.8.0","--org.apache.tomcat:tomcat-annotations-api:8.0.5","--org.apache.velocity:velocity:1.7","--org.checkerframework:checker-qual:3.19.0","--org.ow2.asm:asm-analysis:9.2","--org.ow2.asm:asm-commons:9.2","--org.ow2.asm:asm-tree:9.2","--org.ow2.asm:asm-util:9.2","--org.ow2.asm:asm:9.2","--org.pcollections:pcollections:3.1.4","--org.threeten:threeten-extra:1.5.0","--org.tukaani:xz:1.9","--org.yaml:snakeyaml:1.28","--tools.profiler:async-profiler:2.9","--junit:junit:4.13.2","--org.hamcrest:hamcrest-core:1.3"],"excluded_artifacts":["--org.apache.httpcomponents:httpclient","--org.apache.httpcomponents:httpcore","--org.eclipse.jgit:org.eclipse.jgit","--com.google.protobuf:protobuf-java","--com.google.protobuf:protobuf-javalite"],"fail_if_repin_required":true,"strict_visibility":true,"lock_file":"--//:maven_install.json","repositories":["--https://repo1.maven.org/maven2"]},
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
@@ -57,12 +59,102 @@
               }
             },
             {
-              "tagName": "install",
-              "attributeValues": {"name":"--maven_android","lock_file":"--//src/tools/android:maven_android_install.json","repositories":["--https://dl.google.com/android/maven2","--https://repo1.maven.org/maven2"]},
+              "tagName": "artifact",
+              "attributeValues": {"artifact":"--guava-testlib","group":"--com.google.guava","version":"--31.1-jre","testonly":true},
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 180,
+                "line": 183,
+                "column": 16
+              }
+            },
+            {
+              "tagName": "artifact",
+              "attributeValues": {"artifact":"--jimfs","group":"--com.google.jimfs","version":"--1.2","testonly":true},
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 183,
+                "column": 16
+              }
+            },
+            {
+              "tagName": "artifact",
+              "attributeValues": {"artifact":"--compile-testing","group":"--com.google.testing.compile","version":"--0.18","testonly":true},
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 183,
+                "column": 16
+              }
+            },
+            {
+              "tagName": "artifact",
+              "attributeValues": {"artifact":"--test-parameter-injector","group":"--com.google.testparameterinjector","version":"--1.0","testonly":true},
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 183,
+                "column": 16
+              }
+            },
+            {
+              "tagName": "artifact",
+              "attributeValues": {"artifact":"--truth","group":"--com.google.truth","version":"--1.1.3","testonly":true},
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 183,
+                "column": 16
+              }
+            },
+            {
+              "tagName": "artifact",
+              "attributeValues": {"artifact":"--truth-java8-extension","group":"--com.google.truth.extensions","version":"--1.1.3","testonly":true},
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 183,
+                "column": 16
+              }
+            },
+            {
+              "tagName": "artifact",
+              "attributeValues": {"artifact":"--truth-liteproto-extension","group":"--com.google.truth.extensions","version":"--1.1.3","testonly":true},
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 183,
+                "column": 16
+              }
+            },
+            {
+              "tagName": "artifact",
+              "attributeValues": {"artifact":"--truth-proto-extension","group":"--com.google.truth.extensions","version":"--1.1.3","testonly":true},
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 183,
+                "column": 16
+              }
+            },
+            {
+              "tagName": "artifact",
+              "attributeValues": {"artifact":"--mockito-core","group":"--org.mockito","version":"--5.4.0","testonly":true},
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 183,
+                "column": 16
+              }
+            },
+            {
+              "tagName": "install",
+              "attributeValues": {"name":"--maven_android","artifacts":["--androidx.databinding:databinding-compiler:3.4.0-alpha10","--com.android.tools.build:builder:7.1.3","--com.android.tools.build:manifest-merger:30.1.3","--com.android.tools:sdk-common:30.1.3","--com.android.tools:annotations:30.1.3","--com.android.tools.layoutlib:layoutlib-api:30.1.3","--com.android.tools:common:30.1.3","--com.android.tools:repository:30.1.3"],"fail_if_repin_required":true,"lock_file":"--//src/tools/android:maven_android_install.json","repositories":["--https://dl.google.com/android/maven2","--https://repo1.maven.org/maven2"]},
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 302,
                 "column": 22
               }
             }
@@ -76,7 +168,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 75,
+            "line": 197,
             "column": 32
           },
           "imports": {
@@ -116,7 +208,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 108,
+            "line": 230,
             "column": 23
           },
           "imports": {},
@@ -128,7 +220,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 109,
+                "line": 231,
                 "column": 17
               }
             }
@@ -142,7 +234,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 111,
+            "line": 233,
             "column": 20
           },
           "imports": {
@@ -156,7 +248,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 112,
+                "line": 234,
                 "column": 10
               }
             }
@@ -170,7 +262,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 123,
+            "line": 245,
             "column": 33
           },
           "imports": {
@@ -196,7 +288,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 139,
+            "line": 261,
             "column": 29
           },
           "imports": {
@@ -213,7 +305,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 146,
+            "line": 268,
             "column": 32
           },
           "imports": {
@@ -232,7 +324,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 154,
+            "line": 276,
             "column": 36
           },
           "imports": {
@@ -249,7 +341,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 157,
+            "line": 279,
             "column": 31
           },
           "imports": {
@@ -266,7 +358,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 160,
+            "line": 282,
             "column": 48
           },
           "imports": {
@@ -283,7 +375,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 193,
+            "line": 324,
             "column": 35
           },
           "imports": {
@@ -300,7 +392,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 196,
+            "line": 327,
             "column": 42
           },
           "imports": {
@@ -1640,7 +1732,7 @@
     "//:extensions.bzl%test_repo_extension": {
       "bzlTransitiveDigest": "FMZCqyqChCnW+uMUqugDjYJ+V7jv01wMWwHU/b5PIps=",
       "accumulatedFileDigests": {
-        "@@//:MODULE.bazel.lock": "4ea251d9d14558cfee338cc50095b62a7bc59c8f97b8e35679b42812c5ffab15"
+        "@@//:MODULE.bazel.lock": "673ccb1c122d45759df8a0f55238cabd1c1892b097b7d0ab0d5c267799ce3eb9"
       },
       "envVariables": {},
       "generatedRepoSpecs": {
@@ -2580,10 +2672,193 @@
         }
       }
     },
-    "@rules_jvm_external~5.2//:extensions.bzl%maven": {
-      "bzlTransitiveDigest": "Wx7XpR4zCn0IQD99yyMt5O9R4Khv+QYd6Zug/Q0Hcew=",
+    "@rules_python~0.24.0//python/extensions:pip.bzl%pip": {
+      "bzlTransitiveDigest": "TEllPVzarB4s4TpELB3gWHqo8xpekIiVpXI5FLmg+CQ=",
       "accumulatedFileDigests": {
-        "@@//:maven_install.json": "e62fb82bc993a846c32b22024232c8e33934da0c722aa229cecf22f49c06cbf3",
+        "@@//:requirements.txt": "ff12967a755bb8e9b4c92524f6471a99e14c30474a3d428547c55745ec8f23a0"
+      },
+      "envVariables": {},
+      "generatedRepoSpecs": {
+        "bazel_pip_dev_deps": {
+          "bzlFile": "@@rules_python~0.24.0//python/pip_install:pip_repository.bzl",
+          "ruleClassName": "pip_hub_repository_bzlmod",
+          "attributes": {"name":"--rules_python~0.24.0~pip~bazel_pip_dev_deps","repo_name":"--bazel_pip_dev_deps","whl_library_alias_names":["--bazel_runfiles"]}
+        },
+        "bazel_pip_dev_deps_38": {
+          "bzlFile": "@@rules_python~0.24.0//python/pip_install:pip_repository.bzl",
+          "ruleClassName": "pip_repository_bzlmod",
+          "attributes": {"name":"--rules_python~0.24.0~pip~bazel_pip_dev_deps_38","repo_name":"--bazel_pip_dev_deps_38","requirements_lock":"@@//:requirements.txt"}
+        },
+        "bazel_pip_dev_deps_38_bazel_runfiles": {
+          "bzlFile": "@@rules_python~0.24.0//python/pip_install:pip_repository.bzl",
+          "ruleClassName": "whl_library",
+          "attributes": {"name":"--rules_python~0.24.0~pip~bazel_pip_dev_deps_38_bazel_runfiles","requirement":"--bazel-runfiles==0.24.0","repo":"--bazel_pip_dev_deps_38","repo_prefix":"--bazel_pip_dev_deps_38_","annotation":null,"python_interpreter":"--","python_interpreter_target":"@@rules_python~0.24.0~python~python_3_8_aarch64-apple-darwin//:bin/python3","quiet":true,"timeout":600,"isolated":true,"extra_pip_args":[],"download_only":false,"pip_data_exclude":[],"enable_implicit_namespace_pkgs":false,"environment":{}}
+        },
+        "bazel_pip_dev_deps_bazel_runfiles": {
+          "bzlFile": "@@rules_python~0.24.0//python:pip.bzl",
+          "ruleClassName": "whl_library_alias",
+          "attributes": {"name":"--rules_python~0.24.0~pip~bazel_pip_dev_deps_bazel_runfiles","wheel_name":"--bazel_runfiles","default_version":"--3.8","version_map":{"--3.8":"--bazel_pip_dev_deps_38_"}}
+        }
+      }
+    },
+    "@rules_python~0.24.0//python/extensions:python.bzl%python": {
+      "bzlTransitiveDigest": "9sVLcm29C6eY7TfBei6hgV2sqrC2SqgOPeB3aEjaPfU=",
+      "accumulatedFileDigests": {},
+      "envVariables": {},
+      "generatedRepoSpecs": {
+        "python_3_8_aarch64-apple-darwin": {
+          "bzlFile": "@@rules_python~0.24.0//python:repositories.bzl",
+          "ruleClassName": "python_repository",
+          "attributes": {"name":"--rules_python~0.24.0~python~python_3_8_aarch64-apple-darwin","sha256":"--1e0a92d1a4f5e6d4a99f86b1cbf9773d703fe7fd032590f3e9c285c7a5eeb00a","patches":[],"platform":"--aarch64-apple-darwin","python_version":"--3.8.15","release_filename":"--20221106/cpython-3.8.15+20221106-aarch64-apple-darwin-install_only.tar.gz","urls":["--https://github.com/indygreg/python-build-standalone/releases/download/20221106/cpython-3.8.15+20221106-aarch64-apple-darwin-install_only.tar.gz"],"distutils":null,"distutils_content":"--","strip_prefix":"--python","coverage_tool":"--","ignore_root_user_error":false}
+        },
+        "python_3_11_aarch64-unknown-linux-gnu": {
+          "bzlFile": "@@rules_python~0.24.0//python:repositories.bzl",
+          "ruleClassName": "python_repository",
+          "attributes": {"name":"--rules_python~0.24.0~python~python_3_11_aarch64-unknown-linux-gnu","sha256":"--debf15783bdcb5530504f533d33fda75a7b905cec5361ae8f33da5ba6599f8b4","patches":[],"platform":"--aarch64-unknown-linux-gnu","python_version":"--3.11.1","release_filename":"--20230116/cpython-3.11.1+20230116-aarch64-unknown-linux-gnu-install_only.tar.gz","urls":["--https://github.com/indygreg/python-build-standalone/releases/download/20230116/cpython-3.11.1+20230116-aarch64-unknown-linux-gnu-install_only.tar.gz"],"distutils":null,"distutils_content":"--","strip_prefix":"--python","coverage_tool":"--","ignore_root_user_error":false}
+        },
+        "python_3_11_aarch64-apple-darwin": {
+          "bzlFile": "@@rules_python~0.24.0//python:repositories.bzl",
+          "ruleClassName": "python_repository",
+          "attributes": {"name":"--rules_python~0.24.0~python~python_3_11_aarch64-apple-darwin","sha256":"--4918cdf1cab742a90f85318f88b8122aeaa2d04705803c7b6e78e81a3dd40f80","patches":[],"platform":"--aarch64-apple-darwin","python_version":"--3.11.1","release_filename":"--20230116/cpython-3.11.1+20230116-aarch64-apple-darwin-install_only.tar.gz","urls":["--https://github.com/indygreg/python-build-standalone/releases/download/20230116/cpython-3.11.1+20230116-aarch64-apple-darwin-install_only.tar.gz"],"distutils":null,"distutils_content":"--","strip_prefix":"--python","coverage_tool":"--","ignore_root_user_error":false}
+        },
+        "pythons_hub": {
+          "bzlFile": "@@rules_python~0.24.0//python/extensions/private:pythons_hub.bzl",
+          "ruleClassName": "hub_repo",
+          "attributes": {"name":"--rules_python~0.24.0~python~pythons_hub","default_python_version":"--3.8","toolchain_prefixes":["--_0000_python_3_11_","--_0001_python_3_8_"],"toolchain_python_versions":["--3.11","--3.8"],"toolchain_set_python_version_constraints":["--True","--False"],"toolchain_user_repository_names":["--python_3_11","--python_3_8"]}
+        },
+        "python_3_8_aarch64-unknown-linux-gnu": {
+          "bzlFile": "@@rules_python~0.24.0//python:repositories.bzl",
+          "ruleClassName": "python_repository",
+          "attributes": {"name":"--rules_python~0.24.0~python~python_3_8_aarch64-unknown-linux-gnu","sha256":"--886ab33ced13c84bf59ce8ff79eba6448365bfcafea1bf415bd1d75e21b690aa","patches":[],"platform":"--aarch64-unknown-linux-gnu","python_version":"--3.8.15","release_filename":"--20221106/cpython-3.8.15+20221106-aarch64-unknown-linux-gnu-install_only.tar.gz","urls":["--https://github.com/indygreg/python-build-standalone/releases/download/20221106/cpython-3.8.15+20221106-aarch64-unknown-linux-gnu-install_only.tar.gz"],"distutils":null,"distutils_content":"--","strip_prefix":"--python","coverage_tool":"--","ignore_root_user_error":false}
+        },
+        "python_3_8": {
+          "bzlFile": "@@rules_python~0.24.0//python/private:toolchains_repo.bzl",
+          "ruleClassName": "toolchain_aliases",
+          "attributes": {"name":"--rules_python~0.24.0~python~python_3_8","python_version":"--3.8.15","user_repository_name":"--python_3_8"}
+        },
+        "python_3_11_x86_64-pc-windows-msvc": {
+          "bzlFile": "@@rules_python~0.24.0//python:repositories.bzl",
+          "ruleClassName": "python_repository",
+          "attributes": {"name":"--rules_python~0.24.0~python~python_3_11_x86_64-pc-windows-msvc","sha256":"--edc08979cb0666a597466176511529c049a6f0bba8adf70df441708f766de5bf","patches":[],"platform":"--x86_64-pc-windows-msvc","python_version":"--3.11.1","release_filename":"--20230116/cpython-3.11.1+20230116-x86_64-pc-windows-msvc-shared-install_only.tar.gz","urls":["--https://github.com/indygreg/python-build-standalone/releases/download/20230116/cpython-3.11.1+20230116-x86_64-pc-windows-msvc-shared-install_only.tar.gz"],"distutils":null,"distutils_content":"--","strip_prefix":"--python","coverage_tool":"--","ignore_root_user_error":false}
+        },
+        "python_3_8_x86_64-apple-darwin": {
+          "bzlFile": "@@rules_python~0.24.0//python:repositories.bzl",
+          "ruleClassName": "python_repository",
+          "attributes": {"name":"--rules_python~0.24.0~python~python_3_8_x86_64-apple-darwin","sha256":"--70b57f28c2b5e1e3dd89f0d30edd5bc414e8b20195766cf328e1b26bed7890e1","patches":[],"platform":"--x86_64-apple-darwin","python_version":"--3.8.15","release_filename":"--20221106/cpython-3.8.15+20221106-x86_64-apple-darwin-install_only.tar.gz","urls":["--https://github.com/indygreg/python-build-standalone/releases/download/20221106/cpython-3.8.15+20221106-x86_64-apple-darwin-install_only.tar.gz"],"distutils":null,"distutils_content":"--","strip_prefix":"--python","coverage_tool":"--","ignore_root_user_error":false}
+        },
+        "python_3_8_x86_64-pc-windows-msvc": {
+          "bzlFile": "@@rules_python~0.24.0//python:repositories.bzl",
+          "ruleClassName": "python_repository",
+          "attributes": {"name":"--rules_python~0.24.0~python~python_3_8_x86_64-pc-windows-msvc","sha256":"--2fdc3fa1c95f982179bbbaedae2b328197658638799b6dcb63f9f494b0de59e2","patches":[],"platform":"--x86_64-pc-windows-msvc","python_version":"--3.8.15","release_filename":"--20221106/cpython-3.8.15+20221106-x86_64-pc-windows-msvc-shared-install_only.tar.gz","urls":["--https://github.com/indygreg/python-build-standalone/releases/download/20221106/cpython-3.8.15+20221106-x86_64-pc-windows-msvc-shared-install_only.tar.gz"],"distutils":null,"distutils_content":"--","strip_prefix":"--python","coverage_tool":"--","ignore_root_user_error":false}
+        },
+        "python_3_11": {
+          "bzlFile": "@@rules_python~0.24.0//python/private:toolchains_repo.bzl",
+          "ruleClassName": "toolchain_aliases",
+          "attributes": {"name":"--rules_python~0.24.0~python~python_3_11","python_version":"--3.11.1","user_repository_name":"--python_3_11"}
+        },
+        "python_3_11_x86_64-apple-darwin": {
+          "bzlFile": "@@rules_python~0.24.0//python:repositories.bzl",
+          "ruleClassName": "python_repository",
+          "attributes": {"name":"--rules_python~0.24.0~python~python_3_11_x86_64-apple-darwin","sha256":"--20a4203d069dc9b710f70b09e7da2ce6f473d6b1110f9535fb6f4c469ed54733","patches":[],"platform":"--x86_64-apple-darwin","python_version":"--3.11.1","release_filename":"--20230116/cpython-3.11.1+20230116-x86_64-apple-darwin-install_only.tar.gz","urls":["--https://github.com/indygreg/python-build-standalone/releases/download/20230116/cpython-3.11.1+20230116-x86_64-apple-darwin-install_only.tar.gz"],"distutils":null,"distutils_content":"--","strip_prefix":"--python","coverage_tool":"--","ignore_root_user_error":false}
+        },
+        "python_versions": {
+          "bzlFile": "@@rules_python~0.24.0//python/private:toolchains_repo.bzl",
+          "ruleClassName": "multi_toolchain_aliases",
+          "attributes": {"name":"--rules_python~0.24.0~python~python_versions","python_versions":{"--3.8":"--python_3_8","--3.11":"--python_3_11"}}
+        },
+        "python_3_8_x86_64-unknown-linux-gnu": {
+          "bzlFile": "@@rules_python~0.24.0//python:repositories.bzl",
+          "ruleClassName": "python_repository",
+          "attributes": {"name":"--rules_python~0.24.0~python~python_3_8_x86_64-unknown-linux-gnu","sha256":"--e47edfb2ceaf43fc699e20c179ec428b6f3e497cf8e2dcd8e9c936d4b96b1e56","patches":[],"platform":"--x86_64-unknown-linux-gnu","python_version":"--3.8.15","release_filename":"--20221106/cpython-3.8.15+20221106-x86_64-unknown-linux-gnu-install_only.tar.gz","urls":["--https://github.com/indygreg/python-build-standalone/releases/download/20221106/cpython-3.8.15+20221106-x86_64-unknown-linux-gnu-install_only.tar.gz"],"distutils":null,"distutils_content":"--","strip_prefix":"--python","coverage_tool":"--","ignore_root_user_error":false}
+        },
+        "python_3_11_x86_64-unknown-linux-gnu": {
+          "bzlFile": "@@rules_python~0.24.0//python:repositories.bzl",
+          "ruleClassName": "python_repository",
+          "attributes": {"name":"--rules_python~0.24.0~python~python_3_11_x86_64-unknown-linux-gnu","sha256":"--02a551fefab3750effd0e156c25446547c238688a32fabde2995c941c03a6423","patches":[],"platform":"--x86_64-unknown-linux-gnu","python_version":"--3.11.1","release_filename":"--20230116/cpython-3.11.1+20230116-x86_64-unknown-linux-gnu-install_only.tar.gz","urls":["--https://github.com/indygreg/python-build-standalone/releases/download/20230116/cpython-3.11.1+20230116-x86_64-unknown-linux-gnu-install_only.tar.gz"],"distutils":null,"distutils_content":"--","strip_prefix":"--python","coverage_tool":"--","ignore_root_user_error":false}
+        }
+      }
+    },
+    "@rules_python~0.24.0//python/extensions/private:internal_deps.bzl%internal_deps": {
+      "bzlTransitiveDigest": "d0GVFr68Y+3LHnWTnpXEqHou3XKRA+BYjeOeYY1wb2k=",
+      "accumulatedFileDigests": {},
+      "envVariables": {},
+      "generatedRepoSpecs": {
+        "pypi__wheel": {
+          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+          "ruleClassName": "http_archive",
+          "attributes": {"name":"--rules_python~0.24.0~internal_deps~pypi__wheel","url":"--https://files.pythonhosted.org/packages/bd/7c/d38a0b30ce22fc26ed7dbc087c6d00851fb3395e9d0dac40bec1f905030c/wheel-0.38.4-py3-none-any.whl","sha256":"--b60533f3f5d530e971d6737ca6d58681ee434818fab630c83a734bb10c083ce8","type":"--zip","build_file_content":"--package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\n        # These entries include those put into user-installed dependencies by\n        # data_exclude in /python/pip_install/tools/bazel.py\n        # to avoid non-determinism following pip install's behavior.\n        \"**/*.py\",\n        \"**/*.pyc\",\n        \"**/*.pyc.*\",  # During pyc creation, temp files named *.pyc.NNN are created\n        \"**/* *\",\n        \"**/*.dist-info/RECORD\",\n        \"BUILD\",\n        \"WORKSPACE\",\n    ]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"}
+        },
+        "pypi__click": {
+          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+          "ruleClassName": "http_archive",
+          "attributes": {"name":"--rules_python~0.24.0~internal_deps~pypi__click","url":"--https://files.pythonhosted.org/packages/76/0a/b6c5f311e32aeb3b406e03c079ade51e905ea630fc19d1262a46249c1c86/click-8.0.1-py3-none-any.whl","sha256":"--fba402a4a47334742d782209a7c79bc448911afe1149d07bdabdf480b3e2f4b6","type":"--zip","build_file_content":"--package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\n        # These entries include those put into user-installed dependencies by\n        # data_exclude in /python/pip_install/tools/bazel.py\n        # to avoid non-determinism following pip install's behavior.\n        \"**/*.py\",\n        \"**/*.pyc\",\n        \"**/*.pyc.*\",  # During pyc creation, temp files named *.pyc.NNN are created\n        \"**/* *\",\n        \"**/*.dist-info/RECORD\",\n        \"BUILD\",\n        \"WORKSPACE\",\n    ]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"}
+        },
+        "pypi__importlib_metadata": {
+          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+          "ruleClassName": "http_archive",
+          "attributes": {"name":"--rules_python~0.24.0~internal_deps~pypi__importlib_metadata","url":"--https://files.pythonhosted.org/packages/d7/31/74dcb59a601b95fce3b0334e8fc9db758f78e43075f22aeb3677dfb19f4c/importlib_metadata-1.4.0-py2.py3-none-any.whl","sha256":"--bdd9b7c397c273bcc9a11d6629a38487cd07154fa255a467bf704cd2c258e359","type":"--zip","build_file_content":"--package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\n        # These entries include those put into user-installed dependencies by\n        # data_exclude in /python/pip_install/tools/bazel.py\n        # to avoid non-determinism following pip install's behavior.\n        \"**/*.py\",\n        \"**/*.pyc\",\n        \"**/*.pyc.*\",  # During pyc creation, temp files named *.pyc.NNN are created\n        \"**/* *\",\n        \"**/*.dist-info/RECORD\",\n        \"BUILD\",\n        \"WORKSPACE\",\n    ]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"}
+        },
+        "pypi__pep517": {
+          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+          "ruleClassName": "http_archive",
+          "attributes": {"name":"--rules_python~0.24.0~internal_deps~pypi__pep517","url":"--https://files.pythonhosted.org/packages/ee/2f/ef63e64e9429111e73d3d6cbee80591672d16f2725e648ebc52096f3d323/pep517-0.13.0-py3-none-any.whl","sha256":"--4ba4446d80aed5b5eac6509ade100bff3e7943a8489de249654a5ae9b33ee35b","type":"--zip","build_file_content":"--package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\n        # These entries include those put into user-installed dependencies by\n        # data_exclude in /python/pip_install/tools/bazel.py\n        # to avoid non-determinism following pip install's behavior.\n        \"**/*.py\",\n        \"**/*.pyc\",\n        \"**/*.pyc.*\",  # During pyc creation, temp files named *.pyc.NNN are created\n        \"**/* *\",\n        \"**/*.dist-info/RECORD\",\n        \"BUILD\",\n        \"WORKSPACE\",\n    ]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"}
+        },
+        "pypi__packaging": {
+          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+          "ruleClassName": "http_archive",
+          "attributes": {"name":"--rules_python~0.24.0~internal_deps~pypi__packaging","url":"--https://files.pythonhosted.org/packages/8f/7b/42582927d281d7cb035609cd3a543ffac89b74f3f4ee8e1c50914bcb57eb/packaging-22.0-py3-none-any.whl","sha256":"--957e2148ba0e1a3b282772e791ef1d8083648bc131c8ab0c1feba110ce1146c3","type":"--zip","build_file_content":"--package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\n        # These entries include those put into user-installed dependencies by\n        # data_exclude in /python/pip_install/tools/bazel.py\n        # to avoid non-determinism following pip install's behavior.\n        \"**/*.py\",\n        \"**/*.pyc\",\n        \"**/*.pyc.*\",  # During pyc creation, temp files named *.pyc.NNN are created\n        \"**/* *\",\n        \"**/*.dist-info/RECORD\",\n        \"BUILD\",\n        \"WORKSPACE\",\n    ]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"}
+        },
+        "pypi__pip_tools": {
+          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+          "ruleClassName": "http_archive",
+          "attributes": {"name":"--rules_python~0.24.0~internal_deps~pypi__pip_tools","url":"--https://files.pythonhosted.org/packages/5e/e8/f6d7d1847c7351048da870417724ace5c4506e816b38db02f4d7c675c189/pip_tools-6.12.1-py3-none-any.whl","sha256":"--f0c0c0ec57b58250afce458e2e6058b1f30a4263db895b7d72fd6311bf1dc6f7","type":"--zip","build_file_content":"--package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\n        # These entries include those put into user-installed dependencies by\n        # data_exclude in /python/pip_install/tools/bazel.py\n        # to avoid non-determinism following pip install's behavior.\n        \"**/*.py\",\n        \"**/*.pyc\",\n        \"**/*.pyc.*\",  # During pyc creation, temp files named *.pyc.NNN are created\n        \"**/* *\",\n        \"**/*.dist-info/RECORD\",\n        \"BUILD\",\n        \"WORKSPACE\",\n    ]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"}
+        },
+        "pypi__setuptools": {
+          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+          "ruleClassName": "http_archive",
+          "attributes": {"name":"--rules_python~0.24.0~internal_deps~pypi__setuptools","url":"--https://files.pythonhosted.org/packages/7c/5b/3d92b9f0f7ca1645cba48c080b54fe7d8b1033a4e5720091d1631c4266db/setuptools-60.10.0-py3-none-any.whl","sha256":"--782ef48d58982ddb49920c11a0c5c9c0b02e7d7d1c2ad0aa44e1a1e133051c96","type":"--zip","build_file_content":"--package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\n        # These entries include those put into user-installed dependencies by\n        # data_exclude in /python/pip_install/tools/bazel.py\n        # to avoid non-determinism following pip install's behavior.\n        \"**/*.py\",\n        \"**/*.pyc\",\n        \"**/*.pyc.*\",  # During pyc creation, temp files named *.pyc.NNN are created\n        \"**/* *\",\n        \"**/*.dist-info/RECORD\",\n        \"BUILD\",\n        \"WORKSPACE\",\n    ]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"}
+        },
+        "pypi__zipp": {
+          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+          "ruleClassName": "http_archive",
+          "attributes": {"name":"--rules_python~0.24.0~internal_deps~pypi__zipp","url":"--https://files.pythonhosted.org/packages/f4/50/cc72c5bcd48f6e98219fc4a88a5227e9e28b81637a99c49feba1d51f4d50/zipp-1.0.0-py2.py3-none-any.whl","sha256":"--8dda78f06bd1674bd8720df8a50bb47b6e1233c503a4eed8e7810686bde37656","type":"--zip","build_file_content":"--package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\n        # These entries include those put into user-installed dependencies by\n        # data_exclude in /python/pip_install/tools/bazel.py\n        # to avoid non-determinism following pip install's behavior.\n        \"**/*.py\",\n        \"**/*.pyc\",\n        \"**/*.pyc.*\",  # During pyc creation, temp files named *.pyc.NNN are created\n        \"**/* *\",\n        \"**/*.dist-info/RECORD\",\n        \"BUILD\",\n        \"WORKSPACE\",\n    ]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"}
+        },
+        "pypi__colorama": {
+          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+          "ruleClassName": "http_archive",
+          "attributes": {"name":"--rules_python~0.24.0~internal_deps~pypi__colorama","url":"--https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl","sha256":"--4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6","type":"--zip","build_file_content":"--package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\n        # These entries include those put into user-installed dependencies by\n        # data_exclude in /python/pip_install/tools/bazel.py\n        # to avoid non-determinism following pip install's behavior.\n        \"**/*.py\",\n        \"**/*.pyc\",\n        \"**/*.pyc.*\",  # During pyc creation, temp files named *.pyc.NNN are created\n        \"**/* *\",\n        \"**/*.dist-info/RECORD\",\n        \"BUILD\",\n        \"WORKSPACE\",\n    ]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"}
+        },
+        "pypi__build": {
+          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+          "ruleClassName": "http_archive",
+          "attributes": {"name":"--rules_python~0.24.0~internal_deps~pypi__build","url":"--https://files.pythonhosted.org/packages/03/97/f58c723ff036a8d8b4d3115377c0a37ed05c1f68dd9a0d66dab5e82c5c1c/build-0.9.0-py3-none-any.whl","sha256":"--38a7a2b7a0bdc61a42a0a67509d88c71ecfc37b393baba770fae34e20929ff69","type":"--zip","build_file_content":"--package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\n        # These entries include those put into user-installed dependencies by\n        # data_exclude in /python/pip_install/tools/bazel.py\n        # to avoid non-determinism following pip install's behavior.\n        \"**/*.py\",\n        \"**/*.pyc\",\n        \"**/*.pyc.*\",  # During pyc creation, temp files named *.pyc.NNN are created\n        \"**/* *\",\n        \"**/*.dist-info/RECORD\",\n        \"BUILD\",\n        \"WORKSPACE\",\n    ]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"}
+        },
+        "pypi__pip": {
+          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+          "ruleClassName": "http_archive",
+          "attributes": {"name":"--rules_python~0.24.0~internal_deps~pypi__pip","url":"--https://files.pythonhosted.org/packages/09/bd/2410905c76ee14c62baf69e3f4aa780226c1bbfc9485731ad018e35b0cb5/pip-22.3.1-py3-none-any.whl","sha256":"--908c78e6bc29b676ede1c4d57981d490cb892eb45cd8c214ab6298125119e077","type":"--zip","build_file_content":"--package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\n        # These entries include those put into user-installed dependencies by\n        # data_exclude in /python/pip_install/tools/bazel.py\n        # to avoid non-determinism following pip install's behavior.\n        \"**/*.py\",\n        \"**/*.pyc\",\n        \"**/*.pyc.*\",  # During pyc creation, temp files named *.pyc.NNN are created\n        \"**/* *\",\n        \"**/*.dist-info/RECORD\",\n        \"BUILD\",\n        \"WORKSPACE\",\n    ]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"}
+        },
+        "pypi__installer": {
+          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+          "ruleClassName": "http_archive",
+          "attributes": {"name":"--rules_python~0.24.0~internal_deps~pypi__installer","url":"--https://files.pythonhosted.org/packages/e5/ca/1172b6638d52f2d6caa2dd262ec4c811ba59eee96d54a7701930726bce18/installer-0.7.0-py3-none-any.whl","sha256":"--05d1933f0a5ba7d8d6296bb6d5018e7c94fa473ceb10cf198a92ccea19c27b53","type":"--zip","build_file_content":"--package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\n        # These entries include those put into user-installed dependencies by\n        # data_exclude in /python/pip_install/tools/bazel.py\n        # to avoid non-determinism following pip install's behavior.\n        \"**/*.py\",\n        \"**/*.pyc\",\n        \"**/*.pyc.*\",  # During pyc creation, temp files named *.pyc.NNN are created\n        \"**/* *\",\n        \"**/*.dist-info/RECORD\",\n        \"BUILD\",\n        \"WORKSPACE\",\n    ]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"}
+        },
+        "pypi__more_itertools": {
+          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+          "ruleClassName": "http_archive",
+          "attributes": {"name":"--rules_python~0.24.0~internal_deps~pypi__more_itertools","url":"--https://files.pythonhosted.org/packages/bd/3f/c4b3dbd315e248f84c388bd4a72b131a29f123ecacc37ffb2b3834546e42/more_itertools-8.13.0-py3-none-any.whl","sha256":"--c5122bffc5f104d37c1626b8615b511f3427aa5389b94d61e5ef8236bfbc3ddb","type":"--zip","build_file_content":"--package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\n        # These entries include those put into user-installed dependencies by\n        # data_exclude in /python/pip_install/tools/bazel.py\n        # to avoid non-determinism following pip install's behavior.\n        \"**/*.py\",\n        \"**/*.pyc\",\n        \"**/*.pyc.*\",  # During pyc creation, temp files named *.pyc.NNN are created\n        \"**/* *\",\n        \"**/*.dist-info/RECORD\",\n        \"BUILD\",\n        \"WORKSPACE\",\n    ]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"}
+        },
+        "pypi__tomli": {
+          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+          "ruleClassName": "http_archive",
+          "attributes": {"name":"--rules_python~0.24.0~internal_deps~pypi__tomli","url":"--https://files.pythonhosted.org/packages/97/75/10a9ebee3fd790d20926a90a2547f0bf78f371b2f13aa822c759680ca7b9/tomli-2.0.1-py3-none-any.whl","sha256":"--939de3e7a6161af0c887ef91b7d41a53e7c5a1ca976325f429cb46ea9bc30ecc","type":"--zip","build_file_content":"--package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\n        # These entries include those put into user-installed dependencies by\n        # data_exclude in /python/pip_install/tools/bazel.py\n        # to avoid non-determinism following pip install's behavior.\n        \"**/*.py\",\n        \"**/*.pyc\",\n        \"**/*.pyc.*\",  # During pyc creation, temp files named *.pyc.NNN are created\n        \"**/* *\",\n        \"**/*.dist-info/RECORD\",\n        \"BUILD\",\n        \"WORKSPACE\",\n    ]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"}
+        }
+      }
+    },
+    "@rules_jvm_external~5.2//:extensions.bzl%maven": {
+      "bzlTransitiveDigest": "WAWsskOl4eHIskcL0TuHZGIMjV8sMJaAbAo2luMqofo=",
+      "accumulatedFileDigests": {
+        "@@//:maven_install.json": "294105af77580ce681784a7d9113b157f70ef7c01c6aacf2d129bf1b5543c513",
         "@@rules_jvm_external~5.2//:rules_jvm_external_deps_install.json": "3ab1f67b0de4815df110bc72ccd6c77882b3b21d3d1e0a84445847b6ce3235a3",
         "@@//src/tools/android:maven_android_install.json": "09bff3e33d291336046f7c9201630fb5e014f0e60b78b6f09b84e4f5f73ed04f"
       },
@@ -2777,7 +3052,7 @@
         "unpinned_maven": {
           "bzlFile": "@@rules_jvm_external~5.2//:coursier.bzl",
           "ruleClassName": "coursier_fetch",
-          "attributes": {"name":"--rules_jvm_external~5.2~maven~unpinned_maven","repositories":["--{ \"repo_url\": \"https://repo1.maven.org/maven2\" }"],"artifacts":["--{ \"group\": \"com.google.code.findbugs\", \"artifact\": \"jsr305\", \"version\": \"3.0.2\" }","--{ \"group\": \"com.google.code.gson\", \"artifact\": \"gson\", \"version\": \"2.8.9\" }","--{ \"group\": \"com.google.errorprone\", \"artifact\": \"error_prone_annotations\", \"version\": \"2.3.2\" }","--{ \"group\": \"com.google.j2objc\", \"artifact\": \"j2objc-annotations\", \"version\": \"1.3\" }","--{ \"group\": \"com.google.guava\", \"artifact\": \"guava\", \"version\": \"31.1-jre\" }","--{ \"group\": \"com.google.guava\", \"artifact\": \"guava-testlib\", \"version\": \"31.1-jre\" }","--{ \"group\": \"com.google.truth\", \"artifact\": \"truth\", \"version\": \"1.1.2\" }","--{ \"group\": \"junit\", \"artifact\": \"junit\", \"version\": \"4.13.2\" }","--{ \"group\": \"org.mockito\", \"artifact\": \"mockito-core\", \"version\": \"4.3.1\" }"],"fail_on_missing_checksum":true,"fetch_sources":true,"fetch_javadoc":false,"excluded_artifacts":[],"generate_compat_repositories":false,"version_conflict_policy":"--default","override_targets":{},"strict_visibility":false,"strict_visibility_value":["@@//visibility:private"],"maven_install_json":"@@//:maven_install.json","resolve_timeout":600,"jetify":false,"jetify_include_list":["--*"],"use_starlark_android_rules":false,"aar_import_bzl_label":"--@build_bazel_rules_android//android:rules.bzl","duplicate_version_warning":"--warn"}
+          "attributes": {"name":"--rules_jvm_external~5.2~maven~unpinned_maven","repositories":["--{ \"repo_url\": \"https://repo1.maven.org/maven2\" }"],"artifacts":["--{ \"group\": \"com.google.guava\", \"artifact\": \"guava-testlib\", \"version\": \"31.1-jre\", \"testonly\": true }","--{ \"group\": \"com.google.jimfs\", \"artifact\": \"jimfs\", \"version\": \"1.2\", \"testonly\": true }","--{ \"group\": \"com.google.testing.compile\", \"artifact\": \"compile-testing\", \"version\": \"0.18\", \"testonly\": true }","--{ \"group\": \"com.google.testparameterinjector\", \"artifact\": \"test-parameter-injector\", \"version\": \"1.0\", \"testonly\": true }","--{ \"group\": \"com.google.truth\", \"artifact\": \"truth\", \"version\": \"1.1.3\", \"testonly\": true }","--{ \"group\": \"com.google.truth.extensions\", \"artifact\": \"truth-java8-extension\", \"version\": \"1.1.3\", \"testonly\": true }","--{ \"group\": \"com.google.truth.extensions\", \"artifact\": \"truth-liteproto-extension\", \"version\": \"1.1.3\", \"testonly\": true }","--{ \"group\": \"com.google.truth.extensions\", \"artifact\": \"truth-proto-extension\", \"version\": \"1.1.3\", \"testonly\": true }","--{ \"group\": \"org.mockito\", \"artifact\": \"mockito-core\", \"version\": \"5.4.0\", \"testonly\": true }","--{ \"group\": \"com.beust\", \"artifact\": \"jcommander\", \"version\": \"1.82\" }","--{ \"group\": \"com.github.ben-manes.caffeine\", \"artifact\": \"caffeine\", \"version\": \"3.0.5\" }","--{ \"group\": \"com.github.kevinstern\", \"artifact\": \"software-and-algorithms\", \"version\": \"1.0\" }","--{ \"group\": \"com.github.stephenc.jcip\", \"artifact\": \"jcip-annotations\", \"version\": \"1.0-1\" }","--{ \"group\": \"com.google.api-client\", \"artifact\": \"google-api-client-gson\", \"version\": \"1.35.2\" }","--{ \"group\": \"com.google.api-client\", \"artifact\": \"google-api-client\", \"version\": \"1.35.2\" }","--{ \"group\": \"com.google.auth\", \"artifact\": \"google-auth-library-credentials\", \"version\": \"1.6.0\" }","--{ \"group\": \"com.google.auth\", \"artifact\": \"google-auth-library-oauth2-http\", \"version\": \"1.6.0\" }","--{ \"group\": \"com.google.auto.service\", \"artifact\": \"auto-service-annotations\", \"version\": \"1.0.1\" }","--{ \"group\": \"com.google.auto.service\", \"artifact\": \"auto-service\", \"version\": \"1.0\" }","--{ \"group\": \"com.google.auto.value\", \"artifact\": \"auto-value-annotations\", \"version\": \"1.9\" }","--{ \"group\": \"com.google.auto.value\", \"artifact\": \"auto-value\", \"version\": \"1.8.2\" }","--{ \"group\": \"com.google.auto\", \"artifact\": \"auto-common\", \"version\": \"1.2.1\" }","--{ \"group\": \"com.google.code.findbugs\", \"artifact\": \"jsr305\", \"version\": \"3.0.2\" }","--{ \"group\": \"com.google.code.gson\", \"artifact\": \"gson\", \"version\": \"2.9.0\" }","--{ \"group\": \"com.google.code.java-allocation-instrumenter\", \"artifact\": \"java-allocation-instrumenter\", \"version\": \"3.3.0\" }","--{ \"group\": \"com.google.errorprone\", \"artifact\": \"error_prone_annotation\", \"version\": \"2.20.0\" }","--{ \"group\": \"com.google.errorprone\", \"artifact\": \"error_prone_annotations\", \"version\": \"2.20.0\" }","--{ \"group\": \"com.google.errorprone\", \"artifact\": \"error_prone_check_api\", \"version\": \"2.20.0\" }","--{ \"group\": \"com.google.errorprone\", \"artifact\": \"error_prone_core\", \"version\": \"2.20.0\" }","--{ \"group\": \"com.google.errorprone\", \"artifact\": \"error_prone_type_annotations\", \"version\": \"2.20.0\" }","--{ \"group\": \"com.google.flogger\", \"artifact\": \"flogger-system-backend\", \"version\": \"0.5.1\" }","--{ \"group\": \"com.google.flogger\", \"artifact\": \"flogger\", \"version\": \"0.5.1\" }","--{ \"group\": \"com.google.flogger\", \"artifact\": \"google-extensions\", \"version\": \"0.5.1\" }","--{ \"group\": \"com.google.guava\", \"artifact\": \"failureaccess\", \"version\": \"1.0.1\" }","--{ \"group\": \"com.google.guava\", \"artifact\": \"guava\", \"version\": \"31.1-jre\" }","--{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client-gson\", \"version\": \"1.42.0\" }","--{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client\", \"version\": \"1.42.0\" }","--{ \"group\": \"com.google.j2objc\", \"artifact\": \"j2objc-annotations\", \"version\": \"1.3\" }","--{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-extension\", \"version\": \"1.3.1\" }","--{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-runtime\", \"version\": \"1.3.1\" }","--{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-factory\", \"version\": \"1.3.1\" }","--{ \"group\": \"com.squareup\", \"artifact\": \"javapoet\", \"version\": \"1.12.0\" }","--{ \"group\": \"commons-collections\", \"artifact\": \"commons-collections\", \"version\": \"3.2.2\" }","--{ \"group\": \"commons-lang\", \"artifact\": \"commons-lang\", \"version\": \"2.6\" }","--{ \"group\": \"io.github.java-diff-utils\", \"artifact\": \"java-diff-utils\", \"version\": \"4.0\" }","--{ \"group\": \"io.grpc\", \"artifact\": \"grpc-api\", \"version\": \"1.48.1\" }","--{ \"group\": \"io.grpc\", \"artifact\": \"grpc-auth\", \"version\": \"1.48.1\" }","--{ \"group\": \"io.grpc\", \"artifact\": \"grpc-context\", \"version\": \"1.48.1\" }","--{ \"group\": \"io.grpc\", \"artifact\": \"grpc-core\", \"version\": \"1.48.1\" }","--{ \"group\": \"io.grpc\", \"artifact\": \"grpc-netty\", \"version\": \"1.48.1\" }","--{ \"group\": \"io.grpc\", \"artifact\": \"grpc-protobuf-lite\", \"version\": \"1.48.1\" }","--{ \"group\": \"io.grpc\", \"artifact\": \"grpc-protobuf\", \"version\": \"1.48.1\" }","--{ \"group\": \"io.grpc\", \"artifact\": \"grpc-stub\", \"version\": \"1.48.1\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-buffer\", \"version\": \"4.1.93.Final\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-codec-http2\", \"version\": \"4.1.93.Final\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-codec-http\", \"version\": \"4.1.93.Final\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-codec\", \"version\": \"4.1.93.Final\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-common\", \"version\": \"4.1.93.Final\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-handler-proxy\", \"version\": \"4.1.93.Final\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-handler\", \"version\": \"4.1.93.Final\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-resolver-dns\", \"version\": \"4.1.93.Final\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-resolver\", \"version\": \"4.1.93.Final\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-boringssl-static\", \"version\": \"2.0.56.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-aarch_64\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-boringssl-static\", \"version\": \"2.0.56.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-x86_64\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-boringssl-static\", \"version\": \"2.0.56.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-aarch_64\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-boringssl-static\", \"version\": \"2.0.56.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-x86_64\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-boringssl-static\", \"version\": \"2.0.56.Final\", \"packaging\": \"jar\", \"classifier\": \"windows-x86_64\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-classes\", \"version\": \"2.0.56.Final\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-classes-epoll\", \"version\": \"4.1.93.Final\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-classes-kqueue\", \"version\": \"4.1.93.Final\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-epoll\", \"version\": \"4.1.93.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-aarch_64\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-epoll\", \"version\": \"4.1.93.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-x86_64\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-kqueue\", \"version\": \"4.1.93.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-aarch_64\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-kqueue\", \"version\": \"4.1.93.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-x86_64\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.93.Final\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.93.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-aarch_64\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.93.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-x86_64\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.93.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-aarch_64\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.93.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-x86_64\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-transport\", \"version\": \"4.1.93.Final\" }","--{ \"group\": \"io.reactivex.rxjava3\", \"artifact\": \"rxjava\", \"version\": \"3.1.2\" }","--{ \"group\": \"javax.activation\", \"artifact\": \"javax.activation-api\", \"version\": \"1.2.0\" }","--{ \"group\": \"javax.annotation\", \"artifact\": \"javax.annotation-api\", \"version\": \"1.3.2\" }","--{ \"group\": \"javax.inject\", \"artifact\": \"javax.inject\", \"version\": \"1\" }","--{ \"group\": \"net.bytebuddy\", \"artifact\": \"byte-buddy-agent\", \"version\": \"1.14.5\" }","--{ \"group\": \"net.bytebuddy\", \"artifact\": \"byte-buddy\", \"version\": \"1.14.5\" }","--{ \"group\": \"org.apache.commons\", \"artifact\": \"commons-compress\", \"version\": \"1.19\" }","--{ \"group\": \"org.apache.commons\", \"artifact\": \"commons-pool2\", \"version\": \"2.8.0\" }","--{ \"group\": \"org.apache.tomcat\", \"artifact\": \"tomcat-annotations-api\", \"version\": \"8.0.5\" }","--{ \"group\": \"org.apache.velocity\", \"artifact\": \"velocity\", \"version\": \"1.7\" }","--{ \"group\": \"org.checkerframework\", \"artifact\": \"checker-qual\", \"version\": \"3.19.0\" }","--{ \"group\": \"org.ow2.asm\", \"artifact\": \"asm-analysis\", \"version\": \"9.2\" }","--{ \"group\": \"org.ow2.asm\", \"artifact\": \"asm-commons\", \"version\": \"9.2\" }","--{ \"group\": \"org.ow2.asm\", \"artifact\": \"asm-tree\", \"version\": \"9.2\" }","--{ \"group\": \"org.ow2.asm\", \"artifact\": \"asm-util\", \"version\": \"9.2\" }","--{ \"group\": \"org.ow2.asm\", \"artifact\": \"asm\", \"version\": \"9.2\" }","--{ \"group\": \"org.pcollections\", \"artifact\": \"pcollections\", \"version\": \"3.1.4\" }","--{ \"group\": \"org.threeten\", \"artifact\": \"threeten-extra\", \"version\": \"1.5.0\" }","--{ \"group\": \"org.tukaani\", \"artifact\": \"xz\", \"version\": \"1.9\" }","--{ \"group\": \"org.yaml\", \"artifact\": \"snakeyaml\", \"version\": \"1.28\" }","--{ \"group\": \"tools.profiler\", \"artifact\": \"async-profiler\", \"version\": \"2.9\" }","--{ \"group\": \"junit\", \"artifact\": \"junit\", \"version\": \"4.13.2\" }","--{ \"group\": \"org.hamcrest\", \"artifact\": \"hamcrest-core\", \"version\": \"1.3\" }","--{ \"group\": \"com.google.code.findbugs\", \"artifact\": \"jsr305\", \"version\": \"3.0.2\" }","--{ \"group\": \"com.google.code.gson\", \"artifact\": \"gson\", \"version\": \"2.8.9\" }","--{ \"group\": \"com.google.errorprone\", \"artifact\": \"error_prone_annotations\", \"version\": \"2.3.2\" }","--{ \"group\": \"com.google.j2objc\", \"artifact\": \"j2objc-annotations\", \"version\": \"1.3\" }","--{ \"group\": \"com.google.guava\", \"artifact\": \"guava\", \"version\": \"31.1-jre\" }","--{ \"group\": \"com.google.guava\", \"artifact\": \"guava-testlib\", \"version\": \"31.1-jre\" }","--{ \"group\": \"com.google.truth\", \"artifact\": \"truth\", \"version\": \"1.1.2\" }","--{ \"group\": \"junit\", \"artifact\": \"junit\", \"version\": \"4.13.2\" }","--{ \"group\": \"org.mockito\", \"artifact\": \"mockito-core\", \"version\": \"4.3.1\" }"],"fail_on_missing_checksum":true,"fetch_sources":false,"fetch_javadoc":false,"excluded_artifacts":["--{ \"group\": \"org.apache.httpcomponents\", \"artifact\": \"httpclient\" }","--{ \"group\": \"org.apache.httpcomponents\", \"artifact\": \"httpcore\" }","--{ \"group\": \"org.eclipse.jgit\", \"artifact\": \"org.eclipse.jgit\" }","--{ \"group\": \"com.google.protobuf\", \"artifact\": \"protobuf-java\" }","--{ \"group\": \"com.google.protobuf\", \"artifact\": \"protobuf-javalite\" }"],"generate_compat_repositories":false,"version_conflict_policy":"--default","override_targets":{},"strict_visibility":true,"strict_visibility_value":["@@//visibility:private"],"maven_install_json":"@@//:maven_install.json","resolve_timeout":600,"jetify":false,"jetify_include_list":["--*"],"use_starlark_android_rules":false,"aar_import_bzl_label":"--@build_bazel_rules_android//android:rules.bzl","duplicate_version_warning":"--warn"}
         },
         "com_google_testing_compile_compile_testing_0_18": {
           "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
@@ -3042,7 +3317,7 @@
         "rules_jvm_external_deps": {
           "bzlFile": "@@rules_jvm_external~5.2//:coursier.bzl",
           "ruleClassName": "pinned_coursier_fetch",
-          "attributes": {"name":"--rules_jvm_external~5.2~maven~rules_jvm_external_deps","repositories":["--{ \"repo_url\": \"https://repo1.maven.org/maven2\" }"],"artifacts":["--{ \"group\": \"com.google.auth\", \"artifact\": \"google-auth-library-credentials\", \"version\": \"0.22.0\" }","--{ \"group\": \"com.google.auth\", \"artifact\": \"google-auth-library-oauth2-http\", \"version\": \"0.22.0\" }","--{ \"group\": \"com.google.cloud\", \"artifact\": \"google-cloud-core\", \"version\": \"1.93.10\" }","--{ \"group\": \"com.google.cloud\", \"artifact\": \"google-cloud-storage\", \"version\": \"1.113.4\" }","--{ \"group\": \"com.google.code.gson\", \"artifact\": \"gson\", \"version\": \"2.9.0\" }","--{ \"group\": \"com.google.googlejavaformat\", \"artifact\": \"google-java-format\", \"version\": \"1.15.0\" }","--{ \"group\": \"com.google.guava\", \"artifact\": \"guava\", \"version\": \"31.1-jre\" }","--{ \"group\": \"org.apache.maven\", \"artifact\": \"maven-artifact\", \"version\": \"3.8.6\" }","--{ \"group\": \"software.amazon.awssdk\", \"artifact\": \"s3\", \"version\": \"2.17.183\" }"],"fetch_sources":true,"fetch_javadoc":false,"generate_compat_repositories":false,"maven_install_json":"@@rules_jvm_external~5.2//:rules_jvm_external_deps_install.json","override_targets":{},"strict_visibility":false,"strict_visibility_value":["@@//visibility:private"],"jetify":false,"jetify_include_list":["--*"],"additional_netrc_lines":[],"fail_if_repin_required":false,"use_starlark_android_rules":false,"aar_import_bzl_label":"--@build_bazel_rules_android//android:rules.bzl","duplicate_version_warning":"--warn"}
+          "attributes": {"name":"--rules_jvm_external~5.2~maven~rules_jvm_external_deps","repositories":["--{ \"repo_url\": \"https://repo1.maven.org/maven2\" }"],"artifacts":["--{ \"group\": \"com.google.auth\", \"artifact\": \"google-auth-library-credentials\", \"version\": \"0.22.0\" }","--{ \"group\": \"com.google.auth\", \"artifact\": \"google-auth-library-oauth2-http\", \"version\": \"0.22.0\" }","--{ \"group\": \"com.google.cloud\", \"artifact\": \"google-cloud-core\", \"version\": \"1.93.10\" }","--{ \"group\": \"com.google.cloud\", \"artifact\": \"google-cloud-storage\", \"version\": \"1.113.4\" }","--{ \"group\": \"com.google.code.gson\", \"artifact\": \"gson\", \"version\": \"2.9.0\" }","--{ \"group\": \"com.google.googlejavaformat\", \"artifact\": \"google-java-format\", \"version\": \"1.15.0\" }","--{ \"group\": \"com.google.guava\", \"artifact\": \"guava\", \"version\": \"31.1-jre\" }","--{ \"group\": \"org.apache.maven\", \"artifact\": \"maven-artifact\", \"version\": \"3.8.6\" }","--{ \"group\": \"software.amazon.awssdk\", \"artifact\": \"s3\", \"version\": \"2.17.183\" }"],"fetch_sources":false,"fetch_javadoc":false,"generate_compat_repositories":false,"maven_install_json":"@@rules_jvm_external~5.2//:rules_jvm_external_deps_install.json","override_targets":{},"strict_visibility":false,"strict_visibility_value":["@@//visibility:private"],"jetify":false,"jetify_include_list":["--*"],"additional_netrc_lines":[],"fail_if_repin_required":false,"use_starlark_android_rules":false,"aar_import_bzl_label":"--@build_bazel_rules_android//android:rules.bzl","duplicate_version_warning":"--warn"}
         },
         "org_apache_commons_commons_compress_1_20": {
           "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
@@ -3077,7 +3352,7 @@
         "maven_android": {
           "bzlFile": "@@rules_jvm_external~5.2//:coursier.bzl",
           "ruleClassName": "pinned_coursier_fetch",
-          "attributes": {"name":"--rules_jvm_external~5.2~maven~maven_android","repositories":["--{ \"repo_url\": \"https://dl.google.com/android/maven2\" }","--{ \"repo_url\": \"https://repo1.maven.org/maven2\" }"],"artifacts":[],"fetch_sources":true,"fetch_javadoc":false,"generate_compat_repositories":false,"maven_install_json":"@@//src/tools/android:maven_android_install.json","override_targets":{},"strict_visibility":false,"strict_visibility_value":["@@//visibility:private"],"jetify":false,"jetify_include_list":["--*"],"additional_netrc_lines":[],"fail_if_repin_required":false,"use_starlark_android_rules":false,"aar_import_bzl_label":"--@build_bazel_rules_android//android:rules.bzl","duplicate_version_warning":"--warn"}
+          "attributes": {"name":"--rules_jvm_external~5.2~maven~maven_android","repositories":["--{ \"repo_url\": \"https://dl.google.com/android/maven2\" }","--{ \"repo_url\": \"https://repo1.maven.org/maven2\" }"],"artifacts":["--{ \"group\": \"androidx.databinding\", \"artifact\": \"databinding-compiler\", \"version\": \"3.4.0-alpha10\" }","--{ \"group\": \"com.android.tools.build\", \"artifact\": \"builder\", \"version\": \"7.1.3\" }","--{ \"group\": \"com.android.tools.build\", \"artifact\": \"manifest-merger\", \"version\": \"30.1.3\" }","--{ \"group\": \"com.android.tools\", \"artifact\": \"sdk-common\", \"version\": \"30.1.3\" }","--{ \"group\": \"com.android.tools\", \"artifact\": \"annotations\", \"version\": \"30.1.3\" }","--{ \"group\": \"com.android.tools.layoutlib\", \"artifact\": \"layoutlib-api\", \"version\": \"30.1.3\" }","--{ \"group\": \"com.android.tools\", \"artifact\": \"common\", \"version\": \"30.1.3\" }","--{ \"group\": \"com.android.tools\", \"artifact\": \"repository\", \"version\": \"30.1.3\" }"],"fetch_sources":false,"fetch_javadoc":false,"generate_compat_repositories":false,"maven_install_json":"@@//src/tools/android:maven_android_install.json","override_targets":{},"strict_visibility":false,"strict_visibility_value":["@@//visibility:private"],"jetify":false,"jetify_include_list":["--*"],"additional_netrc_lines":[],"fail_if_repin_required":true,"use_starlark_android_rules":false,"aar_import_bzl_label":"--@build_bazel_rules_android//android:rules.bzl","duplicate_version_warning":"--warn"}
         },
         "com_google_code_gson_gson_2_8_6": {
           "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
@@ -3187,7 +3462,7 @@
         "unpinned_rules_jvm_external_deps": {
           "bzlFile": "@@rules_jvm_external~5.2//:coursier.bzl",
           "ruleClassName": "coursier_fetch",
-          "attributes": {"name":"--rules_jvm_external~5.2~maven~unpinned_rules_jvm_external_deps","repositories":["--{ \"repo_url\": \"https://repo1.maven.org/maven2\" }"],"artifacts":["--{ \"group\": \"com.google.auth\", \"artifact\": \"google-auth-library-credentials\", \"version\": \"0.22.0\" }","--{ \"group\": \"com.google.auth\", \"artifact\": \"google-auth-library-oauth2-http\", \"version\": \"0.22.0\" }","--{ \"group\": \"com.google.cloud\", \"artifact\": \"google-cloud-core\", \"version\": \"1.93.10\" }","--{ \"group\": \"com.google.cloud\", \"artifact\": \"google-cloud-storage\", \"version\": \"1.113.4\" }","--{ \"group\": \"com.google.code.gson\", \"artifact\": \"gson\", \"version\": \"2.9.0\" }","--{ \"group\": \"com.google.googlejavaformat\", \"artifact\": \"google-java-format\", \"version\": \"1.15.0\" }","--{ \"group\": \"com.google.guava\", \"artifact\": \"guava\", \"version\": \"31.1-jre\" }","--{ \"group\": \"org.apache.maven\", \"artifact\": \"maven-artifact\", \"version\": \"3.8.6\" }","--{ \"group\": \"software.amazon.awssdk\", \"artifact\": \"s3\", \"version\": \"2.17.183\" }"],"fail_on_missing_checksum":true,"fetch_sources":true,"fetch_javadoc":false,"excluded_artifacts":[],"generate_compat_repositories":false,"version_conflict_policy":"--default","override_targets":{},"strict_visibility":false,"strict_visibility_value":["@@//visibility:private"],"maven_install_json":"@@rules_jvm_external~5.2//:rules_jvm_external_deps_install.json","resolve_timeout":600,"jetify":false,"jetify_include_list":["--*"],"use_starlark_android_rules":false,"aar_import_bzl_label":"--@build_bazel_rules_android//android:rules.bzl","duplicate_version_warning":"--warn"}
+          "attributes": {"name":"--rules_jvm_external~5.2~maven~unpinned_rules_jvm_external_deps","repositories":["--{ \"repo_url\": \"https://repo1.maven.org/maven2\" }"],"artifacts":["--{ \"group\": \"com.google.auth\", \"artifact\": \"google-auth-library-credentials\", \"version\": \"0.22.0\" }","--{ \"group\": \"com.google.auth\", \"artifact\": \"google-auth-library-oauth2-http\", \"version\": \"0.22.0\" }","--{ \"group\": \"com.google.cloud\", \"artifact\": \"google-cloud-core\", \"version\": \"1.93.10\" }","--{ \"group\": \"com.google.cloud\", \"artifact\": \"google-cloud-storage\", \"version\": \"1.113.4\" }","--{ \"group\": \"com.google.code.gson\", \"artifact\": \"gson\", \"version\": \"2.9.0\" }","--{ \"group\": \"com.google.googlejavaformat\", \"artifact\": \"google-java-format\", \"version\": \"1.15.0\" }","--{ \"group\": \"com.google.guava\", \"artifact\": \"guava\", \"version\": \"31.1-jre\" }","--{ \"group\": \"org.apache.maven\", \"artifact\": \"maven-artifact\", \"version\": \"3.8.6\" }","--{ \"group\": \"software.amazon.awssdk\", \"artifact\": \"s3\", \"version\": \"2.17.183\" }"],"fail_on_missing_checksum":true,"fetch_sources":false,"fetch_javadoc":false,"excluded_artifacts":[],"generate_compat_repositories":false,"version_conflict_policy":"--default","override_targets":{},"strict_visibility":false,"strict_visibility_value":["@@//visibility:private"],"maven_install_json":"@@rules_jvm_external~5.2//:rules_jvm_external_deps_install.json","resolve_timeout":600,"jetify":false,"jetify_include_list":["--*"],"use_starlark_android_rules":false,"aar_import_bzl_label":"--@build_bazel_rules_android//android:rules.bzl","duplicate_version_warning":"--warn"}
         },
         "com_google_auth_google_auth_library_credentials_1_6_0": {
           "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
@@ -3487,7 +3762,7 @@
         "unpinned_maven_android": {
           "bzlFile": "@@rules_jvm_external~5.2//:coursier.bzl",
           "ruleClassName": "coursier_fetch",
-          "attributes": {"name":"--rules_jvm_external~5.2~maven~unpinned_maven_android","repositories":["--{ \"repo_url\": \"https://dl.google.com/android/maven2\" }","--{ \"repo_url\": \"https://repo1.maven.org/maven2\" }"],"artifacts":[],"fail_on_missing_checksum":true,"fetch_sources":true,"fetch_javadoc":false,"excluded_artifacts":[],"generate_compat_repositories":false,"version_conflict_policy":"--default","override_targets":{},"strict_visibility":false,"strict_visibility_value":["@@//visibility:private"],"maven_install_json":"@@//src/tools/android:maven_android_install.json","resolve_timeout":600,"jetify":false,"jetify_include_list":["--*"],"use_starlark_android_rules":false,"aar_import_bzl_label":"--@build_bazel_rules_android//android:rules.bzl","duplicate_version_warning":"--warn"}
+          "attributes": {"name":"--rules_jvm_external~5.2~maven~unpinned_maven_android","repositories":["--{ \"repo_url\": \"https://dl.google.com/android/maven2\" }","--{ \"repo_url\": \"https://repo1.maven.org/maven2\" }"],"artifacts":["--{ \"group\": \"androidx.databinding\", \"artifact\": \"databinding-compiler\", \"version\": \"3.4.0-alpha10\" }","--{ \"group\": \"com.android.tools.build\", \"artifact\": \"builder\", \"version\": \"7.1.3\" }","--{ \"group\": \"com.android.tools.build\", \"artifact\": \"manifest-merger\", \"version\": \"30.1.3\" }","--{ \"group\": \"com.android.tools\", \"artifact\": \"sdk-common\", \"version\": \"30.1.3\" }","--{ \"group\": \"com.android.tools\", \"artifact\": \"annotations\", \"version\": \"30.1.3\" }","--{ \"group\": \"com.android.tools.layoutlib\", \"artifact\": \"layoutlib-api\", \"version\": \"30.1.3\" }","--{ \"group\": \"com.android.tools\", \"artifact\": \"common\", \"version\": \"30.1.3\" }","--{ \"group\": \"com.android.tools\", \"artifact\": \"repository\", \"version\": \"30.1.3\" }"],"fail_on_missing_checksum":true,"fetch_sources":false,"fetch_javadoc":false,"excluded_artifacts":[],"generate_compat_repositories":false,"version_conflict_policy":"--default","override_targets":{},"strict_visibility":false,"strict_visibility_value":["@@//visibility:private"],"maven_install_json":"@@//src/tools/android:maven_android_install.json","resolve_timeout":600,"jetify":false,"jetify_include_list":["--*"],"use_starlark_android_rules":false,"aar_import_bzl_label":"--@build_bazel_rules_android//android:rules.bzl","duplicate_version_warning":"--warn"}
         },
         "io_netty_netty_resolver_4_1_72_Final": {
           "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
@@ -3682,7 +3957,7 @@
         "maven": {
           "bzlFile": "@@rules_jvm_external~5.2//:coursier.bzl",
           "ruleClassName": "pinned_coursier_fetch",
-          "attributes": {"name":"--rules_jvm_external~5.2~maven~maven","repositories":["--{ \"repo_url\": \"https://repo1.maven.org/maven2\" }"],"artifacts":["--{ \"group\": \"com.google.code.findbugs\", \"artifact\": \"jsr305\", \"version\": \"3.0.2\" }","--{ \"group\": \"com.google.code.gson\", \"artifact\": \"gson\", \"version\": \"2.8.9\" }","--{ \"group\": \"com.google.errorprone\", \"artifact\": \"error_prone_annotations\", \"version\": \"2.3.2\" }","--{ \"group\": \"com.google.j2objc\", \"artifact\": \"j2objc-annotations\", \"version\": \"1.3\" }","--{ \"group\": \"com.google.guava\", \"artifact\": \"guava\", \"version\": \"31.1-jre\" }","--{ \"group\": \"com.google.guava\", \"artifact\": \"guava-testlib\", \"version\": \"31.1-jre\" }","--{ \"group\": \"com.google.truth\", \"artifact\": \"truth\", \"version\": \"1.1.2\" }","--{ \"group\": \"junit\", \"artifact\": \"junit\", \"version\": \"4.13.2\" }","--{ \"group\": \"org.mockito\", \"artifact\": \"mockito-core\", \"version\": \"4.3.1\" }"],"fetch_sources":true,"fetch_javadoc":false,"generate_compat_repositories":false,"maven_install_json":"@@//:maven_install.json","override_targets":{},"strict_visibility":false,"strict_visibility_value":["@@//visibility:private"],"jetify":false,"jetify_include_list":["--*"],"additional_netrc_lines":[],"fail_if_repin_required":false,"use_starlark_android_rules":false,"aar_import_bzl_label":"--@build_bazel_rules_android//android:rules.bzl","duplicate_version_warning":"--warn"}
+          "attributes": {"name":"--rules_jvm_external~5.2~maven~maven","repositories":["--{ \"repo_url\": \"https://repo1.maven.org/maven2\" }"],"artifacts":["--{ \"group\": \"com.google.guava\", \"artifact\": \"guava-testlib\", \"version\": \"31.1-jre\", \"testonly\": true }","--{ \"group\": \"com.google.jimfs\", \"artifact\": \"jimfs\", \"version\": \"1.2\", \"testonly\": true }","--{ \"group\": \"com.google.testing.compile\", \"artifact\": \"compile-testing\", \"version\": \"0.18\", \"testonly\": true }","--{ \"group\": \"com.google.testparameterinjector\", \"artifact\": \"test-parameter-injector\", \"version\": \"1.0\", \"testonly\": true }","--{ \"group\": \"com.google.truth\", \"artifact\": \"truth\", \"version\": \"1.1.3\", \"testonly\": true }","--{ \"group\": \"com.google.truth.extensions\", \"artifact\": \"truth-java8-extension\", \"version\": \"1.1.3\", \"testonly\": true }","--{ \"group\": \"com.google.truth.extensions\", \"artifact\": \"truth-liteproto-extension\", \"version\": \"1.1.3\", \"testonly\": true }","--{ \"group\": \"com.google.truth.extensions\", \"artifact\": \"truth-proto-extension\", \"version\": \"1.1.3\", \"testonly\": true }","--{ \"group\": \"org.mockito\", \"artifact\": \"mockito-core\", \"version\": \"5.4.0\", \"testonly\": true }","--{ \"group\": \"com.beust\", \"artifact\": \"jcommander\", \"version\": \"1.82\" }","--{ \"group\": \"com.github.ben-manes.caffeine\", \"artifact\": \"caffeine\", \"version\": \"3.0.5\" }","--{ \"group\": \"com.github.kevinstern\", \"artifact\": \"software-and-algorithms\", \"version\": \"1.0\" }","--{ \"group\": \"com.github.stephenc.jcip\", \"artifact\": \"jcip-annotations\", \"version\": \"1.0-1\" }","--{ \"group\": \"com.google.api-client\", \"artifact\": \"google-api-client-gson\", \"version\": \"1.35.2\" }","--{ \"group\": \"com.google.api-client\", \"artifact\": \"google-api-client\", \"version\": \"1.35.2\" }","--{ \"group\": \"com.google.auth\", \"artifact\": \"google-auth-library-credentials\", \"version\": \"1.6.0\" }","--{ \"group\": \"com.google.auth\", \"artifact\": \"google-auth-library-oauth2-http\", \"version\": \"1.6.0\" }","--{ \"group\": \"com.google.auto.service\", \"artifact\": \"auto-service-annotations\", \"version\": \"1.0.1\" }","--{ \"group\": \"com.google.auto.service\", \"artifact\": \"auto-service\", \"version\": \"1.0\" }","--{ \"group\": \"com.google.auto.value\", \"artifact\": \"auto-value-annotations\", \"version\": \"1.9\" }","--{ \"group\": \"com.google.auto.value\", \"artifact\": \"auto-value\", \"version\": \"1.8.2\" }","--{ \"group\": \"com.google.auto\", \"artifact\": \"auto-common\", \"version\": \"1.2.1\" }","--{ \"group\": \"com.google.code.findbugs\", \"artifact\": \"jsr305\", \"version\": \"3.0.2\" }","--{ \"group\": \"com.google.code.gson\", \"artifact\": \"gson\", \"version\": \"2.9.0\" }","--{ \"group\": \"com.google.code.java-allocation-instrumenter\", \"artifact\": \"java-allocation-instrumenter\", \"version\": \"3.3.0\" }","--{ \"group\": \"com.google.errorprone\", \"artifact\": \"error_prone_annotation\", \"version\": \"2.20.0\" }","--{ \"group\": \"com.google.errorprone\", \"artifact\": \"error_prone_annotations\", \"version\": \"2.20.0\" }","--{ \"group\": \"com.google.errorprone\", \"artifact\": \"error_prone_check_api\", \"version\": \"2.20.0\" }","--{ \"group\": \"com.google.errorprone\", \"artifact\": \"error_prone_core\", \"version\": \"2.20.0\" }","--{ \"group\": \"com.google.errorprone\", \"artifact\": \"error_prone_type_annotations\", \"version\": \"2.20.0\" }","--{ \"group\": \"com.google.flogger\", \"artifact\": \"flogger-system-backend\", \"version\": \"0.5.1\" }","--{ \"group\": \"com.google.flogger\", \"artifact\": \"flogger\", \"version\": \"0.5.1\" }","--{ \"group\": \"com.google.flogger\", \"artifact\": \"google-extensions\", \"version\": \"0.5.1\" }","--{ \"group\": \"com.google.guava\", \"artifact\": \"failureaccess\", \"version\": \"1.0.1\" }","--{ \"group\": \"com.google.guava\", \"artifact\": \"guava\", \"version\": \"31.1-jre\" }","--{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client-gson\", \"version\": \"1.42.0\" }","--{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client\", \"version\": \"1.42.0\" }","--{ \"group\": \"com.google.j2objc\", \"artifact\": \"j2objc-annotations\", \"version\": \"1.3\" }","--{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-extension\", \"version\": \"1.3.1\" }","--{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-runtime\", \"version\": \"1.3.1\" }","--{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-factory\", \"version\": \"1.3.1\" }","--{ \"group\": \"com.squareup\", \"artifact\": \"javapoet\", \"version\": \"1.12.0\" }","--{ \"group\": \"commons-collections\", \"artifact\": \"commons-collections\", \"version\": \"3.2.2\" }","--{ \"group\": \"commons-lang\", \"artifact\": \"commons-lang\", \"version\": \"2.6\" }","--{ \"group\": \"io.github.java-diff-utils\", \"artifact\": \"java-diff-utils\", \"version\": \"4.0\" }","--{ \"group\": \"io.grpc\", \"artifact\": \"grpc-api\", \"version\": \"1.48.1\" }","--{ \"group\": \"io.grpc\", \"artifact\": \"grpc-auth\", \"version\": \"1.48.1\" }","--{ \"group\": \"io.grpc\", \"artifact\": \"grpc-context\", \"version\": \"1.48.1\" }","--{ \"group\": \"io.grpc\", \"artifact\": \"grpc-core\", \"version\": \"1.48.1\" }","--{ \"group\": \"io.grpc\", \"artifact\": \"grpc-netty\", \"version\": \"1.48.1\" }","--{ \"group\": \"io.grpc\", \"artifact\": \"grpc-protobuf-lite\", \"version\": \"1.48.1\" }","--{ \"group\": \"io.grpc\", \"artifact\": \"grpc-protobuf\", \"version\": \"1.48.1\" }","--{ \"group\": \"io.grpc\", \"artifact\": \"grpc-stub\", \"version\": \"1.48.1\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-buffer\", \"version\": \"4.1.93.Final\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-codec-http2\", \"version\": \"4.1.93.Final\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-codec-http\", \"version\": \"4.1.93.Final\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-codec\", \"version\": \"4.1.93.Final\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-common\", \"version\": \"4.1.93.Final\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-handler-proxy\", \"version\": \"4.1.93.Final\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-handler\", \"version\": \"4.1.93.Final\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-resolver-dns\", \"version\": \"4.1.93.Final\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-resolver\", \"version\": \"4.1.93.Final\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-boringssl-static\", \"version\": \"2.0.56.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-aarch_64\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-boringssl-static\", \"version\": \"2.0.56.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-x86_64\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-boringssl-static\", \"version\": \"2.0.56.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-aarch_64\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-boringssl-static\", \"version\": \"2.0.56.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-x86_64\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-boringssl-static\", \"version\": \"2.0.56.Final\", \"packaging\": \"jar\", \"classifier\": \"windows-x86_64\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-classes\", \"version\": \"2.0.56.Final\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-classes-epoll\", \"version\": \"4.1.93.Final\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-classes-kqueue\", \"version\": \"4.1.93.Final\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-epoll\", \"version\": \"4.1.93.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-aarch_64\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-epoll\", \"version\": \"4.1.93.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-x86_64\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-kqueue\", \"version\": \"4.1.93.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-aarch_64\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-kqueue\", \"version\": \"4.1.93.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-x86_64\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.93.Final\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.93.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-aarch_64\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.93.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-x86_64\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.93.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-aarch_64\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.93.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-x86_64\" }","--{ \"group\": \"io.netty\", \"artifact\": \"netty-transport\", \"version\": \"4.1.93.Final\" }","--{ \"group\": \"io.reactivex.rxjava3\", \"artifact\": \"rxjava\", \"version\": \"3.1.2\" }","--{ \"group\": \"javax.activation\", \"artifact\": \"javax.activation-api\", \"version\": \"1.2.0\" }","--{ \"group\": \"javax.annotation\", \"artifact\": \"javax.annotation-api\", \"version\": \"1.3.2\" }","--{ \"group\": \"javax.inject\", \"artifact\": \"javax.inject\", \"version\": \"1\" }","--{ \"group\": \"net.bytebuddy\", \"artifact\": \"byte-buddy-agent\", \"version\": \"1.14.5\" }","--{ \"group\": \"net.bytebuddy\", \"artifact\": \"byte-buddy\", \"version\": \"1.14.5\" }","--{ \"group\": \"org.apache.commons\", \"artifact\": \"commons-compress\", \"version\": \"1.19\" }","--{ \"group\": \"org.apache.commons\", \"artifact\": \"commons-pool2\", \"version\": \"2.8.0\" }","--{ \"group\": \"org.apache.tomcat\", \"artifact\": \"tomcat-annotations-api\", \"version\": \"8.0.5\" }","--{ \"group\": \"org.apache.velocity\", \"artifact\": \"velocity\", \"version\": \"1.7\" }","--{ \"group\": \"org.checkerframework\", \"artifact\": \"checker-qual\", \"version\": \"3.19.0\" }","--{ \"group\": \"org.ow2.asm\", \"artifact\": \"asm-analysis\", \"version\": \"9.2\" }","--{ \"group\": \"org.ow2.asm\", \"artifact\": \"asm-commons\", \"version\": \"9.2\" }","--{ \"group\": \"org.ow2.asm\", \"artifact\": \"asm-tree\", \"version\": \"9.2\" }","--{ \"group\": \"org.ow2.asm\", \"artifact\": \"asm-util\", \"version\": \"9.2\" }","--{ \"group\": \"org.ow2.asm\", \"artifact\": \"asm\", \"version\": \"9.2\" }","--{ \"group\": \"org.pcollections\", \"artifact\": \"pcollections\", \"version\": \"3.1.4\" }","--{ \"group\": \"org.threeten\", \"artifact\": \"threeten-extra\", \"version\": \"1.5.0\" }","--{ \"group\": \"org.tukaani\", \"artifact\": \"xz\", \"version\": \"1.9\" }","--{ \"group\": \"org.yaml\", \"artifact\": \"snakeyaml\", \"version\": \"1.28\" }","--{ \"group\": \"tools.profiler\", \"artifact\": \"async-profiler\", \"version\": \"2.9\" }","--{ \"group\": \"junit\", \"artifact\": \"junit\", \"version\": \"4.13.2\" }","--{ \"group\": \"org.hamcrest\", \"artifact\": \"hamcrest-core\", \"version\": \"1.3\" }","--{ \"group\": \"com.google.code.findbugs\", \"artifact\": \"jsr305\", \"version\": \"3.0.2\" }","--{ \"group\": \"com.google.code.gson\", \"artifact\": \"gson\", \"version\": \"2.8.9\" }","--{ \"group\": \"com.google.errorprone\", \"artifact\": \"error_prone_annotations\", \"version\": \"2.3.2\" }","--{ \"group\": \"com.google.j2objc\", \"artifact\": \"j2objc-annotations\", \"version\": \"1.3\" }","--{ \"group\": \"com.google.guava\", \"artifact\": \"guava\", \"version\": \"31.1-jre\" }","--{ \"group\": \"com.google.guava\", \"artifact\": \"guava-testlib\", \"version\": \"31.1-jre\" }","--{ \"group\": \"com.google.truth\", \"artifact\": \"truth\", \"version\": \"1.1.2\" }","--{ \"group\": \"junit\", \"artifact\": \"junit\", \"version\": \"4.13.2\" }","--{ \"group\": \"org.mockito\", \"artifact\": \"mockito-core\", \"version\": \"4.3.1\" }"],"fetch_sources":false,"fetch_javadoc":false,"generate_compat_repositories":false,"maven_install_json":"@@//:maven_install.json","override_targets":{},"strict_visibility":true,"strict_visibility_value":["@@//visibility:private"],"jetify":false,"jetify_include_list":["--*"],"additional_netrc_lines":[],"fail_if_repin_required":true,"use_starlark_android_rules":false,"aar_import_bzl_label":"--@build_bazel_rules_android//android:rules.bzl","duplicate_version_warning":"--warn"}
         },
         "com_google_auto_service_auto_service_1_0": {
           "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
@@ -3930,189 +4205,6 @@
           "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
           "ruleClassName": "http_archive",
           "attributes": {"name":"--rules_jvm_external~5.2~non_module_deps~io_bazel_rules_kotlin","sha256":"--946747acdbeae799b085d12b240ec346f775ac65236dfcf18aa0cd7300f6de78","urls":["--https://github.com/bazelbuild/rules_kotlin/releases/download/v1.7.0-RC-2/rules_kotlin_release.tgz"]}
-        }
-      }
-    },
-    "@rules_python~0.24.0//python/extensions:pip.bzl%pip": {
-      "bzlTransitiveDigest": "TEllPVzarB4s4TpELB3gWHqo8xpekIiVpXI5FLmg+CQ=",
-      "accumulatedFileDigests": {
-        "@@//:requirements.txt": "ff12967a755bb8e9b4c92524f6471a99e14c30474a3d428547c55745ec8f23a0"
-      },
-      "envVariables": {},
-      "generatedRepoSpecs": {
-        "bazel_pip_dev_deps": {
-          "bzlFile": "@@rules_python~0.24.0//python/pip_install:pip_repository.bzl",
-          "ruleClassName": "pip_hub_repository_bzlmod",
-          "attributes": {"name":"--rules_python~0.24.0~pip~bazel_pip_dev_deps","repo_name":"--bazel_pip_dev_deps","whl_library_alias_names":["--bazel_runfiles"]}
-        },
-        "bazel_pip_dev_deps_38": {
-          "bzlFile": "@@rules_python~0.24.0//python/pip_install:pip_repository.bzl",
-          "ruleClassName": "pip_repository_bzlmod",
-          "attributes": {"name":"--rules_python~0.24.0~pip~bazel_pip_dev_deps_38","repo_name":"--bazel_pip_dev_deps_38","requirements_lock":"@@//:requirements.txt"}
-        },
-        "bazel_pip_dev_deps_38_bazel_runfiles": {
-          "bzlFile": "@@rules_python~0.24.0//python/pip_install:pip_repository.bzl",
-          "ruleClassName": "whl_library",
-          "attributes": {"name":"--rules_python~0.24.0~pip~bazel_pip_dev_deps_38_bazel_runfiles","requirement":"--bazel-runfiles==0.24.0","repo":"--bazel_pip_dev_deps_38","repo_prefix":"--bazel_pip_dev_deps_38_","annotation":null,"python_interpreter":"--","python_interpreter_target":"@@rules_python~0.24.0~python~python_3_8_aarch64-apple-darwin//:bin/python3","quiet":true,"timeout":600,"isolated":true,"extra_pip_args":[],"download_only":false,"pip_data_exclude":[],"enable_implicit_namespace_pkgs":false,"environment":{}}
-        },
-        "bazel_pip_dev_deps_bazel_runfiles": {
-          "bzlFile": "@@rules_python~0.24.0//python:pip.bzl",
-          "ruleClassName": "whl_library_alias",
-          "attributes": {"name":"--rules_python~0.24.0~pip~bazel_pip_dev_deps_bazel_runfiles","wheel_name":"--bazel_runfiles","default_version":"--3.8","version_map":{"--3.8":"--bazel_pip_dev_deps_38_"}}
-        }
-      }
-    },
-    "@rules_python~0.24.0//python/extensions:python.bzl%python": {
-      "bzlTransitiveDigest": "9sVLcm29C6eY7TfBei6hgV2sqrC2SqgOPeB3aEjaPfU=",
-      "accumulatedFileDigests": {},
-      "envVariables": {},
-      "generatedRepoSpecs": {
-        "python_3_8_aarch64-apple-darwin": {
-          "bzlFile": "@@rules_python~0.24.0//python:repositories.bzl",
-          "ruleClassName": "python_repository",
-          "attributes": {"name":"--rules_python~0.24.0~python~python_3_8_aarch64-apple-darwin","sha256":"--1e0a92d1a4f5e6d4a99f86b1cbf9773d703fe7fd032590f3e9c285c7a5eeb00a","patches":[],"platform":"--aarch64-apple-darwin","python_version":"--3.8.15","release_filename":"--20221106/cpython-3.8.15+20221106-aarch64-apple-darwin-install_only.tar.gz","urls":["--https://github.com/indygreg/python-build-standalone/releases/download/20221106/cpython-3.8.15+20221106-aarch64-apple-darwin-install_only.tar.gz"],"distutils":null,"distutils_content":"--","strip_prefix":"--python","coverage_tool":"--","ignore_root_user_error":false}
-        },
-        "python_3_11_aarch64-unknown-linux-gnu": {
-          "bzlFile": "@@rules_python~0.24.0//python:repositories.bzl",
-          "ruleClassName": "python_repository",
-          "attributes": {"name":"--rules_python~0.24.0~python~python_3_11_aarch64-unknown-linux-gnu","sha256":"--debf15783bdcb5530504f533d33fda75a7b905cec5361ae8f33da5ba6599f8b4","patches":[],"platform":"--aarch64-unknown-linux-gnu","python_version":"--3.11.1","release_filename":"--20230116/cpython-3.11.1+20230116-aarch64-unknown-linux-gnu-install_only.tar.gz","urls":["--https://github.com/indygreg/python-build-standalone/releases/download/20230116/cpython-3.11.1+20230116-aarch64-unknown-linux-gnu-install_only.tar.gz"],"distutils":null,"distutils_content":"--","strip_prefix":"--python","coverage_tool":"--","ignore_root_user_error":false}
-        },
-        "python_3_11_aarch64-apple-darwin": {
-          "bzlFile": "@@rules_python~0.24.0//python:repositories.bzl",
-          "ruleClassName": "python_repository",
-          "attributes": {"name":"--rules_python~0.24.0~python~python_3_11_aarch64-apple-darwin","sha256":"--4918cdf1cab742a90f85318f88b8122aeaa2d04705803c7b6e78e81a3dd40f80","patches":[],"platform":"--aarch64-apple-darwin","python_version":"--3.11.1","release_filename":"--20230116/cpython-3.11.1+20230116-aarch64-apple-darwin-install_only.tar.gz","urls":["--https://github.com/indygreg/python-build-standalone/releases/download/20230116/cpython-3.11.1+20230116-aarch64-apple-darwin-install_only.tar.gz"],"distutils":null,"distutils_content":"--","strip_prefix":"--python","coverage_tool":"--","ignore_root_user_error":false}
-        },
-        "pythons_hub": {
-          "bzlFile": "@@rules_python~0.24.0//python/extensions/private:pythons_hub.bzl",
-          "ruleClassName": "hub_repo",
-          "attributes": {"name":"--rules_python~0.24.0~python~pythons_hub","default_python_version":"--3.8","toolchain_prefixes":["--_0000_python_3_11_","--_0001_python_3_8_"],"toolchain_python_versions":["--3.11","--3.8"],"toolchain_set_python_version_constraints":["--True","--False"],"toolchain_user_repository_names":["--python_3_11","--python_3_8"]}
-        },
-        "python_3_8_aarch64-unknown-linux-gnu": {
-          "bzlFile": "@@rules_python~0.24.0//python:repositories.bzl",
-          "ruleClassName": "python_repository",
-          "attributes": {"name":"--rules_python~0.24.0~python~python_3_8_aarch64-unknown-linux-gnu","sha256":"--886ab33ced13c84bf59ce8ff79eba6448365bfcafea1bf415bd1d75e21b690aa","patches":[],"platform":"--aarch64-unknown-linux-gnu","python_version":"--3.8.15","release_filename":"--20221106/cpython-3.8.15+20221106-aarch64-unknown-linux-gnu-install_only.tar.gz","urls":["--https://github.com/indygreg/python-build-standalone/releases/download/20221106/cpython-3.8.15+20221106-aarch64-unknown-linux-gnu-install_only.tar.gz"],"distutils":null,"distutils_content":"--","strip_prefix":"--python","coverage_tool":"--","ignore_root_user_error":false}
-        },
-        "python_3_8": {
-          "bzlFile": "@@rules_python~0.24.0//python/private:toolchains_repo.bzl",
-          "ruleClassName": "toolchain_aliases",
-          "attributes": {"name":"--rules_python~0.24.0~python~python_3_8","python_version":"--3.8.15","user_repository_name":"--python_3_8"}
-        },
-        "python_3_11_x86_64-pc-windows-msvc": {
-          "bzlFile": "@@rules_python~0.24.0//python:repositories.bzl",
-          "ruleClassName": "python_repository",
-          "attributes": {"name":"--rules_python~0.24.0~python~python_3_11_x86_64-pc-windows-msvc","sha256":"--edc08979cb0666a597466176511529c049a6f0bba8adf70df441708f766de5bf","patches":[],"platform":"--x86_64-pc-windows-msvc","python_version":"--3.11.1","release_filename":"--20230116/cpython-3.11.1+20230116-x86_64-pc-windows-msvc-shared-install_only.tar.gz","urls":["--https://github.com/indygreg/python-build-standalone/releases/download/20230116/cpython-3.11.1+20230116-x86_64-pc-windows-msvc-shared-install_only.tar.gz"],"distutils":null,"distutils_content":"--","strip_prefix":"--python","coverage_tool":"--","ignore_root_user_error":false}
-        },
-        "python_3_8_x86_64-apple-darwin": {
-          "bzlFile": "@@rules_python~0.24.0//python:repositories.bzl",
-          "ruleClassName": "python_repository",
-          "attributes": {"name":"--rules_python~0.24.0~python~python_3_8_x86_64-apple-darwin","sha256":"--70b57f28c2b5e1e3dd89f0d30edd5bc414e8b20195766cf328e1b26bed7890e1","patches":[],"platform":"--x86_64-apple-darwin","python_version":"--3.8.15","release_filename":"--20221106/cpython-3.8.15+20221106-x86_64-apple-darwin-install_only.tar.gz","urls":["--https://github.com/indygreg/python-build-standalone/releases/download/20221106/cpython-3.8.15+20221106-x86_64-apple-darwin-install_only.tar.gz"],"distutils":null,"distutils_content":"--","strip_prefix":"--python","coverage_tool":"--","ignore_root_user_error":false}
-        },
-        "python_3_8_x86_64-pc-windows-msvc": {
-          "bzlFile": "@@rules_python~0.24.0//python:repositories.bzl",
-          "ruleClassName": "python_repository",
-          "attributes": {"name":"--rules_python~0.24.0~python~python_3_8_x86_64-pc-windows-msvc","sha256":"--2fdc3fa1c95f982179bbbaedae2b328197658638799b6dcb63f9f494b0de59e2","patches":[],"platform":"--x86_64-pc-windows-msvc","python_version":"--3.8.15","release_filename":"--20221106/cpython-3.8.15+20221106-x86_64-pc-windows-msvc-shared-install_only.tar.gz","urls":["--https://github.com/indygreg/python-build-standalone/releases/download/20221106/cpython-3.8.15+20221106-x86_64-pc-windows-msvc-shared-install_only.tar.gz"],"distutils":null,"distutils_content":"--","strip_prefix":"--python","coverage_tool":"--","ignore_root_user_error":false}
-        },
-        "python_3_11": {
-          "bzlFile": "@@rules_python~0.24.0//python/private:toolchains_repo.bzl",
-          "ruleClassName": "toolchain_aliases",
-          "attributes": {"name":"--rules_python~0.24.0~python~python_3_11","python_version":"--3.11.1","user_repository_name":"--python_3_11"}
-        },
-        "python_3_11_x86_64-apple-darwin": {
-          "bzlFile": "@@rules_python~0.24.0//python:repositories.bzl",
-          "ruleClassName": "python_repository",
-          "attributes": {"name":"--rules_python~0.24.0~python~python_3_11_x86_64-apple-darwin","sha256":"--20a4203d069dc9b710f70b09e7da2ce6f473d6b1110f9535fb6f4c469ed54733","patches":[],"platform":"--x86_64-apple-darwin","python_version":"--3.11.1","release_filename":"--20230116/cpython-3.11.1+20230116-x86_64-apple-darwin-install_only.tar.gz","urls":["--https://github.com/indygreg/python-build-standalone/releases/download/20230116/cpython-3.11.1+20230116-x86_64-apple-darwin-install_only.tar.gz"],"distutils":null,"distutils_content":"--","strip_prefix":"--python","coverage_tool":"--","ignore_root_user_error":false}
-        },
-        "python_versions": {
-          "bzlFile": "@@rules_python~0.24.0//python/private:toolchains_repo.bzl",
-          "ruleClassName": "multi_toolchain_aliases",
-          "attributes": {"name":"--rules_python~0.24.0~python~python_versions","python_versions":{"--3.8":"--python_3_8","--3.11":"--python_3_11"}}
-        },
-        "python_3_8_x86_64-unknown-linux-gnu": {
-          "bzlFile": "@@rules_python~0.24.0//python:repositories.bzl",
-          "ruleClassName": "python_repository",
-          "attributes": {"name":"--rules_python~0.24.0~python~python_3_8_x86_64-unknown-linux-gnu","sha256":"--e47edfb2ceaf43fc699e20c179ec428b6f3e497cf8e2dcd8e9c936d4b96b1e56","patches":[],"platform":"--x86_64-unknown-linux-gnu","python_version":"--3.8.15","release_filename":"--20221106/cpython-3.8.15+20221106-x86_64-unknown-linux-gnu-install_only.tar.gz","urls":["--https://github.com/indygreg/python-build-standalone/releases/download/20221106/cpython-3.8.15+20221106-x86_64-unknown-linux-gnu-install_only.tar.gz"],"distutils":null,"distutils_content":"--","strip_prefix":"--python","coverage_tool":"--","ignore_root_user_error":false}
-        },
-        "python_3_11_x86_64-unknown-linux-gnu": {
-          "bzlFile": "@@rules_python~0.24.0//python:repositories.bzl",
-          "ruleClassName": "python_repository",
-          "attributes": {"name":"--rules_python~0.24.0~python~python_3_11_x86_64-unknown-linux-gnu","sha256":"--02a551fefab3750effd0e156c25446547c238688a32fabde2995c941c03a6423","patches":[],"platform":"--x86_64-unknown-linux-gnu","python_version":"--3.11.1","release_filename":"--20230116/cpython-3.11.1+20230116-x86_64-unknown-linux-gnu-install_only.tar.gz","urls":["--https://github.com/indygreg/python-build-standalone/releases/download/20230116/cpython-3.11.1+20230116-x86_64-unknown-linux-gnu-install_only.tar.gz"],"distutils":null,"distutils_content":"--","strip_prefix":"--python","coverage_tool":"--","ignore_root_user_error":false}
-        }
-      }
-    },
-    "@rules_python~0.24.0//python/extensions/private:internal_deps.bzl%internal_deps": {
-      "bzlTransitiveDigest": "d0GVFr68Y+3LHnWTnpXEqHou3XKRA+BYjeOeYY1wb2k=",
-      "accumulatedFileDigests": {},
-      "envVariables": {},
-      "generatedRepoSpecs": {
-        "pypi__wheel": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_archive",
-          "attributes": {"name":"--rules_python~0.24.0~internal_deps~pypi__wheel","url":"--https://files.pythonhosted.org/packages/bd/7c/d38a0b30ce22fc26ed7dbc087c6d00851fb3395e9d0dac40bec1f905030c/wheel-0.38.4-py3-none-any.whl","sha256":"--b60533f3f5d530e971d6737ca6d58681ee434818fab630c83a734bb10c083ce8","type":"--zip","build_file_content":"--package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\n        # These entries include those put into user-installed dependencies by\n        # data_exclude in /python/pip_install/tools/bazel.py\n        # to avoid non-determinism following pip install's behavior.\n        \"**/*.py\",\n        \"**/*.pyc\",\n        \"**/*.pyc.*\",  # During pyc creation, temp files named *.pyc.NNN are created\n        \"**/* *\",\n        \"**/*.dist-info/RECORD\",\n        \"BUILD\",\n        \"WORKSPACE\",\n    ]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"}
-        },
-        "pypi__click": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_archive",
-          "attributes": {"name":"--rules_python~0.24.0~internal_deps~pypi__click","url":"--https://files.pythonhosted.org/packages/76/0a/b6c5f311e32aeb3b406e03c079ade51e905ea630fc19d1262a46249c1c86/click-8.0.1-py3-none-any.whl","sha256":"--fba402a4a47334742d782209a7c79bc448911afe1149d07bdabdf480b3e2f4b6","type":"--zip","build_file_content":"--package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\n        # These entries include those put into user-installed dependencies by\n        # data_exclude in /python/pip_install/tools/bazel.py\n        # to avoid non-determinism following pip install's behavior.\n        \"**/*.py\",\n        \"**/*.pyc\",\n        \"**/*.pyc.*\",  # During pyc creation, temp files named *.pyc.NNN are created\n        \"**/* *\",\n        \"**/*.dist-info/RECORD\",\n        \"BUILD\",\n        \"WORKSPACE\",\n    ]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"}
-        },
-        "pypi__importlib_metadata": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_archive",
-          "attributes": {"name":"--rules_python~0.24.0~internal_deps~pypi__importlib_metadata","url":"--https://files.pythonhosted.org/packages/d7/31/74dcb59a601b95fce3b0334e8fc9db758f78e43075f22aeb3677dfb19f4c/importlib_metadata-1.4.0-py2.py3-none-any.whl","sha256":"--bdd9b7c397c273bcc9a11d6629a38487cd07154fa255a467bf704cd2c258e359","type":"--zip","build_file_content":"--package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\n        # These entries include those put into user-installed dependencies by\n        # data_exclude in /python/pip_install/tools/bazel.py\n        # to avoid non-determinism following pip install's behavior.\n        \"**/*.py\",\n        \"**/*.pyc\",\n        \"**/*.pyc.*\",  # During pyc creation, temp files named *.pyc.NNN are created\n        \"**/* *\",\n        \"**/*.dist-info/RECORD\",\n        \"BUILD\",\n        \"WORKSPACE\",\n    ]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"}
-        },
-        "pypi__pep517": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_archive",
-          "attributes": {"name":"--rules_python~0.24.0~internal_deps~pypi__pep517","url":"--https://files.pythonhosted.org/packages/ee/2f/ef63e64e9429111e73d3d6cbee80591672d16f2725e648ebc52096f3d323/pep517-0.13.0-py3-none-any.whl","sha256":"--4ba4446d80aed5b5eac6509ade100bff3e7943a8489de249654a5ae9b33ee35b","type":"--zip","build_file_content":"--package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\n        # These entries include those put into user-installed dependencies by\n        # data_exclude in /python/pip_install/tools/bazel.py\n        # to avoid non-determinism following pip install's behavior.\n        \"**/*.py\",\n        \"**/*.pyc\",\n        \"**/*.pyc.*\",  # During pyc creation, temp files named *.pyc.NNN are created\n        \"**/* *\",\n        \"**/*.dist-info/RECORD\",\n        \"BUILD\",\n        \"WORKSPACE\",\n    ]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"}
-        },
-        "pypi__packaging": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_archive",
-          "attributes": {"name":"--rules_python~0.24.0~internal_deps~pypi__packaging","url":"--https://files.pythonhosted.org/packages/8f/7b/42582927d281d7cb035609cd3a543ffac89b74f3f4ee8e1c50914bcb57eb/packaging-22.0-py3-none-any.whl","sha256":"--957e2148ba0e1a3b282772e791ef1d8083648bc131c8ab0c1feba110ce1146c3","type":"--zip","build_file_content":"--package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\n        # These entries include those put into user-installed dependencies by\n        # data_exclude in /python/pip_install/tools/bazel.py\n        # to avoid non-determinism following pip install's behavior.\n        \"**/*.py\",\n        \"**/*.pyc\",\n        \"**/*.pyc.*\",  # During pyc creation, temp files named *.pyc.NNN are created\n        \"**/* *\",\n        \"**/*.dist-info/RECORD\",\n        \"BUILD\",\n        \"WORKSPACE\",\n    ]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"}
-        },
-        "pypi__pip_tools": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_archive",
-          "attributes": {"name":"--rules_python~0.24.0~internal_deps~pypi__pip_tools","url":"--https://files.pythonhosted.org/packages/5e/e8/f6d7d1847c7351048da870417724ace5c4506e816b38db02f4d7c675c189/pip_tools-6.12.1-py3-none-any.whl","sha256":"--f0c0c0ec57b58250afce458e2e6058b1f30a4263db895b7d72fd6311bf1dc6f7","type":"--zip","build_file_content":"--package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\n        # These entries include those put into user-installed dependencies by\n        # data_exclude in /python/pip_install/tools/bazel.py\n        # to avoid non-determinism following pip install's behavior.\n        \"**/*.py\",\n        \"**/*.pyc\",\n        \"**/*.pyc.*\",  # During pyc creation, temp files named *.pyc.NNN are created\n        \"**/* *\",\n        \"**/*.dist-info/RECORD\",\n        \"BUILD\",\n        \"WORKSPACE\",\n    ]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"}
-        },
-        "pypi__setuptools": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_archive",
-          "attributes": {"name":"--rules_python~0.24.0~internal_deps~pypi__setuptools","url":"--https://files.pythonhosted.org/packages/7c/5b/3d92b9f0f7ca1645cba48c080b54fe7d8b1033a4e5720091d1631c4266db/setuptools-60.10.0-py3-none-any.whl","sha256":"--782ef48d58982ddb49920c11a0c5c9c0b02e7d7d1c2ad0aa44e1a1e133051c96","type":"--zip","build_file_content":"--package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\n        # These entries include those put into user-installed dependencies by\n        # data_exclude in /python/pip_install/tools/bazel.py\n        # to avoid non-determinism following pip install's behavior.\n        \"**/*.py\",\n        \"**/*.pyc\",\n        \"**/*.pyc.*\",  # During pyc creation, temp files named *.pyc.NNN are created\n        \"**/* *\",\n        \"**/*.dist-info/RECORD\",\n        \"BUILD\",\n        \"WORKSPACE\",\n    ]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"}
-        },
-        "pypi__zipp": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_archive",
-          "attributes": {"name":"--rules_python~0.24.0~internal_deps~pypi__zipp","url":"--https://files.pythonhosted.org/packages/f4/50/cc72c5bcd48f6e98219fc4a88a5227e9e28b81637a99c49feba1d51f4d50/zipp-1.0.0-py2.py3-none-any.whl","sha256":"--8dda78f06bd1674bd8720df8a50bb47b6e1233c503a4eed8e7810686bde37656","type":"--zip","build_file_content":"--package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\n        # These entries include those put into user-installed dependencies by\n        # data_exclude in /python/pip_install/tools/bazel.py\n        # to avoid non-determinism following pip install's behavior.\n        \"**/*.py\",\n        \"**/*.pyc\",\n        \"**/*.pyc.*\",  # During pyc creation, temp files named *.pyc.NNN are created\n        \"**/* *\",\n        \"**/*.dist-info/RECORD\",\n        \"BUILD\",\n        \"WORKSPACE\",\n    ]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"}
-        },
-        "pypi__colorama": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_archive",
-          "attributes": {"name":"--rules_python~0.24.0~internal_deps~pypi__colorama","url":"--https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl","sha256":"--4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6","type":"--zip","build_file_content":"--package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\n        # These entries include those put into user-installed dependencies by\n        # data_exclude in /python/pip_install/tools/bazel.py\n        # to avoid non-determinism following pip install's behavior.\n        \"**/*.py\",\n        \"**/*.pyc\",\n        \"**/*.pyc.*\",  # During pyc creation, temp files named *.pyc.NNN are created\n        \"**/* *\",\n        \"**/*.dist-info/RECORD\",\n        \"BUILD\",\n        \"WORKSPACE\",\n    ]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"}
-        },
-        "pypi__build": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_archive",
-          "attributes": {"name":"--rules_python~0.24.0~internal_deps~pypi__build","url":"--https://files.pythonhosted.org/packages/03/97/f58c723ff036a8d8b4d3115377c0a37ed05c1f68dd9a0d66dab5e82c5c1c/build-0.9.0-py3-none-any.whl","sha256":"--38a7a2b7a0bdc61a42a0a67509d88c71ecfc37b393baba770fae34e20929ff69","type":"--zip","build_file_content":"--package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\n        # These entries include those put into user-installed dependencies by\n        # data_exclude in /python/pip_install/tools/bazel.py\n        # to avoid non-determinism following pip install's behavior.\n        \"**/*.py\",\n        \"**/*.pyc\",\n        \"**/*.pyc.*\",  # During pyc creation, temp files named *.pyc.NNN are created\n        \"**/* *\",\n        \"**/*.dist-info/RECORD\",\n        \"BUILD\",\n        \"WORKSPACE\",\n    ]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"}
-        },
-        "pypi__pip": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_archive",
-          "attributes": {"name":"--rules_python~0.24.0~internal_deps~pypi__pip","url":"--https://files.pythonhosted.org/packages/09/bd/2410905c76ee14c62baf69e3f4aa780226c1bbfc9485731ad018e35b0cb5/pip-22.3.1-py3-none-any.whl","sha256":"--908c78e6bc29b676ede1c4d57981d490cb892eb45cd8c214ab6298125119e077","type":"--zip","build_file_content":"--package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\n        # These entries include those put into user-installed dependencies by\n        # data_exclude in /python/pip_install/tools/bazel.py\n        # to avoid non-determinism following pip install's behavior.\n        \"**/*.py\",\n        \"**/*.pyc\",\n        \"**/*.pyc.*\",  # During pyc creation, temp files named *.pyc.NNN are created\n        \"**/* *\",\n        \"**/*.dist-info/RECORD\",\n        \"BUILD\",\n        \"WORKSPACE\",\n    ]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"}
-        },
-        "pypi__installer": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_archive",
-          "attributes": {"name":"--rules_python~0.24.0~internal_deps~pypi__installer","url":"--https://files.pythonhosted.org/packages/e5/ca/1172b6638d52f2d6caa2dd262ec4c811ba59eee96d54a7701930726bce18/installer-0.7.0-py3-none-any.whl","sha256":"--05d1933f0a5ba7d8d6296bb6d5018e7c94fa473ceb10cf198a92ccea19c27b53","type":"--zip","build_file_content":"--package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\n        # These entries include those put into user-installed dependencies by\n        # data_exclude in /python/pip_install/tools/bazel.py\n        # to avoid non-determinism following pip install's behavior.\n        \"**/*.py\",\n        \"**/*.pyc\",\n        \"**/*.pyc.*\",  # During pyc creation, temp files named *.pyc.NNN are created\n        \"**/* *\",\n        \"**/*.dist-info/RECORD\",\n        \"BUILD\",\n        \"WORKSPACE\",\n    ]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"}
-        },
-        "pypi__more_itertools": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_archive",
-          "attributes": {"name":"--rules_python~0.24.0~internal_deps~pypi__more_itertools","url":"--https://files.pythonhosted.org/packages/bd/3f/c4b3dbd315e248f84c388bd4a72b131a29f123ecacc37ffb2b3834546e42/more_itertools-8.13.0-py3-none-any.whl","sha256":"--c5122bffc5f104d37c1626b8615b511f3427aa5389b94d61e5ef8236bfbc3ddb","type":"--zip","build_file_content":"--package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\n        # These entries include those put into user-installed dependencies by\n        # data_exclude in /python/pip_install/tools/bazel.py\n        # to avoid non-determinism following pip install's behavior.\n        \"**/*.py\",\n        \"**/*.pyc\",\n        \"**/*.pyc.*\",  # During pyc creation, temp files named *.pyc.NNN are created\n        \"**/* *\",\n        \"**/*.dist-info/RECORD\",\n        \"BUILD\",\n        \"WORKSPACE\",\n    ]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"}
-        },
-        "pypi__tomli": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_archive",
-          "attributes": {"name":"--rules_python~0.24.0~internal_deps~pypi__tomli","url":"--https://files.pythonhosted.org/packages/97/75/10a9ebee3fd790d20926a90a2547f0bf78f371b2f13aa822c759680ca7b9/tomli-2.0.1-py3-none-any.whl","sha256":"--939de3e7a6161af0c887ef91b7d41a53e7c5a1ca976325f429cb46ea9bc30ecc","type":"--zip","build_file_content":"--package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\n        # These entries include those put into user-installed dependencies by\n        # data_exclude in /python/pip_install/tools/bazel.py\n        # to avoid non-determinism following pip install's behavior.\n        \"**/*.py\",\n        \"**/*.pyc\",\n        \"**/*.pyc.*\",  # During pyc creation, temp files named *.pyc.NNN are created\n        \"**/* *\",\n        \"**/*.dist-info/RECORD\",\n        \"BUILD\",\n        \"WORKSPACE\",\n    ]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"}
         }
       }
     }

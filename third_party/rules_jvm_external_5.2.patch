@@ -20,6 +20,9 @@ Date:   Thu Jan 5 16:37:29 2023 +0800
       avoid this cyclic dependency.
     - Added a filegroup rule to collect all sources needed for vendoring `@maven`,
       including BUILD.vendor, WORKSPACE and jar files.
+    - Fix `testonly` attribute handling in Bzlmod.
+    - Set `fetch_sources` to false by default in Bzlmod.
+    - Fix `excluded_artifacts` in Bzlmod.
 
 diff --git a/coursier.bzl b/coursier.bzl
 index a71507a..90b4cb0 100644
@@ -140,3 +143,42 @@ index 63ce118..84e0417 100644
      visibility = [
          "//private/tools/java:__subpackages__",
          "//tests/com:__subpackages__",
+diff --git a/private/extensions/maven.bzl b/private/extensions/maven.bzl
+index bfba8b8..7f5be73 100644
+--- a/private/extensions/maven.bzl
++++ b/private/extensions/maven.bzl
+@@ -206,7 +206,7 @@ def _maven_impl(mctx):
+                 to_add.update({"neverlink": artifact.neverlink})
+
+             if artifact.testonly:
+-                to_add.update({"version": artifact.testonly})
++                to_add.update({"testonly": artifact.testonly})
+
+             if artifact.exclusions:
+                 artifact_exclusions = []
+diff --git a/private/extensions/maven.bzl b/private/extensions/maven.bzl
+index 7f5be73..07551f2 100644
+--- a/private/extensions/maven.bzl
++++ b/private/extensions/maven.bzl
+@@ -38,7 +38,7 @@ _install = tag_class(
+
+         # What do we fetch?
+         "fetch_javadoc": attr.bool(default = False),
+-        "fetch_sources": attr.bool(default = True),
++        "fetch_sources": attr.bool(default = False),
+
+         # Controlling visibility
+         "strict_visibility": attr.bool(
+diff --git a/private/extensions/maven.bzl b/private/extensions/maven.bzl
+index 5b37174..bfba8b8 100644
+--- a/private/extensions/maven.bzl
++++ b/private/extensions/maven.bzl
+@@ -242,7 +242,7 @@ def _maven_impl(mctx):
+                     ))
+                 repo["lock_file"] = install.lock_file
+
+-            repo["excluded_artifacts"] = _add_exclusions(exclusions, install.excluded_artifacts)
++            repo["excluded_artifacts"] = repo.get("excluded_artifacts", []) + _add_exclusions(exclusions, install.excluded_artifacts)
+
+             _logical_or(repo, "fail_if_repin_required", False, install.fail_if_repin_required)
+             _logical_or(repo, "fail_on_missing_checksum", False, install.fail_on_missing_checksum)
