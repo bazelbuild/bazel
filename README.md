@@ -2,7 +2,7 @@
 
 *{Fast, Correct} - Choose two*
 
-# test done by sunil
+# test done  sunil
 
 Build and test software of any size, quickly and reliably.
 
