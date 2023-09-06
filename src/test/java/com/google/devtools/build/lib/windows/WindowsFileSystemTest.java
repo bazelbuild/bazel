@@ -387,4 +387,39 @@ public class WindowsFileSystemTest {
 
     assertThat(juncPath.readSymbolicLink()).isEqualTo(dirPath.asFragment());
   }
+
+  @Test
+  public void testReadOnlyAttribute() throws Exception {
+    testUtil.scratchFile("dir\\hello.txt", "hello");
+    testUtil.createJunctions(ImmutableMap.of("junc", "dir"));
+
+    Path dir = testUtil.createVfsPath(fs, "dir");
+    Path file = testUtil.createVfsPath(fs, "dir\\hello.txt");
+    Path dirViaJunction = testUtil.createVfsPath(fs, "junc");
+    Path fileViaJunction = testUtil.createVfsPath(fs, "junc\\hello.txt");
+
+    assertThat(dir.isWritable()).isTrue();
+    dir.setWritable(false); // no-op
+    assertThat(dir.isWritable()).isTrue();
+    dir.setWritable(true); // no-op
+    assertThat(dir.isWritable()).isTrue();
+
+    assertThat(dirViaJunction.isWritable()).isTrue();
+    dirViaJunction.setWritable(false); // no-op
+    assertThat(dirViaJunction.isWritable()).isTrue();
+    dirViaJunction.setWritable(true); // no-op
+    assertThat(dirViaJunction.isWritable()).isTrue();
+
+    assertThat(file.isWritable()).isTrue();
+    file.setWritable(false);
+    assertThat(file.isWritable()).isFalse();
+    file.setWritable(true);
+    assertThat(file.isWritable()).isTrue();
+
+    assertThat(fileViaJunction.isWritable()).isTrue();
+    fileViaJunction.setWritable(false);
+    assertThat(fileViaJunction.isWritable()).isFalse();
+    fileViaJunction.setWritable(true);
+    assertThat(fileViaJunction.isWritable()).isTrue();
+  }
 }
