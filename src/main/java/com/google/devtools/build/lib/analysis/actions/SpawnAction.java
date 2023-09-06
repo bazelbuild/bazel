@@ -684,7 +684,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     private final List<Artifact> outputs = new ArrayList<>();
     private final List<RunfilesSupplier> inputRunfilesSuppliers = new ArrayList<>();
     private ResourceSetOrBuilder resourceSetOrBuilder = AbstractAction.DEFAULT_RESOURCE_SET;
-    private ActionEnvironment actionEnvironment = null;
     private ImmutableMap<String, String> environment = ImmutableMap.of();
     private ImmutableSet<String> inheritedEnvironment = ImmutableSet.of();
     private ImmutableMap<String, String> executionInfo = ImmutableMap.of();
@@ -718,7 +717,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       this.outputs.addAll(other.outputs);
       this.inputRunfilesSuppliers.addAll(other.inputRunfilesSuppliers);
       this.resourceSetOrBuilder = other.resourceSetOrBuilder;
-      this.actionEnvironment = other.actionEnvironment;
       this.environment = other.environment;
       this.executionInfo = other.executionInfo;
       this.isShellCommand = other.isShellCommand;
@@ -764,9 +762,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       }
       CommandLines commandLines = result.build();
       ActionEnvironment env;
-      if (actionEnvironment != null) {
-        env = actionEnvironment;
-      } else if (useDefaultShellEnvironment && environment != null) {
+      if (useDefaultShellEnvironment && environment != null) {
         // Inherited variables override fixed variables in ActionEnvironment. Since we want the
         // fixed part of the action-provided environment to override the inherited part of the
         // user-provided environment, we have to explicitly filter the inherited part.
@@ -1003,13 +999,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     @CanIgnoreReturnValue
     public Builder setResources(ResourceSetOrBuilder resourceSetOrBuilder) {
       this.resourceSetOrBuilder = resourceSetOrBuilder;
-      return this;
-    }
-
-    /** Sets the action environment. */
-    @CanIgnoreReturnValue
-    public Builder setEnvironment(ActionEnvironment actionEnvironment) {
-      this.actionEnvironment = actionEnvironment;
       return this;
     }
 
