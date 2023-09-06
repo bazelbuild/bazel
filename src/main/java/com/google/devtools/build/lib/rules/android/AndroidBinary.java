@@ -480,6 +480,17 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       NestedSet<Artifact> nativeLibsAar)
       throws InterruptedException, RuleErrorException {
 
+    AndroidOptimizationInfo optimizationInfo =
+        ruleContext.getPrerequisite("application_resources", AndroidOptimizationInfo.PROVIDER);
+    AndroidDexInfo androidDexInfo =
+        ruleContext.getPrerequisite("application_resources", AndroidDexInfo.PROVIDER);
+    String baselineProfileDir = ruleContext.getLabel().getName() + "-baseline-profile/";
+    ProguardOutput proguardOutput = null;
+    Artifact postProcessingOutputMap = null;
+    Artifact finalProguardOutputMap = null;
+    Artifact startupProfile = null;
+    Artifact baselineProfile = null;
+
     List<ProguardSpecProvider> proguardDeps = new ArrayList<>();
     Iterables.addAll(
         proguardDeps, ruleContext.getPrerequisites("deps", ProguardSpecProvider.PROVIDER));
@@ -513,35 +524,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     boolean desugarJava8LibsGeneratesMap =
         AndroidCommon.getAndroidConfig(ruleContext).desugarJava8Libs();
     boolean optimizingDexing = ruleContext.getExecutablePrerequisite(":optimizing_dexer") != null;
-    if (generateProguardMap) {
-      // Determine the output of the Proguard map from shrinking the app. This depends on the
-      // additional steps which can process the map before the final Proguard map artifact is
-      // generated.
-      if (!hasProguardSpecs && !postprocessingRewritesMap) {
-        // When no shrinking happens a generating rule for the output map artifact is still needed.
-        proguardOutputMap = androidSemantics.getProguardOutputMap(ruleContext);
-      } else if (optimizingDexing) {
-        proguardOutputMap = ProguardHelper.getProguardTempArtifact(ruleContext, "pre_dexing.map");
-      } else if (postprocessingRewritesMap) {
-        // Proguard map from shrinking goes to postprocessing.
-        proguardOutputMap =
-            ProguardHelper.getProguardTempArtifact(ruleContext, "proguard_output_for_rex.map");
-      } else if (desugarJava8LibsGeneratesMap) {
-        // Proguard map from shrinking will be merged with desugared library proguard map.
-        proguardOutputMap =
-            getDxArtifact(ruleContext, "_proguard_output_for_desugared_library.map");
-      } else {
-        // Proguard map from shrinking is the final output.
-        proguardOutputMap = androidSemantics.getProguardOutputMap(ruleContext);
-      }
-    }
 
     BaselineProfileProvider baselineprofileProvider =
         ruleContext.getPrerequisite("application_resources", BaselineProfileProvider.PROVIDER);
-
-    Artifact startupProfile = null;
-    Artifact baselineProfile = null;
-    String baselineProfileDir = ruleContext.getLabel().getName() + "-baseline-profile/";
     if (baselineprofileProvider == null
         && Allowlist.hasAllowlist(ruleContext, "allow_baseline_profiles_optimizer_integration")
         && Allowlist.isAvailable(ruleContext, "allow_baseline_profiles_optimizer_integration")) {
@@ -564,60 +549,112 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                 ruleContext, binaryJar, baselineProfile, baselineProfileDir);
       }
     }
-    ProguardOutput proguardOutput =
-        applyProguard(
-            ruleContext,
-            androidCommon,
-            javaSemantics,
-            binaryJar,
-            proguardSpecs,
-            proguardMapping,
-            proguardOutputMap,
-            startupProfile,
-            baselineProfile,
-            baselineProfileDir);
 
-    // Determine the outputs for the proguard map transition through post-processing and adding of
-    // desugared library map.
-    Artifact postProcessingOutputMap = null;
-    Artifact finalProguardOutputMap = null;
-    if (proguardOutput.hasMapping()) {
-      // Determine the Proguard map artifacts for the additional steps (if any) if shrinking of
-      // the app is enabled.
-      if ((optimizingDexing || postprocessingRewritesMap) && desugarJava8LibsGeneratesMap) {
-        // Proguard map from preprocessing will be merged with Proguard map for desugared
-        // library.
-        postProcessingOutputMap =
-            getDxArtifact(ruleContext, "_proguard_output_for_desugared_library.map");
-        finalProguardOutputMap = androidSemantics.getProguardOutputMap(ruleContext);
-      } else if (optimizingDexing || postprocessingRewritesMap) {
-        // No desugared library, Proguard map from preprocessing is the final Proguard map.
-        postProcessingOutputMap = androidSemantics.getProguardOutputMap(ruleContext);
-        finalProguardOutputMap = postProcessingOutputMap;
-      } else if (desugarJava8LibsGeneratesMap) {
-        // No postprocessing, Proguard map from merging with the desugared library map is the
-        // final Proguard map.
-        postProcessingOutputMap = proguardOutputMap;
-        finalProguardOutputMap = androidSemantics.getProguardOutputMap(ruleContext);
-      } else {
-        // No postprocessing, no desugared library, the final Proguard map is the Proguard map
-        // from shrinking
-        postProcessingOutputMap = proguardOutputMap;
-        finalProguardOutputMap = proguardOutputMap;
+    if (optimizationInfo == null) {
+      if (generateProguardMap) {
+        // Determine the output of the Proguard map from shrinking the app. This depends on the
+        // additional steps which can process the map before the final Proguard map artifact is
+        // generated.
+        if (!hasProguardSpecs && !postprocessingRewritesMap) {
+          // When no shrinking happens a generating rule for the output map artifact is still
+          // needed.
+          proguardOutputMap = androidSemantics.getProguardOutputMap(ruleContext);
+        } else if (optimizingDexing) {
+          proguardOutputMap = ProguardHelper.getProguardTempArtifact(ruleContext, "pre_dexing.map");
+        } else if (postprocessingRewritesMap) {
+          // Proguard map from shrinking goes to postprocessing.
+          proguardOutputMap =
+              ProguardHelper.getProguardTempArtifact(ruleContext, "proguard_output_for_rex.map");
+        } else if (desugarJava8LibsGeneratesMap) {
+          // Proguard map from shrinking will be merged with desugared library proguard map.
+          proguardOutputMap =
+              getDxArtifact(ruleContext, "_proguard_output_for_desugared_library.map");
+        } else {
+          // Proguard map from shrinking is the final output.
+          proguardOutputMap = androidSemantics.getProguardOutputMap(ruleContext);
+        }
       }
-    }
 
-    if (dataContext.useResourceShrinking(hasProguardSpecs)) {
-      resourceApk =
-          shrinkResources(
+      proguardOutput =
+          applyProguard(
               ruleContext,
-              androidSemantics.makeContextForNative(ruleContext),
-              resourceApk,
-              proguardOutput,
-              filesBuilder);
-    }
+              androidCommon,
+              javaSemantics,
+              binaryJar,
+              proguardSpecs,
+              proguardMapping,
+              proguardOutputMap,
+              startupProfile,
+              baselineProfile,
+              baselineProfileDir);
 
-    resourceApk = maybeOptimizeResources(dataContext, resourceApk, hasProguardSpecs);
+      // Determine the outputs for the proguard map transition through post-processing and adding of
+      // desugared library map.
+      if (proguardOutput.hasMapping()) {
+        // Determine the Proguard map artifacts for the additional steps (if any) if shrinking of
+        // the app is enabled.
+        if ((optimizingDexing || postprocessingRewritesMap) && desugarJava8LibsGeneratesMap) {
+          // Proguard map from preprocessing will be merged with Proguard map for desugared
+          // library.
+          postProcessingOutputMap =
+              getDxArtifact(ruleContext, "_proguard_output_for_desugared_library.map");
+          finalProguardOutputMap = androidSemantics.getProguardOutputMap(ruleContext);
+        } else if (optimizingDexing || postprocessingRewritesMap) {
+          // No desugared library, Proguard map from preprocessing is the final Proguard map.
+          postProcessingOutputMap = androidSemantics.getProguardOutputMap(ruleContext);
+          finalProguardOutputMap = postProcessingOutputMap;
+        } else if (desugarJava8LibsGeneratesMap) {
+          // No postprocessing, Proguard map from merging with the desugared library map is the
+          // final Proguard map.
+          postProcessingOutputMap = proguardOutputMap;
+          finalProguardOutputMap = androidSemantics.getProguardOutputMap(ruleContext);
+        } else {
+          // No postprocessing, no desugared library, the final Proguard map is the Proguard map
+          // from shrinking
+          postProcessingOutputMap = proguardOutputMap;
+          finalProguardOutputMap = proguardOutputMap;
+        }
+      }
+
+      if (dataContext.useResourceShrinking(hasProguardSpecs)) {
+        resourceApk =
+            shrinkResources(
+                ruleContext,
+                androidSemantics.makeContextForNative(ruleContext),
+                resourceApk,
+                proguardOutput,
+                filesBuilder);
+      }
+
+      resourceApk = maybeOptimizeResources(dataContext, resourceApk, hasProguardSpecs);
+    } else {
+      proguardOutput =
+          new ProguardOutput(
+              optimizationInfo.getOptimizedJar(),
+              optimizationInfo.getMapping(),
+              optimizationInfo.getProtoMapping(),
+              optimizationInfo.getSeeds(),
+              /* usage= */ null,
+              /* constantStringObfuscatedMapping= */ null,
+              optimizationInfo.getLibraryJar(),
+              optimizationInfo.getConfig(),
+              optimizationInfo.getRewrittenStartupProfile(),
+              optimizationInfo.getRewrittenMergedBaselineProfile());
+      resourceApk = resourceApk.withApk(optimizationInfo.getOptimizedResourceApk());
+      symlinkOptimizationOutputs(
+          ruleContext,
+          androidSemantics,
+          javaSemantics,
+          dataContext,
+          proguardOutput,
+          androidDexInfo.getFinalProguardOutputMap(),
+          optimizationInfo.getOptimizedResourceApk(),
+          optimizationInfo.getShrunkResourceApk(),
+          optimizationInfo.getShrunkResourceZip(),
+          optimizationInfo.getResourceShrinkerLog(),
+          optimizationInfo.getResourceOptimizationConfig(),
+          optimizationInfo.getResourcePathShorteningMap());
+    }
 
     Artifact jarToDex = proguardOutput.getOutputJar();
     DexingOutput dexingOutput =
@@ -646,8 +683,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             postProcessingOutputMap,
             dexingOutput.mainDexList);
 
-    AndroidDexInfo androidDexInfo =
-        ruleContext.getPrerequisite("application_resources", AndroidDexInfo.PROVIDER);
 
     // Compute the final DEX files by appending Java 8 legacy .dex if used.
     final Artifact finalClassesDex;
@@ -1000,6 +1035,124 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     public Artifact getMap() {
       return map;
+    }
+  }
+
+  private static void symlinkOptimizationOutputs(
+      RuleContext ruleContext,
+      AndroidSemantics androidSemantics,
+      JavaSemantics javaSemantics,
+      AndroidDataContext dataContext,
+      ProguardOutput proguardOutput,
+      @Nullable Artifact finalProguardOutputMap,
+      @Nullable Artifact optimizedResourceApk,
+      @Nullable Artifact shrunkResourceApk,
+      @Nullable Artifact shrunkResourceZip,
+      @Nullable Artifact resourceShrinkerLog,
+      @Nullable Artifact resourceOptimizationConfig,
+      @Nullable Artifact resourcePathShorteningMap)
+      throws InterruptedException {
+
+    if (proguardOutput.getOutputJar() != null) {
+      ruleContext.registerAction(
+          SymlinkAction.toArtifact(
+              ruleContext.getActionOwner(),
+              proguardOutput.getOutputJar(),
+              ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_PROGUARD_JAR),
+              "Symlinking proguard output jar"));
+    }
+
+    if (proguardOutput.getSeeds() != null) {
+      ruleContext.registerAction(
+          SymlinkAction.toArtifact(
+              ruleContext.getActionOwner(),
+              proguardOutput.getSeeds(),
+              ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_SEEDS),
+              "Symlinking proguard seeds"));
+    }
+
+    if (proguardOutput.getConfig() != null) {
+      ruleContext.registerAction(
+          SymlinkAction.toArtifact(
+              ruleContext.getActionOwner(),
+              proguardOutput.getConfig(),
+              ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_CONFIG),
+              "Symlinking proguard config"));
+    }
+
+    if (proguardOutput.getProtoMapping() != null
+        && javaSemantics.getProtoMapping(ruleContext) != null) {
+      ruleContext.registerAction(
+          SymlinkAction.toArtifact(
+              ruleContext.getActionOwner(),
+              proguardOutput.getProtoMapping(),
+              javaSemantics.getProtoMapping(ruleContext),
+              "Symlinking proguard proto mapping"));
+    }
+
+    if (finalProguardOutputMap != null) {
+      ruleContext.registerAction(
+          SymlinkAction.toArtifact(
+              ruleContext.getActionOwner(),
+              finalProguardOutputMap,
+              androidSemantics.getProguardOutputMap(ruleContext),
+              "Symlinking final proguard output map"));
+    }
+
+    if (optimizedResourceApk != null) {
+      ruleContext.registerAction(
+          SymlinkAction.toArtifact(
+              ruleContext.getActionOwner(),
+              optimizedResourceApk,
+              dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_OPTIMIZED_APK),
+              "Symlinking optimized resource apk"));
+    }
+
+    if (shrunkResourceApk != null) {
+      ruleContext.registerAction(
+          SymlinkAction.toArtifact(
+              ruleContext.getActionOwner(),
+              shrunkResourceApk,
+              dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_SHRUNK_APK),
+              "Symlinking shrunk resource apk"));
+    }
+
+    if (shrunkResourceZip != null) {
+      ruleContext.registerAction(
+          SymlinkAction.toArtifact(
+              ruleContext.getActionOwner(),
+              shrunkResourceZip,
+              dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_SHRUNK_ZIP),
+              "Symlinking shrunk resource zip"));
+    }
+
+    if (resourceShrinkerLog != null) {
+      ruleContext.registerAction(
+          SymlinkAction.toArtifact(
+              ruleContext.getActionOwner(),
+              resourceShrinkerLog,
+              dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCE_SHRINKER_LOG),
+              "Symlinking resource shrinker log"));
+    }
+
+    if (resourceOptimizationConfig != null) {
+      ruleContext.registerAction(
+          SymlinkAction.toArtifact(
+              ruleContext.getActionOwner(),
+              resourceOptimizationConfig,
+              dataContext.createOutputArtifact(
+                  AndroidRuleClasses.ANDROID_RESOURCE_OPTIMIZATION_CONFIG),
+              "Symlinking resource optimization config"));
+    }
+
+    if (resourcePathShorteningMap != null) {
+      ruleContext.registerAction(
+          SymlinkAction.toArtifact(
+              ruleContext.getActionOwner(),
+              resourcePathShorteningMap,
+              dataContext.createOutputArtifact(
+                  AndroidRuleClasses.ANDROID_RESOURCE_PATH_SHORTENING_MAP),
+              "Symlinking resource path shortening map"));
     }
   }
 
