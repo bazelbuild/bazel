@@ -92,10 +92,6 @@ public class AndroidManifest {
         .filter(not(String::isEmpty));
   }
 
-  public static AndroidManifest asEmpty() {
-    return new AndroidManifest("", "1");
-  }
-
   public static AndroidManifest of(String packageName, String minSdk) {
     return new AndroidManifest(packageName, minSdk);
   }
