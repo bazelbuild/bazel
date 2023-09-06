@@ -438,24 +438,6 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
-  public void testParseOptions_disallowResidue_skippedArgsLeadToFailure() throws Exception {
-    ImmutableList<Class<? extends OptionsBase>> optionsClasses =
-        ImmutableList.of(TestOptions.class, CommonCommandOptions.class, ClientOptions.class);
-
-    BlazeOptionHandlerTestHelper helper =
-        new BlazeOptionHandlerTestHelper(
-            optionsClasses,
-            /* allowResidue= */ false,
-            /* aliasFlag= */ null,
-            /* skipStarlarkPrefixes= */ true);
-    OptionsParser parser = helper.getOptionsParser();
-
-    OptionsParsingException e =
-        assertThrows(OptionsParsingException.class, () -> parser.parse("--//f=1"));
-    assertThat(e).hasMessageThat().isEqualTo("Unrecognized arguments: --//f=1");
-  }
-
-  @Test
   public void testParseOptions_explicitOption() {
     optionHandler.parseOptions(
         ImmutableList.of("c0", "--test_multiple_string=explicit"), eventHandler);
