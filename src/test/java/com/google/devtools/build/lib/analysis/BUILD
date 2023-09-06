@@ -9,13 +9,13 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/lib/analysis/allowlisting:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/extra:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/mock:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/platform:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/starlark/annotations/processor:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/testing:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/util:srcs",
-        "//src/test/java/com/google/devtools/build/lib/analysis/allowlisting:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )
@@ -348,6 +348,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/config_matching_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:required_config_fragments_provider",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party:guava",
