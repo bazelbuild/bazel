@@ -68,11 +68,14 @@ distrib_cc_library(
         "zlib.h",
         "zutil.h",
     ],
-    # Use -Dverbose=-1 to turn off zlib's trace logging. (#3280)
-    copts = [
-        "-w",
-        "-Dverbose=-1",
-    ],
+    copts = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": [
+            "-Wno-deprecated-non-prototype",
+            "-Wno-unused-variable",
+            "-Wno-implicit-function-declaration",
+        ],
+    }),
     enable_distributions = ["debian"],
     includes = ["."],
     visibility = ["//visibility:public"],
