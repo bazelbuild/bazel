@@ -20,10 +20,12 @@ import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Ordering;
+import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -94,6 +96,12 @@ public class ConfigFeatureFlagTaggedTrimmingTransitionFactory
   public PatchTransition create(RuleTransitionData ruleData) {
     NonconfiguredAttributeMapper attrs = NonconfiguredAttributeMapper.of(ruleData.rule());
     RuleClass ruleClass = ruleData.rule().getRuleClassObject();
+
+    if (AliasProvider.mayBeAlias(ruleData.rule())) {
+      // As a convenience, do not require transitive_config to be set for alias rule.
+      return NoTransition.INSTANCE;
+    }
+
     if (ruleClass.getName().equals(ConfigRuleClasses.ConfigFeatureFlagRule.RULE_NAME)) {
       return new ConfigFeatureFlagTaggedTrimmingTransition(
           ImmutableSortedSet.of(ruleData.rule().getLabel()));

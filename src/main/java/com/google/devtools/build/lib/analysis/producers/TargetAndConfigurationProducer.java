@@ -466,9 +466,7 @@ public final class TargetAndConfigurationProducer
         transition = transitionFactory.create(transitionData);
       }
 
-      boolean isAlias = target.getAssociatedRule().getName().equals("alias");
-
-      if (trimmingTransitionFactory != null && !isAlias) {
+      if (trimmingTransitionFactory != null) {
         var trimmingTransition = trimmingTransitionFactory.create(transitionData);
         if (transition != null) {
           transition = ComposingTransition.of(transition, trimmingTransition);
