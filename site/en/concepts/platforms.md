@@ -403,13 +403,13 @@ contact [bazel-dev]{: .external}.
 [bazel-dev]: https://groups.google.com/forum/#!forum/bazel-dev
 [bazel-discuss]: https://groups.google.com/forum/#!forum/bazel-discuss
 [Common Platform Declarations]: https://github.com/bazelbuild/platforms
-[constraint_setting Rule]: /reference/be/platform#constraint_setting
-[constraint_value Rule]: /reference/be/platform#constraint_value
+[constraint_setting Rule]: /reference/be/platforms-and-toolchains#constraint_setting
+[constraint_value Rule]: /reference/be/platforms-and-toolchains#constraint_value
 [Configurable Builds - Part 1]: https://blog.bazel.build/2019/02/11/configurable-builds-part-1.html
 [Configuring C++ toolchains]: /tutorials/ccp-toolchain-config
 [Defining Constraints and Platforms]: /extending/platforms#constraints-platforms
 [Example C++ toolchain]: https://github.com/gregestren/snippets/tree/master/custom_cc_toolchain_with_platforms
-[exec_compatible_with Attribute]: /reference/be/platform#toolchain.exec_compatible_with
+[exec_compatible_with Attribute]: /reference/be/platforms-and-toolchains#toolchain.exec_compatible_with
 [extra_toolchains Flag]: /reference/command-line-reference#flag--extra_toolchains
 [Go Rules]: https://github.com/bazelbuild/rules_go
 [Inspiration]: https://blog.bazel.build/2019/02/11/configurable-builds-part-1.html
@@ -417,7 +417,7 @@ contact [bazel-dev]{: .external}.
 [Platforms]: /extending/platforms
 [Platforms examples]: https://github.com/hlopko/bazel_platforms_examples
 [platform mappings design]: https://docs.google.com/document/d/1Vg_tPgiZbSrvXcJ403vZVAGlsWhH9BUDrAxMOYnO0Ls/edit
-[platform Rule]: /reference/be/platform#platform
+[platform Rule]: /reference/be/platforms-and-toolchains#platform
 [register_toolchains Function]: /rules/lib/globals/workspace#register_toolchains
 [Rust rules]: https://github.com/bazelbuild/rules_rust
 [select()]: /docs/configurable-attributes
@@ -425,5 +425,5 @@ contact [bazel-dev]{: .external}.
 [Starlark provider]: /extending/rules#providers
 [Starlark rule]: /extending/rules
 [Starlark transitions]: /extending/config#user-defined-transitions
-[target_compatible_with Attribute]: /reference/be/platform#toolchain.target_compatible_with
+[target_compatible_with Attribute]: /reference/be/platforms-and-toolchains#toolchain.target_compatible_with
 [Toolchains]: /extending/toolchains

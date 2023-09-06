@@ -62,11 +62,11 @@ BUILD files without a `load` statement.
   - [`config_setting`](/reference/be/general#config_setting)
   - [`genrule`](/reference/be/general#genrule)
 * Platform
-  - [`constraint_setting`](/reference/be/platform#constraint_setting)
-  - [`constraint_value`](/reference/be/platform#constraint_value)
-  - [`platform`](/reference/be/platform#platform)
-  - [`toolchain`](/reference/be/platform#toolchain)
-  - [`toolchain_type`](/reference/be/platform#toolchain_type)
+  - [`constraint_setting`](/reference/be/platforms-and-toolchains#constraint_setting)
+  - [`constraint_value`](/reference/be/platforms-and-toolchains#constraint_value)
+  - [`platform`](/reference/be/platforms-and-toolchains#platform)
+  - [`toolchain`](/reference/be/platforms-and-toolchains#toolchain)
+  - [`toolchain_type`](/reference/be/platforms-and-toolchains#toolchain_type)
 * Workspace
   - [`bind`](/reference/be/workspace#bind)
   - [`local_repository`](/reference/be/workspace#local_repository)

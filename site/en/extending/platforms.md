@@ -47,12 +47,16 @@ Tip: for detailed instructions on migrating your project to platforms, see
 ## Defining constraints and platforms {:#constraints-platforms}
 
 The space of possible choices for platforms is defined by using the
- [`constraint_setting`](/reference/be/platform#constraint_setting) and
- [`constraint_value`](/reference/be/platform#constraint_value) rules within `BUILD` files. `constraint_setting` creates a new dimension, while
+[`constraint_setting`][constraint_setting] and
+[`constraint_value`][constraint_value] rules within `BUILD` files.
+`constraint_setting` creates a new dimension, while
 `constraint_value` creates a new value for a given dimension; together they
 effectively define an enum and its possible values. For example, the following
 snippet of a `BUILD` file introduces a constraint for the system's glibc version
 with two possible values.
+
+[constraint_setting]: /reference/be/platforms-and-toolchains#constraint_setting
+[constraint_value]: /reference/be/platforms-and-toolchains#constraint_value
 
 ```python
 constraint_setting(name = "glibc_version")
@@ -182,8 +186,8 @@ Incompatible explicit targets are silently skipped if
 
 For more flexibility in expressing constraints, use the
 `@platforms//:incompatible`
-[`constraint_value`](/reference/be/platform#constraint_value) that no platform
-satisfies.
+[`constraint_value`](/reference/be/platforms-and-toolchains#constraint_value)
+that no platform satisfies.
 
 Use [`select()`](/reference/be/functions#select) in combination with
 `@platforms//:incompatible` to express more complicated restrictions. For

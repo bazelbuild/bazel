@@ -268,7 +268,7 @@ To define some toolchains for a given toolchain type, you need three things:
    suite for different platforms.
 
 3. For each such target, an associated target of the generic
-  [`toolchain`](/reference/be/platform#toolchain)
+  [`toolchain`](/reference/be/platforms-and-toolchains#toolchain)
    rule, to provide metadata used by the toolchain framework. This `toolchain`
    target also refers to the `toolchain_type` associated with this toolchain.
    This means that a given `_toolchain` rule could be associated with any
