@@ -102,7 +102,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
   @Nullable private final Class<?> elemClass;
   private final NestedSet<?> set;
 
-  private Depset(@Nullable Class<?> elemClass, NestedSet<?> set) {
+  Depset(@Nullable Class<?> elemClass, NestedSet<?> set) {
     this.elemClass = elemClass;
     this.set = set;
   }
@@ -145,9 +145,10 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
   // Object.class means "any Starlark value" but in fact allows any Java value.
   public static <T> Depset of(Class<T> elemClass, NestedSet<T> set) {
     Preconditions.checkNotNull(elemClass, "elemClass cannot be null");
-    // Having a shared EMPTY_DEPSET instance, could reduce working heap. Empty depsets are not
-    // retained though, because of optimization in StarlarkProvider.optimizeField.
-    return new Depset(set.isEmpty() ? null : ElementType.getTypeClass(elemClass), set);
+    if (set.isEmpty()) {
+      return set.getOrder().emptyDepset();
+    }
+    return new Depset(ElementType.getTypeClass(elemClass), set);
   }
 
   /**
@@ -259,14 +260,10 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
   public static <T> NestedSet<T> noneableCast(Object x, Class<T> type, String what)
       throws EvalException {
     if (x == Starlark.NONE) {
-      @SuppressWarnings("unchecked")
-      NestedSet<T> empty = (NestedSet<T>) EMPTY;
-      return empty;
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
     return cast(x, type, what);
   }
-
-  private static final NestedSet<?> EMPTY = NestedSetBuilder.<Object>emptySet(Order.STABLE_ORDER);
 
   public boolean isEmpty() {
     return set.isEmpty();
@@ -377,6 +374,9 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
       }
     }
 
+    if (builder.isEmpty()) {
+      return builder.getOrder().emptyDepset();
+    }
     return new Depset(type, builder.build());
   }
 
