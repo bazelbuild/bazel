@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -40,7 +39,7 @@ public class JavaPackageConfiguration implements RuleConfiguredTargetFactory {
       throws InterruptedException, RuleErrorException, ActionConflictException {
     ImmutableList<PackageSpecificationProvider> packages =
         ImmutableList.copyOf(
-            ruleContext.getPrerequisites("packages", PackageGroupConfiguredTarget.class));
+            ruleContext.getPrerequisites("packages", PackageSpecificationProvider.class));
     FileProvider dataProvider = ruleContext.getPrerequisite("data", FileProvider.class);
     NestedSet<Artifact> data =
         dataProvider != null
