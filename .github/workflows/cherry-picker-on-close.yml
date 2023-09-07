@@ -12,8 +12,12 @@ jobs:
     if: github.event.sender.login == 'copybara-service[bot]'
     runs-on: ubuntu-latest
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@6b3083af2869dc3314a0257a42f4af696cc79ba3
+        with:
+          egress-policy: audit
       - name: Run cherrypicker on close
-        uses: bazelbuild/continuous-integration/actions/cherry-picker@master
+        uses: bazelbuild/continuous-integration/actions/cherry-picker@8e5a455aae36cdcce8604ab298ace487825239b2
         with:
           triggered-on: closed
           pr-number: ${{ github.event.number }}
