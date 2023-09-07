@@ -84,7 +84,6 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
-import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
@@ -301,16 +300,20 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             retryService);
     ReferenceCountedChannel channel =
         new ReferenceCountedChannel(
-            new ChannelConnectionFactory() {
+            new ChannelConnectionWithServerCapabilitiesFactory() {
               @Override
-              public Single<? extends ChannelConnection> create() {
+              public Single<ChannelConnectionWithServerCapabilities> create() {
                 ManagedChannel ch =
                     InProcessChannelBuilder.forName(fakeServerName)
                         .intercept(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions))
                         .directExecutor()
                         .build();
-
-                return Single.just(new ChannelConnection(ch));
+                ServerCapabilities caps =
+                    ServerCapabilities.newBuilder()
+                        .setExecutionCapabilities(
+                            ExecutionCapabilities.newBuilder().setExecEnabled(true).build())
+                        .build();
+                return Single.just(new ChannelConnectionWithServerCapabilities(ch, caps));
               }
 
               @Override
@@ -318,12 +321,6 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
                 return 100;
               }
             });
-    ServerCapabilities caps =
-        ServerCapabilities.newBuilder()
-            .setExecutionCapabilities(
-                ExecutionCapabilities.newBuilder().setExecEnabled(true).build())
-            .build();
-    channel.setServerCapabilities(caps);
 
     GrpcRemoteExecutor executor =
         new GrpcRemoteExecutor(channel.retain(), CallCredentialsProvider.NO_CREDENTIALS, retrier);

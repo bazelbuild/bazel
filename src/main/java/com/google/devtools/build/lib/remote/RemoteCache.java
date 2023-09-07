@@ -96,7 +96,7 @@ public class RemoteCache extends AbstractReferenceCounted {
     this.digestUtil = digestUtil;
   }
 
-  public CacheCapabilities getCacheCapabilities() {
+  public CacheCapabilities getCacheCapabilities() throws IOException {
     return cacheProtocol.getCacheCapabilities();
   }
 
@@ -120,7 +120,11 @@ public class RemoteCache extends AbstractReferenceCounted {
 
   /** Returns whether the action cache supports updating action results. */
   public boolean actionCacheSupportsUpdate() {
-    return getCacheCapabilities().getActionCacheUpdateCapabilities().getUpdateEnabled();
+    try {
+      return getCacheCapabilities().getActionCacheUpdateCapabilities().getUpdateEnabled();
+    } catch (IOException ignored) {
+      return false;
+    }
   }
 
   /** Upload the action result to the remote cache. */

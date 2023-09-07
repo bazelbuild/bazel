@@ -332,7 +332,7 @@ public class ExperimentalGrpcRemoteExecutor implements RemoteExecutionClient {
   }
 
   @Override
-  public ServerCapabilities getServerCapabilities() {
+  public ServerCapabilities getServerCapabilities() throws IOException {
     return channel.getServerCapabilities();
   }
 

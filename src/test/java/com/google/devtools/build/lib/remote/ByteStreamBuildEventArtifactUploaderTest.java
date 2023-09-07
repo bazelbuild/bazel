@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.remote.ByteStreamUploaderTest.FixedBackoff;
 import com.google.devtools.build.lib.remote.ByteStreamUploaderTest.MaybeFailOnceUploadService;
 import com.google.devtools.build.lib.remote.common.MissingDigestsFinder;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory;
 import com.google.devtools.build.lib.remote.options.RemoteBuildEventUploadMode;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -108,7 +107,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
   private ListeningScheduledExecutorService retryService;
 
   private Server server;
-  private ChannelConnectionFactory channelConnectionFactory;
+  private ChannelConnectionWithServerCapabilitiesFactory channelConnectionFactory;
 
   private final FileSystem fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
 
@@ -126,11 +125,13 @@ public class ByteStreamBuildEventArtifactUploaderTest {
             .build()
             .start();
     channelConnectionFactory =
-        new ChannelConnectionFactory() {
+        new ChannelConnectionWithServerCapabilitiesFactory() {
           @Override
-          public Single<? extends ChannelConnection> create() {
+          public Single<ChannelConnectionWithServerCapabilities> create() {
             return Single.just(
-                new ChannelConnection(InProcessChannelBuilder.forName(serverName).build()));
+                new ChannelConnectionWithServerCapabilities(
+                    InProcessChannelBuilder.forName(serverName).build(),
+                    ServerCapabilities.getDefaultInstance()));
           }
 
           @Override
@@ -558,7 +559,6 @@ public class ByteStreamBuildEventArtifactUploaderTest {
       ReferenceCountedChannel channel,
       RemoteRetrier retrier,
       MissingDigestsFinder missingDigestsFinder) {
-    channel.setServerCapabilities(ServerCapabilities.getDefaultInstance());
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     remoteOptions.remoteInstanceName = "instance";
     GrpcCacheClient cacheClient =

@@ -26,7 +26,7 @@ import java.io.IOException;
 public interface RemoteExecutionClient {
 
   /** Returns the cache capabilities of the remote execution server */
-  ServerCapabilities getServerCapabilities();
+  ServerCapabilities getServerCapabilities() throws IOException;
 
   /** Execute an action remotely using Remote Execution API. */
   ExecuteResponse executeRemotely(

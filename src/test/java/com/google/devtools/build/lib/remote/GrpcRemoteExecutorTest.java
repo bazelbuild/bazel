@@ -18,7 +18,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 
 import build.bazel.remote.execution.v2.ExecuteResponse;
-import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
@@ -45,10 +44,7 @@ public class GrpcRemoteExecutorTest extends GrpcRemoteExecutorTestBase {
   }
 
   @Override
-  protected RemoteExecutionClient createExecutionService(
-      ServerCapabilities caps, ReferenceCountedChannel channel) throws Exception {
-    channel.setServerCapabilities(caps);
-
+  protected RemoteExecutionClient createExecutionService(ReferenceCountedChannel channel) {
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
             () -> new ExponentialBackoff(remoteOptions),

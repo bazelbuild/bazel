@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.Retrier.Backoff;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
-import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TestUtils;
@@ -154,16 +153,18 @@ class GrpcCacheClientTestBase {
             backoffSupplier, RemoteRetrier.RETRIABLE_GRPC_ERRORS, retryService);
     ReferenceCountedChannel channel =
         new ReferenceCountedChannel(
-            new ChannelConnectionFactory() {
+            new ChannelConnectionWithServerCapabilitiesFactory() {
               @Override
-              public Single<? extends ChannelConnection> create() {
+              public Single<ChannelConnectionWithServerCapabilities> create() {
                 ManagedChannel ch =
                     InProcessChannelBuilder.forName(fakeServerName)
                         .directExecutor()
                         .intercept(new CallCredentialsInterceptor(creds))
                         .intercept(TracingMetadataUtils.newCacheHeadersInterceptor(remoteOptions))
                         .build();
-                return Single.just(new ChannelConnection(ch));
+                return Single.just(
+                    new ChannelConnectionWithServerCapabilities(
+                        ch, ServerCapabilities.getDefaultInstance()));
               }
 
               @Override
@@ -171,7 +172,6 @@ class GrpcCacheClientTestBase {
                 return 100;
               }
             });
-    channel.setServerCapabilities(ServerCapabilities.getDefaultInstance());
     channels.add(channel);
     return new GrpcCacheClient(
         channel, callCredentialsProvider, remoteOptions, retrier, DIGEST_UTIL);

@@ -13,15 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory;
-import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory.ChannelConnection;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.remote.ChannelConnectionWithServerCapabilitiesFactory.ChannelConnectionWithServerCapabilities;
 import com.google.devtools.build.lib.remote.grpc.DynamicConnectionPool;
 import com.google.devtools.build.lib.remote.grpc.SharedConnectionFactory.SharedConnection;
 import com.google.devtools.build.lib.remote.util.RxFutures;
@@ -37,7 +36,6 @@ import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.functions.Function;
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
-import javax.annotation.Nullable;
 
 /**
  * A wrapper around a {@link DynamicConnectionPool} exposing {@link Channel} and a reference count.
@@ -65,24 +63,28 @@ public class ReferenceCountedChannel implements ReferenceCounted {
         }
       };
 
-  @Nullable private ServerCapabilities serverCapabilities;
-
-  public ReferenceCountedChannel(ChannelConnectionFactory connectionFactory) {
+  public ReferenceCountedChannel(ChannelConnectionWithServerCapabilitiesFactory connectionFactory) {
     this(connectionFactory, /* maxConnections= */ 0);
   }
 
-  public ReferenceCountedChannel(ChannelConnectionFactory connectionFactory, int maxConnections) {
+  public ReferenceCountedChannel(
+      ChannelConnectionWithServerCapabilitiesFactory connectionFactory, int maxConnections) {
     this.dynamicConnectionPool =
         new DynamicConnectionPool(
             connectionFactory, connectionFactory.maxConcurrency(), maxConnections);
   }
 
-  public void setServerCapabilities(ServerCapabilities serverCapabilities) {
-    this.serverCapabilities = serverCapabilities;
-  }
-
-  public ServerCapabilities getServerCapabilities() {
-    return checkNotNull(serverCapabilities);
+  public ServerCapabilities getServerCapabilities() throws IOException {
+    try (var s = Profiler.instance().profile("getServerCapabilities")) {
+      return blockingGet(
+          withChannelConnection(
+              channelConnection -> Single.just(channelConnection.getServerCapabilities())));
+    } catch (ExecutionException e) {
+      throw new IOException(e);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new IOException(e);
+    }
   }
 
   public boolean isShutdown() {
@@ -98,8 +100,39 @@ public class ReferenceCountedChannel implements ReferenceCounted {
 
   public <T> T withChannelBlocking(Function<Channel, T> source)
       throws ExecutionException, IOException, InterruptedException {
+    return blockingGet(withChannel(channel -> Single.just(source.apply(channel))));
+  }
+
+  // prevents rxjava silent possible wrap of RuntimeException and misinterpretation
+  private <T> T blockingGet(Single<T> single)
+      throws ExecutionException, IOException, InterruptedException {
+    SettableFuture<T> future = SettableFuture.create();
+    single.subscribe(
+        new SingleObserver<T>() {
+          @Override
+          public void onError(Throwable t) {
+            future.setException(t);
+          }
+
+          @Override
+          public void onSuccess(T t) {
+            future.set(t);
+          }
+
+          @Override
+          public void onSubscribe(Disposable d) {
+            future.addListener(
+                () -> {
+                  if (future.isCancelled()) {
+                    d.dispose();
+                  }
+                },
+                directExecutor());
+          }
+        });
+
     try {
-      return withChannelBlockingGet(source);
+      return future.get();
     } catch (ExecutionException e) {
       Throwable cause = e.getCause();
       Throwables.throwIfInstanceOf(cause, IOException.class);
@@ -108,39 +141,14 @@ public class ReferenceCountedChannel implements ReferenceCounted {
     }
   }
 
-  // prevents rxjava silent possible wrap of RuntimeException and misinterpretation
-  private <T> T withChannelBlockingGet(Function<Channel, T> source)
-      throws ExecutionException, InterruptedException {
-    SettableFuture<T> future = SettableFuture.create();
-    withChannel(channel -> Single.just(source.apply(channel)))
-        .subscribe(
-            new SingleObserver<T>() {
-              @Override
-              public void onError(Throwable t) {
-                future.setException(t);
-              }
-
-              @Override
-              public void onSuccess(T t) {
-                future.set(t);
-              }
-
-              @Override
-              public void onSubscribe(Disposable d) {
-                future.addListener(
-                    () -> {
-                      if (future.isCancelled()) {
-                        d.dispose();
-                      }
-                    },
-                    directExecutor());
-              }
-            });
-    return future.get();
-  }
-
   @CheckReturnValue
   public <T> Single<T> withChannel(Function<Channel, ? extends SingleSource<? extends T>> source) {
+    return withChannelConnection(channelConnection -> source.apply(channelConnection.getChannel()));
+  }
+
+  private <T> Single<T> withChannelConnection(
+      Function<ChannelConnectionWithServerCapabilities, ? extends SingleSource<? extends T>>
+          source) {
     return dynamicConnectionPool
         .create()
         .flatMap(
@@ -148,10 +156,10 @@ public class ReferenceCountedChannel implements ReferenceCounted {
                 Single.using(
                     () -> sharedConnection,
                     conn -> {
-                      ChannelConnection connection =
-                          (ChannelConnection) sharedConnection.getUnderlyingConnection();
-                      Channel channel = connection.getChannel();
-                      return source.apply(channel);
+                      var connection =
+                          (ChannelConnectionWithServerCapabilities)
+                              sharedConnection.getUnderlyingConnection();
+                      return source.apply(connection);
                     },
                     SharedConnection::close));
   }

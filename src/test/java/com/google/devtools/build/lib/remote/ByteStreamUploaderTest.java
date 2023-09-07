@@ -23,6 +23,7 @@ import static org.mockito.ArgumentMatchers.any;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.RequestMetadata;
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdInputStream;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamImplBase;
@@ -41,7 +42,6 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -121,11 +121,13 @@ public class ByteStreamUploaderTest {
             .start();
     referenceCountedChannel =
         new ReferenceCountedChannel(
-            new ChannelConnectionFactory() {
+            new ChannelConnectionWithServerCapabilitiesFactory() {
               @Override
-              public Single<? extends ChannelConnection> create() {
+              public Single<ChannelConnectionWithServerCapabilities> create() {
                 return Single.just(
-                    new ChannelConnection(InProcessChannelBuilder.forName(serverName).build()));
+                    new ChannelConnectionWithServerCapabilities(
+                        InProcessChannelBuilder.forName(serverName).build(),
+                        ServerCapabilities.getDefaultInstance()));
               }
 
               @Override
@@ -1059,14 +1061,15 @@ public class ByteStreamUploaderTest {
     referenceCountedChannel.release();
     referenceCountedChannel =
         new ReferenceCountedChannel(
-            new ChannelConnectionFactory() {
+            new ChannelConnectionWithServerCapabilitiesFactory() {
               @Override
-              public Single<? extends ChannelConnection> create() {
+              public Single<ChannelConnectionWithServerCapabilities> create() {
                 return Single.just(
-                    new ChannelConnection(
+                    new ChannelConnectionWithServerCapabilities(
                         InProcessChannelBuilder.forName(serverName)
                             .intercept(MetadataUtils.newAttachHeadersInterceptor(metadata))
-                            .build()));
+                            .build(),
+                        ServerCapabilities.getDefaultInstance()));
               }
 
               @Override

@@ -262,7 +262,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   }
 
   @Override
-  public CacheCapabilities getCacheCapabilities() {
+  public CacheCapabilities getCacheCapabilities() throws IOException {
     return channel.getServerCapabilities().getCacheCapabilities();
   }
 

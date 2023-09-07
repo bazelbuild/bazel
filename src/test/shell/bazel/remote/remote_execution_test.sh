@@ -99,8 +99,10 @@ function test_credential_helper_remote_cache() {
 
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
-      //a:a >& $TEST_log && fail "Build without credentials should have failed"
+      //a:a >& $TEST_log || fail "Build without credentials should have succeeded"
   expect_log "Failed to query remote execution capabilities"
+
+  bazel clean
 
   # Helper shouldn't have been called yet.
   expect_credential_helper_calls 0
@@ -585,6 +587,7 @@ EOF
       --remote_executor=grpc://noexist.invalid \
       --remote_local_fallback \
       --build_event_text_file=gen1.log \
+      --nobuild_event_text_file_path_conversion \
       //gen1 >& $TEST_log \
       || fail "Expected success"
 
@@ -2696,7 +2699,7 @@ EOF
       --tls_certificate=/nope \
       //a:foo >& $TEST_log && fail "Expected to fail" || true
 
-  expect_log "ERROR: Failed to query remote execution capabilities: Failed to init TLS infrastructure using '/nope' as root certificate: File does not contain valid certificates: /nope"
+  expect_log "Failed to init TLS infrastructure using '/nope' as root certificate: File does not contain valid certificates: /nope"
 }
 
 function test_async_upload_works_for_flaky_tests() {

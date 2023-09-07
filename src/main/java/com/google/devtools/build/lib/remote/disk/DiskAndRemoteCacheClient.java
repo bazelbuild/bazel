@@ -202,7 +202,7 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public CacheCapabilities getCacheCapabilities() {
+  public CacheCapabilities getCacheCapabilities() throws IOException {
     return remoteCache.getCacheCapabilities();
   }
 

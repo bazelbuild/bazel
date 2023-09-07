@@ -23,6 +23,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
+import java.io.IOException;
 import java.io.OutputStream;
 import javax.annotation.Nullable;
 
@@ -32,7 +33,7 @@ import javax.annotation.Nullable;
  * <p>Implementations must be thread-safe.
  */
 public interface RemoteCacheClient extends MissingDigestsFinder {
-  CacheCapabilities getCacheCapabilities();
+  CacheCapabilities getCacheCapabilities() throws IOException;
 
   ListenableFuture<String> getAuthority();
 

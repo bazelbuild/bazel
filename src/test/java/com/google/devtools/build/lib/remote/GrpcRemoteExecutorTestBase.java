@@ -27,7 +27,6 @@ import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
-import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.common.options.Options;
@@ -82,8 +81,8 @@ public abstract class GrpcRemoteExecutorTestBase {
           .setResult(ActionResult.newBuilder().addOutputFiles(DUMMY_OUTPUT).build())
           .build();
 
-  protected abstract RemoteExecutionClient createExecutionService(
-      ServerCapabilities caps, ReferenceCountedChannel channel) throws Exception;
+  protected abstract RemoteExecutionClient createExecutionService(ReferenceCountedChannel channel)
+      throws Exception;
 
   @Before
   public void setUp() throws Exception {
@@ -105,15 +104,20 @@ public abstract class GrpcRemoteExecutorTestBase {
 
     ReferenceCountedChannel channel =
         new ReferenceCountedChannel(
-            new ChannelConnectionFactory() {
+            new ChannelConnectionWithServerCapabilitiesFactory() {
               @Override
-              public Single<? extends ChannelConnection> create() {
+              public Single<ChannelConnectionWithServerCapabilities> create() {
                 ManagedChannel ch =
                     InProcessChannelBuilder.forName(fakeServerName)
                         .intercept(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions))
                         .directExecutor()
                         .build();
-                return Single.just(new ChannelConnection(ch));
+                ServerCapabilities caps =
+                    ServerCapabilities.newBuilder()
+                        .setExecutionCapabilities(
+                            ExecutionCapabilities.newBuilder().setExecEnabled(true).build())
+                        .build();
+                return Single.just(new ChannelConnectionWithServerCapabilities(ch, caps));
               }
 
               @Override
@@ -122,13 +126,7 @@ public abstract class GrpcRemoteExecutorTestBase {
               }
             });
 
-    ServerCapabilities caps =
-        ServerCapabilities.newBuilder()
-            .setExecutionCapabilities(
-                ExecutionCapabilities.newBuilder().setExecEnabled(true).build())
-            .build();
-
-    executor = createExecutionService(caps, channel);
+    executor = createExecutionService(channel);
   }
 
   @After

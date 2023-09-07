@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -120,21 +119,6 @@ public final class RemoteModuleTest {
                   .build())
           .build();
 
-  private static final ServerCapabilities NONE_CAPS =
-      ServerCapabilities.newBuilder()
-          .setLowApiVersion(ApiVersion.low.toSemVer())
-          .setHighApiVersion(ApiVersion.high.toSemVer())
-          .build();
-
-  private static final CapabilitiesImpl INACCESSIBLE_GRPC_REMOTE =
-      new CapabilitiesImpl(null) {
-        @Override
-        public void getCapabilities(
-            GetCapabilitiesRequest request, StreamObserver<ServerCapabilities> responseObserver) {
-          responseObserver.onError(new UnsupportedOperationException());
-        }
-      };
-
   private static CommandEnvironment createTestCommandEnvironment(
       RemoteModule remoteModule, RemoteOptions remoteOptions)
       throws IOException, AbruptExitException {
@@ -239,10 +223,16 @@ public final class RemoteModuleTest {
     try {
       remoteOptions.remoteExecutor = EXECUTION_SERVER_NAME;
 
-      CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
+      beforeCommand();
 
-      remoteModule.beforeCommand(env);
-
+      assertThat(remoteModule.getActionContextProvider().getRemoteCache().getCacheCapabilities())
+          .isEqualTo(EXEC_AND_CACHE_CAPS.getCacheCapabilities());
+      assertThat(
+              remoteModule
+                  .getActionContextProvider()
+                  .getRemoteExecutionClient()
+                  .getServerCapabilities())
+          .isEqualTo(EXEC_AND_CACHE_CAPS);
       assertThat(Thread.interrupted()).isFalse();
       assertThat(executionServerCapabilitiesImpl.getRequestCount()).isEqualTo(1);
       assertCircuitBreakerInstance();
@@ -261,10 +251,10 @@ public final class RemoteModuleTest {
     try {
       remoteOptions.remoteCache = CACHE_SERVER_NAME;
 
-      CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
+      beforeCommand();
 
-      remoteModule.beforeCommand(env);
-
+      assertThat(remoteModule.getActionContextProvider().getRemoteCache().getCacheCapabilities())
+          .isEqualTo(CACHE_ONLY_CAPS.getCacheCapabilities());
       assertThat(Thread.interrupted()).isFalse();
       assertThat(cacheServerCapabilitiesImpl.getRequestCount()).isEqualTo(1);
       assertCircuitBreakerInstance();
@@ -289,10 +279,16 @@ public final class RemoteModuleTest {
       remoteOptions.remoteExecutor = EXECUTION_SERVER_NAME;
       remoteOptions.remoteCache = CACHE_SERVER_NAME;
 
-      CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
+      beforeCommand();
 
-      remoteModule.beforeCommand(env);
-
+      assertThat(remoteModule.getActionContextProvider().getRemoteCache().getCacheCapabilities())
+          .isEqualTo(EXEC_AND_CACHE_CAPS.getCacheCapabilities());
+      assertThat(
+              remoteModule
+                  .getActionContextProvider()
+                  .getRemoteExecutionClient()
+                  .getServerCapabilities())
+          .isEqualTo(EXEC_AND_CACHE_CAPS);
       assertThat(Thread.interrupted()).isFalse();
       assertThat(executionServerCapabilitiesImpl.getRequestCount()).isEqualTo(1);
       assertThat(cacheServerCapabilitiesImpl.getRequestCount()).isEqualTo(1);
@@ -321,10 +317,16 @@ public final class RemoteModuleTest {
       remoteOptions.remoteExecutor = EXECUTION_SERVER_NAME;
       remoteOptions.remoteCache = CACHE_SERVER_NAME;
 
-      CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
+      beforeCommand();
 
-      remoteModule.beforeCommand(env);
-
+      assertThat(remoteModule.getActionContextProvider().getRemoteCache().getCacheCapabilities())
+          .isEqualTo(CACHE_ONLY_CAPS.getCacheCapabilities());
+      assertThat(
+              remoteModule
+                  .getActionContextProvider()
+                  .getRemoteExecutionClient()
+                  .getServerCapabilities())
+          .isEqualTo(EXEC_ONLY_CAPS);
       assertThat(Thread.interrupted()).isFalse();
       assertThat(executionServerCapabilitiesImpl.getRequestCount()).isEqualTo(1);
       assertThat(cacheServerCapabilitiesImpl.getRequestCount()).isEqualTo(1);
@@ -335,95 +337,6 @@ public final class RemoteModuleTest {
 
       executionServer.awaitTermination();
       cacheServer.awaitTermination();
-    }
-  }
-
-  @Test
-  public void testLocalFallback_shouldErrorForRemoteCacheWithoutRequiredCapabilities()
-      throws Exception {
-    CapabilitiesImpl cacheServerCapabilitiesImpl = new CapabilitiesImpl(NONE_CAPS);
-    Server cacheServer = createFakeServer(CACHE_SERVER_NAME, cacheServerCapabilitiesImpl);
-    cacheServer.start();
-
-    try {
-      remoteOptions.remoteCache = CACHE_SERVER_NAME;
-      remoteOptions.remoteLocalFallback = true;
-
-      CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
-
-      assertThrows(AbruptExitException.class, () -> remoteModule.beforeCommand(env));
-    } finally {
-      cacheServer.shutdownNow();
-      cacheServer.awaitTermination();
-    }
-  }
-
-  @Test
-  public void testLocalFallback_shouldErrorInaccessibleGrpcRemoteCacheIfFlagNotSet()
-      throws Exception {
-    Server cacheServer = createFakeServer(CACHE_SERVER_NAME, INACCESSIBLE_GRPC_REMOTE);
-    cacheServer.start();
-
-    try {
-      remoteOptions.remoteCache = CACHE_SERVER_NAME;
-      remoteOptions.remoteLocalFallback = false;
-
-      CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
-
-      assertThrows(AbruptExitException.class, () -> remoteModule.beforeCommand(env));
-    } finally {
-      cacheServer.shutdownNow();
-      cacheServer.awaitTermination();
-    }
-  }
-
-  @Test
-  public void testLocalFallback_shouldIgnoreInaccessibleGrpcRemoteCache() throws Exception {
-    Server cacheServer = createFakeServer(CACHE_SERVER_NAME, INACCESSIBLE_GRPC_REMOTE);
-    cacheServer.start();
-
-    try {
-      remoteOptions.remoteCache = CACHE_SERVER_NAME;
-      remoteOptions.remoteLocalFallback = true;
-
-      CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
-
-      remoteModule.beforeCommand(env);
-
-      assertThat(Thread.interrupted()).isFalse();
-      RemoteActionContextProvider actionContextProvider = remoteModule.getActionContextProvider();
-      assertThat(actionContextProvider).isNotNull();
-      assertThat(actionContextProvider.getRemoteCache()).isNull();
-      assertThat(actionContextProvider.getRemoteExecutionClient()).isNull();
-      assertCircuitBreakerInstance();
-    } finally {
-      cacheServer.shutdownNow();
-      cacheServer.awaitTermination();
-    }
-  }
-
-  @Test
-  public void testLocalFallback_shouldIgnoreInaccessibleGrpcRemoteExecutor() throws Exception {
-    Server executionServer = createFakeServer(EXECUTION_SERVER_NAME, INACCESSIBLE_GRPC_REMOTE);
-    executionServer.start();
-
-    try {
-      remoteOptions.remoteExecutor = EXECUTION_SERVER_NAME;
-      remoteOptions.remoteLocalFallback = true;
-
-      CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
-
-      remoteModule.beforeCommand(env);
-
-      assertThat(Thread.interrupted()).isFalse();
-      RemoteActionContextProvider actionContextProvider = remoteModule.getActionContextProvider();
-      assertThat(actionContextProvider).isNotNull();
-      assertThat(actionContextProvider.getRemoteCache()).isNull();
-      assertThat(actionContextProvider.getRemoteExecutionClient()).isNull();
-      assertCircuitBreakerInstance();
-    } finally {
-      executionServer.shutdownNow();
-      executionServer.awaitTermination();
     }
   }
 
@@ -465,9 +378,7 @@ public final class RemoteModuleTest {
     try {
       remoteOptions.remoteCache = CACHE_SERVER_NAME;
 
-      CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
-
-      remoteModule.beforeCommand(env);
+      beforeCommand();
 
       assertThat(Thread.interrupted()).isFalse();
       RemoteActionContextProvider actionContextProvider = remoteModule.getActionContextProvider();
@@ -491,9 +402,7 @@ public final class RemoteModuleTest {
     try {
       remoteOptions.remoteExecutor = EXECUTION_SERVER_NAME;
 
-      CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
-
-      remoteModule.beforeCommand(env);
+      beforeCommand();
 
       assertThat(Thread.interrupted()).isFalse();
       RemoteActionContextProvider actionContextProvider = remoteModule.getActionContextProvider();
@@ -519,10 +428,14 @@ public final class RemoteModuleTest {
       remoteOptions.remoteExecutor = EXECUTION_SERVER_NAME;
       remoteOptions.circuitBreakerStrategy = RemoteOptions.CircuitBreakerStrategy.FAILURE;
 
-      CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
+      beforeCommand();
 
-      remoteModule.beforeCommand(env);
-
+      assertThat(
+              remoteModule
+                  .getActionContextProvider()
+                  .getRemoteExecutionClient()
+                  .getServerCapabilities())
+          .isEqualTo(EXEC_AND_CACHE_CAPS);
       assertThat(Thread.interrupted()).isFalse();
       assertThat(executionServerCapabilitiesImpl.getRequestCount()).isEqualTo(1);
       assertCircuitBreakerInstance();
@@ -542,10 +455,10 @@ public final class RemoteModuleTest {
       remoteOptions.remoteCache = CACHE_SERVER_NAME;
       remoteOptions.circuitBreakerStrategy = RemoteOptions.CircuitBreakerStrategy.FAILURE;
 
-      CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
+      beforeCommand();
 
-      remoteModule.beforeCommand(env);
-
+      assertThat(remoteModule.getActionContextProvider().getRemoteCache().getCacheCapabilities())
+          .isEqualTo(CACHE_ONLY_CAPS.getCacheCapabilities());
       assertThat(Thread.interrupted()).isFalse();
       assertThat(cacheServerCapabilitiesImpl.getRequestCount()).isEqualTo(1);
       assertCircuitBreakerInstance();
@@ -553,6 +466,12 @@ public final class RemoteModuleTest {
       cacheServer.shutdownNow();
       cacheServer.awaitTermination();
     }
+  }
+
+  private void beforeCommand() throws IOException, AbruptExitException {
+    CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
+    remoteModule.beforeCommand(env);
+    env.throwPendingException();
   }
 
   private void assertCircuitBreakerInstance() {
