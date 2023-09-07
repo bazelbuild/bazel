@@ -972,10 +972,11 @@ public class RemoteExecutionService {
     Map<Path, ListenableFuture<Tree>> dirMetadataDownloads =
         Maps.newHashMapWithExpectedSize(result.getOutputDirectoriesCount());
     for (OutputDirectory dir : result.getOutputDirectories()) {
+      var outputPath = encodeBytestringUtf8(dir.getPath());
       dirMetadataDownloads.put(
-          remotePathResolver.outputPathToLocalPath(encodeBytestringUtf8(dir.getPath())),
+          remotePathResolver.outputPathToLocalPath(outputPath),
           Futures.transformAsync(
-              remoteCache.downloadBlob(context, dir.getTreeDigest()),
+              remoteCache.downloadBlob(context, outputPath, dir.getTreeDigest()),
               (treeBytes) ->
                   immediateFuture(Tree.parseFrom(treeBytes, ExtensionRegistry.getEmptyRegistry())),
               directExecutor()));
@@ -1117,7 +1118,8 @@ public class RemoteExecutionService {
         if (isInMemoryOutputFile) {
           downloadsBuilder.add(
               transform(
-                  remoteCache.downloadBlob(context, file.digest()),
+                  remoteCache.downloadBlob(
+                      context, inMemoryOutputPath.getPathString(), file.digest()),
                   data -> {
                     inMemoryOutputData.set(data);
                     return null;
