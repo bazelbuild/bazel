@@ -1811,7 +1811,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "  srcs = ['custom.cc'],",
         "  deps = ['dep'],",
         ")");
-    useConfiguration("--incompatible_auto_exec_groups", "--features=thin_lto");
+    useConfiguration("--incompatible_auto_exec_groups", "--features=thin_lto", "--noincompatible_enable_cc_toolchain_resolution");
     AnalysisMock.get()
         .ccSupport()
         .setupCcToolchainConfig(
