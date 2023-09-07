@@ -76,10 +76,10 @@ function test_cc_test() {
 
 function test_number_of_linked_libs() {
   binary=$(find . -name binary)
-  expected_num_libs="6"
+  expected_num_libs="5"
   num_libs=$(readelf -d  $binary | grep NEEDED | wc -l)
   echo "$num_libs" | (grep -q  "$expected_num_libs" \
-    || (echo "Expected no more than "$expected_num_libs" linked libraries but was $num_libs" && exit 1))
+    || (echo "Expected $expected_num_libs linked libraries but was $num_libs" && exit 1))
 }
 
 test_shared_library_user_link_flags

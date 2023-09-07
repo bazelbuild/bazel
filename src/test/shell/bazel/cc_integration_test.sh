@@ -1928,4 +1928,28 @@ function test_find_optional_cpp_toolchain_not_present_with_toolchain_resolution(
   assert_contains "Toolchain not found" bazel-bin/pkg/my_rule
 }
 
+function test_no_cpp_stdlib_linked_to_c_library() {
+  mkdir pkg
+  cat > pkg/BUILD <<'EOF'
+cc_binary(
+  name = 'example',
+  srcs = ['example.c'],
+)
+EOF
+  cat > pkg/example.c <<'EOF'
+int main() {}
+EOF
+
+  bazel build //pkg:example &> "$TEST_log" || fail "Build failed"
+  if is_darwin; then
+    otool -L bazel-bin/pkg/example &> "$TEST_log" || fail "otool failed"
+    expect_log 'libc'
+    expect_not_log 'libc\+\+'
+  else
+    ldd bazel-bin/pkg/example &> "$TEST_log" || fail "ldd failed"
+    expect_log 'libc'
+    expect_not_log 'libstdc\+\+'
+  fi
+}
+
 run_suite "cc_integration_test"
