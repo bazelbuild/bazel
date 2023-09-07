@@ -59,6 +59,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputMap;
+import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.ActionUploadFinishedEvent;
 import com.google.devtools.build.lib.actions.ActionUploadStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -2269,6 +2270,7 @@ public class RemoteExecutionServiceTest {
             execRoot,
             tempPathGenerator,
             remoteOutputChecker,
+            ActionOutputDirectoryHelper.createForTesting(),
             OutputPermissions.READONLY);
 
     var actionFileSystem =

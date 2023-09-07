@@ -156,16 +156,33 @@ public final class ActionOutputDirectoryHelper {
       }
 
       if (done.add(outputDir)) {
-        Path rootPath = outputFile.getRoot().getRoot().asPath();
-        try {
-          createAndCheckForSymlinks(outputDir, rootPath);
-          continue;
-        } catch (IOException e) {
-          /* Fall through to plan B. */
-        }
-
-        forceCreateDirectoryAndParents(outputDir, rootPath);
+        createOutputDirectory(outputDir, outputFile.getRoot().getRoot().asPath());
       }
+    }
+  }
+
+  /**
+   * Creates a writable output directory, including missing ancestor directories.
+   *
+   * <p>If a path to be created already exists but is not a directory, it is recursively deleted and
+   * an empty directory is created in its place. If the path exists but is a non-writable directory,
+   * it is made writable.
+   *
+   * <p>Already created directories are recorded in {@link #knownDirectories} to avoid recreating
+   * them; calling this method a second time for the same directory is a no-op. For this reason,
+   * this method should not be used with an action file system, as an output directory shared across
+   * actions would only be created in the action filesystem for one of them.
+   *
+   * @throws CreateOutputDirectoryException if the output directory or one of its ancestor
+   *     directories fails to be created
+   */
+  public void createOutputDirectory(Path outputDir, Path rootPath)
+      throws CreateOutputDirectoryException {
+    try {
+      createAndCheckForSymlinks(outputDir, rootPath);
+    } catch (IOException e) {
+      /* Fall through to plan B. */
+      forceCreateDirectoryAndParents(outputDir, rootPath);
     }
   }
 

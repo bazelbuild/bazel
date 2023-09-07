@@ -65,6 +65,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputMap;
+import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -1563,6 +1564,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             execRoot,
             tempPathGenerator,
             remoteOutputChecker,
+            ActionOutputDirectoryHelper.createForTesting(),
             OutputPermissions.READONLY);
 
     var actionFileSystem =

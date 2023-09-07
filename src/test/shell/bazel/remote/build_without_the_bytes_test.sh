@@ -1265,6 +1265,117 @@ EOF
   expect_log "-r-xr-xr-x"
 }
 
+function do_test_prefetcher_recreate_dir() {
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //:test >& $TEST_log || fail "Failed to run test"
+
+  if ! [[ -f "bazel-bin/some/nested/file" ]]; then
+    fail "Expected bazel-bin/some/nested/file to exist after clean build"
+  fi
+
+  # Delete directory, rerun build
+  chmod -R +w bazel-bin/some
+  rm -rf bazel-bin/some
+
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --nocache_test_results \
+    //:test >& $TEST_log || fail "Test failed"
+
+  if ! [[ -f "bazel-bin/some/nested/file" ]]; then
+    fail "Expected bazel-bin/some/nested/file to exist"
+  fi
+
+  # Clear directory and make it read-only, rerun build
+  chmod -R +w bazel-bin/some
+  rm -rf bazel-bin/some
+  mkdir bazel-bin/some
+  chmod -w bazel-bin/some
+
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --nocache_test_results \
+    //:test >& $TEST_log || fail "Test failed"
+
+  if ! [[ -f "bazel-bin/some/nested/file" ]]; then
+    fail "Expected bazel-bin/nested/file to exist"
+  fi
+
+  # Replace directory with file, rerun build
+  chmod -R +w bazel-bin/some
+  rm -rf bazel-bin/some
+  touch bazel-bin/some
+  chmod -w bazel-bin/some
+
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --nocache_test_results \
+    //:test >& $TEST_log || fail "Test failed"
+
+  if ! [[ -f "bazel-bin/some/nested/file" ]]; then
+    fail "Expected bazel-bin/some/nested/file to exist"
+  fi
+}
+
+function test_prefetcher_recreate_non_tree_dir() {
+  # Test that the prefetcher recreates a non-tree directory when fetching a
+  # remotely stored output into an externally modified output tree.
+  cat > BUILD <<'EOF'
+genrule(
+  name = "gen",
+  outs = ["some/nested/file"],
+  cmd = "touch $@",
+)
+
+sh_test(
+  name = "test",
+  srcs = ["test.sh"],
+  data = [":some/nested/file"],
+  tags = ["no-remote"],
+)
+EOF
+  touch test.sh
+  chmod +x test.sh
+
+  do_test_prefetcher_recreate_dir
+}
+
+function test_prefetcher_recreate_tree_dir() {
+  # Test that the prefetcher recreates a tree directory when fetching a
+  # remotely stored output into an externally modified output tree.
+  cat > defs.bzl <<'EOF'
+def _impl(ctx):
+  d = ctx.actions.declare_directory("some")
+  ctx.actions.run_shell(
+    outputs = [d],
+    command = "mkdir -p $DIR/nested && touch $DIR/nested/file",
+    env = {"DIR": d.path},
+  )
+  return DefaultInfo(files = depset([d]))
+
+tree = rule(_impl)
+EOF
+  cat > BUILD <<'EOF'
+load(":defs.bzl", "tree")
+
+tree(
+  name = "gen",
+)
+
+sh_test(
+  name = "test",
+  srcs = ["test.sh"],
+  data = [":gen"],
+  tags = ["no-remote"],
+)
+EOF
+  touch test.sh
+  chmod +x test.sh
+
+  do_test_prefetcher_recreate_dir
+}
+
 function test_remote_cache_intermediate_outputs_toplevel() {
   # test that remote cache is hit when intermediate output is not executable in remote download toplevel mode
   touch WORKSPACE

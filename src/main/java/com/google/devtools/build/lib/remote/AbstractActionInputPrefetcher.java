@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
+import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -83,6 +84,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
   private final Set<ActionInput> missingActionInputs = Sets.newConcurrentHashSet();
 
+  private final ActionOutputDirectoryHelper outputDirectoryHelper;
+
   private static final Object dummyValue = new Object();
 
   /**
@@ -115,10 +118,12 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
      * Makes a directory temporarily writable for the remainder of the prefetcher call associated
      * with this context.
      *
-     * @param isDefinitelyTreeDir Whether this directory definitely belongs to a tree artifact.
-     *     Otherwise, whether it belongs to a tree artifact is inferred from its permissions.
+     * @param setOutputPermissions Whether the output permissions should be set on the directory
+     *     when this context is closed.
      */
-    void createOrSetWritable(Path dir, boolean isDefinitelyTreeDir) throws IOException {
+    void ensureWritable(Path dir, boolean setOutputPermissions) throws IOException {
+      checkArgument(dir.startsWith(execRoot));
+
       AtomicReference<IOException> caughtException = new AtomicReference<>();
 
       dirs.compute(
@@ -133,22 +138,10 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                 (innerUnused, state) -> {
                   if (state == null) {
                     state = new DirectoryState();
-                    state.numCalls = 0;
 
                     try {
-                      if (isDefinitelyTreeDir) {
-                        state.mustSetOutputPermissions = true;
-                        var ignored = dir.createWritableDirectory();
-                      } else {
-                        // If the directory is writable, it's a package and should be kept writable.
-                        // Otherwise, it must belong to a tree artifact, since the directory for a
-                        // tree is created in a non-writable state before prefetching begins, and
-                        // this is the first time the prefetcher is seeing it.
-                        state.mustSetOutputPermissions = !dir.isWritable();
-                        if (state.mustSetOutputPermissions) {
-                          dir.setWritable(true);
-                        }
-                      }
+                      outputDirectoryHelper.createOutputDirectory(dir, execRoot);
+                      dir.setWritable(true);
                     } catch (IOException e) {
                       caughtException.set(e);
                       return null;
@@ -156,6 +149,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                   }
 
                   ++state.numCalls;
+                  state.mustSetOutputPermissions |= setOutputPermissions;
 
                   return state;
                 });
@@ -175,8 +169,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     /**
      * Signals that the prefetcher call associated with this context has finished.
      *
-     * <p>The output permissions will be set on any directories temporarily made writable by this
-     * call, if this is the last remaining call temporarily making them writable.
+     * <p>If this is the last remaining call temporarily making a directory writable, and setting
+     * output permissions on it was requested, the permissions will be set.
      */
     void close() throws IOException {
       AtomicReference<IOException> caughtException = new AtomicReference<>();
@@ -230,11 +224,13 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       Path execRoot,
       TempPathGenerator tempPathGenerator,
       RemoteOutputChecker remoteOutputChecker,
+      ActionOutputDirectoryHelper outputDirectoryHelper,
       OutputPermissions outputPermissions) {
     this.reporter = reporter;
     this.execRoot = execRoot;
     this.tempPathGenerator = tempPathGenerator;
     this.remoteOutputChecker = remoteOutputChecker;
+    this.outputDirectoryHelper = outputDirectoryHelper;
     this.outputPermissions = outputPermissions;
   }
 
@@ -535,12 +531,14 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       throws IOException {
     Path parentDir = checkNotNull(finalPath.getParentDirectory());
 
+    // Ensure the parent directory exists and is writable. We cannot rely on this precondition to be
+    // have been established by the execution of the owning action in a previous invocation, since
+    // the output tree may have been externally modified in between invocations.
     if (treeRoot != null) {
       checkState(parentDir.startsWith(treeRoot));
 
-      // Create intermediate tree artifact directories.
-      // In order to minimize filesystem calls when prefetching multiple files into the same tree,
-      // find the closest existing ancestor directory and only create its descendants.
+      // Collect the set of intermediate tree artifact directories.
+      // Avoid repeatedly traversing common prefixes on large tree artifacts.
       Deque<Path> dirs = new ArrayDeque<>();
       for (Path dir = parentDir; ; dir = dir.getParentDirectory()) {
         dirs.push(dir);
@@ -552,21 +550,24 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       }
       while (!dirs.isEmpty()) {
         Path dir = dirs.pop();
-        // Create directory or make existing directory writable.
-        // We know with certainty that the directory belongs to a tree artifact.
-        dirCtx.createOrSetWritable(dir, /* isDefinitelyTreeDir= */ true);
+        // Set output permissions on tree subdirectories, matching the behavior of
+        // SkyframeActionExecutor#checkOutputs for artifacts produced by local
+        // actions.
+        dirCtx.ensureWritable(dir, /* setOutputPermissions= */ true);
       }
     } else {
-      // Temporarily make the parent directory writable if needed.
-      // We don't know with certainty that the directory does not belong to a tree artifact; it
-      // could if the fetched file is a non-tree artifact nested inside a tree artifact, or a
-      // tree artifact inside a fileset (see b/254844173 for the latter).
-      dirCtx.createOrSetWritable(parentDir, /* isDefinitelyTreeDir= */ false);
+      // Create the parent directory.
+      // We don't know with certainty that this directory does not belong to a tree artifact; it can
+      // happen if the fetched file is a non-tree artifact nested inside a tree artifact (when
+      // --incompatible_strict_conflict_checks is disabled) or a tree artifact inside a fileset
+      // (see b/254844173). In such cases, we won't set the output permissions on the tree artifact
+      // subdirectory after prefetching. It's difficult to do better; we must be able to operate on
+      // an arbitrary filesystem state, so we can't take a hint from preexisting permissions.
+      dirCtx.ensureWritable(parentDir, /* setOutputPermissions= */ false);
     }
 
-    // Set output permissions on files (tree subdirectories are handled in DirectoryContext#close),
-    // matching the behavior of SkyframeActionExecutor#checkOutputs for artifacts produced by local
-    // actions.
+    // Set output permissions on files, matching the behavior of SkyframeActionExecutor#checkOutputs
+    // for artifacts produced by local actions.
     tmpPath.chmod(outputPermissions.getPermissionsMode());
     FileSystemUtils.moveFile(tmpPath, finalPath);
   }

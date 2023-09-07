@@ -20,6 +20,7 @@ import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
+import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.events.Reporter;
@@ -52,8 +53,15 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
       Path execRoot,
       TempPathGenerator tempPathGenerator,
       RemoteOutputChecker remoteOutputChecker,
+      ActionOutputDirectoryHelper outputDirectoryHelper,
       OutputPermissions outputPermissions) {
-    super(reporter, execRoot, tempPathGenerator, remoteOutputChecker, outputPermissions);
+    super(
+        reporter,
+        execRoot,
+        tempPathGenerator,
+        remoteOutputChecker,
+        outputDirectoryHelper,
+        outputPermissions);
     this.buildRequestId = Preconditions.checkNotNull(buildRequestId);
     this.commandId = Preconditions.checkNotNull(commandId);
     this.remoteCache = Preconditions.checkNotNull(remoteCache);

@@ -53,6 +53,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputMap;
+import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -258,6 +259,7 @@ public class RemoteSpawnRunnerTest {
             execRoot,
             tempPathGenerator,
             remoteOutputChecker,
+            ActionOutputDirectoryHelper.createForTesting(),
             OutputPermissions.READONLY);
 
     var actionFileSystem =

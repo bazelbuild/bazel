@@ -1013,6 +1013,7 @@ public final class RemoteModule extends BlazeModule {
               env.getExecRoot(),
               tempPathGenerator,
               remoteOutputChecker,
+              env.getOutputDirectoryHelper(),
               outputPermissions);
       env.getEventBus().register(actionInputFetcher);
       builder.setActionInputPrefetcher(actionInputFetcher);
