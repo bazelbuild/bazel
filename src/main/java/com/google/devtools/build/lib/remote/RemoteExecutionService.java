@@ -1004,10 +1004,11 @@ public class RemoteExecutionService {
     Map<Path, ListenableFuture<Tree>> dirMetadataDownloads =
         Maps.newHashMapWithExpectedSize(result.getOutputDirectoriesCount());
     for (OutputDirectory dir : result.getOutputDirectories()) {
+      var outputPath = encodeBytestringUtf8(dir.getPath());
       dirMetadataDownloads.put(
-          remotePathResolver.outputPathToLocalPath(encodeBytestringUtf8(dir.getPath())),
+          remotePathResolver.outputPathToLocalPath(outputPath),
           Futures.transformAsync(
-              remoteCache.downloadBlob(context, dir.getTreeDigest()),
+              remoteCache.downloadBlob(context, outputPath, dir.getTreeDigest()),
               (treeBytes) ->
                   immediateFuture(Tree.parseFrom(treeBytes, ExtensionRegistry.getEmptyRegistry())),
               directExecutor()));
@@ -1177,7 +1178,7 @@ public class RemoteExecutionService {
       try (SilentCloseable c = Profiler.instance().profile("Remote.downloadInMemoryOutput")) {
         if (inMemoryOutput != null) {
           ListenableFuture<byte[]> inMemoryOutputDownload =
-              remoteCache.downloadBlob(context, inMemoryOutputDigest);
+              remoteCache.downloadBlob(context, inMemoryOutputPath.getPathString(), inMemoryOutputDigest);
           waitForBulkTransfer(
               ImmutableList.of(inMemoryOutputDownload), /* cancelRemainingOnInterrupt= */ true);
           byte[] data = getFromFuture(inMemoryOutputDownload);

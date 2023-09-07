@@ -86,14 +86,18 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
       if (!result.getStdoutRaw().isEmpty()) {
         stdout = result.getStdoutRaw().toByteArray();
       } else if (result.hasStdoutDigest()) {
-        stdout = Utils.getFromFuture(remoteCache.downloadBlob(context, result.getStdoutDigest()));
+        stdout =
+            Utils.getFromFuture(
+                remoteCache.downloadBlob(context, "<stdout>", result.getStdoutDigest()));
       }
 
       byte[] stderr = new byte[0];
       if (!result.getStderrRaw().isEmpty()) {
         stderr = result.getStderrRaw().toByteArray();
       } else if (result.hasStderrDigest()) {
-        stderr = Utils.getFromFuture(remoteCache.downloadBlob(context, result.getStderrDigest()));
+        stderr =
+            Utils.getFromFuture(
+                remoteCache.downloadBlob(context, "<stderr>", result.getStderrDigest()));
       }
 
       return new ExecutionResult(result.getExitCode(), stdout, stderr);
@@ -138,7 +142,7 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
             platform,
             timeout,
             acceptCached,
-            /*salt=*/ null);
+            /* salt= */ null);
     Digest actionDigest = digestUtil.compute(action);
     ActionKey actionKey = new ActionKey(actionDigest);
     CachedActionResult cachedActionResult;
@@ -158,7 +162,7 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
         additionalInputs.put(actionDigest, action);
         additionalInputs.put(commandHash, command);
 
-        remoteCache.ensureInputsPresent(context, merkleTree, additionalInputs, /*force=*/ true);
+        remoteCache.ensureInputsPresent(context, merkleTree, additionalInputs, /* force= */ true);
       }
 
       try (SilentCloseable c =
