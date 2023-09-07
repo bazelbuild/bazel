@@ -18,6 +18,7 @@ load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
 load("@_builtins//:common/objc/attrs.bzl", "common_attrs")
 load("@_builtins//:common/objc/transitions.bzl", "apple_crosstool_transition")
 load("@_builtins//:common/cc/cc_helper.bzl", "cc_helper")
+load("@_builtins//:common/cc/semantics.bzl", "semantics")
 
 objc_internal = _builtins.internal.objc_internal
 CcInfo = _builtins.toplevel.CcInfo
@@ -102,7 +103,7 @@ objc_library = rule(
         common_attrs.XCRUN_RULE,
     ),
     fragments = ["objc", "apple", "cpp"],
-    cfg = apple_crosstool_transition,
+    cfg = None if semantics.incompatible_disable_objc_library_transition() else apple_crosstool_transition,
     toolchains = cc_helper.use_cpp_toolchain(),
     incompatible_use_toolchain_transition = True,
 )

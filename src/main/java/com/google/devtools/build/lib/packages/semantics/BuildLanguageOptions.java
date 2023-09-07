@@ -662,6 +662,17 @@ public final class BuildLanguageOptions extends OptionsBase {
       help = "If enabled, targets that have unknown attributes set to None fail.")
   public boolean incompatibleFailOnUnknownAttributes;
 
+  @Option(
+      name = "incompatible_disable_objc_library_transition",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "Disable objc_library's custom transition and inherit "
+              + "from the top level target instead")
+  public boolean incompatibleDisableObjcLibraryTransition;
+
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
    * never accumulate a large number of these and being able to shortcut on object identity makes a
@@ -754,6 +765,9 @@ public final class BuildLanguageOptions extends OptionsBase {
                 EXPERIMENTAL_GET_FIXED_CONFIGURED_ACTION_ENV,
                 experimentalGetFixedConfiguredEnvironment)
             .setBool(INCOMPATIBLE_FAIL_ON_UNKNOWN_ATTRIBUTES, incompatibleFailOnUnknownAttributes)
+            .setBool(
+                INCOMPATIBLE_DISABLE_OBJC_LIBRARY_TRANSITION,
+                incompatibleDisableObjcLibraryTransition)
             .build();
     return INTERNER.intern(semantics);
   }
@@ -844,6 +858,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-experimental_get_fixed_configured_action_env";
   public static final String INCOMPATIBLE_FAIL_ON_UNKNOWN_ATTRIBUTES =
       "-incompatible_fail_on_unknown_attributes";
+  public static final String INCOMPATIBLE_DISABLE_OBJC_LIBRARY_TRANSITION =
+      "-incompatible_disable_objc_library_transition";
 
   // non-booleans
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =
