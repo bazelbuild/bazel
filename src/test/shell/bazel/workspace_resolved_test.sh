@@ -796,27 +796,29 @@ test_non_reproducibility_detected() {
     mkdir repo
     cd repo
     touch BUILD
-    cat > rule.bzl <<'EOF'
-def _time_rule_impl(ctx):
-  ctx.execute(["bash", "-c", "date +%s > timestamp"])
+    cat > rule.bzl <<EOF
+def _lol_rule_impl(ctx):
+  ctx.execute(["bash", "-c", "cp ${EXTREPODIR}/lol ."])
 
-time_rule = repository_rule(
-  implementation = _time_rule_impl,
+lol_rule = repository_rule(
+  implementation = _lol_rule_impl,
   attrs = {},
 )
 EOF
-  cat > WORKSPACE <<'EOF'
-load("//:rule.bzl", "time_rule")
+  cat > WORKSPACE <<EOF
+load("//:rule.bzl", "lol_rule")
 
-time_rule(name="timestamprepo")
+lol_rule(name="lolrule")
 EOF
 
+    echo foo > ../lol
     bazel sync --experimental_repository_resolved_file=resolved.bzl
     cat resolved.bzl > /dev/null || fail "resolved.bzl should exist"
+    echo bar > ../lol
     bazel sync --experimental_repository_hash_file=`pwd`/resolved.bzl \
-          --experimental_verify_repository_rules='//:rule.bzl%time_rule' \
+          --experimental_verify_repository_rules='//:rule.bzl%lol_rule' \
           > "${TEST_log}" 2>&1 && fail "expected failure" || :
-    expect_log "timestamprepo.*hash"
+    expect_log "lolrule.*hash"
 }
 
 test_chain_resolved() {
