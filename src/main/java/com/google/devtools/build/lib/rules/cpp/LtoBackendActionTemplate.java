@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
@@ -139,6 +140,85 @@ public final class LtoBackendActionTemplate extends ActionKeyCacher
     return FileSystemUtils.removeExtension(FileSystemUtils.removeExtension(path));
   }
 
+  @Nullable
+  private TreeFileArtifact generateDwoArtifact(
+      String fullBitcodeRelativePath, ActionLookupKey artifactOwner) {
+    if (dwoFileTreeArtifact != null) {
+      return TreeFileArtifact.createTemplateExpansionOutput(
+          dwoFileTreeArtifact,
+          FileSystemUtils.replaceExtension(PathFragment.create(fullBitcodeRelativePath), ".dwo"),
+          artifactOwner);
+    } else {
+      return null;
+    }
+  }
+
+  private TreeFileArtifact generateOutputObjArtifact(
+      String fullBitcodeRelativePath, ActionLookupKey artifactOwner) {
+    return TreeFileArtifact.createTemplateExpansionOutput(
+        objectFileTreeArtifact, fullBitcodeRelativePath, artifactOwner);
+  }
+
+  /**
+   * Generates actions for the input artifacts.
+   *
+   * <p>If indexAndImportsTreeArtifact is null, {@link getInputTreeArtifact} will return the
+   * fullBitcodeTreeArtifact and the input artifacts for this action template will be the
+   * fullBitcodeTreeFileArtifacts otherwise it will be the indexAndImportsTreeFileArtifacts.
+   *
+   * <p>We use indexAndImportsTreeFileArtifact when possible instead of making both cases expand the
+   * fullBitcodeTreeFileArtifacts so we can split the contents of indexAndImportsTreeFileArtifact
+   * into index files and import files, and use it to give better error messages.
+   */
+  @Override
+  public ImmutableList<LtoBackendAction> generateActionsForInputArtifacts(
+      ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner)
+      throws ActionExecutionException {
+    if (indexAndImportsTreeArtifact != null) {
+      return generateActionsForLtoArtifacts(inputTreeFileArtifacts, artifactOwner);
+    } else {
+      return generateActionsForNonLtoArtifacts(inputTreeFileArtifacts, artifactOwner);
+    }
+  }
+
+  /**
+   * When generating actions for the shared nonlto backend, we do not use
+   * indexAndImportsTreeArtifact, instead we only use the fullBitcodeTreeArtifact files.
+   */
+  private ImmutableList<LtoBackendAction> generateActionsForNonLtoArtifacts(
+      ImmutableSet<TreeFileArtifact> fullBitcodeTreeFileArtifacts, ActionLookupKey artifactOwner) {
+
+    ImmutableList.Builder<LtoBackendAction> expandedActions =
+        ImmutableList.builderWithExpectedSize(fullBitcodeTreeFileArtifacts.size());
+    PathFragment fullBitcodeParentPath = fullBitcodeTreeArtifact.getExecPath();
+    for (TreeFileArtifact inputTreeFileArtifact : fullBitcodeTreeFileArtifacts) {
+      PathFragment path = inputTreeFileArtifact.getExecPath();
+      String fullBitcodeRelativePath = pathFragmentToRelativePath(fullBitcodeParentPath, path);
+      TreeFileArtifact objTreeFileArtifact =
+          generateOutputObjArtifact(fullBitcodeRelativePath, artifactOwner);
+      TreeFileArtifact dwoFileArtifact =
+          generateDwoArtifact(fullBitcodeRelativePath, artifactOwner);
+      LtoBackendAction.Builder builderCopy = new LtoBackendAction.Builder(ltoBackendActionbuilder);
+
+      LtoBackendArtifacts.addArtifactsLtoBackendAction(
+          builderCopy,
+          buildVariables,
+          featureConfiguration,
+          /* index= */ null,
+          /* imports= */ null,
+          inputTreeFileArtifact,
+          objTreeFileArtifact,
+          bitcodeFiles,
+          dwoFileArtifact,
+          usePic,
+          /* bitcodeFilePath= */ null,
+          /* isDummyAction= */ false);
+      expandedActions.add((LtoBackendAction) builderCopy.buildForActionTemplate(actionOwner));
+    }
+
+    return expandedActions.build();
+  }
+
   /**
    * Given all the files inside indexAndImportsTreeArtifact, we find the corresponding index and
    * imports files. Then we use their path together with the fullBitcodeTreeArtifact path to derive
@@ -148,9 +228,9 @@ public final class LtoBackendActionTemplate extends ActionKeyCacher
    * make the generated action depend only on the corresponding full bitcode file rather than depend
    * on the whole tree artifact that contains the full bitcode file.
    */
-  @Override
-  public ImmutableList<LtoBackendAction> generateActionsForInputArtifacts(
-      ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner)
+  private ImmutableList<LtoBackendAction> generateActionsForLtoArtifacts(
+      ImmutableSet<TreeFileArtifact> indexAndImportsTreeFileArtifacts,
+      ActionLookupKey artifactOwner)
       throws ActionExecutionException {
     ImmutableList.Builder<LtoBackendAction> expandedActions = new ImmutableList.Builder<>();
 
@@ -163,7 +243,7 @@ public final class LtoBackendActionTemplate extends ActionKeyCacher
 
     PathFragment indexAndImportParentPath = indexAndImportsTreeArtifact.getExecPath();
 
-    for (TreeFileArtifact inputTreeFileArtifact : inputTreeFileArtifacts) {
+    for (TreeFileArtifact inputTreeFileArtifact : indexAndImportsTreeFileArtifacts) {
       PathFragment path = inputTreeFileArtifact.getExecPath();
       boolean isThinLto = thinltoBcSourceType.matches(path);
       boolean isImport = importsType.matches(path);
@@ -193,7 +273,7 @@ public final class LtoBackendActionTemplate extends ActionKeyCacher
       String message =
           String.format(
               "Either both or neither bitcodeFiles and imports files should be null. %s %s" + ".",
-              inputTreeFileArtifacts,
+              indexAndImportsTreeFileArtifacts,
               fullBitcodeTreeArtifact.getExecPathString()); // kinda wrong, should be index
       throw new ActionExecutionException(
           message, this, /* catastrophe= */ false, makeDetailedExitCode(message));
@@ -201,24 +281,17 @@ public final class LtoBackendActionTemplate extends ActionKeyCacher
 
     for (TreeFileArtifact importFile : imports) {
       PathFragment path = importFile.getExecPath();
-      String relativePathNoExtension =
+      // The relative path of the fullBitcodeFile with respect to the fullBitcodeTreeArtifact
+      String fullBitcodeRelativePath =
           removeImportsExtension(pathFragmentToRelativePath(indexAndImportParentPath, path));
-      TreeFileArtifact thinLtoFile = nameToThinLto.get(relativePathNoExtension);
+      TreeFileArtifact thinLtoFile = nameToThinLto.get(fullBitcodeRelativePath);
       PathFragment fullBitcodePath =
-          fullBitcodeTreeArtifact.getExecPath().getRelative(relativePathNoExtension);
-      String outputName = relativePathNoExtension;
+          fullBitcodeTreeArtifact.getExecPath().getRelative(fullBitcodeRelativePath);
       TreeFileArtifact objTreeFileArtifact =
-          TreeFileArtifact.createTemplateExpansionOutput(
-              objectFileTreeArtifact, outputName, artifactOwner);
-      TreeFileArtifact dwoFileArtifact = null;
-      if (dwoFileTreeArtifact != null) {
-        dwoFileArtifact =
-            TreeFileArtifact.createTemplateExpansionOutput(
-                dwoFileTreeArtifact,
-                FileSystemUtils.replaceExtension(
-                    PathFragment.create(relativePathNoExtension), ".dwo"),
-                artifactOwner);
-      }
+          generateOutputObjArtifact(fullBitcodeRelativePath, artifactOwner);
+      TreeFileArtifact dwoFileArtifact =
+          generateDwoArtifact(fullBitcodeRelativePath, artifactOwner);
+
       LtoBackendAction.Builder builderCopy = new LtoBackendAction.Builder(ltoBackendActionbuilder);
 
       LtoBackendArtifacts.addArtifactsLtoBackendAction(
@@ -277,9 +350,16 @@ public final class LtoBackendActionTemplate extends ActionKeyCacher
     return (LtoBackendAction) builderCopy.buildForActionTemplate(actionOwner);
   }
 
+  /**
+   * Returns the input tree artifact.
+   *
+   * <p>If indexAndImportsTreeArtifact is null then we are using a shared nonlto backend, and
+   * therefore we should only use the full bitcode files, instead of getting the files from
+   * indexAndImportsTreeArtifact.
+   */
   @Override
   public SpecialArtifact getInputTreeArtifact() {
-    return indexAndImportsTreeArtifact;
+    return firstNonNull(indexAndImportsTreeArtifact, fullBitcodeTreeArtifact);
   }
 
   @Override
