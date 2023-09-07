@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -66,6 +67,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Tuple;
 
@@ -770,6 +774,70 @@ public final class CcCompilationHelper {
     return this;
   }
 
+  private static StarlarkList<String> convertPathFragmentsToStarlarkList(
+      Iterable<PathFragment> pathFragments) {
+    ImmutableList.Builder<String> pathStrings = ImmutableList.builder();
+    for (PathFragment pathFragment : pathFragments) {
+      pathStrings.add(pathFragment.getPathString());
+    }
+    return StarlarkList.immutableCopyOf(pathStrings.build());
+  }
+
+  private Tuple callStarlarkInit(RuleContext ruleContext)
+      throws RuleErrorException, InterruptedException {
+    StarlarkFunction initCcCompilationContext =
+        (StarlarkFunction) ruleContext.getStarlarkDefinedBuiltin("init_cc_compilation_context");
+    ruleContext.initStarlarkRuleContext();
+    return (Tuple)
+        ruleContext.callStarlarkOrThrowRuleError(
+            initCcCompilationContext,
+            ImmutableList.of(
+                /* ctx */ ruleContext.getStarlarkRuleContext(),
+                /* binfiles_dir */ ruleContext.getBinFragment().getPathString(),
+                /* genfiles_dir */ ruleContext.getGenfilesFragment().getPathString(),
+                /* label */ label,
+                /* config */ configuration,
+                /* quote_include_dirs */ convertPathFragmentsToStarlarkList(quoteIncludeDirs),
+                /* framework_include_dirs */ convertPathFragmentsToStarlarkList(
+                    frameworkIncludeDirs),
+                /* system_include_dirs */ convertPathFragmentsToStarlarkList(systemIncludeDirs),
+                /* include_dirs */ convertPathFragmentsToStarlarkList(includeDirs),
+                /* feature_configuration */ FeatureConfigurationForStarlark.from(
+                    featureConfiguration,
+                    cppConfiguration,
+                    ruleContext.getConfiguration().getOptions()),
+                /* public_headers_artifacts */ StarlarkList.immutableCopyOf(publicHeaders),
+                /* include_prefix */ includePrefix == null ? Starlark.NONE : includePrefix,
+                /* strip_include_prefix */ stripIncludePrefix == null
+                    ? Starlark.NONE
+                    : stripIncludePrefix,
+                /* non_module_map_headers */ StarlarkList.immutableCopyOf(nonModuleMapHeaders),
+                /* cc_toolchain_compilation_context */ ccToolchain == null
+                    ? Starlark.NONE
+                    : ccToolchain.getCcCompilationContext(),
+                /* defines */ StarlarkList.immutableCopyOf(defines),
+                /* local_defines */ StarlarkList.immutableCopyOf(localDefines),
+                /* public_textual_headers */ StarlarkList.immutableCopyOf(publicTextualHeaders),
+                /* private_headers_artifacts */ StarlarkList.immutableCopyOf(privateHeaders),
+                /* additional_inputs */ StarlarkList.immutableCopyOf(additionalInputs),
+                /* headers_checking_mode */ headersCheckingMode.name(),
+                /* loose_include_dirs */ convertPathFragmentsToStarlarkList(looseIncludeDirs),
+                /* separate_module_headers */ StarlarkList.immutableCopyOf(separateModuleHeaders),
+                /* generate_module_map */ generateModuleMap,
+                /* generate_pic_action */ generatePicAction,
+                /* generate_no_pic_action */ generateNoPicAction,
+                /* module_map */ cppModuleMap == null ? Starlark.NONE : cppModuleMap,
+                /* propagate_module_map_to_compile_action */ propagateModuleMapToCompileAction,
+                /* additional_exported_headers */ convertPathFragmentsToStarlarkList(
+                    additionalExportedHeaders),
+                /* deps */ StarlarkList.immutableCopyOf(deps),
+                /* purpose */ purpose,
+                /* implementation_deps */ StarlarkList.immutableCopyOf(implementationDeps),
+                /* additional_cpp_module_maps */ StarlarkList.immutableCopyOf(
+                    additionalCppModuleMaps)),
+            ImmutableMap.of());
+  }
+
   /**
    * Create the C++ compile actions, and the corresponding compilation related providers.
    *
@@ -782,15 +850,18 @@ public final class CcCompilationHelper {
       ruleErrorConsumer.ruleError("Either PIC or no PIC actions have to be created.");
     }
 
-    CcCompilationContext.Builder contextBuilder = initializeCcCompilationContext(ruleContext);
-    CcCompilationContext publicCompilationContext = contextBuilder.build();
+    Tuple ccCompilationContextObjectsTuple = callStarlarkInit(ruleContext);
+
+    CcCompilationContext publicCompilationContext =
+        (CcCompilationContext) ccCompilationContextObjectsTuple.get(0);
     ccCompilationContext = publicCompilationContext;
     if (!implementationDeps.isEmpty()) {
       // We set a different purpose so that the middleman doesn't clash with the one from propagated
       // ccCompilationContext.
-      contextBuilder.addDependentCcCompilationContexts(implementationDeps);
-      contextBuilder.setPurpose(purpose + "_impl");
-      ccCompilationContext = contextBuilder.build();
+      Preconditions.checkState(
+          ccCompilationContextObjectsTuple.get(1) != Starlark.NONE,
+          "Compilation context for implementation deps was not created");
+      ccCompilationContext = (CcCompilationContext) ccCompilationContextObjectsTuple.get(1);
     }
 
     boolean compileHeaderModules = featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES);
