@@ -73,6 +73,11 @@ function test_determinism()  {
     # which requires fetching the python toolchain.
     sed -i.bak '/install_deps/d' WORKSPACE && rm WORKSPACE.bak
 
+    # Update the hash of bazel_tools in lockfile to avoid rerunning module resolution.
+    new_hash=$(shasum -a 256 "src/MODULE.tools" | awk '{print $1}')
+    sed -i.bak "/\"bazel_tools\":/s/\"[a-f0-9]*\"/\"$new_hash\"/" MODULE.bazel.lock
+    rm MODULE.bazel.lock.bak
+
     # Use @bazel_tools//tools/python:autodetecting_toolchain to avoid
     # downloading python toolchain.
 
