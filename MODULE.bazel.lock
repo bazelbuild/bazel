@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 1,
-  "moduleFileHash": "9fb6a1cae7b4ba80e7c23282cd0949ec31318c6cc33a5c5130ba3df61b523213",
+  "moduleFileHash": "570b7501f8b826e733a8dfd21e4afc7a2a525146fe00a2e9a26a05f2db8ef1c9",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -155,7 +155,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 302,
+                "line": 299,
                 "column": 22
               }
             }
@@ -320,29 +320,12 @@
           "hasNonDevUseExtension": true
         },
         {
-          "extensionBzlFile": "@io_bazel//:extensions.bzl",
-          "extensionName": "test_repo_extension",
-          "usingModule": "<root>",
-          "location": {
-            "file": "@@//:MODULE.bazel",
-            "line": 276,
-            "column": 36
-          },
-          "imports": {
-            "test_repos": "test_repos"
-          },
-          "devImports": [],
-          "tags": [],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        },
-        {
           "extensionBzlFile": "@io_bazel//:rbe_extension.bzl",
           "extensionName": "bazel_rbe_deps",
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 279,
+            "line": 276,
             "column": 31
           },
           "imports": {
@@ -359,7 +342,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 282,
+            "line": 279,
             "column": 48
           },
           "imports": {
@@ -376,7 +359,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 324,
+            "line": 321,
             "column": 35
           },
           "imports": {
@@ -393,7 +376,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 327,
+            "line": 324,
             "column": 42
           },
           "imports": {
@@ -1625,7 +1608,7 @@
   },
   "moduleExtensions": {
     "//:extensions.bzl%bazel_android_deps": {
-      "bzlTransitiveDigest": "FMZCqyqChCnW+uMUqugDjYJ+V7jv01wMWwHU/b5PIps=",
+      "bzlTransitiveDigest": "MswIM1Z5X3jH+YfT9YooYetPJYr/eQvGXSDNG6CMvQ0=",
       "accumulatedFileDigests": {},
       "envVariables": {},
       "generatedRepoSpecs": {
@@ -1637,7 +1620,7 @@
       }
     },
     "//:extensions.bzl%bazel_build_deps": {
-      "bzlTransitiveDigest": "FMZCqyqChCnW+uMUqugDjYJ+V7jv01wMWwHU/b5PIps=",
+      "bzlTransitiveDigest": "MswIM1Z5X3jH+YfT9YooYetPJYr/eQvGXSDNG6CMvQ0=",
       "accumulatedFileDigests": {},
       "envVariables": {},
       "generatedRepoSpecs": {
@@ -1709,7 +1692,7 @@
       }
     },
     "//:extensions.bzl%bazel_test_deps": {
-      "bzlTransitiveDigest": "FMZCqyqChCnW+uMUqugDjYJ+V7jv01wMWwHU/b5PIps=",
+      "bzlTransitiveDigest": "MswIM1Z5X3jH+YfT9YooYetPJYr/eQvGXSDNG6CMvQ0=",
       "accumulatedFileDigests": {},
       "envVariables": {},
       "generatedRepoSpecs": {
@@ -1727,210 +1710,6 @@
           "bzlFile": "@@//tools/build_defs/repo:http.bzl",
           "ruleClassName": "http_archive",
           "attributes": {"name":"--_main~bazel_test_deps~bazelci_rules","sha256":"--eca21884e6f66a88c358e580fd67a6b148d30ab57b1680f62a96c00f9bc6a07e","urls":["--https://mirror.bazel.build/github.com/bazelbuild/continuous-integration/releases/download/rules-1.0.0/bazelci_rules-1.0.0.tar.gz","--https://github.com/bazelbuild/continuous-integration/releases/download/rules-1.0.0/bazelci_rules-1.0.0.tar.gz"],"patch_args":["---p0"],"patches":[],"strip_prefix":"--bazelci_rules-1.0.0"}
-        }
-      }
-    },
-    "//:extensions.bzl%test_repo_extension": {
-      "bzlTransitiveDigest": "FMZCqyqChCnW+uMUqugDjYJ+V7jv01wMWwHU/b5PIps=",
-      "accumulatedFileDigests": {
-        "@@//:MODULE.bazel.lock": "dae2630a61c8c29179d56649f6234fa89f5a43cd31b1416d05071f1f517ff7ae"
-      },
-      "envVariables": {},
-      "generatedRepoSpecs": {
-        "test_repo_29": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_29","url":"--https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu20.28.85-ca-jdk20.0.0-macosx_aarch64.tar.gz","sha256":"--a2eff6a940c2df3a2352278027e83f5959f34dcfc8663034fe92be0f1b91ce6f","integrity":"--"}
-        },
-        "test_repo_28": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_28","url":"--https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-macosx_x64.tar.gz","sha256":"--e6317cee4d40995f0da5b702af3f04a6af2bbd55febf67927696987d11113b53","integrity":"--"}
-        },
-        "test_repo_27": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_27","url":"--https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu11.56.19-ca-jdk11.0.15-macosx_x64.tar.gz","sha256":"--2614e5c5de8e989d4d81759de4c333aa5b867b17ab9ee78754309ba65c7f6f55","integrity":"--"}
-        },
-        "test_repo_26": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_26","url":"--https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-linux_x64.tar.gz","sha256":"--20c91a922eec795f3181eaa70def8b99d8eac56047c9a14bfb257c85b991df1b","integrity":"--"}
-        },
-        "test_repo_25": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_25","url":"--https://mirror.bazel.build/cdn.azul.com/zulu-embedded/bin/zulu11.56.19-ca-jdk11.0.15-linux_aarch64.tar.gz","sha256":"--fc7c41a0005180d4ca471c90d01e049469e0614cf774566d4cf383caa29d1a97","integrity":"--"}
-        },
-        "test_repo_24": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_24","url":"--https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu20.28.85-ca-jdk20.0.0-win_x64.zip","sha256":"--ac5f6a7d84dbbb0bb4d376feb331cc4c49a9920562f2a5e85b7a6b4863b10e1e","integrity":"--"}
-        },
-        "test_repo_23": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_23","url":"--https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu11.56.19-ca-jdk11.0.15-win_x64.zip","sha256":"--a106c77389a63b6bd963a087d5f01171bd32aa3ee7377ecef87531390dcb9050","integrity":"--"}
-        },
-        "test_repo_22": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_22","url":"--https://mirror.bazel.build/bazel_java_tools/releases/java/v12.6/java_tools_windows-v12.6.zip","sha256":"--63f727d44011b8c504bb4e6d89c2cd982278efb34dae8629687e9483d8f7d62d","integrity":"--"}
-        },
-        "test_repos": {
-          "bzlFile": "@@//:extensions.bzl",
-          "ruleClassName": "hub_test_repo",
-          "attributes": {"name":"--_main~test_repo_extension~test_repos","repos":["--test_repo_1","--test_repo_2","--test_repo_3","--test_repo_4","--test_repo_5","--test_repo_6","--test_repo_7","--test_repo_8","--test_repo_9","--test_repo_10","--test_repo_11","--test_repo_12","--test_repo_13","--test_repo_14","--test_repo_15","--test_repo_16","--test_repo_17","--test_repo_18","--test_repo_19","--test_repo_20","--test_repo_21","--test_repo_22","--test_repo_23","--test_repo_24","--test_repo_25","--test_repo_26","--test_repo_27","--test_repo_28","--test_repo_29","--test_repo_30","--test_repo_31","--test_repo_32","--test_repo_33","--test_repo_34","--test_repo_35","--test_repo_36","--test_repo_37","--test_repo_38"]}
-        },
-        "test_repo_10": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_10","url":"--https://bcr.bazel.build/modules/rules_cc/0.0.8/patches/module_dot_bazel.patch","sha256":"--","integrity":"--sha256-HPCau/Oi4m6Zk2BzaYpe69cJFQUwFWFrt2mURUq4D+k="}
-        },
-        "test_repo_32": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_32","url":"--https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu11.56.19-ca-jdk11.0.15-linux_x64.tar.gz","sha256":"--e064b61d93304012351242bf0823c6a2e41d9e28add7ea7f05378b7243d34247","integrity":"--"}
-        },
-        "test_repo_31": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_31","url":"--https://mirror.bazel.build/bazel_java_tools/releases/java/v12.6/java_tools_linux-v12.6.zip","sha256":"--64294e91fe940c77e6d35818b4c3a1f07d78e33add01e330188d907032687066","integrity":"--"}
-        },
-        "test_repo_30": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_30","url":"--https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-win_x64.zip","sha256":"--9972c5b62a61b45785d3d956c559e079d9e91f144ec46225f5deeda214d48f27","integrity":"--"}
-        },
-        "test_repo_18": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_18","url":"--https://maven.google.com/com/android/tools/r8/8.1.56/r8-8.1.56.jar","sha256":"--57a696749695a09381a87bc2f08c3a8ed06a717a5caa3ef878a3077e0d3af19d","integrity":"--"}
-        },
-        "test_repo_17": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_17","url":"--https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.29.0.tar","sha256":"--d7223664ca5b0de490f2a918c31f35cdf4f23a1446fe261d7470b8a22bd7bcf1","integrity":"--"}
-        },
-        "test_repo_16": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_16","url":"--https://bcr.bazel.build/modules/rules_testing/0.0.4/patches/module_dot_bazel_version.patch","sha256":"--","integrity":"--sha256-0bNxHP/dstK5Ftz0e6FMQ2tyV4BZwp6Bh2et7ZuD1kk="}
-        },
-        "test_repo_38": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_38","url":"--https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu11.56.19-ca-jdk11.0.15-macosx_aarch64.tar.gz","sha256":"--6bb0d2c6e8a29dcd9c577bbb2986352ba12481a9549ac2c0bcfd00ed60e538d2","integrity":"--"}
-        },
-        "test_repo_15": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_15","url":"--https://github.com/bazelbuild/rules_testing/releases/download/v0.0.4/rules_testing-v0.0.4.tar.gz","sha256":"--","integrity":"--sha256-TiH5qnmWlEzpFDHye8o3S/9W5oCs/klydgdNVrxdmvI="}
-        },
-        "test_repo_37": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_37","url":"--https://mirror.bazel.build/github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.4.1%2B1/OpenJDK17U-jdk_s390x_linux_hotspot_17.0.4.1_1.tar.gz","sha256":"--fdc82f4b06c880762503b0cb40e25f46cf8190d06011b3b768f4091d3334ef7f","integrity":"--"}
-        },
-        "test_repo_9": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_9","url":"--https://github.com/bazelbuild/rules_cc/releases/download/0.0.8/rules_cc-0.0.8.tar.gz","sha256":"--","integrity":"--sha256-rka3Iqi46bYhcPg7+wQMvxKttzIUTmiZhaZrJkEKfW8="}
-        },
-        "test_repo_14": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_14","url":"--https://bcr.bazel.build/modules/rules_python/0.24.0/patches/module_dot_bazel_version.patch","sha256":"--","integrity":"--sha256-cz8Rx8aNLvYvSpiVWk8umcsBy6jAAC0YwU42zj1cNlU="}
-        },
-        "test_repo_36": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_36","url":"--https://mirror.bazel.build/bazel_java_tools/releases/java/v12.6/java_tools-v12.6.zip","sha256":"--f58a358ca694a41416a9b6a92b852935ad301d8882e5d22f4f11134f035317d5","integrity":"--"}
-        },
-        "test_repo_8": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_8","url":"--https://github.com/bazelbuild/rules_pkg/releases/download/0.9.1/rules_pkg-0.9.1.tar.gz","sha256":"--","integrity":"--sha256-j57i3BDBrlFO5ZmotC7Zn6Jit1cFj2WtPDhCif9wxLg="}
-        },
-        "test_repo_13": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_13","url":"--https://github.com/bazelbuild/rules_python/releases/download/0.24.0/rules_python-0.24.0.tar.gz","sha256":"--","integrity":"--sha256-CoADsEQpTXhArH2dc+7wXWzraC11FngaTsYu6zRwJXg="}
-        },
-        "test_repo_35": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_35","url":"--https://mirror.bazel.build/bazel_java_tools/releases/java/v12.6/java_tools_darwin_x86_64-v12.6.zip","sha256":"--c6545e82e543cb5775d3b8909d6270b5f481864b5ff083d20bfa5dcf77ac3ef7","integrity":"--"}
-        },
-        "test_repo_12": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_12","url":"--https://github.com/bazelbuild/rules_proto/archive/refs/tags/5.3.0-21.7.tar.gz","sha256":"--","integrity":"--sha256-3D+yBqLLNEG0heseQjFlsjEjWh6psDG0Qzz3vB+kYN0="}
-        },
-        "test_repo_34": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_34","url":"--https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu20.28.85-ca-jdk20.0.0-macosx_x64.tar.gz","sha256":"--fde6cc17a194ea0d9b0c6c0cb6178199d8edfc282d649eec2c86a9796e843f86","integrity":"--"}
-        },
-        "test_repo_11": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_11","url":"--https://github.com/bazelbuild/rules_java/releases/download/6.3.0/rules_java-6.3.0.tar.gz","sha256":"--","integrity":"--sha256-KboUfFg6r10hFoYCmELFJ44SquqG9mvUqeteUlt/JwE="}
-        },
-        "test_repo_33": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_33","url":"--https://mirror.bazel.build/bazel_java_tools/releases/java/v12.6/java_tools_darwin_arm64-v12.6.zip","sha256":"--c6ffcaf87965c436cc86fc0e9673dafc97c0761efae8225ad2691cf6cfe3d87a","integrity":"--"}
-        },
-        "test_repo_5": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_5","url":"--https://bcr.bazel.build/modules/protobuf/21.7/patches/add_module_dot_bazel_for_examples.patch","sha256":"--","integrity":"--sha256-O7YP6s3lo/1opUiO0jqXYORNHdZ/2q3hjz1QGy8QdIU="}
-        },
-        "test_repo_4": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_4","url":"--https://bcr.bazel.build/modules/protobuf/21.7/patches/add_module_dot_bazel.patch","sha256":"--","integrity":"--sha256-q3V2+eq0v2XF0z8z+V+QF4cynD6JvHI1y3kI/+rzl5s="}
-        },
-        "test_repo_7": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_7","url":"--https://bcr.bazel.build/modules/protobuf/21.7/patches/add_missing_files.patch","sha256":"--","integrity":"--sha256-Hyne4DG2u5bXcWHNxNMirA2QFAe/2Cl8oMm1XJdkQIY="}
-        },
-        "test_repo_6": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_6","url":"--https://bcr.bazel.build/modules/protobuf/21.7/patches/relative_repo_names.patch","sha256":"--","integrity":"--sha256-RK9RjW8T5UJNG7flIrnFiNE9vKwWB+8uWWtJqXYT0w4="}
-        },
-        "test_repo_1": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_1","url":"--https://github.com/bazelbuild/rules_license/releases/download/0.0.7/rules_license-0.0.7.tar.gz","sha256":"--","integrity":"--sha256-RTHezLkTY5ww5cdRKgVNXYdWmNrrddjPkPKEN1/nw2A="}
-        },
-        "test_repo_3": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_3","url":"--https://github.com/protocolbuffers/protobuf/releases/download/v21.7/protobuf-all-21.7.zip","sha256":"--","integrity":"--sha256-VJOiH17T/FAuZv7GuUScBqVRztYwAvpIkDxA36jeeko="}
-        },
-        "test_repo_2": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_2","url":"--https://github.com/bazelbuild/bazel-skylib/releases/download/1.4.1/bazel-skylib-1.4.1.tar.gz","sha256":"--","integrity":"--sha256-uKFSeQF3QYCvx5iusoxGNL3M8ZxNmOe90c550f6aqtc="}
-        },
-        "test_repo_19": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_19","url":"--https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.6.zip","sha256":"--7006375f6756819b7013ca875eab70a541cf7d89142d9c511ed78ea4fefa38af","integrity":"--"}
-        },
-        "test_repo_21": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_21","url":"--https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-macosx_aarch64.tar.gz","sha256":"--515dd56ec99bb5ae8966621a2088aadfbe72631818ffbba6e4387b7ee292ab09","integrity":"--"}
-        },
-        "test_repo_20": {
-          "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-          "ruleClassName": "http_file",
-          "attributes": {"name":"--_main~test_repo_extension~test_repo_20","url":"--https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu20.28.85-ca-jdk20.0.0-linux_x64.tar.gz","sha256":"--0386418db7f23ae677d05045d30224094fc13423593ce9cd087d455069893bac","integrity":"--"}
         }
       }
     },
