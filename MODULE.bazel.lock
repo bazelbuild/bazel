@@ -14,6 +14,7 @@
   },
   "localOverrideHashes": {
     "remoteapis": "038a6397cee38ebe0df6f97a69049b7695044449f73b7721ae5e970e05828175",
+    "bazel_tools": "11c49407fdc54b48d69dcd4478440118124b9cd51b2dca5947a6414a585964a1",
     "googleapis": "2f11ff6746ba50aea110cc24a56afd91d138b55052991176fdc30034b0dbfa38"
   },
   "moduleDepGraph": {
@@ -1732,7 +1733,7 @@
     "//:extensions.bzl%test_repo_extension": {
       "bzlTransitiveDigest": "FMZCqyqChCnW+uMUqugDjYJ+V7jv01wMWwHU/b5PIps=",
       "accumulatedFileDigests": {
-        "@@//:MODULE.bazel.lock": "673ccb1c122d45759df8a0f55238cabd1c1892b097b7d0ab0d5c267799ce3eb9"
+        "@@//:MODULE.bazel.lock": "dae2630a61c8c29179d56649f6234fa89f5a43cd31b1416d05071f1f517ff7ae"
       },
       "envVariables": {},
       "generatedRepoSpecs": {

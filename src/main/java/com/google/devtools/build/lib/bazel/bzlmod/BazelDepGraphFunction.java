@@ -153,9 +153,6 @@ public class BazelDepGraphFunction implements SkyFunction {
       Map<String, ModuleOverride> overrides, Environment env) throws InterruptedException {
     ImmutableMap.Builder<String, String> localOverrideHashes = new ImmutableMap.Builder<>();
     for (Entry<String, ModuleOverride> entry : overrides.entrySet()) {
-      if (entry.getKey().equals("bazel_tools")) {
-        continue;
-      }
       if (entry.getValue() instanceof LocalPathOverride) {
         ModuleFileValue moduleValue =
             (ModuleFileValue)
