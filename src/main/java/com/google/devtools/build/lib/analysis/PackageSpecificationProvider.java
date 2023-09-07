@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -26,6 +27,8 @@ import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupC
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.starlarkbuildapi.PackageSpecificationProviderApi;
 import java.util.Optional;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /**
  * A {@link TransitiveInfoProvider} that describes a set of transitive package specifications used
@@ -91,5 +94,20 @@ public class PackageSpecificationProvider extends NativeInfo
 
     builder.add(packageGroup.getPackageSpecifications());
     return builder.build();
+  }
+
+  @Override
+  public boolean targetInAllowlist(Object target) throws EvalException, LabelSyntaxException {
+    Label targetLabel;
+    if (target instanceof String) {
+      targetLabel = Label.parseCanonical((String) target);
+    } else if (target instanceof Label) {
+      targetLabel = (Label) target;
+    } else {
+      throw Starlark.errorf(
+          "expected string or label for 'target' instead of %s", Starlark.type(target));
+    }
+
+    return Allowlist.isAvailableFor(packageSpecifications, targetLabel);
   }
 }
