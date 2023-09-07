@@ -1991,7 +1991,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "  srcs = ['custom.cc'],",
         "  hdrs = ['custom.h'],",
         ")");
-    useConfiguration("--incompatible_auto_exec_groups", "--features=header_modules");
+    useConfiguration("--incompatible_auto_exec_groups", "--features=header_modules", "--noincompatible_enable_cc_toolchain_resolution");
     AnalysisMock.get()
         .ccSupport()
         .setupCcToolchainConfig(
@@ -2061,7 +2061,8 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     useConfiguration(
         "--incompatible_auto_exec_groups",
         "--features=header_modules",
-        "--features=header_module_codegen");
+        "--features=header_module_codegen",
+        "--noincompatible_enable_cc_toolchain_resolution");
     AnalysisMock.get()
         .ccSupport()
         .setupCcToolchainConfig(
@@ -2126,7 +2127,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "  srcs = ['custom.cc'],",
         "  hdrs = ['custom.h'],",
         ")");
-    useConfiguration("--incompatible_auto_exec_groups", "--features=parse_headers");
+    useConfiguration("--incompatible_auto_exec_groups", "--features=parse_headers", "--noincompatible_enable_cc_toolchain_resolution");
     AnalysisMock.get()
         .ccSupport()
         .setupCcToolchainConfig(

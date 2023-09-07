@@ -352,7 +352,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
     assertThat(names).containsAtLeast("xxx", "yyy");
     // 3-4 is the C++ toolchain and alias; its name changes between Blaze and Bazel.
-    assertThat(names).hasSize(4);
+    assertThat(names).hasSize(3);
   }
 
   @Test
