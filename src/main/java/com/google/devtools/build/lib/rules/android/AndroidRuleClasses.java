@@ -975,13 +975,7 @@ public final class AndroidRuleClasses {
   }
 
   /** Definition of the {@code android_tools_defaults_jar} rule. */
-  public static final class AndroidToolsDefaultsJarRule implements RuleDefinition {
-
-    private final Class<? extends AndroidToolsDefaultsJar> factoryClass;
-
-    public AndroidToolsDefaultsJarRule(Class<? extends AndroidToolsDefaultsJar> factoryClass) {
-      this.factoryClass = factoryClass;
-    }
+  public static final class AndroidBaseToolsDefaultsJarRule implements RuleDefinition {
 
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
@@ -997,9 +991,9 @@ public final class AndroidRuleClasses {
     @Override
     public Metadata getMetadata() {
       return Metadata.builder()
-          .name("android_tools_defaults_jar")
+          .name("$android_base_tools_defaults_jar")
+          .type(RuleClassType.ABSTRACT)
           .ancestors(BaseRuleClasses.NativeBuildRule.class)
-          .factoryClass(factoryClass)
           .build();
     }
   }

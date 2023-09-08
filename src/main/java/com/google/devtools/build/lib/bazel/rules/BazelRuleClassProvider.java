@@ -47,7 +47,7 @@ import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidLibraryRule
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidLocalTestRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSdkRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSemantics;
-import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidToolsDefaultsJar;
+import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidToolsDefaultsJarRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelDexArchiveAspect;
 import com.google.devtools.build.lib.bazel.rules.android.BazelSdkToolchainRule;
 import com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaLiteProtoLibraryRule;
@@ -93,7 +93,7 @@ import com.google.devtools.build.lib.rules.android.AndroidPreDexJarProvider;
 import com.google.devtools.build.lib.rules.android.AndroidProguardInfo;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesInfo;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses;
-import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.AndroidToolsDefaultsJarRule;
+import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.AndroidBaseToolsDefaultsJarRule;
 import com.google.devtools.build.lib.rules.android.AndroidSdkBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidSdkProvider;
 import com.google.devtools.build.lib.rules.android.AndroidStarlarkCommon;
@@ -388,8 +388,8 @@ public class BazelRuleClassProvider {
 
           builder.addRuleDefinition(new AndroidSdkBaseRule());
           builder.addRuleDefinition(new BazelAndroidSdkRule());
-          builder.addRuleDefinition(
-              new AndroidToolsDefaultsJarRule(BazelAndroidToolsDefaultsJar.class));
+          builder.addRuleDefinition(new AndroidBaseToolsDefaultsJarRule());
+          builder.addRuleDefinition(new BazelAndroidToolsDefaultsJarRule());
           builder.addRuleDefinition(new AndroidRuleClasses.AndroidBaseRule());
           builder.addRuleDefinition(new AndroidRuleClasses.AndroidResourceSupportRule());
           builder.addRuleDefinition(
