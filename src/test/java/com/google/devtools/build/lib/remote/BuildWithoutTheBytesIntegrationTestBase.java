@@ -134,7 +134,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         "  outs = ['out/foobar.txt'],",
         "  cmd = 'cat $(location :foo) > $@ && echo bar >> $@',",
         ")");
-    addOptions("--experimental_remote_download_regex=.*foo\\.txt$");
+    addOptions("--remote_download_regex=.*foo\\.txt$");
 
     buildTarget("//:foobar");
     waitDownloads();
@@ -179,7 +179,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         "  outs = ['out/foobar.txt'],",
         "  cmd = 'cat $(location :foo) > $@ && echo bar >> $@',",
         ")");
-    addOptions("--experimental_remote_download_regex=.*foo\\.txt$");
+    addOptions("--remote_download_regex=.*foo\\.txt$");
 
     buildTarget("//:foobar");
     waitDownloads();
@@ -220,7 +220,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     buildTarget("//:foobar");
     // Add the new option here because waitDownloads below will internally create a new command
     // which will parse the new option.
-    addOptions("--experimental_remote_download_regex=.*foobar\\.txt$");
+    addOptions("--remote_download_regex=.*foobar\\.txt$");
     waitDownloads();
 
     assertOutputsDoNotExist("//:foo");
@@ -247,7 +247,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         "  name = 'foo',",
         "  content_map = {'file-1': '1', 'file-2': '2', 'file-3': '3'},",
         ")");
-    addOptions("--experimental_remote_download_regex=.*foo/file-2$");
+    addOptions("--remote_download_regex=.*foo/file-2$");
 
     buildTarget("//:foo");
     waitDownloads();
@@ -267,7 +267,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         "  name = 'foo',",
         "  content_map = {'file-1': '1', 'file-2': '2', 'file-3': '3'},",
         ")");
-    addOptions("--experimental_remote_download_regex=.*foo$");
+    addOptions("--remote_download_regex=.*foo$");
 
     buildTarget("//:foo");
     waitDownloads();
@@ -300,7 +300,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         "  outs = ['foo/file-3'],",
         "  cmd = 'echo file-3 > $@',",
         ")");
-    addOptions("--experimental_remote_download_regex=.*foo$");
+    addOptions("--remote_download_regex=.*foo$");
 
     buildTarget("//:file-1", "//:file-2", "//:file-3");
     waitDownloads();

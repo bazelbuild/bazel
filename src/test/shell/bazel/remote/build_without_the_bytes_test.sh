@@ -1812,7 +1812,7 @@ EOF
   bazel clean && bazel test \
         --remote_executor=grpc://localhost:${worker_port} \
         --remote_download_minimal \
-        --experimental_remote_download_regex="/io_bazel/" \
+        --remote_download_regex="/io_bazel/" \
         //a:test >& $TEST_log || fail "Failed to build"
 
   [[ ! -e "bazel-bin/a/liblib.jar" ]] || fail "bazel-bin/a/liblib.jar file shouldn't exist!"
@@ -1821,7 +1821,7 @@ EOF
   bazel clean && bazel test \
         --remote_executor=grpc://localhost:${worker_port} \
         --remote_download_minimal \
-        --experimental_remote_download_regex=".*" \
+        --remote_download_regex=".*" \
         //a:test >& $TEST_log || fail "Failed to build"
 
   [[ -e "bazel-bin/a/liblib.jar" ]] || fail "bazel-bin/a/liblib.jar file does not exist!"
@@ -1830,7 +1830,7 @@ EOF
   bazel clean && bazel test \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_download_minimal \
-    --experimental_remote_download_regex=".*jar$" \
+    --remote_download_regex=".*jar$" \
     //a:test >& $TEST_log || fail "Failed to build"
 
   [[ -e "bazel-bin/a/liblib.jar" ]] || fail "bazel-bin/a/liblib.jar file does not exist!"

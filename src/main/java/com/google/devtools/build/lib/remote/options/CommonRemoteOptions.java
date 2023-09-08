@@ -27,7 +27,8 @@ import java.util.regex.Pattern;
 /** Options for remote execution and distributed caching that shared between Bazel and Blaze. */
 public class CommonRemoteOptions extends OptionsBase {
   @Option(
-      name = "experimental_remote_download_regex",
+      name = "remote_download_regex",
+      oldName = "experimental_remote_download_regex",
       defaultValue = "null",
       allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.REMOTE,

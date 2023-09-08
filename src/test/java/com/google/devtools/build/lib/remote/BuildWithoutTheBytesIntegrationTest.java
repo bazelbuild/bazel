@@ -212,7 +212,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         ")");
     // Download all outputs with regex so in the next build with ALL mode, the actions are not
     // invalidated because of missing outputs.
-    addOptions("--experimental_remote_download_regex=.*");
+    addOptions("--remote_download_regex=.*");
     ActionEventCollector actionEventCollector = new ActionEventCollector();
     runtimeWrapper.registerSubscriber(actionEventCollector);
     buildTarget("//a:foobar");
