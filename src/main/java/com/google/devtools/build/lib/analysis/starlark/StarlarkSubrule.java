@@ -100,15 +100,15 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
     if (!declaredSubrules.contains(this)) {
       throw getUndeclaredSubruleError(ruleContext);
     }
-    SubruleContext subruleContext = new SubruleContext(ruleContext);
-    ImmutableList<Object> positionals =
-        ImmutableList.builder().add(subruleContext).addAll(args).build();
+    ImmutableSet.Builder<FilesToRunProvider> runfilesFromDeps = ImmutableSet.builder();
     ImmutableMap.Builder<String, Object> namedArgs = ImmutableMap.builder();
     namedArgs.putAll(kwargs);
     for (SubruleAttribute attr : attributes) {
       // TODO: b/293304174 - maybe permit overriding?
       if (kwargs.containsKey(attr.attrName)) {
-        throw Starlark.errorf("got invalid named argument: '%s'", attr.attrName);
+        throw Starlark.errorf(
+            "got invalid named argument: '%s' is an implicit dependency and cannot be overridden",
+            attr.attrName);
       }
       Attribute attribute =
           ruleContext
@@ -120,7 +120,10 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
       // from rule ctx.attr
       Object value;
       if (attribute.isExecutable()) {
-        value = ruleContext.getRuleContext().getExecutablePrerequisite(attribute.getName());
+        FilesToRunProvider runfiles =
+            ruleContext.getRuleContext().getExecutablePrerequisite(attribute.getName());
+        runfilesFromDeps.add(runfiles);
+        value = runfiles;
       } else if (attribute.getType() == BuildType.LABEL_LIST) {
         value = ruleContext.getRuleContext().getPrerequisites(attribute.getName());
       } else if (attribute.getType() == BuildType.LABEL) {
@@ -131,6 +134,9 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
       }
       namedArgs.put(attr.attrName, value);
     }
+    SubruleContext subruleContext = new SubruleContext(ruleContext, runfilesFromDeps.build());
+    ImmutableList<Object> positionals =
+        ImmutableList.builder().add(subruleContext).addAll(args).build();
     try {
       ruleContext.setLockedForSubrule(true);
       return Starlark.call(
@@ -224,10 +230,13 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
     // these fields are effectively final, set to null once this instance is no longer usable by
     // Starlark
     private StarlarkRuleContext ruleContext;
+    private ImmutableSet<FilesToRunProvider> runfilesFromDeps;
     private StarlarkActionFactory actions;
 
-    private SubruleContext(StarlarkRuleContext ruleContext) {
+    private SubruleContext(
+        StarlarkRuleContext ruleContext, ImmutableSet<FilesToRunProvider> runfilesFromDeps) {
       this.ruleContext = ruleContext;
+      this.runfilesFromDeps = runfilesFromDeps;
       this.actions = new StarlarkActionFactory(this);
     }
 
@@ -275,13 +284,14 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
     }
 
     @Override
-    public FilesToRunProvider getExecutableRunfiles(Artifact executable) {
-      return ruleContext.getExecutableRunfiles(executable);
+    public FilesToRunProvider getExecutableRunfiles(Artifact executable, String what)
+        throws EvalException {
+      throw Starlark.errorf("for '%s', expected FilesToRunProvider, got File", what);
     }
 
     @Override
     public boolean areRunfilesFromDeps(FilesToRunProvider executable) {
-      return ruleContext.areRunfilesFromDeps(executable);
+      return runfilesFromDeps.contains(executable);
     }
 
     @Override
@@ -315,6 +325,7 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
     private void nullify() {
       this.ruleContext = null;
       this.actions = null;
+      this.runfilesFromDeps = null;
     }
   }
 

@@ -414,7 +414,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     buildCommandLine(builder, arguments);
     if (executableUnchecked instanceof Artifact) {
       Artifact executable = (Artifact) executableUnchecked;
-      FilesToRunProvider provider = context.getExecutableRunfiles(executable);
+      FilesToRunProvider provider = context.getExecutableRunfiles(executable, "executable");
       if (provider == null) {
         if (useAutoExecGroups && execGroupUnchecked == Starlark.NONE) {
           checkToolchainParameterIsSet(toolchainUnchecked);
@@ -753,7 +753,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         if (toolUnchecked instanceof Artifact) {
           Artifact artifact = (Artifact) toolUnchecked;
           builder.addTool(artifact);
-          FilesToRunProvider provider = context.getExecutableRunfiles(artifact);
+          FilesToRunProvider provider = context.getExecutableRunfiles(artifact, "executable");
           if (provider != null) {
             builder.addTool(provider);
           } else {
@@ -1101,7 +1101,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
 
     void checkMutable(String attrName) throws EvalException;
 
-    FilesToRunProvider getExecutableRunfiles(Artifact executable);
+    FilesToRunProvider getExecutableRunfiles(Artifact executable, String what) throws EvalException;
 
     boolean areRunfilesFromDeps(FilesToRunProvider executable);
 

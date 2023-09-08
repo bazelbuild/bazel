@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -494,7 +493,9 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
 
     assertThat(error)
         .hasMessageThat()
-        .contains("Error in _my_subrule: got invalid named argument: '_foo'");
+        .contains(
+            "Error in _my_subrule: got invalid named argument: '_foo' is an implicit dependency and"
+                + " cannot be overridden");
   }
 
   @Test
@@ -570,7 +571,7 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSubruleAction_executableArtifactRunfilesAreResolved() throws Exception {
+  public void testSubruleAction_executableMustBeFilesToRunProvider() throws Exception {
     scratch.file(
         "my/BUILD",
         //
@@ -598,14 +599,12 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
         "load('myrule.bzl', 'my_rule')",
         "my_rule(name = 'foo')");
 
-    Artifact output =
-        (Artifact)
-            getProvider("//subrule_testing:foo", "//subrule_testing:myrule.bzl", "MyInfo")
-                .getValue("result");
+    AssertionError error =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//subrule_testing:foo"));
 
-    assertThat(output.getFilename()).isEqualTo("foo.out");
-    assertThat(prettyArtifactNames(getGeneratingAction(output).getTools()))
-        .containsExactly("my/tool", "_middlemen/my_Stool-runfiles");
+    assertThat(error)
+        .hasMessageThat()
+        .contains("Error in run: for 'executable', expected FilesToRunProvider, got File");
   }
 
   @Test

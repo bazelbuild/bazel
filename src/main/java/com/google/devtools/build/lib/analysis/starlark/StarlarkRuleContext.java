@@ -924,7 +924,7 @@ public final class StarlarkRuleContext
 
   /** Returns the {@link FilesToRunProvider} corresponding to the supplied {@code executable} */
   @Override
-  public FilesToRunProvider getExecutableRunfiles(Artifact executable) {
+  public FilesToRunProvider getExecutableRunfiles(Artifact executable, String what) {
     return attributesCollection.getExecutableRunfilesMap().get(executable);
   }
 
