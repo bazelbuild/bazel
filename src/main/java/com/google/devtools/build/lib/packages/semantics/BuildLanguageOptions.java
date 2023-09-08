@@ -674,6 +674,17 @@ public final class BuildLanguageOptions extends OptionsBase {
               + " obtained from the default shell environment by overriding with the values passed"
               + " in to 'env'. If disabled, the value of 'env' is completely ignored in this case.")
   public boolean incompatibleMergeFixedAndDefaultShellEnv;
+  
+  @Option(
+      name = "incompatible_disable_objc_library_transition",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "Disable objc_library's custom transition and inherit "
+              + "from the top level target instead")
+  public boolean incompatibleDisableObjcLibraryTransition;
 
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
@@ -770,6 +781,9 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 INCOMPATIBLE_MERGE_FIXED_AND_DEFAULT_SHELL_ENV,
                 incompatibleMergeFixedAndDefaultShellEnv)
+            .setBool(
+                INCOMPATIBLE_DISABLE_OBJC_LIBRARY_TRANSITION,
+                incompatibleDisableObjcLibraryTransition)
             .build();
     return INTERNER.intern(semantics);
   }
@@ -862,6 +876,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-incompatible_fail_on_unknown_attributes";
   public static final String INCOMPATIBLE_MERGE_FIXED_AND_DEFAULT_SHELL_ENV =
       "-experimental_merge_fixed_and_default_shell_env";
+  public static final String INCOMPATIBLE_DISABLE_OBJC_LIBRARY_TRANSITION =
+      "-incompatible_disable_objc_library_transition";
 
   // non-booleans
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =
