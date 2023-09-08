@@ -117,8 +117,8 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
               .getRule()
               .getRuleClassObject()
               .getAttributeByName(attr.ruleAttrName);
-      // We need to use the underlying RuleContext because the subrule attributes will be hidden
-      // from rule ctx.attr
+      // We need to use the underlying RuleContext because the subrule attributes are hidden from
+      // the rule ctx.attr
       Object value;
       if (attribute.isExecutable()) {
         FilesToRunProvider runfiles =

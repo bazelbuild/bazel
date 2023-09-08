@@ -37,6 +37,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.syntax.Identifier;
 
 /** Information about attributes of a rule an aspect is applied to. */
 class StarlarkAttributesCollection implements StarlarkAttributesCollectionApi {
@@ -159,6 +160,13 @@ class StarlarkAttributesCollection implements StarlarkAttributesCollectionApi {
       // Some legacy native attribute types do not have a valid Starlark type. Avoid exposing
       // these to Starlark.
       if (type == BuildType.DISTRIBUTIONS || type == BuildType.TRISTATE) {
+        return;
+      }
+
+      // Don't expose invalid attributes via the rule ctx.attr. Ordinarily, this case cannot happen,
+      // and currently only applies to subrule attributes
+      // TODO: b/293304174 - let subrules explicitly mark attributes as not-visible-to-starlark
+      if (!Identifier.isValid(skyname)) {
         return;
       }
 

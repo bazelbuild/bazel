@@ -432,8 +432,7 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
   }
 
   @Test
-  // this is not the correct behavior and will be inverted in a followup
-  public void testSubruleAttrs_visibleInRuleCtx() throws Exception {
+  public void testSubruleAttrs_notVisibleInRuleCtx() throws Exception {
     scratch.file("default/BUILD", "genrule(name = 'default', outs = ['a'], cmd = '')");
     scratch.file(
         "subrule_testing/myrule.bzl",
@@ -464,7 +463,7 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
             .getImmutableList();
 
     assertThat(attributes)
-        .contains(
+        .doesNotContain(
             getRuleAttrName(
                 Label.parseCanonical("//subrule_testing:myrule.bzl"), "_my_subrule", "_foo"));
   }
