@@ -65,7 +65,7 @@ my_subrule = subrule(
     implementation = _subrule_impl,
     attrs = {
         "_foo": attr.label(default = "//some:label"),
-        "_bar": attr.int(default = 12345),
+        "_bar": attr.label(default = "//some:label_1"),
     },
 )
 
@@ -98,12 +98,13 @@ EOF
 function test_query_xml_outputs_subrule_implicit_deps() {
   bazel query --output xml //subrule_testing:foo &> $TEST_log || fail "query failed"
   expect_log '<rule-input name="//some:label"/>'
+  expect_log '<rule-input name="//some:label_1"/>'
 }
 
 function test_query_xml_outputs_subrule_attributes() {
   bazel query --output xml --xml:default_values //subrule_testing:foo &> $TEST_log || fail "query failed"
   expect_log '<label name="//subrule_testing:rule.bzl%my_subrule%_foo" value="//some:label"/>'
-  expect_log '<int name="//subrule_testing:rule.bzl%my_subrule%_bar" value="12345"/>'
+  expect_log '<label name="//subrule_testing:rule.bzl%my_subrule%_bar" value="//some:label_1"/>'
 }
 
 # native.existing_rules skips all implicit attributes so this is trivially true

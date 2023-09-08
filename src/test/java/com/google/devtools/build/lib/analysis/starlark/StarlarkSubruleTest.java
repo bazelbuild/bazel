@@ -412,6 +412,16 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testSubruleAttrs_onlyLabelsOrLabelListsPermitted() throws Exception {
+    ev.checkEvalErrorContains(
+        "bad type for attribute '_foo': subrule attributes may only be label or lists of labels.",
+        "subrule(",
+        "  implementation = lambda: None,",
+        "  attrs = {'_foo': attr.int()}",
+        ")");
+  }
+
+  @Test
   public void testSubruleAttrs_attributeMustHaveDefaultValue() throws Exception {
     ev.checkEvalErrorContains(
         "for attribute '_foo': no default value specified",
@@ -458,17 +468,18 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
 
   @Test
   public void testSubruleAttrs_overridingImplicitAttributeValueFails() throws Exception {
+    scratch.file("default/BUILD", "genrule(name = 'default', outs = ['a'], cmd = '')");
     scratch.file(
         "subrule_testing/myrule.bzl",
         "def _subrule_impl(ctx, _foo):",
         "  return ",
         "_my_subrule = subrule(",
         "  implementation = _subrule_impl,",
-        "  attrs = {'_foo' : attr.string(default = 'default value')},",
+        "  attrs = {'_foo' : attr.label(default = '//default')},",
         ")",
         "",
         "def _rule_impl(ctx):",
-        "  res = _my_subrule(_foo = 'override')",
+        "  res = _my_subrule(_foo = '//override')",
         "  return []",
         "",
         "my_rule = rule(implementation = _rule_impl, subrules = [_my_subrule])");
@@ -484,36 +495,6 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
     assertThat(error)
         .hasMessageThat()
         .contains("Error in _my_subrule: got invalid named argument: '_foo'");
-  }
-
-  @Test
-  public void testSubruleAttrs_implicitDepsArePassedToImplementation() throws Exception {
-    scratch.file(
-        "subrule_testing/myrule.bzl",
-        "def _subrule_impl(ctx, _foo):",
-        "  return _foo",
-        "_my_subrule = subrule(",
-        "  implementation = _subrule_impl,",
-        "  attrs = {'_foo' : attr.string(default = 'my attribute value')},",
-        ")",
-        "",
-        "MyInfo = provider()",
-        "def _rule_impl(ctx):",
-        "  res = _my_subrule()",
-        "  return MyInfo(result = res)",
-        "",
-        "my_rule = rule(implementation = _rule_impl, subrules = [_my_subrule])");
-    scratch.file(
-        "subrule_testing/BUILD",
-        //
-        "load('myrule.bzl', 'my_rule')",
-        "my_rule(name = 'foo')");
-
-    StructImpl provider =
-        getProvider("//subrule_testing:foo", "//subrule_testing:myrule.bzl", "MyInfo");
-
-    assertThat(provider).isNotNull();
-    assertThat(provider.getValue("result")).isEqualTo("my attribute value");
   }
 
   @Test

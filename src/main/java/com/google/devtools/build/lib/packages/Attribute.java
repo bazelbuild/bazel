@@ -321,6 +321,10 @@ public final class Attribute implements Comparable<Attribute> {
       return valueSet;
     }
 
+    public Type<?> getType() {
+      return type;
+    }
+
     public Attribute build(String name) {
       Preconditions.checkState(!name.isEmpty(), "name has not been set");
       if (valueSource == AttributeValueSource.LATE_BOUND) {

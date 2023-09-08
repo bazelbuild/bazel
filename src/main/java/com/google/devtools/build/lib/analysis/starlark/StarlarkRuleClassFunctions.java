@@ -1145,12 +1145,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     ImmutableMap<String, Descriptor> attrs =
         ImmutableMap.copyOf(Dict.cast(attrsUnchecked, String.class, Descriptor.class, "attrs"));
     for (Entry<String, Descriptor> attr : attrs.entrySet()) {
-      // TODO: b/293304174 - only permit label/label-list typed attributes
       // TODO: b/293304174 - add support for late bound defaults (will require declaring fragments)
       // TODO: b/293304174 - do not permit split transitions?
       String attrName = attr.getKey();
       Descriptor descriptor = attr.getValue();
       checkAttributeName(attrName);
+      Type<?> type = descriptor.getType();
       if (!attrName.startsWith("_")) {
         throw Starlark.errorf(
             "illegal attribute name '%s': subrules may only define private attributes (whose names"
@@ -1162,6 +1162,10 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
             attrName);
       } else if (!descriptor.hasDefault()) {
         throw Starlark.errorf("for attribute '%s': no default value specified", attrName);
+      } else if (type != LABEL && type != LABEL_LIST) {
+        throw Starlark.errorf(
+            "bad type for attribute '%s': subrule attributes may only be label or lists of labels.",
+            attrName);
       }
     }
     return new StarlarkSubrule(implementation, attrs);

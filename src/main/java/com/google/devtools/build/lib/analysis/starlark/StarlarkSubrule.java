@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule.Descri
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
@@ -115,11 +116,18 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
               .getRule()
               .getRuleClassObject()
               .getAttributeByName(attr.ruleAttrName);
+      // We need to use the underlying RuleContext because the subrule attributes will be hidden
+      // from rule ctx.attr
       Object value;
       if (attribute.isExecutable()) {
         value = ruleContext.getRuleContext().getExecutablePrerequisite(attribute.getName());
+      } else if (attribute.getType() == BuildType.LABEL_LIST) {
+        value = ruleContext.getRuleContext().getPrerequisites(attribute.getName());
+      } else if (attribute.getType() == BuildType.LABEL) {
+        value = ruleContext.getRuleContext().getPrerequisite(attribute.getName());
       } else {
-        value = ruleContext.getAttr().getValue(attribute.getPublicName());
+        // this should never happen, we've already validated the type while evaluating the subrule
+        throw new IllegalStateException("unexpected attribute type");
       }
       namedArgs.put(attr.attrName, value);
     }

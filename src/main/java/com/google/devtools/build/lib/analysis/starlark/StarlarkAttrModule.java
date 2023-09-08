@@ -783,6 +783,10 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       return attributeFactory.getValueSource();
     }
 
+    public Type<?> getType() {
+      return attributeFactory.getType();
+    }
+
     public Attribute build(String name) {
       return attributeFactory.build(name);
     }
