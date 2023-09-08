@@ -278,7 +278,7 @@ public class RepositoryOptions extends OptionsBase {
   @Option(
       name = "lockfile_mode",
       converter = LockfileMode.Converter.class,
-      defaultValue = "update",
+      defaultValue = "off",
       documentationCategory = OptionDocumentationCategory.BZLMOD,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
