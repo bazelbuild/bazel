@@ -47,6 +47,7 @@ cp $* ${PACKAGE_DIR}
 if [[ $DEV_BUILD -eq 0 ]]; then
   # Unpack the deploy jar for postprocessing and for "re-compressing" to save
   # ~10% of final binary size.
+  mkdir -p $RECOMP
   unzip -q -d $RECOMP ${DEPLOY_JAR}
   cd $RECOMP
 
