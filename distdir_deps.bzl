@@ -57,45 +57,6 @@ DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
     "~grpc_repo_deps_ext~rules_cc",  # TODO: Should be removed
 ]]
 
-##################################################################################
-#
-# The list of repositories required while running Bazel integration tests offline
-#
-##################################################################################
-TEST_REPOS = [get_canonical_repo_name(repo) for repo in [
-    "android_tools",
-    "android_gmaven_r8",
-    "bazel_skylib",
-    "com_google_protobuf",
-    "remote_coverage_tools",
-    "remote_java_tools",
-    "remote_java_tools_darwin_x86_64",
-    "remote_java_tools_darwin_arm64",
-    "remote_java_tools_linux",
-    "remote_java_tools_windows",
-    "remotejdk11_linux",
-    "remotejdk11_linux_aarch64",
-    "remotejdk11_macos",
-    "remotejdk11_macos_aarch64",
-    "remotejdk11_win",
-    "remotejdk17_linux",
-    "remotejdk17_linux_s390x",
-    "remotejdk17_macos",
-    "remotejdk17_macos_aarch64",
-    "remotejdk17_win",
-    "remotejdk20_linux",
-    "remotejdk20_macos",
-    "remotejdk20_macos_aarch64",
-    "remotejdk20_win",
-    "rules_cc",
-    "rules_java",
-    "rules_license",
-    "rules_proto",
-    "rules_python",
-    "rules_pkg",
-    "rules_testing",
-]]
-
 DIST_DEPS = {
     ########################################
     #

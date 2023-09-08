@@ -47,7 +47,7 @@ public class TestConstants {
    * Location in the bazel repo where embedded binaries come from.
    */
   public static final ImmutableList<String> EMBEDDED_SCRIPTS_PATHS = ImmutableList.of(
-      "io_bazel/src/main/tools");
+      "_main/src/main/tools");
 
   /**
    * Default workspace name.
@@ -63,31 +63,31 @@ public class TestConstants {
   /**
    * Directory where we can find bazel's Java tests, relative to a test's runfiles directory.
    */
-  public static final String JAVATESTS_ROOT = "io_bazel/src/test/java/";
+  public static final String JAVATESTS_ROOT = "_main/src/test/java/";
 
   /** Location of the bazel repo relative to the workspace root */
   public static final String BAZEL_REPO_PATH = "";
 
   /** The file path in which to create files so that they end up under Bazel main repository. */
-  public static final String BAZEL_REPO_SCRATCH = "../io_bazel/";
+  public static final String BAZEL_REPO_SCRATCH = "../_main/";
 
   /** Relative path to the {@code process-wrapper} tool. */
   public static final String PROCESS_WRAPPER_PATH =
-      "io_bazel/src/main/tools/process-wrapper";
+      "_main/src/main/tools/process-wrapper";
 
   /** Relative path to the {@code linux-sandbox} tool. */
   public static final String LINUX_SANDBOX_PATH =
-      "io_bazel/src/main/tools/linux-sandbox";
+      "_main/src/main/tools/linux-sandbox";
 
   /** Relative path to the {@code spend_cpu_time} testing tool. */
   public static final String CPU_TIME_SPENDER_PATH =
-      "io_bazel/src/test/shell/integration/spend_cpu_time";
+      "_main/src/test/shell/integration/spend_cpu_time";
 
   /**
    * Directory where we can find Bazel's own bootstrapping rules relative to a test's runfiles
    * directory, i.e. when //tools/build_rules:srcs is in a test's data.
    */
-  public static final String BUILD_RULES_DATA_PATH = "io_bazel/tools/build_rules/";
+  public static final String BUILD_RULES_DATA_PATH = "_main/tools/build_rules/";
 
   public static final String TEST_RULE_CLASS_PROVIDER =
       "com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider";
@@ -114,7 +114,7 @@ public class TestConstants {
 
   public static final String RULES_CC_REPOSITORY_SCRATCH = "rules_cc_workspace/";
   /** The directory in which rules_cc repo resides in execroot. */
-  public static final String RULES_CC_REPOSITORY_EXECROOT = "external/rules_cc/";
+  public static final String RULES_CC_REPOSITORY_EXECROOT = "external/" + RulesCcRepoName.CANONICAL_REPO_NAME + "/";
 
   public static final ImmutableList<String> DOCS_RULES_PATHS = ImmutableList.of(
       "src/main/java/com/google/devtools/build/lib/rules");

@@ -35,10 +35,13 @@ _BAZEL_ARGS="--spawn_strategy=standalone \
       --nojava_header_compilation \
       --strategy=Javac=worker --worker_quit_after_build --ignore_unsupported_sandboxing \
       --compilation_mode=opt \
-      --distdir=derived/distdir \
+      --repository_cache=derived/repository_cache \
       --extra_toolchains=//scripts/bootstrap:all \
       --extra_toolchains=@bazel_tools//tools/python:autodetecting_toolchain \
-      --override_repository=maven="$(get_cwd)/maven" \
+      --enable_bzlmod \
+      --check_direct_dependencies=error \
+      --lockfile_mode=update \
+      --override_repository=$(cat derived/maven/MAVEN_CANONICAL_REPO_NAME)=derived/maven \
       ${DIST_BOOTSTRAP_ARGS:-} \
       ${EXTRA_BAZEL_ARGS:-}"
 

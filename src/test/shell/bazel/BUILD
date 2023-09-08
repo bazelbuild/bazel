@@ -340,7 +340,10 @@ sh_test(
     srcs = ["bazel_proto_library_test.sh"],
     data = [":test-deps"],
     exec_compatible_with = ["//:highcpu_machine"],
-    tags = ["no_windows"],  # Doesn't work on Windows for unknown reason
+    tags = [
+        "no_windows",  # Doesn't work on Windows for unknown reason
+        "requires-network",  # Allow this test to access internet to fetch rules_proto dependencies.
+    ],
 )
 
 sh_test(
@@ -1146,6 +1149,7 @@ sh_test(
     data = [
         ":test-deps",
         "//:bazel-distfile",
+        "@bazel_tools//tools/bash/runfiles",
     ],
     exec_compatible_with = ["//:highcpu_machine"],
     tags = [

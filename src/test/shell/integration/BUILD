@@ -371,6 +371,7 @@ sh_test(
         "//third_party/zlib",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    tags = ["requires-network"],  # Allow this test to access internet to fetch rules_proto dependencies.
 )
 
 sh_test(

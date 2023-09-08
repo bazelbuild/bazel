@@ -127,7 +127,9 @@ class TestBase(unittest.TestCase):
       shared_repo_cache = os.environ.get('REPOSITORY_CACHE')
       if shared_repo_cache:
         f.write('common --repository_cache={}\n'.format(shared_repo_cache))
-        f.write('common --experimental_repository_cache_hardlinks\n')
+        if TestBase.IsDarwin():
+          # For reducing SSD usage on our physical Mac machines.
+          f.write('common --experimental_repository_cache_hardlinks\n')
     os.chdir(self._test_cwd)
 
   def tearDown(self):
@@ -232,6 +234,11 @@ class TestBase(unittest.TestCase):
   def IsWindows():
     """Returns true if the current platform is Windows."""
     return os.name == 'nt'
+
+  @staticmethod
+  def IsDarwin():
+    """Returns true if the current platform is Darwin/macOS."""
+    return sys.platform == 'darwin'
 
   @staticmethod
   def IsUnix():
