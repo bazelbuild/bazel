@@ -265,6 +265,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         /* toolchains= */ "['//rule:toolchain_type_1']",
         /* execGroups= */ "",
         /* execCompatibleWith= */ "");
+    useConfiguration("--incompatible_auto_exec_groups=False");
 
     ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
     ImmutableMap<String, ExecGroup> execGroups =
@@ -383,6 +384,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         /* toolchains= */ "['//rule:toolchain_type_1']",
         /* execGroups= */ "",
         /* execCompatibleWith= */ "");
+    useConfiguration("--incompatible_auto_exec_groups=False");
 
     ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
     RuleContext ruleContext = getRuleContext(target);
@@ -1168,7 +1170,8 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     useConfiguration(
         "--experimental_local_java_optimizations",
         "--experimental_bytecode_optimizers=Optimizer=//java/com/google/optimizationtest:optimizer",
-        "--experimental_local_java_optimization_configuration=//java/com/google/optimizationtest:config.txt");
+        "--experimental_local_java_optimization_configuration=//java/com/google/optimizationtest:config.txt",
+        "--incompatible_auto_exec_groups=False");
 
     ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
     Action action = getGeneratingAction(target, "test/lib_custom_rule_name.jar");
@@ -1232,6 +1235,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "test/BUILD",
         "load('//test:defs.bzl', 'custom_rule')",
         "custom_rule(name = 'custom_rule_name')");
+    useConfiguration("--incompatible_auto_exec_groups=False");
 
     ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
     Action action = getGeneratingAction(target, "test/lib_custom_rule_name.jar");
@@ -1325,6 +1329,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "  processor_class = 'GeneratedProcessor',",
         ")",
         "custom_rule(name = 'custom_rule_name')");
+    useConfiguration("--incompatible_auto_exec_groups=False");
 
     ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
     JavaInfo javaInfo = target.get(JavaInfo.PROVIDER);
@@ -1406,7 +1411,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "test/BUILD",
         "load('//test:defs.bzl', 'custom_rule')",
         "custom_rule(name = 'custom_rule_name', srcs = ['Main.java'])");
-    useConfiguration("--collect_code_coverage");
+    useConfiguration("--collect_code_coverage", "--incompatible_auto_exec_groups=False");
 
     ImmutableList<Action> actions =
         getActions("//test:custom_rule_name", LazyWritePathsFileAction.class);
@@ -1486,7 +1491,8 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "bazel_internal/test_rules/BUILD",
         "load('//bazel_internal/test_rules:defs.bzl', 'custom_rule')",
         "custom_rule(name = 'custom_rule_name', resources = ['Resources.java'])");
-    useConfiguration("--experimental_turbine_annotation_processing");
+    useConfiguration(
+        "--experimental_turbine_annotation_processing", "--incompatible_auto_exec_groups=False");
 
     ImmutableList<Action> actions = getActions("//bazel_internal/test_rules:custom_rule_name");
     ImmutableList<Action> javaResourceActions =

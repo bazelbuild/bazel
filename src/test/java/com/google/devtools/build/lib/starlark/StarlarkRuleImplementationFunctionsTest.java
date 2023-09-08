@@ -301,7 +301,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "  inputs = ruleContext.files.srcs,",
         "  outputs = ruleContext.files.srcs,",
         "  arguments = ['--a','--b'],",
-        "  executable = ruleContext.files.tools[0])");
+        "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None",
+        ")");
     SpawnAction action =
         (SpawnAction)
             Iterables.getOnlyElement(
@@ -320,6 +322,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "  inputs = ruleContext.files.srcs,",
         "  outputs = ruleContext.files.srcs[1:],",
         "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None,",
         "  mnemonic = 'DummyMnemonic',",
         "  progress_message = 'message %{label} %{input} %{output}')");
 
@@ -341,7 +344,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "  inputs = depset(ruleContext.files.srcs),",
         "  outputs = ruleContext.files.srcs,",
         "  arguments = ['--a','--b'],",
-        "  executable = ruleContext.files.tools[0])");
+        "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None",
+        ")");
     SpawnAction action =
         (SpawnAction)
             Iterables.getOnlyElement(
@@ -511,6 +516,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "  tools = ctx.attr.exe.files,",
         "  outputs = [output],",
         "  command = 'boo bar baz',",
+        "  toolchain = None",
         ")");
     RuleConfiguredTarget target = (RuleConfiguredTarget) getConfiguredTarget("//bar:my_rule");
     SpawnAction action = (SpawnAction) Iterables.getOnlyElement(target.getActions());
@@ -526,6 +532,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "  tools = ctx.attr.exe.files,",
         "  outputs = [output],",
         "  command = 'boo bar baz',",
+        "  toolchain = None",
         ")");
     RuleConfiguredTarget target = (RuleConfiguredTarget) getConfiguredTarget("//bar:my_rule");
     SpawnAction action = (SpawnAction) Iterables.getOnlyElement(target.getActions());
@@ -2081,6 +2088,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "  outputs = ruleContext.files.srcs,",
         "  arguments = [args],",
         "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None",
         ")");
     SpawnAction action =
         (SpawnAction)
@@ -2103,6 +2111,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "  outputs = ruleContext.files.srcs,",
         "  arguments = [args],",
         "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None",
         ")");
   }
 
@@ -2130,6 +2139,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "  outputs = ruleContext.files.srcs,",
         "  arguments = [args],",
         "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None",
         ")");
     SpawnAction action =
         (SpawnAction)
@@ -2181,6 +2191,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "  outputs = ruleContext.files.srcs,",
         "  arguments = [args],",
         "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None",
         ")");
     SpawnAction action =
         (SpawnAction)
@@ -2213,6 +2224,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "  outputs = ruleContext.files.srcs,",
         "  arguments = [args],",
         "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None",
         ")");
     SpawnAction action =
         (SpawnAction)
@@ -2249,6 +2261,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "  outputs = ruleContext.files.srcs,",
         "  arguments = [args],",
         "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None",
         ")");
     SpawnAction action =
         (SpawnAction)
@@ -2282,6 +2295,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "  outputs = ruleContext.files.srcs,",
         "  arguments = [args],",
         "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None",
         ")");
     SpawnAction action =
         (SpawnAction)
@@ -2318,6 +2332,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "  outputs = ruleContext.files.srcs,",
         "  arguments = ['hello', foo_args, 'world', bar_args, 'works'],",
         "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None",
         ")");
     SpawnAction action =
         (SpawnAction)
@@ -2428,6 +2443,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "  outputs = ruleContext.files.srcs,",
         "  arguments = [args],",
         "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None",
         ")");
   }
 
@@ -2452,6 +2468,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "  outputs = ruleContext.files.srcs,",
         "  arguments = [args],",
         "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None",
         ")");
     SpawnAction action =
         (SpawnAction)
@@ -2475,6 +2492,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "  outputs = ruleContext.files.srcs,",
         "  arguments = [args],",
         "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None",
         ")");
     SpawnAction action =
         (SpawnAction)
@@ -2496,6 +2514,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "  outputs = ruleContext.files.srcs,",
         "  arguments = [args],",
         "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None",
         ")");
     SpawnAction action =
         (SpawnAction)
@@ -2750,7 +2769,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "    ctx.actions.run(",
         "        inputs = [],",
         "        outputs = [f],",
-        "        executable = ctx.attr._tool[DefaultInfo].files_to_run)",
+        "        executable = ctx.attr._tool[DefaultInfo].files_to_run,",
+        "        toolchain = None",
+        "    )",
         "    return [DefaultInfo(files=depset([f]))]",
         "r = rule(implementation=_impl, attrs = {'_tool': attr.label(default='//a:tool')})");
 
@@ -2777,7 +2798,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "        inputs = [],",
         "        outputs = [f],",
         "        tools = [ctx.attr._tool[DefaultInfo].files_to_run],",
-        "        executable = 'a/tool')",
+        "        executable = 'a/tool',",
+        "        toolchain = None",
+        "    )",
         "    return [DefaultInfo(files=depset([f]))]",
         "r = rule(implementation=_impl, attrs = {'_tool': attr.label(default='//a:tool')})");
 

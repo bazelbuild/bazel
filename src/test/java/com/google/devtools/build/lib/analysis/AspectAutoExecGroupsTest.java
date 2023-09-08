@@ -339,6 +339,7 @@ public class AspectAutoExecGroupsTest extends BuildViewTestCase {
         /* extraAttributes= */ "",
         /* toolchains= */ "['//rule:toolchain_type_1']",
         /* execGroups= */ "");
+    useConfiguration("--incompatible_auto_exec_groups=False");
 
     getConfiguredTarget("//test:custom_rule_name");
     ConfiguredAspect configuredAspect = getAspect("//test:aspect.bzl%custom_aspect");
