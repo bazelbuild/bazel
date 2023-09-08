@@ -20,6 +20,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -548,6 +549,42 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
     Object value = provider.getValue("result");
     assertThat(value).isInstanceOf(ConfiguredTarget.class);
     assertThat(((ConfiguredTarget) value).getLabel().toString()).isEqualTo("//some/pkg:tool");
+  }
+
+  @Test
+  public void testSubruleAttr_executableAttrIsPassedAsFilesToRun() throws Exception {
+    scratch.file(
+        "my/BUILD",
+        //
+        "cc_binary(name = 'tool')");
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "def _subrule_impl(ctx, _tool):",
+        "  return _tool",
+        "_my_subrule = subrule(",
+        "  implementation = _subrule_impl,",
+        "  attrs = {'_tool' : attr.label(default = '//my:tool', executable = True, cfg = 'exec')},",
+        ")",
+        "",
+        "MyInfo = provider()",
+        "def _rule_impl(ctx):",
+        "  res = _my_subrule()",
+        "  return MyInfo(result = res)",
+        "",
+        "my_rule = rule(implementation = _rule_impl, subrules = [_my_subrule])");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo')");
+
+    Object result =
+        getProvider("//subrule_testing:foo", "//subrule_testing:myrule.bzl", "MyInfo")
+            .getValue("result");
+
+    assertThat(result).isInstanceOf(FilesToRunProvider.class);
+    assertThat(((FilesToRunProvider) result).getExecutable().getRootRelativePathString())
+        .isEqualTo("my/tool");
   }
 
   @Test

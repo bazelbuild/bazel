@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory.Sta
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule.Descriptor;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
@@ -58,6 +59,7 @@ import net.starlark.java.eval.Tuple;
  */
 public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, StarlarkSubruleApi {
   // TODO(hvd) this class is a WIP, will be implemented over many commits
+  // TODO: b/293304174 - Fix all user-facing Starlark documentation
 
   private final StarlarkFunction implementation;
 
@@ -107,7 +109,19 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
       if (kwargs.containsKey(attr.attrName)) {
         throw Starlark.errorf("got invalid named argument: '%s'", attr.attrName);
       }
-      namedArgs.put(attr.attrName, ruleContext.getAttr().getValue(attr.ruleAttrName));
+      Attribute attribute =
+          ruleContext
+              .getRuleContext()
+              .getRule()
+              .getRuleClassObject()
+              .getAttributeByName(attr.ruleAttrName);
+      Object value;
+      if (attribute.isExecutable()) {
+        value = ruleContext.getRuleContext().getExecutablePrerequisite(attribute.getName());
+      } else {
+        value = ruleContext.getAttr().getValue(attribute.getPublicName());
+      }
+      namedArgs.put(attr.attrName, value);
     }
     try {
       ruleContext.setLockedForSubrule(true);
