@@ -108,7 +108,6 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
 
   @Test
   public void diamond() throws Exception {
-    rewriteWorkspace("workspace(name='aaa_ws')");
     scratch.overwriteFile(
         "MODULE.bazel",
         "module(name='aaa',version='1.0')",
@@ -153,6 +152,9 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
           entry.getValue());
     }
 
+    // Called last as it triggers package invalidation, which requires a valid MODULE.bazel setup.
+    rewriteWorkspace("workspace(name='aaa_ws')");
+
     assertThat(getRepoMappingManifestForTarget("//:aaa"))
         .containsExactly(
             ",aaa,_main",
@@ -169,7 +171,6 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
 
   @Test
   public void runfilesFromToolchain() throws Exception {
-    rewriteWorkspace("workspace(name='main')");
     scratch.overwriteFile("MODULE.bazel", "bazel_dep(name='tooled_rule',version='1.0')");
     // tooled_rule offers a tooled_binary rule, which uses a toolchain backed by a binary from
     // bare_rule. tooled_binary explicitly requests that runfiles from this binary are included in
@@ -220,6 +221,9 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
         "BUILD",
         "load('@tooled_rule//:defs.bzl', 'tooled_binary')",
         "tooled_binary(name='tooled')");
+
+    // Called last as it triggers package invalidation, which requires a valid MODULE.bazel setup.
+    rewriteWorkspace("workspace(name='main')");
 
     assertThat(getRepoMappingManifestForTarget("//:tooled"))
         .containsExactly(

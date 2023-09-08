@@ -124,7 +124,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
   @Test
   public void testMappingFileIsRead_fromAlternatePackagePath() throws Exception {
     scratch.setWorkingDir("/other/package/path");
-    scratch.file("WORKSPACE");
+    scratch.copyFile(rootDirectory.getRelative("WORKSPACE").getPathString(), "WORKSPACE");
     setPackageOptions("--package_path=/other/package/path");
     scratch.file(
         "my_mapping_file",
@@ -145,6 +145,12 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void handlesNoWorkspaceFile() throws Exception {
+    // --package_path is not relevant for Bazel and difficult to get to work correctly with
+    // WORKSPACE suffixes in tests.
+    if (analysisMock.isThisBazel()) {
+      return;
+    }
+
     scratch.setWorkingDir("/other/package/path");
     scratch.file(
         "my_mapping_file",
