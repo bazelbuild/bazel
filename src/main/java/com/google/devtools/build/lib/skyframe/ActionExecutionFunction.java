@@ -380,7 +380,10 @@ public final class ActionExecutionFunction implements SkyFunction {
         state.requestedArtifactNestedSetKeys.add(ArtifactNestedSetKey.create(nonLeaf));
       }
 
-      state.requestedArtifactNestedSetKeys.add(ArtifactNestedSetKey.create(schedulingDependencies));
+      if (!schedulingDependencies.isEmpty()) {
+        state.requestedArtifactNestedSetKeys.add(
+            ArtifactNestedSetKey.create(schedulingDependencies));
+      }
     }
 
     return Iterables.concat(directKeys, state.requestedArtifactNestedSetKeys);
