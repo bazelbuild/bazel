@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.concurrent.Semaphore;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
@@ -852,7 +853,13 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       Globber.Operation operation,
       boolean allowEmpty)
       throws EvalException, InterruptedException {
+    Semaphore cpuSemaphore = context.pkgBuilder.getCpuBoundSemaphore();
     try {
+      if (cpuSemaphore != null) {
+        // Throwing exceptions inside the try block before this release could lead to the semaphore
+        // being acquired more times than it is released.
+        cpuSemaphore.release();
+      }
       Globber.Token globToken = context.globber.runAsync(includes, excludes, operation, allowEmpty);
       return context.globber.fetchUnsorted(globToken);
     } catch (IOException e) {
@@ -881,6 +888,10 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       return ImmutableList.of();
     } catch (BadGlobException e) {
       throw new EvalException(e);
+    } finally {
+      if (cpuSemaphore != null) {
+        cpuSemaphore.acquire();
+      }
     }
   }
 }

@@ -122,12 +122,13 @@ abstract class ArtifactFunctionTestCase {
                         null,
                         null,
                         null,
-                        /*packageProgress=*/ null,
+                        /* packageProgress= */ null,
                         PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException
                             .INSTANCE,
                         /* shouldUseRepoDotBazel= */ true,
                         GlobbingStrategy.SKYFRAME_HYBRID,
-                        k -> ThreadStateReceiver.NULL_INSTANCE))
+                        k -> ThreadStateReceiver.NULL_INSTANCE,
+                        new AtomicReference<>()))
                 .put(
                     SkyFunctions.PACKAGE_LOOKUP,
                     new PackageLookupFunction(
@@ -143,7 +144,7 @@ abstract class ArtifactFunctionTestCase {
                             .builder(directories)
                             .build(TestRuleClassProvider.getRuleClassProvider(), fs),
                         directories,
-                        /*bzlLoadFunctionForInlining=*/ null))
+                        /* bzlLoadFunctionForInlining= */ null))
                 .put(
                     SkyFunctions.EXTERNAL_PACKAGE,
                     new ExternalPackageFunction(

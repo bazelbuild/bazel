@@ -396,7 +396,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   // A Semaphore to limit the number of in-flight execution of certain SkyFunctions to prevent OOM.
   // TODO(b/185987566): Remove this semaphore.
   private static final int DEFAULT_SEMAPHORE_SIZE = ResourceUsage.getAvailableProcessors();
-  private final AtomicReference<Semaphore> oomSensitiveSkyFunctionsSemaphore =
+  private final AtomicReference<Semaphore> cpuBoundSemaphore =
       new AtomicReference<>(new Semaphore(DEFAULT_SEMAPHORE_SIZE));
 
   private Map<String, String> lastRemoteDefaultExecProperties;
@@ -619,7 +619,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             actionOnIOExceptionReadingBuildFile,
             shouldUseRepoDotBazel,
             getGlobbingStrategy(),
-            skyKeyStateReceiver::makeThreadStateReceiver));
+            skyKeyStateReceiver::makeThreadStateReceiver,
+            cpuBoundSemaphore));
     map.put(SkyFunctions.PACKAGE_ERROR, new PackageErrorFunction());
     map.put(SkyFunctions.PACKAGE_ERROR_MESSAGE, new PackageErrorMessageFunction());
     map.put(SkyFunctions.TARGET_PATTERN_ERROR, new TargetPatternErrorFunction());
@@ -630,7 +631,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         new ConfiguredTargetFunction(
             new BuildViewProvider(),
             ruleClassProvider,
-            oomSensitiveSkyFunctionsSemaphore,
+            cpuBoundSemaphore,
             shouldStoreTransitivePackagesInLoadingAndAnalysis(),
             shouldUnblockCpuWorkWhenFetchingDeps,
             configuredTargetProgress,
@@ -2449,7 +2450,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     PrecomputedValue.REPO_ENV.set(injectable(), new LinkedHashMap<>(repoEnvOption));
     RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
     setRemoteExecutionEnabled(remoteOptions != null && remoteOptions.isRemoteExecutionEnabled());
-    updateSkyFunctionsSemaphoreSize(options);
+    cpuBoundSemaphore.set(getUpdatedSkyFunctionsSemaphore(options));
     syncPackageLoading(pathPackageLocator, commandId, clientEnv, tsgm, executors, options);
 
     if (lastAnalysisDiscarded) {
@@ -2460,20 +2461,19 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return null;
   }
 
-  /**
-   * Updates the size of {@link #oomSensitiveSkyFunctionsSemaphore} based on the provided flag
-   * option. If the provided value is 0, remove the semaphore.
-   */
-  private void updateSkyFunctionsSemaphoreSize(OptionsProvider options) {
+  /** Determines the updated {@link #cpuBoundSemaphore} from the provided options. */
+  @Nullable
+  protected Semaphore getUpdatedSkyFunctionsSemaphore(OptionsProvider options) {
     AnalysisOptions analysisOptions = options.getOptions(AnalysisOptions.class);
     if (analysisOptions == null) {
-      return;
+      return cpuBoundSemaphore.get(); // Leaves as-is.
     }
-    Semaphore newSemaphore =
-        analysisOptions.oomSensitiveSkyFunctionsSemaphoreSize == 0
-            ? null
-            : new Semaphore(analysisOptions.oomSensitiveSkyFunctionsSemaphoreSize);
-    oomSensitiveSkyFunctionsSemaphore.set(newSemaphore);
+
+    int newSize = analysisOptions.oomSensitiveSkyFunctionsSemaphoreSize;
+    if (newSize == 0) {
+      return null;
+    }
+    return new Semaphore(newSize);
   }
 
   protected void syncPackageLoading(

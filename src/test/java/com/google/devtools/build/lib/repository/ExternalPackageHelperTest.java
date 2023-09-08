@@ -163,13 +163,14 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
             null,
             null,
             null,
-            /*numPackagesSuccessfullyLoaded=*/ new AtomicInteger(),
+            /* numPackagesSuccessfullyLoaded= */ new AtomicInteger(),
             null,
-            /*packageProgress=*/ null,
+            /* packageProgress= */ null,
             PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException.INSTANCE,
             /* shouldUseRepoDotBazel= */ true,
             GlobbingStrategy.SKYFRAME_HYBRID,
-            k -> ThreadStateReceiver.NULL_INSTANCE));
+            k -> ThreadStateReceiver.NULL_INSTANCE,
+            new AtomicReference<>()));
     skyFunctions.put(
         SkyFunctions.EXTERNAL_PACKAGE,
         new ExternalPackageFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));

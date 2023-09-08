@@ -260,7 +260,8 @@ public final class RuleClassTest extends PackageLoadingTestCase {
             Optional.empty(),
             StarlarkSemantics.DEFAULT,
             RepositoryMapping.ALWAYS_FALLBACK,
-            RepositoryMapping.ALWAYS_FALLBACK)
+            RepositoryMapping.ALWAYS_FALLBACK,
+            /* cpuBoundSemaphore= */ null)
         .setFilename(RootedPath.toRootedPath(root, testBuildfilePath));
   }
 

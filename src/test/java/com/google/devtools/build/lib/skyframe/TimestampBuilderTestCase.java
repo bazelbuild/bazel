@@ -286,7 +286,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                             .INSTANCE,
                         /* shouldUseRepoDotBazel= */ true,
                         GlobbingStrategy.SKYFRAME_HYBRID,
-                        k -> ThreadStateReceiver.NULL_INSTANCE))
+                        k -> ThreadStateReceiver.NULL_INSTANCE,
+                        /* cpuBoundSemaphore= */ new AtomicReference<>()))
                 .put(
                     SkyFunctions.PACKAGE_LOOKUP,
                     new PackageLookupFunction(

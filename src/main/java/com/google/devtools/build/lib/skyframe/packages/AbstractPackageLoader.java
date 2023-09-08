@@ -106,6 +106,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -142,6 +143,19 @@ public abstract class AbstractPackageLoader implements PackageLoader {
   @VisibleForTesting final ForkJoinPool forkJoinPoolForNonSkyframeGlobbing;
   private final int skyframeThreads;
 
+  /**
+   * Determines the size of a semaphore to use when loading packages.
+   *
+   * <p>Package loading does a mix of CPU work and blocking I/O work so it can be better for
+   * performance to oversubscribe package loading threads relative to CPUs. However, that may lead
+   * to a condition where CPU work thrashes due to context switching. Setting this semaphore to the
+   * CPU count mitigates the thrashing, but won't do much without {@link skyframeThreads} greater
+   * than CPU count.
+   *
+   * <p>A value of 0 disables the semaphore.
+   */
+  private final int cpuBoundSemaphoreTokenCount;
+
   /** Abstract base class of a builder for {@link PackageLoader} instances. */
   public abstract static class Builder {
     protected final Path workspaceDir;
@@ -157,6 +171,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     List<PrecomputedValue.Injected> extraPrecomputedValues = new ArrayList<>();
     int nonSkyframeGlobbingThreads = 1;
     int skyframeThreads = 1;
+    int cpuBoundSemaphoreTokenCount = 0;
 
     protected Builder(
         Root workspaceDir,
@@ -237,6 +252,12 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     }
 
     @CanIgnoreReturnValue
+    public Builder setCpuBoundSemaphoreTokenCount(int tokenCount) {
+      this.cpuBoundSemaphoreTokenCount = tokenCount;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
     public Builder setExternalFileAction(ExternalFileAction externalFileAction) {
       this.externalFileAction = externalFileAction;
       return this;
@@ -273,6 +294,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         NamedForkJoinPool.newNamedPool(
             "package-loader-globbing-pool", builder.nonSkyframeGlobbingThreads);
     this.skyframeThreads = builder.skyframeThreads;
+    this.cpuBoundSemaphoreTokenCount = builder.cpuBoundSemaphoreTokenCount;
     this.directories = builder.directories;
     this.hashFunction = builder.workspaceDir.getFileSystem().getDigestFunction().getHashFunction();
 
@@ -497,7 +519,11 @@ public abstract class AbstractPackageLoader implements PackageLoader {
                 shouldUseRepoDotBazel(),
                 // Tell PackageFunction to optimize for our use-case of no incrementality.
                 GlobbingStrategy.NON_SKYFRAME,
-                k -> ThreadStateReceiver.NULL_INSTANCE))
+                k -> ThreadStateReceiver.NULL_INSTANCE,
+                /* cpuBoundSemaphore= */ new AtomicReference<>(
+                    cpuBoundSemaphoreTokenCount > 0
+                        ? new Semaphore(cpuBoundSemaphoreTokenCount)
+                        : null)))
         .putAll(extraSkyFunctions);
     return builder.buildOrThrow();
   }

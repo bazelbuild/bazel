@@ -180,11 +180,12 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
             null,
             null,
             null,
-            /*packageProgress=*/ null,
+            /* packageProgress= */ null,
             PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException.INSTANCE,
             /* shouldUseRepoDotBazel= */ true,
             GlobbingStrategy.SKYFRAME_HYBRID,
-            k -> ThreadStateReceiver.NULL_INSTANCE));
+            k -> ThreadStateReceiver.NULL_INSTANCE,
+            new AtomicReference<>()));
     skyFunctions.put(
         WorkspaceFileValue.WORKSPACE_FILE,
         new WorkspaceFileFunction(

@@ -51,6 +51,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.Semaphore;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
@@ -241,7 +243,8 @@ public final class PackageFactory {
       Optional<String> associatedModuleVersion,
       StarlarkSemantics starlarkSemantics,
       RepositoryMapping repositoryMapping,
-      RepositoryMapping mainRepositoryMapping) {
+      RepositoryMapping mainRepositoryMapping,
+      @Nullable Semaphore cpuBoundSemaphore) {
     return new Package.Builder(
         packageSettings,
         packageId,
@@ -250,7 +253,8 @@ public final class PackageFactory {
         associatedModuleVersion,
         starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
         repositoryMapping,
-        mainRepositoryMapping);
+        mainRepositoryMapping,
+        cpuBoundSemaphore);
   }
 
   /** Returns a new {@link NonSkyframeGlobber}. */
@@ -409,7 +413,11 @@ public final class PackageFactory {
       }
     }
 
+    Semaphore cpuSemaphore = pkgBuilder.getCpuBoundSemaphore();
     try {
+      if (cpuSemaphore != null) {
+        cpuSemaphore.acquire();
+      }
       executeBuildFileImpl(
           pkgBuilder, buildFileProgram, predeclared, loadedModules, starlarkSemantics, globber);
     } catch (InterruptedException e) {
@@ -417,6 +425,9 @@ public final class PackageFactory {
       throw e;
     } finally {
       globber.onCompletion();
+      if (cpuSemaphore != null) {
+        cpuSemaphore.release();
+      }
     }
   }
 

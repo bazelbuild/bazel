@@ -325,7 +325,8 @@ public final class FilesystemValueCheckerTest {
             PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException.INSTANCE,
             /* shouldUseRepoDotBazel= */ true,
             GlobbingStrategy.SKYFRAME_HYBRID,
-            k -> ThreadStateReceiver.NULL_INSTANCE));
+            k -> ThreadStateReceiver.NULL_INSTANCE,
+            new AtomicReference<>()));
     skyFunctions.put(
         SkyFunctions.PACKAGE_LOOKUP,
         new PackageLookupFunction(

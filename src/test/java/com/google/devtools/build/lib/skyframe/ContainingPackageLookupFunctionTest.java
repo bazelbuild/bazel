@@ -117,11 +117,12 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
             null,
             null,
             null,
-            /*packageProgress=*/ null,
+            /* packageProgress= */ null,
             PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException.INSTANCE,
             /* shouldUseRepoDotBazel= */ true,
             GlobbingStrategy.SKYFRAME_HYBRID,
-            k -> ThreadStateReceiver.NULL_INSTANCE));
+            k -> ThreadStateReceiver.NULL_INSTANCE,
+            new AtomicReference<>()));
     skyFunctions.put(
         SkyFunctions.IGNORED_PACKAGE_PREFIXES,
         new IgnoredPackagePrefixesFunction(

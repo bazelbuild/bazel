@@ -90,8 +90,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -123,6 +125,8 @@ public class PackageFunction implements SkyFunction {
   private final GlobbingStrategy globbingStrategy;
 
   private final Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactoryForMetrics;
+
+  private final AtomicReference<Semaphore> cpuBoundSemaphore;
 
   /**
    * CompiledBuildFile holds information extracted from the BUILD syntax tree before it was
@@ -185,7 +189,8 @@ public class PackageFunction implements SkyFunction {
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
       boolean shouldUseRepoDotBazel,
       GlobbingStrategy globbingStrategy,
-      Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactoryForMetrics) {
+      Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactoryForMetrics,
+      AtomicReference<Semaphore> cpuBoundSemaphore) {
     this.bzlLoadFunctionForInlining = bzlLoadFunctionForInlining;
     this.packageFactory = packageFactory;
     this.packageLocator = pkgLocator;
@@ -196,6 +201,7 @@ public class PackageFunction implements SkyFunction {
     this.shouldUseRepoDotBazel = shouldUseRepoDotBazel;
     this.globbingStrategy = globbingStrategy;
     this.threadStateReceiverFactoryForMetrics = threadStateReceiverFactoryForMetrics;
+    this.cpuBoundSemaphore = cpuBoundSemaphore;
   }
 
   public void setBzlLoadFunctionForInliningForTesting(BzlLoadFunction bzlLoadFunctionForInlining) {
@@ -1397,7 +1403,8 @@ public class PackageFunction implements SkyFunction {
                   repositoryMappingValue.getAssociatedModuleVersion(),
                   starlarkBuiltinsValue.starlarkSemantics,
                   repositoryMapping,
-                  mainRepositoryMappingValue.getRepositoryMapping())
+                  mainRepositoryMappingValue.getRepositoryMapping(),
+                  cpuBoundSemaphore.get())
               .setFilename(buildFileRootedPath)
               .setConfigSettingVisibilityPolicy(configSettingVisibilityPolicy);
 
@@ -1470,6 +1477,9 @@ public class PackageFunction implements SkyFunction {
       @Nullable Label preludeLabel,
       Environment env)
       throws PackageFunctionException, InterruptedException {
+    // Though it could be in principle, `cpuBoundSemaphore` is not held here as this method does
+    // not show up in profiles as being significantly impacted by thrashing. It could be worth doing
+    // so, in which case it should be released when reading the file below.
     StarlarkSemantics semantics = starlarkBuiltinsValue.starlarkSemantics;
 
     // read BUILD file

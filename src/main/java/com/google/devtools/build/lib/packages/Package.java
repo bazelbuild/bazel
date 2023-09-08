@@ -74,6 +74,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.Semaphore;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -774,7 +775,8 @@ public class Package {
             /* associatedModuleVersion= */ Optional.empty(),
             starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
             mainRepoMapping,
-            mainRepoMapping)
+            mainRepoMapping,
+            /* cpuBoundSemaphore= */ null)
         .setFilename(workspacePath);
   }
 
@@ -794,7 +796,8 @@ public class Package {
             // This mapping is *not* the main repository's mapping, but since it is only used to
             // construct a query command in an error message and the package built here can't be
             // seen by query, the particular value does not matter.
-            RepositoryMapping.ALWAYS_FALLBACK)
+            RepositoryMapping.ALWAYS_FALLBACK,
+            /* cpuBoundSemaphore= */ null)
         .setFilename(moduleFilePath)
         .setLoads(ImmutableList.of());
   }
@@ -879,6 +882,14 @@ public class Package {
     private final RepositoryMapping mainRepositoryMapping;
     /** Converts label literals to Label objects within this package. */
     private final LabelConverter labelConverter;
+
+    /**
+     * Semaphore held by the Skyframe thread when performing CPU work.
+     *
+     * <p>This should be released when performing I/O.
+     */
+    @Nullable // Only non-null when inside PackageFunction.compute and the semaphore is enabled.
+    private final Semaphore cpuBoundSemaphore;
 
     private RootedPath filename = null;
     private Label buildFileLabel = null;
@@ -995,7 +1006,8 @@ public class Package {
         Optional<String> associatedModuleVersion,
         boolean noImplicitFileExport,
         RepositoryMapping repositoryMapping,
-        RepositoryMapping mainRepositoryMapping) {
+        RepositoryMapping mainRepositoryMapping,
+        @Nullable Semaphore cpuBoundSemaphore) {
       this.pkg =
           new Package(
               id,
@@ -1011,6 +1023,7 @@ public class Package {
       if (pkg.getName().startsWith("javatests/")) {
         mergePackageArgsFrom(PackageArgs.builder().setDefaultTestOnly(true));
       }
+      this.cpuBoundSemaphore = cpuBoundSemaphore;
     }
 
     PackageIdentifier getPackageIdentifier() {
@@ -1862,6 +1875,11 @@ public class Package {
         message += target.getTargetKind();
       }
       return message + ", defined at " + target.getLocation();
+    }
+
+    @Nullable
+    public Semaphore getCpuBoundSemaphore() {
+      return cpuBoundSemaphore;
     }
   }
 

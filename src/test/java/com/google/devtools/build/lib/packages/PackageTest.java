@@ -167,7 +167,8 @@ public class PackageTest {
             Optional.empty(),
             /* noImplicitFileExport= */ true,
             RepositoryMapping.ALWAYS_FALLBACK,
-            RepositoryMapping.ALWAYS_FALLBACK);
+            RepositoryMapping.ALWAYS_FALLBACK,
+            /* cpuBoundSemaphore= */ null);
     result.setFilename(
         RootedPath.toRootedPath(
             Root.fromPath(fileSystem.getPath("/irrelevantRoot")), PathFragment.create(name)));

@@ -217,7 +217,8 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                             .INSTANCE,
                         /* shouldUseRepoDotBazel= */ true,
                         GlobbingStrategy.SKYFRAME_HYBRID,
-                        ignored -> ThreadStateReceiver.NULL_INSTANCE))
+                        ignored -> ThreadStateReceiver.NULL_INSTANCE,
+                        /* cpuBoundSemaphore= */ new AtomicReference<>()))
                 .put(
                     SkyFunctions.PACKAGE_LOOKUP,
                     new PackageLookupFunction(
