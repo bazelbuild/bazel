@@ -32,18 +32,24 @@ public class AndroidDexInfo extends NativeInfo implements AndroidDexInfoApi<Arti
 
   private final Artifact deployJar;
   private final Artifact finalClassesDexZip;
+  private final Artifact filteredDeployJar;
   private final Artifact finalProguardOutputMap;
   private final Artifact javaResourceJar;
+  private final Artifact shuffledJavaResourceJar;
 
   public AndroidDexInfo(
       Artifact deployJar,
       Artifact finalClassesDexZip,
+      Artifact filteredDeployJar,
       Artifact finalProguardOutputMap,
-      Artifact javaResourceJar) {
+      Artifact javaResourceJar,
+      Artifact shuffledJavaResourceJar) {
     this.deployJar = deployJar;
     this.finalClassesDexZip = finalClassesDexZip;
+    this.filteredDeployJar = filteredDeployJar;
     this.finalProguardOutputMap = finalProguardOutputMap;
     this.javaResourceJar = javaResourceJar;
+    this.shuffledJavaResourceJar = shuffledJavaResourceJar;
   }
 
   @Override
@@ -74,6 +80,18 @@ public class AndroidDexInfo extends NativeInfo implements AndroidDexInfoApi<Arti
     return finalProguardOutputMap;
   }
 
+  @Override
+  @Nullable
+  public Artifact getFilteredDeployJar() {
+    return filteredDeployJar;
+  }
+
+  @Override
+  @Nullable
+  public Artifact getShuffledJavaResourceJar() {
+    return shuffledJavaResourceJar;
+  }
+
   /** Provider for {@link AndroidDexInfo}. */
   public static class Provider extends BuiltinProvider<AndroidDexInfo>
       implements AndroidDexInfoApi.Provider<Artifact> {
@@ -90,15 +108,19 @@ public class AndroidDexInfo extends NativeInfo implements AndroidDexInfoApi<Arti
     public AndroidDexInfo createInfo(
         Artifact deployJar,
         Object finalClassesDexZip,
+        Object filteredDeployJar,
         Object finalProguardOutputMap,
-        Object javaResourceJar)
+        Object javaResourceJar,
+        Object shuffledJavaResourceJar)
         throws EvalException {
 
       return new AndroidDexInfo(
           deployJar,
           fromNoneable(finalClassesDexZip, Artifact.class),
+          fromNoneable(filteredDeployJar, Artifact.class),
           fromNoneable(finalProguardOutputMap, Artifact.class),
-          fromNoneable(javaResourceJar, Artifact.class));
+          fromNoneable(javaResourceJar, Artifact.class),
+          fromNoneable(shuffledJavaResourceJar, Artifact.class));
     }
   }
 }
