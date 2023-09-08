@@ -268,14 +268,12 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
 
     @Override
     public FilesToRunProvider getExecutableRunfiles(Artifact executable) {
-      // TODO: b/293304174 - get from attributes
-      return null;
+      return ruleContext.getExecutableRunfiles(executable);
     }
 
     @Override
     public boolean areRunfilesFromDeps(FilesToRunProvider executable) {
-      // TODO: b/293304174 - get from attributes
-      return false;
+      return ruleContext.areRunfilesFromDeps(executable);
     }
 
     @Override

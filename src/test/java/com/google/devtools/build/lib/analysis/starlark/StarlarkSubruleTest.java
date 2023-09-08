@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -585,6 +586,45 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
     assertThat(result).isInstanceOf(FilesToRunProvider.class);
     assertThat(((FilesToRunProvider) result).getExecutable().getRootRelativePathString())
         .isEqualTo("my/tool");
+  }
+
+  @Test
+  public void testSubruleAction_executableArtifactRunfilesAreResolved() throws Exception {
+    scratch.file(
+        "my/BUILD",
+        //
+        "cc_binary(name = 'tool')");
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "def _subrule_impl(ctx, _tool):",
+        "  out = ctx.actions.declare_file(ctx.label.name + '.out')",
+        "  ctx.actions.run(executable = _tool.executable, outputs = [out])",
+        "  return out",
+        "_my_subrule = subrule(",
+        "  implementation = _subrule_impl,",
+        "  attrs = {'_tool' : attr.label(default = '//my:tool', executable = True, cfg = 'exec')},",
+        ")",
+        "",
+        "MyInfo = provider()",
+        "def _rule_impl(ctx):",
+        "  res = _my_subrule()",
+        "  return MyInfo(result = res)",
+        "",
+        "my_rule = rule(implementation = _rule_impl, subrules = [_my_subrule])");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo')");
+
+    Artifact output =
+        (Artifact)
+            getProvider("//subrule_testing:foo", "//subrule_testing:myrule.bzl", "MyInfo")
+                .getValue("result");
+
+    assertThat(output.getFilename()).isEqualTo("foo.out");
+    assertThat(prettyArtifactNames(getGeneratingAction(output).getTools()))
+        .containsExactly("my/tool", "_middlemen/my_Stool-runfiles");
   }
 
   @Test
