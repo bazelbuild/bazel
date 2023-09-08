@@ -377,7 +377,16 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
     if (builder.isEmpty()) {
       return builder.getOrder().emptyDepset();
     }
-    return new Depset(type, builder.build());
+    NestedSet<Object> set = builder.build();
+    // If the nested set was optimized to one of the transitive elements, reuse the corresponding
+    // depset.
+    for (Depset x : transitive) {
+      if (x.getSet() == set) {
+        return x;
+      }
+    }
+
+    return new Depset(type, set);
   }
 
   /** An exception thrown when validation fails on the type of elements of a nested set. */

@@ -419,4 +419,17 @@ public final class DepsetTest {
     assertThat(ev.lookup("stable1")).isNotSameInstanceAs(ev.lookup("preorder1"));
     assertThat(ev.lookup("stable2")).isNotSameInstanceAs(ev.lookup("preorder2"));
   }
+
+  @Test
+  public void testSingleNonEmptyTransitiveAndNoDirectsUnwrapped() throws Exception {
+    ev.exec(
+        "inner = depset([1, 2, 3])", "outer = depset(transitive = [depset(), inner, depset()])");
+    assertThat(ev.lookup("outer")).isSameInstanceAs(ev.lookup("inner"));
+  }
+
+  @Test
+  public void testSingleNonEmptyTransitiveAndMatchingDirectUnwrapped() throws Exception {
+    ev.exec("inner = depset([1])", "outer = depset([1], transitive = [depset(), inner, depset()])");
+    assertThat(ev.lookup("outer")).isSameInstanceAs(ev.lookup("inner"));
+  }
 }
