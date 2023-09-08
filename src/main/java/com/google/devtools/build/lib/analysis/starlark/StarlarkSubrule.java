@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -362,9 +363,14 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
     }
 
     private SubruleAttribute copyWithRuleAttributeName(Label label, String exportedName) {
-      // _foo -> //pkg:label%my_subrule%_foo
-      String ruleAttrName = label + "%" + exportedName + "%" + attrName;
+      String ruleAttrName = getRuleAttrName(label, exportedName, attrName);
       return new SubruleAttribute(attrName, descriptor, ruleAttrName);
     }
+  }
+
+  @VisibleForTesting
+  // _foo -> //pkg:label%my_subrule%_foo
+  static String getRuleAttrName(Label label, String exportedName, String attrName) {
+    return label.getCanonicalForm() + "%" + exportedName + "%" + attrName;
   }
 }

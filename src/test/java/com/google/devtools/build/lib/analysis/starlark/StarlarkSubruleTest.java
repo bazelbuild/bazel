@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.analysis.starlark.StarlarkSubrule.getRuleAttrName;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -462,7 +463,10 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
                 "")
             .getImmutableList();
 
-    assertThat(attributes).contains("//subrule_testing:myrule.bzl%_my_subrule%_foo");
+    assertThat(attributes)
+        .contains(
+            getRuleAttrName(
+                Label.parseCanonical("//subrule_testing:myrule.bzl"), "_my_subrule", "_foo"));
   }
 
   @Test
