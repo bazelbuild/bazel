@@ -67,10 +67,17 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
 
   @Test
   public void testSubrule_isCallableOnlyFromRuleOrAspectImplementation() throws Exception {
-    ev.exec("x = subrule(implementation = lambda : 'dummy result' )");
+    ev.execAndExport("x = subrule(implementation = lambda : 'dummy result')");
 
+    ev.checkEvalErrorContains("x can only be called from a rule or aspect implementation", "x()");
+  }
+
+  @Test
+  public void testSubrule_isCallableOnlyAfterExport() throws Exception {
     ev.checkEvalErrorContains(
-        "subrule(lambda) can only be called from a rule or aspect implementation", "x()");
+        "Invalid subrule hasn't been exported by a bzl file",
+        "unexported = [subrule(implementation = lambda: None)]",
+        "unexported[0]()");
   }
 
   @Test
@@ -95,8 +102,7 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
     assertThat(error)
         .hasMessageThat()
         .contains(
-            "Error in subrule(lambda): rule 'my_rule' must declare 'subrule(lambda)' in"
-                + " 'subrules'");
+            "Error in _my_subrule: rule 'my_rule' must declare '_my_subrule' in" + " 'subrules'");
   }
 
   @Test
@@ -127,8 +133,8 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
     assertThat(error)
         .hasMessageThat()
         .contains(
-            "Error in subrule(lambda): aspect '//subrule_testing:myrule.bzl%_my_aspect' must"
-                + " declare 'subrule(lambda)' in 'subrules'");
+            "Error in _my_subrule: aspect '//subrule_testing:myrule.bzl%_my_aspect' must"
+                + " declare '_my_subrule' in 'subrules'");
   }
 
   @Test
@@ -438,7 +444,7 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
 
     assertThat(error)
         .hasMessageThat()
-        .contains("Error in subrule(_subrule_impl): got invalid named argument: '_foo'");
+        .contains("Error in _my_subrule: got invalid named argument: '_foo'");
   }
 
   @Test

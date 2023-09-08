@@ -28,10 +28,12 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.packages.BzlInitThreadContext;
+import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.config.ConfigStarlarkCommon;
 import com.google.devtools.build.lib.rules.platform.PlatformCommon;
+import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -47,6 +49,8 @@ import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
+import net.starlark.java.syntax.Program;
+import net.starlark.java.syntax.StarlarkFile;
 import net.starlark.java.syntax.SyntaxError;
 
 /** BazelEvaluationTestCase is a helper class for tests of Bazel loading-phase evaluation. */
@@ -120,6 +124,26 @@ public final class BazelEvaluationTestCase {
       throws SyntaxError.Exception, EvalException, InterruptedException {
     ParserInput input = ParserInput.fromLines(lines);
     Starlark.execFile(input, FileOptions.DEFAULT, getModule(), getStarlarkThread());
+  }
+
+  /**
+   * Joins the lines, parses them as a file with the given label, executes it and exports all {@link
+   * StarlarkExportable}s.
+   */
+  public final void execAndExport(Label label, String... lines) throws Exception {
+    ParserInput input = ParserInput.fromLines(lines);
+    Module module = getModule();
+    StarlarkFile file = StarlarkFile.parse(input);
+    Program prog = Program.compileFile(file, module);
+    BzlLoadFunction.execAndExport(prog, label, getEventHandler(), module, getStarlarkThread());
+  }
+
+  /**
+   * Joins the lines, parses them as a file, executes it and exports all {@link
+   * StarlarkExportable}s.
+   */
+  public final void execAndExport(String... lines) throws Exception {
+    execAndExport(this.label, lines);
   }
 
   private static void newThread(StarlarkThread thread) {

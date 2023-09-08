@@ -67,7 +67,6 @@ import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -93,8 +92,6 @@ import net.starlark.java.eval.Structure;
 import net.starlark.java.eval.Tuple;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
-import net.starlark.java.syntax.Program;
-import net.starlark.java.syntax.StarlarkFile;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -1006,12 +1003,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   private static void evalAndExport(BazelEvaluationTestCase ev, String... lines) throws Exception {
-    ParserInput input = ParserInput.fromLines(lines);
-    Module module = ev.getModule();
-    StarlarkFile file = StarlarkFile.parse(input);
-    Program prog = Program.compileFile(file, module);
-    BzlLoadFunction.execAndExport(
-        prog, FAKE_LABEL, ev.getEventHandler(), module, ev.getStarlarkThread());
+    ev.execAndExport(FAKE_LABEL, lines);
   }
 
   @Test

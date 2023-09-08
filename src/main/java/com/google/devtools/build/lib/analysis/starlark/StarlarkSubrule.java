@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -27,13 +28,17 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory.StarlarkActionContext;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule.Descriptor;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
 import java.util.Map.Entry;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFunction;
@@ -42,11 +47,14 @@ import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Tuple;
 
 /** Represents a subrule which can be invoked in a Starlark rule's implementation function. */
-public class StarlarkSubrule implements StarlarkCallable, StarlarkSubruleApi {
+public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, StarlarkSubruleApi {
   // TODO(hvd) this class is a WIP, will be implemented over many commits
 
   private final StarlarkFunction implementation;
   private final ImmutableList<SubruleAttribute> attributes;
+
+  // following fields are set on export
+  @Nullable private String exportedName = null;
 
   public StarlarkSubrule(
       StarlarkFunction implementation, ImmutableMap<String, Descriptor> attributes) {
@@ -67,12 +75,24 @@ public class StarlarkSubrule implements StarlarkCallable, StarlarkSubruleApi {
 
   @Override
   public String getName() {
-    return String.format("subrule(%s)", implementation.getName());
+    if (isExported()) {
+      return exportedName;
+    } else {
+      return "unexported subrule";
+    }
+  }
+
+  @Override
+  public void repr(Printer printer) {
+    printer.append("<subrule ").append(getName()).append(">");
   }
 
   @Override
   public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
       throws EvalException, InterruptedException {
+    if (!isExported()) {
+      throw Starlark.errorf("Invalid subrule hasn't been exported by a bzl file");
+    }
     StarlarkRuleContext ruleContext =
         BazelRuleAnalysisThreadContext.fromOrFail(thread, getName())
             .getRuleContext()
@@ -120,6 +140,17 @@ public class StarlarkSubrule implements StarlarkCallable, StarlarkSubruleApi {
   @VisibleForTesting
   ImmutableList<SubruleAttribute> getAttributes() {
     return attributes;
+  }
+
+  @Override
+  public boolean isExported() {
+    return this.exportedName != null;
+  }
+
+  @Override
+  public void export(EventHandler handler, Label extensionLabel, String exportedName) {
+    Preconditions.checkState(!isExported());
+    this.exportedName = exportedName;
   }
 
   /**
