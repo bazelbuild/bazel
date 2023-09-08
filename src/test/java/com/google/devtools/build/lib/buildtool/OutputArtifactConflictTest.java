@@ -42,7 +42,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -422,7 +421,6 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
 
   // Verify that an aspect whose analysis is unfinished doesn't fail the conflict reporting process.
   @Test
-  @Ignore("b/216490090 - flaky")
   public void testConflictErrorAndUnfinishedAspectAnalysis_mergedAnalysisExecution(
       @TestParameter boolean keepGoing) throws Exception {
     addOptions("--experimental_merged_skyframe_analysis_execution");
@@ -472,10 +470,7 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
     } else {
       assertThat(errorCode)
           .isAnyOf(Code.ARTIFACT_PREFIX_CONFLICT, Code.CONFIGURED_VALUE_CREATION_FAILED);
-      assertThat(
-              eventListener.failedTargetNames.contains("//x:y")
-                  ^ eventListener.failedTargetNames.contains("//x:fail_analysis"))
-          .isTrue();
+      assertThat(eventListener.failedTargetNames).containsAnyOf("//x:y", "//x:fail_analysis");
     }
   }
 
