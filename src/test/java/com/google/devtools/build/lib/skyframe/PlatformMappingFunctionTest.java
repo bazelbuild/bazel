@@ -127,7 +127,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
   @Test
   public void testMappingFileIsRead_fromAlternatePackagePath() throws Exception {
     scratch.setWorkingDir("/other/package/path");
-    scratch.file("WORKSPACE");
+    scratch.copyFile(rootDirectory.getRelative("WORKSPACE").getPathString(), "WORKSPACE");
     setPackageOptions("--package_path=/other/package/path");
     scratch.file(
         "my_mapping_file",
@@ -148,6 +148,12 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void handlesNoWorkspaceFile() throws Exception {
+    // --package_path is not relevant for Bazel and difficult to get to work correctly with
+    // WORKSPACE suffixes in tests.
+    if (analysisMock.isThisBazel()) {
+      return;
+    }
+
     scratch.setWorkingDir("/other/package/path");
     scratch.file(
         "my_mapping_file",
@@ -237,6 +243,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void starlarkFlagMapping() throws Exception {
+    rewriteWorkspace("workspace(name = 'my_workspace')");
     scratch.file(
         "test/build_setting.bzl",
         "def _impl(ctx):",
@@ -252,8 +259,8 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     scratch.file(
         "my_mapping_file",
         "platforms:", // Force line break
-        "  //platforms:one", // Force line break
-        "    --//test:my_string_flag=mapped_value");
+        "  @my_workspace//platforms:one", // Force line break
+        "    --@my_workspace//test:my_string_flag=mapped_value");
 
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
@@ -285,6 +292,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void platformTransitionWithStarlarkFlagMapping() throws Exception {
+    rewriteWorkspace("workspace(name = 'my_workspace')");
     // Define a Starlark flag:
     scratch.file(
         "test/flags/build_setting.bzl",
@@ -305,7 +313,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
         "my_mapping_file",
         "platforms:", // Force line break
         "  //test/platforms:my_platform", // Force line break
-        "    --//test/flags:my_string_flag=platform-mapped value");
+        "    --@my_workspace//test/flags:my_string_flag=platform-mapped value");
 
     // Define a rule that platform-transitions its deps:
     scratch.overwriteFile(

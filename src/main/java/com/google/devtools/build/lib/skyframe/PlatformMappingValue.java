@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -145,6 +146,7 @@ public final class PlatformMappingValue implements SkyValue {
   private final ImmutableSet<Class<? extends FragmentOptions>> optionsClasses;
   private final LoadingCache<NativeAndStarlarkFlags, OptionsParsingResult> parserCache;
   private final LoadingCache<BuildConfigurationKey, BuildConfigurationKey> mappingCache;
+  private final RepositoryMapping mainRepositoryMapping;
 
   /**
    * Creates a new mapping value which will match on the given platforms (if a target platform is
@@ -155,18 +157,21 @@ public final class PlatformMappingValue implements SkyValue {
    * @param flagsToPlatforms mapping from a set of command line style flags to a target platform
    *     that should be set if the flags match the mapped options
    * @param optionsClasses default options classes that should be used for options parsing
+   * @param mainRepositoryMapping the main repo mapping used to parse label-valued options
    */
   PlatformMappingValue(
       ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags,
       ImmutableMap<ImmutableSet<String>, Label> flagsToPlatforms,
-      ImmutableSet<Class<? extends FragmentOptions>> optionsClasses) {
+      ImmutableSet<Class<? extends FragmentOptions>> optionsClasses,
+      RepositoryMapping mainRepositoryMapping) {
     this.platformsToFlags = checkNotNull(platformsToFlags);
     this.flagsToPlatforms = checkNotNull(flagsToPlatforms);
     this.optionsClasses = checkNotNull(optionsClasses);
+    this.mainRepositoryMapping = checkNotNull(mainRepositoryMapping);
     this.parserCache =
         Caffeine.newBuilder()
             .initialCapacity(platformsToFlags.size() + flagsToPlatforms.size())
-            .build(this::parse);
+            .build(flags -> parse(flags, this.mainRepositoryMapping));
     this.mappingCache = Caffeine.newBuilder().weakKeys().build(this::computeMapping);
   }
 
@@ -261,12 +266,14 @@ public final class PlatformMappingValue implements SkyValue {
     }
   }
 
-  private OptionsParsingResult parse(NativeAndStarlarkFlags args) throws OptionsParsingException {
+  private OptionsParsingResult parse(NativeAndStarlarkFlags args, RepositoryMapping mainRepoMapping)
+      throws OptionsParsingException {
     OptionsParser parser =
         OptionsParser.builder()
             .optionsClasses(optionsClasses)
             // We need the ability to re-map internal options in the mappings file.
             .ignoreInternalOptions(false)
+            .withConversionContext(mainRepoMapping)
             .build();
     parser.parse(args.nativeFlags().asList());
     parser.setStarlarkOptions(args.starlarkFlags());
