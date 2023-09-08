@@ -395,7 +395,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       Object buildSetting,
       Object cfg,
       Object execGroups,
-      Sequence<?> subrules)
+      Sequence<?> subrulesUnchecked)
       throws EvalException {
 
     // analysis_test=true implies test=true.
@@ -541,14 +541,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
           parseExecCompatibleWith(execCompatibleWith, labelConverter));
     }
 
-    builder.setSubrules(
-        Sequence.cast(subrules, StarlarkSubruleApi.class, "subrules").getImmutableList());
-
     return new StarlarkRuleFunction(
         builder,
         type,
         attributes,
         initializer,
+        Sequence.cast(subrulesUnchecked, StarlarkSubrule.class, "subrules").getImmutableList(),
         loc,
         Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString));
   }
@@ -761,6 +759,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     private final RuleClassType type;
     private ImmutableList<Pair<String, StarlarkAttrModule.Descriptor>> attributes;
     @Nullable private final StarlarkFunction initializer;
+    private ImmutableList<StarlarkSubrule> subrules;
     private final Location definitionLocation;
     @Nullable private final String documentation;
     private Label starlarkLabel;
@@ -774,6 +773,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         RuleClassType type,
         ImmutableList<Pair<String, StarlarkAttrModule.Descriptor>> attributes,
         @Nullable StarlarkFunction initializer,
+        ImmutableList<StarlarkSubrule> subrules,
         Location definitionLocation,
         Optional<String> documentation) {
       this.builder = builder;
@@ -785,6 +785,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       this.type = type;
       this.attributes = attributes;
       this.initializer = initializer;
+      this.subrules = subrules;
       this.definitionLocation = definitionLocation;
       this.documentation = documentation.orElse(null);
     }
@@ -932,6 +933,27 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
             ruleClassName);
         return;
       }
+
+      // the set of subrules is stored in the rule class, primarily for validating that a rule class
+      // declared the subrule when using it.
+      builder.setSubrules(subrules);
+      // lift the subrule attributes to the rule class as if they were declared there, this lets us
+      // exploit dependency resolution for "free"
+      ImmutableList<Pair<String, Descriptor>> subruleAttributes;
+      try {
+        subruleAttributes = StarlarkSubrule.discoverAttributesForRule(subrules);
+      } catch (EvalException e) {
+        errorf(handler, "%s", e.getMessage());
+        return;
+      }
+      if (!subruleAttributes.isEmpty()) {
+        attributes =
+            ImmutableList.<Pair<String, Descriptor>>builder()
+                .addAll(attributes)
+                .addAll(subruleAttributes)
+                .build();
+      }
+
       // Thus far, we only know if we have a rule transition. While iterating through attributes,
       // check if we have an attribute transition.
       boolean hasStarlarkDefinedTransition = builder.hasStarlarkRuleTransition();
@@ -1034,6 +1056,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
       this.builder = null;
       this.attributes = null;
+      this.subrules = null;
     }
 
     @FormatMethod
@@ -1124,6 +1147,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     for (Entry<String, Descriptor> attr : attrs.entrySet()) {
       // TODO: b/293304174 - only permit label/label-list typed attributes
       // TODO: b/293304174 - add support for late bound defaults (will require declaring fragments)
+      // TODO: b/293304174 - do not permit split transitions?
       String attrName = attr.getKey();
       Descriptor descriptor = attr.getValue();
       checkAttributeName(attrName);

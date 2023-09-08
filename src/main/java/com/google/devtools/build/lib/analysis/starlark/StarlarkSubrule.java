@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.starlark;
 
-import com.google.common.annotations.VisibleForTesting;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -32,7 +33,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
-import java.util.Map.Entry;
+import com.google.devtools.build.lib.util.Pair;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -46,31 +47,28 @@ import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Tuple;
 
-/** Represents a subrule which can be invoked in a Starlark rule's implementation function. */
+/**
+ * Represents a subrule which can be invoked in a Starlark rule's implementation function.
+ *
+ * <p>The basic mechanism used is that a rule class declared a dependency on a set of subrules. The
+ * (implicit) attributes of the subrule are lifted to the rule class, and thus, behave as if they
+ * were directly declared on the rule class itself. The rule class also holds a reference to the set
+ * of subrules. The latter is only used for validating that a rule invoking a subrule declared that
+ * subrule as a dependency.
+ */
 public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, StarlarkSubruleApi {
   // TODO(hvd) this class is a WIP, will be implemented over many commits
 
   private final StarlarkFunction implementation;
-  private final ImmutableList<SubruleAttribute> attributes;
 
   // following fields are set on export
   @Nullable private String exportedName = null;
+  private ImmutableList<SubruleAttribute> attributes;
 
   public StarlarkSubrule(
       StarlarkFunction implementation, ImmutableMap<String, Descriptor> attributes) {
     this.implementation = implementation;
-    this.attributes = createSubruleAttributeList(attributes);
-  }
-
-  private ImmutableList<SubruleAttribute> createSubruleAttributeList(
-      ImmutableMap<String, Descriptor> attributes) {
-    ImmutableList.Builder<SubruleAttribute> builder = ImmutableList.builder();
-    for (Entry<String, Descriptor> attr : attributes.entrySet()) {
-      String attrName = attr.getKey();
-      Descriptor descriptor = attr.getValue();
-      builder.add(new SubruleAttribute(attrName, descriptor));
-    }
-    return builder.build();
+    this.attributes = SubruleAttribute.from(attributes);
   }
 
   @Override
@@ -90,9 +88,7 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
   @Override
   public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
       throws EvalException, InterruptedException {
-    if (!isExported()) {
-      throw Starlark.errorf("Invalid subrule hasn't been exported by a bzl file");
-    }
+    checkExported();
     StarlarkRuleContext ruleContext =
         BazelRuleAnalysisThreadContext.fromOrFail(thread, getName())
             .getRuleContext()
@@ -111,8 +107,7 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
       if (kwargs.containsKey(attr.attrName)) {
         throw Starlark.errorf("got invalid named argument: '%s'", attr.attrName);
       }
-      // TODO: b/293304174 - fetch value from rule context
-      namedArgs.put(attr.attrName, attr.descriptor.build(attr.attrName).getDefaultValue(null));
+      namedArgs.put(attr.attrName, ruleContext.getAttr().getValue(attr.ruleAttrName));
     }
     try {
       ruleContext.setLockedForSubrule(true);
@@ -137,9 +132,24 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
     }
   }
 
-  @VisibleForTesting
-  ImmutableList<SubruleAttribute> getAttributes() {
-    return attributes;
+  /**
+   * Returns the collection of attributes to be lifted to a rule that uses this {@code subrule}.
+   *
+   * @throws EvalException if this subrule is unexported
+   */
+  private ImmutableList<Pair<String, Descriptor>> attributesForRule() throws EvalException {
+    checkExported();
+    ImmutableList.Builder<Pair<String, Descriptor>> builder = ImmutableList.builder();
+    for (SubruleAttribute attr : attributes) {
+      builder.add(Pair.of(attr.ruleAttrName, attr.descriptor));
+    }
+    return builder.build();
+  }
+
+  private void checkExported() throws EvalException {
+    if (!isExported()) {
+      throw Starlark.errorf("Invalid subrule hasn't been exported by a bzl file");
+    }
   }
 
   @Override
@@ -151,6 +161,29 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
   public void export(EventHandler handler, Label extensionLabel, String exportedName) {
     Preconditions.checkState(!isExported());
     this.exportedName = exportedName;
+    this.attributes = SubruleAttribute.transformOnExport(attributes, extensionLabel, exportedName);
+  }
+
+  /**
+   * Returns all attributes to be lifted from the given subrules to a rule
+   *
+   * <p>Attributes are discovered transitively (if a subrule depends on another subrule) and those
+   * from common, transitive dependencies are de-duped.
+   *
+   * @throws EvalException if any of the given subrules are unexported
+   */
+  static ImmutableList<Pair<String, Descriptor>> discoverAttributesForRule(
+      ImmutableList<StarlarkSubrule> subrules) throws EvalException {
+    ImmutableSet.Builder<StarlarkSubrule> uniqueSubrules = ImmutableSet.builder();
+    for (StarlarkSubrule subrule : subrules) {
+      // TODO: b/293304174 - use all transitive subrules once subrules can depend on other subrules
+      uniqueSubrules.add(subrule);
+    }
+    ImmutableList.Builder<Pair<String, Descriptor>> attributes = ImmutableList.builder();
+    for (StarlarkSubrule subrule : uniqueSubrules.build()) {
+      attributes.addAll(subrule.attributesForRule());
+    }
+    return attributes.build();
   }
 
   /**
@@ -265,15 +298,42 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
     }
   }
 
-  @VisibleForTesting
-  static class SubruleAttribute {
+  private static class SubruleAttribute {
 
-    final String attrName;
-    final Descriptor descriptor;
+    private final String attrName;
+    private final Descriptor descriptor;
 
-    private SubruleAttribute(String attrName, Descriptor descriptor) {
+    /**
+     * This is the attribute name when lifted to a rule, see {@link #copyWithRuleAttributeName} and
+     * is set only after the subrule is exported
+     */
+    @Nullable private final String ruleAttrName;
+
+    private SubruleAttribute(
+        String attrName, Descriptor descriptor, @Nullable String ruleAttrName) {
       this.attrName = attrName;
       this.descriptor = descriptor;
+      this.ruleAttrName = ruleAttrName;
+    }
+
+    private static ImmutableList<SubruleAttribute> from(
+        ImmutableMap<String, Descriptor> attributes) {
+      return attributes.entrySet().stream()
+          .map(e -> new SubruleAttribute(e.getKey(), e.getValue(), null))
+          .collect(toImmutableList());
+    }
+
+    private static ImmutableList<SubruleAttribute> transformOnExport(
+        ImmutableList<SubruleAttribute> attributes, Label label, String exportedName) {
+      return attributes.stream()
+          .map(s -> s.copyWithRuleAttributeName(label, exportedName))
+          .collect(toImmutableList());
+    }
+
+    private SubruleAttribute copyWithRuleAttributeName(Label label, String exportedName) {
+      // _foo -> //pkg:label%my_subrule%_foo
+      String ruleAttrName = label + "%" + exportedName + "%" + attrName;
+      return new SubruleAttribute(attrName, descriptor, ruleAttrName);
     }
   }
 }

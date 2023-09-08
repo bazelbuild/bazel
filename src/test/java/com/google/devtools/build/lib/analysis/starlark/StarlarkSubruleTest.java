@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.starlark;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
 import net.starlark.java.eval.BuiltinFunction;
+import net.starlark.java.eval.Sequence;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -418,6 +420,41 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
   }
 
   @Test
+  // this is not the correct behavior and will be inverted in a followup
+  public void testSubruleAttrs_visibleInRuleCtx() throws Exception {
+    scratch.file("default/BUILD", "genrule(name = 'default', outs = ['a'], cmd = '')");
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "def _subrule_impl(ctx):",
+        "  return ",
+        "_my_subrule = subrule(",
+        "  implementation = _subrule_impl,",
+        "  attrs = {'_foo' : attr.label(default = '//default')},",
+        ")",
+        "MyInfo=provider()",
+        "def _rule_impl(ctx):",
+        "  res = dir(ctx.attr)",
+        "  return MyInfo(result = res)",
+        "",
+        "my_rule = rule(implementation = _rule_impl, subrules = [_my_subrule])");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo')");
+
+    ImmutableList<String> attributes =
+        Sequence.cast(
+                getProvider("//subrule_testing:foo", "//subrule_testing:myrule.bzl", "MyInfo")
+                    .getValue("result"),
+                String.class,
+                "")
+            .getImmutableList();
+
+    assertThat(attributes).contains("//subrule_testing:myrule.bzl%_my_subrule%_foo");
+  }
+
+  @Test
   public void testSubruleAttrs_overridingImplicitAttributeValueFails() throws Exception {
     scratch.file(
         "subrule_testing/myrule.bzl",
@@ -475,6 +512,42 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
 
     assertThat(provider).isNotNull();
     assertThat(provider.getValue("result")).isEqualTo("my attribute value");
+  }
+
+  @Test
+  public void testSubruleAttrs_implicitLabelDepsAreResolvedToTargets() throws Exception {
+    scratch.file(
+        "some/pkg/BUILD",
+        //
+        "genrule(name = 'tool', cmd = '', outs = ['tool.exe'])");
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "def _subrule_impl(ctx, _tool):",
+        "  return _tool",
+        "_my_subrule = subrule(",
+        "  implementation = _subrule_impl,",
+        "  attrs = {'_tool' : attr.label(default = '//some/pkg:tool')},",
+        ")",
+        "",
+        "MyInfo = provider()",
+        "def _rule_impl(ctx):",
+        "  res = _my_subrule()",
+        "  return MyInfo(result = res)",
+        "",
+        "my_rule = rule(implementation = _rule_impl, subrules = [_my_subrule])");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo')");
+
+    StructImpl provider =
+        getProvider("//subrule_testing:foo", "//subrule_testing:myrule.bzl", "MyInfo");
+
+    assertThat(provider).isNotNull();
+    Object value = provider.getValue("result");
+    assertThat(value).isInstanceOf(ConfiguredTarget.class);
+    assertThat(((ConfiguredTarget) value).getLabel().toString()).isEqualTo("//some/pkg:tool");
   }
 
   @Test

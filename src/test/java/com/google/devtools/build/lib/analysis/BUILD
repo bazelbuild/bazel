@@ -489,6 +489,7 @@ java_test(
         "//src/main/java/net/starlark/java/eval",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/starlark/util",
+        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
     ],

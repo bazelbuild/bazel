@@ -877,6 +877,15 @@ sh_test(
     tags = ["no_windows"],
 )
 
+sh_test(
+    name = "subrules_test",
+    srcs = ["subrules_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
 ########################################################################
 # Test suites.
 

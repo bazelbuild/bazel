@@ -220,6 +220,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     builder.requiredAspectClasses(requiredAspectsClasses.build());
     builder.execCompatibleWith(execCompatibleWith);
     builder.execGroups(execGroups);
+    // TODO: b/293304174 - lift subrule attributes
     builder.subrules(subrules);
     return builder.build();
   }
