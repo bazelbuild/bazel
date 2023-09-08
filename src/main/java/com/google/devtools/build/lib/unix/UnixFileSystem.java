@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.unix.NativePosixFiles.Dirents;
 import com.google.devtools.build.lib.unix.NativePosixFiles.ReadTypes;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.AbstractFileSystemWithCustomStat;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -331,7 +332,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   public boolean isFilePathCaseSensitive() {
-    return true;
+    return OS.getCurrent() != OS.DARWIN;
   }
 
   @Override
