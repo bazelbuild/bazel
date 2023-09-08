@@ -93,7 +93,6 @@ public final class StarlarkGlobalsImpl implements StarlarkGlobals {
     Starlark.addMethods(env, new BazelBuildApiGlobals()); // e.g. configuration_field
     Starlark.addMethods(env, new StarlarkRuleClassFunctions()); // e.g. rule
 
-    env.put("cmd_helper", new StarlarkCommandLine());
     env.put("attr", new StarlarkAttrModule());
     env.put("struct", StructProvider.STRUCT);
     env.put("OutputGroupInfo", OutputGroupInfo.STARLARK_CONSTRUCTOR);

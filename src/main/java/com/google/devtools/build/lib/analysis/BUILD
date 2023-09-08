@@ -117,7 +117,6 @@ java_library(
         ":starlark/bazel_build_api_globals",
         ":starlark/function_transition_util",
         ":starlark/starlark_api_provider",
-        ":starlark/starlark_command_line",
         ":starlark/starlark_config",
         ":starlark/starlark_custom_command_line",
         ":starlark/starlark_error_reporter",
@@ -336,7 +335,6 @@ java_library(
         ":starlark/bazel_build_api_globals",
         ":starlark/function_transition_util",
         ":starlark/starlark_api_provider",
-        ":starlark/starlark_command_line",
         ":starlark/starlark_exec_group_collection",
         ":starlark/starlark_late_bound_default",
         ":starlark/starlark_toolchain_context",
@@ -2452,17 +2450,6 @@ java_library(
     deps = [
         ":provider_collection",
         "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "starlark/starlark_command_line",
-    srcs = ["starlark/StarlarkCommandLine.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
-        "//src/main/java/net/starlark/java/eval",
     ],
 )
 

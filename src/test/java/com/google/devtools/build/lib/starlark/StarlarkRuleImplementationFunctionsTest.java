@@ -1054,13 +1054,6 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   }
 
   @Test
-  public void testCmdJoinPaths() throws Exception {
-    setRuleContext(createRuleContext("//foo:foo"));
-    Object result = ev.eval("cmd_helper.join_paths(':', depset(ruleContext.files.srcs))");
-    assertThat(result).isEqualTo("foo/a.txt:foo/b.img");
-  }
-
-  @Test
   public void testStructPlusArtifactErrorMessage() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     ev.checkEvalErrorContains(
