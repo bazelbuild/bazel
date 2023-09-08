@@ -14,22 +14,22 @@
 
 """ Implementation of java_binary for bazel """
 
-load(":common/java/basic_java_library.bzl", "BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS", "basic_java_library", "collect_deps")
-load(":common/java/java_helper.bzl", "helper")
-load(":common/java/java_semantics.bzl", "semantics")
-load(":common/rule_util.bzl", "merge_attrs")
-load(":common/cc/semantics.bzl", cc_semantics = "semantics")
-load(":common/proto/proto_info.bzl", "ProtoInfo")
+load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_info.bzl", "CcInfo")
-load(":common/paths.bzl", "paths")
-load(":common/java/java_info.bzl", "JavaInfo", "JavaPluginInfo", "to_java_binary_info")
+load(":common/cc/semantics.bzl", cc_semantics = "semantics")
+load(":common/java/basic_java_library.bzl", "BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS", "basic_java_library", "collect_deps")
 load(":common/java/java_common.bzl", "java_common")
 load(
     ":common/java/java_common_internal_for_builtins.bzl",
     "collect_native_deps_dirs",
     "get_runtime_classpath_for_archive",
 )
-load(":common/cc/cc_common.bzl", "cc_common")
+load(":common/java/java_helper.bzl", "helper")
+load(":common/java/java_info.bzl", "JavaInfo", "JavaPluginInfo", "to_java_binary_info")
+load(":common/java/java_semantics.bzl", "semantics")
+load(":common/paths.bzl", "paths")
+load(":common/proto/proto_info.bzl", "ProtoInfo")
+load(":common/rule_util.bzl", "merge_attrs")
 
 CcLauncherInfo = _builtins.internal.cc_internal.launcher_provider
 
@@ -206,9 +206,11 @@ def basic_java_binary(
             transitive = [output_groups["_source_jars"]],
         )
 
-    one_version_output = _create_one_version_check(ctx, java_attrs.runtime_classpath) if (
-        ctx.fragments.java.one_version_enforcement_on_java_tests or not is_test_rule_class
-    ) else None
+    if (ctx.fragments.java.one_version_enforcement_on_java_tests or not is_test_rule_class):
+        one_version_output = _create_one_version_check(ctx, java_attrs.runtime_classpath, is_test_rule_class)
+    else:
+        one_version_output = None
+
     validation_outputs = [one_version_output] if one_version_output else []
 
     _create_deploy_sources_jar(ctx, output_groups["_source_jars"])
@@ -379,12 +381,18 @@ def _create_shared_archive(ctx, java_attrs):
     )
     return jsa
 
-def _create_one_version_check(ctx, inputs):
+def _create_one_version_check(ctx, inputs, is_test_rule_class):
     one_version_level = ctx.fragments.java.one_version_enforcement_level
     if one_version_level == "OFF":
         return None
     tool = helper.check_and_get_one_version_attribute(ctx, "one_version_tool")
-    allowlist = helper.check_and_get_one_version_attribute(ctx, "one_version_allowlist")
+
+    if is_test_rule_class:
+        toolchain = semantics.find_java_toolchain(ctx)
+        allowlist = toolchain.one_version_allowlist_for_tests()
+    else:
+        allowlist = helper.check_and_get_one_version_attribute(ctx, "one_version_allowlist")
+
     if not tool or not allowlist:  # On Mac oneversion tool is not available
         return None
 
