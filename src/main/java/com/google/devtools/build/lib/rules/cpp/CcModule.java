@@ -1151,7 +1151,7 @@ public abstract class CcModule
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
       Object nonCodeInputsObject,
-      Object goLinkCArchiveObject,
+      Object extraLinkTimeLibraryObject,
       StarlarkThread thread)
       throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
@@ -1194,11 +1194,11 @@ public abstract class CcModule
       CcLinkingContext.Builder ccLinkingContextBuilder = CcLinkingContext.builder();
       ccLinkingContextBuilder.addTransitiveLinkerInputs(
           Depset.noneableCast(linkerInputs, CcLinkingContext.LinkerInput.class, "linker_inputs"));
-      ExtraLinkTimeLibrary goLinkCArchive =
-          convertFromNoneable(goLinkCArchiveObject, /* defaultValue= */ null);
-      if (goLinkCArchive != null) {
+      ExtraLinkTimeLibrary extraLinkTimeLibrary =
+          convertFromNoneable(extraLinkTimeLibraryObject, /* defaultValue= */ null);
+      if (extraLinkTimeLibrary != null) {
         ccLinkingContextBuilder.setExtraLinkTimeLibraries(
-            ExtraLinkTimeLibraries.builder().add(goLinkCArchive).build());
+            ExtraLinkTimeLibraries.builder().add(extraLinkTimeLibrary).build());
       }
 
       @SuppressWarnings("unchecked")

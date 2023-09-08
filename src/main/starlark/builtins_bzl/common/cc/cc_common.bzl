@@ -359,17 +359,17 @@ def _create_linking_context(
         libraries_to_link = _UNBOUND,
         user_link_flags = _UNBOUND,
         additional_inputs = _UNBOUND,
-        go_link_c_archive = _UNBOUND):
-    if go_link_c_archive != _UNBOUND:
+        extra_link_time_library = _UNBOUND):
+    if extra_link_time_library != _UNBOUND:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    if go_link_c_archive == _UNBOUND:
-        go_link_c_archive = None
+    if extra_link_time_library == _UNBOUND:
+        extra_link_time_library = None
 
     # Usage of libraries_to_link, user_link_flags and additional_inputs are restricted by a flag.
     # Since we cannot do it here, we let the native code to do it.
     kwargs = {
         "linker_inputs": linker_inputs,
-        "go_link_c_archive": go_link_c_archive,
+        "extra_link_time_library": extra_link_time_library,
     }
     if libraries_to_link != _UNBOUND:
         kwargs["libraries_to_link"] = libraries_to_link

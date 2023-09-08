@@ -1148,7 +1148,7 @@ public interface CcModuleApi<
             valueWhenDisabled = "None",
             allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
         @Param(
-            name = "go_link_c_archive",
+            name = "extra_link_time_library",
             documented = false,
             positional = false,
             named = true,
@@ -1163,7 +1163,7 @@ public interface CcModuleApi<
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
       Object nonCodeInputs, // <FileT> expected
-      Object goLinkCArchive,
+      Object extraLinkTimeLibraryObject,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
