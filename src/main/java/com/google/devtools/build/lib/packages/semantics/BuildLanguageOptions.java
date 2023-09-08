@@ -663,6 +663,19 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean incompatibleFailOnUnknownAttributes;
 
   @Option(
+      name = "incompatible_merge_fixed_and_default_shell_env",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If enabled, actions registered with ctx.actions.run and ctx.actions.run_shell with both"
+              + " 'env' and 'use_default_shell_env = True' specified will use an environment"
+              + " obtained from the default shell environment by overriding with the values passed"
+              + " in to 'env'. If disabled, the value of 'env' is completely ignored in this case.")
+  public boolean incompatibleMergeFixedAndDefaultShellEnv;
+  
+  @Option(
       name = "incompatible_disable_objc_library_transition",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -766,6 +779,9 @@ public final class BuildLanguageOptions extends OptionsBase {
                 experimentalGetFixedConfiguredEnvironment)
             .setBool(INCOMPATIBLE_FAIL_ON_UNKNOWN_ATTRIBUTES, incompatibleFailOnUnknownAttributes)
             .setBool(
+                INCOMPATIBLE_MERGE_FIXED_AND_DEFAULT_SHELL_ENV,
+                incompatibleMergeFixedAndDefaultShellEnv)
+            .setBool(
                 INCOMPATIBLE_DISABLE_OBJC_LIBRARY_TRANSITION,
                 incompatibleDisableObjcLibraryTransition)
             .build();
@@ -858,6 +874,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-experimental_get_fixed_configured_action_env";
   public static final String INCOMPATIBLE_FAIL_ON_UNKNOWN_ATTRIBUTES =
       "-incompatible_fail_on_unknown_attributes";
+  public static final String INCOMPATIBLE_MERGE_FIXED_AND_DEFAULT_SHELL_ENV =
+      "-experimental_merge_fixed_and_default_shell_env";
   public static final String INCOMPATIBLE_DISABLE_OBJC_LIBRARY_TRANSITION =
       "-incompatible_disable_objc_library_transition";
 
