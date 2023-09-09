@@ -2768,6 +2768,48 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   }
 
   @Test
+  public void aspectOnAspectAttrTypeConflict() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "MyInfo = provider()",
+        "a1p = provider()",
+        "def _a1_impl(target,ctx):",
+        "  return struct(a1p = a1p(text = 'random'))",
+        "a1 = aspect(_a1_impl,",
+        "   attrs = { '_hiddenattr' : attr.string(default = 'foo') },",
+        "   attr_aspects = ['dep'], provides = ['a1p'])",
+        "a2p = provider()",
+        "def _a2_impl(target,ctx):",
+        "   return [MyInfo(hidden_attr_label = str(ctx.attr._hiddenattr.label))]",
+        "a2 = aspect(_a2_impl,",
+        "  attrs = { '_hiddenattr' : attr.label(default = Label('//test:zzz')) },",
+        "  attr_aspects = ['dep'], required_aspect_providers = ['a1p'])",
+        "def _r1_impl(ctx):",
+        "  pass",
+        "def _r2_impl(ctx):",
+        "  return struct(result = ctx.attr.dep[MyInfo].hidden_attr_label)",
+        "r1 = rule(_r1_impl, attrs = { 'dep' : attr.label(aspects = [a1])})",
+        "r2 = rule(_r2_impl, attrs = { 'dep' : attr.label(aspects = [a2])})");
+    scratch.file(
+        "test/BUILD",
+        "load(':aspect.bzl', 'r1', 'r2')",
+        "r1(name = 'r0')",
+        "r1(name = 'r1', dep = ':r0')",
+        "r2(name = 'r2', dep = ':r1')",
+        "cc_library(",
+        "     name = 'xxx',",
+        ")",
+        "cc_library(",
+        "     name = 'zzz',",
+        ")");
+    AnalysisResult analysisResult = update("//test:r2");
+    ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
+    String result = (String) target.get("result");
+
+    assertThat(result).isEqualTo("@//test:zzz");
+  }
+
+  @Test
   public void testAllCcLibraryAttrsAreValidTypes() throws Exception {
     scratch.file(
         "test/aspect.bzl",

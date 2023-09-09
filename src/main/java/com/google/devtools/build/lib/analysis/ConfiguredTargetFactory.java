@@ -75,7 +75,6 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -682,15 +681,14 @@ public final class ConfiguredTargetFactory {
     } else if (aspectPath.size() == 1) {
       return aspectPath.get(0).getDefinition().getAttributes();
     } else {
-      LinkedHashMap<String, Attribute> aspectAttributes = new LinkedHashMap<>();
-      for (Aspect underlyingAspect : aspectPath) {
-        ImmutableMap<String, Attribute> currentAttributes =
-            underlyingAspect.getDefinition().getAttributes();
-        for (Map.Entry<String, Attribute> kv : currentAttributes.entrySet()) {
-          aspectAttributes.putIfAbsent(kv.getKey(), kv.getValue());
-        }
+      // In case of multiple aspects applying on top of each other, the ones later on the path
+      // (i.e. closer to the outermost, main aspect) take precedence. In particular, the main aspect
+      // always sees its own attributes.
+      ImmutableMap.Builder<String, Attribute> aspectAttributes = ImmutableMap.builder();
+      for (Aspect aspect : aspectPath) {
+        aspectAttributes.putAll(aspect.getDefinition().getAttributes());
       }
-      return ImmutableMap.copyOf(aspectAttributes);
+      return aspectAttributes.buildKeepingLast();
     }
   }
 

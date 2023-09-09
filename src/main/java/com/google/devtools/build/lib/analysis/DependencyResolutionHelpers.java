@@ -475,7 +475,10 @@ public final class DependencyResolutionHelpers {
       Iterable<Aspect> aspects,
       Set<String> aspectProcessedAttributes,
       ImmutableList.Builder<AttributeDependencyKind> attributes) {
-    for (Aspect aspect : aspects) {
+    // In case of multiple aspects applying on top of each other, the ones later in the list (i.e.
+    // closer to the outermost, main aspect) take precedence. In particular, the main aspect always
+    // sees its own attributes.
+    for (Aspect aspect : ImmutableList.copyOf(aspects).reverse()) {
       for (Attribute attribute : aspect.getDefinition().getAttributes().values()) {
         if (aspectProcessedAttributes.add(attribute.getName())) {
           attributes.add(AttributeDependencyKind.forAspect(attribute, aspect.getAspectClass()));
