@@ -583,14 +583,14 @@ alias(
     actual = "@maven//:org_mockito_mockito_core",
 )
 
-filegroup(
+alias(
     name = "turbine_direct",
-    srcs = ["turbine/turbine_direct.jar"],
+    actual = "@maven//:com_google_turbine_turbine",
 )
 
-java_import(
+alias(
     name = "turbine",
-    jars = ["turbine/turbine_direct.jar"],
+    actual = "@maven//:com_google_turbine_turbine",
 )
 
 java_library(
