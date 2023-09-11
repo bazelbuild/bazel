@@ -309,18 +309,20 @@ function create_and_run_classpath_jar() {
   for path in ${CLASSPATH}; do
     # Loop through the characters of the path and convert characters that are
     # not alphanumeric nor -_.~/ to their 2-digit hexadecimal representation
-    local i c buff
-    local converted_path=""
+    if [[ ! $path =~ ^[-_.~/a-zA-Z0-9]*$ ]]; then
+      local i c buff
+      local converted_path=""
 
-    for ((i=0; i<${#path}; i++)); do
-      c=${path:$i:1}
-      case ${c} in
-            [-_.~/a-zA-Z0-9] ) buff=${c} ;;
-            * )               printf -v buff '%%%02x' "'$c'"
-      esac
-      converted_path+="${buff}"
-    done
-    path=${converted_path}
+      for ((i=0; i<${#path}; i++)); do
+        c=${path:$i:1}
+        case ${c} in
+              [-_.~/a-zA-Z0-9] ) buff=${c} ;;
+              * )               printf -v buff '%%%02x' "'$c'"
+        esac
+        converted_path+="${buff}"
+      done
+      path=${converted_path}
+    fi
 
     if is_windows; then
       path="file:/${path}" # e.g. "file:/C:/temp/foo.jar"
