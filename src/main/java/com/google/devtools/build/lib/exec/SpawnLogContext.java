@@ -15,10 +15,12 @@ package com.google.devtools.build.lib.exec;
 
 import build.bazel.remote.execution.v2.Platform;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
@@ -100,6 +102,8 @@ public class SpawnLogContext implements ActionContext {
       builder.addEnvironmentVariablesBuilder().setName(var).setValue(env.get(var));
     }
 
+    ImmutableSet<? extends ActionInput> toolFiles = spawn.getToolFiles().toSet();
+
     try {
       for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
         ActionInput input = e.getValue();
@@ -111,7 +115,15 @@ public class SpawnLogContext implements ActionContext {
           listDirectoryContents(inputPath, builder::addInputs, metadataProvider);
         } else {
           Digest digest = computeDigest(input, null, metadataProvider, xattrProvider);
-          builder.addInputsBuilder().setPath(input.getExecPathString()).setDigest(digest);
+          boolean isTool =
+              toolFiles.contains(input)
+                  || (input instanceof TreeFileArtifact
+                      && toolFiles.contains(((TreeFileArtifact) input).getParent()));
+          builder
+              .addInputsBuilder()
+              .setPath(input.getExecPathString())
+              .setDigest(digest)
+              .setIsTool(isTool);
         }
       }
     } catch (IOException e) {
