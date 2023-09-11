@@ -343,6 +343,8 @@ tasks:
     setup:
       - mkdir C:\b
       - mklink /J C:\b\bazeltest_external %OUTPUT_BASE:/=\%\external
+    environment:
+      BAZEL_VC: "C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC"
     batch_commands:
       - powershell -Command "(Get-Content WORKSPACE.bzlmod) -Replace '# android_', 'android_' | Set-Content WORKSPACE.bzlmod"
     build_flags:
@@ -399,6 +401,8 @@ tasks:
     setup:
       - mkdir C:\b
       - mklink /J C:\b\bazeltest_external %OUTPUT_BASE:/=\%\external
+    environment:
+      BAZEL_VC: "C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC"
     batch_commands:
       - powershell -Command "(Get-Content WORKSPACE.bzlmod) -Replace '# android_', 'android_' | Set-Content WORKSPACE.bzlmod"
     build_flags:
