@@ -314,7 +314,7 @@ public final class StarlarkRepositoryContextTest {
     context.createFile(
         context.path("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
     context.patch(patchFile, StarlarkInt.of(0), thread);
-    testOutputFile(foo.getPath(), String.format("line one%nline two%n"));
+    testOutputFile(foo.getPath(), "line one\nline two\n");
   }
 
   @Test
