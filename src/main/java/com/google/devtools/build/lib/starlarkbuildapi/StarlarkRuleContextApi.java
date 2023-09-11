@@ -56,12 +56,6 @@ import net.starlark.java.eval.Tuple;
 public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValueInfoApi>
     extends StarlarkValue {
 
-  String DOC_NEW_FILE_TAIL =
-      "Does not actually create a file on the file system, just declares that some action will do"
-          + " so. You must create an action that generates the file. If the file should be visible"
-          + " to other rules, declare a rule output instead when possible. Doing so enables Blaze"
-          + " to associate a label with the file that rules can refer to (allowing finer"
-          + " dependency control) instead of referencing the whole rule.";
   String EXECUTABLE_DOC =
       "A <code>struct</code> containing executable files defined in <a"
           + " href='../toplevel/attr.html#label'>label type attributes</a> marked as <a"
@@ -333,47 +327,6 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
             doc = "The string to split."),
       })
   Sequence<String> tokenize(String optionString) throws EvalException;
-
-  @StarlarkMethod(
-      name = "new_file",
-      doc =
-          "DEPRECATED. Use <a"
-              + " href=\"../builtins/actions.html#declare_file\">ctx.actions.declare_file</a>."
-              + " <br>Creates a file object. There are four possible signatures to this"
-              + " method:<br><ul><li>new_file(filename): Creates a file object with the given"
-              + " filename in the current package.</li><li>new_file(file_root, filename): Creates a"
-              + " file object with the given filename under the given file root.</li>"
-              + "<li>new_file(sibling_file, filename): Creates a file object in the same directory"
-              + " as the given sibling file.</li><li>new_file(file_root, sibling_file, suffix):"
-              + " Creates a file object with same base name of the sibling_file but with different"
-              + " given suffix, under the given file root.</li></ul> <br>"
-              + DOC_NEW_FILE_TAIL,
-      parameters = {
-        @Param(
-            name = "var1",
-            allowedTypes = {
-              @ParamType(type = String.class),
-              @ParamType(type = FileRootApi.class),
-              @ParamType(type = FileApi.class),
-            },
-            doc = ""),
-        @Param(
-            name = "var2",
-            allowedTypes = {
-              @ParamType(type = String.class),
-              @ParamType(type = FileApi.class),
-            },
-            defaultValue = "unbound",
-            doc = ""),
-        @Param(
-            name = "var3",
-            allowedTypes = {
-              @ParamType(type = String.class),
-            },
-            defaultValue = "unbound",
-            doc = "")
-      })
-  FileApi newFile(Object var1, Object var2, Object var3) throws EvalException;
 
   @StarlarkMethod(
       name = "check_placeholders",

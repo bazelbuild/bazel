@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.starlark;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
@@ -1030,15 +1029,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testDeriveArtifactLegacy() throws Exception {
-    setBuildLanguageOptions("--incompatible_new_actions_api=false");
-    setRuleContext(createRuleContext("//foo:foo"));
-    Object result = ev.eval("ruleContext.new_file(ruleContext.genfiles_dir," + "  'a/b.txt')");
-    PathFragment fragment = ((Artifact) result).getRootRelativePath();
-    assertThat(fragment.getPathString()).isEqualTo("foo/a/b.txt");
-  }
-
-  @Test
   public void testDeriveArtifact() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     Object result = ev.eval("ruleContext.actions.declare_file('a/b.txt')");
@@ -1076,28 +1066,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertThat(artifact.isTreeArtifact()).isTrue();
   }
 
-  @Test
-  public void testParamFileLegacy() throws Exception {
-    setBuildLanguageOptions("--incompatible_new_actions_api=false");
-    setRuleContext(createRuleContext("//foo:foo"));
-    Object result =
-        ev.eval(
-            "ruleContext.new_file(ruleContext.bin_dir," + "ruleContext.files.tools[0], '.params')");
-    PathFragment fragment = ((Artifact) result).getRootRelativePath();
-    assertThat(fragment.getPathString()).isEqualTo("foo/t.exe.params");
-  }
-
-  @Test
-  public void testParamFileSuffixLegacy() throws Exception {
-    setBuildLanguageOptions("--incompatible_new_actions_api=false");
-    setRuleContext(createRuleContext("//foo:foo"));
-    Object result =
-        ev.eval(
-            "ruleContext.new_file(ruleContext.files.tools[0], "
-                + "ruleContext.files.tools[0].basename + '.params')");
-    PathFragment fragment = ((Artifact) result).getRootRelativePath();
-    assertThat(fragment.getPathString()).isEqualTo("foo/t.exe.params");
-  }
 
   @Test
   public void testParamFileSuffix() throws Exception {
@@ -2878,8 +2846,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
           "aspect_ids",
           "var",
           "tokenize('foo')",
-          "new_file('foo.txt')",
-          "new_file(file, 'foo.txt')",
           "actions.declare_file('foo.txt')",
           "actions.declare_file('foo.txt', sibling = file)",
           "actions.declare_directory('foo.txt')",
@@ -2995,41 +2961,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
                   + Iterables.get(Splitter.on('(').split(attribute), 0)
                   + "' of rule context for '//test:dep' outside of its own rule implementation "
                   + "function");
-    }
-  }
-
-  private static final List<String> deprecatedActionsApi =
-      ImmutableList.of("new_file('foo.txt')", "new_file(file, 'foo.txt')");
-
-  @Test
-  public void testIncompatibleNewActionsApi() throws Exception {
-    scratch.file("test/BUILD", "load('//test:rules.bzl', 'main_rule')", "main_rule(name = 'main')");
-    scratch.file("test/rules.bzl");
-
-    for (String actionApi : deprecatedActionsApi) {
-      scratch.overwriteFile(
-          "test/rules.bzl",
-          "def _main_impl(ctx):",
-          "  file = ctx.outputs.file",
-          "  foo = ctx." + actionApi,
-          "main_rule = rule(",
-          "  implementation = _main_impl,",
-          "  attrs = {",
-          "    'deps': attr.label_list()",
-          "  },",
-          "  outputs = {'file': 'output.txt'},",
-          ")");
-      setBuildLanguageOptions("--incompatible_new_actions_api=true");
-      invalidatePackages();
-      AssertionError e =
-          assertThrows(
-              "Should have reported deprecation error for: " + actionApi,
-              AssertionError.class,
-              () -> getConfiguredTarget("//test:main"));
-      assertWithMessage(actionApi + " reported wrong error")
-          .that(e)
-          .hasMessageThat()
-          .contains("Use --incompatible_new_actions_api=false");
     }
   }
 

@@ -73,7 +73,6 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
@@ -821,59 +820,6 @@ public final class StarlarkRuleContext
   }
 
   @Override
-  public Artifact newFile(Object var1, Object var2, Object fileSuffix) throws EvalException {
-    checkMutable("new_file");
-    checkDeprecated("ctx.actions.declare_file", "ctx.new_file", getStarlarkSemantics());
-
-    // Determine which of new_file's four signatures is being used. Yes, this is terrible.
-    // It's one major reason that this method is deprecated.
-    if (fileSuffix != Starlark.UNBOUND) {
-      // new_file(file_root, sibling_file, suffix)
-      ArtifactRoot root =
-          assertTypeForNewFile(
-              var1, ArtifactRoot.class, "expected first param to be of type 'root'");
-      Artifact siblingFile =
-          assertTypeForNewFile(var2, Artifact.class, "expected second param to be of type 'File'");
-      PathFragment original =
-          siblingFile.getOutputDirRelativePath(getConfiguration().isSiblingRepositoryLayout());
-      PathFragment fragment = original.replaceName(original.getBaseName() + fileSuffix);
-      return ruleContext.getDerivedArtifact(fragment, root);
-
-    } else if (var2 == Starlark.UNBOUND) {
-      // new_file(filename)
-      String filename =
-          assertTypeForNewFile(var1, String.class, "expected first param to be of type 'string'");
-      return actionFactory.declareFile(filename, Starlark.NONE);
-
-    } else {
-      String filename =
-          assertTypeForNewFile(var2, String.class, "expected second param to be of type 'string'");
-      if (var1 instanceof ArtifactRoot) {
-        // new_file(root, filename)
-        ArtifactRoot root = (ArtifactRoot) var1;
-
-        return ruleContext.getPackageRelativeArtifact(filename, root);
-      } else {
-        // new_file(sibling_file, filename)
-        Artifact siblingFile =
-            assertTypeForNewFile(
-                var1, Artifact.class, "expected first param to be of type 'File' or 'root'");
-
-        return actionFactory.declareFile(filename, siblingFile);
-      }
-    }
-  }
-
-  private static <T> T assertTypeForNewFile(Object obj, Class<T> type, String errorMessage)
-      throws EvalException {
-    if (type.isInstance(obj)) {
-      return type.cast(obj);
-    } else {
-      throw new EvalException(errorMessage);
-    }
-  }
-
-  @Override
   public boolean checkPlaceholders(String template, Sequence<?> allowedPlaceholders) // <String>
       throws EvalException {
     checkMutable("check_placeholders");
@@ -1169,16 +1115,6 @@ public final class StarlarkRuleContext
       convertedMap.put((Label) key, files.build());
     }
     return convertedMap;
-  }
-
-  private static void checkDeprecated(String newApi, String oldApi, StarlarkSemantics semantics)
-      throws EvalException {
-    if (semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NEW_ACTIONS_API)) {
-      throw Starlark.errorf(
-          "Use %s instead of %s.\n"
-              + "Use --incompatible_new_actions_api=false to temporarily disable this check.",
-          newApi, oldApi);
-    }
   }
 
   /**
