@@ -61,6 +61,7 @@ public final class SpawnBuilder {
   private RunfilesSupplier runfilesSupplier = EmptyRunfilesSupplier.INSTANCE;
   private ResourceSet resourceSet = ResourceSet.ZERO;
   private boolean stripOutputPaths;
+  private boolean builtForToolConfiguration;
 
   /**
    * A {@link DelegateSpawn} that supports output path stripping as described in {@link
@@ -90,7 +91,13 @@ public final class SpawnBuilder {
   public Spawn build() {
     ActionExecutionMetadata owner =
         new FakeOwner(
-            mnemonic, progressMessage, ownerLabel, ownerPrimaryOutput, platform, execProperties);
+            mnemonic,
+            progressMessage,
+            ownerLabel,
+            ownerPrimaryOutput,
+            platform,
+            execProperties,
+            builtForToolConfiguration);
     return new PathStrippableSpawn(
         new SimpleSpawn(
             owner,
@@ -252,6 +259,12 @@ public final class SpawnBuilder {
   @CanIgnoreReturnValue
   public SpawnBuilder stripOutputPaths(boolean strip) {
     this.stripOutputPaths = strip;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public SpawnBuilder setBuiltForToolConfiguration(boolean builtForToolConfiguration) {
+    this.builtForToolConfiguration = builtForToolConfiguration;
     return this;
   }
 }

@@ -142,7 +142,7 @@ public abstract class ActionOwner {
    * Returns true when the {@link BuildConfigurationInfo} for this {@link ActionOwner} is a
    * tool-related configuration.
    */
-  final boolean isBuildConfigurationForTool() {
+  public final boolean isBuildConfigurationForTool() {
     return getBuildConfigurationInfo().isToolConfiguration();
   }
 

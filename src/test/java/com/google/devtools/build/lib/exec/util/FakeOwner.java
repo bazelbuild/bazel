@@ -47,6 +47,7 @@ public class FakeOwner implements ActionExecutionMetadata {
   @Nullable private final Artifact primaryOutput;
   @Nullable private final PlatformInfo platform;
   private final ImmutableMap<String, String> execProperties;
+  private final boolean isBuiltForToolConfiguration;
 
   FakeOwner(
       String mnemonic,
@@ -54,13 +55,15 @@ public class FakeOwner implements ActionExecutionMetadata {
       String ownerLabel,
       @Nullable Artifact primaryOutput,
       @Nullable PlatformInfo platform,
-      ImmutableMap<String, String> execProperties) {
+      ImmutableMap<String, String> execProperties,
+      boolean isBuiltForToolConfiguration) {
     this.mnemonic = mnemonic;
     this.progressMessage = progressMessage;
     this.ownerLabel = checkNotNull(ownerLabel);
     this.primaryOutput = primaryOutput;
     this.platform = platform;
     this.execProperties = execProperties;
+    this.isBuiltForToolConfiguration = isBuiltForToolConfiguration;
   }
 
   private FakeOwner(
@@ -69,9 +72,10 @@ public class FakeOwner implements ActionExecutionMetadata {
         mnemonic,
         progressMessage,
         ownerLabel,
-        /*primaryOutput=*/ null,
+        /* primaryOutput= */ null,
         platform,
-        ImmutableMap.of());
+        ImmutableMap.of(),
+        /* isBuiltForToolConfiguration= */ false);
   }
 
   public FakeOwner(String mnemonic, String progressMessage, String ownerLabel) {
@@ -89,7 +93,7 @@ public class FakeOwner implements ActionExecutionMetadata {
         new BuildConfigurationEvent(
             BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
             BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
-        /* isToolConfiguration= */ true,
+        /* isToolConfiguration= */ isBuiltForToolConfiguration,
         /* executionPlatform= */ null,
         /* aspectDescriptors= */ ImmutableList.of(),
         /* execProperties= */ ImmutableMap.of());
