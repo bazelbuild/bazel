@@ -52,3 +52,9 @@ bind(
 #
 # android_sdk_repository(name = "androidsdk")
 # android_ndk_repository(name = "androidndk")
+
+# Introduce the "kythe_release" repo for Kythe build.
+local_repository(
+    name = "kythe_release",
+    path = "/usr/local/kythe",
+)
