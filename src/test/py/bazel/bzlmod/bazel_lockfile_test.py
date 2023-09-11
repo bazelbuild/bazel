@@ -207,7 +207,8 @@ class BazelLockfileTest(test_base.TestBase):
             'ERROR: Error computing the main repository mapping: Lock file is'
             ' no longer up-to-date because: the root MODULE.bazel has been'
             ' modified, the value of --check_direct_dependencies flag has'
-            ' been modified'
+            ' been modified. Please run'
+            ' `bazel mod deps --lockfile_mode=update` to update your lockfile.'
         ),
         stderr,
     )
@@ -251,7 +252,8 @@ class BazelLockfileTest(test_base.TestBase):
         (
             'ERROR: Error computing the main repository mapping: Lock file is'
             ' no longer up-to-date because: The MODULE.bazel file has changed'
-            ' for the overriden module: bar'
+            ' for the overriden module: bar. Please run'
+            ' `bazel mod deps --lockfile_mode=update` to update your lockfile.'
         ),
         stderr,
     )
@@ -502,7 +504,8 @@ class BazelLockfileTest(test_base.TestBase):
             'implementation of the extension '
             "'ModuleExtensionId{bzlFileLabel=//:extension.bzl, "
             "extensionName=lockfile_ext, isolationKey=Optional.empty}' or one "
-            'of its transitive .bzl files has changed'
+            'of its transitive .bzl files has changed. Please run'
+            ' `bazel mod deps --lockfile_mode=update` to update your lockfile.'
         ),
         stderr,
     )
@@ -688,7 +691,8 @@ class BazelLockfileTest(test_base.TestBase):
             ' variables the extension'
             " 'ModuleExtensionId{bzlFileLabel=//:extension.bzl,"
             " extensionName=lockfile_ext, isolationKey=Optional.empty}' depends"
-            ' on (or their values) have changed'
+            ' on (or their values) have changed. Please run'
+            ' `bazel mod deps --lockfile_mode=update` to update your lockfile.'
         ),
         stderr,
     )
@@ -757,8 +761,8 @@ class BazelLockfileTest(test_base.TestBase):
         (
             'ERROR: Error computing the main repository mapping: Lock file is'
             ' no longer up-to-date because: the version of the lockfile is not'
-            ' compatible with the current Bazel, please run with'
-            " '--lockfile_mode=update'"
+            ' compatible with the current Bazel. Please run'
+            ' `bazel mod deps --lockfile_mode=update` to update your lockfile.'
         ),
         stderr,
     )
