@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 1,
-  "moduleFileHash": "570b7501f8b826e733a8dfd21e4afc7a2a525146fe00a2e9a26a05f2db8ef1c9",
+  "moduleFileHash": "979be338a4ff5aa9e6df87a2af4a11cead05da7fc35790ae62cbaa2aaf453b34",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -400,7 +400,7 @@
         "rules_pkg": "rules_pkg@0.9.1",
         "io_bazel_skydoc": "stardoc@0.5.3",
         "zstd-jni": "zstd-jni@1.5.2-3.bcr.1",
-        "blake3": "blake3@1.3.3",
+        "blake3": "blake3@1.3.3.bcr.1",
         "zlib": "zlib@1.3",
         "rules_cc": "rules_cc@0.0.8",
         "rules_java": "rules_java@6.3.0",
@@ -807,10 +807,10 @@
         "attributes": {"name":"--zstd-jni~1.5.2-3.bcr.1","urls":["--https://github.com/luben/zstd-jni/archive/refs/tags/v1.5.2-3.zip"],"integrity":"--sha256-NmAJpDz62jUBXkzECn78S38BfGuN9crD+H0keAJ7IFY=","strip_prefix":"--zstd-jni-1.5.2-3","remote_patches":{"--https://bcr.bazel.build/modules/zstd-jni/1.5.2-3.bcr.1/patches/Native.java.patch":"--sha256-HDzZr1BxNacyg+xWvojosR8VgfZdOQ2TDAPW2bCATDs=","--https://bcr.bazel.build/modules/zstd-jni/1.5.2-3.bcr.1/patches/add_build_file.patch":"--sha256-k67/p9wSUWEfSeeLVPabVleF+lH9YLxlog1auvezsts=","--https://bcr.bazel.build/modules/zstd-jni/1.5.2-3.bcr.1/patches/module_dot_bazel.patch":"--sha256-0KGh/q92+gB4AWBFco0+/UkrkRGsZf0QynxMdWvAgPo="},"remote_patch_strip":1}
       }
     },
-    "blake3@1.3.3": {
+    "blake3@1.3.3.bcr.1": {
       "name": "blake3",
-      "version": "1.3.3",
-      "key": "blake3@1.3.3",
+      "version": "1.3.3.bcr.1",
+      "key": "blake3@1.3.3.bcr.1",
       "repoName": "blake3",
       "executionPlatformsToRegister": [],
       "toolchainsToRegister": [],
@@ -823,7 +823,7 @@
       "repoSpec": {
         "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
-        "attributes": {"name":"--blake3~1.3.3","urls":["--https://github.com/BLAKE3-team/BLAKE3/archive/refs/tags/1.3.3.tar.gz"],"integrity":"--sha256-J9K8TuWUW6dUNIWVIQQslJRj7nUU/xeq7zKOI++D/sA=","strip_prefix":"--BLAKE3-1.3.3","remote_patches":{"--https://bcr.bazel.build/modules/blake3/1.3.3/patches/module.patch":"--sha256-v+o2/wBuH3VB6NXAVkerymbSvG1i9BVWmteTIS9FykI=","--https://bcr.bazel.build/modules/blake3/1.3.3/patches/add_build_file.patch":"--sha256-oB3I3fbGNPG7BY/eAfNsSSmEHwQJEOD7oUbptVSNDi4="},"remote_patch_strip":0}
+        "attributes": {"name":"--blake3~1.3.3.bcr.1","urls":["--https://github.com/BLAKE3-team/BLAKE3/archive/refs/tags/1.3.3.tar.gz"],"integrity":"--sha256-J9K8TuWUW6dUNIWVIQQslJRj7nUU/xeq7zKOI++D/sA=","strip_prefix":"--BLAKE3-1.3.3","remote_patches":{"--https://bcr.bazel.build/modules/blake3/1.3.3.bcr.1/patches/add_build_file.patch":"--sha256-lKVoznUHSqWywOo27+g4J0csjL8lH3FEXjAFRJN5+Kw=","--https://bcr.bazel.build/modules/blake3/1.3.3.bcr.1/patches/module_dot_bazel.patch":"--sha256-4M/MRHdDFjS8iyVaKqy6QIc5Qea9pblUz7oj6I5aHfg="},"remote_patch_strip":0}
       }
     },
     "zlib@1.3": {
@@ -1608,19 +1608,19 @@
   },
   "moduleExtensions": {
     "//:extensions.bzl%bazel_android_deps": {
-      "bzlTransitiveDigest": "MswIM1Z5X3jH+YfT9YooYetPJYr/eQvGXSDNG6CMvQ0=",
+      "bzlTransitiveDigest": "FCtEgtjK+rMHZMXbyej9dhG0RvpD0HUT48VU5091rBo=",
       "accumulatedFileDigests": {},
       "envVariables": {},
       "generatedRepoSpecs": {
         "desugar_jdk_libs": {
           "bzlFile": "@@//tools/build_defs/repo:http.bzl",
           "ruleClassName": "http_archive",
-          "attributes": {"name":"--_main~bazel_android_deps~desugar_jdk_libs","sha256":"--299452e6f4a4981b2e6d22357f7332713382a63e4c137f5fd6b89579f6d610cb","urls":["--https://mirror.bazel.build/github.com/google/desugar_jdk_libs/archive/5847d6a06302136d95a14b4cbd4b55a9c9f1436e.zip","--https://github.com/google/desugar_jdk_libs/archive/5847d6a06302136d95a14b4cbd4b55a9c9f1436e.zip"],"patch_args":["---p1"],"patches":["@@//third_party:desugar_jdk_libs-exec_tools.patch"],"strip_prefix":"--desugar_jdk_libs-5847d6a06302136d95a14b4cbd4b55a9c9f1436e"}
+          "attributes": {"name":"--_main~bazel_android_deps~desugar_jdk_libs","sha256":"--1af779b00764d3b024e6e9ae4a3bcfb1b4d39ad6b3c5ca987449b61cb8856319","urls":["--https://github.com/google/desugar_jdk_libs/archive/87ed6c8af26b375c1ab06b9c249107ed2c95e632.zip"],"patch_args":["---p0"],"patches":[],"strip_prefix":"--desugar_jdk_libs-87ed6c8af26b375c1ab06b9c249107ed2c95e632"}
         }
       }
     },
     "//:extensions.bzl%bazel_build_deps": {
-      "bzlTransitiveDigest": "MswIM1Z5X3jH+YfT9YooYetPJYr/eQvGXSDNG6CMvQ0=",
+      "bzlTransitiveDigest": "FCtEgtjK+rMHZMXbyej9dhG0RvpD0HUT48VU5091rBo=",
       "accumulatedFileDigests": {},
       "envVariables": {},
       "generatedRepoSpecs": {
@@ -1652,7 +1652,7 @@
         "bootstrap_repo_cache": {
           "bzlFile": "@@//:distdir.bzl",
           "ruleClassName": "repo_cache_tar",
-          "attributes": {"name":"--_main~bazel_build_deps~bootstrap_repo_cache","repos":["--abseil-cpp~20220623.1","--apple_support~1.5.0","--bazel_skylib~1.4.1","--blake3~1.3.3","--c-ares~1.15.0","--grpc~1.48.1.bcr.1","--protobuf~21.7","--stardoc~0.5.3","--platforms","--rules_cc~0.0.8","--rules_go~0.39.1","--rules_java~6.3.0","--rules_jvm_external~5.2","--rules_license~0.0.7","--rules_pkg~0.9.1","--rules_proto~5.3.0-21.7","--rules_python~0.24.0","--upb~0.0.0-20220923-a547704","--zlib~1.3","--zstd-jni~1.5.2-3.bcr.1","--grpc~1.48.1.bcr.1~grpc_repo_deps_ext~bazel_gazelle","--grpc~1.48.1.bcr.1~grpc_repo_deps_ext~bazel_skylib","--grpc~1.48.1.bcr.1~grpc_repo_deps_ext~com_envoyproxy_protoc_gen_validate","--grpc~1.48.1.bcr.1~grpc_repo_deps_ext~com_github_cncf_udpa","--grpc~1.48.1.bcr.1~grpc_repo_deps_ext~com_google_googleapis","--grpc~1.48.1.bcr.1~grpc_repo_deps_ext~envoy_api","--grpc~1.48.1.bcr.1~grpc_repo_deps_ext~rules_cc"],"dirname":"--derived/repository_cache"}
+          "attributes": {"name":"--_main~bazel_build_deps~bootstrap_repo_cache","repos":["--abseil-cpp~20220623.1","--apple_support~1.5.0","--bazel_skylib~1.4.1","--blake3~1.3.3.bcr.1","--c-ares~1.15.0","--grpc~1.48.1.bcr.1","--protobuf~21.7","--stardoc~0.5.3","--platforms","--rules_cc~0.0.8","--rules_go~0.39.1","--rules_java~6.3.0","--rules_jvm_external~5.2","--rules_license~0.0.7","--rules_pkg~0.9.1","--rules_proto~5.3.0-21.7","--rules_python~0.24.0","--upb~0.0.0-20220923-a547704","--zlib~1.3","--zstd-jni~1.5.2-3.bcr.1","--grpc~1.48.1.bcr.1~grpc_repo_deps_ext~bazel_gazelle","--grpc~1.48.1.bcr.1~grpc_repo_deps_ext~bazel_skylib","--grpc~1.48.1.bcr.1~grpc_repo_deps_ext~com_envoyproxy_protoc_gen_validate","--grpc~1.48.1.bcr.1~grpc_repo_deps_ext~com_github_cncf_udpa","--grpc~1.48.1.bcr.1~grpc_repo_deps_ext~com_google_googleapis","--grpc~1.48.1.bcr.1~grpc_repo_deps_ext~envoy_api","--grpc~1.48.1.bcr.1~grpc_repo_deps_ext~rules_cc"],"dirname":"--derived/repository_cache"}
         },
         "debian_bin_deps": {
           "bzlFile": "@@//tools/distributions:system_repo.bzl",
@@ -1692,7 +1692,7 @@
       }
     },
     "//:extensions.bzl%bazel_test_deps": {
-      "bzlTransitiveDigest": "MswIM1Z5X3jH+YfT9YooYetPJYr/eQvGXSDNG6CMvQ0=",
+      "bzlTransitiveDigest": "FCtEgtjK+rMHZMXbyej9dhG0RvpD0HUT48VU5091rBo=",
       "accumulatedFileDigests": {},
       "envVariables": {},
       "generatedRepoSpecs": {
