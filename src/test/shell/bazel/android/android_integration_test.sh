@@ -232,7 +232,7 @@ android_binary(
 EOF
   cat > MODULE.bazel << 'EOF'
 # Required for android_integration_test_with_platforms
-bazel_dep(name = "platforms", version = "0.0.5")
+bazel_dep(name = "platforms", version = "0.0.7")
 EOF
 
   bazel clean

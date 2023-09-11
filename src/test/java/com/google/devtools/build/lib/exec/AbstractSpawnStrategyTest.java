@@ -29,9 +29,12 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FutureSpawn;
 import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -92,6 +95,7 @@ public class AbstractSpawnStrategyTest {
   private final Path execRoot = fs.getPath("/execroot");
   private Scratch scratch;
   private ArtifactRoot rootDir;
+  private ArtifactRoot outputDir;
   @Mock private SpawnRunner spawnRunner;
   @Mock private ActionExecutionContext actionExecutionContext;
   @Mock private MessageOutputStream messageOutput;
@@ -103,6 +107,7 @@ public class AbstractSpawnStrategyTest {
     MockitoAnnotations.initMocks(this);
     scratch = new Scratch(fs);
     rootDir = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/execroot")));
+    outputDir = ArtifactRoot.asDerivedRoot(scratch.dir("/execroot"), RootType.Output, "out");
     eventHandler = new StoredEventHandler();
     when(actionExecutionContext.getEventHandler()).thenReturn(eventHandler);
     when(actionExecutionContext.getClock()).thenReturn(clock);
@@ -451,6 +456,60 @@ public class AbstractSpawnStrategyTest {
             .build();
     SpawnExec expected = defaultSpawnExecBuilder("cmd").setPlatform(platform).build();
     verify(messageOutput).write(expected); // output will reflect default properties
+  }
+
+  @Test
+  public void testLogSpawn_toolInputs() throws Exception {
+    Artifact toolFile = ActionsTestUtil.createArtifact(rootDir, "tool.file");
+    SpecialArtifact toolDir =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputDir, "tool.dir");
+
+    scratch.file("/execroot/tool.file", "123");
+    scratch.file("/execroot/out/tool.dir/tool.file", "456");
+
+    setUpExecutionContext(/* executionOptions= */ null, /* remoteOptions= */ null);
+    when(actionExecutionContext.getArtifactExpander())
+        .thenReturn(
+            (artifact, output) -> {
+              if (artifact.equals(toolDir)) {
+                output.add(TreeFileArtifact.createTreeOutput(toolDir, "tool.file"));
+              }
+            });
+    Spawn spawn =
+        new SpawnBuilder("cmd").withInputs(toolFile, toolDir).withTools(toolFile, toolDir).build();
+    assertThrows(
+        SpawnExecException.class,
+        () -> new TestedSpawnStrategy(execRoot, spawnRunner).exec(spawn, actionExecutionContext));
+
+    SpawnExec expected =
+        defaultSpawnExecBuilder("cmd")
+            .addInputs(
+                File.newBuilder()
+                    .setPath("out/tool.dir/tool.file")
+                    .setDigest(
+                        Digest.newBuilder()
+                            .setHash(
+                                "cdfba543ee8ef7fdb3d8b587648cc22dd792bbd6272cc5447307c7c106c2374c")
+                            .setSizeBytes(4)
+                            .setHashFunctionName("SHA-256")
+                            .build())
+                    .setIsTool(true)
+                    .build())
+            .addInputs(
+                File.newBuilder()
+                    .setPath("tool.file")
+                    .setDigest(
+                        Digest.newBuilder()
+                            .setHash(
+                                "181210f8f9c779c26da1d9b2075bde0127302ee0e3fca38c9a83f5b1dd8e5d3b")
+                            .setSizeBytes(4)
+                            .setHashFunctionName("SHA-256")
+                            .build())
+                    .setIsTool(true)
+                    .build())
+            .build();
+
+    verify(messageOutput).write(expected);
   }
 
   @Test
