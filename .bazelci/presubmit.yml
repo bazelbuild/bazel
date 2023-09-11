@@ -393,7 +393,8 @@ tasks:
     include_json_profile:
       - build
       - test
-  windows:
+  windows_arm64:
+    platform: windows
     name: "Windows (arm64)"
     setup:
       - mkdir C:\b
