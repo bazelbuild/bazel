@@ -102,7 +102,6 @@ def make_cc_test(with_aspects = False):
                 "@" + paths.join(semantics.get_platforms_root(), "os:ios"),
                 "@" + paths.join(semantics.get_platforms_root(), "os:macos"),
                 "@" + paths.join(semantics.get_platforms_root(), "os:tvos"),
-                "@" + paths.join(semantics.get_platforms_root(), "os:visionos"),
                 "@" + paths.join(semantics.get_platforms_root(), "os:watchos"),
             ],
         ),
