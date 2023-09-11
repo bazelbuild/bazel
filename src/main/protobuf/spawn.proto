@@ -41,6 +41,10 @@ message File {
 
   // Digest of the file's contents.
   Digest digest = 2;
+
+  // Whether the file is a tool.
+  // Only set for inputs, never for outputs.
+  bool is_tool = 3;
 }
 
 // Contents of command environment.
