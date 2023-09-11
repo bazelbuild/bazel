@@ -13,6 +13,7 @@ load(
     "exports_test",
 )
 load("@rules_testing//lib:analysis_test.bzl", "analysis_test")
+load("@rules_python//python:py_test.bzl", "py_test")
 
 LINKABLE_MORE_THAN_ONCE = "LINKABLE_MORE_THAN_ONCE"
 
