@@ -236,6 +236,14 @@ public final class SpawnBuilder {
   }
 
   @CanIgnoreReturnValue
+  public SpawnBuilder withTools(ActionInput... tools) {
+    for (ActionInput tool : tools) {
+      this.tools.add(tool);
+    }
+    return this;
+  }
+
+  @CanIgnoreReturnValue
   public SpawnBuilder withLocalResources(ResourceSet resourceSet) {
     this.resourceSet = resourceSet;
     return this;
