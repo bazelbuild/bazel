@@ -52,8 +52,12 @@ public class ConfigurationMakeVariableContext implements TemplateContext {
     providers.addAll(fromAttributes);
 
     // Also collect template variable providers from any resolved toolchains.
-    if (ruleContext.getToolchainContext() != null) {
-      providers.addAll(ruleContext.getToolchainContext().templateVariableProviders());
+    if (ruleContext.getToolchainContexts() != null) {
+      ruleContext
+          .getToolchainContexts()
+          .getContextMap()
+          .values()
+          .forEach(context -> providers.addAll(context.templateVariableProviders()));
     }
 
     return providers.build();
