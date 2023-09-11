@@ -2317,4 +2317,20 @@ public class ConfigSettingTest extends BuildViewTestCase {
     assertThat(getConfiguredTarget("//test:fg")).isNotNull();
     assertNoEvents();
   }
+
+  @Test
+  public void labelInValuesError() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'match',",
+        "    values = {'//foo:bar': 'value'},",
+        ")");
+    reporter.removeHandler(failFastHandler); // expect errors
+    assertThat(getConfiguredTarget("//test:match")).isNull();
+    assertContainsEvent(
+        "in values attribute of config_setting rule //test:match: '//foo:bar' is"
+            + " not a valid setting name, but appears to be a label. Did you mean to place it in"
+            + " flag_values instead?");
+  }
 }
