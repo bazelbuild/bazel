@@ -67,6 +67,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -82,6 +83,20 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, ActionConflictException {
     AttributeMap attributes = NonconfigurableAttributeMapper.of(ruleContext.getRule());
+
+    Optional<String> likelyLabelInvalidSetting =
+        attributes.get(ConfigSettingRule.SETTINGS_ATTRIBUTE, Type.STRING_DICT).keySet().stream()
+            .filter(s -> s.startsWith("@") || s.startsWith("//") || s.startsWith(":"))
+            .findFirst();
+    if (likelyLabelInvalidSetting.isPresent()) {
+      ruleContext.attributeError(
+          ConfigSettingRule.SETTINGS_ATTRIBUTE,
+          String.format(
+              "'%s' is not a valid setting name, but appears to be a label. Did you mean to place"
+                  + " it in %s instead?",
+              likelyLabelInvalidSetting.get(), ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE));
+      return null;
+    }
 
     // Get the built-in Blaze flag settings that match this rule.
     ImmutableMultimap<String, String> nativeFlagSettings =

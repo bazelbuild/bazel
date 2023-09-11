@@ -39,6 +39,8 @@ public class XcodeConfigInfo extends NativeInfo
 
   private final DottedVersion iosSdkVersion;
   private final DottedVersion iosMinimumOsVersion;
+  private final DottedVersion visionosSdkVersion;
+  private final DottedVersion visionosMinimumOsVersion;
   private final DottedVersion watchosSdkVersion;
   private final DottedVersion watchosMinimumOsVersion;
   private final DottedVersion tvosSdkVersion;
@@ -52,6 +54,8 @@ public class XcodeConfigInfo extends NativeInfo
   public XcodeConfigInfo(
       DottedVersion iosSdkVersion,
       DottedVersion iosMinimumOsVersion,
+      DottedVersion visionosSdkVersion,
+      DottedVersion visionosMinimumOsVersion,
       DottedVersion watchosSdkVersion,
       DottedVersion watchosMinimumOsVersion,
       DottedVersion tvosSdkVersion,
@@ -64,6 +68,8 @@ public class XcodeConfigInfo extends NativeInfo
       boolean includeXcodeReqs) {
     this.iosSdkVersion = Preconditions.checkNotNull(iosSdkVersion);
     this.iosMinimumOsVersion = Preconditions.checkNotNull(iosMinimumOsVersion);
+    this.visionosSdkVersion = Preconditions.checkNotNull(visionosSdkVersion);
+    this.visionosMinimumOsVersion = Preconditions.checkNotNull(visionosMinimumOsVersion);
     this.watchosSdkVersion = Preconditions.checkNotNull(watchosSdkVersion);
     this.watchosMinimumOsVersion = Preconditions.checkNotNull(watchosMinimumOsVersion);
     this.tvosSdkVersion = Preconditions.checkNotNull(tvosSdkVersion);
@@ -135,6 +141,8 @@ public class XcodeConfigInfo extends NativeInfo
     public XcodeConfigInfoApi<?, ?> xcodeConfigInfo(
         String iosSdkVersion,
         String iosMinimumOsVersion,
+        String visionosSdkVersion,
+        String visionosMinimumOsVersion,
         String watchosSdkVersion,
         String watchosMinimumOsVersion,
         String tvosSdkVersion,
@@ -147,6 +155,8 @@ public class XcodeConfigInfo extends NativeInfo
         return new XcodeConfigInfo(
             DottedVersion.fromString(iosSdkVersion),
             DottedVersion.fromString(iosMinimumOsVersion),
+            DottedVersion.fromString(visionosSdkVersion),
+            DottedVersion.fromString(visionosMinimumOsVersion),
             DottedVersion.fromString(watchosSdkVersion),
             DottedVersion.fromString(watchosMinimumOsVersion),
             DottedVersion.fromString(tvosSdkVersion),
@@ -195,6 +205,9 @@ public class XcodeConfigInfo extends NativeInfo
         return iosMinimumOsVersion;
       case TVOS:
         return tvosMinimumOsVersion;
+      case VISIONOS:
+        // TODO: Replace with CppOptions.minimumOsVersion
+        return DottedVersion.fromStringUnchecked("1.0");
       case WATCHOS:
         return watchosMinimumOsVersion;
       case MACOS:
@@ -216,6 +229,9 @@ public class XcodeConfigInfo extends NativeInfo
       case TVOS_DEVICE:
       case TVOS_SIMULATOR:
         return tvosSdkVersion;
+      case VISIONOS_DEVICE:
+      case VISIONOS_SIMULATOR:
+        return visionosSdkVersion;
       case WATCHOS_DEVICE:
       case WATCHOS_SIMULATOR:
         return watchosSdkVersion;
