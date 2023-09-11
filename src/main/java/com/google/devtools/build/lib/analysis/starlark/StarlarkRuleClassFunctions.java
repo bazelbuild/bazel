@@ -977,8 +977,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         }
         // Check for existence of the function transition allowlist attribute.
         // TODO(b/121385274): remove when we stop allowlisting starlark transitions
-        if (name.equals(FunctionSplitTransitionAllowlist.ATTRIBUTE_NAME)
-            || name.equals(FunctionSplitTransitionAllowlist.LEGACY_ATTRIBUTE_NAME)) {
+        if (name.equals(FunctionSplitTransitionAllowlist.ATTRIBUTE_NAME)) {
           if (!BuildType.isLabelType(attr.getType())) {
             errorf(handler, "_allowlist_function_transition attribute must be a label type");
             continue;
@@ -991,17 +990,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
           // Check the label value for package and target name, to make sure this works properly
           // in Bazel where it is expected to be found under @bazel_tools.
           if (!(defaultLabel
-                      .getPackageName()
-                      .equals(FunctionSplitTransitionAllowlist.LABEL.getPackageName())
-                  && defaultLabel
-                      .getName()
-                      .equals(FunctionSplitTransitionAllowlist.LABEL.getName()))
-              && !(defaultLabel
-                      .getPackageName()
-                      .equals(FunctionSplitTransitionAllowlist.LEGACY_LABEL.getPackageName())
-                  && defaultLabel
-                      .getName()
-                      .equals(FunctionSplitTransitionAllowlist.LEGACY_LABEL.getName()))) {
+                  .getPackageName()
+                  .equals(FunctionSplitTransitionAllowlist.LABEL.getPackageName())
+              && defaultLabel.getName().equals(FunctionSplitTransitionAllowlist.LABEL.getName()))) {
             errorf(
                 handler,
                 "_allowlist_function_transition attribute (%s) does not have the expected value %s",
