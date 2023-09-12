@@ -102,15 +102,6 @@ public class AnsiTerminal {
   }
 
   /**
-   * Set the color of the foreground or background of the terminal.
-   *
-   * @param color one of the foreground or background color constants
-   */
-  public void setBackgroundColor(Color color) throws IOException {
-    writeBytes(color.backgroundEscapeSeq);
-  }
-
-  /**
    * Resets the terminal colors and fonts to defaults.
    */
   public void resetTerminal() throws IOException {
@@ -125,13 +116,6 @@ public class AnsiTerminal {
   }
 
   /**
-   * Makes text print on the terminal in blue.
-   */
-  public void textBlue() throws IOException {
-    setTextColor(Color.BLUE);
-  }
-
-  /**
    * Makes text print on the terminal in green.
    */
   public void textGreen() throws IOException {
@@ -143,13 +127,6 @@ public class AnsiTerminal {
    */
   public void textMagenta() throws IOException {
     setTextColor(Color.MAGENTA);
-  }
-
-  /**
-   * Makes text print on the terminal in yellow.
-   */
-  public void textYellow() throws IOException {
-    setTextColor(Color.YELLOW);
   }
 
   /**

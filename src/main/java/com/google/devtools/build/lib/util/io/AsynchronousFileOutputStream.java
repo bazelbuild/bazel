@@ -140,20 +140,6 @@ public class AsynchronousFileOutputStream extends OutputStream implements Messag
     Uninterruptibles.putUninterruptibly(queue, data);
   }
 
-  /** Returns whether the stream is open for writing. */
-  public boolean isOpen() {
-    return !closeFuture.isDone();
-  }
-
-  /**
-   * Closes the stream without waiting until pending writes are committed, and suppressing errors.
-   *
-   * <p>Pending writes will still continue asynchronously, but any errors will be ignored.
-   */
-  public void closeNow() {
-    writerThread.interrupt();
-  }
-
   /**
    * Closes the stream and blocks until all pending writes are completed.
    *
