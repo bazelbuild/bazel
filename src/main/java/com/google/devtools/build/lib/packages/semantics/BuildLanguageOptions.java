@@ -94,16 +94,6 @@ public final class BuildLanguageOptions extends OptionsBase {
       help = "No-op.")
   public boolean incompatibleDisallowSymlinkFileToDir;
 
-  @Option(
-      name = "experimental_build_setting_api",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
-      help =
-          "If set to true, allows access to value of build setting rules via "
-              + "ctx.build_setting_value.")
-  public boolean experimentalBuildSettingApi;
-
   // TODO(#11437): Delete the special empty string value so that it's on unconditionally.
   @Option(
       name = "experimental_builtins_bzl_path",

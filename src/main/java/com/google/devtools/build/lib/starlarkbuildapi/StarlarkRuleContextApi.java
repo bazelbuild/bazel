@@ -204,10 +204,10 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       name = "build_setting_value",
       structField = true,
       doc =
-          "<b>Experimental. This field is experimental and subject to change at any time. Do not "
-              + "depend on it.</b> <p>The value of the build setting that is represented "
-              + "by the current target. It is an error to access this field for rules that do not "
-              + "set the <code>build_setting</code> attribute in their rule definition.")
+          "Value of the build setting represented by the current target. If this isn't the context"
+              + " for an instance of a rule that sets the <a href=\""
+              + "https://bazel.build/extending/config#rule-parameter\"><code>build_setting</code>"
+              + "</a> attribute, reading this is an error.")
   Object getBuildSettingValue() throws EvalException;
 
   @StarlarkMethod(
