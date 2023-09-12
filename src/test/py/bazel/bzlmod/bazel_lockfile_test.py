@@ -207,7 +207,8 @@ class BazelLockfileTest(test_base.TestBase):
             'ERROR: Error computing the main repository mapping: Lock file is'
             ' no longer up-to-date because: the root MODULE.bazel has been'
             ' modified, the value of --check_direct_dependencies flag has'
-            ' been modified'
+            ' been modified. Please run'
+            ' `bazel mod deps --lockfile_mode=update` to update your lockfile.'
         ),
         stderr,
     )
@@ -251,7 +252,8 @@ class BazelLockfileTest(test_base.TestBase):
         (
             'ERROR: Error computing the main repository mapping: Lock file is'
             ' no longer up-to-date because: The MODULE.bazel file has changed'
-            ' for the overriden module: bar'
+            ' for the overriden module: bar. Please run'
+            ' `bazel mod deps --lockfile_mode=update` to update your lockfile.'
         ),
         stderr,
     )
@@ -502,7 +504,8 @@ class BazelLockfileTest(test_base.TestBase):
             'implementation of the extension '
             "'ModuleExtensionId{bzlFileLabel=//:extension.bzl, "
             "extensionName=lockfile_ext, isolationKey=Optional.empty}' or one "
-            'of its transitive .bzl files has changed'
+            'of its transitive .bzl files has changed. Please run'
+            ' `bazel mod deps --lockfile_mode=update` to update your lockfile.'
         ),
         stderr,
     )
@@ -688,7 +691,8 @@ class BazelLockfileTest(test_base.TestBase):
             ' variables the extension'
             " 'ModuleExtensionId{bzlFileLabel=//:extension.bzl,"
             " extensionName=lockfile_ext, isolationKey=Optional.empty}' depends"
-            ' on (or their values) have changed'
+            ' on (or their values) have changed. Please run'
+            ' `bazel mod deps --lockfile_mode=update` to update your lockfile.'
         ),
         stderr,
     )
@@ -734,6 +738,40 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile('hello.txt', ['I have changed now!'])
     _, _, stderr = self.RunBazel(['build', '@hello//:all'])
     self.assertIn('I have changed now!', ''.join(stderr))
+
+  def testOldVersion(self):
+    self.ScratchFile('MODULE.bazel')
+    self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
+    self.RunBazel(['build', '--nobuild', '//:all'])
+
+    # Set version to old
+    with open('MODULE.bazel.lock', 'r') as json_file:
+      data = json.load(json_file)
+    data['lockFileVersion'] = 0
+    with open('MODULE.bazel.lock', 'w') as json_file:
+      json.dump(data, json_file, indent=4)
+
+    # Run in error mode
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--nobuild', '--lockfile_mode=error', '//:all'],
+        allow_failure=True,
+    )
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertIn(
+        (
+            'ERROR: Error computing the main repository mapping: Lock file is'
+            ' no longer up-to-date because: the version of the lockfile is not'
+            ' compatible with the current Bazel. Please run'
+            ' `bazel mod deps --lockfile_mode=update` to update your lockfile.'
+        ),
+        stderr,
+    )
+
+    # Run again with update
+    self.RunBazel(['build', '--nobuild', '//:all'])
+    with open('MODULE.bazel.lock', 'r') as json_file:
+      data = json.load(json_file)
+    self.assertEqual(data['lockFileVersion'], 1)
 
 
   def testExtensionEvaluationDoesNotRerunOnChangedImports(self):
