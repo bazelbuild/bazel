@@ -145,6 +145,15 @@ public final class PackageIdentifier implements SkyKey, Comparable<PackageIdenti
   }
 
   /**
+   * Get the top level dir after the root.
+   *
+   * <p>Used for some symlink planting strategies.
+   */
+  public String getTopLevelDir() {
+    return getSourceRoot().getSegment(0);
+  }
+
+  /**
    * Returns the package path fragment to derived artifacts for this package. Returns pkgName if
    * this is in the main repository or siblingRepositoryLayout is true. Otherwise, returns
    * external/[repository name]/[pkgName].

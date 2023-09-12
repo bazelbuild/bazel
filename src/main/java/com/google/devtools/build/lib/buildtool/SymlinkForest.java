@@ -15,8 +15,10 @@
 package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -24,7 +26,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -33,7 +35,11 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -101,7 +107,7 @@ public class SymlinkForest {
    * output roots, so they must be kept before commands). Does not follow any symbolic links.
    */
   @VisibleForTesting
-  @ThreadSafety.ThreadSafe
+  @ThreadSafe
   static void deleteTreesBelowNotPrefixed(Path dir, String prefix) throws IOException {
     for (Path p : dir.getDirectoryEntries()) {
       if (p.getBaseName().startsWith(prefix)) {
@@ -134,11 +140,7 @@ public class SymlinkForest {
     for (Path target : mainRepoRoot.getDirectoryEntries()) {
       String baseName = target.getBaseName();
       Path execPath = execroot.getRelative(baseName);
-      // Create any links that don't start with bazel-, and ignore external/ directory if
-      // user has it in the source tree because it conflicts with external repository location.
-      if (!baseName.startsWith(prefix)
-          && (siblingRepositoryLayout
-              || !baseName.equals(LabelConstants.EXTERNAL_PATH_PREFIX.getBaseName()))) {
+      if (symlinkShouldBePlanted(prefix, siblingRepositoryLayout, baseName)) {
         execPath.createSymbolicLink(target);
         plantedSymlinks.add(execPath);
         // TODO(jingwen-external): is this creating execroot/io_bazel/external?
@@ -152,7 +154,7 @@ public class SymlinkForest {
     if (siblingRepositoryLayout) {
       execroot.createDirectory();
     }
-    for (Map.Entry<Path, Path> entry : mainRepoLinks.entrySet()) {
+    for (Entry<Path, Path> entry : mainRepoLinks.entrySet()) {
       Path link = entry.getKey();
       Path target = entry.getValue();
       link.createSymbolicLink(target);
@@ -168,7 +170,7 @@ public class SymlinkForest {
     Map<PackageIdentifier, Set<Root>> dirRootsMap = Maps.newHashMap();
     // Elements in this list are added so that parents come before their children.
     ArrayList<PackageIdentifier> dirsParentsFirst = new ArrayList<>();
-    for (Map.Entry<PackageIdentifier, Root> entry : packageRootsForMainRepo.entrySet()) {
+    for (Entry<PackageIdentifier, Root> entry : packageRootsForMainRepo.entrySet()) {
       PackageIdentifier pkgId = entry.getKey();
       Root pkgRoot = entry.getValue();
       ArrayList<PackageIdentifier> newDirs = new ArrayList<>();
@@ -261,7 +263,7 @@ public class SymlinkForest {
       }
     }
 
-    for (Map.Entry<PackageIdentifier, Root> entry : packageRootsForMainRepo.entrySet()) {
+    for (Entry<PackageIdentifier, Root> entry : packageRootsForMainRepo.entrySet()) {
       PackageIdentifier pkgId = entry.getKey();
       if (!pkgId.getPackageFragment().equals(PathFragment.EMPTY_FRAGMENT)) {
         continue;
@@ -302,7 +304,7 @@ public class SymlinkForest {
     Map<PackageIdentifier, Root> packageRootsForMainRepo = Maps.newLinkedHashMap();
     ImmutableList.Builder<Path> plantedSymlinks = ImmutableList.builder();
 
-    for (Map.Entry<PackageIdentifier, Root> entry : packageRoots.entrySet()) {
+    for (Entry<PackageIdentifier, Root> entry : packageRoots.entrySet()) {
       PackageIdentifier pkgId = entry.getKey();
       if (pkgId.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
         // //external is a virtual package regardless , don't add it to the symlink tree.
@@ -333,7 +335,7 @@ public class SymlinkForest {
             continue;
           }
           Path execrootLink = execroot.getRelative(baseName);
-          Path sourcePath = entry.getValue().getRelative(pkgId.getSourceRoot().getSegment(0));
+          Path sourcePath = entry.getValue().getRelative(pkgId.getTopLevelDir());
           mainRepoLinks.putIfAbsent(execrootLink, sourcePath);
         }
       } else {
@@ -375,28 +377,62 @@ public class SymlinkForest {
    * Eagerly plant the symlinks from execroot to the source root provided by the single package path
    * of the current build. Only works with a single package path. Before planting the new symlinks,
    * remove all existing symlinks in execroot which don't match certain criteria.
+   *
+   * <p>It's possible to have a conflict here. For example when we plant symlinks form a
+   * case-insensitive FS to a case-sensitive one.
+   *
+   * @return a set of conflicting baseNames.
    */
-  public static void eagerlyPlantSymlinkForestSinglePackagePath(
+  public static ImmutableSet<String> eagerlyPlantSymlinkForestSinglePackagePath(
       Path execroot,
       Path sourceRoot,
       String prefix,
-      boolean siblingRepositoryLayout)
+      boolean siblingRepositoryLayout,
+      boolean isFsCaseSensitive)
       throws IOException {
     deleteTreesBelowNotPrefixed(execroot, prefix);
     deleteSiblingRepositorySymlinks(siblingRepositoryLayout, execroot);
 
-    // Plant everything under the single source root.
+    Map<String, List<Path>> symlinkBaseNameToTargets = new HashMap<>();
+    Set<String> conflictingBaseNames = new HashSet<>();
     for (Path target : sourceRoot.getDirectoryEntries()) {
-      String baseName = target.getBaseName();
-      Path execPath = execroot.getRelative(baseName);
-      // Create any links that don't start with bazel-, and ignore external/ directory if
-      // user has it in the source tree because it conflicts with external repository location.
-      if (!baseName.startsWith(prefix)
-          && (siblingRepositoryLayout
-              || !baseName.equals(LabelConstants.EXTERNAL_PATH_PREFIX.getBaseName()))) {
-        execPath.createSymbolicLink(target);
+      String baseNameLowercaseIfCaseInsensitive =
+          normalizedBasename(target.getBaseName(), isFsCaseSensitive);
+      symlinkBaseNameToTargets
+          .computeIfAbsent(baseNameLowercaseIfCaseInsensitive, x -> new ArrayList<>())
+          .add(target);
+    }
+
+    for (Entry<String, List<Path>> entry : symlinkBaseNameToTargets.entrySet()) {
+      var baseNameLowercaseIfCaseInsensitive = entry.getKey();
+      var targets = entry.getValue();
+      // Easy case: there's no clashing expected. Just plant.
+      if (targets.size() == 1) {
+        Path target = Iterables.getOnlyElement(targets);
+        String originalBaseName = target.getBaseName();
+        Path execPath = execroot.getRelative(originalBaseName);
+        if (symlinkShouldBePlanted(prefix, siblingRepositoryLayout, originalBaseName)) {
+          execPath.createSymbolicLink(target);
+        }
+      } else {
+        conflictingBaseNames.add(baseNameLowercaseIfCaseInsensitive);
       }
     }
+    return ImmutableSet.copyOf(conflictingBaseNames);
+  }
+
+  /** Normalize the base names by converting it to lowercase in a case-insensitive FS. */
+  public static String normalizedBasename(String original, boolean isFsCaseSensitive) {
+    return isFsCaseSensitive ? original : Ascii.toLowerCase(original);
+  }
+
+  public static boolean symlinkShouldBePlanted(
+      String prefix, boolean siblingRepositoryLayout, String baseName) {
+    // Create any links that don't start with bazel-, and ignore external/ directory if
+    // user has it in the source tree because it conflicts with external repository location.
+    return !baseName.startsWith(prefix)
+        && (siblingRepositoryLayout
+            || !baseName.equals(LabelConstants.EXTERNAL_PATH_PREFIX.getBaseName()));
   }
 
   /**
@@ -436,5 +472,12 @@ public class SymlinkForest {
   private static PackageIdentifier createInRepo(
       PackageIdentifier repo, PathFragment packageFragment) {
     return PackageIdentifier.create(repo.getRepository(), packageFragment);
+  }
+
+  /** Checked exception for issues with Symlink planting. */
+  public static class SymlinkPlantingException extends Exception {
+    public SymlinkPlantingException(String msg) {
+      super(msg);
+    }
   }
 }
