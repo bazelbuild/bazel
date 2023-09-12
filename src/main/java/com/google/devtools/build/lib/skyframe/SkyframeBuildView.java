@@ -295,11 +295,7 @@ public final class SkyframeBuildView {
               message,
               FailureDetails.BuildConfiguration.Code.CONFIGURATION_DISCARDED_ANALYSIS_CACHE);
         }
-        eventHandler.handle(
-            Event.warn(
-                diff
-                    + ", discarding analysis cache (this can be expensive, see"
-                    + " https://bazel.build/advanced/performance/iteration-speed)."));
+        eventHandler.handle(Event.info(diff + ", discarding analysis cache."));
         // Note that clearing the analysis cache is currently required for correctness. It is also
         // helpful to save memory.
         //
