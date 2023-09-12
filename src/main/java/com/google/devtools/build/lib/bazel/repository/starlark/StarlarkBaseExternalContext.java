@@ -223,6 +223,46 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     return res;
   }
 
+  private static ImmutableMap<URI, Map<String, List<String>>> getHeaders(
+    Map<String, Map<String, List<String>>> auth) throws RepositoryFunctionException, EvalException {
+    ImmutableMap.Builder<URI, Map<String, List<String>>> headers = new ImmutableMap.Builder<>();
+    for (Map.Entry<String, Map<String, List<String>>> entry : auth.entrySet()) {
+      try {
+        URL url = new URL(entry.getKey());
+        Map<String, List<String>> headerMap = entry.getValue();
+        headers.put(url.toURI(), headerMap);
+      } catch (MalformedURLException e) {
+        throw new RepositoryFunctionException(e, Transience.PERSISTENT);
+      } catch (URISyntaxException e) {
+        throw new EvalException(e);
+      }
+    }
+    return headers.buildOrThrow();
+  }
+
+  private static ImmutableMap<String, Map<String, List<String>>> getHeaderContents(Dict<?, ?> x, String what)
+  throws EvalException {
+    // Dict.cast returns Dict<String, raw Dict>.
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    Map<String, Dict<?, ?>> urlHeaderMapUnchecked = (Map) Dict.cast(x, String.class, Dict.class, what);
+
+    ImmutableMap.Builder<String, Map<String, List<String>>> urlHeadersMap = new ImmutableMap.Builder<>();
+
+    for (Map.Entry<String, Dict<?, ?>> urlHeaderEntry : urlHeaderMapUnchecked.entrySet()) {
+    
+      ImmutableMap.Builder<String, List<String>> headers = new ImmutableMap.Builder<>();
+      Dict<String, List> headersUnchecked = Dict.cast(urlHeaderEntry.getValue(), String.class, List.class, "header entry");
+
+      for (Map.Entry<String, List> headerEntry : headersUnchecked.entrySet()) {
+        List<String> headerValue = headerEntry.getValue().stream().map(r -> r.toString()).toList();
+        headers.put(headerEntry.getKey(), headerValue);
+      }
+
+      urlHeadersMap.put(urlHeaderEntry.getKey(), headers.buildOrThrow());
+    }
+    return urlHeadersMap.buildOrThrow();
+}
+
   private static ImmutableList<String> checkAllUrls(Iterable<?> urlList) throws EvalException {
     ImmutableList.Builder<String> result = ImmutableList.builder();
 
@@ -425,6 +465,11 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             named = true,
             doc = "An optional dict specifying authentication information for some of the URLs."),
         @Param(
+              name = "headers",
+              defaultValue = "{}",
+              named = true,
+              doc = "An optional dict specifying http headers for some of the URLs."),
+        @Param(
             name = "integrity",
             defaultValue = "''",
             named = true,
@@ -444,11 +489,19 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
       Boolean allowFail,
       String canonicalId,
       Dict<?, ?> authUnchecked, // <String, Dict> expected
+      Dict<?, ?> headersUnchecked, // <String, Dict> expected
       String integrity,
       StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     ImmutableMap<URI, Map<String, List<String>>> authHeaders =
         getAuthHeaders(getAuthContents(authUnchecked, "auth"));
+
+    ImmutableMap<URI, Map<String, List<String>>> headers = getHeaders(getHeaderContents(headersUnchecked, "headers"));
+
+    ImmutableMap<URI, Map<String, List<String>>> allHeaders = new ImmutableMap.Builder<URI, Map<String, List<String>>>()
+        .putAll(authHeaders)
+        .putAll(headers)
+        .buildOrThrow();
 
     ImmutableList<URL> urls =
         getUrls(
@@ -483,7 +536,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
       downloadedPath =
           downloadManager.download(
               urls,
-              authHeaders,
+              allHeaders,
               checksum,
               canonicalId,
               Optional.<String>empty(),
@@ -599,6 +652,11 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             named = true,
             doc = "An optional dict specifying authentication information for some of the URLs."),
         @Param(
+              name = "headers",
+              defaultValue = "{}",
+              named = true,
+              doc = "An optional dict specifying http headers for some of the URLs."),
+        @Param(
             name = "integrity",
             defaultValue = "''",
             named = true,
@@ -629,13 +687,21 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
       String stripPrefix,
       Boolean allowFail,
       String canonicalId,
-      Dict<?, ?> auth, // <String, Dict> expected
+      Dict<?, ?> authUnchecked, // <String, Dict> expected
+      Dict<?, ?> headersUnchecked, // <String, Dict> expected
       String integrity,
       Dict<?, ?> renameFiles, // <String, String> expected
       StarlarkThread thread)
       throws RepositoryFunctionException, InterruptedException, EvalException {
     ImmutableMap<URI, Map<String, List<String>>> authHeaders =
-        getAuthHeaders(getAuthContents(auth, "auth"));
+        getAuthHeaders(getAuthContents(authUnchecked, "auth"));
+
+    ImmutableMap<URI, Map<String, List<String>>> headers = getHeaders(getHeaderContents(headersUnchecked, "headers"));
+
+    ImmutableMap<URI, Map<String, List<String>>> allHeaders = new ImmutableMap.Builder<URI, Map<String, List<String>>>()
+        .putAll(authHeaders)
+        .putAll(headers)
+        .buildOrThrow();
 
     ImmutableList<URL> urls =
         getUrls(
@@ -684,7 +750,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
       downloadedPath =
           downloadManager.download(
               urls,
-              authHeaders,
+              allHeaders,
               checksum,
               canonicalId,
               Optional.of(type),
