@@ -162,7 +162,7 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
             "module(name = \"%s\")",
             // Try to keep this updated with the src/MODULE.tools file. (Due to MVS, even if this is
             // not kept up to date, we'll use the latest version anyhow)
-            "bazel_dep(name = \"platforms\", version = \"0.0.4\")"),
+            "bazel_dep(name = \"platforms\", version = \"0.0.7\")"),
         repositoryName);
   }
 
