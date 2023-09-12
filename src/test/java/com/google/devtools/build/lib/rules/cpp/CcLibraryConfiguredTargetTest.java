@@ -1739,7 +1739,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "apply_custom_transition = rule(",
         "    implementation = _apply_custom_transition_impl,",
         "    attrs = {",
-        "        '_allowlist_function_transition': attr.label(",
+        "        '_whitelist_function_transition': attr.label(",
         "            default = '//tools/allowlists/function_transition_allowlist',",
         "        ),",
         "        'deps': attr.label_list(cfg = custom_transition),",
