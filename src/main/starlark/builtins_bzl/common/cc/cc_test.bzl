@@ -15,10 +15,10 @@
 """cc_test Starlark implementation."""
 
 load(":common/cc/cc_binary.bzl", "cc_binary_impl")
-load(":common/paths.bzl", "paths")
 load(":common/cc/cc_binary_attrs.bzl", "cc_binary_attrs_with_aspects", "cc_binary_attrs_without_aspects")
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/semantics.bzl", "semantics")
+load(":common/paths.bzl", "paths")
 
 cc_internal = _builtins.internal.cc_internal
 config_common = _builtins.toplevel.config_common
@@ -102,7 +102,6 @@ def make_cc_test(with_aspects = False):
                 "@" + paths.join(semantics.get_platforms_root(), "os:ios"),
                 "@" + paths.join(semantics.get_platforms_root(), "os:macos"),
                 "@" + paths.join(semantics.get_platforms_root(), "os:tvos"),
-                "@" + paths.join(semantics.get_platforms_root(), "os:visionos"),
                 "@" + paths.join(semantics.get_platforms_root(), "os:watchos"),
             ],
         ),
