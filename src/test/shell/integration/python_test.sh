@@ -84,8 +84,6 @@ fi
 function test_python_binary_empty_files_in_runfiles_are_regular_files() {
   mkdir -p test/mypackage
   cat > test/BUILD <<'EOF'
-load("@rules_python//python:py_test.bzl", "py_test")
-
 py_test(
     name = "a",
     srcs = [
@@ -130,8 +128,6 @@ function test_building_transitive_py_binary_runfiles_trees() {
   touch main.py script.sh
   chmod u+x script.sh
   cat > BUILD <<'EOF'
-load("@rules_python//python:py_binary.bzl", "py_binary")
-
 py_binary(
     name = 'py-tool',
     srcs = ['main.py'],

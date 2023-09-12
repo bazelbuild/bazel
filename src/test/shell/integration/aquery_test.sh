@@ -1430,8 +1430,6 @@ function test_aquery_include_template_substitution_for_template_expand_of_py_bin
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
-load("@rules_python//python:py_binary.bzl", "py_binary")
-
 py_binary(
     name='foo',
     srcs=['foo.py']

@@ -150,15 +150,11 @@ function test_foo_runfiles() {
   local -r pkg=$FUNCNAME
   create_pkg $pkg
 cat > BUILD << EOF
-load("@rules_python//python:py_library.bzl", "py_library")
-
 py_library(name = "root",
            srcs = ["__init__.py"],
            visibility = ["//visibility:public"])
 EOF
 cat > $pkg/BUILD << EOF
-load("@rules_python//python:py_binary.bzl", "py_binary")
-
 sh_binary(name = "foo",
           srcs = [ "x/y/z.sh" ],
           data = [ ":py",

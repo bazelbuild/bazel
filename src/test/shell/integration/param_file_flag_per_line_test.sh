@@ -127,7 +127,6 @@ EOF
 
   cat > package/BUILD <<EOF
 load(":lib.bzl", "flag_per_line")
-load("@rules_python//python:py_binary.bzl", "py_binary")
 
 py_binary(
     name = "flag_copy",

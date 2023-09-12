@@ -65,13 +65,8 @@ add_to_bazelrc "test --notest_loasd"
 function write_py_files() {
   mkdir -p py || fail "mkdir py failed"
 
-  cat > py/BUILD <<'EOF'
-load("@rules_python//python:py_binary.bzl", "py_binary")
-load("@rules_python//python:py_test.bzl", "py_test")
-
-py_binary(name = "binary", srcs = ["binary.py"])
-py_test(name = "test", srcs = ["test.py"])
-EOF
+  echo "py_binary(name = 'binary', srcs = ['binary.py'])" > py/BUILD
+  echo "py_test(name = 'test', srcs = ['test.py'])" >> py/BUILD
 
   echo "print('Hello, Python World!')" >py/py.py
   chmod +x py/py.py
