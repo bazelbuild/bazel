@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.base.StandardSystemProperty.OS_ARCH;
 import static com.google.common.collect.ImmutableBiMap.toImmutableBiMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
@@ -48,6 +49,7 @@ import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -168,6 +170,10 @@ public class SingleExtensionEvalFunction implements SkyFunction {
 
     // Check the lockfile first for that module extension
     LockfileMode lockfileMode = BazelLockFileFunction.LOCKFILE_MODE.get(env);
+    ModuleExtensionEvalFactors extensionFactors =
+        ModuleExtensionEvalFactors.create(
+            extension.getOsDependent() ? OS.getCurrent().toString() : "",
+            extension.getArchDependent() ? OS_ARCH.value() : "");
     if (!lockfileMode.equals(LockfileMode.OFF)) {
       BazelLockFileValue lockfile = (BazelLockFileValue) env.getValue(BazelLockFileValue.KEY);
       if (lockfile == null) {
@@ -177,10 +183,10 @@ public class SingleExtensionEvalFunction implements SkyFunction {
           tryGettingValueFromLockFile(
               env,
               extensionId,
+              extensionFactors,
               extensionEnvVars,
               usagesValue,
               bzlTransitiveDigest,
-              lockfileMode,
               lockfile);
       if (singleExtensionEvalValue != null) {
         return singleExtensionEvalValue;
@@ -209,6 +215,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
           .post(
               ModuleExtensionResolutionEvent.create(
                   extensionId,
+                  extensionFactors,
                   LockFileModuleExtension.builder()
                       .setBzlTransitiveDigest(bzlTransitiveDigest)
                       .setAccumulatedFileDigests(moduleExtensionResult.getAccumulatedFileDigests())
@@ -225,20 +232,25 @@ public class SingleExtensionEvalFunction implements SkyFunction {
   private SingleExtensionEvalValue tryGettingValueFromLockFile(
       Environment env,
       ModuleExtensionId extensionId,
+      ModuleExtensionEvalFactors extensionFactors,
       ImmutableMap<String, String> envVariables,
       SingleExtensionUsagesValue usagesValue,
       byte[] bzlTransitiveDigest,
-      LockfileMode lockfileMode,
       BazelLockFileValue lockfile)
       throws SingleExtensionEvalFunctionException, InterruptedException {
-    LockFileModuleExtension lockedExtension = lockfile.getModuleExtensions().get(extensionId);
+    LockfileMode lockfileMode = BazelLockFileFunction.LOCKFILE_MODE.get(env);
+
+    var lockedExtensionMap = lockfile.getModuleExtensions().get(extensionId);
+    LockFileModuleExtension lockedExtension =
+        lockedExtensionMap == null ? null : lockedExtensionMap.get(extensionFactors);
     if (lockedExtension == null) {
       if (lockfileMode.equals(LockfileMode.ERROR)) {
         throw new SingleExtensionEvalFunctionException(
             ExternalDepsException.withMessage(
                 Code.BAD_MODULE,
-                "The module extension '%s' does not exist in the lockfile",
-                extensionId),
+                "The module extension '%s''%s' does not exist in the lockfile",
+                extensionId,
+                extensionFactors.isEmpty() ? "" : " for platform " + extensionFactors),
             Transience.PERSISTENT);
       }
       return null;
@@ -262,10 +274,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
 
     // Check extension data in lockfile is still valid, disregarding usage information that is not
     // relevant for the evaluation of the extension.
-    ImmutableMap<ModuleKey, ModuleExtensionUsage> trimmedLockedUsages =
-        trimUsagesForEvaluation(lockedExtensionUsages);
-    ImmutableMap<ModuleKey, ModuleExtensionUsage> trimmedUsages =
-        trimUsagesForEvaluation(usagesValue.getExtensionUsages());
+    var trimmedLockedUsages = trimUsagesForEvaluation(lockedExtensionUsages);
+    var trimmedUsages = trimUsagesForEvaluation(usagesValue.getExtensionUsages());
     if (!filesChanged
         && Arrays.equals(bzlTransitiveDigest, lockedExtension.getBzlTransitiveDigest())
         && trimmedUsages.equals(trimmedLockedUsages)
@@ -280,6 +290,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       ImmutableList<String> extDiff =
           lockfile.getModuleExtensionDiff(
               extensionId,
+              lockedExtension,
               bzlTransitiveDigest,
               filesChanged,
               envVariables,
