@@ -44,15 +44,6 @@ public interface StringIndexer {
   public int getIndex(String s);
 
   /**
-   * Creates mapping for the given string if necessary.
-   * Also, as a side effect, zero or more additional mappings may be
-   * created for various prefixes of the given string.
-   *
-   * @return true if new mapping was created, false if mapping already existed.
-   */
-  public boolean addString(String s);
-
-  /**
    * @return string associated with the given index or null if
    *         mapping does not exist.
    */
