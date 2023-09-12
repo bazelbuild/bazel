@@ -37,7 +37,7 @@ import java.util.Map;
 @GenerateTypeAdapter
 public abstract class BazelLockFileValue implements SkyValue, Postable {
 
-  public static final int LOCK_FILE_VERSION = 1;
+  public static final int LOCK_FILE_VERSION = 2;
 
   @SerializationConstant public static final SkyKey KEY = () -> SkyFunctions.BAZEL_LOCK_FILE;
 
@@ -63,7 +63,9 @@ public abstract class BazelLockFileValue implements SkyValue, Postable {
   public abstract ImmutableMap<ModuleKey, Module> getModuleDepGraph();
 
   /** Mapping the extension id to the module extension data */
-  public abstract ImmutableMap<ModuleExtensionId, LockFileModuleExtension> getModuleExtensions();
+  public abstract ImmutableMap<
+          ModuleExtensionId, ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension>>
+      getModuleExtensions();
 
   public abstract Builder toBuilder();
 
@@ -81,7 +83,10 @@ public abstract class BazelLockFileValue implements SkyValue, Postable {
     public abstract Builder setModuleDepGraph(ImmutableMap<ModuleKey, Module> value);
 
     public abstract Builder setModuleExtensions(
-        ImmutableMap<ModuleExtensionId, LockFileModuleExtension> value);
+        ImmutableMap<
+                ModuleExtensionId,
+                ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension>>
+            value);
 
     public abstract BazelLockFileValue build();
   }
@@ -117,12 +122,12 @@ public abstract class BazelLockFileValue implements SkyValue, Postable {
   /** Returns the differences between an extension and its locked data */
   public ImmutableList<String> getModuleExtensionDiff(
       ModuleExtensionId extensionId,
+      LockFileModuleExtension lockedExtension,
       byte[] transitiveDigest,
       boolean filesChanged,
       ImmutableMap<String, String> envVariables,
       ImmutableMap<ModuleKey, ModuleExtensionUsage> extensionUsages,
       ImmutableMap<ModuleKey, ModuleExtensionUsage> lockedExtensionUsages) {
-    LockFileModuleExtension lockedExtension = getModuleExtensions().get(extensionId);
 
     ImmutableList.Builder<String> extDiff = new ImmutableList.Builder<>();
     if (!Arrays.equals(transitiveDigest, lockedExtension.getBzlTransitiveDigest())) {

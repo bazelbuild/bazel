@@ -32,8 +32,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.gson.JsonSyntaxException;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -45,7 +44,8 @@ public class BazelLockFileModule extends BlazeModule {
 
   private Path workspaceRoot;
   @Nullable private BazelModuleResolutionEvent moduleResolutionEvent;
-  private final List<ModuleExtensionResolutionEvent> extensionResolutionEvents = new ArrayList<>();
+  private final Map<ModuleExtensionId, ModuleExtensionResolutionEvent>
+      extensionResolutionEventsMap = new HashMap<>();
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -60,7 +60,7 @@ public class BazelLockFileModule extends BlazeModule {
 
   @Override
   public void afterCommand() throws AbruptExitException {
-    if (moduleResolutionEvent == null && extensionResolutionEvents.isEmpty()) {
+    if (moduleResolutionEvent == null && extensionResolutionEventsMap.isEmpty()) {
       return; // nothing changed, do nothing!
     }
 
@@ -91,44 +91,88 @@ public class BazelLockFileModule extends BlazeModule {
     // Write the new value to the file
     updateLockfile(lockfilePath, lockfile);
     this.moduleResolutionEvent = null;
-    this.extensionResolutionEvents.clear();
+    this.extensionResolutionEventsMap.clear();
   }
 
   /**
-   * Combines the old extensions stored in the lockfile -that are still used- with the new
+   * Combines the old extensions stored in the lockfile -if they are still valid- with the new
    * extensions from the events (if any)
    *
    * @param oldModuleExtensions Module extensions stored in the current lockfile
    */
-  private ImmutableMap<ModuleExtensionId, LockFileModuleExtension> combineModuleExtensions(
-      ImmutableMap<ModuleExtensionId, LockFileModuleExtension> oldModuleExtensions) {
-    ImmutableMap.Builder<ModuleExtensionId, LockFileModuleExtension> updatedExtensionMap =
-        ImmutableMap.builder();
+  private ImmutableMap<
+          ModuleExtensionId, ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension>>
+      combineModuleExtensions(
+          ImmutableMap<
+                  ModuleExtensionId,
+                  ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension>>
+              oldModuleExtensions) {
 
-    // This event being null means that no changes occurred to the usages of the stored extensions,
-    // hence no changes to any module resulted in re-running resolution. So we can just add all the
-    // old stored extensions. Otherwise, check the usage of each one.
-    if (moduleResolutionEvent == null) {
-      updatedExtensionMap.putAll(oldModuleExtensions);
-    } else {
-      // Add the old extensions (stored in the lockfile) only if it still has a usage somewhere
-      for (Map.Entry<ModuleExtensionId, LockFileModuleExtension> extensionEntry :
-          oldModuleExtensions.entrySet()) {
-        if (moduleResolutionEvent.getExtensionUsagesById().containsRow(extensionEntry.getKey())) {
-          updatedExtensionMap.put(extensionEntry);
-        }
-      }
-    }
+    Map<ModuleExtensionId, ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension>>
+        updatedExtensionMap = new HashMap<>();
+
+    // Add old extensions if they are still valid
+    oldModuleExtensions.forEach(
+        (moduleExtensionId, innerMap) -> {
+          ModuleExtensionEvalFactors firstEntryKey = innerMap.keySet().iterator().next();
+          if (shouldKeepExtension(moduleExtensionId, firstEntryKey)) {
+            updatedExtensionMap.put(moduleExtensionId, innerMap);
+          }
+        });
 
     // Add the new resolved extensions
-    for (ModuleExtensionResolutionEvent extensionEvent : extensionResolutionEvents) {
-      updatedExtensionMap.put(extensionEvent.getExtensionId(), extensionEvent.getModuleExtension());
+    for (var event : extensionResolutionEventsMap.values()) {
+      var oldExtensionEntries = updatedExtensionMap.get(event.getExtensionId());
+      ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension> extensionEntries;
+      if (oldExtensionEntries != null) {
+        // extension exists, add the new entry to the existing map
+        extensionEntries =
+            new ImmutableMap.Builder<ModuleExtensionEvalFactors, LockFileModuleExtension>()
+                .putAll(oldExtensionEntries)
+                .put(event.getExtensionFactors(), event.getModuleExtension())
+                .buildKeepingLast();
+      } else {
+        // new extension
+        extensionEntries = ImmutableMap.of(event.getExtensionFactors(), event.getModuleExtension());
+      }
+      updatedExtensionMap.put(event.getExtensionId(), extensionEntries);
     }
+
     // The order in which extensions are added to extensionResolutionEvents depends on the order
     // in which their Skyframe evaluations finish, which is non-deterministic. We ensure a
     // deterministic lockfile by sorting.
     return ImmutableSortedMap.copyOf(
-        updatedExtensionMap.buildKeepingLast(), ModuleExtensionId.LEXICOGRAPHIC_COMPARATOR);
+        updatedExtensionMap, ModuleExtensionId.LEXICOGRAPHIC_COMPARATOR);
+  }
+
+  /**
+   * Decide whether to keep this extension or not depending on both: 1. If its dependency on os &
+   * arch didn't change 2. If it is still has a usage in the module
+   *
+   * @param lockedExtensionKey object holding the old extension id and state of os and arch
+   * @return True if this extension should still be in lockfile, false otherwise
+   */
+  private boolean shouldKeepExtension(
+      ModuleExtensionId extensionId, ModuleExtensionEvalFactors lockedExtensionKey) {
+
+    // If there is a new event for this extension, compare it with the existing ones
+    ModuleExtensionResolutionEvent extEvent = extensionResolutionEventsMap.get(extensionId);
+    if (extEvent != null) {
+      boolean dependencyOnOsChanged =
+          lockedExtensionKey.getOs().isEmpty() != extEvent.getExtensionFactors().getOs().isEmpty();
+      boolean dependencyOnArchChanged =
+          lockedExtensionKey.getArch().isEmpty()
+              != extEvent.getExtensionFactors().getArch().isEmpty();
+      if (dependencyOnOsChanged || dependencyOnArchChanged) {
+        return false;
+      }
+    }
+
+    // If moduleResolutionEvent is null, then no usage has changed. So we don't need this check
+    if (moduleResolutionEvent != null) {
+      return moduleResolutionEvent.getExtensionUsagesById().containsRow(extensionId);
+    }
+    return true;
   }
 
   /**
@@ -161,6 +205,8 @@ public class BazelLockFileModule extends BlazeModule {
 
   @Subscribe
   public void moduleExtensionResolved(ModuleExtensionResolutionEvent extensionResolutionEvent) {
-    this.extensionResolutionEvents.add(extensionResolutionEvent);
+    this.extensionResolutionEventsMap.put(
+        extensionResolutionEvent.getExtensionId(), extensionResolutionEvent);
   }
+
 }
