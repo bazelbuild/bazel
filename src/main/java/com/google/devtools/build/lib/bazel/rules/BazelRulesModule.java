@@ -706,15 +706,6 @@ public final class BazelRulesModule extends BlazeModule {
         help = "No-op")
     public boolean useEventBasedBuildCompletionStatus;
 
-    // Moved here 2022/08/29
-    @Option(
-        name = "incompatible_disable_third_party_license_checking",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        help = "No-op")
-    public boolean incompatibleDisableThirdPartyLicenseChecking;
-
     @Option(
         name = "experimental_use_fork_join_pool",
         defaultValue = "true",
