@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredToolchainsFunction.InvalidToolchainLabelException;
@@ -42,6 +44,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -149,13 +152,34 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
             .collect(toImmutableList());
 
     for (DeclaredToolchainInfo toolchain : filteredToolchains) {
-      // Make sure the target setting matches.
-      if (!toolchain.targetSettings().stream().allMatch(ConfigMatchingProvider::matches)) {
-        String mismatchValues =
-            toolchain.targetSettings().stream()
-                .filter(configProvider -> !configProvider.matches())
-                .map(configProvider -> configProvider.label().getName())
-                .collect(joining(", "));
+      // Make sure the target setting matches but watch out for resolution errors.
+      ArrayList<String> nonmatchingSettings = new ArrayList<>();
+      ArrayList<String> errors = new ArrayList<>();
+
+      // TODO(blaze-configurability-team): If this pattern comes up more often, add a central
+      //   facility for merging multiple MatchResult
+      for (ConfigMatchingProvider configProvider : toolchain.targetSettings()) {
+        ConfigMatchingProvider.MatchResult matchResult = configProvider.result();
+        if (matchResult.getError() != null) {
+          String message = matchResult.getError();
+          errors.add("For config_setting " + configProvider.label().getName() + ", " + message);
+        } else if (matchResult.equals(ConfigMatchingProvider.MatchResult.NOMATCH)) {
+          nonmatchingSettings.add(configProvider.label().getName());
+        }
+      }
+      if (!errors.isEmpty()) {
+        // TODO(blaze-configurability-team): This should only be due to feature flag trimming. So,
+        // would be better to just ensure toolchain resolution isn't transitively dependent on
+        // feature flags at all.
+        throw new ToolchainResolutionFunctionException(
+            new InvalidConfigurationDuringToolchainResolutionException(
+                new InvalidConfigurationException(
+                    "Unrecoverable errors resolving config_setting associated with "
+                        + toolchain.toolchainLabel()
+                        + ": "
+                        + String.join("; ", errors))));
+      }
+      if (!nonmatchingSettings.isEmpty()) {
         debugMessage(
             eventHandler,
             "    Type %s: %s platform %s: Rejected toolchain %s; mismatching config settings: %s",
@@ -163,7 +187,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
             "target",
             targetPlatform.label(),
             toolchain.toolchainLabel(),
-            mismatchValues);
+            String.join(", ", nonmatchingSettings));
         continue;
       }
 
@@ -304,9 +328,29 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
   }
 
   /**
+   * Exception used when there was some issue with the toolchain making it impossible to resolve
+   * constraints.
+   */
+  static final class InvalidConfigurationDuringToolchainResolutionException
+      extends ToolchainException {
+    InvalidConfigurationDuringToolchainResolutionException(InvalidConfigurationException e) {
+      super(e);
+    }
+
+    @Override
+    protected Code getDetailedCode() {
+      return Code.INVALID_CONSTRAINT_VALUE;
+    }
+  }
+
+  /**
    * Used to indicate errors during the computation of an {@link SingleToolchainResolutionValue}.
    */
   private static final class ToolchainResolutionFunctionException extends SkyFunctionException {
+    ToolchainResolutionFunctionException(InvalidConfigurationDuringToolchainResolutionException e) {
+      super(e, Transience.PERSISTENT);
+    }
+
     ToolchainResolutionFunctionException(InvalidToolchainLabelException e) {
       super(e, Transience.PERSISTENT);
     }

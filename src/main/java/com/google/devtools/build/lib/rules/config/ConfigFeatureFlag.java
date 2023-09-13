@@ -116,7 +116,6 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
       throws InterruptedException, RuleErrorException, ActionConflictException {
     List<String> specifiedValues = ruleContext.attributes().get("allowed_values", STRING_LIST);
     ImmutableSet<String> values = ImmutableSet.copyOf(specifiedValues);
-    Predicate<String> isValidValue = Predicates.in(values);
     if (values.size() != specifiedValues.size()) {
       ImmutableMultiset<String> groupedValues = ImmutableMultiset.copyOf(specifiedValues);
       ImmutableList.Builder<String> duplicates = new ImmutableList.Builder<>();
@@ -125,6 +124,7 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
           duplicates.add(value.getElement());
         }
       }
+      // This is a problem with attributes of config_feature_flag itself so throw error here.
       ruleContext.attributeError(
           "allowed_values",
           "cannot contain duplicates, but contained multiple of "
@@ -135,7 +135,8 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
         ruleContext.attributes().isAttributeValueExplicitlySpecified("default_value")
             ? Optional.of(ruleContext.attributes().get("default_value", STRING))
             : Optional.empty();
-    if (defaultValue.isPresent() && !isValidValue.apply(defaultValue.get())) {
+    if (defaultValue.isPresent() && !values.contains(defaultValue.get())) {
+      // This is a problem with attributes of config_feature_flag itself so throw error here.
       ruleContext.attributeError(
           "default_value",
           "must be one of "
@@ -150,35 +151,91 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    Optional<String> configuredValue =
+    Object rawStarlarkValue =
         ruleContext
-            .getFragment(ConfigFeatureFlagConfiguration.class)
-            .getFeatureFlagValue(ruleContext.getOwner());
-
-    if (configuredValue.isPresent() && !isValidValue.apply(configuredValue.get())) {
-      // TODO(b/140635901): When configurationError is available, use that instead.
-      ruleContext.ruleError(
-          "value must be one of "
-              + Starlark.repr(values.asList())
-              + ", but was "
-              + Starlark.repr(configuredValue.get()));
-      return null;
+            .getConfiguration()
+            .getOptions()
+            .getStarlarkOptions()
+            .get(ruleContext.getLabel());
+    if (!(rawStarlarkValue instanceof FeatureFlagValue)) {
+      // Retain legacy behavior of treating feature flags that somehow are not FeatureFlagValue
+      // as set to default
+      rawStarlarkValue = FeatureFlagValue.DefaultValue.INSTANCE;
     }
 
-    if (!configuredValue.isPresent() && !defaultValue.isPresent()) {
-      // TODO(b/140635901): When configurationError is available, use that instead.
-      ruleContext.ruleError("flag has no default and must be set, but was not set");
+    @Nullable
+    ConfigFeatureFlagProvider provider =
+        constructProvider((FeatureFlagValue) rawStarlarkValue, defaultValue, values, ruleContext);
+    if (provider == null) {
       return null;
     }
-
-    String value = configuredValue.orElseGet(defaultValue::get);
-
-    ConfigFeatureFlagProvider provider = ConfigFeatureFlagProvider.create(value, isValidValue);
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
         .addNativeDeclaredProvider(provider)
         .build();
+  }
+
+  /**
+   * Calculate and return a ConfigFeatureFlagProvider.
+   *
+   * <p>At this point any errors here are due to something being 'wrong' with the configuration. In
+   * particular, this provider may be constructed BEFORE a rule transition sets the expected
+   * configuration and thus want to defer errors until later in analysis when this value is actually
+   * consumed as the errors would otherwise be unfixable.
+   *
+   * <p>An exception is made for if the value is explicitly set to value not in the allowed values
+   * list (either on the commandline or as part of a previous transition). In that case, that is an
+   * immediate error as can be fixed by ensuring those places set to allowed values. This is
+   * consistent with the behavior of build_setting.
+   */
+  @Nullable
+  private static ConfigFeatureFlagProvider constructProvider(
+      FeatureFlagValue featureFlagValue,
+      Optional<String> defaultValue,
+      ImmutableSet<String> values,
+      RuleContext ruleContext) {
+    Predicate<String> isValidValue = Predicates.in(values);
+    if (featureFlagValue instanceof FeatureFlagValue.SetValue) {
+      String setValue = ((FeatureFlagValue.SetValue) featureFlagValue).value();
+      if (!isValidValue.apply(setValue)) {
+        // This is consistent with build_setting, which also immediate checks that
+        // explicitly set values are valid values.
+        ruleContext.ruleError(
+            "value must be one of "
+                + Starlark.repr(values.asList())
+                + ", but was "
+                + Starlark.repr(setValue));
+        return null;
+      }
+      return ConfigFeatureFlagProvider.create(setValue, null, isValidValue);
+    } else if (featureFlagValue.equals(FeatureFlagValue.DefaultValue.INSTANCE)) {
+      if (!defaultValue.isPresent()) {
+        // Should defer error in case value is set by upcoming rule transition.
+        // (Although, rule authors could just add a default.)
+        // build_setting always has a default so this can't happen for them.
+        return ConfigFeatureFlagProvider.create(
+            null,
+            String.format(
+                "Feature flag %s has no default but no value was explicitly specified.",
+                ruleContext.getLabel()),
+            isValidValue);
+      }
+      return ConfigFeatureFlagProvider.create(defaultValue.get(), null, isValidValue);
+    } else if (featureFlagValue.equals(FeatureFlagValue.UnknownValue.INSTANCE)) {
+      // Must defer error in case value is set by upcoming rule transition.
+      // build_setting doesn't have trimming logic so this can't happen for them.
+      return ConfigFeatureFlagProvider.create(
+          null,
+          String.format(
+              "Feature flag %1$s was accessed in a configuration it is not present in. All "
+                  + "targets which depend on %1$s directly or indirectly must name it in their "
+                  + "transitive_configs attribute.",
+              ruleContext.getLabel()),
+          isValidValue);
+    } else {
+      throw new IllegalStateException("Impossible state for FeatureFlagValue: " + featureFlagValue);
+    }
   }
 }

@@ -808,4 +808,56 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     assertThat(unloadedToolchainContext).hasExecutionPlatform("//platforms:linux");
     assertThat(unloadedToolchainContext).hasTargetPlatform("//platforms:linux");
   }
+
+  @Test
+  public void errorProperlyReportedWhenInvalidConfigurationConfiguration() throws Exception {
+    // It would be absolutely insane for a user to have a toolchain w/ a config_setting that reads a
+    // config_feature_flag; however, should still test the InvalidConfigurationException codepath.
+    rewriteWorkspace(
+        "register_toolchains('//strange:strange_toolchain')",
+        "register_execution_platforms('//platforms:mac', '//platforms:linux')");
+    scratch.file(
+        "strange/BUILD",
+        "load('//toolchain:toolchain_def.bzl', 'test_toolchain')",
+        "config_setting(",
+        "    name = 'flagged',",
+        "    flag_values = {':flag': 'default'},",
+        "    transitive_configs = [':flag'],",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['default', 'left', 'right'],",
+        "    default_value = 'default',",
+        ")",
+        "toolchain(",
+        "    name = 'strange_toolchain',",
+        "    toolchain_type = '//toolchain:test_toolchain',",
+        "    target_settings = [':flagged'],",
+        "    toolchain = ':strange_test_toolchain')",
+        "test_toolchain(",
+        "    name = 'strange_test_toolchain',",
+        "    data = 'foo')");
+    scratch.file(
+        "rule/rule_def.bzl",
+        "def _impl(ctx):",
+        "    pass",
+        "my_rule = rule(",
+        "    implementation = _impl,",
+        "    toolchains = ['//toolchain:test_toolchain'])");
+    scratch.file(
+        "rule/BUILD",
+        "load('//rule:rule_def.bzl', 'my_rule')",
+        "my_rule(",
+        "    name = 'me',",
+        "    transitive_configs = [':flag'],",
+        ")");
+    // Need this so the feature flag actually gone from the configuration.
+    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
+    reporter.removeHandler(failFastHandler); // expect errors
+    assertThat(getConfiguredTarget("//rule:me")).isNull();
+    assertContainsEvent(
+        "Unrecoverable errors resolving config_setting associated with"
+            + " //strange:strange_test_toolchain: For config_setting flagged, Feature flag"
+            + " //strange:flag was accessed in a configuration it is not present in.");
+  }
 }

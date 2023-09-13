@@ -284,9 +284,8 @@ public final class ConfigFeatureFlagTest extends BuildViewTestCase {
   }
 
   @Test
-  public void configFeatureFlagProvider_throwsErrorIfNeitherDefaultNorConfiguredValueSet()
+  public void configFeatureFlagProvider_ignoresUnusedFlagWithNeitherDefaultNorConfiguredValueSet()
       throws Exception {
-    reporter.removeHandler(failFastHandler); // expecting an error
     scratch.file(
         "test/BUILD",
         "feature_flag_setter(",
@@ -306,10 +305,52 @@ public final class ConfigFeatureFlagTest extends BuildViewTestCase {
         "    allowed_values = ['default', 'configured', 'other'],",
         "    default_value = 'default',",
         ")");
-    assertThat(getConfiguredTarget("//test:flag")).isNull();
+    assertThat(getConfiguredTarget("//test:top")).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void
+      configFeatureFlagProvider_throwsErrorIfReadFlagWithNeitherDefaultNorConfiguredValueSet()
+          throws Exception {
+    reporter.removeHandler(failFastHandler); // expecting an error
+    scratch.file(
+        "test/BUILD",
+        "feature_flag_setter(",
+        "    name = 'top',",
+        "    deps = [':reader'],",
+        "    exports_flag = ':flag',",
+        "    flag_values = {",
+        "        ':other': 'configured',",
+        "    },",
+        "    transitive_configs = [':flag', ':other'],",
+        ")",
+        "filegroup(",
+        "    name = 'reader',",
+        "    srcs = select({",
+        "      ':flag@configured': ['a.txt'],",
+        "      '//conditions:default': ['b.txt'],",
+        "    }),",
+        "    transitive_configs = [':flag', ':other'],",
+        ")",
+        "config_setting(",
+        "    name = 'flag@configured',",
+        "    flag_values = {':flag': 'configured'},",
+        "    transitive_configs = [':flag'],",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['other', 'configured'],",
+        ")",
+        "config_feature_flag(",
+        "    name = 'other',",
+        "    allowed_values = ['default', 'configured', 'other'],",
+        "    default_value = 'default',",
+        ")");
+    assertThat(getConfiguredTarget("//test:top")).isNull();
     assertContainsEvent(
-        "in config_feature_flag rule //test:flag: "
-            + "flag has no default and must be set, but was not set");
+        "config_setting //test:flag@configured is unresolvable because: Feature flag //test:flag"
+            + " has no default but no value was explicitly specified.");
   }
 
   @Test
@@ -433,13 +474,16 @@ public final class ConfigFeatureFlagTest extends BuildViewTestCase {
     new EqualsTester()
         .addEqualityGroup(
             // Basic case.
-            ConfigFeatureFlagProvider.create("flag1", Predicates.<String>alwaysTrue()))
+            ConfigFeatureFlagProvider.create("flag1", null, Predicates.<String>alwaysTrue()))
         .addEqualityGroup(
             // Will be distinct from the first group because CFFP instances are all distinct.
-            ConfigFeatureFlagProvider.create("flag1", Predicates.<String>alwaysTrue()))
+            ConfigFeatureFlagProvider.create("flag1", null, Predicates.<String>alwaysTrue()))
+        .addEqualityGroup(
+            // Set the error, still distinct from the above.
+            ConfigFeatureFlagProvider.create(null, "error", Predicates.<String>alwaysTrue()))
         .addEqualityGroup(
             // Change the value, still distinct from the above.
-            ConfigFeatureFlagProvider.create("flag2", Predicates.<String>alwaysTrue()))
+            ConfigFeatureFlagProvider.create("flag2", null, Predicates.<String>alwaysTrue()))
         .testEquals();
   }
 }

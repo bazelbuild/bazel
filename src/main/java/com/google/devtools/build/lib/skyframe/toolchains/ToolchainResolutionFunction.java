@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.skyframe.toolchains.ConstraintValueLookupUt
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlatformsFunction.InvalidExecutionPlatformLabelException;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredToolchainsFunction.InvalidToolchainLabelException;
+import com.google.devtools.build.lib.skyframe.toolchains.SingleToolchainResolutionFunction.InvalidConfigurationDuringToolchainResolutionException;
 import com.google.devtools.build.lib.skyframe.toolchains.SingleToolchainResolutionValue.SingleToolchainResolutionKey;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainTypeLookupUtil.InvalidToolchainTypeException;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -423,7 +424,8 @@ public class ToolchainResolutionFunction implements SkyFunction {
           ValueMissingException,
           InvalidPlatformException,
           UnresolvedToolchainsException,
-          InvalidToolchainLabelException {
+          InvalidToolchainLabelException,
+          InvalidConfigurationDuringToolchainResolutionException {
 
     // Find the toolchains for the requested toolchain types.
     List<SingleToolchainResolutionKey> registeredToolchainKeys = new ArrayList<>();
@@ -448,7 +450,10 @@ public class ToolchainResolutionFunction implements SkyFunction {
     for (SingleToolchainResolutionKey key : registeredToolchainKeys) {
       SingleToolchainResolutionValue singleToolchainResolutionValue =
           (SingleToolchainResolutionValue)
-              results.getOrThrow(key, InvalidToolchainLabelException.class);
+              results.getOrThrow(
+                  key,
+                  InvalidToolchainLabelException.class,
+                  InvalidConfigurationDuringToolchainResolutionException.class);
       if (singleToolchainResolutionValue == null) {
         valuesMissing = true;
         continue;

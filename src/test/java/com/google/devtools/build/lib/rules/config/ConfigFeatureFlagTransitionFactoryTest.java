@@ -50,6 +50,11 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
         values);
   }
 
+  private static ImmutableMap<Label, Object> convertToFeatureFlagValues(Map<Label, String> values)
+      throws Exception {
+    return getOptionsWithFlagFragment(values).getStarlarkOptions();
+  }
+
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder =
@@ -114,8 +119,9 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
             new BuildOptionsView(original, transition.requiresOptionFragments()), eventCollector);
 
     assertThat(converted).isNotSameInstanceAs(original);
-    assertThat(FeatureFlagValue.getFlagValues(original)).containsExactlyEntriesIn(originalFlagMap);
-    assertThat(FeatureFlagValue.getFlagValues(converted)).isEmpty();
+    assertThat(original.getStarlarkOptions())
+        .containsExactlyEntriesIn(convertToFeatureFlagValues(originalFlagMap));
+    assertThat(converted.getStarlarkOptions()).isEmpty();
   }
 
   @Test
@@ -144,8 +150,10 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
             new BuildOptionsView(original, transition.requiresOptionFragments()), eventCollector);
 
     assertThat(converted).isNotSameInstanceAs(original);
-    assertThat(FeatureFlagValue.getFlagValues(original)).containsExactlyEntriesIn(originalFlagMap);
-    assertThat(FeatureFlagValue.getFlagValues(converted)).containsExactlyEntriesIn(expectedFlagMap);
+    assertThat(original.getStarlarkOptions())
+        .containsExactlyEntriesIn(convertToFeatureFlagValues(originalFlagMap));
+    assertThat(converted.getStarlarkOptions())
+        .containsExactlyEntriesIn(convertToFeatureFlagValues(expectedFlagMap));
   }
 
   @Test

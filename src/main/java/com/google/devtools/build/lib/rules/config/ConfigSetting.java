@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.analysis.config.CoreOptionConverters
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -146,7 +147,8 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
             nativeFlagSettings,
             userDefinedFlags.getSpecifiedFlagValues(),
             ImmutableSet.copyOf(constraintValueSettings),
-            nativeFlagsMatch && userDefinedFlags.matches() && constraintValuesMatch);
+            ConfigMatchingProvider.MatchResult.merge(
+                userDefinedFlags.result(), nativeFlagsMatch && constraintValuesMatch));
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
@@ -404,19 +406,21 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
   }
 
   private static final class UserDefinedFlagMatch {
-    private final boolean matches;
+    private final ConfigMatchingProvider.MatchResult result;
     private final ImmutableMap<Label, String> specifiedFlagValues;
 
     private static final Joiner QUOTED_COMMA_JOINER = Joiner.on("', '");
 
-    private UserDefinedFlagMatch(boolean matches, ImmutableMap<Label, String> specifiedFlagValues) {
-      this.matches = matches;
+    private UserDefinedFlagMatch(
+        ConfigMatchingProvider.MatchResult result,
+        ImmutableMap<Label, String> specifiedFlagValues) {
+      this.result = result;
       this.specifiedFlagValues = specifiedFlagValues;
     }
 
     /** Returns whether the specified flag values matched the actual flag values. */
-    public boolean matches() {
-      return matches;
+    public ConfigMatchingProvider.MatchResult result() {
+      return result;
     }
 
     /** Gets the specified flag values, with aliases converted to their original targets' labels. */
@@ -449,7 +453,10 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
         BuildOptionDetails optionDetails,
         RuleContext ruleContext) {
       Map<Label, String> specifiedFlagValues = new LinkedHashMap<>();
+
       boolean matches = true;
+      // Only configuration-dependent errors should be deferred.
+      ArrayList<String> deferredErrors = new ArrayList<>();
       boolean foundDuplicate = false;
 
       // Get the actual targets the 'flag_values' keys reference.
@@ -470,6 +477,8 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
           // config_feature_flag
           ConfigFeatureFlagProvider provider = ConfigFeatureFlagProvider.fromTarget(target);
           if (!provider.isValidValue(specifiedValue)) {
+            // This is a configuration-independent error on the attributes of config_setting.
+            // So, is appropriate to error immediately.
             ruleContext.attributeError(
                 ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
                 String.format(
@@ -479,7 +488,10 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
             matches = false;
             continue;
           }
-          if (!provider.getFlagValue().equals(specifiedValue)) {
+          if (!Strings.isNullOrEmpty(provider.getError())) {
+            deferredErrors.add(provider.getError());
+            continue;
+          } else if (!provider.getFlagValue().equals(specifiedValue)) {
             matches = false;
           }
         } else if (target.satisfies(BuildSettingProvider.REQUIRE_BUILD_SETTING_PROVIDER)) {
@@ -498,6 +510,8 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
                     .get(provider.getType())
                     .convert(specifiedValue, /*conversionContext=*/ null);
           } catch (OptionsParsingException e) {
+            // This is a configuration-independent error on the attributes of config_setting.
+            // So, is appropriate to error immediately.
             ruleContext.attributeError(
                 ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
                 String.format(
@@ -523,6 +537,8 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
                     ? ImmutableList.of(convertedSpecifiedValue)
                     : (Iterable<?>) convertedSpecifiedValue;
             if (Iterables.size(specifiedValueAsIterable) != 1) {
+              // This is a configuration-independent error on the attributes of config_setting.
+              // So, is appropriate to error immediately.
               ruleContext.attributeError(
                   ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
                   String.format(
@@ -539,6 +555,10 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
             matches = false;
           }
         } else {
+          // This should be configuration-independent error on the attributes of config_setting.
+          // So, is appropriate to error immediately.
+          // 'Should' b/c the underlying flag rule COULD change providers based on configuration;
+          // however, this is HIGHLY irregular.
           ruleContext.attributeError(
               ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
               String.format(
@@ -558,6 +578,8 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
         for (Label actualLabel : aliases.keySet()) {
           List<Label> aliasList = aliases.get(actualLabel);
           if (aliasList.size() > 1) {
+            // This is a configuration-independent error on the attributes of config_setting.
+            // So, is appropriate to error immediately.
             ruleContext.attributeError(
                 ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
                 String.format(
@@ -567,8 +589,15 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
         }
         matches = false;
       }
+      if (!deferredErrors.isEmpty()) {
+        return new UserDefinedFlagMatch(
+            ConfigMatchingProvider.MatchResult.InError.create(Joiner.on(", ").join(deferredErrors)),
+            ImmutableMap.copyOf(specifiedFlagValues));
+      }
 
-      return new UserDefinedFlagMatch(matches, ImmutableMap.copyOf(specifiedFlagValues));
+      return new UserDefinedFlagMatch(
+          ConfigMatchingProvider.MatchResult.create(matches),
+          ImmutableMap.copyOf(specifiedFlagValues));
     }
   }
 

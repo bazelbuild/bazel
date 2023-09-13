@@ -182,6 +182,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
     // closely match how users see select() structures in BUILD files.
     LinkedHashSet<Label> conditionLabels = new LinkedHashSet<>();
 
+    ArrayList<String> errors = new ArrayList<>();
     // Find the matching condition and record its value (checking for duplicates).
     selector.forEach(
         (selectorKey, value) -> {
@@ -196,7 +197,14 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
           }
           conditionLabels.add(selectorKey);
 
-          if (curCondition.matches()) {
+          ConfigMatchingProvider.MatchResult matchResult = curCondition.result();
+
+          if (matchResult.getError() != null) {
+            // Resolving selects so last chance to actually surface these errors.
+            String message = matchResult.getError();
+            errors.add("config_setting " + selectorKey + " is unresolvable because: " + message);
+            // Defer the throw in order to collect all possible config_setting that are in error.
+          } else if (matchResult.equals(ConfigMatchingProvider.MatchResult.MATCH)) {
             // We keep track of all matches which are more precise than any we have found so
             // far. Therefore, we remove any previous matches which are strictly less precise
             // than this one, and only add this one if none of the previous matches are more
@@ -219,6 +227,15 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
             }
           }
         });
+    if (!errors.isEmpty()) {
+      throw new ValidationException(
+          "Unresolvable config_settings for configurable attribute \""
+              + attributeName
+              + "\" in "
+              + getLabel()
+              + ":\n"
+              + Joiner.on("\n").join(errors));
+    }
 
     if (matchingConditions.values().stream().map(s -> s.value).distinct().count() > 1) {
       throw new ValidationException(
