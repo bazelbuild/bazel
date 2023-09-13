@@ -296,6 +296,7 @@ def _impl(repository_ctx):
 
 xcode_autoconf = repository_rule(
     environ = [
+        "DEVELOPER_DIR",
         "XCODE_VERSION",
     ],
     implementation = _impl,
