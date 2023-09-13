@@ -55,19 +55,7 @@ function test_determinism()  {
     cd "${workdir}" || fail "Could not change to work directory"
     unzip -q "${DISTFILE}"
 
-    # Set up the maven repository properly.
-    cp derived/maven/BUILD.vendor derived/maven/BUILD
-
-    # Update the hash of bazel_tools in lockfile to avoid rerunning module resolution.
-    new_hash=$(shasum -a 256 "src/MODULE.tools" | awk '{print $1}')
-    sed -i.bak "/\"bazel_tools\":/s/\"[a-f0-9]*\"/\"$new_hash\"/" MODULE.bazel.lock
-    # TODO: Temporary hack for lockfile version mismatch, remove these two lines after updating to 6.4.0
-    sed -i.bak 's/"lockFileVersion": 1/"lockFileVersion": 2/' MODULE.bazel.lock
-    sed -i.bak 's/"moduleExtensions":/"moduleExtensions-old":/' MODULE.bazel.lock
-    rm MODULE.bazel.lock.bak
-
-    # Use @bazel_tools//tools/python:autodetecting_toolchain to avoid
-    # downloading python toolchain.
+    distdir="derived/distdir"
 
     # Build Bazel once.
     bazel \
