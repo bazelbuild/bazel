@@ -287,6 +287,10 @@ public class BuildTool {
           AnalysisAndExecutionPhaseRunner.evaluateTargetPatterns(env, request, validator);
     }
     env.setWorkspaceName(loadingResult.getWorkspaceName());
+
+    // See https://github.com/bazelbuild/rules_nodejs/issues/3693.
+    env.getSkyframeExecutor().clearSyscallCache();
+
     boolean hasCatastrophe = false;
 
     ExecutionTool executionTool = new ExecutionTool(env, request);
