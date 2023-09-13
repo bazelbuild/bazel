@@ -295,6 +295,9 @@ def _impl(repository_ctx):
     repository_ctx.file("BUILD", build_contents)
 
 xcode_autoconf = repository_rule(
+    environ = [
+        "XCODE_VERSION",
+    ],
     implementation = _impl,
     configure = True,
     attrs = {
