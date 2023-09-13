@@ -1492,4 +1492,110 @@ EOF
   expect_log "no such package 'missing'"
 }
 
+function test_aspect_on_aspect_propagate_to_underlying_aspect_dep() {
+  local package="test"
+  mkdir -p "${package}"
+
+  cat > "${package}/defs.bzl" <<EOF
+prov_a = provider()
+prov_b = provider()
+
+def _aspect_a_impl(target, ctx):
+  prefix='aspect_a on target {}'.format(target.label)
+  print(prefix)
+
+  if prov_b in target:
+    print('{} can see: {}'.format(prefix, target[prov_b].val))
+
+  if hasattr(ctx.rule.attr, '_tool') and ctx.rule.attr._tool[prov_a]:
+    print('{} can see: {}'.format(prefix, ctx.rule.attr._tool[prov_a].val))
+
+  if hasattr(ctx.rule.attr, 'dep') and ctx.rule.attr.dep and ctx.rule.attr.dep[prov_a]:
+    print('{} can see: {}'.format(prefix, ctx.rule.attr.dep[prov_a].val))
+
+  return [prov_a(val='aspect_a on target {}'.format(target.label))]
+
+aspect_a = aspect(
+    implementation = _aspect_a_impl,
+    attr_aspects = ['dep', '_tool'],
+    required_aspect_providers = [prov_b],
+    attrs = {
+     '_tool' : attr.label(default = "//${package}:tool_a"),
+   },
+)
+
+def _aspect_b_impl(target, ctx):
+  print('aspect_b on target {}'.format(target.label))
+  return [prov_b(val='aspect_b on target {}'.format(target.label))]
+
+aspect_b = aspect(
+    implementation = _aspect_b_impl,
+    attr_aspects = ['dep', '_tool'],
+    attrs = {
+     '_tool' : attr.label(default = "//${package}:tool_b"),
+    },
+    provides = [prov_b],
+)
+
+def _rule_impl(ctx):
+  pass
+
+r1 = rule(
+   implementation = _rule_impl,
+   attrs = {
+     'dep' : attr.label(aspects=[aspect_b, aspect_a]),
+   },
+)
+
+r2 = rule(
+   implementation = _rule_impl,
+   attrs = {
+     'dep' : attr.label(),
+   },
+)
+EOF
+
+  cat > "${package}/tool.sh" <<EOF
+EOF
+
+  cat > "${package}/BUILD" <<EOF
+load('//test:defs.bzl', 'r1', 'r2')
+r1(
+  name = 't1',
+  dep = ':t2',
+)
+r2(
+  name = 't2',
+  dep = ':t3',
+)
+
+r2(
+  name = 't3',
+)
+
+sh_binary(name = "tool_a", srcs = ["tool.sh"])
+sh_binary(name = "tool_b", srcs = ["tool.sh"])
+
+EOF
+
+  bazel build "//${package}:t1" \
+      &> $TEST_log || fail "Build failed"
+
+  expect_log "aspect_b on target @//test:t3"
+  expect_log "aspect_b on target @//test:t2"
+  # the underlying aspect (aspect_b) cannot propagate to the dependencies of
+  # its main aspect (aspect_a)
+  expect_not_log "aspect_b on target @//test:tool"
+  # the main aspect (aspect_a) can propagate to its underlying aspects
+  # dependencies
+  expect_log "aspect_a on target @//test:tool_b"
+  expect_log "aspect_a on target @//test:t3"
+  expect_log "aspect_a on target @//test:t3 can see: aspect_b on target @//test:t3"
+  expect_log "aspect_a on target @//test:t3 can see: aspect_a on target @//test:tool_b"
+  expect_log "aspect_a on target @//test:t2"
+  expect_log "aspect_a on target @//test:t2 can see: aspect_b on target @//test:t2"
+  expect_log "aspect_a on target @//test:t2 can see: aspect_a on target @//test:tool_b"
+  expect_log "aspect_a on target @//test:t2 can see: aspect_a on target @//test:t3"
+}
+
 run_suite "Tests for aspects"
