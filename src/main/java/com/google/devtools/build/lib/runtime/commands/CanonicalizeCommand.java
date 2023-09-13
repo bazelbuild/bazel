@@ -102,6 +102,14 @@ public final class CanonicalizeCommand implements BlazeCommand {
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.TERMINAL_OUTPUT},
         help = "Output parser warnings to standard error (e.g. for conflicting flag options).")
     public boolean showWarnings;
+
+    @Option(
+        name = "experimental_include_default_values",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.TERMINAL_OUTPUT},
+        help = "Whether Starlark options set to their default values are included in the output.")
+    public boolean includeDefaultValues;
   }
 
   /**
@@ -199,7 +207,9 @@ public final class CanonicalizeCommand implements BlazeCommand {
 
     StarlarkOptionsParser starlarkOptionsParser =
         StarlarkOptionsParser.newStarlarkOptionsParser(
-            new SkyframeExecutorTargetLoader(env), parser);
+            new SkyframeExecutorTargetLoader(env),
+            parser,
+            canonicalizeOptions.includeDefaultValues);
     try {
       Preconditions.checkState(starlarkOptionsParser.parse());
     } catch (OptionsParsingException e) {

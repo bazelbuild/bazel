@@ -80,16 +80,28 @@ public class StarlarkOptionsParser {
 
   // Local cache of build settings so we don't repeatedly load them.
   private final Map<String, Target> buildSettings = new HashMap<>();
+  // whether options explicitly set to their default values are added to {@code starlarkOptions}
+  private final boolean includeDefaultValues;
 
   private StarlarkOptionsParser(
-      BuildSettingLoader buildSettingLoader, OptionsParser nativeOptionsParser) {
+      BuildSettingLoader buildSettingLoader,
+      OptionsParser nativeOptionsParser,
+      boolean includeDefaultValues) {
     this.buildSettingLoader = buildSettingLoader;
     this.nativeOptionsParser = nativeOptionsParser;
+    this.includeDefaultValues = includeDefaultValues;
   }
 
   public static StarlarkOptionsParser newStarlarkOptionsParser(
       BuildSettingLoader buildSettingLoader, OptionsParser optionsParser) {
-    return new StarlarkOptionsParser(buildSettingLoader, optionsParser);
+    return newStarlarkOptionsParser(buildSettingLoader, optionsParser, false);
+  }
+
+  public static StarlarkOptionsParser newStarlarkOptionsParser(
+      BuildSettingLoader buildSettingLoader,
+      OptionsParser optionsParser,
+      boolean includeDefaultValues) {
+    return new StarlarkOptionsParser(buildSettingLoader, optionsParser, includeDefaultValues);
   }
 
   /**
@@ -191,14 +203,15 @@ public class StarlarkOptionsParser {
                         .getAssociatedRule()
                         .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME)));
         List<?> newValue = (List<?>) value;
-        if (!newValue.equals(defaultValue)) {
+        if (!newValue.equals(defaultValue) || includeDefaultValues) {
           parsedOptions.put(buildSetting, value);
         }
       } else {
         if (!value.equals(
-            buildSettingTarget
-                .getAssociatedRule()
-                .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME))) {
+                buildSettingTarget
+                    .getAssociatedRule()
+                    .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME))
+            || includeDefaultValues) {
           parsedOptions.put(buildSetting, buildSettingAndFinalValue.getSecond());
         }
       }
