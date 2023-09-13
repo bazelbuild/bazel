@@ -2018,7 +2018,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return sourceRoot;
   }
 
-  void clearSyscallCache() {
+  public void clearSyscallCache() {
     syscallCache.clear();
   }
 

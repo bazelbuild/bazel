@@ -590,7 +590,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
         lazyData = doCostlyEstimation();
       }
 
-      logger.atInfo().log(
+      logger.atFine().log(
           "Linker metrics: inputs_count=%d,inputs_mb=%.2f,estimated_mb=%.2f,consumed_mb=%.2f",
           lazyData.inputsCount,
           ((double) lazyData.inputsBytes) / 1024 / 1024,

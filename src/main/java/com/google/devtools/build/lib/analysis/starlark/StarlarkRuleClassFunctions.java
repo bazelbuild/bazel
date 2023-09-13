@@ -290,7 +290,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   @Override
   public StarlarkRuleFunction rule(
       StarlarkFunction implementation,
-      Object initializer,
       Boolean test,
       Dict<?, ?> attrs,
       Object implicitOutputs,
@@ -308,6 +307,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       Object buildSetting,
       Object cfg,
       Object execGroups,
+      Object initializer,
       Sequence<?> subrules,
       StarlarkThread thread)
       throws EvalException {

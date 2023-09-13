@@ -753,7 +753,7 @@ EOF
 
   expect_log "^---8<---8<--- Start of log, file at /"
   expect_log "Worker process did not return a WorkResponse:"
-  expect_log "Killing [a-zA-Z]\+ worker [0-9]\+ (pid [0-9]\+) taking [0-9]\+MB"
+  expect_log "Killing [a-zA-Z]\+ worker [0-9]\+ (pid [0-9]\+) because it is using more memory than the limit ([0-9]\+MB > 1MB)"
   expect_log "^---8<---8<--- End of log ---8<---8<---"
 }
 

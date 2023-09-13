@@ -22,6 +22,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Predicates;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -373,20 +374,22 @@ public final class ActionExecutionFunction implements SkyFunction {
     // - It's uncommon that 2 actions share the exact same set of inputs
     //   => the top layer offers little in terms of reusability.
     // More details: b/143205147.
-    List<SkyKey> directKeys = Artifact.keys(allInputs.getLeaves());
+    FluentIterable<SkyKey> result = FluentIterable.from(Artifact.keys(allInputs.getLeaves()));
     if (state.requestedArtifactNestedSetKeys == null) {
       state.requestedArtifactNestedSetKeys = CompactHashSet.create();
       for (NestedSet<Artifact> nonLeaf : allInputs.getNonLeaves()) {
         state.requestedArtifactNestedSetKeys.add(ArtifactNestedSetKey.create(nonLeaf));
       }
 
-      if (!schedulingDependencies.isEmpty()) {
+      if (schedulingDependencies.isSingleton()) {
+        result = result.append(Artifact.key(schedulingDependencies.getSingleton()));
+      } else if (!schedulingDependencies.isEmpty()) {
         state.requestedArtifactNestedSetKeys.add(
             ArtifactNestedSetKey.create(schedulingDependencies));
       }
     }
 
-    return Iterables.concat(directKeys, state.requestedArtifactNestedSetKeys);
+    return result.append(state.requestedArtifactNestedSetKeys);
   }
 
   private boolean declareDepsOnLostDiscoveredInputsIfAny(Environment env, Action action)

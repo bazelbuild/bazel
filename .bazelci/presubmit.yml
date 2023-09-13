@@ -356,6 +356,8 @@ tasks:
       - "//src/main/java/..."
     test_flags:
       - "--config=ci-windows"
+      # We need to keep --test_tag_filters here for the bazel-diff integration.
+      - "--test_tag_filters=-no_windows,-slow"
     test_targets:
       - "//src:embedded_tools_size_test"
       - "//src/main/starlark/tests/builtins_bzl/..."

@@ -211,27 +211,6 @@ public interface StarlarkRuleFunctionsApi {
                     + " provided by the user. It must create actions to generate all the declared "
                     + "outputs."),
         @Param(
-            name = "initializer",
-            named = true,
-            defaultValue = "None",
-            doc =
-                "the Stalark function initializing the attributes of the rule. The function is "
-                    + "called at load time for each instance of the rule. It's called with values "
-                    + "of public attributes defined by the rule (not with generic attributes, "
-                    + "for example <code>name</code> or <code>tags</code>). It has to return a "
-                    + "dictionary from the attribute names to the desired values. The attributes "
-                    + " that are not returned are unaffected. Returning <code>None</code> as value"
-                    + " results in using the default value specified in the attribute definition."
-                    + "<p>Initializers are evaluated before the default values specified in an"
-                    + "attribute definition. Consequently, if a parameter in the initializer's "
-                    + "signature contains a default values, it overwrites the default from the "
-                    + "attribute definition (except if returning <code>None</code>)."
-                    + "<p>Similarly, if a parameter in the initializer's signature doesn't have a "
-                    + "default, the parameter will become mandatory. It's a good practice to omit"
-                    + " default/mandatory settings on an attribute definition in such cases."
-                    + "<p>It's a good practice to use <code>**kwargs</code> for attributes "
-                    + " that are not handled."),
-        @Param(
             name = "test",
             named = true,
             defaultValue = "False",
@@ -462,6 +441,29 @@ public interface StarlarkRuleFunctionsApi {
                     + " single target. See <a href='${link exec-groups}'>execution groups"
                     + " documentation</a> for more info."),
         @Param(
+            name = "initializer",
+            named = true,
+            defaultValue = "None",
+            positional = false,
+            doc =
+                "Experimental: the Stalark function initializing the attributes of the rule."
+                    + "The function is "
+                    + "called at load time for each instance of the rule. It's called with values "
+                    + "of public attributes defined by the rule (not with generic attributes, "
+                    + "for example <code>name</code> or <code>tags</code>). It has to return a "
+                    + "dictionary from the attribute names to the desired values. The attributes "
+                    + " that are not returned are unaffected. Returning <code>None</code> as value"
+                    + " results in using the default value specified in the attribute definition."
+                    + "<p>Initializers are evaluated before the default values specified in an"
+                    + "attribute definition. Consequently, if a parameter in the initializer's "
+                    + "signature contains a default values, it overwrites the default from the "
+                    + "attribute definition (except if returning <code>None</code>)."
+                    + "<p>Similarly, if a parameter in the initializer's signature doesn't have a "
+                    + "default, the parameter will become mandatory. It's a good practice to omit"
+                    + " default/mandatory settings on an attribute definition in such cases."
+                    + "<p>It's a good practice to use <code>**kwargs</code> for attributes "
+                    + " that are not handled."),
+        @Param(
             name = "subrules",
             allowedTypes = {
               @ParamType(type = Sequence.class, generic1 = StarlarkSubruleApi.class),
@@ -474,7 +476,6 @@ public interface StarlarkRuleFunctionsApi {
       useStarlarkThread = true)
   StarlarkCallable rule(
       StarlarkFunction implementation,
-      Object initializer,
       Boolean test,
       Dict<?, ?> attrs,
       Object implicitOutputs,
@@ -492,6 +493,7 @@ public interface StarlarkRuleFunctionsApi {
       Object buildSetting,
       Object cfg,
       Object execGroups,
+      Object initializer,
       Sequence<?> subrules,
       StarlarkThread thread)
       throws EvalException;

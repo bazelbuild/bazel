@@ -131,7 +131,6 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi {
   @Override
   public StarlarkCallable rule(
       StarlarkFunction implementation,
-      Object initializer,
       Boolean test,
       Dict<?, ?> attrs,
       Object implicitOutputs,
@@ -149,6 +148,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi {
       Object buildSetting,
       Object cfg,
       Object execGroups,
+      Object initializer,
       Sequence<?> subrules,
       StarlarkThread thread)
       throws EvalException {
