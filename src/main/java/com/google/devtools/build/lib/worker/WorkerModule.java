@@ -166,9 +166,7 @@ public class WorkerModule extends BlazeModule {
 
     // Start collecting after a pool is defined
     workerLifecycleManager = new WorkerLifecycleManager(workerPool, options);
-    if (options.workerVerbose) {
-      workerLifecycleManager.setReporter(env.getReporter());
-    }
+    workerLifecycleManager.setReporter(env.getReporter());
     workerLifecycleManager.setEventBus(env.getEventBus());
     workerLifecycleManager.setDaemon(true);
     workerLifecycleManager.start();

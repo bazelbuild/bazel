@@ -76,7 +76,7 @@ final class WorkerLifecycleManager extends Thread {
             options.workerMemoryLimitMb,
             options.shrinkWorkerPool ? "enabled" : "disabled");
     logger.atInfo().log("%s", msg);
-    if (reporter != null) {
+    if (options.workerVerbose && this.reporter != null) {
       reporter.handle(Event.info(msg));
     }
 
@@ -130,15 +130,18 @@ final class WorkerLifecycleManager extends Thread {
       if (ph.isPresent()) {
         msg =
             String.format(
-                "Killing %s worker %s (pid %d) taking %dMB",
+                "Killing %s worker %s (pid %d) because it is using more memory than the limit (%dMB"
+                    + " > %dMB)",
                 l.getWorkerProperties().getMnemonic(),
                 workerIds.size() == 1 ? workerIds.get(0) : workerIds,
                 l.getWorkerProperties().getProcessId(),
-                l.getWorkerStat().getUsedMemoryInKB() / 1000);
-        ph.get().destroyForcibly();
+                l.getWorkerStat().getUsedMemoryInKB() / 1000,
+                limitMb);
         logger.atInfo().log("%s", msg);
-        if (reporter != null) {
-          reporter.handle(Event.info(msg));
+        ph.get().destroyForcibly();
+        // We want to always report this as this is a potential source of build failure.
+        if (this.reporter != null) {
+          reporter.handle(Event.warn(msg));
         }
         if (eventBus != null) {
           eventBus.post(
@@ -202,7 +205,7 @@ final class WorkerLifecycleManager extends Thread {
       }
 
       logger.atInfo().log("%s", msg);
-      if (reporter != null) {
+      if (options.workerVerbose && this.reporter != null) {
         reporter.handle(Event.info(msg));
       }
     }
@@ -214,7 +217,7 @@ final class WorkerLifecycleManager extends Thread {
           String.format(
               "Total evicted idle workers %d. With ids: %s", evictedWorkers.size(), evictedWorkers);
       logger.atInfo().log("%s", msg);
-      if (reporter != null) {
+      if (options.workerVerbose && this.reporter != null) {
         reporter.handle(Event.info(msg));
       }
 
@@ -263,7 +266,7 @@ final class WorkerLifecycleManager extends Thread {
     if (!potentialCandidates.isEmpty()) {
       String msg = String.format("New doomed workers candidates %s", potentialCandidates);
       logger.atInfo().log("%s", msg);
-      if (reporter != null) {
+      if (options.workerVerbose && this.reporter != null) {
         reporter.handle(Event.info(msg));
       }
       workerPool.setDoomedWorkers(potentialCandidates);
