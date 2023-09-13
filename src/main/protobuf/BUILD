@@ -222,6 +222,21 @@ java_library_srcs(
 )
 
 proto_library(
+    name = "remote_scrubbing_proto",
+    srcs = ["remote_scrubbing.proto"],
+)
+
+java_proto_library(
+    name = "remote_scrubbing_java_proto",
+    deps = [":remote_scrubbing_proto"],
+)
+
+java_library_srcs(
+    name = "remote_scrubbing_java_proto_srcs",
+    deps = [":remote_scrubbing_java_proto"],
+)
+
+proto_library(
     name = "spawn_proto",
     srcs = ["spawn.proto"],
     deps = [
@@ -276,6 +291,7 @@ filegroup(
         ":option_filters_java_proto_srcs",
         ":profile_java_proto_srcs",
         ":remote_execution_log_java_proto_srcs",
+        ":remote_scrubbing_java_proto_srcs",
         ":spawn_java_proto_srcs",
         ":xcode_java_proto_srcs",
     ],

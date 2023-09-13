@@ -74,6 +74,7 @@ public class MerkleTreeTest {
             new StaticInputMetadataProvider(Collections.emptyMap()),
             execRoot,
             ArtifactPathResolver.forExecRoot(execRoot),
+            /* spawnScrubber= */ null,
             digestUtil);
     Digest emptyDigest = digestUtil.compute(new byte[0]);
     assertThat(tree.getRootDigest()).isEqualTo(emptyDigest);
@@ -115,6 +116,7 @@ public class MerkleTreeTest {
             new StaticInputMetadataProvider(metadata),
             execRoot,
             ArtifactPathResolver.forExecRoot(execRoot),
+            /* spawnScrubber= */ null,
             digestUtil);
 
     // assert
@@ -168,6 +170,7 @@ public class MerkleTreeTest {
             new StaticInputMetadataProvider(metadata),
             execRoot,
             ArtifactPathResolver.forExecRoot(execRoot),
+            /* spawnScrubber= */ null,
             digestUtil);
     MerkleTree tree1 =
         MerkleTree.build(
@@ -175,6 +178,7 @@ public class MerkleTreeTest {
             new StaticInputMetadataProvider(metadata),
             execRoot,
             ArtifactPathResolver.forExecRoot(execRoot),
+            /* spawnScrubber= */ null,
             digestUtil);
     MerkleTree tree2 =
         MerkleTree.build(
@@ -182,6 +186,7 @@ public class MerkleTreeTest {
             new StaticInputMetadataProvider(metadata),
             execRoot,
             ArtifactPathResolver.forExecRoot(execRoot),
+            /* spawnScrubber= */ null,
             digestUtil);
     MerkleTree treeAll =
         MerkleTree.build(
@@ -189,6 +194,7 @@ public class MerkleTreeTest {
             new StaticInputMetadataProvider(metadata),
             execRoot,
             ArtifactPathResolver.forExecRoot(execRoot),
+            /* spawnScrubber= */ null,
             digestUtil);
 
     // act

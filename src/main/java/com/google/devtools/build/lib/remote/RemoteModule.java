@@ -311,6 +311,14 @@ public final class RemoteModule extends BlazeModule {
           FailureDetails.RemoteOptions.Code.EXECUTION_WITH_INVALID_CACHE);
     }
 
+    boolean enableScrubbing = remoteOptions.scrubber != null;
+    if (enableScrubbing && enableRemoteExecution) {
+
+      throw createOptionsExitException(
+          "Cannot combine remote cache key scrubbing with remote execution",
+          FailureDetails.RemoteOptions.Code.EXECUTION_WITH_SCRUBBING);
+    }
+
     // TODO(bazel-team): Consider adding a warning or more validation if the remoteDownloadRegex is
     // used without Build without the Bytes.
     ImmutableList.Builder<Pattern> patternsToDownloadBuilder = ImmutableList.builder();
