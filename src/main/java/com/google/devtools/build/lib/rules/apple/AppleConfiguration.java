@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleConfigurationAp
 import com.google.devtools.build.lib.util.CPU;
 import java.util.ArrayList;
 import java.util.List;
-import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
@@ -398,9 +397,9 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     return xcodeConfigLabel;
   }
 
-  @Nullable
   @Override
-  public String getOutputDirectoryName() {
+  public void processForOutputPathMnemonic(Fragment.OutputDirectoriesContext ctx)
+      throws Fragment.OutputDirectoriesContext.AddToMnemonicException {
     List<String> components = new ArrayList<>();
     if (!appleCpus.appleSplitCpu().isEmpty()) {
       components.add(applePlatformType.toString().toLowerCase());
@@ -414,10 +413,9 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
       components.add(configurationDistinguisher.getFileSystemName());
     }
 
-    if (components.isEmpty()) {
-      return null;
+    if (!components.isEmpty()) {
+      ctx.addToMnemonic(Joiner.on('-').join(components));
     }
-    return Joiner.on('-').join(components);
   }
 
   @Override

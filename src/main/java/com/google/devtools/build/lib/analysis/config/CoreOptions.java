@@ -125,7 +125,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       converter = AutoCpuConverter.class,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH},
       help = "The target CPU.")
   public String cpu;
 
@@ -255,7 +254,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       defaultValue = "fastbuild",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.ACTION_COMMAND_LINES},
-      metadataTags = {OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH},
       help = "Specify the mode the binary will be built in. Values: 'fastbuild', 'dbg', 'opt'.")
   public CompilationMode compilationMode;
 
@@ -316,9 +314,9 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       metadataTags = {OptionMetadataTag.INTERNAL})
   public List<String> affectedByStarlarkTransition;
 
-  /** Values for the --experimental_exec_configuration_distinguisher options * */
+  /** Values for the --experimental_exec_configuration_distinguisher options */
   public enum ExecConfigurationDistinguisherScheme {
-    /** Use hash of selected execution platform for platform_suffix. * */
+    /** Use hash of selected execution platform for platform_suffix. */
     LEGACY,
     /** Do not touch platform_suffix or do anything else. * */
     OFF,

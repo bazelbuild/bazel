@@ -242,6 +242,7 @@ public interface AndroidConfigurationApi extends StarlarkValue {
       documented = false)
   boolean persistentMultiplexDexDesugar();
 
+  // TODO(blaze-configurability-team): Deprecate this.
   @StarlarkMethod(
       name = "get_output_directory_name",
       structField = true,

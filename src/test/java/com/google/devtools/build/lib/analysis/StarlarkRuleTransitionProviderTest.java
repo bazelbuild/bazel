@@ -1600,7 +1600,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
         "genrule(name = 'test', srcs = [':bottom'], outs = ['out'], cmd = 'touch $@')");
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//test:test")).isNull();
-    assertContainsEvent("CPU name '//bad:cpu' is invalid as part of a path: must not contain /");
+    assertContainsEvent("'//bad:cpu' is invalid as part of a path: must not contain /");
   }
 
   @Test

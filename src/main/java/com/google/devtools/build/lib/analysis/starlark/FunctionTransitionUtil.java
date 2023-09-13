@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.common.options.OptionDefinition;
-import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.lang.reflect.Field;
 import java.util.HashSet;
@@ -434,9 +433,7 @@ public final class FunctionTransitionUtil {
             }
             field.set(toOptions.get(optionInfo.getOptionClass()), convertedValue);
 
-            if (!optionInfo.hasOptionMetadataTag(OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH)) {
-              convertedAffectedOptions.add(optionKey);
-            }
+            convertedAffectedOptions.add(optionKey);
           }
 
         } catch (IllegalArgumentException e) {
@@ -496,9 +493,6 @@ public final class FunctionTransitionUtil {
     BuildOptions.OptionsDiff diff = BuildOptions.diff(toOptions, baselineOptions);
     Stream<String> diffNative =
         diff.getFirst().keySet().stream()
-            .filter(
-                optionDef ->
-                    !optionDef.hasOptionMetadataTag(OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH))
             .map(option -> COMMAND_LINE_OPTION_PREFIX + option.getOptionName());
     // Note: getChangedStarlarkOptions includes all changed options, added options and removed
     //   options between baselineOptions and toOptions. This is necessary since there is no current

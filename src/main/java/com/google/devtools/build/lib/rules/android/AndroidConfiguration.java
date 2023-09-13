@@ -197,13 +197,14 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
   /** Android configuration options. */
   public static class Options extends FragmentOptions {
+    // TODO(blaze-configurability-team): Deprecate this when legacy output directory scheme is gone.
     @Option(
         name = "Android configuration distinguisher",
         defaultValue = "MAIN",
         converter = ConfigurationDistinguisherConverter.class,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
-        metadataTags = {OptionMetadataTag.INTERNAL, OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH})
+        metadataTags = {OptionMetadataTag.INTERNAL})
     public ConfigurationDistinguisher configurationDistinguisher;
 
     // TODO(blaze-configurability): Mark this as deprecated in favor of --android_platforms.
@@ -1511,6 +1512,16 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public String getOutputDirectoryName() {
     return configurationDistinguisher.suffix;
+  }
+
+  // TODO(blaze-configurability-team): Deprecate this.
+  @Override
+  public void processForOutputPathMnemonic(Fragment.OutputDirectoriesContext ctx)
+      throws Fragment.OutputDirectoriesContext.AddToMnemonicException {
+    ctx.markAsExplicitInOutputPathFor("Android configuration distinguisher");
+    if (configurationDistinguisher.suffix != null) {
+      ctx.addToMnemonic(configurationDistinguisher.suffix);
+    }
   }
 
   public boolean filterRJarsFromAndroidTest() {

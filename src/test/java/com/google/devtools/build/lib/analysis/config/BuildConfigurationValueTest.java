@@ -14,14 +14,12 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
-import com.google.devtools.build.lib.analysis.config.OutputDirectories.InvalidMnemonicException;
 import com.google.devtools.build.lib.analysis.util.ConfigurationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -269,22 +267,6 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   }
 
   @Test
-  public void throwsOnBadMnemonic() {
-    InvalidMnemonicException e =
-        assertThrows(InvalidMnemonicException.class, () -> create("--cpu=//bad/cpu"));
-    assertThat(e)
-        .hasMessageThat()
-        .isEqualTo("CPU name '//bad/cpu' is invalid as part of a path: must not contain /");
-    e =
-        assertThrows(
-            InvalidMnemonicException.class, () -> create("--platform_suffix=//bad/suffix"));
-    assertThat(e)
-        .hasMessageThat()
-        .isEqualTo(
-            "Platform suffix '//bad/suffix' is invalid as part of a path: must not contain /");
-  }
-
-  @Test
   public void testCodec() throws Exception {
     // Unnecessary ImmutableList.copyOf apparently necessary to choose non-varargs constructor.
     new SerializationTester(ImmutableList.copyOf(getTestConfigurations()))
@@ -327,20 +309,20 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     // these configurations are never trimmed nor even used to build targets so not an issue.
     new EqualsTester()
         .addEqualityGroup(
-            createRaw(parseBuildOptions("--test_arg=1a"), "testrepo", false, ""),
-            createRaw(parseBuildOptions("--test_arg=1a"), "testrepo", false, ""))
+            createRaw(parseBuildOptions("--test_arg=1a"), "k8", "testrepo", false),
+            createRaw(parseBuildOptions("--test_arg=1a"), "k8", "testrepo", false))
         // Different BuildOptions means non-equal
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=1b"), "testrepo", false, ""))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=1b"), "k8", "testrepo", false))
         // Different --experimental_sibling_repository_layout means non-equal
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "testrepo", true, ""))
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "testrepo", false, ""))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "k8", "testrepo", true))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "k8", "testrepo", false))
         // Different repositoryName means non-equal
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "testrepo1", false, ""))
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "testrepo2", false, ""))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "k8", "testrepo1", false))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "k8", "testrepo2", false))
         // Different transitionDirectoryNameFragment means non-equal
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "testrepo", false, ""))
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "testrepo", false, "a"))
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "testrepo", false, "b"))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "k8", "testrepo", false))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "arm", "testrepo", false))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "risc", "testrepo", false))
         .testEquals();
   }
 

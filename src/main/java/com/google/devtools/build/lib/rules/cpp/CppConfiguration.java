@@ -593,14 +593,12 @@ public final class CppConfiguration extends Fragment
   }
 
   @Override
-  public String getOutputDirectoryName() {
-    // Add a tag that will be replaced with the CPU identifier.
-    String result = "{CPU}";
+  public void processForOutputPathMnemonic(OutputDirectoriesContext ctx)
+      throws Fragment.OutputDirectoriesContext.AddToMnemonicException {
+    ctx.markAsExplicitInOutputPathFor("cc_output_directory_tag");
     if (!cppOptions.outputDirectoryTag.isEmpty()) {
-      result += "-" + cppOptions.outputDirectoryTag;
+      ctx.addToMnemonic(cppOptions.outputDirectoryTag);
     }
-
-    return result;
   }
 
   /** Returns true if we should share identical native libraries between different targets. */

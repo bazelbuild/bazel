@@ -235,14 +235,14 @@ public class AppleCommandLineOptions extends FragmentOptions {
   // This option must only be set by those transitions for this purpose.
   // TODO(bazel-team): Remove this once we have dynamic configurations but make sure that different
   // configurations (e.g. by min os version) always use different output paths.
+  // TODO(blaze-configurability-team): Deprecate this when legacy output directory scheme is gone.
   @Option(
-    name = "apple configuration distinguisher",
-    defaultValue = "UNKNOWN",
-    converter = ConfigurationDistinguisherConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-    metadataTags = {OptionMetadataTag.INTERNAL}
-  )
+      name = "apple configuration distinguisher",
+      defaultValue = "UNKNOWN",
+      converter = ConfigurationDistinguisherConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      metadataTags = {OptionMetadataTag.INTERNAL})
   public ConfigurationDistinguisher configurationDistinguisher;
 
   @Option(
@@ -405,7 +405,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
     // be needed.
     exec.applePlatformType = PlatformType.MACOS;
     exec.configurationDistinguisher = ConfigurationDistinguisher.UNKNOWN;
-    // Preseve Xcode selection preferences so that the same Xcode version is used throughout the
+    // Preserve Xcode selection preferences so that the same Xcode version is used throughout the
     // build.
     exec.preferMutualXcode = preferMutualXcode;
     exec.includeXcodeExecutionRequirements = includeXcodeExecutionRequirements;

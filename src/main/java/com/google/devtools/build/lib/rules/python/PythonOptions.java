@@ -165,7 +165,6 @@ public class PythonOptions extends FragmentOptions {
         OptionEffectTag.LOADING_AND_ANALYSIS,
         OptionEffectTag.AFFECTS_OUTPUTS // because of "-py2"/"-py3" output root
       },
-      metadataTags = {OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH},
       help =
           "The Python major version mode, either `PY2` or `PY3`. Note that this is overridden by "
               + "`py_binary` and `py_test` targets (even if they don't explicitly specify a "

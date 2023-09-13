@@ -943,11 +943,11 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
         new GenericBuildEvent(
             testId("Initial"), ImmutableSet.of(ProgressEvent.INITIAL_PROGRESS_UPDATE));
     BuildConfigurationValue configuration =
-        BuildConfigurationValue.create(
+        BuildConfigurationValue.createForTesting(
             defaultBuildOptions,
+            "some_mnemonic",
             "workspace",
             /* siblingRepositoryLayout= */ false,
-            /* transitionDirectoryNameFragment= */ "",
             new BlazeDirectories(
                 new ServerDirectories(outputBase, outputBase, outputBase),
                 rootDirectory,

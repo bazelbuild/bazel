@@ -113,8 +113,8 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
   }
 
   @Override
-  @Nullable
-  public String getOutputDirectoryName() {
+  public void processForOutputPathMnemonic(Fragment.OutputDirectoriesContext ctx)
+      throws Fragment.OutputDirectoriesContext.AddToMnemonicException {
     Preconditions.checkState(version.isTargetValue());
     // The only possible Python target version values are PY2 and PY3. Historically, PY3 targets got
     // a "-py3" suffix and PY2 targets got the empty suffix, so that the bazel-bin symlink pointed
@@ -126,10 +126,15 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
             + "versions. Please check that PythonConfiguration#getOutputDirectoryName() is still "
             + "needed and is still able to avoid output directory clashes, then update this "
             + "canary message.");
+    ctx.markAsExplicitInOutputPathFor("python_version");
     if (py2OutputsAreSuffixed) {
-      return version == PythonVersion.PY2 ? "py2" : null;
+      if (version == PythonVersion.PY2) {
+        ctx.addToMnemonic("py2");
+      }
     } else {
-      return version == PythonVersion.PY3 ? "py3" : null;
+      if (version == PythonVersion.PY3) {
+        ctx.addToMnemonic("py3");
+      }
     }
   }
 

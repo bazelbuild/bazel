@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
-import com.google.devtools.build.lib.analysis.config.OutputDirectories.InvalidMnemonicException;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -121,7 +120,7 @@ public class BuildConfigurationValue
    *
    * <p>See b/203470434 or #14023 for more information and planned behavior changes.
    */
-  private final String transitionDirectoryNameFragment;
+  private final String mnemonic;
 
   private final ImmutableMap<String, String> commandLineBuildVariables;
 
@@ -158,12 +157,48 @@ public class BuildConfigurationValue
     return ActionEnvironment.split(testEnv);
   }
 
-  // Only BuildConfigurationFunction (and tests for mocking purposes) should instantiate this.
+  // Only BuildConfigurationFunction should instantiate this.
   public static BuildConfigurationValue create(
       BuildOptions buildOptions,
+      @Nullable BuildOptions baselineOptions,
       String workspaceName,
       boolean siblingRepositoryLayout,
-      String transitionDirectoryNameFragment,
+      // Arguments below this are server-global.
+      BlazeDirectories directories,
+      GlobalStateProvider globalProvider,
+      FragmentFactory fragmentFactory)
+      throws InvalidConfigurationException {
+
+    FragmentClassSet fragmentClasses =
+        buildOptions.hasNoConfig()
+            ? FragmentClassSet.of(ImmutableSet.of())
+            : globalProvider.getFragmentRegistry().getAllFragments();
+    ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments =
+        getConfigurationFragments(buildOptions, fragmentClasses, fragmentFactory);
+
+    String mnemonic =
+        OutputPathMnemonicComputer.computeMnemonic(buildOptions, baselineOptions, fragments);
+
+    return new BuildConfigurationValue(
+        buildOptions,
+        mnemonic,
+        workspaceName,
+        siblingRepositoryLayout,
+        directories,
+        fragments,
+        globalProvider.getReservedActionMnemonics(),
+        globalProvider.getActionEnvironment(buildOptions));
+  }
+
+  // TODO(blaze-configurability-team): Ideally tests use the above create; however,
+  //   ConfigurationTestCase most just checks equality constraints and this wants to directly
+  //   fiddle with the mnemonic (and supplying a baselineOptions would be somewhat heavy).
+  @VisibleForTesting
+  public static BuildConfigurationValue createForTesting(
+      BuildOptions buildOptions,
+      String mnemonic,
+      String workspaceName,
+      boolean siblingRepositoryLayout,
       // Arguments below this are server-global.
       BlazeDirectories directories,
       GlobalStateProvider globalProvider,
@@ -179,9 +214,9 @@ public class BuildConfigurationValue
 
     return new BuildConfigurationValue(
         buildOptions,
+        mnemonic,
         workspaceName,
         siblingRepositoryLayout,
-        transitionDirectoryNameFragment,
         directories,
         fragments,
         globalProvider.getReservedActionMnemonics(),
@@ -205,35 +240,33 @@ public class BuildConfigurationValue
   // Package-visible for serialization purposes.
   BuildConfigurationValue(
       BuildOptions buildOptions,
+      String mnemonic,
       String workspaceName,
       boolean siblingRepositoryLayout,
-      String transitionDirectoryNameFragment,
       // Arguments below this are either server-global and constant or completely dependent values.
       BlazeDirectories directories,
       ImmutableMap<Class<? extends Fragment>, Fragment> fragments,
       ImmutableSet<String> reservedActionMnemonics,
-      ActionEnvironment actionEnvironment)
-      throws InvalidMnemonicException {
+      ActionEnvironment actionEnvironment) {
     this.fragments =
         fragmentsInterner.intern(
             ImmutableSortedMap.copyOf(fragments, FragmentClassSet.LEXICAL_FRAGMENT_SORTER));
     this.starlarkVisibleFragments = buildIndexOfStarlarkVisibleFragments();
     this.buildOptions = buildOptions;
+    this.mnemonic = mnemonic;
     this.options = buildOptions.get(CoreOptions.class);
     PlatformOptions platformOptions = null;
     if (buildOptions.contains(PlatformOptions.class)) {
       platformOptions = buildOptions.get(PlatformOptions.class);
     }
-    this.transitionDirectoryNameFragment = transitionDirectoryNameFragment;
     this.outputDirectories =
         new OutputDirectories(
             directories,
             options,
             platformOptions,
-            this.fragments,
+            mnemonic,
             workspaceName,
-            siblingRepositoryLayout,
-            transitionDirectoryNameFragment);
+            siblingRepositoryLayout);
     this.workspaceName = workspaceName;
     this.siblingRepositoryLayout = siblingRepositoryLayout;
 
@@ -281,13 +314,12 @@ public class BuildConfigurationValue
     return this.buildOptions.equals(otherVal.buildOptions)
         && this.workspaceName.equals(otherVal.workspaceName)
         && this.siblingRepositoryLayout == otherVal.siblingRepositoryLayout
-        && this.transitionDirectoryNameFragment.equals(otherVal.transitionDirectoryNameFragment);
+        && this.mnemonic.equals(otherVal.mnemonic);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(
-        buildOptions, workspaceName, siblingRepositoryLayout, transitionDirectoryNameFragment);
+    return Objects.hash(buildOptions, workspaceName, siblingRepositoryLayout, mnemonic);
   }
 
   private ImmutableMap<String, Class<? extends Fragment>> buildIndexOfStarlarkVisibleFragments() {
@@ -477,11 +509,6 @@ public class BuildConfigurationValue
    */
   public String getOutputDirectoryName() {
     return outputDirectories.getOutputDirName();
-  }
-
-  @VisibleForTesting
-  public String getTransitionDirectoryNameFragment() {
-    return transitionDirectoryNameFragment;
   }
 
   @Override

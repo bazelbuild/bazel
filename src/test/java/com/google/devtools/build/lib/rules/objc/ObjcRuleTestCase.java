@@ -25,6 +25,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.truth.Correspondence;
 import com.google.devtools.build.lib.actions.Action;
@@ -41,6 +42,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.OutputPathMnemonicComputer;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
@@ -56,7 +58,6 @@ import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationFunction;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -166,8 +167,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
       transitionedConfig.get(AppleCommandLineOptions.class).appleSplitCpu = arch;
       hash =
           "-"
-              + BuildConfigurationFunction.computeNameFragmentWithDiff(
-                  transitionedConfig, targetConfig.getOptions());
+              + OutputPathMnemonicComputer.computeNameFragmentWithDiff(
+                  transitionedConfig, targetConfig.getOptions(), ImmutableSet.of("cpu"));
     }
 
     switch (configurationDistinguisher) {
@@ -179,7 +180,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
             TestConstants.PRODUCT_NAME, arch, minOsSegment, modeSegment);
       case APPLEBIN_IOS:
         return String.format(
-            "%1$s-out/ios-%2$s%4$s-%3$s-ios_%2$s-%5$s%6$s/",
+            "%1$s-out/ios_%2$s-%5$s-ios-%2$s%4$s-%3$s%6$s/",
             TestConstants.PRODUCT_NAME,
             arch,
             configurationDistinguisher.toString().toLowerCase(Locale.US),
@@ -188,7 +189,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
             hash);
       case APPLEBIN_WATCHOS:
         return String.format(
-            "%1$s-out/watchos-%2$s%4$s-%3$s-watchos_%2$s-%5$s%6$s/",
+            "%1$s-out/watchos_%2$s-%5$s-watchos-%2$s%4$s-%3$s%6$s/",
             TestConstants.PRODUCT_NAME,
             arch,
             configurationDistinguisher.toString().toLowerCase(Locale.US),

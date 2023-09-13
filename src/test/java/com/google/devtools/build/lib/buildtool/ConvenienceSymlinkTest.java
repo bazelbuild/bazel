@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
@@ -69,7 +68,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
         name = "output_directory_name",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-        metadataTags = {OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH},
         defaultValue = "default")
     public String outputDirectoryName;
 
@@ -91,8 +89,10 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     }
 
     @Override
-    public String getOutputDirectoryName() {
-      return outputDirectoryName;
+    public void processForOutputPathMnemonic(OutputDirectoriesContext ctx)
+        throws Fragment.OutputDirectoriesContext.AddToMnemonicException {
+      ctx.markAsExplicitInOutputPathFor("output_directory_name");
+      ctx.addToMnemonic(outputDirectoryName);
     }
   }
 
@@ -328,13 +328,13 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
                                 .relativeTo(getOutputPath())
                                 .toString())))
         .containsExactly(
-            "//path:from_flag", "set_by_flag-" + getTargetConfiguration().getCpu() + "-fastbuild",
+            "//path:from_flag", getTargetConfiguration().getCpu() + "-fastbuild-set_by_flag",
             "//path:from_transition",
-                "set_by_transition-" + getTargetConfiguration().getCpu() + "-fastbuild",
+                getTargetConfiguration().getCpu() + "-fastbuild-set_by_transition",
             "//path:unrelated_transition",
-                "set_by_flag-" + getTargetConfiguration().getCpu() + "-fastbuild",
+                getTargetConfiguration().getCpu() + "-fastbuild-set_by_flag",
             "//path:outgoing_transition",
-                "set_by_flag-" + getTargetConfiguration().getCpu() + "-fastbuild");
+                getTargetConfiguration().getCpu() + "-fastbuild-set_by_flag");
   }
 
   @Test
@@ -366,14 +366,13 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
             // these were also not created under other names
             "nothing-bin",
             getOutputPath()
-                .getRelative("default-" + getTargetConfiguration().getCpu() + "-fastbuild/bin"),
+                .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-default/bin"),
             "nothing-genfiles",
             getOutputPath()
-                .getRelative("default-" + getTargetConfiguration().getCpu() + "-fastbuild/bin"),
+                .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-default/bin"),
             "nothing-testlogs",
             getOutputPath()
-                .getRelative(
-                    "default-" + getTargetConfiguration().getCpu() + "-fastbuild/testlogs"),
+                .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-default/testlogs"),
             "nothing-" + TestConstants.WORKSPACE_NAME,
             getExecRoot(),
             "nothing-out",
@@ -479,15 +478,13 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
         .containsExactly(
             "ambiguous-bin",
             getOutputPath()
-                .getRelative("default-" + getTargetConfiguration().getCpu() + "-fastbuild/bin"),
+                .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-default/bin"),
             "ambiguous-genfiles",
             getOutputPath()
-                .getRelative(
-                    "default-" + getTargetConfiguration().getCpu() + "-fastbuild/genfiles"),
+                .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-default/genfiles"),
             "ambiguous-testlogs",
             getOutputPath()
-                .getRelative(
-                    "default-" + getTargetConfiguration().getCpu() + "-fastbuild/testlogs"),
+                .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-default/testlogs"),
             "ambiguous-" + TestConstants.WORKSPACE_NAME,
             getExecRoot(),
             "ambiguous-out",
@@ -512,15 +509,13 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
         .containsExactly(
             "same-bin",
             getOutputPath()
-                .getRelative("configured-" + getTargetConfiguration().getCpu() + "-fastbuild/bin"),
+                .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-configured/bin"),
             "same-genfiles",
             getOutputPath()
-                .getRelative(
-                    "configured-" + getTargetConfiguration().getCpu() + "-fastbuild/genfiles"),
+                .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-configured/genfiles"),
             "same-testlogs",
             getOutputPath()
-                .getRelative(
-                    "configured-" + getTargetConfiguration().getCpu() + "-fastbuild/testlogs"),
+                .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-configured/testlogs"),
             "same-" + TestConstants.WORKSPACE_NAME,
             getExecRoot(),
             "same-out",
@@ -549,15 +544,13 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
         .containsExactly(
             "united-bin",
             getOutputPath()
-                .getRelative("from_flag-" + getTargetConfiguration().getCpu() + "-fastbuild/bin"),
+                .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-from_flag/bin"),
             "united-genfiles",
             getOutputPath()
-                .getRelative(
-                    "from_flag-" + getTargetConfiguration().getCpu() + "-fastbuild/genfiles"),
+                .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-from_flag/genfiles"),
             "united-testlogs",
             getOutputPath()
-                .getRelative(
-                    "from_flag-" + getTargetConfiguration().getCpu() + "-fastbuild/testlogs"),
+                .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-from_flag/testlogs"),
             "united-" + TestConstants.WORKSPACE_NAME,
             getExecRoot(),
             "united-out",
@@ -587,15 +580,13 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
         .containsExactly(
             "unchanged-bin",
             getOutputPath()
-                .getRelative("from_flag-" + getTargetConfiguration().getCpu() + "-fastbuild/bin"),
+                .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-from_flag/bin"),
             "unchanged-genfiles",
             getOutputPath()
-                .getRelative(
-                    "from_flag-" + getTargetConfiguration().getCpu() + "-fastbuild/genfiles"),
+                .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-from_flag/genfiles"),
             "unchanged-testlogs",
             getOutputPath()
-                .getRelative(
-                    "from_flag-" + getTargetConfiguration().getCpu() + "-fastbuild/testlogs"),
+                .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-from_flag/testlogs"),
             "unchanged-" + TestConstants.WORKSPACE_NAME,
             getExecRoot(),
             "unchanged-out",
@@ -623,15 +614,13 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
         .containsExactly(
             "mixed-bin",
             getOutputPath()
-                .getRelative("from_flag-" + getTargetConfiguration().getCpu() + "-fastbuild/bin"),
+                .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-from_flag/bin"),
             "mixed-genfiles",
             getOutputPath()
-                .getRelative(
-                    "from_flag-" + getTargetConfiguration().getCpu() + "-fastbuild/genfiles"),
+                .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-from_flag/genfiles"),
             "mixed-testlogs",
             getOutputPath()
-                .getRelative(
-                    "from_flag-" + getTargetConfiguration().getCpu() + "-fastbuild/testlogs"),
+                .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-from_flag/testlogs"),
             "mixed-" + TestConstants.WORKSPACE_NAME,
             getExecRoot(),
             "mixed-out",
@@ -809,19 +798,17 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     assertThat(binLink.readSymbolicLink())
         .isEqualTo(
             getOutputPath()
-                .getRelative("from_flag-" + getTargetConfiguration().getCpu() + "-fastbuild/bin")
+                .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-from_flag/bin")
                 .asFragment());
     assertThat(genfilesLink.readSymbolicLink())
         .isEqualTo(
             getOutputPath()
-                .getRelative(
-                    "from_flag-" + getTargetConfiguration().getCpu() + "-fastbuild/genfiles")
+                .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-from_flag/genfiles")
                 .asFragment());
     assertThat(testlogsLink.readSymbolicLink())
         .isEqualTo(
             getOutputPath()
-                .getRelative(
-                    "from_flag-" + getTargetConfiguration().getCpu() + "-fastbuild/testlogs")
+                .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-from_flag/testlogs")
                 .asFragment());
     assertThat(workspaceLink.readSymbolicLink()).isEqualTo(getExecRoot().asFragment());
     assertThat(outLink.readSymbolicLink()).isEqualTo(getOutputPath().asFragment());

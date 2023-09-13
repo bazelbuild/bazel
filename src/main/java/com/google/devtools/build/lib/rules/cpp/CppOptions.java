@@ -140,12 +140,12 @@ public class CppOptions extends FragmentOptions {
   // This is different from --platform_suffix in that that one is designed to facilitate the
   // migration to toolchains and this one is designed to eliminate the C++ toolchain identifier
   // from the output directory path.
+  // TODO(blaze-configurability-team): Deprecate this when legacy output directory scheme is gone.
   @Option(
       name = "cc_output_directory_tag",
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH},
       help = "Specifies a suffix to be added to the configuration directory.")
   public String outputDirectoryTag;
 

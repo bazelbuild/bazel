@@ -187,10 +187,7 @@ public class OptionFilterDescriptions {
             "This option should not be used by a user, and should not be logged.")
         .put(
             OptionMetadataTag.INTERNAL, // Here for completeness, these options are UNDOCUMENTED.
-            "This option isn't even a option, and should not be logged.")
-        .put(
-            OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH,
-            "This option is explicitly mentioned in the output directory.");
+            "This option isn't even a option, and should not be logged.");
     return effectTagDescriptionBuilder.build();
   }
 }

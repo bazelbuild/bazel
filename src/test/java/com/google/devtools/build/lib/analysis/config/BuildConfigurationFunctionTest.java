@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationFunction;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -72,8 +71,8 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
     return getConfiguration(target).getOptions().get(CoreOptions.class);
   }
 
-  private String getTransitionDirectoryNameFragment(ConfiguredTarget target) {
-    return getConfiguration(target).getTransitionDirectoryNameFragment();
+  private String getMnemonic(ConfiguredTarget target) {
+    return getConfiguration(target).getMnemonic();
   }
 
   @Test
@@ -114,7 +113,7 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
     useConfiguration("--experimental_output_directory_naming_scheme=diff_against_baseline");
     ConfiguredTarget test = getConfiguredTarget("//test");
 
-    assertThat(getTransitionDirectoryNameFragment(test)).isEmpty();
+    assertThat(getMnemonic(test)).doesNotContain("-ST-");
     assertThat(getCoreOptions(test).affectedByStarlarkTransition).isEmpty();
 
     @SuppressWarnings("unchecked")
@@ -122,9 +121,9 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
         Iterables.getOnlyElement(
             (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
 
-    assertThat(getTransitionDirectoryNameFragment(dep))
-        .isEqualTo(
-            BuildConfigurationFunction.transitionDirectoryNameFragment(
+    assertThat(getMnemonic(dep))
+        .endsWith(
+            OutputPathMnemonicComputer.transitionDirectoryNameFragment(
                 ImmutableList.of("//test:foo=transitioned")));
     assertThat(getCoreOptions(dep).affectedByStarlarkTransition).isEmpty();
   }
@@ -168,7 +167,7 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
     ConfiguredTarget test = getConfiguredTarget("//test");
 
     assertThat(getConfiguration(test).getMnemonic()).contains("fastbuild");
-    assertThat(getTransitionDirectoryNameFragment(test)).isEmpty();
+    assertThat(getMnemonic(test)).doesNotContain("-ST-");
     assertThat(getCoreOptions(test).affectedByStarlarkTransition).isEmpty();
 
     @SuppressWarnings("unchecked")
@@ -177,7 +176,7 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
             (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
 
     assertThat(getConfiguration(dep).getMnemonic()).contains("opt");
-    assertThat(getTransitionDirectoryNameFragment(dep)).isEmpty();
+    assertThat(getMnemonic(dep)).doesNotContain("-ST-");
     assertThat(getCoreOptions(dep).affectedByStarlarkTransition).isEmpty();
   }
 
@@ -223,7 +222,7 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
     useConfiguration("--experimental_output_directory_naming_scheme=diff_against_baseline");
     ConfiguredTarget test = getConfiguredTarget("//test");
 
-    assertThat(getTransitionDirectoryNameFragment(test)).isEmpty();
+    assertThat(getMnemonic(test)).doesNotContain("-ST-");
     assertThat(getCoreOptions(test).affectedByStarlarkTransition).isEmpty();
 
     @SuppressWarnings("unchecked")
@@ -231,9 +230,9 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
         Iterables.getOnlyElement(
             (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
 
-    assertThat(getTransitionDirectoryNameFragment(middle))
-        .isEqualTo(
-            BuildConfigurationFunction.transitionDirectoryNameFragment(
+    assertThat(getMnemonic(middle))
+        .endsWith(
+            OutputPathMnemonicComputer.transitionDirectoryNameFragment(
                 ImmutableList.of("//test:foo=transitioned")));
     assertThat(getCoreOptions(middle).affectedByStarlarkTransition).isEmpty();
 
@@ -242,7 +241,7 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
         Iterables.getOnlyElement(
             (List<ConfiguredTarget>) getMyInfoFromTarget(middle).getValue("dep"));
 
-    assertThat(getTransitionDirectoryNameFragment(test)).isEmpty();
+    assertThat(getMnemonic(test)).doesNotContain("-ST-");
     assertThat(getCoreOptions(test).affectedByStarlarkTransition).isEmpty();
 
     assertThat(getConfiguration(test)).isEqualTo(getConfiguration(root));
