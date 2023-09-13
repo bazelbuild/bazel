@@ -702,10 +702,10 @@ public final class BuildLanguageOptions extends OptionsBase {
               + "from the top level target instead")
   public boolean incompatibleDisableObjcLibraryTransition;
 
-  // cleanup, flip, remove after Bazel LTS in Nov 2023
+  // remove after Bazel LTS in Nov 2023
   @Option(
       name = "incompatible_fail_on_unknown_attributes",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -905,7 +905,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String INCOMPATIBLE_DISABLE_OBJC_LIBRARY_TRANSITION =
       "-incompatible_disable_objc_library_transition";
   public static final String INCOMPATIBLE_FAIL_ON_UNKNOWN_ATTRIBUTES =
-      "-incompatible_fail_on_unknown_attributes";
+      "+incompatible_fail_on_unknown_attributes";
 
   // non-booleans
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =
