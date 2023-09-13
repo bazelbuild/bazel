@@ -32,9 +32,6 @@ public abstract class LockFileModuleExtension implements Postable {
 
   public static Builder builder() {
     return new AutoValue_LockFileModuleExtension.Builder()
-        // TODO(salmasamy) can be removed when updating lockfile version
-        .setEnvVariables(ImmutableMap.of())
-        .setAccumulatedFileDigests(ImmutableMap.of())
         .setModuleExtensionMetadata(Optional.empty());
   }
 

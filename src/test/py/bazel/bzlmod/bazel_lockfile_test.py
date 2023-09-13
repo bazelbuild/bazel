@@ -290,6 +290,8 @@ class BazelLockfileTest(test_base.TestBase):
             '    implementation=_module_ext_impl,',
             '    tag_classes={"dep": _dep},',
             '    environ=["GREEN_TREES", "NOT_SET"],',
+            '    os_dependent=True,',
+            '    arch_dependent=True,',
             ')',
         ],
     )
@@ -420,8 +422,8 @@ class BazelLockfileTest(test_base.TestBase):
     with open(self.Path('MODULE.bazel.lock'), 'r') as f:
       lockfile = json.loads(f.read().strip())
       old_impl = lockfile['moduleExtensions']['//:extension.bzl%lockfile_ext'][
-          'bzlTransitiveDigest'
-      ]
+          'general'
+      ]['bzlTransitiveDigest']
 
     # Run again to make sure the resolution value is cached. So even if module
     # resolution doesn't rerun (its event is null), the lockfile is still
@@ -448,8 +450,8 @@ class BazelLockfileTest(test_base.TestBase):
     with open(self.Path('MODULE.bazel.lock'), 'r') as f:
       lockfile = json.loads(f.read().strip())
       new_impl = lockfile['moduleExtensions']['//:extension.bzl%lockfile_ext'][
-          'bzlTransitiveDigest'
-      ]
+          'general'
+      ]['bzlTransitiveDigest']
       self.assertNotEqual(new_impl, old_impl)
 
   def testUpdateModuleExtensionErrorMode(self):
@@ -747,8 +749,9 @@ class BazelLockfileTest(test_base.TestBase):
     # Set version to old
     with open('MODULE.bazel.lock', 'r') as json_file:
       data = json.load(json_file)
-    data['lockFileVersion'] = 0
+      version = data['lockFileVersion']
     with open('MODULE.bazel.lock', 'w') as json_file:
+      data['lockFileVersion'] = version - 1
       json.dump(data, json_file, indent=4)
 
     # Run in error mode
@@ -771,13 +774,10 @@ class BazelLockfileTest(test_base.TestBase):
     self.RunBazel(['build', '--nobuild', '//:all'])
     with open('MODULE.bazel.lock', 'r') as json_file:
       data = json.load(json_file)
-    self.assertEqual(data['lockFileVersion'], 1)
+    self.assertEqual(data['lockFileVersion'], version)
 
 
   def testExtensionEvaluationDoesNotRerunOnChangedImports(self):
-    """
-
-    """
     self.ScratchFile(
         'MODULE.bazel',
         [
@@ -940,6 +940,111 @@ class BazelLockfileTest(test_base.TestBase):
       new_data = lock_file.read()
 
     self.assertEqual(old_data, new_data)
+
+  def testExtensionOsAndArch(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'lockfile_ext = use_extension("extension.bzl", "lockfile_ext")',
+            'use_repo(lockfile_ext, "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("WORKSPACE")',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            '',
+            'def _module_ext_impl(ctx):',
+            '    repo_rule(name="hello")',
+            'lockfile_ext = module_extension(',
+            '    implementation=_module_ext_impl',
+            ')',
+        ],
+    )
+
+    # build to generate lockfile with this extension
+    self.RunBazel(['build', '@hello//:all'])
+
+    # validate an extension named 'general' is created
+    general_key = 'general'
+    ext_key = '//:extension.bzl%lockfile_ext'
+    with open('MODULE.bazel.lock', 'r') as json_file:
+      lockfile = json.load(json_file)
+      self.assertIn(ext_key, lockfile['moduleExtensions'])
+      extension_map = lockfile['moduleExtensions'][ext_key]
+      self.assertIn(general_key, extension_map)
+
+    # replace general extension with one depend on os and arch
+    win_key = 'os:WinWin,arch:arch32'
+    with open('MODULE.bazel.lock', 'w') as json_file:
+      extension_map[win_key] = extension_map.pop(general_key)
+      json.dump(lockfile, json_file, indent=4)
+
+    # update extension to depend on OS and arch.
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("WORKSPACE")',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            '',
+            'def _module_ext_impl(ctx):',
+            '    repo_rule(name="hello")',
+            'lockfile_ext = module_extension(',
+            (
+                'implementation=_module_ext_impl, os_dependent=True, '
+                'arch_dependent=True'
+            ),
+            ')',
+        ],
+    )
+
+    # build again to update the file
+    self.RunBazel(['build', '@hello//:all'])
+    # assert win_key still exists and another one was added
+    with open('MODULE.bazel.lock', 'r') as json_file:
+      lockfile = json.load(json_file)
+      extension_map = lockfile['moduleExtensions'][ext_key]
+      self.assertIn(win_key, extension_map)
+      self.assertEqual(len(extension_map), 2)
+      added_key = ''
+      for key in extension_map.keys():
+        if key != win_key:
+          added_key = key
+
+    # update extension to only depend on os only
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("WORKSPACE")',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            '',
+            'def _module_ext_impl(ctx):',
+            '    repo_rule(name="hello")',
+            'lockfile_ext = module_extension(',
+            '    implementation=_module_ext_impl, os_dependent=True',
+            ')',
+        ],
+    )
+
+    # build again to update the file
+    self.RunBazel(['build', '@hello//:all'])
+    # assert both win_key and the added_key before are deleted,
+    # and a new one without arch exists
+    with open('MODULE.bazel.lock', 'r') as json_file:
+      lockfile = json.load(json_file)
+      extension_map = lockfile['moduleExtensions'][ext_key]
+      self.assertNotIn(win_key, extension_map)
+      self.assertNotIn(added_key, extension_map)
+      self.assertEqual(len(extension_map), 1)
+
 
 if __name__ == '__main__':
   unittest.main()
