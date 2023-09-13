@@ -159,6 +159,21 @@ android_sh_test(
 )
 
 android_sh_test(
+    name = "library_desugarer_integration_test",
+    size = "small",
+    srcs = ["library_desugarer_integration_test.sh"],
+    data = [
+        ":android_helper",
+        "//external:android_sdk_for_testing",
+        "//src/test/shell/bazel:test-deps",
+    ],
+    tags = [
+        "manual",  # TODO(b/299338002): D8 library desugaring is broken.
+        "no_windows",
+    ],
+)
+
+android_sh_test(
     name = "android_instrumentation_test_integration_test",
     size = "medium",
     srcs = ["android_instrumentation_test_integration_test.sh"],

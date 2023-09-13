@@ -1,0 +1,652 @@
+{
+  "identifier": "com.tools.android:desugar_jdk_libs_alternative_3:2.0.2",
+  "configuration_format_version": 100,
+  "required_compilation_api_level": 30,
+  "synthesized_library_classes_package_prefix": "j$.",
+  "support_all_callbacks_from_library": false,
+  "common_flags": [
+    {
+      "api_level_below_or_equal": 10000,
+      "amend_library_method": [
+        "public static java.nio.file.Path java.nio.file.Path#of(java.lang.String, java.lang.String[])",
+        "public static java.nio.file.Path java.nio.file.Path#of(java.net.URI)"
+      ]
+    },
+    {
+      "api_level_below_or_equal": 10000,
+      "api_level_greater_or_equal": 26,
+      "rewrite_prefix": {
+        "java.time.DesugarLocalDate": "j$.time.DesugarLocalDate",
+        "java.time.DesugarClock": "j$.time.DesugarClock",
+        "java.time.DesugarOffsetTime": "j$.time.DesugarOffsetTime",
+        "java.nio.file.DesugarFiles": "j$.nio.file.DesugarFiles"
+      },
+      "retarget_static_field": {
+        "java.time.LocalDate java.time.LocalDate#EPOCH": "java.time.LocalDate java.time.DesugarLocalDate#EPOCH"
+      },
+      "retarget_method": {
+        "java.util.stream.Stream java.time.LocalDate#datesUntil(java.time.LocalDate)": "java.time.DesugarLocalDate",
+        "java.util.stream.Stream java.time.LocalDate#datesUntil(java.time.LocalDate, java.time.Period)": "java.time.DesugarLocalDate",
+        "java.time.LocalDate java.time.LocalDate#ofInstant(java.time.Instant, java.time.ZoneId)": "java.time.DesugarLocalDate",
+        "long java.time.LocalDate#toEpochSecond(java.time.LocalTime, java.time.ZoneOffset)": "java.time.DesugarLocalDate",
+        "java.time.Clock java.time.Clock#tickMillis(java.time.ZoneId)": "java.time.DesugarClock",
+        "long java.time.OffsetTime#toEpochSecond(java.time.LocalDate)": "java.time.DesugarOffsetTime",
+        "java.lang.String java.nio.file.Files#readString(java.nio.file.Path)": "java.nio.file.DesugarFiles",
+        "java.lang.String java.nio.file.Files#readString(java.nio.file.Path, java.nio.charset.Charset)": "java.nio.file.DesugarFiles",
+        "java.nio.file.Path java.nio.file.Files#writeString(java.nio.file.Path, java.lang.CharSequence, java.nio.file.OpenOption[])": "java.nio.file.DesugarFiles",
+        "java.nio.file.Path java.nio.file.Files#writeString(java.nio.file.Path, java.lang.CharSequence, java.nio.charset.Charset, java.nio.file.OpenOption[])": "java.nio.file.DesugarFiles"
+      },
+      "amend_library_field": [
+        "public static java.time.LocalDate java.time.LocalDate#EPOCH"
+      ],
+      "amend_library_method": [
+        "public java.util.stream.Stream java.time.LocalDate#datesUntil(java.time.LocalDate)",
+        "public java.util.stream.Stream java.time.LocalDate#datesUntil(java.time.LocalDate, java.time.Period)",
+        "public static java.time.LocalDate java.time.LocalDate#ofInstant(java.time.Instant, java.time.ZoneId)",
+        "public long java.time.LocalDate#toEpochSecond(java.time.LocalTime, java.time.ZoneOffset)",
+        "public static java.time.Clock java.time.Clock#tickMillis(java.time.ZoneId)",
+        "public long java.time.OffsetTime#toEpochSecond(java.time.LocalDate)",
+        "public static java.lang.String java.nio.file.Files#readString(java.nio.file.Path)",
+        "public static java.lang.String java.nio.file.Files#readString(java.nio.file.Path, java.nio.charset.Charset)",
+        "public static java.nio.file.Path java.nio.file.Files#writeString(java.nio.file.Path, java.lang.CharSequence, java.nio.file.OpenOption[])",
+        "public static java.nio.file.Path java.nio.file.Files#writeString(java.nio.file.Path, java.lang.CharSequence, java.nio.charset.Charset, java.nio.file.OpenOption[])"
+      ]
+    },
+    {
+      "api_level_below_or_equal": 10000,
+      "api_level_greater_or_equal": 24,
+      "rewrite_prefix": {
+        "java.util.stream.DesugarDoubleStream": "j$.util.stream.DesugarDoubleStream",
+        "java.util.stream.DesugarIntStream": "j$.util.stream.DesugarIntStream",
+        "java.util.stream.DesugarLongStream": "j$.util.stream.DesugarLongStream",
+        "java.util.stream.DesugarStream": "j$.util.stream.DesugarStream"
+      },
+      "retarget_method": {
+        "java.util.stream.DoubleStream java.util.stream.DoubleStream#iterate(double, java.util.function.DoublePredicate, java.util.function.DoubleUnaryOperator)":  "java.util.stream.DesugarDoubleStream",
+        "java.util.stream.IntStream java.util.stream.IntStream#iterate(int, java.util.function.IntPredicate, java.util.function.IntUnaryOperator)":  "java.util.stream.DesugarIntStream",
+        "java.util.stream.LongStream java.util.stream.LongStream#iterate(long, java.util.function.LongPredicate, java.util.function.LongUnaryOperator)":  "java.util.stream.DesugarLongStream",
+        "java.util.stream.Stream java.util.stream.Stream#iterate(java.lang.Object, java.util.function.Predicate, java.util.function.UnaryOperator)":  "java.util.stream.DesugarStream"
+      }
+    },
+    {
+      "api_level_below_or_equal": 32,
+      "rewrite_prefix": {
+        "java.util.concurrent.ConcurrentLinkedQueue": "j$.util.concurrent.ConcurrentLinkedQueue",
+        "java.net.URLDecoder": "j$.net.URLDecoder",
+        "java.net.URLEncoder": "j$.net.URLEncoder",
+        "java.io.DesugarInputStream": "j$.io.DesugarInputStream",
+        "java.util.concurrent.DesugarTimeUnit": "j$.util.concurrent.DesugarTimeUnit"
+      },
+      "retarget_method": {
+        "java.util.concurrent.TimeUnit java.util.concurrent.TimeUnit#of(java.time.temporal.ChronoUnit)": "java.util.concurrent.DesugarTimeUnit",
+        "java.time.temporal.ChronoUnit java.util.concurrent.TimeUnit#toChronoUnit()": "java.util.concurrent.DesugarTimeUnit",
+        "long java.util.concurrent.TimeUnit#convert(java.time.Duration)": "java.util.concurrent.DesugarTimeUnit"
+      },
+      "retarget_method_with_emulated_dispatch": {
+        "long java.io.InputStream#transferTo(java.io.OutputStream)": "java.io.DesugarInputStream",
+        "long java.io.ByteArrayInputStream#transferTo(java.io.OutputStream)": "long java.io.DesugarInputStream#transferTo(java.io.InputStream, java.io.OutputStream)"
+      },
+      "amend_library_method": [
+        "public static java.util.concurrent.TimeUnit java.util.concurrent.TimeUnit#of(java.time.temporal.ChronoUnit)",
+        "public java.time.temporal.ChronoUnit java.util.concurrent.TimeUnit#toChronoUnit()",
+        "public long java.util.concurrent.TimeUnit#convert(java.time.Duration)",
+        "public long java.io.InputStream#transferTo(java.io.OutputStream)",
+        "public long java.io.ByteArrayInputStream#transferTo(java.io.OutputStream)"
+      ]
+    },
+    {
+      "api_level_below_or_equal": 29,
+      "rewrite_prefix": {
+        "java.util.concurrent.Flow": "j$.util.concurrent.Flow"
+      },
+      "wrapper_conversion": [
+        "java.util.concurrent.Flow$Publisher",
+        "java.util.concurrent.Flow$Subscriber",
+        "java.util.concurrent.Flow$Subscription"
+      ]
+    },
+    {
+      "api_level_below_or_equal": 32,
+      "api_level_greater_or_equal": 24,
+      "rewrite_prefix": {
+        "java.util.stream.DesugarCollectors": "j$.util.stream.DesugarCollectors"
+      },
+      "retarget_method": {
+        "java.util.stream.Collector java.util.stream.Collectors#filtering(java.util.function.Predicate, java.util.stream.Collector)": "java.util.stream.DesugarCollectors",
+        "java.util.stream.Collector java.util.stream.Collectors#flatMapping(java.util.function.Function, java.util.stream.Collector)": "java.util.stream.DesugarCollectors",
+        "java.util.stream.Collector java.util.stream.Collectors#toUnmodifiableList()": "java.util.stream.DesugarCollectors",
+        "java.util.stream.Collector java.util.stream.Collectors#toUnmodifiableMap(java.util.function.Function, java.util.function.Function)": "java.util.stream.DesugarCollectors",
+        "java.util.stream.Collector java.util.stream.Collectors#toUnmodifiableMap(java.util.function.Function, java.util.function.Function, java.util.function.BinaryOperator)": "java.util.stream.DesugarCollectors",
+        "java.util.stream.Collector java.util.stream.Collectors#toUnmodifiableSet()": "java.util.stream.DesugarCollectors"
+      },
+      "amend_library_method": [
+        "public static java.util.stream.Collector java.util.stream.Collectors#filtering(java.util.function.Predicate, java.util.stream.Collector)",
+        "public static java.util.stream.Collector java.util.stream.Collectors#flatMapping(java.util.function.Function, java.util.stream.Collector)",
+        "public static java.util.stream.Collector java.util.stream.Collectors#toUnmodifiableList()",
+        "public static java.util.stream.Collector java.util.stream.Collectors#toUnmodifiableMap(java.util.function.Function, java.util.function.Function)",
+        "public static java.util.stream.Collector java.util.stream.Collectors#toUnmodifiableMap(java.util.function.Function, java.util.function.Function, java.util.function.BinaryOperator)",
+        "public static java.util.stream.Collector java.util.stream.Collectors#toUnmodifiableSet()"
+      ]
+    },
+    {
+      "api_level_below_or_equal": 30,
+      "api_level_greater_or_equal": 26,
+      "rewrite_prefix": {
+        "java.time.DesugarDuration": "j$.time.DesugarDuration",
+        "java.time.DesugarLocalTime": "j$.time.DesugarLocalTime"
+      },
+      "retarget_method": {
+        "long java.time.Duration#dividedBy(java.time.Duration)": "java.time.DesugarDuration",
+        "long java.time.Duration#toDaysPart()": "java.time.DesugarDuration",
+        "int java.time.Duration#toHoursPart()": "java.time.DesugarDuration",
+        "int java.time.Duration#toMillisPart()": "java.time.DesugarDuration",
+        "int java.time.Duration#toMinutesPart()": "java.time.DesugarDuration",
+        "int java.time.Duration#toNanosPart()": "java.time.DesugarDuration",
+        "long java.time.Duration#toSeconds()": "java.time.DesugarDuration",
+        "int java.time.Duration#toSecondsPart()": "java.time.DesugarDuration",
+        "java.time.Duration java.time.Duration#truncatedTo(java.time.temporal.TemporalUnit)": "java.time.DesugarDuration",
+        "java.time.LocalTime java.time.LocalTime#ofInstant(java.time.Instant, java.time.ZoneId)": "java.time.DesugarLocalTime",
+        "long java.time.LocalTime#toEpochSecond(java.time.LocalDate, java.time.ZoneOffset)": "java.time.DesugarLocalTime"
+      },
+      "amend_library_method": [
+        "public long java.time.Duration#dividedBy(java.time.Duration)",
+        "public long java.time.Duration#toDaysPart()",
+        "public int java.time.Duration#toHoursPart()",
+        "public int java.time.Duration#toMillisPart()",
+        "public int java.time.Duration#toMinutesPart()",
+        "public int java.time.Duration#toNanosPart()",
+        "public long java.time.Duration#toSeconds()",
+        "public int java.time.Duration#toSecondsPart()",
+        "public java.time.Duration java.time.Duration#truncatedTo(java.time.temporal.TemporalUnit)",
+        "public static java.time.LocalTime java.time.LocalTime#ofInstant(java.time.Instant, java.time.ZoneId)",
+        "public long java.time.LocalTime#toEpochSecond(java.time.LocalDate, java.time.ZoneOffset)"
+      ]
+    },
+    {
+      "api_level_below_or_equal": 25,
+      "rewrite_prefix": {
+        "java.time.": "j$.time.",
+        "java.util.Base64": "j$.util.Base64",
+        "java.util.Desugar": "j$.util.Desugar"
+      },
+      "dont_rewrite_prefix": [
+        "java.time.InstantSource"
+      ],
+      "retarget_method": {
+        "java.util.TimeZone java.util.TimeZone#getTimeZone(java.time.ZoneId)": "java.util.DesugarTimeZone"
+      },
+      "retarget_method_with_emulated_dispatch": {
+        "java.time.Instant java.util.Date#toInstant()": "java.util.DesugarDate",
+        "java.time.ZoneId java.util.TimeZone#toZoneId()": "java.util.DesugarTimeZone",
+        "java.time.ZonedDateTime java.util.GregorianCalendar#toZonedDateTime()": "java.util.DesugarGregorianCalendar"
+      },
+      "wrapper_conversion": [
+        "java.time.Clock"
+      ],
+      "custom_conversion": {
+        "java.time.Duration": "java.time.TimeConversions",
+        "java.time.Instant": "java.time.TimeConversions",
+        "java.time.LocalDate": "java.time.TimeConversions",
+        "java.time.LocalDateTime": "java.time.TimeConversions",
+        "java.time.LocalTime": "java.time.TimeConversions",
+        "java.time.MonthDay": "java.time.TimeConversions",
+        "java.time.Period": "java.time.TimeConversions",
+        "java.time.ZoneId": "java.time.TimeConversions",
+        "java.time.ZonedDateTime": "java.time.TimeConversions",
+        "java.time.ZoneOffset": "java.time.TimeConversions"
+      }
+    },
+    {
+      "api_level_below_or_equal": 25,
+      "rewrite_prefix": {
+        "java.io.DesugarFile": "j$.io.DesugarFile",
+        "java.nio.channels.AsynchronousChannel": "j$.nio.channels.AsynchronousChannel",
+        "java.nio.channels.AsynchronousFileChannel": "j$.nio.channels.AsynchronousFileChannel",
+        "java.nio.channels.CompletionHandler": "j$.nio.channels.CompletionHandler",
+        "java.nio.channels.Desugar": "j$.nio.channels.Desugar",
+        "java.nio.file.": "j$.nio.file."
+      },
+      "dont_rewrite_prefix": [
+        "java.nio.channels.AsynchronousChannelGroup",
+        "java.nio.file.AccessDeniedException",
+        "java.nio.file.AtomicMoveNotSupportedException",
+        "java.nio.file.ClosedDirectoryStreamException",
+        "java.nio.file.ClosedFileSystemException",
+        "java.nio.file.ClosedWatchServiceException",
+        "java.nio.file.DirectoryIteratorException",
+        "java.nio.file.DirectoryNotEmptyException",
+        "java.nio.file.DirectoryStream",
+        "java.nio.file.FileAlreadyExistsException",
+        "java.nio.file.FileSystemAlreadyExistsException",
+        "java.nio.file.FileSystemException",
+        "java.nio.file.FileSystemLoopException",
+        "java.nio.file.FileSystemNotFoundException",
+        "java.nio.file.InvalidPathException",
+        "java.nio.file.NoSuchFileException",
+        "java.nio.file.NotDirectoryException",
+        "java.nio.file.NotLinkException",
+        "java.nio.file.ProviderMismatchException",
+        "java.nio.file.ProviderNotFoundException",
+        "java.nio.file.ReadOnlyFileSystemException"
+      ],
+      "maintain_prefix": [
+        "java.nio.file.AccessDeniedException",
+        "java.nio.file.AtomicMoveNotSupportedException",
+        "java.nio.file.ClosedDirectoryStreamException",
+        "java.nio.file.ClosedFileSystemException",
+        "java.nio.file.ClosedWatchServiceException",
+        "java.nio.file.DirectoryIteratorException",
+        "java.nio.file.DirectoryNotEmptyException",
+        "java.nio.file.DirectoryStream",
+        "java.nio.file.FileAlreadyExistsException",
+        "java.nio.file.FileSystemAlreadyExistsException",
+        "java.nio.file.FileSystemException",
+        "java.nio.file.FileSystemLoopException",
+        "java.nio.file.FileSystemNotFoundException",
+        "java.nio.file.InvalidPathException",
+        "java.nio.file.NoSuchFileException",
+        "java.nio.file.NotDirectoryException",
+        "java.nio.file.NotLinkException",
+        "java.nio.file.ProviderMismatchException",
+        "java.nio.file.ProviderNotFoundException",
+        "java.nio.file.ReadOnlyFileSystemException"
+      ],
+      "retarget_method": {
+        "java.nio.channels.FileChannel java.nio.channels.FileChannel#open(java.nio.file.Path, java.nio.file.OpenOption[])": "java.nio.channels.DesugarChannels"
+      },
+      "retarget_method_with_emulated_dispatch": {
+        "java.nio.file.Path java.io.File#toPath()": "java.io.DesugarFile"
+      },
+      "api_generic_types_conversion": {
+        "java.nio.channels.AsynchronousFileChannel java.nio.file.spi.FileSystemProvider#newAsynchronousFileChannel(java.nio.file.Path, java.util.Set, java.util.concurrent.ExecutorService, java.nio.file.attribute.FileAttribute[])" : [1, "java.util.Set java.nio.file.FileApiFlips#flipOpenOptionSet(java.util.Set)"],
+        "java.nio.channels.SeekableByteChannel java.nio.file.spi.FileSystemProvider#newByteChannel(java.nio.file.Path, java.util.Set, java.nio.file.attribute.FileAttribute[])" : [1, "java.util.Set java.nio.file.FileApiFlips#flipOpenOptionSet(java.util.Set)"],
+        "java.nio.channels.FileChannel java.nio.file.spi.FileSystemProvider#newFileChannel(java.nio.file.Path, java.util.Set, java.nio.file.attribute.FileAttribute[])" : [1, "java.util.Set java.nio.file.FileApiFlips#flipOpenOptionSet(java.util.Set)"],
+        "java.util.List java.nio.file.WatchKey#pollEvents()": [-1, "java.util.List java.nio.file.FileApiFlips#flipWatchEventList(java.util.List)"],
+        "java.lang.Object java.nio.file.WatchEvent#context()": [-1, "java.lang.Object java.nio.file.PathApiFlips#convertPath(java.lang.Object)"],
+        "boolean java.nio.file.FileStore#supportsFileAttributeView(java.lang.Class)": [0, "java.lang.Class java.nio.file.FileApiFlips#flipFileAttributeView(java.lang.Class)"],
+        "java.nio.file.attribute.FileAttributeView java.nio.file.spi.FileSystemProvider#getFileAttributeView(java.nio.file.Path, java.lang.Class, java.nio.file.LinkOption[])": [1, "java.lang.Class java.nio.file.FileApiFlips#flipFileAttributeView(java.lang.Class)"],
+        "java.nio.file.attribute.BasicFileAttributes java.nio.file.spi.FileSystemProvider#readAttributes(java.nio.file.Path, java.lang.Class, java.nio.file.LinkOption[])": [1, "java.lang.Class java.nio.file.FileApiFlips#flipFileAttributes(java.lang.Class)"],
+        "java.util.Set java.nio.file.attribute.PosixFileAttributes#permissions()": [-1, "java.util.Set java.nio.file.FileApiFlips#flipPosixPermissionSet(java.util.Set)"],
+        "void java.nio.file.attribute.PosixFileAttributeView#setPermissions(java.util.Set)": [0, "java.util.Set java.nio.file.FileApiFlips#flipPosixPermissionSet(java.util.Set)"],
+        "java.util.Map java.nio.file.spi.FileSystemProvider#readAttributes(java.nio.file.Path, java.lang.String, java.nio.file.LinkOption[])" : [-1, "java.util.Map java.nio.file.FileApiFlips#flipMapWithMaybeFileTimeValues(java.util.Map)"],
+        "java.lang.Iterable java.nio.file.FileSystem#getRootDirectories()": [-1, "java.lang.Iterable java.nio.file.PathApiFlips#flipIterablePath(java.lang.Iterable)"],
+        "java.util.Iterator java.nio.file.Path#iterator()": [-1, "java.util.Iterator java.nio.file.PathApiFlips#flipIteratorPath(java.util.Iterator)"],
+        "int java.nio.file.Path#compareTo(java.lang.Object)": [0, "java.lang.Object java.nio.file.PathApiFlips#convertPath(java.lang.Object)"],
+        "java.nio.file.DirectoryStream java.nio.file.spi.FileSystemProvider#newDirectoryStream(java.nio.file.Path, java.nio.file.DirectoryStream$Filter)": [-1, "java.nio.file.DirectoryStream java.nio.file.PathApiFlips#flipDirectoryStreamPath(java.nio.file.DirectoryStream)", 1, "java.nio.file.DirectoryStream$Filter java.nio.file.PathApiFlips#flipDirectoryStreamFilterPath(java.nio.file.DirectoryStream$Filter)"],
+        "void java.nio.file.spi.FileSystemProvider#setAttribute(java.nio.file.Path, java.lang.String, java.lang.Object, java.nio.file.LinkOption[])": [2, "java.lang.Object java.nio.file.FileApiFlips#flipMaybeFileTime(java.lang.Object)"],
+        "java.nio.channels.FileChannel java.nio.channels.FileChannel#open(java.nio.file.Path, java.util.Set, java.nio.file.attribute.FileAttribute[])" : [1, "java.util.Set java.nio.file.FileApiFlips#flipOpenOptionSet(java.util.Set)"]
+      },
+      "wrapper_conversion": [
+        "java.nio.channels.CompletionHandler",
+        "java.nio.file.Path",
+        "java.nio.file.FileSystem",
+        "java.nio.file.WatchService",
+        "java.nio.file.WatchEvent",
+        "java.nio.file.WatchEvent$Kind",
+        "java.nio.file.WatchKey",
+        "java.nio.file.Watchable",
+        "java.nio.file.PathMatcher",
+        "java.nio.file.WatchEvent$Modifier",
+        "java.nio.file.attribute.UserPrincipalLookupService",
+        "java.nio.file.spi.FileSystemProvider",
+        "java.nio.file.AccessMode",
+        "java.nio.file.OpenOption",
+        "java.nio.file.StandardOpenOption",
+        "java.nio.file.LinkOption",
+        "java.nio.file.CopyOption",
+        "java.nio.file.StandardCopyOption",
+        "java.nio.file.attribute.GroupPrincipal",
+        "java.nio.file.attribute.UserPrincipal",
+        "java.nio.file.FileStore",
+        "java.nio.file.attribute.FileStoreAttributeView",
+        "java.nio.file.attribute.PosixFilePermission",
+        "java.nio.file.attribute.BasicFileAttributes",
+        "java.nio.file.attribute.DosFileAttributes",
+        "java.nio.file.attribute.PosixFileAttributes",
+        "java.nio.file.attribute.FileAttribute",
+        "java.nio.file.attribute.FileAttributeView",
+        "java.nio.file.attribute.FileOwnerAttributeView",
+        "java.nio.file.attribute.DosFileAttributeView",
+        "java.nio.file.attribute.PosixFileAttributeView",
+        "java.nio.file.attribute.BasicFileAttributeView",
+        "java.nio.file.attribute.AclFileAttributeView",
+        "java.nio.file.attribute.UserDefinedFileAttributeView"
+      ],
+      "wrapper_conversion_excluding": {
+        "java.nio.channels.AsynchronousFileChannel": [
+          "void java.nio.channels.AsynchronousFileChannel#lock(java.lang.Object, java.nio.channels.CompletionHandler)",
+          "java.util.concurrent.Future java.nio.channels.AsynchronousFileChannel#lock()",
+          "java.nio.channels.FileLock java.nio.channels.AsynchronousFileChannel#tryLock()"
+        ]
+      },
+      "custom_conversion": {
+        "java.nio.file.attribute.FileTime": "java.nio.file.attribute.FileAttributeConversions",
+        "java.nio.file.attribute.FileAttribute": "java.nio.file.attribute.FileAttributeConversions",
+        "java.nio.file.WatchEvent$Kind": "java.nio.file.WatchEventKindConversions"
+      }
+    },
+    {
+      "api_level_below_or_equal": 23,
+      "rewrite_prefix": {
+        "java.io.DesugarBufferedReader": "j$.io.DesugarBufferedReader",
+        "java.util.DoubleSummaryStatistics": "j$.util.DoubleSummaryStatistics",
+        "java.util.IntSummaryStatistics": "j$.util.IntSummaryStatistics",
+        "java.util.LongSummaryStatistics": "j$.util.LongSummaryStatistics",
+        "java.util.Objects": "j$.util.Objects",
+        "java.util.Optional": "j$.util.Optional",
+        "java.util.PrimitiveIterator": "j$.util.PrimitiveIterator",
+        "java.util.Spliterator": "j$.util.Spliterator",
+        "java.util.StringJoiner": "j$.util.StringJoiner",
+        "java.util.concurrent.ConcurrentHashMap": "j$.util.concurrent.ConcurrentHashMap",
+        "java.util.concurrent.ThreadLocalRandom": "j$.util.concurrent.ThreadLocalRandom",
+        "java.util.concurrent.atomic.DesugarAtomic": "j$.util.concurrent.atomic.DesugarAtomic",
+        "java.util.stream.": "j$.util.stream."
+      },
+      "maintain_prefix": [
+        "java.util.function.",
+        "java.io.UncheckedIOException",
+        "java.nio.channels.SeekableByteChannel"
+      ],
+      "emulate_interface": {
+        "java.lang.Iterable": "j$.lang.Iterable",
+        "java.util.Collection": "j$.util.Collection",
+        "java.util.Comparator": "j$.util.Comparator",
+        "java.util.Iterator": "j$.util.Iterator",
+        "java.util.List": "j$.util.List",
+        "java.util.Map": "j$.util.Map",
+        "java.util.Map$Entry": "j$.util.Map$Entry",
+        "java.util.Set": "j$.util.Set",
+        "java.util.SortedSet": "j$.util.SortedSet",
+        "java.util.concurrent.ConcurrentMap": "j$.util.concurrent.ConcurrentMap"
+      },
+      "dont_rewrite": [
+        "void java.util.Iterator#remove()"
+      ],
+      "retarget_method": {
+        "java.util.Spliterator java.util.Arrays#spliterator(java.lang.Object[])": "java.util.DesugarArrays",
+        "java.util.Spliterator java.util.Arrays#spliterator(java.lang.Object[], int, int)": "java.util.DesugarArrays",
+        "java.util.Spliterator$OfDouble java.util.Arrays#spliterator(double[])": "java.util.DesugarArrays",
+        "java.util.Spliterator$OfDouble java.util.Arrays#spliterator(double[], int, int)": "java.util.DesugarArrays",
+        "java.util.Spliterator$OfInt java.util.Arrays#spliterator(int[])": "java.util.DesugarArrays",
+        "java.util.Spliterator$OfInt java.util.Arrays#spliterator(int[], int, int)": "java.util.DesugarArrays",
+        "java.util.Spliterator$OfLong java.util.Arrays#spliterator(long[])": "java.util.DesugarArrays",
+        "java.util.Spliterator$OfLong java.util.Arrays#spliterator(long[], int, int)": "java.util.DesugarArrays",
+        "java.util.stream.DoubleStream java.util.Arrays#stream(double[])": "java.util.DesugarArrays",
+        "java.util.stream.DoubleStream java.util.Arrays#stream(double[], int, int)": "java.util.DesugarArrays",
+        "java.util.stream.IntStream java.util.Arrays#stream(int[])": "java.util.DesugarArrays",
+        "java.util.stream.IntStream java.util.Arrays#stream(int[], int, int)": "java.util.DesugarArrays",
+        "java.util.stream.LongStream java.util.Arrays#stream(long[])": "java.util.DesugarArrays",
+        "java.util.stream.LongStream java.util.Arrays#stream(long[], int, int)": "java.util.DesugarArrays",
+        "java.util.stream.Stream java.util.Arrays#stream(java.lang.Object[])": "java.util.DesugarArrays",
+        "java.util.stream.Stream java.util.Arrays#stream(java.lang.Object[], int, int)": "java.util.DesugarArrays"
+      },
+      "retarget_method_with_emulated_dispatch": {
+        "java.util.stream.Stream java.io.BufferedReader#lines()": "java.io.DesugarBufferedReader",
+        "java.util.Spliterator java.util.LinkedHashSet#spliterator()": "java.util.DesugarLinkedHashSet"
+      },
+      "api_generic_types_conversion": {
+        "java.util.Set java.util.stream.Collector#characteristics()" : [-1, "java.util.Set java.util.stream.StreamApiFlips#flipCharacteristicSet(java.util.Set)"],
+        "java.util.stream.Stream java.util.stream.Stream#flatMap(java.util.function.Function)": [0, "java.util.function.Function java.util.stream.FlatMapApiFlips#flipFunctionReturningStream(java.util.function.Function)"],
+        "java.util.stream.DoubleStream java.util.stream.DoubleStream#flatMap(java.util.function.DoubleFunction)": [0, "java.util.function.DoubleFunction java.util.stream.FlatMapApiFlips#flipFunctionReturningStream(java.util.function.DoubleFunction)"],
+        "java.util.stream.DoubleStream java.util.stream.Stream#flatMapToDouble(java.util.function.Function)": [0, "java.util.function.Function java.util.stream.FlatMapApiFlips#flipFunctionReturningStream(java.util.function.Function)"],
+        "java.util.stream.IntStream java.util.stream.Stream#flatMapToInt(java.util.function.Function)": [0, "java.util.function.Function java.util.stream.FlatMapApiFlips#flipFunctionReturningStream(java.util.function.Function)"],
+        "java.util.stream.IntStream java.util.stream.IntStream#flatMap(java.util.function.IntFunction)": [0, "java.util.function.IntFunction java.util.stream.FlatMapApiFlips#flipFunctionReturningStream(java.util.function.IntFunction)"],
+        "java.util.stream.LongStream java.util.stream.Stream#flatMapToLong(java.util.function.Function)": [0, "java.util.function.Function java.util.stream.FlatMapApiFlips#flipFunctionReturningStream(java.util.function.Function)"],
+        "java.util.stream.LongStream java.util.stream.LongStream#flatMap(java.util.function.LongFunction)": [0, "java.util.function.LongFunction java.util.stream.FlatMapApiFlips#flipFunctionReturningStream(java.util.function.LongFunction)"],
+        "java.lang.Object java.lang.StackWalker#walk(java.util.function.Function)": [0, "java.util.function.Function java.util.stream.StackWalkerApiFlips#flipFunctionStream(java.util.function.Function)"],
+        "java.nio.channels.FileChannel java.io.RandomAccessFile#getChannel()": [-1, "java.nio.channels.FileChannel java.nio.channels.DesugarChannels#convertMaybeLegacyFileChannelFromLibrary(java.nio.channels.FileChannel)"],
+        "java.nio.channels.FileChannel java.io.FileInputStream#getChannel()": [-1, "java.nio.channels.FileChannel java.nio.channels.DesugarChannels#convertMaybeLegacyFileChannelFromLibrary(java.nio.channels.FileChannel)"],
+        "java.nio.channels.FileChannel java.io.FileOutputStream#getChannel()": [-1, "java.nio.channels.FileChannel java.nio.channels.DesugarChannels#convertMaybeLegacyFileChannelFromLibrary(java.nio.channels.FileChannel)"]
+      },
+      "never_outline_api": [
+        "java.lang.Object java.lang.StackWalker#walk(java.util.function.Function)"
+      ],
+      "wrapper_conversion": [
+        "java.util.PrimitiveIterator$OfDouble",
+        "java.util.PrimitiveIterator$OfInt",
+        "java.util.PrimitiveIterator$OfLong",
+        "java.util.Spliterator",
+        "java.util.Spliterator$OfDouble",
+        "java.util.Spliterator$OfInt",
+        "java.util.Spliterator$OfLong",
+        "java.util.Spliterator$OfPrimitive",
+        "java.util.stream.BaseStream",
+        "java.util.stream.Collector",
+        "java.util.stream.Collector$Characteristics",
+        "java.util.stream.DoubleStream",
+        "java.util.stream.IntStream",
+        "java.util.stream.LongStream",
+        "java.util.stream.Stream"
+      ],
+      "custom_conversion": {
+        "java.util.DoubleSummaryStatistics": "java.util.DoubleSummaryStatisticsConversions",
+        "java.util.IntSummaryStatistics": "java.util.IntSummaryStatisticsConversions",
+        "java.util.LongSummaryStatistics": "java.util.LongSummaryStatisticsConversions",
+        "java.util.Optional": "java.util.OptionalConversions",
+        "java.util.OptionalDouble": "java.util.OptionalConversions",
+        "java.util.OptionalInt": "java.util.OptionalConversions",
+        "java.util.OptionalLong": "java.util.OptionalConversions"
+      }
+    },
+    {
+      "api_level_below_or_equal": 18,
+      "rewrite_prefix": {
+        "java.nio.charset.StandardCharsets": "j$.nio.charset.StandardCharsets"
+      },
+      "retarget_method": {
+        "boolean java.lang.Character#isBmpCodePoint(int)": "java.lang.DesugarCharacter"
+      }
+    }
+  ],
+  "program_flags": [
+    {
+      "api_level_below_or_equal": 10000,
+      "amend_library_method": [
+        "public static java.util.stream.DoubleStream java.util.stream.DoubleStream#iterate(double, java.util.function.DoublePredicate, java.util.function.DoubleUnaryOperator)",
+        "public static java.util.stream.IntStream java.util.stream.IntStream#iterate(int, java.util.function.IntPredicate, java.util.function.IntUnaryOperator)",
+        "public static java.util.stream.LongStream java.util.stream.LongStream#iterate(long, java.util.function.LongPredicate, java.util.function.LongUnaryOperator)",
+        "public static java.util.stream.Stream java.util.stream.Stream#iterate(java.lang.Object, java.util.function.Predicate, java.util.function.UnaryOperator)"
+      ]
+    },
+    {
+      "api_level_below_or_equal": 10000,
+      "api_level_greater_or_equal": 26,
+      "retarget_method": {
+        "java.nio.file.Path java.nio.file.Path#of(java.lang.String, java.lang.String[])": "java.nio.file.Path java.nio.file.Paths#get(java.lang.String, java.lang.String[])",
+        "java.nio.file.Path java.nio.file.Path#of(java.net.URI)": "java.nio.file.Path java.nio.file.Paths#get(java.net.URI)"
+      }
+    },
+    {
+      "api_level_below_or_equal": 33,
+      "amend_library_method": [
+        "public java.lang.Object[] java.util.Collection#toArray(java.util.function.IntFunction)"
+      ]
+    },
+    {
+      "api_level_below_or_equal": 32,
+      "api_level_greater_or_equal": 26,
+      "covariant_retarget_method": {
+        "java.time.chrono.IsoEra java.time.LocalDate#getEra()": "java.time.chrono.Era"
+      },
+      "amend_library_method": [
+        "public java.time.chrono.IsoEra java.time.LocalDate#getEra()"
+      ]
+    },
+    {
+      "api_level_below_or_equal": 25,
+      "retarget_method": {
+        "java.time.Instant java.util.Calendar#toInstant()": "java.util.DesugarCalendar",
+        "java.util.Date java.util.Date#from(java.time.Instant)": "java.util.DesugarDate",
+        "java.util.GregorianCalendar java.util.GregorianCalendar#from(java.time.ZonedDateTime)": "java.util.DesugarGregorianCalendar",
+        "java.util.TimeZone java.util.TimeZone#getTimeZone(java.lang.String)": "java.util.DesugarTimeZone",
+        "java.nio.channels.FileChannel java.nio.channels.FileChannel#open(java.nio.file.Path, java.util.Set, java.nio.file.attribute.FileAttribute[])": "java.nio.channels.DesugarChannels"
+      }
+    },
+    {
+      "api_level_below_or_equal": 23,
+      "retarget_method": {
+        "int java.util.concurrent.atomic.AtomicInteger#accumulateAndGet(int, java.util.function.IntBinaryOperator)": "java.util.concurrent.atomic.DesugarAtomicInteger",
+        "int java.util.concurrent.atomic.AtomicInteger#getAndAccumulate(int, java.util.function.IntBinaryOperator)": "java.util.concurrent.atomic.DesugarAtomicInteger",
+        "int java.util.concurrent.atomic.AtomicInteger#getAndUpdate(java.util.function.IntUnaryOperator)": "java.util.concurrent.atomic.DesugarAtomicInteger",
+        "int java.util.concurrent.atomic.AtomicInteger#updateAndGet(java.util.function.IntUnaryOperator)": "java.util.concurrent.atomic.DesugarAtomicInteger",
+        "java.lang.Object java.util.concurrent.atomic.AtomicReference#accumulateAndGet(java.lang.Object, java.util.function.BinaryOperator)": "java.util.concurrent.atomic.DesugarAtomicReference",
+        "java.lang.Object java.util.concurrent.atomic.AtomicReference#getAndAccumulate(java.lang.Object, java.util.function.BinaryOperator)": "java.util.concurrent.atomic.DesugarAtomicReference",
+        "java.lang.Object java.util.concurrent.atomic.AtomicReference#getAndUpdate(java.util.function.UnaryOperator)": "java.util.concurrent.atomic.DesugarAtomicReference",
+        "java.lang.Object java.util.concurrent.atomic.AtomicReference#updateAndGet(java.util.function.UnaryOperator)": "java.util.concurrent.atomic.DesugarAtomicReference",
+        "java.util.Map java.util.Collections#synchronizedMap(java.util.Map)": "java.util.DesugarCollections",
+        "java.util.SortedMap java.util.Collections#synchronizedSortedMap(java.util.SortedMap)": "java.util.DesugarCollections",
+        "long java.util.concurrent.atomic.AtomicLong#accumulateAndGet(long, java.util.function.LongBinaryOperator)": "java.util.concurrent.atomic.DesugarAtomicLong",
+        "long java.util.concurrent.atomic.AtomicLong#getAndAccumulate(long, java.util.function.LongBinaryOperator)": "java.util.concurrent.atomic.DesugarAtomicLong",
+        "long java.util.concurrent.atomic.AtomicLong#getAndUpdate(java.util.function.LongUnaryOperator)": "java.util.concurrent.atomic.DesugarAtomicLong",
+        "long java.util.concurrent.atomic.AtomicLong#updateAndGet(java.util.function.LongUnaryOperator)": "java.util.concurrent.atomic.DesugarAtomicLong"
+      }
+    },
+    {
+      "api_level_below_or_equal": 18,
+      "rewrite_prefix": {
+        "java.lang.DesugarCharacter": "j$.lang.DesugarCharacter"
+      }
+    }
+  ],
+  "library_flags": [
+    {
+      "api_level_below_or_equal": 10000,
+      "api_level_greater_or_equal": 26,
+      "rewrite_prefix": {
+        "sun.nio.cs.UTF_8": "j$.sun.nio.cs.UTF_8"
+      },
+      "retarget_static_field": {
+        "sun.nio.cs.UTF_8 sun.nio.cs.UTF_8#INSTANCE": "java.nio.charset.Charset java.nio.charset.StandardCharsets#UTF_8"
+      }
+    },
+    {
+      "api_level_below_or_equal": 32,
+      "rewrite_prefix": {
+        "desugar.": "j$.desugar.",
+        "java.util.concurrent.Helpers": "j$.util.concurrent.Helpers",
+        "libcore.": "j$.libcore.",
+        "sun.security.action.": "j$.sun.security.action."
+      }
+    },
+    {
+      "api_level_below_or_equal": 25,
+      "rewrite_prefix": {
+        "jdk.internal.": "j$.jdk.internal.",
+        "sun.misc.Desugar": "j$.sun.misc.Desugar",
+        "sun.nio.cs.": "j$.sun.nio.cs.",
+        "sun.nio.fs.AbstractFileSystemProvider": "j$.sun.nio.fs.AbstractFileSystemProvider",
+        "sun.nio.fs.AbstractFileTypeDetector": "j$.sun.nio.fs.AbstractFileTypeDetector",
+        "sun.nio.fs.BasicFileAttributesHolder": "j$.sun.nio.fs.BasicFileAttributesHolder",
+        "sun.nio.fs.DynamicFileAttributeView": "j$.sun.nio.fs.DynamicFileAttributeView",
+        "sun.util.PreHashedMap": "j$.sun.util.PreHashedMap",
+        "java.adapter" : "j$.adapter",
+        "java.util.ConversionRuntimeException": "j$.util.ConversionRuntimeException"
+      },
+      "rewrite_derived_prefix": {
+        "desugar.sun.nio.fs.DesugarDefaultFileSystemProvider": {
+          "sun.nio.fs.DefaultFileSystemProvider": "j$.adapter.HybridFileSystemProvider"
+        },
+        "desugar.sun.nio.fs.DesugarDefaultFileTypeDetector": {
+          "sun.nio.fs.DefaultFileTypeDetector": "j$.adapter.HybridFileTypeDetector"
+        },
+        "sun.misc.DesugarUnsafe": {
+          "jdk.internal.misc.Unsafe" : "j$.sun.misc.DesugarUnsafe"
+        },
+        "java.time.": {
+          "j$.time.": "java.time."
+        },
+        "java.nio.file.": {
+          "j$.nio.file.": "java.nio.file."
+        }
+      },
+      "retarget_method": {
+        "boolean java.util.Arrays#deepEquals0(java.lang.Object, java.lang.Object)": "java.util.DesugarArrays"
+      },
+      "backport": {
+        "java.lang.DesugarDouble": "java.lang.Double",
+        "java.lang.DesugarInteger": "java.lang.Integer",
+        "java.lang.DesugarLong": "java.lang.Long",
+        "java.lang.DesugarMath": "java.lang.Math"
+      },
+      "amend_library_method": [
+        "private static boolean java.util.Arrays#deepEquals0(java.lang.Object, java.lang.Object)"
+      ]
+    },
+    {
+      "api_level_below_or_equal": 23,
+      "rewrite_prefix": {
+        "java.lang.FunctionalInterface": "j$.lang.FunctionalInterface",
+        "java.util.AbstractList": "j$.util.AbstractList",
+        "java.util.CollSer": "j$.util.CollSer",
+        "java.util.Comparators": "j$.util.Comparators",
+        "java.util.ImmutableCollections": "j$.util.ImmutableCollections",
+        "java.util.KeyValueHolder": "j$.util.KeyValueHolder",
+        "java.util.SortedSet$1": "j$.util.SortedSet$1",
+        "java.util.Tripwire": "j$.util.Tripwire"
+      },
+      "rewrite_derived_prefix": {
+        "java.util.DoubleSummaryStatistics": {
+          "j$.util.DoubleSummaryStatistics": "java.util.DoubleSummaryStatistics"
+        },
+        "java.util.IntSummaryStatistics": {
+          "j$.util.IntSummaryStatistics": "java.util.IntSummaryStatistics"
+        },
+        "java.util.LongSummaryStatistics": {
+          "j$.util.LongSummaryStatistics": "java.util.LongSummaryStatistics"
+        },
+        "java.util.stream.Collector": {
+          "j$.util.stream.Collector": "java.util.stream.Collector"
+        },
+        "java.util.Optional": {
+          "j$.util.Optional": "java.util.Optional"
+        },
+        "java.util.stream.DoubleStream": {
+          "j$.util.stream.DoubleStream": "java.util.stream.DoubleStream"
+        },
+        "java.util.stream.IntStream": {
+          "j$.util.stream.IntStream": "java.util.stream.IntStream"
+        },
+        "java.util.stream.LongStream": {
+          "j$.util.stream.LongStream": "java.util.stream.LongStream"
+        },
+        "java.util.stream.Stream": {
+          "j$.util.stream.Stream": "java.util.stream.Stream"
+        }
+      }
+    },
+    {
+      "api_level_below_or_equal": 18,
+      "rewrite_prefix": {
+        "java.lang.DesugarCharacter": "j$.lang.DesugarCharacter"
+      },
+      "retarget_method" : {
+        "boolean java.lang.Character#isSurrogate(char)" : "java.lang.DesugarCharacter",
+        "char java.lang.Character#highSurrogate(int)" : "java.lang.DesugarCharacter",
+        "char java.lang.Character#lowSurrogate(int)" : "java.lang.DesugarCharacter"
+      },
+      "retarget_static_field": {
+        "sun.nio.cs.US_ASCII sun.nio.cs.US_ASCII#INSTANCE": "java.nio.charset.Charset java.nio.charset.StandardCharsets#US_ASCII",
+        "sun.nio.cs.ISO_8859_1 sun.nio.cs.ISO_8859_1#INSTANCE": "java.nio.charset.Charset java.nio.charset.StandardCharsets#ISO_8859_1",
+        "sun.nio.cs.UTF_8 sun.nio.cs.UTF_8#INSTANCE": "java.nio.charset.Charset java.nio.charset.StandardCharsets#UTF_8"
+      }
+    }
+  ],
+  "shrinker_config": [
+    "-keepclassmembers class j$.** extends java.io.Serializable { void <init>(); private static final java.io.ObjectStreamField[] serialPersistentFields; static final long serialVersionUID; java.lang.Object readResolve(); java.lang.Object writeReplace(); private void readObject(java.io.ObjectInputStream); private void writeObject(java.io.ObjectOutputStream); private void readObjectNoData(); }",
+    "-keepclassmembers class j$.util.concurrent.ConcurrentHashMap$TreeBin { int lockState; }",
+    "-keepclassmembers class j$.util.concurrent.ConcurrentHashMap { int sizeCtl; int transferIndex; long baseCount; int cellsBusy; }",
+    "-keepclassmembers class j$.util.concurrent.ConcurrentHashMap$CounterCell { long value; }",
+    "-keepclassmembers enum * { public static **[] values(); public static ** valueOf(java.lang.String); public static final !synthetic <fields>; }",
+    "-keeppackagenames java.**",
+    "-keeppackagenames j$.**",
+    "-keepclassmembers class j$.util.IntSummaryStatistics { long count; long sum; int min; int max; }",
+    "-keepclassmembers class j$.util.LongSummaryStatistics { long count; long sum; long min; long max; }",
+    "-keepclassmembers class j$.util.DoubleSummaryStatistics { long count; double sum; double min; double max; }",
+    "-keepattributes Signature",
+    "-keepattributes EnclosingMethod",
+    "-keepattributes InnerClasses",
+    "-dontwarn sun.misc.Unsafe",
+    "-dontwarn wrapper.**",
+    "-dontwarn sun.nio.fs.UnixFileSystemProvider"
+  ]
+}
