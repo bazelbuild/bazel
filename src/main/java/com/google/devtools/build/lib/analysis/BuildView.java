@@ -256,7 +256,8 @@ public class BuildView {
     }
 
     skyframeBuildView.setConfigurations(
-        eventHandler, configurations, viewOptions.maxConfigChangesToShow);
+        eventHandler, configurations, viewOptions.maxConfigChangesToShow,
+        viewOptions.allowAnalysisCacheDiscards);
 
     eventBus.post(
         new MakeEnvironmentEvent(configurations.getTargetConfiguration().getMakeEnvironment()));
@@ -535,7 +536,7 @@ public class BuildView {
       TopLevelTargetsAndConfigsResult topLevelTargetsWithConfigs,
       boolean includeExecutionPhase)
       throws InterruptedException {
-    Set<Label> testsToRun = loadingResult.getTestsToRunLabels();
+    ImmutableSet<Label> testsToRun = loadingResult.getTestsToRunLabels();
     Set<ConfiguredTarget> configuredTargets =
         Sets.newLinkedHashSet(skyframeAnalysisResult.getConfiguredTargets());
     ImmutableMap<AspectKey, ConfiguredAspect> aspects = skyframeAnalysisResult.getAspects();

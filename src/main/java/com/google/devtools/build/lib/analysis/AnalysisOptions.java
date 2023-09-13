@@ -40,6 +40,17 @@ public class AnalysisOptions extends OptionsBase {
   public boolean discardAnalysisCache;
 
   @Option(
+      name = "allow_analysis_cache_discard",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
+      help =
+          "If discarding the analysis cache due to a change in the build system, setting this"
+              + " option to false will cause bazel to exit, rather than continuing with the build."
+              + " This option has no effect when 'discard_analysis_cache' is also set.")
+  public boolean allowAnalysisCacheDiscards;
+
+  @Option(
     name = "max_config_changes_to_show",
     defaultValue = "3",
     documentationCategory = OptionDocumentationCategory.LOGGING,
