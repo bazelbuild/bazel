@@ -255,6 +255,8 @@ function test_show_transitive_config_fragments() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   cat > $pkg/BUILD <<'EOF'
+load("@rules_python//python:py_library.bzl", "py_library")
+
 cc_library(
     name = "cclib",
     srcs = ["mylib.cc"],
@@ -326,6 +328,8 @@ function test_show_transitive_config_fragments_alias() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   cat > $pkg/BUILD <<'EOF'
+load("@rules_python//python:py_library.bzl", "py_library")
+
 cc_library(
     name = "cclib_with_py_dep",
     srcs = ["mylib2.cc"],
@@ -385,6 +389,8 @@ function test_show_transitive_config_fragments_host_deps() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   cat > $pkg/BUILD <<'EOF'
+load("@rules_python//python:py_library.bzl", "py_library")
+
 cc_library(
     name = "cclib_with_py_dep",
     srcs = ["mylib2.cc"],
@@ -414,6 +420,8 @@ function test_show_transitive_config_fragments_through_output_file() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   cat > $pkg/BUILD <<'EOF'
+load("@rules_python//python:py_library.bzl", "py_library")
+
 cc_library(
     name = "cclib_with_py_dep",
     srcs = ["mylib2.cc"],
@@ -443,6 +451,8 @@ function test_show_direct_config_fragments() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   cat > $pkg/BUILD <<'EOF'
+load("@rules_python//python:py_library.bzl", "py_library")
+
 cc_library(
     name = "cclib",
     srcs = ["mylib.cc"],
@@ -866,6 +876,8 @@ function test_starlark_output_mode() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   cat > $pkg/BUILD <<'EOF'
+load("@rules_python//python:py_library.bzl", "py_library")
+
 py_library(
     name = "pylib",
     srcs = ["pylib.py"],
@@ -991,6 +1003,7 @@ EOF
 
   cat > $pkg/BUILD <<'EOF'
 load(":rules.bzl", "bool_flag", "list_flag", "root_rule")
+load("@rules_python//python:py_library.bzl", "py_library")
 
 exports_files(["rules.bzl"])
 
@@ -1060,6 +1073,8 @@ function test_starlark_build_options_invalid_arg() {
   mkdir -p $pkg
 
   cat > $pkg/BUILD <<'EOF'
+load("@rules_python//python:py_library.bzl", "py_library")
+
 py_library(
     name = "foo",
     srcs = ["pylib.py"],

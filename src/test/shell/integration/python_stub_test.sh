@@ -73,6 +73,8 @@ function test_python_version() {
   mkdir -p test
   touch test/main3.py
   cat > test/BUILD << EOF
+load("@rules_python//python:py_binary.bzl", "py_binary")
+
 py_binary(name = "main3",
     python_version = "PY3",
     srcs = ["main3.py"],
@@ -91,6 +93,8 @@ EOF
 function test_can_build_py_library_at_top_level_regardless_of_version() {
   mkdir -p test
   cat > test/BUILD << EOF
+load("@rules_python//python:py_library.bzl", "py_library")
+
 py_library(
     name = "lib3",
     srcs = ["lib3.py"],
@@ -112,6 +116,8 @@ function test_python_through_bash_without_runfile_links() {
   mkdir -p python_through_bash
 
   cat > python_through_bash/BUILD << EOF
+load("@rules_python//python:py_binary.bzl", "py_binary")
+
 py_binary(
     name = "inner",
     srcs = ["inner.py"],

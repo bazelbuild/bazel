@@ -170,6 +170,8 @@ EOF
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   echo "load('//$pkg:shell.bzl', 'starlark_shell')" > "$pkg/BUILD"
   cat >> "$pkg/BUILD" <<'EOF'
+load("@rules_python//python:py_binary.bzl", "py_binary")
+
 starlark_shell(
   name = "shelly",
   output = "ok.txt",
