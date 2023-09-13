@@ -421,7 +421,34 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
     ), ":")
 
     use_libcpp = darwin or bsd
-    bazel_linklibs = "-lc++:-lm" if use_libcpp else "-lstdc++:-lm"
+    is_as_needed_supported = _is_linker_option_supported(
+        repository_ctx,
+        cc,
+        "-Wl,-no-as-needed",
+        "-no-as-needed",
+    )
+    is_push_state_supported = _is_linker_option_supported(
+        repository_ctx,
+        cc,
+        "-Wl,--push-state",
+        "--push-state",
+    )
+    if use_libcpp:
+        bazel_default_libs = ["-lc++", "-lm"]
+    else:
+        bazel_default_libs = ["-lstdc++", "-lm"]
+    if is_as_needed_supported and is_push_state_supported:
+        # Do not link against C++ standard libraries unless they are actually
+        # used.
+        # We assume that --push-state support implies --pop-state support.
+        bazel_linklibs_elements = [
+            arg
+            for lib in bazel_default_libs
+            for arg in ["-Wl,--push-state,-as-needed", lib, "-Wl,--pop-state"]
+        ]
+    else:
+        bazel_linklibs_elements = bazel_default_libs
+    bazel_linklibs = ":".join(bazel_linklibs_elements)
     bazel_linkopts = ""
 
     link_opts = split_escaped(get_env_var(
@@ -585,11 +612,8 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
             "%{conly_flags}": get_starlark_list(conly_opts),
             "%{link_flags}": get_starlark_list((
                 ["-fuse-ld=" + gold_or_lld_linker_path] if gold_or_lld_linker_path else []
-            ) + _add_linker_option_if_supported(
-                repository_ctx,
-                cc,
-                "-Wl,-no-as-needed",
-                "-no-as-needed",
+            ) + (
+                ["-Wl,-no-as-needed"] if is_as_needed_supported else []
             ) + _add_linker_option_if_supported(
                 repository_ctx,
                 cc,
