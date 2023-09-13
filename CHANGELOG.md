@@ -1,3 +1,42 @@
+## Release 7.0.0-pre.20230906.2 (2023-09-14)
+
+```
+Baseline: 08070932379cd3dafaefe5b546c84ad26cd72951
+
+Cherry picks:
+
+   + 4fb701adb5cdf4a87d7457bfe75b76338a8d351a:
+     fix forward for
+     https://github.com/bazelbuild/bazel/commit/ceddfb1ece1f8ed7ff8155
+     8fa1751e6526df031b. Make sure the use the appropriate check for
+     alias + feature flag so trimming does not get applied
+```
+
+Incompatible changes:
+
+  - --incompatible_merge_fixed_and_default_shell_env is flipped to
+    true. See #19317 for details.
+  - Fails on unknown attributes (even when set to None)
+
+Important changes:
+
+  - Set Android Databinding to v2 and Databinging AndroidX to true
+    and remove support for Databinding V1.
+  - Added whether or not a FileWrite action's output is executable to
+    the aquery results
+  - --use_single_jar_apk_builder is removed. It's been a no-op for
+    years.
+  - JVM options in environment variables JAVA_TOOL_OPTIONS and
+    JDK_JAVA_OPTIONS now do not get to the server; use
+    --host_jvm_args instead.
+  - --remote_download_minimal no longer implies
+    --nobuild_runfile_links.
+  - attr objects in Starlark now use value equality rather than
+    reference
+    equality.
+
+This release contains contributions from many people at Google, as well as Benjamin Lee, Benjamin Peterson, Ed Schouten, Fabian Meumertzheim, Keith Smiley, Letu Ren, Mauricio Galindo, Mauricio G, Orion Hodson, Shaygan Hooshyari.
+
 ## Release 7.0.0-pre.20230823.4 (2023-08-30)
 
 ```
