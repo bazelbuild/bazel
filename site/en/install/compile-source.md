@@ -21,7 +21,7 @@ To build Bazel from source, you can do one of the following:
 
 1.  Get the latest Bazel release from the
     [GitHub release page](https://github.com/bazelbuild/bazel/releases){: .external} or with
-    [Bazelisk](https://github.com/bazelbuild/bazelisk){: .external}.
+    [Bazelisk](https://github.com/bazelbuild/bazelisk){: .external}.io
 
 2.  [Download Bazel's sources from GitHub](https://github.com/bazelbuild/bazel/archive/master.zip){: .external}
     and extract somewhere.
