@@ -488,6 +488,28 @@ def _is_support_debug_fastlink(repository_ctx, linker):
     result = execute(repository_ctx, [linker], expect_failure = True)
     return result.find("/DEBUG[:{FASTLINK|FULL|NONE}]") != -1
 
+def _is_support_parse_showincludes(repository_ctx, cl, env):
+    repository_ctx.file(
+        "main.cpp",
+        "#include \"bazel_showincludes.h\"\nint main(){}\n",
+    )
+    repository_ctx.file(
+        "bazel_showincludes.h",
+        "\n",
+    )
+    result = execute(
+        repository_ctx,
+        [cl, "/nologo", "/showIncludes", "/c", "main.cpp", "/out", "main.exe", "/Fo", "main.obj"],
+        # Attempt to force English language. This may fail if the language pack isn't installed.
+        environment = env | {"VSLANG": "1033"},
+    )
+    for file in ["main.cpp", "bazel_showincludes.h", "main.exe", "main.obj"]:
+        execute(repository_ctx, ["cmd", "/C", "del", file], expect_empty_output = True)
+    return any([
+        line.startswith("Note: including file:") and line.endswith("bazel_showincludes.h")
+        for line in result.split("\n")
+    ])
+
 def find_llvm_path(repository_ctx):
     """Find LLVM install path."""
 
@@ -635,6 +657,7 @@ def _get_msvc_vars(repository_ctx, paths, target_arch = "x64", msvc_vars_x64 = N
             "%{msvc_lib_path_" + target_arch + "}": "vc_installation_error_" + target_arch + ".bat",
             "%{dbg_mode_debug_flag_" + target_arch + "}": "/DEBUG",
             "%{fastbuild_mode_debug_flag_" + target_arch + "}": "/DEBUG",
+            "%{msvc_parse_showincludes_" + target_arch + "}": repr(False),
         }
         return msvc_vars
 
@@ -679,6 +702,13 @@ def _get_msvc_vars(repository_ctx, paths, target_arch = "x64", msvc_vars_x64 = N
     support_debug_fastlink = _is_support_debug_fastlink(repository_ctx, build_tools["LINK"])
     write_builtin_include_directory_paths(repository_ctx, "msvc", escaped_cxx_include_directories, file_suffix = "_msvc")
 
+    support_parse_showincludes = _is_support_parse_showincludes(repository_ctx, build_tools["CL"], env)
+    if not support_parse_showincludes:
+        auto_configure_warning("""
+Header pruning has been disabled since Bazel failed to recognize the output of /showIncludes.
+This can result in unnecessary recompilation.
+Fix this by installing the English language pack for the Visual Studio installation at {} and run 'bazel sync --configure'.""".format(vc_path))
+
     msvc_vars = {
         "%{msvc_env_tmp_" + target_arch + "}": escaped_tmp_dir,
         "%{msvc_env_include_" + target_arch + "}": escaped_include_paths,
@@ -689,6 +719,7 @@ def _get_msvc_vars(repository_ctx, paths, target_arch = "x64", msvc_vars_x64 = N
         "%{msvc_ml_path_" + target_arch + "}": build_tools.get("ML", "msvc_arm_toolchain_does_not_support_ml"),
         "%{msvc_link_path_" + target_arch + "}": build_tools["LINK"],
         "%{msvc_lib_path_" + target_arch + "}": build_tools["LIB"],
+        "%{msvc_parse_showincludes_" + target_arch + "}": repr(support_parse_showincludes),
         "%{dbg_mode_debug_flag_" + target_arch + "}": "/DEBUG:FULL" if support_debug_fastlink else "/DEBUG",
         "%{fastbuild_mode_debug_flag_" + target_arch + "}": "/DEBUG:FASTLINK" if support_debug_fastlink else "/DEBUG",
     }
@@ -738,6 +769,7 @@ def _get_clang_cl_vars(repository_ctx, paths, msvc_vars, target_arch):
             "%{clang_cl_dbg_mode_debug_flag_" + target_arch + "}": "/DEBUG",
             "%{clang_cl_fastbuild_mode_debug_flag_" + target_arch + "}": "/DEBUG",
             "%{clang_cl_cxx_builtin_include_directories_" + target_arch + "}": "",
+            "%{clang_cl_parse_showincludes_" + target_arch + "}": repr(False),
         }
         return clang_cl_vars
 
@@ -765,6 +797,8 @@ def _get_clang_cl_vars(repository_ctx, paths, msvc_vars, target_arch):
         # LLVM's lld-link.exe doesn't support /DEBUG:FASTLINK.
         "%{clang_cl_dbg_mode_debug_flag_" + target_arch + "}": "/DEBUG",
         "%{clang_cl_fastbuild_mode_debug_flag_" + target_arch + "}": "/DEBUG",
+        # clang-cl always emits the English language version of the /showIncludes prefix.
+        "%{clang_cl_parse_showincludes_" + target_arch + "}": repr(True),
     }
     return clang_cl_vars
 
