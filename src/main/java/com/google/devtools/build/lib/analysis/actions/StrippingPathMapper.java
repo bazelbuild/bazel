@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.CommandLineItem.MapFn;
+import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
@@ -111,7 +112,7 @@ public final class StrippingPathMapper {
     return new PathMapper() {
       @Override
       public String getMappedExecPathString(ActionInput artifact) {
-        if (artifact instanceof DerivedArtifact) {
+        if (artifact instanceof DerivedArtifact || artifact instanceof ParamFileActionInput) {
           return strip(artifact.getExecPath()).getPathString();
         } else {
           return artifact.getExecPathString();
