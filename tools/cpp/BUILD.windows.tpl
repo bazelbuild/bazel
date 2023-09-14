@@ -211,6 +211,7 @@ cc_toolchain_config(
     default_link_flags = ["/MACHINE:X64"],
     dbg_mode_debug_flag = "%{dbg_mode_debug_flag_x64}",
     fastbuild_mode_debug_flag = "%{fastbuild_mode_debug_flag_x64}",
+    supports_parse_showincludes = %{msvc_parse_showincludes_x64},
 )
 
 toolchain(
@@ -277,6 +278,7 @@ cc_toolchain_config(
     default_link_flags = ["/MACHINE:X86"],
     dbg_mode_debug_flag = "%{dbg_mode_debug_flag_x86}",
     fastbuild_mode_debug_flag = "%{fastbuild_mode_debug_flag_x86}",
+    supports_parse_showincludes = %{msvc_parse_showincludes_x86},
 )
 
 toolchain(
@@ -343,6 +345,7 @@ cc_toolchain_config(
     default_link_flags = ["/MACHINE:ARM"],
     dbg_mode_debug_flag = "%{dbg_mode_debug_flag_arm}",
     fastbuild_mode_debug_flag = "%{fastbuild_mode_debug_flag_arm}",
+    supports_parse_showincludes = %{msvc_parse_showincludes_arm},
 )
 
 toolchain(
@@ -409,6 +412,7 @@ cc_toolchain_config(
     default_link_flags = ["/MACHINE:ARM64"],
     dbg_mode_debug_flag = "%{dbg_mode_debug_flag_arm64}",
     fastbuild_mode_debug_flag = "%{fastbuild_mode_debug_flag_arm64}",
+    supports_parse_showincludes = %{msvc_parse_showincludes_arm64},
 )
 
 toolchain(
@@ -475,6 +479,7 @@ cc_toolchain_config(
     default_link_flags = ["/MACHINE:X64", "/DEFAULTLIB:clang_rt.builtins-x86_64.lib"],
     dbg_mode_debug_flag = "%{clang_cl_dbg_mode_debug_flag_x64}",
     fastbuild_mode_debug_flag = "%{clang_cl_fastbuild_mode_debug_flag_x64}",
+    supports_parse_showincludes = %{clang_cl_parse_showincludes_x64},
 )
 
 toolchain(
@@ -542,6 +547,7 @@ cc_toolchain_config(
     default_link_flags = ["/MACHINE:ARM64"],
     dbg_mode_debug_flag = "%{clang_cl_dbg_mode_debug_flag_arm64}",
     fastbuild_mode_debug_flag = "%{clang_cl_fastbuild_mode_debug_flag_arm64}",
+    supports_parse_showincludes = %{clang_cl_parse_showincludes_arm64},
 )
 
 toolchain(
