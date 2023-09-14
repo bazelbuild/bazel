@@ -300,7 +300,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
   @Test
   public void aspectsPropagatingForDefaultAndImplicit() throws Exception {
-    useConfiguration("--experimental_builtins_injection_override=+cc_library");
+    useConfiguration(
+        "--experimental_builtins_injection_override=+cc_library",
+        "--incompatible_enable_cc_toolchain_resolution");
     scratch.file(
         "test/aspect.bzl",
         "def _impl(target, ctx):",
@@ -351,8 +353,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
                 }));
 
     assertThat(names).containsAtLeast("xxx", "yyy");
-    // 3-4 is the C++ toolchain and alias; its name changes between Blaze and Bazel.
-    assertThat(names).hasSize(4);
+    // 3rd is the C++ toolchain; its name changes between Blaze and Bazel.
+    assertThat(names).hasSize(3);
   }
 
   @Test

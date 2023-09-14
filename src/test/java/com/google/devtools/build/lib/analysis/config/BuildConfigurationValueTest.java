@@ -89,11 +89,13 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
       return;
     }
 
-    BuildConfigurationValue config = createConfiguration("--cpu=piii");
+    BuildConfigurationValue config =
+        createConfiguration("--cpu=piii", "--noincompatible_enable_cc_toolchain_resolution");
     assertThat(config.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
         .isEqualTo(Label.parseCanonicalUnchecked("//tools/cpp:toolchain"));
 
-    BuildConfigurationValue execConfig = createExec();
+    BuildConfigurationValue execConfig =
+        createExec("--noincompatible_enable_cc_toolchain_resolution");
     assertThat(execConfig.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
         .isEqualTo(Label.parseCanonicalUnchecked("//tools/cpp:toolchain"));
   }

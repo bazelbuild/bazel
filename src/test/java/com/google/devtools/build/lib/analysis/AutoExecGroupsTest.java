@@ -143,6 +143,15 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "        'watermelon.color': 'red',",
         "    },",
         ")");
+
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withToolchainTargetConstraints()
+                .withToolchainExecConstraints()
+                .withCpu("fake"));
   }
 
   @Before
@@ -155,7 +164,8 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     String[] flags = {
       "--extra_toolchains=//toolchain:foo_toolchain,//toolchain:bar_toolchain,//toolchain:baz_toolchain",
       "--platforms=//platforms:platform_1",
-      "--extra_execution_platforms=//platforms:platform_1,//platforms:platform_2"
+      "--extra_execution_platforms=//platforms:platform_1,//platforms:platform_2",
+      "--incompatible_enable_cc_toolchain_resolution"
     };
 
     super.useConfiguration(ObjectArrays.concat(flags, args, String.class));
@@ -1629,10 +1639,10 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "   return [",
         "      config_common.toolchain_type('"
             + TestConstants.CPP_TOOLCHAIN_TYPE
-            + "', mandatory = False),",
+            + "', mandatory = True),",
         "   ]",
         "def _impl(ctx):",
-        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  cc_toolchain = ctx.toolchains['" + TestConstants.CPP_TOOLCHAIN_TYPE + "'].cc",
         "  feature_configuration = cc_common.configure_features(",
         "      ctx = ctx,",
         "      cc_toolchain = cc_toolchain,",
@@ -1648,16 +1658,16 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "  return []",
         "custom_rule = rule(",
         "  implementation = _impl,",
-        "  attrs = { '_cc_toolchain': attr.label(default=Label('//test:alias')) },",
         "  toolchains = ['//rule:toolchain_type_2'] + _use_cpp_toolchain(),",
         "  fragments = ['cpp']",
         ")");
     scratch.file(
         "test/BUILD",
         "load('//test:defs.bzl', 'custom_rule')",
-        "cc_toolchain_alias(name='alias')",
         "custom_rule(name = 'custom_rule_name')");
-    useConfiguration("--incompatible_auto_exec_groups");
+    useConfiguration(
+        "--incompatible_auto_exec_groups",
+        "--toolchain_resolution_debug='//tools/cpp:toolchain_type'");
 
     ImmutableList<Action> actions =
         getActions("//test:custom_rule_name", ParameterFileWriteAction.class);
@@ -1679,7 +1689,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
             + "', mandatory = False),",
         "   ]",
         "def _impl(ctx):",
-        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  cc_toolchain = ctx.toolchains['" + TestConstants.CPP_TOOLCHAIN_TYPE + "'].cc",
         "  feature_configuration = cc_common.configure_features(",
         "      ctx = ctx,",
         "      cc_toolchain = cc_toolchain,",
@@ -1695,7 +1705,6 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "  return []",
         "custom_rule = rule(",
         "  implementation = _impl,",
-        "  attrs = { '_cc_toolchain': attr.label(default=Label('//test:alias')) },",
         "  exec_groups = { ",
         "    '" + CPP_LINK_EXEC_GROUP + "': exec_group(toolchains = _use_cpp_toolchain()),",
         "  },",
@@ -1705,7 +1714,6 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         "load('//test:defs.bzl', 'custom_rule')",
-        "cc_toolchain_alias(name='alias')",
         "custom_rule(name = 'custom_rule_name')");
     useConfiguration("--incompatible_auto_exec_groups");
 
@@ -1729,7 +1737,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
             + "', mandatory = False),",
         "   ]",
         "def _impl(ctx):",
-        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  cc_toolchain = ctx.toolchains['" + TestConstants.CPP_TOOLCHAIN_TYPE + "'].cc",
         "  feature_configuration = cc_common.configure_features(",
         "      ctx = ctx,",
         "      cc_toolchain = cc_toolchain,",
@@ -1745,7 +1753,6 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "  return []",
         "custom_rule = rule(",
         "  implementation = _impl,",
-        "  attrs = { '_cc_toolchain': attr.label(default=Label('//test:alias')) },",
         "  exec_groups = { ",
         "    '" + CPP_LINK_EXEC_GROUP + "': exec_group(toolchains = _use_cpp_toolchain()),",
         "  },",
@@ -1755,7 +1762,6 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         "load('//test:defs.bzl', 'custom_rule')",
-        "cc_toolchain_alias(name='alias')",
         "custom_rule(name = 'custom_rule_name')");
     useConfiguration("--incompatible_auto_exec_groups");
 
@@ -1778,7 +1784,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
             + "', mandatory = False),",
         "   ]",
         "def _impl(ctx):",
-        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  cc_toolchain = ctx.toolchains['" + TestConstants.CPP_TOOLCHAIN_TYPE + "'].cc",
         "  feature_configuration = cc_common.configure_features(",
         "      ctx = ctx,",
         "      cc_toolchain = cc_toolchain,",
@@ -1799,7 +1805,6 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "  attrs = {",
         "    'deps': attr.label_list(),",
         "    'srcs': attr.label_list(allow_files = ['.cc']),",
-        "    '_cc_toolchain': attr.label(default=Label('//test:alias')),",
         "  },",
         "  toolchains = ['//rule:toolchain_type_2'] + _use_cpp_toolchain(),",
         "  fragments = ['cpp']",
@@ -1807,7 +1812,6 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         "load('//test:defs.bzl', 'custom_rule')",
-        "cc_toolchain_alias(name='alias')",
         "cc_library(",
         "  name = 'dep',",
         "  srcs = ['dep.cc'],",
@@ -1823,7 +1827,9 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         .setupCcToolchainConfig(
             mockToolsConfig,
             CcToolchainConfig.builder()
-                .withFeatures(CppRuleClasses.THIN_LTO, CppRuleClasses.SUPPORTS_START_END_LIB));
+                .withFeatures(CppRuleClasses.THIN_LTO, CppRuleClasses.SUPPORTS_START_END_LIB)
+                .withToolchainTargetConstraints("@//platforms:constraint_1")
+                .withToolchainExecConstraints("@//platforms:constraint_1"));
 
     ImmutableList<Action> actions = getActions("//test:custom_rule_name", CppLinkAction.class);
     ImmutableList<Action> cppLTOActions =
@@ -1847,7 +1853,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
             + "', mandatory = False),",
         "   ]",
         "def _impl(ctx):",
-        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  cc_toolchain = ctx.toolchains['" + TestConstants.CPP_TOOLCHAIN_TYPE + "'].cc",
         "  feature_configuration = cc_common.configure_features(",
         "      ctx = ctx,",
         "      cc_toolchain = cc_toolchain,",
@@ -1867,7 +1873,6 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "  implementation = _impl,",
         "  attrs = {",
         "    'deps': attr.label_list(),",
-        "    '_cc_toolchain': attr.label(default=Label('//bazel_internal/test_rules/cc:alias')),",
         "  },",
         "  toolchains = ['//rule:toolchain_type_2'] + _use_cpp_toolchain(),",
         "  fragments = ['cpp']",
@@ -1875,7 +1880,6 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     scratch.file(
         "bazel_internal/test_rules/cc/BUILD",
         "load('//bazel_internal/test_rules/cc:defs.bzl', 'custom_rule')",
-        "cc_toolchain_alias(name='alias')",
         "cc_library(",
         "  name = 'dep',",
         "  linkstamp = 'stamp.cc',",
@@ -1906,7 +1910,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
             + "', mandatory = False),",
         "   ]",
         "def _impl(ctx):",
-        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  cc_toolchain = ctx.toolchains['" + TestConstants.CPP_TOOLCHAIN_TYPE + "'].cc",
         "  feature_configuration = cc_common.configure_features(",
         "      ctx = ctx,",
         "      cc_toolchain = cc_toolchain,",
@@ -1925,7 +1929,6 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "  implementation = _impl,",
         "  attrs = {",
         "    'srcs': attr.label_list(allow_files = ['.cc']),",
-        "    '_cc_toolchain': attr.label(default=Label('//bazel_internal/test_rules/cc:alias')),",
         "  },",
         "  toolchains = ['//rule:toolchain_type_2'] + _use_cpp_toolchain(),",
         "  fragments = ['cpp']",
@@ -1933,7 +1936,6 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     scratch.file(
         "bazel_internal/test_rules/cc/BUILD",
         "load('//bazel_internal/test_rules/cc:defs.bzl', 'custom_rule')",
-        "cc_toolchain_alias(name='alias')",
         "custom_rule(",
         "  name = 'custom_rule_name',",
         "  srcs = ['custom.cc'],",
@@ -1961,7 +1963,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
             + "', mandatory = False),",
         "   ]",
         "def _impl(ctx):",
-        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  cc_toolchain = ctx.toolchains['" + TestConstants.CPP_TOOLCHAIN_TYPE + "'].cc",
         "  feature_configuration = cc_common.configure_features(",
         "      ctx = ctx,",
         "      cc_toolchain = cc_toolchain,",
@@ -1983,7 +1985,6 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "  attrs = {",
         "    'srcs': attr.label_list(allow_files = ['.cc']),",
         "    'hdrs': attr.label_list(allow_files = ['.h']),",
-        "    '_cc_toolchain': attr.label(default=Label('//bazel_internal/test_rules/cc:alias')),",
         "  },",
         "  toolchains = ['//rule:toolchain_type_2'] + _use_cpp_toolchain(),",
         "  fragments = ['cpp']",
@@ -1991,7 +1992,6 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     scratch.file(
         "bazel_internal/test_rules/cc/BUILD",
         "load('//bazel_internal/test_rules/cc:defs.bzl', 'custom_rule')",
-        "cc_toolchain_alias(name='alias')",
         "custom_rule(",
         "  name = 'custom_rule_name',",
         "  srcs = ['custom.cc'],",
@@ -2002,7 +2002,10 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         .ccSupport()
         .setupCcToolchainConfig(
             mockToolsConfig,
-            CcToolchainConfig.builder().withFeatures(MockCcSupport.HEADER_MODULES_FEATURES));
+            CcToolchainConfig.builder()
+                .withFeatures(MockCcSupport.HEADER_MODULES_FEATURES)
+                .withToolchainTargetConstraints("@//platforms:constraint_1")
+                .withToolchainExecConstraints("@//platforms:constraint_1"));
 
     ImmutableList<Action> cppCompileActions =
         getActions("//bazel_internal/test_rules/cc:custom_rule_name", CppCompileAction.class);
@@ -2029,7 +2032,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
             + "', mandatory = False),",
         "   ]",
         "def _impl(ctx):",
-        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  cc_toolchain = ctx.toolchains['" + TestConstants.CPP_TOOLCHAIN_TYPE + "'].cc",
         "  feature_configuration = cc_common.configure_features(",
         "      ctx = ctx,",
         "      cc_toolchain = cc_toolchain,",
@@ -2050,7 +2053,6 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "  attrs = {",
         "    'srcs': attr.label_list(allow_files = ['.cc']),",
         "    'hdrs': attr.label_list(allow_files = ['.h']),",
-        "    '_cc_toolchain': attr.label(default=Label('//bazel_internal/test_rules/cc:alias')),",
         "  },",
         "  toolchains = ['//rule:toolchain_type_2'] + _use_cpp_toolchain(),",
         "  fragments = ['cpp']",
@@ -2058,7 +2060,6 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     scratch.file(
         "bazel_internal/test_rules/cc/BUILD",
         "load('//bazel_internal/test_rules/cc:defs.bzl', 'custom_rule')",
-        "cc_toolchain_alias(name='alias')",
         "custom_rule(",
         "  name = 'custom_rule_name',",
         "  srcs = ['custom.cc'],",
@@ -2072,7 +2073,10 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         .ccSupport()
         .setupCcToolchainConfig(
             mockToolsConfig,
-            CcToolchainConfig.builder().withFeatures(MockCcSupport.HEADER_MODULES_FEATURES));
+            CcToolchainConfig.builder()
+                .withFeatures(MockCcSupport.HEADER_MODULES_FEATURES)
+                .withToolchainTargetConstraints("@//platforms:constraint_1")
+                .withToolchainExecConstraints("@//platforms:constraint_1"));
 
     ImmutableList<Action> cppCompileActions =
         getActions("//bazel_internal/test_rules/cc:custom_rule_name", CppCompileAction.class);
@@ -2097,7 +2101,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
             + "', mandatory = False),",
         "   ]",
         "def _impl(ctx):",
-        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  cc_toolchain = ctx.toolchains['" + TestConstants.CPP_TOOLCHAIN_TYPE + "'].cc",
         "  feature_configuration = cc_common.configure_features(",
         "      ctx = ctx,",
         "      cc_toolchain = cc_toolchain,",
@@ -2118,7 +2122,6 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "  attrs = {",
         "    'srcs': attr.label_list(allow_files = ['.cc']),",
         "    'hdrs': attr.label_list(allow_files = ['.h']),",
-        "    '_cc_toolchain': attr.label(default=Label('//bazel_internal/test_rules/cc:alias')),",
         "  },",
         "  toolchains = ['//rule:toolchain_type_2'] + _use_cpp_toolchain(),",
         "  fragments = ['cpp']",
@@ -2126,7 +2129,6 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     scratch.file(
         "bazel_internal/test_rules/cc/BUILD",
         "load('//bazel_internal/test_rules/cc:defs.bzl', 'custom_rule')",
-        "cc_toolchain_alias(name='alias')",
         "custom_rule(",
         "  name = 'custom_rule_name',",
         "  srcs = ['custom.cc'],",
@@ -2137,7 +2139,10 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         .ccSupport()
         .setupCcToolchainConfig(
             mockToolsConfig,
-            CcToolchainConfig.builder().withFeatures(CppRuleClasses.PARSE_HEADERS));
+            CcToolchainConfig.builder()
+                .withFeatures(CppRuleClasses.PARSE_HEADERS)
+                .withToolchainTargetConstraints("@//platforms:constraint_1")
+                .withToolchainExecConstraints("@//platforms:constraint_1"));
 
     ImmutableList<Action> cppCompileActions =
         getActions("//bazel_internal/test_rules/cc:custom_rule_name", CppCompileAction.class);
@@ -2176,7 +2181,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "    return [DefaultInfo(files = depset([tree]))]",
         "create_tree_artifact = rule(implementation = _ta_impl)",
         "def _impl(ctx):",
-        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  cc_toolchain = ctx.toolchains['" + TestConstants.CPP_TOOLCHAIN_TYPE + "'].cc",
         "  feature_configuration = cc_common.configure_features(",
         "      ctx = ctx,",
         "      cc_toolchain = cc_toolchain,",
@@ -2195,7 +2200,6 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "  implementation = _impl,",
         "  attrs = {",
         "    'srcs': attr.label_list(allow_files = ['.cc']),",
-        "    '_cc_toolchain': attr.label(default=Label('//test:alias')),",
         "  },",
         "  toolchains = ['//rule:toolchain_type_2'] + _use_cpp_toolchain(),",
         "  fragments = ['cpp']",
@@ -2204,7 +2208,6 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "test/BUILD",
         "package(default_visibility = ['//visibility:public'])",
         "load('//test:defs.bzl', 'custom_rule', 'create_tree_artifact')",
-        "cc_toolchain_alias(name='alias')",
         "create_tree_artifact(name = 'tree_artifact')",
         "custom_rule(",
         "  name = 'custom_rule_name',",

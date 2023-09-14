@@ -558,7 +558,7 @@ public final class AnalysisTestUtil {
             .create(
                 AttributeTransitionData.builder()
                     .attributes(FakeAttributeMapper.empty())
-                    .executionPlatform(Label.parseCanonicalUnchecked("//platform:exec"))
+                    .executionPlatform(Label.parseCanonicalUnchecked(TestConstants.PLATFORM_LABEL))
                     .build())
             .apply(new BuildOptionsView(targetOptions, targetOptions.getFragmentClasses()), handler)
             .values());

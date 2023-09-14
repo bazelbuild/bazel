@@ -5765,7 +5765,10 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         bzlFilePath + "/extension.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def _cc_aspect_impl(target, ctx):",
-        "    toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "    if ctx.attr._cc_toolchain:",
+        "      toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "    else:",
+        "      toolchain = ctx.toolchains['" + TestConstants.CPP_TOOLCHAIN_TYPE + "'].cc",
         "    feature_configuration = cc_common.configure_features(",
         "        ctx = ctx,",
         "        cc_toolchain = toolchain,",
@@ -5797,6 +5800,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             + " '@bazel_tools//tools/cpp:current_cc_toolchain'),",
         "    },",
         fragments,
+        "    toolchains = ['" + TestConstants.CPP_TOOLCHAIN_TYPE + "']",
         ")",
         "def _cc_starlark_library_impl(ctx):",
         "    dep_compilation_contexts = []",
@@ -5804,7 +5808,10 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "    for dep in ctx.attr._deps:",
         "        dep_compilation_contexts.append(dep[CcInfo].compilation_context)",
         "        dep_linking_contexts.append(dep[CcInfo].linking_context)",
-        "    toolchain = ctx.attr._my_cc_toolchain[cc_common.CcToolchainInfo]",
+        "    if ctx.attr._my_cc_toolchain:",
+        "      toolchain = ctx.attr._my_cc_toolchain[cc_common.CcToolchainInfo]",
+        "    else:",
+        "      toolchain = ctx.toolchains['" + TestConstants.CPP_TOOLCHAIN_TYPE + "'].cc",
         "    feature_configuration = cc_common.configure_features(",
         "        ctx = ctx,",
         "        cc_toolchain=toolchain,",
@@ -5868,6 +5875,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "          configuration_field(fragment = 'cpp', name = 'cc_toolchain'))",
         "    },",
         fragments,
+        "    toolchains = ['" + TestConstants.CPP_TOOLCHAIN_TYPE + "']",
         ")");
     scratch.file(
         "foo/BUILD",
@@ -6371,7 +6379,10 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         extensionDirectory + "/extension.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def _cc_bin_impl(ctx):",
-        "    toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "    if ctx.attr._cc_toolchain:",
+        "      toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "    else:",
+        "      toolchain = ctx.toolchains['" + TestConstants.CPP_TOOLCHAIN_TYPE + "'].cc",
         "    feature_configuration = cc_common.configure_features(",
         "      ctx = ctx,",
         "      cc_toolchain = toolchain,",
@@ -6408,6 +6419,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "      'additional_outputs': attr.output_list(),",
         "    },",
         fragments,
+        "    toolchains = ['" + TestConstants.CPP_TOOLCHAIN_TYPE + "']",
         ")");
   }
 
@@ -8177,7 +8189,11 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "foo/extension.bzl",
         "def _cc_skylark_library_impl(ctx):",
-        "    return [ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]]",
+        "    if ctx.attr._cc_toolchain:",
+        "      toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "    else:",
+        "      toolchain = ctx.toolchains['" + TestConstants.CPP_TOOLCHAIN_TYPE + "'].cc",
+        "    return [toolchain]",
         "cc_skylark_library = rule(",
         "    implementation = _cc_skylark_library_impl,",
         "    attrs = {",
@@ -8185,6 +8201,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "          configuration_field(fragment = 'cpp', name = 'cc_toolchain')),",
         "    },",
         "    fragments = ['cpp'],",
+        "    toolchains = ['" + TestConstants.CPP_TOOLCHAIN_TYPE + "']",
         ")");
 
     ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
