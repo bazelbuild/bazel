@@ -124,7 +124,8 @@ class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
       downloadProgressReporter = new DownloadProgressReporter(NO_ACTION, "", 0);
     }
 
-    return remoteCache.downloadFile(context, tempPath, digest, downloadProgressReporter);
+    return remoteCache.downloadFile(
+        context, execPath.getPathString(), tempPath, digest, downloadProgressReporter);
   }
 
   public static class DownloadProgress implements FetchProgress {

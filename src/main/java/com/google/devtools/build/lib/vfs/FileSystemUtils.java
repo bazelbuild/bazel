@@ -708,8 +708,8 @@ public class FileSystemUtils {
   }
 
   /**
-   * Writes lines to file using the given encoding, ending every line with a line break '\n'
-   * character.
+   * Writes lines to file using the given encoding, ending every line with a system specific line
+   * break character.
    */
   @ThreadSafe // but not atomic
   public static void writeLinesAs(Path file, Charset charset, String... lines) throws IOException {
@@ -717,8 +717,8 @@ public class FileSystemUtils {
   }
 
   /**
-   * Writes lines to file using the given encoding, ending every line with a line break '\n'
-   * character.
+   * Writes lines to file using the given encoding, ending every line with a system specific line
+   * break character.
    */
   @ThreadSafe // but not atomic
   public static void writeLinesAs(Path file, Charset charset, Iterable<String> lines)
@@ -728,8 +728,19 @@ public class FileSystemUtils {
   }
 
   /**
-   * Appends lines to file using the given encoding, ending every line with a line break '\n'
+   * Writes lines to file using the given encoding, ending every line with a given line break
    * character.
+   */
+  @ThreadSafe // but not atomic
+  public static void writeLinesAs(
+      Path file, Charset charset, Iterable<String> lines, String lineBreak) throws IOException {
+    file.getParentDirectory().createDirectoryAndParents();
+    asByteSink(file).asCharSink(charset).writeLines(lines, lineBreak);
+  }
+
+  /**
+   * Appends lines to file using the given encoding, ending every line with a system specific line
+   * break character.
    */
   @ThreadSafe // but not atomic
   public static void appendLinesAs(Path file, Charset charset, String... lines) throws IOException {
@@ -737,8 +748,8 @@ public class FileSystemUtils {
   }
 
   /**
-   * Appends lines to file using the given encoding, ending every line with a line break '\n'
-   * character.
+   * Appends lines to file using the given encoding, ending every line with a system specific line
+   * break character.
    */
   @ThreadSafe // but not atomic
   public static void appendLinesAs(Path file, Charset charset, Iterable<String> lines)

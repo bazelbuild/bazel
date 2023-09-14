@@ -59,12 +59,12 @@ public class StarlarkBazelModuleTest {
   /** A builder for ModuleExtension that sets all the mandatory but irrelevant fields. */
   private static ModuleExtension.Builder getBaseExtensionBuilder() {
     return ModuleExtension.builder()
-        .setName("maven")
         .setDoc("")
         .setLocation(Location.BUILTIN)
+        .setImplementation(() -> "maven")
         .setEnvVariables(ImmutableList.of())
-        .setDefinitionEnvironmentLabel(Label.parseAbsoluteUnchecked("//:rje.bzl"))
-        .setImplementation(() -> "maven");
+        .setOsDependent(false)
+        .setArchDependent(false);
   }
 
   @Test

@@ -116,6 +116,25 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
   }
 
   @Override
+  public Object moduleExtension(
+      StarlarkCallable implementation,
+      Dict<?, ?> tagClasses,
+      String doc,
+      Sequence<?> environ,
+      boolean osDependent,
+      boolean archDependent,
+      StarlarkThread thread)
+      throws EvalException {
+    return new Object();
+  }
+
+  @Override
+  public TagClassApi tagClass(Dict<?, ?> attrs, String doc, StarlarkThread thread)
+      throws EvalException {
+    return new TagClassApi() {};
+  }
+
+  @Override
   public void failWithIncompatibleUseCcConfigureFromRulesCc(StarlarkThread thread)
       throws EvalException {
     // Noop until --incompatible_use_cc_configure_from_rules_cc is implemented.

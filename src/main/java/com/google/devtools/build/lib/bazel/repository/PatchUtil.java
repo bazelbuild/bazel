@@ -248,7 +248,7 @@ public class PatchUtil {
   }
 
   private static void writeFile(Path file, List<String> content) throws IOException {
-    FileSystemUtils.writeLinesAs(file, UTF_8, content);
+    FileSystemUtils.writeLinesAs(file, UTF_8, content, "\n");
   }
 
   private static boolean getReadPermission(int permission) {

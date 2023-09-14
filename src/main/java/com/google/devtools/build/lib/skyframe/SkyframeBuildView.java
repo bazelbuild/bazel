@@ -65,6 +65,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailurePropagationException;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -85,6 +86,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
@@ -275,7 +277,9 @@ public final class SkyframeBuildView {
   public void setConfigurations(
       EventHandler eventHandler,
       BuildConfigurationCollection configurations,
-      int maxDifferencesToShow) {
+      int maxDifferencesToShow,
+      boolean allowAnalysisCacheDiscards)
+      throws InvalidConfigurationException {
     if (skyframeAnalysisWasDiscarded) {
       eventHandler.handle(
           Event.info(
@@ -285,6 +289,12 @@ public final class SkyframeBuildView {
     } else {
       String diff = describeConfigurationDifference(configurations, maxDifferencesToShow);
       if (diff != null) {
+        if (!allowAnalysisCacheDiscards) {
+          String message = String.format("%s, analysis cache would have been discarded.", diff);
+          throw new InvalidConfigurationException(
+              message,
+              FailureDetails.BuildConfiguration.Code.CONFIGURATION_DISCARDED_ANALYSIS_CACHE);
+        }
         eventHandler.handle(Event.info(diff + ", discarding analysis cache."));
         // Note that clearing the analysis cache is currently required for correctness. It is also
         // helpful to save memory.
