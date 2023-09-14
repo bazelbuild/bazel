@@ -458,7 +458,9 @@ public final class CppCompileActionBuilder {
   }
 
   public boolean dotdFilesEnabled() {
-    return cppSemantics.needsDotdInputPruning(configuration) && !shouldParseShowIncludes();
+    return cppSemantics.needsDotdInputPruning(configuration)
+        && !shouldParseShowIncludes()
+        && !featureConfiguration.isEnabled(CppRuleClasses.NO_DOTD_FILE);
   }
 
   public boolean serializedDiagnosticsFilesEnabled() {

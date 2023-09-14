@@ -148,7 +148,8 @@ def execute(
         repository_ctx,
         command,
         environment = None,
-        expect_failure = False):
+        expect_failure = False,
+        expect_empty_output = False):
     """Execute a command, return stdout if succeed and throw an error if it fails. Doesn't %-escape the result!"""
     if environment:
         result = repository_ctx.execute(command, environment = environment)
@@ -171,10 +172,15 @@ def execute(
                 ),
             )
     stripped_stdout = result.stdout.strip()
-    if not stripped_stdout:
-        auto_configure_fail(
-            "empty output from command %s, stderr: (%s)" % (command, result.stderr),
-        )
+    if expect_empty_output != (not stripped_stdout):
+        if expect_empty_output:
+            auto_configure_fail(
+                "non-empty output from command %s, stdout: (%s), stderr: (%s)" % (command, result.stdout, result.stderr),
+            )
+        else:
+            auto_configure_fail(
+                "empty output from command %s, stderr: (%s)" % (command, result.stderr),
+            )
     return stripped_stdout
 
 def get_cpu_value(repository_ctx):
