@@ -14,16 +14,16 @@
 
 """Exported builtins symbols that are specific to OSS Bazel."""
 
-load("@_builtins//:common/java/java_library.bzl", "JAVA_LIBRARY_ATTRS", "bazel_java_library_rule", "java_library")
-load("@_builtins//:common/java/java_plugin.bzl", "java_plugin")
-load("@_builtins//:common/java/java_import.bzl", "java_import")
-load("@_builtins//:common/java/proto/java_proto_library.bzl", "java_proto_library")
 load("@_builtins//:common/cc/cc_proto_library.bzl", "cc_proto_aspect", "cc_proto_library")
-load(":bazel/java/bazel_java_binary_wrapper.bzl", "java_binary", "java_test")
+load("@_builtins//:common/java/java_import.bzl", "java_import")
+load("@_builtins//:common/java/java_library.bzl", "JAVA_LIBRARY_ATTRS", "bazel_java_library_rule", "java_library", "make_sharded_java_library")
+load("@_builtins//:common/java/java_plugin.bzl", "java_plugin")
+load("@_builtins//:common/java/proto/java_proto_library.bzl", "java_proto_library")
 load("@_builtins//:common/python/py_binary_macro.bzl", "py_binary")
+load("@_builtins//:common/python/py_internal.bzl", "py_internal")
 load("@_builtins//:common/python/py_library_macro.bzl", "py_library")
 load("@_builtins//:common/python/py_test_macro.bzl", "py_test")
-load("@_builtins//:common/python/py_internal.bzl", "py_internal")
+load(":bazel/java/bazel_java_binary_wrapper.bzl", "java_binary", "java_test")
 
 exported_toplevels = {
     # This is an experimental export in Bazel. The interface will change in a way
@@ -32,6 +32,7 @@ exported_toplevels = {
     "experimental_java_library_export_do_not_use": struct(
         bazel_java_library_rule = bazel_java_library_rule,
         JAVA_LIBRARY_ATTRS = JAVA_LIBRARY_ATTRS,
+        sharded_java_library = make_sharded_java_library,
     ),
     "cc_proto_aspect": cc_proto_aspect,
     "py_internal": py_internal,

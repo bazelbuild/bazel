@@ -20,9 +20,12 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.TestConstants.TOOLS_REPOSITORY;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.util.OS;
 import java.util.Arrays;
 import java.util.Objects;
@@ -92,5 +95,38 @@ public final class JavaConfiguredTargetsTest extends BuildViewTestCase {
                   .getValue();
       assertThat(jvmFlags).contains("-Djava.security.manager=allow");
     }
+  }
+
+  @Test
+  public void experimentalShardedJavaLibrary_succeeds() throws Exception {
+    setBuildLanguageOptions("--experimental_java_library_export");
+    scratch.file(
+        "foo/rule.bzl",
+        //
+        "java_library = experimental_java_library_export_do_not_use.sharded_java_library(",
+        "  default_shard_size = 10",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load(':rule.bzl', 'java_library')",
+        "",
+        "java_library(",
+        "  name = 'lib1',",
+        "  srcs = ['1.java', '2.java', '3.java'],",
+        "  experimental_javac_shard_size = 1,",
+        ")",
+        "java_library(",
+        "  name = 'lib2',",
+        "  srcs = ['1.java', '2.java', '3.java'],",
+        "  experimental_javac_shard_size = 2,",
+        ")");
+
+    ImmutableList<Action> compileActionsWithShardSize1 =
+        getActions("//foo:lib1", JavaCompileAction.class);
+    ImmutableList<Action> compileActionsWithShardSize2 =
+        getActions("//foo:lib2", JavaCompileAction.class);
+
+    assertThat(compileActionsWithShardSize1).hasSize(3);
+    assertThat(compileActionsWithShardSize2).hasSize(2);
   }
 }
