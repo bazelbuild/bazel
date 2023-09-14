@@ -280,7 +280,7 @@ import net.starlark.java.eval.StarlarkSemantics;
 public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   protected MemoizingEvaluator memoizingEvaluator;
-  protected final EmittedEventState emittedEventState = new EmittedEventState();
+  private final EmittedEventState emittedEventState = new EmittedEventState();
   protected final PackageFactory pkgFactory;
   private final WorkspaceStatusAction.Factory workspaceStatusActionFactory;
   protected final FileSystem fileSystem;
@@ -325,7 +325,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @Nullable private final ConfiguredTargetProgressReceiver configuredTargetProgress;
   protected final SyscallCache syscallCache;
 
-  protected final SkyframeBuildView skyframeBuildView;
+  private final SkyframeBuildView skyframeBuildView;
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
 
   private final Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit;
@@ -358,7 +358,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   SkyframeProgressReceiver progressReceiver;
   private CyclesReporter cyclesReporter = null;
 
-  @VisibleForTesting boolean lastAnalysisDiscarded = false;
+  private boolean lastAnalysisDiscarded = false;
 
   /**
    * True if analysis was not incremental because {@link #handleAnalysisInvalidatingChange} was
@@ -432,14 +432,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   // ever losing injected/invalidated data here. This is safe because the worst that will happen is
   // that on the next build we try to inject/invalidate some nodes that aren't needed for the build.
   @Nullable protected final RecordingDifferencer recordingDiffer;
-  @Nullable protected final DiffAwarenessManager diffAwarenessManager;
+  @Nullable final DiffAwarenessManager diffAwarenessManager;
   // If this is null then workspace header pre-calculation won't happen.
   @Nullable private final SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder;
   private boolean repositoryHelpersHolderIgnored = false;
   @Nullable private final WorkspaceInfoFromDiffReceiver workspaceInfoFromDiffReceiver;
   private Set<String> previousClientEnvironment = ImmutableSet.of();
 
-  protected Duration sourceDiffCheckingDuration = Duration.ofSeconds(-1L);
+  Duration sourceDiffCheckingDuration = Duration.ofSeconds(-1L);
 
   final class PathResolverFactoryImpl implements PathResolverFactory {
     @Override

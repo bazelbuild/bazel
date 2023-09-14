@@ -80,6 +80,7 @@ import com.google.devtools.build.skyframe.EventFilter;
 import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.Injectable;
+import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -110,7 +111,7 @@ import javax.annotation.Nullable;
  * A SkyframeExecutor that implicitly assumes that builds can be done incrementally from the most
  * recent build. In other words, builds are "sequenced".
  */
-public final class SequencedSkyframeExecutor extends SkyframeExecutor {
+public class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final int MODIFIED_OUTPUT_PATHS_SAMPLE_SIZE = 100;
@@ -136,7 +137,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   private GraphInconsistencyReceiver inconsistencyReceiver = GraphInconsistencyReceiver.THROWING;
 
-  private SequencedSkyframeExecutor(
+  protected SequencedSkyframeExecutor(
       Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit,
       PackageFactory pkgFactory,
       FileSystem fileSystem,
@@ -190,7 +191,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @Override
-  protected InMemoryMemoizingEvaluator createEvaluator(
+  protected MemoizingEvaluator createEvaluator(
       ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
       SkyframeProgressReceiver progressReceiver,
       EmittedEventState emittedEventState) {
