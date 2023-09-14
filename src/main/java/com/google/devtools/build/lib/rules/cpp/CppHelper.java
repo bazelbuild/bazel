@@ -22,7 +22,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -373,24 +372,6 @@ public class CppHelper {
         || (toolchain.usePicForDynamicLibraries(cppConfiguration, featureConfiguration)
             && (cppConfiguration.getCompilationMode() != CompilationMode.OPT
                 || featureConfiguration.isEnabled(CppRuleClasses.PREFER_PIC_FOR_OPT_BINARIES)));
-  }
-
-  /**
-   * Creates a CppModuleMap object for pure c++ builds. The module map artifact becomes a candidate
-   * input to a CppCompileAction.
-   */
-  public static CppModuleMap createDefaultCppModuleMap(
-      ActionConstructionContext actionConstructionContext,
-      BuildConfigurationValue configuration,
-      Label label) {
-    // Create the module map artifact as a genfile.
-    Artifact mapFile =
-        actionConstructionContext.getPackageRelativeArtifact(
-            PathFragment.create(
-                label.getName()
-                    + Iterables.getOnlyElement(CppFileTypes.CPP_MODULE_MAP.getExtensions())),
-            configuration.getGenfilesDirectory(label.getRepository()));
-    return new CppModuleMap(mapFile, label.toString());
   }
 
   /** Returns the FDO build subtype. */
