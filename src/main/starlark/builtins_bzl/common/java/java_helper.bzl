@@ -14,10 +14,10 @@
 
 """Common util functions for java_* rules"""
 
-load(":common/java/java_semantics.bzl", "semantics")
-load(":common/cc/cc_helper.bzl", "cc_helper")
-load(":common/paths.bzl", "paths")
 load(":common/cc/cc_common.bzl", "cc_common")
+load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/java/java_semantics.bzl", "semantics")
+load(":common/paths.bzl", "paths")
 
 testing = _builtins.toplevel.testing
 
@@ -303,7 +303,9 @@ def _create_single_jar(
         sources = depset(),
         resources = depset(),
         mnemonic = "JavaSingleJar",
-        progress_message = "Building singlejar jar %{output}"):
+        progress_message = "Building singlejar jar %{output}",
+        build_target = None,
+        output_creator = None):
     """Register singlejar action for the output jar.
 
     Args:
@@ -314,7 +316,9 @@ def _create_single_jar(
       resources: (depset[File]) The files to add to the output jar.
       mnemonic: (str) The action identifier
       progress_message: (str) The action progress message
-
+      build_target: (Label) The target label to stamp in the manifest. Optional.
+      output_creator: (str) The name of the tool to stamp in the manifest. Optional,
+          defaults to 'singlejar'
     Returns:
       (File) Output file which was used for registering the action.
     """
@@ -329,9 +333,12 @@ def _create_single_jar(
             "--warn_duplicate_resources",
         ],
     )
-
     args.add_all("--sources", sources)
     args.add_all("--resources", resources, map_each = _resource_mapper)
+
+    args.add("--build_target", build_target)
+    args.add("--output_jar_creator", output_creator)
+
     actions.run(
         mnemonic = mnemonic,
         progress_message = progress_message,
