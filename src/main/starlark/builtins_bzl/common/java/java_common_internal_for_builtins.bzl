@@ -14,8 +14,7 @@
 
 """ Private utilities for Java compilation support in Starlark. """
 
-load(":common/java/java_semantics.bzl", "semantics")
-load(":common/paths.bzl", "paths")
+load(":common/java/java_helper.bzl", "helper")
 load(
     ":common/java/java_info.bzl",
     "JavaPluginInfo",
@@ -23,7 +22,8 @@ load(
     "java_info_for_compilation",
     "merge_plugin_info_without_outputs",
 )
-load(":common/java/java_helper.bzl", "helper")
+load(":common/java/java_semantics.bzl", "semantics")
+load(":common/paths.bzl", "paths")
 
 _java_common_internal = _builtins.internal.java_common_internal_do_not_use
 
@@ -196,17 +196,6 @@ def compile(
     has_sources = source_files or source_jars
     has_resources = resources or resource_jars
 
-    native_headers_jar = _derive_output_file(ctx, output, name_suffix = "-native-header")
-    manifest_proto = _derive_output_file(ctx, output, extension_suffix = "_manifest_proto")
-    deps_proto = None
-    if ctx.fragments.java.generate_java_deps() and has_sources:
-        deps_proto = _derive_output_file(ctx, output, extension = "jdeps")
-    generated_class_jar = None
-    generated_source_jar = None
-    if uses_annotation_processing:
-        generated_class_jar = _derive_output_file(ctx, output, name_suffix = "-gen")
-        generated_source_jar = _derive_output_file(ctx, output, name_suffix = "-gensrc")
-
     is_strict_mode = strict_deps != "OFF"
     classpath_mode = ctx.fragments.java.reduce_java_classpath()
 
@@ -220,36 +209,6 @@ def compile(
     compile_time_java_deps = depset()
     if is_strict_mode and classpath_mode != "OFF":
         compile_time_java_deps = depset(transitive = [dep._compile_time_java_dependencies for dep in deps])
-
-    _java_common_internal.create_compilation_action(
-        ctx,
-        java_toolchain,
-        output,
-        deps_proto,
-        generated_class_jar,
-        generated_source_jar,
-        manifest_proto,
-        native_headers_jar,
-        plugin_info,
-        depset(source_files),
-        source_jars,
-        resources,
-        depset(resource_jars),
-        compilation_classpath,
-        classpath_resources,
-        sourcepath,
-        direct_jars,
-        bootclasspath,
-        compile_time_java_deps,
-        all_javac_opts,
-        strict_deps,
-        ctx.label,
-        injecting_rule_kind,
-        enable_jspecify,
-        enable_direct_classpath,
-        annotation_processor_additional_inputs,
-        annotation_processor_additional_outputs,
-    )
 
     # create compile time jar action
     if not has_sources:
@@ -292,6 +251,46 @@ def compile(
     else:
         compile_jar = output
         compile_deps_proto = None
+
+    native_headers_jar = _derive_output_file(ctx, output, name_suffix = "-native-header")
+    manifest_proto = _derive_output_file(ctx, output, extension_suffix = "_manifest_proto")
+    deps_proto = None
+    if ctx.fragments.java.generate_java_deps() and has_sources:
+        deps_proto = _derive_output_file(ctx, output, extension = "jdeps")
+    generated_class_jar = None
+    generated_source_jar = None
+    if uses_annotation_processing:
+        generated_class_jar = _derive_output_file(ctx, output, name_suffix = "-gen")
+        generated_source_jar = _derive_output_file(ctx, output, name_suffix = "-gensrc")
+    _java_common_internal.create_compilation_action(
+        ctx,
+        java_toolchain,
+        output,
+        deps_proto,
+        generated_class_jar,
+        generated_source_jar,
+        manifest_proto,
+        native_headers_jar,
+        plugin_info,
+        depset(source_files),
+        source_jars,
+        resources,
+        depset(resource_jars),
+        compilation_classpath,
+        classpath_resources,
+        sourcepath,
+        direct_jars,
+        bootclasspath,
+        compile_time_java_deps,
+        all_javac_opts,
+        strict_deps,
+        ctx.label,
+        injecting_rule_kind,
+        enable_jspecify,
+        enable_direct_classpath,
+        annotation_processor_additional_inputs,
+        annotation_processor_additional_outputs,
+    )
 
     create_output_source_jar = len(source_files) > 0 or source_jars != [output_source_jar]
     if not output_source_jar:

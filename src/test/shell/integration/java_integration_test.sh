@@ -857,9 +857,10 @@ function test_arg_compile_action() {
 
   cat > "${package}/lib.bzl" <<EOF
 def _actions_test_impl(target, ctx):
-    action = target.actions[0] # digest action
-    if action.mnemonic != "Javac":
-      fail("Expected the first action to be Javac.")
+    javac_actions = [a for a in target.actions if a.mnemonic == "Javac"]
+    if len(javac_actions) != 1:
+      fail("Expected exactly one Javac action, but found", len(javac_actions))
+    action = javac_actions[0]
     aspect_out = ctx.actions.declare_file('aspect_out')
     ctx.actions.run_shell(inputs = action.inputs,
                           outputs = [aspect_out],
