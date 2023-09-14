@@ -21,7 +21,7 @@ bazel_dep(name = "zstd-jni", version = "1.5.2-3.bcr.1")
 bazel_dep(name = "blake3", version = "1.3.3.bcr.1")
 bazel_dep(name = "zlib", version = "1.3")
 bazel_dep(name = "rules_cc", version = "0.0.8")
-bazel_dep(name = "rules_java", version = "6.3.0")
+bazel_dep(name = "rules_java", version = "6.3.1")
 bazel_dep(name = "rules_proto", version = "5.3.0-21.7")
 bazel_dep(name = "rules_jvm_external", version = "5.2")
 bazel_dep(name = "rules_python", version = "0.24.0")
@@ -36,13 +36,6 @@ single_version_override(
     module_name = "rules_jvm_external",
     patch_strip = 1,
     patches = ["//third_party:rules_jvm_external_5.2.patch"],
-)
-
-archive_override(
-    module_name = "rules_java",
-    urls = ["https://github.com/bazelbuild/rules_java/archive/4d47f7f32668a318cd392ae9b3e2c1392da55061.tar.gz"],
-    integrity = "sha256-4wJYBuI/+q5BrZA92NLDOGukjv8d5h2Wv4oQTH9EZ+g=",
-    strip_prefix = "rules_java-4d47f7f32668a318cd392ae9b3e2c1392da55061",
 )
 
 local_path_override(
