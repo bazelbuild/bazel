@@ -172,25 +172,25 @@ public class JavaStarlarkCommon
       StarlarkRuleContext ctx,
       JavaToolchainProvider javaToolchain,
       Artifact output,
-      Object depsProto,
-      Object genClass,
-      Object genSource,
       Artifact manifestProto,
-      Artifact nativeHeader,
       Info pluginInfo,
-      Depset sourceFiles,
-      Sequence<?> sourceJars,
-      Sequence<?> resources,
-      Depset resourceJars,
       Depset compileTimeClasspath,
-      Sequence<?> classpathResources,
-      Sequence<?> sourcepath,
       Depset directJars,
       Object bootClassPath,
       Depset compileTimeJavaDeps,
       Depset javacOpts,
       String strictDepsMode,
       Label targetLabel,
+      Object depsProto,
+      Object genClass,
+      Object genSource,
+      Object nativeHeader,
+      Object sourceFiles,
+      Sequence<?> sourceJars,
+      Sequence<?> resources,
+      Object resourceJars,
+      Sequence<?> classpathResources,
+      Sequence<?> sourcepath,
       Object injectingRuleKind,
       boolean enableJSpecify,
       boolean enableDirectClasspath,
@@ -204,13 +204,13 @@ public class JavaStarlarkCommon
             .depsProto(depsProto == Starlark.NONE ? null : (Artifact) depsProto)
             .genClass(genClass == Starlark.NONE ? null : (Artifact) genClass)
             .genSource(genSource == Starlark.NONE ? null : (Artifact) genSource)
+            .nativeHeader(nativeHeader == Starlark.NONE ? null : (Artifact) nativeHeader)
             .manifestProto(manifestProto)
-            .nativeHeader(nativeHeader)
             .build();
     JavaTargetAttributes.Builder attributesBuilder =
         new JavaTargetAttributes.Builder(javaSemantics)
             .addSourceJars(Sequence.cast(sourceJars, Artifact.class, "source_jars"))
-            .addSourceFiles(sourceFiles.toList(Artifact.class))
+            .addSourceFiles(Depset.noneableCast(sourceFiles, Artifact.class, "sources").toList())
             .addDirectJars(directJars.getSet(Artifact.class))
             .addCompileTimeClassPathEntries(compileTimeClasspath.getSet(Artifact.class))
             .addClassPathResources(
@@ -232,7 +232,8 @@ public class JavaStarlarkCommon
       attributesBuilder.addResource(
           JavaHelper.getJavaResourcePath(javaSemantics, ctx.getRuleContext(), resource), resource);
     }
-    attributesBuilder.addResourceJars(resourceJars.getSet(Artifact.class));
+    attributesBuilder.addResourceJars(
+        Depset.noneableCast(resourceJars, Artifact.class, "resource_jars"));
     attributesBuilder.addCompileTimeDependencyArtifacts(compileTimeJavaDeps.getSet(Artifact.class));
     JavaCompilationHelper compilationHelper =
         new JavaCompilationHelper(
