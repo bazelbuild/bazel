@@ -230,14 +230,14 @@ public class IncrementalPackageRoots implements PackageRoots {
               execroot,
               useSiblingRepositoryLayout,
               lazilyPlantedSymlinksLocalRef);
-        } else {
+        } else if (normalizedConflictingSymlinksLocalRef != null) {
           String originalBaseName = pkgId.getTopLevelDir();
           String normalizedBaseName =
               SymlinkForest.normalizedBasename(originalBaseName, isFsCaseSensitive);
 
-          if (normalizedConflictingSymlinksLocalRef == null
+          if (originalBaseName.isEmpty()
               || !normalizedConflictingSymlinksLocalRef.containsKey(normalizedBaseName)) {
-            // We should have already eagerly planted a symlink for this. Return.
+            // We should have already eagerly planted a symlink for this, or there's nothing to do.
             continue;
           }
 

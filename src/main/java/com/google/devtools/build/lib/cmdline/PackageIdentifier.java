@@ -150,7 +150,7 @@ public final class PackageIdentifier implements SkyKey, Comparable<PackageIdenti
    * <p>Used for some symlink planting strategies.
    */
   public String getTopLevelDir() {
-    return getSourceRoot().getSegment(0);
+    return getSourceRoot().isEmpty() ? "" : getSourceRoot().getSegment(0);
   }
 
   /**
