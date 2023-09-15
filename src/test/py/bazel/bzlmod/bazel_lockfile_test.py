@@ -101,8 +101,9 @@ class BazelLockfileTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 48, stderr)
     self.assertIn(
         (
-            'ERROR: Error computing the main repository mapping: error parsing'
-            ' MODULE.bazel file for sss@1.3'
+             'ERROR: Error computing the main repository mapping: in module '
+             'dependency chain <root> -> sss@1.3: error parsing MODULE.bazel '
+             'file for sss@1.3'
         ),
         stderr,
     )

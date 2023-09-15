@@ -112,6 +112,8 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     ImmutableMap<ModuleKey, InterimModule> initialDepGraph;
     try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.BZLMOD, "discovery")) {
       initialDepGraph = Discovery.run(env, root);
+    } catch (ExternalDepsException e) {
+      throw new BazelModuleResolutionFunctionException(e, Transience.PERSISTENT);
     }
     if (initialDepGraph == null) {
       return null;
