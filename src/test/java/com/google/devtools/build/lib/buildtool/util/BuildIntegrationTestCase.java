@@ -146,6 +146,13 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.logging.Formatter;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
+import java.util.logging.StreamHandler;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import org.junit.After;
@@ -1147,5 +1154,36 @@ public abstract class BuildIntegrationTestCase {
           new InfoCommand(),
           new TestCommand());
     }
+  }
+
+  /** Redirect logging output to the given outErr stream at the given log level. */
+  protected void divertLogging(Level level, OutErr outErr, Iterable<Logger> loggers) {
+
+    StreamHandler streamHandler =
+        new StreamHandler(outErr.getErrorStream(), getFormatterForLogging()) {
+          @Override
+          public synchronized void publish(LogRecord record) {
+            super.publish(record);
+            flush();
+          }
+
+          @Override
+          public synchronized void close() {
+            throw new UnsupportedOperationException();
+          }
+        };
+    streamHandler.setLevel(Level.ALL);
+
+    for (Logger logger : loggers) {
+      for (Handler handler : logger.getHandlers()) {
+        logger.removeHandler(handler);
+      }
+      logger.addHandler(streamHandler);
+      logger.setLevel(level);
+    }
+  }
+
+  protected Formatter getFormatterForLogging() {
+    return new SimpleFormatter();
   }
 }

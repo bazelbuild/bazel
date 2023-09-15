@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.TestConstants.WORKSPACE_NAME;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.Subscribe;
@@ -25,7 +26,9 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.skyframe.SkymeldModule;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelEntityAnalysisConcludedEvent;
+import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -34,6 +37,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -139,12 +144,14 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     write("foo/foo.in");
     addOptions("--nobuild");
 
+    RecordingOutErr recordedOutput = divertInfoLogToOutErr();
     BuildResult result = buildTarget("//foo:foo");
 
     assertThat(result.getSuccess()).isTrue();
-    events.assertContainsWarning(
-        "--experimental_merged_skyframe_analysis_execution is incompatible with --nobuild"
-            + " and will be ignored");
+    assertThat(recordedOutput.errAsLatin1())
+        .containsMatch(
+            "--experimental_merged_skyframe_analysis_execution is incompatible with --nobuild"
+                + " and will be ignored");
   }
 
   @Test
@@ -479,13 +486,15 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
   public void explain_ignoreSkymeldWithWarning() throws Exception {
     addOptions("--explain=/dev/null");
     write("foo/BUILD", "genrule(name = 'foo', outs = ['foo.out'], cmd = 'touch $@')");
+    RecordingOutErr recordedOutput = divertInfoLogToOutErr();
     BuildResult buildResult = buildTarget("//foo");
 
     assertThat(buildResult.getSuccess()).isTrue();
 
-    events.assertContainsWarning(
-        "--experimental_merged_skyframe_analysis_execution is incompatible with --explain");
-    events.assertContainsWarning("and will be ignored.");
+    assertThat(recordedOutput.errAsLatin1())
+        .containsMatch(
+            "--experimental_merged_skyframe_analysis_execution is incompatible with --explain"
+                + " and will be ignored.");
   }
 
   @Test
@@ -494,14 +503,15 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     write("otherroot/bar/BUILD", "genrule(name = 'bar', outs = ['bar.out'], cmd = 'touch $@')");
     addOptions("--package_path=%workspace%:otherroot");
 
+    RecordingOutErr recordedOutput = divertInfoLogToOutErr();
     BuildResult buildResult = buildTarget("//foo", "//bar");
 
     assertThat(buildResult.getSuccess()).isTrue();
 
-    events.assertContainsWarning(
-        "--experimental_merged_skyframe_analysis_execution is incompatible with multiple"
-            + " --package_path");
-    events.assertContainsWarning("and its value will be ignored.");
+    assertThat(recordedOutput.errAsLatin1())
+        .containsMatch(
+            "--experimental_merged_skyframe_analysis_execution is incompatible with multiple"
+                + " --package_path.*and its value will be ignored.");
   }
 
   // Regression test for b/245919888.
@@ -631,6 +641,15 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     return event.getTopLevelTargets().stream()
         .map(x -> x.getOriginalLabel().getCanonicalForm())
         .collect(toImmutableSet());
+  }
+
+  private RecordingOutErr divertInfoLogToOutErr() {
+    // Divert output into recorder:
+    RecordingOutErr recordedOutput = new RecordingOutErr();
+    this.outErr = recordedOutput;
+    divertLogging(
+        Level.INFO, outErr, ImmutableList.of(Logger.getLogger(SkymeldModule.class.getName())));
+    return recordedOutput;
   }
 
   private static final class EventsSubscriber {
