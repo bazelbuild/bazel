@@ -53,10 +53,22 @@ public class PlatformInfo extends NativeInfo
   /** Name used in Starlark for accessing this provider. */
   public static final String STARLARK_NAME = "PlatformInfo";
 
+  /** Empty {@link PlatformInfo} instance representing an invalid or empty platform. */
+  public static final PlatformInfo EMPTY_PLATFORM_INFO;
+
+  static {
+    try {
+      EMPTY_PLATFORM_INFO = PlatformInfo.builder().build();
+    } catch (DuplicateConstraintException | ExecPropertiesException e) {
+      // This can never happen since we're not passing any values to the builder.
+      throw new VerifyException(e);
+    }
+  }
+
   /** Provider singleton constant. */
   public static final BuiltinProvider<PlatformInfo> PROVIDER = new Provider();
 
-  /** Provider for {@link ToolchainInfo} objects. */
+  /** Provider for {@link PlatformInfo} objects. */
   private static class Provider extends BuiltinProvider<PlatformInfo>
       implements PlatformInfoApi.Provider<
           ConstraintSettingInfo, ConstraintValueInfo, PlatformInfo> {
@@ -101,7 +113,10 @@ public class PlatformInfo extends NativeInfo
   private final Label label;
   private final ConstraintCollection constraints;
   private final String remoteExecutionProperties;
+
   /** execProperties will deprecate and replace remoteExecutionProperties */
+  // TODO(blaze-configurability): If we want to remove remoteExecutionProperties, we need to fix
+  // PlatformUtils.getPlatformProto to use the dict-typed execProperties and do a migration.
   private final ImmutableMap<String, String> execProperties;
 
   private PlatformInfo(
@@ -115,18 +130,6 @@ public class PlatformInfo extends NativeInfo
     this.constraints = constraints;
     this.remoteExecutionProperties = Strings.nullToEmpty(remoteExecutionProperties);
     this.execProperties = execProperties;
-  }
-
-  /** Empty {@link PlatformInfo} instance representing an invalid or empty platform. */
-  public static final PlatformInfo EMPTY_PLATFORM_INFO;
-
-  static {
-    try {
-      EMPTY_PLATFORM_INFO = PlatformInfo.builder().build();
-    } catch (DuplicateConstraintException | ExecPropertiesException e) {
-      // This can never happen since we're not passing any values to the builder.
-      throw new VerifyException(e);
-    }
   }
 
   @Override
@@ -159,17 +162,34 @@ public class PlatformInfo extends NativeInfo
     printer.append(String.format("PlatformInfo(%s, constraints=%s)", label, constraints));
   }
 
-  /** Returns a new {@link Builder} for creating a fresh {@link PlatformInfo} instance. */
-  public static Builder builder() {
-    return new Builder();
-  }
-
   /** Add this platform to the given fingerprint. */
   public void addTo(Fingerprint fp) {
     fp.addString(label.toString());
     fp.addNullableString(remoteExecutionProperties);
     fp.addStringMap(execProperties);
     constraints.addToFingerprint(fp);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (!(o instanceof PlatformInfo)) {
+      return false;
+    }
+    PlatformInfo that = (PlatformInfo) o;
+    return Objects.equals(label, that.label)
+        && Objects.equals(constraints, that.constraints)
+        && Objects.equals(remoteExecutionProperties, that.remoteExecutionProperties)
+        && Objects.equals(execProperties, that.execProperties);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(label, constraints, remoteExecutionProperties, execProperties);
+  }
+
+  /** Returns a new {@link Builder} for creating a fresh {@link PlatformInfo} instance. */
+  public static Builder builder() {
+    return new Builder();
   }
 
   /** Builder class to facilitate creating valid {@link PlatformInfo} instances. */
@@ -378,23 +398,6 @@ public class PlatformInfo extends NativeInfo
 
       return ImmutableMap.copyOf(result);
     }
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    if (!(o instanceof PlatformInfo)) {
-      return false;
-    }
-    PlatformInfo that = (PlatformInfo) o;
-    return Objects.equals(label, that.label)
-        && Objects.equals(constraints, that.constraints)
-        && Objects.equals(remoteExecutionProperties, that.remoteExecutionProperties)
-        && Objects.equals(execProperties, that.execProperties);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(label, constraints, remoteExecutionProperties);
   }
 
   /** Exception that indicates something is wrong in exec_properties configuration. */

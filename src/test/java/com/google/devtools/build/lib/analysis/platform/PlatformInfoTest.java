@@ -31,7 +31,7 @@ import org.junit.runners.JUnit4;
 public class PlatformInfoTest extends BuildViewTestCase {
 
   @Test
-  public void platformInfo() throws Exception {
+  public void builder() throws Exception {
     ConstraintSettingInfo setting1 =
         ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//constraint:s1"));
     ConstraintSettingInfo setting2 =
@@ -54,17 +54,7 @@ public class PlatformInfoTest extends BuildViewTestCase {
   }
 
   @Test
-  public void platformInfo_remoteExecutionProperties() throws Exception {
-    PlatformInfo.Builder builder = PlatformInfo.builder();
-    builder.setRemoteExecutionProperties("properties");
-    PlatformInfo platformInfo = builder.build();
-
-    assertThat(platformInfo).isNotNull();
-    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("properties");
-  }
-
-  @Test
-  public void platformInfo_parentPlatform_noOverlaps() throws Exception {
+  public void constraints_parentPlatform_noOverlaps() throws Exception {
     ConstraintSettingInfo setting1 =
         ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//constraint:s1"));
     ConstraintSettingInfo setting2 =
@@ -100,7 +90,7 @@ public class PlatformInfoTest extends BuildViewTestCase {
   }
 
   @Test
-  public void platformInfo_parentPlatform_overlaps() throws Exception {
+  public void constraints_parentPlatform_overlaps() throws Exception {
     ConstraintSettingInfo setting1 =
         ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//constraint:s1"));
     ConstraintSettingInfo setting2 =
@@ -135,75 +125,7 @@ public class PlatformInfoTest extends BuildViewTestCase {
   }
 
   @Test
-  public void platformInfo_parentPlatform_keepRemoteExecutionProperties() throws Exception {
-    PlatformInfo parent =
-        PlatformInfo.builder().setRemoteExecutionProperties("parent properties").build();
-
-    PlatformInfo.Builder builder = PlatformInfo.builder();
-    builder.setParent(parent);
-    PlatformInfo platformInfo = builder.build();
-
-    assertThat(platformInfo).isNotNull();
-    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("parent properties");
-  }
-
-  @Test
-  public void platformInfo_parentPlatform_overrideRemoteExecutionProperties() throws Exception {
-    PlatformInfo parent =
-        PlatformInfo.builder().setRemoteExecutionProperties("parent properties").build();
-
-    PlatformInfo.Builder builder = PlatformInfo.builder();
-    builder.setParent(parent);
-    builder.setRemoteExecutionProperties("child properties");
-    PlatformInfo platformInfo = builder.build();
-
-    assertThat(platformInfo).isNotNull();
-    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("child properties");
-    assertThat(platformInfo.execProperties()).isEmpty();
-  }
-
-  @Test
-  public void platformInfo_parentPlatform_mergeRemoteExecutionProperties() throws Exception {
-    PlatformInfo parent =
-        PlatformInfo.builder().setRemoteExecutionProperties("parent properties").build();
-
-    PlatformInfo.Builder builder = PlatformInfo.builder();
-    builder.setParent(parent);
-    builder.setRemoteExecutionProperties("child {PARENT_REMOTE_EXECUTION_PROPERTIES} properties");
-    PlatformInfo platformInfo = builder.build();
-
-    assertThat(platformInfo).isNotNull();
-    assertThat(platformInfo.remoteExecutionProperties())
-        .isEqualTo("child parent properties properties");
-  }
-
-  @Test
-  public void platformInfo_parentPlatform_mergeRemoteExecutionProperties_noParent()
-      throws Exception {
-    PlatformInfo.Builder builder = PlatformInfo.builder();
-    builder.setRemoteExecutionProperties("child {PARENT_REMOTE_EXECUTION_PROPERTIES} properties");
-    PlatformInfo platformInfo = builder.build();
-
-    assertThat(platformInfo).isNotNull();
-    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("child  properties");
-  }
-
-  @Test
-  public void platformInfo_parentPlatform_mergeRemoteExecutionProperties_parentNotSet()
-      throws Exception {
-    PlatformInfo parent = PlatformInfo.builder().build();
-
-    PlatformInfo.Builder builder = PlatformInfo.builder();
-    builder.setParent(parent);
-    builder.setRemoteExecutionProperties("child {PARENT_REMOTE_EXECUTION_PROPERTIES} properties");
-    PlatformInfo platformInfo = builder.build();
-
-    assertThat(platformInfo).isNotNull();
-    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("child  properties");
-  }
-
-  @Test
-  public void platformInfo_overlappingConstraintsError() throws Exception {
+  public void constraints_overlappingError() throws Exception {
     ConstraintSettingInfo setting1 =
         ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//constraint:basic"));
     ConstraintSettingInfo setting2 =
@@ -242,65 +164,83 @@ public class PlatformInfoTest extends BuildViewTestCase {
   }
 
   @Test
-  public void platformInfo_equalsTester() throws Exception {
-    ConstraintSettingInfo setting1 =
-        ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//constraint:basic"));
-    ConstraintSettingInfo setting2 =
-        ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//constraint:other"));
+  public void remoteExecutionProperties() throws Exception {
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setRemoteExecutionProperties("properties");
+    PlatformInfo platformInfo = builder.build();
 
-    ConstraintValueInfo value1 =
-        ConstraintValueInfo.create(setting1, Label.parseCanonicalUnchecked("//constraint:value1"));
-    ConstraintValueInfo value2 =
-        ConstraintValueInfo.create(setting2, Label.parseCanonicalUnchecked("//constraint:value2"));
-    ConstraintValueInfo value3 =
-        ConstraintValueInfo.create(setting2, Label.parseCanonicalUnchecked("//constraint:value3"));
-
-    new EqualsTester()
-        .addEqualityGroup(
-            // Base case.
-            PlatformInfo.builder()
-                .setLabel(Label.parseCanonicalUnchecked("//platform/plat1"))
-                .addConstraint(value1)
-                .addConstraint(value2)
-                .build(),
-            PlatformInfo.builder()
-                .setLabel(Label.parseCanonicalUnchecked("//platform/plat1"))
-                .addConstraint(value1)
-                .addConstraint(value2)
-                .build())
-        .addEqualityGroup(
-            // Different label.
-            PlatformInfo.builder()
-                .setLabel(Label.parseCanonicalUnchecked("//platform/plat2"))
-                .addConstraint(value1)
-                .addConstraint(value2)
-                .build())
-        .addEqualityGroup(
-            // Extra constraint.
-            PlatformInfo.builder()
-                .setLabel(Label.parseCanonicalUnchecked("//platform/plat1"))
-                .addConstraint(value1)
-                .addConstraint(value3)
-                .build())
-        .addEqualityGroup(
-            // Missing constraint.
-            PlatformInfo.builder()
-                .setLabel(Label.parseCanonicalUnchecked("//platform/plat1"))
-                .addConstraint(value1)
-                .build())
-        .addEqualityGroup(
-            // Different remote exec properties.
-            PlatformInfo.builder()
-                .setLabel(Label.parseCanonicalUnchecked("//platform/plat1"))
-                .addConstraint(value1)
-                .addConstraint(value2)
-                .setRemoteExecutionProperties("foo")
-                .build())
-        .testEquals();
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("properties");
   }
 
   @Test
-  public void platformInfo_execProperties_empty() throws Exception {
+  public void remoteExecutionProperties_parentPlatform_keep() throws Exception {
+    PlatformInfo parent =
+        PlatformInfo.builder().setRemoteExecutionProperties("parent properties").build();
+
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setParent(parent);
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("parent properties");
+  }
+
+  @Test
+  public void remoteExecutionProperties_parentPlatform_override() throws Exception {
+    PlatformInfo parent =
+        PlatformInfo.builder().setRemoteExecutionProperties("parent properties").build();
+
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setParent(parent);
+    builder.setRemoteExecutionProperties("child properties");
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("child properties");
+    assertThat(platformInfo.execProperties()).isEmpty();
+  }
+
+  @Test
+  public void remoteExecutionProperties_parentPlatform_merge() throws Exception {
+    PlatformInfo parent =
+        PlatformInfo.builder().setRemoteExecutionProperties("parent properties").build();
+
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setParent(parent);
+    builder.setRemoteExecutionProperties("child {PARENT_REMOTE_EXECUTION_PROPERTIES} properties");
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.remoteExecutionProperties())
+        .isEqualTo("child parent properties properties");
+  }
+
+  @Test
+  public void remoteExecutionProperties_parentPlatform_merge_noParent() throws Exception {
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setRemoteExecutionProperties("child {PARENT_REMOTE_EXECUTION_PROPERTIES} properties");
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("child  properties");
+  }
+
+  @Test
+  public void remoteExecutionProperties_parentPlatform_merge_parentNotSet() throws Exception {
+    PlatformInfo parent = PlatformInfo.builder().build();
+
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setParent(parent);
+    builder.setRemoteExecutionProperties("child {PARENT_REMOTE_EXECUTION_PROPERTIES} properties");
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("child  properties");
+  }
+
+  @Test
+  public void execProperties_empty() throws Exception {
     PlatformInfo.Builder builder = PlatformInfo.builder();
     builder.setExecProperties(ImmutableMap.of());
     PlatformInfo platformInfo = builder.build();
@@ -311,7 +251,7 @@ public class PlatformInfoTest extends BuildViewTestCase {
   }
 
   @Test
-  public void platformInfo_execProperties_one() throws Exception {
+  public void execProperties_one() throws Exception {
     PlatformInfo.Builder builder = PlatformInfo.builder();
     builder.setExecProperties(ImmutableMap.of("elem1", "value1"));
     PlatformInfo platformInfo = builder.build();
@@ -322,7 +262,7 @@ public class PlatformInfoTest extends BuildViewTestCase {
   }
 
   @Test
-  public void platformInfo_parentPlatform_keepExecProperties() throws Exception {
+  public void execProperties_parentPlatform_keep() throws Exception {
     PlatformInfo parent =
         PlatformInfo.builder().setExecProperties(ImmutableMap.of("parent", "properties")).build();
 
@@ -335,7 +275,7 @@ public class PlatformInfoTest extends BuildViewTestCase {
   }
 
   @Test
-  public void platformInfo_parentPlatform_inheritanceRules() throws Exception {
+  public void execProperties_parentPlatform_inheritance() throws Exception {
     PlatformInfo parent =
         PlatformInfo.builder()
             .setExecProperties(
@@ -352,7 +292,7 @@ public class PlatformInfoTest extends BuildViewTestCase {
   }
 
   @Test
-  public void platformInfo_constructor() throws Exception {
+  public void starlark_constructor() throws Exception {
     scratch.file(
         "test/platform/my_platform.bzl",
         "def _impl(ctx):",
@@ -398,7 +338,7 @@ public class PlatformInfoTest extends BuildViewTestCase {
   }
 
   @Test
-  public void platformInfo_constructor_parent() throws Exception {
+  public void starlark_constructor_parent() throws Exception {
     scratch.file(
         "test/platform/my_platform.bzl",
         "def _impl(ctx):",
@@ -468,7 +408,7 @@ public class PlatformInfoTest extends BuildViewTestCase {
   }
 
   @Test
-  public void platformInfo_constructor_error_duplicateConstraints() throws Exception {
+  public void starlark_constructor_error_duplicateConstraints() throws Exception {
     scratch.file(
         "test/platform/my_platform.bzl",
         "def _impl(ctx):",
@@ -499,5 +439,63 @@ public class PlatformInfoTest extends BuildViewTestCase {
         "       '//test/constraint:foo',",
         "    ],",
         ")");
+  }
+
+  @Test
+  public void equalsTester() throws Exception {
+    ConstraintSettingInfo setting1 =
+        ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//constraint:basic"));
+    ConstraintSettingInfo setting2 =
+        ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//constraint:other"));
+
+    ConstraintValueInfo value1 =
+        ConstraintValueInfo.create(setting1, Label.parseCanonicalUnchecked("//constraint:value1"));
+    ConstraintValueInfo value2 =
+        ConstraintValueInfo.create(setting2, Label.parseCanonicalUnchecked("//constraint:value2"));
+    ConstraintValueInfo value3 =
+        ConstraintValueInfo.create(setting2, Label.parseCanonicalUnchecked("//constraint:value3"));
+
+    new EqualsTester()
+        .addEqualityGroup(
+            // Base case.
+            PlatformInfo.builder()
+                .setLabel(Label.parseCanonicalUnchecked("//platform/plat1"))
+                .addConstraint(value1)
+                .addConstraint(value2)
+                .build(),
+            PlatformInfo.builder()
+                .setLabel(Label.parseCanonicalUnchecked("//platform/plat1"))
+                .addConstraint(value1)
+                .addConstraint(value2)
+                .build())
+        .addEqualityGroup(
+            // Different label.
+            PlatformInfo.builder()
+                .setLabel(Label.parseCanonicalUnchecked("//platform/plat2"))
+                .addConstraint(value1)
+                .addConstraint(value2)
+                .build())
+        .addEqualityGroup(
+            // Extra constraint.
+            PlatformInfo.builder()
+                .setLabel(Label.parseCanonicalUnchecked("//platform/plat1"))
+                .addConstraint(value1)
+                .addConstraint(value3)
+                .build())
+        .addEqualityGroup(
+            // Missing constraint.
+            PlatformInfo.builder()
+                .setLabel(Label.parseCanonicalUnchecked("//platform/plat1"))
+                .addConstraint(value1)
+                .build())
+        .addEqualityGroup(
+            // Different remote exec properties.
+            PlatformInfo.builder()
+                .setLabel(Label.parseCanonicalUnchecked("//platform/plat1"))
+                .addConstraint(value1)
+                .addConstraint(value2)
+                .setRemoteExecutionProperties("foo")
+                .build())
+        .testEquals();
   }
 }
