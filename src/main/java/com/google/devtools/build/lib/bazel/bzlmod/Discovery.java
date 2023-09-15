@@ -15,15 +15,21 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
@@ -43,12 +49,14 @@ final class Discovery {
    */
   @Nullable
   public static ImmutableMap<ModuleKey, InterimModule> run(
-      Environment env, RootModuleFileValue root) throws InterruptedException {
+      Environment env, RootModuleFileValue root)
+      throws InterruptedException, ExternalDepsException {
     String rootModuleName = root.getModule().getName();
     ImmutableMap<String, ModuleOverride> overrides = root.getOverrides();
     Map<ModuleKey, InterimModule> depGraph = new HashMap<>();
     depGraph.put(ModuleKey.ROOT, rewriteDepSpecs(root.getModule(), overrides, rootModuleName));
     Queue<ModuleKey> unexpanded = new ArrayDeque<>();
+    Map<ModuleKey, ModuleKey> predecessors = new HashMap<>();
     unexpanded.add(ModuleKey.ROOT);
     while (!unexpanded.isEmpty()) {
       Set<SkyKey> unexpandedSkyKeys = new HashSet<>();
@@ -58,6 +66,7 @@ final class Discovery {
           if (depGraph.containsKey(depSpec.toModuleKey())) {
             continue;
           }
+          predecessors.putIfAbsent(depSpec.toModuleKey(), module.getKey());
           unexpandedSkyKeys.add(
               ModuleFileValue.key(depSpec.toModuleKey(), overrides.get(depSpec.getName())));
         }
@@ -65,7 +74,28 @@ final class Discovery {
       SkyframeLookupResult result = env.getValuesAndExceptions(unexpandedSkyKeys);
       for (SkyKey skyKey : unexpandedSkyKeys) {
         ModuleKey depKey = ((ModuleFileValue.Key) skyKey).getModuleKey();
-        ModuleFileValue moduleFileValue = (ModuleFileValue) result.get(skyKey);
+        ModuleFileValue moduleFileValue;
+        try {
+          moduleFileValue =
+              (ModuleFileValue) result.getOrThrow(skyKey, ExternalDepsException.class);
+        } catch (ExternalDepsException e) {
+          // Trace back a dependency chain to the root module. There can be multiple paths to the
+          // failing module, but any of those is useful for debugging.
+          List<ModuleKey> depChain = new ArrayList<>();
+          depChain.add(depKey);
+          ModuleKey predecessor = depKey;
+          while ((predecessor = predecessors.get(predecessor)) != null) {
+            depChain.add(predecessor);
+          }
+          Collections.reverse(depChain);
+          String depChainString =
+              depChain.stream().map(ModuleKey::toString).collect(joining(" -> "));
+          throw ExternalDepsException.withCauseAndMessage(
+              FailureDetails.ExternalDeps.Code.BAD_MODULE,
+              e,
+              "in module dependency chain %s",
+              depChainString);
+        }
         if (moduleFileValue == null) {
           // Don't return yet. Try to expand any other unexpanded nodes before returning.
           depGraph.put(depKey, null);
