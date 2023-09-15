@@ -422,12 +422,12 @@ DIST_DEPS = {
         "package_version": "0.0.4",
     },
     "desugar_jdk_libs": {
-        # Commit 87ed6c8af26b375c1ab06b9c249107ed2c95e632 of 2023-09-06
-        "archive": "87ed6c8af26b375c1ab06b9c249107ed2c95e632.zip",
-        "sha256": "1af779b00764d3b024e6e9ae4a3bcfb1b4d39ad6b3c5ca987449b61cb8856319",
-        "strip_prefix": "desugar_jdk_libs-87ed6c8af26b375c1ab06b9c249107ed2c95e632",
+        # Commit 96c2fea323dca408fa4f0e7383a5b2bdace7825d of 2023-09-15
+        "archive": "96c2fea323dca408fa4f0e7383a5b2bdace7825d.zip",
+        "sha256": "b059cf569b2c13f111ff59a15b896f9fcd3f0d36041569e441aabfeb44d3f33a",
+        "strip_prefix": "desugar_jdk_libs-96c2fea323dca408fa4f0e7383a5b2bdace7825d",
         "urls": [
-            "https://github.com/google/desugar_jdk_libs/archive/87ed6c8af26b375c1ab06b9c249107ed2c95e632.zip",
+            "https://github.com/google/desugar_jdk_libs/archive/96c2fea323dca408fa4f0e7383a5b2bdace7825d.zip",
         ],
         "used_in": [
             "additional_distfiles",
