@@ -457,8 +457,7 @@ class UiStateTracker {
   }
 
   Event buildComplete(BuildCompleteEvent event) {
-    buildComplete = true;
-    buildCompleteAt = Instant.ofEpochMilli(clock.currentTimeMillis());
+    setBuildComplete();
 
     status = null;
     additionalMessage = "";
@@ -490,6 +489,11 @@ class UiStateTracker {
 
   protected boolean buildCompleted() {
     return buildComplete;
+  }
+
+  public void setBuildComplete() {
+    buildComplete = true;
+    buildCompleteAt = Instant.ofEpochMilli(clock.currentTimeMillis());
   }
 
   synchronized void downloadProgress(FetchProgress event) {
