@@ -15,7 +15,7 @@
 import os
 import shutil
 import stat
-import unittest
+from absl.testing import absltest
 from src.test.py.bazel import test_base
 
 
@@ -237,4 +237,4 @@ class CcImportTest(test_base.TestBase):
 
 
 if __name__ == '__main__':
-  unittest.main()
+  absltest.main()

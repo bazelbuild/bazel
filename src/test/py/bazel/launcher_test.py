@@ -16,7 +16,7 @@
 import os
 import stat
 import string
-import unittest
+from absl.testing import absltest
 from src.test.py.bazel import test_base
 
 # pylint: disable=g-import-not-at-top
@@ -759,4 +759,4 @@ class LauncherTest(test_base.TestBase):
 
 
 if __name__ == '__main__':
-  unittest.main()
+  absltest.main()

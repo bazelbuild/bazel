@@ -16,8 +16,7 @@
 
 import os
 import tempfile
-import unittest
-
+from absl.testing import absltest
 from src.test.py.bazel import test_base
 from src.test.py.bazel.bzlmod.test_utils import BazelRegistry
 from src.test.py.bazel.bzlmod.test_utils import scratchFile
@@ -393,4 +392,4 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 
 
 if __name__ == '__main__':
-  unittest.main()
+  absltest.main()

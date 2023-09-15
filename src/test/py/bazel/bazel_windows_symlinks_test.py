@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
+from absl.testing import absltest
 from src.test.py.bazel import test_base
 
 
@@ -62,4 +62,4 @@ class BazelWindowsSymlinksTest(test_base.TestBase):
 
 
 if __name__ == '__main__':
-  unittest.main()
+  absltest.main()

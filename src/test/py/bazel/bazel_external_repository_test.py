@@ -17,8 +17,7 @@ import http.server
 import os
 import socketserver
 import threading
-import unittest
-
+from absl.testing import absltest
 from src.test.py.bazel import test_base
 
 
@@ -444,4 +443,4 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     self.assertNotIn('null value in entry: FOO=null', os.linesep.join(stderr))
 
 if __name__ == '__main__':
-  unittest.main()
+  absltest.main()

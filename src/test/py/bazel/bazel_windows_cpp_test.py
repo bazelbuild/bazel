@@ -14,7 +14,7 @@
 
 import glob
 import os
-import unittest
+from absl.testing import absltest
 from src.test.py.bazel import test_base
 
 
@@ -1198,4 +1198,4 @@ class BazelWindowsCppTest(test_base.TestBase):
 
 
 if __name__ == '__main__':
-  unittest.main()
+  absltest.main()

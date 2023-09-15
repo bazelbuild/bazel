@@ -13,9 +13,9 @@
 # limitations under the License.
 
 import os
-import unittest
 import zipfile
 
+from absl.testing import absltest
 from src.test.py.bazel import test_base
 
 
@@ -741,4 +741,4 @@ class TestWrapperTest(test_base.TestBase):
 
 
 if __name__ == '__main__':
-  unittest.main()
+  absltest.main()

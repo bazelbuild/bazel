@@ -13,8 +13,8 @@
 # limitations under the License.
 
 import os
-import unittest
 import zipfile
+from absl.testing import absltest
 from src.test.py.bazel import test_base
 
 
@@ -126,7 +126,7 @@ class TestInitPyFiles(test_base.TestBase):
     self.assertTrue(os.path.exists('bazel-bin/bin.v1.zip'))
 
 
-@unittest.skipIf(test_base.TestBase.IsWindows(),
+@absltest.skipIf(test_base.TestBase.IsWindows(),
                  'https://github.com/bazelbuild/bazel/issues/5087')
 class PyRemoteTest(test_base.TestBase):
 
@@ -310,4 +310,4 @@ class PyRunfilesLibraryTest(test_base.TestBase):
 
 
 if __name__ == '__main__':
-  unittest.main()
+  absltest.main()

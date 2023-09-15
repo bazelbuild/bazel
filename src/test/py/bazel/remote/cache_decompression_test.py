@@ -17,7 +17,7 @@ import io
 import os
 import socket
 import threading
-import unittest
+from absl.testing import absltest
 from src.test.py.bazel import test_base
 
 # pylint: disable=g-import-not-at-top,g-importing-member
@@ -127,4 +127,4 @@ class CacheDecompressionTest(test_base.TestBase):
 
 
 if __name__ == '__main__':
-  unittest.main()
+  absltest.main()
