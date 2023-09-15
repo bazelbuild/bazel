@@ -116,8 +116,7 @@ public class SkyframeBuilder implements Builder {
     skyframeExecutor.detectModifiedOutputFiles(
         modifiedOutputFiles, lastExecutionTimeRange, remoteArtifactChecker, fsvcThreads);
     try (SilentCloseable c = Profiler.instance().profile("configureActionExecutor")) {
-      skyframeExecutor.configureActionExecutor(
-          fileCache, actionInputPrefetcher, actionOutputDirectoryHelper);
+      skyframeExecutor.configureActionExecutor(fileCache, actionInputPrefetcher);
     }
     // Note that executionProgressReceiver accesses builtTargets concurrently (after wrapping in a
     // synchronized collection), so unsynchronized access to this variable is unsafe while it runs.
@@ -175,6 +174,7 @@ public class SkyframeBuilder implements Builder {
               exclusiveTests,
               options,
               actionCacheChecker,
+              actionOutputDirectoryHelper,
               executionProgressReceiver,
               topLevelArtifactContext);
       // progressReceiver is finished, so unsynchronized access to builtTargets is now safe.
@@ -204,6 +204,7 @@ public class SkyframeBuilder implements Builder {
                 exclusiveTest,
                 options,
                 actionCacheChecker,
+                actionOutputDirectoryHelper,
                 topLevelArtifactContext);
         detailedExitCode =
             SkyframeErrorProcessor.processResult(
@@ -230,7 +231,8 @@ public class SkyframeBuilder implements Builder {
                 executor,
                 Artifact.keys(coverageReportArtifacts),
                 options,
-                actionCacheChecker);
+                actionCacheChecker,
+                actionOutputDirectoryHelper);
         detailedExitCode =
             SkyframeErrorProcessor.processResult(
                 reporter,

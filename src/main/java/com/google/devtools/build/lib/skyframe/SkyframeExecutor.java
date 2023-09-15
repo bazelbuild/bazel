@@ -788,14 +788,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   public void configureActionExecutor(
-      InputMetadataProvider fileCache,
-      ActionInputPrefetcher actionInputPrefetcher,
-      ActionOutputDirectoryHelper actionOutputDirectoryHelper) {
+      InputMetadataProvider fileCache, ActionInputPrefetcher actionInputPrefetcher) {
     skyframeActionExecutor.configure(
-        fileCache,
-        actionInputPrefetcher,
-        actionOutputDirectoryHelper,
-        DiscoveredModulesPruner.DEFAULT);
+        fileCache, actionInputPrefetcher, DiscoveredModulesPruner.DEFAULT);
   }
 
   @ForOverride
@@ -1547,6 +1542,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Set<ConfiguredTarget> exclusiveTests,
       OptionsProvider options,
       ActionCacheChecker actionCacheChecker,
+      ActionOutputDirectoryHelper outputDirectoryHelper,
       @Nullable EvaluationProgressReceiver executionProgressReceiver,
       TopLevelArtifactContext topLevelArtifactContext)
       throws InterruptedException, AbruptExitException {
@@ -1556,7 +1552,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     deleteActionsIfRemoteOptionsChanged(options);
     try (SilentCloseable c =
         Profiler.instance().profile("skyframeActionExecutor.prepareForExecution")) {
-      prepareSkyframeActionExecutorForExecution(reporter, executor, options, actionCacheChecker);
+      prepareSkyframeActionExecutorForExecution(
+          reporter, executor, options, actionCacheChecker, outputDirectoryHelper);
     }
 
     resourceManager.resetResourceUsage();
@@ -1595,12 +1592,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Reporter reporter,
       Executor executor,
       OptionsProvider options,
-      ActionCacheChecker actionCacheChecker) {
+      ActionCacheChecker actionCacheChecker,
+      ActionOutputDirectoryHelper outputDirectoryHelper) {
     skyframeActionExecutor.prepareForExecution(
         reporter,
         executor,
         options,
         actionCacheChecker,
+        outputDirectoryHelper,
         outputService,
         tracksStateForIncrementality());
   }
@@ -1613,6 +1612,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ConfiguredTarget exclusiveTest,
       OptionsProvider options,
       ActionCacheChecker actionCacheChecker,
+      ActionOutputDirectoryHelper outputDirectoryHelper,
       TopLevelArtifactContext topLevelArtifactContext)
       throws InterruptedException {
     checkActive();
@@ -1620,7 +1620,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     try (SilentCloseable c =
         Profiler.instance().profile("skyframeActionExecutor.prepareForExecution")) {
-      prepareSkyframeActionExecutorForExecution(reporter, executor, options, actionCacheChecker);
+      prepareSkyframeActionExecutorForExecution(
+          reporter, executor, options, actionCacheChecker, outputDirectoryHelper);
     }
 
     resourceManager.resetResourceUsage();
@@ -1660,8 +1661,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   @VisibleForTesting
   public void prepareBuildingForTestingOnly(
-      Reporter reporter, Executor executor, OptionsProvider options, ActionCacheChecker checker) {
-    prepareSkyframeActionExecutorForExecution(reporter, executor, options, checker);
+      Reporter reporter,
+      Executor executor,
+      OptionsProvider options,
+      ActionCacheChecker checker,
+      ActionOutputDirectoryHelper outputDirectoryHelper) {
+    prepareSkyframeActionExecutorForExecution(
+        reporter, executor, options, checker, outputDirectoryHelper);
   }
 
   public void deleteActionsIfRemoteOptionsChanged(OptionsProvider options)
@@ -1839,9 +1845,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       final Executor executor,
       final Iterable<? extends SkyKey> skyKeys,
       final OptionsProvider options,
-      final ActionCacheChecker actionCacheChecker) {
+      final ActionCacheChecker actionCacheChecker,
+      final ActionOutputDirectoryHelper outputDirectoryHelper) {
 
-    prepareSkyframeActionExecutorForExecution(reporter, executor, options, actionCacheChecker);
+    prepareSkyframeActionExecutorForExecution(
+        reporter, executor, options, actionCacheChecker, outputDirectoryHelper);
     try {
       return evaluateSkyKeys(
           reporter, skyKeys, options.getOptions(KeepGoingOption.class).keepGoing);

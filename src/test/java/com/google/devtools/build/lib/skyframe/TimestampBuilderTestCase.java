@@ -250,10 +250,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
         new SingleBuildFileCache(
             rootDirectory.getPathString(), scratch.getFileSystem(), SyscallCache.NO_CACHE);
     skyframeActionExecutor.configure(
-        cache,
-        ActionInputPrefetcher.NONE,
-        ActionOutputDirectoryHelper.createForTesting(),
-        DiscoveredModulesPruner.DEFAULT);
+        cache, ActionInputPrefetcher.NONE, DiscoveredModulesPruner.DEFAULT);
 
     final InMemoryMemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
@@ -368,6 +365,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             options,
             new ActionCacheChecker(
                 actionCache, null, actionKeyContext, ALWAYS_EXECUTE_FILTER, null),
+            ActionOutputDirectoryHelper.createForTesting(),
             /* outputService= */ null,
             /* trackIncrementalState= */ true);
         skyframeActionExecutor.setActionExecutionProgressReportingObjects(

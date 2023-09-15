@@ -281,6 +281,7 @@ public final class SkyframeActionExecutor {
       Executor executor,
       OptionsProvider options,
       ActionCacheChecker actionCacheChecker,
+      ActionOutputDirectoryHelper outputDirectoryHelper,
       OutputService outputService,
       boolean trackIncrementalState) {
     this.reporter = checkNotNull(reporter);
@@ -300,6 +301,7 @@ public final class SkyframeActionExecutor {
     // Cache some option values for performance, since we consult them on every action.
     this.finalizeActions = buildRequestOptions.finalizeActions;
     this.outputService = outputService;
+    this.outputDirectoryHelper = outputDirectoryHelper;
 
     // Retaining discovered inputs is only worthwhile for incremental builds or builds with extra
     // actions, which consume their shadowed action's discovered inputs.
@@ -399,6 +401,7 @@ public final class SkyframeActionExecutor {
     this.completedAndResetActions = null;
     this.lostDiscoveredInputsMap = null;
     this.actionCacheChecker = null;
+    this.outputDirectoryHelper = null;
   }
 
   /**
@@ -926,11 +929,9 @@ public final class SkyframeActionExecutor {
   public void configure(
       InputMetadataProvider fileCache,
       ActionInputPrefetcher actionInputPrefetcher,
-      ActionOutputDirectoryHelper outputDirectoryHelper,
       DiscoveredModulesPruner discoveredModulesPruner) {
     this.perBuildFileCache = fileCache;
     this.actionInputPrefetcher = actionInputPrefetcher;
-    this.outputDirectoryHelper = outputDirectoryHelper;
     this.discoveredModulesPruner = discoveredModulesPruner;
   }
 
