@@ -71,7 +71,7 @@ import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy; 
+import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 /** Tracks state for the UI. */
@@ -465,8 +465,7 @@ class UiStateTracker {
   }
 
   void buildComplete(BuildCompleteEvent event) {
-    buildComplete = true;
-    buildCompleteAt = Instant.ofEpochMilli(clock.currentTimeMillis());
+    setBuildComplete();
 
     if (event.getResult().getSuccess()) {
       status = "INFO";
@@ -498,6 +497,11 @@ class UiStateTracker {
 
   protected boolean buildCompleted() {
     return buildComplete;
+  }
+
+  public void setBuildComplete() {
+    buildComplete = true;
+    buildCompleteAt = Instant.ofEpochMilli(clock.currentTimeMillis());
   }
 
   synchronized void downloadProgress(FetchProgress event) {

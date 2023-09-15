@@ -27,6 +27,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.NoBuildEvent;
+import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
@@ -106,6 +108,23 @@ public final class ModCommand implements BlazeCommand {
 
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
+    env.getEventBus()
+        .post(
+            new NoBuildEvent(
+                env.getCommandName(),
+                env.getCommandStartTime(),
+                /* separateFinishedEvent= */ true,
+                /* showProgress= */ true,
+                /* id= */ null));
+    BlazeCommandResult result = execInternal(env, options);
+    env.getEventBus()
+        .post(
+            new NoBuildRequestFinishedEvent(
+                result.getExitCode(), env.getRuntime().getClock().currentTimeMillis()));
+    return result;
+  }
+
+  private BlazeCommandResult execInternal(CommandEnvironment env, OptionsParsingResult options) {
     BazelDepGraphValue depGraphValue;
     BazelModuleInspectorValue moduleInspector;
 
