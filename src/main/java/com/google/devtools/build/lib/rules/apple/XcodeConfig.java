@@ -403,11 +403,11 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
       } else if (specifiedVersionFromRemote != null) {
         ruleContext.ruleWarning(
             String.format(
-                "--xcode_version=%1$s specified, but it is not available locally. Your build"
-                    + " will fail if any actions require a local Xcode. If you believe you have"
-                    + " '%1$s' installed, try running \"blaze shutdown\", and then re-run your"
-                    + " command.  localy available versions: [%2$s]. remotely available"
-                    + " versions: [%3$s]",
+                "--xcode_version=%1$s specified, but it is not available locally. Your build will"
+                    + " fail if any actions require a local Xcode. If you believe you have '%1$s'"
+                    + " installed, try running \"blaze sync --configure\", and then re-run your"
+                    + " command.  localy available versions: [%2$s]. remotely available versions:"
+                    + " [%3$s]",
                 versionOverrideFlag,
                 printableXcodeVersions(localVersions.getAvailableVersions()),
                 printableXcodeVersions(remoteVersions.getAvailableVersions())));
@@ -418,7 +418,7 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
                 "--xcode_version=%1$s specified, but '%1$s' is not an available Xcode version."
                     + " localy available versions: [%2$s]. remotely available versions:"
                     + " [%3$s]. If you believe you have '%1$s' installed, try running \"blaze"
-                    + " shutdown\", and then re-run your command.",
+                    + " sync --configure\", and then re-run your command.",
                 versionOverrideFlag,
                 printableXcodeVersions(localVersions.getAvailableVersions()),
                 printableXcodeVersions(remoteVersions.getAvailableVersions())));
@@ -472,10 +472,10 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
       checkState(defaultVersion != null);
       return Maps.immutableEntry(defaultVersion, Availability.BOTH);
     } else { // Use the local default.
-        ruleContext.ruleWarning(
-            "You passed --experimental_prefer_mutual_xcode=false, which prevents Bazel from"
-                + " selecting an Xcode version that optimizes your performance. Please consider"
-                + " using --experimental_prefer_mutual_xcode=true.");
+      ruleContext.ruleWarning(
+          "You passed --experimental_prefer_mutual_xcode=false, which prevents Bazel from"
+              + " selecting an Xcode version that optimizes your performance. Please consider"
+              + " using --experimental_prefer_mutual_xcode=true.");
       return Maps.immutableEntry(localVersions.getDefaultVersion(), Availability.LOCAL);
     }
   }
