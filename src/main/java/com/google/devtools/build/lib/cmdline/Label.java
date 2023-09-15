@@ -53,7 +53,14 @@ import net.starlark.java.eval.StarlarkValue;
  *
  * <p>Parsing is robust against bad input, for example, from the command line.
  */
-@StarlarkBuiltin(name = "Label", category = DocCategory.BUILTIN, doc = "A BUILD target identifier.")
+@StarlarkBuiltin(
+    name = "Label",
+    category = DocCategory.BUILTIN,
+    doc =
+        "A BUILD target identifier."
+            + "<p>For every <code>Label<code> instance <code>l</code>, the string representation"
+            + " <code>str(l)</code> has the property that <code>Label(str(l)) == l</code>,"
+            + " regardless of where the <code>Label()</code> call occurs.")
 @AutoCodec
 @Immutable
 @ThreadSafe
