@@ -381,49 +381,39 @@ public class SymlinkForest {
    * <p>It's possible to have a conflict here. For example when we plant symlinks form a
    * case-insensitive FS to a case-sensitive one.
    *
-   * @return a set of conflicting baseNames.
+   * @return a set of potentially conflicting baseNames, all in lowercase.
    */
   public static ImmutableSet<String> eagerlyPlantSymlinkForestSinglePackagePath(
-      Path execroot,
-      Path sourceRoot,
-      String prefix,
-      boolean siblingRepositoryLayout,
-      boolean isFsCaseSensitive)
+      Path execroot, Path sourceRoot, String prefix, boolean siblingRepositoryLayout)
       throws IOException {
     deleteTreesBelowNotPrefixed(execroot, prefix);
     deleteSiblingRepositorySymlinks(siblingRepositoryLayout, execroot);
 
     Map<String, List<Path>> symlinkBaseNameToTargets = new HashMap<>();
-    Set<String> conflictingBaseNames = new HashSet<>();
+    Set<String> potentiallyConflictingBaseNamesLowercase = new HashSet<>();
     for (Path target : sourceRoot.getDirectoryEntries()) {
-      String baseNameLowercaseIfCaseInsensitive =
-          normalizedBasename(target.getBaseName(), isFsCaseSensitive);
+      String baseNameLowercase = Ascii.toLowerCase(target.getBaseName());
       symlinkBaseNameToTargets
-          .computeIfAbsent(baseNameLowercaseIfCaseInsensitive, x -> new ArrayList<>())
+          .computeIfAbsent(baseNameLowercase, x -> new ArrayList<>())
           .add(target);
     }
 
     for (Entry<String, List<Path>> entry : symlinkBaseNameToTargets.entrySet()) {
-      var baseNameLowercaseIfCaseInsensitive = entry.getKey();
+      var baseNameLowercase = entry.getKey();
       var targets = entry.getValue();
-      // Easy case: there's no clashing expected. Just plant.
+      // Easy case: there's no clashing expected. Just plant with the ORIGINAL base name.
       if (targets.size() == 1) {
         Path target = Iterables.getOnlyElement(targets);
         String originalBaseName = target.getBaseName();
-        Path execPath = execroot.getRelative(originalBaseName);
+        Path link = execroot.getRelative(originalBaseName);
         if (symlinkShouldBePlanted(prefix, siblingRepositoryLayout, originalBaseName)) {
-          execPath.createSymbolicLink(target);
+          link.createSymbolicLink(target);
         }
       } else {
-        conflictingBaseNames.add(baseNameLowercaseIfCaseInsensitive);
+        potentiallyConflictingBaseNamesLowercase.add(baseNameLowercase);
       }
     }
-    return ImmutableSet.copyOf(conflictingBaseNames);
-  }
-
-  /** Normalize the base names by converting it to lowercase in a case-insensitive FS. */
-  public static String normalizedBasename(String original, boolean isFsCaseSensitive) {
-    return isFsCaseSensitive ? original : Ascii.toLowerCase(original);
+    return ImmutableSet.copyOf(potentiallyConflictingBaseNamesLowercase);
   }
 
   public static boolean symlinkShouldBePlanted(
@@ -476,8 +466,8 @@ public class SymlinkForest {
 
   /** Checked exception for issues with Symlink planting. */
   public static class SymlinkPlantingException extends Exception {
-    public SymlinkPlantingException(String msg) {
-      super(msg);
+    public SymlinkPlantingException(String msg, IOException e) {
+      super(msg, e);
     }
   }
 }

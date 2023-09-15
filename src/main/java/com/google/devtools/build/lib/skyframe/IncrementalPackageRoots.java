@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -39,7 +40,6 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
@@ -70,14 +70,10 @@ public class IncrementalPackageRoots implements PackageRoots {
   private final boolean useSiblingRepositoryLayout;
 
   private final boolean allowExternalRepositories;
-  private final boolean isFsCaseSensitive;
   @Nullable private EventBus eventBus;
 
-  @GuardedBy("stateLock")
-  @Nullable
-  private Map<String, Object> normalizedConflictingSymlinks = null;
-
-  private static final Object CONFLICTING_SYMLINK_PLACEHOLDER = new Object();
+  // "maybe" because some conflicts in a case-insensitive FS may not be in a case-sensitive one.
+  private ImmutableSet<String> maybeConflictingBaseNamesLowercase = ImmutableSet.of();
 
   private IncrementalPackageRoots(
       Path execroot,
@@ -93,7 +89,6 @@ public class IncrementalPackageRoots implements PackageRoots {
     this.eventBus = eventBus;
     this.useSiblingRepositoryLayout = useSiblingRepositoryLayout;
     this.allowExternalRepositories = allowExternalRepositories;
-    this.isFsCaseSensitive = execroot.getFileSystem().isFilePathCaseSensitive();
   }
 
   public static IncrementalPackageRoots createAndRegisterToEventBus(
@@ -143,24 +138,9 @@ public class IncrementalPackageRoots implements PackageRoots {
    */
   public void eagerlyPlantSymlinksToSingleSourceRoot() throws AbruptExitException {
     try {
-      ImmutableSet<String> normalizedConflictingBaseNames =
+      maybeConflictingBaseNamesLowercase =
           SymlinkForest.eagerlyPlantSymlinkForestSinglePackagePath(
-              execroot,
-              singleSourceRoot.asPath(),
-              prefix,
-              useSiblingRepositoryLayout,
-              isFsCaseSensitive);
-
-      if (!normalizedConflictingBaseNames.isEmpty()) {
-        synchronized (stateLock) {
-          normalizedConflictingSymlinks = new ConcurrentHashMap<>();
-          // Do this so we don't need an extra Set to keep track of the expected conflicts.
-          for (String normalizedConflictingBaseName : normalizedConflictingBaseNames) {
-            normalizedConflictingSymlinks.put(
-                normalizedConflictingBaseName, CONFLICTING_SYMLINK_PLACEHOLDER);
-          }
-        }
-      }
+              execroot, singleSourceRoot.asPath(), prefix, useSiblingRepositoryLayout);
     } catch (IOException e) {
       throwAbruptExitException(e);
     }
@@ -185,7 +165,7 @@ public class IncrementalPackageRoots implements PackageRoots {
   @Subscribe
   public void topLevelTargetReadyForSymlinkPlanting(TopLevelTargetReadyForSymlinkPlanting event)
       throws AbruptExitException {
-    if (allowExternalRepositories || hasPotentialConflicts()) {
+    if (allowExternalRepositories || !maybeConflictingBaseNamesLowercase.isEmpty()) {
       registerAndPlantMissingSymlinks(event.transitivePackagesForSymlinkPlanting());
     }
   }
@@ -204,7 +184,6 @@ public class IncrementalPackageRoots implements PackageRoots {
   private void registerAndPlantMissingSymlinks(NestedSet<Package> packages)
       throws AbruptExitException {
     Set<Path> lazilyPlantedSymlinksLocalRef;
-    Map<String, Object> normalizedConflictingSymlinksLocalRef;
     synchronized (stateLock) {
       if (handledPackageNestedSets == null || !handledPackageNestedSets.add(packages.toNode())) {
         return;
@@ -213,7 +192,6 @@ public class IncrementalPackageRoots implements PackageRoots {
       if (lazilyPlantedSymlinksLocalRef == null) {
         return;
       }
-      normalizedConflictingSymlinksLocalRef = normalizedConflictingSymlinks;
     }
 
     // To reach this point, this has to be the first and only time we plant the symlinks for this
@@ -230,36 +208,46 @@ public class IncrementalPackageRoots implements PackageRoots {
               execroot,
               useSiblingRepositoryLayout,
               lazilyPlantedSymlinksLocalRef);
-        } else if (normalizedConflictingSymlinksLocalRef != null) {
+        } else if (!maybeConflictingBaseNamesLowercase.isEmpty()) {
           String originalBaseName = pkgId.getTopLevelDir();
-          String normalizedBaseName =
-              SymlinkForest.normalizedBasename(originalBaseName, isFsCaseSensitive);
+          String baseNameLowercase = Ascii.toLowerCase(originalBaseName);
 
           if (originalBaseName.isEmpty()
-              || !normalizedConflictingSymlinksLocalRef.containsKey(normalizedBaseName)) {
+              || !maybeConflictingBaseNamesLowercase.contains(baseNameLowercase)
+              || !SymlinkForest.symlinkShouldBePlanted(
+                  prefix, useSiblingRepositoryLayout, originalBaseName)) {
             // We should have already eagerly planted a symlink for this, or there's nothing to do.
             continue;
           }
 
           // As Skymeld only supports single package path at the moment, we only seek to symlink to
           // the top-level dir i.e. what's directly under the source root.
-          Path execPath = execroot.getRelative(originalBaseName);
-          if (SymlinkForest.symlinkShouldBePlanted(
-              prefix, useSiblingRepositoryLayout, originalBaseName)) {
-            Path target = singleSourceRoot.getRelative(originalBaseName);
+          Path link = execroot.getRelative(originalBaseName);
+          Path target = singleSourceRoot.getRelative(originalBaseName);
 
-            var prevTarget = normalizedConflictingSymlinksLocalRef.put(normalizedBaseName, target);
-            if (prevTarget instanceof Path && !target.equals(prevTarget)) {
-              // If the symlink already points to another target, that's a legitimate conflict.
-              // TODO(b/295300378) We technically can go deeper here and try to create the subdirs
-              // to try to resolve the conflict, but the complexity isn't worth it at the moment and
-              // the non-skymeld code path isn't doing any better. Revisit if necessary.
-              throw new SymlinkPlantingException(
-                  String.format("Found these conflicting packages: %s and %s", prevTarget, target));
-            }
+          if (lazilyPlantedSymlinksLocalRef.add(link)) {
+            try {
+              link.createSymbolicLink(target);
+            } catch (IOException e) {
+              StringBuilder errorMessage =
+                  new StringBuilder(
+                      String.format("Failed to plant a symlink: %s -> %s", link, target));
+              if (link.exists() && link.isSymbolicLink()) {
+                // If the link already exists, it must mean that we're planting from a
+                // case-insensitive file system and this is a legitimate conflict.
+                // TODO(b/295300378) We technically can go deeper here and try to create the subdirs
+                // to try to resolve the conflict, but the complexity isn't worth it at the moment
+                // and the non-skymeld code path isn't doing any better. Revisit if necessary.
+                Path existingTarget = link.resolveSymbolicLinks();
+                if (!existingTarget.equals(target)) {
+                  errorMessage.append(
+                      String.format(
+                          ". Found an existing conflicting symlink: %s -> %s",
+                          link, existingTarget));
+                }
+              }
 
-            if (lazilyPlantedSymlinksLocalRef.add(execPath)) {
-              execPath.createSymbolicLink(singleSourceRoot.getRelative(originalBaseName));
+              throw new SymlinkPlantingException(errorMessage.toString(), e);
             }
           }
         }
@@ -284,12 +272,6 @@ public class IncrementalPackageRoots implements PackageRoots {
         e);
   }
 
-  private boolean hasPotentialConflicts() {
-    synchronized (stateLock) {
-      return normalizedConflictingSymlinks != null;
-    }
-  }
-
   private static boolean isExternalRepository(PackageIdentifier pkgId) {
     return !pkgId.getRepository().isMain();
   }
@@ -309,7 +291,7 @@ public class IncrementalPackageRoots implements PackageRoots {
     synchronized (stateLock) {
       handledPackageNestedSets = null;
       lazilyPlantedSymlinks = null;
-      normalizedConflictingSymlinks = null;
+      maybeConflictingBaseNamesLowercase = ImmutableSet.of();
     }
   }
 }
