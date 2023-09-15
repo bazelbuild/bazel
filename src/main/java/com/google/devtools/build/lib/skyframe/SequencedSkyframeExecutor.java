@@ -218,15 +218,18 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   @Override
   protected SkyframeProgressReceiver newSkyframeProgressReceiver() {
-    return new SkyframeProgressReceiver() {
-      @Override
-      public void invalidated(SkyKey skyKey, InvalidationState state) {
-        super.invalidated(skyKey, state);
-        if (state == InvalidationState.DIRTY && skyKey instanceof FileValue.Key) {
-          incrementalBuildMonitor.reportInvalidatedFileValue();
-        }
+    return new SequencedSkyframeProgressReceiver();
+  }
+
+  /** A {@link SkyframeProgressReceiver} tracks dirty {@link FileValue.Key}s. */
+  protected class SequencedSkyframeProgressReceiver extends SkyframeProgressReceiver {
+    @Override
+    public void invalidated(SkyKey skyKey, InvalidationState state) {
+      super.invalidated(skyKey, state);
+      if (state == InvalidationState.DIRTY && skyKey instanceof FileValue.Key) {
+        incrementalBuildMonitor.reportInvalidatedFileValue();
       }
-    };
+    }
   }
 
   @Nullable
