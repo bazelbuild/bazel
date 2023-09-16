@@ -715,8 +715,10 @@ public final class BuildOptions implements Cloneable {
     @Override
     public void serialize(
         SerializationContext context, BuildOptions options, CodedOutputStream codedOut)
-        throws IOException {
-      context.getDependency(OptionsChecksumCache.class).prime(options);
+        throws SerializationException, IOException {
+      if (!context.getDependency(OptionsChecksumCache.class).prime(options)) {
+        throw new SerializationException("Failed to prime cache for " + options.checksum());
+      }
       codedOut.writeStringNoTag(options.checksum());
     }
 
@@ -740,15 +742,22 @@ public final class BuildOptions implements Cloneable {
 
     /**
      * Called during deserialization to transform a checksum into a {@link BuildOptions} instance.
+     *
+     * <p>Returns {@code null} when the given checksum is unknown, in which case the codec throws
+     * {@link SerializationException}.
      */
+    @Nullable
     BuildOptions getOptions(String checksum);
 
     /**
      * Notifies the cache that it may be necessary to deserialize the given options diff's checksum.
      *
      * <p>Called each time an {@link BuildOptions} instance is serialized.
+     *
+     * @return whether this cache was successfully primed, if {@code false} the codec will throw
+     *     {@link SerializationException}
      */
-    void prime(BuildOptions options);
+    boolean prime(BuildOptions options);
   }
 
   /**
@@ -760,13 +769,15 @@ public final class BuildOptions implements Cloneable {
     private final ConcurrentMap<String, BuildOptions> map = new ConcurrentHashMap<>();
 
     @Override
+    @Nullable
     public BuildOptions getOptions(String checksum) {
       return map.get(checksum);
     }
 
     @Override
-    public void prime(BuildOptions options) {
+    public boolean prime(BuildOptions options) {
       map.putIfAbsent(options.checksum(), options);
+      return true;
     }
   }
 }

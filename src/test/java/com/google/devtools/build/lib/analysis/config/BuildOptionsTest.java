@@ -218,6 +218,29 @@ public final class BuildOptionsTest {
   }
 
   @Test
+  public void serialize_primeFails_throws() throws Exception {
+    OptionsChecksumCache failToPrimeCache =
+        new OptionsChecksumCache() {
+          @Override
+          public BuildOptions getOptions(String checksum) {
+            throw new UnsupportedOperationException();
+          }
+
+          @Override
+          public boolean prime(BuildOptions options) {
+            return false;
+          }
+        };
+    BuildOptions options = BuildOptions.of(BUILD_CONFIG_OPTIONS);
+    SerializationContext serializationContext =
+        new SerializationContext(
+            ImmutableClassToInstanceMap.of(OptionsChecksumCache.class, failToPrimeCache));
+
+    assertThrows(
+        SerializationException.class, () -> TestUtils.toBytes(serializationContext, options));
+  }
+
+  @Test
   public void deserialize_unprimedCache_throws() throws Exception {
     BuildOptions options = BuildOptions.of(BUILD_CONFIG_OPTIONS);
 
@@ -252,7 +275,7 @@ public final class BuildOptionsTest {
 
     // Different checksum cache than the one used for serialization, but it has been primed.
     OptionsChecksumCache checksumCache = new MapBackedChecksumCache();
-    checksumCache.prime(options);
+    assertThat(checksumCache.prime(options)).isTrue();
     DeserializationContext deserializationContext =
         new DeserializationContext(
             ImmutableClassToInstanceMap.of(OptionsChecksumCache.class, checksumCache));
