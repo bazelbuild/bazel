@@ -162,6 +162,7 @@ TARGET_NAMES = [
     "jni_md_header-windows",
     "platformclasspath",
     "remote_jdk11",
+    "remotejdk_17",
     "remote_toolchain",
     "ijar",
     "singlejar",
@@ -170,8 +171,14 @@ TARGET_NAMES = [
     "toolchain_java%d" % version
     for version in (8, 9, 10, 11)
 ] + [
+    "toolchain_java%d_definition" % version
+    for version in (8, 9, 10, 11)
+] + [
     "toolchain_jdk_%d" % version
     for version in (14, 15, 16, 17, 20)
+] + [
+     "toolchain_jdk_%d_definition" % version
+     for version in (14, 15, 16, 17, 20)
 ]
 
 [
