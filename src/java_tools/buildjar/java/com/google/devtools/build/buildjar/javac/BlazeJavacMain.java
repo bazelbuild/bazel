@@ -54,6 +54,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticListener;
@@ -69,6 +71,11 @@ import javax.tools.StandardLocation;
  * warnings.
  */
 public class BlazeJavacMain {
+
+  private static final Pattern UNSUPPORTED_CLASS_VERSION_ERROR =
+      Pattern.compile(
+          "^(?<class>[^ ]*) has been compiled by a more recent version of the Java Runtime "
+              + "\\(class file version (?<version>[4-9][0-9])\\.");
 
   /**
    * Sets up a BlazeJavaCompiler with the given plugins within the given context.
@@ -139,8 +146,23 @@ public class BlazeJavacMain {
         throw e.getCause();
       }
     } catch (Exception t) {
-      if (t.getCause() instanceof CancelRequestException) {
-        return BlazeJavacResult.cancelled(t.getCause().getMessage());
+      Throwable cause = t.getCause();
+      if (cause instanceof CancelRequestException) {
+        return BlazeJavacResult.cancelled(cause.getMessage());
+      }
+      Matcher matcher;
+      if (cause instanceof UnsupportedClassVersionError
+          && (matcher = UNSUPPORTED_CLASS_VERSION_ERROR.matcher(cause.getMessage())).find()) {
+        // Java 8 corresponds to class file major version 52.
+        int processorVersion = Integer.parseUnsignedInt(matcher.group("version")) - 44;
+        errWriter.printf(
+            "The Java %d runtime used to run javac is not recent enough to run the processor %s, "
+                + "which has been compiled targeting Java %d. Either register a Java toolchain "
+                + "with a newer java_runtime or, if this processor has been built with Bazel, "
+                + "specify a lower --tool_java_language_version.%n",
+            Runtime.version().feature(),
+            matcher.group("class").replace('/', '.'),
+            processorVersion);
       }
       t.printStackTrace(errWriter);
       status = Status.CRASH;

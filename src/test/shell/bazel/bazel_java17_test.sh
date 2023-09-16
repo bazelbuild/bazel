@@ -140,5 +140,50 @@ EOF
   expect_log "^World\$"
 }
 
+function test_incompatible_processor() {
+  mkdir -p pkg
+  # This test defines a custom Java toolchain as it relies on the availability of a runtime that is
+  # strictly newer than the one specified as the toolchain's java_runtime.
+  cat >pkg/BUILD <<EOF
+load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+java_binary(
+    name = "Main",
+    srcs = ["Main.java"],
+    main_class = "com.example.Main",
+    # Exports an annotation processor.
+    deps = ["@bazel_tools//tools/java/runfiles"],
+)
+default_java_toolchain(
+    name = "java_toolchain",
+    source_version = "17",
+    target_version = "17",
+    java_runtime = "@bazel_tools//tools/jdk:remotejdk_17",
+)
+EOF
+
+  cat >pkg/Main.java <<'EOF'
+package com.example;
+public class Main {
+  public static void main(String[] args) {
+    System.out.println("Hello, world!");
+  }
+}
+EOF
+
+  # Specify a --tool_java_language_version higher than any tested runtime.
+  bazel build //pkg:Main \
+    --extra_toolchains=//pkg:java_toolchain_definition \
+    --java_language_version=17 \
+    --java_runtime_version=remotejdk_17 \
+    --tool_java_language_version=20 \
+    --tool_java_runtime_version=remotejdk_20 \
+    &>"${TEST_log}" && fail "Expected build to fail"
+
+  expect_log "The Java 17 runtime used to run javac is not recent enough to run the processor " \
+    "com\.google\.devtools\.build\.runfiles\.AutoBazelRepositoryProcessor, which has been " \
+    "compiled targeting Java 20\. Either register a Java toolchain with a newer java_runtime " \
+    "or, if this processor has been built with Bazel, specify a lower " \
+    "--tool_java_language_version\."
+}
 
 run_suite "Tests Java 17 language features"
