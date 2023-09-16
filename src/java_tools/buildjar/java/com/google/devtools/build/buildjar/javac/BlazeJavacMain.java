@@ -19,6 +19,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Comparator.comparing;
+import static java.util.Locale.ENGLISH;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -72,6 +73,9 @@ import javax.tools.StandardLocation;
  */
 public class BlazeJavacMain {
 
+  private static final Pattern INCOMPATIBLE_SYSTEM_CLASS_PATH_ERROR =
+      Pattern.compile(
+          "(?s)bad class file: /modules/.*class file has wrong version (?<version>[4-9][0-9])\\.");
   private static final Pattern UNSUPPORTED_CLASS_VERSION_ERROR =
       Pattern.compile(
           "^(?<class>[^ ]*) has been compiled by a more recent version of the Java Runtime "
@@ -183,6 +187,12 @@ public class BlazeJavacMain {
     errWriter.flush();
     ImmutableList<FormattedDiagnostic> diagnostics = diagnosticsBuilder.build();
 
+    diagnostics.stream()
+        .map(d -> maybeGetJavaConfigurationError(arguments, d))
+        .flatMap(Optional::stream)
+        .findFirst()
+        .ifPresent(errOutput::append);
+
     boolean werror =
         diagnostics.stream().anyMatch(d -> d.getCode().equals("compiler.err.warnings.and.werror"));
     if (status.equals(Status.OK)) {
@@ -277,6 +287,33 @@ public class BlazeJavacMain {
       return true;
     }
     return false;
+  }
+
+  private static Optional<String> maybeGetJavaConfigurationError(
+      BlazeJavacArguments arguments, Diagnostic<?> diagnostic) {
+    if (!diagnostic.getKind().equals(Diagnostic.Kind.ERROR)) {
+      return Optional.empty();
+    }
+    Matcher matcher;
+    if (!diagnostic.getCode().equals("compiler.err.cant.access")
+        || arguments.system() == null
+        || !(matcher = INCOMPATIBLE_SYSTEM_CLASS_PATH_ERROR.matcher(diagnostic.getMessage(ENGLISH)))
+            .find()) {
+      return Optional.empty();
+    }
+    // The output path is of the form $PRODUCT-out/$CPU-$MODE[-exec-...]/bin/...
+    boolean isForTool = arguments.classOutput().subpath(1, 2).toString().contains("-exec-");
+    // Java 8 corresponds to class file major version 52.
+    int systemClasspathVersion = Integer.parseUnsignedInt(matcher.group("version")) - 44;
+    return Optional.of(
+        String.format(
+            "error: [BazelJavaConfiguration] The Java %d runtime used to run javac is not recent "
+                + "enough to compile for the Java %d runtime in %s. Either register a Java "
+                + "toolchain with a newer java_runtime or specify a lower %s.\n",
+            Runtime.version().feature(),
+            systemClasspathVersion,
+            arguments.system(),
+            isForTool ? "--tool_java_runtime_version" : "--java_runtime_version"));
   }
 
   /** Processes Plugin-specific arguments and removes them from the args array. */

@@ -186,4 +186,92 @@ EOF
     "--tool_java_language_version\."
 }
 
+function test_incompatible_system_classpath() {
+  mkdir -p pkg
+  # This test defines a custom Java toolchain as it relies on the availability of a runtime that is
+  # strictly newer than the one specified as the toolchain's java_runtime.
+  cat >pkg/BUILD <<'EOF'
+load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+java_binary(
+    name = "Main",
+    srcs = ["Main.java"],
+    main_class = "com.example.Main",
+)
+default_java_toolchain(
+    name = "java_toolchain",
+    source_version = "17",
+    target_version = "17",
+    java_runtime = "@bazel_tools//tools/jdk:remotejdk_17",
+)
+EOF
+
+  cat >pkg/Main.java <<'EOF'
+package com.example;
+import java.net.URI;
+public class Main {
+  public static void main(String[] args) {
+    System.out.println("Hello, world!");
+  }
+}
+EOF
+
+  bazel build //pkg:Main \
+    --extra_toolchains=//pkg:java_toolchain_definition \
+    --java_language_version=17 \
+    --java_runtime_version=remotejdk_20 \
+    &>"${TEST_log}" && fail "Expected build to fail"
+
+  expect_log "error: \[BazelJavaConfiguration\] The Java 17 runtime used to run javac is not " \
+    "recent enough to compile for the Java 20 runtime in external/remotejdk20_[a-z0-9]*\. Either " \
+    "register a Java toolchain with a newer java_runtime or specify a lower " \
+    "--java_runtime_version\."
+}
+
+function test_incompatible_tool_system_classpath() {
+  mkdir -p pkg
+  # This test defines a custom Java toolchain as it relies on the availability of a runtime that is
+  # strictly newer than the one specified as the toolchain's java_runtime.
+  cat >pkg/BUILD <<'EOF'
+load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+java_binary(
+    name = "Main",
+    srcs = ["Main.java"],
+    main_class = "com.example.Main",
+)
+genrule(
+    name = "gen",
+    outs = ["gen.txt"],
+    tools = [":Main"],
+    cmd = "$(location :Main) > $@",
+)
+default_java_toolchain(
+    name = "java_toolchain",
+    source_version = "17",
+    target_version = "17",
+    java_runtime = "@bazel_tools//tools/jdk:remotejdk_17",
+)
+EOF
+
+  cat >pkg/Main.java <<'EOF'
+package com.example;
+import java.net.URI;
+public class Main {
+  public static void main(String[] args) {
+    System.out.println("Hello, world!");
+  }
+}
+EOF
+
+  bazel build //pkg:gen \
+    --extra_toolchains=//pkg:java_toolchain_definition \
+    --tool_java_language_version=17 \
+    --tool_java_runtime_version=remotejdk_20 \
+    &>"${TEST_log}" && fail "Expected build to fail"
+
+  expect_log "error: \[BazelJavaConfiguration\] The Java 17 runtime used to run javac is not " \
+    "recent enough to compile for the Java 20 runtime in external/remotejdk20_[a-z0-9]*\. Either " \
+    "register a Java toolchain with a newer java_runtime or specify a lower " \
+    "--tool_java_runtime_version\."
+}
+
 run_suite "Tests Java 17 language features"
