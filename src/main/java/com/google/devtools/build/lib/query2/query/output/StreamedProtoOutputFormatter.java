@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.query.output;
 
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
@@ -38,7 +39,7 @@ public class StreamedProtoOutputFormatter extends ProtoOutputFormatter {
       public void processOutput(Iterable<Target> partialResult)
           throws IOException, InterruptedException {
         for (Target target : partialResult) {
-          toTargetProtoBuffer(target).writeDelimitedTo(out);
+          toTargetProtoBuffer(target, ImmutableSortedSet.of()).writeDelimitedTo(out);
         }
       }
     };

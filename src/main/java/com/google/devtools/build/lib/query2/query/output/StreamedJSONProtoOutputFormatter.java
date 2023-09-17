@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.query.output;
 
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
@@ -44,7 +45,7 @@ public class StreamedJSONProtoOutputFormatter extends ProtoOutputFormatter {
           out.write(
               jsonPrinter
                   .omittingInsignificantWhitespace()
-                  .print(toTargetProtoBuffer(target))
+                  .print(toTargetProtoBuffer(target, ImmutableSortedSet.of()))
                   .getBytes(StandardCharsets.UTF_8));
           out.write(System.lineSeparator().getBytes(StandardCharsets.UTF_8));
         }
