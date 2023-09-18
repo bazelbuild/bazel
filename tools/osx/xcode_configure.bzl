@@ -300,7 +300,7 @@ xcode_autoconf = repository_rule(
         "XCODE_VERSION",
     ],
     implementation = _impl,
-    configure = True,
+    local = True,
     attrs = {
         "xcode_locator": attr.string(),
         "remote_xcode": attr.string(),
