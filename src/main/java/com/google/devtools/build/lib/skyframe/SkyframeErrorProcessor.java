@@ -311,7 +311,7 @@ public final class SkyframeErrorProcessor {
       boolean isExecutionException = isExecutionException(cause);
       if (keepGoing) {
         aggregatingResultBuilder.aggregateSingleResult(individualErrorProcessingResult);
-        printWarningMessage(isExecutionException, label, eventHandler);
+        logOrPrintWarnings(isExecutionException, label, eventHandler, cause);
       } else {
         noKeepGoingAnalysisExceptionAspect =
             throwOrReturnAspectAnalysisException(
@@ -569,17 +569,29 @@ public final class SkyframeErrorProcessor {
     return createDetailedExecutionExitCode(message, UNKNOWN_EXECUTION);
   }
 
-  private static void printWarningMessage(
+  private static void logOrPrintWarnings(
       boolean isExecutionException,
       @Nullable Label topLevelLabel,
-      ExtendedEventHandler eventHandler) {
-    String warningMsg =
-        isExecutionException
-            ? String.format("errors encountered while building target '%s'", topLevelLabel)
-            : String.format(
+      ExtendedEventHandler eventHandler,
+      Exception cause) {
+    // For execution exceptions, we don't print any extra warning.
+    if (isExecutionException) {
+      if (isExecutionCauseWorthLogging(cause)) {
+        logger.atWarning().withCause(cause).log(
+            "Non-action-execution/input-error exception while building target %s", topLevelLabel);
+      }
+      return;
+    }
+    eventHandler.handle(
+        Event.warn(
+            String.format(
                 "errors encountered while analyzing target '%s': it will not be built",
-                topLevelLabel);
-    eventHandler.handle(Event.warn(warningMsg));
+                topLevelLabel)));
+  }
+
+  private static boolean isExecutionCauseWorthLogging(Throwable cause) {
+    return !(cause instanceof ActionExecutionException)
+        && !(cause instanceof InputFileErrorException);
   }
 
   private static boolean isValidErrorKeyType(Object errorKey) {
@@ -842,8 +854,7 @@ public final class SkyframeErrorProcessor {
         detailedExitCode =
             DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
                 detailedExitCode, ((DetailedException) cause).getDetailedExitCode());
-        if (!(cause instanceof ActionExecutionException)
-            && !(cause instanceof InputFileErrorException)) {
+        if (isExecutionCauseWorthLogging(cause)) {
           logger.atWarning().withCause(cause).log(
               "Non-action-execution/input-error exception for %s", error);
         }

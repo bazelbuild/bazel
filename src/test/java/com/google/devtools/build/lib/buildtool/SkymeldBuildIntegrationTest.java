@@ -628,6 +628,24 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
             + " exist");
   }
 
+  // Regression test for b/300391729.
+  @Test
+  public void executionFailure_keepGoing_doesNotSpamWarnings() throws Exception {
+    addOptions("--keep_going");
+    writeExecutionFailureAspectBzl();
+    write(
+        "foo/BUILD",
+        "cc_library(name = 'foo', srcs = ['foo.cc'], deps = [':bar'])",
+        "cc_library(name = 'bar', srcs = ['bar.cc'])");
+    write("foo/foo.cc");
+    write("foo/bar.cc");
+    addOptions("--aspects=//foo:aspect.bzl%execution_err_aspect", "--output_groups=files");
+
+    assertThrows(BuildFailedException.class, () -> buildTarget("//foo/..."));
+    // No warnings.
+    events.assertNoWarnings();
+  }
+
   private void assertSingleAnalysisPhaseCompleteEventWithLabels(String... labels) {
     assertThat(eventsSubscriber.getAnalysisPhaseCompleteEvents()).hasSize(1);
     AnalysisPhaseCompleteEvent analysisPhaseCompleteEvent =

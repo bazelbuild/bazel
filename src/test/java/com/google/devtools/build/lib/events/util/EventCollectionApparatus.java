@@ -159,6 +159,10 @@ public final class EventCollectionApparatus {
     MoreAsserts.assertNoEvents(errors());
   }
 
+  public void assertNoWarnings() {
+    MoreAsserts.assertNoEvents(warnings());
+  }
+
   /**
    * Utility method: Assert that the {@link #collector()} has received an
    * info message with the {@code expectedMessage}.
