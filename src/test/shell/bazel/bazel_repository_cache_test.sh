@@ -494,18 +494,18 @@ EOF
     || echo "Expected fetch to succeed"
 }
 
-function test_experimental_repository_cache_urls_as_default_canonical_id() {
+function test_repository_cache_urls_as_default_canonical_id() {
   setup_repository
 
   bazel fetch --repository_cache="$repo_cache_dir" \
-        --experimental_repository_cache_urls_as_default_canonical_id \
+        --repository_cache_urls_as_default_canonical_id \
         //zoo:breeding-program >& $TEST_log \
     || echo "Expected fetch to succeed"
 
   shutdown_server
 
   bazel fetch --repository_cache="$repo_cache_dir" \
-        --experimental_repository_cache_urls_as_default_canonical_id \
+        --repository_cache_urls_as_default_canonical_id \
         //zoo:breeding-program >& $TEST_log \
     || echo "Expected fetch to succeed"
 
@@ -524,7 +524,7 @@ EOF
 
   # As repository cache key should depend on urls, we expect fetching to fail now.
   bazel fetch --repository_cache="$repo_cache_dir" \
-        --experimental_repository_cache_urls_as_default_canonical_id \
+        --repository_cache_urls_as_default_canonical_id \
         //zoo:breeding-program >& $TEST_log \
     && fail "expected failure" || :
 }

@@ -287,8 +287,9 @@ public class RepositoryOptions extends OptionsBase {
   public CheckDirectDepsMode checkDirectDependencies;
 
   @Option(
-      name = "experimental_repository_cache_urls_as_default_canonical_id",
-      defaultValue = "false",
+      name = "repository_cache_urls_as_default_canonical_id",
+      oldName = "experimental_repository_cache_urls_as_default_canonical_id",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
