@@ -136,7 +136,15 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
   }
 
   @Test
-  public void testLoadfiles_labelKeyedStringDictDeps() throws Exception {
+  public void testLoadfiles_sclDep() throws Exception {
+    writeBzlAndSclFiles();
+
+    assertThat(targetLabels(eval("loadfiles(//foo:BUILD)")))
+        .containsExactly("//bar:direct.scl", "//bar:indirect.scl", "//bar:intermediate.bzl");
+  }
+
+  @Test
+  public void testDeps_labelKeyedStringDictDeps() throws Exception {
     writeFile(
         "test//starlark/rule.bzl",
         "def _impl(ctx):",

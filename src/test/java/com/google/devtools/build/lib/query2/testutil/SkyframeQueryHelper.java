@@ -336,6 +336,8 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
 
     BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
     buildLanguageOptions.enableBzlmod = enableBzlmod();
+    // TODO(b/256127926): Delete once flipped.
+    buildLanguageOptions.experimentalEnableSclDialect = true;
 
     PathPackageLocator packageLocator =
         skyframeExecutor.createPackageLocator(

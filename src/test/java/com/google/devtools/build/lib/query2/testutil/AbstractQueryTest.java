@@ -542,6 +542,31 @@ public abstract class AbstractQueryTest<T> {
     writeFile("d/BUILD", "exports_files(['d'])");
   }
 
+  /**
+   * Setup a BUILD file that loads two .scl files, one directly and the other through a .bzl file.
+   */
+  protected void writeBzlAndSclFiles() throws Exception {
+    writeFile(
+        "foo/BUILD", //
+        "load('//bar:direct.scl', 'x')",
+        "load('//bar:intermediate.bzl', 'y')",
+        "sh_library(",
+        "    name = 'foo',",
+        "    tags = [x, y],",
+        ")");
+    writeFile("bar/BUILD");
+    writeFile(
+        "bar/direct.scl", //
+        "x = 'X'");
+    writeFile(
+        "bar/intermediate.bzl", //
+        "load(':indirect.scl', _y='y')",
+        "y = _y");
+    writeFile(
+        "bar/indirect.scl", //
+        "y = 'Y'");
+  }
+
   protected void writeBuildFilesWithConfigurableAttributesUnconditionally() throws Exception {
     writeFile(
         "conditions/BUILD",
@@ -1865,6 +1890,15 @@ public abstract class AbstractQueryTest<T> {
     writeFile("bar/bar.bzl", "sym = 0");
     assertThat(evalToListOfStrings("buildfiles(//foo:BUILD)"))
         .containsExactly("//foo:BUILD", "//bar:bar.bzl", "//bar:BUILD");
+  }
+
+  @Test
+  public void testBuildfilesContainingScl() throws Exception {
+    writeBzlAndSclFiles();
+
+    assertThat(evalToString("buildfiles(deps(//foo))"))
+        .isEqualTo(
+            "//bar:BUILD //bar:direct.scl //bar:indirect.scl //bar:intermediate.bzl //foo:BUILD");
   }
 
   @Test
