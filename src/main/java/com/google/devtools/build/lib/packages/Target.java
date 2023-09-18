@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.packages;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.starlarkbuildapi.TargetApi;
-import com.google.devtools.build.lib.vfs.Path;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -81,8 +80,4 @@ public interface Target extends TargetApi, TargetData {
   /** Returns whether this target type can be configured (e.g. accepts non-null configurations). */
   boolean isConfigurable();
 
-  @Override
-  default Path getPackageDirectory() {
-    return getPackage().getPackageDirectory();
-  }
 }

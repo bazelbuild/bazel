@@ -202,10 +202,6 @@ public class ConfiguredTargetAndData {
     return target.getLocation();
   }
 
-  public Path getPackageDirectory() {
-    return target.getPackageDirectory();
-  }
-
   public String getTargetKind() {
     return target.getTargetKind();
   }

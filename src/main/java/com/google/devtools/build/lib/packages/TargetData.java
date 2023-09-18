@@ -52,8 +52,6 @@ public interface TargetData {
 
   Label getLabel();
 
-  Path getPackageDirectory();
-
   default boolean isRule() {
     return false;
   }
