@@ -23,10 +23,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.net.URI;
 import java.time.Duration;
@@ -46,16 +45,14 @@ public class CredentialHelperTest {
   private static final Reporter reporter = new Reporter(new EventBus());
 
   private GetCredentialsResponse getCredentialsFromHelper(
-      String uri, ImmutableMap<String, String> env) throws Exception {
+      String credHelperPath, String uri, ImmutableMap<String, String> env) throws Exception {
+    Preconditions.checkNotNull(credHelperPath);
     Preconditions.checkNotNull(uri);
     Preconditions.checkNotNull(env);
 
-    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    FileSystem fs = FileSystems.getNativeFileSystem();
 
-    CredentialHelper credentialHelper =
-        new CredentialHelper(
-            fs.getPath(
-                Runfiles.create().rlocation(TEST_CREDENTIAL_HELPER_PATH.getSafePathString())));
+    CredentialHelper credentialHelper = new CredentialHelper(fs.getPath(credHelperPath));
     return credentialHelper.getCredentials(
         CredentialHelperEnvironment.newBuilder()
             .setEventReporter(reporter)
@@ -64,6 +61,14 @@ public class CredentialHelperTest {
             .setHelperExecutionTimeout(Duration.ofSeconds(5))
             .build(),
         URI.create(uri));
+  }
+
+  private GetCredentialsResponse getCredentialsFromHelper(
+      String uri, ImmutableMap<String, String> env) throws Exception {
+    String credHelperPath =
+        Runfiles.create().rlocation(TEST_CREDENTIAL_HELPER_PATH.getPathString());
+
+    return getCredentialsFromHelper(credHelperPath, uri, env);
   }
 
   private GetCredentialsResponse getCredentialsFromHelper(String uri) throws Exception {
@@ -141,5 +146,18 @@ public class CredentialHelperTest {
             CredentialHelperException.class,
             () -> getCredentialsFromHelper("https://timeout.example.com"));
     assertThat(e).hasMessageThat().contains("process timed out");
+  }
+
+  @Test
+  public void nonExistentHelper() throws Exception {
+    CredentialHelperException e =
+        assertThrows(
+            CredentialHelperException.class,
+            () ->
+                getCredentialsFromHelper(
+                    OS.getCurrent() == OS.WINDOWS ? "C:/no/such/file" : "/no/such/file",
+                    "https://timeout.example.com",
+                    ImmutableMap.of()));
+    assertThat(e).hasMessageThat().contains("Cannot run program");
   }
 }

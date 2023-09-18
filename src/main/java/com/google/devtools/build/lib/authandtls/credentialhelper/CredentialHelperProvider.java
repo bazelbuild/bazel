@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.authandtls.credentialhelper;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.vfs.Path;
@@ -51,9 +53,9 @@ public final class CredentialHelperProvider {
       Optional<Path> defaultHelper,
       ImmutableMap<String, Path> hostToHelper,
       ImmutableMap<String, Path> suffixToHelper) {
-    this.defaultHelper = Preconditions.checkNotNull(defaultHelper);
-    this.hostToHelper = Preconditions.checkNotNull(hostToHelper);
-    this.suffixToHelper = Preconditions.checkNotNull(suffixToHelper);
+    this.defaultHelper = checkNotNull(defaultHelper);
+    this.hostToHelper = checkNotNull(hostToHelper);
+    this.suffixToHelper = checkNotNull(suffixToHelper);
   }
 
   /**
@@ -65,7 +67,7 @@ public final class CredentialHelperProvider {
    *     for the provided {@link URI}.
    */
   public Optional<CredentialHelper> findCredentialHelper(URI uri) {
-    Preconditions.checkNotNull(uri);
+    checkNotNull(uri);
 
     String host = uri.getHost();
     if (Strings.isNullOrEmpty(host)) {
@@ -82,13 +84,13 @@ public final class CredentialHelperProvider {
   }
 
   private Optional<Path> findHostCredentialHelper(String host) {
-    Preconditions.checkNotNull(host);
+    checkNotNull(host);
 
     return Optional.ofNullable(hostToHelper.get(host));
   }
 
   private Optional<Path> findWildcardCredentialHelper(String host) {
-    Preconditions.checkNotNull(host);
+    checkNotNull(host);
 
     return Optional.ofNullable(suffixToHelper.get(host))
         .or(
@@ -130,18 +132,12 @@ public final class CredentialHelperProvider {
     private final Map<String, Path> hostToHelper = new HashMap<>();
     private final Map<String, Path> suffixToHelper = new HashMap<>();
 
-    private void checkHelper(Path path) throws IOException {
-      Preconditions.checkNotNull(path);
-      Preconditions.checkArgument(
-          path.isExecutable(), "Credential helper %s is not executable", path);
-    }
-
     /**
      * Adds a default credential helper to use for all {@link URI}s that don't specify a more
      * specific credential helper.
      */
     public Builder add(Path helper) throws IOException {
-      checkHelper(helper);
+      checkNotNull(helper);
 
       defaultHelper = Optional.of(helper);
       return this;
@@ -159,11 +155,11 @@ public final class CredentialHelperProvider {
      * example.com}.
      */
     public Builder add(String pattern, Path helper) throws IOException {
-      Preconditions.checkNotNull(pattern);
-      checkHelper(helper);
+      checkNotNull(pattern);
+      checkNotNull(helper);
 
       String punycodePattern = toPunycodePattern(pattern);
-      Preconditions.checkArgument(
+      checkArgument(
           DOMAIN_PATTERN.matcher(punycodePattern).matches(),
           "Pattern '%s' is not a valid (wildcard) DNS name",
           pattern);
@@ -179,7 +175,7 @@ public final class CredentialHelperProvider {
 
     /** Converts a pattern to Punycode (see https://en.wikipedia.org/wiki/Punycode). */
     private final String toPunycodePattern(String pattern) {
-      Preconditions.checkNotNull(pattern);
+      checkNotNull(pattern);
 
       try {
         return IDN.toASCII(pattern);

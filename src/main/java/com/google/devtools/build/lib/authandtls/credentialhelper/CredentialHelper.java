@@ -75,7 +75,20 @@ public final class CredentialHelper {
     Profiler prof = Profiler.instance();
 
     try (SilentCloseable c = prof.profile(CREDENTIAL_HELPER, "calling credential helper")) {
-      Subprocess process = spawnSubprocess(environment, "get");
+      Subprocess process;
+
+      try {
+        process = spawnSubprocess(environment, "get");
+      } catch (IOException e) {
+        throw new CredentialHelperException(
+            String.format(
+                Locale.US,
+                "Failed to get credentials for '%s' from helper '%s': %s",
+                uri,
+                path,
+                e.getMessage()));
+      }
+
       try (Reader stdout = new InputStreamReader(process.getInputStream(), UTF_8);
           Reader stderr = new InputStreamReader(process.getErrorStream(), UTF_8)) {
         try (Writer stdin = new OutputStreamWriter(process.getOutputStream(), UTF_8)) {

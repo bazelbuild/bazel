@@ -114,18 +114,6 @@ public class CredentialHelperProviderTest {
   }
 
   @Test
-  public void addNonExecutableDefaultHelper() throws Exception {
-    Path helper = fileSystem.getPath("/path/to/non/executable");
-    setUpHelper(helper);
-    helper.setExecutable(false);
-    CredentialHelperProvider.Builder provider = CredentialHelperProvider.builder();
-
-    IllegalArgumentException exception =
-        assertThrows(IllegalArgumentException.class, () -> provider.add(helper));
-    assertThat(exception).hasMessageThat().contains("is not executable");
-  }
-
-  @Test
   public void onlyDefaultHelper() throws Exception {
     Path helper = fileSystem.getPath(DEFAULT_HELPER_PATH);
     CredentialHelperProvider provider = CredentialHelperProvider.builder().add(helper).build();
