@@ -1108,19 +1108,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
                 + " transition` with changed options to avoid potential action conflicts.")
     public boolean androidPlatformsTransitionsUpdateAffected;
 
-    @Option(
-        name = "is_android",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
-        help =
-            "This option exists for the purposes of enabling the toolchain resolution mechanism"
-                + " to select a different `exec` toolchain when targeting Android. An example use"
-                + " case is Rust: The Rust toolchain has a requirement that certain types of"
-                + " libraries (proc-macro) that are built in `exec` mode *have* to be compiled with"
-                + " the same toolchain as the libraries built in `target` mode.")
-    public boolean isAndroid;
-
     @Override
     public FragmentOptions getExec() {
       Options exec = (Options) super.getExec();
@@ -1151,7 +1138,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
       exec.persistentBusyboxTools = persistentBusyboxTools;
       exec.persistentMultiplexBusyboxTools = persistentMultiplexBusyboxTools;
       exec.disableNativeAndroidRules = disableNativeAndroidRules;
-      exec.isAndroid = isAndroid;
 
       // Unless the build was started from an Android device, exec means MAIN.
       exec.configurationDistinguisher = ConfigurationDistinguisher.MAIN;
@@ -1208,7 +1194,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean hwasan;
   private final boolean getJavaResourcesFromOptimizedJar;
   private final boolean includeProguardLocationReferences;
-  private final boolean isAndroid;
 
   public AndroidConfiguration(BuildOptions buildOptions) throws InvalidConfigurationException {
     Options options = buildOptions.get(Options.class);
@@ -1270,7 +1255,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.hwasan = options.hwasan;
     this.getJavaResourcesFromOptimizedJar = options.getJavaResourcesFromOptimizedJar;
     this.includeProguardLocationReferences = options.includeProguardLocationReferences;
-    this.isAndroid = options.isAndroid;
 
     if (incrementalDexingShardsAfterProguard < 0) {
       throw new InvalidConfigurationException(
@@ -1559,10 +1543,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
   boolean outputLibraryMergedAssets() {
     return outputLibraryMergedAssets;
-  }
-
-  boolean isAndroid() {
-    return isAndroid;
   }
 
   /** Returns the label provided with --legacy_main_dex_list_generator, if any. */
