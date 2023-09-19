@@ -27,6 +27,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.remote.common.LazyFileOutputStream;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
+import com.google.devtools.build.lib.remote.disk.DiskCacheClient.Store;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
@@ -172,7 +173,7 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
           (unused) -> {
             try {
               tempOut.close();
-              diskCache.captureFile(tempPath, digest, /* isActionCache= */ false);
+              diskCache.captureFile(tempPath, digest, Store.CAS);
             } catch (IOException e) {
               return immediateFailedFuture(e);
             }

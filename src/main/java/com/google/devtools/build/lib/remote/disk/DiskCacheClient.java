@@ -48,8 +48,24 @@ import javax.annotation.Nullable;
 /** A on-disk store for the remote action cache. */
 public class DiskCacheClient implements RemoteCacheClient {
 
-  private static final String AC_DIRECTORY = "ac";
-  private static final String CAS_DIRECTORY = "cas";
+  /** Identifies one of the two stores comprised by the disk cache. */
+  public enum Store {
+    /** Action cache. */
+    AC("ac"),
+
+    /** Content-addressed storage. */
+    CAS("cas");
+
+    private final String name;
+
+    private Store(String name) {
+      this.name = name;
+    }
+
+    private String getDirectoryName() {
+      return name;
+    }
+  }
 
   private final Path root;
   private final boolean verifyDownloads;
@@ -77,22 +93,22 @@ public class DiskCacheClient implements RemoteCacheClient {
 
   /** Returns {@code true} if the provided {@code key} is stored in the CAS. */
   public boolean contains(Digest digest) {
-    return toPath(digest.getHash(), /* actionResult= */ false).exists();
+    return toPath(digest.getHash(), Store.CAS).exists();
   }
 
   /** Returns {@link Path} into the CAS for the given {@link Digest}. */
   public Path getPath(Digest digest) {
-    return toPath(digest.getHash(), /* actionResult= */ false);
+    return toPath(digest.getHash(), Store.CAS);
   }
 
-  public void captureFile(Path src, Digest digest, boolean isActionCache) throws IOException {
-    Path target = toPath(digest.getHash(), isActionCache);
+  public void captureFile(Path src, Digest digest, Store store) throws IOException {
+    Path target = toPath(digest.getHash(), store);
     target.getParentDirectory().createDirectoryAndParents();
     src.renameTo(target);
   }
 
-  private ListenableFuture<Void> download(Digest digest, OutputStream out, boolean isActionCache) {
-    Path p = toPath(digest.getHash(), isActionCache);
+  private ListenableFuture<Void> download(Digest digest, OutputStream out, Store store) {
+    Path p = toPath(digest.getHash(), store);
     if (!p.exists()) {
       return Futures.immediateFailedFuture(new CacheNotFoundException(digest));
     } else {
@@ -111,7 +127,7 @@ public class DiskCacheClient implements RemoteCacheClient {
     @Nullable
     DigestOutputStream digestOut = verifyDownloads ? digestUtil.newDigestOutputStream(out) : null;
     return Futures.transformAsync(
-        download(digest, digestOut != null ? digestOut : out, /* isActionCache= */ false),
+        download(digest, digestOut != null ? digestOut : out, Store.CAS),
         (v) -> {
           try {
             if (digestOut != null) {
@@ -131,7 +147,7 @@ public class DiskCacheClient implements RemoteCacheClient {
       return;
     }
 
-    if (!toPath(digest.getHash(), /* actionResult= */ false).exists()) {
+    if (!toPath(digest.getHash(), Store.CAS).exists()) {
       throw new CacheNotFoundException(digest);
     }
   }
@@ -151,7 +167,7 @@ public class DiskCacheClient implements RemoteCacheClient {
       var treeDigest = outputDirectory.getTreeDigest();
       checkDigestExists(treeDigest);
 
-      var treePath = toPath(treeDigest.getHash(), /* actionResult= */ false);
+      var treePath = toPath(treeDigest.getHash(), Store.CAS);
       var tree =
           Tree.parseFrom(treePath.getInputStream(), ExtensionRegistryLite.getEmptyRegistry());
       checkOutputDirectory(tree.getRoot());
@@ -179,8 +195,7 @@ public class DiskCacheClient implements RemoteCacheClient {
   public ListenableFuture<CachedActionResult> downloadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
     return Futures.transformAsync(
-        Utils.downloadAsActionResult(
-            actionKey, (digest, out) -> download(digest, out, /* isActionCache= */ true)),
+        Utils.downloadAsActionResult(actionKey, (digest, out) -> download(digest, out, Store.AC)),
         actionResult -> {
           if (actionResult == null) {
             return immediateFuture(null);
@@ -201,7 +216,7 @@ public class DiskCacheClient implements RemoteCacheClient {
   public ListenableFuture<Void> uploadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult) {
     try (InputStream data = actionResult.toByteString().newInput()) {
-      saveFile(actionKey.getDigest().getHash(), data, /* actionResult= */ true);
+      saveFile(actionKey.getDigest().getHash(), data, Store.AC);
       return immediateFuture(null);
     } catch (IOException e) {
       return Futures.immediateFailedFuture(e);
@@ -215,7 +230,7 @@ public class DiskCacheClient implements RemoteCacheClient {
   public ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path file) {
     try (InputStream in = file.getInputStream()) {
-      saveFile(digest.getHash(), in, /* actionResult= */ false);
+      saveFile(digest.getHash(), in, Store.CAS);
     } catch (IOException e) {
       return Futures.immediateFailedFuture(e);
     }
@@ -226,7 +241,7 @@ public class DiskCacheClient implements RemoteCacheClient {
   public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, ByteString data) {
     try (InputStream in = data.newInput()) {
-      saveFile(digest.getHash(), in, /* actionResult= */ false);
+      saveFile(digest.getHash(), in, Store.CAS);
     } catch (IOException e) {
       return Futures.immediateFailedFuture(e);
     }
@@ -245,14 +260,13 @@ public class DiskCacheClient implements RemoteCacheClient {
     return root.getChild(key);
   }
 
-  protected Path toPath(String key, boolean actionResult) {
-    String cacheFolder = actionResult ? AC_DIRECTORY : CAS_DIRECTORY;
+  protected Path toPath(String key, Store store) {
     // Create the file in a subfolder to bypass possible folder file count limits
-    return root.getChild(cacheFolder).getChild(key.substring(0, 2)).getChild(key);
+    return root.getChild(store.getDirectoryName()).getChild(key.substring(0, 2)).getChild(key);
   }
 
-  private void saveFile(String key, InputStream in, boolean actionResult) throws IOException {
-    Path target = toPath(key, actionResult);
+  private void saveFile(String key, InputStream in, Store store) throws IOException {
+    Path target = toPath(key, store);
     if (target.exists()) {
       return;
     }
