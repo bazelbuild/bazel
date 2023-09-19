@@ -300,4 +300,10 @@ public class ExecutionRequirements {
   /** Requires the execution service do NOT share caches across different workspace. */
   public static final String DIFFERENTIATE_WORKSPACE_CACHE =
       "internal-differentiate-workspace-cache";
+
+  /**
+   * Indicates that the action is compatible with path mapping, e.g., removing the configuration
+   * segment from the paths of all inputs and outputs.
+   */
+  public static final String SUPPORTS_PATH_MAPPING = "supports-path-mapping";
 }

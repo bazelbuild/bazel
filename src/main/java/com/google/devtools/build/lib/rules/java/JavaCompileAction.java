@@ -244,7 +244,8 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     }
     getEnvironment().addTo(fp);
     fp.addStringMap(executionInfo);
-    PathMappers.addToFingerprint(getMnemonic(), PathMappers.getOutputPathsMode(configuration), fp);
+    PathMappers.addToFingerprint(
+        getMnemonic(), getExecutionInfo(), PathMappers.getOutputPathsMode(configuration), fp);
   }
 
   /**

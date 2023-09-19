@@ -385,7 +385,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     }
     env.addTo(fp);
     fp.addStringMap(getExecutionInfo());
-    PathMappers.addToFingerprint(getMnemonic(), outputPathsMode, fp);
+    PathMappers.addToFingerprint(getMnemonic(), getExecutionInfo(), outputPathsMode, fp);
   }
 
   @Override
