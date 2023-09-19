@@ -166,7 +166,7 @@ class BzlmodQueryTest(test_base.TestBase):
     ])
     # Verify that there are no non-canonical labels in the output.
     stdout = '\n'.join(stdout)
-    self.assertEmpty(re.findall('(?<!@)@[a-z0-9.~]*//', stdout), stdout)
+    self.assertEqual(len(re.findall('(?<!@)@[a-z0-9.~]*//', stdout)), 0, stdout)
 
   def testAqueryModuleRepoTargetsBelow(self):
     self.ScratchFile('MODULE.bazel', [
