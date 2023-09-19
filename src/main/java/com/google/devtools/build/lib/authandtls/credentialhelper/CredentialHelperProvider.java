@@ -14,22 +14,19 @@
 
 package com.google.devtools.build.lib.authandtls.credentialhelper;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.Immutable;
 import java.io.IOException;
-import java.net.IDN;
 import java.net.URI;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.regex.Pattern;
 
 /**
  * A provider for {@link CredentialHelper}s.
@@ -125,9 +122,6 @@ public final class CredentialHelperProvider {
 
   /** Builder for {@link CredentialHelperProvider}. */
   public static final class Builder {
-    private static final Pattern DOMAIN_PATTERN =
-        Pattern.compile("(\\*|[-a-zA-Z0-9]+)(\\.[-a-zA-Z0-9]+)+");
-
     private Optional<Path> defaultHelper = Optional.empty();
     private final Map<String, Path> hostToHelper = new HashMap<>();
     private final Map<String, Path> suffixToHelper = new HashMap<>();
@@ -136,9 +130,9 @@ public final class CredentialHelperProvider {
      * Adds a default credential helper to use for all {@link URI}s that don't specify a more
      * specific credential helper.
      */
+    @CanIgnoreReturnValue
     public Builder add(Path helper) throws IOException {
       checkNotNull(helper);
-
       defaultHelper = Optional.of(helper);
       return this;
     }
@@ -146,43 +140,26 @@ public final class CredentialHelperProvider {
     /**
      * Adds a credential helper to use for all {@link URI}s matching the provided pattern.
      *
-     * <p>As of 2022-06-20, only matching based on (wildcard) domain name is supported.
+     * <p>If {@code pattern} starts with a {@code *.} wildcard, it matches every subdomain in
+     * addition to the domain itself. For example {@code *.example.com} would match {@code
+     * example.com}, {@code foo.example.com}, {@code bar.example.com}, {@code baz.bar.example.com}
+     * and so on, but not anything that isn't a subdomain of {@code example.com}.
      *
-     * <p>If {@code pattern} starts with {@code *.}, it is considered a wildcard pattern matching
-     * all subdomains in addition to the domain itself. For example {@code *.example.com} would
-     * match {@code example.com}, {@code foo.example.com}, {@code bar.example.com}, {@code
-     * baz.bar.example.com} and so on, but not anything that isn't a subdomain of {@code
-     * example.com}.
+     * <p>More complex wildcard patterns are not supported.
      */
+    @CanIgnoreReturnValue
     public Builder add(String pattern, Path helper) throws IOException {
       checkNotNull(pattern);
       checkNotNull(helper);
 
-      String punycodePattern = toPunycodePattern(pattern);
-      checkArgument(
-          DOMAIN_PATTERN.matcher(punycodePattern).matches(),
-          "Pattern '%s' is not a valid (wildcard) DNS name",
-          pattern);
-
+      // The pattern has already been normalized during options parsing.
       if (pattern.startsWith("*.")) {
-        suffixToHelper.put(punycodePattern.substring(2), helper);
+        suffixToHelper.put(pattern.substring(2), helper);
       } else {
-        hostToHelper.put(punycodePattern, helper);
+        hostToHelper.put(pattern, helper);
       }
 
       return this;
-    }
-
-    /** Converts a pattern to Punycode (see https://en.wikipedia.org/wiki/Punycode). */
-    private final String toPunycodePattern(String pattern) {
-      checkNotNull(pattern);
-
-      try {
-        return IDN.toASCII(pattern);
-      } catch (IllegalArgumentException e) {
-        throw new IllegalArgumentException(
-            String.format(Locale.US, "Could not convert '%s' to punycode", pattern), e);
-      }
     }
 
     public CredentialHelperProvider build() {

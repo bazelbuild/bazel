@@ -375,14 +375,14 @@ public final class GoogleAuthUtils {
   public static CredentialHelperProvider newCredentialHelperProvider(
       CredentialHelperEnvironment environment,
       CommandLinePathFactory pathFactory,
-      List<AuthAndTLSOptions.UnresolvedScopedCredentialHelper> helpers)
+      List<AuthAndTLSOptions.CredentialHelperOption> helpers)
       throws IOException {
     Preconditions.checkNotNull(environment);
     Preconditions.checkNotNull(pathFactory);
     Preconditions.checkNotNull(helpers);
 
     CredentialHelperProvider.Builder builder = CredentialHelperProvider.builder();
-    for (AuthAndTLSOptions.UnresolvedScopedCredentialHelper helper : helpers) {
+    for (AuthAndTLSOptions.CredentialHelperOption helper : helpers) {
       Optional<String> scope = helper.getScope();
       Path path = pathFactory.create(environment.getClientEnvironment(), helper.getPath());
       if (scope.isPresent()) {

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.authandtls;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Converters.DurationConverter;
@@ -26,10 +25,10 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.net.IDN;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
-import javax.annotation.Nullable;
 
 /**
  * Common options for authentication and TLS.
@@ -145,7 +144,7 @@ public class AuthAndTLSOptions extends OptionsBase {
       oldName = "experimental_credential_helper",
       defaultValue = "null",
       allowMultiple = true,
-      converter = UnresolvedScopedCredentialHelperConverter.class,
+      converter = CredentialHelperOptionConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -158,7 +157,7 @@ public class AuthAndTLSOptions extends OptionsBase {
               + "May be specified multiple times to set up multiple helpers.\n\n"
               + "See https://github.com/bazelbuild/proposals/blob/main/designs/2022-06-07-bazel-credential-helpers.md"
               + " for details.")
-  public List<UnresolvedScopedCredentialHelper> credentialHelpers;
+  public List<CredentialHelperOption> credentialHelpers;
 
   @Option(
       name = "credential_helper_timeout",
@@ -189,8 +188,12 @@ public class AuthAndTLSOptions extends OptionsBase {
 
   /** One of the values of the `--credential_helper` flag. */
   @AutoValue
-  public abstract static class UnresolvedScopedCredentialHelper {
-    /** Returns the scope of the credential helper (if any). */
+  public abstract static class CredentialHelperOption {
+    /**
+     * Returns the scope of the credential helper (if any).
+     *
+     * <p>The scope is a valid ASCII domain name with an optional leading '.*' wildcard.
+     */
     public abstract Optional<String> getScope();
 
     /** Returns the (unparsed) path of the credential helper. */
@@ -198,10 +201,10 @@ public class AuthAndTLSOptions extends OptionsBase {
   }
 
   /** A {@link Converter} for the `--credential_helper` flag. */
-  public static final class UnresolvedScopedCredentialHelperConverter
-      extends Converter.Contextless<UnresolvedScopedCredentialHelper> {
-    public static final UnresolvedScopedCredentialHelperConverter INSTANCE =
-        new UnresolvedScopedCredentialHelperConverter();
+  public static final class CredentialHelperOptionConverter
+      extends Converter.Contextless<CredentialHelperOption> {
+    public static final CredentialHelperOptionConverter INSTANCE =
+        new CredentialHelperOptionConverter();
 
     @Override
     public String getTypeDescription() {
@@ -213,30 +216,50 @@ public class AuthAndTLSOptions extends OptionsBase {
     }
 
     @Override
-    public UnresolvedScopedCredentialHelper convert(String input) throws OptionsParsingException {
+    public CredentialHelperOption convert(String input) throws OptionsParsingException {
       Preconditions.checkNotNull(input);
 
       int pos = input.indexOf('=');
       if (pos >= 0) {
-        String scope = input.substring(0, pos);
-        if (Strings.isNullOrEmpty(scope)) {
-          throw new OptionsParsingException("Scope of credential helper must not be empty");
-        }
-        String path = checkPath(input.substring(pos + 1));
-        return new AutoValue_AuthAndTLSOptions_UnresolvedScopedCredentialHelper(
-            Optional.of(scope), path);
+        String scope = parseScope(input.substring(0, pos));
+        String path = parsePath(input.substring(pos + 1));
+        return new AutoValue_AuthAndTLSOptions_CredentialHelperOption(Optional.of(scope), path);
       }
 
       // `input` does not specify a scope.
-      return new AutoValue_AuthAndTLSOptions_UnresolvedScopedCredentialHelper(
-          Optional.empty(), checkPath(input));
+      return new AutoValue_AuthAndTLSOptions_CredentialHelperOption(
+          Optional.empty(), parsePath(input));
     }
 
-    private String checkPath(@Nullable String input) throws OptionsParsingException {
-      if (Strings.isNullOrEmpty(input)) {
-        throw new OptionsParsingException("Path to credential helper must not be empty");
+    private String parseScope(String scope) throws OptionsParsingException {
+      if (scope.isEmpty()) {
+        throw new OptionsParsingException("Credential helper scope must not be empty");
       }
-      return input;
+      String wildcard = "";
+      String domainName = scope;
+      if (scope.startsWith("*.") && scope.length() > 2) {
+        wildcard = "*.";
+        domainName = scope.substring(2);
+      }
+      try {
+        // Check that the domain name is either ASCII and conforming to RFC 1122 and RFC 1123,
+        // or non-ASCII and conforming to RFC 3490. In the latter case, convert it to Punycode.
+        // See https://en.wikipedia.org/wiki/Punycode.
+        return wildcard + IDN.toASCII(domainName, IDN.USE_STD3_ASCII_RULES);
+      } catch (IllegalArgumentException e) {
+        throw new OptionsParsingException(
+            "Credential helper scope '"
+                + scope
+                + "' must be a valid domain name with an optional leading '*.' wildcard",
+            e);
+      }
+    }
+
+    private String parsePath(String path) throws OptionsParsingException {
+      if (path.isEmpty()) {
+        throw new OptionsParsingException("Credential helper path must not be empty");
+      }
+      return path;
     }
   }
 }
