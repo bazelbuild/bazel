@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.analysis.test.TestStrategy;
 import com.google.devtools.build.lib.analysis.test.TestTargetExecutionSettings;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.BuildResult;
@@ -223,17 +224,19 @@ public class RunCommand implements BlazeCommand {
                   e.result.getDetailedExitCode().getExitCode(), e.finishTimeMillis));
       return e.result;
     }
+    ImmutableList.Builder<BuildEventId> runCompleteChildrenEvents =
+        ImmutableList.<BuildEventId>builder()
+            .add(BuildEventIdUtil.buildToolLogs())
+            .add(BuildEventIdUtil.buildMetrics());
+    if (runOptions.scriptPath == null) {
+      runCompleteChildrenEvents.add(BuildEventIdUtil.execRequestId());
+    }
     env.getReporter()
         .post(
             new RunBuildCompleteEvent(
                 // If the build returned non-zero exit code, an error would have already been
                 // thrown.
-                ExitCode.SUCCESS,
-                builtTargets.stopTime,
-                ImmutableList.of(
-                    BuildEventIdUtil.buildToolLogs(),
-                    BuildEventIdUtil.buildMetrics(),
-                    BuildEventIdUtil.execRequestId())));
+                ExitCode.SUCCESS, builtTargets.stopTime, runCompleteChildrenEvents.build()));
     ImmutableList<String> argsFromResidue =
         ImmutableList.copyOf(targetAndArgs.subList(1, targetAndArgs.size()));
     RunCommandLine runCommandLine;
