@@ -64,6 +64,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * {@link QueryEnvironment} that runs queries over the configured target (analysis) graph.
@@ -204,7 +205,8 @@ public class ConfiguredTargetQueryEnvironment
           SkyframeExecutor skyframeExecutor,
           BuildConfigurationValue hostConfiguration,
           @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory,
-          PackageManager packageManager)
+          PackageManager packageManager,
+          StarlarkSemantics starlarkSemantics)
           throws QueryException, InterruptedException {
     AspectResolver aspectResolver =
         cqueryOptions.aspectDeps.createResolver(packageManager, eventHandler);
@@ -263,7 +265,7 @@ public class ConfiguredTargetQueryEnvironment
             kct -> getFwdDeps(ImmutableList.of(kct)),
             getLabelPrinter()),
         new StarlarkOutputFormatterCallback(
-            eventHandler, cqueryOptions, out, skyframeExecutor, accessor),
+            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, starlarkSemantics),
         new FilesOutputFormatterCallback(
             eventHandler, cqueryOptions, out, skyframeExecutor, accessor, topLevelArtifactContext));
   }

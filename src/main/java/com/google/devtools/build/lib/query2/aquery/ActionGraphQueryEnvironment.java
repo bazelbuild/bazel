@@ -56,6 +56,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * {@link QueryEnvironment} that is specialized for running action graph queries over the configured
@@ -148,7 +149,8 @@ public class ActionGraphQueryEnvironment
           SkyframeExecutor skyframeExecutor,
           BuildConfigurationValue hostConfiguration,
           @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory,
-          PackageManager packageManager) {
+          PackageManager packageManager,
+          StarlarkSemantics starlarkSemantics) {
     return ImmutableList.of(
         new ActionGraphProtoOutputFormatterCallback(
             eventHandler,

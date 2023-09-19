@@ -88,6 +88,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * {@link QueryEnvironment} that runs queries based on results from the analysis phase.
@@ -140,7 +141,8 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
           SkyframeExecutor skyframeExecutor,
           BuildConfigurationValue hostConfiguration,
           @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory,
-          PackageManager packageManager)
+          PackageManager packageManager,
+          StarlarkSemantics starlarkSemantics)
           throws QueryException, InterruptedException;
 
   public abstract String getOutputFormat();
