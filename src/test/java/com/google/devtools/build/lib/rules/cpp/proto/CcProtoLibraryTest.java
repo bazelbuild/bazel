@@ -55,6 +55,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
 
   @Before
   public void setUp() throws Exception {
+    MockProtoSupport.setup(mockToolsConfig);
     scratch.file("protobuf/WORKSPACE");
     scratch.overwriteFile(
         "protobuf/BUILD",
@@ -78,7 +79,6 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         "    name = 'com_google_protobuf',",
         "    path = 'protobuf',",
         ")");
-    MockProtoSupport.setupWorkspace(scratch);
     invalidatePackages(); // A dash of magic to re-evaluate the WORKSPACE file.
   }
 

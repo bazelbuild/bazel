@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
@@ -58,6 +59,7 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
     useConfiguration(
         "--proto_compiler=//proto:compiler",
         "--proto_toolchain_for_javalite=//tools/proto/toolchains:javalite");
+    MockProtoSupport.setup(mockToolsConfig);
 
     scratch.file("proto/BUILD", "licenses(['notice'])", "exports_files(['compiler'])");
 
@@ -66,17 +68,10 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
     actionsTestUtil = actionsTestUtil();
   }
 
-  @Before
-  public final void setupStarlarkRule() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_builtins_injection_override=+java_lite_proto_library",
-        "--experimental_google_legacy_api");
-  }
-
   private void mockToolchains() throws IOException {
     mockRuntimes();
 
-    scratch.file(
+    scratch.appendFile(
         "tools/proto/toolchains/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "proto_lang_toolchain(",

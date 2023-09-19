@@ -39,7 +39,6 @@ import org.junit.runners.JUnit4;
 public class ProtoLangToolchainTest extends BuildViewTestCase {
   @Before
   public void setUp() throws Exception {
-    MockProtoSupport.setupWorkspace(scratch);
     MockProtoSupport.setup(mockToolsConfig);
     useConfiguration("--protocopt=--myflag");
     invalidatePackages();

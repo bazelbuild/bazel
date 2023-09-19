@@ -78,7 +78,7 @@ public class J2ObjcLibraryTest extends ObjcRuleTestCase {
 
     useConfiguration("--proto_toolchain_for_java=//tools/proto/toolchains:java");
 
-    mockToolsConfig.create(
+    mockToolsConfig.append(
         "tools/proto/toolchains/BUILD",
         TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
         "package(default_visibility=['//visibility:public'])",
@@ -88,7 +88,6 @@ public class J2ObjcLibraryTest extends ObjcRuleTestCase {
         "proto_lang_toolchain(name='java_stubby_compatible13_immutable', "
             + "command_line = 'dont_care')");
 
-    MockProtoSupport.setupWorkspace(scratch);
     invalidatePackages();
   }
 }

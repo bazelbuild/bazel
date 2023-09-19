@@ -48,9 +48,9 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
   @Before
   public void setUp() throws Exception {
     useConfiguration("--proto_compiler=//proto:compiler");
+    MockProtoSupport.setup(mockToolsConfig);
     scratch.file("proto/BUILD", "licenses(['notice'])", "exports_files(['compiler'])");
 
-    MockProtoSupport.setupWorkspace(scratch);
     invalidatePackages();
   }
 
