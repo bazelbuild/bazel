@@ -131,15 +131,18 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
 
   // Starlark function with single required parameter "target", a ConfiguredTarget query result.
   private final StarlarkFunction formatFn;
+  private final StarlarkSemantics starlarkSemantics;
 
   StarlarkOutputFormatterCallback(
       ExtendedEventHandler eventHandler,
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<ConfiguredTarget> accessor)
+      TargetAccessor<ConfiguredTarget> accessor,
+      StarlarkSemantics starlarkSemantics)
       throws QueryException, InterruptedException {
-    super(eventHandler, options, out, skyframeExecutor, accessor, /*uniquifyResults=*/ false);
+    super(eventHandler, options, out, skyframeExecutor, accessor, /* uniquifyResults= */ false);
+    this.starlarkSemantics = starlarkSemantics;
 
     ParserInput input = null;
     String exceptionMessagePrefix;
@@ -182,11 +185,11 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
     }
     try (Mutability mu = Mutability.create("formatter")) {
       ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
-      Starlark.addMethods(env, new CqueryDialectGlobals(), StarlarkSemantics.DEFAULT);
+      Starlark.addMethods(env, new CqueryDialectGlobals(), starlarkSemantics);
       env.putAll(StarlarkGlobalsImpl.INSTANCE.getUtilToplevelsForCquery());
-      Module module = Module.withPredeclared(StarlarkSemantics.DEFAULT, env.buildOrThrow());
+      Module module = Module.withPredeclared(starlarkSemantics, env.buildOrThrow());
 
-      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
       Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
       Object formatFn = module.getGlobal("format");
       if (formatFn == null) {
@@ -228,7 +231,7 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
     for (ConfiguredTarget target : partialResult) {
       try {
         StarlarkThread thread =
-            new StarlarkThread(Mutability.create("cquery evaluation"), StarlarkSemantics.DEFAULT);
+            new StarlarkThread(Mutability.create("cquery evaluation"), starlarkSemantics);
         thread.setMaxExecutionSteps(500_000L);
 
         // Invoke formatFn with `target` argument.

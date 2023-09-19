@@ -893,8 +893,17 @@ EOF
     --starlark:expr="str(target.label) + '%foo'" > output \
     2>"$TEST_log" || fail "Expected success"
 
-  assert_contains "//$pkg:pylib%foo" output
-  assert_contains "//$pkg:pylibtwo%foo" output
+  assert_contains "^@//$pkg:pylib%foo$" output
+  assert_contains "^@//$pkg:pylibtwo%foo$" output
+
+  bazel cquery "//$pkg:all" --output=starlark \
+    --noincompatible_unambiguous_label_stringification \
+    --starlark:expr="str(target.label) + '%foo'" > output \
+    2>"$TEST_log" || fail "Expected success"
+
+  # Verify use of the effective rather than default Starlark semantics.
+  assert_contains "^//$pkg:pylib%foo$" output
+  assert_contains "^//$pkg:pylibtwo%foo$" output
 
   # Test that the default for --starlark:expr str(target.label)
   bazel cquery "//$pkg:all" --output=starlark >output \
