@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.query.output;
 
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.protobuf.util.JsonFormat;
@@ -35,7 +35,7 @@ public class StreamedJSONProtoOutputFormatter extends ProtoOutputFormatter {
 
   @Override
   public OutputFormatterCallback<Target> createPostFactoStreamCallback(
-      final OutputStream out, final QueryOptions options, RepositoryMapping mainRepoMapping) {
+      final OutputStream out, final QueryOptions options, LabelPrinter labelPrinter) {
     return new OutputFormatterCallback<Target>() {
       @Override
       public void processOutput(Iterable<Target> partialResult)
@@ -44,7 +44,7 @@ public class StreamedJSONProtoOutputFormatter extends ProtoOutputFormatter {
           out.write(
               jsonPrinter
                   .omittingInsignificantWhitespace()
-                  .print(toTargetProtoBuffer(target))
+                  .print(toTargetProtoBuffer(target, labelPrinter))
                   .getBytes(StandardCharsets.UTF_8));
           out.write(System.lineSeparator().getBytes(StandardCharsets.UTF_8));
         }

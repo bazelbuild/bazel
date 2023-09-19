@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.Target;
@@ -223,19 +224,20 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
         pkgManager,
         targetParser,
         mainRepoTargetParser,
-        /*relativeWorkingDirectory=*/ PathFragment.EMPTY_FRAGMENT,
+        /* relativeWorkingDirectory= */ PathFragment.EMPTY_FRAGMENT,
         keepGoing,
-        /*strictScope=*/ true,
+        /* strictScope= */ true,
         orderedResults,
         universeScope,
-        /*loadingPhaseThreads=*/ 1,
-        /*labelFilter=*/ ALL_LABELS,
+        /* loadingPhaseThreads= */ 1,
+        /* labelFilter= */ ALL_LABELS,
         getReporter(),
         this.settings,
         getExtraQueryFunctions(),
         pkgManager.getPackagePath(),
         blockUniverseEvaluationErrors,
-        /*useGraphlessQuery=*/ false);
+        /* useGraphlessQuery= */ false,
+        LabelPrinter.legacy());
   }
 
   protected abstract Iterable<QueryFunction> getExtraQueryFunctions();

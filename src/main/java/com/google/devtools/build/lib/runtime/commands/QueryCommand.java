@@ -186,7 +186,7 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
               queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()),
               env.getReporter(),
               hashFunction,
-              queryEnv.getMainRepoMapping());
+              queryEnv.getLabelPrinter());
         } catch (ClosedByInterruptException | InterruptedException e) {
           return reportAndCreateInterruptedResult(env);
         } catch (IOException e) {

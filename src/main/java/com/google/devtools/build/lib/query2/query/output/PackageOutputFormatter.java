@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.query2.query.output;
 
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
@@ -38,7 +38,7 @@ class PackageOutputFormatter extends AbstractUnorderedFormatter {
 
   @Override
   public OutputFormatterCallback<Target> createPostFactoStreamCallback(
-      OutputStream out, final QueryOptions options, RepositoryMapping mainRepoMapping) {
+      OutputStream out, final QueryOptions options, LabelPrinter labelPrinter) {
     return new TextOutputFormatterCallback<Target>(out) {
       private final Set<String> packageNames = Sets.newTreeSet();
 
@@ -46,8 +46,7 @@ class PackageOutputFormatter extends AbstractUnorderedFormatter {
       public void processOutput(Iterable<Target> partialResult) {
 
         for (Target target : partialResult) {
-          String packageLabel =
-              target.getLabel().getPackageIdentifier().getDisplayForm(mainRepoMapping);
+          String packageLabel = labelPrinter.toString(target.getLabel().getPackageIdentifier());
           // For backwards compatibility, emit main repo packages as "a/b" rather than "//a/b".
           if (packageLabel.startsWith("//")) {
             packageLabel = packageLabel.substring(2);
@@ -73,6 +72,6 @@ class PackageOutputFormatter extends AbstractUnorderedFormatter {
   public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
       OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
     return new SynchronizedDelegatingOutputFormatterCallback<>(
-        createPostFactoStreamCallback(out, options, env.getMainRepoMapping()));
+        createPostFactoStreamCallback(out, options, env.getLabelPrinter()));
   }
 }

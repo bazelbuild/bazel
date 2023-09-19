@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.events.ErrorSensingEventHandler;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.DependencyFilter;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -85,6 +86,7 @@ public abstract class AbstractBlazeQueryEnvironment<T>
 
   protected final Set<Setting> settings;
   protected final List<QueryFunction> extraFunctions;
+  protected final LabelPrinter labelPrinter;
 
   protected AbstractBlazeQueryEnvironment(
       boolean keepGoing,
@@ -92,7 +94,8 @@ public abstract class AbstractBlazeQueryEnvironment<T>
       Predicate<Label> labelFilter,
       ExtendedEventHandler eventHandler,
       Set<Setting> settings,
-      Iterable<QueryFunction> extraFunctions) {
+      Iterable<QueryFunction> extraFunctions,
+      LabelPrinter labelPrinter) {
     this.eventHandler = new ErrorSensingEventHandler<>(eventHandler, DetailedExitCode.class);
     this.keepGoing = keepGoing;
     this.strictScope = strictScope;
@@ -100,10 +103,16 @@ public abstract class AbstractBlazeQueryEnvironment<T>
     this.labelFilter = labelFilter;
     this.settings = Sets.immutableEnumSet(settings);
     this.extraFunctions = ImmutableList.copyOf(extraFunctions);
+    this.labelPrinter = labelPrinter;
   }
 
   @Override
   public abstract void close();
+
+  @Override
+  public LabelPrinter getLabelPrinter() {
+    return labelPrinter;
+  }
 
   private static DependencyFilter constructDependencyFilter(Set<Setting> settings) {
     DependencyFilter specifiedFilter =

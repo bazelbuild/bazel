@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.query2.common;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver.Mode;
@@ -28,6 +30,7 @@ import com.google.devtools.common.options.OptionsBase;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /** Options shared between blaze query implementations. */
 public class CommonQueryOptions extends OptionsBase {
@@ -164,6 +167,27 @@ public class CommonQueryOptions extends OptionsBase {
       settings.add(Setting.INCLUDE_ASPECTS);
     }
     return settings;
+  }
+
+  @Option(
+      name = "consistent_labels",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "If enabled, every query command emits labels as if by the Starlark <code>str</code>"
+              + " function applied to a <code>Label</code> instance. This is useful for tools that"
+              + " need to match the output of different query commands and/or labels emitted by"
+              + " rules. If not enabled, output formatters are free to emit apparent repository"
+              + " names (relative to the main repository) instead to make the output more"
+              + " readable.")
+  public boolean emitConsistentLabels;
+
+  public LabelPrinter getLabelPrinter(
+      StarlarkSemantics starlarkSemantics, RepositoryMapping mainRepoMapping) {
+    return emitConsistentLabels
+        ? LabelPrinter.starlark(starlarkSemantics)
+        : LabelPrinter.displayForm(mainRepoMapping);
   }
 
   ///////////////////////////////////////////////////////////

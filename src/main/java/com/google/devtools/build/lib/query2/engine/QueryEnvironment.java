@@ -19,8 +19,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.util.Collection;
@@ -537,12 +537,7 @@ public interface QueryEnvironment<T> {
    */
   TargetAccessor<T> getAccessor();
 
-  /**
-   * Returns the {@link RepositoryMapping} of the main repository so that output formatters can
-   * resolve canonical repository names in labels back to the more readable local names used by the
-   * main repository.
-   */
-  RepositoryMapping getMainRepoMapping();
+  LabelPrinter getLabelPrinter();
 
   /**
    * Whether the given setting is enabled. The code should default to return {@code false} for all
