@@ -39,6 +39,8 @@ public final class MockProtoSupport {
    */
   public static void setup(MockToolsConfig config) throws IOException {
     createNetProto2(config);
+    setupWorkspace(config);
+    config.append("tools/proto/toolchains/BUILD");
   }
 
   /**
@@ -198,17 +200,19 @@ public final class MockProtoSupport {
         "           srcs = [ 'metadata.go' ])");
   }
 
-  public static void setupWorkspace(Scratch scratch) throws Exception {
-    scratch.appendFile(
-        "WORKSPACE",
-        "local_repository(",
-        "    name = 'rules_proto',",
-        "    path = 'third_party/rules_proto',",
-        ")");
-    scratch.file("third_party/rules_proto/WORKSPACE");
-    scratch.file("third_party/rules_proto/proto/BUILD", "licenses(['notice'])");
-    scratch.file(
-        "third_party/rules_proto/proto/defs.bzl",
+  public static void setupWorkspace(MockToolsConfig config) throws IOException {
+    if (TestConstants.PRODUCT_NAME.equals("bazel")) {
+      config.append(
+          "WORKSPACE",
+          "local_repository(",
+          "    name = 'rules_proto',",
+          "    path = 'third_party/bazel_rules/rules_proto',",
+          ")");
+    }
+    config.create("third_party/bazel_rules/rules_proto/WORKSPACE");
+    config.create("third_party/bazel_rules/rules_proto/proto/BUILD", "licenses(['notice'])");
+    config.create(
+        "third_party/bazel_rules/rules_proto/proto/defs.bzl",
         "def _add_tags(kargs):",
         "    if 'tags' in kargs:",
         "        kargs['tags'] += ['__PROTO_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__']",
