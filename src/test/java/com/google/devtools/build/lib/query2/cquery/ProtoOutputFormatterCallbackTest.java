@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.cquery.CqueryOptions.Transitions;
 import com.google.devtools.build.lib.query2.cquery.ProtoOutputFormatterCallback.OutputType;
@@ -329,7 +330,8 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
             options.aspectDeps.createResolver(
                 getHelper().getPackageManager(), NullEventHandler.INSTANCE),
             OutputType.BINARY,
-            /*trimmingTransitionFactory=*/ null);
+            /*trimmingTransitionFactory=*/ null,
+            LabelPrinter.legacy());
     env.evaluateQuery(expression, callback);
     return callback.getProtoResult();
   }

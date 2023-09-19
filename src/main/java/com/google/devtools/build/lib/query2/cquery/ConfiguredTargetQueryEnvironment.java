@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
@@ -121,7 +122,8 @@ public class ConfiguredTargetQueryEnvironment
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
       Set<Setting> settings,
-      TopLevelArtifactContext topLevelArtifactContext)
+      TopLevelArtifactContext topLevelArtifactContext,
+      LabelPrinter labelPrinter)
       throws InterruptedException {
     super(
         keepGoing,
@@ -132,7 +134,8 @@ public class ConfiguredTargetQueryEnvironment
         mainRepoTargetParser,
         pkgPath,
         walkableGraphSupplier,
-        settings);
+        settings,
+        labelPrinter);
     this.accessor = new ConfiguredTargetAccessor(walkableGraphSupplier.get(), this);
     this.configuredTargetKeyExtractor = KeyedConfiguredTarget::getConfiguredTargetKey;
     this.transitiveConfigurations =
@@ -151,7 +154,8 @@ public class ConfiguredTargetQueryEnvironment
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
       CqueryOptions cqueryOptions,
-      TopLevelArtifactContext topLevelArtifactContext)
+      TopLevelArtifactContext topLevelArtifactContext,
+      LabelPrinter labelPrinter)
       throws InterruptedException {
     this(
         keepGoing,
@@ -164,7 +168,8 @@ public class ConfiguredTargetQueryEnvironment
         pkgPath,
         walkableGraphSupplier,
         cqueryOptions.toSettings(),
-        topLevelArtifactContext);
+        topLevelArtifactContext,
+        labelPrinter);
     this.cqueryOptions = cqueryOptions;
   }
 
@@ -205,21 +210,9 @@ public class ConfiguredTargetQueryEnvironment
         cqueryOptions.aspectDeps.createResolver(packageManager, eventHandler);
     return ImmutableList.of(
         new LabelAndConfigurationOutputFormatterCallback(
-            eventHandler,
-            cqueryOptions,
-            out,
-            skyframeExecutor,
-            accessor,
-            true,
-            getMainRepoMapping()),
+            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, true, getLabelPrinter()),
         new LabelAndConfigurationOutputFormatterCallback(
-            eventHandler,
-            cqueryOptions,
-            out,
-            skyframeExecutor,
-            accessor,
-            false,
-            getMainRepoMapping()),
+            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, false, getLabelPrinter()),
         new TransitionsOutputFormatterCallback(
             eventHandler,
             cqueryOptions,
@@ -228,7 +221,7 @@ public class ConfiguredTargetQueryEnvironment
             accessor,
             hostConfiguration,
             trimmingTransitionFactory,
-            getMainRepoMapping()),
+            getLabelPrinter()),
         new ProtoOutputFormatterCallback(
             eventHandler,
             cqueryOptions,
@@ -237,7 +230,8 @@ public class ConfiguredTargetQueryEnvironment
             accessor,
             aspectResolver,
             OutputType.BINARY,
-            trimmingTransitionFactory),
+            trimmingTransitionFactory,
+            getLabelPrinter()),
         new ProtoOutputFormatterCallback(
             eventHandler,
             cqueryOptions,
@@ -246,7 +240,8 @@ public class ConfiguredTargetQueryEnvironment
             accessor,
             aspectResolver,
             OutputType.TEXT,
-            trimmingTransitionFactory),
+            trimmingTransitionFactory,
+            getLabelPrinter()),
         new ProtoOutputFormatterCallback(
             eventHandler,
             cqueryOptions,
@@ -255,9 +250,10 @@ public class ConfiguredTargetQueryEnvironment
             accessor,
             aspectResolver,
             OutputType.JSON,
-            trimmingTransitionFactory),
+            trimmingTransitionFactory,
+            getLabelPrinter()),
         new BuildOutputFormatterCallback(
-            eventHandler, cqueryOptions, out, skyframeExecutor, accessor),
+            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, getLabelPrinter()),
         new GraphOutputFormatterCallback(
             eventHandler,
             cqueryOptions,
@@ -265,7 +261,7 @@ public class ConfiguredTargetQueryEnvironment
             skyframeExecutor,
             accessor,
             kct -> getFwdDeps(ImmutableList.of(kct)),
-            getMainRepoMapping()),
+            getLabelPrinter()),
         new StarlarkOutputFormatterCallback(
             eventHandler, cqueryOptions, out, skyframeExecutor, accessor),
         new FilesOutputFormatterCallback(
