@@ -141,7 +141,7 @@ running unit and UI tests on all Apple platforms. Add test targets as follows:
 *   [`ios_ui_test`](https://github.com/bazelbuild/rules_apple/blob/master/doc/rules-ios.md#ios_ui_test){: .external}
     to build and run outputs required to run user interface tests in the iOS simulator.
 
-*   Similar test rules exist for [tvOS](https://github.com/bazelbuild/rules_apple/blob/master/doc/rules-tvos.md), [watchOS](https://github.com/bazelbuild/rules_apple/blob/master/doc/rules-watchos.md) and [visionOS](https://github.com/bazelbuild/rules_apple/blob/master/doc/rules-visionos.md).
+*   Similar test rules exist for [tvOS](https://github.com/bazelbuild/rules_apple/blob/master/doc/rules-tvos.md){: .external}, [watchOS](https://github.com/bazelbuild/rules_apple/blob/master/doc/rules-watchos.md){: .external} and [visionOS](https://github.com/bazelbuild/rules_apple/blob/master/doc/rules-visionos.md){: .external}.
 
 At the minimum, specify a value for the `minimum_os_version` attribute. While
 other packaging attributes, such as `bundle_identifier` and `infoplists`,
