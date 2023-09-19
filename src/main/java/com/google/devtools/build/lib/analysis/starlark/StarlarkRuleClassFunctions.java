@@ -431,6 +431,73 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       builder.setExecutableStarlark();
     }
 
+    // For documentation generation, we need to distinguish Starlark-defined attributes passed via
+    // `rule(attrs=...) from implicitly added attributes such as "tags" or "testonly".
+    checkArgument(
+        builder.getAttributes().stream().noneMatch(Attribute::starlarkDefined),
+        "Implicitly added attributes are expected to be built-in, not Starlark-defined");
+
+    boolean hasStarlarkDefinedTransition = false;
+    boolean hasFunctionTransitionAllowlist = false;
+    for (Pair<String, StarlarkAttrModule.Descriptor> attribute : attributes) {
+      String name = attribute.getFirst();
+      StarlarkAttrModule.Descriptor descriptor = attribute.getSecond();
+
+      Attribute attr = descriptor.build(name);
+
+      hasStarlarkDefinedTransition |= attr.hasStarlarkDefinedTransition();
+      if (attr.hasAnalysisTestTransition()) {
+        if (!builder.isAnalysisTest()) {
+          throw Starlark.errorf(
+              "Only rule definitions with analysis_test=True may have attributes with"
+                  + " analysis_test_transition transitions");
+        }
+        builder.setHasAnalysisTestTransition();
+      }
+      // Check for existence of the function transition allowlist attribute.
+      // TODO(b/121385274): remove when we stop allowlisting starlark transitions
+      if (name.equals(FunctionSplitTransitionAllowlist.ATTRIBUTE_NAME)
+          || name.equals(FunctionSplitTransitionAllowlist.LEGACY_ATTRIBUTE_NAME)) {
+        if (!BuildType.isLabelType(attr.getType())) {
+          throw Starlark.errorf("_allowlist_function_transition attribute must be a label type");
+        }
+        if (attr.getDefaultValueUnchecked() == null) {
+          throw Starlark.errorf(
+              "_allowlist_function_transition attribute must have a default value");
+        }
+        Label defaultLabel = (Label) attr.getDefaultValueUnchecked();
+        // Check the label value for package and target name, to make sure this works properly
+        // in Bazel where it is expected to be found under @bazel_tools.
+        if (!(defaultLabel
+                    .getPackageName()
+                    .equals(FunctionSplitTransitionAllowlist.LABEL.getPackageName())
+                && defaultLabel.getName().equals(FunctionSplitTransitionAllowlist.LABEL.getName()))
+            && !(defaultLabel
+                    .getPackageName()
+                    .equals(FunctionSplitTransitionAllowlist.LEGACY_LABEL.getPackageName())
+                && defaultLabel
+                    .getName()
+                    .equals(FunctionSplitTransitionAllowlist.LEGACY_LABEL.getName()))) {
+          throw Starlark.errorf(
+              "_allowlist_function_transition attribute (%s) does not have the expected value %s",
+              defaultLabel, FunctionSplitTransitionAllowlist.LABEL);
+        }
+        hasFunctionTransitionAllowlist = true;
+      }
+
+      try {
+        builder.addAttribute(attr);
+      } catch (IllegalStateException ex) {
+        // TODO(bazel-team): stop using unchecked exceptions in this way.
+        throw Starlark.errorf("cannot add attribute: %s", ex.getMessage());
+      }
+    }
+
+    // the set of subrules is stored in the rule class, primarily for validating that a rule class
+    // declared the subrule when using it.
+    builder.setSubrules(
+        Sequence.cast(subrulesUnchecked, StarlarkSubrule.class, "subrules").getImmutableList());
+
     if (implicitOutputs != Starlark.NONE) {
       if (implicitOutputs instanceof StarlarkFunction) {
         StarlarkCallbackHelper callback =
@@ -495,7 +562,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         StarlarkDefinedConfigTransition starlarkDefinedConfigTransition =
             (StarlarkDefinedConfigTransition) cfg;
         builder.cfg(new StarlarkRuleTransitionProvider(starlarkDefinedConfigTransition));
-        builder.setHasStarlarkRuleTransition();
+        hasStarlarkDefinedTransition = true;
       } else if (cfg instanceof PatchTransition) {
         builder.cfg((PatchTransition) cfg);
       } else if (cfg instanceof StarlarkExposedRuleTransitionFactory) {
@@ -523,6 +590,26 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       }
     }
 
+    // TODO(b/121385274): remove when we stop allowlisting starlark transitions
+    if (hasStarlarkDefinedTransition) {
+      if (!bzlFile.getRepository().getNameWithAt().equals("@_builtins")) {
+        if (!hasFunctionTransitionAllowlist) {
+          throw Starlark.errorf(
+              "Use of Starlark transition without allowlist attribute"
+                  + " '_allowlist_function_transition'. See Starlark transitions documentation"
+                  + " for details and usage: %s %s",
+              builder.getRuleDefinitionEnvironmentLabel(), builder.getType());
+        }
+        builder.addAllowlistChecker(FUNCTION_TRANSITION_ALLOWLIST_CHECKER);
+      }
+    } else {
+      if (hasFunctionTransitionAllowlist) {
+        throw Starlark.errorf(
+            "Unused function-based split transition allowlist: %s %s",
+            builder.getRuleDefinitionEnvironmentLabel(), builder.getType());
+      }
+    }
+
     for (Object o : providesArg) {
       if (!StarlarkAttrModule.isProvider(o)) {
         throw Starlark.errorf(
@@ -543,10 +630,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
     return new StarlarkRuleFunction(
         builder,
-        type,
-        attributes,
         initializer,
-        Sequence.cast(subrulesUnchecked, StarlarkSubrule.class, "subrules").getImmutableList(),
         loc,
         Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString));
   }
@@ -756,10 +840,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     private RuleClass.Builder builder;
 
     private RuleClass ruleClass;
-    private final RuleClassType type;
-    private ImmutableList<Pair<String, StarlarkAttrModule.Descriptor>> attributes;
     @Nullable private final StarlarkFunction initializer;
-    private ImmutableList<StarlarkSubrule> subrules;
     private final Location definitionLocation;
     @Nullable private final String documentation;
     private Label starlarkLabel;
@@ -770,22 +851,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     // rich query output mode that includes values from loaded .bzl files.)
     public StarlarkRuleFunction(
         RuleClass.Builder builder,
-        RuleClassType type,
-        ImmutableList<Pair<String, StarlarkAttrModule.Descriptor>> attributes,
         @Nullable StarlarkFunction initializer,
-        ImmutableList<StarlarkSubrule> subrules,
         Location definitionLocation,
         Optional<String> documentation) {
       this.builder = builder;
-      // For documentation generation, we need to distinguish Starlark-defined attributes passed via
-      // `rule(attrs=...) from implicitly added attributes such as "tags" or "testonly".
-      checkArgument(
-          builder.getAttributes().stream().noneMatch(Attribute::starlarkDefined),
-          "Implicitly added attributes are expected to be built-in, not Starlark-defined");
-      this.type = type;
-      this.attributes = attributes;
       this.initializer = initializer;
-      this.subrules = subrules;
       this.definitionLocation = definitionLocation;
       this.documentation = documentation.orElse(null);
     }
@@ -925,7 +995,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     public void export(EventHandler handler, Label starlarkLabel, String ruleClassName) {
       checkState(ruleClass == null && builder != null);
       this.starlarkLabel = starlarkLabel;
-      if (type == RuleClassType.TEST != TargetUtils.isTestRuleName(ruleClassName)) {
+      if (builder.getType() == RuleClassType.TEST != TargetUtils.isTestRuleName(ruleClassName)) {
         errorf(
             handler,
             "Invalid rule class name '%s', test rule class names must end with '_test' and other"
@@ -934,115 +1004,26 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         return;
       }
 
-      // the set of subrules is stored in the rule class, primarily for validating that a rule class
-      // declared the subrule when using it.
-      builder.setSubrules(subrules);
       // lift the subrule attributes to the rule class as if they were declared there, this lets us
       // exploit dependency resolution for "free"
       ImmutableList<Pair<String, Descriptor>> subruleAttributes;
       try {
-        subruleAttributes = StarlarkSubrule.discoverAttributesForRule(subrules);
+        subruleAttributes = StarlarkSubrule.discoverAttributesForRule(builder.getSubrules());
       } catch (EvalException e) {
         errorf(handler, "%s", e.getMessage());
         return;
       }
-      if (!subruleAttributes.isEmpty()) {
-        attributes =
-            ImmutableList.<Pair<String, Descriptor>>builder()
-                .addAll(attributes)
-                .addAll(subruleAttributes)
-                .build();
-      }
-
-      // Thus far, we only know if we have a rule transition. While iterating through attributes,
-      // check if we have an attribute transition.
-      boolean hasStarlarkDefinedTransition = builder.hasStarlarkRuleTransition();
-      boolean hasFunctionTransitionAllowlist = false;
-      for (Pair<String, StarlarkAttrModule.Descriptor> attribute : attributes) {
+      for (Pair<String, StarlarkAttrModule.Descriptor> attribute : subruleAttributes) {
         String name = attribute.getFirst();
         StarlarkAttrModule.Descriptor descriptor = attribute.getSecond();
 
         Attribute attr = descriptor.build(name);
-
-        hasStarlarkDefinedTransition |= attr.hasStarlarkDefinedTransition();
-        if (attr.hasAnalysisTestTransition()) {
-          if (!builder.isAnalysisTest()) {
-            errorf(
-                handler,
-                "Only rule definitions with analysis_test=True may have attributes with"
-                    + " analysis_test_transition transitions");
-            continue;
-          }
-          builder.setHasAnalysisTestTransition();
-        }
-        // Check for existence of the function transition allowlist attribute.
-        // TODO(b/121385274): remove when we stop allowlisting starlark transitions
-        if (name.equals(FunctionSplitTransitionAllowlist.ATTRIBUTE_NAME)
-            || name.equals(FunctionSplitTransitionAllowlist.LEGACY_ATTRIBUTE_NAME)) {
-          if (!BuildType.isLabelType(attr.getType())) {
-            errorf(handler, "_allowlist_function_transition attribute must be a label type");
-            continue;
-          }
-          if (attr.getDefaultValueUnchecked() == null) {
-            errorf(handler, "_allowlist_function_transition attribute must have a default value");
-            continue;
-          }
-          Label defaultLabel = (Label) attr.getDefaultValueUnchecked();
-          // Check the label value for package and target name, to make sure this works properly
-          // in Bazel where it is expected to be found under @bazel_tools.
-          if (!(defaultLabel
-                      .getPackageName()
-                      .equals(FunctionSplitTransitionAllowlist.LABEL.getPackageName())
-                  && defaultLabel
-                      .getName()
-                      .equals(FunctionSplitTransitionAllowlist.LABEL.getName()))
-              && !(defaultLabel
-                      .getPackageName()
-                      .equals(FunctionSplitTransitionAllowlist.LEGACY_LABEL.getPackageName())
-                  && defaultLabel
-                      .getName()
-                      .equals(FunctionSplitTransitionAllowlist.LEGACY_LABEL.getName()))) {
-            errorf(
-                handler,
-                "_allowlist_function_transition attribute (%s) does not have the expected value %s",
-                defaultLabel,
-                FunctionSplitTransitionAllowlist.LABEL);
-            continue;
-          }
-          hasFunctionTransitionAllowlist = true;
-        }
 
         try {
           builder.addAttribute(attr);
         } catch (IllegalStateException ex) {
           // TODO(bazel-team): stop using unchecked exceptions in this way.
           errorf(handler, "cannot add attribute: %s", ex.getMessage());
-        }
-      }
-
-      // TODO(b/121385274): remove when we stop allowlisting starlark transitions
-      if (hasStarlarkDefinedTransition) {
-        if (!starlarkLabel.getRepository().getNameWithAt().equals("@_builtins")) {
-          if (!hasFunctionTransitionAllowlist) {
-            errorf(
-                handler,
-                "Use of Starlark transition without allowlist attribute"
-                    + " '_allowlist_function_transition'. See Starlark transitions documentation"
-                    + " for details and usage: %s %s",
-                builder.getRuleDefinitionEnvironmentLabel(),
-                builder.getType());
-            return;
-          }
-          builder.addAllowlistChecker(FUNCTION_TRANSITION_ALLOWLIST_CHECKER);
-        }
-      } else {
-        if (hasFunctionTransitionAllowlist) {
-          errorf(
-              handler,
-              "Unused function-based split transition allowlist: %s %s",
-              builder.getRuleDefinitionEnvironmentLabel(),
-              builder.getType());
-          return;
         }
       }
 
@@ -1055,8 +1036,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       }
 
       this.builder = null;
-      this.attributes = null;
-      this.subrules = null;
     }
 
     @FormatMethod

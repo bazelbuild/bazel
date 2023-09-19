@@ -760,7 +760,6 @@ public class RuleClass {
     private boolean hasAnalysisTestTransition = false;
     private final ImmutableList.Builder<AllowlistChecker> allowlistCheckers =
         ImmutableList.builder();
-    private boolean hasStarlarkRuleTransition = false;
     private boolean ignoreLicenses = false;
     private ImplicitOutputsFunction implicitOutputsFunction = ImplicitOutputsFunction.NONE;
     private TransitionFactory<RuleTransitionData> transitionFactory;
@@ -1131,14 +1130,6 @@ public class RuleClass {
       return this;
     }
 
-    public void setHasStarlarkRuleTransition() {
-      hasStarlarkRuleTransition = true;
-    }
-
-    public boolean hasStarlarkRuleTransition() {
-      return hasStarlarkRuleTransition;
-    }
-
     @CanIgnoreReturnValue
     public Builder factory(ConfiguredTargetFactory<?, ?, ?> factory) {
       this.configuredTargetFactory = factory;
@@ -1277,6 +1268,10 @@ public class RuleClass {
     public Builder setSubrules(ImmutableList<? extends StarlarkSubruleApi> subrules) {
       this.subrules = subrules;
       return this;
+    }
+
+    public ImmutableList<? extends StarlarkSubruleApi> getSubrules() {
+      return subrules;
     }
 
     @CanIgnoreReturnValue

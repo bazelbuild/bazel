@@ -3288,9 +3288,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     getConfiguredTarget("//p:my_test_target");
 
     ev.assertContainsError(
-        "Error in analysis_test: Errors in exporting my_test_target: \n"
-            + "cannot add attribute: There is already a built-in attribute 'name' which cannot be"
-            + " overridden.");
+        "Error in analysis_test: cannot add attribute: There is already a built-in attribute 'name'"
+            + " which cannot be overridden.");
   }
 
   @Test

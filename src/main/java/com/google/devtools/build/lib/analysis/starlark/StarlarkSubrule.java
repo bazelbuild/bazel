@@ -202,15 +202,17 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
    * @throws EvalException if any of the given subrules are unexported
    */
   static ImmutableList<Pair<String, Descriptor>> discoverAttributesForRule(
-      ImmutableList<StarlarkSubrule> subrules) throws EvalException {
-    ImmutableSet.Builder<StarlarkSubrule> uniqueSubrules = ImmutableSet.builder();
-    for (StarlarkSubrule subrule : subrules) {
+      ImmutableList<? extends StarlarkSubruleApi> subrules) throws EvalException {
+    ImmutableSet.Builder<StarlarkSubruleApi> uniqueSubrules = ImmutableSet.builder();
+    for (StarlarkSubruleApi subrule : subrules) {
       // TODO: b/293304174 - use all transitive subrules once subrules can depend on other subrules
       uniqueSubrules.add(subrule);
     }
     ImmutableList.Builder<Pair<String, Descriptor>> attributes = ImmutableList.builder();
-    for (StarlarkSubrule subrule : uniqueSubrules.build()) {
-      attributes.addAll(subrule.attributesForRule());
+    for (StarlarkSubruleApi subrule : uniqueSubrules.build()) {
+      if (subrule instanceof StarlarkSubrule) {
+        attributes.addAll(((StarlarkSubrule) subrule).attributesForRule());
+      }
     }
     return attributes.build();
   }
