@@ -2787,6 +2787,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:prerequisite_package_function",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.PrerequisitePackageFunction;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -38,16 +39,6 @@ import javax.annotation.Nullable;
 
 /** Groups state associated with transitive dependencies. */
 public final class TransitiveDependencyState {
-  /**
-   * Directly retrieves packages of dependencies from Skyframe without adding a dependency edge.
-   *
-   * <p>See further discussion at {@link #prerequisitePackages}.
-   */
-  public interface PrerequisitePackageFunction {
-    @Nullable
-    Package getExistingPackage(PackageIdentifier id) throws InterruptedException;
-  }
-
   private final NestedSetBuilder<Cause> transitiveRootCauses;
 
   /**

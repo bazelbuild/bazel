@@ -158,6 +158,7 @@ java_library(
         ":prepare_deps_of_targets_under_directory_value",
         ":prepare_test_suites_under_directory_function",
         ":prepare_test_suites_under_directory_value",
+        ":prerequisite_package_function",
         ":progress_event_suppressing_environment",
         ":progress_suppressing_event_handler",
         ":recursive_filesystem_traversal",
@@ -241,7 +242,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/invalid_configuration_exception",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/optioninfo",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/starlark_defined_config_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/starlark_transition_cache",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/toolchain_type_requirement",
@@ -1972,6 +1972,16 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "prerequisite_package_function",
+    srcs = ["PrerequisitePackageFunction.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//third_party:jsr305",
     ],
 )
 
