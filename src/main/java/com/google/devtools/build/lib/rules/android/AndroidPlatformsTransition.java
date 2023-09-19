@@ -74,7 +74,7 @@ public final class AndroidPlatformsTransition implements PatchTransition {
     // 2. Otherwise, leave --platforms alone (this will probably lead to build errors).
     if (!androidOptions.androidPlatforms.isEmpty()) {
       // If the current value of --platforms is not one of the values of --android_platforms, change
-      // it to be the first one. If the current --platforms is part of --android_platforms, leave it
+      // it to be the first one. If the curent --platforms is part of --android_platforms, leave it
       // as-is.
       // NOTE: This does not handle aliases at all, so if someone is using aliases with platform
       // definitions this check will break.
@@ -90,8 +90,6 @@ public final class AndroidPlatformsTransition implements PatchTransition {
       newOptions.get(CppOptions.class).enableCcToolchainResolution = true;
     }
 
-    newOptions.get(AndroidConfiguration.Options.class).isAndroid = true;
-
     if (androidOptions.androidPlatformsTransitionsUpdateAffected) {
       ImmutableSet.Builder<String> affected = ImmutableSet.builder();
       if (!options
@@ -103,10 +101,6 @@ public final class AndroidPlatformsTransition implements PatchTransition {
       if (options.get(CppOptions.class).enableCcToolchainResolution
           != newOptions.get(CppOptions.class).enableCcToolchainResolution) {
         affected.add("//command_line_option:incompatible_enable_cc_toolchain_resolution");
-      }
-      if (options.get(AndroidConfiguration.Options.class).isAndroid
-          != newOptions.get(AndroidConfiguration.Options.class).isAndroid) {
-        affected.add("//command_line_option:is_android");
       }
       FunctionTransitionUtil.updateAffectedByStarlarkTransition(
           newOptions.get(CoreOptions.class), affected.build());

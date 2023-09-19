@@ -190,10 +190,7 @@ public abstract class AndroidInstrumentationTestTest extends AndroidBuildViewTes
                 .toList());
     assertThat(runfiles.stream().map(Artifact::toString).collect(toImmutableList()))
         .containsAtLeast(
-            getDeviceFixtureScript(
-                    getDirectPrerequisite(
-                        androidInstrumentationTest.getConfiguredTarget(),
-                        "//javatests/com/app:device_fixture"))
+            getDeviceFixtureScript(getConfiguredTarget("//javatests/com/app:device_fixture"))
                 .toString(),
             getInstrumentationApk(getConfiguredTarget("//javatests/com/app:instrumentation_app"))
                 .toString(),
