@@ -529,4 +529,39 @@ EOF
     && fail "expected failure" || :
 }
 
+function test_repository_legacy_default_canonical_id() {
+  setup_repository
+
+  bazel fetch --repository_cache="$repo_cache_dir" \
+        --norepository_cache_urls_as_default_canonical_id \
+        //zoo:breeding-program >& $TEST_log \
+    || echo "Expected fetch to succeed"
+
+  shutdown_server
+
+  bazel fetch --repository_cache="$repo_cache_dir" \
+        --norepository_cache_urls_as_default_canonical_id \
+        //zoo:breeding-program >& $TEST_log \
+    || echo "Expected fetch to succeed"
+
+  # Break url in WORKSPACE
+  rm WORKSPACE
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = 'endangered',
+    url = 'http://localhost:$nc_port/bleh.broken',
+    sha256 = '$sha256',
+    type = 'zip',
+)
+EOF
+
+  # As repository cache key should depend on urls, we expect fetching to fail now.
+  bazel fetch --repository_cache="$repo_cache_dir" \
+        --norepository_cache_urls_as_default_canonical_id \
+        //zoo:breeding-program >& $TEST_log \
+    || echo "Expected fetch to succeed"
+}
+
 run_suite "repository cache tests"
