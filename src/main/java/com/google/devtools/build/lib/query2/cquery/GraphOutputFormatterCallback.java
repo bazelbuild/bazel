@@ -17,10 +17,10 @@ package com.google.devtools.build.lib.query2.cquery;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.query2.query.output.GraphOutputWriter;
 import com.google.devtools.build.lib.query2.query.output.GraphOutputWriter.NodeReader;
@@ -66,14 +66,13 @@ class GraphOutputFormatterCallback extends CqueryThreadsafeCallback {
             };
 
         @Override
-        public String getLabel(
-            Node<ConfiguredTarget> node, RepositoryMapping mainRepositoryMapping) {
+        public String getLabel(Node<ConfiguredTarget> node, LabelPrinter labelPrinter) {
           // Node payloads are ConfiguredTargets. Output node labels are target labels + config
           // hashes.
           ConfiguredTarget kct = node.getLabel();
           return String.format(
               "%s (%s)",
-              kct.getOriginalLabel().getDisplayForm(mainRepositoryMapping),
+              labelPrinter.toString(kct.getOriginalLabel()),
               shortId(getConfiguration(kct.getConfigurationKey())));
         }
 
@@ -83,7 +82,7 @@ class GraphOutputFormatterCallback extends CqueryThreadsafeCallback {
         }
       };
 
-  private final RepositoryMapping mainRepoMapping;
+  private final LabelPrinter labelPrinter;
 
   GraphOutputFormatterCallback(
       ExtendedEventHandler eventHandler,
@@ -92,10 +91,10 @@ class GraphOutputFormatterCallback extends CqueryThreadsafeCallback {
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<ConfiguredTarget> accessor,
       DepsRetriever depsRetriever,
-      RepositoryMapping mainRepoMapping) {
-    super(eventHandler, options, out, skyframeExecutor, accessor, /*uniquifyResults=*/ false);
+      LabelPrinter labelPrinter) {
+    super(eventHandler, options, out, skyframeExecutor, accessor, /* uniquifyResults= */ false);
     this.depsRetriever = depsRetriever;
-    this.mainRepoMapping = mainRepoMapping;
+    this.labelPrinter = labelPrinter;
   }
 
   @Override
@@ -125,7 +124,7 @@ class GraphOutputFormatterCallback extends CqueryThreadsafeCallback {
             // phase, when select()s have been resolved and removed from the graph.
             /* maxConditionalEdges= */ 0,
             options.graphFactored,
-            mainRepoMapping);
+            labelPrinter);
     graphWriter.write(graph, /*conditionalEdges=*/ null, outputStream);
   }
 }

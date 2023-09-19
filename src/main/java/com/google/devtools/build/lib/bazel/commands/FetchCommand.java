@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPattern.Parser;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
@@ -127,7 +128,8 @@ public final class FetchCommand implements BlazeCommand {
             threadsOption.threads,
             EnumSet.noneOf(Setting.class),
             /* useGraphlessQuery= */ true,
-            mainRepoTargetParser);
+            mainRepoTargetParser,
+            LabelPrinter.legacy());
 
     // 1. Parse query:
     QueryExpression expr;

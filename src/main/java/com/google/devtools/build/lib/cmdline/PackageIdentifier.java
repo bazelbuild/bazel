@@ -194,7 +194,7 @@ public final class PackageIdentifier implements SkyKey, Comparable<PackageIdenti
    * string in any environment, even when subject to repository mapping, should identify the same
    * package.
    */
-  String getUnambiguousCanonicalForm() {
+  public String getUnambiguousCanonicalForm() {
     return String.format("@%s//%s", repository.getNameWithAt(), pkgName);
   }
 

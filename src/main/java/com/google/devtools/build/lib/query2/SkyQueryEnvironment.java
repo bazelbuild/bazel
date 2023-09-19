@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ParallelVisitor.VisitTaskStatusCallback;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.SignedTargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
@@ -58,6 +57,7 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.DependencyFilter;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -183,13 +183,14 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       WalkableGraphFactory graphFactory,
       UniverseScope universeScope,
       PathPackageLocator pkgPath,
-      boolean blockUniverseEvaluationErrors) {
+      boolean blockUniverseEvaluationErrors,
+      LabelPrinter labelPrinter) {
     this(
         keepGoing,
         loadingPhaseThreads,
         // SkyQueryEnvironment operates on a prepopulated Skyframe graph. Therefore, query
         // evaluation is completely CPU-bound.
-        /*queryEvaluationParallelismLevel=*/ DEFAULT_THREAD_COUNT,
+        /* queryEvaluationParallelismLevel= */ DEFAULT_THREAD_COUNT,
         eventHandler,
         settings,
         extraFunctions,
@@ -198,7 +199,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         graphFactory,
         universeScope,
         pkgPath,
-        blockUniverseEvaluationErrors);
+        blockUniverseEvaluationErrors,
+        labelPrinter);
   }
 
   protected SkyQueryEnvironment(
@@ -213,14 +215,16 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       WalkableGraphFactory graphFactory,
       UniverseScope universeScope,
       PathPackageLocator pkgPath,
-      boolean blockUniverseEvaluationErrors) {
+      boolean blockUniverseEvaluationErrors,
+      LabelPrinter labelPrinter) {
     super(
         keepGoing,
-        /*strictScope=*/ true,
-        /*labelFilter=*/ Rule.ALL_LABELS,
+        /* strictScope= */ true,
+        /* labelFilter= */ Rule.ALL_LABELS,
         eventHandler,
         settings,
-        extraFunctions);
+        extraFunctions,
+        labelPrinter);
     this.loadingPhaseThreads = loadingPhaseThreads;
     this.graphFactory = graphFactory;
     this.pkgPath = pkgPath;
@@ -961,12 +965,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   @Override
   public TargetAccessor<Target> getAccessor() {
     return accessor;
-  }
-
-  @Override
-  @ThreadSafe
-  public RepositoryMapping getMainRepoMapping() {
-    return mainRepoTargetParser.getRepoMapping();
   }
 
   @ThreadSafe

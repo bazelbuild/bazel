@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
@@ -39,6 +38,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.DependencyFilter;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -121,8 +121,9 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       TargetPattern.Parser mainRepoTargetParser,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
-      Set<Setting> settings) {
-    super(keepGoing, true, Rule.ALL_LABELS, eventHandler, settings, extraFunctions);
+      Set<Setting> settings,
+      LabelPrinter labelPrinter) {
+    super(keepGoing, true, Rule.ALL_LABELS, eventHandler, settings, extraFunctions, labelPrinter);
     this.topLevelConfigurations = topLevelConfigurations;
     this.mainRepoTargetParser = mainRepoTargetParser;
     this.pkgPath = pkgPath;
@@ -242,8 +243,8 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
   }
 
   @Override
-  public RepositoryMapping getMainRepoMapping() {
-    return mainRepoTargetParser.getRepoMapping();
+  public LabelPrinter getLabelPrinter() {
+    return labelPrinter;
   }
 
   public ThreadSafeMutableSet<T> getFwdDeps(Iterable<T> targets) throws InterruptedException {

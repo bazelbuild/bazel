@@ -19,8 +19,8 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -30,7 +30,7 @@ import java.io.OutputStream;
 /** Default Output callback for cquery. Prints a label and configuration pair per result. */
 public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsafeCallback {
   private final boolean showKind;
-  private final RepositoryMapping mainRepoMapping;
+  private final LabelPrinter labelPrinter;
 
   LabelAndConfigurationOutputFormatterCallback(
       ExtendedEventHandler eventHandler,
@@ -39,10 +39,10 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<ConfiguredTarget> accessor,
       boolean showKind,
-      RepositoryMapping mainRepoMapping) {
-    super(eventHandler, options, out, skyframeExecutor, accessor, /*uniquifyResults=*/ false);
+      LabelPrinter labelPrinter) {
+    super(eventHandler, options, out, skyframeExecutor, accessor, /* uniquifyResults= */ false);
     this.showKind = showKind;
-    this.mainRepoMapping = mainRepoMapping;
+    this.labelPrinter = labelPrinter;
   }
 
   @Override
@@ -60,7 +60,7 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
       }
       output =
           output
-              .append(keyedConfiguredTarget.getOriginalLabel().getDisplayForm(mainRepoMapping))
+              .append(labelPrinter.toString(keyedConfiguredTarget.getOriginalLabel()))
               .append(" (")
               .append(shortId(getConfiguration(keyedConfiguredTarget.getConfigurationKey())))
               .append(")");

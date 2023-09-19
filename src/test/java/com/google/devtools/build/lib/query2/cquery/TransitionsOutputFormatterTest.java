@@ -25,9 +25,9 @@ import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.util.MockRule;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.cquery.CqueryOptions.Transitions;
@@ -247,7 +247,7 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
             getHelper().getSkyframeExecutor(),
             env.getAccessor(),
             ruleClassProvider,
-            RepositoryMapping.ALWAYS_FALLBACK);
+            LabelPrinter.legacy());
     env.evaluateQuery(env.transformParsedQuery(QueryParser.parse(queryExpression, env)), callback);
     return callback.getResult();
   }

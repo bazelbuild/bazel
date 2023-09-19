@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
@@ -80,7 +81,8 @@ public class ActionGraphQueryEnvironment
       TargetPattern.Parser mainRepoTargetParser,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
-      Set<Setting> settings) {
+      Set<Setting> settings,
+      LabelPrinter labelPrinter) {
     super(
         keepGoing,
         eventHandler,
@@ -89,7 +91,8 @@ public class ActionGraphQueryEnvironment
         mainRepoTargetParser,
         pkgPath,
         walkableGraphSupplier,
-        settings);
+        settings,
+        labelPrinter);
     this.configuredTargetKeyExtractor = ActionGraphQueryEnvironment::getConfiguredTargetKeyImpl;
     this.accessor =
         new ConfiguredTargetValueAccessor(
@@ -104,7 +107,8 @@ public class ActionGraphQueryEnvironment
       TargetPattern.Parser mainRepoTargetParser,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
-      AqueryOptions aqueryOptions) {
+      AqueryOptions aqueryOptions,
+      LabelPrinter labelPrinter) {
     this(
         keepGoing,
         eventHandler,
@@ -113,7 +117,8 @@ public class ActionGraphQueryEnvironment
         mainRepoTargetParser,
         pkgPath,
         walkableGraphSupplier,
-        aqueryOptions.toSettings());
+        aqueryOptions.toSettings(),
+        labelPrinter);
     this.aqueryOptions = aqueryOptions;
   }
 
@@ -169,7 +174,7 @@ public class ActionGraphQueryEnvironment
             AqueryOutputHandler.OutputType.JSON,
             actionFilters),
         new ActionGraphTextOutputFormatterCallback(
-            eventHandler, aqueryOptions, out, accessor, actionFilters, getMainRepoMapping()),
+            eventHandler, aqueryOptions, out, accessor, actionFilters, getLabelPrinter()),
         new ActionGraphSummaryOutputFormatterCallback(
             eventHandler, aqueryOptions, out, accessor, actionFilters));
   }

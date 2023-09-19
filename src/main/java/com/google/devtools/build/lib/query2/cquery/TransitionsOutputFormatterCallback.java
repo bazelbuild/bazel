@@ -26,9 +26,9 @@ import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTr
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Target;
@@ -47,7 +47,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
 
   private final HashMap<Label, Target> partialResultMap;
   private final RuleClassProvider ruleClassProvider;
-  private final RepositoryMapping mainRepoMapping;
+  private final LabelPrinter labelPrinter;
   private final StarlarkTransitionCache transitionCache;
 
   @Override
@@ -65,11 +65,11 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<ConfiguredTarget> accessor,
       RuleClassProvider ruleClassProvider,
-      RepositoryMapping mainRepoMapping) {
-    super(eventHandler, options, out, skyframeExecutor, accessor, /*uniquifyResults=*/ false);
+      LabelPrinter labelPrinter) {
+    super(eventHandler, options, out, skyframeExecutor, accessor, /* uniquifyResults= */ false);
     this.ruleClassProvider = ruleClassProvider;
     this.partialResultMap = Maps.newHashMap();
-    this.mainRepoMapping = mainRepoMapping;
+    this.labelPrinter = labelPrinter;
     this.transitionCache = skyframeExecutor.getSkyframeBuildView().getStarlarkTransitionCache();
   }
 
@@ -93,7 +93,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
           getRuleClassTransition(keyedConfiguredTarget, target)
               + String.format(
                   "%s (%s)",
-                  keyedConfiguredTarget.getOriginalLabel().getDisplayForm(mainRepoMapping),
+                  labelPrinter.toString(keyedConfiguredTarget.getOriginalLabel()),
                   shortId(config)));
       ImmutableSet<ResolvedTransition> dependencies;
       try {
@@ -113,7 +113,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
             "  "
                 .concat(dep.attributeName())
                 .concat("#")
-                .concat(dep.label().getDisplayForm(mainRepoMapping))
+                .concat(labelPrinter.toString(dep.label()))
                 .concat("#")
                 .concat(dep.transitionName())
                 .concat(" -> ")

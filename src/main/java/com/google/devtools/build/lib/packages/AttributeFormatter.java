@@ -96,7 +96,8 @@ public class AttributeFormatter {
         explicitlySpecified,
         encodeBooleanAndTriStateAsIntegerAndString,
         /* sourceAspect= */ null,
-        /* includeAttributeSourceAspects */ false);
+        /* includeAttributeSourceAspects */ false,
+        LabelPrinter.legacy());
   }
 
   public static Build.Attribute getAttributeProto(
@@ -105,7 +106,8 @@ public class AttributeFormatter {
       boolean explicitlySpecified,
       boolean encodeBooleanAndTriStateAsIntegerAndString,
       @Nullable Aspect sourceAspect,
-      boolean includeAttributeSourceAspects) {
+      boolean includeAttributeSourceAspects,
+      LabelPrinter labelPrinter) {
     return getAttributeProto(
         attr.getName(),
         attr.getType(),
@@ -113,7 +115,8 @@ public class AttributeFormatter {
         explicitlySpecified,
         encodeBooleanAndTriStateAsIntegerAndString,
         sourceAspect,
-        includeAttributeSourceAspects);
+        includeAttributeSourceAspects,
+        labelPrinter);
   }
 
   private static Build.Attribute getAttributeProto(
@@ -123,7 +126,8 @@ public class AttributeFormatter {
       boolean explicitlySpecified,
       boolean encodeBooleanAndTriStateAsIntegerAndString,
       @Nullable Aspect sourceAspect,
-      boolean includeAttributeSourceAspects) {
+      boolean includeAttributeSourceAspects,
+      LabelPrinter labelPrinter) {
     Build.Attribute.Builder attrPb = Build.Attribute.newBuilder();
     attrPb.setName(name);
     attrPb.setExplicitlySpecified(explicitlySpecified);
@@ -131,13 +135,13 @@ public class AttributeFormatter {
 
     if (value instanceof SelectorList<?>) {
       attrPb.setType(Discriminator.SELECTOR_LIST);
-      writeSelectorListToBuilder(attrPb, type, (SelectorList<?>) value);
+      writeSelectorListToBuilder(attrPb, type, (SelectorList<?>) value, labelPrinter);
     } else {
       attrPb.setType(ProtoUtils.getDiscriminatorFromType(type));
       if (value != null) {
         AttributeBuilderAdapter adapter =
             new AttributeBuilderAdapter(attrPb, encodeBooleanAndTriStateAsIntegerAndString);
-        writeAttributeValueToBuilder(adapter, type, value);
+        writeAttributeValueToBuilder(adapter, type, value, labelPrinter);
       }
     }
 
@@ -158,7 +162,10 @@ public class AttributeFormatter {
   }
 
   private static void writeSelectorListToBuilder(
-      Build.Attribute.Builder attrPb, Type<?> type, SelectorList<?> selectorList) {
+      Build.Attribute.Builder attrPb,
+      Type<?> type,
+      SelectorList<?> selectorList,
+      LabelPrinter labelPrinter) {
     Build.Attribute.SelectorList.Builder selectorListBuilder =
         Build.Attribute.SelectorList.newBuilder();
     selectorListBuilder.setType(ProtoUtils.getDiscriminatorFromType(type));
@@ -175,12 +182,15 @@ public class AttributeFormatter {
           (condition, conditionValue) -> {
             SelectorEntry.Builder selectorEntryBuilder =
                 SelectorEntry.newBuilder()
-                    .setLabel(condition.toString())
+                    .setLabel(labelPrinter.toString(condition))
                     .setIsDefaultValue(!selector.isValueSet(condition));
 
             if (conditionValue != null) {
               writeAttributeValueToBuilder(
-                  new SelectorEntryBuilderAdapter(selectorEntryBuilder), type, conditionValue);
+                  new SelectorEntryBuilderAdapter(selectorEntryBuilder),
+                  type,
+                  conditionValue,
+                  labelPrinter);
             }
             selectorBuilder.addEntries(selectorEntryBuilder);
           });
@@ -193,25 +203,28 @@ public class AttributeFormatter {
    * Set the appropriate type and value. Since string and string list store values for multiple
    * types, use the toString() method on the objects instead of casting them.
    */
+  @SuppressWarnings("unchecked")
   private static void writeAttributeValueToBuilder(
-      AttributeValueBuilderAdapter builder, Type<?> type, Object value) {
+      AttributeValueBuilderAdapter builder, Type<?> type, Object value, LabelPrinter labelPrinter) {
     if (type == INTEGER) {
       builder.setIntValue(((StarlarkInt) value).toIntUnchecked());
-    } else if (type == STRING
-        || type == STRING_NO_INTERN
-        || type == LABEL
+    } else if (type == STRING || type == STRING_NO_INTERN) {
+      builder.setStringValue(value.toString());
+    } else if (type == LABEL
         || type == NODEP_LABEL
         || type == OUTPUT
         || type == GENQUERY_SCOPE_TYPE) {
-      builder.setStringValue(value.toString());
-    } else if (type == STRING_LIST
-        || type == LABEL_LIST
-        || type == NODEP_LABEL_LIST
-        || type == OUTPUT_LIST
-        || type == DISTRIBUTIONS
-        || type == GENQUERY_SCOPE_TYPE_LIST) {
+      builder.setStringValue(labelPrinter.toString((Label) value));
+    } else if (type == STRING_LIST || type == DISTRIBUTIONS) {
       for (Object entry : (Collection<?>) value) {
         builder.addStringListValue(entry.toString());
+      }
+    } else if (type == LABEL_LIST
+        || type == NODEP_LABEL_LIST
+        || type == OUTPUT_LIST
+        || type == GENQUERY_SCOPE_TYPE_LIST) {
+      for (Label entry : (Collection<Label>) value) {
+        builder.addStringListValue(labelPrinter.toString(entry));
       }
     } else if (type == INTEGER_LIST) {
       for (Object elem : (Collection<?>) value) {
@@ -232,7 +245,6 @@ public class AttributeFormatter {
       }
       builder.setLicense(licensePb);
     } else if (type == STRING_DICT) {
-      @SuppressWarnings("unchecked")
       Map<String, String> dict = (Map<String, String>) value;
       for (Map.Entry<String, String> keyValueList : dict.entrySet()) {
         StringDictEntry.Builder entry =
@@ -242,7 +254,6 @@ public class AttributeFormatter {
         builder.addStringDictValue(entry);
       }
     } else if (type == STRING_LIST_DICT) {
-      @SuppressWarnings("unchecked")
       Map<String, List<String>> dict = (Map<String, List<String>>) value;
       for (Map.Entry<String, List<String>> dictEntry : dict.entrySet()) {
         StringListDictEntry.Builder entry =
@@ -253,22 +264,20 @@ public class AttributeFormatter {
         builder.addStringListDictValue(entry);
       }
     } else if (type == LABEL_DICT_UNARY) {
-      @SuppressWarnings("unchecked")
       Map<String, Label> dict = (Map<String, Label>) value;
       for (Map.Entry<String, Label> dictEntry : dict.entrySet()) {
         LabelDictUnaryEntry.Builder entry =
             LabelDictUnaryEntry.newBuilder()
                 .setKey(dictEntry.getKey())
-                .setValue(dictEntry.getValue().toString());
+                .setValue(labelPrinter.toString(dictEntry.getValue()));
         builder.addLabelDictUnaryValue(entry);
       }
     } else if (type == LABEL_KEYED_STRING_DICT) {
-      @SuppressWarnings("unchecked")
       Map<Label, String> dict = (Map<Label, String>) value;
       for (Map.Entry<Label, String> dictEntry : dict.entrySet()) {
         LabelKeyedStringDictEntry.Builder entry =
             LabelKeyedStringDictEntry.newBuilder()
-                .setKey(dictEntry.getKey().toString())
+                .setKey(labelPrinter.toString(dictEntry.getKey()))
                 .setValue(dictEntry.getValue());
         builder.addLabelKeyedStringDictValue(entry);
       }

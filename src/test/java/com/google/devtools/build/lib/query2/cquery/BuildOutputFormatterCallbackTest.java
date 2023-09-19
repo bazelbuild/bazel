@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
@@ -84,7 +85,8 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
             options,
             new PrintStream(output),
             getHelper().getSkyframeExecutor(),
-            env.getAccessor());
+            env.getAccessor(),
+            LabelPrinter.legacy());
     env.evaluateQuery(expression, callback);
     return Arrays.asList(output.toString().split(System.lineSeparator()));
   }

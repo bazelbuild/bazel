@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
 import com.google.devtools.build.lib.query2.aquery.ActionGraphProtoOutputFormatterCallback;
@@ -53,6 +54,7 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /** Performs {@code aquery} processing. */
 public final class AqueryProcessor extends PostAnalysisQueryProcessor<ConfiguredTargetValue> {
@@ -146,6 +148,9 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<Configured
             .build();
     AqueryOptions aqueryOptions = request.getOptions(AqueryOptions.class);
 
+    StarlarkSemantics starlarkSemantics =
+        env.getSkyframeExecutor()
+            .getEffectiveStarlarkSemantics(env.getOptions().getOptions(BuildLanguageOptions.class));
     ActionGraphQueryEnvironment queryEnvironment =
         new ActionGraphQueryEnvironment(
             request.getKeepGoing(),
@@ -155,7 +160,10 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<Configured
             mainRepoTargetParser,
             env.getPackageManager().getPackagePath(),
             () -> walkableGraph,
-            aqueryOptions);
+            aqueryOptions,
+            request
+                .getOptions(AqueryOptions.class)
+                .getLabelPrinter(starlarkSemantics, mainRepoTargetParser.getRepoMapping()));
     queryEnvironment.setActionFilters(actionFilters);
 
     return queryEnvironment;

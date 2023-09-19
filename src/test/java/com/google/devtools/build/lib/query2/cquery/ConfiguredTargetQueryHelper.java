@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.cquery;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.testutil.AbstractQueryTest.QueryHelper;
@@ -50,7 +51,8 @@ public class ConfiguredTargetQueryHelper extends PostAnalysisQueryHelper<Configu
         analysisHelper.getPackageManager().getPackagePath(),
         () -> walkableGraph,
         this.settings,
-        null);
+        null,
+        LabelPrinter.legacy());
   }
 
   @Override

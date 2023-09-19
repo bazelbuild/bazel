@@ -50,12 +50,14 @@ java_library(
             "GlobberUtils.java",
             "ExecGroup.java",
             "ConfiguredAttributeMapper.java",
+            "LabelPrinter.java",
         ],
     ),
     deps = [
         ":exec_group",
         ":globber",
         ":globber_utils",
+        ":label_printer",
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/actions:thread_state_receiver",
@@ -133,5 +135,14 @@ java_library(
         ":packages",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "label_printer",
+    srcs = ["LabelPrinter.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/net/starlark/java/eval",
     ],
 )

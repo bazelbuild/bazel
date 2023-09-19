@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfig
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
@@ -33,13 +34,18 @@ import javax.annotation.Nullable;
 
 /** Cquery implementation of BUILD-style output. */
 class BuildOutputFormatterCallback extends CqueryThreadsafeCallback {
+
+  private final LabelPrinter labelPrinter;
+
   BuildOutputFormatterCallback(
       ExtendedEventHandler eventHandler,
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<ConfiguredTarget> accessor) {
-    super(eventHandler, options, out, skyframeExecutor, accessor, /*uniquifyResults=*/ false);
+      TargetAccessor<ConfiguredTarget> accessor,
+      LabelPrinter labelPrinter) {
+    super(eventHandler, options, out, skyframeExecutor, accessor, /* uniquifyResults= */ false);
+    this.labelPrinter = labelPrinter;
   }
 
   @Override
@@ -98,7 +104,8 @@ class BuildOutputFormatterCallback extends CqueryThreadsafeCallback {
             // selects. Going forward we could expand this to show both the complete select
             // and which path is chosen, which people may find even more informative.
             (rule, attr) -> false,
-            System.lineSeparator());
+            System.lineSeparator(),
+            labelPrinter);
     for (ConfiguredTarget configuredTarget : partialResult) {
       Target target = accessor.getTarget(configuredTarget);
       outputter.output(target, new CqueryAttributeReader(getAttributeMap(configuredTarget)));

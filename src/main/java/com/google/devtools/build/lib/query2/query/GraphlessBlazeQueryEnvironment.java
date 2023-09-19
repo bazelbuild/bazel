@@ -17,7 +17,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPattern.Parser;
@@ -26,6 +25,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.TargetEdgeObserver;
@@ -117,8 +117,10 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
       Predicate<Label> labelFilter,
       ExtendedEventHandler eventHandler,
       Set<Setting> settings,
-      Iterable<QueryFunction> extraFunctions) {
-    super(keepGoing, strictScope, labelFilter, eventHandler, settings, extraFunctions);
+      Iterable<QueryFunction> extraFunctions,
+      LabelPrinter labelPrinter) {
+    super(
+        keepGoing, strictScope, labelFilter, eventHandler, settings, extraFunctions, labelPrinter);
     this.targetPatternPreloader = targetPatternPreloader;
     this.mainRepoTargetParser = mainRepoTargetParser;
     this.queryTransitivePackagePreloader = queryTransitivePackagePreloader;
@@ -481,10 +483,5 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
   @Override
   public TargetAccessor<Target> getAccessor() {
     return accessor;
-  }
-
-  @Override
-  public RepositoryMapping getMainRepoMapping() {
-    return mainRepoTargetParser.getRepoMapping();
   }
 }
