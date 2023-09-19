@@ -2863,7 +2863,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testFrozenRuleContextHasInaccessibleAttributes() throws Exception {
-    setBuildLanguageOptions("--incompatible_new_actions_api=false");
     scratch.file(
         "test/BUILD",
         "load('//test:rules.bzl', 'main_rule', 'dep_rule')",
@@ -2895,65 +2894,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
               "Should have been unable to access dep_ctx." + attribute,
               AssertionError.class,
               () -> getConfiguredTarget("//test:main"));
-      assertThat(e)
-          .hasMessageThat()
-          .contains(
-              "cannot access field or method '"
-                  + Iterables.get(Splitter.on('(').split(attribute), 0)
-                  + "' of rule context for '//test:dep' outside of its own rule implementation "
-                  + "function");
-    }
-  }
-
-  @Test
-  public void testFrozenRuleContextForAspectsHasInaccessibleAttributes() throws Exception {
-    List<String> attributes = new ArrayList<>();
-    attributes.addAll(ctxAttributes);
-    attributes.addAll(
-        ImmutableList.of("rule.attr", "rule.executable", "rule.file", "rule.files", "rule.kind"));
-    scratch.file(
-        "test/BUILD",
-        "load('//test:rules.bzl', 'my_rule')",
-        "my_rule(name = 'dep')",
-        "my_rule(name = 'mid', deps = [':dep'])",
-        "my_rule(name = 'main', deps = [':mid'])");
-    scratch.file("test/rules.bzl");
-    for (String attribute : attributes) {
-      scratch.overwriteFile(
-          "test/rules.bzl",
-          "def _rule_impl(ctx):",
-          "  pass",
-          "def _aspect_impl(target, ctx):",
-          "  if ctx.rule.attr.deps:",
-          "    dep = ctx.rule.attr.deps[0]",
-          "    file = ctx.actions.declare_file('file.txt')",
-          "    foo = dep." + (attribute.startsWith("rule.") ? "" : "ctx.") + attribute,
-          "  return struct(ctx = ctx, rule=ctx.rule)",
-          "MyAspect = aspect(implementation=_aspect_impl)",
-          "my_rule = rule(",
-          "  implementation = _rule_impl,",
-          "  attrs = {",
-          "    'deps': attr.label_list(aspects = [MyAspect])",
-          "  },",
-          ")");
-      setBuildLanguageOptions("--incompatible_new_actions_api=false");
-      invalidatePackages();
-
-      AssertionError e =
-          assertThrows(
-              "Should have been unable to access dep." + attribute,
-              AssertionError.class,
-              () -> getConfiguredTarget("//test:main"));
-
-      // Typical value of e.getMessage():
-      //
-      // ERROR /workspace/test/BUILD:3:8: \
-      //   in //test:rules.bzl%MyAspect aspect on my_rule rule //test:mid:
-      // Traceback (most recent call last):
-      //        File "/workspace/test/BUILD", line 3, column 8, in //test:rules.bzl%MyAspect
-      //        File "/workspace/test/rules.bzl", line 7, column 18, in _aspect_impl
-      // Error: cannot access field or method 'attr' of rule context for '//test:dep' \
-      // outside of its own rule implementation function
       assertThat(e)
           .hasMessageThat()
           .contains(

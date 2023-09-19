@@ -231,6 +231,15 @@ public final class BazelRulesModule extends BlazeModule {
     public boolean enableProfileByDefault;
 
     @Option(
+        name = "incompatible_new_actions_api",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "No-op.")
+    public boolean incompatibleNewActionsApi;
+
+    @Option(
         name = "legacy_spawn_scheduler",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
