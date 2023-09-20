@@ -502,7 +502,11 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
             key);
 
         boolean implicit =
-            implicitDeps == null || implicitDeps.contains(getConfiguredTargetKey(dependency));
+            // Check both the original guess key and the second correct key. In the case of the
+            // target platform, Util.findImplicitDeps also uses the original guess key.
+            implicitDeps == null
+                || implicitDeps.contains(key)
+                || implicitDeps.contains(getConfiguredTargetKey(dependency));
         values.add(new ClassifiedDependency<>(dependency, implicit));
         knownCtDeps.add(key);
       } else if (settings.contains(Setting.INCLUDE_ASPECTS)

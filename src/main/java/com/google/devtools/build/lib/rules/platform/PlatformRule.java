@@ -16,13 +16,17 @@ package com.google.devtools.build.lib.rules.platform;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.transitions.NoConfigTransition;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
@@ -40,7 +44,16 @@ public class PlatformRule implements RuleDefinition {
     <!-- #END_BLAZE_RULE.NAME --> */
     return builder
         .advertiseStarlarkProvider(PlatformInfo.PROVIDER.id())
-
+        .cfg(NoConfigTransition.createFactory())
+        .exemptFromConstraintChecking("this rule helps *define* a constraint")
+        .useToolchainResolution(ToolchainResolutionMode.DISABLED)
+        .removeAttribute(":action_listener")
+        .removeAttribute("applicable_licenses")
+        .override(
+            attr("tags", Type.STRING_LIST)
+                // No need to show up in ":all", etc. target patterns.
+                .value(ImmutableList.of("manual"))
+                .nonconfigurable("low-level attribute, used in platform configuration"))
         /* <!-- #BLAZE_RULE(platform).ATTRIBUTE(constraint_values) -->
         The combination of constraint choices that this platform comprises. In order for a platform
         to apply to a given environment, the environment must have at least the values in this list.
@@ -77,7 +90,9 @@ public class PlatformRule implements RuleDefinition {
         by using the macro "{PARENT_REMOTE_EXECUTION_PROPERTIES}". See the section on
         <a href="#platform_inheritance">Platform Inheritance</a> for details.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr(REMOTE_EXECUTION_PROPS_ATTR, Type.STRING))
+        .add(
+            attr(REMOTE_EXECUTION_PROPS_ATTR, Type.STRING)
+                .nonconfigurable("Part of the configuration"))
 
         /* <!-- #BLAZE_RULE(platform).ATTRIBUTE(exec_properties) -->
         A map of strings that affect the way actions are executed remotely. Bazel makes no attempt
@@ -91,7 +106,10 @@ public class PlatformRule implements RuleDefinition {
         This attribute is a full replacement for the deprecated
         <code>remote_execution_properties</code>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr(EXEC_PROPS_ATTR, Type.STRING_DICT).value(ImmutableMap.of()))
+        .add(
+            attr(EXEC_PROPS_ATTR, Type.STRING_DICT)
+                .value(ImmutableMap.of())
+                .nonconfigurable("Part of the configuration"))
         .build();
   }
 
@@ -99,7 +117,7 @@ public class PlatformRule implements RuleDefinition {
   public Metadata getMetadata() {
     return Metadata.builder()
         .name(RULE_NAME)
-        .ancestors(PlatformBaseRule.class)
+        .ancestors(BaseRuleClasses.NativeBuildRule.class)
         .factoryClass(Platform.class)
         .build();
   }

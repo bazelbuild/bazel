@@ -105,6 +105,10 @@ public abstract class Util {
         maybeImplicitDeps.add(
             ConfiguredTargetKey.builder()
                 .setLabel(platformConfiguration.getTargetPlatform())
+                // This is technically the wrong configuration, because PlatformRule uses
+                // NoConfigTransition to reduce configured target fanout. However, it still works,
+                // because PostAnalysisQueryEnvironment also guesses using the wrong configuration,
+                // so the target platform dependency is correctly marked as implicit anyway.
                 .setConfiguration(ruleContext.getConfiguration())
                 .build());
       }

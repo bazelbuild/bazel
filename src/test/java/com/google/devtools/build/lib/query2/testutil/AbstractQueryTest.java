@@ -947,6 +947,7 @@ public abstract class AbstractQueryTest<T> {
   public void testLet() throws Exception {
     writeBuildFiles3();
 
+    helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
     assertContains(
         eval("//b + //c + //d"),
         eval("let x = //a in deps($x) except $x" + getDependencyCorrectionWithGen()));
