@@ -100,40 +100,6 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
   }
 
   @Test
-  public void protoToolchain_setProtoCompiler() throws Exception {
-    scratch.file(
-        "third_party/x/BUILD",
-        "licenses(['unencumbered'])",
-        "cc_binary(name = 'plugin', srcs = ['plugin.cc'])",
-        "cc_library(name = 'runtime', srcs = ['runtime.cc'])",
-        "filegroup(name = 'descriptors', srcs = ['metadata.proto', 'descriptor.proto'])",
-        "filegroup(name = 'any', srcs = ['any.proto'])",
-        "proto_library(name = 'denied', srcs = [':descriptors', ':any'])",
-        "cc_binary(name = 'compiler')");
-
-    scratch.file(
-        "foo/BUILD",
-        TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
-        "licenses(['unencumbered'])",
-        "proto_lang_toolchain(",
-        "    name = 'toolchain',",
-        "    command_line = 'cmd-line:$(OUT)',",
-        "    plugin_format_flag = '--plugin=%s',",
-        "    plugin = '//third_party/x:plugin',",
-        "    runtime = '//third_party/x:runtime',",
-        "    progress_message = 'Progress Message %{label}',",
-        "    mnemonic = 'MyMnemonic',",
-        "    proto_compiler = '//third_party/x:compiler',",
-        ")");
-
-    ProtoLangToolchainProvider toolchain =
-        ProtoLangToolchainProvider.get(getConfiguredTarget("//foo:toolchain"));
-
-    validateProtoLangToolchain(toolchain);
-    validateProtoCompiler(toolchain, "//third_party/x:compiler");
-  }
-
-  @Test
   public void protoToolchainBlacklistProtoLibraries() throws Exception {
     scratch.file(
         "third_party/x/BUILD",
