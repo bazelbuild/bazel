@@ -157,8 +157,8 @@ final class StateInformingSkyFunctionEnvironment implements SkyFunction.Environm
   }
 
   @Override
-  public boolean restartPermitted() {
-    return delegate.restartPermitted();
+  public boolean resetPermitted() {
+    return delegate.resetPermitted();
   }
 
   @Override

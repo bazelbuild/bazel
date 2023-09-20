@@ -402,7 +402,7 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
   }
 
   @Override
-  public final synchronized void resetForRestartFromScratch() {
+  public final synchronized void resetEvaluationFromScratch() {
     checkState(!hasUnsignaledDeps(), this);
 
     ImmutableSet<SkyKey> resetDeps =
@@ -481,7 +481,7 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
   }
 
   /**
-   * Used to track already registered deps when there is a {@linkplain #resetForRestartFromScratch
+   * Used to track already registered deps when there is a {@linkplain #resetEvaluationFromScratch
    * reset} on a node's initial build.
    */
   private static final class ResetInitialBuildingState extends InitialBuildingState {
@@ -505,7 +505,7 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
   }
 
   /**
-   * Used to track already registered deps when there is a {@linkplain #resetForRestartFromScratch
+   * Used to track already registered deps when there is a {@linkplain #resetEvaluationFromScratch
    * reset} on a node's incremental build.
    */
   private static final class ResetIncrementalBuildingState extends IncrementalBuildingState {

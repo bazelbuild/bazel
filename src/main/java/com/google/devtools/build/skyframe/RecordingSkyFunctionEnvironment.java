@@ -177,8 +177,8 @@ public final class RecordingSkyFunctionEnvironment implements Environment {
   }
 
   @Override
-  public boolean restartPermitted() {
-    return delegate.restartPermitted();
+  public boolean resetPermitted() {
+    return delegate.resetPermitted();
   }
 
   @Override

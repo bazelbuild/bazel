@@ -362,7 +362,7 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
     assertThat(entry.getResetDirectDeps()).isEmpty();
 
     // Reset clears temporary direct deps.
-    entry.resetForRestartFromScratch();
+    entry.resetEvaluationFromScratch();
     assertThat(entry.getDirtyState()).isEqualTo(DirtyState.REBUILDING);
     assertThat(entry.getTemporaryDirectDeps()).isEmpty();
     assertThat(entry.getTemporaryDirectDeps() instanceof GroupedDeps.WithHashSet)
@@ -417,7 +417,7 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
     assertThat(entry.signalDep(initialVersion, dep2)).isTrue();
 
     // First reset.
-    entry.resetForRestartFromScratch();
+    entry.resetEvaluationFromScratch();
     assertThat(entry.getTemporaryDirectDeps()).isEmpty();
 
     // Add back only one dep.
@@ -426,7 +426,7 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
     assertThat(entry.getTemporaryDirectDeps()).containsExactly(ImmutableList.of(dep1));
 
     // Second reset.
-    entry.resetForRestartFromScratch();
+    entry.resetEvaluationFromScratch();
     assertThat(entry.getTemporaryDirectDeps()).isEmpty();
 
     // Both deps added back.
@@ -437,8 +437,8 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
     assertThat(entry.getTemporaryDirectDeps())
         .containsExactly(ImmutableList.of(dep1), ImmutableList.of(dep2));
 
-    // If tracking of reset deps is required, make sure both deps are reported for even though only
-    // dep1 was registered during the most recent restarted evaluation.
+    // If tracking of reset deps is required, make sure both deps are reported even though only dep1
+    // was registered during the most recent evaluation attempt.
     if (entry.keepsEdges()) {
       assertThat(entry.getResetDirectDeps()).containsExactly(dep1, dep2);
     }

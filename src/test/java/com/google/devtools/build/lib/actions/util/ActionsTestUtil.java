@@ -452,7 +452,7 @@ public final class ActionsTestUtil {
     }
 
     @Override
-    public boolean restartPermitted() {
+    public boolean resetPermitted() {
       return false;
     }
 

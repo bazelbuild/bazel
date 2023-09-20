@@ -129,8 +129,8 @@ final class ProgressEventSuppressingEnvironment implements SkyFunction.Environme
   }
 
   @Override
-  public boolean restartPermitted() {
-    return delegate.restartPermitted();
+  public boolean resetPermitted() {
+    return delegate.resetPermitted();
   }
 
   @Override

@@ -101,7 +101,7 @@ public final class SkyFunctionEnvironmentForTesting
   }
 
   @Override
-  public boolean restartPermitted() {
+  public boolean resetPermitted() {
     return false;
   }
 

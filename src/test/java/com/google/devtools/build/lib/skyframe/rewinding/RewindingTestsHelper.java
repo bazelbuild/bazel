@@ -1160,9 +1160,9 @@ public class RewindingTestsHelper {
     // in which 1A and 2A are shared, 1B and 2B are shared, and xB depends on an output of xA,
     // when 1B rewinds because the 1A output it depends on is lost, and 2B ran simultaneously with
     // the first, failed, evaluation of 1B and registers itself as depending on 1B's completion
-    // future, then 2B gets restarted when 1B clears its ActionExecutionState. Re-evaluations of
-    // dep actions may proceed non-deterministically, but this test makes 2A win the "rewound A"
-    // race, and then 1B win the "rewound B" race.
+    // future, then 2B gets reset when 1B clears its ActionExecutionState. Re-evaluations of dep
+    // actions may proceed non-deterministically, but this test makes 2A win the "rewound A" race,
+    // and then 1B win the "rewound B" race.
 
     setUpParallelTrackSharedActionPackage();
 
@@ -1211,8 +1211,8 @@ public class RewindingTestsHelper {
     // (*) Count:
     //    1. before shared_2A is first evaluated
     //    2. after shared_2A is first evaluated
-    //    3. restarted by shared_1B's state clearing
-    //    4. restarted by its own rewinding, before shared_2A is again evaluated
+    //    3. reset by shared_1B's state clearing
+    //    4. reset by its own rewinding, before shared_2A is again evaluated
     //    5. after shared_2A is again evaluated
     CountDownLatch shared2BReadyForFifthTime = new CountDownLatch(1);
 
@@ -1382,8 +1382,8 @@ public class RewindingTestsHelper {
     //
     // The compilation action "Compiling tree/make_cc_dir.cc/file1.cc" fails, saying that
     // "make_cc_dir.cc/file1.cc", one of the output files in the tree outputted by the "make_cc"
-    // rule, is lost. The action that generated that tree, "Action tree/make_cc_dir.cc", is
-    // restarted along with the failed compilation action.
+    // rule, is lost. The action that generated that tree, "Action tree/make_cc_dir.cc", is rewound
+    // along with the failed compilation action.
     //
     // This test also confirms that rewinding is compatible with critical-path tracking when a
     // non-shared action (like this test's compiling actions) fails and is run a second time.
@@ -1434,8 +1434,8 @@ public class RewindingTestsHelper {
     // tree, not the file contained in the tree.
     //
     // The linking action "Linking tree/libconsumes_tree.so" fails, saying that the "*.pic.o" files
-    // produced by the compilation actions are lost. The linking action which failed is restarted
-    // along with those compilation actions.
+    // produced by the compilation actions are lost. The linking action which failed is reset along
+    // with those compilation actions.
     //
     // This test also confirms that rewinding is compatible with critical-path tracking when a
     // previously completed non-shared action (like this test's compiling actions) is rerun.
@@ -1454,12 +1454,12 @@ public class RewindingTestsHelper {
     // of the files in the tree that "Linking tree/libconsumes_tree.so" depends on. By doing so it
     // exercises the case when only a subset of a tree's files are lost.
     //
-    // The linking action which failed is restarted, and *all* the compilation actions whose outputs
-    // are included by the tree are also restarted.
+    // The linking action which failed is reset, and *all* the compilation actions whose outputs
+    // are included by the tree are rewound.
     //
-    // It would be better if only the compilation action responsible for the lost file was
-    // restarted, but rewinding is expected to be uncommon, so the overkill effort shouldn't be a
-    // problem in practice.
+    // It would be better if only the compilation action responsible for the lost file was rewound,
+    // but rewinding is expected to be uncommon, so the overkill effort shouldn't be a problem in
+    // practice.
 
     ImmutableList<String> lostTreeFileArtifactNames = ImmutableList.of("make_cc_dir/file1.pic.o");
 
@@ -1562,8 +1562,8 @@ public class RewindingTestsHelper {
     // one of the two generated runfiles that "Executing genrule //middle:tool_user" depends on.
     //
     // Like with runTreeArtifactRewound_oneFileLost_spawnFailed, it would be better if only the one
-    // action responsible for the lost input was restarted, but rewinding is expected to be
-    // uncommon, so the overkill effort isn't expected to be a problem in practice.
+    // action responsible for the lost input was rewound, but rewinding is expected to be uncommon,
+    // so the overkill effort isn't expected to be a problem in practice.
 
     ImmutableList<String> lostRunfiles = ImmutableList.of("gen1.dat");
 

@@ -38,7 +38,7 @@ public interface GraphInconsistencyReceiver {
             "Unexpected inconsistency: " + key + ", " + otherKey + ", " + inconsistency);
       };
 
-  default boolean restartPermitted() {
+  default boolean resetPermitted() {
     return false;
   }
 

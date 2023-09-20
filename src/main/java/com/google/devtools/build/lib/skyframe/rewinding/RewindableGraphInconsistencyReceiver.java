@@ -169,7 +169,7 @@ public final class RewindableGraphInconsistencyReceiver implements GraphInconsis
   }
 
   @Override
-  public boolean restartPermitted() {
+  public boolean resetPermitted() {
     return true;
   }
 

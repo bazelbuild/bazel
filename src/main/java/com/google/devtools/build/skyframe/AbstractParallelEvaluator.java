@@ -44,7 +44,7 @@ import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
-import com.google.devtools.build.skyframe.SkyFunction.Restart;
+import com.google.devtools.build.skyframe.SkyFunction.Reset;
 import com.google.devtools.build.skyframe.SkyFunctionEnvironment.UndonePreviouslyRequestedDeps;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
@@ -554,13 +554,13 @@ abstract class AbstractParallelEvaluator {
           env.doneBuilding();
         }
 
-        if (value instanceof Restart) {
+        if (value instanceof Reset) {
           if (nodeEntry.hasUnsignaledDeps()) {
             // This is a partial reevaluation. It is not safe to reset the node because a dep may
             // be racing to signal it.
             return;
           }
-          dirtyRewindGraphAndResetEntry(skyKey, nodeEntry, (Restart) value);
+          dirtyRewindGraphAndResetEntry(skyKey, nodeEntry, (Reset) value);
           stateCache.invalidate(skyKey);
           cancelExternalDeps(env);
           evaluatorContext.getVisitor().enqueueEvaluation(skyKey, null);
@@ -862,7 +862,7 @@ abstract class AbstractParallelEvaluator {
   //
   // When FN next evaluates, it requests R1, and because R1 is done, R2 is not scheduled for
   // evaluation, contrary to FN's expectations.
-  private void dirtyRewindGraphAndResetEntry(SkyKey key, NodeEntry entry, Restart restart)
+  private void dirtyRewindGraphAndResetEntry(SkyKey key, NodeEntry entry, Reset restart)
       throws InterruptedException {
     ImmutableGraph<SkyKey> rewindGraph = restart.rewindGraph();
     checkState(
@@ -911,7 +911,7 @@ abstract class AbstractParallelEvaluator {
     evaluatorContext
         .getGraphInconsistencyReceiver()
         .noteInconsistencyAndMaybeThrow(key, /* otherKeys= */ null, Inconsistency.RESET_REQUESTED);
-    entry.resetForRestartFromScratch();
+    entry.resetEvaluationFromScratch();
   }
 
   void propagateEvaluatorContextCrashIfAny() {

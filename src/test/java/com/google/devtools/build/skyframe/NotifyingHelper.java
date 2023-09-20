@@ -348,8 +348,8 @@ public class NotifyingHelper {
     }
 
     @Override
-    public void resetForRestartFromScratch() {
-      delegate.resetForRestartFromScratch();
+    public void resetEvaluationFromScratch() {
+      delegate.resetEvaluationFromScratch();
       graphListener.accept(myKey, EventType.RESET_FOR_RESTART_FROM_SCRATCH, Order.AFTER, this);
     }
 

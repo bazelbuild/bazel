@@ -2671,9 +2671,9 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         SkyFunctionName.FOR_TESTING,
         (key, env) -> {
           if (!trackIncrementalState && !useActionCache && rewindLostInputs) {
-            assertThat(env.restartPermitted()).isTrue();
+            assertThat(env.resetPermitted()).isTrue();
           } else {
-            assertThat(env.restartPermitted()).isFalse();
+            assertThat(env.resetPermitted()).isFalse();
           }
           return new SkyValue() {};
         });

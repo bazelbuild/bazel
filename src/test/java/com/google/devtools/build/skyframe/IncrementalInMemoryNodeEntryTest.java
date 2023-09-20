@@ -696,7 +696,7 @@ public class IncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<IntV
     SkyKey dep = key("dep");
     entry.addSingletonTemporaryDirectDep(dep);
     entry.signalDep(initialVersion, dep);
-    entry.resetForRestartFromScratch();
+    entry.resetEvaluationFromScratch();
 
     assertThat(entry.getAllDirectDepsForIncompleteNode()).containsExactly(dep);
   }
@@ -746,7 +746,7 @@ public class IncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<IntV
     assertThat(entry.getResetDirectDeps()).isEmpty();
 
     // Reset clears temporary direct deps.
-    entry.resetForRestartFromScratch();
+    entry.resetEvaluationFromScratch();
     assertThat(entry.getDirtyState()).isEqualTo(DirtyState.REBUILDING);
     assertThat(entry.getTemporaryDirectDeps()).isEmpty();
     assertThat(entry.getTemporaryDirectDeps() instanceof GroupedDeps.WithHashSet)

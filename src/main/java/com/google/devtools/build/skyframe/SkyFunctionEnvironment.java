@@ -376,7 +376,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
       newlyRequestedDepsValues.put(key, valueOrNullMarker);
       if (valueOrNullMarker == NULL_MARKER) {
         // TODO(mschaller): handle registered deps that transitioned from done to dirty during eval
-        // But how? Restarting the current node may not help, because this dep was *registered*, not
+        // But how? Resetting the current node may not help, because this dep was *registered*, not
         // requested. For now, no node that gets registered as a dep is eligible for
         // intra-evaluation dirtying, so let it crash.
         checkState(!assertDone, "%s had not done: %s", skyKey, key);
@@ -1019,8 +1019,8 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
   }
 
   @Override
-  public boolean restartPermitted() {
-    return evaluatorContext.restartPermitted();
+  public boolean resetPermitted() {
+    return evaluatorContext.resetPermitted();
   }
 
   @Override

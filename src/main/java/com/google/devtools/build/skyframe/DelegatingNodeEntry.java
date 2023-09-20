@@ -139,8 +139,8 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public void resetForRestartFromScratch() {
-    getDelegate().resetForRestartFromScratch();
+  public void resetEvaluationFromScratch() {
+    getDelegate().resetEvaluationFromScratch();
   }
 
   @Override

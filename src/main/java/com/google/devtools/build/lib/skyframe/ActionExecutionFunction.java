@@ -319,7 +319,7 @@ public final class ActionExecutionFunction implements SkyFunction {
                 directories.getRelativeOutputPath(),
                 checkedInputs.actionInputMap,
                 action.getOutputs(),
-                env.restartPermitted());
+                env.resetPermitted());
       }
     }
 
@@ -426,10 +426,10 @@ public final class ActionExecutionFunction implements SkyFunction {
   }
 
   /**
-   * Clean up state associated with the current action execution attempt and return a {@link
-   * Restart} value which rewinds the actions that generate the lost inputs.
+   * Cleans up state associated with the current action execution attempt and returns a {@link
+   * SkyFunction.Reset} value which rewinds the actions that generate the lost inputs.
    */
-  private SkyFunction.Restart handleLostInputs(
+  private SkyFunction.Reset handleLostInputs(
       LostInputsActionExecutionException e,
       ActionLookupData actionLookupData,
       Action action,
@@ -480,10 +480,11 @@ public final class ActionExecutionFunction implements SkyFunction {
       try {
         rewindPlan =
             actionRewindStrategy.getRewindPlan(
-                action, actionLookupData, failedActionDeps, e, inputDepOwners, env);
+                actionLookupData, action, failedActionDeps, e, inputDepOwners, env);
       } catch (ActionExecutionException rewindingFailedException) {
         // This ensures coalesced shared actions aren't orphaned.
-        skyframeActionExecutor.resetRewindingAction(actionLookupData, action, lostDiscoveredInputs);
+        skyframeActionExecutor.prepareForRewinding(
+            actionLookupData, action, lostDiscoveredInputs, /* depsToRewind= */ ImmutableList.of());
         throw new ActionExecutionFunctionException(
             new AlreadyReportedActionExecutionException(
                 skyframeActionExecutor.processAndGetExceptionToThrow(
@@ -499,11 +500,9 @@ public final class ActionExecutionFunction implements SkyFunction {
         env.getListener()
             .post(new ActionRewoundEvent(actionStartTimeNanos, BlazeClock.nanoTime(), action));
       }
-      skyframeActionExecutor.resetRewindingAction(actionLookupData, action, lostDiscoveredInputs);
-      for (Action actionToRestart : rewindPlan.getAdditionalActionsToRestart()) {
-        skyframeActionExecutor.resetPreviouslyCompletedAction(actionLookupData, actionToRestart);
-      }
-      return rewindPlan.getNodesToRestart();
+      skyframeActionExecutor.prepareForRewinding(
+          actionLookupData, action, lostDiscoveredInputs, rewindPlan.getDepsToRewind());
+      return rewindPlan.getReset();
     } finally {
       if (rewindPlan == null && e.isActionStartedEventAlreadyEmitted()) {
         // Rewinding was unsuccessful. SkyframeActionExecutor's ActionRunner didn't emit an

@@ -55,6 +55,7 @@ import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.NotifyingHelper.EventType;
 import com.google.devtools.build.skyframe.NotifyingHelper.Listener;
 import com.google.devtools.build.skyframe.NotifyingHelper.Order;
+import com.google.devtools.build.skyframe.SkyFunction.Reset;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
 import com.google.errorprone.annotations.ForOverride;
@@ -144,7 +145,7 @@ public abstract class MemoizingEvaluatorTest {
   }
 
   @ForOverride
-  protected boolean restartSupported() {
+  protected boolean resetSupported() {
     return true;
   }
 
@@ -2358,20 +2359,19 @@ public abstract class MemoizingEvaluatorTest {
   }
 
   /**
-   * Basic test for a {@link SkyFunction.Restart} with no rewinding of dependencies.
+   * Basic test for a {@link SkyFunction.Reset} with no rewinding of dependencies.
    *
    * <p>Ensures that {@link NodeEntry#getResetDirectDeps} is used correctly by Skyframe to avoid
-   * registering duplicate rdep edges when {@code dep} is requested both before and after a restart.
+   * registering duplicate rdep edges when {@code dep} is requested both before and after a reset.
    *
-   * <p>This test covers the case where {@code dep} is newly requested post-restart during a {@link
+   * <p>This test covers the case where {@code dep} is newly requested post-reset during a {@link
    * SkyFunction#compute} invocation that returns a {@link SkyValue}, which exercises a different
    * {@link AbstractParallelEvaluator} code path than the scenario covered by {@link
-   * #restartSelfOnly_extraDepMissingAfterRestart}.
+   * #resetSelfOnly_extraDepMissingAfterReset}.
    */
-  // TODO(b/228090759): Similarly test a restart on an incremental build.
   @Test
-  public void restartSelfOnly_singleDep() throws Exception {
-    assume().that(restartSupported()).isTrue();
+  public void resetSelfOnly_singleDep() throws Exception {
+    assume().that(resetSupported()).isTrue();
 
     var inconsistencyReceiver = new RecordingInconsistencyReceiver();
     tester.setGraphInconsistencyReceiver(inconsistencyReceiver);
@@ -2384,7 +2384,7 @@ public abstract class MemoizingEvaluatorTest {
         .getOrCreate(top)
         .setBuilder(
             new SkyFunction() {
-              private boolean restarted = false;
+              private boolean alreadyReset = false;
 
               @Nullable
               @Override
@@ -2393,9 +2393,9 @@ public abstract class MemoizingEvaluatorTest {
                 if (depValue == null) {
                   return null;
                 }
-                if (!restarted) {
-                  restarted = true;
-                  return Restart.of(Restart.newRewindGraphFor(top));
+                if (!alreadyReset) {
+                  alreadyReset = true;
+                  return Reset.of(Reset.newRewindGraphFor(top));
                 }
                 return new StringValue("topVal");
               }
@@ -2416,20 +2416,20 @@ public abstract class MemoizingEvaluatorTest {
   }
 
   /**
-   * Test for a {@link SkyFunction.Restart} with no rewinding of dependencies, with a missing
-   * dependency requested post-restart.
+   * Test for a {@link SkyFunction.Reset} with no rewinding of dependencies, with a missing
+   * dependency requested post-reset.
    *
    * <p>Ensures that {@link NodeEntry#getResetDirectDeps} is used correctly by Skyframe to avoid
-   * registering duplicate rdep edges when {@code dep} is requested both before and after a restart.
+   * registering duplicate rdep edges when {@code dep} is requested both before and after a reset.
    *
-   * <p>This test covers the case where {@code dep} is newly requested post-restart in a {@link
+   * <p>This test covers the case where {@code dep} is newly requested post-reset in a {@link
    * SkyFunction#compute} invocation that returns {@code null} (because {@code extraDep} is
    * missing), which exercises a different {@link AbstractParallelEvaluator} code path than the
-   * scenario covered by {@link #restartSelfOnly_singleDep}.
+   * scenario covered by {@link #resetSelfOnly_singleDep}.
    */
   @Test
-  public void restartSelfOnly_extraDepMissingAfterRestart() throws Exception {
-    assume().that(restartSupported()).isTrue();
+  public void resetSelfOnly_extraDepMissingAfterReset() throws Exception {
+    assume().that(resetSupported()).isTrue();
 
     var inconsistencyReceiver = new RecordingInconsistencyReceiver();
     tester.setGraphInconsistencyReceiver(inconsistencyReceiver);
@@ -2443,7 +2443,7 @@ public abstract class MemoizingEvaluatorTest {
         .getOrCreate(top)
         .setBuilder(
             new SkyFunction() {
-              private boolean restarted = false;
+              private boolean alreadyReset = false;
 
               @Nullable
               @Override
@@ -2452,9 +2452,9 @@ public abstract class MemoizingEvaluatorTest {
                 if (depValue == null) {
                   return null;
                 }
-                if (!restarted) {
-                  restarted = true;
-                  return Restart.of(Restart.newRewindGraphFor(top));
+                if (!alreadyReset) {
+                  alreadyReset = true;
+                  return Reset.of(Reset.newRewindGraphFor(top));
                 }
                 var extraDepValue = env.getValue(extraDep);
                 if (extraDepValue == null) {
@@ -2484,15 +2484,15 @@ public abstract class MemoizingEvaluatorTest {
   }
 
   /**
-   * Tests that if a dependency is requested prior to a {@link SkyFunction.Restart} but not after,
+   * Tests that if a dependency is requested prior to a {@link SkyFunction.Reset} but not after,
    * then the corresponding reverse dep edge is removed.
    *
    * <p>This happens in practice with input-discovering actions, which use mutable state to track
    * input discovery, resulting in unstable dependencies.
    */
   @Test
-  public void restartSelfOnly_depNotRequestedAgainAfterRestart() throws Exception {
-    assume().that(restartSupported()).isTrue();
+  public void resetSelfOnly_depNotRequestedAgainAfterReset() throws Exception {
+    assume().that(resetSupported()).isTrue();
 
     var inconsistencyReceiver = new RecordingInconsistencyReceiver();
     tester.setGraphInconsistencyReceiver(inconsistencyReceiver);
@@ -2506,21 +2506,21 @@ public abstract class MemoizingEvaluatorTest {
         .getOrCreate(top)
         .setBuilder(
             new SkyFunction() {
-              private boolean restarted = false;
+              private boolean alreadyReset = false;
 
               @Nullable
               @Override
               public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
                 env.getValuesAndExceptions(
-                    restarted
+                    alreadyReset
                         ? ImmutableList.of(stableDep)
                         : ImmutableList.of(stableDep, flakyDep));
                 if (env.valuesMissing()) {
                   return null;
                 }
-                if (!restarted) {
-                  restarted = true;
-                  return Restart.of(Restart.newRewindGraphFor(top));
+                if (!alreadyReset) {
+                  alreadyReset = true;
+                  return Reset.of(Reset.newRewindGraphFor(top));
                 }
                 return new StringValue("topVal");
               }
@@ -2554,8 +2554,8 @@ public abstract class MemoizingEvaluatorTest {
    * --nokeep_going} build or if the user hits ctrl+c.
    */
   @Test
-  public void restartSelfOnly_evaluationAborted() throws Exception {
-    assume().that(restartSupported()).isTrue();
+  public void resetSelfOnly_evaluationAborted() throws Exception {
+    assume().that(resetSupported()).isTrue();
     assume().that(incrementalitySupported()).isTrue();
 
     var inconsistencyReceiver = new RecordingInconsistencyReceiver();
@@ -2569,20 +2569,20 @@ public abstract class MemoizingEvaluatorTest {
         .getOrCreate(top)
         .setBuilder(
             new SkyFunction() {
-              private boolean restarted = false;
+              private boolean alreadyReset = false;
 
               @Nullable
               @Override
               public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-                if (restarted) {
+                if (alreadyReset) {
                   throw new InterruptedException("Evaluation aborted");
                 }
                 var depValue = env.getValue(dep);
                 if (depValue == null) {
                   return null;
                 }
-                restarted = true;
-                return Restart.of(Restart.newRewindGraphFor(top));
+                alreadyReset = true;
+                return Reset.of(Reset.newRewindGraphFor(top));
               }
             });
     tester.getOrCreate(dep).setConstantValue(new StringValue("depVal"));
@@ -2610,7 +2610,7 @@ public abstract class MemoizingEvaluatorTest {
     }
 
     @Override
-    public boolean restartPermitted() {
+    public boolean resetPermitted() {
       return true;
     }
 

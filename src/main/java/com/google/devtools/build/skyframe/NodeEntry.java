@@ -16,6 +16,7 @@ package com.google.devtools.build.skyframe;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.skyframe.SkyFunction.Reset;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -522,7 +523,12 @@ public interface NodeEntry {
   void removeUnfinishedDeps(Set<SkyKey> unfinishedDeps);
 
   /**
-   * Prepares this node for a restart of its evaluation to recover from an inconsistency.
+   * Prepares this node to reset its evaluation from scratch in order to recover from an
+   * inconsistency.
+   *
+   * <p>Temporary direct deps should be cleared by this call, as they will be added again when
+   * requested during the restarted evaluation of this node. If the graph keeps dependency edges,
+   * however, the temporary direct deps must be accounted for in {@link #getResetDirectDeps}.
    *
    * <p>Called on a {@link DirtyState#REBUILDING} node when one of the following scenarios is
    * observed:
@@ -531,9 +537,9 @@ public interface NodeEntry {
    *   <li>One or more already requested dependencies are not done. This may happen when a
    *       dependency's node was dropped from the graph to save memory, or if a dependency was
    *       {@linkplain DirtyType#REWIND rewound} by another node.
-   *   <li>The corresponding {@link SkyFunction} for this node returned {@link SkyFunction.Restart}
-   *       to indicate that one or more dependencies were done but are in need of {@linkplain
-   *       DirtyType#REWIND rewinding} to regenerate their values.
+   *   <li>The corresponding {@link SkyFunction} for this node returned {@link Reset} to indicate
+   *       that one or more dependencies were done but are in need of {@linkplain DirtyType#REWIND
+   *       rewinding} to regenerate their values.
    * </ol>
    *
    * <p>This method is similar to calling {@link #markDirty} with {@link DirtyType#REWIND} with an
@@ -541,19 +547,15 @@ public interface NodeEntry {
    * its <em>value</em>, while this method is called on a <em>building</em> node because of an issue
    * with a <em>dependency</em>. The dependency will be rewound if we are in scenario 2 above.
    *
-   * <p>Temporary direct deps should be cleared by this call, as they will be added again when
-   * requested during the restarted evaluation of this node. If the graph keeps dependency edges,
-   * however, the temporary direct deps must be accounted for in {@link #getResetDirectDeps}.
-   *
    * <p>Reverse deps on the other hand should be preserved - parents waiting on this node are
    * unaware that it is being restarted and will not register themselves again, yet they still need
    * to be signaled when this node is done.
    */
   @ThreadSafe
-  void resetForRestartFromScratch();
+  void resetEvaluationFromScratch();
 
   /**
-   * If the graph keeps dependency edges and {@link #resetForRestartFromScratch} has been called on
+   * If the graph keeps dependency edges and {@link #resetEvaluationFromScratch} has been called on
    * this node since it was last done, returns the set of temporary direct deps that were registered
    * prior to the restart. Otherwise, returns an empty set.
    *
