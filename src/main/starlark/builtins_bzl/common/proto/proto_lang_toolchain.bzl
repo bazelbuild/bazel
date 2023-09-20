@@ -31,9 +31,6 @@ def _rule_impl(ctx):
     if ctx.attr.plugin != None:
         plugin = ctx.attr.plugin[DefaultInfo].files_to_run
 
-    proto_compiler = getattr(ctx.attr, "proto_compiler", None)
-    proto_compiler = getattr(ctx.attr, "_proto_compiler", proto_compiler)
-
     return [
         DefaultInfo(
             files = depset(),
@@ -46,46 +43,37 @@ def _rule_impl(ctx):
             plugin = plugin,
             runtime = ctx.attr.runtime,
             provided_proto_sources = provided_proto_sources,
-            proto_compiler = proto_compiler.files_to_run,
+            proto_compiler = ctx.attr._proto_compiler.files_to_run,
             protoc_opts = ctx.fragments.proto.experimental_protoc_opts,
             progress_message = ctx.attr.progress_message,
             mnemonic = ctx.attr.mnemonic,
         ),
     ]
 
-def make_proto_lang_toolchain(custom_proto_compiler):
-    return rule(
-        _rule_impl,
-        attrs = dict(
-            {
-                "progress_message": attr.string(default = "Generating proto_library %{label}"),
-                "mnemonic": attr.string(default = "GenProto"),
-                "command_line": attr.string(mandatory = True),
-                "output_files": attr.string(values = ["single", "multiple", "legacy"], default = "legacy"),
-                "plugin_format_flag": attr.string(),
-                "plugin": attr.label(
-                    executable = True,
-                    cfg = "exec",
-                ),
-                "runtime": attr.label(),
-                "blacklisted_protos": attr.label_list(
-                    providers = [ProtoInfo],
-                ),
-            },
-            **({
-                "proto_compiler": attr.label(
-                    cfg = "exec",
-                    executable = True,
-                ),
-            } if custom_proto_compiler else {
-                "_proto_compiler": attr.label(
-                    cfg = "exec",
-                    executable = True,
-                    allow_files = True,
-                    default = configuration_field("proto", "proto_compiler"),
-                ),
-            })
-        ),
-        provides = [ProtoLangToolchainInfo],
-        fragments = ["proto"] + semantics.EXTRA_FRAGMENTS,
-    )
+proto_lang_toolchain = rule(
+    _rule_impl,
+    attrs =
+        {
+            "progress_message": attr.string(default = "Generating proto_library %{label}"),
+            "mnemonic": attr.string(default = "GenProto"),
+            "command_line": attr.string(mandatory = True),
+            "output_files": attr.string(values = ["single", "multiple", "legacy"], default = "legacy"),
+            "plugin_format_flag": attr.string(),
+            "plugin": attr.label(
+                executable = True,
+                cfg = "exec",
+            ),
+            "runtime": attr.label(),
+            "blacklisted_protos": attr.label_list(
+                providers = [ProtoInfo],
+            ),
+            "_proto_compiler": attr.label(
+                cfg = "exec",
+                executable = True,
+                allow_files = True,
+                default = configuration_field("proto", "proto_compiler"),
+            ),
+        },
+    provides = [ProtoLangToolchainInfo],
+    fragments = ["proto"],
+)
