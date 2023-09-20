@@ -896,7 +896,7 @@ public final class RuleContext extends TargetContext
    * attribute. Returns null if the attribute is empty.
    */
   @Nullable
-  public ConfiguredTargetAndData getPrerequisiteConfiguredTargetAndData(String attributeName) {
+  private ConfiguredTargetAndData getPrerequisiteConfiguredTargetAndData(String attributeName) {
     checkAttributeIsDependency(attributeName);
     List<ConfiguredTargetAndData> elements = getPrerequisiteConfiguredTargets(attributeName);
     Preconditions.checkState(
@@ -1420,28 +1420,6 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Returns the sole file in the "srcs" attribute. Reports an error and (possibly) returns null if
-   * "srcs" does not identify a single file of the expected type.
-   */
-  @Nullable
-  public Artifact getSingleSource(String fileTypeName) {
-    List<Artifact> srcs = PrerequisiteArtifacts.get(this, "srcs").list();
-    switch (srcs.size()) {
-      case 0: // error already issued by getSrc()
-        return null;
-      case 1: // ok
-        return Iterables.getOnlyElement(srcs);
-      default:
-        attributeError("srcs", "only a single " + fileTypeName + " is allowed here");
-        return srcs.get(0);
-    }
-  }
-
-  public Artifact getSingleSource() {
-    return getSingleSource(ruleClassNameForLogging + " source file");
-  }
-
-  /**
    * Returns a path fragment qualified by the rule name and unique fragment to disambiguate
    * artifacts produced from the source file appearing in multiple rules.
    *
@@ -1494,25 +1472,6 @@ public final class RuleContext extends TargetContext
     }
   }
 
-  /**
-   * Returns the label to which the {@code NODEP_LABEL} attribute {@code attrName} refers, checking
-   * that it is a valid label, and that it is referring to a local target. Reports a warning
-   * otherwise.
-   */
-  @Nullable
-  public Label getLocalNodepLabelAttribute(String attrName) {
-    Label label = attributes().get(attrName, BuildType.NODEP_LABEL);
-    if (label == null) {
-      return null;
-    }
-
-    if (!getTarget().getLabel().getPackageFragment().equals(label.getPackageFragment())) {
-      attributeWarning(attrName, "does not reference a local rule");
-    }
-
-    return label;
-  }
-
   @Override
   public Artifact getImplicitOutputArtifact(ImplicitOutputsFunction function)
       throws InterruptedException {
@@ -1552,23 +1511,6 @@ public final class RuleContext extends TargetContext
   // after its introduction in cl/252148134.
   private Artifact getImplicitOutputArtifact(String path, boolean contentBasedPath) {
     return getPackageRelativeArtifact(path, getBinOrGenfilesDirectory(), contentBasedPath);
-  }
-
-  /**
-   * Convenience method to return a configured target for the "compiler" attribute. Allows caller to
-   * decide whether a warning should be printed if the "compiler" attribute is not set to the
-   * default value.
-   *
-   * @param warnIfNotDefault if true, print a warning if the value for the "compiler" attribute is
-   *     set to something other than the default
-   * @return a ConfiguredTarget for the "compiler" attribute
-   */
-  public FilesToRunProvider getCompiler(boolean warnIfNotDefault) {
-    Label label = attributes().get("compiler", BuildType.LABEL);
-    if (warnIfNotDefault && !label.equals(rule.getAttrDefaultValue("compiler"))) {
-      attributeWarning("compiler", "setting the compiler is strongly discouraged");
-    }
-    return getExecutablePrerequisite("compiler");
   }
 
   /**
