@@ -39,7 +39,7 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
     ] + select({
-        "//external:has_androidsdk": ["//external:android/dx_jar_import"],
+        # "//external:has_androidsdk": ["//external:android/dx_jar_import"],
         "//conditions:default": [],
     }),
 )

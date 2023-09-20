@@ -690,14 +690,6 @@ public final class AndroidRuleClasses {
                   .exec()
                   .value(env.getToolsLabel("//tools/android:desugar_java8")))
           .add(
-              attr("$java8_legacy_dex", LABEL)
-                  .value(env.getToolsLabel("//tools/android:java8_legacy_dex")))
-          .add(
-              attr("$build_java8_legacy_dex", LABEL)
-                  .cfg(ExecutionTransitionFactory.createFactory())
-                  .exec()
-                  .value(env.getToolsLabel("//tools/android:build_java8_legacy_dex")))
-          .add(
               attr("$desugared_java8_legacy_apis", LABEL)
                   .value(env.getToolsLabel("//tools/android:desugared_java8_legacy_apis")))
           .add(

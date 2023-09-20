@@ -13,7 +13,7 @@ java_library(
    ),
     plugins = ["auto_value_plugin"],
     deps = [
-        "//external:android/dx_jar_import",
+        # "//external:android/dx_jar_import",
         "//src/tools/android/java/com/google/devtools/build/android:all_android_tools",
     ],
 )

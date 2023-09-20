@@ -2,12 +2,15 @@ package(default_visibility = ["//visibility:public"])
 
 java_library(
     name = "r8",
-    srcs = glob(["*.java", "desugar/*.java"]),
-    deps = [
-        "//external:android/d8_jar_import",
-        "//src/tools/android/java/com/google/devtools/build/android:all_android_tools",
-    ],
+    srcs = glob([
+        "*.java",
+        "desugar/*.java",
+    ]),
     plugins = ["auto_value_plugin"],
+    deps = [
+        "//src/tools/android/java/com/google/devtools/build/android:all_android_tools",
+        "@android_gmaven_r8//jar",
+    ],
 )
 
 java_plugin(

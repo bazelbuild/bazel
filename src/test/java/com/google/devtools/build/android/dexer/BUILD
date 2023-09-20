@@ -40,7 +40,7 @@ java_library(
         "//third_party:truth",
         "@bazel_tools//tools/java/runfiles",
     ] + select({
-        "//external:has_androidsdk": ["//external:android/dx_jar_import"],
+        # "//external:has_androidsdk": ["//external:android/dx_jar_import"],
         "//conditions:default": [],
     }),
 )
