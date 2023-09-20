@@ -111,7 +111,6 @@ java_library(
         ":collect_packages_under_directory_function",
         ":collect_packages_under_directory_value",
         ":collect_targets_in_package_function",
-        ":collect_test_suites_in_package_function",
         ":configuration_phase_started_event",
         ":configured_target_and_data",
         ":configured_target_key",
@@ -156,8 +155,6 @@ java_library(
         ":prepare_deps_of_patterns_function",
         ":prepare_deps_of_targets_under_directory_function",
         ":prepare_deps_of_targets_under_directory_value",
-        ":prepare_test_suites_under_directory_function",
-        ":prepare_test_suites_under_directory_value",
         ":prerequisite_package_function",
         ":progress_event_suppressing_environment",
         ":progress_suppressing_event_handler",
@@ -1076,36 +1073,6 @@ java_library(
 )
 
 java_library(
-    name = "collect_test_suites_in_package_function",
-    srcs = ["CollectTestSuitesInPackageFunction.java"],
-    deps = [
-        ":collect_test_suites_in_package_value",
-        ":package_value",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "collect_test_suites_in_package_value",
-    srcs = ["CollectTestSuitesInPackageValue.java"],
-    deps = [
-        ":sky_functions",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
     name = "configuration_phase_started_event",
     srcs = ["ConfigurationPhaseStartedEvent.java"],
     deps = [
@@ -1931,41 +1898,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "prepare_test_suites_under_directory_function",
-    srcs = ["PrepareTestSuitesUnderDirectoryFunction.java"],
-    deps = [
-        ":collect_test_suites_in_package_value",
-        ":prepare_test_suites_under_directory_value",
-        ":process_package_directory",
-        ":process_package_directory_result",
-        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "prepare_test_suites_under_directory_value",
-    srcs = ["PrepareTestSuitesUnderDirectoryValue.java"],
-    deps = [
-        ":recursive_pkg_sky_key",
-        ":sky_functions",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/vfs",

@@ -588,17 +588,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.globFunction = globFunction;
     map.put(SkyFunctions.TARGET_PATTERN, new TargetPatternFunction());
     map.put(SkyFunctions.PREPARE_DEPS_OF_PATTERNS, new PrepareDepsOfPatternsFunction());
-    map.put(
-        SkyFunctions.PREPARE_DEPS_OF_PATTERN,
-        new PrepareDepsOfPatternFunction(pkgLocator, traverseTestSuites()));
-    map.put(
-        SkyFunctions.PREPARE_TEST_SUITES_UNDER_DIRECTORY,
-        new PrepareTestSuitesUnderDirectoryFunction(directories));
+    map.put(SkyFunctions.PREPARE_DEPS_OF_PATTERN, new PrepareDepsOfPatternFunction(pkgLocator));
     map.put(
         SkyFunctions.PREPARE_DEPS_OF_TARGETS_UNDER_DIRECTORY,
         new PrepareDepsOfTargetsUnderDirectoryFunction(directories));
     map.put(SkyFunctions.COLLECT_TARGETS_IN_PACKAGE, new CollectTargetsInPackageFunction());
-    map.put(SkyFunctions.COLLECT_TEST_SUITES_IN_PACKAGE, new CollectTestSuitesInPackageFunction());
     map.put(
         SkyFunctions.COLLECT_PACKAGES_UNDER_DIRECTORY,
         newCollectPackagesUnderDirectoryFunction(directories));
@@ -625,7 +619,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.PACKAGE_ERROR_MESSAGE, new PackageErrorMessageFunction());
     map.put(SkyFunctions.TARGET_PATTERN_ERROR, new TargetPatternErrorFunction());
     map.put(TransitiveTargetKey.NAME, new TransitiveTargetFunction());
-    map.put(Label.TRANSITIVE_TRAVERSAL, getTransitiveTraversalFunction());
+    map.put(Label.TRANSITIVE_TRAVERSAL, new TransitiveTraversalFunction());
     map.put(
         SkyFunctions.CONFIGURED_TARGET,
         new ConfiguredTargetFunction(
@@ -746,14 +740,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     map.putAll(extraSkyFunctions);
     return ImmutableMap.copyOf(map);
-  }
-
-  protected SkyFunction getTransitiveTraversalFunction() {
-    return new TransitiveTraversalFunction();
-  }
-
-  protected boolean traverseTestSuites() {
-    return false;
   }
 
   protected SkyFunction newFileStateFunction() {

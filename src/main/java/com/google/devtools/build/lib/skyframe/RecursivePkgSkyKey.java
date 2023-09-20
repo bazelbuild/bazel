@@ -21,8 +21,8 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
 
 /** Common parent class of SkyKeys that wrap a {@link RecursivePkgKey}. */
-abstract class RecursivePkgSkyKey extends RecursivePkgKey implements SkyKey {
-  RecursivePkgSkyKey(
+public abstract class RecursivePkgSkyKey extends RecursivePkgKey implements SkyKey {
+  public RecursivePkgSkyKey(
       RepositoryName repositoryName,
       RootedPath rootedPath,
       ImmutableSet<PathFragment> excludedPaths) {

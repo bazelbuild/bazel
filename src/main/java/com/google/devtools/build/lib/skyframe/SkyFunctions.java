@@ -57,12 +57,9 @@ public final class SkyFunctions {
       SkyFunctionName.createNonHermetic("PREPARE_DEPS_OF_PATTERN");
   public static final SkyFunctionName PREPARE_DEPS_OF_TARGETS_UNDER_DIRECTORY =
       SkyFunctionName.createHermetic("PREPARE_DEPS_OF_TARGETS_UNDER_DIRECTORY");
-  public static final SkyFunctionName PREPARE_TEST_SUITES_UNDER_DIRECTORY =
-      SkyFunctionName.createHermetic("PREPARE_TEST_SUITES_UNDER_DIRECTORY");
   public static final SkyFunctionName COLLECT_TARGETS_IN_PACKAGE =
       SkyFunctionName.createHermetic("COLLECT_TARGETS_IN_PACKAGE");
-  public static final SkyFunctionName COLLECT_TEST_SUITES_IN_PACKAGE =
-      SkyFunctionName.createHermetic("COLLECT_TEST_SUITES_IN_PACKAGE");
+
   public static final SkyFunctionName COLLECT_PACKAGES_UNDER_DIRECTORY =
       SkyFunctionName.createHermetic("COLLECT_PACKAGES_UNDER_DIRECTORY");
   public static final SkyFunctionName IGNORED_PACKAGE_PREFIXES =
