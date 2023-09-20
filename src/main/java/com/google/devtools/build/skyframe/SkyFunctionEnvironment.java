@@ -630,7 +630,9 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
   public boolean queryDep(SkyKey key, QueryDepCallback resultCallback) {
     SkyValue maybeWrappedValue = maybeGetValueFromErrorOrDeps(key);
     if (maybeWrappedValue == null) {
-      BugReport.sendBugReport("Value for %s was missing, this should never happen", key);
+      BugReport.sendNonFatalBugReport(
+          new IllegalStateException(
+              String.format("Value for %s was missing, this should never happen", key)));
       return false;
     }
     if (maybeWrappedValue == NULL_MARKER) {
@@ -671,7 +673,9 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
           @Nullable Class<E4> exceptionClass4)
           throws E1, E2, E3, E4 {
     if (maybeWrappedValue == null) {
-      BugReport.sendBugReport("Value for %s was missing, this should never happen", skyKey);
+      BugReport.sendNonFatalBugReport(
+          new IllegalStateException(
+              String.format("Value for %s was missing, this should never happen", skyKey)));
       return null;
     }
     if (maybeWrappedValue == NULL_MARKER) {

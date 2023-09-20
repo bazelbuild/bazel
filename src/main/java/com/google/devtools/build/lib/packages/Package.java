@@ -1286,7 +1286,7 @@ public class Package {
         }
       }
       if (undetailedEvents != null) {
-        BugReport.sendBugReport(
+        BugReport.sendNonFatalBugReport(
             new IllegalStateException("Package has undetailed error from " + undetailedEvents));
       }
       return null;

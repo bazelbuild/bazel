@@ -1085,7 +1085,7 @@ public final class SkyframeBuildView {
         // couldn't be involved in the conflict exception anyway, and we just move on.
         // Unless it's an unexpected interrupt that caused the exception.
         if (e.getCause() instanceof InterruptedException) {
-          BugReport.sendBugReport(e);
+          BugReport.sendNonFatalBugReport(e);
         }
       }
     }
