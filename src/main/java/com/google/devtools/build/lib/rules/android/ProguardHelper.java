@@ -55,7 +55,7 @@ public final class ProguardHelper {
   /** A class collecting Proguard output artifacts. */
   @Immutable
   public static final class ProguardOutput {
-    private final Artifact outputJar;
+    @Nullable private final Artifact outputJar;
     @Nullable private final Artifact mapping;
     @Nullable private final Artifact protoMapping;
     @Nullable private final Artifact seeds;
@@ -67,7 +67,7 @@ public final class ProguardHelper {
     @Nullable private final Artifact mergedBaselineProfileRewritten;
 
     public ProguardOutput(
-        Artifact outputJar,
+        @Nullable Artifact outputJar,
         @Nullable Artifact mapping,
         @Nullable Artifact protoMapping,
         @Nullable Artifact seeds,
@@ -77,7 +77,7 @@ public final class ProguardHelper {
         Artifact config,
         @Nullable Artifact startupProfileRewritten,
         @Nullable Artifact mergedBaselineProfileRewritten) {
-      this.outputJar = checkNotNull(outputJar);
+      this.outputJar = outputJar;
       this.mapping = mapping;
       this.protoMapping = protoMapping;
       this.seeds = seeds;
@@ -93,6 +93,7 @@ public final class ProguardHelper {
       return new ProguardOutput(outputJar, null, null, null, null, null, null, null, null, null);
     }
 
+    @Nullable
     public Artifact getOutputJar() {
       return outputJar;
     }
@@ -153,7 +154,9 @@ public final class ProguardHelper {
      * the updated map instead of the original proguard output map
      */
     public void addAllToSet(NestedSetBuilder<Artifact> filesBuilder, Artifact finalProguardMap) {
-      filesBuilder.add(outputJar);
+      if (outputJar != null) {
+        filesBuilder.add(outputJar);
+      }
       if (protoMapping != null) {
         filesBuilder.add(protoMapping);
       }
