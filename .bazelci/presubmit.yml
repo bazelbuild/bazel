@@ -466,6 +466,7 @@ tasks:
       - "-//src/test/py/bazel:bazel_overrides_test"
       - "-//src/test/py/bazel:bazel_repo_mapping_test"
       - "-//src/test/py/bazel:bazel_yanked_versions_test"
+      - "-//src/test/py/bazel:bzlmod_query_test"
       - "-//src/test/shell/bazel:verify_workspace"
       # Flaky on rbe_ubuntu1804
       # https://github.com/bazelbuild/continuous-integration/issues/1631
