@@ -293,8 +293,27 @@ public abstract class MockCcSupport {
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/build_defs/cc/action_names.bzl",
         ResourceLoader.readFromResources(
             TestConstants.RULES_CC_REPOSITORY_EXECROOT + "cc/action_names.bzl"));
+    config.create(
+        TestConstants.RULES_CC_REPOSITORY_EXECROOT + "BUILD",
+        "genrule(name='license', cmd='exit 0', outs=['dummy_license'])");
     config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/build_defs/cc/BUILD");
     config.append(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD", "");
+
+    // These could be a distinct method
+    config.create(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + TestConstants.MOCK_LICENSE_SCRATCH + "BUILD",
+        "genrule(name='license', cmd='exit 0', outs=['dummy_license'])");
+    config.create(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH
+            + TestConstants.MOCK_LICENSE_SCRATCH
+            + "rules/BUILD");
+    config.create(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH
+            + TestConstants.MOCK_LICENSE_SCRATCH
+            + "rules/license.bzl",
+        "def license(name, **kwargs):",
+        "    pass",
+        "");
   }
 
   protected static void createParseHeadersAndLayeringCheckWhitelist(MockToolsConfig config)
